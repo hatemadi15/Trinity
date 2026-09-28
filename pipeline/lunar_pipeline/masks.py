@@ -116,9 +116,14 @@ def mask_for_site(site: Site, grids: dict[str, LolaGrid], mast_m: float = 2.0, n
 
 def write_masks(site_ids: list[str] | None = None, out_dir: Path = config.DATA_DIR / "masks") -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    sites = all_sites()
+    if site_ids:
+        unknown = sorted(set(site_ids) - {s.id for s in sites})
+        if unknown:
+            raise ValueError(f"unknown site ids {unknown}; known: {sorted(s.id for s in sites)}")
     grids = load_grids()
     paths: list[Path] = []
-    for site in all_sites():
+    for site in sites:
         if not site.polar or (site_ids and site.id not in site_ids):
             continue
         print(f"[masks] {site.id}", flush=True)

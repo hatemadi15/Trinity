@@ -44,3 +44,8 @@ def test_shackleton_floor_is_dark_and_rim_is_bright():
     assert rim["metrics"]["illum_fraction"] > 0.5
     assert abs(rim["metrics"]["illum_fraction"] - rim["mazarico_avgvisib"]) < 0.15
     assert 0.3 < rim["metrics"]["earth_vis_fraction"] < 0.8
+
+
+def test_report_rejects_unknown_site_with_known_ids():
+    with pytest.raises(ValueError, match="shackleton_center"):
+        il.report("no_such_site", "2025-01-01", 1)

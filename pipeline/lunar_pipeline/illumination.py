@@ -75,7 +75,10 @@ def mazarico_fraction(lat: float, lon: float, product: str = "avgvisib_85s_060m_
 
 
 def report(site_id: str, start_utc: str = "2025-01-01T00:00:00", days: int = 730) -> dict:
-    site = next(s for s in all_sites() if s.id == site_id)
+    sites = {s.id: s for s in all_sites()}
+    if site_id not in sites:
+        raise ValueError(f"unknown site {site_id!r}; known sites: {', '.join(sorted(sites))}")
+    site = sites[site_id]
     if len(start_utc) == 10:
         start_utc += "T00:00:00"
     table, header = load_table()

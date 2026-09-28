@@ -32,7 +32,7 @@ def test_interp_matches_spice_at_half_steps():
             for row, body in enumerate(("SUN", "EARTH")):
                 truth, _ = spice.spkpos(body, et, "MOON_ME", "LT+S", "MOON")
                 cos_ang = np.dot(got[row], truth) / (np.linalg.norm(got[row]) * np.linalg.norm(truth))
-                assert np.degrees(np.arccos(np.clip(cos_ang, -1, 1))) < 0.002
+                assert np.degrees(np.arccos(np.clip(cos_ang, -1, 1))) < 1e-4  # linear interpolation would give 1.3e-4
 
 
 def test_interp_rejects_out_of_range():
@@ -50,3 +50,11 @@ def test_write_and_load_roundtrip(tmp_path):
     assert path.exists() and table.shape == (6, 2, 3)
     assert header["frame"] == "MOON_ME" and header["n"] == 6 and header["step_s"] == 3600.0
     assert len(header["kernels"]) == 5 and all(len(k["sha256"]) == 64 for k in header["kernels"])
+
+
+@needs_kernels
+def test_table_covers_through_end_of_2036():
+    with spice_kernels():
+        t0 = spice.str2et(ephemeris.T0_UTC)
+        last = spice.et2utc(t0 + (ephemeris.N_STEPS - 1) * ephemeris.STEP_S, "ISOC", 0)
+    assert last == "2036-12-31T23:00:00"

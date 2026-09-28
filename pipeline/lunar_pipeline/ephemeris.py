@@ -15,7 +15,7 @@ from .spice_env import KERNEL_ORDER, spice_kernels
 
 T0_UTC = "2024-01-01T00:00:00"
 STEP_S = 3600.0
-N_STEPS = 113_952  # hourly through 2036-12-31T23:00 UTC
+N_STEPS = 113_976  # hourly 2024-01-01T00:00 through 2036-12-31T23:00 UTC (4749 days x 24)
 BODIES = ("SUN", "EARTH")
 FRAME = "MOON_ME"
 ABCORR = "LT+S"

@@ -58,3 +58,8 @@ def test_site_near_grid_edge_gets_coarser_fallback_band():
     assert 3000.0 < fallback[0]["r_min_m"] < 6000.0
     assert min(doc["elevation_deg"]) > -0.5  # -1.016 without the fallback
     assert mask_for_site(_site("shackleton_center"), grids)["fallback_bands"] == []
+
+
+def test_write_masks_rejects_unknown_site(tmp_path):
+    with pytest.raises(ValueError, match="no_such_site"):
+        write_masks(["no_such_site"], out_dir=tmp_path)

@@ -73,7 +73,7 @@ Relay satellites, rover traverse, thermal model, accounts, runtime backend compu
 - **Why not a runtime backend:** same `next build` artifact on Vercel and on the venue laptop; no cold starts; sub-100 ms recompute when scrubbing dates; per-request Python is the competitor's design. Python stays as the **offline reference implementation** (precompute + validation), which is what earns Validity points.
 
 ### 5.1 Ephemeris (offline SPICE → tiny static table)
-- `spkpos('SUN'|'EARTH', et, 'MOON_ME', 'LT+S', 'MOON')` hourly TDB grid 2024-01-01 → 2036-12-31: 113,952 × 2 bodies × 3 float32 ≈ 2.7 MB (brotli ≈ 2.3 MB) + header JSON (t0, dt, kernel list, SHA-256).
+- `spkpos('SUN'|'EARTH', et, 'MOON_ME', 'LT+S', 'MOON')` hourly TDB grid 2024-01-01 → 2036-12-31: 113,976 × 2 bodies × 3 float32 ≈ 2.7 MB (brotli ≈ 2.3 MB) + header JSON (t0, dt, kernel list, SHA-256).
 - Browser: site vector p = (R+h)(cos lat cos lon, cos lat sin lon, sin lat), R = 1737.4 km, h = DEM height + mast; topocentric d = r_body − p (Earth parallax ≈ 0.26° — required); ENU → az = atan2(e, n), el = asin(up/|d|). Cubic Hermite interpolation (Sun moves 0.508°/h; error ≈ 0). UTC→TDB +69.184 s.
 - Fallback/third opinion: `astronomy-engine` (pure JS) outside the table range only.
 
