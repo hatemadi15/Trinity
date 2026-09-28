@@ -37,7 +37,9 @@ def azel_from_body_vectors(body_km: np.ndarray, lat_deg: float, lon_deg: float, 
     d = body - site_vector_km(lat_deg, lon_deg, height_m)
     east, north, up = enu_basis(lat_deg, lon_deg)
     de, dn, du = d @ east, d @ north, d @ up
-    az = np.degrees(np.arctan2(de, dn)) % 360.0
+    # fmod of a strictly positive argument is exact and strictly below the divisor, so az stays in
+    # [0, 360); a plain `% 360.0` rounds tiny negative angles (a body due north) up to exactly 360.0.
+    az = np.fmod(np.degrees(np.arctan2(de, dn)) + 360.0, 360.0)
     el = np.degrees(np.arctan2(du, np.hypot(de, dn)))
     return az, el
 

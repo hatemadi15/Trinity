@@ -54,9 +54,9 @@ def test_polar_stereographic_scale_at_875():
     x, y = g.ps_south_xy_m(-87.5, 0.0)
     assert abs(x) < 1e-6
     assert y == pytest.approx(2 * R_MOON_M * np.tan(np.radians(1.25)), abs=1e-3)
-    assert y == pytest.approx(75_826.6, abs=5.0)
+    assert y == pytest.approx(75_820.4, abs=5.0)
     x, y = g.ps_south_xy_m(-87.5, 90.0)
-    assert x == pytest.approx(75_826.6, abs=5.0) and abs(y) < 1e-6
+    assert x == pytest.approx(75_820.4, abs=5.0) and abs(y) < 1e-6
 
 
 def test_polar_stereographic_roundtrip():
