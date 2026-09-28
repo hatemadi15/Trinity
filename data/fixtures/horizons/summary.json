@@ -1,0 +1,67 @@
+{
+ "n_rows": 300,
+ "max_abs_delta_el_deg": 2.6986460404998525e-05,
+ "max_abs_delta_az_cos_el_deg": 2.554060548486218e-06,
+ "files": [
+  {
+   "file": "blue_ghost_m1_sun.json",
+   "max_abs_delta_el_deg": 2.2411243293385397e-06,
+   "max_abs_delta_az_cos_el_deg": 1.5853866741872625e-06
+  },
+  {
+   "file": "de_gerlache_center_sun.json",
+   "max_abs_delta_el_deg": 5.179963881163374e-07,
+   "max_abs_delta_az_cos_el_deg": 1.6739028878573527e-06
+  },
+  {
+   "file": "im1_odysseus_sun.json",
+   "max_abs_delta_el_deg": 4.864434601792311e-07,
+   "max_abs_delta_az_cos_el_deg": 2.554060548486218e-06
+  },
+  {
+   "file": "im2_athena_sun.json",
+   "max_abs_delta_el_deg": 5.750174154606214e-07,
+   "max_abs_delta_az_cos_el_deg": 2.2479044199360973e-06
+  },
+  {
+   "file": "shackleton_center_sun.json",
+   "max_abs_delta_el_deg": 5.516686709672314e-07,
+   "max_abs_delta_az_cos_el_deg": 1.9447112155701653e-06
+  },
+  {
+   "file": "south_pole_sun.json",
+   "max_abs_delta_el_deg": 5.477956710464582e-07,
+   "max_abs_delta_az_cos_el_deg": 2.1420508272114997e-06
+  },
+  {
+   "file": "blue_ghost_m1_earth.json",
+   "max_abs_delta_el_deg": 2.5639449731329478e-05,
+   "max_abs_delta_az_cos_el_deg": 1.100500136870484e-06
+  },
+  {
+   "file": "de_gerlache_center_earth.json",
+   "max_abs_delta_el_deg": 2.6960430862033036e-05,
+   "max_abs_delta_az_cos_el_deg": 1.0612125436817575e-06
+  },
+  {
+   "file": "im1_odysseus_earth.json",
+   "max_abs_delta_el_deg": 2.6589263852017098e-05,
+   "max_abs_delta_az_cos_el_deg": 1.3419613729578332e-06
+  },
+  {
+   "file": "im2_athena_earth.json",
+   "max_abs_delta_el_deg": 2.6816686602870732e-05,
+   "max_abs_delta_az_cos_el_deg": 1.3047320674128461e-06
+  },
+  {
+   "file": "shackleton_center_earth.json",
+   "max_abs_delta_el_deg": 2.6986460404998525e-05,
+   "max_abs_delta_az_cos_el_deg": 1.3043384024812495e-06
+  },
+  {
+   "file": "south_pole_earth.json",
+   "max_abs_delta_el_deg": 2.6763236641969e-05,
+   "max_abs_delta_az_cos_el_deg": 1.1995136483785965e-06
+  }
+ ]
+}
