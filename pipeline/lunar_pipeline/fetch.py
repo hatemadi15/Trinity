@@ -12,6 +12,10 @@ import requests
 from . import config
 
 NAIF = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/"
+# LOLA Data Node (MIT) mirrors the PDS Geosciences products with upper-case names and is much faster.
+LOLA_NODE_POLAR = "http://imbrium.mit.edu/DATA/LOLA_GDR/POLAR/IMG/"
+LOLA_NODE_ILLUM = "http://imbrium.mit.edu/EXTRAS/ILLUMINATION/IMG/"
+# Same files at PDS Geosciences (lower-case names), kept for reference / manual fallback.
 PDS_POLAR = (
     "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/"
     "data/lola_gdr/polar/img/"
@@ -66,10 +70,12 @@ def assets() -> list[Asset]:
         out.append(Asset(name, NAIF + sub + name, config.KERNEL_DIR, "kernels"))
     for stem in LOLA_STEMS:
         for ext in (".lbl", ".img"):
-            out.append(Asset(stem + ext, PDS_POLAR + stem + ext, config.LOLA_DIR, "lola"))
+            name = stem + ext
+            out.append(Asset(name, LOLA_NODE_POLAR + name.upper(), config.LOLA_DIR, "lola"))
     for stem in ILLUM_STEMS:
         for ext in (".lbl", ".img"):
-            out.append(Asset(stem + ext, PDS_ILLUM + stem + ext, config.ILLUM_DIR, "illumination"))
+            name = stem + ext
+            out.append(Asset(name, LOLA_NODE_ILLUM + name.upper(), config.ILLUM_DIR, "illumination"))
     return out
 
 

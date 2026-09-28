@@ -71,6 +71,15 @@ def test_manifest_lists_required_files():
     assert {a.group for a in assets()} == {"kernels", "lola", "illumination"}
 
 
+def test_lola_and_illumination_come_from_the_lola_data_node():
+    # imbrium.mit.edu (LOLA Data Node) serves the same PDS products ~10x faster than pds-geosciences.
+    for a in assets():
+        if a.group in {"lola", "illumination"}:
+            assert a.url.startswith("http://imbrium.mit.edu/"), a.url
+            assert a.url.rsplit("/", 1)[1] == a.name.upper(), a.url
+            assert a.name == a.name.lower()
+
+
 def test_make_session_ignores_missing_ca_bundle_env(monkeypatch, tmp_path):
     from lunar_pipeline.fetch import make_session
 
