@@ -69,3 +69,14 @@ def test_manifest_lists_required_files():
     ]:
         assert required in names
     assert {a.group for a in assets()} == {"kernels", "lola", "illumination"}
+
+
+def test_make_session_ignores_missing_ca_bundle_env(monkeypatch, tmp_path):
+    from lunar_pipeline.fetch import make_session
+
+    bogus = str(tmp_path / "missing-ca-bundle.crt")
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", bogus)
+    monkeypatch.setenv("CURL_CA_BUNDLE", bogus)
+    session = make_session()
+    assert isinstance(session.verify, str) and Path(session.verify).exists()
+    assert session.headers["User-Agent"].startswith("trinity-lunar-pipeline")

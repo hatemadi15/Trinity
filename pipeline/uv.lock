@@ -204,6 +204,7 @@ name = "lunar-pipeline"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "certifi" },
     { name = "numpy" },
     { name = "rasterio" },
     { name = "requests" },
@@ -218,6 +219,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2024" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "rasterio", specifier = ">=1.5" },
     { name = "requests", specifier = ">=2.32" },

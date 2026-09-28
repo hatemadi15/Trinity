@@ -8,6 +8,7 @@ dependencies = [
     "spiceypy>=8.0",
     "rasterio>=1.5",
     "requests>=2.32",
+    "certifi>=2024",
 ]
 
 [dependency-groups]

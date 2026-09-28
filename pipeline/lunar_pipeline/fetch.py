@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
+import certifi
 import requests
 
 from . import config
@@ -32,6 +34,21 @@ ILLUM_STEMS = [
     "avgvisib_85s_060m_201608_earth",
     "lpsr_85s_060m_201608",
 ]
+
+
+USER_AGENT = "trinity-lunar-pipeline/0.1 (Space Apps 2026)"
+
+
+def make_session() -> requests.Session:
+    """Session with our User-Agent; ignores CA-bundle env vars that point at missing files."""
+    session = requests.Session()
+    session.headers["User-Agent"] = USER_AGENT
+    for var in ("REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE"):
+        path = os.environ.get(var)
+        if path and not Path(path).exists():
+            session.verify = certifi.where()
+            break
+    return session
 
 
 @dataclass(frozen=True)
@@ -64,7 +81,7 @@ def remote_size(url: str, session: requests.Session) -> int | None:
 
 def download(asset: Asset, session: requests.Session | None = None, chunk: int = 1 << 20) -> Path:
     """Download one asset into asset.dest_dir. Resumes a .part file when the server supports Range."""
-    session = session or requests.Session()
+    session = session or make_session()
     dest = asset.dest_dir / asset.name
     dest.parent.mkdir(parents=True, exist_ok=True)
     size = remote_size(asset.url, session)
@@ -91,8 +108,7 @@ def download(asset: Asset, session: requests.Session | None = None, chunk: int =
 
 
 def fetch_all(groups: set[str] | None = None) -> list[Path]:
-    session = requests.Session()
-    session.headers["User-Agent"] = "trinity-lunar-pipeline/0.1 (Space Apps 2026)"
+    session = make_session()
     done: list[Path] = []
     for asset in assets():
         if groups and asset.group not in groups:
