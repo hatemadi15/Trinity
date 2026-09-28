@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.f32 binary
+*.bin binary
+*.img binary
+*.png binary

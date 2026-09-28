@@ -1,0 +1,47 @@
+{
+  "t0_utc": "2024-01-01T00:00:00",
+  "t0_et": 757339269.1839061,
+  "step_s": 3600.0,
+  "n": 113976,
+  "bodies": [
+    "SUN",
+    "EARTH"
+  ],
+  "frame": "MOON_ME",
+  "abcorr": "LT+S",
+  "observer": "MOON",
+  "units": "km",
+  "dtype": "<f4",
+  "shape": [
+    113976,
+    2,
+    3
+  ],
+  "layout": "row-major [step][body][xyz]",
+  "interpolation": "cubic Catmull-Rom on the hourly grid",
+  "tdb_minus_utc_note": "TDB-UTC = 69.184 s while no new leap second is scheduled",
+  "kernels": [
+    {
+      "name": "naif0012.tls",
+      "sha256": "678e32bdb5a744117a467cd9601cd6b373f0e9bc9bbde1371d5eee39600a039b"
+    },
+    {
+      "name": "pck00011.tpc",
+      "sha256": "3dff7b1dbeceaa01f25467767d3fa25816051c85d162d1edf04acb310ee28bb1"
+    },
+    {
+      "name": "moon_pa_de440_200625.bpc",
+      "sha256": "60cd55aa401ea2ea97360636f567554bfe4e37bb829f901b4460a455dfaf783f"
+    },
+    {
+      "name": "moon_de440_250416.tf",
+      "sha256": "a47c71e9c9f33796bdafb2c9d69a7ee447b6016ecad80f71cd6f3e479f9cf768"
+    },
+    {
+      "name": "de440s.bsp",
+      "sha256": "c1c7feeab882263fc493a9d5a5b2ddd71b54826cdf65d8d17a76126b260a49f2"
+    }
+  ],
+  "table_sha256": "279fad83a151b69fb446c826719476d99ac671369416dc0c08fef49565642545",
+  "generated_utc": "2026-09-28T20:53:33+00:00"
+}
