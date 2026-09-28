@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "sites": [
+    {
+      "id": "shackleton_center_rim_high",
+      "name": "Shackleton crater rim, highest point 8.5\u201312.0 km",
+      "lat": -89.78131,
+      "lon": -156.25683,
+      "category": "classic",
+      "polar": true,
+      "source": "derived: argmax LOLA 20 m height in annulus around shackleton_center",
+      "landed_utc": null,
+      "derive_rim": null
+    },
+    {
+      "id": "de_gerlache_center_rim_high",
+      "name": "de Gerlache crater rim, highest point 13.0\u201318.0 km",
+      "lat": -88.66401,
+      "lon": -68.40606,
+      "category": "classic",
+      "polar": true,
+      "source": "derived: argmax LOLA 20 m height in annulus around de_gerlache_center",
+      "landed_utc": null,
+      "derive_rim": null
+    }
+  ]
+}

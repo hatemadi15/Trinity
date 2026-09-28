@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "sites": [
+    {"id": "south_pole", "name": "Lunar South Pole (reference)", "lat": -90.0, "lon": 0.0,
+     "category": "reference", "polar": true, "source": "definition"},
+    {"id": "shackleton_center", "name": "Shackleton crater centre", "lat": -89.66, "lon": 129.20,
+     "category": "classic", "polar": true, "source": "Zuber et al. 2012, Nature 486, 378 (LOLA)",
+     "derive_rim": {"r_min_km": 8.5, "r_max_km": 12.0}},
+    {"id": "de_gerlache_center", "name": "de Gerlache crater centre", "lat": -88.5, "lon": -87.1,
+     "category": "classic", "polar": true, "source": "IAU Gazetteer of Planetary Nomenclature",
+     "derive_rim": {"r_min_km": 13.0, "r_max_km": 18.0}},
+    {"id": "im1_odysseus", "name": "IM-1 Odysseus landing site (Malapert A)", "lat": -80.13, "lon": 1.44,
+     "category": "clps_landed", "polar": true, "landed_utc": "2024-02-22T23:23:00Z",
+     "source": "NASA / Intuitive Machines, February 2024"},
+    {"id": "im2_athena", "name": "IM-2 Athena landing site (Mons Mouton)", "lat": -84.7906, "lon": 29.1957,
+     "category": "clps_landed", "polar": true, "landed_utc": "2025-03-06T17:30:00Z",
+     "source": "Intuitive Machines / LROC, March 2025"},
+    {"id": "blue_ghost_m1", "name": "Blue Ghost Mission 1 landing site (Mare Crisium)", "lat": 18.562, "lon": 61.810,
+     "category": "clps_landed", "polar": false, "landed_utc": "2025-03-02T08:34:00Z",
+     "source": "Firefly Aerospace / NSSDCA, March 2025"}
+  ]
+}
