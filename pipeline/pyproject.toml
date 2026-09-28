@@ -1,0 +1,29 @@
+[project]
+name = "lunar-pipeline"
+version = "0.1.0"
+description = "Offline NASA-data pipeline for the CLPS Lunar Mission Browser (Space Apps 2026)"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "spiceypy>=8.0",
+    "rasterio>=1.5",
+    "requests>=2.32",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "ruff>=0.6"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "data: needs downloaded NASA data (skipped when absent)",
+    "network: talks to the internet",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

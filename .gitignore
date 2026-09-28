@@ -1,0 +1,22 @@
+# pipeline data
+data_raw/
+data_out/
+pipeline/.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+
+# web app (Week 2+)
+node_modules/
+.next/
+out/
+public/data/
+.env
+.env.*
+
+# tooling
+.playwright-mcp/
+.superpowers/
+.DS_Store
+Thumbs.db
