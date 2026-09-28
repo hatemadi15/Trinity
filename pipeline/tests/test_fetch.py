@@ -78,5 +78,7 @@ def test_make_session_ignores_missing_ca_bundle_env(monkeypatch, tmp_path):
     monkeypatch.setenv("REQUESTS_CA_BUNDLE", bogus)
     monkeypatch.setenv("CURL_CA_BUNDLE", bogus)
     session = make_session()
-    assert isinstance(session.verify, str) and Path(session.verify).exists()
+    # requests merges env CA bundles over session.verify for https URLs; check that exact code path.
+    effective = session.merge_environment_settings("https://naif.jpl.nasa.gov/", {}, None, None, None)["verify"]
+    assert isinstance(effective, str) and Path(effective).exists()
     assert session.headers["User-Agent"].startswith("trinity-lunar-pipeline")

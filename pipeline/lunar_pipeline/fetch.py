@@ -46,8 +46,9 @@ def make_session() -> requests.Session:
     for var in ("REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE"):
         path = os.environ.get(var)
         if path and not Path(path).exists():
+            # requests lets these env vars override session.verify, so drop them for this process.
+            os.environ.pop(var, None)
             session.verify = certifi.where()
-            break
     return session
 
 
