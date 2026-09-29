@@ -1,7 +1,7 @@
 import { describeDropped, validateActions } from '@/lib/ai/actions';
 import { cachedAnswer } from '@/lib/ai/cache';
 import { matchIntent } from '@/lib/ai/intents';
-import { checkNumbers, foreignNumbers, isStateSummary, narrationPrompt, stripForeignNumbers, templateBrief } from '@/lib/ai/narrate';
+import { checkNumbers, foreignNumbers, isStateSummary, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from '@/lib/ai/narrate';
 import { askModel, modelsFromEnv, type ChatMessage } from '@/lib/ai/openrouter';
 import { parseModelReply, systemPrompt, userPrompt, type ChatReply, type NarrationReply } from '@/lib/ai/protocol';
 import { SlidingWindowLimiter } from '@/lib/ai/rate-limit';
@@ -86,8 +86,9 @@ async function fromModel(prompt: string, state: StateSummary | null, apiKey: str
   }
   if (!parsed) return null;
   const { actions, dropped } = validateActions(parsed.actions, SITE_IDS);
-  // Every number the user reads must be one the app can vouch for; sentences with foreign numbers go.
-  const reply = state && isStateSummary(state) ? stripForeignNumbers(parsed.reply, state) : parsed.reply;
+  // Every number the user reads must be one the app can vouch for: the state, the user's own figures
+  // in the question, or a window length. Sentences with any other number go.
+  const reply = state && isStateSummary(state) ? stripForeignNumbers(parsed.reply, state, [...numbersIn(prompt), '14', '30', '90']) : parsed.reply;
   if (actions.length === 0 && !reply) return null;
   const text = [reply || 'Done.', describeDropped(dropped)].filter(Boolean).join(' ');
   return { source: 'model', model: first.model, actions, reply: text, dropped };
@@ -128,8 +129,9 @@ async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean)
   if ('error' in first) return template('model-error');
   let text = narrationText(first.content);
   if (!checkNumbers(text, state)) {
-    if (deadline - Date.now() <= MIN_RETRY_MS) return template('numbers');
     const bad = foreignNumbers(text, state).join(', ');
+    console.info(`narration by ${first.model} rejected: numbers not in the state: ${bad}`);
+    if (deadline - Date.now() <= MIN_RETRY_MS) return template('numbers');
     const second = await askModel({
       messages: [
         ...messages,
@@ -143,7 +145,10 @@ async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean)
     });
     if ('error' in second) return template('numbers');
     text = narrationText(second.content);
-    if (!checkNumbers(text, state)) return template('numbers');
+    if (!checkNumbers(text, state)) {
+      console.info(`narration retry by ${first.model} rejected: numbers not in the state: ${foreignNumbers(text, state).join(', ')}`);
+      return template('numbers');
+    }
   }
   return text ? { source: 'model', model: first.model, reply: text } : template('model-error');
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POWER } from '../engine/power';
-import { checkNumbers, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from './narrate';
+import { allowedNumbers, checkNumbers, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from './narrate';
 import type { StateSummary } from './state-summary';
 
 const summary: StateSummary = {
@@ -72,5 +72,19 @@ describe('stripForeignNumbers', () => {
     );
     expect(stripForeignNumbers('Sunlit 92 % of the time.', summary)).toBe('');
     expect(stripForeignNumbers('No numbers here.', summary)).toBe('No numbers here.');
+  });
+});
+
+describe("the reader's forms", () => {
+  it('accepts kilowatt and kilowatt-hour conversions and the window end date', () => {
+    const allowed = allowedNumbers(summary);
+    for (const n of ['1.1', '1.12', '2', '0.2', '15', '3']) expect(allowed.has(n), n).toBe(true);
+    expect(checkNumbers('Mean power about 1.1 kW, a 2 kWh battery and a 0.2 kW load; from 1 to 15 March 2027.', summary)).toBe(true);
+    expect(checkNumbers('from 1 to 16 March 2027', summary)).toBe(false);
+  });
+
+  it('keeps sentences whose numbers the caller vouches for (the user typed them)', () => {
+    expect(stripForeignNumbers('Comparing them for 45 days. It is sunlit 92 % of the time.', summary, ['45'])).toBe('Comparing them for 45 days.');
+    expect(stripForeignNumbers('Comparing them for 45 days.', summary)).toBe('');
   });
 });

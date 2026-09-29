@@ -246,3 +246,31 @@ describe('POST /api/chat fallbacks and limits', () => {
     expect([json.source, json.reason]).toEqual(['template', 'numbers']);
   });
 });
+
+describe('POST /api/chat number rules', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the user's own numbers and the window lengths in a planner reply", async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubGlobal('fetch', modelAnswer('{"actions":[{"type":"set_power","patch":{"loadW":350}}],"reply":"Load set to 350 W for the next 90 days. The Sun is up 92 % of the time."}'));
+    const json = (await (await POST(request({ prompt: 'set the load to 350 W', state: STATE }))).json()) as Reply;
+    expect(json.source).toBe('model');
+    expect(json.reply).toBe('Load set to 350 W for the next 90 days.');
+  });
+
+  it('logs the numbers a narration was rejected for, and never the key', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubGlobal('fetch', modelAnswer('The Sun is up 87 % of the time.'));
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { reason?: string };
+    expect(json.reason).toBe('numbers');
+    const logged = info.mock.calls.map((c) => c.map(String).join(' ')).join('\n');
+    expect(logged).toMatch(/narration/);
+    expect(logged).toMatch(/87/);
+    expect(logged).not.toMatch(/sk-test/);
+  });
+});

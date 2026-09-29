@@ -39,12 +39,23 @@ export function allowedNumbers(s: StateSummary): Set<string> {
   add([String(s.window.days)]);
   const start = s.window.startUtc.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (start) add([start[1], canon(start[2]), canon(start[3])]);
+  const startDate = new Date(`${s.window.startUtc}Z`);
+  if (!Number.isNaN(startDate.getTime())) {
+    // "from 1 to 15 March": the window's last day is a number a reader will write.
+    const end = new Date(startDate.getTime() + s.window.days * 86_400_000);
+    add([String(end.getUTCFullYear()), String(end.getUTCMonth() + 1), String(end.getUTCDate())]);
+  }
   add([String(s.summary.hours), canon(String(s.summary.hours / 24))]);
   for (const f of [s.summary.illumFraction, s.summary.meanSunFraction, s.summary.earthVisFraction, s.summary.jointFraction, s.power.socMin]) add(fractionForms(f));
   for (const h of [s.summary.longestDarkH, s.summary.longestEarthGapH, s.power.brownoutHours]) add(hourForms(h));
   add([canon(s.power.meanPowerW.toFixed(1)), canon(s.power.meanPowerW.toFixed(0))]);
   const p = s.params.power;
   add([String(p.loadW), String(p.batteryWh), String(p.areaM2), String(p.panelAzimuthDeg), String(s.params.minEarthElDeg), String(s.params.mastM)]);
+  // Readers write "1.1 kW" and "2 kWh" as readily as "1118 W" and "2000 Wh".
+  const kiloForms = (x: number) => [canon((x / 1000).toFixed(1)), canon((x / 1000).toFixed(2))];
+  add(kiloForms(s.power.meanPowerW));
+  add(kiloForms(p.loadW));
+  add(kiloForms(p.batteryWh));
   add(fractionForms(p.efficiency));
   add(fractionForms(p.initialSocFraction));
   add([String(s.compare.length), String(s.compare.length + 1)]);
@@ -62,9 +73,13 @@ export function checkNumbers(reply: string, s: StateSummary): boolean {
   return numbersIn(reply).every((n) => allowed.has(n));
 }
 
-/** Keeps only the sentences whose numbers the state can vouch for; '' when nothing survives. */
-export function stripForeignNumbers(reply: string, s: StateSummary): string {
+/**
+ * Keeps only the sentences whose numbers the state (or the caller's `extra` list, such as the numbers
+ * the user typed) can vouch for; '' when nothing survives.
+ */
+export function stripForeignNumbers(reply: string, s: StateSummary, extra: Iterable<string> = []): string {
   const allowed = allowedNumbers(s);
+  for (const n of extra) allowed.add(canon(n));
   return reply
     .split(/(?<=[.!?])\s+/)
     .filter((sentence) => numbersIn(sentence).every((n) => allowed.has(n)))
