@@ -24,7 +24,7 @@ describe('landing page', () => {
 describe('landing hero', () => {
   it('opens on a real render of de Gerlache Rim 2 with the pitch line over it', () => {
     render(<Home />);
-    const hero = screen.getByRole('img', { name: /de Gerlache Rim 2/ });
+    const hero = screen.getByRole('img', { name: /Shackleton crater rim/ });
     expect(hero.getAttribute('src')).toMatch(/hero/);
     expect(screen.getByTestId('hero').contains(screen.getByRole('heading', { level: 1 }))).toBe(true);
   });

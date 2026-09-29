@@ -34,9 +34,9 @@ describe('SummaryTiles', () => {
     );
     expect(screen.getByText('Lowest battery')).toBeTruthy();
     expect(screen.getByText('0.0 %')).toBeTruthy();
-    expect(screen.getByText('Hours without full power')).toBeTruthy();
-    expect(screen.getByText('12 d 2 h')).toBeTruthy();
+    expect(screen.queryByText('Hours without full power')).toBeNull(); // the verdict chip already carries the brownout hours
     expect(screen.getByText('Battery empties after 10 h')).toBeTruthy();
+    expect(screen.getByText(/290 h without full power/)).toBeTruthy(); // the chip carries the brownout hours
   });
 
   it('in Learn mode keeps four tiles with plain-language help lines', () => {

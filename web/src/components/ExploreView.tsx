@@ -202,13 +202,13 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
           </section>
           <aside className="flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
             <section aria-label="Sky dome" className="glass rounded-md p-3">
-              <div className="mx-auto max-w-[260px]">
+              <div className="mx-auto max-w-[220px]">
                 <SkyDome mask={s.mask} series={s.series} cursor={s.cursorHour} />
               </div>
               <p className="mt-1 text-center text-xs text-ink-3">Outer half of the disc magnifies −10° to +10°.</p>
             </section>
             <section className="glass rounded-md p-3">
-              <SummaryTiles summary={s.summary} power={s.power} audience={s.audience} />
+              <SummaryTiles summary={s.summary} power={s.power} audience={s.audience} dense />
             </section>
             <PlannerChat store={store} defaultOpen />
           </aside>

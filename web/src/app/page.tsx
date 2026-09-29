@@ -24,33 +24,32 @@ const STORIES: { title: string; kicker: string; body: string; href: string }[] =
   },
 ];
 
-/** Three renders of the same ridge at three dates, captured from the app's own 3D view: the shadows sweep once on load. */
-const HERO_FRAMES = ['/hero/de-gerlache-1.jpg', '/hero/de-gerlache-2.jpg', '/hero/de-gerlache-3.jpg'];
+/** Three renders of the Shackleton rim at three dates, captured from the app's own 3D view (20 m LOLA terrain): the shadows sweep once on load. */
+const HERO_FRAMES = ['/hero/shackleton-rim-1.jpg', '/hero/shackleton-rim-2.jpg', '/hero/shackleton-rim-3.jpg'];
 
 export default function Home() {
   return (
     <AppFrame>
       <main className="mx-auto flex max-w-6xl flex-col gap-12 px-4 py-6 md:px-6">
-        <section data-testid="hero" className="relative min-h-[560px] overflow-hidden rounded-lg border border-line bg-sky">
+        <section data-testid="hero" className="relative min-h-[640px] overflow-hidden rounded-lg border border-line bg-sky">
           {HERO_FRAMES.map((src, i) => (
             <Image
               key={src}
               src={src}
-              alt={i === 0 ? 'de Gerlache Rim 2 under a low Sun: LOLA terrain rendered by Earthrise, shadows cast by the computed Sun direction' : ''}
+              alt={i === 0 ? 'The Shackleton crater rim under a low Sun: 20 m LOLA terrain rendered by Earthrise, shadows cast by the computed Sun direction' : ''}
               aria-hidden={i === 0 ? undefined : true}
               fill
               sizes="100vw"
               priority={i === 0}
-              className={`hero-frame hero-frame-${i + 1} object-cover`}
+              className={`hero-frame hero-frame-${i + 1} object-cover object-left`}
             />
           ))}
           <div className="absolute inset-x-0 bottom-0 p-4 md:p-8">
-            <div className="glass max-w-2xl rounded-md p-6">
+            <div className="glass max-w-xl rounded-md p-6">
               <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight md:text-5xl">When is the Sun up, and can Earth hear you?</h1>
               <p className="mt-4 max-w-prose text-base text-ink-2 md:text-lg">
-                Earthrise compares lunar south-pole landing sites and dates in seconds. It traces the terrain skyline from NASA LOLA elevation grids, moves the
-                Sun and Earth with the JPL DE440 ephemeris, and answers the two questions a lander lives or dies by: how many hours it is lit, and how many
-                hours Earth is in view.
+                Earthrise compares lunar south-pole landing sites and dates in seconds: the terrain skyline from NASA LOLA, the Sun and Earth from the JPL
+                DE440 ephemeris, and the two numbers a lander lives or dies by, hours lit and hours with Earth in view.
               </p>
               <div className="mt-5 flex flex-wrap items-center gap-4">
                 <Link href="/explore" className="w-fit rounded-md bg-sun px-4 py-2 font-medium text-night hover:bg-sun-bright">
