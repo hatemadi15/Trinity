@@ -37,6 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("validate", help="write validation tables (Horizons, Mazarico, backcasts) into data/validation")
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
+    pr = sub.add_parser("publish-r2", help="upload web/public/data to the Cloudflare R2 bucket named by R2_BUCKET")
+    pr.add_argument("--dry-run", action="store_true", help="print the upload plan and exit")
+    pr.add_argument("--prefix", default="data", help="key prefix inside the bucket (default: data)")
     return p
 
 
@@ -85,6 +88,9 @@ def main(argv: list[str] | None = None) -> None:
 
         for path in write_all():
             print(path)
+    elif args.cmd == "publish-r2":
+        from .publish_r2 import publish
+        publish(prefix=args.prefix, dry_run=args.dry_run)
     elif args.cmd == "sync-local":
         from .sync_local import sync
         for path in sync(tiles=args.tiles):

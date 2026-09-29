@@ -9,6 +9,7 @@ dependencies = [
     "rasterio>=1.5",
     "requests>=2.32",
     "certifi>=2024",
+    "boto3>=1.43.104",
 ]
 
 [dependency-groups]

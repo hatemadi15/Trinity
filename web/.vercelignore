@@ -1,0 +1,4 @@
+# The data mirror (~250 MB) is served from Cloudflare R2 in production; see docs/hosting.md.
+public/data
+.vitest
+.playwright-mcp
