@@ -39,7 +39,7 @@ export function SiteSelect({
         <select
           value={value ?? ''}
           onChange={(e) => onSelect(e.target.value)}
-          className="min-w-[280px] rounded-md border border-line bg-panel px-2 py-1 text-ink"
+          className="w-[300px] max-w-full rounded-md border border-line bg-panel px-2 py-1 text-ink"
         >
           {GROUPS.map(([cat, label]) => {
             const items = sites.filter((s) => s.category === cat);

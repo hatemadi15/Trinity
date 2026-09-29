@@ -1,21 +1,25 @@
 @import "tailwindcss";
 
+/* The locked cockpit layout needs room; short screens (768 px laptops, projectors) get the flowing page instead. */
+@custom-variant tall (@media (min-height: 800px));
+
 :root {
-  --canvas: #2a2d33;
-  --panel: #1c1f24;
+  --canvas: #0b0d10;
+  --panel: #14171c;
+  --glass: rgba(20, 23, 28, 0.78);
   --sky: #000000;
-  --line: #3a3e45;
-  --ink: #edeae4;
-  --ink-2: #b4b0a8;
-  --ink-3: #7e7a73;
-  --sun: #c98500;
-  --sun-bright: #f2b134;
-  --earth: #3987e5;
+  --line: #2b3038;
+  --ink: #f1ede6;
+  --ink-2: #c9c2b4;
+  --ink-3: #8a857c;
+  --sun: #f2b134;
+  --sun-bright: #ffc65c;
+  --earth: #5b9cf0;
   --terrain: #6f6a62;
   --terrain-edge: #a39e94;
   --night: #0a0b0d;
-  --good: #199e70;
-  --warn: #c98500;
+  --good: #2fb27c;
+  --warn: #f2b134;
   --bad: #e66767;
   color-scheme: dark;
 }
@@ -23,6 +27,7 @@
 @theme inline {
   --color-canvas: var(--canvas);
   --color-panel: var(--panel);
+  --color-glass: var(--glass);
   --color-sky: var(--sky);
   --color-line: var(--line);
   --color-ink: var(--ink);
@@ -67,6 +72,9 @@ html {
   --ink: #111111;
   --ink-2: #3a3a3a;
   --ink-3: #6a6a6a;
+  --good: #157a55;
+  --bad: #b83c3c;
+  --sun: #a06a00;
   background: var(--canvas);
   color: var(--ink);
 }
@@ -82,5 +90,44 @@ html {
   body {
     background: #ffffff;
     color: #111111;
+  }
+}
+
+/* Instrument glass: thin dark panels over the terrain render. Declared as utilities so other utilities can still override them. */
+@utility glass {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+@utility glass-bar {
+  background: rgba(11, 13, 16, 0.86);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Landing hero: three real renders at three dates; the shadows sweep once on load. */
+@layer components {
+  .hero-frame {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+  }
+  .hero-frame-1 {
+    opacity: 1;
+  }
+  .hero-frame-2 {
+    animation: hero-fade 2.4s ease-in-out 3s both;
+  }
+  .hero-frame-3 {
+    animation: hero-fade 2.4s ease-in-out 6.5s both;
+  }
+}
+@keyframes hero-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

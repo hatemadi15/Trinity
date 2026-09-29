@@ -13,7 +13,8 @@ const LEARN_NOTES: Record<string, string> = {
   'Longest Earth gap': 'the longest silence without direct contact',
 };
 
-export function SummaryTiles({ summary, power, audience = 'planner' }: { summary: Summary; power?: PowerResult | null; audience?: 'planner' | 'learn' }) {
+/** `dense` drops the one-line notes under the planner tiles (the cockpit's right column is narrow); Learn notes always show. */
+export function SummaryTiles({ summary, power, audience = 'planner', dense = false }: { summary: Summary; power?: PowerResult | null; audience?: 'planner' | 'learn'; dense?: boolean }) {
   const [table, setTable] = useState(false);
   let rows: [string, string, string][] = [
     ['Sun above the skyline', pct(summary.illumFraction), 'share of hours with any part of the Sun visible'],
@@ -23,8 +24,7 @@ export function SummaryTiles({ summary, power, audience = 'planner' }: { summary
     ['Both at once', pct(summary.jointFraction), 'lit and in contact with Earth'],
   ];
   if (power) {
-    rows.push(['Lowest battery', pct(power.socMin), 'lowest state of charge in the window']);
-    rows.push(['Hours without full power', hoursLabel(power.brownoutHours), 'battery empty and load not met']);
+    rows.push(['Lowest battery', pct(power.socMin), 'lowest state of charge in the window']); // the verdict chip carries the brownout hours
   }
   if (audience === 'learn') {
     rows = rows.filter(([k]) => k in LEARN_NOTES).map(([k, v]) => [k, v, LEARN_NOTES[k]]);
@@ -47,12 +47,12 @@ export function SummaryTiles({ summary, power, audience = 'planner' }: { summary
           </tbody>
         </table>
       ) : (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 xl:grid-cols-3">
+        <dl className="grid grid-cols-2 gap-x-5 gap-y-3">
           {rows.map(([k, v, note]) => (
             <div key={k} className="border-t border-line pt-2">
               <dt className="text-sm text-ink-2">{k}</dt>
-              <dd className="font-display text-2xl font-semibold leading-tight">{v}</dd>
-              <dd className="text-xs text-ink-3">{note}</dd>
+              <dd className="font-display text-[28px] font-semibold leading-none tabular-nums">{v}</dd>
+              {(!dense || audience === 'learn') && <dd className="text-xs text-ink-3">{note}</dd>}
             </div>
           ))}
         </dl>
