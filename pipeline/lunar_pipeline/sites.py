@@ -24,10 +24,13 @@ class Site:
     landed_utc: str | None = None
     derive_rim: dict | None = None
     approximate: bool = False
+    mission_end_utc: str | None = None
+    mission_end_source: str | None = None
+    mission_note: str | None = None
 
 
 def load_sites(path: Path = config.DATA_DIR / "sites.json") -> list[Site]:
-    raw = json.loads(path.read_text())["sites"]
+    raw = json.loads(path.read_text(encoding="utf-8"))["sites"]
     return [Site(**{k: v for k, v in s.items() if k in Site.__dataclass_fields__}) for s in raw]
 
 

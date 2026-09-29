@@ -52,6 +52,9 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
               </select>
             </label>
             <span className="pb-1 text-sm text-ink-3">Compared sites ({s.compareIds.length})</span>
+            <Link href="/brief" className="pb-1 text-sm text-ink-2 underline-offset-4 hover:underline">
+              Export brief
+            </Link>
           </div>
           <WindowControls
             startUtc={s.startUtc}

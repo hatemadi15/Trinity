@@ -5,9 +5,17 @@ import type { PowerResult } from '@/lib/engine/power';
 import { hoursLabel, pct } from '@/lib/viz/format';
 import { VerdictChip } from './VerdictChip';
 
-export function SummaryTiles({ summary, power }: { summary: Summary; power?: PowerResult | null }) {
+/** Plain-language notes shown under the tiles in Learn mode. */
+const LEARN_NOTES: Record<string, string> = {
+  'Sun above the skyline': 'share of hours with any sunlight on the panels',
+  'Longest night': 'the longest stretch without sunlight; the battery must last this long',
+  'Earth in view': 'share of hours a radio can see Earth directly',
+  'Longest Earth gap': 'the longest silence without direct contact',
+};
+
+export function SummaryTiles({ summary, power, audience = 'planner' }: { summary: Summary; power?: PowerResult | null; audience?: 'planner' | 'learn' }) {
   const [table, setTable] = useState(false);
-  const rows: [string, string, string][] = [
+  let rows: [string, string, string][] = [
     ['Sun above the skyline', pct(summary.illumFraction), 'share of hours with any part of the Sun visible'],
     ['Longest night', hoursLabel(summary.longestDarkH), 'longest run of unlit hours'],
     ['Earth in view', pct(summary.earthVisFraction), 'share of hours with Earth above the skyline'],
@@ -17,6 +25,9 @@ export function SummaryTiles({ summary, power }: { summary: Summary; power?: Pow
   if (power) {
     rows.push(['Lowest battery', pct(power.socMin), 'lowest state of charge in the window']);
     rows.push(['Hours without full power', hoursLabel(power.brownoutHours), 'battery empty and load not met']);
+  }
+  if (audience === 'learn') {
+    rows = rows.filter(([k]) => k in LEARN_NOTES).map(([k, v]) => [k, v, LEARN_NOTES[k]]);
   }
   return (
     <section aria-label="Summary" className="flex flex-col gap-3">

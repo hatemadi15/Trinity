@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { DataError, type Site } from '@/lib/data/loaders';
@@ -80,6 +80,29 @@ describe('ExploreView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add to compare' }));
     await waitFor(() => expect(screen.getByText('Compared sites (1)')).toBeTruthy());
     expect(screen.getByRole('button', { name: 'In compare' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('link', { name: 'Export brief' })).toBeTruthy();
+  });
+
+  it('in Learn mode shows the guided story, whose terrain step notes the missing WebGL', async () => {
+    const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
+    const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
+    const sites = readJson<{ sites: Site[] }>('data', 'sites.json').sites;
+    const store = createExploreStore({
+      loadSites: async () => sites,
+      loadEphemeris: async () => eph,
+      loadMask: async (id) => {
+        const m = readJson<{ elevation_deg: number[]; site_height_m: number }>('data', 'masks', `${id}.json`);
+        return { site_id: id, lat: 0, lon: 0, mast_m: 2, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
+      },
+    });
+    store.getState().setAudience('learn');
+    render(<ExploreView store={store} />);
+    await waitFor(() => expect(screen.getByRole('list', { name: 'Guided story' })).toBeTruthy());
+    const story = screen.getByRole('region', { name: 'Guided story' });
+    fireEvent.click(within(story).getByRole('button', { name: 'Next' }));
+    expect(within(story).getByText(/needs WebGL/)).toBeTruthy();
+    expect(screen.queryByText('Both at once')).toBeNull();
+    store.getState().setAudience('planner');
   });
 
   it('captions the terrain while it loads, then the cap fallback, and shows a refused globe pick', async () => {

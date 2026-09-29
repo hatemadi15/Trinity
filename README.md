@@ -14,3 +14,9 @@ power potential, direct-to-Earth communication windows. NASA Space Apps 2026 —
 - Best-window finder: scans the next year from the start date and moves the window to the best-scoring span, opening at sunrise.
 - Planner settings: solar panel model, area, efficiency, load, battery, minimum Earth elevation and mast height (mast changes recompute the skyline in the browser).
 - Site catalogue with the nine Artemis III candidate landing regions (October 2024 list) and the Shackleton–de Gerlache Connecting Ridge.
+
+## Week 5 features
+
+- Validate page (`/validate`): JPL Horizons cross-check with a live re-check, LOLA illumination-map agreement, and CLPS mission backcasts (Blue Ghost M1, IM-1, IM-2) against reported mission ends, plus the error budget and automated-test counts.
+- Mission brief (`/brief`): a printable one-page summary of the selected site and window (verdict, six numbers, timeline, sky dome, method, data); Print or save as PDF.
+- Learn mode: a header toggle that keeps four plain-language tiles and adds a five-step guided story; `/learn` introduces it.

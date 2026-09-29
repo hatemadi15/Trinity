@@ -27,3 +27,13 @@ Earth is in view when its elevation exceeds the skyline at its azimuth by the mi
 ## Best window (Week 4)
 
 The finder scans the 365 days after the chosen start date (clamped to the ephemeris table) in 6-hour steps and scores every window of the chosen length as sunlit fraction + Earth-visible fraction − (longest night + longest Earth gap) / (2 × window hours). Only sunlit start hours are candidates, because a lander arrives in daylight; a site that never sees the Sun in the scan falls back to every start. Without this rule a window that begins mid-night wins by truncating the night at its edge.
+
+## Validation (Week 5)
+
+`uv run python -m lunar_pipeline.cli validate` writes three tables into `data/validation/` (synced to the web app and shown on `/validate`):
+
+- `horizons.json`: every stored JPL Horizons row (six sites, Sun and Earth, 2025-2026 every 30 days, `CENTER=coord@301`) next to our own azimuth and elevation; worst difference 2.7e-5° in elevation and 2.6e-6° in azimuth over 300 rows. The page can re-query JPL live for eight epochs in 2026 through `/api/horizons` (a server-side proxy with a 12 s timeout) and falls back to the stored table when JPL is unreachable.
+- `mazarico.json`: our sunlit fraction (hourly 2024-2036, 2 m mast) against the LOLA average-visibility map `avgvisib_85s_060m_201608` (60 m/px, south of 85°S) at the 15 covered sites; within 5 points at 11 of them, worst +10.8 points at the Shackleton rim high point. High points read a few points brighter here because the map sees no mast and averages other years.
+- `backcasts.json`: the predicted local sunset after each CLPS landing (LOLA skyline, or a flat horizon for the mare site) against the reported end of the mission: Blue Ghost Mission 1 lasted 2.4 h past our predicted sunset (Firefly reported about 5 h), IM-2 died 299 h before its sunset on its side in a crater, IM-1 lost power about three days before its sunset with tilted panels.
+
+Error budget: Sun and Earth directions under 0.01° (measured 3e-5°); terrain skyline 0.05-0.15° (LOLA posts of 20-240 m, 1-2 m height noise, reproduced by the browser engine to 0.01°); event timing ±15-60 minutes near the pole (hourly series, the Sun moves 0.5° per hour along the horizon).

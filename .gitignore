@@ -21,3 +21,4 @@ web/public/data/
 .superpowers/
 .DS_Store
 Thumbs.db
+web/.vitest/
