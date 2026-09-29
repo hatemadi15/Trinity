@@ -2,8 +2,9 @@ export function pct(x: number): string {
   return `${(x * 100).toFixed(1)} %`;
 }
 
+/** Hours up to 99 h stay in hours (planners count nights in hours); longer spans read as days + hours. */
 export function hoursLabel(h: number): string {
-  if (h < 48) return `${h} h`;
+  if (h < 100) return `${h} h`;
   const d = Math.floor(h / 24);
   const r = h % 24;
   return r === 0 ? `${d} d` : `${d} d ${r} h`;
