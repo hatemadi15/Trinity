@@ -29,6 +29,11 @@ def build_parser() -> argparse.ArgumentParser:
     fm.add_argument("--site", required=True)
     fm.add_argument("--start", default="2025-01-01T00:00:00")
     fm.add_argument("--days", type=int, default=730)
+    fp = sub.add_parser("fixture-power", help="write a power-budget golden fixture for a site")
+    fp.add_argument("--site", required=True)
+    fp.add_argument("--start", default="2025-01-01T00:00:00")
+    fp.add_argument("--days", type=int, default=60)
+    fp.add_argument("--panel", default="vertical_tracking", choices=["horizontal", "vertical", "vertical_tracking", "full_tracking"])
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
     return p
@@ -70,6 +75,10 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "fixture-metrics":
         from .fixtures import write_metrics_fixture
         print(write_metrics_fixture(args.site, args.start, args.days))
+    elif args.cmd == "fixture-power":
+        from .fixtures import write_power_fixture
+
+        print(write_power_fixture(args.site, args.start, args.days, args.panel))
     elif args.cmd == "sync-local":
         from .sync_local import sync
         for path in sync(tiles=args.tiles):
