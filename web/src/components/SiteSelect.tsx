@@ -4,6 +4,7 @@ import type { Site } from '@/lib/data/loaders';
 import { normalizeLon } from '@/lib/engine/geometry';
 
 const GROUPS: [string, string][] = [
+  ['artemis3', 'Artemis III candidate regions (2024)'],
   ['classic', 'Classic south-pole sites'],
   ['clps_landed', 'CLPS landings'],
   ['reference', 'Reference'],

@@ -132,6 +132,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
                 {s.site.lat.toFixed(3)}°, {s.site.lon.toFixed(3)}°; skyline from LOLA{' '}
                 {s.maskMeta?.source === 'computed' ? 'computed in your browser' : 'precomputed'}; site height{' '}
                 {s.maskMeta?.siteHeightM.toFixed(0)} m
+                  {s.site.approximate ? '; region centre digitised from NASA’s map (about ±5 km)' : ''}
               </p>
             </div>
             <ModeControls

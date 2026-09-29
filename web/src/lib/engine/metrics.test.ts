@@ -57,7 +57,7 @@ interface Fixture {
 describe('parity with the Python report', () => {
   const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
   const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
-  for (const name of ['shackleton_center_rim_high_2025-01-01_730d.json', 'im1_odysseus_2025-01-01_730d.json']) {
+  for (const name of ['shackleton_center_rim_high_2025-01-01_730d.json', 'im1_odysseus_2025-01-01_730d.json', 'nobile_rim_2_2025-01-01_730d.json']) {
     it(`matches ${name}`, () => {
       const fx = readJson<Fixture>('data', 'fixtures', 'metrics', name);
       const mask = readJson<{ elevation_deg: number[] }>('data', 'masks', `${fx.site_id}.json`).elevation_deg;
