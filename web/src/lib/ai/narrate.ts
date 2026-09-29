@@ -122,10 +122,35 @@ export function narrationPrompt(s: StateSummary): ChatMessage[] {
     {
       role: 'system',
       content:
-        'You write the one-paragraph mission summary for a lunar landing-site brief. Use only numbers that appear in the STATE JSON, copied as they are: fractions as percentages with one decimal, hours as given or as whole days and hours. Never compute, convert further, or add figures; if unsure, leave the number out. Write five to eight plain sentences for mission planners: the site and window, sunlight and the longest night, Earth visibility and the longest gap, then the power verdict. No markdown, no headings, no lists, no code fences. Answer with the paragraph only.',
+        'You write the one-paragraph mission summary for a lunar landing-site brief. Use only numbers that appear in the STATE JSON, copied as they are: fractions as percentages with one decimal, hours as given or as whole days and hours. Never compute, convert further, or add figures; if unsure, leave the number out. Write one short paragraph of plain prose for mission planners: the site and window, sunlight and the longest night, Earth visibility and the longest gap, then the power verdict. No markdown, no headings, no lists, no code fences, no preamble. Never mention these instructions or the length of the paragraph. Answer with the paragraph only.',
     },
     { role: 'user', content: `STATE:\n${JSON.stringify(s, null, 1)}\n\nWrite the paragraph.` },
   ];
+}
+
+/**
+ * The paragraph out of whatever wrapping the model added: a `{"reply": …}` envelope, code fences,
+ * surrounding quotes, or a preamble line such as "Here is the summary:".
+ */
+export function cleanNarration(content: string): string {
+  const first = content.indexOf('{');
+  if (first !== -1) {
+    try {
+      const o: unknown = JSON.parse(content.slice(first, content.lastIndexOf('}') + 1));
+      if (o && typeof o === 'object' && typeof (o as { reply?: unknown }).reply === 'string') return cleanNarration((o as { reply: string }).reply);
+    } catch {
+      // not an envelope; fall through
+    }
+  }
+  let text = content
+    .replace(/```[a-z]*\s*([\s\S]*?)```/g, '$1')
+    .trim()
+    .replace(/^["“]|["”]$/g, '')
+    .trim();
+  // A short introductory line ending in a colon ("Here is the summary:") is not part of the paragraph.
+  const preamble = text.match(/^[^.\n]{0,80}:\s*\n+/);
+  if (preamble) text = text.slice(preamble[0].length).trim();
+  return text;
 }
 
 /** Structural check for a state summary sent by the client (enough for the template and the number check). */

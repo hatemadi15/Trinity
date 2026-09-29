@@ -1,7 +1,7 @@
 import { describeDropped, validateActions } from '@/lib/ai/actions';
 import { cachedAnswer } from '@/lib/ai/cache';
 import { matchIntent } from '@/lib/ai/intents';
-import { checkNumbers, foreignNumbers, isStateSummary, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from '@/lib/ai/narrate';
+import { checkNumbers, cleanNarration, foreignNumbers, isStateSummary, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from '@/lib/ai/narrate';
 import { askModel, modelsFromEnv, type ChatMessage } from '@/lib/ai/openrouter';
 import { parseModelReply, systemPrompt, userPrompt, type ChatReply, type NarrationReply } from '@/lib/ai/protocol';
 import { SlidingWindowLimiter } from '@/lib/ai/rate-limit';
@@ -111,15 +111,8 @@ function fromCache(prompt: string): ChatReply | null {
   return { source: 'cache', actions, reply: t.reply, dropped };
 }
 
-/** A narration answer is plain text, but a model that wraps it in {"reply": …} or a fence is read too. */
-function narrationText(content: string): string {
-  const parsed = parseModelReply(content);
-  if (parsed?.reply) return parsed.reply;
-  return content
-    .replace(/```[a-z]*\s*([\s\S]*?)```/g, '$1')
-    .replace(/^["“]|["”]$/g, '')
-    .trim();
-}
+/** A narration answer is plain text, but a model that wraps it in {"reply": …}, a fence or a preamble is read too. */
+const narrationText = cleanNarration;
 
 /** The brief's paragraph: the model's words when every number checks out (one retry), else the template with the reason. */
 async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean): Promise<NarrationReply> {
@@ -133,7 +126,7 @@ async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean)
   let text = narrationText(first.content);
   if (!checkNumbers(text, state)) {
     const bad = foreignNumbers(text, state).join(', ');
-    console.info(`narration by ${first.model} rejected: numbers not in the state: ${bad}`);
+    console.info(`narration by ${first.model} rejected: numbers not in the state: ${bad} — "${text.slice(0, 240)}"`);
     if (deadline - Date.now() <= MIN_RETRY_MS) return template('numbers');
     const second = await askModel({
       messages: [

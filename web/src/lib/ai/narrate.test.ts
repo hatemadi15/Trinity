@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POWER } from '../engine/power';
-import { allowedNumbers, checkNumbers, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from './narrate';
+import { allowedNumbers, checkNumbers, cleanNarration, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from './narrate';
 import type { StateSummary } from './state-summary';
 
 const summary: StateSummary = {
@@ -98,5 +98,21 @@ describe('lessons from the first live narration', () => {
   it('accepts whole days written in hours and the hours-per-day constant', () => {
     expect(checkNumbers('a longest gap of 216 hours plus 9, over more than 24 hours', summary)).toBe(true);
     expect(checkNumbers('a longest gap of 217 hours', summary)).toBe(false);
+  });
+});
+
+describe('cleanNarration', () => {
+  it('drops a preamble line, fences and quotes, and keeps the paragraph', () => {
+    expect(cleanNarration('Here is the mission summary (five to eight sentences):\nThe site is lit.')).toBe('The site is lit.');
+    expect(cleanNarration('```\nThe site is lit.\n```')).toBe('The site is lit.');
+    expect(cleanNarration('“The site is lit.”')).toBe('The site is lit.');
+    expect(cleanNarration('The site is lit: bright all day.')).toBe('The site is lit: bright all day.');
+    expect(cleanNarration('{"reply": "The site is lit."}')).toBe('The site is lit.');
+  });
+
+  it('asks the model not to mention the instructions', () => {
+    const [system] = narrationPrompt(summary);
+    expect(system.content).toMatch(/never mention these instructions/i);
+    expect(system.content).not.toMatch(/five|eight|\d/);
   });
 });
