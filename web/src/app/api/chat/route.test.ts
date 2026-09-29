@@ -30,7 +30,7 @@ describe('POST /api/chat', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as Reply;
     expect(json.source).toBe('model');
-    expect(json.model).toBe('google/gemma-4-31b-it:free');
+    expect(json.model).toBe('qwen/qwen3.8-27b:free');
     expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
     expect(json.reply).toBe('Nobile Rim 2 selected.');
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -141,12 +141,13 @@ describe('POST /api/chat task narrate', () => {
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ task: 'narrate', prompt: 'write the brief', state: STATE }))).json()) as Reply;
     expect(json.source).toBe('model');
-    expect(json.model).toBe('google/gemma-4-31b-it:free');
+    expect(json.model).toBe('qwen/qwen3.8-27b:free');
     expect(json.reply).toBe(text);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('retries once on an invented number, then falls back to the template', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
     const fetchMock = modelAnswer('The Sun is up 87 % of the time.');
     vi.stubGlobal('fetch', fetchMock);
@@ -176,14 +177,16 @@ describe('POST /api/chat fallbacks and limits', () => {
     vi.unstubAllEnvs();
   });
 
-  it('falls back to the intents when the model returns a truncated envelope or an empty one', async () => {
+  it('repairs a truncated envelope and falls back to the intents on an empty one', async () => {
     vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
     const truncated = modelAnswer('{"actions":[{"type":"select_site","id":"nobile_rim_2"}],"reply":"Nobile Rim 2 is on the rim of Nobile crater and');
     vi.stubGlobal('fetch', truncated);
     let json = (await (await POST(request({ prompt: 'show me nobile rim 2', state: null }))).json()) as Reply;
-    expect(truncated).toHaveBeenCalledTimes(2);
-    expect(json.source).toBe('intent');
+    expect(truncated).toHaveBeenCalledTimes(1);
+    expect(json.source).toBe('model');
     expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
+    expect(json.reply).toBe('Done.');
+    expect(json.model).toBe('qwen/qwen3.8-27b:free');
     vi.stubGlobal('fetch', modelAnswer('{"actions":[],"reply":""}'));
     json = (await (await POST(request({ prompt: 'show me nobile rim 2', state: null }))).json()) as Reply;
     expect(json.source).toBe('intent');
@@ -230,6 +233,7 @@ describe('POST /api/chat fallbacks and limits', () => {
   });
 
   it('says why a narration is the template', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.stubGlobal('fetch', vi.fn(async () => new Response('down', { status: 503 })));
     vi.stubEnv('OPENROUTER_API_KEY', '');
     let json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { reason?: string };
@@ -242,5 +246,52 @@ describe('POST /api/chat fallbacks and limits', () => {
     vi.stubGlobal('fetch', modelAnswer('The Sun is up 87 % of the time.'));
     json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { reason?: string };
     expect([json.source, json.reason]).toEqual(['template', 'numbers']);
+  });
+});
+
+describe('POST /api/chat number rules', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the user's own numbers and the window lengths in a planner reply", async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubGlobal('fetch', modelAnswer('{"actions":[{"type":"set_power","patch":{"loadW":350}}],"reply":"Load set to 350 W for the next 90 days. The Sun is up 92 % of the time."}'));
+    const json = (await (await POST(request({ prompt: 'set the load to 350 W', state: STATE }))).json()) as Reply;
+    expect(json.source).toBe('model');
+    expect(json.reply).toBe('Load set to 350 W for the next 90 days.');
+  });
+
+  it('logs the numbers a narration was rejected for, and never the key', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubGlobal('fetch', modelAnswer('The Sun is up 87 % of the time.'));
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { reason?: string };
+    expect(json.reason).toBe('numbers');
+    const logged = info.mock.calls.map((c) => c.map(String).join(' ')).join('\n');
+    expect(logged).toMatch(/narration/);
+    expect(logged).toMatch(/87/);
+    expect(logged).not.toMatch(/sk-test/);
+  });
+});
+
+describe('POST /api/chat state size', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('ignores a state larger than 16 KB instead of putting it in the model prompt', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    const fetchMock = modelAnswer('{"actions":[],"reply":"Hello."}');
+    vi.stubGlobal('fetch', fetchMock);
+    const huge = { ...STATE, compare: [{ id: 'x', name: 'y'.repeat(20_000), illumFraction: 0.5, earthVisFraction: 0.5, survives: true }] };
+    const res = await POST(request({ prompt: 'hello there', state: huge }));
+    expect(res.status).toBe(200);
+    const body = String((fetchMock.mock.calls as unknown as [string, RequestInit][])[0][1].body);
+    expect(body).not.toContain('y'.repeat(100));
+    expect(body).toMatch(/No site is selected yet/);
   });
 });

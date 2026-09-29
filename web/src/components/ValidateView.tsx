@@ -104,6 +104,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
   const covered = mazarico.rows.filter((r) => r.covered && r.delta_points !== undefined);
   const worstMaz = covered.reduce((a, r) => (Math.abs(r.delta_points!) > Math.abs(a.delta_points!) ? r : a), covered[0]);
   const within5 = covered.filter((r) => Math.abs(r.delta_points!) <= 5).length;
+  const worstTwo = [...covered].sort((a, b) => Math.abs(b.delta_points!) - Math.abs(a.delta_points!)).slice(0, 2);
   const liveSite = horizons.sites.find((s) => s.site_id === 'shackleton_center') ?? horizons.sites[0];
 
   async function runRecheck() {
@@ -197,8 +198,9 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
           <p className="text-sm text-ink-2">
             Our sunlit fraction, hourly {mazarico.period[0].slice(0, 10)} to {mazarico.period[1].slice(0, 10)} with a 2 m mast, against the LOLA average-visibility map (
             <code>{mazarico.product}</code>, 60 m/px, south of 85°S). {within5} of {covered.length} covered sites are within 5 points; worst{' '}
-            {worstMaz ? `${worstMaz.delta_points! >= 0 ? '+' : '−'}${Math.abs(worstMaz.delta_points!).toFixed(1)} points at ${worstMaz.name}` : '—'}. The map averages a
-            different span of years and sees no mast, so high points read a few points brighter here.
+            {worstMaz ? `${worstMaz.delta_points! >= 0 ? '+' : '−'}${Math.abs(worstMaz.delta_points!).toFixed(1)} points at ${worstMaz.name}` : '—'}. The two largest misses,{' '}
+            {worstTwo.map((r) => r.name).join(' and ')}, are narrow high features, most likely the map’s 60 m sampling of 20 m peaks; the map also averages a
+            different span of years and sees no mast.
           </p>
           <table className="w-full text-sm">
             <thead>

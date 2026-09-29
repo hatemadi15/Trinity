@@ -206,14 +206,11 @@ export function siteByName(sites: Site[], text: string): Site | null {
   let best: { site: Site; score: number; coverage: number; size: number } | null = null;
   for (const site of sites) {
     const own = new Set([...tokens(site.name), ...tokens(site.id)]);
-    let score = 0;
-    let matched = 0;
-    for (const t of query) {
-      if (own.has(t)) {
-        score += weightOf(t);
-        matched++;
-      }
-    }
+    const hits = query.filter((t) => own.has(t));
+    // A digit alone ("show me 2") names nothing; it counts fully only next to a matched word.
+    const hasWord = hits.some((t) => /[a-z]/.test(t) && weightOf(t) === 1);
+    const score = hits.reduce((sum, t) => sum + (/^\d+$/.test(t) && !hasWord ? 0.25 : weightOf(t)), 0);
+    const matched = hits.length;
     if (score < 1) continue;
     const coverage = matched / own.size;
     if (!best || score > best.score || (score === best.score && (coverage > best.coverage || (coverage === best.coverage && own.size < best.size)))) {

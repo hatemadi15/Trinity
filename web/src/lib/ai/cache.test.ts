@@ -38,3 +38,12 @@ describe('cachedAnswer', () => {
     expect(cachedAnswer('show me')).toBeNull();
   });
 });
+
+describe('cachedAnswer guards', () => {
+  it('does not answer a negated or doubled prompt with a rehearsed transcript', () => {
+    expect(cachedAnswer('do not show me nobile rim 2')).toBeNull();
+    expect(cachedAnswer("don't show me nobile rim 2")).toBeNull();
+    expect(cachedAnswer('never show me nobile rim 2')).toBeNull();
+    expect(cachedAnswer('Show me Nobile Rim 2 please')).not.toBeNull();
+  });
+});

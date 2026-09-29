@@ -32,6 +32,8 @@ const EXTRA_WORDS_ALLOWED = 2;
 export function cachedAnswer(prompt: string): Transcript | null {
   const norm = normalizePrompt(prompt);
   if (!norm) return null;
+  // A negated question is never the rehearsed one, whatever words it shares with it.
+  if (/\b(not|never|don|dont|doesn|isn|no)\b/.test(norm)) return null;
   const exact = TRANSCRIPTS.find((t) => normalizePrompt(t.prompt) === norm);
   if (exact) return exact;
   const words = new Set(norm.split(' '));

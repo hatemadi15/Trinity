@@ -143,6 +143,7 @@ describe('PlannerChat', () => {
     expect(items[0].textContent).toMatch(/Reply 6/);
     expect(screen.queryByText(/Reply 1 to/)).toBeNull();
     unmount();
+    plannerLog.getState().clear(); // nothing to show: the strip starts collapsed
     render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} />);
     expect(screen.queryByLabelText('Ask the planner')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Planner/ }));
@@ -214,5 +215,20 @@ describe('useDemoMode persistence', () => {
     const d = fakeStore();
     renderHook(() => useDemoMode(d.store));
     expect(d.calls).toEqual([]);
+  });
+});
+
+describe('PlannerChat opens when it has something to show', () => {
+  beforeEach(() => {
+    plannerLog.getState().clear();
+  });
+
+  it('starts open when the transcript already has an exchange, as on Compare after "compare A and B"', () => {
+    const { store } = fakeStore();
+    plannerLog.getState().push({ prompt: 'compare a and b', reply: 'Comparing two sites.', source: 'intent', notes: [] });
+    render(<PlannerChat store={store} ask={vi.fn()} navigate={vi.fn()} />);
+    expect(screen.getByLabelText('Ask the planner')).toBeTruthy();
+    expect(screen.getByText('Comparing two sites.')).toBeTruthy();
+    expect(screen.getByText(/matched your words/)).toBeTruthy();
   });
 });

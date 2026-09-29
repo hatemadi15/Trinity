@@ -84,3 +84,24 @@ describe.skipIf(!haveData)('selectSite failure', () => {
     expect(store.getState().error).toMatch(/haworth/);
   });
 });
+
+describe.skipIf(!haveData)('globe view after a mare site', () => {
+  it('restores the terrain view for the next polar site when the globe was switched on automatically', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    expect(store.getState().mode).toBe('terrain');
+    await store.getState().selectSite('blue_ghost_m1');
+    expect(store.getState().mode).toBe('globe');
+    await store.getState().selectSite('haworth');
+    expect(store.getState().mode).toBe('terrain');
+  });
+
+  it('leaves a globe the user chose alone', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    store.getState().setMode('globe');
+    await store.getState().selectSite('blue_ghost_m1');
+    await store.getState().selectSite('haworth');
+    expect(store.getState().mode).toBe('globe');
+  });
+});

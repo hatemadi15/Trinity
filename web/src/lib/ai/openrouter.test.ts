@@ -60,7 +60,7 @@ describe('askModel', () => {
 
   it('reads the model chain from OPENROUTER_MODELS or falls back to the four free models', () => {
     expect(modelsFromEnv({})).toEqual(DEFAULT_MODELS);
-    expect(DEFAULT_MODELS).toEqual(['google/gemma-4-31b-it:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'qwen/qwen3.8-27b:free', 'nvidia/nemotron-3.5-lightning:free']);
+    expect(DEFAULT_MODELS).toEqual(['qwen/qwen3.8-27b:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3.5-lightning:free']);
     expect(modelsFromEnv({ OPENROUTER_MODELS: ' x/y:free, z/w ' })).toEqual(['x/y:free', 'z/w']);
     expect(modelsFromEnv({ OPENROUTER_MODELS: '' })).toEqual(DEFAULT_MODELS);
   });

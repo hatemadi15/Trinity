@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POWER } from '../engine/power';
-import { checkNumbers, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from './narrate';
+import { allowedNumbers, checkNumbers, cleanNarration, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from './narrate';
 import type { StateSummary } from './state-summary';
 
 const summary: StateSummary = {
@@ -72,5 +72,66 @@ describe('stripForeignNumbers', () => {
     );
     expect(stripForeignNumbers('Sunlit 92 % of the time.', summary)).toBe('');
     expect(stripForeignNumbers('No numbers here.', summary)).toBe('No numbers here.');
+  });
+});
+
+describe("the reader's forms", () => {
+  it('accepts kilowatt and kilowatt-hour conversions and the window end date', () => {
+    const allowed = allowedNumbers(summary);
+    for (const n of ['1.1', '1.12', '2', '0.2', '15', '3']) expect(allowed.has(n), n).toBe(true);
+    expect(checkNumbers('Mean power about 1.1 kW, a 2 kWh battery and a 0.2 kW load; from 1 to 15 March 2027.', summary)).toBe(true);
+    expect(checkNumbers('from 1 to 16 March 2027', summary)).toBe(false);
+  });
+
+  it('keeps sentences whose numbers the caller vouches for (the user typed them)', () => {
+    expect(stripForeignNumbers('Comparing them for 45 days. It is sunlit 92 % of the time.', summary, ['45'])).toBe('Comparing them for 45 days.');
+    expect(stripForeignNumbers('Comparing them for 45 days.', summary)).toBe('');
+  });
+});
+
+describe('lessons from the first live narration', () => {
+  it('keeps digits out of the system prompt so the model cannot echo them', () => {
+    const [system] = narrationPrompt(summary);
+    expect(numbersIn(system.content)).toEqual([]);
+  });
+
+  it('accepts the hours-per-day constant but not a gap rounded to whole days in hours', () => {
+    expect(checkNumbers('over more than 24 hours', summary)).toBe(true);
+    expect(checkNumbers('a longest gap of 216 hours', summary)).toBe(false); // 225 h, not 216: the retry nudge names it
+    expect(checkNumbers('a longest gap of 217 hours', summary)).toBe(false);
+  });
+});
+
+describe('cleanNarration', () => {
+  it('drops a preamble line, fences and quotes, and keeps the paragraph', () => {
+    expect(cleanNarration('Here is the mission summary (five to eight sentences):\nThe site is lit.')).toBe('The site is lit.');
+    expect(cleanNarration('```\nThe site is lit.\n```')).toBe('The site is lit.');
+    expect(cleanNarration('“The site is lit.”')).toBe('The site is lit.');
+    expect(cleanNarration('The site is lit: bright all day.')).toBe('The site is lit: bright all day.');
+    expect(cleanNarration('{"reply": "The site is lit."}')).toBe('The site is lit.');
+  });
+
+  it('asks the model not to mention the instructions', () => {
+    const [system] = narrationPrompt(summary);
+    expect(system.content).toMatch(/never mention these instructions/i);
+    expect(system.content).not.toMatch(/five|eight|\d/);
+  });
+});
+
+describe('plausible hallucinations are rejected', () => {
+  it('does not let window lengths or round figures through the narration gate', () => {
+    expect(checkNumbers('Earth is in view 90 % of the time.', summary)).toBe(false);
+    expect(checkNumbers('a night of 48 hours', summary)).toBe(false);
+    expect(checkNumbers('over the next 14 days', summary)).toBe(true); // the window's own length
+    expect(checkNumbers('over the next 90 days', summary)).toBe(false); // not this window's length
+  });
+});
+
+describe('cleanNarration repair and ordering', () => {
+  it('repairs a missing closing brace, strips a preamble before quotes, and keeps a first line that carries data', () => {
+    expect(cleanNarration('{"reply": "The site is lit."')).toBe('The site is lit.');
+    expect(cleanNarration('{"reply": "The site is lit. It stays')).toBe('The site is lit.');
+    expect(cleanNarration('Sure! Here is the paragraph:\n\n"The site is lit."')).toBe('The site is lit.');
+    expect(cleanNarration('Nobile Rim 2, 14-day window from March 2027:\nThe Sun is up.')).toBe('Nobile Rim 2, 14-day window from March 2027:\nThe Sun is up.');
   });
 });

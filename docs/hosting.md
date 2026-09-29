@@ -78,7 +78,7 @@ One rule first: every `NEXT_PUBLIC_*` variable is inlined into the client and se
    | Name | Value |
    |---|---|
    | `OPENROUTER_API_KEY` | the OpenRouter key (server only; never exposed) |
-   | `OPENROUTER_MODELS` | `google/gemma-4-31b-it:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,nvidia/nemotron-3.5-lightning:free` |
+   | `OPENROUTER_MODELS` | `qwen/qwen3.8-27b:free,nvidia/nemotron-3-super-120b-a12b:free,google/gemma-4-31b-it:free,nvidia/nemotron-3.5-lightning:free` |
    | `NEXT_PUBLIC_AI_MODE` | `live` (`cached` turns the planner into rehearsed answers only) |
    | `AI_RATE_LIMIT_PER_MIN` | `30` |
    | `NEXT_PUBLIC_DATA_BASE` | `https://<data host>/data` |

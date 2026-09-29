@@ -88,6 +88,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                 startUtc={s.startUtc}
                 days={s.days}
                 plannerMastM={s.params.mastM}
+                audience={s.audience}
                 onRemove={() => store.getState().removeFromCompare(c.site.id)}
                 onOpen={() => void store.getState().selectSite(c.site.id)}
               />
@@ -99,11 +100,14 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
   );
 }
 
+const LEARN_ROWS = new Set(['Sun above the skyline', 'Longest night', 'Earth in view', 'Longest Earth gap']);
+
 function CompareColumn({
   result,
   startUtc,
   days,
   plannerMastM,
+  audience,
   onRemove,
   onOpen,
 }: {
@@ -111,11 +115,12 @@ function CompareColumn({
   startUtc: string;
   days: number;
   plannerMastM: number;
+  audience: 'planner' | 'learn';
   onRemove: () => void;
   onOpen: () => void;
 }) {
   const { site, series, summary, power, contacts, mastM } = result;
-  const rows: [string, string][] = [
+  const all: [string, string][] = [
     ['Sun above the skyline', pct(summary.illumFraction)],
     ['Longest night', hoursLabel(summary.longestDarkH)],
     ['Earth in view', pct(summary.earthVisFraction)],
@@ -123,6 +128,8 @@ function CompareColumn({
     ['Both at once', pct(summary.jointFraction)],
     ['Lowest battery', pct(power.socMin)],
   ];
+  // Learn mode keeps the same four numbers as the Explore tiles.
+  const rows = audience === 'learn' ? all.filter(([k]) => LEARN_ROWS.has(k)) : all;
   return (
     <article aria-label={site.name} className="flex min-w-[260px] max-w-[340px] flex-1 flex-col gap-3 rounded-md bg-panel p-4">
       <div>

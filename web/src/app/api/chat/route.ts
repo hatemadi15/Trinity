@@ -1,7 +1,7 @@
 import { describeDropped, validateActions } from '@/lib/ai/actions';
 import { cachedAnswer } from '@/lib/ai/cache';
 import { matchIntent } from '@/lib/ai/intents';
-import { checkNumbers, foreignNumbers, isStateSummary, narrationPrompt, stripForeignNumbers, templateBrief } from '@/lib/ai/narrate';
+import { checkNumbers, cleanNarration, foreignNumbers, isStateSummary, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from '@/lib/ai/narrate';
 import { askModel, modelsFromEnv, type ChatMessage } from '@/lib/ai/openrouter';
 import { parseModelReply, systemPrompt, userPrompt, type ChatReply, type NarrationReply } from '@/lib/ai/protocol';
 import { SlidingWindowLimiter } from '@/lib/ai/rate-limit';
@@ -22,6 +22,7 @@ const FIRST_SHARE = 0.8;
 /** Below this much remaining budget a retry is not worth starting. */
 const MIN_RETRY_MS = 500;
 const MAX_PROMPT_CHARS = 2000;
+const MAX_STATE_CHARS = 16_000;
 const SITES = catalogue.sites as Site[];
 const SITE_IDS: ReadonlySet<string> = new Set(SITES.map((s) => s.id));
 const RETRY_NUDGE = 'Answer again with ONE JSON object only, in the form {"actions": [...], "reply": "..."} and no other text.';
@@ -58,7 +59,9 @@ async function parseBody(request: Request): Promise<Body | string> {
   if (prompt.length > MAX_PROMPT_CHARS) return `prompt is longer than ${MAX_PROMPT_CHARS} characters`;
   if (o.mode !== undefined && o.mode !== 'live' && o.mode !== 'cached') return 'mode must be "live" or "cached"';
   if (o.task !== undefined && o.task !== 'plan' && o.task !== 'narrate') return 'task must be "plan" or "narrate"';
-  const state = o.state && typeof o.state === 'object' && !Array.isArray(o.state) ? (o.state as StateSummary) : null;
+  let state = o.state && typeof o.state === 'object' && !Array.isArray(o.state) ? (o.state as StateSummary) : null;
+  // A real summary is about 1 KB; anything much larger is not ours and must not reach a prompt.
+  if (state && JSON.stringify(state).length > MAX_STATE_CHARS) state = null;
   if (o.task === 'narrate' && !isStateSummary(state)) return 'narrate needs the state summary of a loaded site';
   return { task: o.task === 'narrate' ? 'narrate' : 'plan', prompt, state, mode: o.mode === 'cached' ? 'cached' : 'live' };
 }
@@ -86,8 +89,9 @@ async function fromModel(prompt: string, state: StateSummary | null, apiKey: str
   }
   if (!parsed) return null;
   const { actions, dropped } = validateActions(parsed.actions, SITE_IDS);
-  // Every number the user reads must be one the app can vouch for; sentences with foreign numbers go.
-  const reply = state && isStateSummary(state) ? stripForeignNumbers(parsed.reply, state) : parsed.reply;
+  // Every number the user reads must be one the app can vouch for: the state, the user's own figures
+  // in the question, or a window length. Sentences with any other number go.
+  const reply = state && isStateSummary(state) ? stripForeignNumbers(parsed.reply, state, [...numbersIn(prompt), '14', '30', '90']) : parsed.reply;
   if (actions.length === 0 && !reply) return null;
   const text = [reply || 'Done.', describeDropped(dropped)].filter(Boolean).join(' ');
   return { source: 'model', model: first.model, actions, reply: text, dropped };
@@ -107,16 +111,6 @@ function fromCache(prompt: string): ChatReply | null {
   return { source: 'cache', actions, reply: t.reply, dropped };
 }
 
-/** A narration answer is plain text, but a model that wraps it in {"reply": …} or a fence is read too. */
-function narrationText(content: string): string {
-  const parsed = parseModelReply(content);
-  if (parsed?.reply) return parsed.reply;
-  return content
-    .replace(/```[a-z]*\s*([\s\S]*?)```/g, '$1')
-    .replace(/^["“]|["”]$/g, '')
-    .trim();
-}
-
 /** The brief's paragraph: the model's words when every number checks out (one retry), else the template with the reason. */
 async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean): Promise<NarrationReply> {
   const template = (reason: NonNullable<NarrationReply['reason']>): NarrationReply => ({ source: 'template', reason, reply: templateBrief(state) });
@@ -126,10 +120,11 @@ async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean)
   const messages = narrationPrompt(state);
   const first = await askModel({ messages, models: modelsFromEnv(), apiKey, timeoutMs: MODEL_TIMEOUT_MS, budgetMs: Math.round((deadline - Date.now()) * FIRST_SHARE) });
   if ('error' in first) return template('model-error');
-  let text = narrationText(first.content);
+  let text = cleanNarration(first.content);
   if (!checkNumbers(text, state)) {
-    if (deadline - Date.now() <= MIN_RETRY_MS) return template('numbers');
     const bad = foreignNumbers(text, state).join(', ');
+    console.info(`narration by ${first.model} rejected: numbers not in the state: ${bad} — "${text.slice(0, 240)}"`);
+    if (deadline - Date.now() <= MIN_RETRY_MS) return template('numbers');
     const second = await askModel({
       messages: [
         ...messages,
@@ -142,8 +137,11 @@ async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean)
       budgetMs: deadline - Date.now(),
     });
     if ('error' in second) return template('numbers');
-    text = narrationText(second.content);
-    if (!checkNumbers(text, state)) return template('numbers');
+    text = cleanNarration(second.content);
+    if (!checkNumbers(text, state)) {
+      console.info(`narration retry by ${first.model} rejected: numbers not in the state: ${foreignNumbers(text, state).join(', ')}`);
+      return template('numbers');
+    }
   }
   return text ? { source: 'model', model: first.model, reply: text } : template('model-error');
 }

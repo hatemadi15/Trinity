@@ -36,3 +36,19 @@ describe('CompareView rows', () => {
     expect(within(column).getByText('Lowest battery')).toBeTruthy();
   });
 });
+
+describe('CompareView in Learn mode', () => {
+  it('shows only the four Learn rows', async () => {
+    const store = storeWithFiles();
+    await store.getState().init();
+    await store.getState().addToCompare('nobile_rim_2');
+    store.getState().setAudience('learn');
+    render(<CompareView store={store} />);
+    const column = await screen.findByRole('article', { name: /Nobile Rim 2/ });
+    await waitFor(() => expect(within(column).getByText('Sun above the skyline')).toBeTruthy());
+    expect(within(column).getByText('Longest Earth gap')).toBeTruthy();
+    expect(within(column).queryByText('Both at once')).toBeNull();
+    expect(within(column).queryByText('Lowest battery')).toBeNull();
+    store.getState().setAudience('planner');
+  });
+});

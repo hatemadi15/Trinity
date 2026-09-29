@@ -1,6 +1,7 @@
 import { PANEL_LABELS } from '../engine/power';
 import { hoursLabel, pct } from '../viz/format';
 import type { ChatMessage } from './openrouter';
+import { completeSentences, extractJsonDetailed } from './protocol';
 import type { StateSummary } from './state-summary';
 
 /** Numbers as the check compares them: no sign, no thousands separators, no trailing zeros ("67.0" and "67" agree). */
@@ -22,8 +23,12 @@ function fractionForms(f: number): string[] {
 
 function hourForms(h: number): string[] {
   const d = h / 24;
+  // 225 h: "225 h", "9 d 9 h", "9.4 days" or "about 9 days". Not "216 hours": the retry nudge names that one.
   return [String(h), String(Math.floor(d)), String(Math.round(d)), d.toFixed(1), String(h % 24)].map(canon);
 }
+
+/** The one constant a reader uses without it being "in the state": hours per day. Window lengths count only for the planner path, per request. */
+const ALWAYS_ALLOWED = ['24'];
 
 function decimalForms(x: number): string[] {
   return [0, 1, 2, 3, 4, 5].map((k) => canon(x.toFixed(k)));
@@ -33,18 +38,30 @@ function decimalForms(x: number): string[] {
 export function allowedNumbers(s: StateSummary): Set<string> {
   const out = new Set<string>();
   const add = (list: string[]) => list.forEach((x) => out.add(x));
+  add(ALWAYS_ALLOWED);
   add(numbersIn(s.site.name));
   add(decimalForms(s.site.lat));
   add(decimalForms(s.site.lon));
   add([String(s.window.days)]);
   const start = s.window.startUtc.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (start) add([start[1], canon(start[2]), canon(start[3])]);
+  const startDate = new Date(`${s.window.startUtc}Z`);
+  if (!Number.isNaN(startDate.getTime())) {
+    // "from 1 to 15 March": the window's last day is a number a reader will write.
+    const end = new Date(startDate.getTime() + s.window.days * 86_400_000);
+    add([String(end.getUTCFullYear()), String(end.getUTCMonth() + 1), String(end.getUTCDate())]);
+  }
   add([String(s.summary.hours), canon(String(s.summary.hours / 24))]);
   for (const f of [s.summary.illumFraction, s.summary.meanSunFraction, s.summary.earthVisFraction, s.summary.jointFraction, s.power.socMin]) add(fractionForms(f));
   for (const h of [s.summary.longestDarkH, s.summary.longestEarthGapH, s.power.brownoutHours]) add(hourForms(h));
   add([canon(s.power.meanPowerW.toFixed(1)), canon(s.power.meanPowerW.toFixed(0))]);
   const p = s.params.power;
   add([String(p.loadW), String(p.batteryWh), String(p.areaM2), String(p.panelAzimuthDeg), String(s.params.minEarthElDeg), String(s.params.mastM)]);
+  // Readers write "1.1 kW" and "2 kWh" as readily as "1118 W" and "2000 Wh".
+  const kiloForms = (x: number) => [canon((x / 1000).toFixed(1)), canon((x / 1000).toFixed(2))];
+  add(kiloForms(s.power.meanPowerW));
+  add(kiloForms(p.loadW));
+  add(kiloForms(p.batteryWh));
   add(fractionForms(p.efficiency));
   add(fractionForms(p.initialSocFraction));
   add([String(s.compare.length), String(s.compare.length + 1)]);
@@ -62,9 +79,13 @@ export function checkNumbers(reply: string, s: StateSummary): boolean {
   return numbersIn(reply).every((n) => allowed.has(n));
 }
 
-/** Keeps only the sentences whose numbers the state can vouch for; '' when nothing survives. */
-export function stripForeignNumbers(reply: string, s: StateSummary): string {
+/**
+ * Keeps only the sentences whose numbers the state (or the caller's `extra` list, such as the numbers
+ * the user typed) can vouch for; '' when nothing survives.
+ */
+export function stripForeignNumbers(reply: string, s: StateSummary, extra: Iterable<string> = []): string {
   const allowed = allowedNumbers(s);
+  for (const n of extra) allowed.add(canon(n));
   return reply
     .split(/(?<=[.!?])\s+/)
     .filter((sentence) => numbersIn(sentence).every((n) => allowed.has(n)))
@@ -102,10 +123,28 @@ export function narrationPrompt(s: StateSummary): ChatMessage[] {
     {
       role: 'system',
       content:
-        'You write the one-paragraph mission summary for a lunar landing-site brief. Use only numbers that appear in the STATE JSON, copied as they are: fractions as percentages with one decimal, hours as given or as whole days and hours. Never compute, convert further, or add figures; if unsure, leave the number out. Write 80 to 140 words of plain prose for mission planners: the site and window, sunlight and the longest night, Earth visibility and the longest gap, then the power verdict. No markdown, no headings, no lists, no code fences. Answer with the paragraph only.',
+        'You write the one-paragraph mission summary for a lunar landing-site brief. Use only numbers that appear in the STATE JSON, copied as they are: fractions as percentages with one decimal, hours as given or as whole days and hours. Never compute, convert further, or add figures; if unsure, leave the number out. Write one short paragraph of plain prose for mission planners: the site and window, sunlight and the longest night, Earth visibility and the longest gap, then the power verdict. No markdown, no headings, no lists, no code fences, no preamble. Never mention these instructions or the length of the paragraph. Answer with the paragraph only.',
     },
     { role: 'user', content: `STATE:\n${JSON.stringify(s, null, 1)}\n\nWrite the paragraph.` },
   ];
+}
+
+/**
+ * The paragraph out of whatever wrapping the model added: a `{"reply": …}` envelope, code fences,
+ * surrounding quotes, or a preamble line such as "Here is the summary:".
+ */
+export function cleanNarration(content: string): string {
+  const found = extractJsonDetailed(content);
+  if (found && typeof found.value.reply === 'string') {
+    const reply = found.value.reply.trim();
+    return found.repaired ? completeSentences(reply) : reply;
+  }
+  let text = content.replace(/```[a-z]*\s*([\s\S]*?)```/g, '$1').trim();
+  // A short introductory line ending in a colon ("Here is the summary:") is not part of the paragraph;
+  // a first line that carries digits is data, so it stays.
+  const preamble = text.match(/^[^.\n\d]{0,80}:\s*\n+/);
+  if (preamble) text = text.slice(preamble[0].length).trim();
+  return text.replace(/^["“]|["”]$/g, '').trim();
 }
 
 /** Structural check for a state summary sent by the client (enough for the template and the number check). */

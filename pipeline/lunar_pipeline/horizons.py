@@ -115,5 +115,5 @@ def compare_all(fixtures_dir: Path = config.DATA_DIR / "fixtures" / "horizons") 
             worst_el, worst_az = max(worst_el, d_el), max(worst_az, d_az)
     summary = {"n_rows": n_rows, "max_abs_delta_el_deg": worst_el, "max_abs_delta_az_cos_el_deg": worst_az,
                "files": per_file}
-    (fixtures_dir / "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
+    (fixtures_dir / "summary.json").write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8", newline="\n")
     return summary

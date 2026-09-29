@@ -50,14 +50,16 @@ class FakeClient:
     def __init__(self, existing: dict[str, str]):
         self.existing = existing  # key -> etag
         self.uploaded: list[tuple[str, str, dict]] = []
+        self.configs: list = []
 
     def head_object(self, Bucket: str, Key: str):
         if Key not in self.existing:
             raise KeyError(Key)
         return {"ETag": f'"{self.existing[Key]}"', "ContentLength": 16}
 
-    def upload_file(self, Filename: str, Bucket: str, Key: str, ExtraArgs: dict):
+    def upload_file(self, Filename: str, Bucket: str, Key: str, ExtraArgs: dict, Config=None):
         self.uploaded.append((Filename, Key, ExtraArgs))
+        self.configs.append(Config)
 
 
 def test_publish_skips_unchanged_files_and_uploads_the_rest_with_headers(tmp_path: Path):
@@ -73,6 +75,8 @@ def test_publish_skips_unchanged_files_and_uploads_the_rest_with_headers(tmp_pat
     assert Path(filename) == tmp_path / "terrain" / "globe.jpg"
     assert extra == {"ContentType": "image/jpeg", "CacheControl": CACHE_CONTROL}
     assert len(done) == 4
+    # Single-part uploads up to 64 MB keep the ETag an MD5, which the skip logic relies on.
+    assert all(c is not None and c.multipart_threshold == 64 * 1024 * 1024 for c in client.configs)
 
 
 def test_publish_without_credentials_fails_before_touching_the_network(tmp_path: Path):

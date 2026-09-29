@@ -44,4 +44,6 @@ def test_our_azel_matches_horizons_within_tolerance():
     # Achieved ~3e-5 deg; 0.002 deg still catches a UTC-as-TDB slip (9e-3) or dropped aberration (6e-3).
     assert summary["max_abs_delta_el_deg"] < 0.002
     assert summary["max_abs_delta_az_cos_el_deg"] < 0.002
-    assert (config.DATA_DIR / "fixtures" / "horizons" / "summary.json").exists()
+    path = config.DATA_DIR / "fixtures" / "horizons" / "summary.json"
+    assert path.exists()
+    assert b"\r\n" not in path.read_bytes()  # LF on every platform, so pytest never dirties the tree

@@ -94,3 +94,29 @@ describe('matchIntent', () => {
     expect(m('')).toBeNull();
   });
 });
+
+describe('matchIntent polish', () => {
+  it('opens pages from "go to", "take me to" and "show me the … page"', () => {
+    expect(m('go to compare')?.actions).toEqual([{ type: 'open_page', page: 'compare' }]);
+    expect(m('take me to the brief')?.actions).toEqual([{ type: 'open_page', page: 'brief' }]);
+    expect(m('show me the validate page')?.actions).toEqual([{ type: 'open_page', page: 'validate' }]);
+    expect(m('go to de Gerlache Rim 2')?.actions).toEqual([{ type: 'select_site', id: 'de_gerlache_rim_2' }]);
+  });
+
+  it('replies with the clamped value when a setting is out of range', () => {
+    expect(m('set the load to 5000 W')?.actions).toEqual([{ type: 'set_power', patch: { loadW: 2000 } }]);
+    expect(m('set the load to 5000 W')?.reply).toMatch(/2000 W/);
+    expect(m('set the battery to 90000 Wh')?.reply).toMatch(/50000 Wh/);
+    expect(m('mast to 25 m')?.actions).toEqual([{ type: 'set_params', patch: { mastM: 10 } }]);
+  });
+
+  it('says which window lengths exist when the asked one does not', () => {
+    const r = m('compare haworth and nobile rim 2 for 20 days');
+    expect(r?.actions).toEqual([
+      { type: 'add_to_compare', id: 'haworth' },
+      { type: 'add_to_compare', id: 'nobile_rim_2' },
+      { type: 'open_page', page: 'compare' },
+    ]);
+    expect(r?.reply).toMatch(/14, 30 or 90 days/);
+  });
+});
