@@ -1,6 +1,6 @@
 import { AppFrame } from '@/components/AppFrame';
 import { LearnStart } from '@/components/LearnStart';
-import { STORY_STEPS } from '@/components/GuidedStory';
+import { STORY_STEPS } from '@/lib/learn/story';
 
 export default function LearnPage() {
   return (

@@ -128,6 +128,8 @@ export interface ExploreState {
   waitForDebounce: () => Promise<void>;
   audience: Audience;
   setAudience: (audience: Audience) => void;
+  /** Reads the stored choice after mount so server and first client render agree. */
+  hydrateAudience: () => void;
 }
 
 export function recompute(
@@ -200,7 +202,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     compare: [],
     maskBusy: false,
     bestWindowNote: null,
-    audience: storedAudience(),
+    audience: 'planner',
 
     async init() {
       if (get().eph) {
@@ -446,6 +448,11 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
 
     async waitForDebounce() {
       await debouncePromise;
+    },
+
+    hydrateAudience() {
+      const stored = storedAudience();
+      if (stored !== get().audience) set({ audience: stored });
     },
 
     setAudience(audience) {

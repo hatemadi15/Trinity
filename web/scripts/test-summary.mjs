@@ -17,7 +17,7 @@ const report = resolve(web, '.vitest', 'report.json');
 mkdirSync(resolve(web, '.vitest'), { recursive: true });
 run('npx', ['vitest', 'run', '--reporter=json', `--outputFile=${report}`], web);
 const vitest = JSON.parse(readFileSync(report, 'utf8'));
-const webFiles = vitest.numTotalTestSuites ?? vitest.testResults?.length ?? 0;
+const webFiles = vitest.testResults?.length ?? 0; // one entry per test file
 const webTests = vitest.numTotalTests ?? 0;
 
 let pipelineTests = 0;

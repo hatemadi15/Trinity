@@ -1,4 +1,5 @@
 'use client';
+import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { exploreStore, type Audience } from '@/lib/store/explore';
 
@@ -10,6 +11,9 @@ const OPTIONS: [Audience, string][] = [
 /** Header switch between the planner view and Learn mode (fewer numbers, plain words, a guided story). */
 export function AudienceToggle() {
   const audience = useStore(exploreStore, (s) => s.audience);
+  useEffect(() => {
+    exploreStore.getState().hydrateAudience();
+  }, []);
   return (
     <div role="group" aria-label="Audience" className="flex gap-1 text-sm">
       {OPTIONS.map(([value, label]) => (

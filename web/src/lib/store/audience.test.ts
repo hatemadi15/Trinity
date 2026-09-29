@@ -21,13 +21,17 @@ describe('audience', () => {
     expect(a.getState().audience).toBe('learn');
     expect(window.localStorage.getItem(AUDIENCE_KEY)).toBe('learn');
     const b = createExploreStore(unused);
+    expect(b.getState().audience).toBe('planner'); // server-safe default until hydrated
+    b.getState().hydrateAudience();
     expect(b.getState().audience).toBe('learn');
     b.getState().setAudience('planner');
     expect(window.localStorage.getItem(AUDIENCE_KEY)).toBe('planner');
   });
   it('ignores garbage in storage', () => {
     window.localStorage.setItem(AUDIENCE_KEY, 'pirate');
-    expect(createExploreStore(unused).getState().audience).toBe('planner');
+    const c = createExploreStore(unused);
+    c.getState().hydrateAudience();
+    expect(c.getState().audience).toBe('planner');
     window.localStorage.removeItem(AUDIENCE_KEY);
   });
 });

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { GuidedStory, STORY_STEPS } from './GuidedStory';
+import { STORY_STEPS } from '@/lib/learn/story';
+import { GuidedStory } from './GuidedStory';
 
 describe('GuidedStory', () => {
   it('has five ordered steps and moves the current step with Next and Back', () => {

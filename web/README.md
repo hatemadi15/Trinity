@@ -26,6 +26,9 @@ Demo: `npm run engine:demo -- --site shackleton_center_rim_high` (mask in about 
 
 - `/explore`: one site, one window; 3D terrain and globe, sky dome, timeline, planner settings, survive-the-night verdict, best-window finder.
 - `/compare`: up to four sites over the same window and planner settings, one column per site.
+- `/validate`: Horizons cross-check (live re-check through `/api/horizons`), LOLA map agreement, CLPS backcasts; `npm run validation:tests` refreshes the test-count badge in `public/validation/tests.json`.
+- `/brief`: printable one-page mission brief for the selected site and window.
+- `/learn`: Learn mode introduction; the header toggle switches Explore to the guided story.
 
 ## Engine additions (Week 4)
 

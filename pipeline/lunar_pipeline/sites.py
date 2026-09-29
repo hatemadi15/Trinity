@@ -29,7 +29,7 @@ class Site:
 
 
 def load_sites(path: Path = config.DATA_DIR / "sites.json") -> list[Site]:
-    raw = json.loads(path.read_text())["sites"]
+    raw = json.loads(path.read_text(encoding="utf-8"))["sites"]
     return [Site(**{k: v for k, v in s.items() if k in Site.__dataclass_fields__}) for s in raw]
 
 
