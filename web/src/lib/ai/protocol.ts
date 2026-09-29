@@ -65,13 +65,27 @@ function stripFences(text: string): string {
   return fenced ? fenced[1] : text;
 }
 
-/** Finds the first balanced `{…}` in the text (strings and escapes respected) that parses as a JSON object; null otherwise. */
-export function extractJson(text: string): Record<string, unknown> | null {
+function parseObject(s: string): Record<string, unknown> | null {
+  try {
+    const value: unknown = JSON.parse(s);
+    return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Finds the first `{…}` in the text (strings and escapes respected) that parses as a JSON object.
+ * When the model stopped before closing it (a missing final brace, an output cut at max_tokens),
+ * the open string, arrays and objects are closed and the result is marked `repaired`.
+ */
+export function extractJsonDetailed(text: string): { value: Record<string, unknown>; repaired: boolean } | null {
   const src = stripFences(text ?? '');
   for (let start = src.indexOf('{'); start !== -1; start = src.indexOf('{', start + 1)) {
-    let depth = 0;
+    const open: string[] = [];
     let inString = false;
     let escaped = false;
+    let closedAt = -1;
     for (let i = start; i < src.length; i++) {
       const ch = src[i];
       if (inString) {
@@ -81,22 +95,39 @@ export function extractJson(text: string): Record<string, unknown> | null {
         continue;
       }
       if (ch === '"') inString = true;
-      else if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) {
-          try {
-            const value: unknown = JSON.parse(src.slice(start, i + 1));
-            if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, unknown>;
-          } catch {
-            // not JSON after all; try the next opening brace
-          }
+      else if (ch === '{' || ch === '[') open.push(ch);
+      else if (ch === '}' || ch === ']') {
+        open.pop();
+        if (open.length === 0) {
+          closedAt = i;
           break;
         }
       }
     }
+    if (closedAt !== -1) {
+      const value = parseObject(src.slice(start, closedAt + 1));
+      if (value) return { value, repaired: false };
+      continue; // not JSON after all; try the next opening brace
+    }
+    const closers = (inString ? '"' : '') + open.reverse().map((c) => (c === '{' ? '}' : ']')).join('');
+    const value = parseObject(src.slice(start) + closers);
+    if (value) return { value, repaired: true };
   }
   return null;
+}
+
+/** The first JSON object in the text, repaired if it was left unclosed; null otherwise. */
+export function extractJson(text: string): Record<string, unknown> | null {
+  return extractJsonDetailed(text)?.value ?? null;
+}
+
+/** The sentences that end properly; a reply cut mid-sentence loses its tail. */
+function completeSentences(s: string): string {
+  return s
+    .split(/(?<=[.!?])\s+/)
+    .filter((part) => /[.!?]["”)]?$/.test(part))
+    .join(' ')
+    .trim();
 }
 
 /**
@@ -105,13 +136,13 @@ export function extractJson(text: string): Record<string, unknown> | null {
  * inner object of an envelope truncated at max_tokens is not an answer.
  */
 export function parseModelReply(text: string): { actions: unknown[]; reply: string } | null {
-  const o = extractJson(text);
-  if (!o) return null;
+  const found = extractJsonDetailed(text);
+  if (!found) return null;
+  const o = found.value;
   const hasActions = Array.isArray(o.actions);
   const hasReply = typeof o.reply === 'string';
   if (!hasActions && !hasReply) return null;
-  return {
-    actions: hasActions ? (o.actions as unknown[]) : [],
-    reply: hasReply ? (o.reply as string).trim() : '',
-  };
+  let reply = hasReply ? (o.reply as string).trim() : '';
+  if (found.repaired && reply) reply = completeSentences(reply);
+  return { actions: hasActions ? (o.actions as unknown[]) : [], reply };
 }

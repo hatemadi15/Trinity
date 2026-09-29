@@ -1,11 +1,15 @@
 /** OpenRouter chat completions: one JSON request per model in the chain, first good answer wins. */
 export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-/** Free-tier chain verified on 2026-09-29 (all listed with tool support). Override with OPENROUTER_MODELS. */
+/**
+ * Free-tier chain, in the order the live probes of 2026-09-29 ranked them: qwen answered in 0.6 s
+ * with valid JSON, nemotron-super in 1.6 s (without its closing brace, which extractJson repairs),
+ * gemma was rate-limited (429) at the time, nemotron-lightning timed out. Override with OPENROUTER_MODELS.
+ */
 export const DEFAULT_MODELS = [
-  'google/gemma-4-31b-it:free',
-  'nvidia/nemotron-3-super-120b-a12b:free',
   'qwen/qwen3.8-27b:free',
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'google/gemma-4-31b-it:free',
   'nvidia/nemotron-3.5-lightning:free',
 ];
 

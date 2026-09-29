@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ACTION_TYPES } from './actions';
-import { extractJson, parseModelReply, systemPrompt, userPrompt } from './protocol';
+import { extractJson, extractJsonDetailed, parseModelReply, systemPrompt, userPrompt } from './protocol';
 
 describe('extractJson', () => {
   it('reads a fenced block', () => {
@@ -16,7 +16,8 @@ describe('extractJson', () => {
 
   it('returns null for prose, broken JSON and non-objects', () => {
     expect(extractJson('I would select Nobile Rim 2 for you.')).toBeNull();
-    expect(extractJson('{"reply": "unterminated')).toBeNull();
+    expect(extractJson('{"reply": "unterminated')).toEqual({ reply: 'unterminated' }); // an unclosed string is repaired, see below
+    expect(extractJson('{"reply": }')).toBeNull();
     expect(extractJson('[1, 2, 3]')).toBeNull();
     expect(extractJson('')).toBeNull();
   });
@@ -58,9 +59,35 @@ describe('prompts', () => {
 
 describe('parseModelReply envelope', () => {
   it('rejects objects that are not the reply envelope: truncated output, a bare action object', () => {
-    expect(parseModelReply('{"actions":[{"type":"select_site","id":"nobile_rim_2"}],"reply":"Nobile Rim 2 is on the rim and')).toBeNull();
+    expect(parseModelReply('{"actions":[{"type":"select_site","id":"nobile_rim_2"}],"reply":"Nobile Rim 2 is on the rim and')).toEqual({
+      actions: [{ type: 'select_site', id: 'nobile_rim_2' }],
+      reply: '', // repaired: the unfinished sentence is dropped
+    });
     expect(parseModelReply('{"type":"select_site","id":"nobile_rim_2"}')).toBeNull();
     expect(parseModelReply('{"reply":"hi"}')).toEqual({ actions: [], reply: 'hi' });
     expect(parseModelReply('{"actions":[]}')).toEqual({ actions: [], reply: '' });
+  });
+});
+
+describe('extractJson repair', () => {
+  it('closes an unfinished object, array or string and says so', () => {
+    const missingBrace = '{"actions": [{"type": "open_page", "page": "compare"}], "reply": "Opening."';
+    expect(extractJson(missingBrace)).toEqual({ actions: [{ type: 'open_page', page: 'compare' }], reply: 'Opening.' });
+    expect(extractJsonDetailed(missingBrace)).toEqual({ value: { actions: [{ type: 'open_page', page: 'compare' }], reply: 'Opening.' }, repaired: true });
+    expect(extractJsonDetailed('{"reply": "done"}')).toEqual({ value: { reply: 'done' }, repaired: false });
+    expect(extractJson('{"actions": [{"type": "select_site", "id": "nobile_rim_2"')).toEqual({ actions: [{ type: 'select_site', id: 'nobile_rim_2' }] });
+    expect(extractJson('{"actions": [], "reply": "Nobile Rim 2 is on the rim and')).toEqual({ actions: [], reply: 'Nobile Rim 2 is on the rim and' });
+    expect(extractJson('{"actions": [], "rep')).toBeNull();
+  });
+});
+
+describe('parseModelReply on repaired output', () => {
+  it('keeps only the complete sentences of a truncated reply', () => {
+    expect(parseModelReply('{"actions": [{"type": "select_site", "id": "nobile_rim_2"}], "reply": "Selected Nobile Rim 2. It sits on the rim and')).toEqual({
+      actions: [{ type: 'select_site', id: 'nobile_rim_2' }],
+      reply: 'Selected Nobile Rim 2.',
+    });
+    expect(parseModelReply('{"actions": [], "reply": "Nobile Rim 2 is on the rim and')).toEqual({ actions: [], reply: '' });
+    expect(parseModelReply('{"actions": [], "reply": "Opening the comparison."')).toEqual({ actions: [], reply: 'Opening the comparison.' });
   });
 });

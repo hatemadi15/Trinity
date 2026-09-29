@@ -30,7 +30,7 @@ describe('POST /api/chat', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as Reply;
     expect(json.source).toBe('model');
-    expect(json.model).toBe('google/gemma-4-31b-it:free');
+    expect(json.model).toBe('qwen/qwen3.8-27b:free');
     expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
     expect(json.reply).toBe('Nobile Rim 2 selected.');
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -141,7 +141,7 @@ describe('POST /api/chat task narrate', () => {
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ task: 'narrate', prompt: 'write the brief', state: STATE }))).json()) as Reply;
     expect(json.source).toBe('model');
-    expect(json.model).toBe('google/gemma-4-31b-it:free');
+    expect(json.model).toBe('qwen/qwen3.8-27b:free');
     expect(json.reply).toBe(text);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -176,14 +176,16 @@ describe('POST /api/chat fallbacks and limits', () => {
     vi.unstubAllEnvs();
   });
 
-  it('falls back to the intents when the model returns a truncated envelope or an empty one', async () => {
+  it('repairs a truncated envelope and falls back to the intents on an empty one', async () => {
     vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
     const truncated = modelAnswer('{"actions":[{"type":"select_site","id":"nobile_rim_2"}],"reply":"Nobile Rim 2 is on the rim of Nobile crater and');
     vi.stubGlobal('fetch', truncated);
     let json = (await (await POST(request({ prompt: 'show me nobile rim 2', state: null }))).json()) as Reply;
-    expect(truncated).toHaveBeenCalledTimes(2);
-    expect(json.source).toBe('intent');
+    expect(truncated).toHaveBeenCalledTimes(1);
+    expect(json.source).toBe('model');
     expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
+    expect(json.reply).toBe('Done.');
+    expect(json.model).toBe('qwen/qwen3.8-27b:free');
     vi.stubGlobal('fetch', modelAnswer('{"actions":[],"reply":""}'));
     json = (await (await POST(request({ prompt: 'show me nobile rim 2', state: null }))).json()) as Reply;
     expect(json.source).toBe('intent');
