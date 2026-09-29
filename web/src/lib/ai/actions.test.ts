@@ -183,3 +183,13 @@ describe('applyActions', () => {
     expect(notes[1]).toMatch(/atlantis/);
   });
 });
+
+describe('siteByName digits', () => {
+  it('needs a word next to a digit, so "show me 2" matches nothing while "nobile 2" still does', () => {
+    expect(siteByName(sites, 'show me 2')).toBeNull();
+    expect(siteByName(sites, '2')).toBeNull();
+    expect(siteByName(sites, 'nobile 2')?.id).toBe('nobile_rim_2');
+    expect(siteByName(sites, 'rim 2')).toBeNull(); // a generic word and a digit are not enough either
+    expect(siteByName(sites, 'IM-2')?.id).toBe('im2_athena');
+  });
+});

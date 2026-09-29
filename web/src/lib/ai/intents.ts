@@ -1,5 +1,6 @@
 import type { Site } from '../data/loaders';
 import { PANEL_LABELS, type PanelModel } from '../engine/power';
+import { clampTo, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
 import type { WindowDays } from '../store/explore';
 import { siteByName, type Action, type Page } from './actions';
 import { EXPLANATIONS, explanationFor } from './explanations';
@@ -67,7 +68,8 @@ export const INTENTS: Intent[] = [
         ...(days ? [{ type: 'set_window', days } as Action] : []),
         { type: 'open_page', page: 'compare' },
       ];
-      return { actions, reply: `Comparing ${a.name} and ${b.name}${days ? ` over ${days} days` : ''}.` };
+      const unsupported = m[3] !== undefined && !days ? ' Windows are 14, 30 or 90 days, so the current length stays.' : '';
+      return { actions, reply: `Comparing ${a.name} and ${b.name}${days ? ` over ${days} days` : ''}.${unsupported}` };
     },
   },
   {
@@ -107,16 +109,18 @@ export const INTENTS: Intent[] = [
     name: 'load',
     pattern: /^set (?:the )?load to (\d+(?:\.\d+)?) ?w(?:atts?)?$/i,
     build(m) {
-      const loadW = Number(m[1]);
-      return { actions: [{ type: 'set_power', patch: { loadW } }], reply: `Load set to ${loadW} W.` };
+      const asked = Number(m[1]);
+      const loadW = clampTo(POWER_RANGES.loadW, asked);
+      return { actions: [{ type: 'set_power', patch: { loadW } }], reply: loadW === asked ? `Load set to ${loadW} W.` : `Load set to ${loadW} W, the ${asked > loadW ? 'highest' : 'lowest'} the planner allows.` };
     },
   },
   {
     name: 'battery',
     pattern: /^set (?:the )?battery to (\d+(?:\.\d+)?) ?wh$/i,
     build(m) {
-      const batteryWh = Number(m[1]);
-      return { actions: [{ type: 'set_power', patch: { batteryWh } }], reply: `Battery set to ${batteryWh} Wh.` };
+      const asked = Number(m[1]);
+      const batteryWh = clampTo(POWER_RANGES.batteryWh, asked);
+      return { actions: [{ type: 'set_power', patch: { batteryWh } }], reply: batteryWh === asked ? `Battery set to ${batteryWh} Wh.` : `Battery set to ${batteryWh} Wh, the ${asked > batteryWh ? 'largest' : 'smallest'} the planner allows.` };
     },
   },
   {
@@ -131,8 +135,9 @@ export const INTENTS: Intent[] = [
     name: 'mast',
     pattern: /^(?:set |raise |lower )?(?:the )?mast(?: height)? to (\d+(?:\.\d+)?) ?m(?:etres?|eters?)?$/i,
     build(m) {
-      const mastM = Number(m[1]);
-      return { actions: [{ type: 'set_params', patch: { mastM } }], reply: `Mast set to ${mastM} m; the skyline is recomputed from that height.` };
+      const asked = Number(m[1]);
+      const mastM = clampTo(PARAM_RANGES.mastM, asked);
+      return { actions: [{ type: 'set_params', patch: { mastM } }], reply: `Mast set to ${mastM} m${mastM === asked ? '' : `, the ${asked > mastM ? 'highest' : 'lowest'} the planner allows`}; the skyline is recomputed from that height.` };
     },
   },
   {
@@ -145,7 +150,7 @@ export const INTENTS: Intent[] = [
   },
   {
     name: 'open_page',
-    pattern: /^open (?:the )?(explore|compare|validate|brief|learn)(?: page| view)?$/i,
+    pattern: /^(?:open|go to|take me to|show me|show|switch to) (?:the )?(explore|compare|validate|brief|learn)(?: page| view)?$/i,
     build(m) {
       const page = m[1].toLowerCase() as Page;
       return { actions: [{ type: 'open_page', page }], reply: `Opening ${page}.` };
