@@ -6,7 +6,7 @@ from lunar_pipeline.cli import build_parser
 def test_cli_has_all_subcommands():
     parser = build_parser()
     for cmd in [
-        "fetch", "ephemeris", "tiles", "sites-derive", "masks", "horizons-fetch", "horizons-compare",
+        "fetch", "ephemeris", "tiles", "terrain", "sites-derive", "masks", "horizons-fetch", "horizons-compare",
         "report", "fixture-time", "fixture-metrics", "sync-local",
     ]:
         args = parser.parse_args([cmd] + (["--site", "x"] if cmd in ("report", "fixture-metrics") else []))

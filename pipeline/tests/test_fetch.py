@@ -68,7 +68,7 @@ def test_manifest_lists_required_files():
         "lpsr_85s_060m_201608.img",
     ]:
         assert required in names
-    assert {a.group for a in assets()} == {"kernels", "lola", "illumination"}
+    assert {a.group for a in assets()} == {"kernels", "lola", "illumination", "textures"}
 
 
 def test_lola_and_illumination_come_from_the_lola_data_node():

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { loadEphemeris, type EphemerisHeader } from '../engine/ephemeris';
 import { createExploreStore, recompute } from './explore';
-import { readBytes, readJson } from '../engine/__tests__/helpers';
+import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
 import type { Site } from '../data/loaders';
+import { decodeHeightmap, type HeightmapMeta, type TerrainManifest } from '../data/terrain';
 
 const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
 const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
@@ -142,5 +143,164 @@ describe('explore store', () => {
     expect(store.getState().siteId).toBe('custom');
     expect(store.getState().summary?.illumFraction).toBeGreaterThan(0);
     expect(store.getState().maskMeta?.failedTiles).toBe(2);
+  });
+});
+
+describe('explore store terrain (Week 3)', () => {
+  const terrainPresent = hasFile('web', 'public', 'data', 'terrain', 'manifest.json');
+  const terrainLoaders = () => ({
+    ...fileLoaders(),
+    loadTerrainManifest: async () => readJson<TerrainManifest>('web', 'public', 'data', 'terrain', 'manifest.json'),
+    loadHeightmap: async (file: string, metaFile: string) => {
+      const meta = readJson<HeightmapMeta>('web', 'public', 'data', 'terrain', metaFile);
+      const bytes = readBytes('web', 'public', 'data', 'terrain', file);
+      return { meta, heightsM: await decodeHeightmap(bytes, meta) };
+    },
+  });
+
+  it('defaults to terrain mode with 1x exaggeration and toggles both', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    expect(store.getState().mode).toBe('terrain');
+    expect(store.getState().exaggeration).toBe(1);
+    store.getState().setMode('globe');
+    store.getState().setExaggeration(3);
+    expect(store.getState().mode).toBe('globe');
+    expect(store.getState().exaggeration).toBe(3);
+  });
+
+  it('works without terrain loaders (heightmaps stay null)', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    expect(store.getState().heightmap).toBeNull();
+    expect(store.getState().capHeightmap).toBeNull();
+  });
+
+  it.skipIf(!terrainPresent)('selectSite loads the terrain window when listed', async () => {
+    const store = createExploreStore(terrainLoaders());
+    await store.getState().init();
+    await store.getState().selectSite('shackleton_center');
+    await store.getState().waitForTerrain();
+    const s = store.getState();
+    expect(s.heightmap?.meta.site_id).toBe('shackleton_center');
+    expect(s.heightmap?.heightsM.length).toBe(1024 * 1024);
+    expect(s.capHeightmap?.meta.kind).toBe('cap');
+  });
+
+  it('terrainState is unavailable without terrain loaders or when the manifest fails', async () => {
+    const none = createExploreStore(fileLoaders());
+    await none.getState().init();
+    expect(none.getState().terrainState).toBe('unavailable');
+    const failing = createExploreStore({
+      ...fileLoaders(),
+      loadTerrainManifest: async () => {
+        throw new Error('HTTP 404');
+      },
+      loadHeightmap: async () => {
+        throw new Error('unreachable');
+      },
+    });
+    await failing.getState().init();
+    await failing.getState().waitForTerrain();
+    expect(failing.getState().terrainState).toBe('unavailable');
+  });
+
+  it.skipIf(!terrainPresent)('terrainState goes loading then ready; windowLoading tracks the site window fetch', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    let release2!: () => void;
+    const gate2 = new Promise<void>((r) => {
+      release2 = r;
+    });
+    const real = terrainLoaders();
+    const store = createExploreStore({
+      ...real,
+      loadHeightmap: async (file, metaFile) => {
+        await (file.endsWith('shackleton_center.u16') ? gate2 : gate);
+        return real.loadHeightmap(file, metaFile);
+      },
+    });
+    await store.getState().init();
+    expect(store.getState().terrainState).toBe('loading');
+    release();
+    await store.getState().waitForTerrain();
+    expect(store.getState().terrainState).toBe('ready');
+    expect(store.getState().windowLoading).toBe(false);
+    expect(store.getState().heightmap?.meta.site_id).toBe(store.getState().siteId);
+    // A second, uncached window: loading flips on for the fetch and off when it lands.
+    await store.getState().selectSite('shackleton_center');
+    expect(store.getState().windowLoading).toBe(true);
+    release2();
+    await store.getState().waitForTerrain();
+    expect(store.getState().windowLoading).toBe(false);
+    expect(store.getState().heightmap?.meta.site_id).toBe('shackleton_center');
+  });
+
+  it.skipIf(!terrainPresent)('windowLoading clears when a custom site replaces a selection whose window is still loading', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const real = terrainLoaders();
+    const store = createExploreStore({
+      ...real,
+      loadHeightmap: async (file, metaFile) => {
+        if (file.endsWith('shackleton_center.u16')) await gate;
+        return real.loadHeightmap(file, metaFile);
+      },
+    });
+    await store.getState().init();
+    await store.getState().waitForTerrain();
+    await store.getState().selectSite('shackleton_center');
+    expect(store.getState().windowLoading).toBe(true);
+    store.getState().applyMask(custom, new Float64Array(720), { siteHeightM: 0, source: 'computed', failedTiles: 0 });
+    expect(store.getState().windowLoading).toBe(false);
+    release();
+    await store.getState().waitForTerrain();
+    await new Promise((r) => setTimeout(r, 20));
+    const s = store.getState();
+    expect(s.siteId).toBe(custom.id);
+    expect(s.heightmap).toBeNull();
+    expect(s.windowLoading).toBe(false);
+  });
+
+  it.skipIf(!terrainPresent)('windowLoading clears when returning to a cached window while another fetch is in flight', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const real = terrainLoaders();
+    const store = createExploreStore({
+      ...real,
+      loadHeightmap: async (file, metaFile) => {
+        if (file.endsWith('shackleton_center.u16')) await gate;
+        return real.loadHeightmap(file, metaFile);
+      },
+    });
+    await store.getState().init();
+    await store.getState().waitForTerrain();
+    const first = store.getState().siteId!;
+    await store.getState().selectSite('shackleton_center');
+    expect(store.getState().windowLoading).toBe(true);
+    await store.getState().selectSite(first);
+    expect(store.getState().windowLoading).toBe(false);
+    expect(store.getState().heightmap?.meta.site_id).toBe(first);
+    release();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.getState().heightmap?.meta.site_id).toBe(first);
+    expect(store.getState().windowLoading).toBe(false);
+  });
+
+  it.skipIf(!terrainPresent)('custom site without a window falls back to the cap', async () => {
+    const store = createExploreStore(terrainLoaders());
+    await store.getState().init();
+    store.getState().applyMask(custom, new Float64Array(720).fill(0), { siteHeightM: 0, source: 'computed', failedTiles: 0 });
+    await store.getState().waitForTerrain();
+    const s = store.getState();
+    expect(s.siteId).toBe(custom.id);
+    expect(s.heightmap).toBeNull();
+    expect(s.capHeightmap?.meta.kind).toBe('cap');
   });
 });

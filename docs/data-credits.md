@@ -7,5 +7,6 @@
 | LOLA Lunar Polar Illumination maps `avgvisib_85s_060m_201608` (+ `_earth`), `lpsr_85s_060m_201608` | Independent check of our illumination and Earth-visibility numbers; overlay layers | https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/extras/illumination/ | Mazarico et al. 2011, Icarus 211, 1066–1081 |
 | JPL Horizons API (observer on the lunar surface) | Cross-check of Sun and Earth azimuth/elevation | https://ssd-api.jpl.nasa.gov/doc/horizons.html | Giorgini et al. 1996 |
 | CLPS landing coordinates (IM-1, IM-2, Blue Ghost M1) | Featured sites and mission backcasts | NASA / provider press releases, LROC | — |
+| NASA SVS CGI Moon Kit `lroc_color_2k.jpg` (LRO LROC WAC colour mosaic, 2K equirectangular, longitude 0 at the centre) | Globe texture in the 3D view | https://svs.gsfc.nasa.gov/4720 (file: https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg) | NASA's Scientific Visualization Studio; LRO LROC WAC (Arizona State University) |
 
 Method reference for horizon masks: Barker et al. 2021, Planet. Space Sci. 203, 105119 (nested-grid horizon computation).

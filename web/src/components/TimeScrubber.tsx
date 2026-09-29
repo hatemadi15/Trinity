@@ -1,19 +1,7 @@
 'use client';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { utcLabel } from '@/lib/viz/format';
-
-const REDUCED = '(prefers-reduced-motion: reduce)';
-
-function subscribeReducedMotion(onChange: () => void): () => void {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return () => {};
-  const mq = window.matchMedia(REDUCED);
-  mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
-}
-
-function readReducedMotion(): boolean {
-  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(REDUCED).matches;
-}
 
 export function TimeScrubber({
   startUtc,
@@ -27,7 +15,7 @@ export function TimeScrubber({
   onCursor: (hour: number) => void;
 }) {
   const [playing, setPlaying] = useState(false);
-  const reduced = useSyncExternalStore(subscribeReducedMotion, readReducedMotion, () => false);
+  const reduced = useReducedMotion();
   const cursorRef = useRef(cursor);
 
   useEffect(() => {
