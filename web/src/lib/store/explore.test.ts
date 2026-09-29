@@ -187,6 +187,57 @@ describe('explore store terrain (Week 3)', () => {
     expect(s.capHeightmap?.meta.kind).toBe('cap');
   });
 
+  it('terrainState is unavailable without terrain loaders or when the manifest fails', async () => {
+    const none = createExploreStore(fileLoaders());
+    await none.getState().init();
+    expect(none.getState().terrainState).toBe('unavailable');
+    const failing = createExploreStore({
+      ...fileLoaders(),
+      loadTerrainManifest: async () => {
+        throw new Error('HTTP 404');
+      },
+      loadHeightmap: async () => {
+        throw new Error('unreachable');
+      },
+    });
+    await failing.getState().init();
+    await failing.getState().waitForTerrain();
+    expect(failing.getState().terrainState).toBe('unavailable');
+  });
+
+  it.skipIf(!terrainPresent)('terrainState goes loading then ready; windowLoading tracks the site window fetch', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    let release2!: () => void;
+    const gate2 = new Promise<void>((r) => {
+      release2 = r;
+    });
+    const real = terrainLoaders();
+    const store = createExploreStore({
+      ...real,
+      loadHeightmap: async (file, metaFile) => {
+        await (file.endsWith('shackleton_center.u16') ? gate2 : gate);
+        return real.loadHeightmap(file, metaFile);
+      },
+    });
+    await store.getState().init();
+    expect(store.getState().terrainState).toBe('loading');
+    release();
+    await store.getState().waitForTerrain();
+    expect(store.getState().terrainState).toBe('ready');
+    expect(store.getState().windowLoading).toBe(false);
+    expect(store.getState().heightmap?.meta.site_id).toBe(store.getState().siteId);
+    // A second, uncached window: loading flips on for the fetch and off when it lands.
+    await store.getState().selectSite('shackleton_center');
+    expect(store.getState().windowLoading).toBe(true);
+    release2();
+    await store.getState().waitForTerrain();
+    expect(store.getState().windowLoading).toBe(false);
+    expect(store.getState().heightmap?.meta.site_id).toBe('shackleton_center');
+  });
+
   it.skipIf(!terrainPresent)('custom site without a window falls back to the cap', async () => {
     const store = createExploreStore(terrainLoaders());
     await store.getState().init();

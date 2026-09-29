@@ -14,7 +14,7 @@ export function Scene3DCanvas(props: Scene3DProps) {
   const textureUrl = props.textureUrl ?? '/data/terrain/lroc_color_2k.jpg';
   return (
     <Canvas
-      shadows
+      shadows="percentage"
       dpr={[1, 1.5]}
       camera={{ fov: 40, near: 0.01, far: 400, position: [0, -2, 3] }}
       gl={{ antialias: true }}

@@ -9,6 +9,12 @@ export interface TerrainGeometryOptions {
   relativeTo?: number;
   /** Raster pixel placed at the origin (x = z = 0); defaults to the raster centre ((width - 1) / 2, (height - 1) / 2). */
   centerOn?: { col: number; row: number };
+  /**
+   * Half-extent, in raster pixels around `centerOn`, of a square hole: quads whose four corners all
+   * lie inside or on the square are left out of the index buffer (vertices stay). Used to cut the
+   * coarse context mesh away under a detailed window.
+   */
+  hole?: { halfCols: number; halfRows: number };
 }
 
 export interface TerrainGeometry {
@@ -16,7 +22,7 @@ export interface TerrainGeometry {
   positions: Float32Array;
   /** Unit normals from central differences of the resampled height grid. */
   normals: Float32Array;
-  /** segments^2 quads x 2 triangles, counter-clockwise seen from +y. */
+  /** Up to segments^2 quads x 2 triangles (fewer with a hole), counter-clockwise seen from +y. */
   indices: Uint32Array;
   /** u = 0..1 west to east, v = 1 at the north row (flipY textures put image row 0 at v = 1). */
   uv: Float32Array;
@@ -94,15 +100,26 @@ export function buildTerrainGeometry(hm: Heightmap, opts: TerrainGeometryOptions
   }
 
   // Quad (i, j): a = north-west, b = north-east, c = south-west, d = south-east; (a, c, b) and (b, c, d) face +y.
-  const indices = new Uint32Array(segments * segments * 6);
+  const hole = opts.hole;
+  const inHole = (i: number, j: number): boolean => {
+    if (!hole) return false;
+    const c0 = i * colStep, c1 = (i + 1) * colStep, r0 = j * rowStep, r1 = (j + 1) * rowStep;
+    return (
+      Math.max(Math.abs(c0 - centreCol), Math.abs(c1 - centreCol)) <= hole.halfCols &&
+      Math.max(Math.abs(r0 - centreRow), Math.abs(r1 - centreRow)) <= hole.halfRows
+    );
+  };
+  const all = new Uint32Array(segments * segments * 6);
   let p = 0;
   for (let j = 0; j < segments; j++) {
     for (let i = 0; i < segments; i++) {
+      if (inHole(i, j)) continue;
       const a = j * side + i, b = a + 1, c = a + side, d = c + 1;
-      indices[p++] = a; indices[p++] = c; indices[p++] = b;
-      indices[p++] = b; indices[p++] = c; indices[p++] = d;
+      all[p++] = a; all[p++] = c; all[p++] = b;
+      all[p++] = b; all[p++] = c; all[p++] = d;
     }
   }
+  const indices = p === all.length ? all : all.slice(0, p);
 
   return { positions, normals, indices, uv, sizeKm: Math.max(width - 1, height - 1) * kmPerPx };
 }

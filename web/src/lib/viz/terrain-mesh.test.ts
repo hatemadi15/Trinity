@@ -106,3 +106,34 @@ describe('buildTerrainGeometry', () => {
     expect(g.indices.length).toBe(256 * 256 * 6);
   });
 });
+
+describe('buildTerrainGeometry hole', () => {
+  /** 5x5 raster, 1000 m cells, flat, site at the centre pixel (2, 2). */
+  function flat5(): Heightmap {
+    const meta: HeightmapMeta = {
+      site_id: 'flat', lat: -90, lon: 0, kind: 'cap', source: 'synthetic', level: 'L2', cell_m: 1000,
+      width: 5, height: 5, row0: 0, col0: 0, min_m: 0, max_m: 0, scale_m_per_unit: 1,
+      site_height_m: 0, line_offset_px: 2, sample_offset_px: 2, site_row_px: 2, site_col_px: 2, fill_source: null,
+    };
+    return { meta, heightsM: new Float32Array(25) };
+  }
+
+  it('skips every quad whose four corners lie inside the hole around centerOn', () => {
+    const g = buildTerrainGeometry(flat5(), { segments: 4, centerOn: { col: 2, row: 2 }, hole: { halfCols: 1, halfRows: 1 } });
+    // 16 quads; the 4 quads touching the centre pixel (cols 1..3, rows 1..3) are dropped.
+    expect(g.indices.length).toBe((16 - 4) * 6);
+    expect(g.positions.length).toBe(25 * 3);
+    const centre = 2 * 5 + 2;
+    expect(Array.from(g.indices)).not.toContain(centre);
+  });
+
+  it('keeps quads that only touch the hole boundary', () => {
+    const g = buildTerrainGeometry(flat5(), { segments: 4, centerOn: { col: 2, row: 2 }, hole: { halfCols: 0.5, halfRows: 0.5 } });
+    expect(g.indices.length).toBe(16 * 6);
+  });
+
+  it('a hole larger than the raster removes every quad', () => {
+    const g = buildTerrainGeometry(flat5(), { segments: 4, centerOn: { col: 2, row: 2 }, hole: { halfCols: 10, halfRows: 10 } });
+    expect(g.indices.length).toBe(0);
+  });
+});

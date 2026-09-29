@@ -1,7 +1,7 @@
 'use client';
-import { Html } from '@react-three/drei';
 import type { SceneState } from '@/lib/viz/scene-state';
 import type { SceneMode } from './cameraPresets';
+import { TextSprite } from './TextSprite';
 
 /**
  * Directional Sun light plus Sun and Earth markers. In globe mode directions are in the Moon
@@ -11,7 +11,7 @@ export function SunAndEarth({ scene, mode }: { scene: SceneState; mode: SceneMod
   const sun = mode === 'globe' ? scene.sunDirMoon : scene.sunDirLocal;
   const earth = mode === 'globe' ? scene.earthDirMoon : scene.earthDirLocal;
   const k = mode === 'globe' ? 1 : 60;
-  const intensity = mode === 'globe' ? 2.4 : 2.4 * scene.light.intensity;
+  const intensity = mode === 'globe' ? 2.4 : 2.2 * scene.light.intensity;
   const castShadow = mode === 'terrain' && scene.light.castShadow;
   const at = (d: [number, number, number], r: number): [number, number, number] => [d[0] * r, d[1] * r, d[2] * r];
   return (
@@ -34,13 +34,13 @@ export function SunAndEarth({ scene, mode }: { scene: SceneState; mode: SceneMod
         <sphereGeometry args={[0.06 * k, 16, 16]} />
         <meshBasicMaterial color="#f2b134" />
       </mesh>
-      <mesh position={at(earth, 6 * k)}>
-        <sphereGeometry args={[0.12 * k, 24, 24]} />
-        <meshStandardMaterial color="#3987e5" emissive="#123a6e" roughness={0.8} />
-        <Html center distanceFactor={mode === 'globe' ? 4 : 240} style={{ pointerEvents: 'none' }}>
-          <span className="rounded bg-black/60 px-1 text-xs text-ink">Earth</span>
-        </Html>
-      </mesh>
+      <group position={at(earth, 6 * k)}>
+        <mesh>
+          <sphereGeometry args={[0.12 * k, 24, 24]} />
+          <meshStandardMaterial color="#3987e5" emissive="#123a6e" roughness={0.8} />
+        </mesh>
+        <TextSprite text="Earth" position={[0, 0.3 * k, 0]} height={0.24 * k} />
+      </group>
     </group>
   );
 }

@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
 import { SiteSelect } from './SiteSelect';
@@ -8,17 +8,22 @@ import { SummaryTiles } from './SummaryTiles';
 import { Timeline } from './Timeline';
 import { TimeScrubber } from './TimeScrubber';
 import { WindowControls } from './WindowControls';
+import { Scene3DLazy } from './three';
 import { dataBase } from '@/lib/data/loaders';
 import { EngineClient } from '@/lib/engine-client';
 import { maskAtAzimuth, type Series } from '@/lib/engine/metrics';
-import { exploreStore, type ExploreState } from '@/lib/store/explore';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
+import { exploreStore, type Exaggeration, type ExploreState, type SceneMode } from '@/lib/store/explore';
 import { utcLabel } from '@/lib/viz/format';
+import { checkPick } from '@/lib/viz/pick';
+import { sceneStateAt } from '@/lib/viz/scene-state';
 
 export function ExploreView({ store = exploreStore }: { store?: StoreApi<ExploreState> }) {
   const s = useStore(store);
   const [busy, setBusy] = useState(false);
   const [hoverHour, setHoverHour] = useState<number | null>(null);
   const client = useRef<EngineClient | null>(null);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     void store.getState().init();
@@ -34,8 +39,8 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
         const res = await client.current.computeMask(lat, lon);
         store.getState().applyMask(
           {
-            id: `custom_${lat}_${lon}`,
-            name: `Custom ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`,
+            id: `custom_${lat.toFixed(4)}_${lon.toFixed(4)}`,
+            name: `Custom site ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`,
             lat,
             lon,
             category: 'custom',
@@ -54,6 +59,23 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
     [store],
   );
 
+  const onPick = useCallback(
+    (lat: number, lon: number) => {
+      const r = checkPick(lat, lon);
+      if (!r.ok) {
+        store.getState().setCustomError(r.message);
+        return;
+      }
+      void onCustom(r.lat, r.lon);
+    },
+    [onCustom, store],
+  );
+
+  const scene = useMemo(
+    () => (s.eph && s.series && s.mask ? sceneStateAt(s.eph, s.series, s.mask, s.cursorHour) : null),
+    [s.eph, s.series, s.mask, s.cursorHour],
+  );
+
   if (s.status === 'loading' || s.status === 'idle') {
     return (
       <AppFrame>
@@ -61,7 +83,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
       </AppFrame>
     );
   }
-  if (s.status === 'error' || !s.series || !s.summary || !s.mask) {
+  if (s.status === 'error' || !s.series || !s.summary || !s.mask || !s.site || !scene) {
     const missing = /HTTP 404/.test(s.error ?? '');
     return (
       <AppFrame>
@@ -101,28 +123,57 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
             {s.error}
           </p>
         )}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(280px,2fr)]">
-          <section aria-label="Sky dome" className="rounded-md bg-panel p-4">
-            <h1 className="font-display text-2xl font-semibold">{s.site?.name}</h1>
-            <p className="text-sm text-ink-2">
-              {s.site?.lat.toFixed(3)}°, {s.site?.lon.toFixed(3)}°; skyline from LOLA{' '}
-              {s.maskMeta?.source === 'computed' ? 'computed in your browser' : 'precomputed'}; site height{' '}
-              {s.maskMeta?.siteHeightM.toFixed(0)} m
-            </p>
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(300px,2fr)]">
+          <section aria-label="3D view" className="flex flex-col gap-2 rounded-md bg-panel p-4">
+            <div>
+              <h1 className="font-display text-2xl font-semibold">{s.site.name}</h1>
+              <p className="text-sm text-ink-2">
+                {s.site.lat.toFixed(3)}°, {s.site.lon.toFixed(3)}°; skyline from LOLA{' '}
+                {s.maskMeta?.source === 'computed' ? 'computed in your browser' : 'precomputed'}; site height{' '}
+                {s.maskMeta?.siteHeightM.toFixed(0)} m
+              </p>
+            </div>
+            <ModeControls
+              mode={s.mode}
+              exaggeration={s.exaggeration}
+              onMode={s.setMode}
+              onExaggeration={s.setExaggeration}
+            />
+            {s.mode === 'globe' && s.customError && (
+              <p role="alert" className="text-sm text-bad">
+                {s.customError}. Custom sites need LOLA coverage south of 60°S.
+              </p>
+            )}
             {s.maskMeta && s.maskMeta.failedTiles > 0 && (
               <p className="text-sm text-warn">
                 {s.maskMeta.failedTiles} terrain tiles could not be loaded; parts of this skyline may be missing.
               </p>
             )}
-            <div className="mx-auto mt-2 max-w-[500px]">
-              <SkyDome mask={s.mask} series={s.series} cursor={s.cursorHour} />
+            <div className="min-h-[440px] flex-1 overflow-hidden rounded-md bg-sky">
+              <Scene3DLazy
+                mode={s.mode}
+                scene={scene}
+                site={s.site}
+                sites={s.sites}
+                heightmap={s.heightmap}
+                capHeightmap={s.capHeightmap}
+                exaggeration={s.exaggeration}
+                onPick={onPick}
+                reducedMotion={reducedMotion}
+              />
             </div>
-            <p className="mt-1 text-center text-xs text-ink-3">
-              Outer half of the disc magnifies −10° to +10° around the horizon.
-            </p>
+            <p className="text-xs text-ink-3">{sceneCaption(s)}</p>
           </section>
-          <aside className="rounded-md bg-panel p-4">
-            <SummaryTiles summary={s.summary} />
+          <aside className="flex flex-col gap-4">
+            <section aria-label="Sky dome" className="rounded-md bg-panel p-3">
+              <div className="mx-auto max-w-[320px]">
+                <SkyDome mask={s.mask} series={s.series} cursor={s.cursorHour} />
+              </div>
+              <p className="mt-1 text-center text-xs text-ink-3">Outer half of the disc magnifies −10° to +10°.</p>
+            </section>
+            <section className="rounded-md bg-panel p-4">
+              <SummaryTiles summary={s.summary} />
+            </section>
           </aside>
         </div>
         <section aria-label="Timeline" className="flex flex-col gap-3 rounded-md bg-panel p-4">
@@ -140,6 +191,54 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
         </section>
       </main>
     </AppFrame>
+  );
+}
+
+function sceneCaption(s: ExploreState): string {
+  if (s.mode === 'globe') return 'Pick a site on the globe: click anywhere south of 60°S. Drag to orbit, scroll to zoom.';
+  if (s.heightmap) {
+    const { cell_m, width } = s.heightmap.meta;
+    return `LOLA ${cell_m} m terrain, ${(width * cell_m) / 1000} km across; drag to orbit, scroll to zoom. Shadows follow the time cursor.`;
+  }
+  if (s.terrainState === 'loading' || s.windowLoading) return 'Loading terrain…';
+  if (s.capHeightmap) return 'No 20 m window for this site; showing the 960 m south-cap model, 48 km across. Shadows follow the time cursor.';
+  return 'Terrain data is not loaded; run sync-local --tiles to add it.';
+}
+
+function ModeControls({
+  mode,
+  exaggeration,
+  onMode,
+  onExaggeration,
+}: {
+  mode: SceneMode;
+  exaggeration: Exaggeration;
+  onMode: (m: SceneMode) => void;
+  onExaggeration: (x: Exaggeration) => void;
+}) {
+  const btn = (active: boolean) =>
+    `rounded-md border px-3 py-1 text-sm ${active ? 'border-sun bg-panel text-ink' : 'border-line text-ink-2 hover:text-ink'}`;
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div role="group" aria-label="View" className="flex gap-1">
+        <button type="button" className={btn(mode === 'terrain')} aria-pressed={mode === 'terrain'} onClick={() => onMode('terrain')}>
+          Terrain
+        </button>
+        <button type="button" className={btn(mode === 'globe')} aria-pressed={mode === 'globe'} onClick={() => onMode('globe')}>
+          Globe
+        </button>
+      </div>
+      {mode === 'terrain' && (
+        <div role="group" aria-label="Vertical exaggeration" className="flex gap-1">
+          <button type="button" className={btn(exaggeration === 1)} aria-pressed={exaggeration === 1} onClick={() => onExaggeration(1)}>
+            1×
+          </button>
+          <button type="button" className={btn(exaggeration === 3)} aria-pressed={exaggeration === 3} onClick={() => onExaggeration(3)}>
+            3× height
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { DataError, type Site } from '@/lib/data/loaders';
+import type { Heightmap, HeightmapMeta } from '@/lib/data/terrain';
 import { loadEphemeris, type EphemerisHeader } from '@/lib/engine/ephemeris';
 import { readBytes, readJson } from '@/lib/engine/__tests__/helpers';
 import { ExploreView } from './ExploreView';
@@ -42,6 +43,9 @@ describe('ExploreView', () => {
     render(<ExploreView store={store} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Shackleton/));
     expect(screen.getByText('Sun above the skyline')).toBeTruthy();
+    // jsdom has no WebGL: the 3D panel shows its fallback, proving the scene mounted with the site.
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/3D view is not available/));
+    expect(screen.getByRole('button', { name: 'Globe' })).toBeTruthy();
     expect(screen.getByTestId('readout').textContent).toMatch(/2027-01-01 00:00 UTC: Sun .* the skyline/);
     store.getState().applyMask(
       { id: 'custom', name: 'Custom', lat: -89.5, lon: 1, category: 'custom', polar: true, source: 'user' },
@@ -49,5 +53,45 @@ describe('ExploreView', () => {
       { siteHeightM: 0, source: 'computed', failedTiles: 3 },
     );
     await waitFor(() => expect(screen.getByText(/3 terrain tiles could not be loaded/)).toBeTruthy());
+    expect(screen.getByText(/Terrain data is not loaded/)).toBeTruthy();
+  });
+
+  it('captions the terrain while it loads, then the cap fallback, and shows a refused globe pick', async () => {
+    const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
+    const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
+    const sites = readJson<{ sites: Site[] }>('data', 'sites.json').sites;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const capMeta: HeightmapMeta = {
+      site_id: 'south_cap', lat: -90, lon: 0, kind: 'cap', source: 'synthetic', level: 'L2', cell_m: 960,
+      width: 5, height: 5, row0: 0, col0: 0, min_m: 0, max_m: 0, scale_m_per_unit: 1,
+      site_height_m: 0, line_offset_px: 2, sample_offset_px: 2, site_row_px: 2, site_col_px: 2, fill_source: null,
+    };
+    const store = createExploreStore({
+      loadSites: async () => sites,
+      loadEphemeris: async () => eph,
+      loadMask: async (id) => {
+        const m = readJson<{ elevation_deg: number[]; site_height_m: number }>('data', 'masks', `${id}.json`);
+        return { site_id: id, lat: 0, lon: 0, mast_m: 2, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
+      },
+      loadTerrainManifest: async () => ({ version: 1, windows: [], cap: { file: 'cap.u16', meta: 'cap.json' }, globe_texture: 'moon.jpg' }),
+      loadHeightmap: async (): Promise<Heightmap> => {
+        await gate;
+        return { meta: capMeta, heightsM: new Float32Array(25) };
+      },
+    });
+    render(<ExploreView store={store} />);
+    await waitFor(() => expect(screen.getByText('Loading terrain…')).toBeTruthy());
+    release();
+    await waitFor(() => expect(screen.getByText(/showing the 960 m south-cap model/)).toBeTruthy());
+    act(() => {
+      store.getState().setMode('globe');
+      store.getState().setCustomError('no DEM coverage north of 60S (lat 12.00)');
+    });
+    expect(screen.getByRole('alert').textContent).toBe(
+      'no DEM coverage north of 60S (lat 12.00). Custom sites need LOLA coverage south of 60°S.',
+    );
   });
 });

@@ -8,6 +8,8 @@ import { utcToEt } from '../engine/time';
 export const WINDOW_DAYS = [14, 30, 90] as const;
 export type WindowDays = (typeof WINDOW_DAYS)[number];
 export type SceneMode = 'globe' | 'terrain';
+/** Terrain extras: idle before init, loading until the cap lands, ready, or unavailable (no loaders or a failed fetch). */
+export type TerrainState = 'idle' | 'loading' | 'ready' | 'unavailable';
 export type Exaggeration = 1 | 3;
 export const DEFAULT_SITE = 'shackleton_center_rim_high';
 export const DEFAULT_START = '2027-01-01T00:00:00';
@@ -50,6 +52,9 @@ export interface ExploreState {
   summary: Summary | null;
   mode: SceneMode;
   exaggeration: Exaggeration;
+  terrainState: TerrainState;
+  /** True while the selected site's detailed window is being fetched (not cached yet). */
+  windowLoading: boolean;
   terrainManifest: TerrainManifest | null;
   /** Detailed heightmap window for the selected site (null for custom sites or without terrain data). */
   heightmap: Heightmap | null;
@@ -109,6 +114,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     summary: null,
     mode: 'terrain',
     exaggeration: 1,
+    terrainState: 'idle',
+    windowLoading: false,
     terrainManifest: null,
     heightmap: null,
     capHeightmap: null,
@@ -239,16 +246,20 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
 
   /** Terrain manifest and south cap are optional extras; failures leave the 3D view without terrain. */
   async function loadTerrain(): Promise<void> {
-    if (!loaders.loadTerrainManifest || !loaders.loadHeightmap) return;
+    if (!loaders.loadTerrainManifest || !loaders.loadHeightmap) {
+      store.setState({ terrainState: 'unavailable' });
+      return;
+    }
+    store.setState({ terrainState: 'loading' });
     try {
       const manifest = await loaders.loadTerrainManifest();
       store.setState({ terrainManifest: manifest });
       const cap = await loaders.loadHeightmap(manifest.cap.file, manifest.cap.meta);
-      store.setState({ capHeightmap: cap });
+      store.setState({ capHeightmap: cap, terrainState: 'ready' });
       const { siteId } = store.getState();
       if (siteId) await loadWindow(siteId);
     } catch {
-      store.setState({ terrainManifest: null, capHeightmap: null });
+      store.setState({ terrainManifest: null, capHeightmap: null, terrainState: 'unavailable' });
     }
   }
 
@@ -269,12 +280,15 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     const seq = ++windowSeq;
     let hm = windows.get(siteId);
     if (!hm) {
+      store.setState({ windowLoading: true });
       try {
         hm = await loaders.loadHeightmap(entry.file, entry.meta);
         windows.set(siteId, hm);
       } catch {
+        if (seq === windowSeq) store.setState({ windowLoading: false });
         return;
       }
+      if (seq === windowSeq) store.setState({ windowLoading: false });
     }
     if (seq === windowSeq && store.getState().siteId === siteId) store.setState({ heightmap: hm });
   }
