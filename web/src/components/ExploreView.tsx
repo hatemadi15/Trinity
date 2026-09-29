@@ -5,6 +5,7 @@ import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
 import { GuidedStory } from './GuidedStory';
 import { webglAvailable } from './three/Scene3D';
+import { PlannerChat } from './PlannerChat';
 import { PlannerParamsPanel } from './PlannerParamsPanel';
 import { SiteSelect } from './SiteSelect';
 import { SkyDome } from './SkyDome';
@@ -16,6 +17,7 @@ import { Scene3DLazy } from './three';
 import { dataBase } from '@/lib/data/loaders';
 import { globeTextureUrl } from '@/lib/data/terrain';
 import { maskAtAzimuth, type Series } from '@/lib/engine/metrics';
+import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { COMPARE_MAX, exploreStore, type Exaggeration, type ExploreState, type SceneMode } from '@/lib/store/explore';
 import { utcLabel } from '@/lib/viz/format';
@@ -27,6 +29,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
   const [hoverHour, setHoverHour] = useState<number | null>(null);
   const [webgl] = useState(() => webglAvailable());
   const reducedMotion = useReducedMotion();
+  useDemoMode(store);
 
   useEffect(() => {
     void store.getState().init();
@@ -99,6 +102,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
         </div>
         {s.audience === 'learn' && <GuidedStory webgl={webgl} />}
         <PlannerParamsPanel params={s.params} onParams={s.setParams} onPower={s.setPower} busy={s.maskBusy} />
+        <PlannerChat store={store} defaultOpen />
         {s.error && (
           <p role="status" className="text-sm text-warn">
             {s.error}

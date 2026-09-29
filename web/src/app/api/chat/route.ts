@@ -1,8 +1,8 @@
-import { validateActions, type Action } from '@/lib/ai/actions';
+import { describeDropped, validateActions } from '@/lib/ai/actions';
 import { cachedAnswer } from '@/lib/ai/cache';
 import { matchIntent } from '@/lib/ai/intents';
 import { askModel, modelsFromEnv, type ChatMessage } from '@/lib/ai/openrouter';
-import { parseModelReply, systemPrompt, userPrompt } from '@/lib/ai/protocol';
+import { parseModelReply, systemPrompt, userPrompt, type ChatReply } from '@/lib/ai/protocol';
 import { SlidingWindowLimiter } from '@/lib/ai/rate-limit';
 import type { StateSummary } from '@/lib/ai/state-summary';
 import catalogue from '@/lib/data/catalogue.json';
@@ -18,15 +18,6 @@ const SITE_IDS: ReadonlySet<string> = new Set(SITES.map((s) => s.id));
 const RETRY_NUDGE = 'Answer again with ONE JSON object only, in the form {"actions": [...], "reply": "..."} and no other text.';
 const NO_ANSWER =
   'I could not understand that. Try: "show me Nobile Rim 2", "compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "best 14-day window", "set the load to 300 W" or "explain the longest night".';
-
-export type ChatSource = 'model' | 'cache' | 'intent' | 'none';
-export interface ChatReply {
-  source: ChatSource;
-  model?: string;
-  actions: Action[];
-  reply: string;
-  dropped?: string[];
-}
 
 const limiter = new SlidingWindowLimiter(Number(process.env.AI_RATE_LIMIT_PER_MIN) || 30, 60_000);
 
@@ -59,13 +50,6 @@ async function parseBody(request: Request): Promise<Body | string> {
   return { prompt, state, mode: o.mode === 'cached' ? 'cached' : 'live' };
 }
 
-function describeDropped(dropped: string[]): string {
-  if (dropped.length === 0) return '';
-  const unknown = dropped.map((d) => d.match(/unknown site "([^"]+)"/)?.[1]).filter((x): x is string => Boolean(x));
-  if (unknown.length > 0) return ` I could not find ${unknown.map((u) => `"${u}"`).join(' or ')} in the catalogue, so that step was skipped.`;
-  return ` One step was skipped (${dropped[0]}).`;
-}
-
 async function fromModel(prompt: string, state: StateSummary | null, apiKey: string): Promise<ChatReply | null> {
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt(SITES) },
@@ -86,8 +70,8 @@ async function fromModel(prompt: string, state: StateSummary | null, apiKey: str
   }
   if (!parsed) return null;
   const { actions, dropped } = validateActions(parsed.actions, SITE_IDS);
-  const reply = (parsed.reply || (actions.length > 0 ? 'Done.' : NO_ANSWER)) + describeDropped(dropped);
-  return { source: 'model', model: first.model, actions, reply: reply.trim(), dropped };
+  const reply = [parsed.reply || (actions.length > 0 ? 'Done.' : NO_ANSWER), describeDropped(dropped)].filter(Boolean).join(' ');
+  return { source: 'model', model: first.model, actions, reply, dropped };
 }
 
 function fromIntent(prompt: string): ChatReply | null {

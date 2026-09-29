@@ -160,6 +160,14 @@ export function validateActions(input: unknown, siteIds: ReadonlySet<string>): {
   return { actions, dropped };
 }
 
+/** Plain words for the validator's `dropped` list, appended to a reply the user reads. */
+export function describeDropped(dropped: string[]): string {
+  if (dropped.length === 0) return '';
+  const unknown = dropped.map((d) => d.match(/unknown site "([^"]+)"/)?.[1]).filter((x): x is string => Boolean(x));
+  if (unknown.length > 0) return `I could not find ${unknown.map((u) => `"${u}"`).join(' or ')} in the catalogue, so that step was skipped.`;
+  return `One step was skipped (${dropped[0]}).`;
+}
+
 // ---- site matching ---------------------------------------------------------------------------
 
 /** Words that appear in many catalogue names and count for half a match; connectives count for nothing. */

@@ -1,5 +1,16 @@
-import { ACTION_TYPES } from './actions';
+import { ACTION_TYPES, type Action } from './actions';
 import type { StateSummary } from './state-summary';
+
+export type ChatSource = 'model' | 'cache' | 'intent' | 'none';
+
+/** What POST /api/chat returns and the planner strip consumes. */
+export interface ChatReply {
+  source: ChatSource;
+  model?: string;
+  actions: Action[];
+  reply: string;
+  dropped?: string[];
+}
 
 /** What the model is told about the app, the actions and the rules. Sites are listed so ids are never invented. */
 export function systemPrompt(sites: { id: string; name: string }[]): string {

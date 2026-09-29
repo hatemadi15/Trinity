@@ -13,6 +13,8 @@ export type WindowDays = (typeof WINDOW_DAYS)[number];
 export type SceneMode = 'globe' | 'terrain';
 /** Who is looking: planners see every number, Learn mode hides three tiles and adds a guided story. */
 export type Audience = 'planner' | 'learn';
+/** Where planner answers come from: the model when a key is set (live), or the rehearsed transcripts (?demo=1). */
+export type AiMode = 'live' | 'cached';
 export const AUDIENCE_KEY = 'earthrise.audience';
 /** Terrain extras: idle before init, loading until the cap lands, ready, or unavailable (no loaders or a failed fetch). */
 export type TerrainState = 'idle' | 'loading' | 'ready' | 'unavailable';
@@ -130,6 +132,8 @@ export interface ExploreState {
   setAudience: (audience: Audience) => void;
   /** Reads the stored choice after mount so server and first client render agree. */
   hydrateAudience: () => void;
+  aiMode: AiMode;
+  setAiMode: (mode: AiMode) => void;
 }
 
 export function recompute(
@@ -203,6 +207,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     maskBusy: false,
     bestWindowNote: null,
     audience: 'planner',
+    aiMode: process.env.NEXT_PUBLIC_AI_MODE === 'cached' ? 'cached' : 'live',
 
     async init() {
       if (get().eph) {
@@ -453,6 +458,10 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     hydrateAudience() {
       const stored = storedAudience();
       if (stored !== get().audience) set({ audience: stored });
+    },
+
+    setAiMode(mode) {
+      set({ aiMode: mode });
     },
 
     setAudience(audience) {
