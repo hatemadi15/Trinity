@@ -30,11 +30,38 @@ describe('ExploreView cockpit', () => {
     render(<ExploreView store={store} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
     expect(screen.queryByRole('region', { name: 'Planner settings' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Planner settings/ }));
+    const trigger = screen.getByRole('button', { name: /Planner settings/ });
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    const dialog = screen.getByRole('dialog', { name: 'Planner settings' });
+    expect(dialog.getAttribute('id')).toBe(trigger.getAttribute('aria-controls'));
     expect(screen.getByRole('region', { name: 'Planner settings' })).toBeTruthy();
-    expect(screen.getByLabelText('Load (W)')).toBeTruthy();
+    expect(dialog.contains(document.activeElement)).toBe(true); // focus moved in
     fireEvent.click(screen.getByRole('button', { name: 'Close settings' }));
-    expect(screen.queryByRole('region', { name: 'Planner settings' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Planner settings' })).toBeNull();
+    expect(document.activeElement).toBe(trigger); // and back out
+    fireEvent.click(trigger);
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'Planner settings' }), { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Planner settings' })).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('keeps the Learn story inside the 3D view as a card', async () => {
+    const store = storeWithFiles();
+    store.getState().setAudience('learn');
+    render(<ExploreView store={store} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
+    const story = screen.getByRole('region', { name: 'Guided story' });
+    expect(screen.getByRole('region', { name: '3D view' }).contains(story)).toBe(true);
+    store.getState().setAudience('planner');
+  });
+
+  it('states the planner assumptions under the verdict', async () => {
+    const store = storeWithFiles();
+    render(<ExploreView store={store} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
+    expect(screen.getByText(/4 m², 200 W load, 2000 Wh battery, Earth above 0°, mast 2 m/)).toBeTruthy();
   });
 
   it('keeps the site title inside the 3D view and the timeline in its own strip', async () => {

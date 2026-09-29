@@ -22,10 +22,13 @@ describe('landing page', () => {
 });
 
 describe('landing hero', () => {
-  it('opens on a real render of de Gerlache Rim 2 with the pitch line over it', () => {
+  it('opens on a real render of the Shackleton rim with the pitch line over it, all three frames eager', () => {
     render(<Home />);
     const hero = screen.getByRole('img', { name: /Shackleton crater rim/ });
     expect(hero.getAttribute('src')).toMatch(/hero/);
     expect(screen.getByTestId('hero').contains(screen.getByRole('heading', { level: 1 }))).toBe(true);
+    const frames = screen.getByTestId('hero').querySelectorAll('img');
+    expect(frames.length).toBe(3);
+    for (const f of frames) expect(f.getAttribute('loading')).not.toBe('lazy'); // the crossfade must never wait for a frame
   });
 });

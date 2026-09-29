@@ -39,14 +39,14 @@ export default function Home() {
               alt={i === 0 ? 'The Shackleton crater rim under a low Sun: 20 m LOLA terrain rendered by Earthrise, shadows cast by the computed Sun direction' : ''}
               aria-hidden={i === 0 ? undefined : true}
               fill
-              sizes="100vw"
-              priority={i === 0}
-              className={`hero-frame hero-frame-${i + 1} object-cover object-left`}
+              sizes="(min-width: 1152px) 1104px, 100vw"
+              priority
+              className={`hero-frame hero-frame-${i + 1} object-cover object-[35%_50%]`}
             />
           ))}
           <div className="absolute inset-x-0 bottom-0 p-4 md:p-8">
             <div className="glass max-w-xl rounded-md p-6">
-              <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight md:text-5xl">When is the Sun up, and can Earth hear you?</h1>
+              <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight md:text-[44px]">When is the Sun up, and can Earth hear you?</h1>
               <p className="mt-4 max-w-prose text-base text-ink-2 md:text-lg">
                 Earthrise compares lunar south-pole landing sites and dates in seconds: the terrain skyline from NASA LOLA, the Sun and Earth from the JPL
                 DE440 ephemeris, and the two numbers a lander lives or dies by, hours lit and hours with Earth in view.
@@ -73,9 +73,9 @@ export default function Home() {
           <ul className="grid gap-4 md:grid-cols-3">
             {STORIES.map((s) => (
               <li key={s.href}>
-                <Link href={s.href} aria-label={`Open in Explore: ${s.title}`} className="glass flex h-full flex-col gap-2 rounded-md p-5 hover:border-sun">
+                <Link href={s.href} aria-label={`Open in Explore: ${s.title}`} className="glass flex h-full flex-col gap-2 rounded-md p-5">
                   <p className="text-xs text-ink-3">{s.kicker}</p>
-                  <h3 className="font-display text-lg font-semibold leading-tight">{s.title}</h3>
+                  <h3 className="font-display text-xl font-semibold leading-tight">{s.title}</h3>
                   <p className="text-sm text-ink-2">{s.body}</p>
                   <p className="mt-auto pt-2 text-sm text-sun">Open in Explore</p>
                 </Link>
