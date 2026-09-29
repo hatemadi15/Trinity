@@ -125,3 +125,9 @@ export function latLonToPixel(meta: HeightmapGeo, latDeg: number, lonDeg: number
     row: meta.line_offset_px - y / meta.cell_m - meta.row0,
   };
 }
+
+/** URL of the globe colour map, or null without a manifest or when the pipeline recorded the texture as absent. */
+export function globeTextureUrl(base: string, manifest: TerrainManifest | null): string | null {
+  if (!manifest || manifest.globe_texture_present === false || !manifest.globe_texture) return null;
+  return `${base}/terrain/${manifest.globe_texture}`;
+}

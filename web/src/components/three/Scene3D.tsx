@@ -1,5 +1,5 @@
 'use client';
-import { lazy, Suspense, useState } from 'react';
+import { Component, lazy, Suspense, useCallback, useState, type ReactNode } from 'react';
 import type { Site } from '@/lib/data/loaders';
 import type { Heightmap } from '@/lib/data/terrain';
 import type { SceneState } from '@/lib/viz/scene-state';
@@ -14,8 +14,11 @@ export interface Scene3DProps {
   capHeightmap: Heightmap | null;
   exaggeration: 1 | 3;
   onPick?: (lat: number, lon: number) => void;
-  textureUrl?: string;
+  /** Globe colour map; null renders a plain sphere (texture not synced). */
+  textureUrl?: string | null;
   reducedMotion?: boolean;
+  /** Called by the canvas when the WebGL context is lost. */
+  onContextLost?: () => void;
 }
 
 const Scene3DCanvas = lazy(() => import('./Scene3DCanvas').then((m) => ({ default: m.Scene3DCanvas })));
@@ -31,21 +34,48 @@ export function webglAvailable(): boolean {
   }
 }
 
+function FallbackPanel({ siteName, reason }: { siteName: string; reason?: string }) {
+  return (
+    <div role="status" className="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 text-center text-ink-2">
+      <p className="text-ink">3D view is not available on this device.</p>
+      <p className="text-sm">
+        {siteName} is still shown in the sky-dome and the timeline; {reason ?? 'the 3D terrain needs WebGL.'}
+      </p>
+    </div>
+  );
+}
+
+/** Keeps a renderer or texture failure inside the 3D panel: the rest of Explore stays up. */
+export class SceneErrorBoundary extends Component<{ siteName: string; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown): void {
+    console.error('3D scene failed:', error);
+  }
+
+  render(): ReactNode {
+    if (this.state.failed) {
+      return <FallbackPanel siteName={this.props.siteName} reason="the 3D scene hit a rendering error." />;
+    }
+    return this.props.children;
+  }
+}
+
 export function Scene3D(props: Scene3DProps) {
   const [webgl] = useState(() => webglAvailable());
-  if (!webgl) {
-    return (
-      <div role="status" className="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 text-center text-ink-2">
-        <p className="text-ink">3D view is not available on this device.</p>
-        <p className="text-sm">
-          {props.site.name} is still shown in the sky-dome and the timeline; the 3D terrain needs WebGL.
-        </p>
-      </div>
-    );
-  }
+  const [lost, setLost] = useState(false);
+  const onContextLost = useCallback(() => setLost(true), []);
+  if (!webgl) return <FallbackPanel siteName={props.site.name} />;
+  if (lost) return <FallbackPanel siteName={props.site.name} reason="the graphics context was lost; reload the page to try again." />;
   return (
-    <Suspense fallback={<div className="flex h-full min-h-[320px] items-center justify-center text-ink-3">Loading 3D…</div>}>
-      <Scene3DCanvas {...props} />
-    </Suspense>
+    <SceneErrorBoundary siteName={props.site.name}>
+      <Suspense fallback={<div className="flex h-full min-h-[320px] items-center justify-center text-ink-3">Loading 3D…</div>}>
+        <Scene3DCanvas {...props} onContextLost={onContextLost} />
+      </Suspense>
+    </SceneErrorBoundary>
   );
 }

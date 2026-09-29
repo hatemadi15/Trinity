@@ -238,6 +238,61 @@ describe('explore store terrain (Week 3)', () => {
     expect(store.getState().heightmap?.meta.site_id).toBe('shackleton_center');
   });
 
+  it.skipIf(!terrainPresent)('windowLoading clears when a custom site replaces a selection whose window is still loading', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const real = terrainLoaders();
+    const store = createExploreStore({
+      ...real,
+      loadHeightmap: async (file, metaFile) => {
+        if (file.endsWith('shackleton_center.u16')) await gate;
+        return real.loadHeightmap(file, metaFile);
+      },
+    });
+    await store.getState().init();
+    await store.getState().waitForTerrain();
+    await store.getState().selectSite('shackleton_center');
+    expect(store.getState().windowLoading).toBe(true);
+    store.getState().applyMask(custom, new Float64Array(720), { siteHeightM: 0, source: 'computed', failedTiles: 0 });
+    expect(store.getState().windowLoading).toBe(false);
+    release();
+    await store.getState().waitForTerrain();
+    await new Promise((r) => setTimeout(r, 20));
+    const s = store.getState();
+    expect(s.siteId).toBe(custom.id);
+    expect(s.heightmap).toBeNull();
+    expect(s.windowLoading).toBe(false);
+  });
+
+  it.skipIf(!terrainPresent)('windowLoading clears when returning to a cached window while another fetch is in flight', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const real = terrainLoaders();
+    const store = createExploreStore({
+      ...real,
+      loadHeightmap: async (file, metaFile) => {
+        if (file.endsWith('shackleton_center.u16')) await gate;
+        return real.loadHeightmap(file, metaFile);
+      },
+    });
+    await store.getState().init();
+    await store.getState().waitForTerrain();
+    const first = store.getState().siteId!;
+    await store.getState().selectSite('shackleton_center');
+    expect(store.getState().windowLoading).toBe(true);
+    await store.getState().selectSite(first);
+    expect(store.getState().windowLoading).toBe(false);
+    expect(store.getState().heightmap?.meta.site_id).toBe(first);
+    release();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(store.getState().heightmap?.meta.site_id).toBe(first);
+    expect(store.getState().windowLoading).toBe(false);
+  });
+
   it.skipIf(!terrainPresent)('custom site without a window falls back to the cap', async () => {
     const store = createExploreStore(terrainLoaders());
     await store.getState().init();

@@ -7,7 +7,7 @@ import { cropHeightmap } from '@/lib/viz/terrain-crop';
 import { buildTerrainGeometry, heightAtPixel, type TerrainGeometry } from '@/lib/viz/terrain-mesh';
 
 /** Cap fallback window: ±25 px at 960 m = 48 km across, coarse but centred on the site. */
-const CAP_HALF_PX = 25;
+export const CAP_HALF_PX = 25;
 /** Context ring around a detailed window: ±60 px at 960 m = 116 km across. */
 const CONTEXT_HALF_PX = 60;
 /** The context mesh sits this far below the datum so the detailed window always wins where they overlap. */
@@ -33,6 +33,18 @@ export function contextHoleFor(window: Heightmap, cap: Heightmap): { halfCols: n
     halfCols: (((w.width - 1) / 2) * w.cell_m) / cap.meta.cell_m,
     halfRows: (((w.height - 1) / 2) * w.cell_m) / cap.meta.cell_m,
   };
+}
+
+/**
+ * Rotation about +y that turns the raster grid frame (+x = columns, +z = rows, so grid "up" points
+ * along the lon 0 meridian) into the site's east/north/up frame. On a south polar stereographic map
+ * true north at longitude λ is the radial direction (sin λ, cos λ) in map (x, y), so rotating the
+ * mesh by λ about the vertical sends true north to −z and true east to +x. The projection is
+ * conformal, so one rotation is exact for the whole window; the Sun light, Earth marker and camera
+ * presets all live in the east/north/up frame and need no change.
+ */
+export function gridToEnuRotationY(lonDeg: number): number {
+  return (lonDeg * Math.PI) / 180;
 }
 
 function toBufferGeometry(g: TerrainGeometry): BufferGeometry {
@@ -85,7 +97,7 @@ export function Terrain({
   }, [heightmap, capHeightmap, site, exaggeration]);
   if (!geometry) return null;
   return (
-    <group>
+    <group rotation={[0, gridToEnuRotationY(site.lon), 0]}>
       <mesh geometry={geometry} castShadow receiveShadow>
         <meshStandardMaterial color="#8a857c" roughness={1} metalness={0} />
       </mesh>

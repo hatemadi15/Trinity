@@ -2,7 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { SceneState } from '@/lib/viz/scene-state';
-import { Scene3D } from './Scene3D';
+import { Scene3D, SceneErrorBoundary } from './Scene3D';
 
 const scene: SceneState = {
   sunDirLocal: [0, 0.02, -1],
@@ -26,6 +26,19 @@ describe('Scene3D', () => {
       <Scene3D mode="globe" scene={scene} site={site} sites={[site]} heightmap={null} capHeightmap={null} exaggeration={1} />,
     );
     await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/3D view is not available/));
+    expect(screen.getByRole('status').textContent).toMatch(/Site A/);
+  });
+
+  it('shows the same fallback panel when the scene throws instead of blanking the page', () => {
+    const Boom = () => {
+      throw new Error('shader failed');
+    };
+    render(
+      <SceneErrorBoundary siteName="Site A">
+        <Boom />
+      </SceneErrorBoundary>,
+    );
+    expect(screen.getByRole('status').textContent).toMatch(/3D view is not available/);
     expect(screen.getByRole('status').textContent).toMatch(/Site A/);
   });
 });

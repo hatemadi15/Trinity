@@ -137,3 +137,17 @@ describe.skipIf(!present)('terrain loaders over HTTP', () => {
     await expect(loadHeightmap(base, 'nope.u16', 'nope.json')).rejects.toMatchObject({ name: 'DataError', status: 404 });
   });
 });
+
+describe('globeTextureUrl', () => {
+  const manifest = { version: 1, windows: [], cap: { file: 'c.u16', meta: 'c.json' }, globe_texture: 'lroc_color_2k.jpg' };
+  it('builds the texture URL from the manifest when the texture was synced', async () => {
+    const { globeTextureUrl } = await import('./terrain');
+    expect(globeTextureUrl('/data', manifest)).toBe('/data/terrain/lroc_color_2k.jpg');
+    expect(globeTextureUrl('/data', { ...manifest, globe_texture_present: true })).toBe('/data/terrain/lroc_color_2k.jpg');
+  });
+  it('returns null without a manifest or when the pipeline recorded the texture as absent', async () => {
+    const { globeTextureUrl } = await import('./terrain');
+    expect(globeTextureUrl('/data', null)).toBeNull();
+    expect(globeTextureUrl('/data', { ...manifest, globe_texture_present: false })).toBeNull();
+  });
+});

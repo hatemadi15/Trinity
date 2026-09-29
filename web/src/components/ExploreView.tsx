@@ -10,6 +10,7 @@ import { TimeScrubber } from './TimeScrubber';
 import { WindowControls } from './WindowControls';
 import { Scene3DLazy } from './three';
 import { dataBase } from '@/lib/data/loaders';
+import { globeTextureUrl } from '@/lib/data/terrain';
 import { EngineClient } from '@/lib/engine-client';
 import { maskAtAzimuth, type Series } from '@/lib/engine/metrics';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
@@ -158,6 +159,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
                 heightmap={s.heightmap}
                 capHeightmap={s.capHeightmap}
                 exaggeration={s.exaggeration}
+                textureUrl={globeTextureUrl(dataBase(), s.terrainManifest)}
                 onPick={onPick}
                 reducedMotion={reducedMotion}
               />

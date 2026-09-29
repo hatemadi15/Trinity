@@ -274,12 +274,15 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     if (!terrainManifest || !loaders.loadHeightmap) return;
     const entry = windowFileFor(terrainManifest, siteId);
     if (!entry) {
-      if (store.getState().siteId === siteId) store.setState({ heightmap: null });
+      if (store.getState().siteId === siteId) store.setState({ heightmap: null, windowLoading: false });
       return;
     }
     const seq = ++windowSeq;
     let hm = windows.get(siteId);
-    if (!hm) {
+    if (hm) {
+      // A cached window supersedes any fetch still in flight for an earlier selection.
+      if (store.getState().windowLoading) store.setState({ windowLoading: false });
+    } else {
       store.setState({ windowLoading: true });
       try {
         hm = await loaders.loadHeightmap(entry.file, entry.meta);
