@@ -60,3 +60,12 @@ def test_artemis_iii_regions_are_catalogued():
     assert sites["haworth"].approximate is True
     assert {"connecting_ridge", "peak_near_shackleton"} <= set(sites)
     assert sites["peak_near_shackleton"].lat == pytest.approx(-89.01701)
+
+
+def test_landed_missions_carry_reported_ends():
+    sites = {s.id: s for s in load_sites()}
+    for sid in ("im1_odysseus", "im2_athena", "blue_ghost_m1"):
+        s = sites[sid]
+        assert s.landed_utc and s.mission_end_utc and s.mission_end_source
+        assert s.mission_end_utc > s.landed_utc
+    assert sites["blue_ghost_m1"].mission_end_utc == "2025-03-16T23:25:00Z"

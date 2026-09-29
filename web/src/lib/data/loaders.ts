@@ -12,6 +12,9 @@ export interface Site {
   /** True when the coordinate is a digitised region centre, not a surveyed point. */
   approximate?: boolean;
   landed_utc?: string;
+  /** Reported end of a landed mission (UTC) and where the date comes from. */
+  mission_end_utc?: string;
+  mission_end_source?: string;
 }
 
 export interface MaskDoc {

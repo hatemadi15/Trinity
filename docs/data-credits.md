@@ -17,3 +17,9 @@ Method reference for horizon masks: Barker et al. 2021, Planet. Space Sci. 203, 
 - Sanchez-Lozano, Pena-Asensio, Neira-Acosta, "A GIS-based multi-criteria decision-making approach for Artemis III landing site selection", LPSC 2025 abstract 1149 (Nobile Rim 2 optimal site 84 12'5.61"S, 60 41'59.61"E).
 - Gracy & Lee, "Candidate landing sites for Artemis 3 in two NASA candidate landing regions nearest the lunar south pole", LPSC 2024 abstract 1695 (Connecting Ridge 89.53432 S, 209.94767 E; Peak near Shackleton 89.01701 S, 126.27302 E).
 - LROC featured image 1294, "Malapert Massif" (86 S, 0 E), Arizona State University / NASA GSFC.
+
+## Mission backcasts (Week 5)
+
+- IM-1 Odysseus: Intuitive Machines mission update, 29 February 2024 — final transmission as the lunar night began (hour not published; the catalogue uses 00:00 UTC).
+- IM-2 Athena: Intuitive Machines / NASA release, 7 March 2025 — mission concluded with the lander on its side in a crater at Mons Mouton, batteries depleted (hour not published; the catalogue uses 12:00 UTC).
+- Blue Ghost Mission 1: Firefly Aerospace mission update, 16 March 2025 — mission concluded at 23:25 UTC, about five hours after lunar sunset, after 346 hours of daylight operations.
