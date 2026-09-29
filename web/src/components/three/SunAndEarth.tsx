@@ -1,0 +1,46 @@
+'use client';
+import { Html } from '@react-three/drei';
+import type { SceneState } from '@/lib/viz/scene-state';
+import type { SceneMode } from './cameraPresets';
+
+/**
+ * Directional Sun light plus Sun and Earth markers. In globe mode directions are in the Moon
+ * frame (units of Moon radii); in terrain mode in the local site frame (units of km).
+ */
+export function SunAndEarth({ scene, mode }: { scene: SceneState; mode: SceneMode }) {
+  const sun = mode === 'globe' ? scene.sunDirMoon : scene.sunDirLocal;
+  const earth = mode === 'globe' ? scene.earthDirMoon : scene.earthDirLocal;
+  const k = mode === 'globe' ? 1 : 60;
+  const intensity = mode === 'globe' ? 2.4 : 2.4 * scene.light.intensity;
+  const castShadow = mode === 'terrain' && scene.light.castShadow;
+  const at = (d: [number, number, number], r: number): [number, number, number] => [d[0] * r, d[1] * r, d[2] * r];
+  return (
+    <group>
+      <directionalLight
+        position={at(sun, 10 * k)}
+        intensity={intensity}
+        castShadow={castShadow}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-left={-14}
+        shadow-camera-right={14}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-14}
+        shadow-camera-near={1}
+        shadow-camera-far={2000}
+        shadow-bias={-0.0005}
+      />
+      <mesh position={at(sun, 4 * k)}>
+        <sphereGeometry args={[0.06 * k, 16, 16]} />
+        <meshBasicMaterial color="#f2b134" />
+      </mesh>
+      <mesh position={at(earth, 6 * k)}>
+        <sphereGeometry args={[0.12 * k, 24, 24]} />
+        <meshStandardMaterial color="#3987e5" emissive="#123a6e" roughness={0.8} />
+        <Html center distanceFactor={mode === 'globe' ? 4 : 240} style={{ pointerEvents: 'none' }}>
+          <span className="rounded bg-black/60 px-1 text-xs text-ink">Earth</span>
+        </Html>
+      </mesh>
+    </group>
+  );
+}
