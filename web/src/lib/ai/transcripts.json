@@ -1,0 +1,91 @@
+{
+ "version": 1,
+ "note": "Rehearsed planner exchanges for the pitch. Served when the model is unavailable or in demo mode (?demo=1). Replies quote no computed numbers; the app's tiles carry them.",
+ "entries": [
+  {
+   "id": "select_nobile_rim_2",
+   "prompt": "Show me Nobile Rim 2",
+   "actions": [{ "type": "select_site", "id": "nobile_rim_2" }],
+   "reply": "Nobile Rim 2 is one of the nine Artemis III candidate regions, on the rim of Nobile crater. Its skyline is open on the sunward side, so the Sun and Earth both spend long stretches above it; the tiles show the numbers for the window you set."
+  },
+  {
+   "id": "compare_de_gerlache_nobile_14d",
+   "prompt": "Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days",
+   "actions": [
+    { "type": "add_to_compare", "id": "de_gerlache_rim_2" },
+    { "type": "add_to_compare", "id": "nobile_rim_2" },
+    { "type": "set_window", "days": 14 },
+    { "type": "open_page", "page": "compare" }
+   ],
+   "reply": "Comparing de Gerlache Rim 2 and Nobile Rim 2 over 14 days. de Gerlache Rim 2 sits close to the pole with a taller skyline, so expect a longer night; Nobile Rim 2 sits farther north with a lower Sun but a more open horizon. The columns on the Compare page carry the numbers and the verdicts."
+  },
+  {
+   "id": "which_site_artemis",
+   "prompt": "Which site should Artemis III pick?",
+   "actions": [
+    { "type": "add_to_compare", "id": "de_gerlache_rim_2" },
+    { "type": "add_to_compare", "id": "nobile_rim_2" },
+    { "type": "add_to_compare", "id": "malapert_massif" },
+    { "type": "open_page", "page": "compare" }
+   ],
+   "reply": "That depends on the date and on what the lander needs, which is what the Compare page shows: I have lined up de Gerlache Rim 2, Nobile Rim 2 and Malapert Massif. Read the sunlit fraction and longest night for power, the Earth-visible fraction and longest gap for comms, and the verdict chip for whether the battery survives. Then ask for the best 14-day window to move the dates."
+  },
+  {
+   "id": "best_14_day_window",
+   "prompt": "Find the best 14-day window",
+   "actions": [{ "type": "find_best_window", "days": 14, "scope": "site" }],
+   "reply": "Scanning the next year for the 14-day span with the most sunlight and Earth contact and the shortest dark stretch, starting only at sunlit hours. The window moves when the scan finishes and the note under the date says where it landed."
+  },
+  {
+   "id": "survive_the_night",
+   "prompt": "Can the lander survive the night?",
+   "actions": [{ "type": "explain", "topic": "verdict" }],
+   "reply": "The verdict chip answers this for the selected site, window and settings: green when the battery never runs dry, red when it does, with the lowest state of charge and the number of brownout hours beside it. Raise the battery or lower the load in the planner settings to see what it takes."
+  },
+  {
+   "id": "set_load_300",
+   "prompt": "Set the load to 300 W",
+   "actions": [{ "type": "set_power", "patch": { "loadW": 300 } }],
+   "reply": "Load set to 300 W. The battery walk and the verdict update at once; a higher load drains the battery faster through every dark hour."
+  },
+  {
+   "id": "horizontal_panel",
+   "prompt": "Use a horizontal panel",
+   "actions": [{ "type": "set_power", "patch": { "panel": "horizontal" } }],
+   "reply": "Switched to a flat, horizontal panel. Near the pole the Sun stays low, so a flat deck collects far less than a vertical panel that turns to follow it; watch the mean power and the verdict change."
+  },
+  {
+   "id": "mast_5m",
+   "prompt": "Raise the mast to 5 m",
+   "actions": [{ "type": "set_params", "patch": { "mastM": 5 } }],
+   "reply": "Mast set to 5 m. The skyline is recomputed from that height, which lowers nearby ridges slightly and can open the horizon a little for both the Sun and Earth."
+  },
+  {
+   "id": "explain_longest_night",
+   "prompt": "Explain the longest night",
+   "actions": [{ "type": "explain", "topic": "longest night" }],
+   "reply": "The longest night is the longest run of consecutive hours in the window when no part of the Sun clears the terrain skyline. Near the south pole the Sun circles the horizon at a low angle, so a ridge on one side of the sky can cut a lunar day into several short days and nights. A lander has to live through the longest one on stored energy, which is why the verdict weighs the battery against this number rather than the average."
+  },
+  {
+   "id": "what_happened_to_im2",
+   "prompt": "What happened to IM-2?",
+   "actions": [
+    { "type": "select_site", "id": "im2_athena" },
+    { "type": "set_window", "startUtc": "2025-03-06T00:00:00", "days": 14 }
+   ],
+   "reply": "IM-2 Athena landed on 6 March 2025 near Mons Mouton and came to rest on its side in a crater with the Sun low on the skyline; its batteries drained within a day, with most of the lunar day still ahead. The window now starts at the landing so you can see the Sun track it never got to use; the Validate page has the backcast against the reported end."
+  },
+  {
+   "id": "switch_to_learn",
+   "prompt": "Switch to Learn mode",
+   "actions": [{ "type": "set_audience", "audience": "learn" }],
+   "reply": "Learn mode: fewer numbers, plain words on every tile, and a guided story you can start from the Learn page."
+  },
+  {
+   "id": "open_validate",
+   "prompt": "Open the validate page",
+   "actions": [{ "type": "open_page", "page": "validate" }],
+   "reply": "Opening Validate: our Sun and Earth directions against JPL Horizons, our sunlit fractions against the LOLA illumination map, and the three CLPS backcasts, with a button that re-checks against JPL live."
+  }
+ ]
+}
