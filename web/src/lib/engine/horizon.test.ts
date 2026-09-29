@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { R_MOON_M } from './constants';
-import { bandsForSite, computeSiteMask, horizonMask, type Band, type Samplers } from './horizon';
+import { bandsForSite, computeSiteMask, horizonMask, type Samplers } from './horizon';
 import { LevelSampler, levelById, MemoryTileSource, type TileLevel } from './tiles';
 import { FsTileSource, readManifest } from './tiles.node';
 import { hasFile, readJson, repoPath } from './__tests__/helpers';
