@@ -7,13 +7,13 @@ export function GuidedStory({ webgl }: { webgl: boolean }) {
   const current = STORY_STEPS[step];
   const text = !webgl && current.noWebgl ? current.noWebgl : current.body;
   return (
-    <section aria-label="Guided story" className="flex flex-col gap-3 rounded-md border border-sun/40 bg-panel p-4">
+    <section aria-label="Guided story" className="glass flex flex-col gap-3 rounded-md border-sun/40 p-4">
       <ol aria-label="Guided story" className="flex flex-wrap gap-2 text-sm">
         {STORY_STEPS.map((s, i) => (
           <li
             key={s.title}
             aria-current={i === step ? 'step' : undefined}
-            className={`rounded-md border px-2 py-1 ${i === step ? 'border-sun text-ink' : 'border-line text-ink-3'}`}
+            className={`rounded-md border px-2 py-1 ${i === step ? 'border-sun text-ink' : 'border-line text-ink-2'}`}
           >
             {i + 1}. {s.title}
           </li>
@@ -33,7 +33,7 @@ export function GuidedStory({ webgl }: { webgl: boolean }) {
           type="button"
           onClick={() => setStep((s) => Math.min(STORY_STEPS.length - 1, s + 1))}
           disabled={step === STORY_STEPS.length - 1}
-          className="rounded-md border border-sun px-3 py-1 text-sm text-ink hover:bg-panel disabled:opacity-50"
+          className="rounded-md border border-sun px-3 py-1 text-sm text-ink hover:bg-sun/10 disabled:opacity-50"
         >
           Next
         </button>

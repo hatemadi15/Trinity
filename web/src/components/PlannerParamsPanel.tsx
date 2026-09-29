@@ -38,7 +38,7 @@ function NumberInput({ label, value, min, max, step, onChange }: NumField) {
           if (valid(e.target.value)) onChange(Number(e.target.value));
         }}
         onBlur={() => setDraft(null)}
-        className="w-28 rounded-md border border-line bg-panel px-2 py-1 text-ink"
+        className="w-28 rounded-md border border-line bg-canvas px-2 py-1 text-ink"
       />
     </label>
   );
@@ -64,7 +64,7 @@ export function PlannerParamsPanel({
   const [open, setOpen] = useState(embedded);
   const p = params.power;
   return (
-    <section aria-label="Planner settings" className={embedded ? '' : 'rounded-md bg-panel px-4 py-2'}>
+    <section aria-label="Planner settings" className={embedded ? '' : 'glass rounded-md px-4 py-2'}>
       {!embedded && (
       <button
         type="button"
