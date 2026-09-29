@@ -88,3 +88,15 @@ describe("the reader's forms", () => {
     expect(stripForeignNumbers('Comparing them for 45 days.', summary)).toBe('');
   });
 });
+
+describe('lessons from the first live narration', () => {
+  it('keeps digits out of the system prompt so the model cannot echo them', () => {
+    const [system] = narrationPrompt(summary);
+    expect(numbersIn(system.content)).toEqual([]);
+  });
+
+  it('accepts whole days written in hours and the hours-per-day constant', () => {
+    expect(checkNumbers('a longest gap of 216 hours plus 9, over more than 24 hours', summary)).toBe(true);
+    expect(checkNumbers('a longest gap of 217 hours', summary)).toBe(false);
+  });
+});

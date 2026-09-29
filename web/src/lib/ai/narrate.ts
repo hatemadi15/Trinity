@@ -22,8 +22,12 @@ function fractionForms(f: number): string[] {
 
 function hourForms(h: number): string[] {
   const d = h / 24;
-  return [String(h), String(Math.floor(d)), String(Math.round(d)), d.toFixed(1), String(h % 24)].map(canon);
+  // 225 h: "225 h", "9 d 9 h", "9.4 days", "about 9 days", or "216 hours plus 9".
+  return [String(h), String(Math.floor(d)), String(Math.round(d)), d.toFixed(1), String(h % 24), String(Math.floor(d) * 24)].map(canon);
 }
+
+/** Constants a reader uses without them being "in the state": hours per day and the window lengths. */
+const ALWAYS_ALLOWED = ['24', '14', '30', '90'];
 
 function decimalForms(x: number): string[] {
   return [0, 1, 2, 3, 4, 5].map((k) => canon(x.toFixed(k)));
@@ -33,6 +37,7 @@ function decimalForms(x: number): string[] {
 export function allowedNumbers(s: StateSummary): Set<string> {
   const out = new Set<string>();
   const add = (list: string[]) => list.forEach((x) => out.add(x));
+  add(ALWAYS_ALLOWED);
   add(numbersIn(s.site.name));
   add(decimalForms(s.site.lat));
   add(decimalForms(s.site.lon));
@@ -117,7 +122,7 @@ export function narrationPrompt(s: StateSummary): ChatMessage[] {
     {
       role: 'system',
       content:
-        'You write the one-paragraph mission summary for a lunar landing-site brief. Use only numbers that appear in the STATE JSON, copied as they are: fractions as percentages with one decimal, hours as given or as whole days and hours. Never compute, convert further, or add figures; if unsure, leave the number out. Write 80 to 140 words of plain prose for mission planners: the site and window, sunlight and the longest night, Earth visibility and the longest gap, then the power verdict. No markdown, no headings, no lists, no code fences. Answer with the paragraph only.',
+        'You write the one-paragraph mission summary for a lunar landing-site brief. Use only numbers that appear in the STATE JSON, copied as they are: fractions as percentages with one decimal, hours as given or as whole days and hours. Never compute, convert further, or add figures; if unsure, leave the number out. Write five to eight plain sentences for mission planners: the site and window, sunlight and the longest night, Earth visibility and the longest gap, then the power verdict. No markdown, no headings, no lists, no code fences. Answer with the paragraph only.',
     },
     { role: 'user', content: `STATE:\n${JSON.stringify(s, null, 1)}\n\nWrite the paragraph.` },
   ];
