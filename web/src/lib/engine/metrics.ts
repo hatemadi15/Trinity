@@ -176,15 +176,36 @@ export class SeriesIndex {
 
 export interface WindowWeights { sun: number; earth: number; gap: number }
 
-/** Best-scoring window of `windowHours`, scanning starts every `stepHours`. Score in [−1, 2]. */
-export function bestWindow(index: SeriesIndex, windowHours: number, stepHours = 6, weights: WindowWeights = { sun: 1, earth: 1, gap: 1 }): { start: number; score: number; summary: Summary } {
+/** Window score in [−1, 2]: sunlit and Earth-visible fractions minus the two longest gaps as a share of the window. */
+export function windowScore(s: Summary, windowHours: number, weights: WindowWeights = { sun: 1, earth: 1, gap: 1 }): number {
+  return weights.sun * s.illumFraction + weights.earth * s.earthVisFraction - (weights.gap * (s.longestDarkH + s.longestEarthGapH)) / (2 * windowHours);
+}
+
+/**
+ * Best-scoring window of `windowHours`, scanning starts every `stepHours`. Score in [−1, 2].
+ * `startFilter` restricts the candidate starts (for example to sunlit hours); when it rejects every
+ * start the scan falls back to all of them.
+ */
+export function bestWindow(
+  index: SeriesIndex,
+  windowHours: number,
+  stepHours = 6,
+  weights: WindowWeights = { sun: 1, earth: 1, gap: 1 },
+  startFilter?: (start: number) => boolean,
+): { start: number; score: number; summary: Summary } {
   const n = index.series.hours;
   if (windowHours > n) throw new RangeError(`window ${windowHours} h longer than series ${n} h`);
-  let best = { start: 0, score: -Infinity, summary: index.window(0, windowHours) };
-  for (let start = 0; start + windowHours <= n; start += stepHours) {
-    const s = index.window(start, start + windowHours);
-    const score = weights.sun * s.illumFraction + weights.earth * s.earthVisFraction - (weights.gap * (s.longestDarkH + s.longestEarthGapH)) / (2 * windowHours);
-    if (score > best.score) best = { start, score, summary: s };
-  }
-  return best;
+  const scan = (filter?: (start: number) => boolean) => {
+    let best = { start: -1, score: -Infinity, summary: index.window(0, windowHours) };
+    for (let start = 0; start + windowHours <= n; start += stepHours) {
+      if (filter && !filter(start)) continue;
+      const s = index.window(start, start + windowHours);
+      const score = windowScore(s, windowHours, weights);
+      if (score > best.score) best = { start, score, summary: s };
+    }
+    return best;
+  };
+  const filtered = startFilter ? scan(startFilter) : null;
+  const best = filtered && filtered.start >= 0 ? filtered : scan();
+  return best.start >= 0 ? best : { start: 0, score: windowScore(index.window(0, windowHours), windowHours, weights), summary: index.window(0, windowHours) };
 }

@@ -396,7 +396,9 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().startUtc).toBe(result!.startUtc);
     expect(store.getState().days).toBe(14);
     expect(store.getState().summary!.illumFraction).toBeCloseTo(result!.summary.illumFraction, 9);
-    expect(result!.summary.illumFraction).toBeGreaterThan(0.9);
+    expect(result!.summary.illumFraction).toBeGreaterThan(0.4);
+    // A planner window starts at sunrise, not in the middle of a night, when a same-scoring start exists.
+    expect(store.getState().series!.sunFraction[0]).toBeGreaterThan(0);
     expect(store.getState().bestWindowNote).toMatch(/% sun/);
   });
 

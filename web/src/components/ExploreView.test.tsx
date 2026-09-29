@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { DataError, type Site } from '@/lib/data/loaders';
@@ -54,6 +54,32 @@ describe('ExploreView', () => {
     );
     await waitFor(() => expect(screen.getByText(/3 terrain tiles could not be loaded/)).toBeTruthy());
     expect(screen.getByText(/Terrain data is not loaded/)).toBeTruthy();
+  });
+
+  it('carries the planner settings, the verdict, the best-window button and add-to-compare', async () => {
+    const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
+    const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
+    const sites = [
+      ...readJson<{ sites: Site[] }>('data', 'sites.json').sites,
+      ...readJson<{ sites: Site[] }>('data', 'sites_derived.json').sites,
+    ];
+    const store = createExploreStore({
+      loadSites: async () => sites,
+      loadEphemeris: async () => eph,
+      loadMask: async (id) => {
+        const m = readJson<{ elevation_deg: number[]; site_height_m: number }>('data', 'masks', `${id}.json`);
+        return { site_id: id, lat: 0, lon: 0, mast_m: 2, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
+      },
+    });
+    render(<ExploreView store={store} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Shackleton/));
+    expect(screen.getByRole('button', { name: /Planner settings/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Best 30-day window from here/ })).toBeTruthy();
+    expect(screen.getByText('Survives the window')).toBeTruthy(); // 4 m² vertical tracking on the rim
+    expect(screen.getByText('Lowest battery')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Add to compare' }));
+    await waitFor(() => expect(screen.getByText('Compared sites (1)')).toBeTruthy());
+    expect(screen.getByRole('button', { name: 'In compare' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('captions the terrain while it loads, then the cap fallback, and shows a refused globe pick', async () => {

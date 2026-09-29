@@ -1,7 +1,9 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
+import { PlannerParamsPanel } from './PlannerParamsPanel';
 import { SiteSelect } from './SiteSelect';
 import { SkyDome } from './SkyDome';
 import { SummaryTiles } from './SummaryTiles';
@@ -13,7 +15,7 @@ import { dataBase } from '@/lib/data/loaders';
 import { globeTextureUrl } from '@/lib/data/terrain';
 import { maskAtAzimuth, type Series } from '@/lib/engine/metrics';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { exploreStore, type Exaggeration, type ExploreState, type SceneMode } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, type Exaggeration, type ExploreState, type SceneMode } from '@/lib/store/explore';
 import { utcLabel } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 import { sceneStateAt } from '@/lib/viz/scene-state';
@@ -84,8 +86,15 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
             customError={s.customError}
             busy={s.maskBusy}
           />
-          <WindowControls startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} />
+          <WindowControls
+            startUtc={s.startUtc}
+            days={s.days}
+            onWindow={s.setWindow}
+            onBestWindow={(d) => void store.getState().findBestWindow(d)}
+            bestWindowNote={s.bestWindowNote}
+          />
         </div>
+        <PlannerParamsPanel params={s.params} onParams={s.setParams} onPower={s.setPower} busy={s.maskBusy} />
         {s.error && (
           <p role="status" className="text-sm text-warn">
             {s.error}
@@ -102,12 +111,27 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
                   {s.site.approximate ? '; region centre digitised from NASA’s map (about ±5 km)' : ''}
               </p>
             </div>
-            <ModeControls
-              mode={s.mode}
-              exaggeration={s.exaggeration}
-              onMode={s.setMode}
-              onExaggeration={s.setExaggeration}
-            />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <ModeControls
+                mode={s.mode}
+                exaggeration={s.exaggeration}
+                onMode={s.setMode}
+                onExaggeration={s.setExaggeration}
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={s.compareIds.includes(s.site.id) || s.compareIds.length >= COMPARE_MAX}
+                  onClick={() => void store.getState().addToCompare(s.site!.id)}
+                  className="rounded-md border border-line px-3 py-1 text-sm text-ink-2 hover:text-ink disabled:opacity-50"
+                >
+                  {s.compareIds.includes(s.site.id) ? 'In compare' : 'Add to compare'}
+                </button>
+                <Link href="/compare" className="text-sm text-ink-2 underline-offset-4 hover:underline">
+                  Compared sites ({s.compareIds.length})
+                </Link>
+              </div>
+            </div>
             {s.mode === 'globe' && s.customError && (
               <p role="alert" className="text-sm text-bad">
                 {s.customError}. Custom sites need LOLA coverage south of 60°S.
@@ -142,7 +166,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
               <p className="mt-1 text-center text-xs text-ink-3">Outer half of the disc magnifies −10° to +10°.</p>
             </section>
             <section className="rounded-md bg-panel p-4">
-              <SummaryTiles summary={s.summary} />
+              <SummaryTiles summary={s.summary} power={s.power} />
             </section>
           </aside>
         </div>

@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
 import type { Summary } from '@/lib/engine/metrics';
+import type { PowerResult } from '@/lib/engine/power';
 import { hoursLabel, pct } from '@/lib/viz/format';
+import { VerdictChip } from './VerdictChip';
 
-export function SummaryTiles({ summary }: { summary: Summary }) {
+export function SummaryTiles({ summary, power }: { summary: Summary; power?: PowerResult | null }) {
   const [table, setTable] = useState(false);
   const rows: [string, string, string][] = [
     ['Sun above the skyline', pct(summary.illumFraction), 'share of hours with any part of the Sun visible'],
@@ -12,8 +14,13 @@ export function SummaryTiles({ summary }: { summary: Summary }) {
     ['Longest Earth gap', hoursLabel(summary.longestEarthGapH), 'longest run without direct line of sight'],
     ['Both at once', pct(summary.jointFraction), 'lit and in contact with Earth'],
   ];
+  if (power) {
+    rows.push(['Lowest battery', pct(power.socMin), 'lowest state of charge in the window']);
+    rows.push(['Hours without full power', hoursLabel(power.brownoutHours), 'battery empty and load not met']);
+  }
   return (
     <section aria-label="Summary" className="flex flex-col gap-3">
+      {power && <VerdictChip power={power} />}
       {table ? (
         <table className="w-full text-sm">
           <tbody>

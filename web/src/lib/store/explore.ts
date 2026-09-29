@@ -380,7 +380,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       }
       const raw = hourlySeries(site, mask, eph, startEt, scanHours);
       const series = params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
-      const best = bestWindow(new SeriesIndex(series), windowHours, 6);
+      // A lander arrives in daylight: only sunlit start hours are candidates (all hours when a site never sees the Sun).
+      const best = bestWindow(new SeriesIndex(series), windowHours, 6, undefined, (h) => series.sunFraction[h] > 0);
       const newStart = etToIso(startEt + best.start * 3600).slice(0, 13) + ':00:00';
       get().setWindow(newStart, days);
       const s = best.summary;

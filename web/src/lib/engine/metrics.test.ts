@@ -53,6 +53,18 @@ describe('metrics primitives', () => {
     expect(best.start).toBeLessThanOrEqual(26);
     expect(best.summary.illumFraction).toBe(1);
   });
+  it('bestWindow can restrict candidate starts and falls back when the filter rejects every start', () => {
+    const sunFraction = new Float64Array(100);
+    sunFraction.fill(1, 20, 60);
+    const s = { ...emptySeries(100), sunFraction, earthVisible: new Uint8Array(100).fill(1) } satisfies Series;
+    const idx = new SeriesIndex(s);
+    const sunlit = bestWindow(idx, 24, 1, undefined, (h) => sunFraction[h] > 0);
+    expect(sunlit.start).toBeGreaterThanOrEqual(20);
+    expect(sunlit.summary.illumFraction).toBe(1);
+    const none = bestWindow(idx, 24, 1, undefined, () => false);
+    expect(none.start).toBeGreaterThanOrEqual(0);
+    expect(none.score).toBe(bestWindow(idx, 24, 1).score);
+  });
   it('withCommsThreshold lowers Earth visibility monotonically and keeps the rest of the series', () => {
     const hours = 200;
     const mask = new Float64Array(720).fill(2); // flat 2° skyline
