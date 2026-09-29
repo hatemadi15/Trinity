@@ -89,6 +89,8 @@ export interface ExploreState {
   series: Series | null;
   summary: Summary | null;
   mode: SceneMode;
+  /** True while the globe is shown only because a mare site was selected; the next polar site switches back. */
+  modeAuto: boolean;
   exaggeration: Exaggeration;
   terrainState: TerrainState;
   /** True while the selected site's detailed window is being fetched (not cached yet). */
@@ -197,6 +199,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     series: null,
     summary: null,
     mode: 'terrain',
+    modeAuto: false,
     exaggeration: 1,
     terrainState: 'idle',
     windowLoading: false,
@@ -257,11 +260,16 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         }
         if (seq !== selectSeq) return; // a newer selection won
         const { startUtc, days, params } = get(); // re-read: the window may have changed while loading
+        const { mode: currentMode, modeAuto: wasAuto } = get();
+        // A mare site has no polar terrain window: show the globe, and switch back for the next polar site unless the user chose the globe.
+        const mode: SceneMode = !site.polar ? 'globe' : wasAuto ? 'terrain' : currentMode;
+        const modeAuto = !site.polar ? wasAuto || currentMode !== 'globe' : false;
         const r = recompute(eph, site, cached.mask, startUtc, days, params);
         set({
           siteId: id,
           site,
-          mode: site.polar ? get().mode : 'globe', // no polar terrain window for a mare site; the globe shows where it is
+          mode,
+          modeAuto,
           mask: cached.mask,
           maskMeta: cached.meta,
           series: r.series,
@@ -494,7 +502,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     },
 
     setMode(mode) {
-      set({ mode });
+      set({ mode, modeAuto: false });
     },
 
     setExaggeration(exaggeration) {

@@ -18,7 +18,7 @@ export async function GET(request: Request): Promise<Response> {
   const start = q.get('start') ?? '';
   const stop = q.get('stop') ?? '';
   const step = q.get('step') ?? '1';
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !body || !(body in BODY_IDS) || !TIME_TOKEN.test(start) || !TIME_TOKEN.test(stop) || !TIME_TOKEN.test(step)) {
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || !body || !Object.hasOwn(BODY_IDS, body) || !TIME_TOKEN.test(start) || !TIME_TOKEN.test(stop) || !TIME_TOKEN.test(step)) {
     return Response.json({ error: 'lat, lon, body (SUN or EARTH), start and stop are required' }, { status: 400 });
   }
   const url = horizonsUrl(lat, lon, 0, BODY_IDS[body], start, stop, step);

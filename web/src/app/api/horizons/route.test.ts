@@ -44,3 +44,12 @@ describe('GET /api/horizons', () => {
     expect((await GET(request('lat=-80.13&lon=1.44&body=SUN&start=2025-01-01&stop=2025-01-03&step=1'))).status).toBe(502);
   });
 });
+
+describe('GET /api/horizons body parameter', () => {
+  it('rejects inherited object keys such as toString', async () => {
+    vi.stubGlobal('fetch', vi.fn());
+    expect((await GET(request('lat=-80&lon=1&body=toString&start=2025-01-01&stop=2025-01-02&step=1'))).status).toBe(400);
+    expect((await GET(request('lat=-80&lon=1&body=constructor&start=2025-01-01&stop=2025-01-02&step=1'))).status).toBe(400);
+    vi.unstubAllGlobals();
+  });
+});

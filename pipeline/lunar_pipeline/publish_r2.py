@@ -107,11 +107,15 @@ def publish(
     bucket = env.get("R2_BUCKET", "")
     if not bucket:
         raise RuntimeError("missing environment variables: R2_BUCKET (see docs/hosting.md)")
+    from boto3.s3.transfer import TransferConfig
+
+    # Single-part uploads up to 64 MB keep the object's ETag an MD5, which _unchanged relies on.
+    transfer = TransferConfig(multipart_threshold=64 * 1024 * 1024)
     done: list[Upload] = []
     for u in plan:
         if _unchanged(client, bucket, u):
             continue
-        client.upload_file(str(u.path), bucket, u.key, ExtraArgs={"ContentType": u.content_type, "CacheControl": u.cache_control})
+        client.upload_file(str(u.path), bucket, u.key, ExtraArgs={"ContentType": u.content_type, "CacheControl": u.cache_control}, Config=transfer)
         print(f"uploaded {u.key} ({u.size} B)")
         done.append(u)
     print(f"{len(done)} of {len(plan)} files uploaded; {len(plan) - len(done)} unchanged")

@@ -274,3 +274,22 @@ describe('POST /api/chat number rules', () => {
     expect(logged).not.toMatch(/sk-test/);
   });
 });
+
+describe('POST /api/chat state size', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('ignores a state larger than 16 KB instead of putting it in the model prompt', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    const fetchMock = modelAnswer('{"actions":[],"reply":"Hello."}');
+    vi.stubGlobal('fetch', fetchMock);
+    const huge = { ...STATE, compare: [{ id: 'x', name: 'y'.repeat(20_000), illumFraction: 0.5, earthVisFraction: 0.5, survives: true }] };
+    const res = await POST(request({ prompt: 'hello there', state: huge }));
+    expect(res.status).toBe(200);
+    const body = String((fetchMock.mock.calls as unknown as [string, RequestInit][])[0][1].body);
+    expect(body).not.toContain('y'.repeat(100));
+    expect(body).toMatch(/No site is selected yet/);
+  });
+});

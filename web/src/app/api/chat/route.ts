@@ -22,6 +22,7 @@ const FIRST_SHARE = 0.8;
 /** Below this much remaining budget a retry is not worth starting. */
 const MIN_RETRY_MS = 500;
 const MAX_PROMPT_CHARS = 2000;
+const MAX_STATE_CHARS = 16_000;
 const SITES = catalogue.sites as Site[];
 const SITE_IDS: ReadonlySet<string> = new Set(SITES.map((s) => s.id));
 const RETRY_NUDGE = 'Answer again with ONE JSON object only, in the form {"actions": [...], "reply": "..."} and no other text.';
@@ -58,7 +59,9 @@ async function parseBody(request: Request): Promise<Body | string> {
   if (prompt.length > MAX_PROMPT_CHARS) return `prompt is longer than ${MAX_PROMPT_CHARS} characters`;
   if (o.mode !== undefined && o.mode !== 'live' && o.mode !== 'cached') return 'mode must be "live" or "cached"';
   if (o.task !== undefined && o.task !== 'plan' && o.task !== 'narrate') return 'task must be "plan" or "narrate"';
-  const state = o.state && typeof o.state === 'object' && !Array.isArray(o.state) ? (o.state as StateSummary) : null;
+  let state = o.state && typeof o.state === 'object' && !Array.isArray(o.state) ? (o.state as StateSummary) : null;
+  // A real summary is about 1 KB; anything much larger is not ours and must not reach a prompt.
+  if (state && JSON.stringify(state).length > MAX_STATE_CHARS) state = null;
   if (o.task === 'narrate' && !isStateSummary(state)) return 'narrate needs the state summary of a loaded site';
   return { task: o.task === 'narrate' ? 'narrate' : 'plan', prompt, state, mode: o.mode === 'cached' ? 'cached' : 'live' };
 }
