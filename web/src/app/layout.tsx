@@ -1,0 +1,16 @@
+import type { Metadata } from 'next';
+import './globals.css';
+
+export const metadata: Metadata = {
+  title: 'Earthrise — lunar landing site and date planner',
+  description:
+    'Compare lunar south-pole landing sites and dates: Sun and Earth above the terrain horizon, solar power potential, direct-to-Earth communication windows. NASA Space Apps 2026, team Astroy/Ed.',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className="h-full">
+      <body className="min-h-full bg-zinc-950 text-zinc-100 antialiased">{children}</body>
+    </html>
+  );
+}
