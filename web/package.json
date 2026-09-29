@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "engine:demo": "tsx scripts/engine-demo.ts"
+    "engine:demo": "tsx scripts/engine-demo.ts",
+    "validation:tests": "node scripts/test-summary.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
