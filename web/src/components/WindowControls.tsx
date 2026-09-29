@@ -5,10 +5,15 @@ export function WindowControls({
   startUtc,
   days,
   onWindow,
+  onBestWindow,
+  bestWindowNote,
 }: {
   startUtc: string;
   days: WindowDays;
   onWindow: (startUtc: string, days: WindowDays) => void;
+  /** When given, shows the best-window button for the current window length. */
+  onBestWindow?: (days: WindowDays) => void;
+  bestWindowNote?: string | null;
 }) {
   return (
     <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
@@ -44,6 +49,18 @@ export function WindowControls({
           </label>
         ))}
       </fieldset>
+      {onBestWindow && (
+        <div className="flex max-w-[320px] flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => onBestWindow(days)}
+            className="w-fit rounded-md border border-sun px-3 py-1 text-sm text-ink hover:bg-panel"
+          >
+            Best {days}-day window from here
+          </button>
+          {bestWindowNote && <span className="text-xs text-ink-3">{bestWindowNote}</span>}
+        </div>
+      )}
     </div>
   );
 }
