@@ -11,7 +11,8 @@ __pycache__/
 node_modules/
 .next/
 out/
-public/data/
+web/public/data/
+**/public/data/
 .env
 .env.*
 

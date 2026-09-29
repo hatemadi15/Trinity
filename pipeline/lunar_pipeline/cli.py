@@ -22,6 +22,14 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--site", required=True)
     r.add_argument("--start", default="2025-01-01")
     r.add_argument("--days", type=int, default=730)
+    ft = sub.add_parser("fixture-time", help="write UTC->ET golden pairs for the TS port")
+    ft.add_argument("--n", type=int, default=50)
+    fm = sub.add_parser("fixture-metrics", help="write a metrics golden fixture for a site")
+    fm.add_argument("--site", required=True)
+    fm.add_argument("--start", default="2025-01-01T00:00:00")
+    fm.add_argument("--days", type=int, default=730)
+    sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
+    sl.add_argument("--tiles", action="store_true")
     return p
 
 
@@ -52,6 +60,16 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "report":
         from .illumination import report
         print(json.dumps(report(args.site, args.start, args.days), indent=1))
+    elif args.cmd == "fixture-time":
+        from .fixtures import write_time_fixture
+        print(write_time_fixture(n=args.n))
+    elif args.cmd == "fixture-metrics":
+        from .fixtures import write_metrics_fixture
+        print(write_metrics_fixture(args.site, args.start, args.days))
+    elif args.cmd == "sync-local":
+        from .sync_local import sync
+        for path in sync(tiles=args.tiles):
+            print(path)
 
 
 if __name__ == "__main__":
