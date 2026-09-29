@@ -25,6 +25,9 @@ PDS_ILLUM = (
     "extras/illumination/img/"
 )
 
+# NASA Scientific Visualization Studio, CGI Moon Kit (https://svs.gsfc.nasa.gov/4720): globe colour texture.
+SVS = "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/"
+
 KERNELS = [
     ("naif0012.tls", "lsk/"),
     ("pck00011.tpc", "pck/"),
@@ -38,6 +41,7 @@ ILLUM_STEMS = [
     "avgvisib_85s_060m_201608_earth",
     "lpsr_85s_060m_201608",
 ]
+TEXTURES = ["lroc_color_2k.jpg"]  # 2K equirectangular LRO WAC colour mosaic, 447 KB
 
 
 USER_AGENT = "trinity-lunar-pipeline/0.1 (Space Apps 2026)"
@@ -76,6 +80,8 @@ def assets() -> list[Asset]:
         for ext in (".lbl", ".img"):
             name = stem + ext
             out.append(Asset(name, LOLA_NODE_ILLUM + name.upper(), config.ILLUM_DIR, "illumination"))
+    for name in TEXTURES:
+        out.append(Asset(name, SVS + name, config.RAW_DIR / "textures", "textures"))
     return out
 
 

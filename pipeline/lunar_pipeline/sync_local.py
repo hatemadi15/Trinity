@@ -1,4 +1,4 @@
-"""Copy committed artifacts (and optionally the DEM tiles) into web/public/data for local development."""
+"""Copy committed artifacts (and optionally the DEM tiles and 3D terrain rasters) into web/public/data for local development."""
 
 from __future__ import annotations
 
@@ -31,4 +31,8 @@ def sync(web_data: Path = WEB_DATA, tiles: bool = False) -> list[Path]:
             raise FileNotFoundError(f"{src} missing; run the tiles command first")
         shutil.copytree(src, web_data / "tiles", dirs_exist_ok=True)
         copied.append(web_data / "tiles")
+        terrain = config.OUT_DIR / "terrain"
+        if terrain.exists():  # heightmap windows, south cap and globe texture from the terrain command
+            shutil.copytree(terrain, web_data / "terrain", dirs_exist_ok=True)
+            copied.append(web_data / "terrain")
     return copied
