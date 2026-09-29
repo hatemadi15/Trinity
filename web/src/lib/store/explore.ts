@@ -11,6 +11,9 @@ import { etToIso, utcToEt } from '../engine/time';
 export const WINDOW_DAYS = [14, 30, 90] as const;
 export type WindowDays = (typeof WINDOW_DAYS)[number];
 export type SceneMode = 'globe' | 'terrain';
+/** Who is looking: planners see every number, Learn mode hides three tiles and adds a guided story. */
+export type Audience = 'planner' | 'learn';
+export const AUDIENCE_KEY = 'earthrise.audience';
 /** Terrain extras: idle before init, loading until the cap lands, ready, or unavailable (no loaders or a failed fetch). */
 export type TerrainState = 'idle' | 'loading' | 'ready' | 'unavailable';
 export type Exaggeration = 1 | 3;
@@ -123,6 +126,8 @@ export interface ExploreState {
   waitForMask: () => Promise<void>;
   /** Resolves once a pending mast debounce has fired (the recompute may still be in flight). */
   waitForDebounce: () => Promise<void>;
+  audience: Audience;
+  setAudience: (audience: Audience) => void;
 }
 
 export function recompute(
@@ -137,6 +142,15 @@ export function recompute(
   const raw = hourlySeries(site, mask, eph, utcToEt(startUtc), days * 24);
   const series = params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
   return { site, series, summary: summarize(series), power: powerBudget(series, params.power), contacts: contactWindows(series), mastM };
+}
+
+function storedAudience(): Audience {
+  try {
+    const v = typeof window !== 'undefined' ? window.localStorage.getItem(AUDIENCE_KEY) : null;
+    return v === 'learn' ? 'learn' : 'planner';
+  } catch {
+    return 'planner';
+  }
 }
 
 function message(err: unknown): string {
@@ -186,6 +200,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     compare: [],
     maskBusy: false,
     bestWindowNote: null,
+    audience: storedAudience(),
 
     async init() {
       if (get().eph) {
@@ -431,6 +446,15 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
 
     async waitForDebounce() {
       await debouncePromise;
+    },
+
+    setAudience(audience) {
+      set({ audience });
+      try {
+        if (typeof window !== 'undefined') window.localStorage.setItem(AUDIENCE_KEY, audience);
+      } catch {
+        // storage may be unavailable (private mode); the choice still applies to this page
+      }
     },
 
     setCustomError(customError) {

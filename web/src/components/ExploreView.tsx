@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
+import { GuidedStory } from './GuidedStory';
+import { webglAvailable } from './three/Scene3D';
 import { PlannerParamsPanel } from './PlannerParamsPanel';
 import { SiteSelect } from './SiteSelect';
 import { SkyDome } from './SkyDome';
@@ -23,6 +25,7 @@ import { sceneStateAt } from '@/lib/viz/scene-state';
 export function ExploreView({ store = exploreStore }: { store?: StoreApi<ExploreState> }) {
   const s = useStore(store);
   const [hoverHour, setHoverHour] = useState<number | null>(null);
+  const [webgl] = useState(() => webglAvailable());
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
@@ -94,6 +97,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
             bestWindowNote={s.bestWindowNote}
           />
         </div>
+        {s.audience === 'learn' && <GuidedStory webgl={webgl} />}
         <PlannerParamsPanel params={s.params} onParams={s.setParams} onPower={s.setPower} busy={s.maskBusy} />
         {s.error && (
           <p role="status" className="text-sm text-warn">
@@ -129,6 +133,9 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
                 </button>
                 <Link href="/compare" className="text-sm text-ink-2 underline-offset-4 hover:underline">
                   Compared sites ({s.compareIds.length})
+                </Link>
+                <Link href="/brief" className="text-sm text-ink-2 underline-offset-4 hover:underline">
+                  Export brief
                 </Link>
               </div>
             </div>
@@ -166,7 +173,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
               <p className="mt-1 text-center text-xs text-ink-3">Outer half of the disc magnifies −10° to +10°.</p>
             </section>
             <section className="rounded-md bg-panel p-4">
-              <SummaryTiles summary={s.summary} power={s.power} />
+              <SummaryTiles summary={s.summary} power={s.power} audience={s.audience} />
             </section>
           </aside>
         </div>

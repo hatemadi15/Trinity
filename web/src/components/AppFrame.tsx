@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { AudienceToggle } from './AudienceToggle';
 
 const NAV = [
   { href: '/explore', label: 'Explore', ready: true },
   { href: '/compare', label: 'Compare', ready: true },
-  { href: '/learn', label: 'Learn', ready: false },
+  { href: '/validate', label: 'Validate', ready: true },
+  { href: '/learn', label: 'Learn', ready: true },
 ];
 
 export function AppFrame({ children }: { children: React.ReactNode }) {
@@ -26,7 +28,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             ),
           )}
         </nav>
-        <span className="ml-auto text-xs text-ink-3">NASA Space Apps 2026, team Astroy/Ed</span>
+        <div className="ml-auto flex items-center gap-4">
+          <AudienceToggle />
+          <span className="text-xs text-ink-3">NASA Space Apps 2026, team Astroy/Ed</span>
+        </div>
       </header>
       <div className="flex-1">{children}</div>
     </div>

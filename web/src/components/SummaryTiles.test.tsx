@@ -38,4 +38,21 @@ describe('SummaryTiles', () => {
     expect(screen.getByText('12 d 2 h')).toBeTruthy();
     expect(screen.getByText('Battery empties after 10 h')).toBeTruthy();
   });
+
+  it('in Learn mode keeps four tiles with plain-language help lines', () => {
+    render(
+      <SummaryTiles
+        audience="learn"
+        summary={{ hours: 720, illumFraction: 0.5, meanSunFraction: 0.5, longestDarkH: 300, earthVisFraction: 0.5, longestEarthGapH: 300, jointFraction: 0.25 }}
+        power={{ powerW: new Float64Array(720), energyWh: new Float64Array(720), socMin: 0, brownoutHours: 290, firstBrownoutHour: 10, survives: false, meanPowerW: 50 }}
+      />,
+    );
+    expect(screen.getByText('Sun above the skyline')).toBeTruthy();
+    expect(screen.getByText('Longest night')).toBeTruthy();
+    expect(screen.queryByText('Both at once')).toBeNull();
+    expect(screen.queryByText('Lowest battery')).toBeNull();
+    expect(screen.queryByText('Hours without full power')).toBeNull();
+    expect(screen.getByText(/the battery must last this long/)).toBeTruthy();
+    expect(screen.getByText('Battery empties after 10 h')).toBeTruthy(); // the verdict stays
+  });
 });
