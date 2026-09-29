@@ -240,7 +240,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
           <aside className="flex flex-col gap-3 lg:tall:min-h-0">
             <div className="flex flex-col gap-3 lg:tall:min-h-0 lg:tall:flex-1 lg:tall:overflow-y-auto lg:tall:[scrollbar-width:thin]">
               <section aria-label="Sky dome" className="glass rounded-md p-3">
-                <div className="mx-auto max-w-[220px]">
+                <div className="mx-auto max-w-[190px]">
                   <SkyDome mask={s.mask} series={s.series} cursor={s.cursorHour} />
                 </div>
                 <p className="mt-1 text-center text-xs text-ink-2">Outer half of the disc magnifies −10° to +10°.</p>
@@ -253,7 +253,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
               </section>
             </div>
             <div className="shrink-0 lg:tall:max-h-[45%] lg:tall:overflow-y-auto lg:tall:[scrollbar-width:thin]">
-              <PlannerChat store={store} defaultOpen />
+              <PlannerChat store={store} />
             </div>
           </aside>
         </div>
