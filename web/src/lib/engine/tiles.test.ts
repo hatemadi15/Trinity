@@ -78,3 +78,37 @@ describe.skipIf(!tilesPresent)('LevelSampler on real LOLA tiles', () => {
     expect(h).toBeCloseTo(mask.site_height_m, 1);
   });
 });
+
+describe('LevelSampler failure handling and residency', () => {
+  it('a throwing tile source samples as NaN, records the failure, and retries on the next ensure', async () => {
+    const level = syntheticLevel(1100, 20);
+    const grid = new Int16Array(1100 * 1100).fill(100);
+    const good = new MemoryTileSource(level, grid);
+    let fail = true;
+    const flaky = {
+      async getTileBytes(l: TileLevel, ty: number, tx: number) {
+        if (fail && ty === 1 && tx === 1) throw new Error('network down');
+        return good.getTileBytes(l, ty, tx);
+      },
+    };
+    const s = new LevelSampler(level, flaky);
+    const cols = new Float64Array([700]);
+    const rows = new Float64Array([700]);
+    await s.ensureForPixels(cols, rows);
+    expect(Number.isNaN(s.valueBilinear(cols, rows)[0])).toBe(true);
+    expect(s.failedTiles()).toEqual(['1_1']);
+    fail = false;
+    await s.ensureForPixels(cols, rows);
+    expect(s.valueBilinear(cols, rows)[0]).toBe(50);
+    expect(s.failedTiles()).toEqual([]);
+  });
+  it('counts resident tiles and releases them with clear()', async () => {
+    const level = syntheticLevel(1100, 20);
+    const s = new LevelSampler(level, new MemoryTileSource(level, new Int16Array(1100 * 1100)));
+    await s.ensureForPixels(new Float64Array([10, 1000]), new Float64Array([10, 1000]));
+    expect(s.tileCount()).toBe(2);
+    s.clear();
+    expect(s.tileCount()).toBe(0);
+    expect(() => s.dn(10, 10)).toThrow(/not loaded/);
+  });
+});

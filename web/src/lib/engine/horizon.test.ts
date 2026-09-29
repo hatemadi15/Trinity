@@ -86,3 +86,35 @@ describe.skipIf(!tilesPresent)('mask parity with the Python pipeline', () => {
     }
   }, 600_000);
 });
+
+describe('coverage reporting', () => {
+  it('computeSiteMask reports samples outside the grid and failed tiles', async () => {
+    const small = syntheticLevel(256, 20); // +-2.56 km around the pole; rings beyond it are outside the grid
+    const s = new LevelSampler(small, new MemoryTileSource(small, new Int16Array(256 * 256)));
+    const samplers: Samplers = { L0: s, L1: s, L2: s };
+    const res = await computeSiteMask(-89.95, 0, samplers, { mastM: 2 });
+    expect(res.coverage.samples).toBeGreaterThan(0);
+    expect(res.coverage.missing).toBeGreaterThan(0);
+    expect(res.coverage.missing).toBeLessThan(res.coverage.samples);
+    expect(res.failedTiles).toEqual([]);
+  });
+});
+
+describe.skipIf(!tilesPresent)('mask performance on real tiles', () => {
+  it('computes a warm mask in well under two seconds', async () => {
+    const dir = repoPath('data_out', 'tiles');
+    const manifest = readManifest(dir);
+    const src = new FsTileSource(dir);
+    const samplers: Samplers = {
+      L0: new LevelSampler(levelById(manifest, 'L0'), src),
+      L1: new LevelSampler(levelById(manifest, 'L1'), src),
+      L2: new LevelSampler(levelById(manifest, 'L2'), src),
+    };
+    const site = readJson<{ lat: number; lon: number }>('data', 'masks', 'shackleton_center_rim_high.json');
+    await computeSiteMask(site.lat, site.lon, samplers, { mastM: 2 }); // cold: tile IO + decode
+    const t0 = Date.now();
+    await computeSiteMask(site.lat, site.lon, samplers, { mastM: 2 });
+    const warmMs = Date.now() - t0;
+    expect(warmMs, `warm mask took ${warmMs} ms`).toBeLessThan(1500);
+  }, 120_000);
+});

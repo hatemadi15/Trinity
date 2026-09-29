@@ -16,6 +16,12 @@ export interface BandInfo {
   stepM: number;
 }
 
+/** How much of the ray-march found DEM data: `missing` samples fell outside a grid or in an absent/failed tile. */
+export interface Coverage {
+  samples: number;
+  missing: number;
+}
+
 export type Samplers = { L0: LevelSampler; L1: LevelSampler; L2: LevelSampler };
 
 export const NATIVE_STEP_M: Record<'L0' | 'L1' | 'L2', number> = { L0: 10, L1: 40, L2: 120 };
@@ -55,42 +61,115 @@ export async function siteHeightM(latDeg: number, lonDeg: number, samplers: Leve
   throw new Error(`no grid covers site (${latDeg}, ${lonDeg})`);
 }
 
-/** Great-circle sample points for azimuths [az0, az1) at distances d (m): lat/lon arrays of length nAzChunk*k. */
-function ringPoints(latDeg: number, lonDeg: number, azDeg: Float64Array, d: Float64Array): { lat: Float64Array; lon: Float64Array } {
-  const p = siteVectorKm(latDeg, lonDeg);
-  const pn = Math.hypot(p[0], p[1], p[2]);
-  const px = p[0] / pn, py = p[1] / pn, pz = p[2] / pn;
-  const { east, north } = enuBasis(latDeg, lonDeg);
-  const k = d.length, n = azDeg.length;
-  const lat = new Float64Array(n * k), lon = new Float64Array(n * k);
-  const cosD = new Float64Array(k), sinD = new Float64Array(k);
-  for (let j = 0; j < k; j++) { const delta = d[j] / R_MOON_M; cosD[j] = Math.cos(delta); sinD[j] = Math.sin(delta); }
-  for (let a = 0; a < n; a++) {
-    const az = azDeg[a] * DEG, ca = Math.cos(az), sa = Math.sin(az);
-    const tx = ca * north[0] + sa * east[0], ty = ca * north[1] + sa * east[1], tz = ca * north[2] + sa * east[2];
-    for (let j = 0; j < k; j++) {
-      const qx = cosD[j] * px + sinD[j] * tx, qy = cosD[j] * py + sinD[j] * ty, qz = cosD[j] * pz + sinD[j] * tz;
-      const i = a * k + j;
-      lat[i] = Math.asin(Math.max(-1, Math.min(1, qz))) * RAD;
-      lon[i] = Math.atan2(qy, qx) * RAD;
-    }
-  }
-  return { lat, lon };
-}
-
-function pixelsFor(sampler: LevelSampler, lat: Float64Array, lon: Float64Array): { cols: Float64Array; rows: Float64Array } {
-  const cols = new Float64Array(lat.length), rows = new Float64Array(lat.length);
-  for (let i = 0; i < lat.length; i++) {
-    const p = sampler.pixelFromLatLon(lat[i], lon[i]);
-    cols[i] = p.col; rows[i] = p.row;
-  }
-  return { cols, rows };
-}
-
 function azimuths(nAz: number): Float64Array {
   const az = new Float64Array(nAz);
   for (let i = 0; i < nAz; i++) az[i] = (i * 360) / nAz;
   return az;
+}
+
+/** Reusable per-band march buffers (ring pixels + heights) sized for AZ_CHUNK azimuths × k distances. */
+class RingMarcher {
+  private readonly px: number;
+  private readonly py: number;
+  private readonly pz: number;
+  private readonly east: number[];
+  private readonly north: number[];
+  readonly cosD: Float64Array;
+  readonly sinD: Float64Array;
+  readonly cols: Float64Array;
+  readonly rows: Float64Array;
+  readonly heights: Float64Array;
+
+  constructor(latDeg: number, lonDeg: number, readonly d: Float64Array) {
+    const p = siteVectorKm(latDeg, lonDeg);
+    const pn = Math.hypot(p[0], p[1], p[2]);
+    this.px = p[0] / pn; this.py = p[1] / pn; this.pz = p[2] / pn;
+    const { east, north } = enuBasis(latDeg, lonDeg);
+    this.east = east; this.north = north;
+    const k = d.length;
+    this.cosD = new Float64Array(k);
+    this.sinD = new Float64Array(k);
+    for (let j = 0; j < k; j++) {
+      const delta = d[j] / R_MOON_M;
+      this.cosD[j] = Math.cos(delta);
+      this.sinD[j] = Math.sin(delta);
+    }
+    this.cols = new Float64Array(AZ_CHUNK * k);
+    this.rows = new Float64Array(AZ_CHUNK * k);
+    this.heights = new Float64Array(AZ_CHUNK * k);
+  }
+
+  /**
+   * Fill cols/rows for azimuths azDeg (length ≤ AZ_CHUNK) on `sampler`'s grid; returns the used length.
+   * The unit vector q is projected directly: for a point south of the equator the south polar
+   * stereographic coordinates are x = 2R·qy/(1 − qz), y = 2R·qx/(1 − qz) (identical to
+   * ρ sin λ / ρ cos λ with ρ = 2R tan((90° + lat)/2), without any trigonometric call per sample).
+   */
+  project(sampler: LevelSampler, azDeg: Float64Array): number {
+    const k = this.d.length, n = azDeg.length;
+    const { east, north, px, py, pz, cosD, sinD, cols, rows } = this;
+    const level = sampler.level;
+    const twoR = 2 * R_MOON_M, scale = level.map_scale_m;
+    const colOff = level.sample_offset_px, rowOff = level.line_offset_px;
+    for (let a = 0; a < n; a++) {
+      const az = azDeg[a] * DEG, ca = Math.cos(az), sa = Math.sin(az);
+      const tx = ca * north[0] + sa * east[0], ty = ca * north[1] + sa * east[1], tz = ca * north[2] + sa * east[2];
+      const base = a * k;
+      for (let j = 0; j < k; j++) {
+        const qx = cosD[j] * px + sinD[j] * tx, qy = cosD[j] * py + sinD[j] * ty, qz = cosD[j] * pz + sinD[j] * tz;
+        const f = twoR / (1 - qz) / scale;
+        cols[base + j] = colOff + qy * f;
+        rows[base + j] = rowOff - qx * f;
+      }
+    }
+    return n * k;
+  }
+}
+
+/** Sub-views without allocation: typed-array subarrays of the marcher buffers. */
+function view(arr: Float64Array, n: number): Float64Array {
+  return arr.length === n ? arr : arr.subarray(0, n);
+}
+
+export async function horizonMaskWithStats(
+  latDeg: number,
+  lonDeg: number,
+  bands: Band[],
+  opts: { nAz?: number; mastM?: number; siteHeightM?: number } = {},
+): Promise<{ mask: Float64Array; coverage: Coverage }> {
+  const nAz = opts.nAz ?? 720;
+  const mastM = opts.mastM ?? 2;
+  const h = opts.siteHeightM ?? (await siteHeightM(latDeg, lonDeg, bands.map((b) => b.sampler)));
+  const rO = R_MOON_M + h + mastM;
+  const mask = new Float64Array(nAz).fill(-90);
+  const az = azimuths(nAz);
+  let samples = 0, missing = 0;
+  for (const band of bands) {
+    const marcher = new RingMarcher(latDeg, lonDeg, arange(band.rMinM, band.rMaxM, band.stepM));
+    const k = marcher.d.length;
+    const { cosD, sinD } = marcher;
+    for (let a0 = 0; a0 < nAz; a0 += AZ_CHUNK) {
+      const azChunk = az.subarray(a0, Math.min(nAz, a0 + AZ_CHUNK));
+      const n = marcher.project(band.sampler, azChunk);
+      const cols = view(marcher.cols, n), rows = view(marcher.rows, n), hs = view(marcher.heights, n);
+      await band.sampler.ensureForPixels(cols, rows);
+      band.sampler.valueBilinearInto(cols, rows, hs);
+      samples += n;
+      for (let a = 0; a < azChunk.length; a++) {
+        let best = mask[a0 + a];
+        const base = a * k;
+        for (let j = 0; j < k; j++) {
+          const ht = hs[base + j];
+          if (ht !== ht) { missing++; continue; } // NaN
+          const rT = R_MOON_M + ht;
+          const el = Math.atan2(rT * cosD[j] - rO, rT * sinD[j]) * RAD;
+          if (el > best) best = el;
+        }
+        mask[a0 + a] = best;
+      }
+    }
+  }
+  return { mask, coverage: { samples, missing } };
 }
 
 /**
@@ -103,57 +182,29 @@ export async function horizonMask(
   bands: Band[],
   opts: { nAz?: number; mastM?: number; siteHeightM?: number } = {},
 ): Promise<Float64Array> {
-  const nAz = opts.nAz ?? 720;
-  const mastM = opts.mastM ?? 2;
-  const h = opts.siteHeightM ?? (await siteHeightM(latDeg, lonDeg, bands.map((b) => b.sampler)));
-  const rO = R_MOON_M + h + mastM;
-  const mask = new Float64Array(nAz).fill(-90);
-  const az = azimuths(nAz);
-  for (const band of bands) {
-    const d = arange(band.rMinM, band.rMaxM, band.stepM);
-    const k = d.length;
-    const cosD = new Float64Array(k), sinD = new Float64Array(k);
-    for (let j = 0; j < k; j++) { const delta = d[j] / R_MOON_M; cosD[j] = Math.cos(delta); sinD[j] = Math.sin(delta); }
-    for (let a0 = 0; a0 < nAz; a0 += AZ_CHUNK) {
-      const azChunk = az.subarray(a0, Math.min(nAz, a0 + AZ_CHUNK));
-      const { lat, lon } = ringPoints(latDeg, lonDeg, azChunk, d);
-      const { cols, rows } = pixelsFor(band.sampler, lat, lon);
-      await band.sampler.ensureForPixels(cols, rows);
-      const hs = band.sampler.valueBilinear(cols, rows);
-      for (let a = 0; a < azChunk.length; a++) {
-        let best = mask[a0 + a];
-        for (let j = 0; j < k; j++) {
-          const ht = hs[a * k + j];
-          if (Number.isNaN(ht)) continue;
-          const rT = R_MOON_M + ht;
-          const el = Math.atan2(rT * cosD[j] - rO, rT * sinD[j]) * RAD;
-          if (el > best) best = el;
-        }
-        mask[a0 + a] = best;
-      }
-    }
-  }
-  return mask;
+  return (await horizonMaskWithStats(latDeg, lonDeg, bands, opts)).mask;
 }
 
 /** Distance just before the first ring sample of `band` that lies outside its grid (null when fully covered). */
 export async function firstMissingDistanceM(latDeg: number, lonDeg: number, band: Band, nAz: number, probeStepM: number): Promise<number | null> {
-  const d = arange(band.rMinM, band.rMaxM, probeStepM);
-  const k = d.length;
+  const marcher = new RingMarcher(latDeg, lonDeg, arange(band.rMinM, band.rMaxM, probeStepM));
+  const k = marcher.d.length;
   const missing = new Uint8Array(k);
   const az = azimuths(nAz);
   for (let a0 = 0; a0 < nAz; a0 += AZ_CHUNK) {
     const azChunk = az.subarray(a0, Math.min(nAz, a0 + AZ_CHUNK));
-    const { lat, lon } = ringPoints(latDeg, lonDeg, azChunk, d);
-    const { cols, rows } = pixelsFor(band.sampler, lat, lon);
+    const n = marcher.project(band.sampler, azChunk);
+    const cols = view(marcher.cols, n), rows = view(marcher.rows, n), hs = view(marcher.heights, n);
     await band.sampler.ensureForPixels(cols, rows);
-    const hs = band.sampler.valueBilinear(cols, rows);
-    for (let a = 0; a < azChunk.length; a++)
-      for (let j = 0; j < k; j++) if (Number.isNaN(hs[a * k + j])) missing[j] = 1;
+    band.sampler.valueBilinearInto(cols, rows, hs);
+    for (let a = 0; a < azChunk.length; a++) {
+      const base = a * k;
+      for (let j = 0; j < k; j++) if (hs[base + j] !== hs[base + j]) missing[j] = 1;
+    }
   }
   const first = missing.indexOf(1);
   if (first < 0) return null;
-  return d[Math.max(first - 1, 0)];
+  return marcher.d[Math.max(first - 1, 0)];
 }
 
 function levelKey(sampler: LevelSampler, samplers: Samplers): 'L0' | 'L1' | 'L2' {
@@ -182,17 +233,25 @@ function info(b: Band, samplers: Samplers): BandInfo {
   return { grid: levelKey(b.sampler, samplers), rMinM: b.rMinM, rMaxM: b.rMaxM, stepM: b.stepM };
 }
 
-/** Full per-site computation: primary bands, fallback bands, site height, mask. */
+/** Full per-site computation: primary bands, fallback bands, site height, mask, coverage and failed tiles. */
 export async function computeSiteMask(
   latDeg: number,
   lonDeg: number,
   samplers: Samplers,
   opts: { nAz?: number; mastM?: number } = {},
-): Promise<{ mask: Float64Array; siteHeightM: number; bands: BandInfo[]; fallbackBands: BandInfo[] }> {
+): Promise<{ mask: Float64Array; siteHeightM: number; bands: BandInfo[]; fallbackBands: BandInfo[]; coverage: Coverage; failedTiles: string[] }> {
   const nAz = opts.nAz ?? 720;
   const bands = bandsForSite(latDeg, samplers);
   const fallback = await fallbackBands(latDeg, lonDeg, bands, samplers, nAz);
   const h = await siteHeightM(latDeg, lonDeg, bands.map((b) => b.sampler));
-  const mask = await horizonMask(latDeg, lonDeg, [...bands, ...fallback], { nAz, mastM: opts.mastM ?? 2, siteHeightM: h });
-  return { mask, siteHeightM: h, bands: bands.map((b) => info(b, samplers)), fallbackBands: fallback.map((b) => info(b, samplers)) };
+  const { mask, coverage } = await horizonMaskWithStats(latDeg, lonDeg, [...bands, ...fallback], { nAz, mastM: opts.mastM ?? 2, siteHeightM: h });
+  const failedTiles = LEVEL_ORDER.flatMap((key) => samplers[key].failedTiles().map((t) => `${key}/${t}`));
+  return {
+    mask,
+    siteHeightM: h,
+    bands: bands.map((b) => info(b, samplers)),
+    fallbackBands: fallback.map((b) => info(b, samplers)),
+    coverage,
+    failedTiles: [...new Set(failedTiles)],
+  };
 }
