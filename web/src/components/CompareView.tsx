@@ -31,8 +31,8 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
   const full = s.compareIds.length >= COMPARE_MAX;
   return (
     <AppFrame>
-      <main className="flex flex-col gap-4 px-6 py-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
+      <main className="flex flex-col">
+        <div className="glass-bar flex flex-wrap items-end justify-between gap-4 border-b border-line px-4 py-2">
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1 text-sm text-ink-2">
               Add site
@@ -44,7 +44,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                   setAdding('');
                   if (e.target.value) void store.getState().addToCompare(e.target.value);
                 }}
-                className="min-w-[280px] rounded-md border border-line bg-panel px-2 py-1 text-ink disabled:opacity-50"
+                className="w-[300px] max-w-full rounded-md border border-line bg-panel px-2 py-1 text-ink disabled:opacity-50"
               >
                 <option value="">{full ? 'Four sites compared (maximum)' : 'Choose a site…'}</option>
                 {candidates.map((x) => (
@@ -67,6 +67,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             bestWindowNote={s.bestWindowNote}
           />
         </div>
+        <div className="flex flex-col gap-3 p-3">
         <PlannerParamsPanel params={s.params} onParams={s.setParams} onPower={s.setPower} busy={s.maskBusy} />
         <PlannerChat store={store} />
         {s.error && (
@@ -75,12 +76,12 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
           </p>
         )}
         {s.compare.length === 0 ? (
-          <p className="rounded-md bg-panel p-6 text-ink-2">
+          <p className="glass rounded-md p-6 text-ink-2">
             Add up to four sites to compare them over the same window and planner settings. Explore a site and press “Add to
             compare”, or pick one above.
           </p>
         ) : (
-          <div className="flex gap-4 overflow-x-auto pb-2">
+          <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
             {s.compare.map((c) => (
               <CompareColumn
                 key={c.site.id}
@@ -95,6 +96,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             ))}
           </div>
         )}
+        </div>
       </main>
     </AppFrame>
   );
@@ -131,25 +133,25 @@ function CompareColumn({
   // Learn mode keeps the same four numbers as the Explore tiles.
   const rows = audience === 'learn' ? all.filter(([k]) => LEARN_ROWS.has(k)) : all;
   return (
-    <article aria-label={site.name} className="flex min-w-[260px] max-w-[340px] flex-1 flex-col gap-3 rounded-md bg-panel p-4">
+    <article aria-label={site.name} className="glass flex min-w-[300px] max-w-[380px] flex-1 flex-col gap-3 rounded-md p-4">
       <div>
-        <h2 className="font-display text-lg font-semibold leading-tight">{site.name}</h2>
-        <p className="text-xs text-ink-3">
+        <h2 className="font-display text-xl font-semibold leading-tight">{site.name}</h2>
+        <p className="text-xs text-ink-2">
           {site.lat.toFixed(3)}°, {site.lon.toFixed(3)}°
         </p>
       </div>
       <Sparkline series={series} />
-      <p className="text-xs text-ink-3">
+      <p className="text-xs text-ink-2">
         {utcLabel(startUtc, 0)} + {days} days; {contacts.length} Earth contact {contacts.length === 1 ? 'window' : 'windows'}; skyline
         computed with a {mastM} m mast
         {mastM !== plannerMastM ? ` (the planner's ${plannerMastM} m mast applies to the Explore site)` : ''}
       </p>
       <VerdictChip power={power} />
-      <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
         {rows.map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-ink-2">{k}</dt>
-            <dd className="text-right font-medium">{v}</dd>
+          <div key={k} className="border-t border-line pt-2">
+            <dt className="text-xs text-ink-2">{k}</dt>
+            <dd className="font-display text-[26px] font-semibold leading-none tabular-nums">{v}</dd>
           </div>
         ))}
       </dl>

@@ -7,13 +7,13 @@ export function GuidedStory({ webgl }: { webgl: boolean }) {
   const current = STORY_STEPS[step];
   const text = !webgl && current.noWebgl ? current.noWebgl : current.body;
   return (
-    <section aria-label="Guided story" className="flex flex-col gap-3 rounded-md border border-sun/40 bg-panel p-4">
+    <section aria-label="Guided story" className="glass flex flex-col gap-3 rounded-md border-sun/40 p-4">
       <ol aria-label="Guided story" className="flex flex-wrap gap-2 text-sm">
         {STORY_STEPS.map((s, i) => (
           <li
             key={s.title}
             aria-current={i === step ? 'step' : undefined}
-            className={`rounded-md border px-2 py-1 ${i === step ? 'border-sun text-ink' : 'border-line text-ink-3'}`}
+            className={`rounded-md border px-2 py-1 ${i === step ? 'border-sun text-ink' : 'border-line text-ink-2'}`}
           >
             {i + 1}. {s.title}
           </li>

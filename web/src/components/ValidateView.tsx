@@ -120,25 +120,28 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
 
   return (
     <AppFrame>
-      <main className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-6">
+      <main className="mx-auto flex max-w-5xl flex-col gap-5 px-6 py-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-display text-3xl font-semibold">Validate</h1>
+          <h1 className="font-display text-[44px] font-semibold leading-tight tracking-tight">Validate</h1>
           <p className="max-w-prose text-ink-2">
             Three checks a planner can rerun: our Sun and Earth directions against JPL Horizons, our sunlit fractions against the LOLA
             illumination map, and predicted sunsets against what happened to three CLPS landers.
           </p>
           {badge && (
-            <p className="text-sm text-ink-3">
+            <p className="text-sm text-ink-2">
               Automated tests: {badge.web.tests} in the web engine and app ({badge.web.files} files), {badge.pipeline.tests} in the Python pipeline; last counted{' '}
               {utcShort(badge.generated_utc)}.
             </p>
           )}
         </header>
 
-        <section aria-labelledby="h-horizons" className="flex flex-col gap-3">
+        <section aria-labelledby="h-horizons" className="glass flex flex-col gap-3 rounded-md p-5">
           <h2 id="h-horizons" className="font-display text-xl font-semibold">
             Do we point where JPL points?
           </h2>
+          <p className="font-display text-[28px] font-semibold leading-none tabular-nums" aria-hidden="true">
+            {exp1(horizons.max_abs_delta_el_deg)} <span className="text-sm font-normal text-ink-2">worst elevation difference over {horizons.n_rows} rows</span>
+          </p>
           <p className="text-sm text-ink-2">
             Worst difference over {horizons.n_rows} rows: {exp1(horizons.max_abs_delta_el_deg)} in elevation, {exp1(horizons.max_abs_delta_az_cos_el_deg)} in azimuth
             (target 0.01°). Sun and Earth as seen from six sites, 2025–2026, every 30 days, JPL Horizons observer tables with <code>CENTER=coord@301</code>.
@@ -176,7 +179,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
               type="button"
               onClick={() => void runRecheck()}
               disabled={live.state === 'busy'}
-              className="rounded-md border border-sun px-3 py-1 text-sm text-ink hover:bg-panel disabled:opacity-50"
+              className="rounded-md bg-sun px-3 py-1 text-sm font-medium text-night hover:bg-sun-bright disabled:opacity-50"
             >
               Re-check with JPL now
             </button>
@@ -191,10 +194,13 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
           </div>
         </section>
 
-        <section aria-labelledby="h-mazarico" className="flex flex-col gap-3">
+        <section aria-labelledby="h-mazarico" className="glass flex flex-col gap-3 rounded-md p-5">
           <h2 id="h-mazarico" className="font-display text-xl font-semibold">
             Do we light what LOLA lights?
           </h2>
+          <p className="font-display text-[28px] font-semibold leading-none tabular-nums" aria-hidden="true">
+            {within5} of {covered.length} <span className="text-sm font-normal text-ink-2">covered sites within 5 points of the LOLA map</span>
+          </p>
           <p className="text-sm text-ink-2">
             Our sunlit fraction, hourly {mazarico.period[0].slice(0, 10)} to {mazarico.period[1].slice(0, 10)} with a 2 m mast, against the LOLA average-visibility map (
             <code>{mazarico.product}</code>, 60 m/px, south of 85°S). {within5} of {covered.length} covered sites are within 5 points; worst{' '}
@@ -235,7 +241,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
           </table>
         </section>
 
-        <section aria-labelledby="h-backcasts" className="flex flex-col gap-3">
+        <section aria-labelledby="h-backcasts" className="glass flex flex-col gap-3 rounded-md p-5">
           <h2 id="h-backcasts" className="font-display text-xl font-semibold">
             Did the landers die when the Sun set?
           </h2>
@@ -275,13 +281,13 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
                 <span className="text-ink-2">
                   {r.name}: {r.mission_note ?? 'no note for this mission yet'}
                 </span>
-                <span className="text-xs text-ink-3">Source: {r.mission_end_source ?? 'not recorded'}</span>
+                <span className="text-xs text-ink-2">Source: {r.mission_end_source ?? 'not recorded'}</span>
               </li>
             ))}
           </ul>
         </section>
 
-        <section aria-labelledby="h-budget" className="flex flex-col gap-2">
+        <section aria-labelledby="h-budget" className="glass flex flex-col gap-2 rounded-md p-5">
           <h2 id="h-budget" className="font-display text-xl font-semibold">
             Error budget
           </h2>

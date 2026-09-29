@@ -64,7 +64,7 @@ export function PlannerParamsPanel({
   const [open, setOpen] = useState(embedded);
   const p = params.power;
   return (
-    <section aria-label="Planner settings" className={embedded ? '' : 'rounded-md bg-panel px-4 py-2'}>
+    <section aria-label="Planner settings" className={embedded ? '' : 'glass rounded-md px-4 py-2'}>
       {!embedded && (
       <button
         type="button"

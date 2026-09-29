@@ -87,7 +87,7 @@ export function PlannerChat({
   const showChips = exchanges.length === 0 || exchanges[0].source === 'error';
   const latest = exchanges[0];
   return (
-    <section aria-label="Planner" className="rounded-md bg-panel px-4 py-2">
+    <section aria-label="Planner" className="glass rounded-md px-4 py-2">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -118,9 +118,9 @@ export function PlannerChat({
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask the planner: compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days"
               maxLength={500}
-              className="min-w-[280px] flex-1 rounded-md border border-line bg-bg px-3 py-1.5 text-ink placeholder:text-ink-3"
+              className="min-w-[280px] flex-1 rounded-md border border-line bg-canvas px-3 py-1.5 text-ink placeholder:text-ink-3"
             />
-            <button type="submit" disabled={busy || !input.trim()} className="rounded-md border border-sun px-3 py-1 text-sm text-ink hover:bg-bg disabled:opacity-50">
+            <button type="submit" disabled={busy || !input.trim()} className="rounded-md bg-sun px-3 py-1 text-sm font-medium text-night hover:bg-sun-bright disabled:opacity-50">
               {busy ? 'Thinking…' : 'Ask'}
             </button>
           </form>
@@ -146,7 +146,7 @@ export function PlannerChat({
                   <p className={i === 0 ? 'text-sm' : 'text-xs'}>{x.reply}</p>
                   {x.notes.length > 0 && <p className="text-xs text-ink-2">{x.notes.join(' ')}</p>}
                   <p className="text-xs text-ink-3">
-                    {sourceLabel(x)} · you asked: “{x.prompt}”
+                    {sourceLabel(x)}, after you asked “{x.prompt}”
                   </p>
                 </li>
               ))}
