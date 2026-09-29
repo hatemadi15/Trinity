@@ -40,6 +40,9 @@ describe.skipIf(!present)('data loaders against web/public/data', () => {
     expect(mask.elevation_deg.length).toBe(720);
     expect(mask.mast_m).toBe(2);
   });
+});
+
+describe('data loaders without data files', () => {
   it('loadSites reports a missing file with its URL', async () => {
     await expect(loadSites(`${base}/nope`)).rejects.toMatchObject({ name: 'DataError', status: 404 });
     await expect(loadSites(`${base}/nope`)).rejects.toThrow(/nope\/sites\.json/);

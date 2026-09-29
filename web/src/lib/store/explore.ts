@@ -1,5 +1,4 @@
-import { create, createStore, type StoreApi } from 'zustand';
-import { useStore } from 'zustand';
+import { createStore, type StoreApi } from 'zustand';
 import { dataBase, loadEphemerisFromUrl, loadMask, loadSites, type MaskDoc, type Site } from '../data/loaders';
 import type { Ephemeris } from '../engine/ephemeris';
 import { hourlySeries, summarize, type Series, type Summary } from '../engine/metrics';
@@ -19,6 +18,13 @@ export interface Loaders {
 export interface MaskMeta {
   siteHeightM: number;
   source: 'featured' | 'computed';
+  /** Tiles that failed to load while computing (0 for precomputed masks). */
+  failedTiles: number;
+}
+
+interface CachedMask {
+  mask: Float64Array;
+  meta: MaskMeta;
 }
 
 export interface ExploreState {
@@ -44,7 +50,13 @@ export interface ExploreState {
   setCustomError: (message: string | null) => void;
 }
 
-export function recompute(eph: Ephemeris, site: Site, mask: Float64Array, startUtc: string, days: number): { series: Series; summary: Summary } {
+export function recompute(
+  eph: Ephemeris,
+  site: Site,
+  mask: Float64Array,
+  startUtc: string,
+  days: number,
+): { series: Series; summary: Summary } {
   const series = hourlySeries(site, mask, eph, utcToEt(startUtc), days * 24);
   return { series, summary: summarize(series) };
 }
@@ -54,6 +66,12 @@ function message(err: unknown): string {
 }
 
 export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
+  // Masks by site id: precomputed ones are cached after their first fetch, computed ones are
+  // registered by applyMask so custom sites stay selectable without a mask file.
+  const masks = new Map<string, CachedMask>();
+  // Sequence token so a slow selectSite cannot overwrite a newer selection or window.
+  let selectSeq = 0;
+
   return createStore<ExploreState>((set, get) => ({
     status: 'idle',
     error: null,
@@ -71,11 +89,17 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     summary: null,
 
     async init() {
+      if (get().eph) {
+        if (get().status !== 'ready') set({ status: 'ready' });
+        return;
+      }
       set({ status: 'loading', error: null });
       try {
         const [sites, eph] = await Promise.all([loaders.loadSites(), loaders.loadEphemeris()]);
         set({ sites, eph });
-        await get().selectSite(DEFAULT_SITE);
+        const first = sites.find((s) => s.id === DEFAULT_SITE) ?? sites.find((s) => s.polar);
+        if (!first) throw new Error('no polar site in the catalog');
+        await get().selectSite(first.id);
         set({ status: 'ready' });
       } catch (err) {
         set({ status: 'error', error: message(err) });
@@ -83,19 +107,39 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     },
 
     async selectSite(id) {
-      const { sites, eph, startUtc, days } = get();
+      const { sites, eph } = get();
       const site = sites.find((s) => s.id === id);
       if (!site || !eph) {
         set({ error: `unknown site ${id}` });
         return;
       }
+      const seq = ++selectSeq;
       try {
-        const doc = await loaders.loadMask(id);
-        const mask = Float64Array.from(doc.elevation_deg);
-        const { series, summary } = recompute(eph, site, mask, startUtc, days);
-        set({ siteId: id, site, mask, maskMeta: { siteHeightM: doc.site_height_m, source: 'featured' }, series, summary, cursorHour: 0, error: null, customError: null });
+        let cached = masks.get(id);
+        if (!cached) {
+          const doc = await loaders.loadMask(id);
+          cached = {
+            mask: Float64Array.from(doc.elevation_deg),
+            meta: { siteHeightM: doc.site_height_m, source: 'featured', failedTiles: 0 },
+          };
+          masks.set(id, cached);
+        }
+        if (seq !== selectSeq) return; // a newer selection won
+        const { startUtc, days } = get(); // re-read: the window may have changed while loading
+        const { series, summary } = recompute(eph, site, cached.mask, startUtc, days);
+        set({
+          siteId: id,
+          site,
+          mask: cached.mask,
+          maskMeta: cached.meta,
+          series,
+          summary,
+          cursorHour: 0,
+          error: null,
+          customError: null,
+        });
       } catch (err) {
-        set({ error: message(err) });
+        if (seq === selectSeq) set({ error: message(err) });
       }
     },
 
@@ -124,8 +168,21 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       if (!eph) return;
       try {
         const { series, summary } = recompute(eph, site, mask, startUtc, days);
+        masks.set(site.id, { mask, meta });
+        selectSeq++; // invalidate any in-flight selectSite
         const known = sites.some((s) => s.id === site.id) ? sites : [...sites, site];
-        set({ sites: known, siteId: site.id, site, mask, maskMeta: meta, series, summary, cursorHour: 0, error: null, customError: null });
+        set({
+          sites: known,
+          siteId: site.id,
+          site,
+          mask,
+          maskMeta: meta,
+          series,
+          summary,
+          cursorHour: 0,
+          error: null,
+          customError: null,
+        });
       } catch (err) {
         set({ error: message(err) });
       }
@@ -144,10 +201,3 @@ const browserLoaders: Loaders = {
 };
 
 export const exploreStore = createExploreStore(browserLoaders);
-
-export function useExploreStore<T>(selector: (s: ExploreState) => T): T {
-  return useStore(exploreStore, selector);
-}
-
-// `create` is re-exported for consumers that want a hook-bound store in tests.
-export { create };
