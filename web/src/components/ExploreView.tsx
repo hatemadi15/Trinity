@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
 import { SiteSelect } from './SiteSelect';
@@ -11,7 +11,6 @@ import { WindowControls } from './WindowControls';
 import { Scene3DLazy } from './three';
 import { dataBase } from '@/lib/data/loaders';
 import { globeTextureUrl } from '@/lib/data/terrain';
-import { EngineClient } from '@/lib/engine-client';
 import { maskAtAzimuth, type Series } from '@/lib/engine/metrics';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { exploreStore, type Exaggeration, type ExploreState, type SceneMode } from '@/lib/store/explore';
@@ -21,44 +20,12 @@ import { sceneStateAt } from '@/lib/viz/scene-state';
 
 export function ExploreView({ store = exploreStore }: { store?: StoreApi<ExploreState> }) {
   const s = useStore(store);
-  const [busy, setBusy] = useState(false);
   const [hoverHour, setHoverHour] = useState<number | null>(null);
-  const client = useRef<EngineClient | null>(null);
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     void store.getState().init();
-    const current = client;
-    return () => current.current?.dispose();
   }, [store]);
-
-  const onCustom = useCallback(
-    async (lat: number, lon: number) => {
-      setBusy(true);
-      try {
-        client.current ??= new EngineClient(dataBase());
-        const res = await client.current.computeMask(lat, lon);
-        store.getState().applyMask(
-          {
-            id: `custom_${lat.toFixed(4)}_${lon.toFixed(4)}`,
-            name: `Custom site ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`,
-            lat,
-            lon,
-            category: 'custom',
-            polar: true,
-            source: 'user',
-          },
-          res.mask,
-          { siteHeightM: res.siteHeightM, source: 'computed', failedTiles: res.failedTiles.length },
-        );
-      } catch (err) {
-        store.getState().setCustomError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [store],
-  );
 
   const onPick = useCallback(
     (lat: number, lon: number) => {
@@ -67,9 +34,9 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
         store.getState().setCustomError(r.message);
         return;
       }
-      void onCustom(r.lat, r.lon);
+      void store.getState().selectCustom(r.lat, r.lon);
     },
-    [onCustom, store],
+    [store],
   );
 
   const scene = useMemo(
@@ -113,9 +80,9 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
             sites={s.sites}
             value={s.siteId}
             onSelect={(id) => void s.selectSite(id)}
-            onCustom={onCustom}
+            onCustom={(lat, lon) => void s.selectCustom(lat, lon)}
             customError={s.customError}
-            busy={busy}
+            busy={s.maskBusy}
           />
           <WindowControls startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} />
         </div>

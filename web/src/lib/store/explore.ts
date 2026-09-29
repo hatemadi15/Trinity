@@ -2,8 +2,11 @@ import { createStore, type StoreApi } from 'zustand';
 import { dataBase, loadEphemerisFromUrl, loadMask, loadSites, type MaskDoc, type Site } from '../data/loaders';
 import { loadHeightmap, loadTerrainManifest, windowFileFor, type Heightmap, type TerrainManifest } from '../data/terrain';
 import type { Ephemeris } from '../engine/ephemeris';
-import { hourlySeries, summarize, type Series, type Summary } from '../engine/metrics';
-import { utcToEt } from '../engine/time';
+import { EngineClient } from '../engine-client';
+import { normalizeLon } from '../engine/geometry';
+import { bestWindow, contactWindows, hourlySeries, SeriesIndex, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
+import { DEFAULT_POWER, powerBudget, type PowerConfig, type PowerResult } from '../engine/power';
+import { etToIso, utcToEt } from '../engine/time';
 
 export const WINDOW_DAYS = [14, 30, 90] as const;
 export type WindowDays = (typeof WINDOW_DAYS)[number];
@@ -12,6 +15,26 @@ export type SceneMode = 'globe' | 'terrain';
 export type TerrainState = 'idle' | 'loading' | 'ready' | 'unavailable';
 export type Exaggeration = 1 | 3;
 export const DEFAULT_SITE = 'shackleton_center_rim_high';
+export const COMPARE_MAX = 4;
+export const BEST_WINDOW_SCAN_DAYS = 365;
+
+export interface PlannerParams {
+  power: PowerConfig;
+  /** Earth counts as in view only this far above the skyline (degrees). */
+  minEarthElDeg: number;
+  /** Antenna/mast height used for the skyline (featured masks: 2 m). */
+  mastM: number;
+}
+export const DEFAULT_PARAMS: PlannerParams = { power: DEFAULT_POWER, minEarthElDeg: 0, mastM: 2 };
+
+/** Everything derived for one site over the current window and parameters. */
+export interface SiteResult {
+  site: Site;
+  series: Series;
+  summary: Summary;
+  power: PowerResult;
+  contacts: ContactWindow[];
+}
 export const DEFAULT_START = '2027-01-01T00:00:00';
 
 export interface Loaders {
@@ -21,6 +44,8 @@ export interface Loaders {
   /** Optional: when absent the 3D terrain stays empty (globe still works). */
   loadTerrainManifest?: () => Promise<TerrainManifest>;
   loadHeightmap?: (file: string, metaFile: string) => Promise<Heightmap>;
+  /** Optional: worker-backed skyline for custom sites and mast changes. */
+  computeMask?: (lat: number, lon: number, mastM: number) => Promise<{ mask: Float64Array; siteHeightM: number; failedTiles: number }>;
 }
 
 export interface MaskMeta {
@@ -28,6 +53,8 @@ export interface MaskMeta {
   source: 'featured' | 'computed';
   /** Tiles that failed to load while computing (0 for precomputed masks). */
   failedTiles: number;
+  /** Mast height the skyline was computed with; absent means the featured 2 m. */
+  mastM?: number;
 }
 
 interface CachedMask {
@@ -69,6 +96,24 @@ export interface ExploreState {
   setExaggeration: (x: Exaggeration) => void;
   /** Resolves once the optional terrain manifest, cap and the current site's window have settled. */
   waitForTerrain: () => Promise<void>;
+  params: PlannerParams;
+  power: PowerResult | null;
+  contacts: ContactWindow[];
+  compareIds: string[];
+  compare: SiteResult[];
+  /** True while the worker computes a skyline (custom site or mast change). */
+  maskBusy: boolean;
+  bestWindowNote: string | null;
+  setParams: (patch: Partial<PlannerParams>) => void;
+  setPower: (patch: Partial<PowerConfig>) => void;
+  /** Computes a custom site's skyline in the worker and selects it. */
+  selectCustom: (lat: number, lon: number) => Promise<void>;
+  addToCompare: (id: string) => Promise<void>;
+  removeFromCompare: (id: string) => void;
+  /** Scans the next year from the start date and moves the window to the best span; null when none fits. */
+  findBestWindow: (days: WindowDays) => Promise<{ startUtc: string; summary: Summary } | null>;
+  /** Resolves once an in-flight skyline recompute has settled. */
+  waitForMask: () => Promise<void>;
 }
 
 export function recompute(
@@ -77,9 +122,11 @@ export function recompute(
   mask: Float64Array,
   startUtc: string,
   days: number,
-): { series: Series; summary: Summary } {
-  const series = hourlySeries(site, mask, eph, utcToEt(startUtc), days * 24);
-  return { series, summary: summarize(series) };
+  params: PlannerParams = DEFAULT_PARAMS,
+): SiteResult {
+  const raw = hourlySeries(site, mask, eph, utcToEt(startUtc), days * 24);
+  const series = params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
+  return { site, series, summary: summarize(series), power: powerBudget(series, params.power), contacts: contactWindows(series) };
 }
 
 function message(err: unknown): string {
@@ -96,6 +143,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   let windowSeq = 0;
   let terrainPromise: Promise<void> = Promise.resolve();
   let windowPromise: Promise<void> = Promise.resolve();
+  let maskPromise: Promise<void> = Promise.resolve();
 
   const store = createStore<ExploreState>((set, get) => ({
     status: 'idle',
@@ -119,6 +167,13 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     terrainManifest: null,
     heightmap: null,
     capHeightmap: null,
+    params: DEFAULT_PARAMS,
+    power: null,
+    contacts: [],
+    compareIds: [],
+    compare: [],
+    maskBusy: false,
+    bestWindowNote: null,
 
     async init() {
       if (get().eph) {
@@ -158,21 +213,25 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           masks.set(id, cached);
         }
         if (seq !== selectSeq) return; // a newer selection won
-        const { startUtc, days } = get(); // re-read: the window may have changed while loading
-        const { series, summary } = recompute(eph, site, cached.mask, startUtc, days);
+        const { startUtc, days, params } = get(); // re-read: the window may have changed while loading
+        const r = recompute(eph, site, cached.mask, startUtc, days, params);
         set({
           siteId: id,
           site,
           mask: cached.mask,
           maskMeta: cached.meta,
-          series,
-          summary,
+          series: r.series,
+          summary: r.summary,
+          power: r.power,
+          contacts: r.contacts,
           cursorHour: 0,
           error: null,
           customError: null,
+          maskBusy: false,
           heightmap: windows.get(id) ?? null,
         });
         void loadWindow(id);
+        if ((cached.meta.mastM ?? 2) !== params.mastM) void recomputeMask();
       } catch (err) {
         if (seq === selectSeq) set({ error: message(err) });
       }
@@ -185,8 +244,9 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         return;
       }
       try {
-        const { series, summary } = recompute(eph, site, mask, startUtc, days);
-        set({ startUtc, days, series, summary, cursorHour: Math.min(cursorHour, days * 24 - 1), error: null });
+        const r = recompute(eph, site, mask, startUtc, days, get().params);
+        set({ startUtc, days, series: r.series, summary: r.summary, power: r.power, contacts: r.contacts, cursorHour: Math.min(cursorHour, days * 24 - 1), error: null });
+        recomputeCompare();
       } catch (err) {
         set({ error: message(err) });
       }
@@ -202,7 +262,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       const { eph, startUtc, days, sites } = get();
       if (!eph) return;
       try {
-        const { series, summary } = recompute(eph, site, mask, startUtc, days);
+        const r = recompute(eph, site, mask, startUtc, days, get().params);
         masks.set(site.id, { mask, meta });
         selectSeq++; // invalidate any in-flight selectSite
         windowSeq++; // and any in-flight window load
@@ -213,17 +273,123 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           site,
           mask,
           maskMeta: meta,
-          series,
-          summary,
+          series: r.series,
+          summary: r.summary,
+          power: r.power,
+          contacts: r.contacts,
           cursorHour: 0,
           error: null,
           customError: null,
           heightmap: windows.get(site.id) ?? null,
         });
         void loadWindow(site.id);
+        if (get().compareIds.includes(site.id)) recomputeCompare();
       } catch (err) {
         set({ error: message(err) });
       }
+    },
+
+    setParams(patch) {
+      const params: PlannerParams = { ...get().params, ...patch };
+      set({ params });
+      const { eph, site, mask, startUtc, days, cursorHour } = get();
+      if (eph && site && mask) {
+        try {
+          const r = recompute(eph, site, mask, startUtc, days, params);
+          set({ series: r.series, summary: r.summary, power: r.power, contacts: r.contacts, cursorHour: Math.min(cursorHour, r.series.hours - 1), error: null });
+        } catch (err) {
+          set({ error: message(err) });
+        }
+      }
+      recomputeCompare();
+      const meta = get().maskMeta;
+      if (patch.mastM !== undefined && site && meta && (meta.mastM ?? 2) !== params.mastM) void recomputeMask();
+    },
+
+    setPower(patch) {
+      get().setParams({ power: { ...get().params.power, ...patch } });
+    },
+
+    async selectCustom(lat, lon) {
+      if (!loaders.computeMask) {
+        set({ customError: 'custom sites need the skyline worker' });
+        return;
+      }
+      const lonN = normalizeLon(lon);
+      set({ maskBusy: true, customError: null });
+      try {
+        const res = await loaders.computeMask(lat, lonN, get().params.mastM);
+        get().applyMask(
+          {
+            id: `custom_${lat.toFixed(4)}_${lonN.toFixed(4)}`,
+            name: `Custom site ${lat.toFixed(3)}°, ${lonN.toFixed(3)}°`,
+            lat,
+            lon: lonN,
+            category: 'custom',
+            polar: true,
+            source: 'user',
+          },
+          res.mask,
+          { siteHeightM: res.siteHeightM, source: 'computed', failedTiles: res.failedTiles, mastM: get().params.mastM },
+        );
+      } catch (err) {
+        set({ customError: message(err) });
+      } finally {
+        set({ maskBusy: false });
+      }
+    },
+
+    async addToCompare(id) {
+      const { compareIds, sites } = get();
+      if (compareIds.includes(id) || compareIds.length >= COMPARE_MAX) return;
+      const site = sites.find((s) => s.id === id);
+      if (!site) return;
+      if (!masks.has(id)) {
+        try {
+          const doc = await loaders.loadMask(id);
+          masks.set(id, {
+            mask: Float64Array.from(doc.elevation_deg),
+            meta: { siteHeightM: doc.site_height_m, source: 'featured', failedTiles: 0, mastM: doc.mast_m },
+          });
+        } catch (err) {
+          set({ error: message(err) });
+          return;
+        }
+      }
+      if (get().compareIds.includes(id) || get().compareIds.length >= COMPARE_MAX) return;
+      set({ compareIds: [...get().compareIds, id] });
+      recomputeCompare();
+    },
+
+    removeFromCompare(id) {
+      set({ compareIds: get().compareIds.filter((x) => x !== id) });
+      recomputeCompare();
+    },
+
+    async findBestWindow(days) {
+      const { eph, site, mask, startUtc, params } = get();
+      if (!eph || !site || !mask) return null;
+      const windowHours = days * 24;
+      const startEt = utcToEt(startUtc);
+      const lastEt = eph.t0Et + (eph.n - 1) * eph.stepS;
+      const available = Math.floor((lastEt - startEt) / 3600) - 3; // Catmull-Rom guard rows at the table end
+      const scanHours = Math.min(BEST_WINDOW_SCAN_DAYS * 24 + windowHours, available);
+      if (scanHours < windowHours) {
+        set({ bestWindowNote: `A ${days}-day window does not fit between this start date and the end of the ephemeris table (2036-12-31).` });
+        return null;
+      }
+      const raw = hourlySeries(site, mask, eph, startEt, scanHours);
+      const series = params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
+      const best = bestWindow(new SeriesIndex(series), windowHours, 6);
+      const newStart = etToIso(startEt + best.start * 3600).slice(0, 13) + ':00:00';
+      get().setWindow(newStart, days);
+      const s = best.summary;
+      set({ bestWindowNote: `${Math.round(s.illumFraction * 100)} % sun, ${Math.round(s.earthVisFraction * 100)} % Earth, longest gap ${s.longestEarthGapH} h` });
+      return { startUtc: newStart, summary: s };
+    },
+
+    async waitForMask() {
+      await maskPromise;
     },
 
     setCustomError(customError) {
@@ -243,6 +409,49 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       await windowPromise;
     },
   }));
+
+  /** Recomputes every compared site for the current window and parameters from the mask cache. */
+  function recomputeCompare(): void {
+    const { eph, compareIds, startUtc, days, params, sites } = store.getState();
+    if (!eph) return;
+    const compare: SiteResult[] = [];
+    for (const id of compareIds) {
+      const cached = masks.get(id);
+      const site = sites.find((s) => s.id === id);
+      if (!cached || !site) continue;
+      try {
+        compare.push(recompute(eph, site, cached.mask, startUtc, days, params));
+      } catch {
+        // window outside the table: leave this site out until the window moves back
+      }
+    }
+    store.setState({ compare });
+  }
+
+  /** Recomputes the selected site's skyline with the current mast height through the worker loader. */
+  function recomputeMask(): Promise<void> {
+    maskPromise = recomputeMaskNow();
+    return maskPromise;
+  }
+
+  async function recomputeMaskNow(): Promise<void> {
+    const { site, params } = store.getState();
+    if (!site || !loaders.computeMask) return;
+    const seq = ++selectSeq;
+    store.setState({ maskBusy: true });
+    let superseded = false;
+    try {
+      const res = await loaders.computeMask(site.lat, site.lon, params.mastM);
+      superseded = seq !== selectSeq;
+      if (superseded) return;
+      store.getState().applyMask(site, res.mask, { siteHeightM: res.siteHeightM, source: 'computed', failedTiles: res.failedTiles, mastM: params.mastM });
+    } catch (err) {
+      superseded = seq !== selectSeq;
+      if (!superseded) store.setState({ customError: message(err) });
+    } finally {
+      if (!superseded) store.setState({ maskBusy: false });
+    }
+  }
 
   /** Terrain manifest and south cap are optional extras; failures leave the 3D view without terrain. */
   async function loadTerrain(): Promise<void> {
@@ -299,12 +508,20 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   return store;
 }
 
+let engineClient: EngineClient | null = null;
+
 const browserLoaders: Loaders = {
   loadSites: () => loadSites(dataBase()),
   loadEphemeris: () => loadEphemerisFromUrl(dataBase()),
   loadMask: (id) => loadMask(dataBase(), id),
   loadTerrainManifest: () => loadTerrainManifest(dataBase()),
   loadHeightmap: (file, metaFile) => loadHeightmap(dataBase(), file, metaFile),
+  computeMask: async (lat, lon, mastM) => {
+    if (typeof window === 'undefined') throw new Error('the skyline worker only runs in the browser');
+    engineClient ??= new EngineClient(dataBase());
+    const r = await engineClient.computeMask(lat, lon, { mastM });
+    return { mask: r.mask, siteHeightM: r.siteHeightM, failedTiles: r.failedTiles.length };
+  },
 };
 
 export const exploreStore = createExploreStore(browserLoaders);
