@@ -402,6 +402,118 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().bestWindowNote).toMatch(/% sun/);
   });
 
+  it('findBestWindow across the compared sites scores their mean and says so', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().addToCompare('im1_odysseus');
+    await store.getState().addToCompare('shackleton_center_rim_high');
+    const r = await store.getState().findBestWindow(14, 'compare');
+    expect(r).not.toBeNull();
+    expect(store.getState().bestWindowNote).toMatch(/across 2 compared sites/);
+    expect(store.getState().startUtc).toBe(r!.startUtc);
+    const [a, b] = store.getState().compare;
+    expect(r!.summary.illumFraction).toBeCloseTo((a.summary.illumFraction + b.summary.illumFraction) / 2, 9);
+    expect(r!.summary.longestEarthGapH).toBe(Math.max(a.summary.longestEarthGapH, b.summary.longestEarthGapH));
+  });
+
+  it('clears the best-window note when the site, window or parameters change', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().findBestWindow(14);
+    expect(store.getState().bestWindowNote).not.toBeNull();
+    await store.getState().selectSite('shackleton_center');
+    expect(store.getState().bestWindowNote).toBeNull();
+    await store.getState().findBestWindow(14);
+    store.getState().setWindow('2027-06-01T00:00:00', 14);
+    expect(store.getState().bestWindowNote).toBeNull();
+    await store.getState().findBestWindow(14);
+    store.getState().setPower({ areaM2: 2 });
+    expect(store.getState().bestWindowNote).toBeNull();
+  });
+
+  it('a slow custom compute that lands after another selection is dropped', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const store = createExploreStore({
+      ...fileLoaders(),
+      computeMask: async () => {
+        await gate;
+        return { mask: new Float64Array(720).fill(3), siteHeightM: 1, failedTiles: 0 };
+      },
+    });
+    await store.getState().init();
+    const pending = store.getState().selectCustom(-89.5, 20);
+    expect(store.getState().maskBusy).toBe(true);
+    await store.getState().selectSite('shackleton_center');
+    release();
+    await pending;
+    expect(store.getState().siteId).toBe('shackleton_center');
+    expect(store.getState().mask![0]).not.toBe(3);
+    expect(store.getState().maskBusy).toBe(false);
+  });
+
+  it('a mast round trip settles on the final mast, starts at most one compute and never applies a stale one', async () => {
+    const calls: number[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const store = createExploreStore({
+      ...fileLoaders(),
+      computeMask: async (_lat, _lon, mastM) => {
+        calls.push(mastM);
+        await gate;
+        return { mask: new Float64Array(720).fill(mastM), siteHeightM: 1, failedTiles: 0 };
+      },
+    });
+    await store.getState().init();
+    const featured = store.getState().mask!;
+    store.getState().setParams({ mastM: 3 });
+    store.getState().setParams({ mastM: 4 });
+    store.getState().setParams({ mastM: 2 });
+    await store.getState().waitForMask();
+    release();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(store.getState().mask).toBe(featured);
+    expect(store.getState().maskMeta?.mastM ?? 2).toBe(2);
+    expect(calls.length).toBeLessThanOrEqual(1);
+    expect(store.getState().maskBusy).toBe(false);
+  });
+
+  it('a mast compute that lands after the mast moved on is not applied', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const store = createExploreStore({
+      ...fileLoaders(),
+      computeMask: async (_lat, _lon, mastM) => {
+        if (mastM === 5) await gate;
+        return { mask: new Float64Array(720).fill(mastM), siteHeightM: 1, failedTiles: 0 };
+      },
+    });
+    await store.getState().init();
+    store.getState().setParams({ mastM: 5 });
+    await store.getState().waitForDebounce();
+    expect(store.getState().maskBusy).toBe(true);
+    store.getState().setParams({ mastM: 7 });
+    await store.getState().waitForMask();
+    release();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(store.getState().maskMeta?.mastM).toBe(7);
+    expect(store.getState().mask![0]).toBe(7);
+    expect(store.getState().maskBusy).toBe(false);
+  });
+
+  it('compare entries carry the mast their skyline was computed with', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().addToCompare('shackleton_center');
+    expect(store.getState().compare[0].mastM).toBe(2);
+  });
+
   it('findBestWindow near the end of the ephemeris table clamps the scan and never throws', async () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();

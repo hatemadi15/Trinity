@@ -35,9 +35,13 @@ export const PANEL_LABELS: Record<PanelModel, string> = {
 
 const D2R = Math.PI / 180;
 
-/** Cosine of the angle between the panel normal and the Sun, clamped at 0 (Sun behind the panel or below the horizon). */
+/**
+ * Cosine of the angle between the panel normal and the Sun, clamped at 0 (Sun behind the panel).
+ * The Sun's elevation may be slightly negative and still lit: high points see below the geometric
+ * horizon (skyline dip), and the disk fraction already says whether any of the Sun is visible; only
+ * the horizontal model goes dark there, through its own sin(el) < 0.
+ */
 export function panelCosine(panel: PanelModel, panelAzimuthDeg: number, sunAzDeg: number, sunElDeg: number): number {
-  if (sunElDeg <= 0) return 0;
   const el = sunElDeg * D2R;
   let c: number;
   switch (panel) {

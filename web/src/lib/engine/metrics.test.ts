@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AU_KM } from './constants';
 import { loadEphemeris, type EphemerisHeader } from './ephemeris';
-import { bestWindow, contactWindows, diskFraction, hourlySeries, longestRun, maskAtAzimuth, SeriesIndex, summarize, sunRadiusDeg, withCommsThreshold, type Series } from './metrics';
+import { bestWindow, bestWindowAcross, contactWindows, diskFraction, hourlySeries, longestRun, maskAtAzimuth, SeriesIndex, summarize, sunRadiusDeg, withCommsThreshold, type Series } from './metrics';
 import { utcToEt } from './time';
 import { readBytes, readJson } from './__tests__/helpers';
 
@@ -64,6 +64,20 @@ describe('metrics primitives', () => {
     const none = bestWindow(idx, 24, 1, undefined, () => false);
     expect(none.start).toBeGreaterThanOrEqual(0);
     expect(none.score).toBe(bestWindow(idx, 24, 1).score);
+  });
+  it('bestWindowAcross scores the mean over several series and averages their summaries', () => {
+    const a = { ...emptySeries(100), sunFraction: new Float64Array(100) };
+    a.sunFraction.fill(1, 0, 50);
+    const b = { ...emptySeries(100), sunFraction: new Float64Array(100) };
+    b.sunFraction.fill(1, 25, 75);
+    const best = bestWindowAcross([new SeriesIndex(a), new SeriesIndex(b)], 24, 1);
+    expect(best.start).toBeGreaterThanOrEqual(25);
+    expect(best.start).toBeLessThanOrEqual(26);
+    expect(best.summary.illumFraction).toBeCloseTo(1, 9);
+    expect(best.summary.hours).toBe(24);
+    const single = bestWindowAcross([new SeriesIndex(a)], 24, 1);
+    expect(single.start).toBe(bestWindow(new SeriesIndex(a), 24, 1).start);
+    expect(single.score).toBeCloseTo(bestWindow(new SeriesIndex(a), 24, 1).score, 12);
   });
   it('withCommsThreshold lowers Earth visibility monotonically and keeps the rest of the series', () => {
     const hours = 200;

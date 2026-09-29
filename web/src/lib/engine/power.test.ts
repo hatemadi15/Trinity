@@ -31,6 +31,14 @@ describe('panel geometry and irradiance', () => {
     expect(panelCosine('full_tracking', 0, 200, 10)).toBe(1);
     expect(panelCosine('horizontal', 0, 0, -1)).toBe(0); // below the horizon, clamped
   });
+  it('keeps producing below the geometric horizon when the skyline dips (high points see the Sun at negative elevation)', () => {
+    expect(panelCosine('vertical_tracking', 0, 100, -1)).toBeCloseTo(Math.cos(-1 * D2R), 12);
+    expect(panelCosine('full_tracking', 0, 100, -3)).toBe(1);
+    expect(panelCosine('vertical', 0, 0, -1)).toBeCloseTo(Math.cos(-1 * D2R), 12);
+    expect(panelCosine('horizontal', 0, 0, -1)).toBe(0); // sin(-1°) < 0, clamped
+    const p = powerSeries(series(2, 0, -1), { ...DEFAULT_POWER, panel: 'vertical_tracking', areaM2: 1, efficiency: 1 });
+    expect(p[0]).toBeCloseTo(SOLAR_CONSTANT_WM2 * Math.cos(-1 * D2R), 6);
+  });
   it('irradiance scales with the disk fraction and 1/au²', () => {
     expect(irradianceWm2(1, 1)).toBe(SOLAR_CONSTANT_WM2);
     expect(irradianceWm2(1, 0.5)).toBeCloseTo(680.5, 9);
@@ -108,6 +116,7 @@ describe('parity with the Python power model', () => {
     'shackleton_center_rim_high_2025-01-01_60d_horizontal.json',
     'shackleton_center_rim_high_2025-01-01_60d_vertical.json',
     'im1_odysseus_2025-01-01_60d_full_tracking.json',
+    'shackleton_center_rim_high_2027-02-01_30d_vertical_tracking.json', // 65 % of the lit hours have the Sun below 0° (skyline dip)
   ]) {
     it(`matches ${name}`, () => {
       const fx = readJson<PowerFixture>('data', 'fixtures', 'power', name);

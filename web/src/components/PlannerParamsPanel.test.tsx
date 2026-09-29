@@ -35,6 +35,23 @@ describe('PlannerParamsPanel', () => {
     expect(onPower).not.toHaveBeenCalled();
   });
 
+  it('lets a value be typed through out-of-range intermediates and reverts an invalid value on blur', () => {
+    const onPower = vi.fn();
+    render(<PlannerParamsPanel params={DEFAULT_PARAMS} onParams={vi.fn()} onPower={onPower} busy={false} />);
+    fireEvent.click(screen.getByRole('button', { name: /Planner settings/ }));
+    const battery = screen.getByLabelText('Battery (Wh)') as HTMLInputElement;
+    fireEvent.change(battery, { target: { value: '5' } });
+    expect(battery.value).toBe('5');
+    expect(onPower).not.toHaveBeenCalled();
+    fireEvent.change(battery, { target: { value: '500' } });
+    expect(battery.value).toBe('500');
+    expect(onPower).toHaveBeenCalledWith({ batteryWh: 500 });
+    fireEvent.change(battery, { target: { value: '7' } });
+    expect(battery.value).toBe('7');
+    fireEvent.blur(battery);
+    expect(battery.value).toBe('2000'); // the prop did not change in this test: an invalid draft reverts to it
+  });
+
   it('shows the fixed-azimuth field only for the fixed vertical panel', () => {
     const params = { ...DEFAULT_PARAMS, power: { ...DEFAULT_PARAMS.power, panel: 'vertical' as const } };
     render(<PlannerParamsPanel params={params} onParams={vi.fn()} onPower={vi.fn()} busy={true} />);

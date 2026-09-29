@@ -12,20 +12,31 @@ interface NumField {
   onChange: (v: number) => void;
 }
 
+/**
+ * A controlled number field that lets the user type through out-of-range intermediates ("5" on the
+ * way to "500"): the draft is shown while the field has focus, valid values are committed as they
+ * are typed, and an invalid draft reverts to the last committed value on blur.
+ */
 function NumberInput({ label, value, min, max, step, onChange }: NumField) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const valid = (raw: string) => {
+    const v = Number(raw);
+    return raw !== '' && Number.isFinite(v) && v >= min && v <= max;
+  };
   return (
     <label className="flex flex-col gap-1 text-sm text-ink-2">
       {label}
       <input
         type="number"
-        value={value}
+        value={draft ?? String(value)}
         min={min}
         max={max}
         step={step}
         onChange={(e) => {
-          const v = Number(e.target.value);
-          if (e.target.value !== '' && Number.isFinite(v) && v >= min && v <= max) onChange(v);
+          setDraft(e.target.value);
+          if (valid(e.target.value)) onChange(Number(e.target.value));
         }}
+        onBlur={() => setDraft(null)}
         className="w-28 rounded-md border border-line bg-panel px-2 py-1 text-ink"
       />
     </label>

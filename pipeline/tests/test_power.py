@@ -45,3 +45,11 @@ def test_zero_capacity_battery():
 def test_config_dict_round_trips_defaults():
     d = pw.config_dict(pw.PowerConfig())
     assert d["panel"] == "vertical_tracking" and d["area_m2"] == 4.0 and d["battery_wh"] == 2000.0
+
+
+def test_panel_cosine_keeps_power_below_the_geometric_horizon():
+    # High points see the Sun below 0° elevation (horizon dip); only the horizontal panel goes dark there.
+    assert pw.panel_cosine("vertical_tracking", 0, 100, -1)[()] == pytest.approx(np.cos(np.radians(-1)))
+    assert pw.panel_cosine("full_tracking", 0, 100, -3)[()] == 1.0
+    assert pw.panel_cosine("vertical", 0, 0, -1)[()] == pytest.approx(np.cos(np.radians(-1)))
+    assert pw.panel_cosine("horizontal", 0, 0, -1)[()] == 0.0

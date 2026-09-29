@@ -181,31 +181,68 @@ export function windowScore(s: Summary, windowHours: number, weights: WindowWeig
   return weights.sun * s.illumFraction + weights.earth * s.earthVisFraction - (weights.gap * (s.longestDarkH + s.longestEarthGapH)) / (2 * windowHours);
 }
 
+/** Element-wise mean of several window summaries; the longest runs take the worst site. */
+export function meanSummary(sums: Summary[]): Summary {
+  const n = sums.length;
+  const mean = (f: (s: Summary) => number) => sums.reduce((a, s) => a + f(s), 0) / n;
+  return {
+    hours: sums[0].hours,
+    illumFraction: mean((s) => s.illumFraction),
+    meanSunFraction: mean((s) => s.meanSunFraction),
+    longestDarkH: Math.max(...sums.map((s) => s.longestDarkH)),
+    earthVisFraction: mean((s) => s.earthVisFraction),
+    longestEarthGapH: Math.max(...sums.map((s) => s.longestEarthGapH)),
+    jointFraction: mean((s) => s.jointFraction),
+  };
+}
+
+export interface BestWindow {
+  start: number;
+  score: number;
+  summary: Summary;
+}
+
 /**
- * Best-scoring window of `windowHours`, scanning starts every `stepHours`. Score in [−1, 2].
- * `startFilter` restricts the candidate starts (for example to sunlit hours); when it rejects every
- * start the scan falls back to all of them.
+ * Best-scoring window of `windowHours` over several sites at once: the score of a start is the mean
+ * of the per-site window scores, and the returned summary is their mean. Starts are scanned every
+ * `stepHours`. `startFilter` restricts the candidate starts (for example to sunlit hours); when it
+ * rejects every start the scan falls back to all of them.
  */
+export function bestWindowAcross(
+  indexes: SeriesIndex[],
+  windowHours: number,
+  stepHours = 6,
+  weights: WindowWeights = { sun: 1, earth: 1, gap: 1 },
+  startFilter?: (start: number) => boolean,
+): BestWindow {
+  if (indexes.length === 0) throw new RangeError('no series to score');
+  const n = Math.min(...indexes.map((i) => i.series.hours));
+  if (windowHours > n) throw new RangeError(`window ${windowHours} h longer than series ${n} h`);
+  const at = (start: number) => {
+    const sums = indexes.map((i) => i.window(start, start + windowHours));
+    return { score: sums.reduce((a, s) => a + windowScore(s, windowHours, weights), 0) / sums.length, summary: meanSummary(sums) };
+  };
+  const scan = (filter?: (start: number) => boolean): BestWindow => {
+    let best: BestWindow = { start: -1, score: -Infinity, summary: at(0).summary };
+    for (let start = 0; start + windowHours <= n; start += stepHours) {
+      if (filter && !filter(start)) continue;
+      const r = at(start);
+      if (r.score > best.score) best = { start, ...r };
+    }
+    return best;
+  };
+  const filtered = startFilter ? scan(startFilter) : null;
+  const best = filtered && filtered.start >= 0 ? filtered : scan();
+  return best.start >= 0 ? best : { start: 0, ...at(0) };
+}
+
+/** Best-scoring window of `windowHours` for one series; see `bestWindowAcross`. Score in [−1, 2]. */
 export function bestWindow(
   index: SeriesIndex,
   windowHours: number,
   stepHours = 6,
   weights: WindowWeights = { sun: 1, earth: 1, gap: 1 },
   startFilter?: (start: number) => boolean,
-): { start: number; score: number; summary: Summary } {
-  const n = index.series.hours;
-  if (windowHours > n) throw new RangeError(`window ${windowHours} h longer than series ${n} h`);
-  const scan = (filter?: (start: number) => boolean) => {
-    let best = { start: -1, score: -Infinity, summary: index.window(0, windowHours) };
-    for (let start = 0; start + windowHours <= n; start += stepHours) {
-      if (filter && !filter(start)) continue;
-      const s = index.window(start, start + windowHours);
-      const score = windowScore(s, windowHours, weights);
-      if (score > best.score) best = { start, score, summary: s };
-    }
-    return best;
-  };
-  const filtered = startFilter ? scan(startFilter) : null;
-  const best = filtered && filtered.start >= 0 ? filtered : scan();
-  return best.start >= 0 ? best : { start: 0, score: windowScore(index.window(0, windowHours), windowHours, weights), summary: index.window(0, windowHours) };
+): BestWindow {
+  return bestWindowAcross([index], windowHours, stepHours, weights, startFilter);
 }

@@ -38,6 +38,7 @@ describe('CompareView', () => {
     expect(cols[0].querySelector('[data-tone]')).toBeTruthy();
     expect(cols[1].textContent).toMatch(/Shackleton crater centre/);
     expect(cols[1].textContent).toMatch(/Battery empties after/);
+    expect(cols[0].textContent).toMatch(/2 m mast/);
     fireEvent.click(within(cols[1]).getByRole('button', { name: 'Remove' }));
     await waitFor(() => expect(screen.getAllByRole('article').length).toBe(1));
   });

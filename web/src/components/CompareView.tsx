@@ -57,7 +57,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             startUtc={s.startUtc}
             days={s.days}
             onWindow={s.setWindow}
-            onBestWindow={(d) => void store.getState().findBestWindow(d)}
+            onBestWindow={(d) => void store.getState().findBestWindow(d, 'compare')}
             bestWindowNote={s.bestWindowNote}
           />
         </div>
@@ -80,6 +80,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                 result={c}
                 startUtc={s.startUtc}
                 days={s.days}
+                plannerMastM={s.params.mastM}
                 onRemove={() => store.getState().removeFromCompare(c.site.id)}
                 onOpen={() => void store.getState().selectSite(c.site.id)}
               />
@@ -95,16 +96,18 @@ function CompareColumn({
   result,
   startUtc,
   days,
+  plannerMastM,
   onRemove,
   onOpen,
 }: {
   result: SiteResult;
   startUtc: string;
   days: number;
+  plannerMastM: number;
   onRemove: () => void;
   onOpen: () => void;
 }) {
-  const { site, series, summary, power, contacts } = result;
+  const { site, series, summary, power, contacts, mastM } = result;
   const rows: [string, string][] = [
     ['Sun above the skyline', pct(summary.illumFraction)],
     ['Longest night', hoursLabel(summary.longestDarkH)],
@@ -123,7 +126,9 @@ function CompareColumn({
       </div>
       <Sparkline series={series} />
       <p className="text-xs text-ink-3">
-        {utcLabel(startUtc, 0)} + {days} days; {contacts.length} Earth contact {contacts.length === 1 ? 'window' : 'windows'}
+        {utcLabel(startUtc, 0)} + {days} days; {contacts.length} Earth contact {contacts.length === 1 ? 'window' : 'windows'}; skyline
+        computed with a {mastM} m mast
+        {mastM !== plannerMastM ? ` (the planner's ${plannerMastM} m mast applies to the Explore site)` : ''}
       </p>
       <VerdictChip power={power} />
       <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-sm">

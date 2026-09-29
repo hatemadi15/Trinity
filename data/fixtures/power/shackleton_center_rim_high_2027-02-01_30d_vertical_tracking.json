@@ -1,0 +1,55 @@
+{
+ "site_id": "shackleton_center_rim_high",
+ "lat": -89.78131,
+ "lon": -156.25683,
+ "start_utc": "2027-02-01T00:00:00",
+ "days": 30,
+ "config": {
+  "panel": "vertical_tracking",
+  "panel_azimuth_deg": 0.0,
+  "area_m2": 4.0,
+  "efficiency": 0.3,
+  "load_w": 200.0,
+  "battery_wh": 2000.0,
+  "initial_soc_fraction": 1.0
+ },
+ "summary": {
+  "soc_min": 0.0,
+  "brownout_hours": 8,
+  "first_brownout_hour": 25,
+  "survives": false,
+  "mean_power_w": 1593.8205909304954
+ },
+ "sample_indexes": [
+  0,
+  1,
+  5,
+  23,
+  24,
+  100,
+  240,
+  500
+ ],
+ "samples": {
+  "power_w": [
+   1686.7222100282008,
+   1686.767335874691,
+   1686.944923900319,
+   0.0,
+   0.0,
+   1689.1093456517153,
+   1682.7550995269776,
+   1661.6797277377343
+  ],
+  "energy_wh": [
+   2000.0,
+   2000.0,
+   2000.0,
+   320.8607021586222,
+   120.86070215862219,
+   2000.0,
+   2000.0,
+   2000.0
+  ]
+ }
+}

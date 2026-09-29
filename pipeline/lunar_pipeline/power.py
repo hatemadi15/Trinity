@@ -35,7 +35,8 @@ def panel_cosine(panel: str, panel_azimuth_deg: float, sun_az_deg, sun_el_deg) -
         c = np.ones_like(el)
     else:
         raise ValueError(f"unknown panel model {panel!r}; expected one of {PANELS}")
-    c = np.where(el > 0.0, c, 0.0)
+    # No cutoff at el = 0: high points see the Sun below the geometric horizon (skyline dip) and the
+    # disk fraction already carries visibility; the horizontal panel goes dark by itself (sin el < 0).
     return np.clip(c, 0.0, None)
 
 

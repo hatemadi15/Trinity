@@ -4,7 +4,7 @@ import { loadHeightmap, loadTerrainManifest, windowFileFor, type Heightmap, type
 import type { Ephemeris } from '../engine/ephemeris';
 import { EngineClient } from '../engine-client';
 import { normalizeLon } from '../engine/geometry';
-import { bestWindow, contactWindows, hourlySeries, SeriesIndex, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
+import { bestWindowAcross, contactWindows, hourlySeries, SeriesIndex, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig, type PowerResult } from '../engine/power';
 import { etToIso, utcToEt } from '../engine/time';
 
@@ -17,6 +17,8 @@ export type Exaggeration = 1 | 3;
 export const DEFAULT_SITE = 'shackleton_center_rim_high';
 export const COMPARE_MAX = 4;
 export const BEST_WINDOW_SCAN_DAYS = 365;
+/** Mast spinner clicks are coalesced for this long before the worker recomputes the skyline. */
+export const MAST_DEBOUNCE_MS = 300;
 
 export interface PlannerParams {
   power: PowerConfig;
@@ -34,6 +36,8 @@ export interface SiteResult {
   summary: Summary;
   power: PowerResult;
   contacts: ContactWindow[];
+  /** Mast height the site's skyline was computed with (m). */
+  mastM: number;
 }
 export const DEFAULT_START = '2027-01-01T00:00:00';
 
@@ -110,10 +114,15 @@ export interface ExploreState {
   selectCustom: (lat: number, lon: number) => Promise<void>;
   addToCompare: (id: string) => Promise<void>;
   removeFromCompare: (id: string) => void;
-  /** Scans the next year from the start date and moves the window to the best span; null when none fits. */
-  findBestWindow: (days: WindowDays) => Promise<{ startUtc: string; summary: Summary } | null>;
-  /** Resolves once an in-flight skyline recompute has settled. */
+  /**
+   * Scans the next year from the start date and moves the window to the best span; null when none fits.
+   * Scope 'compare' scores the mean over the compared sites (falls back to the selected site when none).
+   */
+  findBestWindow: (days: WindowDays, scope?: 'site' | 'compare') => Promise<{ startUtc: string; summary: Summary } | null>;
+  /** Resolves once a pending mast debounce and any in-flight skyline recompute have settled. */
   waitForMask: () => Promise<void>;
+  /** Resolves once a pending mast debounce has fired (the recompute may still be in flight). */
+  waitForDebounce: () => Promise<void>;
 }
 
 export function recompute(
@@ -123,10 +132,11 @@ export function recompute(
   startUtc: string,
   days: number,
   params: PlannerParams = DEFAULT_PARAMS,
+  mastM = 2,
 ): SiteResult {
   const raw = hourlySeries(site, mask, eph, utcToEt(startUtc), days * 24);
   const series = params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
-  return { site, series, summary: summarize(series), power: powerBudget(series, params.power), contacts: contactWindows(series) };
+  return { site, series, summary: summarize(series), power: powerBudget(series, params.power), contacts: contactWindows(series), mastM };
 }
 
 function message(err: unknown): string {
@@ -144,6 +154,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   let terrainPromise: Promise<void> = Promise.resolve();
   let windowPromise: Promise<void> = Promise.resolve();
   let maskPromise: Promise<void> = Promise.resolve();
+  let debouncePromise: Promise<void> = Promise.resolve();
+  let mastTimer: ReturnType<typeof setTimeout> | null = null;
 
   const store = createStore<ExploreState>((set, get) => ({
     status: 'idle',
@@ -228,6 +240,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           error: null,
           customError: null,
           maskBusy: false,
+          bestWindowNote: null,
           heightmap: windows.get(id) ?? null,
         });
         void loadWindow(id);
@@ -240,12 +253,12 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     setWindow(startUtc, days) {
       const { eph, site, mask, cursorHour } = get();
       if (!eph || !site || !mask) {
-        set({ startUtc, days });
+        set({ startUtc, days, bestWindowNote: null });
         return;
       }
       try {
         const r = recompute(eph, site, mask, startUtc, days, get().params);
-        set({ startUtc, days, series: r.series, summary: r.summary, power: r.power, contacts: r.contacts, cursorHour: Math.min(cursorHour, days * 24 - 1), error: null });
+        set({ startUtc, days, series: r.series, summary: r.summary, power: r.power, contacts: r.contacts, cursorHour: Math.min(cursorHour, days * 24 - 1), error: null, bestWindowNote: null });
         recomputeCompare();
       } catch (err) {
         set({ error: message(err) });
@@ -291,7 +304,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
 
     setParams(patch) {
       const params: PlannerParams = { ...get().params, ...patch };
-      set({ params });
+      set({ params, bestWindowNote: null });
       const { eph, site, mask, startUtc, days, cursorHour } = get();
       if (eph && site && mask) {
         try {
@@ -302,8 +315,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         }
       }
       recomputeCompare();
-      const meta = get().maskMeta;
-      if (patch.mastM !== undefined && site && meta && (meta.mastM ?? 2) !== params.mastM) void recomputeMask();
+      if (patch.mastM !== undefined) scheduleMaskRecompute();
     },
 
     setPower(patch) {
@@ -316,9 +328,14 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         return;
       }
       const lonN = normalizeLon(lon);
+      const seq = ++selectSeq;
+      const mastM = get().params.mastM;
       set({ maskBusy: true, customError: null });
+      let superseded = false;
       try {
-        const res = await loaders.computeMask(lat, lonN, get().params.mastM);
+        const res = await loaders.computeMask(lat, lonN, mastM);
+        superseded = seq !== selectSeq;
+        if (superseded) return; // the user moved on while the worker was busy
         get().applyMask(
           {
             id: `custom_${lat.toFixed(4)}_${lonN.toFixed(4)}`,
@@ -330,12 +347,13 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
             source: 'user',
           },
           res.mask,
-          { siteHeightM: res.siteHeightM, source: 'computed', failedTiles: res.failedTiles, mastM: get().params.mastM },
+          { siteHeightM: res.siteHeightM, source: 'computed', failedTiles: res.failedTiles, mastM },
         );
       } catch (err) {
-        set({ customError: message(err) });
+        superseded = seq !== selectSeq;
+        if (!superseded) set({ customError: message(err) });
       } finally {
-        set({ maskBusy: false });
+        if (!superseded) set({ maskBusy: false });
       }
     },
 
@@ -366,9 +384,16 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       recomputeCompare();
     },
 
-    async findBestWindow(days) {
-      const { eph, site, mask, startUtc, params } = get();
-      if (!eph || !site || !mask) return null;
+    async findBestWindow(days, scope = 'site') {
+      const { eph, site, mask, startUtc, params, compareIds, sites } = get();
+      if (!eph) return null;
+      const compared = compareIds.flatMap((id) => {
+        const s = sites.find((x) => x.id === id);
+        const c = masks.get(id);
+        return s && c ? [{ site: s, mask: c.mask }] : [];
+      });
+      const targets = scope === 'compare' && compared.length > 0 ? compared : site && mask ? [{ site, mask }] : [];
+      if (targets.length === 0) return null;
       const windowHours = days * 24;
       const startEt = utcToEt(startUtc);
       const lastEt = eph.t0Et + (eph.n - 1) * eph.stepS;
@@ -378,19 +403,34 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         set({ bestWindowNote: `A ${days}-day window does not fit between this start date and the end of the ephemeris table (2036-12-31).` });
         return null;
       }
-      const raw = hourlySeries(site, mask, eph, startEt, scanHours);
-      const series = params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
-      // A lander arrives in daylight: only sunlit start hours are candidates (all hours when a site never sees the Sun).
-      const best = bestWindow(new SeriesIndex(series), windowHours, 6, undefined, (h) => series.sunFraction[h] > 0);
+      const seriesList = targets.map((t) => {
+        const raw = hourlySeries(t.site, t.mask, eph, startEt, scanHours);
+        return params.minEarthElDeg > 0 ? withCommsThreshold(raw, t.mask, params.minEarthElDeg) : raw;
+      });
+      // A lander arrives in daylight: only starts where every scored site is sunlit are candidates
+      // (all hours when no such start exists, for example a permanently shadowed site).
+      const best = bestWindowAcross(
+        seriesList.map((s) => new SeriesIndex(s)),
+        windowHours,
+        6,
+        undefined,
+        (h) => seriesList.every((s) => s.sunFraction[h] > 0),
+      );
       const newStart = etToIso(startEt + best.start * 3600).slice(0, 13) + ':00:00';
       get().setWindow(newStart, days);
       const s = best.summary;
-      set({ bestWindowNote: `${Math.round(s.illumFraction * 100)} % sun, ${Math.round(s.earthVisFraction * 100)} % Earth, longest gap ${s.longestEarthGapH} h` });
+      const prefix = targets.length > 1 ? `across ${targets.length} compared sites: ` : '';
+      set({ bestWindowNote: `${prefix}${Math.round(s.illumFraction * 100)} % sun, ${Math.round(s.earthVisFraction * 100)} % Earth, longest gap ${s.longestEarthGapH} h` });
       return { startUtc: newStart, summary: s };
     },
 
     async waitForMask() {
+      await debouncePromise;
       await maskPromise;
+    },
+
+    async waitForDebounce() {
+      await debouncePromise;
     },
 
     setCustomError(customError) {
@@ -421,12 +461,27 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       const site = sites.find((s) => s.id === id);
       if (!cached || !site) continue;
       try {
-        compare.push(recompute(eph, site, cached.mask, startUtc, days, params));
+        compare.push(recompute(eph, site, cached.mask, startUtc, days, params, cached.meta.mastM ?? 2));
       } catch {
         // window outside the table: leave this site out until the window moves back
       }
     }
     store.setState({ compare });
+  }
+
+  /** Coalesces mast changes; when the timer fires and the cached skyline's mast differs, recomputes once. */
+  function scheduleMaskRecompute(): void {
+    if (mastTimer) clearTimeout(mastTimer);
+    let fired!: () => void;
+    debouncePromise = new Promise<void>((r) => {
+      fired = r;
+    });
+    mastTimer = setTimeout(() => {
+      mastTimer = null;
+      const { site, params, maskMeta } = store.getState();
+      if (site && maskMeta && (maskMeta.mastM ?? 2) !== params.mastM) void recomputeMask();
+      fired();
+    }, MAST_DEBOUNCE_MS);
   }
 
   /** Recomputes the selected site's skyline with the current mast height through the worker loader. */
@@ -443,7 +498,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     let superseded = false;
     try {
       const res = await loaders.computeMask(site.lat, site.lon, params.mastM);
-      superseded = seq !== selectSeq;
+      superseded = seq !== selectSeq || store.getState().params.mastM !== params.mastM;
       if (superseded) return;
       store.getState().applyMask(site, res.mask, { siteHeightM: res.siteHeightM, source: 'computed', failedTiles: res.failedTiles, mastM: params.mastM });
     } catch (err) {
