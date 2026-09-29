@@ -28,7 +28,9 @@ def sun_radius_deg(dist_km) -> np.ndarray:
     return np.degrees(np.arcsin(SUN_RADIUS_KM / np.asarray(dist_km, dtype=np.float64)))
 
 
-def hourly_series(site, mask: np.ndarray, table: np.ndarray, header: dict, start_utc: str, hours: int) -> dict:
+def hourly_series(
+    site, mask: np.ndarray, table: np.ndarray, header: dict, start_utc: str, hours: int, min_el_deg: float = 0.0
+) -> dict:
     with spice_kernels():
         et0 = utc_to_et(start_utc)
     i0 = int(round((et0 - header["t0_et"]) / header["step_s"]))
@@ -39,12 +41,28 @@ def hourly_series(site, mask: np.ndarray, table: np.ndarray, header: dict, start
     earth_az, earth_el = azel_from_body_vectors(rows[:, 1, :], site.lat, site.lon, 0.0)
     sun_dist = np.linalg.norm(rows[:, 0, :], axis=1)
     sun_fraction = disk_fraction(sun_el - mask_at_azimuth(mask, sun_az), sun_radius_deg(sun_dist))
-    earth_visible = (earth_el - mask_at_azimuth(mask, earth_az)) > 0.0
+    earth_visible = (earth_el - mask_at_azimuth(mask, earth_az)) > min_el_deg
     return {
         "utc_index": np.arange(hours) + i0,
         "sun_az": sun_az, "sun_el": sun_el, "earth_az": earth_az, "earth_el": earth_el,
-        "sun_fraction": sun_fraction, "earth_visible": earth_visible,
+        "sun_fraction": sun_fraction, "earth_visible": earth_visible, "sun_au": sun_dist / config.AU_KM,
     }
+
+
+def contact_windows(earth_visible) -> list[tuple[int, int]]:
+    """Maximal runs of Earth-visible hours as half-open [start, end) hour indexes."""
+    flags = np.asarray(earth_visible, dtype=bool)
+    out: list[tuple[int, int]] = []
+    start = -1
+    for h, v in enumerate(flags):
+        if v and start < 0:
+            start = h
+        if not v and start >= 0:
+            out.append((start, h))
+            start = -1
+    if start >= 0:
+        out.append((start, int(flags.size)))
+    return out
 
 
 def longest_run(flags: np.ndarray) -> int:

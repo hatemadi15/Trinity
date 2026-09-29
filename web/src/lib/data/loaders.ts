@@ -9,6 +9,9 @@ export interface Site {
   category: string;
   polar: boolean;
   source: string;
+  /** True when the coordinate is a digitised region centre, not a surveyed point. */
+  approximate?: boolean;
+  landed_utc?: string;
 }
 
 export interface MaskDoc {

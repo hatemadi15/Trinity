@@ -40,3 +40,23 @@ def test_shackleton_rim_high_is_above_centre():
     centre = next(s for s in load_sites() if s.id == "shackleton_center")
     rim = derive_rim_points(grid, [centre])[0]
     assert grid.value_at(rim.lat, rim.lon) - grid.value_at(centre.lat, centre.lon) > 2000.0
+
+
+ARTEMIS_2024 = {
+    "peak_near_cabeus_b", "haworth", "malapert_massif", "mons_mouton_plateau", "mons_mouton",
+    "nobile_rim_1", "nobile_rim_2", "de_gerlache_rim_2", "slater_plain",
+}
+
+
+def test_artemis_iii_regions_are_catalogued():
+    sites = {s.id: s for s in load_sites()}
+    assert ARTEMIS_2024 <= set(sites)
+    for sid in ARTEMIS_2024:
+        s = sites[sid]
+        assert s.category == "artemis3" and s.polar
+        assert -89.0 <= s.lat <= -83.0
+    assert sites["nobile_rim_2"].lat == pytest.approx(-84.20156) and sites["nobile_rim_2"].lon == pytest.approx(60.69989)
+    assert sites["malapert_massif"].approximate is False
+    assert sites["haworth"].approximate is True
+    assert {"connecting_ridge", "peak_near_shackleton"} <= set(sites)
+    assert sites["peak_near_shackleton"].lat == pytest.approx(-89.01701)

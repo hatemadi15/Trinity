@@ -18,6 +18,7 @@ function series(hours: number): Series {
     earthEl: new Float64Array(hours),
     sunFraction,
     earthVisible,
+    sunAu: new Float64Array(hours).fill(1),
   };
 }
 

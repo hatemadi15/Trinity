@@ -23,6 +23,7 @@ class Site:
     source: str
     landed_utc: str | None = None
     derive_rim: dict | None = None
+    approximate: bool = False
 
 
 def load_sites(path: Path = config.DATA_DIR / "sites.json") -> list[Site]:

@@ -49,3 +49,20 @@ def test_shackleton_floor_is_dark_and_rim_is_bright():
 def test_report_rejects_unknown_site_with_known_ids():
     with pytest.raises(ValueError, match="shackleton_center"):
         il.report("no_such_site", "2025-01-01", 1)
+
+
+def test_contact_windows_half_open_runs():
+    assert il.contact_windows([0, 1, 1, 0, 0, 1, 0, 1, 1, 1]) == [(1, 3), (5, 6), (7, 10)]
+    assert il.contact_windows(np.zeros(3, dtype=bool)) == []
+
+
+@pytest.mark.data
+@needs_kernels
+def test_min_el_threshold_reduces_visibility_and_sun_au_is_near_one():
+    table, header = il.load_table()
+    site = next(s for s in il.all_sites() if s.id == "shackleton_center_rim_high")
+    mask = il.load_mask(site.id)
+    base = il.hourly_series(site, mask, table, header, "2025-01-01T00:00:00", 24 * 60)
+    strict = il.hourly_series(site, mask, table, header, "2025-01-01T00:00:00", 24 * 60, min_el_deg=5.0)
+    assert strict["earth_visible"].sum() < base["earth_visible"].sum()
+    assert 0.98 < base["sun_au"].min() < base["sun_au"].max() < 1.02

@@ -1,3 +1,4 @@
+import { AU_KM } from './constants';
 import { SUN_RADIUS_KM } from './constants';
 import { indexForEt, type Ephemeris } from './ephemeris';
 import { azElFromBodyVector } from './geometry';
@@ -31,6 +32,8 @@ export interface Series {
   earthEl: Float64Array;
   sunFraction: Float64Array;
   earthVisible: Uint8Array;
+  /** Sun distance in AU per hour (irradiance scales with 1/au²). */
+  sunAu: Float64Array;
 }
 
 /** Hourly series on the ephemeris grid, starting at the row nearest `startEt` (site height 0, like Python). */
@@ -40,6 +43,7 @@ export function hourlySeries(site: { lat: number; lon: number }, mask: ArrayLike
   const sunAz = new Float64Array(hours), sunEl = new Float64Array(hours);
   const earthAz = new Float64Array(hours), earthEl = new Float64Array(hours);
   const sunFraction = new Float64Array(hours), earthVisible = new Uint8Array(hours);
+  const sunAu = new Float64Array(hours);
   const d = eph.data;
   for (let h = 0; h < hours; h++) {
     const o = (i0 + h) * 6;
@@ -48,10 +52,41 @@ export function hourlySeries(site: { lat: number; lon: number }, mask: ArrayLike
     const e = azElFromBodyVector(earth, site.lat, site.lon, 0);
     sunAz[h] = s.az; sunEl[h] = s.el; earthAz[h] = e.az; earthEl[h] = e.el;
     const dist = Math.hypot(sun[0], sun[1], sun[2]);
+    sunAu[h] = dist / AU_KM;
     sunFraction[h] = diskFraction(s.el - maskAtAzimuth(mask, s.az), sunRadiusDeg(dist));
     earthVisible[h] = e.el - maskAtAzimuth(mask, e.az) > 0 ? 1 : 0;
   }
-  return { i0, hours, sunAz, sunEl, earthAz, earthEl, sunFraction, earthVisible };
+  return { i0, hours, sunAz, sunEl, earthAz, earthEl, sunFraction, earthVisible, sunAu };
+}
+
+/** Same series with Earth visibility re-evaluated against a minimum elevation above the skyline (comms mask). */
+export function withCommsThreshold(series: Series, mask: ArrayLike<number>, minElDeg: number): Series {
+  const earthVisible = new Uint8Array(series.hours);
+  for (let h = 0; h < series.hours; h++) {
+    earthVisible[h] = series.earthEl[h] - maskAtAzimuth(mask, series.earthAz[h]) > minElDeg ? 1 : 0;
+  }
+  return { ...series, earthVisible };
+}
+
+export interface ContactWindow {
+  start: number;
+  end: number;
+}
+
+/** Maximal runs of Earth-visible hours as half-open [start, end) hour indexes. */
+export function contactWindows(series: Series): ContactWindow[] {
+  const out: ContactWindow[] = [];
+  let start = -1;
+  for (let h = 0; h < series.hours; h++) {
+    const v = series.earthVisible[h] === 1;
+    if (v && start < 0) start = h;
+    if (!v && start >= 0) {
+      out.push({ start, end: h });
+      start = -1;
+    }
+  }
+  if (start >= 0) out.push({ start, end: series.hours });
+  return out;
 }
 
 export function longestRun(flags: ArrayLike<number | boolean>, from = 0, to = flags.length): number {
@@ -141,15 +176,73 @@ export class SeriesIndex {
 
 export interface WindowWeights { sun: number; earth: number; gap: number }
 
-/** Best-scoring window of `windowHours`, scanning starts every `stepHours`. Score in [−1, 2]. */
-export function bestWindow(index: SeriesIndex, windowHours: number, stepHours = 6, weights: WindowWeights = { sun: 1, earth: 1, gap: 1 }): { start: number; score: number; summary: Summary } {
-  const n = index.series.hours;
+/** Window score in [−1, 2]: sunlit and Earth-visible fractions minus the two longest gaps as a share of the window. */
+export function windowScore(s: Summary, windowHours: number, weights: WindowWeights = { sun: 1, earth: 1, gap: 1 }): number {
+  return weights.sun * s.illumFraction + weights.earth * s.earthVisFraction - (weights.gap * (s.longestDarkH + s.longestEarthGapH)) / (2 * windowHours);
+}
+
+/** Element-wise mean of several window summaries; the longest runs take the worst site. */
+export function meanSummary(sums: Summary[]): Summary {
+  const n = sums.length;
+  const mean = (f: (s: Summary) => number) => sums.reduce((a, s) => a + f(s), 0) / n;
+  return {
+    hours: sums[0].hours,
+    illumFraction: mean((s) => s.illumFraction),
+    meanSunFraction: mean((s) => s.meanSunFraction),
+    longestDarkH: Math.max(...sums.map((s) => s.longestDarkH)),
+    earthVisFraction: mean((s) => s.earthVisFraction),
+    longestEarthGapH: Math.max(...sums.map((s) => s.longestEarthGapH)),
+    jointFraction: mean((s) => s.jointFraction),
+  };
+}
+
+export interface BestWindow {
+  start: number;
+  score: number;
+  summary: Summary;
+}
+
+/**
+ * Best-scoring window of `windowHours` over several sites at once: the score of a start is the mean
+ * of the per-site window scores, and the returned summary is their mean. Starts are scanned every
+ * `stepHours`. `startFilter` restricts the candidate starts (for example to sunlit hours); when it
+ * rejects every start the scan falls back to all of them.
+ */
+export function bestWindowAcross(
+  indexes: SeriesIndex[],
+  windowHours: number,
+  stepHours = 6,
+  weights: WindowWeights = { sun: 1, earth: 1, gap: 1 },
+  startFilter?: (start: number) => boolean,
+): BestWindow {
+  if (indexes.length === 0) throw new RangeError('no series to score');
+  const n = Math.min(...indexes.map((i) => i.series.hours));
   if (windowHours > n) throw new RangeError(`window ${windowHours} h longer than series ${n} h`);
-  let best = { start: 0, score: -Infinity, summary: index.window(0, windowHours) };
-  for (let start = 0; start + windowHours <= n; start += stepHours) {
-    const s = index.window(start, start + windowHours);
-    const score = weights.sun * s.illumFraction + weights.earth * s.earthVisFraction - (weights.gap * (s.longestDarkH + s.longestEarthGapH)) / (2 * windowHours);
-    if (score > best.score) best = { start, score, summary: s };
-  }
-  return best;
+  const at = (start: number) => {
+    const sums = indexes.map((i) => i.window(start, start + windowHours));
+    return { score: sums.reduce((a, s) => a + windowScore(s, windowHours, weights), 0) / sums.length, summary: meanSummary(sums) };
+  };
+  const scan = (filter?: (start: number) => boolean): BestWindow => {
+    let best: BestWindow = { start: -1, score: -Infinity, summary: at(0).summary };
+    for (let start = 0; start + windowHours <= n; start += stepHours) {
+      if (filter && !filter(start)) continue;
+      const r = at(start);
+      if (r.score > best.score) best = { start, ...r };
+    }
+    return best;
+  };
+  const filtered = startFilter ? scan(startFilter) : null;
+  const best = filtered && filtered.start >= 0 ? filtered : scan();
+  return best.start >= 0 ? best : { start: 0, ...at(0) };
+}
+
+/** Best-scoring window of `windowHours` for one series; see `bestWindowAcross`. Score in [−1, 2]. */
+export function bestWindow(
+  index: SeriesIndex,
+  windowHours: number,
+  stepHours = 6,
+  weights: WindowWeights = { sun: 1, earth: 1, gap: 1 },
+  startFilter?: (start: number) => boolean,
+): BestWindow {
+  return bestWindowAcross([index], windowHours, stepHours, weights, startFilter);
 }

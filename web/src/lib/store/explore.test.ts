@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadEphemeris, type EphemerisHeader } from '../engine/ephemeris';
-import { createExploreStore, recompute } from './explore';
+import { createExploreStore, DEFAULT_PARAMS, recompute } from './explore';
 import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
 import type { Site } from '../data/loaders';
 import { decodeHeightmap, type HeightmapMeta, type TerrainManifest } from '../data/terrain';
@@ -302,5 +302,229 @@ describe('explore store terrain (Week 3)', () => {
     expect(s.siteId).toBe(custom.id);
     expect(s.heightmap).toBeNull();
     expect(s.capHeightmap?.meta.kind).toBe('cap');
+  });
+});
+
+describe('planner parameters, compare and best window', () => {
+  const fakeCompute = async (lat: number, lon: number, mastM: number) => ({
+    mask: new Float64Array(720).fill(mastM > 2 ? 0.5 : 1.5),
+    siteHeightM: 100,
+    failedTiles: 0,
+  });
+
+  it('recomputes the summary and power when parameters change', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    const before = store.getState();
+    expect(before.power?.powerW.length).toBe(30 * 24);
+    expect(before.params).toEqual(DEFAULT_PARAMS);
+    store.getState().setParams({ minEarthElDeg: 10 });
+    const after = store.getState();
+    expect(after.summary!.earthVisFraction).toBeLessThanOrEqual(before.summary!.earthVisFraction);
+    expect(after.contacts.every((w) => w.end > w.start)).toBe(true);
+    store.getState().setPower({ areaM2: 0 });
+    expect(store.getState().power?.survives).toBe(false);
+    expect(store.getState().power?.firstBrownoutHour).toBe(Math.floor(2000 / 200)); // full battery, 200 W load
+  });
+
+  it('selectCustom computes the mask through the loader and applies the site', async () => {
+    const store = createExploreStore({ ...fileLoaders(), computeMask: fakeCompute });
+    await store.getState().init();
+    await store.getState().selectCustom(-89.5, 200);
+    const s = store.getState();
+    expect(s.site?.category).toBe('custom');
+    expect(s.site?.lon).toBe(-160);
+    expect(s.maskMeta?.source).toBe('computed');
+    expect(s.maskBusy).toBe(false);
+  });
+
+  it('mast height recomputes the selected site skyline', async () => {
+    const store = createExploreStore({ ...fileLoaders(), computeMask: fakeCompute });
+    await store.getState().init();
+    const featured = store.getState().mask!;
+    store.getState().setParams({ mastM: 6 });
+    await store.getState().waitForMask();
+    expect(store.getState().mask).not.toBe(featured);
+    expect(store.getState().mask![0]).toBe(0.5);
+    expect(store.getState().maskMeta?.mastM).toBe(6);
+    expect(store.getState().maskBusy).toBe(false);
+  });
+
+  it('addToCompare keeps at most four sites and removeFromCompare drops one', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    for (const id of ['shackleton_center', 'de_gerlache_center', 'im1_odysseus', 'im2_athena', 'south_pole']) {
+      await store.getState().addToCompare(id);
+    }
+    expect(store.getState().compareIds).toEqual(['shackleton_center', 'de_gerlache_center', 'im1_odysseus', 'im2_athena']);
+    expect(store.getState().compare.map((c) => c.site.id)).toEqual(store.getState().compareIds);
+    expect(store.getState().compare[0].power.powerW.length).toBe(30 * 24);
+    store.getState().removeFromCompare('im1_odysseus');
+    expect(store.getState().compareIds).toEqual(['shackleton_center', 'de_gerlache_center', 'im2_athena']);
+    await store.getState().addToCompare('de_gerlache_center'); // duplicate ignored
+    expect(store.getState().compareIds.length).toBe(3);
+  });
+
+  it('addToCompare accepts a computed custom site without a mask file', async () => {
+    const store = createExploreStore({ ...fileLoaders(), computeMask: fakeCompute });
+    await store.getState().init();
+    await store.getState().selectCustom(-89.5, 10);
+    const id = store.getState().siteId!;
+    await store.getState().addToCompare(id);
+    expect(store.getState().compare.map((c) => c.site.id)).toContain(id);
+  });
+
+  it('compare results follow the window and the parameters', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().addToCompare('shackleton_center');
+    const h30 = store.getState().compare[0].series.hours;
+    store.getState().setWindow('2027-03-01T00:00:00', 14);
+    expect(store.getState().compare[0].series.hours).toBe(14 * 24);
+    expect(h30).toBe(30 * 24);
+    const before = store.getState().compare[0].power.meanPowerW;
+    store.getState().setPower({ areaM2: 8 });
+    expect(store.getState().compare[0].power.meanPowerW).toBeCloseTo(before * 2, 6);
+  });
+
+  it('findBestWindow moves the start date to the best-scoring span and reports it', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().selectSite('im1_odysseus'); // 80S: real day/night cycle, so the window matters
+    const result = await store.getState().findBestWindow(14);
+    expect(result).not.toBeNull();
+    expect(store.getState().startUtc).toBe(result!.startUtc);
+    expect(store.getState().days).toBe(14);
+    expect(store.getState().summary!.illumFraction).toBeCloseTo(result!.summary.illumFraction, 9);
+    expect(result!.summary.illumFraction).toBeGreaterThan(0.4);
+    // A planner window starts at sunrise, not in the middle of a night, when a same-scoring start exists.
+    expect(store.getState().series!.sunFraction[0]).toBeGreaterThan(0);
+    expect(store.getState().bestWindowNote).toMatch(/% sun/);
+  });
+
+  it('findBestWindow across the compared sites scores their mean and says so', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().addToCompare('im1_odysseus');
+    await store.getState().addToCompare('shackleton_center_rim_high');
+    const r = await store.getState().findBestWindow(14, 'compare');
+    expect(r).not.toBeNull();
+    expect(store.getState().bestWindowNote).toMatch(/across 2 compared sites/);
+    expect(store.getState().startUtc).toBe(r!.startUtc);
+    const [a, b] = store.getState().compare;
+    expect(r!.summary.illumFraction).toBeCloseTo((a.summary.illumFraction + b.summary.illumFraction) / 2, 9);
+    expect(r!.summary.longestEarthGapH).toBe(Math.max(a.summary.longestEarthGapH, b.summary.longestEarthGapH));
+  });
+
+  it('clears the best-window note when the site, window or parameters change', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().findBestWindow(14);
+    expect(store.getState().bestWindowNote).not.toBeNull();
+    await store.getState().selectSite('shackleton_center');
+    expect(store.getState().bestWindowNote).toBeNull();
+    await store.getState().findBestWindow(14);
+    store.getState().setWindow('2027-06-01T00:00:00', 14);
+    expect(store.getState().bestWindowNote).toBeNull();
+    await store.getState().findBestWindow(14);
+    store.getState().setPower({ areaM2: 2 });
+    expect(store.getState().bestWindowNote).toBeNull();
+  });
+
+  it('a slow custom compute that lands after another selection is dropped', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const store = createExploreStore({
+      ...fileLoaders(),
+      computeMask: async () => {
+        await gate;
+        return { mask: new Float64Array(720).fill(3), siteHeightM: 1, failedTiles: 0 };
+      },
+    });
+    await store.getState().init();
+    const pending = store.getState().selectCustom(-89.5, 20);
+    expect(store.getState().maskBusy).toBe(true);
+    await store.getState().selectSite('shackleton_center');
+    release();
+    await pending;
+    expect(store.getState().siteId).toBe('shackleton_center');
+    expect(store.getState().mask![0]).not.toBe(3);
+    expect(store.getState().maskBusy).toBe(false);
+  });
+
+  it('a mast round trip settles on the final mast, starts at most one compute and never applies a stale one', async () => {
+    const calls: number[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const store = createExploreStore({
+      ...fileLoaders(),
+      computeMask: async (_lat, _lon, mastM) => {
+        calls.push(mastM);
+        await gate;
+        return { mask: new Float64Array(720).fill(mastM), siteHeightM: 1, failedTiles: 0 };
+      },
+    });
+    await store.getState().init();
+    const featured = store.getState().mask!;
+    store.getState().setParams({ mastM: 3 });
+    store.getState().setParams({ mastM: 4 });
+    store.getState().setParams({ mastM: 2 });
+    await store.getState().waitForMask();
+    release();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(store.getState().mask).toBe(featured);
+    expect(store.getState().maskMeta?.mastM ?? 2).toBe(2);
+    expect(calls.length).toBeLessThanOrEqual(1);
+    expect(store.getState().maskBusy).toBe(false);
+  });
+
+  it('a mast compute that lands after the mast moved on is not applied', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const store = createExploreStore({
+      ...fileLoaders(),
+      computeMask: async (_lat, _lon, mastM) => {
+        if (mastM === 5) await gate;
+        return { mask: new Float64Array(720).fill(mastM), siteHeightM: 1, failedTiles: 0 };
+      },
+    });
+    await store.getState().init();
+    store.getState().setParams({ mastM: 5 });
+    await store.getState().waitForDebounce();
+    expect(store.getState().maskBusy).toBe(true);
+    store.getState().setParams({ mastM: 7 });
+    await store.getState().waitForMask();
+    release();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(store.getState().maskMeta?.mastM).toBe(7);
+    expect(store.getState().mask![0]).toBe(7);
+    expect(store.getState().maskBusy).toBe(false);
+  });
+
+  it('compare entries carry the mast their skyline was computed with', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().addToCompare('shackleton_center');
+    expect(store.getState().compare[0].mastM).toBe(2);
+  });
+
+  it('findBestWindow near the end of the ephemeris table clamps the scan and never throws', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    store.getState().setWindow('2036-10-01T00:00:00', 90);
+    const result = await store.getState().findBestWindow(90);
+    expect(result).not.toBeNull();
+    expect(store.getState().startUtc >= '2036-10-01T00:00:00').toBe(true);
+    expect(store.getState().series?.hours).toBe(90 * 24);
+    store.getState().setWindow('2036-12-01T00:00:00', 14);
+    await expect(store.getState().findBestWindow(90)).resolves.toBeNull();
+    expect(store.getState().bestWindowNote).toMatch(/does not fit/);
+    expect(store.getState().startUtc).toBe('2036-12-01T00:00:00');
   });
 });

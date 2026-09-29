@@ -1,7 +1,9 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
+import { PlannerParamsPanel } from './PlannerParamsPanel';
 import { SiteSelect } from './SiteSelect';
 import { SkyDome } from './SkyDome';
 import { SummaryTiles } from './SummaryTiles';
@@ -11,54 +13,21 @@ import { WindowControls } from './WindowControls';
 import { Scene3DLazy } from './three';
 import { dataBase } from '@/lib/data/loaders';
 import { globeTextureUrl } from '@/lib/data/terrain';
-import { EngineClient } from '@/lib/engine-client';
 import { maskAtAzimuth, type Series } from '@/lib/engine/metrics';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { exploreStore, type Exaggeration, type ExploreState, type SceneMode } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, type Exaggeration, type ExploreState, type SceneMode } from '@/lib/store/explore';
 import { utcLabel } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 import { sceneStateAt } from '@/lib/viz/scene-state';
 
 export function ExploreView({ store = exploreStore }: { store?: StoreApi<ExploreState> }) {
   const s = useStore(store);
-  const [busy, setBusy] = useState(false);
   const [hoverHour, setHoverHour] = useState<number | null>(null);
-  const client = useRef<EngineClient | null>(null);
   const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     void store.getState().init();
-    const current = client;
-    return () => current.current?.dispose();
   }, [store]);
-
-  const onCustom = useCallback(
-    async (lat: number, lon: number) => {
-      setBusy(true);
-      try {
-        client.current ??= new EngineClient(dataBase());
-        const res = await client.current.computeMask(lat, lon);
-        store.getState().applyMask(
-          {
-            id: `custom_${lat.toFixed(4)}_${lon.toFixed(4)}`,
-            name: `Custom site ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`,
-            lat,
-            lon,
-            category: 'custom',
-            polar: true,
-            source: 'user',
-          },
-          res.mask,
-          { siteHeightM: res.siteHeightM, source: 'computed', failedTiles: res.failedTiles.length },
-        );
-      } catch (err) {
-        store.getState().setCustomError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setBusy(false);
-      }
-    },
-    [store],
-  );
 
   const onPick = useCallback(
     (lat: number, lon: number) => {
@@ -67,9 +36,9 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
         store.getState().setCustomError(r.message);
         return;
       }
-      void onCustom(r.lat, r.lon);
+      void store.getState().selectCustom(r.lat, r.lon);
     },
-    [onCustom, store],
+    [store],
   );
 
   const scene = useMemo(
@@ -113,12 +82,19 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
             sites={s.sites}
             value={s.siteId}
             onSelect={(id) => void s.selectSite(id)}
-            onCustom={onCustom}
+            onCustom={(lat, lon) => void s.selectCustom(lat, lon)}
             customError={s.customError}
-            busy={busy}
+            busy={s.maskBusy}
           />
-          <WindowControls startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} />
+          <WindowControls
+            startUtc={s.startUtc}
+            days={s.days}
+            onWindow={s.setWindow}
+            onBestWindow={(d) => void store.getState().findBestWindow(d)}
+            bestWindowNote={s.bestWindowNote}
+          />
         </div>
+        <PlannerParamsPanel params={s.params} onParams={s.setParams} onPower={s.setPower} busy={s.maskBusy} />
         {s.error && (
           <p role="status" className="text-sm text-warn">
             {s.error}
@@ -132,14 +108,30 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
                 {s.site.lat.toFixed(3)}°, {s.site.lon.toFixed(3)}°; skyline from LOLA{' '}
                 {s.maskMeta?.source === 'computed' ? 'computed in your browser' : 'precomputed'}; site height{' '}
                 {s.maskMeta?.siteHeightM.toFixed(0)} m
+                  {s.site.approximate ? '; region centre digitised from NASA’s map (about ±5 km)' : ''}
               </p>
             </div>
-            <ModeControls
-              mode={s.mode}
-              exaggeration={s.exaggeration}
-              onMode={s.setMode}
-              onExaggeration={s.setExaggeration}
-            />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <ModeControls
+                mode={s.mode}
+                exaggeration={s.exaggeration}
+                onMode={s.setMode}
+                onExaggeration={s.setExaggeration}
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={s.compareIds.includes(s.site.id) || s.compareIds.length >= COMPARE_MAX}
+                  onClick={() => void store.getState().addToCompare(s.site!.id)}
+                  className="rounded-md border border-line px-3 py-1 text-sm text-ink-2 hover:text-ink disabled:opacity-50"
+                >
+                  {s.compareIds.includes(s.site.id) ? 'In compare' : 'Add to compare'}
+                </button>
+                <Link href="/compare" className="text-sm text-ink-2 underline-offset-4 hover:underline">
+                  Compared sites ({s.compareIds.length})
+                </Link>
+              </div>
+            </div>
             {s.mode === 'globe' && s.customError && (
               <p role="alert" className="text-sm text-bad">
                 {s.customError}. Custom sites need LOLA coverage south of 60°S.
@@ -174,7 +166,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
               <p className="mt-1 text-center text-xs text-ink-3">Outer half of the disc magnifies −10° to +10°.</p>
             </section>
             <section className="rounded-md bg-panel p-4">
-              <SummaryTiles summary={s.summary} />
+              <SummaryTiles summary={s.summary} power={s.power} />
             </section>
           </aside>
         </div>

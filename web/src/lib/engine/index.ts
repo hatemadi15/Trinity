@@ -5,3 +5,4 @@ export * from './ephemeris';
 export * from './tiles';
 export * from './horizon';
 export * from './metrics';
+export * from './power';
