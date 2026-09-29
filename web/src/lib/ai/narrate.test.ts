@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POWER } from '../engine/power';
-import { checkNumbers, narrationPrompt, numbersIn, templateBrief } from './narrate';
+import { checkNumbers, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from './narrate';
 import type { StateSummary } from './state-summary';
 
 const summary: StateSummary = {
@@ -62,5 +62,15 @@ describe('narrationPrompt', () => {
     expect(user.role).toBe('user');
     expect(user.content).toContain('"illumFraction": 1');
     expect(user.content).toContain('Nobile Rim 2');
+  });
+});
+
+describe('stripForeignNumbers', () => {
+  it('drops the sentences whose numbers the state cannot vouch for and keeps the rest', () => {
+    expect(stripForeignNumbers('Selected Nobile Rim 2. It is sunlit 92 % of the time with a 310 h night. Earth is in view 67 % of the time.', summary)).toBe(
+      'Selected Nobile Rim 2. Earth is in view 67 % of the time.',
+    );
+    expect(stripForeignNumbers('Sunlit 92 % of the time.', summary)).toBe('');
+    expect(stripForeignNumbers('No numbers here.', summary)).toBe('No numbers here.');
   });
 });

@@ -49,7 +49,7 @@ describe('askNarration', () => {
   });
 
   it('rejects on failures', async () => {
-    await expect(askNarration({} as never, 'live', async () => new Response('busy', { status: 429 }))).rejects.toThrow(/429/);
+    await expect(askNarration({} as never, 'live', async () => new Response('busy', { status: 429, headers: { 'Retry-After': '12' } }))).rejects.toThrow(/try again in 12 s/);
     await expect(askNarration({} as never, 'live', async () => json({ nope: true }))).rejects.toThrow(/unexpected/i);
   });
 });

@@ -6,6 +6,8 @@ export type ChatSource = 'model' | 'cache' | 'intent' | 'none';
 /** The brief's paragraph: the model's words when every number checked out, else the deterministic template. */
 export interface NarrationReply {
   source: 'model' | 'template';
+  /** Why the template was used: the numbers failed the check, no key is configured, demo mode, or the model did not answer. */
+  reason?: 'numbers' | 'no-key' | 'cached' | 'model-error';
   model?: string;
   reply: string;
 }
@@ -97,12 +99,19 @@ export function extractJson(text: string): Record<string, unknown> | null {
   return null;
 }
 
-/** The model's answer as `{ actions, reply }` with safe defaults, or null when there is no JSON object at all. */
+/**
+ * The model's answer as `{ actions, reply }` with safe defaults, or null when the text holds no JSON
+ * object in the envelope shape (an `actions` list or a `reply` string). A bare action object or the
+ * inner object of an envelope truncated at max_tokens is not an answer.
+ */
 export function parseModelReply(text: string): { actions: unknown[]; reply: string } | null {
   const o = extractJson(text);
   if (!o) return null;
+  const hasActions = Array.isArray(o.actions);
+  const hasReply = typeof o.reply === 'string';
+  if (!hasActions && !hasReply) return null;
   return {
-    actions: Array.isArray(o.actions) ? o.actions : [],
-    reply: typeof o.reply === 'string' ? o.reply.trim() : '',
+    actions: hasActions ? (o.actions as unknown[]) : [],
+    reply: hasReply ? (o.reply as string).trim() : '',
   };
 }

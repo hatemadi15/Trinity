@@ -27,7 +27,7 @@ describe('parseModelReply', () => {
     expect(parseModelReply('{"reply": "hello"}')).toEqual({ actions: [], reply: 'hello' });
     expect(parseModelReply('{"actions": [{"type": "explain", "topic": "skyline"}]}')).toEqual({ actions: [{ type: 'explain', topic: 'skyline' }], reply: '' });
     expect(parseModelReply('just prose')).toBeNull();
-    expect(parseModelReply('{"actions": "select nobile", "reply": 5}')).toEqual({ actions: [], reply: '' });
+    expect(parseModelReply('{"actions": "select nobile", "reply": 5}')).toBeNull(); // neither an actions list nor a reply string: not the envelope
   });
 });
 
@@ -53,5 +53,14 @@ describe('prompts', () => {
     expect(u).toContain('"id": "haworth"');
     expect(u).toContain('what is the longest night?');
     expect(userPrompt('hi', null)).toMatch(/no site is selected/i);
+  });
+});
+
+describe('parseModelReply envelope', () => {
+  it('rejects objects that are not the reply envelope: truncated output, a bare action object', () => {
+    expect(parseModelReply('{"actions":[{"type":"select_site","id":"nobile_rim_2"}],"reply":"Nobile Rim 2 is on the rim and')).toBeNull();
+    expect(parseModelReply('{"type":"select_site","id":"nobile_rim_2"}')).toBeNull();
+    expect(parseModelReply('{"reply":"hi"}')).toEqual({ actions: [], reply: 'hi' });
+    expect(parseModelReply('{"actions":[]}')).toEqual({ actions: [], reply: '' });
   });
 });

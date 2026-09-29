@@ -70,6 +70,8 @@ Bind the bucket as `DATA` in the Worker's settings. Either way, the app's `NEXT_
 
 ## 2. App on Vercel (Hobby)
 
+One rule first: every `NEXT_PUBLIC_*` variable is inlined into the client and server bundles at build time. Set them before the first build and trigger a new build after changing one; a runtime change alone does nothing.
+
 1. Import the GitHub repository in Vercel. **Root directory: `web`.** Framework preset: Next.js. Build command `npm run build`, install command `npm install` (the repo's `.npmrc` already sets `legacy-peer-deps`).
 2. Environment variables (Production and Preview):
 
@@ -83,7 +85,7 @@ Bind the bucket as `DATA` in the Worker's settings. Either way, the app's `NEXT_
 
 3. `web/vercel.json` adds the immutable cache header for `/data/*` (only used if the data is ever served by the app) and a one-hour header for the test badge. `web/.vercelignore` keeps the local data mirror out of CLI deployments; Git deployments never see it because `public/data` is gitignored.
 4. Region: leave the default (`iad1`); the routes are light and JPL Horizons sits in the same region.
-5. Limits to keep in mind on Hobby: 100 GB of transfer per month (the data does not count, it comes from R2), 100 MB of source per deployment, 10 s default function duration on Fluid compute (the chat route spends at most two 10 s model calls, so set **Function max duration to 30 s** in the project settings, which Hobby allows for Fluid functions).
+5. Limits to keep in mind on Hobby: 100 GB of transfer per month (the data does not count, it comes from R2), 100 MB of source per deployment. Function duration needs no change: Hobby with Fluid compute allows up to 300 s, the chat route caps itself at 60 s (`maxDuration`) and keeps its model time under 24 s per request so the browser's 30 s wait is never exceeded.
 6. After the first deployment, open `/validate`, press **Re-check with JPL now**, and ask the planner one question on `/explore` to confirm both routes and the key.
 
 ## 3. GitHub Release mirror
@@ -104,10 +106,12 @@ The venue may have no usable Wi-Fi. Prepare two laptops (and a USB stick with th
 
 ```powershell
 cd pipeline; uv run python -m lunar_pipeline.cli sync-local --tiles; cd ../web
+$env:NEXT_PUBLIC_AI_MODE = "cached"    # rehearsed planner answers, no network; must be set BEFORE the build (inlined at build time)
 npm run build
-$env:NEXT_PUBLIC_AI_MODE = "cached"    # rehearsed planner answers, no network
 npm start                              # serves http://localhost:3000 with /data from public/data
 ```
+
+If `web/.env.local` exists on the laptop, make sure it does not say `NEXT_PUBLIC_AI_MODE=live`; the file wins over the shell at build time. `?demo=1` in the URL also switches the planner to rehearsed answers for the tab, whatever the build says.
 
 Open `http://localhost:3000/explore?demo=1`. The Validate page's live re-check needs the internet; without it the page shows the stored comparison and says so. The Horizons fixtures and the validation tables are in the data mirror, so every table renders offline.
 
@@ -119,7 +123,7 @@ If Vercel's transfer or function limits bite, the app can move next to the data:
 
 - [ ] R2 bucket created, token issued, `publish-r2 --dry-run` reviewed, `publish-r2` run, one file opened in the browser with the immutable header.
 - [ ] CORS policy saved with the Vercel origin; custom domain or Worker in front of the bucket.
-- [ ] Vercel project imported with root `web`; environment variables set; function max duration 30 s.
+- [ ] Vercel project imported with root `web`; environment variables set before the first build (they are inlined at build time); function duration left at the default.
 - [ ] First deployment: `/explore` loads a site from R2, `/validate` re-checks against JPL, `/explore` answers a planner question with "answered by …".
 - [ ] `?demo=1` on the live URL answers from the rehearsed transcripts.
 - [ ] GitHub Release with the data zip; both venue laptops run `npm start` offline from the zip.

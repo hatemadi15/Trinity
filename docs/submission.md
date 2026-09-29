@@ -37,7 +37,7 @@ Sun and Earth positions come from a precomputed hourly table (2024–2036) built
 | Sun and Earth directions vs JPL Horizons (six sites × two bodies, 2025–2026, every 30 days) | 300 rows, worst 2.7e-5° in elevation, 2.6e-6° in azimuth × cos(el); live re-check button on the page |
 | Sunlit fraction vs the LOLA average-visibility map (60 m/px, south of 85°S) | 15 covered sites, 11 within 5 points, worst +10.8 points at the Shackleton rim high point (a 20 m peak sampled by a 60 m map) |
 | Predicted sunset vs reported mission end | Blue Ghost M1: +2.4 h (flat mare skyline). IM-1: −67 h, tipped over with panels away from the low Sun. IM-2: −299 h, on its side in a crater |
-| Automated tests | 308 in the web engine and app, 82 in the Python pipeline (2026-09-29); the Validate page shows the live count |
+| Automated tests | 322 in the web engine and app, 82 in the Python pipeline (2026-09-29); the Validate page shows the live count |
 
 Error budget: directions under 0.01°, skyline 0.05–0.15°, event timing ±15–60 minutes near the pole (hourly series, the Sun moves 0.5° per hour along the horizon).
 

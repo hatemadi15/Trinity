@@ -57,9 +57,14 @@ export async function askPlanner(prompt: string, state: StateSummary | null, mod
 /** Asks for the brief's narrated paragraph; the server returns the template when the model's numbers do not check out. */
 export async function askNarration(state: StateSummary, mode: AiMode, fetchImpl: typeof fetch = fetch): Promise<NarrationReply> {
   const { res, json: body } = await post({ task: 'narrate', prompt: 'Write the mission brief', state, mode }, fetchImpl);
+  if (res.status === 429) {
+    const retryAfterS = Number(body?.retryAfterS) || Number(res.headers.get('Retry-After')) || 60;
+    throw new Error(`Too many questions; try again in ${retryAfterS} s.`);
+  }
   if (!res.ok) throw new Error(typeof body?.error === 'string' ? body.error : `The planner answered HTTP ${res.status}`);
   if (!body || (body.source !== 'model' && body.source !== 'template') || typeof body.reply !== 'string') {
     throw new Error('The planner gave an unexpected answer');
   }
-  return { source: body.source, model: typeof body.model === 'string' ? body.model : undefined, reply: body.reply };
+  const reason = body.reason === 'numbers' || body.reason === 'no-key' || body.reason === 'cached' || body.reason === 'model-error' ? body.reason : undefined;
+  return { source: body.source, reason, model: typeof body.model === 'string' ? body.model : undefined, reply: body.reply };
 }

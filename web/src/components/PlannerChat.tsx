@@ -3,28 +3,17 @@ import { useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { applyActions, describeDropped, validateActions } from '@/lib/ai/actions';
 import { askPlanner, shortModel, type PlannerAnswer } from '@/lib/ai/client';
-import type { ChatSource } from '@/lib/ai/protocol';
 import { summarizeState, type StateSummary } from '@/lib/ai/state-summary';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { exploreStore, type AiMode, type ExploreState } from '@/lib/store/explore';
+import { plannerLog, type Exchange } from '@/lib/store/planner-log';
 
 export type Ask = (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
 
 /** The four chips shown while the transcript is empty; each is one of the rehearsed prompts. */
 export const EXAMPLE_PROMPTS = ['Show me Nobile Rim 2', 'Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days', 'Best 14-day window', 'Explain the longest night'];
 
-/** Exchanges kept on screen (newest first). */
-const KEEP = 5;
 const OFFLINE = 'The planner is offline; the app works without it. Try one of the example questions below, or ask again in a moment.';
-
-interface Exchange {
-  id: number;
-  prompt: string;
-  reply: string;
-  source: ChatSource | 'error';
-  model?: string;
-  notes: string[];
-}
 
 function sourceLabel(x: Exchange): string {
   switch (x.source) {
@@ -45,7 +34,8 @@ function sourceLabel(x: Exchange): string {
  * One input, one reply, one source line: the planner strip. Questions go to /api/chat with the
  * compact state; the answer's actions are validated against the catalogue again here and applied
  * to the store, so the same words drive Explore and Compare whether the model, a rehearsed
- * transcript or the intent matcher answered.
+ * transcript or the intent matcher answered. The transcript lives in `plannerLog`, so it survives
+ * the page change an answer may trigger.
  */
 export function PlannerChat({
   store = exploreStore,
@@ -59,33 +49,37 @@ export function PlannerChat({
   defaultOpen?: boolean;
 }) {
   const aiMode = useStore(store, (s) => s.aiMode);
+  const exchanges = useStore(plannerLog, (s) => s.exchanges);
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
   const [open, setOpen] = useState(defaultOpen);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
-  const [exchanges, setExchanges] = useState<Exchange[]>([]);
-  const [seq, setSeq] = useState(0);
 
   async function submit(prompt: string) {
     const q = prompt.trim();
     if (!q || busy) return;
     setBusy(true);
     setInput('');
-    const id = seq + 1;
-    setSeq(id);
-    let exchange: Exchange;
+    let a: PlannerAnswer;
     try {
-      const a = await ask(q, summarizeState(store.getState()), store.getState().aiMode);
-      const ids = new Set(store.getState().sites.map((s) => s.id));
-      const { actions, dropped } = validateActions(a.actions, ids);
-      const notes = await applyActions(store, actions, go);
-      const skipped = describeDropped([...(a.dropped ?? []), ...dropped]);
-      exchange = { id, prompt: q, reply: a.reply, source: a.source, model: a.model, notes: skipped ? [...notes, skipped] : notes };
+      a = await ask(q, summarizeState(store.getState()), store.getState().aiMode);
     } catch {
-      exchange = { id, prompt: q, reply: OFFLINE, source: 'error', notes: [] };
+      plannerLog.getState().push({ prompt: q, reply: OFFLINE, source: 'error', notes: [] });
+      setBusy(false);
+      return;
     }
-    setExchanges((list) => [exchange, ...list].slice(0, KEEP));
+    const ids = new Set(store.getState().sites.map((s) => s.id));
+    const { actions, dropped } = validateActions(a.actions, ids);
+    let notes: string[];
+    try {
+      notes = await applyActions(store, actions, go);
+    } catch (err) {
+      // The answer stands; only the step failed (for example a window past the end of the table).
+      notes = [`One step could not be applied: ${err instanceof Error ? err.message : String(err)}.`];
+    }
+    const skipped = describeDropped([...(a.dropped ?? []), ...dropped]);
+    plannerLog.getState().push({ prompt: q, reply: a.reply, source: a.source, model: a.model, notes: skipped ? [...notes, skipped] : notes });
     setBusy(false);
   }
 

@@ -65,3 +65,15 @@ describe('askModel', () => {
     expect(modelsFromEnv({ OPENROUTER_MODELS: '' })).toEqual(DEFAULT_MODELS);
   });
 });
+
+describe('askModel budget', () => {
+  it('stays inside a total budget across the chain', async () => {
+    const fetchImpl = vi.fn(() => new Promise<Response>(() => {}));
+    const t0 = Date.now();
+    const r = await askModel({ messages, models: ['a', 'b', 'c', 'd'], apiKey: 'k', timeoutMs: 50, budgetMs: 120, fetchImpl });
+    expect(Date.now() - t0).toBeLessThan(1000);
+    expect('error' in r).toBe(true);
+    expect(fetchImpl.mock.calls.length).toBeLessThanOrEqual(3);
+    expect((r as { error: string }).error).toMatch(/timed out|budget/);
+  });
+});

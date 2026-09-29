@@ -96,3 +96,23 @@ describe('BriefView narration', () => {
     expect(screen.getByTestId('narration').textContent).toMatch(/survives/);
   });
 });
+
+describe('BriefView narration labels', () => {
+  it('says why the paragraph is the template, and passes a busy message through', async () => {
+    const store = storeWithFiles();
+    const narrate = vi
+      .fn()
+      .mockResolvedValueOnce({ source: 'template', reason: 'cached', reply: 'T1' })
+      .mockResolvedValueOnce({ source: 'template', reason: 'numbers', reply: 'T2' })
+      .mockRejectedValueOnce(new Error('Too many questions; try again in 12 s.'));
+    render(<BriefView store={store} narrate={narrate} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    await waitFor(() => expect(screen.getByText(/demo mode; written from the numbers above/)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    await waitFor(() => expect(screen.getByText(/did not pass the number check/)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    await waitFor(() => expect(screen.getByText(/try again in 12 s/)).toBeTruthy());
+    expect(screen.getByTestId('narration').textContent).toMatch(/survives/);
+  });
+});

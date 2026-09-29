@@ -13,7 +13,24 @@ import { PANEL_LABELS } from '@/lib/engine/power';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { hoursLabel, pct, utcLabel } from '@/lib/viz/format';
 
-type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string };
+type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; message?: string };
+
+/** The line under the summary paragraph: who wrote it, or why the template stands. */
+function narrationLabelFor(n: Narration | null): string {
+  if (!n) return 'written from the numbers above';
+  if (n.source === 'model') return `narrated by ${n.model ? shortModel(n.model) : 'the model'}, checked number by number against the figures below`;
+  if (n.source === 'error') return n.message?.startsWith('Too many') ? `${n.message} Written from the numbers above.` : 'the planner is offline; written from the numbers above';
+  switch (n.reason) {
+    case 'cached':
+      return 'demo mode; written from the numbers above';
+    case 'no-key':
+      return 'no model configured; written from the numbers above';
+    case 'model-error':
+      return 'the model did not answer; written from the numbers above';
+    default:
+      return "the model's paragraph did not pass the number check; written from the numbers above";
+  }
+}
 
 /** One printable page: the selected site and window, a narrated summary, the verdict, six numbers, the two charts, method and data. */
 export function BriefView({
@@ -50,22 +67,15 @@ export function BriefView({
   const stateSummary = summarizeState(s);
   const template = stateSummary ? templateBrief(stateSummary) : '';
   const shown = narration && narration.source !== 'error' ? narration.text : template;
-  const narrationLabel =
-    narration?.source === 'model'
-      ? `narrated by ${narration.model ? shortModel(narration.model) : 'the model'}, checked number by number against the figures below`
-      : narration?.source === 'error'
-        ? 'the planner is offline; written from the numbers above'
-        : narration?.source === 'template'
-          ? "the model's paragraph did not pass the number check; written from the numbers above"
-          : 'written from the numbers above';
+  const narrationLabel = narrationLabelFor(narration);
   async function write() {
     if (!stateSummary || writing) return;
     setWriting(true);
     try {
       const r = await (narrate ?? ((st: StateSummary) => askNarration(st, store.getState().aiMode)))(stateSummary);
-      setNarration({ text: r.reply, source: r.source, model: r.model });
-    } catch {
-      setNarration({ text: template, source: 'error' });
+      setNarration({ text: r.reply, source: r.source, model: r.model, reason: r.reason });
+    } catch (err) {
+      setNarration({ text: template, source: 'error', message: err instanceof Error ? err.message : String(err) });
     } finally {
       setWriting(false);
     }

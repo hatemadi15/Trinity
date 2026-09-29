@@ -55,18 +55,27 @@ export async function askModel(opts: {
   apiKey: string;
   timeoutMs?: number;
   maxTokens?: number;
+  /** Total time for the whole chain; each model gets the smaller of timeoutMs and what is left. */
+  budgetMs?: number;
   fetchImpl?: typeof fetch;
 }): Promise<ModelAnswer> {
-  const { messages, models, apiKey, timeoutMs = DEFAULT_TIMEOUT_MS, maxTokens = DEFAULT_MAX_TOKENS, fetchImpl = fetch } = opts;
+  const { messages, models, apiKey, timeoutMs = DEFAULT_TIMEOUT_MS, maxTokens = DEFAULT_MAX_TOKENS, budgetMs, fetchImpl = fetch } = opts;
+  const deadline = budgetMs === undefined ? Infinity : Date.now() + budgetMs;
   const errors: string[] = [];
   for (const model of models) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      errors.push(`budget of ${budgetMs} ms exhausted before ${model}`);
+      break;
+    }
+    const perModelMs = Math.min(timeoutMs, remaining);
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
         controller.abort();
-        reject(new Error(`timed out after ${timeoutMs} ms`));
-      }, timeoutMs);
+        reject(new Error(`timed out after ${perModelMs} ms`));
+      }, perModelMs);
     });
     try {
       const res = await Promise.race([

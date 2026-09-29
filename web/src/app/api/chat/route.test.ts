@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { POST } from './route';
+import { maxDuration, POST } from './route';
 
 type Reply = { source: string; model?: string; actions: unknown[]; reply: string; dropped?: string[]; error?: string; retryAfterS?: number };
 
@@ -167,5 +167,80 @@ describe('POST /api/chat task narrate', () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect((await POST(request({ task: 'narrate', prompt: 'x', state: null }))).status).toBe(400);
     expect((await POST(request({ task: 'sing', prompt: 'x', state: STATE }))).status).toBe(400);
+  });
+});
+
+describe('POST /api/chat fallbacks and limits', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('falls back to the intents when the model returns a truncated envelope or an empty one', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    const truncated = modelAnswer('{"actions":[{"type":"select_site","id":"nobile_rim_2"}],"reply":"Nobile Rim 2 is on the rim of Nobile crater and');
+    vi.stubGlobal('fetch', truncated);
+    let json = (await (await POST(request({ prompt: 'show me nobile rim 2', state: null }))).json()) as Reply;
+    expect(truncated).toHaveBeenCalledTimes(2);
+    expect(json.source).toBe('intent');
+    expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
+    vi.stubGlobal('fetch', modelAnswer('{"actions":[],"reply":""}'));
+    json = (await (await POST(request({ prompt: 'show me nobile rim 2', state: null }))).json()) as Reply;
+    expect(json.source).toBe('intent');
+  });
+
+  it('strips invented numbers from a planner reply when the state is known', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubGlobal(
+      'fetch',
+      modelAnswer('{"actions":[{"type":"select_site","id":"nobile_rim_2"}],"reply":"Selected Nobile Rim 2. It is sunlit 92 % of the time with a 310 h night. The Sun is above the skyline 100 % of the time."}'),
+    );
+    const json = (await (await POST(request({ prompt: 'show me nobile', state: STATE }))).json()) as Reply;
+    expect(json.source).toBe('model');
+    expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
+    expect(json.reply).not.toMatch(/92|310/);
+    expect(json.reply).toMatch(/Selected Nobile Rim 2\./);
+    expect(json.reply).toMatch(/100 %/);
+  });
+
+  it('answers from the fallbacks inside the model budget when every model hangs', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubEnv('AI_MODEL_BUDGET_MS', '200');
+    const hang = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal('fetch', hang);
+    const t0 = Date.now();
+    const json = (await (await POST(request({ prompt: 'open compare', state: null }))).json()) as Reply;
+    expect(Date.now() - t0).toBeLessThan(3000);
+    expect(json.source).toBe('intent');
+    expect(hang.mock.calls.length).toBeLessThanOrEqual(4);
+  });
+
+  it('never answers 500 to a hostile narrate body', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubGlobal('fetch', modelAnswer('unused'));
+    const badPanel = { ...STATE, params: { ...STATE.params, power: { ...STATE.params.power, panel: 'constructor' } } };
+    expect((await POST(request({ task: 'narrate', prompt: 'x', state: badPanel }))).status).toBe(400);
+    expect((await POST(request({ task: 'narrate', prompt: 'x', state: { ...STATE, compare: [{}] } }))).status).toBe(400);
+    const badRow = { ...STATE, compare: [{ id: 'x', name: 5, illumFraction: 'a', earthVisFraction: 0.1, survives: true }] };
+    expect((await POST(request({ task: 'narrate', prompt: 'x', state: badRow }))).status).toBe(400);
+  });
+
+  it('caps the function duration', () => {
+    expect(maxDuration).toBe(60);
+  });
+
+  it('says why a narration is the template', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('down', { status: 503 })));
+    vi.stubEnv('OPENROUTER_API_KEY', '');
+    let json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { reason?: string };
+    expect([json.source, json.reason]).toEqual(['template', 'no-key']);
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE, mode: 'cached' }))).json()) as Reply & { reason?: string };
+    expect([json.source, json.reason]).toEqual(['template', 'cached']);
+    json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { reason?: string };
+    expect([json.source, json.reason]).toEqual(['template', 'model-error']);
+    vi.stubGlobal('fetch', modelAnswer('The Sun is up 87 % of the time.'));
+    json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { reason?: string };
+    expect([json.source, json.reason]).toEqual(['template', 'numbers']);
   });
 });

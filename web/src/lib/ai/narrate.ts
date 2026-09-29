@@ -62,6 +62,16 @@ export function checkNumbers(reply: string, s: StateSummary): boolean {
   return numbersIn(reply).every((n) => allowed.has(n));
 }
 
+/** Keeps only the sentences whose numbers the state can vouch for; '' when nothing survives. */
+export function stripForeignNumbers(reply: string, s: StateSummary): string {
+  const allowed = allowedNumbers(s);
+  return reply
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => numbersIn(sentence).every((n) => allowed.has(n)))
+    .join(' ')
+    .trim();
+}
+
 /** The numbers in a reply that the state cannot vouch for (for the retry nudge). */
 export function foreignNumbers(reply: string, s: StateSummary): string[] {
   const allowed = allowedNumbers(s);
@@ -126,7 +136,7 @@ export function isStateSummary(x: unknown): x is StateSummary {
     typeof power.survives === 'boolean' &&
     typeof power.meanPowerW === 'number' &&
     typeof cfg?.panel === 'string' &&
-    cfg.panel in PANEL_LABELS &&
+    Object.hasOwn(PANEL_LABELS, cfg.panel) &&
     typeof cfg.loadW === 'number' &&
     typeof cfg.batteryWh === 'number' &&
     typeof cfg.areaM2 === 'number' &&
@@ -135,6 +145,13 @@ export function isStateSummary(x: unknown): x is StateSummary {
     typeof cfg.panelAzimuthDeg === 'number' &&
     typeof params?.minEarthElDeg === 'number' &&
     typeof params.mastM === 'number' &&
-    Array.isArray(o.compare)
+    Array.isArray(o.compare) &&
+    o.compare.every(isCompareRow)
   );
+}
+
+function isCompareRow(x: unknown): boolean {
+  if (!x || typeof x !== 'object') return false;
+  const r = x as Record<string, unknown>;
+  return typeof r.id === 'string' && typeof r.name === 'string' && typeof r.illumFraction === 'number' && typeof r.earthVisFraction === 'number' && typeof r.survives === 'boolean';
 }

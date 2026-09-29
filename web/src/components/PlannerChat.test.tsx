@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createStore, type StoreApi } from 'zustand';
 import type { PlannerAnswer } from '@/lib/ai/client';
 import type { Site } from '@/lib/data/loaders';
 import { readJson } from '@/lib/engine/__tests__/helpers';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import type { AiMode, ExploreState } from '@/lib/store/explore';
+import { plannerLog } from '@/lib/store/planner-log';
 import { EXAMPLE_PROMPTS, PlannerChat } from './PlannerChat';
 
 const sites = [
@@ -56,6 +57,10 @@ async function ask(prompt: string) {
 }
 
 describe('PlannerChat', () => {
+  beforeEach(() => {
+    plannerLog.getState().clear();
+  });
+
   it('submits a question, applies the actions to the store and shows the reply with its source', async () => {
     const { store, calls } = fakeStore();
     const askFn = vi.fn(async () =>
@@ -148,12 +153,66 @@ describe('PlannerChat', () => {
 describe('useDemoMode', () => {
   it('switches the store to cached answers when the URL carries ?demo=1', () => {
     const { store, calls } = fakeStore();
+    window.sessionStorage.clear();
     window.history.pushState({}, '', '/explore?demo=1');
     renderHook(() => useDemoMode(store));
     expect(calls).toEqual([['setAiMode', 'cached']]);
     window.history.pushState({}, '', '/explore');
+    window.sessionStorage.clear();
     const other = fakeStore();
     renderHook(() => useDemoMode(other.store));
     expect(other.calls).toEqual([]);
+  });
+});
+
+describe('PlannerChat transcript and failures', () => {
+  beforeEach(() => {
+    plannerLog.getState().clear();
+  });
+
+  it('keeps the transcript across instances, as when open_page navigates to Compare', async () => {
+    const { store } = fakeStore();
+    const askFn = vi.fn(async () => answer({ source: 'intent', reply: 'Comparing two sites.' }));
+    const first = render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} defaultOpen />);
+    await ask('compare a and b');
+    await waitFor(() => expect(screen.getByText('Comparing two sites.')).toBeTruthy());
+    first.unmount();
+    render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} defaultOpen />);
+    expect(screen.getByText('Comparing two sites.')).toBeTruthy();
+    expect(screen.getByText(/matched your words/)).toBeTruthy();
+  });
+
+  it('keeps the reply and notes the step when applying an action throws', async () => {
+    const { store } = fakeStore();
+    (store.getState().findBestWindow as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('window past the table end'));
+    render(
+      <PlannerChat store={store} ask={async () => answer({ source: 'intent', actions: [{ type: 'find_best_window', days: 14 }], reply: 'Scanning.' })} navigate={vi.fn()} defaultOpen />,
+    );
+    await ask('best 14-day window');
+    await waitFor(() => expect(screen.getByText('Scanning.')).toBeTruthy());
+    expect(screen.getByText(/could not be applied.*window past the table end/)).toBeTruthy();
+    expect(screen.queryByText(/planner is offline/)).toBeNull();
+  });
+});
+
+describe('useDemoMode persistence', () => {
+  it('remembers demo mode for the session and forgets it with ?demo=0', () => {
+    window.sessionStorage.clear();
+    window.history.pushState({}, '', '/?demo=1');
+    const a = fakeStore();
+    renderHook(() => useDemoMode(a.store));
+    expect(a.calls).toEqual([['setAiMode', 'cached']]);
+    window.history.pushState({}, '', '/explore');
+    const b = fakeStore();
+    renderHook(() => useDemoMode(b.store));
+    expect(b.calls).toEqual([['setAiMode', 'cached']]); // remembered from the landing page
+    window.history.pushState({}, '', '/explore?demo=0');
+    const c = fakeStore();
+    renderHook(() => useDemoMode(c.store));
+    expect(c.calls).toEqual([['setAiMode', 'live']]);
+    window.history.pushState({}, '', '/explore');
+    const d = fakeStore();
+    renderHook(() => useDemoMode(d.store));
+    expect(d.calls).toEqual([]);
   });
 });
