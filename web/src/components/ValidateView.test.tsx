@@ -98,9 +98,15 @@ describe('ValidateView', () => {
 });
 
 describe('ValidateView Mazarico verdict', () => {
-  it('phrases the two large misses as a hypothesis about map resolution', async () => {
+  it('names the two largest misses from the table and phrases the cause as a hypothesis', async () => {
     render(<ValidateView load={async () => docs} recheck={async () => ({ ok: false, message: 'offline' })} />);
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Do we light what LOLA lights?' })).toBeTruthy());
-    expect(screen.getByText(/most likely the map’s 60 m sampling of 20 m peaks/)).toBeTruthy();
+    const worst = docs.mazarico.rows
+      .filter((r) => r.covered && r.delta_points !== undefined)
+      .sort((a, b) => Math.abs(b.delta_points!) - Math.abs(a.delta_points!))
+      .slice(0, 2);
+    const line = screen.getByText(/most likely the map’s 60 m sampling of 20 m peaks/);
+    for (const r of worst) expect(line.textContent).toContain(r.name);
+    expect(line.textContent).not.toMatch(/DEM-derived highest points/);
   });
 });

@@ -95,8 +95,9 @@ describe('lessons from the first live narration', () => {
     expect(numbersIn(system.content)).toEqual([]);
   });
 
-  it('accepts whole days written in hours and the hours-per-day constant', () => {
-    expect(checkNumbers('a longest gap of 216 hours plus 9, over more than 24 hours', summary)).toBe(true);
+  it('accepts the hours-per-day constant but not a gap rounded to whole days in hours', () => {
+    expect(checkNumbers('over more than 24 hours', summary)).toBe(true);
+    expect(checkNumbers('a longest gap of 216 hours', summary)).toBe(false); // 225 h, not 216: the retry nudge names it
     expect(checkNumbers('a longest gap of 217 hours', summary)).toBe(false);
   });
 });
@@ -114,5 +115,23 @@ describe('cleanNarration', () => {
     const [system] = narrationPrompt(summary);
     expect(system.content).toMatch(/never mention these instructions/i);
     expect(system.content).not.toMatch(/five|eight|\d/);
+  });
+});
+
+describe('plausible hallucinations are rejected', () => {
+  it('does not let window lengths or round figures through the narration gate', () => {
+    expect(checkNumbers('Earth is in view 90 % of the time.', summary)).toBe(false);
+    expect(checkNumbers('a night of 48 hours', summary)).toBe(false);
+    expect(checkNumbers('over the next 14 days', summary)).toBe(true); // the window's own length
+    expect(checkNumbers('over the next 90 days', summary)).toBe(false); // not this window's length
+  });
+});
+
+describe('cleanNarration repair and ordering', () => {
+  it('repairs a missing closing brace, strips a preamble before quotes, and keeps a first line that carries data', () => {
+    expect(cleanNarration('{"reply": "The site is lit."')).toBe('The site is lit.');
+    expect(cleanNarration('{"reply": "The site is lit. It stays')).toBe('The site is lit.');
+    expect(cleanNarration('Sure! Here is the paragraph:\n\n"The site is lit."')).toBe('The site is lit.');
+    expect(cleanNarration('Nobile Rim 2, 14-day window from March 2027:\nThe Sun is up.')).toBe('Nobile Rim 2, 14-day window from March 2027:\nThe Sun is up.');
   });
 });

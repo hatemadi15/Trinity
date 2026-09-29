@@ -1,6 +1,7 @@
 import { PANEL_LABELS } from '../engine/power';
 import { hoursLabel, pct } from '../viz/format';
 import type { ChatMessage } from './openrouter';
+import { completeSentences, extractJsonDetailed } from './protocol';
 import type { StateSummary } from './state-summary';
 
 /** Numbers as the check compares them: no sign, no thousands separators, no trailing zeros ("67.0" and "67" agree). */
@@ -22,12 +23,12 @@ function fractionForms(f: number): string[] {
 
 function hourForms(h: number): string[] {
   const d = h / 24;
-  // 225 h: "225 h", "9 d 9 h", "9.4 days", "about 9 days", or "216 hours plus 9".
-  return [String(h), String(Math.floor(d)), String(Math.round(d)), d.toFixed(1), String(h % 24), String(Math.floor(d) * 24)].map(canon);
+  // 225 h: "225 h", "9 d 9 h", "9.4 days" or "about 9 days". Not "216 hours": the retry nudge names that one.
+  return [String(h), String(Math.floor(d)), String(Math.round(d)), d.toFixed(1), String(h % 24)].map(canon);
 }
 
-/** Constants a reader uses without them being "in the state": hours per day and the window lengths. */
-const ALWAYS_ALLOWED = ['24', '14', '30', '90'];
+/** The one constant a reader uses without it being "in the state": hours per day. Window lengths count only for the planner path, per request. */
+const ALWAYS_ALLOWED = ['24'];
 
 function decimalForms(x: number): string[] {
   return [0, 1, 2, 3, 4, 5].map((k) => canon(x.toFixed(k)));
@@ -133,24 +134,17 @@ export function narrationPrompt(s: StateSummary): ChatMessage[] {
  * surrounding quotes, or a preamble line such as "Here is the summary:".
  */
 export function cleanNarration(content: string): string {
-  const first = content.indexOf('{');
-  if (first !== -1) {
-    try {
-      const o: unknown = JSON.parse(content.slice(first, content.lastIndexOf('}') + 1));
-      if (o && typeof o === 'object' && typeof (o as { reply?: unknown }).reply === 'string') return cleanNarration((o as { reply: string }).reply);
-    } catch {
-      // not an envelope; fall through
-    }
+  const found = extractJsonDetailed(content);
+  if (found && typeof found.value.reply === 'string') {
+    const reply = found.value.reply.trim();
+    return found.repaired ? completeSentences(reply) : reply;
   }
-  let text = content
-    .replace(/```[a-z]*\s*([\s\S]*?)```/g, '$1')
-    .trim()
-    .replace(/^["“]|["”]$/g, '')
-    .trim();
-  // A short introductory line ending in a colon ("Here is the summary:") is not part of the paragraph.
-  const preamble = text.match(/^[^.\n]{0,80}:\s*\n+/);
+  let text = content.replace(/```[a-z]*\s*([\s\S]*?)```/g, '$1').trim();
+  // A short introductory line ending in a colon ("Here is the summary:") is not part of the paragraph;
+  // a first line that carries digits is data, so it stays.
+  const preamble = text.match(/^[^.\n\d]{0,80}:\s*\n+/);
   if (preamble) text = text.slice(preamble[0].length).trim();
-  return text;
+  return text.replace(/^["“]|["”]$/g, '').trim();
 }
 
 /** Structural check for a state summary sent by the client (enough for the template and the number check). */

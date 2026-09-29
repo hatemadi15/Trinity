@@ -91,3 +91,12 @@ describe('parseModelReply on repaired output', () => {
     expect(parseModelReply('{"actions": [], "reply": "Opening the comparison."')).toEqual({ actions: [], reply: 'Opening the comparison.' });
   });
 });
+
+describe('extractJson repair refuses a value cut mid-number', () => {
+  it('returns null when the text ends inside a number outside a string', () => {
+    expect(extractJson('{"actions": [{"type": "set_power", "patch": {"loadW": 200')).toBeNull();
+    expect(extractJson('{"actions": [{"type": "set_params", "patch": {"mastM": 1')).toBeNull();
+    expect(extractJson('{"actions": [{"type": "set_power", "patch": {"loadW": -')).toBeNull();
+    expect(extractJson('{"actions": [{"type": "set_power", "patch": {"loadW": 200}')).toEqual({ actions: [{ type: 'set_power', patch: { loadW: 200 } }] });
+  });
+});

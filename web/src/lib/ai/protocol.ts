@@ -109,6 +109,8 @@ export function extractJsonDetailed(text: string): { value: Record<string, unkno
       if (value) return { value, repaired: false };
       continue; // not JSON after all; try the next opening brace
     }
+    // A text that stops inside a number would repair to a different, valid number; leave that to the retry.
+    if (!inString && /[\d.\-]\s*$/.test(src)) continue;
     const closers = (inString ? '"' : '') + open.reverse().map((c) => (c === '{' ? '}' : ']')).join('');
     const value = parseObject(src.slice(start) + closers);
     if (value) return { value, repaired: true };
@@ -122,7 +124,7 @@ export function extractJson(text: string): Record<string, unknown> | null {
 }
 
 /** The sentences that end properly; a reply cut mid-sentence loses its tail. */
-function completeSentences(s: string): string {
+export function completeSentences(s: string): string {
   return s
     .split(/(?<=[.!?])\s+/)
     .filter((part) => /[.!?]["”)]?$/.test(part))

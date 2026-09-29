@@ -147,6 +147,7 @@ describe('POST /api/chat task narrate', () => {
   });
 
   it('retries once on an invented number, then falls back to the template', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
     const fetchMock = modelAnswer('The Sun is up 87 % of the time.');
     vi.stubGlobal('fetch', fetchMock);
@@ -232,6 +233,7 @@ describe('POST /api/chat fallbacks and limits', () => {
   });
 
   it('says why a narration is the template', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.stubGlobal('fetch', vi.fn(async () => new Response('down', { status: 503 })));
     vi.stubEnv('OPENROUTER_API_KEY', '');
     let json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { reason?: string };

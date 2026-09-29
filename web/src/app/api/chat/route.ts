@@ -111,9 +111,6 @@ function fromCache(prompt: string): ChatReply | null {
   return { source: 'cache', actions, reply: t.reply, dropped };
 }
 
-/** A narration answer is plain text, but a model that wraps it in {"reply": …}, a fence or a preamble is read too. */
-const narrationText = cleanNarration;
-
 /** The brief's paragraph: the model's words when every number checks out (one retry), else the template with the reason. */
 async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean): Promise<NarrationReply> {
   const template = (reason: NonNullable<NarrationReply['reason']>): NarrationReply => ({ source: 'template', reason, reply: templateBrief(state) });
@@ -123,7 +120,7 @@ async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean)
   const messages = narrationPrompt(state);
   const first = await askModel({ messages, models: modelsFromEnv(), apiKey, timeoutMs: MODEL_TIMEOUT_MS, budgetMs: Math.round((deadline - Date.now()) * FIRST_SHARE) });
   if ('error' in first) return template('model-error');
-  let text = narrationText(first.content);
+  let text = cleanNarration(first.content);
   if (!checkNumbers(text, state)) {
     const bad = foreignNumbers(text, state).join(', ');
     console.info(`narration by ${first.model} rejected: numbers not in the state: ${bad} — "${text.slice(0, 240)}"`);
@@ -140,7 +137,7 @@ async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean)
       budgetMs: deadline - Date.now(),
     });
     if ('error' in second) return template('numbers');
-    text = narrationText(second.content);
+    text = cleanNarration(second.content);
     if (!checkNumbers(text, state)) {
       console.info(`narration retry by ${first.model} rejected: numbers not in the state: ${foreignNumbers(text, state).join(', ')}`);
       return template('numbers');
