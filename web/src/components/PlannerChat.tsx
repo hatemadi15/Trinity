@@ -52,7 +52,8 @@ export function PlannerChat({
   const exchanges = useStore(plannerLog, (s) => s.exchanges);
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
-  const [open, setOpen] = useState(defaultOpen);
+  // Open when asked to, or when the transcript already holds an answer (Compare, right after "compare A and B").
+  const [open, setOpen] = useState(() => defaultOpen || plannerLog.getState().exchanges.length > 0);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
 

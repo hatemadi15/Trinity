@@ -155,7 +155,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
                 {s.maskMeta.failedTiles} terrain tiles could not be loaded; parts of this skyline may be missing.
               </p>
             )}
-            <div className="min-h-[440px] flex-1 overflow-hidden rounded-md bg-sky">
+            <div className="min-h-[400px] flex-1 overflow-hidden rounded-md bg-sky">
               <Scene3DLazy
                 mode={s.mode}
                 scene={scene}
