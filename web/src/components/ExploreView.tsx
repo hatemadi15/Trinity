@@ -5,6 +5,7 @@ import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
 import { GuidedStory } from './GuidedStory';
 import { webglAvailable } from './three/Scene3D';
+import { PlannerChat } from './PlannerChat';
 import { PlannerParamsPanel } from './PlannerParamsPanel';
 import { SiteSelect } from './SiteSelect';
 import { SkyDome } from './SkyDome';
@@ -16,6 +17,7 @@ import { Scene3DLazy } from './three';
 import { dataBase } from '@/lib/data/loaders';
 import { globeTextureUrl } from '@/lib/data/terrain';
 import { maskAtAzimuth, type Series } from '@/lib/engine/metrics';
+import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { COMPARE_MAX, exploreStore, type Exaggeration, type ExploreState, type SceneMode } from '@/lib/store/explore';
 import { utcLabel } from '@/lib/viz/format';
@@ -27,9 +29,13 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
   const [hoverHour, setHoverHour] = useState<number | null>(null);
   const [webgl] = useState(() => webglAvailable());
   const reducedMotion = useReducedMotion();
+  useDemoMode(store);
 
   useEffect(() => {
-    void store.getState().init();
+    void store
+      .getState()
+      .init()
+      .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search));
   }, [store]);
 
   const onPick = useCallback(
@@ -99,6 +105,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
         </div>
         {s.audience === 'learn' && <GuidedStory webgl={webgl} />}
         <PlannerParamsPanel params={s.params} onParams={s.setParams} onPower={s.setPower} busy={s.maskBusy} />
+        <PlannerChat store={store} defaultOpen />
         {s.error && (
           <p role="status" className="text-sm text-warn">
             {s.error}
@@ -109,10 +116,9 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
             <div>
               <h1 className="font-display text-2xl font-semibold">{s.site.name}</h1>
               <p className="text-sm text-ink-2">
-                {s.site.lat.toFixed(3)}°, {s.site.lon.toFixed(3)}°; skyline from LOLA{' '}
-                {s.maskMeta?.source === 'computed' ? 'computed in your browser' : 'precomputed'}; site height{' '}
-                {s.maskMeta?.siteHeightM.toFixed(0)} m
-                  {s.site.approximate ? '; region centre digitised from NASA’s map (about ±5 km)' : ''}
+                {s.site.lat.toFixed(3)}°, {s.site.lon.toFixed(3)}°; {skylineNote(s)}
+                {s.site.approximate ? '; region centre digitised from NASA’s map (about ±5 km)' : ''}
+                {s.maskBusy ? `; recomputing the skyline for a ${s.params.mastM} m mast…` : ''}
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -167,7 +173,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
           </section>
           <aside className="flex flex-col gap-4">
             <section aria-label="Sky dome" className="rounded-md bg-panel p-3">
-              <div className="mx-auto max-w-[320px]">
+              <div className="mx-auto max-w-[260px]">
                 <SkyDome mask={s.mask} series={s.series} cursor={s.cursorHour} />
               </div>
               <p className="mt-1 text-center text-xs text-ink-3">Outer half of the disc magnifies −10° to +10°.</p>
@@ -193,6 +199,12 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
       </main>
     </AppFrame>
   );
+}
+
+function skylineNote(s: ExploreState): string {
+  if (s.maskMeta?.source === 'flat') return 'flat horizon (no LOLA polar coverage)';
+  const how = s.maskMeta?.source === 'computed' ? 'computed in your browser' : 'precomputed';
+  return `skyline from LOLA ${how}; site height ${s.maskMeta?.siteHeightM.toFixed(0)} m`;
 }
 
 function sceneCaption(s: ExploreState): string {

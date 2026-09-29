@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -10,6 +11,22 @@ from . import config
 WEB_DATA = config.REPO_ROOT / "web" / "public" / "data"
 SMALL_DIRS = ["ephemeris", "masks", "fixtures", "validation"]
 SMALL_FILES = ["sites.json", "sites_derived.json"]
+# Compact catalogue copy bundled into the web app (the chat route cannot read data/ at runtime on Vercel).
+CATALOGUE = config.REPO_ROOT / "web" / "src" / "lib" / "data" / "catalogue.json"
+CATALOGUE_FIELDS = ("id", "name", "lat", "lon", "category", "polar")
+
+
+def write_catalogue(path: Path = CATALOGUE) -> Path:
+    """Merge sites.json and sites_derived.json into one compact list with the fields the planner needs."""
+    sites: list[dict] = []
+    for name in SMALL_FILES:
+        src = config.DATA_DIR / name
+        if src.exists():
+            sites.extend(json.loads(src.read_text(encoding="utf-8"))["sites"])
+    doc = {"generated_from": SMALL_FILES, "sites": [{k: s[k] for k in CATALOGUE_FIELDS} for s in sites]}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    return path
 
 
 def sync(web_data: Path = WEB_DATA, tiles: bool = False) -> list[Path]:
@@ -25,6 +42,7 @@ def sync(web_data: Path = WEB_DATA, tiles: bool = False) -> list[Path]:
         if src.exists():
             shutil.copy2(src, web_data / name)
             copied.append(web_data / name)
+    copied.append(write_catalogue())
     if tiles:
         src = config.OUT_DIR / "tiles"
         if not src.exists():

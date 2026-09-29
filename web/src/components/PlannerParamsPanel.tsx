@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { PANEL_LABELS, type PanelModel, type PowerConfig } from '@/lib/engine/power';
+import { PARAM_RANGES, percentRange, POWER_RANGES } from '@/lib/planner-ranges';
 import type { PlannerParams } from '@/lib/store/explore';
 
 interface NumField {
@@ -83,15 +84,15 @@ export function PlannerParamsPanel({
             ))}
           </fieldset>
           {p.panel === 'vertical' && (
-            <NumberInput label="Panel faces azimuth (°)" value={p.panelAzimuthDeg} min={0} max={360} step={5} onChange={(v) => onPower({ panelAzimuthDeg: v })} />
+            <NumberInput label="Panel faces azimuth (°)" value={p.panelAzimuthDeg} {...POWER_RANGES.panelAzimuthDeg} onChange={(v) => onPower({ panelAzimuthDeg: v })} />
           )}
-          <NumberInput label="Panel area (m²)" value={p.areaM2} min={0.5} max={50} step={0.5} onChange={(v) => onPower({ areaM2: v })} />
-          <NumberInput label="Cell efficiency (%)" value={Math.round(p.efficiency * 100)} min={5} max={45} step={1} onChange={(v) => onPower({ efficiency: v / 100 })} />
-          <NumberInput label="Load (W)" value={p.loadW} min={10} max={2000} step={10} onChange={(v) => onPower({ loadW: v })} />
-          <NumberInput label="Battery (Wh)" value={p.batteryWh} min={100} max={50000} step={100} onChange={(v) => onPower({ batteryWh: v })} />
-          <NumberInput label="Battery at start (%)" value={Math.round(p.initialSocFraction * 100)} min={0} max={100} step={5} onChange={(v) => onPower({ initialSocFraction: v / 100 })} />
-          <NumberInput label="Minimum Earth elevation (°)" value={params.minEarthElDeg} min={0} max={10} step={0.5} onChange={(v) => onParams({ minEarthElDeg: v })} />
-          <NumberInput label="Mast height (m)" value={params.mastM} min={0} max={10} step={1} onChange={(v) => onParams({ mastM: v })} />
+          <NumberInput label="Panel area (m²)" value={p.areaM2} {...POWER_RANGES.areaM2} onChange={(v) => onPower({ areaM2: v })} />
+          <NumberInput label="Cell efficiency (%)" value={Math.round(p.efficiency * 100)} {...percentRange(POWER_RANGES.efficiency)} onChange={(v) => onPower({ efficiency: v / 100 })} />
+          <NumberInput label="Load (W)" value={p.loadW} {...POWER_RANGES.loadW} onChange={(v) => onPower({ loadW: v })} />
+          <NumberInput label="Battery (Wh)" value={p.batteryWh} {...POWER_RANGES.batteryWh} onChange={(v) => onPower({ batteryWh: v })} />
+          <NumberInput label="Battery at start (%)" value={Math.round(p.initialSocFraction * 100)} {...percentRange(POWER_RANGES.initialSocFraction)} onChange={(v) => onPower({ initialSocFraction: v / 100 })} />
+          <NumberInput label="Minimum Earth elevation (°)" value={params.minEarthElDeg} {...PARAM_RANGES.minEarthElDeg} onChange={(v) => onParams({ minEarthElDeg: v })} />
+          <NumberInput label="Mast height (m)" value={params.mastM} {...PARAM_RANGES.mastM} onChange={(v) => onParams({ mastM: v })} />
           <p className="basis-full text-xs text-ink-3">
             Power = efficiency × area × 1361 W/m² ÷ AU² × visible Sun fraction × panel cosine; the battery charges with the surplus
             and empties on the deficit. Mast height recomputes the selected site’s skyline{busy ? ' (computing…)' : ''}.

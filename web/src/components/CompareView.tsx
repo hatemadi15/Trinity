@@ -3,15 +3,18 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
+import { PlannerChat } from './PlannerChat';
 import { PlannerParamsPanel } from './PlannerParamsPanel';
 import { Sparkline } from './Sparkline';
 import { VerdictChip } from './VerdictChip';
 import { WindowControls } from './WindowControls';
+import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { COMPARE_MAX, exploreStore, type ExploreState, type SiteResult } from '@/lib/store/explore';
 import { hoursLabel, pct, utcLabel } from '@/lib/viz/format';
 
 export function CompareView({ store = exploreStore }: { store?: StoreApi<ExploreState> }) {
   const s = useStore(store);
+  useDemoMode(store);
   const [adding, setAdding] = useState('');
   useEffect(() => {
     void store.getState().init();
@@ -65,6 +68,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
           />
         </div>
         <PlannerParamsPanel params={s.params} onParams={s.setParams} onPower={s.setPower} busy={s.maskBusy} />
+        <PlannerChat store={store} />
         {s.error && (
           <p role="status" className="text-sm text-warn">
             {s.error}
@@ -116,8 +120,8 @@ function CompareColumn({
     ['Longest night', hoursLabel(summary.longestDarkH)],
     ['Earth in view', pct(summary.earthVisFraction)],
     ['Longest Earth gap', hoursLabel(summary.longestEarthGapH)],
+    ['Both at once', pct(summary.jointFraction)],
     ['Lowest battery', pct(power.socMin)],
-    ['Hours without full power', hoursLabel(power.brownoutHours)],
   ];
   return (
     <article aria-label={site.name} className="flex min-w-[260px] max-w-[340px] flex-1 flex-col gap-3 rounded-md bg-panel p-4">

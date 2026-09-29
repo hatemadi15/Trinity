@@ -42,12 +42,12 @@ export function SiteSelect({
           className="min-w-[280px] rounded-md border border-line bg-panel px-2 py-1 text-ink"
         >
           {GROUPS.map(([cat, label]) => {
-            const items = sites.filter((s) => s.category === cat && s.polar);
+            const items = sites.filter((s) => s.category === cat);
             return items.length ? (
               <optgroup key={cat} label={label}>
                 {items.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name}
+                    {s.polar ? s.name : `${s.name} (flat skyline)`}
                   </option>
                 ))}
               </optgroup>

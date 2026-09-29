@@ -1,17 +1,49 @@
 'use client';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { SkyDome } from './SkyDome';
 import { Timeline } from './Timeline';
 import { VerdictChip } from './VerdictChip';
+import { askNarration, shortModel } from '@/lib/ai/client';
+import { templateBrief } from '@/lib/ai/narrate';
+import type { NarrationReply } from '@/lib/ai/protocol';
+import { summarizeState, type StateSummary } from '@/lib/ai/state-summary';
 import { PANEL_LABELS } from '@/lib/engine/power';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { hoursLabel, pct, utcLabel } from '@/lib/viz/format';
 
-/** One printable page: the selected site and window, the verdict, six numbers, the two charts, method and data. */
-export function BriefView({ store = exploreStore }: { store?: StoreApi<ExploreState> }) {
+type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; message?: string };
+
+/** The line under the summary paragraph: who wrote it, or why the template stands. */
+function narrationLabelFor(n: Narration | null): string {
+  if (!n) return 'written from the numbers above';
+  if (n.source === 'model') return `narrated by ${n.model ? shortModel(n.model) : 'the model'}, checked number by number against the figures below`;
+  if (n.source === 'error') return n.message?.startsWith('Too many') ? `${n.message} Written from the numbers above.` : 'the planner is offline; written from the numbers above';
+  switch (n.reason) {
+    case 'cached':
+      return 'demo mode; written from the numbers above';
+    case 'no-key':
+      return 'no model configured; written from the numbers above';
+    case 'model-error':
+      return 'the model did not answer; written from the numbers above';
+    default:
+      return "the model's paragraph did not pass the number check; written from the numbers above";
+  }
+}
+
+/** One printable page: the selected site and window, a narrated summary, the verdict, six numbers, the two charts, method and data. */
+export function BriefView({
+  store = exploreStore,
+  narrate,
+}: {
+  store?: StoreApi<ExploreState>;
+  /** Injected in tests; by default asks /api/chat for the paragraph. */
+  narrate?: (state: StateSummary) => Promise<NarrationReply>;
+}) {
   const s = useStore(store);
+  const [narration, setNarration] = useState<Narration | null>(null);
+  const [writing, setWriting] = useState(false);
   useEffect(() => {
     void store.getState().init();
   }, [store]);
@@ -32,7 +64,24 @@ export function BriefView({ store = exploreStore }: { store?: StoreApi<ExploreSt
     ['Lowest battery', pct(s.power.socMin)],
   ];
   const mast = s.maskMeta?.mastM ?? 2;
-  const provenance = s.maskMeta?.source === 'computed' ? 'skyline computed in your browser' : 'precomputed skyline';
+  const stateSummary = summarizeState(s);
+  const template = stateSummary ? templateBrief(stateSummary) : '';
+  const shown = narration && narration.source !== 'error' ? narration.text : template;
+  const narrationLabel = narrationLabelFor(narration);
+  async function write() {
+    if (!stateSummary || writing) return;
+    setWriting(true);
+    try {
+      const r = await (narrate ?? ((st: StateSummary) => askNarration(st, store.getState().aiMode)))(stateSummary);
+      setNarration({ text: r.reply, source: r.source, model: r.model, reason: r.reason });
+    } catch (err) {
+      setNarration({ text: template, source: 'error', message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setWriting(false);
+    }
+  }
+  const provenance =
+    s.maskMeta?.source === 'flat' ? 'flat horizon (no LOLA polar coverage)' : s.maskMeta?.source === 'computed' ? 'skyline computed in your browser' : 'precomputed skyline';
   return (
     <div className="brief mx-auto flex max-w-[190mm] flex-col gap-4 px-8 py-8">
       <div className="no-print flex items-center justify-between gap-4">
@@ -51,6 +100,16 @@ export function BriefView({ store = exploreStore }: { store?: StoreApi<ExploreSt
           {s.maskMeta?.siteHeightM.toFixed(0)} m, {mast} m mast{s.site.approximate ? '; region centre digitised from NASA’s map (about ±5 km)' : ''}.
         </p>
       </header>
+      <section className="flex flex-col gap-1 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-base font-semibold">Mission summary</h2>
+          <button type="button" onClick={() => void write()} disabled={writing} className="no-print rounded-md border border-ink px-3 py-1 text-sm disabled:opacity-50">
+            {writing ? 'Writing…' : 'Write the brief'}
+          </button>
+        </div>
+        <p data-testid="narration">{shown}</p>
+        <p className="text-xs text-ink-3">{narrationLabel}</p>
+      </section>
       <section className="flex flex-wrap items-start gap-6">
         <VerdictChip power={s.power} />
         <dl className="grid flex-1 grid-cols-3 gap-x-6 gap-y-2 text-sm">

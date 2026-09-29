@@ -24,11 +24,17 @@ Demo: `npm run engine:demo -- --site shackleton_center_rim_high` (mask in about 
 
 ## Routes
 
+- `/`: landing page with three mission cards that open Explore on a site and date (`/explore?site=&start=&days=`).
 - `/explore`: one site, one window; 3D terrain and globe, sky dome, timeline, planner settings, survive-the-night verdict, best-window finder.
 - `/compare`: up to four sites over the same window and planner settings, one column per site.
 - `/validate`: Horizons cross-check (live re-check through `/api/horizons`), LOLA map agreement, CLPS backcasts; `npm run validation:tests` refreshes the test-count badge in `public/validation/tests.json`.
 - `/brief`: printable one-page mission brief for the selected site and window.
 - `/learn`: Learn mode introduction; the header toggle switches Explore to the guided story.
+- `/api/chat`: the planner assistant (task `plan`) and the brief narrator (task `narrate`) on OpenRouter; see `.env.example`. Without a key, or with `?demo=1`, answers come from `src/lib/ai/transcripts.json` and the phrase matcher.
+
+## AI layer (Week 6)
+
+`src/lib/ai/`: `actions.ts` (closed action schema, validator, site matcher, `applyActions`), `intents.ts` (twelve rehearsed phrasings), `state-summary.ts` (the compact state sent with each question), `openrouter.ts` (model chain with timeouts), `protocol.ts` (system prompt, lenient JSON extraction, reply types), `cache.ts` + `transcripts.json` (rehearsed answers), `rate-limit.ts`, `narrate.ts` (number check and template brief), `client.ts` (browser calls). The catalogue the server validates against is `src/lib/data/catalogue.json`, written by the pipeline's `sync-local`.
 
 ## Engine additions (Week 4)
 

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AudienceToggle } from './AudienceToggle';
+import { DemoModeGate } from './DemoModeGate';
 
 const NAV = [
   { href: '/explore', label: 'Explore', ready: true },
@@ -29,6 +30,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           )}
         </nav>
         <div className="ml-auto flex items-center gap-4">
+          <DemoModeGate />
           <AudienceToggle />
           <span className="text-xs text-ink-3">NASA Space Apps 2026, team Astroy/Ed</span>
         </div>

@@ -1,0 +1,38 @@
+import type { PanelModel, PowerConfig } from './engine/power';
+
+export interface NumberRange {
+  min: number;
+  max: number;
+  step: number;
+}
+
+export const PANEL_MODELS: readonly PanelModel[] = ['horizontal', 'vertical', 'vertical_tracking', 'full_tracking'];
+
+/**
+ * Ranges for the numeric power fields, shared by the planner panel and the action validator so a
+ * typed value and a model-proposed value are bounded the same way. Fractions stay fractions here
+ * (efficiency 0.30 = 30 %); the panel scales them to percent for display.
+ */
+export const POWER_RANGES: Record<Exclude<keyof PowerConfig, 'panel'>, NumberRange> = {
+  panelAzimuthDeg: { min: 0, max: 360, step: 5 },
+  areaM2: { min: 0.5, max: 50, step: 0.5 },
+  efficiency: { min: 0.05, max: 0.45, step: 0.01 },
+  loadW: { min: 10, max: 2000, step: 10 },
+  batteryWh: { min: 100, max: 50000, step: 100 },
+  initialSocFraction: { min: 0, max: 1, step: 0.05 },
+};
+
+export const PARAM_RANGES: Record<'minEarthElDeg' | 'mastM', NumberRange> = {
+  minEarthElDeg: { min: 0, max: 10, step: 0.5 },
+  mastM: { min: 0, max: 10, step: 1 },
+};
+
+export function clampTo(range: NumberRange, value: number): number {
+  return Math.min(range.max, Math.max(range.min, value));
+}
+
+/** The same range in percent, for the panel's efficiency and state-of-charge inputs. */
+export function percentRange(r: NumberRange): NumberRange {
+  const pct = (x: number) => Math.round(x * 100 * 1e6) / 1e6;
+  return { min: pct(r.min), max: pct(r.max), step: pct(r.step) };
+}
