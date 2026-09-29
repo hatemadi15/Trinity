@@ -21,10 +21,13 @@ function jplLikeResponse(): Response {
 describe('recheckSite', () => {
   it('agrees with our own numbers to 1e-6 when JPL returns them, and asks the proxy for the epochs', async () => {
     const urls: string[] = [];
-    const r = await recheckSite(site, 'SUN', epochs, eph, async (input: RequestInfo | URL) => {
+    let signal: AbortSignal | null | undefined;
+    const r = await recheckSite(site, 'SUN', epochs, eph, async (input: RequestInfo | URL, init?: RequestInit) => {
       urls.push(String(input));
+      signal = init?.signal;
       return jplLikeResponse();
     });
+    expect(signal).toBeInstanceOf(AbortSignal); // the proxy call itself times out, not only JPL
     expect(r.ok).toBe(true);
     if (r.ok) {
       expect(r.n).toBe(epochs.length);

@@ -115,6 +115,7 @@ def backcast_row_for(site_id: str, days: int = 45) -> dict:
         "landed_utc": site.landed_utc,
         "mission_end_utc": site.mission_end_utc,
         "mission_end_source": site.mission_end_source,
+        "mission_note": site.mission_note,
         "skyline": skyline,
         "sun_el_at_landing_deg": float(series["sun_el"][0]),
         "sunset_utc": _iso(t0 + timedelta(hours=int(sunset_h))) if sunset_h is not None else None,
@@ -140,6 +141,6 @@ def write_all(out_dir: Path = OUT_DIR) -> list[Path]:
     paths: list[Path] = []
     for name, doc in docs.items():
         p = out_dir / name
-        p.write_text(json.dumps(doc, indent=1) + "\n")
+        p.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8", newline="\n")
         paths.append(p)
     return paths

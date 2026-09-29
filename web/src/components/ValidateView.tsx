@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { AppFrame } from './AppFrame';
 import { dataBase, loadEphemerisFromUrl } from '@/lib/data/loaders';
+import { exploreStore } from '@/lib/store/explore';
 import { loadValidation, type BackcastRow, type ValidationDocs } from '@/lib/data/validation';
 import type { HorizonsBody } from '@/lib/horizons/query';
 import { recheckSite, type RecheckResult } from '@/lib/horizons/recheck';
@@ -11,9 +12,35 @@ type Recheck = (site: { lat: number; lon: number }, body: HorizonsBody, epochsUt
 /** Eight epochs across 2026 (seven equal intervals) for the live JPL comparison. */
 export const RECHECK_EPOCHS = ['2026-01-01T00:00:00', '2026-02-22T03:00:00', '2026-04-15T06:00:00', '2026-06-06T09:00:00', '2026-07-28T12:00:00', '2026-09-18T15:00:00', '2026-11-09T18:00:00', '2026-12-31T21:00:00'];
 
+/** Module-scope defaults: a stable identity, so the loading effect runs once per mount and not on every render. */
+const defaultLoad = () => loadValidation(dataBase());
+
 async function defaultRecheck(site: { lat: number; lon: number }, body: HorizonsBody, epochs: string[]): Promise<RecheckResult> {
-  const eph = await loadEphemerisFromUrl(dataBase());
+  // The Explore store may already hold the ephemeris (same tab, earlier visit); otherwise fetch it once here.
+  const eph = exploreStore.getState().eph ?? (await loadEphemerisFromUrl(dataBase()));
   return recheckSite(site, body, epochs, eph);
+}
+
+/** Within this many hours of the predicted sunset, a reported mission end counts as agreeing with the prediction. */
+const SUNSET_AGREEMENT_H = 6;
+
+/** One sentence for the backcast table: who ended at sunset, and who died early with a stated reason. */
+function backcastVerdict(rows: BackcastRow[]): string {
+  const dated = rows.filter((r) => r.end_minus_sunset_h !== null);
+  if (dated.length === 0) return 'No landed mission has a reported end yet.';
+  const agreed = dated.filter((r) => Math.abs(r.end_minus_sunset_h!) <= SUNSET_AGREEMENT_H);
+  const early = dated.filter((r) => r.end_minus_sunset_h! < -SUNSET_AGREEMENT_H);
+  const parts: string[] = [];
+  if (agreed.length > 0) {
+    const worst = Math.max(...agreed.map((r) => Math.abs(r.end_minus_sunset_h!)));
+    parts.push(`${agreed.map((r) => r.name).join(' and ')} ended within ${worst.toFixed(1)} h of the predicted sunset`);
+  }
+  if (early.length > 0) {
+    parts.push(
+      `${early.map((r) => r.name).join(' and ')} died early for known reasons (notes below), so their rows only show that the Sun was still up`,
+    );
+  }
+  return parts.join('; ') + '.';
 }
 
 interface TestBadge {
@@ -27,7 +54,7 @@ const pctOf = (x: number) => `${(x * 100).toFixed(1)} %`;
 const signedHours = (h: number) => `${h >= 0 ? '+' : '−'}${Math.abs(h).toFixed(1)} h`;
 const utcShort = (iso: string | null) => (iso ? iso.replace('T', ' ').replace(':00Z', ' UTC').replace('Z', ' UTC') : '—');
 
-export function ValidateView({ load = () => loadValidation(dataBase()), recheck = defaultRecheck }: { load?: () => Promise<ValidationDocs>; recheck?: Recheck }) {
+export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: { load?: () => Promise<ValidationDocs>; recheck?: Recheck }) {
   const [docs, setDocs] = useState<ValidationDocs | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState<{ state: 'idle' } | { state: 'busy' } | { state: 'done'; result: RecheckResult }>({ state: 'idle' });
@@ -81,8 +108,13 @@ export function ValidateView({ load = () => loadValidation(dataBase()), recheck 
 
   async function runRecheck() {
     setLive({ state: 'busy' });
-    const result = await recheck({ lat: liveSite.lat, lon: liveSite.lon }, 'SUN', RECHECK_EPOCHS);
-    setLive({ state: 'done', result });
+    try {
+      const result = await recheck({ lat: liveSite.lat, lon: liveSite.lon }, 'SUN', RECHECK_EPOCHS);
+      setLive({ state: 'done', result });
+    } catch (err) {
+      // A thrown error (for example the ephemeris failing to load) must not leave the button disabled.
+      setLive({ state: 'done', result: { ok: false, message: err instanceof Error ? err.message : String(err) } });
+    }
   }
 
   return (
@@ -207,7 +239,7 @@ export function ValidateView({ load = () => loadValidation(dataBase()), recheck 
           </h2>
           <p className="text-sm text-ink-2">
             Predicted local sunset after each CLPS landing (hourly, the site&apos;s LOLA skyline where we have one, a flat horizon for the mare site)
-            against the reported end of the mission.
+            against the reported end of the mission. {backcastVerdict(backcasts.rows)}
           </p>
           <table className="w-full text-sm">
             <thead>
@@ -235,10 +267,13 @@ export function ValidateView({ load = () => loadValidation(dataBase()), recheck 
               ))}
             </tbody>
           </table>
-          <ul className="flex flex-col gap-1 text-xs text-ink-3">
+          <ul className="flex flex-col gap-2 text-sm">
             {backcasts.rows.map((r) => (
-              <li key={r.site_id}>
-                {r.name}: {r.mission_end_source}
+              <li key={r.site_id} className="flex flex-col gap-0.5">
+                <span className="text-ink-2">
+                  {r.name}: {r.mission_note ?? 'no note for this mission yet'}
+                </span>
+                <span className="text-xs text-ink-3">Source: {r.mission_end_source ?? 'not recorded'}</span>
               </li>
             ))}
           </ul>

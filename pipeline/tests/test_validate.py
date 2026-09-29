@@ -41,3 +41,11 @@ def test_mazarico_rows_skip_uncovered_sites():
     assert by_id["im1_odysseus"]["covered"] is False and "map_fraction" not in by_id["im1_odysseus"]
     assert by_id["shackleton_center"]["covered"] is True
     assert by_id["shackleton_center"]["map_fraction"] < 0.02
+
+
+@pytest.mark.data
+@needs_kernels
+def test_backcast_rows_carry_mission_notes():
+    for sid in ("im1_odysseus", "im2_athena", "blue_ghost_m1"):
+        row = va.backcast_row_for(sid)
+        assert isinstance(row["mission_note"], str) and len(row["mission_note"]) > 20

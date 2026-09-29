@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useEffect } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { SkyDome } from './SkyDome';
@@ -35,9 +36,9 @@ export function BriefView({ store = exploreStore }: { store?: StoreApi<ExploreSt
   return (
     <div className="brief mx-auto flex max-w-[190mm] flex-col gap-4 px-8 py-8">
       <div className="no-print flex items-center justify-between gap-4">
-        <a href="/explore" className="text-sm underline-offset-4 hover:underline">
+        <Link href="/explore" className="text-sm underline-offset-4 hover:underline">
           Back to Explore
-        </a>
+        </Link>
         <button type="button" onClick={() => window.print()} className="rounded-md border border-ink px-3 py-1 text-sm">
           Print or save as PDF
         </button>
@@ -86,11 +87,11 @@ export function BriefView({ store = exploreStore }: { store?: StoreApi<ExploreSt
         <ul className="list-disc pl-5">
           <li>NASA LRO LOLA polar elevation models (LDEM 20 m, 80 m and 240 m), PDS Geosciences Node.</li>
           <li>JPL DE440 planetary ephemeris and NAIF SPICE kernels; JPL Horizons for the cross-checks.</li>
-          <li>Site: {s.site.source}.</li>
+          <li>Site: {s.site.source === 'user' ? 'coordinates picked by the user on the Earthrise map' : s.site.source}.</li>
         </ul>
       </section>
       <footer className="text-xs text-ink-3">
-        Generated {new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC by Earthrise (NASA Space Apps 2026, team Astroy/Ed) at earthrise.
+        Generated {new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC by Earthrise (NASA Space Apps 2026, team Astroy/Ed).
       </footer>
     </div>
   );

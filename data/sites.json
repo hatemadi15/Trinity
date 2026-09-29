@@ -46,16 +46,19 @@
      "category": "clps_landed", "polar": true, "landed_utc": "2024-02-22T23:23:00Z",
      "mission_end_utc": "2024-02-29T00:00:00Z",
      "mission_end_source": "Intuitive Machines, IM-1 mission update 29 Feb 2024: final transmission as the lunar night began (hour not published; 00:00 UTC used)",
+     "mission_note": "Odysseus tipped onto its side at touchdown, with its panels tilted away from the low Sun; power ran out about three days before the predicted sunset.",
      "source": "NASA / Intuitive Machines, February 2024"},
     {"id": "im2_athena", "name": "IM-2 Athena landing site (Mons Mouton)", "lat": -84.7906, "lon": 29.1957,
      "category": "clps_landed", "polar": true, "landed_utc": "2025-03-06T17:30:00Z",
      "mission_end_utc": "2025-03-07T12:00:00Z",
-     "mission_end_source": "Intuitive Machines / NASA release 7 Mar 2025: mission concluded, batteries depleted with the lander on its side in a crater (hour not published; 12:00 UTC used)",
+     "mission_end_source": "Intuitive Machines / NASA release 7 Mar 2025: mission concluded, batteries depleted (hour not published; 12:00 UTC used)",
+     "mission_note": "Athena came to rest on its side in a crater with the Sun low on the skyline; its batteries drained within a day, with about twelve days of daylight left.",
      "source": "Intuitive Machines / LROC, March 2025"},
     {"id": "blue_ghost_m1", "name": "Blue Ghost Mission 1 landing site (Mare Crisium)", "lat": 18.562, "lon": 61.810,
      "category": "clps_landed", "polar": false, "landed_utc": "2025-03-02T08:34:00Z",
      "mission_end_utc": "2025-03-16T23:25:00Z",
      "mission_end_source": "Firefly Aerospace, Blue Ghost Mission 1 update 16 Mar 2025: mission concluded at 23:25 UTC, about 5 h after lunar sunset",
+     "mission_note": "Blue Ghost ran the full lunar day on flat mare. Firefly reported the end about 5 h after the sunset it observed; our flat-horizon sunset falls about 2.5 h after theirs, so the reported end lands 2.4 h after ours.",
      "source": "Firefly Aerospace / NSSDCA, March 2025"}
   ]
 }

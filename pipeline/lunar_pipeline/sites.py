@@ -26,6 +26,7 @@ class Site:
     approximate: bool = False
     mission_end_utc: str | None = None
     mission_end_source: str | None = None
+    mission_note: str | None = None
 
 
 def load_sites(path: Path = config.DATA_DIR / "sites.json") -> list[Site]:

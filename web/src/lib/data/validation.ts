@@ -57,6 +57,7 @@ export interface BackcastRow {
   landed_utc: string;
   mission_end_utc: string | null;
   mission_end_source: string | null;
+  mission_note: string | null;
   skyline: 'lola' | 'flat';
   sun_el_at_landing_deg: number;
   sunset_utc: string | null;

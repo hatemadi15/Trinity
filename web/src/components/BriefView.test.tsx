@@ -39,6 +39,8 @@ describe('BriefView', () => {
     expect(screen.getByText(/NASA LRO LOLA polar elevation models/)).toBeTruthy();
     expect(screen.getByText(/precomputed skyline/)).toBeTruthy();
     expect(screen.getByText(/Vertical, turns to the Sun/)).toBeTruthy();
+    expect(screen.getByText(/team Astroy\/Ed\)\.$/)).toBeTruthy(); // no unfilled placeholder in the footer
+    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore');
     const print = vi.spyOn(window, 'print').mockImplementation(() => {});
     fireEvent.click(screen.getByRole('button', { name: /Print or save as PDF/ }));
     expect(print).toHaveBeenCalled();
@@ -58,5 +60,6 @@ describe('BriefView', () => {
     });
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Custom site/));
     expect(screen.getByText(/skyline computed in your browser/)).toBeTruthy();
+    expect(screen.getByText(/coordinates picked by the user/)).toBeTruthy();
   });
 });

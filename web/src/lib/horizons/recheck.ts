@@ -8,6 +8,8 @@ export type RecheckResult =
   | { ok: false; message: string };
 
 const D2R = Math.PI / 180;
+/** Upper bound on one re-check request as seen from the browser. */
+export const CLIENT_TIMEOUT_MS = 15_000;
 
 /**
  * Asks the Horizons proxy for the given epochs (one query: first epoch to last, `epochs − 1`
@@ -32,7 +34,9 @@ export async function recheckSite(
       stop: epochsUtc[epochsUtc.length - 1],
       step: String(epochsUtc.length - 1),
     });
-    const res = await fetchImpl(`/api/horizons?${query.toString()}`);
+    // The proxy has its own 12 s limit on JPL; this bounds the whole round trip from the browser as well.
+    const signal = typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(CLIENT_TIMEOUT_MS) : undefined;
+    const res = await fetchImpl(`/api/horizons?${query.toString()}`, { signal });
     const json = (await res.json().catch(() => ({}))) as { rows?: HorizonsRow[]; error?: string };
     if (!res.ok || !json.rows) return { ok: false, message: json.error ?? `HTTP ${res.status}` };
     let worstEl = 0;
