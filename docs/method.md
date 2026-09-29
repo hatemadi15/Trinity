@@ -15,3 +15,15 @@
 - Mazarico et al. 2011 maps at the Shackleton rim high point (−89.781°, −156.257°). Two of our quantities are comparable: `illum_fraction` = fraction of hours with any part of the solar disk above the skyline (0.907 over 2025–2026), and `mean_sun_fraction` = time-averaged visible disk fraction (0.862). The map value `AVGVISIB` = 0.796 (2009–2013 span, 60 m DEM, no mast). Earth visibility: ours 0.500 vs map 0.533. Systematic differences: our point is the 20 m argmax peak (map pixel is 60 m), we add a 2 m mast, and the spans differ; the sign (ours higher) is consistent with all three.
 - Shackleton crater centre: 0 % sunlit and 0 % Earth-visible in both our series and the Mazarico maps (permanently shadowed).
 - Longest continuous darkness at the Shackleton rim high point over 2025–2026: 63 h; longest Earth gap: 334 h.
+
+## Power budget (Week 4)
+
+Irradiance on a Sun-facing surface is 1361 W/m² · (1 AU / d)² · f, where d is the Sun distance from the DE440 table and f the visible fraction of the solar disk above the terrain skyline (section "Terrain horizon"). Panel output is P = η · A · irradiance · max(0, n · s) with the panel normal n for four geometries: horizontal (n = up, n · s = sin el), vertical fixed at azimuth φ (cos el · cos(az − φ)), vertical turning to the Sun's azimuth (cos el) and two-axis tracking (1). The battery walk uses one-hour steps: E(t+1) = min(C, E(t) + (P − L) · 1 h); an hour whose deficit exceeds the stored energy is a brownout and leaves the battery empty. Reported: minimum state of charge, brownout hours, first brownout hour, and the verdict "Survives the window" or "Battery empties after N h". Reference implementation: `pipeline/lunar_pipeline/power.py`; golden fixtures under `data/fixtures/power/` pin `web/src/lib/engine/power.ts` to 1e-6 W. The default configuration (vertical panel turning to the Sun, 4 m², 30 % cells, 200 W load, 2000 Wh battery) is illustrative of a small lander, not any specific vehicle.
+
+## Direct-to-Earth contact (Week 4)
+
+Earth is in view when its elevation exceeds the skyline at its azimuth by the minimum elevation the planner sets (0–10°). Contact windows are maximal runs of visible hours. Mast height changes the skyline itself: the browser worker recomputes the selected site's skyline with the new mast; featured skylines are computed with a 2 m mast.
+
+## Best window (Week 4)
+
+The finder scans the 365 days after the chosen start date (clamped to the ephemeris table) in 6-hour steps and scores every window of the chosen length as sunlit fraction + Earth-visible fraction − (longest night + longest Earth gap) / (2 × window hours). Only sunlit start hours are candidates, because a lander arrives in daylight; a site that never sees the Sun in the scan falls back to every start. Without this rule a window that begins mid-night wins by truncating the night at its edge.
