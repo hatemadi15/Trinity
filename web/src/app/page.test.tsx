@@ -20,3 +20,12 @@ describe('landing page', () => {
     expect(screen.getByRole('link', { name: /Explore a site/ }).getAttribute('href')).toBe('/explore');
   });
 });
+
+describe('landing hero', () => {
+  it('opens on a real render of de Gerlache Rim 2 with the pitch line over it', () => {
+    render(<Home />);
+    const hero = screen.getByRole('img', { name: /de Gerlache Rim 2/ });
+    expect(hero.getAttribute('src')).toMatch(/hero/);
+    expect(screen.getByTestId('hero').contains(screen.getByRole('heading', { level: 1 }))).toBe(true);
+  });
+});

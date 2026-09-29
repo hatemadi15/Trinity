@@ -47,11 +47,11 @@ export function SummaryTiles({ summary, power, audience = 'planner' }: { summary
           </tbody>
         </table>
       ) : (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 xl:grid-cols-3">
+        <dl className="grid grid-cols-2 gap-x-5 gap-y-3">
           {rows.map(([k, v, note]) => (
             <div key={k} className="border-t border-line pt-2">
               <dt className="text-sm text-ink-2">{k}</dt>
-              <dd className="font-display text-2xl font-semibold leading-tight">{v}</dd>
+              <dd className="font-display text-[28px] font-semibold leading-none tabular-nums">{v}</dd>
               <dd className="text-xs text-ink-3">{note}</dd>
             </div>
           ))}

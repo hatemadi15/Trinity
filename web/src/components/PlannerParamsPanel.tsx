@@ -44,22 +44,28 @@ function NumberInput({ label, value, min, max, step, onChange }: NumField) {
   );
 }
 
-/** Collapsible planner settings: solar panel, battery, load, comms threshold and mast height. */
+/**
+ * Planner settings: solar panel, battery, load, comms threshold and mast height. Collapsible with its
+ * own header by default; `embedded` renders the fields open inside a host such as the Explore popover.
+ */
 export function PlannerParamsPanel({
   params,
   onParams,
   onPower,
   busy,
+  embedded = false,
 }: {
   params: PlannerParams;
   onParams: (p: Partial<PlannerParams>) => void;
   onPower: (p: Partial<PowerConfig>) => void;
   busy: boolean;
+  embedded?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(embedded);
   const p = params.power;
   return (
-    <section aria-label="Planner settings" className="rounded-md bg-panel px-4 py-2">
+    <section aria-label="Planner settings" className={embedded ? '' : 'rounded-md bg-panel px-4 py-2'}>
+      {!embedded && (
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -72,6 +78,7 @@ export function PlannerParamsPanel({
         </span>
         <span aria-hidden="true">{open ? '▴' : '▾'}</span>
       </button>
+      )}
       {open && (
         <div className="flex flex-wrap gap-x-6 gap-y-3 py-3">
           <fieldset className="flex flex-col gap-1 text-sm">
