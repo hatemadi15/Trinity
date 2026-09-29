@@ -1,6 +1,6 @@
 'use client';
 import type { Series } from '@/lib/engine/metrics';
-import { domeProject, groundPath, skylinePath, trackPath } from '@/lib/viz/dome';
+import { domeProject, domeRadius, groundPath, skylinePath, trackPath } from '@/lib/viz/dome';
 
 const R = 260;
 const VIEW = 600;
@@ -25,7 +25,7 @@ export function SkyDome({
   const lit = series.sunFraction[cursor] > 0;
   const earthUp = series.earthVisible[cursor] === 1;
   const label = `Sky dome. Sun ${fmtAzEl(series.sunAz[cursor], series.sunEl[cursor])}, ${lit ? 'above' : 'below'} the skyline. Earth ${fmtAzEl(series.earthAz[cursor], series.earthEl[cursor])}, ${earthUp ? 'in view' : 'hidden'}.`;
-  const rings = [0, 30, 60];
+  const rings = [-5, 0, 5, 10, 30, 60];
   const compass: [string, number, number][] = [
     ['N', 0, -R - 16],
     ['E', R + 16, 0],
@@ -43,13 +43,12 @@ export function SkyDome({
     >
       <circle r={R} fill="var(--sky)" />
       {rings.map((el) => (
-        <circle
-          key={el}
-          r={(R * (90 - el)) / 100}
-          fill="none"
-          stroke="var(--line)"
-          strokeDasharray={el === 0 ? undefined : '3 5'}
-        />
+        <g key={el}>
+          <circle r={domeRadius(el, R)} fill="none" stroke="var(--line)" strokeDasharray={el === 0 ? undefined : '3 5'} />
+          <text x={4} y={-domeRadius(el, R) - 3} fill="var(--ink-3)" fontSize={10}>
+            {el === 0 ? 'horizon' : `${el}°`}
+          </text>
+        </g>
       ))}
       <path data-part="ground" d={groundPath(mask, R)} fill="var(--terrain)" fillRule="evenodd" />
       <path data-part="skyline" d={skylinePath(mask, R)} fill="none" stroke="var(--terrain-edge)" strokeWidth={1.5} />
@@ -95,7 +94,7 @@ export function SkyDome({
         </text>
       ))}
       <text x={-R} y={R + 40} fill="var(--ink-3)" fontSize={12}>
-        rings: horizon, 30°, 60°; rim −10°
+        outer half of the disc magnifies −10° to +10° around the horizon
       </text>
     </svg>
   );

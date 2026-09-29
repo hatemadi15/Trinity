@@ -2,16 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { domeProject, domeRadius, groundPath, skylinePath, trackPath } from './dome';
 
 describe('dome projection', () => {
-  it('puts the zenith at the centre, the horizon at 90 % radius and -10 deg at the rim', () => {
+  it('magnifies the horizon band: zenith centre, +10 deg at half radius, horizon at 75 %, -10 deg at the rim', () => {
     expect(domeRadius(90, 100)).toBeCloseTo(0, 9);
-    expect(domeRadius(0, 100)).toBeCloseTo(90, 9);
+    expect(domeRadius(50, 100)).toBeCloseTo(25, 9);
+    expect(domeRadius(10, 100)).toBeCloseTo(50, 9);
+    expect(domeRadius(0, 100)).toBeCloseTo(75, 9);
     expect(domeRadius(-10, 100)).toBeCloseTo(100, 9);
     expect(domeRadius(-30, 100)).toBeCloseTo(100, 9);
   });
   it('maps azimuth clockwise from north (up) to east (right)', () => {
-    expect(domeProject(0, 0, 100)).toEqual({ x: expect.closeTo(0, 9), y: expect.closeTo(-90, 9) });
-    expect(domeProject(90, 0, 100)).toEqual({ x: expect.closeTo(90, 9), y: expect.closeTo(0, 9) });
-    expect(domeProject(180, 45, 100)).toEqual({ x: expect.closeTo(0, 9), y: expect.closeTo(45, 9) });
+    expect(domeProject(0, 0, 100)).toEqual({ x: expect.closeTo(0, 9), y: expect.closeTo(-75, 9) });
+    expect(domeProject(90, 0, 100)).toEqual({ x: expect.closeTo(75, 9), y: expect.closeTo(0, 9) });
+    expect(domeProject(180, 50, 100)).toEqual({ x: expect.closeTo(0, 9), y: expect.closeTo(25, 9) });
   });
   it('builds closed skyline and ground paths', () => {
     const mask = new Float64Array(720).fill(2);

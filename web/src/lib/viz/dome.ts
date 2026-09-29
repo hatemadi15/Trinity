@@ -1,10 +1,17 @@
 export const EL_MIN = -10;
+/** Elevation where the magnified horizon band starts: the outer half of the radius covers EL_MIN..EL_BAND. */
+export const EL_BAND = 10;
 const DEG = Math.PI / 180;
 
-/** Radius for an elevation: zenith at the centre, horizon at 0.9 R, EL_MIN at the rim (clamped). */
+/**
+ * Radius for an elevation with a two-zone scale: the inner half of the disc spans EL_BAND..90°
+ * (zenith at the centre) and the outer half magnifies the horizon band EL_MIN..EL_BAND, where
+ * everything at the lunar poles happens (the Sun never rises above 1.6°, Earth stays within ±7°).
+ */
 export function domeRadius(elDeg: number, R: number): number {
   const el = Math.max(EL_MIN, Math.min(90, elDeg));
-  return (R * (90 - el)) / (90 - EL_MIN);
+  if (el >= EL_BAND) return (0.5 * R * (90 - el)) / (90 - EL_BAND);
+  return 0.5 * R + (0.5 * R * (EL_BAND - el)) / (EL_BAND - EL_MIN);
 }
 
 export function domeProject(azDeg: number, elDeg: number, R: number): { x: number; y: number } {

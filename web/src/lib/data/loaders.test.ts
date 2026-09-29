@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DataError, loadEphemerisFromUrl, loadManifest, loadMask, loadSites } from './loaders';
+import { loadEphemerisFromUrl, loadManifest, loadMask, loadSites } from './loaders';
 import { FetchTileSource } from '../engine/tiles.fetch';
 import { LevelSampler, levelById } from '../engine/tiles';
 import { hasFile, repoPath } from '../engine/__tests__/helpers';

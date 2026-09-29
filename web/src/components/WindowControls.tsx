@@ -21,7 +21,9 @@ export function WindowControls({
   const [playing, setPlaying] = useState(false);
   const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   const cursorRef = useRef(cursor);
-  cursorRef.current = cursor;
+  useEffect(() => {
+    cursorRef.current = cursor;
+  }, [cursor]);
 
   useEffect(() => {
     if (!playing) return;
