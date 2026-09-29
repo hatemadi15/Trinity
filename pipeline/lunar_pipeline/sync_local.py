@@ -8,7 +8,7 @@ from pathlib import Path
 from . import config
 
 WEB_DATA = config.REPO_ROOT / "web" / "public" / "data"
-SMALL_DIRS = ["ephemeris", "masks", "fixtures"]
+SMALL_DIRS = ["ephemeris", "masks", "fixtures", "validation"]
 SMALL_FILES = ["sites.json", "sites_derived.json"]
 
 

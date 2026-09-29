@@ -1,0 +1,181 @@
+{
+ "generated_utc": "2026-09-29T04:54:03+00:00",
+ "period": [
+  "2024-01-01T00:00:00",
+  "2036-12-31T23:00:00"
+ ],
+ "product": "avgvisib_85s_060m_201608",
+ "rows": [
+  {
+   "site_id": "south_pole",
+   "name": "Lunar South Pole (reference)",
+   "lat": -90.0,
+   "lon": 0.0,
+   "covered": true,
+   "ours_fraction": 0.28125219344423386,
+   "map_fraction": 0.21201,
+   "delta_points": 6.924219344423385
+  },
+  {
+   "site_id": "shackleton_center",
+   "name": "Shackleton crater centre",
+   "lat": -89.66,
+   "lon": 129.2,
+   "covered": true,
+   "ours_fraction": 0.0,
+   "map_fraction": 0.0,
+   "delta_points": 0.0
+  },
+  {
+   "site_id": "de_gerlache_center",
+   "name": "de Gerlache crater centre",
+   "lat": -88.5,
+   "lon": -87.1,
+   "covered": true,
+   "ours_fraction": 0.0013774829788727452,
+   "map_fraction": 0.0012892475400105288,
+   "delta_points": 0.008823543886221641
+  },
+  {
+   "site_id": "connecting_ridge",
+   "name": "Connecting Ridge (Shackleton\u00e2\u20ac\u201cde Gerlache ridge)",
+   "lat": -89.53432,
+   "lon": -150.05233,
+   "covered": true,
+   "ours_fraction": 0.5830525724713975,
+   "map_fraction": 0.48206992617051286,
+   "delta_points": 10.098264630088465
+  },
+  {
+   "site_id": "peak_near_shackleton",
+   "name": "Peak near Shackleton",
+   "lat": -89.01701,
+   "lon": 126.27302,
+   "covered": true,
+   "ours_fraction": 0.325708921176388,
+   "map_fraction": 0.29937267044464616,
+   "delta_points": 2.633625073174184
+  },
+  {
+   "site_id": "peak_near_cabeus_b",
+   "name": "Peak near Cabeus B (Artemis III region)",
+   "lat": -83.78,
+   "lon": -68.72,
+   "covered": false
+  },
+  {
+   "site_id": "haworth",
+   "name": "Haworth (Artemis III region)",
+   "lat": -86.84,
+   "lon": -22.59,
+   "covered": true,
+   "ours_fraction": 0.3275075454481645,
+   "map_fraction": 0.3192777084591823,
+   "delta_points": 0.822983698898222
+  },
+  {
+   "site_id": "malapert_massif",
+   "name": "Malapert Massif (Artemis III region)",
+   "lat": -86.0,
+   "lon": 0.0,
+   "covered": true,
+   "ours_fraction": 0.40769109286165506,
+   "map_fraction": 0.371433923294137,
+   "delta_points": 3.6257169567518064
+  },
+  {
+   "site_id": "mons_mouton_plateau",
+   "name": "Mons Mouton Plateau (Artemis III region)",
+   "lat": -84.46,
+   "lon": 30.66,
+   "covered": true,
+   "ours_fraction": 0.0,
+   "map_fraction": 0.0,
+   "delta_points": 0.0
+  },
+  {
+   "site_id": "mons_mouton",
+   "name": "Mons Mouton (Artemis III region)",
+   "lat": -85.53,
+   "lon": 31.77,
+   "covered": true,
+   "ours_fraction": 0.35448690952481227,
+   "map_fraction": 0.3147385276604018,
+   "delta_points": 3.9748381864410485
+  },
+  {
+   "site_id": "nobile_rim_1",
+   "name": "Nobile Rim 1 (Artemis III region)",
+   "lat": -85.54,
+   "lon": 37.39,
+   "covered": true,
+   "ours_fraction": 0.4269758545658735,
+   "map_fraction": 0.39376644116716325,
+   "delta_points": 3.320941339871025
+  },
+  {
+   "site_id": "nobile_rim_2",
+   "name": "Nobile Rim 2 (Artemis III region)",
+   "lat": -84.20156,
+   "lon": 60.69989,
+   "covered": false
+  },
+  {
+   "site_id": "de_gerlache_rim_2",
+   "name": "de Gerlache Rim 2 (Artemis III region)",
+   "lat": -88.28,
+   "lon": -64.31,
+   "covered": true,
+   "ours_fraction": 0.3808959781006528,
+   "map_fraction": 0.3835829299345644,
+   "delta_points": -0.26869518339115994
+  },
+  {
+   "site_id": "slater_plain",
+   "name": "Slater Plain (Artemis III region)",
+   "lat": -87.23,
+   "lon": 125.37,
+   "covered": true,
+   "ours_fraction": 0.27630378325261457,
+   "map_fraction": 0.2763342862462963,
+   "delta_points": -0.0030502993681735813
+  },
+  {
+   "site_id": "im1_odysseus",
+   "name": "IM-1 Odysseus landing site (Malapert A)",
+   "lat": -80.13,
+   "lon": 1.44,
+   "covered": false
+  },
+  {
+   "site_id": "im2_athena",
+   "name": "IM-2 Athena landing site (Mons Mouton)",
+   "lat": -84.7906,
+   "lon": 29.1957,
+   "covered": true,
+   "ours_fraction": 0.467186074261248,
+   "map_fraction": 0.45990347016083966,
+   "delta_points": 0.7282604100408319
+  },
+  {
+   "site_id": "shackleton_center_rim_high",
+   "name": "Shackleton crater rim, highest point 8.5\u201312.0 km",
+   "lat": -89.78131,
+   "lon": -156.25683,
+   "covered": true,
+   "ours_fraction": 0.9037341194637467,
+   "map_fraction": 0.795650762852215,
+   "delta_points": 10.808335661153167
+  },
+  {
+   "site_id": "de_gerlache_center_rim_high",
+   "name": "de Gerlache crater rim, highest point 13.0\u201318.0 km",
+   "lat": -88.66401,
+   "lon": -68.40606,
+   "covered": true,
+   "ours_fraction": 0.8386239208254369,
+   "map_fraction": 0.7812703983977307,
+   "delta_points": 5.735352242770619
+  }
+ ]
+}
