@@ -38,7 +38,7 @@ function NumberInput({ label, value, min, max, step, onChange }: NumField) {
           if (valid(e.target.value)) onChange(Number(e.target.value));
         }}
         onBlur={() => setDraft(null)}
-        className="w-28 rounded-md border border-line bg-panel px-2 py-1 text-ink"
+        className="w-28 rounded-md border border-line bg-canvas px-2 py-1 text-ink"
       />
     </label>
   );

@@ -68,34 +68,34 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
           />
         </div>
         <div className="flex flex-col gap-3 p-3">
-        <PlannerParamsPanel params={s.params} onParams={s.setParams} onPower={s.setPower} busy={s.maskBusy} />
-        <PlannerChat store={store} />
-        {s.error && (
-          <p role="status" className="text-sm text-warn">
-            {s.error}
-          </p>
-        )}
-        {s.compare.length === 0 ? (
-          <p className="glass rounded-md p-6 text-ink-2">
-            Add up to four sites to compare them over the same window and planner settings. Explore a site and press “Add to
-            compare”, or pick one above.
-          </p>
-        ) : (
-          <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
-            {s.compare.map((c) => (
-              <CompareColumn
-                key={c.site.id}
-                result={c}
-                startUtc={s.startUtc}
-                days={s.days}
-                plannerMastM={s.params.mastM}
-                audience={s.audience}
-                onRemove={() => store.getState().removeFromCompare(c.site.id)}
-                onOpen={() => void store.getState().selectSite(c.site.id)}
-              />
-            ))}
-          </div>
-        )}
+          <PlannerParamsPanel params={s.params} onParams={s.setParams} onPower={s.setPower} busy={s.maskBusy} />
+          <PlannerChat store={store} />
+          {s.error && (
+            <p role="status" className="text-sm text-warn">
+              {s.error}
+            </p>
+          )}
+          {s.compare.length === 0 ? (
+            <p className="glass rounded-md p-6 text-ink-2">
+              Add up to four sites to compare them over the same window and planner settings. Explore a site and press “Add to
+              compare”, or pick one above.
+            </p>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
+              {s.compare.map((c) => (
+                <CompareColumn
+                  key={c.site.id}
+                  result={c}
+                  startUtc={s.startUtc}
+                  days={s.days}
+                  plannerMastM={s.params.mastM}
+                  audience={s.audience}
+                  onRemove={() => store.getState().removeFromCompare(c.site.id)}
+                  onOpen={() => void store.getState().selectSite(c.site.id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </main>
     </AppFrame>

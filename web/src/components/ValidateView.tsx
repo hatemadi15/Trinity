@@ -122,7 +122,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
     <AppFrame>
       <main className="mx-auto flex max-w-5xl flex-col gap-5 px-6 py-6">
         <header className="flex flex-col gap-2">
-          <h1 className="font-display text-[44px] font-semibold leading-tight tracking-tight">Validate</h1>
+          <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight md:text-[44px]">Validate</h1>
           <p className="max-w-prose text-ink-2">
             Three checks a planner can rerun: our Sun and Earth directions against JPL Horizons, our sunlit fractions against the LOLA
             illumination map, and predicted sunsets against what happened to three CLPS landers.
@@ -140,7 +140,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             Do we point where JPL points?
           </h2>
           <p className="font-display text-[28px] font-semibold leading-none tabular-nums" aria-hidden="true">
-            {exp1(horizons.max_abs_delta_el_deg)} <span className="text-sm font-normal text-ink-2">worst elevation difference over {horizons.n_rows} rows</span>
+            {exp1(horizons.max_abs_delta_el_deg)} <span className="font-text text-sm font-normal leading-tight text-ink-2">worst elevation difference over {horizons.n_rows} rows</span>
           </p>
           <p className="text-sm text-ink-2">
             Worst difference over {horizons.n_rows} rows: {exp1(horizons.max_abs_delta_el_deg)} in elevation, {exp1(horizons.max_abs_delta_az_cos_el_deg)} in azimuth
@@ -199,7 +199,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             Do we light what LOLA lights?
           </h2>
           <p className="font-display text-[28px] font-semibold leading-none tabular-nums" aria-hidden="true">
-            {within5} of {covered.length} <span className="text-sm font-normal text-ink-2">covered sites within 5 points of the LOLA map</span>
+            {within5} of {covered.length} <span className="font-text text-sm font-normal leading-tight text-ink-2">covered sites within 5 points of the LOLA map</span>
           </p>
           <p className="text-sm text-ink-2">
             Our sunlit fraction, hourly {mazarico.period[0].slice(0, 10)} to {mazarico.period[1].slice(0, 10)} with a 2 m mast, against the LOLA average-visibility map (

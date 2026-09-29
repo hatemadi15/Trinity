@@ -93,17 +93,23 @@ html {
   }
 }
 
-/* Instrument glass: thin dark panels over the terrain render. Declared as utilities so other utilities can still override them. */
-@utility glass {
-  background: var(--glass);
-  border: 1px solid var(--line);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-@utility glass-bar {
-  background: rgba(11, 13, 16, 0.86);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+/*
+ * Instrument glass: thin dark panels over the terrain render. They live in the components layer so
+ * that any utility (Tailwind sorts utilities after components) can still override a colour or a
+ * border, for example border-sun/40 on the guided story.
+ */
+@layer components {
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--line);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .glass-bar {
+    background: rgba(11, 13, 16, 0.86);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
 }
 
 /* Landing hero: three real renders at three dates; the shadows sweep once on load. */

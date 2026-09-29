@@ -33,7 +33,7 @@ export function GuidedStory({ webgl }: { webgl: boolean }) {
           type="button"
           onClick={() => setStep((s) => Math.min(STORY_STEPS.length - 1, s + 1))}
           disabled={step === STORY_STEPS.length - 1}
-          className="rounded-md border border-sun px-3 py-1 text-sm text-ink hover:bg-panel disabled:opacity-50"
+          className="rounded-md border border-sun px-3 py-1 text-sm text-ink hover:bg-sun/10 disabled:opacity-50"
         >
           Next
         </button>
