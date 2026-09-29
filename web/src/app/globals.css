@@ -58,3 +58,29 @@ html {
     animation: none !important;
   }
 }
+
+/* Printable brief: light page tokens and a print stylesheet (A4 portrait). */
+.brief {
+  --canvas: #ffffff;
+  --panel: #ffffff;
+  --line: #c8c4bc;
+  --ink: #111111;
+  --ink-2: #3a3a3a;
+  --ink-3: #6a6a6a;
+  background: var(--canvas);
+  color: var(--ink);
+}
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  @page {
+    size: A4 portrait;
+    margin: 12mm;
+  }
+  html,
+  body {
+    background: #ffffff;
+    color: #111111;
+  }
+}
