@@ -51,7 +51,7 @@ def metrics_fixture(site_id: str, start_utc: str, days: int) -> dict:
         "sample_indexes": idx,
         "samples": {
             key: [float(series[key][i]) for i in idx]
-            for key in ("sun_az", "sun_el", "earth_az", "earth_el", "sun_fraction")
+            for key in ("sun_az", "sun_el", "earth_az", "earth_el", "sun_fraction", "sun_au")
         },
         "earth_visible": [bool(series["earth_visible"][i]) for i in idx],
     }

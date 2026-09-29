@@ -1,3 +1,4 @@
+import { AU_KM } from './constants';
 import { SUN_RADIUS_KM } from './constants';
 import { indexForEt, type Ephemeris } from './ephemeris';
 import { azElFromBodyVector } from './geometry';
@@ -31,6 +32,8 @@ export interface Series {
   earthEl: Float64Array;
   sunFraction: Float64Array;
   earthVisible: Uint8Array;
+  /** Sun distance in AU per hour (irradiance scales with 1/au²). */
+  sunAu: Float64Array;
 }
 
 /** Hourly series on the ephemeris grid, starting at the row nearest `startEt` (site height 0, like Python). */
@@ -40,6 +43,7 @@ export function hourlySeries(site: { lat: number; lon: number }, mask: ArrayLike
   const sunAz = new Float64Array(hours), sunEl = new Float64Array(hours);
   const earthAz = new Float64Array(hours), earthEl = new Float64Array(hours);
   const sunFraction = new Float64Array(hours), earthVisible = new Uint8Array(hours);
+  const sunAu = new Float64Array(hours);
   const d = eph.data;
   for (let h = 0; h < hours; h++) {
     const o = (i0 + h) * 6;
@@ -48,10 +52,41 @@ export function hourlySeries(site: { lat: number; lon: number }, mask: ArrayLike
     const e = azElFromBodyVector(earth, site.lat, site.lon, 0);
     sunAz[h] = s.az; sunEl[h] = s.el; earthAz[h] = e.az; earthEl[h] = e.el;
     const dist = Math.hypot(sun[0], sun[1], sun[2]);
+    sunAu[h] = dist / AU_KM;
     sunFraction[h] = diskFraction(s.el - maskAtAzimuth(mask, s.az), sunRadiusDeg(dist));
     earthVisible[h] = e.el - maskAtAzimuth(mask, e.az) > 0 ? 1 : 0;
   }
-  return { i0, hours, sunAz, sunEl, earthAz, earthEl, sunFraction, earthVisible };
+  return { i0, hours, sunAz, sunEl, earthAz, earthEl, sunFraction, earthVisible, sunAu };
+}
+
+/** Same series with Earth visibility re-evaluated against a minimum elevation above the skyline (comms mask). */
+export function withCommsThreshold(series: Series, mask: ArrayLike<number>, minElDeg: number): Series {
+  const earthVisible = new Uint8Array(series.hours);
+  for (let h = 0; h < series.hours; h++) {
+    earthVisible[h] = series.earthEl[h] - maskAtAzimuth(mask, series.earthAz[h]) > minElDeg ? 1 : 0;
+  }
+  return { ...series, earthVisible };
+}
+
+export interface ContactWindow {
+  start: number;
+  end: number;
+}
+
+/** Maximal runs of Earth-visible hours as half-open [start, end) hour indexes. */
+export function contactWindows(series: Series): ContactWindow[] {
+  const out: ContactWindow[] = [];
+  let start = -1;
+  for (let h = 0; h < series.hours; h++) {
+    const v = series.earthVisible[h] === 1;
+    if (v && start < 0) start = h;
+    if (!v && start >= 0) {
+      out.push({ start, end: h });
+      start = -1;
+    }
+  }
+  if (start >= 0) out.push({ start, end: series.hours });
+  return out;
 }
 
 export function longestRun(flags: ArrayLike<number | boolean>, from = 0, to = flags.length): number {

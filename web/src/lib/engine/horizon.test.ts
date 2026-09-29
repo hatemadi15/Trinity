@@ -73,7 +73,7 @@ describe.skipIf(!tilesPresent)('mask parity with the Python pipeline', () => {
       L2: new LevelSampler(levelById(manifest, 'L2'), src),
     };
     const files = fs.readdirSync(repoPath('data', 'masks')).filter((f) => f.endsWith('.json'));
-    expect(files.length).toBe(7);
+    expect(files.length).toBe(18);
     for (const f of files) {
       const py = readJson<{ site_id: string; lat: number; lon: number; site_height_m: number; elevation_deg: number[]; fallback_bands: { r_min_m: number }[] }>('data', 'masks', f);
       const ts = await computeSiteMask(py.lat, py.lon, samplers, { mastM: 2 });

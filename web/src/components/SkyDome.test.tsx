@@ -14,6 +14,7 @@ function series(hours: number): Series {
     earthEl: new Float64Array(hours),
     sunFraction: new Float64Array(hours),
     earthVisible: new Uint8Array(hours),
+    sunAu: new Float64Array(hours).fill(1),
   };
   for (let h = 0; h < hours; h++) {
     s.sunAz[h] = (h * 360) / 708;
