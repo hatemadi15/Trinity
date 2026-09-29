@@ -4,11 +4,13 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import { CameraRig } from './CameraRig';
 import { Globe } from './Globe';
+import { SiteMarker } from './SiteMarker';
 import { SunAndEarth } from './SunAndEarth';
+import { Terrain } from './Terrain';
 import type { Scene3DProps } from './Scene3D';
 
 export function Scene3DCanvas(props: Scene3DProps) {
-  const { mode, scene, site, sites, onPick, reducedMotion = false } = props;
+  const { mode, scene, site, sites, heightmap, capHeightmap, exaggeration, onPick, reducedMotion = false } = props;
   const textureUrl = props.textureUrl ?? '/data/terrain/lroc_color_2k.jpg';
   return (
     <Canvas
@@ -20,13 +22,19 @@ export function Scene3DCanvas(props: Scene3DProps) {
     >
       <color attach="background" args={['#000000']} />
       <ambientLight intensity={0.08} />
-      {mode === 'globe' && (
+      {mode === 'globe' ? (
         <>
           <Stars radius={60} depth={20} count={1500} factor={2} saturation={0} fade={false} speed={0} />
           <Suspense fallback={null}>
             <Globe site={site} sites={sites} textureUrl={textureUrl} onPick={onPick} />
           </Suspense>
           <SunAndEarth scene={scene} mode="globe" />
+        </>
+      ) : (
+        <>
+          <Terrain heightmap={heightmap} capHeightmap={capHeightmap} site={site} exaggeration={exaggeration} />
+          <SiteMarker name={site.name} />
+          <SunAndEarth scene={scene} mode="terrain" />
         </>
       )}
       <CameraRig mode={mode} site={site} reducedMotion={reducedMotion} />
@@ -36,6 +44,7 @@ export function Scene3DCanvas(props: Scene3DProps) {
         enableDamping
         minDistance={mode === 'globe' ? 1.4 : 1}
         maxDistance={mode === 'globe' ? 8 : 80}
+        maxPolarAngle={mode === 'terrain' ? Math.PI / 2 - 0.02 : Math.PI}
       />
     </Canvas>
   );
