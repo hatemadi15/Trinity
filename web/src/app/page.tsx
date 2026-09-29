@@ -1,15 +1,25 @@
+import Link from 'next/link';
+import { AppFrame } from '@/components/AppFrame';
+
 export default function Home() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-6 px-6 py-16">
-      <p className="text-sm uppercase tracking-[0.3em] text-zinc-400">NASA Space Apps 2026 · Astroy/Ed</p>
-      <h1 className="text-5xl font-semibold tracking-tight">Earthrise</h1>
-      <p className="text-lg text-zinc-300">
-        Pick a lunar landing site and a date in 60 seconds. See exactly when the Sun powers you and
-        when Earth can hear you.
-      </p>
-      <p className="text-sm text-zinc-500">
-        Engine status: TypeScript port of the LOLA / SPICE pipeline in progress (Week 2).
-      </p>
-    </main>
+    <AppFrame>
+      <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-20">
+        <h1 className="font-display text-6xl font-semibold tracking-tight">
+          When is the Sun up, and can Earth hear you?
+        </h1>
+        <p className="max-w-prose text-lg text-ink-2">
+          Earthrise compares lunar south-pole landing sites and dates. It draws the terrain skyline from
+          NASA LOLA elevation data, moves the Sun and Earth with the JPL DE440 ephemeris, and tells you how
+          many hours a site is lit and how many hours Earth is in view.
+        </p>
+        <Link
+          href="/explore"
+          className="w-fit rounded-md bg-sun px-4 py-2 font-medium text-night hover:bg-sun-bright"
+        >
+          Explore a site
+        </Link>
+      </main>
+    </AppFrame>
   );
 }

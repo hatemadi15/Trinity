@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #2a2d33;
+  --panel: #1c1f24;
+  --sky: #000000;
+  --line: #3a3e45;
+  --ink: #edeae4;
+  --ink-2: #b4b0a8;
+  --ink-3: #7e7a73;
+  --sun: #c98500;
+  --sun-bright: #f2b134;
+  --earth: #3987e5;
+  --terrain: #6f6a62;
+  --terrain-edge: #a39e94;
+  --night: #0a0b0d;
+  --good: #199e70;
+  --warn: #c98500;
+  --bad: #e66767;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-sky: var(--sky);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-sun: var(--sun);
+  --color-sun-bright: var(--sun-bright);
+  --color-earth: var(--earth);
+  --color-terrain: var(--terrain);
+  --color-night: var(--night);
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --font-display: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
+  --font-text: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--sun-bright);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
