@@ -4,6 +4,7 @@ import { BufferAttribute, BufferGeometry } from 'three';
 import type { Heightmap } from '@/lib/data/terrain';
 import { latLonToPixel } from '@/lib/data/terrain';
 import { cropHeightmap } from '@/lib/viz/terrain-crop';
+import { useDispose } from '@/lib/hooks/useDispose';
 import { buildTerrainGeometry, heightAtPixel, type TerrainGeometry } from '@/lib/viz/terrain-mesh';
 
 /** Cap fallback window: ±25 px at 960 m = 48 km across, coarse but centred on the site. */
@@ -95,6 +96,8 @@ export function Terrain({
       }),
     );
   }, [heightmap, capHeightmap, site, exaggeration]);
+  useDispose(geometry);
+  useDispose(context);
   if (!geometry) return null;
   return (
     <group rotation={[0, gridToEnuRotationY(site.lon), 0]}>

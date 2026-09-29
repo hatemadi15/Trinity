@@ -7,6 +7,7 @@ import { normalizeLon } from '../engine/geometry';
 import { bestWindowAcross, contactWindows, hourlySeries, SeriesIndex, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig, type PowerResult } from '../engine/power';
 import { etToIso, utcToEt } from '../engine/time';
+import { parseExploreQuery } from './query';
 
 export const WINDOW_DAYS = [14, 30, 90] as const;
 export type WindowDays = (typeof WINDOW_DAYS)[number];
@@ -59,7 +60,8 @@ export interface Loaders {
 
 export interface MaskMeta {
   siteHeightM: number;
-  source: 'featured' | 'computed';
+  /** featured: precomputed 5 m mask; computed: worker skyline; flat: a mare site outside the polar grids (all zeros). */
+  source: 'featured' | 'computed' | 'flat';
   /** Tiles that failed to load while computing (0 for precomputed masks). */
   failedTiles: number;
   /** Mast height the skyline was computed with; absent means the featured 2 m. */
@@ -134,6 +136,8 @@ export interface ExploreState {
   hydrateAudience: () => void;
   aiMode: AiMode;
   setAiMode: (mode: AiMode) => void;
+  /** Applies ?site=&start=&days= from a URL once the store is ready; unknown ids and bad dates are ignored. */
+  applyQuery: (search: string | URLSearchParams) => Promise<void>;
 }
 
 export function recompute(
@@ -238,6 +242,11 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       const seq = ++selectSeq;
       try {
         let cached = masks.get(id);
+        if (!cached && !site.polar) {
+          // Mare sites lie outside the LOLA polar grids: a flat horizon is the honest skyline there.
+          cached = { mask: new Float64Array(720), meta: { siteHeightM: 0, source: 'flat', failedTiles: 0, mastM: get().params.mastM } };
+          masks.set(id, cached);
+        }
         if (!cached) {
           const doc = await loaders.loadMask(id);
           cached = {
@@ -252,6 +261,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         set({
           siteId: id,
           site,
+          mode: site.polar ? get().mode : 'globe', // no polar terrain window for a mare site; the globe shows where it is
           mask: cached.mask,
           maskMeta: cached.meta,
           series: r.series,
@@ -268,7 +278,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         void loadWindow(id);
         if ((cached.meta.mastM ?? 2) !== params.mastM) void recomputeMask();
       } catch (err) {
-        if (seq === selectSeq) set({ error: message(err) });
+        if (seq === selectSeq) set({ error: message(err), maskBusy: false });
       }
     },
 
@@ -460,6 +470,12 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       if (stored !== get().audience) set({ audience: stored });
     },
 
+    async applyQuery(search) {
+      const q = parseExploreQuery(search);
+      if (q.startUtc || q.days) get().setWindow(q.startUtc ?? get().startUtc, q.days ?? get().days);
+      if (q.site && q.site !== get().siteId && get().sites.some((s) => s.id === q.site)) await get().selectSite(q.site);
+    },
+
     setAiMode(mode) {
       set({ aiMode: mode });
     },
@@ -531,8 +547,13 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   }
 
   async function recomputeMaskNow(): Promise<void> {
-    const { site, params } = store.getState();
+    const { site, params, maskMeta } = store.getState();
     if (!site || !loaders.computeMask) return;
+    if (!site.polar) {
+      // A flat horizon is flat from any mast; only the label changes.
+      if (maskMeta) store.setState({ maskMeta: { ...maskMeta, mastM: params.mastM } });
+      return;
+    }
     const seq = ++selectSeq;
     store.setState({ maskBusy: true });
     let superseded = false;

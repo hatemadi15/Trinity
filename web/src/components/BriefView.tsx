@@ -70,7 +70,8 @@ export function BriefView({
       setWriting(false);
     }
   }
-  const provenance = s.maskMeta?.source === 'computed' ? 'skyline computed in your browser' : 'precomputed skyline';
+  const provenance =
+    s.maskMeta?.source === 'flat' ? 'flat horizon (no LOLA polar coverage)' : s.maskMeta?.source === 'computed' ? 'skyline computed in your browser' : 'precomputed skyline';
   return (
     <div className="brief mx-auto flex max-w-[190mm] flex-col gap-4 px-8 py-8">
       <div className="no-print flex items-center justify-between gap-4">

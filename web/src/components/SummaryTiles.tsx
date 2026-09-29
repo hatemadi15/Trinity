@@ -47,7 +47,7 @@ export function SummaryTiles({ summary, power, audience = 'planner' }: { summary
           </tbody>
         </table>
       ) : (
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 xl:grid-cols-3">
           {rows.map(([k, v, note]) => (
             <div key={k} className="border-t border-line pt-2">
               <dt className="text-sm text-ink-2">{k}</dt>

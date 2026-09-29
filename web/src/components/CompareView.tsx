@@ -120,8 +120,8 @@ function CompareColumn({
     ['Longest night', hoursLabel(summary.longestDarkH)],
     ['Earth in view', pct(summary.earthVisFraction)],
     ['Longest Earth gap', hoursLabel(summary.longestEarthGapH)],
+    ['Both at once', pct(summary.jointFraction)],
     ['Lowest battery', pct(power.socMin)],
-    ['Hours without full power', hoursLabel(power.brownoutHours)],
   ];
   return (
     <article aria-label={site.name} className="flex min-w-[260px] max-w-[340px] flex-1 flex-col gap-3 rounded-md bg-panel p-4">
