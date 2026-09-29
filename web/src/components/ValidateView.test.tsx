@@ -96,3 +96,11 @@ describe('ValidateView', () => {
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/validate/));
   });
 });
+
+describe('ValidateView Mazarico verdict', () => {
+  it('phrases the two large misses as a hypothesis about map resolution', async () => {
+    render(<ValidateView load={async () => docs} recheck={async () => ({ ok: false, message: 'offline' })} />);
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Do we light what LOLA lights?' })).toBeTruthy());
+    expect(screen.getByText(/most likely the map’s 60 m sampling of 20 m peaks/)).toBeTruthy();
+  });
+});

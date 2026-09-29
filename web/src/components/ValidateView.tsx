@@ -197,8 +197,8 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
           <p className="text-sm text-ink-2">
             Our sunlit fraction, hourly {mazarico.period[0].slice(0, 10)} to {mazarico.period[1].slice(0, 10)} with a 2 m mast, against the LOLA average-visibility map (
             <code>{mazarico.product}</code>, 60 m/px, south of 85°S). {within5} of {covered.length} covered sites are within 5 points; worst{' '}
-            {worstMaz ? `${worstMaz.delta_points! >= 0 ? '+' : '−'}${Math.abs(worstMaz.delta_points!).toFixed(1)} points at ${worstMaz.name}` : '—'}. The map averages a
-            different span of years and sees no mast, so high points read a few points brighter here.
+            {worstMaz ? `${worstMaz.delta_points! >= 0 ? '+' : '−'}${Math.abs(worstMaz.delta_points!).toFixed(1)} points at ${worstMaz.name}` : '—'}. The two largest misses are
+            DEM-derived highest points, most likely the map’s 60 m sampling of 20 m peaks; the map also averages a different span of years and sees no mast.
           </p>
           <table className="w-full text-sm">
             <thead>
