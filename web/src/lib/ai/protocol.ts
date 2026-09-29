@@ -3,6 +3,13 @@ import type { StateSummary } from './state-summary';
 
 export type ChatSource = 'model' | 'cache' | 'intent' | 'none';
 
+/** The brief's paragraph: the model's words when every number checked out, else the deterministic template. */
+export interface NarrationReply {
+  source: 'model' | 'template';
+  model?: string;
+  reply: string;
+}
+
 /** What POST /api/chat returns and the planner strip consumes. */
 export interface ChatReply {
   source: ChatSource;

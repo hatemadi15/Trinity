@@ -1,8 +1,9 @@
 import { describeDropped, validateActions } from '@/lib/ai/actions';
 import { cachedAnswer } from '@/lib/ai/cache';
 import { matchIntent } from '@/lib/ai/intents';
+import { checkNumbers, foreignNumbers, isStateSummary, narrationPrompt, templateBrief } from '@/lib/ai/narrate';
 import { askModel, modelsFromEnv, type ChatMessage } from '@/lib/ai/openrouter';
-import { parseModelReply, systemPrompt, userPrompt, type ChatReply } from '@/lib/ai/protocol';
+import { parseModelReply, systemPrompt, userPrompt, type ChatReply, type NarrationReply } from '@/lib/ai/protocol';
 import { SlidingWindowLimiter } from '@/lib/ai/rate-limit';
 import type { StateSummary } from '@/lib/ai/state-summary';
 import catalogue from '@/lib/data/catalogue.json';
@@ -28,6 +29,7 @@ function clientIp(request: Request): string {
 }
 
 interface Body {
+  task: 'plan' | 'narrate';
   prompt: string;
   state: StateSummary | null;
   mode: 'live' | 'cached';
@@ -46,8 +48,10 @@ async function parseBody(request: Request): Promise<Body | string> {
   if (!prompt) return 'prompt is required';
   if (prompt.length > MAX_PROMPT_CHARS) return `prompt is longer than ${MAX_PROMPT_CHARS} characters`;
   if (o.mode !== undefined && o.mode !== 'live' && o.mode !== 'cached') return 'mode must be "live" or "cached"';
+  if (o.task !== undefined && o.task !== 'plan' && o.task !== 'narrate') return 'task must be "plan" or "narrate"';
   const state = o.state && typeof o.state === 'object' && !Array.isArray(o.state) ? (o.state as StateSummary) : null;
-  return { prompt, state, mode: o.mode === 'cached' ? 'cached' : 'live' };
+  if (o.task === 'narrate' && !isStateSummary(state)) return 'narrate needs the state summary of a loaded site';
+  return { task: o.task === 'narrate' ? 'narrate' : 'plan', prompt, state, mode: o.mode === 'cached' ? 'cached' : 'live' };
 }
 
 async function fromModel(prompt: string, state: StateSummary | null, apiKey: string): Promise<ChatReply | null> {
@@ -88,12 +92,52 @@ function fromCache(prompt: string): ChatReply | null {
   return { source: 'cache', actions, reply: t.reply, dropped };
 }
 
+/** A narration answer is plain text, but a model that wraps it in {"reply": …} or a fence is read too. */
+function narrationText(content: string): string {
+  const parsed = parseModelReply(content);
+  if (parsed?.reply) return parsed.reply;
+  return content
+    .replace(/```[a-z]*\s*([\s\S]*?)```/g, '$1')
+    .replace(/^["“]|["”]$/g, '')
+    .trim();
+}
+
+/** The brief's paragraph: the model's words when every number checks out (one retry), else the template. */
+async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean): Promise<NarrationReply> {
+  const template: NarrationReply = { source: 'template', reply: templateBrief(state) };
+  if (cachedMode || !apiKey) return template;
+  const messages = narrationPrompt(state);
+  const first = await askModel({ messages, models: modelsFromEnv(), apiKey, timeoutMs: MODEL_TIMEOUT_MS });
+  if ('error' in first) return template;
+  let text = narrationText(first.content);
+  if (!checkNumbers(text, state)) {
+    const bad = foreignNumbers(text, state).join(', ');
+    const second = await askModel({
+      messages: [
+        ...messages,
+        { role: 'assistant', content: first.content },
+        { role: 'user', content: `These numbers are not in STATE: ${bad}. Rewrite the paragraph using only numbers copied from STATE, or leave them out. Paragraph only.` },
+      ],
+      models: [first.model],
+      apiKey,
+      timeoutMs: MODEL_TIMEOUT_MS,
+    });
+    if ('error' in second) return template;
+    text = narrationText(second.content);
+    if (!checkNumbers(text, state)) return template;
+  }
+  return text ? { source: 'model', model: first.model, reply: text } : template;
+}
+
 /**
- * POST { prompt, state?, mode? } → { source, model?, actions, reply, dropped? }.
- * Live mode with a key: the model (at most two calls), then the intent matcher, then the cached
- * transcripts. Cached mode (`mode: "cached"`, `?demo=1` on the client, or NEXT_PUBLIC_AI_MODE=cached):
- * transcripts first, then intents, and the model is never called. Never a 500: the worst answer is a
- * polite "I could not understand" with no actions.
+ * POST { prompt, state?, mode?, task? }.
+ * task "plan" (default) → { source, model?, actions, reply, dropped? }: with a key and live mode the
+ * model answers (at most two calls), then the intent matcher, then the cached transcripts. Cached mode
+ * (`mode: "cached"`, `?demo=1` on the client, or NEXT_PUBLIC_AI_MODE=cached) serves transcripts first
+ * and never calls the model. The worst answer is a polite "I could not understand" with no actions.
+ * task "narrate" → { source: "model" | "template", model?, reply }: the brief's paragraph, checked
+ * number by number against the state; the template wins any doubt.
+ * Never a 500; bad bodies get 400; the 31st request per minute per address gets 429 with Retry-After.
  */
 export async function POST(request: Request): Promise<Response> {
   const body = await parseBody(request);
@@ -107,6 +151,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   const cachedMode = body.mode === 'cached' || process.env.NEXT_PUBLIC_AI_MODE === 'cached';
   const apiKey = process.env.OPENROUTER_API_KEY?.trim() ?? '';
+  if (body.task === 'narrate') return Response.json(await narrate(body.state as StateSummary, apiKey, cachedMode));
   let reply: ChatReply | null = null;
   if (cachedMode) {
     reply = fromCache(body.prompt) ?? fromIntent(body.prompt);

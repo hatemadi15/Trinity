@@ -63,3 +63,36 @@ describe('BriefView', () => {
     expect(screen.getByText(/coordinates picked by the user/)).toBeTruthy();
   });
 });
+
+describe('BriefView narration', () => {
+  it('shows the template summary by default and the model paragraph after "Write the brief"', async () => {
+    const store = storeWithFiles();
+    const narrate = vi.fn(async () => ({ source: 'model' as const, model: 'google/gemma-4-31b-it:free', reply: 'Model paragraph about the rim.' }));
+    render(<BriefView store={store} narrate={narrate} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
+    expect(screen.getByRole('heading', { name: 'Mission summary' })).toBeTruthy();
+    expect(screen.getByTestId('narration').textContent).toMatch(/Shackleton crater rim.*survives/);
+    expect(screen.getByText(/written from the numbers above/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    await waitFor(() => expect(screen.getByTestId('narration').textContent).toBe('Model paragraph about the rim.'));
+    expect(screen.getByText(/narrated by gemma-4-31b/)).toBeTruthy();
+    expect(narrate).toHaveBeenCalledTimes(1);
+    expect((narrate.mock.calls[0] as unknown[])[0]).toMatchObject({ site: { id: 'shackleton_center_rim_high' } });
+  });
+
+  it('keeps the template and says so when narration fails', async () => {
+    const store = storeWithFiles();
+    render(
+      <BriefView
+        store={store}
+        narrate={async () => {
+          throw new Error('Failed to fetch');
+        }}
+      />,
+    );
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    await waitFor(() => expect(screen.getByText(/planner is offline/)).toBeTruthy());
+    expect(screen.getByTestId('narration').textContent).toMatch(/survives/);
+  });
+});

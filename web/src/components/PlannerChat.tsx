@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { applyActions, describeDropped, validateActions } from '@/lib/ai/actions';
-import { askPlanner, type PlannerAnswer } from '@/lib/ai/client';
+import { askPlanner, shortModel, type PlannerAnswer } from '@/lib/ai/client';
 import type { ChatSource } from '@/lib/ai/protocol';
 import { summarizeState, type StateSummary } from '@/lib/ai/state-summary';
 import { useNavigate } from '@/lib/hooks/useNavigate';
@@ -24,14 +24,6 @@ interface Exchange {
   source: ChatSource | 'error';
   model?: string;
   notes: string[];
-}
-
-/** "google/gemma-4-31b-it:free" → "gemma-4-31b". */
-export function shortModel(model: string): string {
-  return model
-    .replace(/^[^/]+\//, '')
-    .replace(/:.*$/, '')
-    .replace(/-(it|instruct)$/, '');
 }
 
 function sourceLabel(x: Exchange): string {

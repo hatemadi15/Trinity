@@ -117,3 +117,55 @@ describe('POST /api/chat', () => {
     expect((await POST(request({ prompt: 'open compare', mode: 'turbo' }))).status).toBe(400);
   });
 });
+
+const STATE = {
+  site: { id: 'nobile_rim_2', name: 'Nobile Rim 2 (Artemis III region)', lat: -84.20156, lon: 60.69989 },
+  window: { startUtc: '2027-03-01T00:00:00', days: 14 },
+  summary: { hours: 336, illumFraction: 1, meanSunFraction: 0.998, longestDarkH: 0, earthVisFraction: 0.67, longestEarthGapH: 225, jointFraction: 0.67 },
+  power: { socMin: 1, brownoutHours: 0, survives: true, meanPowerW: 1118.4 },
+  params: { power: { panel: 'vertical_tracking', panelAzimuthDeg: 0, areaM2: 4, efficiency: 0.3, loadW: 200, batteryWh: 2000, initialSocFraction: 1 }, minEarthElDeg: 0, mastM: 2 },
+  compare: [],
+  audience: 'planner',
+};
+
+describe('POST /api/chat task narrate', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('narrates from the model when every number in the paragraph is in the state', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    const text = 'Nobile Rim 2 sees the Sun 100 % of the time over these 14 days; Earth is in view 67 % of the time with a longest gap of 9 d 9 h, and the battery survives.';
+    const fetchMock = modelAnswer(text);
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ task: 'narrate', prompt: 'write the brief', state: STATE }))).json()) as Reply;
+    expect(json.source).toBe('model');
+    expect(json.model).toBe('google/gemma-4-31b-it:free');
+    expect(json.reply).toBe(text);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries once on an invented number, then falls back to the template', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    const fetchMock = modelAnswer('The Sun is up 87 % of the time.');
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ task: 'narrate', prompt: 'write the brief', state: STATE }))).json()) as Reply;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(json.source).toBe('template');
+    expect(json.reply).toMatch(/Nobile Rim 2/);
+    expect(json.reply).toMatch(/100\.0 %/);
+  });
+
+  it('uses the template without a key or in cached mode, and needs a state', async () => {
+    const fetchMock = modelAnswer('unused');
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubEnv('OPENROUTER_API_KEY', '');
+    expect(((await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply).source).toBe('template');
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    expect(((await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE, mode: 'cached' }))).json()) as Reply).source).toBe('template');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((await POST(request({ task: 'narrate', prompt: 'x', state: null }))).status).toBe(400);
+    expect((await POST(request({ task: 'sing', prompt: 'x', state: STATE }))).status).toBe(400);
+  });
+});

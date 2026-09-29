@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { askPlanner } from './client';
+import { askNarration, askPlanner } from './client';
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
@@ -35,5 +35,21 @@ describe('askPlanner', () => {
         throw new Error('Failed to fetch');
       }),
     ).rejects.toThrow(/Failed to fetch/);
+  });
+});
+
+describe('askNarration', () => {
+  it('posts the narrate task with the state and returns the paragraph and its source', async () => {
+    const fetchImpl = vi.fn(async () => json({ source: 'model', model: 'google/gemma-4-31b-it:free', reply: 'A paragraph.' }));
+    const state = { site: { id: 'haworth', name: 'Haworth', lat: -86.84, lon: -22.59 } };
+    const r = await askNarration(state as never, 'live', fetchImpl);
+    expect(r).toEqual({ source: 'model', model: 'google/gemma-4-31b-it:free', reply: 'A paragraph.' });
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({ task: 'narrate', state, mode: 'live' });
+  });
+
+  it('rejects on failures', async () => {
+    await expect(askNarration({} as never, 'live', async () => new Response('busy', { status: 429 }))).rejects.toThrow(/429/);
+    await expect(askNarration({} as never, 'live', async () => json({ nope: true }))).rejects.toThrow(/unexpected/i);
   });
 });
