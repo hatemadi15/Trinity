@@ -47,7 +47,7 @@ Tokens (CSS custom properties):
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--bg` | `#f3f2ee` | `#0b0d11` | page |
+| `--page` | `#f3f2ee` | `#0b0d11` | page |
 | `--surface` | `#ffffff` | `#14181e` | panels, fields |
 | `--surface-2` | `#efede7` | `#1c2129` | insets, tracks |
 | `--line` | `#dfdcd4` | `#272d37` | hairlines |
