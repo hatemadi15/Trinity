@@ -59,7 +59,7 @@ export function GroundPanel({
         <h2 className="display text-[23px] font-semibold">The ground</h2>
         <p className="text-[15px] text-ink-2">{when}</p>
       </div>
-      <div className="stage mt-3 aspect-[4/3] min-h-[380px]">
+      <div className="stage mt-3 aspect-[4/3] sm:min-h-[380px]">
         <div className="absolute inset-0">
           <Scene3DLazy mode={mode} scene={scene} site={site} sites={sites} heightmap={heightmap} capHeightmap={capHeightmap} exaggeration={exaggeration} textureUrl={textureUrl} onPick={onPick} reducedMotion={reducedMotion} />
         </div>

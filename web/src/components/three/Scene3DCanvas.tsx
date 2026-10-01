@@ -8,6 +8,7 @@ import { SiteMarker } from './SiteMarker';
 import { shadowHalfKmFor, SunAndEarth } from './SunAndEarth';
 import { CAP_HALF_PX, Terrain } from './Terrain';
 import type { Scene3DProps } from './Scene3D';
+import { siteLabel } from '@/lib/data/loaders';
 
 export function Scene3DCanvas(props: Scene3DProps) {
   const { mode, scene, site, sites, heightmap, capHeightmap, exaggeration, onPick, reducedMotion = false, textureUrl = null, onContextLost } = props;
@@ -43,7 +44,7 @@ export function Scene3DCanvas(props: Scene3DProps) {
       ) : (
         <>
           <Terrain heightmap={heightmap} capHeightmap={capHeightmap} site={site} exaggeration={exaggeration} />
-          <SiteMarker name={site.name} />
+          <SiteMarker name={siteLabel(site)} />
           <SunAndEarth scene={scene} mode="terrain" shadowHalfKm={shadowHalfKmFor(terrainSizeKm)} />
         </>
       )}

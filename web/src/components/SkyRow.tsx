@@ -266,7 +266,7 @@ export function SkyRow({
     : [];
 
   return (
-    <div role="img" aria-label={`${caption}. ${said}`} className="relative w-full overflow-hidden text-stage-ink-2" style={{ height: total, background: 'var(--stage)' }}>
+    <div role="img" aria-label={`${caption}. ${said}`} className="@container relative w-full overflow-hidden text-stage-ink-2" style={{ height: total, background: 'var(--stage)' }}>
       <svg viewBox={`0 0 ${W} ${total}`} preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
         {g.clipped && (
           <defs>
@@ -314,7 +314,7 @@ export function SkyRow({
         scale
           .filter(({ deg }) => clearOfTitle(g.y(deg)))
           .map(({ deg, words }) => (
-            <Label key={deg} plate className={`absolute ${scaleSide === 'left' ? AT_LEFT : AT_RIGHT}`} style={{ top: g.y(deg) - 11 }}>
+            <Label key={deg} plate className={`absolute @max-[480px]:hidden ${scaleSide === 'left' ? AT_LEFT : AT_RIGHT}`} style={{ top: g.y(deg) - 11 }}>
               {words}
             </Label>
           ))}
@@ -333,10 +333,10 @@ export function SkyRow({
       {placed.map((p) => (
         <span key={p.run.from} className="contents">
           {p.words && (
-            <Centred at={p.middle} className={`${after} ${p.long ? '' : 'max-md:hidden'}`} style={{ top: top + 34 }}>
+            <Centred at={p.middle} className={`${after} ${p.long ? '' : '@max-[900px]:hidden'}`} style={{ top: top + 34 }}>
               <Label size={17} plate className="font-semibold text-stage-ink">
                 {gap} for {spanWords(p.run.to - p.run.from)}
-                {p.long && <span className="max-md:hidden">: {reason}</span>}
+                {p.long && <span className="@max-[560px]:hidden">: {reason}</span>}
               </Label>
             </Centred>
           )}

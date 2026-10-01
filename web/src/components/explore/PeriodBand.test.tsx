@@ -33,4 +33,16 @@ describe('PeriodBand', () => {
     render(<PeriodBand site={custom} startUtc="2027-01-01T00:00:00" days={30} onWindow={() => {}} power={DEFAULT_POWER} onLander={() => {}} />);
     expect(screen.getByRole('link', { name: 'Landing site: Custom site -89.500°, 10.000°. Change site' })).toBeTruthy();
   });
+
+  it('gives the lander more room than the site at 1440 px, and lets both shrink on a phone', () => {
+    render(<PeriodBand site={{ id: 's', name: 'Site', lat: -89, lon: 0, category: 'classic', polar: true, source: 'x' }} startUtc="2027-01-01T00:00:00" days={30} onWindow={() => {}} power={DEFAULT_POWER} onLander={() => {}} />);
+    const lander = screen.getByRole('button', { name: /^Lander:/ }).parentElement!;
+    const site = screen.getByRole('link', { name: /^Landing site:/ }).parentElement!;
+    expect(lander.className).toMatch(/flex-\[1\.4_1_250px\]/);
+    expect(site.className).toMatch(/flex-\[1_1_250px\]/);
+    // A long lander name must not hold the band wider than a phone: the columns may shrink and the name is cut with an ellipsis.
+    for (const col of [lander, site]) expect(col.className).toMatch(/(^| )min-w-0( |$)/);
+    for (const control of [screen.getByRole('button', { name: /^Lander:/ }), screen.getByRole('link', { name: /^Landing site:/ })]) expect(control.className).toMatch(/(^| )min-w-0( |$)/);
+    expect(screen.getByRole('region', { name: 'What this forecast is for' }).className).toMatch(/(^| )min-w-0( |$)/);
+  });
 });

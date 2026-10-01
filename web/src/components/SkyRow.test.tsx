@@ -60,6 +60,8 @@ describe('SkyRow', () => {
     // The night sits left of the middle, so the words go to the right edge.
     const five = labelsOf(container).find((l) => l.textContent === '5° up')!;
     expect(five.className).toMatch(/right-\[var\(--chart-inset,10px\)\]/);
+    // On a chart narrower than a phone screen the words of the height lines give way to the words about the night.
+    expect(five.className).toMatch(/@max-\[480px\]:hidden/);
   });
 
   it('takes the spacing of its height lines from the chart it belongs to', () => {
@@ -104,9 +106,12 @@ describe('SkyRow', () => {
     expect(words).toContain('Earth sets 23 Jan');
     // On a phone the chart is too narrow for two sentences side by side: only the longest stretch keeps its words.
     const short = labelsOf(container).find((l) => l.textContent === 'No contact for 7 days 9 hours')!;
-    expect(short.parentElement!.className).toMatch(/max-md:hidden/);
+    // The test is the chart's own width (a container query), not the window's: the chart can be narrow in a wide window.
+    expect((container.firstElementChild as HTMLElement).className).toMatch(/(^| )@container( |$)/);
+    expect(short.parentElement!.className).toMatch(/@max-\[900px\]:hidden/);
     const long = labelsOf(container).find((l) => /^No contact for 9 days 3 hours/.test(l.textContent ?? ''))!;
-    expect(long.parentElement!.className).not.toMatch(/max-md:hidden/);
+    expect(long.parentElement!.className).not.toMatch(/hidden/);
+    expect(long.querySelector('span')!.className).toMatch(/@max-\[560px\]:hidden/);
   });
 
   it('gives rows the same height for a degree when told how many pixels a degree takes', () => {

@@ -41,6 +41,9 @@ describe('GroundPanel', () => {
     expect(panel.textContent).toMatch(/2 Jan 2027, 06:00 UTC/);
     // jsdom has no WebGL: the 3D view shows its fallback, which proves it mounted with the site.
     await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/3D view is not available/));
+    // The fallback names the site as the page does and points at what still shows it.
+    expect(screen.getByRole('status').textContent).toMatch(/de Gerlache Rim 2 is still shown in the chart above/);
+    expect(screen.getByRole('status').textContent).not.toMatch(/Artemis III region|sky-dome/);
   });
 
   it('switches between the terrain and the globe, and between true and tripled heights', () => {

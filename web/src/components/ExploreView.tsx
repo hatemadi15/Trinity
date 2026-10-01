@@ -114,7 +114,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   return (
     <AppFrame>
       <main className="flex flex-col">
-        <div className="wrap flex flex-col gap-6 pb-10 pt-6">
+        <div className="wrap flex w-full min-w-0 flex-col gap-6 pb-10 pt-6">
           <PeriodBand site={site} startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} power={s.params.power} onLander={() => setLanderOpen(true)} landerRef={landerRef} />
           {s.error && (
             <p role="status" className="text-[15px] text-bad">
