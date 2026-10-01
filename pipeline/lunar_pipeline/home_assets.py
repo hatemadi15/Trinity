@@ -19,9 +19,11 @@ from . import config
 from .ephemeris import load_table
 from .geometry import azel_from_body_vectors, ps_south_xy_m
 from .horizon import mask_at_azimuth
-from .illumination import disk_fraction, sun_radius_deg
+from .illumination import disk_fraction, hourly_series, sun_radius_deg
+from .landing import best_landing, powered_from
 from .lola import LolaGrid
 from .masks import load_grids, load_mask
+from .power import PowerConfig, config_dict, power_series
 from .shadow import Level, cast, shade, sun_bearing_deg
 from .sites import Site, all_sites
 from .terrain3d import window_heights
@@ -69,6 +71,19 @@ def sky_series(site: Site, mask: np.ndarray, table: np.ndarray, header: dict, st
         "earth_hill_el": r2(earth_hill),
         "earth_visible": [int(v) for v in earth_visible],
         "earth_pct": round(100.0 * float(earth_visible.mean()), 1),
+    }
+
+
+def battery_facts(series: dict, cfg: PowerConfig, hours: int) -> dict:
+    """What the battery does for landings in the first `hours` of `series`: the time with power for a lander
+    that lands at the first hour, and the landing hour that gives the longest (None when no hour is sunlit).
+    Time with power is capped at `hours`; it may run past the period when the series is longer."""
+    best = best_landing(series, cfg, 0, hours, 1, hours)
+    return {
+        "lander": config_dict(cfg),
+        "now_hours": powered_from(power_series(series, cfg), cfg, 0, hours),
+        "best_hour": best["hour"] if best else None,
+        "best_hours": best["powered_hours"] if best else None,
     }
 
 
@@ -217,6 +232,8 @@ def write_all(web_dir: Path = config.REPO_ROOT / "web") -> list[Path]:
             "distance_km": round(distance_km(site.lat, site.lon, rim.lat, rim.lon), 1),
         },
         "facts": facts(read("horizons.json"), read("mazarico.json"), read("backcasts.json")),
+        # The series runs a second month past the first, so a landing late in January keeps counting into February (as Explore does).
+        "battery": battery_facts(hourly_series(site, load_mask(site.id), table, header, HERO_START, 2 * HERO_HOURS), PowerConfig(), HERO_HOURS),
         "relief": {"image": "/maps/south-pole-relief.jpg", "half_km": RELIEF_HALF_KM, "sites": relief_pins(list(sites.values()))},
     }
     json_path = web_dir / "src" / "lib" / "data" / "home.json"
