@@ -30,6 +30,13 @@ describe('home page', () => {
     expect(chart.querySelector('.reveal-line')).toBeTruthy();
   });
 
+  it('marks the black hero as a stage, so its buttons and links get the focus ring that shows on black', () => {
+    render(<Home />);
+    const hero = screen.getByRole('region', { name: 'See when a Moon lander has sunlight and a signal.' });
+    expect(hero.hasAttribute('data-stage')).toBe(true);
+    expect(hero.contains(screen.getByRole('link', { name: 'Explore a landing site' }))).toBe(true);
+  });
+
   it('says under the forecast what the site is and where the numbers come from, and links to the site', () => {
     render(<Home />);
     const hero = screen.getByRole('region', { name: 'See when a Moon lander has sunlight and a signal.' });

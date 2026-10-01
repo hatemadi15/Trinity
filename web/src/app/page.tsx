@@ -57,7 +57,7 @@ export default function Home() {
     <AppFrame>
       <main>
         {/* The page opens on the black of an airless sky and on a real forecast that runs from edge to edge. */}
-        <section aria-labelledby="h-hero" className="bg-stage text-stage-ink">
+        <section aria-labelledby="h-hero" data-stage="" className="bg-stage text-stage-ink">
           <div className="wrap pt-10 sm:pt-11">
             <h1 id="h-hero" className="display max-w-[1100px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[76px]">
               See when a Moon lander has sunlight and a signal.

@@ -125,6 +125,11 @@ html {
   outline: 2px solid var(--sun-ink);
   outline-offset: 2px;
 }
+/* On a picture panel the ring is the bright gold in both themes: the dark gold of the light theme would vanish on black. */
+.stage :focus-visible,
+[data-stage] :focus-visible {
+  outline-color: var(--stage-sun);
+}
 
 @media (prefers-reduced-motion: reduce) {
   * {

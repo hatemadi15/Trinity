@@ -60,6 +60,12 @@ describe('theme tokens', () => {
     expect(css).toMatch(/\.stage \{[^}]*border: 1px solid var\(--stage-line\)/);
   });
 
+  it('draws the focus ring in the bright gold on a picture panel, where the dark gold of the light theme would vanish', () => {
+    expect(contrast(light['--sun-ink'], light['--stage'])).toBeLessThan(3);
+    expect(contrast(light['--stage-sun'], light['--stage'])).toBeGreaterThanOrEqual(3);
+    expect(css).toMatch(/\.stage :focus-visible,\s*\[data-stage\] :focus-visible \{[^}]*outline-color: var\(--stage-sun\)/);
+  });
+
   it('meets AA contrast for text in both themes and on the stage', () => {
     for (const [name, t] of [['light', light], ['dark', dark]] as const) {
       const pairs: [string, string][] = [
