@@ -15,7 +15,7 @@ describe('home page', () => {
     const gold = hero.querySelectorAll('.btn-primary');
     expect(gold).toHaveLength(1);
     expect(gold[0].textContent).toBe('Explore a landing site');
-    expect(gold[0].getAttribute('href')).toBe('/explore');
+    expect(gold[0].getAttribute('href')).toBe('/sites');
     expect(within(hero).getByText('For mission planners, educators and anyone curious.')).toBeTruthy();
   });
 
@@ -132,7 +132,7 @@ describe('home page', () => {
     render(<Home />);
     const end = screen.getByRole('region', { name: 'Try it on a landing site' });
     const cta = within(end).getByRole('link', { name: 'Explore a landing site' });
-    expect(cta.getAttribute('href')).toBe('/explore');
+    expect(cta.getAttribute('href')).toBe('/sites');
     expect(cta.className).toMatch(/btn-primary/);
     // Two gold buttons on the page, never on one screen: the top and the end.
     expect(document.querySelectorAll('main .btn-primary')).toHaveLength(2);

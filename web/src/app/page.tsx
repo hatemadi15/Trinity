@@ -71,7 +71,7 @@ export default function Home() {
               </p>
               <div className="shrink-0">
                 <div className="flex flex-wrap gap-3">
-                  <Link href="/explore" className="btn btn-primary h-[52px] px-[22px] text-[17px]">
+                  <Link href="/sites" className="btn btn-primary h-[52px] px-[22px] text-[17px]">
                     Explore a landing site
                   </Link>
                   <a href="#why" className="btn h-[52px] px-[22px] text-[17px]">
@@ -240,7 +240,7 @@ export default function Home() {
                 Pick a site near the south pole, or any point you choose, and a date. Earthrise shows its sunlight, its contact with Earth and its battery, hour by hour.
               </p>
             </div>
-            <Link href="/explore" className="btn btn-primary h-[52px] w-fit shrink-0 px-[22px] text-[17px]">
+            <Link href="/sites" className="btn btn-primary h-[52px] w-fit shrink-0 px-[22px] text-[17px]">
               Explore a landing site
             </Link>
           </div>

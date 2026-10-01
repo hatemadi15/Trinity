@@ -3,9 +3,9 @@ import { BrandMark } from './BrandMark';
 import { DemoModeGate } from './DemoModeGate';
 import { ThemeSwitch } from './ThemeSwitch';
 
-/** The four sections in plain words. "Explore a site" opens the site list once part 2 adds it. */
+/** The four sections in plain words. "Explore a site" opens the site list. */
 export const NAV = [
-  { href: '/explore', label: 'Explore a site' },
+  { href: '/sites', label: 'Explore a site' },
   { href: '/compare', label: 'Compare sites' },
   { href: '/learn', label: 'How it works' },
   { href: '/validate', label: 'Accuracy' },
