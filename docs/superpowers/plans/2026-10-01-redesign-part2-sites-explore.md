@@ -5096,3 +5096,23 @@ Add to `web/README.md`: the `/sites` page and what its columns mean; how the ans
 git add web/public/validation/tests.json web/README.md
 git commit -m "chore(web): test badge and notes on the site list and the answer page"
 ```
+
+---
+
+### Task 13: The home page says what the battery does
+
+Added on 2 October 2026. In the second and third blind reads of part 1 both readers looked for the battery the home page promises ("and whether the battery survives the night") and did not find it. This task adds one sentence with the figures of Task 2's engine.
+
+**Files:**
+- Modify: `pipeline/lunar_pipeline/home_assets.py`, `pipeline/tests/test_home_assets.py`; regenerate `web/src/lib/data/home.json` with `home-assets` (the pictures do not change)
+- Modify: `web/src/lib/data/home.ts`, `web/src/lib/data/home.test.ts`, `web/src/app/page.tsx`, `web/src/app/page.test.tsx`
+
+**Interfaces:**
+- Consumes: `powered_from`, `best_landing` (Task 2, Python); `illumination.hourly_series`; `PowerConfig`, `config_dict`, `power_series`; `spanWords`, `dayMonth` (web).
+- Produces: `battery_facts(series: dict, cfg: PowerConfig, hours: int) -> dict` with keys `lander` (the config), `now_hours`, `best_hour`, `best_hours`; `home.json` gains `battery` with those keys; `HomeDoc.battery`.
+
+- [ ] **Step 1: Failing pipeline test.** `test_battery_facts_give_the_time_with_power_now_and_on_the_best_day` on the synthetic series of `test_landing.py` (sun `[0]*10 + [1]*20 + [0]*30 + [1]*5 + [0]*40`, the ten-hour battery): `now_hours == 0` (no sunlight at hour 0 and the first brownout... use the expected values the reference gives), `best_hour == 10`, `best_hours == 30`. Extend the data test of `write_all`: `battery.now_hours == 76`, `battery.best_hour == 466`, `battery.best_hours == 303` (the values of `data/fixtures/landing/de_gerlache_rim_2_2027-01-01_30d.json`).
+- [ ] **Step 2: Implement** `battery_facts` from `powered_from` and `best_landing` over the hero month (`hourly_series` for the hero site, the default `PowerConfig`), add `battery` to `home.json`, run `home-assets`.
+- [ ] **Step 3: Failing web tests.** `home.test.ts`: `HOME.battery` matches the landing fixture of the hero site (now, best hour, best hours). `page.test.tsx`: the forecast band says "A small lander (4 m² of solar panels, a 2 kWh battery) that lands on 1 January keeps power for 3 days 4 hours. Landing on 20 January instead keeps it going for 12 days 15 hours." (numbers and dates from `HOME.battery`, durations with `spanWords`, dates with `dayMonth`).
+- [ ] **Step 4: Implement** the sentence under the chart, above the note, at full strength; keep the whole chart and this sentence on the first screen at 1440 by 900 (adjust `PX_PER_DEG` or spacing if needed, and rule on it).
+- [ ] **Step 5: Look, gates, commit.**
