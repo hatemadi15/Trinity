@@ -1,59 +1,126 @@
 @import "tailwindcss";
 
-/* The locked cockpit layout needs room; short screens (768 px laptops, projectors) get the flowing page instead. */
+/* The locked cockpit layout of the old Explore needs room; short screens get the flowing page instead. Removed with it in part 2. */
 @custom-variant tall (@media (min-height: 800px));
 
+/*
+ * Light is the default theme; data-theme="dark" on <html> swaps the values (set before paint by the
+ * inline script in layout.tsx). Picture panels ("stages": charts on black, shadow map, 3D, relief
+ * maps) keep the same dark colours in both themes.
+ */
 :root {
-  --canvas: #0b0d10;
-  --panel: #14171c;
-  --glass: rgba(20, 23, 28, 0.78);
-  --sky: #000000;
-  --line: #2b3038;
-  --ink: #f1ede6;
-  --ink-2: #c9c2b4;
-  --ink-3: #8a857c;
+  --page: #f3f2ee;
+  --surface: #ffffff;
+  --surface-2: #efede7;
+  --line: #dfdcd4;
+  --line-strong: #c4c0b5;
+  --ink: #15181d;
+  --ink-2: #414752;
+  --ink-3: #636b79;
   --sun: #f2b134;
-  --sun-bright: #ffc65c;
-  --earth: #5b9cf0;
-  --terrain: #6f6a62;
-  --terrain-edge: #a39e94;
+  --sun-ink: #8a5a00;
+  --sun-hover: #e3a323;
+  --earth: #2f6fdd;
+  --earth-ink: #1f57b8;
+  --good: #11794f;
+  --good-bg: rgba(17, 121, 79, 0.08);
+  --good-line: rgba(17, 121, 79, 0.35);
+  --bad: #bf3a2c;
+  --bad-bg: rgba(191, 58, 44, 0.07);
+  --bad-line: rgba(191, 58, 44, 0.35);
+  --warn: #8a5a00;
+  --sun-on: #1a1407;
+  --stage: #050608;
+  --stage-ink: #f4f1ea;
+  --stage-ink-2: #c9c3b7;
+  --stage-line: #2b3038;
+  --stage-sun: #f5b63a;
+  --stage-earth: #6aa9ff;
+  --hill: #6d6962;
+  --hill-edge: #e9e3d7;
+  /* Old names, still used by the pages that parts 2 to 4 rebuild. */
+  --canvas: var(--page);
+  --panel: var(--surface);
+  --sky: var(--stage);
   --night: #0a0b0d;
-  --good: #2fb27c;
-  --warn: #f2b134;
-  --bad: #e66767;
+  --sun-bright: #ffc65c;
+  --terrain: var(--hill);
+  --terrain-edge: #a39e94;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --page: #0b0d11;
+  --surface: #14181e;
+  --surface-2: #1c2129;
+  --line: #272d37;
+  --line-strong: #3b4350;
+  --ink: #f4f1ea;
+  --ink-2: #cbc5b9;
+  --ink-3: #9e998f;
+  --sun: #f5b63a;
+  --sun-ink: #f5b63a;
+  --sun-hover: #ffc65c;
+  --earth: #6aa9ff;
+  --earth-ink: #8dbdff;
+  --good: #46c98b;
+  --good-bg: rgba(70, 201, 139, 0.1);
+  --good-line: rgba(70, 201, 139, 0.4);
+  --bad: #ff7d72;
+  --bad-bg: rgba(255, 125, 114, 0.09);
+  --bad-line: rgba(255, 125, 114, 0.4);
+  --warn: #f5b63a;
   color-scheme: dark;
 }
 
 @theme inline {
-  --color-canvas: var(--canvas);
-  --color-panel: var(--panel);
-  --color-glass: var(--glass);
-  --color-sky: var(--sky);
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-sun: var(--sun);
-  --color-sun-bright: var(--sun-bright);
+  --color-sun-ink: var(--sun-ink);
+  --color-sun-on: var(--sun-on);
+  --color-sun-hover: var(--sun-hover);
   --color-earth: var(--earth);
-  --color-terrain: var(--terrain);
-  --color-night: var(--night);
+  --color-earth-ink: var(--earth-ink);
   --color-good: var(--good);
-  --color-warn: var(--warn);
+  --color-good-bg: var(--good-bg);
+  --color-good-line: var(--good-line);
   --color-bad: var(--bad);
+  --color-bad-bg: var(--bad-bg);
+  --color-bad-line: var(--bad-line);
+  --color-warn: var(--warn);
+  --color-stage: var(--stage);
+  --color-stage-ink: var(--stage-ink);
+  --color-stage-ink-2: var(--stage-ink-2);
+  --color-stage-line: var(--stage-line);
+  --color-stage-sun: var(--stage-sun);
+  --color-stage-earth: var(--stage-earth);
+  --color-hill: var(--hill);
+  --color-canvas: var(--canvas);
+  --color-panel: var(--panel);
+  --color-sky: var(--sky);
+  --color-night: var(--night);
+  --color-sun-bright: var(--sun-bright);
+  --color-terrain: var(--terrain);
   --font-display: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
   --font-text: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
 }
 
 html {
-  background: var(--canvas);
+  background: var(--page);
   color: var(--ink);
   font-family: var(--font-text);
   font-variant-numeric: tabular-nums;
 }
 
 :focus-visible {
-  outline: 2px solid var(--sun-bright);
+  outline: 2px solid var(--sun-ink);
   outline-offset: 2px;
 }
 
@@ -64,18 +131,126 @@ html {
   }
 }
 
-/* Printable brief: light page tokens and a print stylesheet (A4 portrait). */
+/* Shared pieces. They live in the components layer so that any Tailwind utility can still override them. */
+@layer components {
+  .wrap {
+    max-width: 1280px;
+    margin-inline: auto;
+    padding-inline: 32px;
+  }
+  @media (max-width: 640px) {
+    .wrap {
+      padding-inline: 16px;
+    }
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    height: 48px;
+    padding: 0 20px;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    background: transparent;
+    color: var(--ink);
+    font-size: 16px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .btn:hover {
+    background: var(--surface-2);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+  }
+  .btn-primary {
+    background: var(--sun);
+    border-color: var(--sun);
+    color: var(--sun-on);
+    font-weight: 600;
+  }
+  .btn-primary:hover {
+    background: var(--sun-hover);
+    border-color: var(--sun-hover);
+  }
+  .btn-ink {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--page);
+    font-weight: 600;
+  }
+  .btn-ink:hover {
+    background: var(--ink-2);
+    border-color: var(--ink-2);
+  }
+  .btn-sm {
+    height: 44px;
+    padding: 0 16px;
+    font-size: 15px;
+  }
+  .field {
+    height: 52px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 16px;
+  }
+  .panel {
+    border-radius: 16px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    padding: 20px 24px;
+  }
+  .stage {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+    background: var(--stage);
+    color: var(--stage-ink);
+  }
+  /* Old panels: solid surfaces now. Removed in part 4. */
+  .glass {
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+  .glass-bar {
+    background: var(--page);
+  }
+}
+
+/*
+ * Printable brief: always a light page (A4 portrait), whatever the theme. Every themed token is set
+ * here, because an alias such as --canvas is resolved on <html> and would otherwise carry the dark
+ * theme's value into the brief.
+ */
 .brief {
-  --canvas: #ffffff;
-  --panel: #ffffff;
+  --page: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1efea;
   --line: #c8c4bc;
+  --line-strong: #a9a59b;
   --ink: #111111;
   --ink-2: #3a3a3a;
   --ink-3: #6a6a6a;
-  --good: #157a55;
-  --bad: #b83c3c;
   --sun: #a06a00;
-  background: var(--canvas);
+  --sun-ink: #8a5a00;
+  --sun-hover: #8a5a00;
+  --earth: #2f6fdd;
+  --earth-ink: #1f57b8;
+  --good: #157a55;
+  --good-bg: rgba(21, 122, 85, 0.08);
+  --good-line: rgba(21, 122, 85, 0.35);
+  --bad: #b83c3c;
+  --bad-bg: rgba(184, 60, 60, 0.07);
+  --bad-line: rgba(184, 60, 60, 0.35);
+  --warn: #8a5a00;
+  --canvas: #ffffff;
+  --panel: #ffffff;
+  color-scheme: light;
+  background: var(--page);
   color: var(--ink);
 }
 @media print {
@@ -90,50 +265,5 @@ html {
   body {
     background: #ffffff;
     color: #111111;
-  }
-}
-
-/*
- * Instrument glass: thin dark panels over the terrain render. They live in the components layer so
- * that any utility (Tailwind sorts utilities after components) can still override a colour or a
- * border, for example border-sun/40 on the guided story.
- */
-@layer components {
-  .glass {
-    background: var(--glass);
-    border: 1px solid var(--line);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-  }
-  .glass-bar {
-    background: rgba(11, 13, 16, 0.86);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-  }
-}
-
-/* Landing hero: three real renders at three dates; the shadows sweep once on load. */
-@layer components {
-  .hero-frame {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-  }
-  .hero-frame-1 {
-    opacity: 1;
-  }
-  .hero-frame-2 {
-    animation: hero-fade 2.4s ease-in-out 3s both;
-  }
-  .hero-frame-3 {
-    animation: hero-fade 2.4s ease-in-out 6.5s both;
-  }
-}
-@keyframes hero-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
