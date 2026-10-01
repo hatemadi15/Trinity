@@ -72,3 +72,8 @@ export function isoAt(startUtc: string, hour: number): string {
 export function pct0(x: number): string {
   return `${Math.round(x * 100)}\u00a0%`;
 }
+/** The UTC date and hour `hour` hours after the start, for the time bar: "2 Jan 2027, 06:00 UTC". */
+export function dateTimeUtc(startUtc: string, hour: number): string {
+  const { d } = at(startUtc, hour);
+  return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${d.toISOString().slice(11, 16)} UTC`;
+}

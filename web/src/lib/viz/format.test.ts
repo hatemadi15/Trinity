@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clockUtc, dateLong, dayMonth, isoAt, pct0, spanShort, spanWords } from './format';
+import { clockUtc, dateLong, dateTimeUtc, dayMonth, isoAt, pct0, spanShort, spanWords } from './format';
 
 describe('durations', () => {
   it('writes days and hours in words for sentences', () => {
@@ -38,5 +38,12 @@ describe('dates for sentences and buttons', () => {
   it('writes a share as a whole percentage', () => {
     expect(pct0(0.446)).toBe('45 %');
     expect(pct0(1)).toBe('100 %');
+  });
+});
+
+describe('the time bar label', () => {
+  it('writes the date, the year and the UTC hour', () => {
+    expect(dateTimeUtc('2027-01-01T00:00:00', 30)).toBe('2 Jan 2027, 06:00 UTC');
+    expect(dateTimeUtc('2027-12-31T20:00:00', 6)).toBe('1 Jan 2028, 02:00 UTC');
   });
 });
