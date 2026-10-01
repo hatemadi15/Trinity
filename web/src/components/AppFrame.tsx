@@ -40,8 +40,10 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       </header>
       <div className="flex-1">{children}</div>
       <footer className="border-t border-line">
-        <div className="wrap flex flex-wrap justify-between gap-x-8 gap-y-2 py-7 text-[15px] text-ink-3">
-          <p>Made by team Astroy/Ed for NASA Space Apps 2026, challenge “CLPS Lunar Mission Browser”. Not an official NASA product.</p>
+        <div className="wrap flex flex-wrap justify-between gap-x-8 gap-y-2 py-7 text-[15px] text-ink-2">
+          <p>
+            Made by team Astroy/Ed for NASA Space Apps 2026, challenge “CLPS Lunar Mission Browser” (CLPS: NASA&apos;s Commercial Lunar Payload Services). Not an official NASA product.
+          </p>
           <p>Terrain: NASA Lunar Reconnaissance Orbiter laser altimeter (LOLA). Sun and Earth positions: NASA JPL DE440. Cross-check: JPL Horizons.</p>
         </div>
       </footer>

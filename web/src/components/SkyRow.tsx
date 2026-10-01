@@ -1,6 +1,6 @@
 import { useId, type CSSProperties, type ReactNode } from 'react';
 import { dayMonth, spanWords } from '@/lib/viz/format';
-import { compassTicks, eventLabelSides, hiddenBy, longestHidden, rowGeometry, rowRange, scaleLabelSide, scaleLines } from '@/lib/viz/skyrow';
+import { compassTicks, eventLabelSides, hiddenBy, hiddenRuns, longestHidden, rowGeometry, rowRange, scaleLabelSide, scaleLines, type LabelSide } from '@/lib/viz/skyrow';
 
 /** Width of the drawing's own coordinates. The drawing stretches sideways to fill its container; its height is fixed. */
 const W = 1216;
@@ -14,7 +14,7 @@ const AT_RIGHT = 'right-[var(--chart-inset,10px)]';
  * A label on the picture. Labels are page text laid over the drawing, not text inside it, so they keep
  * their size when the chart gets narrower. A solid plate stands behind the ones that can sit on the hills.
  */
-function Label({ children, size = 15, plate = false, className = '', style }: { children: ReactNode; size?: number; plate?: boolean; className?: string; style?: CSSProperties }) {
+function Label({ children, size = 16, plate = false, className = '', style }: { children: ReactNode; size?: number; plate?: boolean; className?: string; style?: CSSProperties }) {
   return (
     <span data-label="" className={`whitespace-nowrap ${plate ? 'rounded-[5px] bg-stage/80 px-1.5' : ''} ${className}`} style={{ fontSize: size, lineHeight: `${size + 8}px`, ...style }}>
       {children}
@@ -62,7 +62,7 @@ export function SkyRowKey({ body, compass = false, className = '' }: { body: 'su
   const item = 'flex items-center gap-2';
   if (body === 'both') {
     return (
-      <ul className={`flex flex-wrap gap-x-6 gap-y-1.5 text-[15px] ${className}`}>
+      <ul className={`flex flex-wrap gap-x-6 gap-y-1.5 text-base ${className}`}>
         <li className={item}>
           <Chip>
             <LineSample color="var(--stage-sun)" />
@@ -95,7 +95,7 @@ export function SkyRowKey({ body, compass = false, className = '' }: { body: 'su
   const who = body === 'sun' ? 'the Sun' : 'Earth';
   const name = body === 'sun' ? 'Sun' : 'Earth';
   return (
-    <ul className={`flex flex-wrap gap-x-6 gap-y-1.5 text-[15px] ${className}`}>
+    <ul className={`flex flex-wrap gap-x-6 gap-y-1.5 text-base ${className}`}>
       <li className={item}>
         <Chip>
           <LineSample color={color} />
@@ -112,10 +112,33 @@ export function SkyRowKey({ body, compass = false, className = '' }: { body: 'su
         <Chip>{HILL_SAMPLE}</Chip>
         hills in {who}&apos;s direction at that time
       </li>
-      {compass && <li>Top row: the compass direction {who} is in on that date.</li>}
+      {compass && <li>Top row: the direction {who} is in on that date.</li>}
     </ul>
   );
 }
+
+/** Half the width, in percent, that the words on a hidden stretch take: the full sentence, and the short form. */
+const LONG_HALF = 21;
+const SHORT_HALF = 9;
+/** A hidden stretch narrower than this, in percent of the width, gets no words of its own. */
+const SHORT_MIN = 22;
+/** The share of the width one sunset or sunrise label needs. */
+const EVENT_NEED = 17;
+
+type Run = { from: number; to: number };
+/** The words placed for one hidden stretch: the sentence (or not), and where its sunset and sunrise labels sit. */
+interface RunWords {
+  run: Run;
+  long: boolean;
+  words: boolean;
+  middle: number;
+  fromPct: number;
+  toPct: number;
+  set: LabelSide;
+  rise: LabelSide;
+}
+
+const overlaps = (lane: [number, number][], a: number, b: number) => lane.some(([x, y]) => y > a && x < b);
 
 /**
  * One row of the time chart as a static picture: the body's height (solid while visible, dotted while
@@ -123,6 +146,8 @@ export function SkyRowKey({ body, compass = false, className = '' }: { body: 'su
  * the top; `ticks` writes the days along the bottom; `reveal` draws the line once from left to right
  * when the page opens and then shows the words about it. `fitHills` makes room for the whole of the
  * hills instead of letting tall ones run off the top; `title` names the row in its top left corner.
+ * `pxPerDeg` makes the row as tall as its range needs at that many pixels a degree, so rows drawn
+ * together share one height scale.
  */
 export function SkyRow({
   el,
@@ -137,6 +162,7 @@ export function SkyRow({
   reveal = false,
   fitHills = false,
   title,
+  pxPerDeg,
 }: {
   el: ArrayLike<number>;
   hill: ArrayLike<number>;
@@ -150,22 +176,25 @@ export function SkyRow({
   reveal?: boolean;
   fitHills?: boolean;
   title?: string;
+  pxPerDeg?: number;
 }) {
   const id = useId();
   const hours = el.length;
   const top = az ? 30 : 8;
-  const total = top + height + (ticks ? 30 : 8);
-  const range = rowRange(el, hill, { headroom: 4, headroomShare: 0.36, fitHills });
-  const g = rowGeometry(el, hill, visible, { x: 0, y: top, w: W, h: height }, range);
+  const range = pxPerDeg ? rowRange(el, hill, { headroom: 1, fitHills }) : rowRange(el, hill, { headroom: 4, headroomShare: 0.36, fitHills });
+  const rowHeight = pxPerDeg ? (range.max - range.min) * pxPerDeg : height;
+  const total = top + rowHeight + (ticks ? 30 : 8);
+  const g = rowGeometry(el, hill, visible, { x: 0, y: top, w: W, h: rowHeight }, range);
   const color = body === 'sun' ? 'var(--stage-sun)' : 'var(--stage-earth)';
   const name = body === 'sun' ? 'Sun' : 'Earth';
   const who = body === 'sun' ? 'the Sun' : 'Earth';
   const subject = body === 'sun' ? 'The Sun' : 'Earth';
+  const gap = body === 'sun' ? 'Night' : 'No contact';
   const after = reveal ? 'reveal-after' : '';
   /** Centre of an hour, in percent of the width. */
   const pct = (hour: number) => ((hour + 0.5) / hours) * 100;
 
-  // The longest hidden stretch gets the words on the picture and in the description.
+  // The longest hidden stretch gets the full sentence on the picture and in the description.
   const dark = longestHidden(visible);
   const span = dark ? spanWords(dark.to - dark.from) : '';
   const fromStart = dark?.from === 0;
@@ -177,15 +206,46 @@ export function SkyRow({
   else if (dark) said = `${subject} is hidden from ${dayMonth(startUtc, dark.from)} to ${dayMonth(startUtc, dark.to)}, ${span}.`;
   // The Sun behind a ridge and Earth below a flat horizon call for different words.
   const reason = dark && hiddenBy(el, hill, dark.from, Math.min(dark.to, hours)) === 'horizon' ? `${who} is below the horizon` : `the hills stand higher than ${who}`;
-  const middle = dark ? ((dark.from + dark.to) / 2 / hours) * 100 : 50;
-  const fromPct = dark && !fromStart ? pct(dark.from) : 0;
-  const toPct = dark && !toEnd ? pct(dark.to) : 100;
-  const sides = dark ? eventLabelSides(fromPct, toPct) : { set: null, rise: null };
-  const scaleSide = scaleLabelSide(dark ? { fromPct, toPct, ...sides } : null);
-  /** Just under the body's line at that hour, but never down in the row of dates. */
-  const under = (hour: number) => Math.min(g.y(el[hour]) + 14, top + height - 27);
 
-  const scale = scaleLines(range, height);
+  // Words for every hidden stretch, the longest first: the others get a short sentence and their dates
+  // only where these do not collide with words already placed (one lane along the top, one along the line).
+  const topLane: [number, number][] = [];
+  const lineLane: [number, number][] = [];
+  const others: [number, number][] = [];
+  const placed: RunWords[] = [];
+  const ordered = dark ? [dark, ...hiddenRuns(visible).filter((r) => r.from !== dark.from)] : [];
+  for (const run of ordered) {
+    const long = run === dark;
+    const fromPct = run.from === 0 ? 0 : pct(run.from);
+    const toPct = run.to >= hours ? 100 : pct(run.to);
+    const middle = ((run.from + run.to) / 2 / hours) * 100;
+    const half = long ? LONG_HALF : SHORT_HALF;
+    const words = long || (toPct - fromPct >= SHORT_MIN && !overlaps(topLane, middle - half, middle + half));
+    if (words) {
+      topLane.push([middle - half, middle + half]);
+      if (!long) others.push([middle - half, middle + half]);
+    }
+    const sides = eventLabelSides(fromPct, toPct, EVENT_NEED);
+    const setAt: [number, number] = sides.set === 'inside' ? [fromPct, fromPct + EVENT_NEED] : [fromPct - EVENT_NEED, fromPct];
+    const riseAt: [number, number] = sides.rise === 'inside' ? [toPct - EVENT_NEED, toPct] : [toPct, toPct + EVENT_NEED];
+    const set = sides.set && (long || !overlaps(lineLane, ...setAt)) ? sides.set : null;
+    if (set) {
+      lineLane.push(setAt);
+      if (!long) others.push(setAt);
+    }
+    const rise = sides.rise && (long || !overlaps(lineLane, ...riseAt)) ? sides.rise : null;
+    if (rise) {
+      lineLane.push(riseAt);
+      if (!long) others.push(riseAt);
+    }
+    placed.push({ run, long, words, middle, fromPct, toPct, set, rise });
+  }
+  const main = placed[0];
+  const scaleSide = scaleLabelSide(main ? { fromPct: main.fromPct, toPct: main.toPct, set: main.set, rise: main.rise } : null, EVENT_NEED, others);
+  /** Just under the body's line at that hour, but never down in the row of dates. */
+  const under = (hour: number) => Math.min(g.y(el[hour]) + 14, top + rowHeight - 27);
+
+  const scale = scaleLines(range, rowHeight);
   /** The title sits in the top left corner; height-line words on that side keep clear of it. */
   const titleTop = top + 6;
   const clearOfTitle = (y: number) => !title || scaleSide !== 'left' || y - 11 > titleTop + 25;
@@ -267,26 +327,30 @@ export function SkyRow({
         />
       ))}
 
-      {dark && (
-        <Centred at={middle} className={after} style={{ top: top + 34 }}>
-          <Label size={16} plate className="font-semibold text-stage-ink">
-            {body === 'sun' ? 'Night' : 'No contact'} for {span}
-            <span className="max-md:hidden">: {reason}</span>
-          </Label>
-        </Centred>
-      )}
-      {dark && sides.set && (
-        <Label plate className={`absolute font-semibold ${after}`} style={{ top: under(dark.from), color, ...(sides.set === 'inside' ? { left: `calc(${fromPct}% + 12px)` } : { right: `calc(${100 - fromPct}% + 12px)` }) }}>
-          <span className="max-lg:hidden">{name} sets </span>
-          {dayMonth(startUtc, dark.from)}
-        </Label>
-      )}
-      {dark && sides.rise && (
-        <Label plate className={`absolute font-semibold ${after}`} style={{ top: under(dark.to), color, ...(sides.rise === 'inside' ? { right: `calc(${100 - toPct}% + 12px)` } : { left: `calc(${toPct}% + 12px)` }) }}>
-          <span className="max-lg:hidden">{name} rises </span>
-          {dayMonth(startUtc, dark.to)}
-        </Label>
-      )}
+      {placed.map((p) => (
+        <span key={p.run.from} className="contents">
+          {p.words && (
+            <Centred at={p.middle} className={`${after} ${p.long ? '' : 'max-md:hidden'}`} style={{ top: top + 34 }}>
+              <Label size={17} plate className="font-semibold text-stage-ink">
+                {gap} for {spanWords(p.run.to - p.run.from)}
+                {p.long && <span className="max-md:hidden">: {reason}</span>}
+              </Label>
+            </Centred>
+          )}
+          {p.set && (
+            <Label plate className={`absolute font-semibold ${after}`} style={{ top: under(p.run.from), color, ...(p.set === 'inside' ? { left: `calc(${p.fromPct}% + 12px)` } : { right: `calc(${100 - p.fromPct}% + 12px)` }) }}>
+              <span className="max-lg:hidden">{name} sets </span>
+              {dayMonth(startUtc, p.run.from)}
+            </Label>
+          )}
+          {p.rise && (
+            <Label plate className={`absolute font-semibold ${after}`} style={{ top: under(p.run.to), color, ...(p.rise === 'inside' ? { right: `calc(${100 - p.toPct}% + 12px)` } : { left: `calc(${p.toPct}% + 12px)` }) }}>
+              <span className="max-lg:hidden">{name} rises </span>
+              {dayMonth(startUtc, p.run.to)}
+            </Label>
+          )}
+        </span>
+      ))}
 
       {dayTicks.map((d, i) => {
         const text = dayMonth(startUtc, d * 24);

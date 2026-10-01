@@ -2507,3 +2507,17 @@ Added on 2 October 2026. Spec: section 6.1 as amended, and the last paragraph of
 - [ ] **Step 4:** page, drawing, shell and token tests (the forecast band with two rows and its reading guide, "Explore" names, the closing section, the named rim pair, the teachers' line, the footer, dark tokens, letter spacing) RED, then GREEN.
 - [ ] **Step 5:** look at it at 1440, 1280, 1024, 820 and 390 px in both themes; gates; badge; commit.
 
+---
+
+### Task 11: Fixes from the third blind read
+
+Added on 2 October 2026. Spec: section 6.1 as amended and the last paragraph of section 15. Both readers held the gate (judge 4, 4, 4, 4, 3; teacher 4, 4, 4, 4, 3); this task fixes what both of them named. The final blind gate after part 4 reads the page again.
+
+**Files:** `web/src/lib/viz/skyrow.ts` and its test (`hiddenRuns`, "horizon", `scaleLabelSide(..., extra)`); `web/src/components/SkyRow.tsx` and its test (words and dates on every hidden stretch, `pxPerDeg`, 16 px labels, the short words hidden under 768 px, the key's "direction"); `web/src/app/globals.css` and its test (centring by auto margins); `web/src/app/page.tsx` and its test; `web/src/lib/data/home.ts`; `web/src/components/home/WhyDrawings.tsx` and its test; `web/src/components/AppFrame.tsx` and its test.
+
+- [ ] **Step 1:** helper tests (`hiddenRuns`, the horizon word, extra stretches for the height-line words) RED, then GREEN.
+- [ ] **Step 2:** `SkyRow` tests (words and dates on every stretch wide enough, one scale with `pxPerDeg`, 16 px labels) RED, then GREEN; phone test (short words hidden under 768 px) RED, then GREEN.
+- [ ] **Step 3:** page, drawing and shell tests (site in the reading guide, both Earth gaps, equal spacing in both rows, names spelled out, no compass, the shadow tag away from the pin, no faint grey, the CLPS line) RED, then GREEN.
+- [ ] **Step 4:** centring test (auto margins, so a label near the right edge spills left) RED, then GREEN.
+- [ ] **Step 5:** look at it at 1440, 1280, 1024, 820 and 390 px; no label overflows its chart and no two labels of a chart overlap; gates; commit.
+

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compassTicks, eventLabelSides, hiddenBy, longestHidden, rowGeometry, rowRange, scaleLabelSide, scaleLines } from './skyrow';
+import { compassTicks, eventLabelSides, hiddenBy, hiddenRuns, longestHidden, rowGeometry, rowRange, scaleLabelSide, scaleLines } from './skyrow';
 
 const box = { x: 100, y: 10, w: 800, h: 100 };
 
@@ -113,12 +113,17 @@ describe('scaleLabelSide', () => {
   it('gives up when both sides hold a label', () => {
     expect(scaleLabelSide({ fromPct: 5, toPct: 95, set: 'inside', rise: 'inside' })).toBeNull();
   });
+
+  it('also keeps clear of the words on the other hidden stretches', () => {
+    expect(scaleLabelSide({ fromPct: 0, toPct: 30.4, set: null, rise: 'inside' })).toBe('right');
+    expect(scaleLabelSide({ fromPct: 0, toPct: 30.4, set: null, rise: 'inside' }, 17, [[78, 97]])).toBeNull();
+  });
 });
 
 describe('scaleLines', () => {
-  it('draws a line every 5° when the row is tall enough for their words, eye level first', () => {
+  it('draws a line every 5° when the row is tall enough for their words, the horizon first', () => {
     expect(scaleLines({ min: -3.86, max: 16.12 }, 200)).toEqual([
-      { deg: 0, words: 'eye level' },
+      { deg: 0, words: 'horizon' },
       { deg: 5, words: '5° up' },
       { deg: 10, words: '10° up' },
       { deg: 15, words: '15° up' },
@@ -127,10 +132,21 @@ describe('scaleLines', () => {
 
   it('spaces them 10° apart in a short row, and leaves out lines at the very edge of the range', () => {
     expect(scaleLines({ min: -7.52, max: 15.8 }, 120)).toEqual([
-      { deg: 0, words: 'eye level' },
+      { deg: 0, words: 'horizon' },
       { deg: 10, words: '10° up' },
     ]);
-    expect(scaleLines({ min: -2, max: 5.2 }, 200)).toEqual([{ deg: 0, words: 'eye level' }]);
+    expect(scaleLines({ min: -2, max: 5.2 }, 200)).toEqual([{ deg: 0, words: 'horizon' }]);
+  });
+});
+
+describe('hiddenRuns', () => {
+  it('lists every stretch the body is hidden, in order, including those at the ends', () => {
+    expect(hiddenRuns([0, 0, 1, 1, 0, 1, 0])).toEqual([
+      { from: 0, to: 2 },
+      { from: 4, to: 5 },
+      { from: 6, to: 7 },
+    ]);
+    expect(hiddenRuns([1, 1])).toEqual([]);
   });
 });
 

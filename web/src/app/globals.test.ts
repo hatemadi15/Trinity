@@ -105,6 +105,12 @@ describe('globals.css layering', () => {
     expect(css).toMatch(/\.field \{[^}]*height: 52px/);
   });
 
+  it('centres a chart label with auto margins, so one too wide for its room spills away from the near edge in either direction', () => {
+    // `justify-content: safe center` falls back to the writing-mode start, which pushed labels near the right edge out of the chart.
+    expect(css).toMatch(/\.label-centred > \* \{[^}]*margin-inline: auto/);
+    expect(css).not.toMatch(/safe center/);
+  });
+
   it('gives pictures, panels and controls their own radii', () => {
     expect(css).toMatch(/\.stage \{[^}]*border-radius: 6px/);
     expect(css).toMatch(/\.panel \{[^}]*border-radius: 8px/);

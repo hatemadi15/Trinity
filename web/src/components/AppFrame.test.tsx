@@ -27,6 +27,7 @@ describe('AppFrame', () => {
     // Who made it comes first, and that it is not a NASA product.
     expect(footer.firstElementChild?.firstElementChild?.textContent).toMatch(/^Made by team Astroy\/Ed for NASA Space Apps 2026/);
     expect(footer.textContent).toMatch(/Not an official NASA product\./);
+    expect(footer.textContent).toMatch(/CLPS: NASA's Commercial Lunar Payload Services/);
     expect(screen.getByText('hello')).toBeTruthy();
   });
 

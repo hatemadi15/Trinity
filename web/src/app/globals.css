@@ -241,11 +241,16 @@ html {
   .reveal-after {
     animation: reveal-show 0.5s ease 2.7s both;
   }
-  /* Centres a chart label on a point; a label too wide for the room there stays inside the picture instead of being cut off. */
+  /*
+   * Centres a chart label on a point; a label too wide for the room there stays inside the picture. Auto
+   * margins centre while there is room and fall to the flex start when there is not, and the flex start
+   * follows flex-direction (row-reverse near the right edge), unlike the safe keyword of justify-content.
+   */
   .label-centred {
     display: flex;
-    justify-content: center;
-    justify-content: safe center;
+  }
+  .label-centred > * {
+    margin-inline: auto;
   }
   /* Old panels: solid surfaces now. Removed in part 4. */
   .glass {

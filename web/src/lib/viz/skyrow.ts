@@ -61,14 +61,15 @@ export function rowRange(
 const SCALE_GAP_PX = 26;
 
 /**
- * The height lines drawn across a row for scale, with their words: eye level (0°) and every 5° above it,
- * or every 10° when 5° is too little room for the words. Lines within 0.4° of the edge of the range are left out.
+ * The height lines drawn across a row for scale, with their words: the horizon (0°, eye level on flat
+ * ground) and every 5° above it, or every 10° when 5° is too little room for the words. Lines within 0.4°
+ * of the edge of the range are left out.
  */
 export function scaleLines(range: Range, heightPx: number): { deg: number; words: string }[] {
   const step = (5 * heightPx) / (range.max - range.min) >= SCALE_GAP_PX ? 5 : 10;
   const out: { deg: number; words: string }[] = [];
   for (let deg = 0; deg < range.max - 0.4; deg += step) {
-    if (deg > range.min + 0.4) out.push({ deg, words: deg === 0 ? 'eye level' : `${deg}° up` });
+    if (deg > range.min + 0.4) out.push({ deg, words: deg === 0 ? 'horizon' : `${deg}° up` });
   }
   return out;
 }
@@ -156,6 +157,21 @@ export function compassTicks(az: ArrayLike<number>): { hour: number; label: stri
   return out;
 }
 
+/** Every stretch of hours the body is hidden, in order: `from` is its first hidden hour, `to` the first visible hour after it (or the number of hours). */
+export function hiddenRuns(visible: ArrayLike<number | boolean>): { from: number; to: number }[] {
+  const out: { from: number; to: number }[] = [];
+  let start = -1;
+  for (let i = 0; i <= visible.length; i++) {
+    const hidden = i < visible.length && !visible[i];
+    if (hidden && start < 0) start = i;
+    if (!hidden && start >= 0) {
+      out.push({ from: start, to: i });
+      start = -1;
+    }
+  }
+  return out;
+}
+
 /** The longest stretch of hours the body is hidden: `from` is its first hidden hour, `to` the first visible hour after it (or the number of hours). */
 export function longestHidden(visible: ArrayLike<number | boolean>): { from: number; to: number } | null {
   let best: { from: number; to: number } | null = null;
@@ -193,15 +209,20 @@ const SCALE_ROOM = 12;
 const STRETCH_HALF = 21;
 
 /**
- * The side of the chart for the words on the height lines ("5° up", "level ground"): away from the
- * hidden stretch when that side is free of the stretch's words and of the sunset and sunrise labels,
- * otherwise the other side, otherwise nowhere. All positions are percent of the chart's width.
+ * The side of the chart for the words on the height lines ("5° up", "horizon"): away from the longest
+ * hidden stretch when that side is free of its words, of its sunset and sunrise labels and of the
+ * `extra` stretches of the chart that other labels take, otherwise the other side, otherwise nowhere.
+ * All positions are percent of the chart's width.
  */
-export function scaleLabelSide(hidden: { fromPct: number; toPct: number; set: LabelSide; rise: LabelSide } | null, need = 17): 'left' | 'right' | null {
+export function scaleLabelSide(
+  hidden: { fromPct: number; toPct: number; set: LabelSide; rise: LabelSide } | null,
+  need = 17,
+  extra: [number, number][] = [],
+): 'left' | 'right' | null {
   if (!hidden) return 'right';
   const { fromPct, toPct, set, rise } = hidden;
   const middle = (fromPct + toPct) / 2;
-  const taken: [number, number][] = [[middle - STRETCH_HALF, middle + STRETCH_HALF]];
+  const taken: [number, number][] = [[middle - STRETCH_HALF, middle + STRETCH_HALF], ...extra];
   if (set === 'inside') taken.push([fromPct, fromPct + need]);
   if (set === 'outside') taken.push([fromPct - need, fromPct]);
   if (rise === 'inside') taken.push([toPct - need, toPct]);

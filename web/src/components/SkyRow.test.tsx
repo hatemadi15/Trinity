@@ -45,7 +45,7 @@ describe('SkyRow', () => {
     }
     const labels = labelsOf(container);
     expect(labels.length).toBeGreaterThanOrEqual(12);
-    for (const l of labels) expect(parseFloat(l.style.fontSize)).toBeGreaterThanOrEqual(15);
+    for (const l of labels) expect(parseFloat(l.style.fontSize)).toBeGreaterThanOrEqual(16);
     const stroked = [...container.querySelectorAll('svg [stroke]')].filter((n) => n.getAttribute('stroke') !== 'none');
     expect(stroked.length).toBeGreaterThanOrEqual(5);
     for (const n of stroked) expect(n.getAttribute('vector-effect')).toBe('non-scaling-stroke');
@@ -56,7 +56,7 @@ describe('SkyRow', () => {
     expect(container.querySelectorAll('line[stroke-dasharray]')).toHaveLength(2);
     const words = labelsOf(container).map((l) => l.textContent);
     expect(words).toContain('5° up');
-    expect(words).toContain('eye level');
+    expect(words).toContain('horizon');
     // The night sits left of the middle, so the words go to the right edge.
     const five = labelsOf(container).find((l) => l.textContent === '5° up')!;
     expect(five.className).toMatch(/right-\[var\(--chart-inset,10px\)\]/);
@@ -66,7 +66,7 @@ describe('SkyRow', () => {
     const long = Array.from({ length: hours }, (_, h) => (h >= 36 && h < 684 ? 0 : 1));
     const { container } = render(<SkyRow el={el} hill={hillsFor(long)} visible={long} startUtc={START} body="sun" caption="c" />);
     expect(container.querySelectorAll('line[stroke-dasharray]')).toHaveLength(2);
-    expect(container.textContent).not.toMatch(/5° up|eye level/);
+    expect(container.textContent).not.toMatch(/5° up|horizon/);
     expect(container.textContent).toMatch(/Sun sets 2 Jan/);
   });
 
@@ -74,7 +74,7 @@ describe('SkyRow', () => {
     const tall = Array.from({ length: hours }, (_, h) => (lit[h] ? -1 : 15));
     const { container } = render(<SkyRow el={el} hill={tall} visible={lit} startUtc={START} body="sun" caption="c" fitHills />);
     expect(container.querySelector('mask')).toBeNull();
-    expect(labelsOf(container).map((l) => l.textContent).filter((t) => /up$|eye level/.test(t ?? ''))).toEqual(['eye level', '5° up', '10° up', '15° up']);
+    expect(labelsOf(container).map((l) => l.textContent).filter((t) => /up$|horizon/.test(t ?? ''))).toEqual(['horizon', '5° up', '10° up', '15° up']);
   });
 
   it('marks every place where the body goes behind the hills or comes back', () => {
@@ -83,6 +83,39 @@ describe('SkyRow', () => {
     const dots = [...container.querySelectorAll<HTMLElement>('[data-event]')];
     expect(dots.map((d) => d.dataset.event)).toEqual(['set', 'rise', 'set']);
     expect(parseFloat(dots[0].style.left)).toBeCloseTo((100 / hours) * 100, 5);
+  });
+
+  it('puts words on every hidden stretch wide enough for them, and dates on its ends', () => {
+    const twice = Array.from({ length: hours }, (_, h) => (h < 219 || h >= 543 ? 0 : 1));
+    const earthEl = Array.from({ length: hours }, (_, h) => (twice[h] ? 4 : -5));
+    const flat = Array.from({ length: hours }, () => 0.2);
+    const { container } = render(<SkyRow el={earthEl} hill={flat} visible={twice} startUtc={START} body="earth" caption="c" />);
+    const words = labelsOf(container).map((l) => l.textContent);
+    expect(words).toContain('No contact for 9 days 3 hours: Earth is below the horizon');
+    expect(words).toContain('No contact for 7 days 9 hours');
+    expect(words).toContain('Earth rises 10 Jan');
+    expect(words).toContain('Earth sets 23 Jan');
+    // On a phone the chart is too narrow for two sentences side by side: only the longest stretch keeps its words.
+    const short = labelsOf(container).find((l) => l.textContent === 'No contact for 7 days 9 hours')!;
+    expect(short.parentElement!.className).toMatch(/max-md:hidden/);
+    const long = labelsOf(container).find((l) => /^No contact for 9 days 3 hours/.test(l.textContent ?? ''))!;
+    expect(long.parentElement!.className).not.toMatch(/max-md:hidden/);
+  });
+
+  it('gives rows the same height for a degree when told how many pixels a degree takes', () => {
+    const tall = Array.from({ length: hours }, (_, h) => (lit[h] ? -1 : 15));
+    const sun = render(<SkyRow el={el} hill={tall} visible={lit} startUtc={START} body="sun" caption="c" fitHills pxPerDeg={10} ticks={false} />);
+    const gap = (c: HTMLElement) => {
+      const y = [...c.querySelectorAll('line[stroke-dasharray]')].map((l) => Number(l.getAttribute('y1'))).sort((a, b) => b - a);
+      return y[0] - y[1];
+    };
+    // Range -2° to 16°: 18° at 10 px each, plus the 8 px margins above and below.
+    expect((sun.container.firstElementChild as HTMLElement).style.height).toBe('196px');
+    expect(gap(sun.container)).toBeCloseTo(50, 5);
+    sun.unmount();
+    const earthEl = Array.from({ length: hours }, (_, h) => (h < 300 ? -5 : 6));
+    const earth = render(<SkyRow el={earthEl} hill={Array.from({ length: hours }, () => 0.2)} visible={earthEl.map((e) => (e > 0.2 ? 1 : 0))} startUtc={START} body="earth" caption="c" pxPerDeg={10} />);
+    expect(gap(earth.container)).toBeCloseTo(50, 5);
   });
 
   it('keeps a label centred near an edge clear of that edge', () => {
@@ -140,7 +173,7 @@ describe('SkyRow', () => {
     expect(after.some((t) => /Night for/.test(t ?? ''))).toBe(true);
     expect(after.some((t) => /Sun sets/.test(t ?? ''))).toBe(true);
     // The scale and the dates are part of the still picture.
-    expect(after.some((t) => /eye level|1 Jan/.test(t ?? ''))).toBe(false);
+    expect(after.some((t) => /horizon|1 Jan/.test(t ?? ''))).toBe(false);
   });
 
   it('reports a stretch that began before the window instead of calling the body visible', () => {
@@ -199,7 +232,7 @@ describe('SkyRowKey', () => {
     const { container } = render(<SkyRowKey body="earth" compass />);
     const items = screen.getAllByRole('listitem').map((li) => li.textContent);
     expect(items.slice(0, 3)).toEqual(['height of Earth', 'Earth hidden', "hills in Earth's direction at that time"]);
-    expect(items[3]).toMatch(/compass direction/);
+    expect(items[3]).toBe('Top row: the direction Earth is in on that date.');
     expect(container.innerHTML).toContain('var(--stage-earth)');
   });
 

@@ -17,6 +17,8 @@ const H2 = 'display text-[34px] sm:text-[40px]';
 const LINK = 'font-semibold underline decoration-[1.5px] underline-offset-4 hover:decoration-2';
 const WHY_CARD = 'grid gap-4 sm:grid-cols-[320px_1fr] sm:items-center sm:gap-6 lg:block lg:space-y-4';
 const CELL = 'py-[18px] pr-4 max-md:block max-md:py-0';
+/** Both forecast rows use one height scale: a degree takes as many pixels in each. */
+const PX_PER_DEG = 7.5;
 /** A number and its percent sign stay on one line. */
 const pct = (n: number) => `${n} %`;
 
@@ -76,32 +78,28 @@ export default function Home() {
                     See how it works
                   </a>
                 </div>
-                <p className="mt-3 text-[15px] text-ink-3">For mission planners, educators and anyone curious.</p>
+                <p className="mt-3 text-base text-ink-2">For mission planners, educators and anyone curious.</p>
               </div>
             </div>
           </div>
           {/* The forecast runs from edge to edge on a black band, a window onto the Moon in both themes. Its side labels line up with the page gutter. */}
           <figure aria-labelledby="h-forecast" data-stage="" className="border-y border-stage-edge bg-stage pb-7 pt-4 text-stage-ink [--chart-inset:16px] sm:[--chart-inset:32px]">
-            <figcaption className="wrap grid gap-x-10 gap-y-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-              <div>
-                <p id="h-forecast" className="font-semibold">
-                  A real forecast: {hero.name}, January 2027
-                </p>
-                <p className="mt-1 max-w-[46em] text-[15px] text-stage-ink-2">
-                  Read it from left to right, one day at a time. Heights are angles above eye level: 5° is about the width of three fingers held at arm&apos;s length. The grey is not
-                  one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day.
-                </p>
-              </div>
-              <SkyRowKey body="both" className="text-stage-ink-2 lg:max-w-[560px]" />
+            <figcaption className="wrap">
+              <p id="h-forecast" className="text-[17px] font-semibold">
+                A real forecast: {hero.name}, January 2027
+              </p>
+              <p className="mt-1 max-w-[76em] text-base text-stage-ink">
+                A ridge NASA shortlisted for astronauts. Read it from left to right, one day at a time. Heights are angles above the horizon: 5° is about the width of three fingers held
+                at arm&apos;s length. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day.
+              </p>
+              <SkyRowKey body="both" className="mt-2.5 text-stage-ink-2" />
             </figcaption>
             <div className="mt-2">
-              <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} height={170} ticks={false} fitHills reveal />
-              <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} height={104} reveal />
+              <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} ticks={false} fitHills reveal />
+              <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} reveal />
             </div>
             <div className="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 pt-7 text-[15px] text-stage-ink-2">
-              <p className="max-w-[62em]">
-                {hero.name} is a ridge NASA shortlisted for a crewed landing. Computed from NASA&apos;s elevation map of the Moon and NASA&apos;s positions of the Sun and Earth.
-              </p>
+              <p className="max-w-[62em]">Computed from NASA&apos;s elevation map of the Moon and NASA&apos;s positions of the Sun and Earth.</p>
               <Link href={siteLink} className={`${LINK} whitespace-nowrap text-stage-ink`}>
                 Explore {hero.name}
               </Link>
@@ -138,7 +136,7 @@ export default function Home() {
               <EarthSetsToo />
               <div>
                 <h3 className="display text-[23px] font-semibold leading-tight">Earth sets too</h3>
-                <p className="mt-2 text-ink-2">Earth hangs near one compass direction and drifts a few degrees up and down each month. When it dips behind the hills, the lander cannot talk to Earth directly.</p>
+                <p className="mt-2 text-ink-2">Earth hangs in nearly the same direction in the sky and drifts a few degrees up and down each month. When it dips behind the hills, the lander cannot talk to Earth directly.</p>
               </div>
             </div>
           </div>
@@ -169,10 +167,10 @@ export default function Home() {
                   <i className="h-6 w-0.5 bg-stage-sun" />
                   <u className="h-3.5 w-3.5 translate-y-1.5 rounded-full border-[3px] border-stage-sun bg-stage/60 no-underline" />
                 </div>
-                <span className="absolute left-[83%] top-[52%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-stage/70 px-2 py-0.5 text-[15px]">in shadow</span>
+                <span className="absolute left-[84%] top-[68%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-stage/70 px-2 py-0.5 text-[15px]">in shadow</span>
                 <span className="absolute left-[60%] top-[86%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-[#f3f2ee]/90 px-2 py-0.5 text-[15px] text-black">in sunlight</span>
               </div>
-              <figcaption className="mt-3 text-[15px] leading-snug text-ink-3">
+              <figcaption className="mt-3 text-[15px] leading-snug text-ink-2">
                 The ridge from above, {Math.round(hero.window_km)} km across. Black is ground the Sun cannot reach at that hour. Computed from NASA elevation data, not a photograph.
               </figcaption>
             </figure>
@@ -203,7 +201,7 @@ export default function Home() {
             <thead className="max-md:sr-only">
               <tr>
                 {['What we check', 'Gap', 'Against', 'For scale'].map((head) => (
-                  <th key={head} scope="col" className="border-b border-line-strong py-2.5 pr-4 text-[15px] font-medium text-ink-3">
+                  <th key={head} scope="col" className="border-b border-line-strong py-2.5 pr-4 text-[15px] font-semibold text-ink-2">
                     {head}
                   </th>
                 ))}

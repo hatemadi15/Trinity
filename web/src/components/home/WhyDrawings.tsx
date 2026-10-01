@@ -48,14 +48,17 @@ export function SunNeverClimbs() {
  * short name of the shaded point, as the page names it. Numbers keep their unit on the same line.
  */
 export function HillsDecide({ rimPct, sitePct, km, site = 'Rim 2' }: { rimPct: number; sitePct: number; km: number; site?: string }) {
-  const rim = rimPct >= 99.95 ? 'rim summit: sunlit all month' : `rim summit: sunlit ${Math.round(rimPct)}\u00a0%`;
+  const rim = rimPct >= 99.95 ? 'sunlit all month' : `sunlit ${Math.round(rimPct)}\u00a0% of the month`;
   return (
     <Frame
       labels={
         <>
           <Label className="absolute left-[5%] top-[9%]">{`The same month, ${km} km apart`}</Label>
-          {/* Beside the green dot on the peak, and inside the shadow under the red dot. On a narrow drawing they reach the hill, so each has a plate. */}
-          <Label className="absolute right-[3%] top-[25%] rounded-[5px] bg-stage/80 px-1.5">{rim}</Label>
+          {/* Right of the green dot on the peak, on two short lines so they stay clear of it; and inside the shadow under the red dot. */}
+          <div className="absolute right-[3%] top-[22%] text-right">
+            <Label className="font-semibold">rim summit</Label>
+            <Label>{rim}</Label>
+          </div>
           <Label className="absolute bottom-[4%] right-[3%] rounded-[5px] bg-stage/80 px-1.5">{`${site}: sunlit ${sitePct}\u00a0% of the month`}</Label>
         </>
       }
@@ -64,8 +67,8 @@ export function HillsDecide({ rimPct, sitePct, km, site = 'Rim 2' }: { rimPct: n
       <path d="M214 96 L 262 150 L 380 146 L 380 190 L 262 190 Z" fill="#17181a" />
       <circle cx="38" cy="96" r="11" fill="var(--stage-sun)" />
       <line x1="52" y1="94" x2="170" y2="64" stroke="var(--stage-sun)" strokeWidth="1.5" strokeDasharray="4 5" />
-      <circle cx="176" cy="60" r="6" fill="#46c98b" />
-      <circle cx="310" cy="146" r="6" fill="#ff7d72" />
+      <circle data-place="rim" cx="176" cy="60" r="8" fill="#46c98b" stroke="var(--stage-ink)" strokeWidth="1.5" />
+      <circle data-place="site" cx="310" cy="146" r="8" fill="#ff7d72" stroke="var(--stage-ink)" strokeWidth="1.5" />
     </Frame>
   );
 }

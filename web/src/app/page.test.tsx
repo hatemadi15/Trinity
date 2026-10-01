@@ -31,6 +31,15 @@ describe('home page', () => {
     expect(earth.textContent).toMatch(/^Contact with Earth/);
     expect(sun.textContent).toMatch(/Night for 16 days 15 hours: the hills stand higher than the Sun/);
     expect(earth.textContent).toMatch(/No contact for 9 days 3 hours: Earth is below the horizon/);
+    // Earth hides twice: the second stretch has its words and its date too.
+    expect(earth.textContent).toMatch(/No contact for 7 days 9 hours/);
+    expect(earth.textContent).toMatch(/Earth sets 23 Jan/);
+    // One height scale for both rows: a degree takes as many pixels in each.
+    const spacing = (row: HTMLElement) => {
+      const y = [...row.querySelectorAll('line[stroke-dasharray]')].map((l) => Number(l.getAttribute('y1'))).sort((a, b) => b - a);
+      return y[0] - y[1];
+    };
+    expect(spacing(sun)).toBeCloseTo(spacing(earth), 5);
     // The whole of the hills is drawn, with height lines up to their top.
     expect(sun.textContent).toMatch(/15° up/);
     expect(sun.querySelector('mask')).toBeNull();
@@ -44,15 +53,14 @@ describe('home page', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     expect(band.textContent).toMatch(
-      /Read it from left to right, one day at a time\. Heights are angles above eye level: 5° is about the width of three fingers held at arm's length\. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day\./,
+      /A ridge NASA shortlisted for astronauts\. Read it from left to right, one day at a time\. Heights are angles above the horizon: 5° is about the width of three fingers held at arm's length\. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day\./,
     );
     expect(within(band).getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while hidden', 'the hills in its direction at that time']);
   });
 
-  it('says under the forecast what the site is and where the numbers come from, and links to the site', () => {
+  it('says under the forecast where the numbers come from, and links to the site', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
-    expect(band.textContent).toMatch(/de Gerlache Rim 2 is a ridge NASA shortlisted for a crewed landing/);
     expect(band.textContent).toMatch(/NASA's elevation map of the Moon and NASA's positions of the Sun and Earth/);
     const link = within(band).getByRole('link', { name: 'Explore de Gerlache Rim 2' });
     expect(link.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2');
@@ -67,6 +75,9 @@ describe('home page', () => {
     expect(why.textContent).toContain(`de Gerlache Rim 2, the site in the forecast above, ${Math.round(HOME.pair.distance_km)} km away, has it ${pct(Math.round(HOME.pair.site_sun_pct))} of the time`);
     expect(why.textContent).toMatch(/the summit of de Gerlache crater's rim has sunlight all month/);
     expect(within(why).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
+    // There is no magnetic compass on the Moon.
+    expect(why.textContent).not.toMatch(/compass/);
+    expect(why.textContent).toMatch(/Earth hangs in nearly the same direction in the sky/);
   });
 
   it('starts from a real place: the computed shadow picture beside three places, each with a button to explore it', () => {
@@ -79,12 +90,20 @@ describe('home page', () => {
     expect(within(places).getByText('in sunlight')).toBeTruthy();
     expect(within(places).getByText('de Gerlache Rim 2: shadows computed for 2 January 2027')).toBeTruthy();
     expect(places.textContent).toMatch(/Computed from NASA elevation data, not a photograph/);
-    expect(within(places).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['de Gerlache Rim 2', 'Athena lander (IM-2), March 2025', 'Blue Ghost lander, March 2025']);
+    expect(within(places).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['de Gerlache Rim 2', 'Athena lander, March 2025', 'Blue Ghost lander, March 2025']);
+    // Every programme and company is named in plain words.
+    expect(places.textContent).toMatch(/the first crewed landing of its Artemis programme/);
+    expect(places.textContent).toMatch(/Intuitive Machines' Athena/);
+    expect(places.textContent).toMatch(/Firefly Aerospace's Blue Ghost/);
+    expect(places.textContent).not.toMatch(/IM-2/);
+    // The shadow tag sits well away from the level of the landing site pin, so the site does not look dark.
+    const shadowTop = Number(/top-\[(\d+)%\]/.exec(within(places).getByText('in shadow').className)?.[1]);
+    expect(Math.abs(shadowTop - 50)).toBeGreaterThanOrEqual(15);
     expect(within(places).getAllByRole('listitem')).toHaveLength(3);
     expect(within(places).getByText('Ended after one day')).toBeTruthy();
     expect(within(places).getByText('Worked all 14 days')).toBeTruthy();
     const links = within(places).getAllByRole('link');
-    expect(links.map((a) => a.getAttribute('aria-label'))).toEqual(['Explore this site: de Gerlache Rim 2', 'Explore this site: Athena lander (IM-2), March 2025', 'Explore this site: Blue Ghost lander, March 2025']);
+    expect(links.map((a) => a.getAttribute('aria-label'))).toEqual(['Explore this site: de Gerlache Rim 2', 'Explore this site: Athena lander, March 2025', 'Explore this site: Blue Ghost lander, March 2025']);
     expect(links.map((a) => a.textContent)).toEqual(['Explore this site', 'Explore this site', 'Explore this site']);
     expect(links.map((a) => a.getAttribute('href'))).toEqual(['/explore?site=de_gerlache_rim_2', '/explore?site=im2_athena&start=2025-03-06', '/explore?site=blue_ghost_m1&start=2025-03-02']);
     for (const a of links) expect(a.className).toMatch(/(^| )btn( |$)/);
@@ -124,6 +143,11 @@ describe('home page', () => {
     for (const name of ['Explore de Gerlache Rim 2', /See every check/, 'How it works']) {
       expect(within(screen.getByRole('main')).getByRole('link', { name }).className).toMatch(/(^| )underline( |$)/);
     }
+  });
+
+  it('uses no faint grey text, so captions and table heads read on a projector', () => {
+    render(<Home />);
+    expect(screen.getByRole('main').querySelectorAll('.text-ink-3')).toHaveLength(0);
   });
 
   it('keeps instrument and programme names out of the main copy', () => {
