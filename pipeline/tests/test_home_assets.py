@@ -1,0 +1,87 @@
+import json
+
+import numpy as np
+import pytest
+
+from lunar_pipeline import home_assets
+from lunar_pipeline.cli import build_parser
+from lunar_pipeline.home_assets import distance_km, facts, night, relief_pins, write_jpeg
+from lunar_pipeline.sites import Site
+from tests.conftest import needs_lola
+
+
+def test_night_finds_the_longest_unlit_run_and_the_sunrise_after_it():
+    lit = [1, 1, 0, 0, 0, 1, 0, 1, 1]
+    assert night(lit) == {"sunset_hour": 2, "sunrise_hour": 5, "hours": 3}
+    assert night([1, 1, 1]) is None
+    assert night([1, 0, 0]) == {"sunset_hour": 1, "sunrise_hour": 3, "hours": 2}
+
+
+def test_distance_on_the_moon_between_the_hero_site_and_the_crater_rim():
+    assert distance_km(-88.28, -64.31, -88.66401, -68.40606) == pytest.approx(12.1, abs=0.2)
+    assert distance_km(-90.0, 0.0, -89.0, 123.0) == pytest.approx(30.32, abs=0.05)
+
+
+def test_facts_summarise_the_three_validation_tables():
+    horizons = {"n_rows": 300, "max_abs_delta_el_deg": 2.7e-5}
+    mazarico = {"rows": [
+        {"site_id": "a", "covered": True, "delta_points": 1.0},
+        {"site_id": "b", "covered": True, "delta_points": -4.0},
+        {"site_id": "c", "covered": True, "delta_points": 10.8},
+        {"site_id": "d", "covered": False},
+    ]}
+    backcasts = {"rows": [{"site_id": "im2_athena", "end_minus_sunset_h": -299.0}, {"site_id": "blue_ghost_m1", "end_minus_sunset_h": 2.41}]}
+    f = facts(horizons, mazarico, backcasts)
+    assert f["horizons_worst_el_deg"] == 2.7e-5 and f["horizons_rows"] == 300
+    assert f["sun_disc_ratio"] == pytest.approx(0.533 / 2.7e-5, rel=0.01)
+    assert f["mazarico_sites"] == 3 and f["mazarico_within5"] == 2
+    assert f["mazarico_median_points"] == 4.0 and f["mazarico_worst_points"] == 10.8
+    assert f["blue_ghost_end_minus_sunset_h"] == 2.4
+
+
+def test_relief_pins_place_the_pole_at_the_centre_and_east_longitudes_to_the_right():
+    sites = [
+        Site("south_pole", "Pole", -90.0, 0.0, "reference", True, "x"),
+        Site("east", "East", -88.0, 90.0, "classic", True, "x"),
+        Site("zero", "Zero", -88.0, 0.0, "classic", True, "x"),
+        Site("far", "Far", 18.0, 61.0, "clps_landed", False, "x"),
+    ]
+    pins = {p["id"]: p for p in relief_pins(sites, 250.0)}
+    assert pins["south_pole"]["u"] == 0.5 and pins["south_pole"]["v"] == 0.5
+    assert pins["east"]["u"] > 0.6 and pins["east"]["v"] == pytest.approx(0.5, abs=1e-6)
+    assert pins["zero"]["v"] < 0.4 and pins["zero"]["u"] == pytest.approx(0.5, abs=1e-6)  # longitude 0 is up
+    assert "far" not in pins
+
+
+def test_write_jpeg_writes_a_grayscale_jpeg(tmp_path):
+    img = (np.arange(64 * 48) % 256).astype(np.uint8).reshape(48, 64)
+    path = write_jpeg(tmp_path / "x.jpg", img)
+    data = path.read_bytes()
+    assert data[:2] == b"\xff\xd8" and len(data) > 200
+    assert not (tmp_path / "x.jpg.aux.xml").exists()
+
+
+def test_cli_lists_the_home_assets_command():
+    args = build_parser().parse_args(["home-assets"])
+    assert args.cmd == "home-assets"
+
+
+@pytest.mark.data
+@needs_lola
+def test_write_all_produces_the_picture_the_map_and_the_facts(tmp_path):
+    (tmp_path / "public").mkdir()
+    (tmp_path / "src" / "lib" / "data").mkdir(parents=True)
+    paths = home_assets.write_all(tmp_path)
+    names = sorted(p.name for p in paths)
+    assert names == ["de-gerlache-rim-2.jpg", "home.json", "south-pole-relief.jpg"]
+    doc = json.loads((tmp_path / "src" / "lib" / "data" / "home.json").read_text(encoding="utf-8"))
+    sky = doc["sky"]
+    assert sky["hours"] == 720 and len(sky["sun_el"]) == 720 and len(sky["hill_el"]) == 720 and len(sky["lit"]) == 720
+    assert sky["sunlit_pct"] == pytest.approx(44.6, abs=0.2)
+    assert sky["night"]["hours"] == 399 and sky["night"]["sunset_hour"] == 67 and sky["night"]["sunrise_hour"] == 466
+    assert doc["pair"]["rim_sun_pct"] == 100.0 and doc["pair"]["distance_km"] == pytest.approx(12.1, abs=0.2)
+    assert 0.3 < doc["hero"]["lit_fraction"] < 0.8
+    assert doc["hero"]["frame_utc"] == "2027-01-02T06:00:00"
+    ids = {s["id"] for s in doc["relief"]["sites"]}
+    assert {"south_pole", "de_gerlache_rim_2", "malapert_massif"} <= ids and "blue_ghost_m1" not in ids
+    assert doc["facts"]["horizons_rows"] == 300
