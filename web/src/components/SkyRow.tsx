@@ -163,6 +163,7 @@ export function SkyRow({
   fitHills = false,
   title,
   pxPerDeg,
+  scaleStep,
 }: {
   el: ArrayLike<number>;
   hill: ArrayLike<number>;
@@ -177,6 +178,8 @@ export function SkyRow({
   fitHills?: boolean;
   title?: string;
   pxPerDeg?: number;
+  /** The spacing of the height lines, when rows drawn together must agree on it. */
+  scaleStep?: 5 | 10;
 }) {
   const id = useId();
   const hours = el.length;
@@ -245,7 +248,7 @@ export function SkyRow({
   /** Just under the body's line at that hour, but never down in the row of dates. */
   const under = (hour: number) => Math.min(g.y(el[hour]) + 14, top + rowHeight - 27);
 
-  const scale = scaleLines(range, rowHeight);
+  const scale = scaleLines(range, rowHeight, scaleStep);
   /** The title sits in the top left corner; height-line words on that side keep clear of it. */
   const titleTop = top + 6;
   const clearOfTitle = (y: number) => !title || scaleSide !== 'left' || y - 11 > titleTop + 25;

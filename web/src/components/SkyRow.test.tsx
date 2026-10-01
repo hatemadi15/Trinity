@@ -62,6 +62,13 @@ describe('SkyRow', () => {
     expect(five.className).toMatch(/right-\[var\(--chart-inset,10px\)\]/);
   });
 
+  it('takes the spacing of its height lines from the chart it belongs to', () => {
+    const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" scaleStep={10} />);
+    // The range runs to 5.5°: with 10° spacing only the horizon is left.
+    expect(container.querySelectorAll('line[stroke-dasharray]')).toHaveLength(1);
+    expect(container.textContent).not.toMatch(/5° up/);
+  });
+
   it('keeps the height lines but leaves their words out when both edges hold a label', () => {
     const long = Array.from({ length: hours }, (_, h) => (h >= 36 && h < 684 ? 0 : 1));
     const { container } = render(<SkyRow el={el} hill={hillsFor(long)} visible={long} startUtc={START} body="sun" caption="c" />);

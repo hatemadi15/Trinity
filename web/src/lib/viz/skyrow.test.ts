@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compassTicks, eventLabelSides, hiddenBy, hiddenRuns, longestHidden, rowGeometry, rowRange, scaleLabelSide, scaleLines } from './skyrow';
+import { compassTicks, eventLabelSides, hiddenBy, hiddenRuns, longestHidden, rowGeometry, rowRange, scaleLabelSide, scaleLines, scaleStepFor } from './skyrow';
 
 const box = { x: 100, y: 10, w: 800, h: 100 };
 
@@ -136,6 +136,18 @@ describe('scaleLines', () => {
       { deg: 10, words: '10° up' },
     ]);
     expect(scaleLines({ min: -2, max: 5.2 }, 200)).toEqual([{ deg: 0, words: 'horizon' }]);
+  });
+});
+
+describe('scaleStepFor', () => {
+  it('spaces the lines 5° apart when their words fit, 10° otherwise, and lets a row be told the spacing', () => {
+    expect(scaleStepFor({ min: -3.86, max: 16.12 }, 200)).toBe(5);
+    expect(scaleStepFor({ min: -7.52, max: 15.8 }, 120)).toBe(10);
+    // Two rows drawn together use the larger spacing, so "5° up" never sits beside a "10° up" of the same height.
+    expect(scaleLines({ min: -3.86, max: 16.12 }, 200, 10)).toEqual([
+      { deg: 0, words: 'horizon' },
+      { deg: 10, words: '10° up' },
+    ]);
   });
 });
 

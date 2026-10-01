@@ -60,13 +60,17 @@ export function rowRange(
 /** A label needs this many pixels between two height lines. */
 const SCALE_GAP_PX = 26;
 
+/** The spacing of a row's height lines: 5° when the words fit between two lines, 10° otherwise. */
+export function scaleStepFor(range: Range, heightPx: number): 5 | 10 {
+  return (5 * heightPx) / (range.max - range.min) >= SCALE_GAP_PX ? 5 : 10;
+}
+
 /**
  * The height lines drawn across a row for scale, with their words: the horizon (0°, eye level on flat
  * ground) and every 5° above it, or every 10° when 5° is too little room for the words. Lines within 0.4°
  * of the edge of the range are left out.
  */
-export function scaleLines(range: Range, heightPx: number): { deg: number; words: string }[] {
-  const step = (5 * heightPx) / (range.max - range.min) >= SCALE_GAP_PX ? 5 : 10;
+export function scaleLines(range: Range, heightPx: number, step: 5 | 10 = scaleStepFor(range, heightPx)): { deg: number; words: string }[] {
   const out: { deg: number; words: string }[] = [];
   for (let deg = 0; deg < range.max - 0.4; deg += step) {
     if (deg > range.min + 0.4) out.push({ deg, words: deg === 0 ? 'horizon' : `${deg}° up` });
