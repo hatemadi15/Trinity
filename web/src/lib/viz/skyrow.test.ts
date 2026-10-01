@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compassTicks, plateWidth, rowGeometry, rowRange } from './skyrow';
+import { compassTicks, eventLabelSides, longestHidden, rowGeometry, rowRange } from './skyrow';
 
 const box = { x: 100, y: 10, w: 800, h: 100 };
 
@@ -63,9 +63,40 @@ describe('compassTicks', () => {
   });
 });
 
-describe('plateWidth', () => {
-  it('grows with the text', () => {
-    expect(plateWidth('Sun sets 3 Jan', 15)).toBeGreaterThan(plateWidth('Sun', 15));
-    expect(plateWidth('', 15)).toBe(12);
+describe('longestHidden', () => {
+  it('finds the longest stretch the body spends behind the hills', () => {
+    expect(longestHidden([1, 1, 0, 0, 0, 1, 0, 1])).toEqual({ from: 2, to: 5 });
+  });
+
+  it('counts a stretch that began before the window or runs past its end', () => {
+    expect(longestHidden([0, 0, 0, 1, 1, 0])).toEqual({ from: 0, to: 3 });
+    expect(longestHidden([1, 0, 0, 0])).toEqual({ from: 1, to: 4 });
+    expect(longestHidden([0, 0])).toEqual({ from: 0, to: 2 });
+  });
+
+  it('returns nothing when the body stays in view', () => {
+    expect(longestHidden([1, 1, 1])).toBeNull();
+    expect(longestHidden([])).toBeNull();
+  });
+});
+
+describe('eventLabelSides', () => {
+  it('puts both labels inside a wide hidden stretch', () => {
+    expect(eventLabelSides(9, 65)).toEqual({ set: 'inside', rise: 'inside' });
+  });
+
+  it('moves them outside a narrow stretch when there is room there', () => {
+    expect(eventLabelSides(40, 50)).toEqual({ set: 'outside', rise: 'outside' });
+  });
+
+  it('drops a label that has room on neither side', () => {
+    expect(eventLabelSides(5, 15)).toEqual({ set: null, rise: 'outside' });
+    expect(eventLabelSides(88, 97)).toEqual({ set: 'outside', rise: null });
+  });
+
+  it('has no sunset label for a stretch that began before the window, and no sunrise label for one that outlasts it', () => {
+    expect(eventLabelSides(0, 40)).toEqual({ set: null, rise: 'inside' });
+    expect(eventLabelSides(70, 100)).toEqual({ set: 'inside', rise: null });
+    expect(eventLabelSides(0, 100)).toEqual({ set: null, rise: null });
   });
 });

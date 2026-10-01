@@ -211,6 +211,12 @@ html {
     background: var(--stage);
     color: var(--stage-ink);
   }
+  /* Centres a chart label on a point; a label too wide for the room there stays inside the picture instead of being cut off. */
+  .label-centred {
+    display: flex;
+    justify-content: center;
+    justify-content: safe center;
+  }
   /* Old panels: solid surfaces now. Removed in part 4. */
   .glass {
     background: var(--surface);

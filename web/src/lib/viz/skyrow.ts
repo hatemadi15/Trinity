@@ -102,7 +102,33 @@ export function compassTicks(az: ArrayLike<number>): { hour: number; label: stri
   return out;
 }
 
-/** Width of the backing plate behind a chart label: about 0.56 em per character plus padding. */
-export function plateWidth(text: string, fontSize: number): number {
-  return Math.round(text.length * fontSize * 0.56) + 12;
+/** The longest stretch of hours the body is hidden: `from` is its first hidden hour, `to` the first visible hour after it (or the number of hours). */
+export function longestHidden(visible: ArrayLike<number | boolean>): { from: number; to: number } | null {
+  let best: { from: number; to: number } | null = null;
+  let start = -1;
+  for (let i = 0; i <= visible.length; i++) {
+    const hidden = i < visible.length && !visible[i];
+    if (hidden && start < 0) start = i;
+    if (!hidden && start >= 0) {
+      if (!best || i - start > best.to - best.from) best = { from: start, to: i };
+      start = -1;
+    }
+  }
+  return best;
+}
+
+export type LabelSide = 'inside' | 'outside' | null;
+
+/**
+ * Where the "sets" and "rises" labels sit, given the hidden stretch in percent of the chart's width and
+ * the share of the width one label needs. Inside the stretch when they fit there; otherwise outside it
+ * (before the setting, after the rising) when that side has room; otherwise nowhere. A stretch that
+ * touches an edge of the chart has no event at that edge.
+ */
+export function eventLabelSides(fromPct: number, toPct: number, need = 17): { set: LabelSide; rise: LabelSide } {
+  const hasSet = fromPct > 0;
+  const hasRise = toPct < 100;
+  const inside = toPct - fromPct >= need * (Number(hasSet) + Number(hasRise)) + 2;
+  const side = (has: boolean, room: number): LabelSide => (!has ? null : inside ? 'inside' : room >= need ? 'outside' : null);
+  return { set: side(hasSet, fromPct), rise: side(hasRise, 100 - toPct) };
 }
