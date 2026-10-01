@@ -160,7 +160,7 @@ Top to bottom:
 5. **Ask in plain words.** The assistant panel, open, with example chips and the line "The assistant moves the controls for you. It never invents numbers."
 6. **Time bar**, pinned to the bottom of the window: Play or Pause, the date and time with a status sentence ("Sun up, Earth behind the hills, battery 100 %"), and a slider whose track is the sunlight strip of the period with day ticks.
 
-On the first screen at 1440 by 900 the period band, the answer row, the whole time chart and the time bar are visible.
+On the first screen at 1440 by 900 the period band, the answer row, the chart's title and key, and the time bar are visible; the whole chart is one short scroll away (amended on 2 October 2026: at the row heights that hold the chart's words without overlap, band, answer and chart together are taller than one screen, and part 1's readers marked down a packed first screen). The Sun's and Earth's rows of the chart agree on the spacing of their height lines, and the key uses the home page's words.
 
 ### 6.4 Compare sites
 

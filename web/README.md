@@ -25,10 +25,13 @@ Demo: `npm run engine:demo -- --site shackleton_center_rim_high` (mask in about 
 ## Routes
 
 - `/`: home page. Says what the product does, shows a computed shadow picture of one site, explains why the south pole is hard, charts one real month, and opens three real missions as forecasts (`/explore?site=&start=&days=`).
-- `/explore`: one site, one window; 3D terrain and globe, sky dome, timeline, planner settings, survive-the-night verdict, best-window finder.
+- `/sites`: "Choose a landing site". Every catalogue site in three plain groups with its sunlight, its contact with Earth and its longest time with power for the chosen period and lander (`loadOverview` in the store works them out one site at a time), a relief map of the pole with one pin per site, and a form that computes any other place south of 60° S.
+- `/explore`: the answer for one site and period. The verdict says how long the power lasts and why, and offers the landing date inside the period that gives the longest time with power ("Land on 20 January instead"); a link searches the next 12 months. Below it: the numbers, a chart of the Sun, Earth and the battery hour by hour on one time axis, the ground (3D terrain or globe), where the site is with its nearest neighbours, and the assistant; the time bar stays at the bottom of the window. `?site=&start=&days=` opens a site and period.
 - `/compare`: up to four sites over the same window and planner settings, one column per site.
 - `/validate`: Horizons cross-check (live re-check through `/api/horizons`), LOLA map agreement, CLPS backcasts; `npm run validation:tests` refreshes the test-count badge in `public/validation/tests.json`.
 - `/brief`: printable one-page mission brief for the selected site and window.
+
+Time with power (`src/lib/engine/landing.ts`) is the hours from landing, with a full battery, to the first hour the battery cannot cover, counted up to the length of the period. Its Python reference is `pipeline/lunar_pipeline/landing.py`; `uv run python -m lunar_pipeline.cli fixture-landing --site ID [--start UTC] [--days N]` (from `pipeline/`) writes a golden file into `data/fixtures/landing/` that the TypeScript tests check against.
 - `/learn`: "How it works" (still the earlier Learn introduction; rebuilt in part 4 of the redesign).
 - `/api/chat`: the planner assistant (task `plan`) and the brief narrator (task `narrate`) on OpenRouter; see `.env.example`. Without a key, or with `?demo=1`, answers come from `src/lib/ai/transcripts.json` and the phrase matcher.
 
