@@ -186,7 +186,9 @@ Everything here is pure and unit tested.
 
 - An hour is *powered* when the battery walk did not brown out in it. `PowerResult` gains a per-hour flag array.
 - *Longest time with power* for a landing date is the number of hours from that date to the first brownout.
-- *Best landing date*: over the next 12 months from the period start, in six-hour steps, the date with the longest time with power, capped at the period length; ties go to more contact with Earth during that time, then to the earlier date. The lander lands with a full battery, as today. This replaces the scoring inside `findBestWindow` for a single site, so the assistant's "best window" and the gold button agree. For compared sites the same measure is averaged.
+- *Best landing date in the period*: among the hours of the chosen period at which any part of the Sun is visible (a lander arrives in daylight), the hour with the longest time with power, capped at the period length; ties go to more contact with Earth during that time, then to the earlier hour. The lander lands with the configured battery charge (full by default). This is the gold button on Explore and the last column of the site list.
+- *Best date in the next 12 months*: the same measure on a six-hour grid over 365 days from the period start. It replaces the scoring inside `findBestWindow`, so the assistant's "best window" uses it, and Explore offers it as a link under the verdict. For compared sites the time with power is averaged and only hours at which every site is sunlit are candidates.
+- Amended on 1 October 2026 by the plan for part 2. The first version searched 12 months for the gold button as well; a reference scan sent almost every site to October 2027, away from the period the user chose, and the approved mockup offered a date inside the period ("Land on 20 January instead").
 
 ### 7.2 Verdict wording
 
@@ -198,7 +200,7 @@ Everything here is pure and unit tested.
 
 D is the time with power from the period start. Durations are written "12 days 15 hours" in sentences and "12 d 15 h" in cards and tables, never in bare hours above 48.
 
-Advice under the sentence: when the best landing date gives more power than the current start, the gold button reads "Land on DATE instead" and a note says how long power lasts from then, or that it lasts the whole period. When no date does better: "No landing date in the next 12 months gives more power here", and the note suggests a shorter stay or a bigger battery.
+Advice under the sentence: when the best landing date gives more power than the current start, the gold button reads "Land on DATE instead" and a note says how long power lasts from then, or that it lasts the whole period. When no date does better: "No landing date in these N days gives more power here", and the note suggests a shorter stay or a bigger battery.
 
 ### 7.3 Status sentence
 
