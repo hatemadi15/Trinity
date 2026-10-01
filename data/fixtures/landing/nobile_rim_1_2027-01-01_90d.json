@@ -1,0 +1,52 @@
+{
+ "site_id": "nobile_rim_1",
+ "lat": -85.54,
+ "lon": 37.39,
+ "polar": true,
+ "start_utc": "2027-01-01T00:00:00",
+ "days": 90,
+ "config": {
+  "panel": "vertical_tracking",
+  "panel_azimuth_deg": 0.0,
+  "area_m2": 4.0,
+  "efficiency": 0.3,
+  "load_w": 200.0,
+  "battery_wh": 2000.0,
+  "initial_soc_fraction": 1.0
+ },
+ "now_hours": 58,
+ "period_best": {
+  "hour": 373,
+  "powered_hours": 388,
+  "earth_fraction": 0.5231958762886598
+ },
+ "year_best": {
+  "hour": 6744,
+  "powered_hours": 403,
+  "earth_fraction": 0.9727047146401985
+ },
+ "sample_hours": [
+  0,
+  1,
+  6,
+  24,
+  67,
+  100,
+  240,
+  466,
+  500,
+  719
+ ],
+ "sample_powered": [
+  58,
+  57,
+  52,
+  34,
+  10,
+  10,
+  10,
+  295,
+  261,
+  42
+ ]
+}

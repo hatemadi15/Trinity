@@ -29,7 +29,7 @@ describe('SummaryTiles', () => {
     render(
       <SummaryTiles
         summary={{ hours: 720, illumFraction: 0.5, meanSunFraction: 0.5, longestDarkH: 300, earthVisFraction: 0.5, longestEarthGapH: 300, jointFraction: 0.25 }}
-        power={{ powerW: new Float64Array(720), energyWh: new Float64Array(720), socMin: 0, brownoutHours: 290, firstBrownoutHour: 10, survives: false, meanPowerW: 50 }}
+        power={{ powerW: new Float64Array(720), energyWh: new Float64Array(720), powered: new Uint8Array(720), socMin: 0, brownoutHours: 290, firstBrownoutHour: 10, survives: false, meanPowerW: 50 }}
       />,
     );
     expect(screen.getByText('Lowest battery')).toBeTruthy();
@@ -44,7 +44,7 @@ describe('SummaryTiles', () => {
       <SummaryTiles
         audience="learn"
         summary={{ hours: 720, illumFraction: 0.5, meanSunFraction: 0.5, longestDarkH: 300, earthVisFraction: 0.5, longestEarthGapH: 300, jointFraction: 0.25 }}
-        power={{ powerW: new Float64Array(720), energyWh: new Float64Array(720), socMin: 0, brownoutHours: 290, firstBrownoutHour: 10, survives: false, meanPowerW: 50 }}
+        power={{ powerW: new Float64Array(720), energyWh: new Float64Array(720), powered: new Uint8Array(720), socMin: 0, brownoutHours: 290, firstBrownoutHour: 10, survives: false, meanPowerW: 50 }}
       />,
     );
     expect(screen.getByText('Sun above the skyline')).toBeTruthy();

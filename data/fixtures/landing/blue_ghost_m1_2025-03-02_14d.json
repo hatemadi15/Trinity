@@ -1,0 +1,46 @@
+{
+ "site_id": "blue_ghost_m1",
+ "lat": 18.562,
+ "lon": 61.81,
+ "polar": false,
+ "start_utc": "2025-03-02T00:00:00",
+ "days": 14,
+ "config": {
+  "panel": "vertical_tracking",
+  "panel_azimuth_deg": 0.0,
+  "area_m2": 4.0,
+  "efficiency": 0.3,
+  "load_w": 200.0,
+  "battery_wh": 2000.0,
+  "initial_soc_fraction": 1.0
+ },
+ "now_hours": 336,
+ "period_best": {
+  "hour": 1,
+  "powered_hours": 336,
+  "earth_fraction": 1.0
+ },
+ "year_best": {
+  "hour": 6,
+  "powered_hours": 336,
+  "earth_fraction": 1.0
+ },
+ "sample_hours": [
+  0,
+  1,
+  6,
+  24,
+  67,
+  100,
+  240
+ ],
+ "sample_powered": [
+  336,
+  336,
+  336,
+  336,
+  300,
+  267,
+  127
+ ]
+}

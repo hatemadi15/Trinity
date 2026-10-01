@@ -1,0 +1,44 @@
+{
+ "site_id": "shackleton_center",
+ "lat": -89.66,
+ "lon": 129.2,
+ "polar": true,
+ "start_utc": "2027-01-01T00:00:00",
+ "days": 30,
+ "config": {
+  "panel": "vertical_tracking",
+  "panel_azimuth_deg": 0.0,
+  "area_m2": 4.0,
+  "efficiency": 0.3,
+  "load_w": 200.0,
+  "battery_wh": 2000.0,
+  "initial_soc_fraction": 1.0
+ },
+ "now_hours": 10,
+ "period_best": null,
+ "year_best": null,
+ "sample_hours": [
+  0,
+  1,
+  6,
+  24,
+  67,
+  100,
+  240,
+  466,
+  500,
+  719
+ ],
+ "sample_powered": [
+  10,
+  10,
+  10,
+  10,
+  10,
+  10,
+  10,
+  10,
+  10,
+  10
+ ]
+}

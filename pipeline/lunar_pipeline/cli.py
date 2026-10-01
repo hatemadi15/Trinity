@@ -34,6 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
     fp.add_argument("--start", default="2025-01-01T00:00:00")
     fp.add_argument("--days", type=int, default=60)
     fp.add_argument("--panel", default="vertical_tracking", choices=["horizontal", "vertical", "vertical_tracking", "full_tracking"])
+    fl = sub.add_parser("fixture-landing", help="write a best-landing-date golden fixture for a site")
+    fl.add_argument("--site", required=True)
+    fl.add_argument("--start", default="2027-01-01T00:00:00")
+    fl.add_argument("--days", type=int, default=30)
     sub.add_parser("validate", help="write validation tables (Horizons, Mazarico, backcasts) into data/validation")
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
@@ -84,6 +88,10 @@ def main(argv: list[str] | None = None) -> None:
         from .fixtures import write_power_fixture
 
         print(write_power_fixture(args.site, args.start, args.days, args.panel))
+    elif args.cmd == "fixture-landing":
+        from .landing import write_landing_fixture
+
+        print(write_landing_fixture(args.site, args.start, args.days))
     elif args.cmd == "validate":
         from .validate import write_all
 

@@ -1,0 +1,52 @@
+{
+ "site_id": "de_gerlache_rim_2",
+ "lat": -88.28,
+ "lon": -64.31,
+ "polar": true,
+ "start_utc": "2027-01-01T00:00:00",
+ "days": 30,
+ "config": {
+  "panel": "vertical_tracking",
+  "panel_azimuth_deg": 0.0,
+  "area_m2": 4.0,
+  "efficiency": 0.3,
+  "load_w": 200.0,
+  "battery_wh": 2000.0,
+  "initial_soc_fraction": 1.0
+ },
+ "now_hours": 76,
+ "period_best": {
+  "hour": 466,
+  "powered_hours": 303,
+  "earth_fraction": 0.25412541254125415
+ },
+ "year_best": {
+  "hour": 6834,
+  "powered_hours": 333,
+  "earth_fraction": 0.7987987987987988
+ },
+ "sample_hours": [
+  0,
+  1,
+  6,
+  24,
+  67,
+  100,
+  240,
+  466,
+  500,
+  719
+ ],
+ "sample_powered": [
+  76,
+  75,
+  70,
+  52,
+  10,
+  10,
+  10,
+  303,
+  269,
+  50
+ ]
+}
