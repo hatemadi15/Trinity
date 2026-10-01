@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayMonth, spanShort, spanWords } from './format';
+import { clockUtc, dateLong, dayMonth, isoAt, pct0, spanShort, spanWords } from './format';
 
 describe('durations', () => {
   it('writes days and hours in words for sentences', () => {
@@ -20,5 +20,23 @@ describe('durations', () => {
     expect(dayMonth('2027-01-01T00:00:00', 67)).toBe('3 Jan');
     expect(dayMonth('2027-01-01T00:00:00', 466)).toBe('20 Jan');
     expect(dayMonth('2025-03-06T00:00:00', 0)).toBe('6 Mar');
+  });
+});
+
+describe('dates for sentences and buttons', () => {
+  it('writes the day and the full month, with the year only when it is not the start year', () => {
+    expect(dateLong('2027-01-01T00:00:00', 466)).toBe('20 January');
+    expect(dateLong('2027-12-20T00:00:00', 24 * 20)).toBe('9 January 2028');
+  });
+
+  it('writes the UTC hour and the ISO time of an hour of the period', () => {
+    expect(clockUtc('2027-01-01T00:00:00', 466)).toBe('10:00');
+    expect(isoAt('2027-01-01T00:00:00', 466)).toBe('2027-01-20T10:00:00');
+    expect(isoAt('2027-01-01T06:00:00Z', 0)).toBe('2027-01-01T06:00:00');
+  });
+
+  it('writes a share as a whole percentage', () => {
+    expect(pct0(0.446)).toBe('45 %');
+    expect(pct0(1)).toBe('100 %');
   });
 });
