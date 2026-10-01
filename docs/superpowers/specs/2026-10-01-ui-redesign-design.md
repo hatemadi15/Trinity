@@ -47,28 +47,31 @@ Tokens (CSS custom properties):
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--page` | `#f3f2ee` | `#0b0d11` | page |
-| `--surface` | `#ffffff` | `#14181e` | panels, fields |
-| `--surface-2` | `#efede7` | `#1c2129` | insets, tracks |
-| `--line` | `#dfdcd4` | `#272d37` | hairlines |
-| `--line-strong` | `#c4c0b5` | `#3b4350` | field borders |
-| `--ink` | `#15181d` | `#f4f1ea` | text |
-| `--ink-2` | `#414752` | `#cbc5b9` | secondary text |
-| `--ink-3` | `#636b79` | `#9e998f` | tertiary text |
+| `--page` | `#dedcd6` | `#171716` | page (regolith grey; in the dark theme a grey one step above the stage) |
+| `--surface` | `#ffffff` | `#242423` | panels, fields (sunlit white) |
+| `--surface-2` | `#eceae5` | `#30302e` | insets, tracks, hover |
+| `--line` | `#c2bfb7` | `#3a3a37` | hairlines |
+| `--line-strong` | `#9f9c94` | `#55554f` | field borders, rules between list rows |
+| `--ink` | `#000000` | `#f3f2ee` | text |
+| `--ink-2` | `#33353a` | `#c6c5c0` | secondary text |
+| `--ink-3` | `#55585e` | `#9c9b96` | tertiary text |
 | `--sun` | `#f2b134` | `#f5b63a` | Sun fills, primary button |
-| `--sun-ink` | `#8a5a00` | `#f5b63a` | Sun-coloured text and icons |
+| `--sun-ink` | `#6f4700` | `#f5b63a` | Sun-coloured text and icons |
 | `--sun-on` | `#1a1407` | `#1a1407` | text on a Sun fill |
 | `--earth` | `#2f6fdd` | `#6aa9ff` | Earth fills |
-| `--earth-ink` | `#1f57b8` | `#8dbdff` | Earth-coloured text and icons |
-| `--good` | `#11794f` | `#46c98b` | keeps power |
-| `--bad` | `#bf3a2c` | `#ff7d72` | loses power |
-| `--good-bg`, `--bad-bg` | 8 % tints | 10 % tints | verdict panel fill |
-| `--good-line`, `--bad-line` | 35 % tints | 40 % tints | verdict panel border |
-| `--stage` | `#050608` | `#050608` | picture panels |
-| `--stage-ink` | `#f4f1ea` | `#f4f1ea` | text on a stage |
-| `--stage-ink-2` | `#c9c3b7` | `#c9c3b7` | secondary text on a stage |
+| `--earth-ink` | `#1b4fa8` | `#8dbdff` | Earth-coloured text and icons |
+| `--good` | `#0c6a44` | `#46c98b` | keeps power |
+| `--bad` | `#b02f22` | `#ff7d72` | loses power |
+| `--good-bg`, `--bad-bg` | 10 % tints | 10 % tints | verdict panel fill |
+| `--good-line`, `--bad-line` | 40 % tints | 40 % tints | verdict panel border |
+| `--stage` | `#000000` | `#000000` | picture panels (the black of an airless sky) |
+| `--stage-ink` | `#f3f2ee` | `#f3f2ee` | text on a stage |
+| `--stage-ink-2` | `#c6c5c0` | `#c6c5c0` | secondary text on a stage |
+| `--stage-line` | `#33332f` | `#33332f` | the edge of a stage, rules on a stage |
 | `--hill` | `#6d6962` | `#6d6962` | terrain fill on a stage |
 | `--hill-edge` | `#e9e3d7` | `#e9e3d7` | terrain outline on a stage |
+
+The palette is the Moon's own three tones (shadow black, regolith grey, sunlit white); colour is reserved for the Sun and Earth. The text colours pass AA on the page and on a surface in both themes.
 
 On a stage the Sun is always `#f5b63a` and Earth `#6aa9ff` (`--stage-sun`, `--stage-earth`), independent of the theme.
 
@@ -76,13 +79,14 @@ Gold and blue are identity colours with a fixed meaning (Sun, Earth). Green and 
 
 ### 4.2 Type
 
-Families stay: Bricolage Grotesque for display, IBM Plex Sans for text, tabular numerals. Scale in CSS pixels: 13 (chart ticks only), 14 (secondary), 15, 16 (body), 17 to 18 (lead paragraphs), 23 (panel titles), 32 to 34 (verdict, page titles inside the app), 40 (page title), 58 (home headline). No text under 13 px anywhere, including text inside SVG charts after scaling.
+Families stay: Bricolage Grotesque for display, IBM Plex Sans for text, tabular numerals. Display type is set at 87.5 % width and weight 700 (class `display`; the font is loaded with its width and optical-size axes), so headlines are tall and compact without the letters closing up; titles of 23 to 26 px use weight 600. Scale in CSS pixels: 15 (secondary text, chart labels, table heads), 16 (body), 18 to 19 (lead paragraphs), 23 to 26 (panel and row titles), 32 to 34 (verdict, figures in tables), 40 (section and page titles), 76 (home headline; 56 under 1280 px, 44 on a phone). No text under 13 px anywhere, including text inside SVG charts after scaling; nothing on the home page is under 15 px.
 
 ### 4.3 Controls and panels
 
-- Buttons 44 to 52 px tall. Primary: Sun fill with `--sun-on` text. Secondary: 1 px `--line-strong` outline. Play: ink fill.
+- Buttons 44 to 52 px tall. Primary: Sun fill with `--sun-on` text. Secondary: 1 px `--line-strong` outline. Play: ink fill. Links in running copy and at the end of a row are underlined.
 - Fields and selects 52 px tall on `--surface` with a `--line-strong` border. Window length is a three-part segmented control.
-- Panels: 16 px radius, 1 px `--line`, `--surface` fill, 20 to 24 px padding. No translucent glass, no blur.
+- Radii follow the kind of thing: pictures (stages) 6 px, panels and controls 8 px, label plates 4 to 5 px, outcome tags fully round. Panels: 1 px `--line`, `--surface` fill, 20 to 24 px padding. No translucent glass, no blur, no shadows.
+- A stage has a 1 px `--stage-line` edge, so a black picture keeps its outline on the dark page.
 - Focus: 2 px outline in `--sun-ink` (light) or `--sun` (dark), 2 px offset, on every interactive element.
 - Chart labels that sit on a picture get a solid backing plate, never an outline stroke (outlined text read as "smudged" in the blind test).
 
@@ -95,7 +99,7 @@ Families stay: Bricolage Grotesque for display, IBM Plex Sans for text, tabular 
 
 ### 4.5 Motion
 
-Only the time playback and things that answer a user's action. Play is disabled under reduced motion, as today, with the same note.
+The time playback, things that answer a user's action, and one moment on the home page: when it opens, the Sun's line in the forecast is drawn from left to right (about 2.5 s), then its labels appear. Nothing else moves by itself. Reduced motion shows the finished picture at once; Play is disabled under reduced motion, as today, with the same note.
 
 ## 5. Structure
 
@@ -117,12 +121,11 @@ The Planner/Learn switch is removed. Plain language is the default for everyone;
 
 ### 6.1 Home
 
-1. **Hero** on a dark stage in both themes. Headline: "See when a Moon lander has sunlight and a signal." Lead: "At the Moon's south pole the Sun and Earth never climb high. They skim the horizon, and one hill can hide them for weeks. Pick a landing site and a date: Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and whether the battery survives the night." Primary button "Explore a landing site" (to `/sites`), secondary "See how it works" (to the next section). Small line: "Built on NASA's elevation map of the Moon and NASA's positions of the Sun and Earth. Free to use." Picture: the shadow map of de Gerlache Rim 2 on 2 January 2027 with a pin "A possible landing site" and two labels, "in shadow" and "in sunlight"; caption says what it is and that it is computed from NASA elevation data.
-2. **Why the south pole is hard.** Three drawings with a title and two sentences each: "The Sun never climbs", "The hills decide" (with the real pair: crater rim, sunlight all month; 12 km away, 45 %), "Earth sets too".
-3. **See it at a real site.** One sentence and the Sun row of the time chart for the hero site (January 2027), drawn from a small precomputed file so the home page needs no data download. Link: "Open this site and play the month".
-4. **Start from a real mission.** Three cards with an outcome tag: IM-2 Athena ("Ended after one day"), Blue Ghost Mission 1 ("Worked all 14 days"), de Gerlache Rim 2 ("Shortlisted for a crewed landing"). Each opens Explore on that site and date.
-5. **Checked against NASA.** Three figures with a pass mark, a plain title and one sentence: the largest gap to NASA's position calculator, with a yardstick ("the Sun's disc is 20,000 times wider"); the typical gap to NASA's sunlight map (median over the covered sites, not "11 of 15", which read as four failures); the hours between our predicted sunset and the real end of Blue Ghost. The figures come from the validation tables through a small generated file, so they cannot drift.
-6. **Footer.**
+1. **Hero** on the black stage in both themes, opening on a real forecast. Headline: "See when a Moon lander has sunlight and a signal." Under it, in one row: the lead ("At the Moon's south pole the Sun and Earth never climb high. They skim the horizon, and one hill can hide them for weeks. Pick a landing site and a date: Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and whether the battery survives the night.") and, to its right, the primary button "Explore a landing site" (to `/sites`), the secondary "See how it works" (to the next section) and the line "For mission planners, educators and anyone curious." Then the forecast, edge to edge: the Sun row of the time chart for de Gerlache Rim 2 in January 2027 (drawn from a small precomputed file, so the home page needs no data download), with its title ("A real forecast: the Sun at de Gerlache Rim 2, January 2027"), a key of three marks, the two height lines ("5° up", "level ground"), the night in words on the picture and the dates along the bottom. Under it: what the site is, that the picture is computed from NASA's elevation map and NASA's positions of the Sun and Earth, and the link "Open this site and play the month".
+2. **Why the south pole is hard.** Three drawings with a title and two sentences each: "The Sun never climbs", "The hills decide" (with the real pair: crater rim, sunlit all month; 12 km away, sunlit 45 % of the month), "Earth sets too". Every drawing carries its own title line.
+3. **Start from a real place.** Left: the shadow map of de Gerlache Rim 2 on 2 January 2027 with a pin ("the landing site"), the labels "in shadow" and "in sunlight", a tag saying what and when, and a caption saying it is computed, not a photograph. Right: a ruled list of three places, each with an outcome tag, a name, two sentences and the link "Open this forecast": de Gerlache Rim 2 ("Shortlisted for a crewed landing"), the Athena lander of IM-2 ("Ended after one day"), the Blue Ghost lander ("Worked all 14 days"). Each opens Explore on that site and date.
+4. **Checked against NASA.** A table of three checks with the columns "What we check", "Gap" (a pass mark and the figure), "Against" (the NASA source and what kind of gap it is) and "For scale" (a yardstick: "The Sun's disc is 20,000 times wider."; "Where NASA's map says 60 %, ours says 57 to 63 %."; "After 14 days on the surface."). The figures come from the validation tables through a small generated file, so they cannot drift. Link: "See every check and rerun one live".
+5. **Footer.**
 
 ### 6.2 Choose a landing site (`/sites`)
 
@@ -262,3 +265,45 @@ Four pull requests, each with its own plan, test-first tasks, a fresh review, on
 - The verdict says "Power for D, then night", not "would not survive": a lander may sleep through a night and wake.
 - A fixed 30-day survival test failed 17 of 19 catalogue sites in January 2027 (any 30 days holds a lunar night), which read as a wall of red. Lists and verdicts therefore report the time with power and the best landing date.
 - The default site is de Gerlache Rim 2.
+- The fresh whole-branch review of part 1 was stopped by the user before it reported; part 1 is reviewed by its author against the same checklist, and the pull request says so.
+
+## 15. Design-lead pass (amendment, 1 October 2026)
+
+The user asked for the frontend-design process on top of the approved direction ("use the front end design command and continue your work on the parts"). The pass keeps the structure, the copy rules and the two themes of this document and changes how the pages look. Sections 4 and 6.1 above already carry the result; this section records the reasoning.
+
+**What read as a default.** Checked against the usual output for "a clean landing page", the first build had: a cream page with near-black text and an amber accent; a hero with text on the left and a picture on the right; three sections of three equal cards; a row of three big numbers; tinted near-blacks standing in for black; one radius on everything. None of these came from the subject.
+
+**Palette: the Moon's own three tones.** Shadow black `#000000` (an airless sky has no haze, so the stage is true black), regolith grey `#dedcd6` (the page), sunlit white `#ffffff` (panels). Colour appears only where it means something: Sun gold `#f2b134` and Earth blue `#2f6fdd`. Green and red stay status colours for the power verdict.
+
+**Type.** Bricolage Grotesque at 87.5 % width and weight 700 for headlines; IBM Plex Sans for everything else. Three widths were rendered and compared: 75 % closed up and read as cramped (the user's word for the first UI was "condensed"), 100 % read as any grotesque; 87.5 % keeps the height and the legibility.
+
+**Layout: the hero is the product.** The most characteristic thing in this subject is the Sun skimming the hills, so the page opens on the real forecast, edge to edge, instead of a decorative picture.
+
+```
++----------------------------------------------------------------------+
+| Earthrise  tagline        Explore  Compare  How  Accuracy     [L|D]  |
++======================================================================+
+| See when a Moon lander                                               |  black
+| has sunlight and a signal.                                           |
+| lead paragraph (4 lines)               [Explore a landing site] [..] |
+|                                        For mission planners, ...     |
+| A real forecast: the Sun at ...        -- Sun   .. hidden   ## hills |
+| . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5 deg up . |
+|        ____________________     Night for 16 days 15 hours           |
+| ~~~~~~/  .  .  .  .  .  .  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ |
+| _/^^_/                      ^^_/^_/^^^_ level ground _/^^_/^_/^^^_/^ |
+| 1 Jan      6 Jan      11 Jan      16 Jan      21 Jan      26 Jan     |
+| what the site is; computed from NASA data     Open this site ...     |
++======================================================================+
+| Why the south pole is hard        [drawing] [drawing] [drawing]      |  grey
+| Start from a real place           [shadow map]  | place ........ link|
+|                                                 | place ........ link|
+| Checked against NASA   what | gap | against | for scale              |
++----------------------------------------------------------------------+
+```
+
+Shapes follow the content: three parallel facts are three drawings; three places are a picture and a ruled list; three checks are a table, because each has the same four attributes. Everything is left aligned on one edge.
+
+**Principles of the pass.** One bold thing (the forecast as hero), everything else quiet. No gradients, shadows or blur as decoration; the only fade is on hills that run off the top of a chart, where it means "continues". One moment of motion (the Sun's line is drawn once). Structure carries information: rules separate rows, tags state an outcome, the pass mark sits beside the figure it certifies.
+
+**What the first blind read of the built home page asked for, and where it went.** The chart had two unexplained horizontal scales and no height scale: the compass row is gone from the home page and two named height lines are in. Small labels: chart labels are 15 px. "2.6 points" and the three big figures: the table says what each gap is measured against and gives a yardstick. Two landers announced, three cards shown: the sentence now names the ridge and the two landers in the order of the list. The hero picture read as a stock photo: it moved beside the list with a tag and a caption that say it is computed. Audience unstated: one line under the buttons. Lower links looked like plain text: underlined. Dark theme: stages keep a 1 px edge and the page is a grey above black.

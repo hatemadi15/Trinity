@@ -2456,3 +2456,31 @@ Add to `web/README.md`, under the commands: the theme rule (light default, heade
 git add web/public/validation/tests.json web/README.md
 git commit -m "chore(web): test badge and notes on themes and home assets"
 ```
+
+---
+
+### Task 9: Design-lead pass on the tokens, the chart and the home page
+
+Added on 1 October 2026 after the first blind read of the built home page and the user's request to run the frontend-design process ("use the front end design command and continue your work on the parts"). Spec: sections 4.1 to 4.5 and 6.1 as amended, and section 15 (reasoning, wireframe). A rendered mock of this task was shown to the user before the build (`.playwright-mcp/design-pass-home-light.png`, `-dark.png`).
+
+**Files:**
+- Modify: `web/src/app/globals.css`, `web/src/app/globals.test.ts`, `web/src/app/layout.tsx`, `web/src/lib/viz/skyrow.ts`, `web/src/lib/viz/skyrow.test.ts`, `web/src/components/SkyRow.tsx`, `web/src/components/SkyRow.test.tsx`, `web/src/components/home/WhyDrawings.tsx`, `web/src/components/home/WhyDrawings.test.tsx`, `web/src/lib/data/home.ts`, `web/src/lib/data/home.test.ts`, `web/src/app/page.tsx`, `web/src/app/page.test.tsx`, `web/src/components/AppFrame.tsx`, `web/src/components/ThemeSwitch.tsx`, `web/public/validation/tests.json`, `web/README.md`
+
+**Interfaces:**
+- Produces (part 2 builds on these):
+  - Tokens with the values of spec 4.1 (page `#dedcd6` / `#171716`, ink `#000000` / `#f3f2ee`, stage `#000000`); radii: `.stage` 6 px with a 1 px `--stage-line` edge, `.panel` `.btn` `.field` 8 px.
+  - `.display`: display family at 87.5 % width, weight 700, tight leading. Sizes come from utilities.
+  - `.reveal-line` and `.reveal-after`: the one page-load motion (wipe left to right, then fade in); off under reduced motion.
+  - `rowGeometry(...)`: `hillEdge` leaves out the stretches where the hills are above the range (they run off the top); `RowGeometry.clipped: boolean` says whether any hill does.
+  - `scaleLabelSide(hidden: { fromPct: number; toPct: number; set: LabelSide; rise: LabelSide } | null, need?: number): 'left' | 'right' | null`: the side of the chart where the height-line words do not collide with the night, sunset or sunrise labels; `null` when both sides are busy.
+  - `SkyRow` props: `el, hill, visible, az?, startUtc, body, caption, height = 200, ticks = true, reveal = false`. Edge labels sit `var(--chart-inset, 10px)` from the sides, so a full-bleed chart can align them with the page gutter. Two dotted height lines with the words "5° up" and "level ground". Hills that run off the top fade out.
+  - `SkyRowKey({ body, compass? })`: a list of the three marks ("height of the Sun", "Sun hidden", "hills in the Sun's direction"), plus the compass sentence when `compass`. Inherits its text colour.
+  - `PLACES` in `web/src/lib/data/home.ts` (replaces `MISSIONS`): de Gerlache Rim 2 first, then the Athena lander (IM-2), then the Blue Ghost lander.
+
+- [ ] **Step 1: Tokens and classes, test first** (`globals.test.ts`: the new approved values; the stage is true black and the dark page is lighter than it; status and identity text colours also pass AA on the page; `.display`, `.reveal-line`, `.reveal-after` exist; radii of `.stage`, `.panel`, `.btn`, `.field`). `layout.tsx` loads the display face with `axes: ['opsz', 'wdth']`.
+- [ ] **Step 2: Chart geometry, test first** (`skyrow.test.ts`: clipped stretches leave the edge; `clipped` flag; `scaleLabelSide` cases: no night, night on the left, night on the right, labels outside a short night, both sides busy).
+- [ ] **Step 3: `SkyRow` and `SkyRowKey`, test first** (two height lines with words; no words when both sides are busy; `ticks={false}`; fade only when hills are clipped; `reveal` classes; key wording for the Sun and for Earth; every label at least 15 px).
+- [ ] **Step 4: Drawings, test first** (middle drawing: its own title line with the distance, "rim: sunlit all month", "sunlit 45 % of the month").
+- [ ] **Step 5: Home page, test first** (hero holds the forecast with title, key, note and link; no "See it at a real site" section; "Start from a real place" with the picture and the three places in list order; "Checked against NASA" as a table with four column heads and three rows; audience line; one gold action).
+- [ ] **Step 6: Look at it** at 1440 by 900, 1280, 1024, 820 and 390 px in both themes: no sideways scroll, no label collisions, first screen holds the whole forecast at 1440 by 900; measure text sizes and control heights; old pages still readable.
+- [ ] **Step 7: Gates, badge, README, commit.**
