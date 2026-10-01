@@ -42,18 +42,21 @@ export function PlannerChat({
   ask = askPlanner,
   navigate,
   defaultOpen = false,
+  variant = 'strip',
 }: {
   store?: StoreApi<ExploreState>;
   ask?: Ask;
   navigate?: (href: string) => void;
   defaultOpen?: boolean;
+  /** 'strip': the folding bar of the old pages; 'panel': an open section with its own heading (Explore). */
+  variant?: 'strip' | 'panel';
 }) {
   const aiMode = useStore(store, (s) => s.aiMode);
   const exchanges = useStore(plannerLog, (s) => s.exchanges);
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
   // Open when asked to, or when the transcript already holds an answer (Compare, right after "compare A and B").
-  const [open, setOpen] = useState(() => defaultOpen || plannerLog.getState().exchanges.length > 0);
+  const [open, setOpen] = useState(() => variant === 'panel' || defaultOpen || plannerLog.getState().exchanges.length > 0);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -86,6 +89,62 @@ export function PlannerChat({
 
   const showChips = exchanges.length === 0 || exchanges[0].source === 'error';
   const latest = exchanges[0];
+    if (variant === 'panel') {
+      return (
+        <section aria-label="Ask in plain words" className="panel">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+            <h2 className="display text-[23px] font-semibold">Ask in plain words</h2>
+            <p className="text-[15px] text-ink-2">
+              The assistant moves the controls for you. It never invents numbers.
+              {aiMode === 'cached' && ' Demo mode: rehearsed answers.'}
+            </p>
+          </div>
+          <form
+            aria-label="Planner question"
+            className="mt-3 flex flex-wrap gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submit(input);
+            }}
+          >
+            <input
+              type="text"
+              aria-label="Ask the planner"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days"
+              maxLength={500}
+              className="field min-w-[260px] flex-1 placeholder:text-ink-3"
+            />
+            <button type="submit" disabled={busy || !input.trim()} className="btn h-[52px]">
+              {busy ? 'Thinking…' : 'Ask'}
+            </button>
+          </form>
+          {showChips && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {EXAMPLE_PROMPTS.map((p) => (
+                <button key={p} type="button" aria-label={`Try: ${p}`} onClick={() => setInput(p)} className="min-h-[40px] rounded-full border border-line-strong px-4 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+          {exchanges.length > 0 && (
+            <ol aria-label="Planner replies" className="mt-4 flex flex-col gap-3">
+              {exchanges.map((x, i) => (
+                <li key={x.id} className={i === 0 ? 'text-ink' : 'text-ink-2'}>
+                  <p className={i === 0 ? 'text-base' : 'text-[15px]'}>{x.reply}</p>
+                  {x.notes.length > 0 && <p className="text-[15px] text-ink-2">{x.notes.join(' ')}</p>}
+                  <p className="text-[15px] text-ink-2">
+                    {sourceLabel(x)}, after you asked “{x.prompt}”
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      );
+    }
   return (
     <section aria-label="Planner" className="glass rounded-md px-4 py-2">
       <button

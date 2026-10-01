@@ -231,4 +231,18 @@ describe('PlannerChat opens when it has something to show', () => {
     expect(screen.getByText('Comparing two sites.')).toBeTruthy();
     expect(screen.getByText(/matched your words/)).toBeTruthy();
   });
+
+    it('as a panel is always open, says what the assistant does, and keeps "Ask" out of gold', () => {
+      const { store } = fakeStore();
+      render(<PlannerChat store={store} ask={vi.fn()} navigate={() => {}} variant="panel" />);
+      const panel = screen.getByRole('region', { name: 'Ask in plain words' });
+      expect(within(panel).getByRole('heading', { level: 2 }).textContent).toBe('Ask in plain words');
+      expect(panel.textContent).toMatch(/The assistant moves the controls for you\. It never invents numbers\./);
+      expect(within(panel).getByLabelText('Ask the planner').className).toMatch(/\bfield\b/);
+      const askButton = within(panel).getByRole('button', { name: 'Ask' });
+      expect(askButton.className).toMatch(/\bbtn\b/);
+      expect(askButton.className).not.toMatch(/btn-primary/);
+      expect(within(panel).getAllByRole('button', { name: /^Try: / })).toHaveLength(EXAMPLE_PROMPTS.length);
+      expect(within(panel).queryByRole('button', { expanded: true })).toBeNull(); // no collapse control
+    });
 });
