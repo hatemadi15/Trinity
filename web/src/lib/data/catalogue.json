@@ -7,6 +7,8 @@
   {
    "id": "south_pole",
    "name": "Lunar South Pole (reference)",
+   "label": "Lunar south pole",
+   "blurb": "The pole itself, on the rim of Shackleton crater",
    "lat": -90.0,
    "lon": 0.0,
    "category": "reference",
@@ -15,6 +17,8 @@
   {
    "id": "shackleton_center",
    "name": "Shackleton crater centre",
+   "label": "Shackleton crater floor",
+   "blurb": "The floor of the crater at the pole, always in shadow",
    "lat": -89.66,
    "lon": 129.2,
    "category": "classic",
@@ -23,6 +27,8 @@
   {
    "id": "de_gerlache_center",
    "name": "de Gerlache crater centre",
+   "label": "de Gerlache crater floor",
+   "blurb": "A crater floor that never sees the Sun",
    "lat": -88.5,
    "lon": -87.1,
    "category": "classic",
@@ -31,6 +37,8 @@
   {
    "id": "connecting_ridge",
    "name": "Connecting Ridge (Shackleton–de Gerlache ridge)",
+   "label": "Connecting Ridge",
+   "blurb": "The ridge between Shackleton and de Gerlache craters",
    "lat": -89.53432,
    "lon": -150.05233,
    "category": "classic",
@@ -39,6 +47,8 @@
   {
    "id": "peak_near_shackleton",
    "name": "Peak near Shackleton",
+   "label": "Peak near Shackleton",
+   "blurb": "A summit 30 km from the pole",
    "lat": -89.01701,
    "lon": 126.27302,
    "category": "classic",
@@ -47,6 +57,8 @@
   {
    "id": "peak_near_cabeus_b",
    "name": "Peak near Cabeus B (Artemis III region)",
+   "label": "Peak near Cabeus B",
+   "blurb": "A peak beside Cabeus B crater",
    "lat": -83.78,
    "lon": -68.72,
    "category": "artemis3",
@@ -55,6 +67,8 @@
   {
    "id": "haworth",
    "name": "Haworth (Artemis III region)",
+   "label": "Haworth",
+   "blurb": "Beside a crater that is always in shadow",
    "lat": -86.84,
    "lon": -22.59,
    "category": "artemis3",
@@ -63,6 +77,8 @@
   {
    "id": "malapert_massif",
    "name": "Malapert Massif (Artemis III region)",
+   "label": "Malapert Massif",
+   "blurb": "A mountain 120 km from the pole",
    "lat": -86.0,
    "lon": 0.0,
    "category": "artemis3",
@@ -71,6 +87,8 @@
   {
    "id": "mons_mouton_plateau",
    "name": "Mons Mouton Plateau (Artemis III region)",
+   "label": "Mons Mouton Plateau",
+   "blurb": "The centre of this region sits on the mountain's shaded flank",
    "lat": -84.46,
    "lon": 30.66,
    "category": "artemis3",
@@ -79,6 +97,8 @@
   {
    "id": "mons_mouton",
    "name": "Mons Mouton (Artemis III region)",
+   "label": "Mons Mouton",
+   "blurb": "A broad, flat-topped mountain",
    "lat": -85.53,
    "lon": 31.77,
    "category": "artemis3",
@@ -87,6 +107,8 @@
   {
    "id": "nobile_rim_1",
    "name": "Nobile Rim 1 (Artemis III region)",
+   "label": "Nobile Rim 1",
+   "blurb": "On the rim of Nobile crater",
    "lat": -85.54,
    "lon": 37.39,
    "category": "artemis3",
@@ -95,6 +117,8 @@
   {
    "id": "nobile_rim_2",
    "name": "Nobile Rim 2 (Artemis III region)",
+   "label": "Nobile Rim 2",
+   "blurb": "On the rim of Nobile crater, farther from the pole",
    "lat": -84.20156,
    "lon": 60.69989,
    "category": "artemis3",
@@ -103,6 +127,8 @@
   {
    "id": "de_gerlache_rim_2",
    "name": "de Gerlache Rim 2 (Artemis III region)",
+   "label": "de Gerlache Rim 2",
+   "blurb": "A ridge on a crater rim, 52 km from the pole",
    "lat": -88.28,
    "lon": -64.31,
    "category": "artemis3",
@@ -111,6 +137,8 @@
   {
    "id": "slater_plain",
    "name": "Slater Plain (Artemis III region)",
+   "label": "Slater Plain",
+   "blurb": "A plain beside Slater crater",
    "lat": -87.23,
    "lon": 125.37,
    "category": "artemis3",
@@ -119,6 +147,8 @@
   {
    "id": "im1_odysseus",
    "name": "IM-1 Odysseus landing site (Malapert A)",
+   "label": "IM-1 Odysseus",
+   "blurb": "Where the Odysseus lander touched down in February 2024",
    "lat": -80.13,
    "lon": 1.44,
    "category": "clps_landed",
@@ -127,6 +157,8 @@
   {
    "id": "im2_athena",
    "name": "IM-2 Athena landing site (Mons Mouton)",
+   "label": "IM-2 Athena",
+   "blurb": "Where the Athena lander came to rest on its side in March 2025",
    "lat": -84.7906,
    "lon": 29.1957,
    "category": "clps_landed",
@@ -135,6 +167,8 @@
   {
    "id": "blue_ghost_m1",
    "name": "Blue Ghost Mission 1 landing site (Mare Crisium)",
+   "label": "Blue Ghost Mission 1",
+   "blurb": "Where Blue Ghost worked for 14 days in March 2025, far from the pole",
    "lat": 18.562,
    "lon": 61.81,
    "category": "clps_landed",
@@ -143,6 +177,8 @@
   {
    "id": "shackleton_center_rim_high",
    "name": "Shackleton crater rim, highest point 8.5–12.0 km",
+   "label": "Shackleton rim summit",
+   "blurb": "The highest point of the crater rim, next to the pole",
    "lat": -89.78131,
    "lon": -156.25683,
    "category": "classic",
@@ -151,6 +187,8 @@
   {
    "id": "de_gerlache_center_rim_high",
    "name": "de Gerlache crater rim, highest point 13.0–18.0 km",
+   "label": "de Gerlache rim summit",
+   "blurb": "The highest point of the crater rim",
    "lat": -88.66401,
    "lon": -68.40606,
    "category": "classic",

@@ -10,7 +10,13 @@
       "polar": true,
       "source": "derived: argmax LOLA 20 m height in annulus around shackleton_center",
       "landed_utc": null,
-      "derive_rim": null
+      "derive_rim": null,
+      "approximate": false,
+      "mission_end_utc": null,
+      "mission_end_source": null,
+      "mission_note": null,
+      "label": "Shackleton rim summit",
+      "blurb": "The highest point of the crater rim, next to the pole"
     },
     {
       "id": "de_gerlache_center_rim_high",
@@ -21,7 +27,13 @@
       "polar": true,
       "source": "derived: argmax LOLA 20 m height in annulus around de_gerlache_center",
       "landed_utc": null,
-      "derive_rim": null
+      "derive_rim": null,
+      "approximate": false,
+      "mission_end_utc": null,
+      "mission_end_source": null,
+      "mission_note": null,
+      "label": "de Gerlache rim summit",
+      "blurb": "The highest point of the crater rim"
     }
   ]
 }
