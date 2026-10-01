@@ -3,10 +3,11 @@ import { Bricolage_Grotesque, IBM_Plex_Sans } from 'next/font/google';
 import { DEFAULT_THEME, THEME_SCRIPT } from '@/lib/theme';
 import './globals.css';
 
+// The optical-size axis gives headlines their tighter display cut; without it large type sets about a tenth wider.
 const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
   variable: '--font-bricolage',
-  weight: ['500', '600', '700'],
+  axes: ['opsz'],
 });
 const plex = IBM_Plex_Sans({ subsets: ['latin'], variable: '--font-plex', weight: ['400', '500', '600'] });
 

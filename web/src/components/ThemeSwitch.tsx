@@ -16,7 +16,7 @@ export function ThemeSwitch() {
     if (currentTheme() !== wanted || !document.documentElement.hasAttribute('data-theme')) applyTheme(wanted, false);
   }, []);
   return (
-    <div role="group" aria-label="Theme" className="flex h-10 overflow-hidden rounded-[10px] border border-line-strong text-sm">
+    <div role="group" aria-label="Theme" className="flex h-11 overflow-hidden rounded-[10px] border border-line-strong text-sm">
       {OPTIONS.map(([value, label]) => (
         <button
           key={value}
