@@ -111,7 +111,7 @@ export function ExploreView({ store = exploreStore }: { store?: StoreApi<Explore
   const p = s.params.power;
   return (
     <AppFrame>
-      <main data-testid="cockpit" className="flex flex-col lg:tall:h-[calc(100vh-3rem)] lg:tall:overflow-hidden">
+      <main data-testid="cockpit" className="flex flex-col lg:tall:h-[calc(100vh-68px)] lg:tall:overflow-hidden">
         <div className="relative">
           <div className="glass-bar flex flex-wrap items-end gap-x-5 gap-y-2 border-b border-line px-4 py-2">
             <SiteSelect

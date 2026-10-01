@@ -58,20 +58,20 @@ export function SkyDome({
           key={el}
           r={domeRadius(el, R)}
           fill="none"
-          stroke="var(--line)"
+          stroke="var(--stage-line)"
           strokeDasharray={el === 0 ? undefined : '3 5'}
         />
       ))}
       <path data-part="ground" d={ground} fill="var(--terrain)" fillRule="evenodd" />
       <path data-part="skyline" d={skyline} fill="none" stroke="var(--terrain-edge)" strokeWidth={1.5} />
-      <path data-part="sun-track" d={sunTrack} fill="none" stroke="var(--sun)" strokeWidth={2} strokeOpacity={0.85} />
-      <path data-part="earth-track" d={earthTrack} fill="none" stroke="var(--earth)" strokeWidth={2} strokeOpacity={0.85} />
+      <path data-part="sun-track" d={sunTrack} fill="none" stroke="var(--stage-sun)" strokeWidth={2} strokeOpacity={0.85} />
+      <path data-part="earth-track" d={earthTrack} fill="none" stroke="var(--stage-earth)" strokeWidth={2} strokeOpacity={0.85} />
       <circle
         data-part="earth-now"
         cx={earth.x}
         cy={earth.y}
         r={7}
-        fill="var(--earth)"
+        fill="var(--stage-earth)"
         stroke="var(--sky)"
         strokeWidth={2}
         opacity={earthUp ? 1 : 0.45}
@@ -81,24 +81,24 @@ export function SkyDome({
         cx={sun.x}
         cy={sun.y}
         r={9}
-        fill={lit ? 'var(--sun-bright)' : 'var(--sun)'}
+        fill={lit ? 'var(--stage-sun)' : 'var(--stage-sun)'}
         stroke="var(--sky)"
         strokeWidth={2}
         opacity={lit ? 1 : 0.45}
       />
       {RINGS.map((el) => (
-        <text key={el} x={6} y={-domeRadius(el, R) - 4} fill="var(--ink-2)" fontSize={16} style={halo}>
+        <text key={el} x={6} y={-domeRadius(el, R) - 4} fill="var(--stage-ink-2)" fontSize={16} style={halo}>
           {el === 0 ? 'horizon' : `${el}°`}
         </text>
       ))}
-      <text x={sun.x + 14} y={sun.y + 5} fill="var(--sun-bright)" fontSize={16} style={halo}>
+      <text x={sun.x + 14} y={sun.y + 5} fill="var(--stage-sun)" fontSize={16} style={halo}>
         Sun
       </text>
-      <text x={earth.x + 12} y={earth.y + 5} fill="var(--earth)" fontSize={16} style={halo}>
+      <text x={earth.x + 12} y={earth.y + 5} fill="var(--stage-earth)" fontSize={16} style={halo}>
         Earth
       </text>
       {compass.map(([t, x, y]) => (
-        <text key={t} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="var(--ink-2)" fontSize={16}>
+        <text key={t} x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="var(--stage-ink-2)" fontSize={16}>
           {t}
         </text>
       ))}
