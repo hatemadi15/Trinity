@@ -5,35 +5,37 @@
 
 /*
  * Light is the default theme; data-theme="dark" on <html> swaps the values (set before paint by the
- * inline script in layout.tsx). Picture panels ("stages": charts on black, shadow map, 3D, relief
- * maps) keep the same dark colours in both themes.
+ * inline script in layout.tsx). The palette is the Moon's own three tones: shadow black (the stage),
+ * regolith grey (the page) and sunlit white (panels). Colour is kept for the Sun and Earth, and green
+ * and red for the power verdict. Picture panels ("stages": charts, shadow map, 3D, relief maps) keep
+ * the same colours in both themes; the sky above an airless world is true black.
  */
 :root {
-  --page: #f3f2ee;
+  --page: #dedcd6;
   --surface: #ffffff;
-  --surface-2: #efede7;
-  --line: #dfdcd4;
-  --line-strong: #c4c0b5;
-  --ink: #15181d;
-  --ink-2: #414752;
-  --ink-3: #636b79;
+  --surface-2: #eceae5;
+  --line: #c2bfb7;
+  --line-strong: #9f9c94;
+  --ink: #000000;
+  --ink-2: #33353a;
+  --ink-3: #55585e;
   --sun: #f2b134;
-  --sun-ink: #8a5a00;
+  --sun-ink: #6f4700;
   --sun-hover: #e3a323;
   --earth: #2f6fdd;
-  --earth-ink: #1f57b8;
-  --good: #11794f;
-  --good-bg: rgba(17, 121, 79, 0.08);
-  --good-line: rgba(17, 121, 79, 0.35);
-  --bad: #bf3a2c;
-  --bad-bg: rgba(191, 58, 44, 0.07);
-  --bad-line: rgba(191, 58, 44, 0.35);
-  --warn: #8a5a00;
+  --earth-ink: #1b4fa8;
+  --good: #0c6a44;
+  --good-bg: rgba(12, 106, 68, 0.1);
+  --good-line: rgba(12, 106, 68, 0.4);
+  --bad: #b02f22;
+  --bad-bg: rgba(176, 47, 34, 0.1);
+  --bad-line: rgba(176, 47, 34, 0.4);
+  --warn: #6f4700;
   --sun-on: #1a1407;
-  --stage: #050608;
-  --stage-ink: #f4f1ea;
-  --stage-ink-2: #c9c3b7;
-  --stage-line: #2b3038;
+  --stage: #000000;
+  --stage-ink: #f3f2ee;
+  --stage-ink-2: #c6c5c0;
+  --stage-line: #33332f;
   --stage-sun: #f5b63a;
   --stage-earth: #6aa9ff;
   --hill: #6d6962;
@@ -50,14 +52,14 @@
 }
 
 :root[data-theme="dark"] {
-  --page: #0b0d11;
-  --surface: #14181e;
-  --surface-2: #1c2129;
-  --line: #272d37;
-  --line-strong: #3b4350;
-  --ink: #f4f1ea;
-  --ink-2: #cbc5b9;
-  --ink-3: #9e998f;
+  --page: #171716;
+  --surface: #242423;
+  --surface-2: #30302e;
+  --line: #3a3a37;
+  --line-strong: #55554f;
+  --ink: #f3f2ee;
+  --ink-2: #c6c5c0;
+  --ink-3: #9c9b96;
   --sun: #f5b63a;
   --sun-ink: #f5b63a;
   --sun-hover: #ffc65c;
@@ -150,7 +152,7 @@ html {
     gap: 10px;
     height: 48px;
     padding: 0 20px;
-    border-radius: 10px;
+    border-radius: 8px;
     border: 1px solid var(--line-strong);
     background: transparent;
     color: var(--ink);
@@ -192,24 +194,42 @@ html {
   .field {
     height: 52px;
     padding: 0 14px;
-    border-radius: 10px;
+    border-radius: 8px;
     border: 1px solid var(--line-strong);
     background: var(--surface);
     color: var(--ink);
     font-size: 16px;
   }
+  /* Radii follow the kind of thing: pictures 6 px, panels and controls 8 px, label plates 4 to 5 px. */
   .panel {
-    border-radius: 16px;
+    border-radius: 8px;
     border: 1px solid var(--line);
     background: var(--surface);
     padding: 20px 24px;
   }
+  /* A picture panel. The edge keeps a black picture's outline on the dark page. */
   .stage {
     position: relative;
     overflow: hidden;
-    border-radius: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--stage-line);
     background: var(--stage);
     color: var(--stage-ink);
+  }
+  /* Display type: the grotesque at 87.5 % width, tall and compact with the letters still open. The size comes from utilities. */
+  .display {
+    font-family: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
+    font-stretch: 87.5%;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.012em;
+  }
+  /* The one motion that plays by itself: on the home page the Sun's line is drawn once from left to right, then its labels appear. */
+  .reveal-line {
+    animation: reveal-wipe 2.6s cubic-bezier(0.3, 0.1, 0.2, 1) 0.35s both;
+  }
+  .reveal-after {
+    animation: reveal-show 0.5s ease 2.7s both;
   }
   /* Centres a chart label on a point; a label too wide for the room there stays inside the picture instead of being cut off. */
   .label-centred {
@@ -224,6 +244,23 @@ html {
   }
   .glass-bar {
     background: var(--page);
+  }
+}
+
+@keyframes reveal-wipe {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+@keyframes reveal-show {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

@@ -38,6 +38,8 @@ Light is the default; the header switch changes it and the choice is kept in `lo
 
 Text never scales with a picture: labels on charts and drawings are page text laid over the drawing (`src/components/SkyRow.tsx`), so nothing falls under 13 px on a narrow screen.
 
+The look, in short (reasoning in section 15 of the design): the palette is the Moon's own three tones, shadow black for picture panels, regolith grey for the page and sunlit white for panels, with colour kept for the Sun (gold) and Earth (blue). Headlines use the class `display` (Bricolage Grotesque at 87.5 % width, weight 700). Pictures have a 6 px radius, panels and controls 8 px. The only motion that plays by itself is on the home page, where the Sun's line is drawn once from left to right (`reveal` on `SkyRow`); reduced motion shows the finished picture.
+
 ## Home page assets
 
     # from pipeline/

@@ -2,13 +2,13 @@ import type { CSSProperties, ReactNode } from 'react';
 
 /**
  * Three small drawings for "Why the south pole is hard". Illustrations, not data: they always sit on
- * the dark stage colours, whatever the theme. Their labels are page text laid over the drawing, so the
- * words keep their size when the drawing gets smaller.
+ * the black stage, whatever the theme. Their labels are page text laid over the drawing, so the words
+ * keep their size when the drawing gets smaller. Every drawing starts with its own title line.
  */
 
 function Frame({ children, labels }: { children: ReactNode; labels: ReactNode }) {
   return (
-    <div aria-hidden="true" className="relative overflow-hidden rounded-xl" style={{ background: 'var(--stage)' }}>
+    <div aria-hidden="true" className="stage">
       <svg viewBox="0 0 380 190" className="block w-full">
         {children}
       </svg>
@@ -19,7 +19,7 @@ function Frame({ children, labels }: { children: ReactNode; labels: ReactNode })
 
 function Label({ children, soft = false, className = '', style }: { children: ReactNode; soft?: boolean; className?: string; style?: CSSProperties }) {
   return (
-    <span data-label="" className={`block whitespace-nowrap ${soft ? 'text-stage-ink-2' : 'text-stage-ink'} ${className}`} style={{ fontSize: soft ? 14 : 15, lineHeight: '21px', ...style }}>
+    <span data-label="" className={`block whitespace-nowrap ${soft ? 'text-stage-ink-2' : 'text-stage-ink'} ${className}`} style={{ fontSize: 15, lineHeight: '21px', ...style }}>
       {children}
     </span>
   );
@@ -45,13 +45,15 @@ export function SunNeverClimbs() {
 
 /** A lit peak and a point in its shadow, with the real pair of numbers from the catalogue. */
 export function HillsDecide({ rimPct, sitePct, km }: { rimPct: number; sitePct: number; km: number }) {
-  const rim = rimPct >= 99.95 ? 'crater rim: sunlight all month' : `crater rim: ${Math.round(rimPct)} %`;
+  const rim = rimPct >= 99.95 ? 'rim: sunlit all month' : `rim: sunlit ${Math.round(rimPct)} %`;
   return (
     <Frame
       labels={
         <>
-          <Label className="absolute right-[3%] top-[9%]">{rim}</Label>
-          <Label className="absolute right-[3%] top-[52%]">{`${km} km away: ${sitePct} %`}</Label>
+          <Label className="absolute left-[5%] top-[9%]">{`The same month, ${km} km apart`}</Label>
+          {/* Beside the green dot on the peak, and inside the shadow under the red dot. On a narrow drawing they reach the hill, so each has a plate. */}
+          <Label className="absolute right-[3%] top-[25%] rounded-[5px] bg-stage/80 px-1.5">{rim}</Label>
+          <Label className="absolute bottom-[4%] right-[3%] rounded-[5px] bg-stage/80 px-1.5">{`sunlit ${sitePct} % of the month`}</Label>
         </>
       }
     >

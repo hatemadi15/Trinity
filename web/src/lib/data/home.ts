@@ -32,27 +32,30 @@ export function thousandsText(n: number): string {
   return `${k.toLocaleString('en-US')},000`;
 }
 
-/** Three real stories; each opens Explore on the site and date where it happened. */
-export const MISSIONS: { title: string; outcome: string; tone: 'good' | 'bad' | 'plain'; body: string; href: string }[] = [
-  {
-    title: 'IM-2 Athena, March 2025',
-    outcome: 'Ended after one day',
-    tone: 'bad',
-    body: 'Landed near a mountain called Mons Mouton and came to rest on its side in a crater. Replay the sky it saw and how little light reached it.',
-    href: '/explore?site=im2_athena&start=2025-03-06',
-  },
-  {
-    title: 'Blue Ghost Mission 1, March 2025',
-    outcome: 'Worked all 14 days',
-    tone: 'good',
-    body: 'A site far from the pole: two weeks of sunlight, Earth always in view. Our predicted sunset is within hours of its last signal.',
-    href: '/explore?site=blue_ghost_m1&start=2025-03-02',
-  },
+/**
+ * Three real places, in the order of the list on the home page: the ridge in the picture first, then
+ * the two landers. Each opens Explore on the site and, for a mission, the date where it happened.
+ */
+export const PLACES: { title: string; outcome: string; tone: 'good' | 'bad' | 'plain'; body: string; href: string }[] = [
   {
     title: 'de Gerlache Rim 2',
     outcome: 'Shortlisted for a crewed landing',
     tone: 'plain',
     body: 'One of nine regions NASA shortlisted in 2024 for a crewed Artemis landing. Long days, long nights, and a rim that changes everything.',
     href: '/explore?site=de_gerlache_rim_2',
+  },
+  {
+    title: 'Athena lander (IM-2), March 2025',
+    outcome: 'Ended after one day',
+    tone: 'bad',
+    body: 'Came down near a mountain called Mons Mouton and ended on its side in a crater. Replay the sky it saw and how little light reached it.',
+    href: '/explore?site=im2_athena&start=2025-03-06',
+  },
+  {
+    title: 'Blue Ghost lander, March 2025',
+    outcome: 'Worked all 14 days',
+    tone: 'good',
+    body: 'A site far from the pole: two weeks of sunlight, Earth always in view. Our predicted sunset falls within hours of its last signal.',
+    href: '/explore?site=blue_ghost_m1&start=2025-03-02',
   },
 ];

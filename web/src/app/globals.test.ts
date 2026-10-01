@@ -43,13 +43,21 @@ describe('theme tokens', () => {
     for (const t of FIXED) expect(light[t], t).toBeTruthy();
   });
 
-  it('matches the approved values for the page, ink and the two identity colours', () => {
-    expect(light['--page']).toBe('#f3f2ee');
-    expect(dark['--page']).toBe('#0b0d11');
-    expect(light['--ink']).toBe('#15181d');
-    expect(dark['--ink']).toBe('#f4f1ea');
+  it('matches the approved values for the page, ink, the stage and the two identity colours', () => {
+    expect(light['--page']).toBe('#dedcd6');
+    expect(dark['--page']).toBe('#171716');
+    expect(light['--surface']).toBe('#ffffff');
+    expect(light['--ink']).toBe('#000000');
+    expect(dark['--ink']).toBe('#f3f2ee');
+    expect(light['--stage']).toBe('#000000');
     expect(light['--sun']).toBe('#f2b134');
     expect(dark['--earth']).toBe('#6aa9ff');
+  });
+
+  it('keeps the stage darker than the dark page and gives it a visible edge, so a picture panel never melts into the page', () => {
+    expect(luminance(dark['--page'])).toBeGreaterThan(luminance(light['--stage']));
+    expect(contrast(light['--stage-line'], light['--stage'])).toBeGreaterThanOrEqual(1.5);
+    expect(css).toMatch(/\.stage \{[^}]*border: 1px solid var\(--stage-line\)/);
   });
 
   it('meets AA contrast for text in both themes and on the stage', () => {
@@ -57,6 +65,7 @@ describe('theme tokens', () => {
       const pairs: [string, string][] = [
         ['--ink', '--page'], ['--ink', '--surface'], ['--ink-2', '--surface'], ['--ink-2', '--page'], ['--ink-3', '--surface'], ['--ink-3', '--page'],
         ['--sun-ink', '--surface'], ['--earth-ink', '--surface'], ['--good', '--surface'], ['--bad', '--surface'], ['--warn', '--surface'],
+        ['--sun-ink', '--page'], ['--earth-ink', '--page'], ['--good', '--page'], ['--bad', '--page'],
       ];
       for (const [fg, bg] of pairs) expect(contrast(t[fg], t[bg]), `${name} ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
       expect(contrast(light['--sun-on'], t['--sun']), `${name} text on the Sun fill`).toBeGreaterThanOrEqual(4.5);
@@ -77,7 +86,7 @@ describe('globals.css layering', () => {
   it('declares the shared classes inside @layer components, so a Tailwind utility can still override them', () => {
     expect(css).not.toMatch(/@utility glass/);
     const joined = (css.match(/@layer components \{([\s\S]*?)\n\}/g) ?? []).join('\n');
-    for (const cls of ['.wrap', '.btn', '.btn-primary', '.btn-ink', '.btn-sm', '.field', '.panel', '.stage', '.glass', '.glass-bar']) {
+    for (const cls of ['.wrap', '.btn', '.btn-primary', '.btn-ink', '.btn-sm', '.field', '.panel', '.stage', '.display', '.reveal-line', '.reveal-after', '.glass', '.glass-bar']) {
       expect(joined, cls).toMatch(new RegExp(`\\${cls} \\{`));
     }
   });
@@ -86,5 +95,24 @@ describe('globals.css layering', () => {
     expect(css).toMatch(/\.btn \{[^}]*height: 48px/);
     expect(css).toMatch(/\.btn-sm \{[^}]*height: 44px/);
     expect(css).toMatch(/\.field \{[^}]*height: 52px/);
+  });
+
+  it('gives pictures, panels and controls their own radii', () => {
+    expect(css).toMatch(/\.stage \{[^}]*border-radius: 6px/);
+    expect(css).toMatch(/\.panel \{[^}]*border-radius: 8px/);
+    expect(css).toMatch(/\.btn \{[^}]*border-radius: 8px/);
+    expect(css).toMatch(/\.field \{[^}]*border-radius: 8px/);
+  });
+
+  it('sets display type at 87.5 % width and weight 700', () => {
+    expect(css).toMatch(/\.display \{[^}]*font-stretch: 87\.5%/);
+    expect(css).toMatch(/\.display \{[^}]*font-weight: 700/);
+  });
+
+  it('declares the one page-load motion and switches every animation off under reduced motion', () => {
+    expect(css).toMatch(/\.reveal-line \{[^}]*animation: reveal-wipe/);
+    expect(css).toMatch(/\.reveal-after \{[^}]*animation: reveal-show/);
+    expect(css).toMatch(/@keyframes reveal-wipe/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\* \{[^}]*animation: none !important/);
   });
 });

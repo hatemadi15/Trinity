@@ -15,8 +15,10 @@ export interface Range {
 export interface RowGeometry {
   /** The hills as a closed shape down to the bottom of the box. */
   hillArea: string;
-  /** The top edge of the hills. */
+  /** The top edge of the hills, left out where they stand above the range (there they run off the top of the row). */
   hillEdge: string;
+  /** Whether the hills stand above the range anywhere. */
+  clipped: boolean;
   /** The body's line, split where it goes behind the hills; each run starts at the last point of the run before. */
   runs: { visible: boolean; points: string }[];
   /** Hours at which the body disappears ('set') or comes back ('rise'). */
@@ -29,9 +31,13 @@ export interface RowGeometry {
 
 const f1 = (v: number) => (Math.round(v * 10) / 10).toString();
 
-/** From 1° under the lowest thing in view up to `headroom` above the body's highest point; tall hills run off the top. */
-export function rowRange(el: ArrayLike<number>, hill: ArrayLike<number>, opts: { headroom?: number; floor?: number } = {}): Range {
+/**
+ * From 1° under the lowest thing in view up to `headroom` above the body's highest point; tall hills run
+ * off the top. `headroomShare` keeps at least that share of the row free above the body, whatever the span.
+ */
+export function rowRange(el: ArrayLike<number>, hill: ArrayLike<number>, opts: { headroom?: number; headroomShare?: number; floor?: number } = {}): Range {
   const headroom = opts.headroom ?? 6;
+  const share = Math.min(Math.max(opts.headroomShare ?? 0, 0), 0.9);
   let lo = Infinity;
   let hi = -Infinity;
   for (let i = 0; i < el.length; i++) {
@@ -40,7 +46,7 @@ export function rowRange(el: ArrayLike<number>, hill: ArrayLike<number>, opts: {
   }
   if (!Number.isFinite(lo)) return { min: -3, max: 6 };
   const min = Math.max(opts.floor ?? -90, lo - 1);
-  return { min, max: Math.max(hi + headroom, min + 6) };
+  return { min, max: Math.max(hi + headroom, min + 6, (hi - share * min) / (1 - share)) };
 }
 
 export function rowGeometry(el: ArrayLike<number>, hill: ArrayLike<number>, visible: ArrayLike<number | boolean>, box: Box, range: Range): RowGeometry {
@@ -50,7 +56,17 @@ export function rowGeometry(el: ArrayLike<number>, hill: ArrayLike<number>, visi
   // The edge runs through the hour centres; the shape extends it flat to both sides of the box and closes along the bottom.
   const pts: string[] = [];
   for (let i = 0; i < n; i++) pts.push(`${f1(x(i))} ${f1(y(hill[i]))}`);
-  const edge = `M${pts.join('L')}`;
+  // No outline between two hours that are both above the range: a line along the top of the row would read as a flat summit.
+  let edge = '';
+  let penAt = -1;
+  let clipped = n > 0 && hill[0] > range.max;
+  for (let i = 1; i < n; i++) {
+    if (hill[i] > range.max) clipped = true;
+    if (hill[i - 1] > range.max && hill[i] > range.max) continue;
+    if (penAt !== i - 1) edge += `M${pts[i - 1]}`;
+    edge += `L${pts[i]}`;
+    penAt = i;
+  }
   const left = f1(box.x);
   const right = f1(box.x + box.w);
   const bottom = f1(box.y + box.h);
@@ -73,7 +89,7 @@ export function rowGeometry(el: ArrayLike<number>, hill: ArrayLike<number>, visi
     line.push(p);
   }
   if (state !== null) runs.push({ visible: state, points: line.join(' ') });
-  return { hillArea, hillEdge: edge, runs, events, x, y };
+  return { hillArea, hillEdge: edge, clipped, runs, events, x, y };
 }
 
 const DIRECTIONS: [number, string][] = [
@@ -131,4 +147,32 @@ export function eventLabelSides(fromPct: number, toPct: number, need = 17): { se
   const inside = toPct - fromPct >= need * (Number(hasSet) + Number(hasRise)) + 2;
   const side = (has: boolean, room: number): LabelSide => (!has ? null : inside ? 'inside' : room >= need ? 'outside' : null);
   return { set: side(hasSet, fromPct), rise: side(hasRise, 100 - toPct) };
+}
+
+/** Share of the width, in percent, that the height-line words need at an edge. */
+const SCALE_ROOM = 12;
+/** Half the width, in percent, of the words written across the hidden stretch. */
+const STRETCH_HALF = 21;
+
+/**
+ * The side of the chart for the words on the height lines ("5° up", "level ground"): away from the
+ * hidden stretch when that side is free of the stretch's words and of the sunset and sunrise labels,
+ * otherwise the other side, otherwise nowhere. All positions are percent of the chart's width.
+ */
+export function scaleLabelSide(hidden: { fromPct: number; toPct: number; set: LabelSide; rise: LabelSide } | null, need = 17): 'left' | 'right' | null {
+  if (!hidden) return 'right';
+  const { fromPct, toPct, set, rise } = hidden;
+  const middle = (fromPct + toPct) / 2;
+  const taken: [number, number][] = [[middle - STRETCH_HALF, middle + STRETCH_HALF]];
+  if (set === 'inside') taken.push([fromPct, fromPct + need]);
+  if (set === 'outside') taken.push([fromPct - need, fromPct]);
+  if (rise === 'inside') taken.push([toPct - need, toPct]);
+  if (rise === 'outside') taken.push([toPct, toPct + need]);
+  const free = (from: number, to: number) => taken.every(([a, b]) => b <= from || a >= to);
+  const sides: ['left' | 'right', boolean][] = [
+    ['left', free(0, SCALE_ROOM)],
+    ['right', free(100 - SCALE_ROOM, 100)],
+  ];
+  if (middle <= 50) sides.reverse();
+  return sides.find(([, ok]) => ok)?.[0] ?? null;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compassTicks, eventLabelSides, longestHidden, rowGeometry, rowRange } from './skyrow';
+import { compassTicks, eventLabelSides, longestHidden, rowGeometry, rowRange, scaleLabelSide } from './skyrow';
 
 const box = { x: 100, y: 10, w: 800, h: 100 };
 
@@ -13,6 +13,15 @@ describe('rowRange', () => {
   it('never collapses when everything is flat', () => {
     const r = rowRange([0, 0], [0, 0]);
     expect(r.max - r.min).toBeGreaterThanOrEqual(6);
+  });
+
+  it('can keep a share of the row free above the body, for the words that sit there', () => {
+    // Earth up to 7°, hills down to -3°: 4° of headroom would leave only 4/15 of the row above the line.
+    const r = rowRange([5, 7, 6], [-3, 1, 0], { headroom: 4, headroomShare: 0.36 });
+    expect(r.min).toBeCloseTo(-4, 5);
+    expect((r.max - 7) / (r.max - r.min)).toBeCloseTo(0.36, 5);
+    // A low Sun already has more room than that: the fixed headroom wins.
+    expect(rowRange([0, 1, 2.5, 1], [-2, 0, 15, 14], { headroom: 4, headroomShare: 0.36 }).max).toBeCloseTo(6.5, 5);
   });
 });
 
@@ -48,6 +57,55 @@ describe('rowGeometry', () => {
     expect(g.hillArea.startsWith('M100 ')).toBe(true);
     expect(g.hillArea.endsWith('Z')).toBe(true);
     expect(g.hillEdge.startsWith('M')).toBe(true);
+  });
+});
+
+describe('rowGeometry with hills above the range', () => {
+  const el = [1, 1, 1, 1, 1, 1];
+
+  it('does not outline the hills where they run off the top of the row', () => {
+    const g = rowGeometry(el, [0, 9, 9, 9, 0, 0], [1, 0, 0, 0, 1, 1], box, { min: -2, max: 6 });
+    // One stroke climbs to the first hour above the range, another comes down from the last one.
+    expect(g.hillEdge.match(/M/g)).toHaveLength(2);
+    expect(g.clipped).toBe(true);
+    expect(g.hillArea.endsWith('Z')).toBe(true);
+  });
+
+  it('outlines everything when no hill reaches the top', () => {
+    const g = rowGeometry(el, [0, 2, 3, 2, 0, 0], [1, 1, 1, 1, 1, 1], box, { min: -2, max: 6 });
+    expect(g.hillEdge.match(/M/g)).toHaveLength(1);
+    expect(g.clipped).toBe(false);
+  });
+
+  it('draws nothing for the edge when the hills are above the range the whole time', () => {
+    const g = rowGeometry(el, [9, 9, 9, 9, 9, 9], [0, 0, 0, 0, 0, 0], box, { min: -2, max: 6 });
+    expect(g.hillEdge).toBe('');
+    expect(g.clipped).toBe(true);
+  });
+});
+
+describe('scaleLabelSide', () => {
+  it('puts the height-line words on the right when nothing is hidden', () => {
+    expect(scaleLabelSide(null)).toBe('right');
+  });
+
+  it('keeps them away from the night and its sunset and sunrise labels', () => {
+    // The home page case: night from 9 % to 65 % of the month, both labels inside it.
+    expect(scaleLabelSide({ fromPct: 9.4, toPct: 64.8, set: 'inside', rise: 'inside' })).toBe('right');
+    // A night at the end of the period.
+    expect(scaleLabelSide({ fromPct: 60, toPct: 100, set: 'inside', rise: null })).toBe('left');
+    // Short nights near an edge, with a label outside the night.
+    expect(scaleLabelSide({ fromPct: 2, toPct: 9, set: null, rise: 'outside' })).toBe('right');
+    expect(scaleLabelSide({ fromPct: 80, toPct: 90, set: 'outside', rise: 'outside' })).toBe('left');
+  });
+
+  it('takes the other side when the preferred one holds a label', () => {
+    // The night sits left of the middle, so the right side is preferred, but the sunrise label reaches into it.
+    expect(scaleLabelSide({ fromPct: 20, toPct: 76, set: null, rise: 'outside' })).toBe('left');
+  });
+
+  it('gives up when both sides hold a label', () => {
+    expect(scaleLabelSide({ fromPct: 5, toPct: 95, set: 'inside', rise: 'inside' })).toBeNull();
   });
 });
 

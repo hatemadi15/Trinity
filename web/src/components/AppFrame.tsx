@@ -23,7 +23,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <Link href="/" className="flex items-center gap-2.5 font-display text-[21px] font-bold tracking-tight text-ink">
             <BrandMark />
             Earthrise
-            <span className="ml-1.5 hidden whitespace-nowrap font-text text-sm font-normal tracking-normal text-ink-3 xl:inline">sunlight and signal forecast for the Moon</span>
+            <span className="ml-1.5 hidden whitespace-nowrap font-text text-[15px] font-normal tracking-normal text-ink-3 xl:inline">sunlight and signal forecast for the Moon</span>
           </Link>
           <nav aria-label="Sections" className="order-last flex w-full flex-wrap gap-x-7 gap-y-1 text-[15px] font-medium lg:order-none lg:w-auto lg:flex-nowrap">
             {NAV.map((item) => (
@@ -40,7 +40,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       </header>
       <div className="flex-1">{children}</div>
       <footer className="border-t border-line">
-        <div className="wrap flex flex-wrap justify-between gap-x-8 gap-y-2 py-7 text-sm text-ink-3">
+        <div className="wrap flex flex-wrap justify-between gap-x-8 gap-y-2 py-7 text-[15px] text-ink-3">
           <p>Terrain: NASA Lunar Reconnaissance Orbiter laser altimeter (LOLA). Sun and Earth positions: NASA JPL DE440. Cross-check: JPL Horizons.</p>
           <p>NASA Space Apps 2026, challenge “CLPS Lunar Mission Browser”, team Astroy/Ed.</p>
         </div>

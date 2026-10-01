@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { degreesText, HOME, MISSIONS, thousandsText } from './home';
+import { degreesText, HOME, PLACES, thousandsText } from './home';
 
 const validation = (name: string) => JSON.parse(fs.readFileSync(path.resolve(process.cwd(), '../data/validation', name), 'utf8'));
 
@@ -33,7 +33,8 @@ describe('home facts', () => {
     expect(HOME.pair.rim_sun_pct).toBe(100);
   });
 
-  it('opens each mission on its site and date', () => {
-    expect(MISSIONS.map((m) => m.href)).toEqual(['/explore?site=im2_athena&start=2025-03-06', '/explore?site=blue_ghost_m1&start=2025-03-02', '/explore?site=de_gerlache_rim_2']);
+  it('lists the places in the order of the page: the ridge in the picture first, then the two landers on their dates', () => {
+    expect(PLACES.map((p) => p.href)).toEqual(['/explore?site=de_gerlache_rim_2', '/explore?site=im2_athena&start=2025-03-06', '/explore?site=blue_ghost_m1&start=2025-03-02']);
+    expect(PLACES.map((p) => p.tone)).toEqual(['plain', 'bad', 'good']);
   });
 });
