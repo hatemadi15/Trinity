@@ -17,7 +17,8 @@ describe('landing page', () => {
     expect(screen.getByText(/IM-2/)).toBeTruthy();
     expect(screen.getByText(/Blue Ghost/)).toBeTruthy();
     expect(screen.getByText(/mare site with a flat skyline/)).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Explore a site/ }).getAttribute('href')).toBe('/explore');
+    // the header section and the hero button share this name until the home page is rebuilt
+    expect(screen.getAllByRole('link', { name: /Explore a site/ }).every((a) => a.getAttribute('href') === '/explore')).toBe(true);
   });
 });
 

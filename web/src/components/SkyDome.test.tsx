@@ -40,3 +40,15 @@ describe('SkyDome', () => {
     expect(getByRole('img').getAttribute('aria-label')).toMatch(/Sun .* Earth /);
   });
 });
+
+describe('SkyDome on a light page', () => {
+  it('draws its labels and rings in stage colours, so the dial stays readable in the light theme', () => {
+    const { container } = render(<SkyDome mask={new Float64Array(720).fill(1)} series={series(240)} cursor={10} />);
+    const html = container.innerHTML;
+    expect(html).toContain('var(--stage-ink-2)');
+    expect(html).toContain('var(--stage-line)');
+    expect(html).not.toContain('var(--ink-2)');
+    expect(html).not.toContain('var(--line)');
+    expect(html).not.toContain('var(--earth)');
+  });
+});
