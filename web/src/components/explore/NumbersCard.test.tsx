@@ -84,4 +84,10 @@ describe('NumbersCard', () => {
     show({ inCompare: true });
     expect((screen.getByRole('button', { name: 'In the comparison' }) as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it('says in All numbers when a place lies outside the polar elevation maps', () => {
+    show({ maskMeta: { siteHeightM: 0, source: 'flat', failedTiles: 0 } });
+    fireEvent.click(screen.getByRole('button', { name: 'All numbers' }));
+    expect(screen.getByRole('dialog').textContent).toMatch(/flat: this place lies outside the polar elevation maps/);
+  });
 });

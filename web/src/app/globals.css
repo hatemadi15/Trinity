@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-/* The locked cockpit layout of the old Explore needs room; short screens get the flowing page instead. Removed with it in part 2. */
-@custom-variant tall (@media (min-height: 800px));
 
 /*
  * Light is the default theme; data-theme="dark" on <html> swaps the values (set before paint by the

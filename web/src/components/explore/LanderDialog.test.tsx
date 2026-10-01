@@ -59,4 +59,10 @@ describe('LanderDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('says when the view from a new mast height is being worked out', () => {
+    render(<LanderDialog params={DEFAULT_PARAMS} onPower={vi.fn()} onParams={vi.fn()} busy onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('radio', { name: /Custom/ }));
+    expect(screen.getByRole('dialog').textContent).toMatch(/the view from the new height is being worked out/);
+  });
 });
