@@ -24,7 +24,9 @@ describe('AppFrame', () => {
     expect(screen.queryByRole('group', { name: 'Audience' })).toBeNull();
     const footer = screen.getByRole('contentinfo');
     expect(footer.textContent).toMatch(/NASA Lunar Reconnaissance Orbiter/);
-    expect(footer.textContent).toMatch(/NASA Space Apps 2026/);
+    // Who made it comes first, and that it is not a NASA product.
+    expect(footer.firstElementChild?.firstElementChild?.textContent).toMatch(/^Made by team Astroy\/Ed for NASA Space Apps 2026/);
+    expect(footer.textContent).toMatch(/Not an official NASA product\./);
     expect(screen.getByText('hello')).toBeTruthy();
   });
 

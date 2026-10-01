@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compassTicks, eventLabelSides, longestHidden, rowGeometry, rowRange, scaleLabelSide } from './skyrow';
+import { compassTicks, eventLabelSides, hiddenBy, longestHidden, rowGeometry, rowRange, scaleLabelSide, scaleLines } from './skyrow';
 
 const box = { x: 100, y: 10, w: 800, h: 100 };
 
@@ -13,6 +13,12 @@ describe('rowRange', () => {
   it('never collapses when everything is flat', () => {
     const r = rowRange([0, 0], [0, 0]);
     expect(r.max - r.min).toBeGreaterThanOrEqual(6);
+  });
+
+  it('can make room for the whole of the hills, so none run off the top', () => {
+    const r = rowRange([0, 1, 2.5, 1], [-2, 0, 15, 14], { headroom: 4, fitHills: true });
+    expect(r.max).toBeCloseTo(16, 5);
+    expect(r.min).toBeCloseTo(-3, 5);
   });
 
   it('can keep a share of the row free above the body, for the words that sit there', () => {
@@ -106,6 +112,39 @@ describe('scaleLabelSide', () => {
 
   it('gives up when both sides hold a label', () => {
     expect(scaleLabelSide({ fromPct: 5, toPct: 95, set: 'inside', rise: 'inside' })).toBeNull();
+  });
+});
+
+describe('scaleLines', () => {
+  it('draws a line every 5° when the row is tall enough for their words, eye level first', () => {
+    expect(scaleLines({ min: -3.86, max: 16.12 }, 200)).toEqual([
+      { deg: 0, words: 'eye level' },
+      { deg: 5, words: '5° up' },
+      { deg: 10, words: '10° up' },
+      { deg: 15, words: '15° up' },
+    ]);
+  });
+
+  it('spaces them 10° apart in a short row, and leaves out lines at the very edge of the range', () => {
+    expect(scaleLines({ min: -7.52, max: 15.8 }, 120)).toEqual([
+      { deg: 0, words: 'eye level' },
+      { deg: 10, words: '10° up' },
+    ]);
+    expect(scaleLines({ min: -2, max: 5.2 }, 200)).toEqual([{ deg: 0, words: 'eye level' }]);
+  });
+});
+
+describe('hiddenBy', () => {
+  it('blames the hills when they stand above eye level and above the body', () => {
+    expect(hiddenBy([1, 0.5, -0.5, 0.2], [9, 12, 14, 10], 0, 4)).toBe('hills');
+  });
+
+  it('says the body is below the horizon when the hills in its direction are low', () => {
+    expect(hiddenBy([-3, -6, -4, -1], [0.3, -0.2, 0.5, 0.1], 0, 4)).toBe('horizon');
+  });
+
+  it('only looks at the hidden stretch', () => {
+    expect(hiddenBy([5, -3, -4, 5], [12, 0.1, 0.2, 12], 1, 3)).toBe('horizon');
   });
 });
 

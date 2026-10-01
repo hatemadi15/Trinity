@@ -4,7 +4,21 @@ import doc from './home.json';
 export interface HomeDoc {
   generated_utc: string;
   hero: { site_id: string; name: string; image: string; frame_utc: string; window_km: number; sun_bearing_deg: number; lit_fraction: number };
-  sky: { start_utc: string; hours: number; sun_az: number[]; sun_el: number[]; hill_el: number[]; lit: number[]; sunlit_pct: number; night: { sunset_hour: number; sunrise_hour: number; hours: number } | null };
+  sky: {
+    start_utc: string;
+    hours: number;
+    sun_az: number[];
+    sun_el: number[];
+    hill_el: number[];
+    lit: number[];
+    sunlit_pct: number;
+    earth_az: number[];
+    earth_el: number[];
+    earth_hill_el: number[];
+    earth_visible: number[];
+    earth_pct: number;
+    night: { sunset_hour: number; sunrise_hour: number; hours: number } | null;
+  };
   pair: { site_sun_pct: number; rim_site_id: string; rim_sun_pct: number; distance_km: number };
   facts: {
     horizons_worst_el_deg: number;

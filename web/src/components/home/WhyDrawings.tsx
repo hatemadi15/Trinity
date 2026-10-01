@@ -43,9 +43,12 @@ export function SunNeverClimbs() {
   );
 }
 
-/** A lit peak and a point in its shadow, with the real pair of numbers from the catalogue. */
-export function HillsDecide({ rimPct, sitePct, km }: { rimPct: number; sitePct: number; km: number }) {
-  const rim = rimPct >= 99.95 ? 'rim: sunlit all month' : `rim: sunlit ${Math.round(rimPct)} %`;
+/**
+ * A lit peak and a point in its shadow, with the real pair of numbers from the catalogue. `site` is the
+ * short name of the shaded point, as the page names it. Numbers keep their unit on the same line.
+ */
+export function HillsDecide({ rimPct, sitePct, km, site = 'Rim 2' }: { rimPct: number; sitePct: number; km: number; site?: string }) {
+  const rim = rimPct >= 99.95 ? 'rim summit: sunlit all month' : `rim summit: sunlit ${Math.round(rimPct)}\u00a0%`;
   return (
     <Frame
       labels={
@@ -53,7 +56,7 @@ export function HillsDecide({ rimPct, sitePct, km }: { rimPct: number; sitePct: 
           <Label className="absolute left-[5%] top-[9%]">{`The same month, ${km} km apart`}</Label>
           {/* Beside the green dot on the peak, and inside the shadow under the red dot. On a narrow drawing they reach the hill, so each has a plate. */}
           <Label className="absolute right-[3%] top-[25%] rounded-[5px] bg-stage/80 px-1.5">{rim}</Label>
-          <Label className="absolute bottom-[4%] right-[3%] rounded-[5px] bg-stage/80 px-1.5">{`sunlit ${sitePct} % of the month`}</Label>
+          <Label className="absolute bottom-[4%] right-[3%] rounded-[5px] bg-stage/80 px-1.5">{`${site}: sunlit ${sitePct}\u00a0% of the month`}</Label>
         </>
       }
     >

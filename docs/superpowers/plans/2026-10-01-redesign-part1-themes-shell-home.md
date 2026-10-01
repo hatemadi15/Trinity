@@ -2484,3 +2484,26 @@ Added on 1 October 2026 after the first blind read of the built home page and th
 - [ ] **Step 5: Home page, test first** (hero holds the forecast with title, key, note and link; no "See it at a real site" section; "Start from a real place" with the picture and the three places in list order; "Checked against NASA" as a table with four column heads and three rows; audience line; one gold action).
 - [ ] **Step 6: Look at it** at 1440 by 900, 1280, 1024, 820 and 390 px in both themes: no sideways scroll, no label collisions, first screen holds the whole forecast at 1440 by 900; measure text sizes and control heights; old pages still readable.
 - [ ] **Step 7: Gates, badge, README, commit.**
+
+---
+
+### Task 10: Fixes from the second blind read
+
+Added on 2 October 2026. Spec: section 6.1 as amended, and the last paragraph of section 15. Both readers passed the gate (judge 4, 4, 4, 3, 4; teacher 5, 4, 4, 4, 4); this task fixes what both of them named.
+
+**Files:**
+- Modify: `pipeline/lunar_pipeline/home_assets.py`, `pipeline/tests/test_home_assets.py` (Earth in `sky_series`); regenerate `web/src/lib/data/home.json` with `home-assets` (the two pictures do not change)
+- Modify: `web/src/lib/data/home.ts`, `home.test.ts`; `web/src/lib/viz/skyrow.ts`, `skyrow.test.ts`; `web/src/components/SkyRow.tsx`, `SkyRow.test.tsx`; `web/src/components/home/WhyDrawings.tsx`, `WhyDrawings.test.tsx`; `web/src/app/page.tsx`, `page.test.tsx`; `web/src/app/globals.css`, `globals.test.ts`; `web/src/components/AppFrame.tsx`, `AppFrame.test.tsx`; `web/public/validation/tests.json`
+
+**Interfaces:**
+- Produces: `sky_series(...)` also returns `earth_az`, `earth_el`, `earth_hill_el`, `earth_visible`, `earth_pct`; `HomeDoc.sky` carries them.
+- Produces in `skyrow.ts`: `rowRange(..., { fitHills })`; `scaleLines(range, heightPx): { deg: number; words: string }[]` (eye level and every 5°, or 10° in a short row); `hiddenBy(el, hill, from, to): 'hills' | 'horizon'`.
+- Produces in `SkyRow.tsx`: props `fitHills` and `title`; a dot (`data-event`) at every crossing; `SkyRowKey({ body: 'both' })`; centred labels near an edge keep the chart inset.
+- Produces: token `--stage-edge` (themed); dark page `#222220`.
+
+- [ ] **Step 1:** pipeline test `test_sky_series_carries_earth_against_the_hills_in_its_direction` (RED), Earth in `sky_series` (GREEN), `home-assets`.
+- [ ] **Step 2:** chart helper tests (`fitHills`, `scaleLines`, `hiddenBy`) RED, then GREEN.
+- [ ] **Step 3:** `SkyRow` tests (whole hills with lines every 5°, crossing dots, row title, horizon wording, edge inset, the two-body key) RED, then GREEN.
+- [ ] **Step 4:** page, drawing, shell and token tests (the forecast band with two rows and its reading guide, "Explore" names, the closing section, the named rim pair, the teachers' line, the footer, dark tokens, letter spacing) RED, then GREEN.
+- [ ] **Step 5:** look at it at 1440, 1280, 1024, 820 and 390 px in both themes; gates; badge; commit.
+

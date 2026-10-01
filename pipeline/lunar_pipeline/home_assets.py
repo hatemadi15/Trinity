@@ -41,7 +41,11 @@ def _utc(text: str) -> datetime:
 
 
 def sky_series(site: Site, mask: np.ndarray, table: np.ndarray, header: dict, start_utc: str, hours: int) -> dict:
-    """Hourly Sun direction and the height of the hills in that direction, on the ephemeris grid."""
+    """Hourly Sun and Earth directions and the height of the hills in each direction, on the ephemeris grid.
+
+    Earth is in view when its centre stands above the hills in its direction (no mast, no margin), the
+    rule of illumination.hourly_series with its defaults.
+    """
     i0 = round((_utc(start_utc) - _utc(header["t0_utc"])).total_seconds() / header["step_s"])
     if i0 < 0 or i0 + hours > header["n"]:
         raise ValueError("requested span is outside the ephemeris table")
@@ -50,8 +54,22 @@ def sky_series(site: Site, mask: np.ndarray, table: np.ndarray, header: dict, st
     hill = mask_at_azimuth(mask, sun_az)
     frac = disk_fraction(sun_el - hill, sun_radius_deg(np.linalg.norm(rows[:, 0, :], axis=1)))
     lit = frac > 0.0
+    earth_az, earth_el = azel_from_body_vectors(rows[:, 1, :], site.lat, site.lon, 0.0)
+    earth_hill = mask_at_azimuth(mask, earth_az)
+    earth_visible = (earth_el - earth_hill) > 0.0
     r2 = lambda a: [round(float(v), 2) for v in a]
-    return {"sun_az": r2(sun_az), "sun_el": r2(sun_el), "hill_el": r2(hill), "lit": [int(v) for v in lit], "sunlit_pct": round(100.0 * float(lit.mean()), 1)}
+    return {
+        "sun_az": r2(sun_az),
+        "sun_el": r2(sun_el),
+        "hill_el": r2(hill),
+        "lit": [int(v) for v in lit],
+        "sunlit_pct": round(100.0 * float(lit.mean()), 1),
+        "earth_az": r2(earth_az),
+        "earth_el": r2(earth_el),
+        "earth_hill_el": r2(earth_hill),
+        "earth_visible": [int(v) for v in earth_visible],
+        "earth_pct": round(100.0 * float(earth_visible.mean()), 1),
+    }
 
 
 def night(lit) -> dict | None:

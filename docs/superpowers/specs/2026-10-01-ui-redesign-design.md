@@ -47,11 +47,11 @@ Tokens (CSS custom properties):
 
 | Token | Light | Dark | Use |
 |---|---|---|---|
-| `--page` | `#dedcd6` | `#171716` | page (regolith grey; in the dark theme a grey one step above the stage) |
-| `--surface` | `#ffffff` | `#242423` | panels, fields (sunlit white) |
-| `--surface-2` | `#eceae5` | `#30302e` | insets, tracks, hover |
-| `--line` | `#c2bfb7` | `#3a3a37` | hairlines |
-| `--line-strong` | `#9f9c94` | `#55554f` | field borders, rules between list rows |
+| `--page` | `#dedcd6` | `#222220` | page (regolith grey; in the dark theme a grey one step above the stage) |
+| `--surface` | `#ffffff` | `#2c2c2a` | panels, fields (sunlit white) |
+| `--surface-2` | `#eceae5` | `#383835` | insets, tracks, hover |
+| `--line` | `#c2bfb7` | `#444441` | hairlines |
+| `--line-strong` | `#9f9c94` | `#5e5d57` | field borders, rules between list rows |
 | `--ink` | `#000000` | `#f3f2ee` | text |
 | `--ink-2` | `#33353a` | `#c6c5c0` | secondary text |
 | `--ink-3` | `#55585e` | `#9c9b96` | tertiary text |
@@ -67,7 +67,8 @@ Tokens (CSS custom properties):
 | `--stage` | `#000000` | `#000000` | picture panels (the black of an airless sky) |
 | `--stage-ink` | `#f3f2ee` | `#f3f2ee` | text on a stage |
 | `--stage-ink-2` | `#c6c5c0` | `#c6c5c0` | secondary text on a stage |
-| `--stage-line` | `#33332f` | `#33332f` | the edge of a stage, rules on a stage |
+| `--stage-edge` | `#33332f` | `#5a5a54` | the edge of a picture panel, lighter on the dark page |
+| `--stage-line` | `#33332f` | `#33332f` | rules on a stage |
 | `--hill` | `#6d6962` | `#6d6962` | terrain fill on a stage |
 | `--hill-edge` | `#e9e3d7` | `#e9e3d7` | terrain outline on a stage |
 
@@ -79,14 +80,14 @@ Gold and blue are identity colours with a fixed meaning (Sun, Earth). Green and 
 
 ### 4.2 Type
 
-Families stay: Bricolage Grotesque for display, IBM Plex Sans for text, tabular numerals. Display type is set at 87.5 % width and weight 700 (class `display`; the font is loaded with its width and optical-size axes), so headlines are tall and compact without the letters closing up; titles of 23 to 26 px use weight 600. Scale in CSS pixels: 15 (secondary text, chart labels, table heads), 16 (body), 18 to 19 (lead paragraphs), 23 to 26 (panel and row titles), 32 to 34 (verdict, figures in tables), 40 (section and page titles), 76 (home headline; 56 under 1280 px, 44 on a phone). No text under 13 px anywhere, including text inside SVG charts after scaling; nothing on the home page is under 15 px.
+Families stay: Bricolage Grotesque for display, IBM Plex Sans for text, tabular numerals. Display type is set at 87.5 % width and weight 700 with no extra tracking (class `display`; the font is loaded with its width and optical-size axes), so headlines are tall and compact without the letters closing up; titles of 23 to 26 px use weight 600. Scale in CSS pixels: 15 (secondary text, chart labels, table heads), 16 (body), 18 to 19 (lead paragraphs), 23 to 26 (panel and row titles), 32 to 34 (verdict, figures in tables), 40 (section and page titles), 72 (home headline; 56 under 1280 px, 44 on a phone). No text under 13 px anywhere, including text inside SVG charts after scaling; nothing on the home page is under 15 px.
 
 ### 4.3 Controls and panels
 
 - Buttons 44 to 52 px tall. Primary: Sun fill with `--sun-on` text. Secondary: 1 px `--line-strong` outline. Play: ink fill. Links in running copy and at the end of a row are underlined.
 - Fields and selects 52 px tall on `--surface` with a `--line-strong` border. Window length is a three-part segmented control.
 - Radii follow the kind of thing: pictures (stages) 6 px, panels and controls 8 px, label plates 4 to 5 px, outcome tags fully round. Panels: 1 px `--line`, `--surface` fill, 20 to 24 px padding. No translucent glass, no blur, no shadows.
-- A stage has a 1 px `--stage-line` edge, so a black picture keeps its outline on the dark page.
+- A stage has a 1 px `--stage-edge` edge, so a black picture keeps its outline on the dark page.
 - Focus: 2 px outline in `--sun-ink` (light) or `--sun` (dark), 2 px offset, on every interactive element.
 - Chart labels that sit on a picture get a solid backing plate, never an outline stroke (outlined text read as "smudged" in the blind test).
 
@@ -121,11 +122,15 @@ The Planner/Learn switch is removed. Plain language is the default for everyone;
 
 ### 6.1 Home
 
-1. **Hero** on the black stage in both themes, opening on a real forecast. Headline: "See when a Moon lander has sunlight and a signal." Under it, in one row: the lead ("At the Moon's south pole the Sun and Earth never climb high. They skim the horizon, and one hill can hide them for weeks. Pick a landing site and a date: Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and whether the battery survives the night.") and, to its right, the primary button "Explore a landing site" (to `/sites`), the secondary "See how it works" (to the next section) and the line "For mission planners, educators and anyone curious." Then the forecast, edge to edge: the Sun row of the time chart for de Gerlache Rim 2 in January 2027 (drawn from a small precomputed file, so the home page needs no data download), with its title ("A real forecast: the Sun at de Gerlache Rim 2, January 2027"), a key of three marks, the two height lines ("5° up", "level ground"), the night in words on the picture and the dates along the bottom. Under it: what the site is, that the picture is computed from NASA's elevation map and NASA's positions of the Sun and Earth, and the link "Open this site and play the month".
-2. **Why the south pole is hard.** Three drawings with a title and two sentences each: "The Sun never climbs", "The hills decide" (with the real pair: crater rim, sunlit all month; 12 km away, sunlit 45 % of the month), "Earth sets too". Every drawing carries its own title line.
-3. **Start from a real place.** Left: the shadow map of de Gerlache Rim 2 on 2 January 2027 with a pin ("the landing site"), the labels "in shadow" and "in sunlight", a tag saying what and when, and a caption saying it is computed, not a photograph. Right: a ruled list of three places, each with an outcome tag, a name, two sentences and the link "Open this forecast": de Gerlache Rim 2 ("Shortlisted for a crewed landing"), the Athena lander of IM-2 ("Ended after one day"), the Blue Ghost lander ("Worked all 14 days"). Each opens Explore on that site and date.
+1. **Hero.** The headline and its row sit on the page colour, so they follow the theme: "See when a Moon lander has sunlight and a signal.", the lead ("At the Moon's south pole the Sun and Earth never climb high. They skim the horizon, and one hill can hide them for weeks. Pick a landing site and a date: Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and whether the battery survives the night."), and to its right the primary button "Explore a landing site" (to `/sites`), the secondary "See how it works" (to the next section) and the line "For mission planners, educators and anyone curious." Under them, edge to edge on a black band (a stage in both themes), a real forecast for de Gerlache Rim 2 in January 2027, drawn from a small precomputed file so the home page needs no data download:
+   - a title ("A real forecast: de Gerlache Rim 2, January 2027"), a reading guide ("Read it from left to right, one day at a time. Heights are angles above eye level: 5° is about the width of three fingers held at arm's length. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day.") and a key of four marks;
+   - two rows on one time axis: "Sunlight" (the whole of the hills is drawn, with height lines every 5° from eye level) and "Contact with Earth"; a dot where a body goes behind the hills or comes back; the longest hidden stretch of each row in words ("Night for 16 days 15 hours: the hills stand higher than the Sun"; "No contact for 9 days 3 hours: Earth is below the horizon", since the hills in Earth's direction are low); the dates along the bottom;
+   - under the band's chart: what the site is and that it is computed from NASA's elevation map and NASA's positions of the Sun and Earth, and the link "Explore de Gerlache Rim 2". On the first screen at 1440 by 900 the whole chart is visible.
+2. **Why the south pole is hard.** Three drawings with a title and two sentences each: "The Sun never climbs", "The hills decide" (with the real pair, named as the page names them: the summit of de Gerlache crater's rim, sunlit all month; de Gerlache Rim 2, the site in the forecast, 12 km away, sunlit 45 % of the month), "Earth sets too". Every drawing carries its own title line. A line for teachers links to How it works. A number keeps its "%" on the same line.
+3. **Start from a real place.** Left: the shadow map of de Gerlache Rim 2 on 2 January 2027 with a pin ("the landing site"), the labels "in shadow" and "in sunlight", a tag saying what and when, and a caption saying it is computed, not a photograph. Right: a ruled list of three places, each with an outcome tag, a name, two sentences and an outline button "Explore this site": de Gerlache Rim 2 ("Shortlisted for a crewed landing"), the Athena lander of IM-2 ("Ended after one day"), the Blue Ghost lander ("Worked all 14 days"). Each opens Explore on that site and date.
 4. **Checked against NASA.** A table of three checks with the columns "What we check", "Gap" (a pass mark and the figure), "Against" (the NASA source and what kind of gap it is) and "For scale" (a yardstick: "The Sun's disc is 20,000 times wider."; "Where NASA's map says 60 %, ours says 57 to 63 %."; "After 14 days on the surface."). The figures come from the validation tables through a small generated file, so they cannot drift. Link: "See every check and rerun one live".
-5. **Footer.**
+5. **Try it on a landing site.** One sentence and the primary button again, "Explore a landing site", so the page ends with its action. The two gold buttons are never on one screen.
+6. **Footer.** Who made it first ("Made by team Astroy/Ed for NASA Space Apps 2026 ... Not an official NASA product."), then the data credits.
 
 ### 6.2 Choose a landing site (`/sites`)
 
@@ -307,3 +312,5 @@ Shapes follow the content: three parallel facts are three drawings; three places
 **Principles of the pass.** One bold thing (the forecast as hero), everything else quiet. No gradients, shadows or blur as decoration; the only fade is on hills that run off the top of a chart, where it means "continues". One moment of motion (the Sun's line is drawn once). Structure carries information: rules separate rows, tags state an outcome, the pass mark sits beside the figure it certifies.
 
 **What the first blind read of the built home page asked for, and where it went.** The chart had two unexplained horizontal scales and no height scale: the compass row is gone from the home page and two named height lines are in. Small labels: chart labels are 15 px. "2.6 points" and the three big figures: the table says what each gap is measured against and gives a yardstick. Two landers announced, three cards shown: the sentence now names the ridge and the two landers in the order of the list. The hero picture read as a stock photo: it moved beside the list with a tag and a caption that say it is computed. Audience unstated: one line under the buttons. Lower links looked like plain text: underlined. Dark theme: stages keep a 1 px edge and the page is a grey above black.
+
+**Second blind read of the built home page (after the pass), and what changed.** Scores: judge 4, 4, 4, 3, 4; teacher 5, 4, 4, 4, 4 (purpose, next step, look, room, readability), so the gate held. Both still read the grey shape as one mountain on a calendar and took its faded top for a bug: the forecast now draws the whole of the hills with height lines every 5° and says in one sentence what the grey is and how big 5° is. Both said the headline promises a signal the first screen did not show: Earth's row joined the Sun's. Both found the theme switch invisible on a black first screen and the dark panels melting into the page: the headline area follows the theme, the dark page is a step lighter and picture panels have a lighter edge there. The judge counted four names for one action and none at the end: one verb ("Explore") throughout, and the page ends with the gold button. The teacher found "the rim" in the drawing at odds with "Rim 2" in the chart, and no way in for a class: both are named as in the chart, and a line points teachers to How it works.

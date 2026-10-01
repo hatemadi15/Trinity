@@ -17,6 +17,8 @@ const H2 = 'display text-[34px] sm:text-[40px]';
 const LINK = 'font-semibold underline decoration-[1.5px] underline-offset-4 hover:decoration-2';
 const WHY_CARD = 'grid gap-4 sm:grid-cols-[320px_1fr] sm:items-center sm:gap-6 lg:block lg:space-y-4';
 const CELL = 'py-[18px] pr-4 max-md:block max-md:py-0';
+/** A number and its percent sign stay on one line. */
+const pct = (n: number) => `${n} %`;
 
 function Check() {
   return (
@@ -29,7 +31,6 @@ function Check() {
 export default function Home() {
   const { hero, sky, pair, facts } = HOME;
   const siteLink = `/explore?site=${hero.site_id}`;
-  const month = `the Sun at ${hero.name}, January 2027`;
   const frameDate = new Date(`${hero.frame_utc}Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   const typical = Math.round(facts.mazarico_median_points);
   /** Each check has the same four attributes, so the three are a table. */
@@ -44,7 +45,7 @@ export default function Home() {
       what: 'How much sunlight a site gets',
       gap: `${facts.mazarico_median_points.toFixed(1)} points`,
       against: `NASA's sunlight map over 13 years, at ${facts.mazarico_sites} sites; the typical gap, in percentage points.`,
-      scale: `Where NASA's map says 60 %, ours typically says ${60 - typical} to ${60 + typical} %.`,
+      scale: `Where NASA's map says ${pct(60)}, ours typically says ${60 - typical} to ${pct(60 + typical)}.`,
     },
     {
       what: 'When night falls on a real mission',
@@ -56,14 +57,13 @@ export default function Home() {
   return (
     <AppFrame>
       <main>
-        {/* The page opens on the black of an airless sky and on a real forecast that runs from edge to edge. */}
-        <section aria-labelledby="h-hero" data-stage="" className="bg-stage text-stage-ink">
-          <div className="wrap pt-10 sm:pt-11">
-            <h1 id="h-hero" className="display max-w-[1100px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[76px]">
+        <section aria-labelledby="h-hero">
+          <div className="wrap pb-8 pt-9">
+            <h1 id="h-hero" className="display max-w-[1100px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[72px]">
               See when a Moon lander has sunlight and a signal.
             </h1>
             <div className="mt-6 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
-              <p className="max-w-[35em] text-lg leading-relaxed text-stage-ink-2 sm:text-[19px]">
+              <p className="max-w-[35em] text-lg leading-relaxed text-ink-2 sm:text-[19px]">
                 At the Moon&apos;s south pole the Sun and Earth never climb high. They skim the horizon, and one hill can hide them for weeks. Pick a landing site and a
                 date: Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and whether the battery survives the night.
               </p>
@@ -72,29 +72,38 @@ export default function Home() {
                   <Link href="/explore" className="btn btn-primary h-[52px] px-[22px] text-[17px]">
                     Explore a landing site
                   </Link>
-                  <a href="#why" className="btn h-[52px] border-[#55554f] px-[22px] text-[17px] text-stage-ink hover:bg-white/10">
+                  <a href="#why" className="btn h-[52px] px-[22px] text-[17px]">
                     See how it works
                   </a>
                 </div>
-                <p className="mt-3 text-[15px] text-stage-ink-2">For mission planners, educators and anyone curious.</p>
+                <p className="mt-3 text-[15px] text-ink-3">For mission planners, educators and anyone curious.</p>
               </div>
             </div>
           </div>
-          {/* The chart's side labels line up with the page gutter. */}
-          <figure className="mt-9 [--chart-inset:16px] sm:[--chart-inset:32px]">
-            <figcaption className="wrap flex flex-wrap items-center justify-between gap-x-8 gap-y-2">
-              <span className="font-semibold">A real forecast: {month}</span>
-              <SkyRowKey body="sun" className="text-stage-ink-2" />
+          {/* The forecast runs from edge to edge on a black band, a window onto the Moon in both themes. Its side labels line up with the page gutter. */}
+          <figure aria-labelledby="h-forecast" data-stage="" className="border-y border-stage-edge bg-stage pb-7 pt-4 text-stage-ink [--chart-inset:16px] sm:[--chart-inset:32px]">
+            <figcaption className="wrap grid gap-x-10 gap-y-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+              <div>
+                <p id="h-forecast" className="font-semibold">
+                  A real forecast: {hero.name}, January 2027
+                </p>
+                <p className="mt-1 max-w-[46em] text-[15px] text-stage-ink-2">
+                  Read it from left to right, one day at a time. Heights are angles above eye level: 5° is about the width of three fingers held at arm&apos;s length. The grey is not
+                  one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day.
+                </p>
+              </div>
+              <SkyRowKey body="both" className="text-stage-ink-2 lg:max-w-[560px]" />
             </figcaption>
-            <div className="mt-3">
-              <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" caption={`The Sun at ${hero.name}, January 2027`} height={250} reveal />
+            <div className="mt-2">
+              <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} height={170} ticks={false} fitHills reveal />
+              <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} height={104} reveal />
             </div>
-            <div className="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 pb-8 pt-2.5 text-[15px] text-stage-ink-2">
-              <p>
+            <div className="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 pt-7 text-[15px] text-stage-ink-2">
+              <p className="max-w-[62em]">
                 {hero.name} is a ridge NASA shortlisted for a crewed landing. Computed from NASA&apos;s elevation map of the Moon and NASA&apos;s positions of the Sun and Earth.
               </p>
               <Link href={siteLink} className={`${LINK} whitespace-nowrap text-stage-ink`}>
-                Open this site and play the month
+                Explore {hero.name}
               </Link>
             </div>
           </figure>
@@ -119,8 +128,9 @@ export default function Home() {
               <div>
                 <h3 className="display text-[23px] font-semibold leading-tight">The hills decide</h3>
                 <p className="mt-2 text-ink-2">
-                  A ridge can hide the Sun for weeks while a peak nearby stays lit. In January 2027 the rim of one crater has sunlight {pair.rim_sun_pct >= 99.95 ? 'all month' : `${Math.round(pair.rim_sun_pct)} % of the time`}; a point{' '}
-                  {Math.round(pair.distance_km)} km away has it {Math.round(pair.site_sun_pct)} % of the time.
+                  A ridge can hide the Sun for weeks while a peak nearby stays lit. In January 2027 the summit of de Gerlache crater&apos;s rim has sunlight{' '}
+                  {pair.rim_sun_pct >= 99.95 ? 'all month' : `${pct(Math.round(pair.rim_sun_pct))} of the time`}; {hero.name}, the site in the forecast above, {Math.round(pair.distance_km)} km away, has it{' '}
+                  {pct(Math.round(pair.site_sun_pct))} of the time.
                 </p>
               </div>
             </div>
@@ -132,13 +142,20 @@ export default function Home() {
               </div>
             </div>
           </div>
+          <p className="mt-8 text-lg text-ink-2">
+            Teaching this?{' '}
+            <Link href="/learn" className={LINK}>
+              How it works
+            </Link>{' '}
+            walks through the same ideas in five steps.
+          </p>
         </section>
 
         <section aria-labelledby="h-places" className="wrap pt-16">
           <h2 id="h-places" className={H2}>
             Start from a real place
           </h2>
-          <p className="mt-2.5 max-w-[46em] text-lg text-ink-2">A ridge NASA has shortlisted for astronauts, and two landers that reached the Moon in March 2025. Open any of them as a forecast.</p>
+          <p className="mt-2.5 max-w-[46em] text-lg text-ink-2">A ridge NASA has shortlisted for astronauts, and two landers that reached the Moon in March 2025. Explore any of them hour by hour.</p>
           {/* Three places are a picture and a ruled list, not three cards: the picture is the first place. */}
           <div className="mt-7 grid items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,500px)_1fr]">
             <figure>
@@ -167,8 +184,8 @@ export default function Home() {
                     <h3 className="display mt-2.5 text-[26px] font-semibold leading-tight">{p.title}</h3>
                     <p className="mt-1.5 max-w-[34em] text-ink-2">{p.body}</p>
                   </div>
-                  <Link href={p.href} aria-label={`Open this forecast: ${p.title}`} className={`${LINK} whitespace-nowrap`}>
-                    Open this forecast
+                  <Link href={p.href} aria-label={`Explore this site: ${p.title}`} className="btn btn-sm w-fit">
+                    Explore this site
                   </Link>
                 </li>
               ))}
@@ -213,6 +230,22 @@ export default function Home() {
               See every check and rerun one live
             </Link>
           </p>
+        </section>
+
+        <section aria-labelledby="h-try" className="border-t border-line">
+          <div className="wrap flex flex-col gap-6 py-14 lg:flex-row lg:items-center lg:justify-between lg:gap-12">
+            <div>
+              <h2 id="h-try" className={H2}>
+                Try it on a landing site
+              </h2>
+              <p className="mt-2.5 max-w-[40em] text-lg text-ink-2">
+                Pick a site near the south pole, or any point you choose, and a date. Earthrise shows its sunlight, its contact with Earth and its battery, hour by hour.
+              </p>
+            </div>
+            <Link href="/explore" className="btn btn-primary h-[52px] w-fit shrink-0 px-[22px] text-[17px]">
+              Explore a landing site
+            </Link>
+          </div>
         </section>
       </main>
     </AppFrame>

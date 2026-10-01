@@ -23,12 +23,12 @@ describe('WhyDrawings', () => {
     expect(words(render(<EarthSetsToo />).container)[0]).toBe('Earth stays in one direction');
   });
 
-  it('puts the real pair of numbers on the middle drawing and says what each is a share of', () => {
+  it('names the two places on the middle drawing the way the page does, and keeps each number with its unit', () => {
     const first = render(<HillsDecide rimPct={100} sitePct={45} km={12} />);
-    expect(words(first.container)).toEqual(['The same month, 12 km apart', 'rim: sunlit all month', 'sunlit 45 % of the month']);
+    expect(words(first.container)).toEqual(['The same month, 12 km apart', 'rim summit: sunlit all month', 'Rim 2: sunlit 45 % of the month']);
     first.unmount();
     const second = render(<HillsDecide rimPct={83.4} sitePct={20} km={7} />);
-    expect(words(second.container)).toEqual(['The same month, 7 km apart', 'rim: sunlit 83 %', 'sunlit 20 % of the month']);
+    expect(words(second.container)).toEqual(['The same month, 7 km apart', 'rim summit: sunlit 83 %', 'Rim 2: sunlit 20 % of the month']);
   });
 
   it('is a picture panel hidden from screen readers, because the text beside each drawing says the same', () => {

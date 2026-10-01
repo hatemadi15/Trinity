@@ -56,7 +56,7 @@ describe('SkyRow', () => {
     expect(container.querySelectorAll('line[stroke-dasharray]')).toHaveLength(2);
     const words = labelsOf(container).map((l) => l.textContent);
     expect(words).toContain('5° up');
-    expect(words).toContain('level ground');
+    expect(words).toContain('eye level');
     // The night sits left of the middle, so the words go to the right edge.
     const five = labelsOf(container).find((l) => l.textContent === '5° up')!;
     expect(five.className).toMatch(/right-\[var\(--chart-inset,10px\)\]/);
@@ -66,8 +66,46 @@ describe('SkyRow', () => {
     const long = Array.from({ length: hours }, (_, h) => (h >= 36 && h < 684 ? 0 : 1));
     const { container } = render(<SkyRow el={el} hill={hillsFor(long)} visible={long} startUtc={START} body="sun" caption="c" />);
     expect(container.querySelectorAll('line[stroke-dasharray]')).toHaveLength(2);
-    expect(container.textContent).not.toMatch(/5° up|level ground/);
+    expect(container.textContent).not.toMatch(/5° up|eye level/);
     expect(container.textContent).toMatch(/Sun sets 2 Jan/);
+  });
+
+  it('can make room for the whole of the hills instead, with a height line every 5°', () => {
+    const tall = Array.from({ length: hours }, (_, h) => (lit[h] ? -1 : 15));
+    const { container } = render(<SkyRow el={el} hill={tall} visible={lit} startUtc={START} body="sun" caption="c" fitHills />);
+    expect(container.querySelector('mask')).toBeNull();
+    expect(labelsOf(container).map((l) => l.textContent).filter((t) => /up$|eye level/.test(t ?? ''))).toEqual(['eye level', '5° up', '10° up', '15° up']);
+  });
+
+  it('marks every place where the body goes behind the hills or comes back', () => {
+    const twice = Array.from({ length: hours }, (_, h) => (h >= 100 && h < 200) || h >= 500 ? 0 : 1);
+    const { container } = render(<SkyRow el={el} hill={hillsFor(twice)} visible={twice} startUtc={START} body="sun" caption="c" />);
+    const dots = [...container.querySelectorAll<HTMLElement>('[data-event]')];
+    expect(dots.map((d) => d.dataset.event)).toEqual(['set', 'rise', 'set']);
+    expect(parseFloat(dots[0].style.left)).toBeCloseTo((100 / hours) * 100, 5);
+  });
+
+  it('keeps a label centred near an edge clear of that edge', () => {
+    const early = Array.from({ length: hours }, (_, h) => (h < 219 ? 0 : 1));
+    const { container } = render(<SkyRow el={el} hill={hillsFor(early)} visible={early} startUtc={START} body="sun" caption="c" />);
+    const night = labelsOf(container).find((l) => /^Night for/.test(l.textContent ?? ''))!;
+    expect((night.parentElement as HTMLElement).style.paddingInline).toBe('var(--chart-inset, 10px)');
+  });
+
+  it('names the row in its top corner when given a title', () => {
+    const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" title="Sunlight" />);
+    const first = labelsOf(container)[0];
+    expect(first.textContent).toBe('Sunlight');
+    expect(first.className).toMatch(/left-\[var\(--chart-inset,10px\)\]/);
+  });
+
+  it('says the body is below the horizon when the hills in its direction are low', () => {
+    const low = Array.from({ length: hours }, (_, h) => (h < 219 || h >= 543 ? 0 : 1));
+    const earthEl = Array.from({ length: hours }, (_, h) => (low[h] ? 4 : -5));
+    const flat = Array.from({ length: hours }, () => 0.2);
+    const { container } = render(<SkyRow el={earthEl} hill={flat} visible={low} startUtc={START} body="earth" caption="c" />);
+    expect(container.textContent).toMatch(/No contact for 9 days 3 hours: Earth is below the horizon/);
+    expect(container.textContent).not.toMatch(/hills stand higher/);
   });
 
   it('fades the hills out where they run off the top, and only then', () => {
@@ -102,7 +140,7 @@ describe('SkyRow', () => {
     expect(after.some((t) => /Night for/.test(t ?? ''))).toBe(true);
     expect(after.some((t) => /Sun sets/.test(t ?? ''))).toBe(true);
     // The scale and the dates are part of the still picture.
-    expect(after.some((t) => /level ground|1 Jan/.test(t ?? ''))).toBe(false);
+    expect(after.some((t) => /eye level|1 Jan/.test(t ?? ''))).toBe(false);
   });
 
   it('reports a stretch that began before the window instead of calling the body visible', () => {
@@ -154,14 +192,21 @@ describe('SkyRow', () => {
 describe('SkyRowKey', () => {
   it('names the three marks of a Sun row', () => {
     render(<SkyRowKey body="sun" />);
-    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['height of the Sun', 'Sun hidden', "hills in the Sun's direction"]);
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['height of the Sun', 'Sun hidden', "hills in the Sun's direction at that time"]);
   });
 
   it('speaks of Earth for an Earth row and explains the compass row when there is one', () => {
     const { container } = render(<SkyRowKey body="earth" compass />);
     const items = screen.getAllByRole('listitem').map((li) => li.textContent);
-    expect(items.slice(0, 3)).toEqual(['height of Earth', 'Earth hidden', "hills in Earth's direction"]);
+    expect(items.slice(0, 3)).toEqual(['height of Earth', 'Earth hidden', "hills in Earth's direction at that time"]);
     expect(items[3]).toMatch(/compass direction/);
+    expect(container.innerHTML).toContain('var(--stage-earth)');
+  });
+
+  it('covers a Sun row and an Earth row together', () => {
+    const { container } = render(<SkyRowKey body="both" />);
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while hidden', 'the hills in its direction at that time']);
+    expect(container.innerHTML).toContain('var(--stage-sun)');
     expect(container.innerHTML).toContain('var(--stage-earth)');
   });
 });

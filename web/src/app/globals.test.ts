@@ -28,7 +28,7 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const THEMED = ['--page', '--surface', '--surface-2', '--line', '--line-strong', '--ink', '--ink-2', '--ink-3', '--sun', '--sun-ink', '--sun-hover', '--earth', '--earth-ink', '--good', '--good-bg', '--good-line', '--bad', '--bad-bg', '--bad-line', '--warn'];
+const THEMED = ['--page', '--surface', '--surface-2', '--line', '--line-strong', '--ink', '--ink-2', '--ink-3', '--sun', '--sun-ink', '--sun-hover', '--earth', '--earth-ink', '--good', '--good-bg', '--good-line', '--bad', '--bad-bg', '--bad-line', '--warn', '--stage-edge'];
 const FIXED = ['--sun-on', '--stage', '--stage-ink', '--stage-ink-2', '--stage-line', '--stage-sun', '--stage-earth', '--hill', '--hill-edge'];
 
 describe('theme tokens', () => {
@@ -45,7 +45,7 @@ describe('theme tokens', () => {
 
   it('matches the approved values for the page, ink, the stage and the two identity colours', () => {
     expect(light['--page']).toBe('#dedcd6');
-    expect(dark['--page']).toBe('#171716');
+    expect(dark['--page']).toBe('#222220');
     expect(light['--surface']).toBe('#ffffff');
     expect(light['--ink']).toBe('#000000');
     expect(dark['--ink']).toBe('#f3f2ee');
@@ -54,10 +54,12 @@ describe('theme tokens', () => {
     expect(dark['--earth']).toBe('#6aa9ff');
   });
 
-  it('keeps the stage darker than the dark page and gives it a visible edge, so a picture panel never melts into the page', () => {
-    expect(luminance(dark['--page'])).toBeGreaterThan(luminance(light['--stage']));
-    expect(contrast(light['--stage-line'], light['--stage'])).toBeGreaterThanOrEqual(1.5);
-    expect(css).toMatch(/\.stage \{[^}]*border: 1px solid var\(--stage-line\)/);
+  it('keeps the stage darker than the dark page and gives it an edge that shows on both, so a picture panel never melts into the page', () => {
+    expect(contrast(dark['--page'], light['--stage'])).toBeGreaterThanOrEqual(1.3);
+    expect(contrast(dark['--stage-edge'], dark['--page'])).toBeGreaterThanOrEqual(2);
+    expect(contrast(dark['--stage-edge'], light['--stage'])).toBeGreaterThanOrEqual(2);
+    expect(contrast(light['--stage-edge'], light['--stage'])).toBeGreaterThanOrEqual(1.5);
+    expect(css).toMatch(/\.stage \{[^}]*border: 1px solid var\(--stage-edge\)/);
   });
 
   it('draws the focus ring in the bright gold on a picture panel, where the dark gold of the light theme would vanish', () => {
@@ -110,9 +112,10 @@ describe('globals.css layering', () => {
     expect(css).toMatch(/\.field \{[^}]*border-radius: 8px/);
   });
 
-  it('sets display type at 87.5 % width and weight 700', () => {
+  it('sets display type at 87.5 % width and weight 700, without tightening the letters further', () => {
     expect(css).toMatch(/\.display \{[^}]*font-stretch: 87\.5%/);
     expect(css).toMatch(/\.display \{[^}]*font-weight: 700/);
+    expect(css).toMatch(/\.display \{[^}]*letter-spacing: 0;/);
   });
 
   it('declares the one page-load motion and switches every animation off under reduced motion', () => {

@@ -26,6 +26,20 @@ describe('home facts', () => {
     expect(HOME.facts.blue_ghost_end_minus_sunset_h).toBeCloseTo(ghost.end_minus_sunset_h, 1);
   });
 
+  it('carries Earth for the same month, against the hills in its direction', () => {
+    const s = HOME.sky;
+    expect(s.earth_el).toHaveLength(720);
+    expect(s.earth_hill_el).toHaveLength(720);
+    expect(s.earth_visible).toHaveLength(720);
+    const seen = s.earth_visible.reduce((a, b) => a + b, 0);
+    expect(s.earth_pct).toBeCloseTo((100 * seen) / 720, 1);
+    // In view exactly when Earth stands above the hills (away from the rounding of the stored heights).
+    for (let h = 0; h < 720; h++) {
+      const gap = s.earth_el[h] - s.earth_hill_el[h];
+      if (Math.abs(gap) > 0.02) expect(s.earth_visible[h], `hour ${h}`).toBe(gap > 0 ? 1 : 0);
+    }
+  });
+
   it('carries a full month of the hero site and its night', () => {
     expect(HOME.sky.hours).toBe(720);
     expect(HOME.sky.sun_el.length).toBe(720);

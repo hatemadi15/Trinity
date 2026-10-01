@@ -10,6 +10,27 @@ from lunar_pipeline.sites import Site
 from tests.conftest import needs_lola
 
 
+def _due_north_of_the_pole(el_deg: float, dist_km: float) -> np.ndarray:
+    """A body seen from the south pole due north (along +x) at this elevation, Moon-centred km."""
+    e = np.radians(el_deg)
+    return np.array([dist_km * np.cos(e), 0.0, -1737.4 - dist_km * np.sin(e)])
+
+
+def test_sky_series_carries_earth_against_the_hills_in_its_direction():
+    site = Site("pole", "Pole", -90.0, 0.0, "reference", True, "x")
+    earth_el = [5.0, 1.5, -1.0]
+    table = np.array([[_due_north_of_the_pole(3.0, 1.496e8), _due_north_of_the_pole(e, 384400.0)] for e in earth_el], dtype=np.float32)
+    header = {"t0_utc": "2027-01-01T00:00:00", "step_s": 3600.0, "n": 3}
+    sky = home_assets.sky_series(site, np.full(720, 2.0), table, header, "2027-01-01T00:00:00", 3)
+    assert sky["earth_el"] == pytest.approx(earth_el, abs=0.01)
+    assert sky["earth_hill_el"] == [2.0, 2.0, 2.0]
+    # Earth counts as in view only above the hills in its direction.
+    assert sky["earth_visible"] == [1, 0, 0]
+    assert sky["earth_pct"] == pytest.approx(33.3, abs=0.05)
+    assert len(sky["earth_az"]) == 3
+    assert sky["lit"] == [1, 1, 1]
+
+
 def test_night_finds_the_longest_unlit_run_and_the_sunrise_after_it():
     lit = [1, 1, 0, 0, 0, 1, 0, 1, 1]
     assert night(lit) == {"sunset_hour": 2, "sunrise_hour": 5, "hours": 3}
@@ -79,6 +100,8 @@ def test_write_all_produces_the_picture_the_map_and_the_facts(tmp_path):
     assert sky["hours"] == 720 and len(sky["sun_el"]) == 720 and len(sky["hill_el"]) == 720 and len(sky["lit"]) == 720
     assert sky["sunlit_pct"] == pytest.approx(44.6, abs=0.2)
     assert sky["night"]["hours"] == 399 and sky["night"]["sunset_hour"] == 67 and sky["night"]["sunrise_hour"] == 466
+    assert len(sky["earth_el"]) == 720 and len(sky["earth_hill_el"]) == 720 and len(sky["earth_visible"]) == 720
+    assert 0.0 < sky["earth_pct"] < 100.0
     assert doc["pair"]["rim_sun_pct"] == 100.0 and doc["pair"]["distance_km"] == pytest.approx(12.1, abs=0.2)
     assert 0.3 < doc["hero"]["lit_fraction"] < 0.8
     assert doc["hero"]["frame_utc"] == "2027-01-02T06:00:00"

@@ -31,6 +31,8 @@
   --bad-bg: rgba(176, 47, 34, 0.1);
   --bad-line: rgba(176, 47, 34, 0.4);
   --warn: #6f4700;
+  /* The edge of a picture panel: on the grey page black already stands out; on the dark page it needs a lighter line. */
+  --stage-edge: #33332f;
   --sun-on: #1a1407;
   --stage: #000000;
   --stage-ink: #f3f2ee;
@@ -52,11 +54,13 @@
 }
 
 :root[data-theme="dark"] {
-  --page: #171716;
-  --surface: #242423;
-  --surface-2: #30302e;
-  --line: #3a3a37;
-  --line-strong: #55554f;
+  /* A grey one step above the black stage, so picture panels keep their outline. */
+  --page: #222220;
+  --surface: #2c2c2a;
+  --surface-2: #383835;
+  --line: #444441;
+  --line-strong: #5e5d57;
+  --stage-edge: #5a5a54;
   --ink: #f3f2ee;
   --ink-2: #c6c5c0;
   --ink-3: #9c9b96;
@@ -101,6 +105,7 @@
   --color-stage-ink: var(--stage-ink);
   --color-stage-ink-2: var(--stage-ink-2);
   --color-stage-line: var(--stage-line);
+  --color-stage-edge: var(--stage-edge);
   --color-stage-sun: var(--stage-sun);
   --color-stage-earth: var(--stage-earth);
   --color-hill: var(--hill);
@@ -217,7 +222,7 @@ html {
     position: relative;
     overflow: hidden;
     border-radius: 6px;
-    border: 1px solid var(--stage-line);
+    border: 1px solid var(--stage-edge);
     background: var(--stage);
     color: var(--stage-ink);
   }
@@ -227,7 +232,7 @@ html {
     font-stretch: 87.5%;
     font-weight: 700;
     line-height: 1;
-    letter-spacing: -0.012em;
+    letter-spacing: 0;
   }
   /* The one motion that plays by itself: on the home page the Sun's line is drawn once from left to right, then its labels appear. */
   .reveal-line {

@@ -33,20 +33,58 @@ const f1 = (v: number) => (Math.round(v * 10) / 10).toString();
 
 /**
  * From 1° under the lowest thing in view up to `headroom` above the body's highest point; tall hills run
- * off the top. `headroomShare` keeps at least that share of the row free above the body, whatever the span.
+ * off the top unless `fitHills` makes room for all of them (1° above the highest). `headroomShare` keeps
+ * at least that share of the row free above the body, whatever the span.
  */
-export function rowRange(el: ArrayLike<number>, hill: ArrayLike<number>, opts: { headroom?: number; headroomShare?: number; floor?: number } = {}): Range {
+export function rowRange(
+  el: ArrayLike<number>,
+  hill: ArrayLike<number>,
+  opts: { headroom?: number; headroomShare?: number; floor?: number; fitHills?: boolean } = {},
+): Range {
   const headroom = opts.headroom ?? 6;
   const share = Math.min(Math.max(opts.headroomShare ?? 0, 0), 0.9);
   let lo = Infinity;
   let hi = -Infinity;
+  let hillTop = -Infinity;
   for (let i = 0; i < el.length; i++) {
     lo = Math.min(lo, el[i], hill[i]);
     hi = Math.max(hi, el[i]);
+    hillTop = Math.max(hillTop, hill[i]);
   }
   if (!Number.isFinite(lo)) return { min: -3, max: 6 };
   const min = Math.max(opts.floor ?? -90, lo - 1);
-  return { min, max: Math.max(hi + headroom, min + 6, (hi - share * min) / (1 - share)) };
+  const max = Math.max(hi + headroom, min + 6, (hi - share * min) / (1 - share));
+  return { min, max: opts.fitHills ? Math.max(max, hillTop + 1) : max };
+}
+
+/** A label needs this many pixels between two height lines. */
+const SCALE_GAP_PX = 26;
+
+/**
+ * The height lines drawn across a row for scale, with their words: eye level (0°) and every 5° above it,
+ * or every 10° when 5° is too little room for the words. Lines within 0.4° of the edge of the range are left out.
+ */
+export function scaleLines(range: Range, heightPx: number): { deg: number; words: string }[] {
+  const step = (5 * heightPx) / (range.max - range.min) >= SCALE_GAP_PX ? 5 : 10;
+  const out: { deg: number; words: string }[] = [];
+  for (let deg = 0; deg < range.max - 0.4; deg += step) {
+    if (deg > range.min + 0.4) out.push({ deg, words: deg === 0 ? 'eye level' : `${deg}° up` });
+  }
+  return out;
+}
+
+/**
+ * What hides the body over the hours [from, to): the hills, when they stand clearly above eye level and
+ * above the body, or the horizon itself, when the body is below eye level and the hills in its direction are low.
+ */
+export function hiddenBy(el: ArrayLike<number>, hill: ArrayLike<number>, from: number, to: number): 'hills' | 'horizon' {
+  let hills = 0;
+  let horizon = 0;
+  for (let i = from; i < to; i++) {
+    if (hill[i] > Math.max(el[i], 0) + 1) hills++;
+    else if (el[i] < 0) horizon++;
+  }
+  return horizon > hills ? 'horizon' : 'hills';
 }
 
 export function rowGeometry(el: ArrayLike<number>, hill: ArrayLike<number>, visible: ArrayLike<number | boolean>, box: Box, range: Range): RowGeometry {
