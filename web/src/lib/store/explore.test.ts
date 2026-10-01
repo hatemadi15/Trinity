@@ -57,8 +57,9 @@ describe('explore store', () => {
     await store.getState().init();
     const s = store.getState();
     expect(s.status).toBe('ready');
-    expect(s.siteId).toBe('shackleton_center_rim_high');
+    expect(s.siteId).toBe('de_gerlache_rim_2');
     expect(s.series?.hours).toBe(30 * 24);
+    expect(s.best).toEqual({ hour: 466, poweredHours: 303, earthFraction: expect.closeTo(0.2541, 3) });
     expect(s.summary?.longestDarkH).toBeGreaterThanOrEqual(0);
   });
   it('init is a no-op once data is loaded and keeps the chosen site', async () => {
@@ -85,7 +86,7 @@ describe('explore store', () => {
     const store = createExploreStore(fileLoaders({ counters }));
     await store.getState().init();
     await store.getState().selectSite('shackleton_center');
-    await store.getState().selectSite('shackleton_center_rim_high');
+    await store.getState().selectSite('de_gerlache_rim_2'); // the default, cached by init
     expect(counters.masks).toBe(2);
   });
   it('a computed custom site can be re-selected after switching away', async () => {
@@ -223,6 +224,7 @@ describe('explore store terrain (Week 3)', () => {
       },
     });
     await store.getState().init();
+    await store.getState().selectSite('shackleton_center_rim_high'); // a site with a detailed window
     expect(store.getState().terrainState).toBe('loading');
     release();
     await store.getState().waitForTerrain();
@@ -280,6 +282,7 @@ describe('explore store terrain (Week 3)', () => {
       },
     });
     await store.getState().init();
+    await store.getState().selectSite('shackleton_center_rim_high'); // a site with a detailed window
     await store.getState().waitForTerrain();
     const first = store.getState().siteId!;
     await store.getState().selectSite('shackleton_center');
@@ -387,35 +390,6 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().compare[0].power.meanPowerW).toBeCloseTo(before * 2, 6);
   });
 
-  it('findBestWindow moves the start date to the best-scoring span and reports it', async () => {
-    const store = createExploreStore(fileLoaders());
-    await store.getState().init();
-    await store.getState().selectSite('im1_odysseus'); // 80S: real day/night cycle, so the window matters
-    const result = await store.getState().findBestWindow(14);
-    expect(result).not.toBeNull();
-    expect(store.getState().startUtc).toBe(result!.startUtc);
-    expect(store.getState().days).toBe(14);
-    expect(store.getState().summary!.illumFraction).toBeCloseTo(result!.summary.illumFraction, 9);
-    expect(result!.summary.illumFraction).toBeGreaterThan(0.4);
-    // A planner window starts at sunrise, not in the middle of a night, when a same-scoring start exists.
-    expect(store.getState().series!.sunFraction[0]).toBeGreaterThan(0);
-    expect(store.getState().bestWindowNote).toMatch(/% sun/);
-  });
-
-  it('findBestWindow across the compared sites scores their mean and says so', async () => {
-    const store = createExploreStore(fileLoaders());
-    await store.getState().init();
-    await store.getState().addToCompare('im1_odysseus');
-    await store.getState().addToCompare('shackleton_center_rim_high');
-    const r = await store.getState().findBestWindow(14, 'compare');
-    expect(r).not.toBeNull();
-    expect(store.getState().bestWindowNote).toMatch(/across 2 compared sites/);
-    expect(store.getState().startUtc).toBe(r!.startUtc);
-    const [a, b] = store.getState().compare;
-    expect(r!.summary.illumFraction).toBeCloseTo((a.summary.illumFraction + b.summary.illumFraction) / 2, 9);
-    expect(r!.summary.longestEarthGapH).toBe(Math.max(a.summary.longestEarthGapH, b.summary.longestEarthGapH));
-  });
-
   it('clears the best-window note when the site, window or parameters change', async () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();
@@ -514,17 +488,136 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().compare[0].mastM).toBe(2);
   });
 
-  it('findBestWindow near the end of the ephemeris table clamps the scan and never throws', async () => {
+  it('findBestWindow moves the start to the landing hour with the longest time with power in the next 12 months', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init(); // de Gerlache Rim 2, 1 January 2027, 30 days
+    const result = await store.getState().findBestWindow(30);
+    expect(result).toEqual({ startUtc: '2027-10-12T18:00:00', poweredHours: 333, earthFraction: expect.closeTo(0.7988, 3) });
+    expect(store.getState().startUtc).toBe('2027-10-12T18:00:00');
+    expect(store.getState().days).toBe(30);
+    expect(store.getState().series!.sunFraction[0]).toBeGreaterThan(0); // a lander arrives in daylight
+    expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, power for 13 d 21 h, Earth in view 80 % of that time.');
+  });
+
+  it('findBestWindow across the compared sites takes the mean time with power and says so', async () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();
+    await store.getState().addToCompare('im1_odysseus');
+    await store.getState().addToCompare('shackleton_center_rim_high');
+    const r = await store.getState().findBestWindow(14, 'compare');
+    expect(r).not.toBeNull();
+    expect(r!.poweredHours).toBeGreaterThan(300);
+    expect(store.getState().startUtc).toBe(r!.startUtc);
+    expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites: best landing in the next 12 months: .* power for .* on average/);
+    for (const c of store.getState().compare) expect(c.series.sunFraction[0]).toBeGreaterThan(0);
+  });
+
+  it('findBestWindow reports a site that never sees the Sun instead of moving the window', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().selectSite('shackleton_center');
+    await expect(store.getState().findBestWindow(30)).resolves.toBeNull();
+    expect(store.getState().startUtc).toBe('2027-01-01T00:00:00');
+    expect(store.getState().bestWindowNote).toBe('No hour in the next 12 months has sunlight here.');
+  });
+
+  it('findBestWindow near the end of the Sun and Earth table clamps the scan and never throws', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().selectSite('shackleton_center_rim_high'); // sunlit almost always, so a candidate hour exists in the short scan
     store.getState().setWindow('2036-10-01T00:00:00', 90);
+    expect(store.getState().error).toBeNull();
     const result = await store.getState().findBestWindow(90);
     expect(result).not.toBeNull();
     expect(store.getState().startUtc >= '2036-10-01T00:00:00').toBe(true);
     expect(store.getState().series?.hours).toBe(90 * 24);
     store.getState().setWindow('2036-12-01T00:00:00', 14);
+    expect(store.getState().best).not.toBeUndefined();
     await expect(store.getState().findBestWindow(90)).resolves.toBeNull();
     expect(store.getState().bestWindowNote).toMatch(/does not fit/);
     expect(store.getState().startUtc).toBe('2036-12-01T00:00:00');
+  });
+});
+
+describe('best landing date and the overview of all sites', () => {
+  it('keeps the best landing hour of the period in step with the site, the period and the lander', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    expect(store.getState().best?.hour).toBe(466);
+    store.getState().setWindow('2027-01-01T00:00:00', 14);
+    expect(store.getState().best?.hour).toBeLessThan(14 * 24);
+    await store.getState().selectSite('shackleton_center');
+    expect(store.getState().best).toBeNull(); // the crater floor never sees the Sun
+    await store.getState().selectSite('shackleton_center_rim_high');
+    store.getState().setWindow('2027-01-01T00:00:00', 30);
+    expect(store.getState().best?.poweredHours).toBe(720);
+    store.getState().setPower({ batteryWh: 20000, loadW: 400, areaM2: 8 });
+    expect(store.getState().best).not.toBeNull();
+  });
+
+  it('gives every compared site its own best landing hour', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().addToCompare('nobile_rim_1');
+    expect(store.getState().compare[0].best).toEqual({ hour: 373, poweredHours: 388, earthFraction: expect.any(Number) });
+  });
+
+  it('loadOverview fills one entry per catalogue site and fetches each skyline once', async () => {
+    const counters = { masks: 0, sites: 0 };
+    const store = createExploreStore(fileLoaders({ counters }));
+    await store.getState().init();
+    await store.getState().loadOverview();
+    const o = store.getState().overview;
+    expect(Object.keys(o)).toHaveLength(19);
+    expect(store.getState().overviewBusy).toBe(false);
+    expect(o.de_gerlache_rim_2).toEqual({ sunFraction: expect.closeTo(0.446, 3), earthFraction: expect.closeTo(0.45, 3), nowHours: 76, best: { hour: 466, poweredHours: 303, earthFraction: expect.any(Number) } });
+    expect(o.shackleton_center).toMatchObject({ sunFraction: 0, nowHours: 10, best: null });
+    expect(o.shackleton_center_rim_high.nowHours).toBe(720);
+    expect(o.blue_ghost_m1.sunFraction).toBeGreaterThan(0.3); // a flat horizon, no skyline file
+    expect(counters.masks).toBe(18);
+    await store.getState().loadOverview(); // same period and lander: nothing to do
+    expect(counters.masks).toBe(18);
+  });
+
+  it('loadOverview starts again when the period or the lander changes', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().loadOverview();
+    const before = store.getState().overview.de_gerlache_rim_2.nowHours;
+    store.getState().setPower({ batteryWh: 20000 });
+    await store.getState().loadOverview();
+    expect(store.getState().overview.de_gerlache_rim_2.nowHours).toBeGreaterThan(before);
+    store.getState().setWindow('2027-06-01T00:00:00', 14);
+    await store.getState().loadOverview();
+    expect(Object.keys(store.getState().overview)).toHaveLength(19);
+  });
+
+  it('loadOverview leaves a site out when its skyline cannot be loaded, and finishes', async () => {
+    const base = fileLoaders();
+    const store = createExploreStore({
+      ...base,
+      loadMask: async (id: string) => {
+        if (id === 'haworth') throw new Error('could not load /data/masks/haworth.json (HTTP 404)');
+        return base.loadMask(id);
+      },
+    });
+    await store.getState().init();
+    await store.getState().loadOverview();
+    expect(store.getState().overview.haworth).toBeUndefined();
+    expect(Object.keys(store.getState().overview)).toHaveLength(18);
+    expect(store.getState().overviewBusy).toBe(false);
+    expect(store.getState().error).toBeNull();
+  });
+
+  it('a newer loadOverview wins over one still running', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    const first = store.getState().loadOverview();
+    store.getState().setWindow('2027-03-01T00:00:00', 14);
+    const second = store.getState().loadOverview();
+    await Promise.all([first, second]);
+    const period = recompute(eph, sites.find((s) => s.id === 'malapert_massif')!, Float64Array.from(maskOf('malapert_massif').elevation_deg), '2027-03-01T00:00:00', 14);
+    expect(store.getState().overview.malapert_massif.sunFraction).toBeCloseTo(period.summary.illumFraction, 9);
+    expect(store.getState().overviewBusy).toBe(false);
   });
 });

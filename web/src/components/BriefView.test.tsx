@@ -7,14 +7,15 @@ import { loadEphemeris, type EphemerisHeader } from '@/lib/engine/ephemeris';
 import { readBytes, readJson } from '@/lib/engine/__tests__/helpers';
 import { BriefView } from './BriefView';
 
-function storeWithFiles() {
+/** A store on the rim summit the brief was written for (the default site moved to de Gerlache Rim 2). */
+async function storeWithFiles() {
   const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
   const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
   const sites = [
     ...readJson<{ sites: Site[] }>('data', 'sites.json').sites,
     ...readJson<{ sites: Site[] }>('data', 'sites_derived.json').sites,
   ];
-  return createExploreStore({
+  const store = createExploreStore({
     loadSites: async () => sites,
     loadEphemeris: async () => eph,
     loadMask: async (id) => {
@@ -22,11 +23,14 @@ function storeWithFiles() {
       return { site_id: id, lat: 0, lon: 0, mast_m: m.mast_m, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
     },
   });
+  await store.getState().init();
+  await store.getState().selectSite('shackleton_center_rim_high');
+  return store;
 }
 
 describe('BriefView', () => {
   it('renders a one-page brief with the site, window, KPIs, verdict, charts, method and credits, and prints', async () => {
-    const store = storeWithFiles();
+    const store = await storeWithFiles();
     render(<BriefView store={store} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Shackleton crater rim/));
     expect(screen.getByText(/2027-01-01 00:00 UTC/)).toBeTruthy();
@@ -48,7 +52,7 @@ describe('BriefView', () => {
   });
 
   it('renders a custom site with its computed provenance', async () => {
-    const store = storeWithFiles();
+    const store = await storeWithFiles();
     render(<BriefView store={store} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
     act(() => {
@@ -66,7 +70,7 @@ describe('BriefView', () => {
 
 describe('BriefView narration', () => {
   it('shows the template summary by default and the model paragraph after "Write the brief"', async () => {
-    const store = storeWithFiles();
+    const store = await storeWithFiles();
     const narrate = vi.fn(async () => ({ source: 'model' as const, model: 'google/gemma-4-31b-it:free', reply: 'Model paragraph about the rim.' }));
     render(<BriefView store={store} narrate={narrate} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
@@ -81,7 +85,7 @@ describe('BriefView narration', () => {
   });
 
   it('keeps the template and says so when narration fails', async () => {
-    const store = storeWithFiles();
+    const store = await storeWithFiles();
     render(
       <BriefView
         store={store}
@@ -99,7 +103,7 @@ describe('BriefView narration', () => {
 
 describe('BriefView narration labels', () => {
   it('says why the paragraph is the template, and passes a busy message through', async () => {
-    const store = storeWithFiles();
+    const store = await storeWithFiles();
     const narrate = vi
       .fn()
       .mockResolvedValueOnce({ source: 'template', reason: 'cached', reply: 'T1' })

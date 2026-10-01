@@ -40,6 +40,8 @@ describe('ExploreView', () => {
         return { site_id: id, lat: 0, lon: 0, mast_m: 2, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
       },
     });
+    await store.getState().init();
+    await store.getState().selectSite('shackleton_center_rim_high'); // the page was written for the rim summit
     render(<ExploreView store={store} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Shackleton/));
     expect(screen.getByText('Sun above the skyline')).toBeTruthy();
@@ -71,6 +73,8 @@ describe('ExploreView', () => {
         return { site_id: id, lat: 0, lon: 0, mast_m: 2, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
       },
     });
+    await store.getState().init();
+    await store.getState().selectSite('shackleton_center_rim_high'); // the page was written for the rim summit
     render(<ExploreView store={store} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Shackleton/));
     expect(screen.getByRole('button', { name: /Planner settings/ })).toBeTruthy();

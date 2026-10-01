@@ -272,7 +272,7 @@ export async function applyActions(store: StoreApi<ExploreState>, actions: Actio
       case 'find_best_window': {
         const scope = a.scope ?? 'site';
         const r = await s.findBestWindow(a.days, scope);
-        notes.push(r ? `Found the best ${a.days}-day window: ${r.startUtc.slice(0, 10)}.` : (store.getState().bestWindowNote ?? `No ${a.days}-day window fits after the start date.`));
+        notes.push(r ? `Moved to the best landing date for ${a.days} days: ${r.startUtc.slice(0, 10)}.` : (store.getState().bestWindowNote ?? `No ${a.days}-day period fits after the start date.`));
         break;
       }
       case 'set_power':

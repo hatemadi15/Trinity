@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AU_KM } from './constants';
 import { loadEphemeris, type EphemerisHeader } from './ephemeris';
-import { bestWindow, bestWindowAcross, contactWindows, diskFraction, hourlySeries, longestRun, maskAtAzimuth, SeriesIndex, summarize, sunRadiusDeg, withCommsThreshold, type Series } from './metrics';
+import { bestWindow, bestWindowAcross, contactWindows, diskFraction, headSeries, hourlySeries, longestRun, maskAtAzimuth, SeriesIndex, summarize, sunRadiusDeg, withCommsThreshold, type Series } from './metrics';
 import { utcToEt } from './time';
 import { readBytes, readJson } from './__tests__/helpers';
 
@@ -142,5 +142,28 @@ describe('parity with the Python report', () => {
     const mask = new Float64Array(720);
     expect(() => hourlySeries({ lat: -89, lon: 0 }, mask, eph, utcToEt('2036-12-01T00:00:00'), 24 * 40)).toThrow(/outside the ephemeris table/);
     expect(() => hourlySeries({ lat: -89, lon: 0 }, mask, eph, utcToEt('2023-12-31T00:00:00'), 24)).toThrow(/outside the ephemeris table/);
+  });
+});
+
+describe('headSeries', () => {
+  it('returns the first hours of a series without copying', () => {
+    const s: Series = {
+      i0: 7,
+      hours: 4,
+      sunAz: Float64Array.from([1, 2, 3, 4]),
+      sunEl: Float64Array.from([1, 2, 3, 4]),
+      earthAz: Float64Array.from([1, 2, 3, 4]),
+      earthEl: Float64Array.from([1, 2, 3, 4]),
+      sunFraction: Float64Array.from([1, 0, 1, 0]),
+      earthVisible: Uint8Array.from([1, 1, 0, 0]),
+      sunAu: Float64Array.from([1, 1, 1, 1]),
+    };
+    const head = headSeries(s, 2);
+    expect(head.hours).toBe(2);
+    expect(head.i0).toBe(7);
+    expect(Array.from(head.sunFraction)).toEqual([1, 0]);
+    expect(Array.from(head.earthVisible)).toEqual([1, 1]);
+    expect(head.sunAz.buffer).toBe(s.sunAz.buffer);
+    expect(headSeries(s, 9)).toBe(s);
   });
 });

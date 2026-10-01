@@ -68,6 +68,22 @@ export function withCommsThreshold(series: Series, mask: ArrayLike<number>, minE
   return { ...series, earthVisible };
 }
 
+/** The first `hours` of a series, sharing its memory; the series itself when it is no longer than that. */
+export function headSeries(series: Series, hours: number): Series {
+  if (hours >= series.hours) return series;
+  return {
+    i0: series.i0,
+    hours,
+    sunAz: series.sunAz.subarray(0, hours),
+    sunEl: series.sunEl.subarray(0, hours),
+    earthAz: series.earthAz.subarray(0, hours),
+    earthEl: series.earthEl.subarray(0, hours),
+    sunFraction: series.sunFraction.subarray(0, hours),
+    earthVisible: series.earthVisible.subarray(0, hours),
+    sunAu: series.sunAu.subarray(0, hours),
+  };
+}
+
 export interface ContactWindow {
   start: number;
   end: number;
