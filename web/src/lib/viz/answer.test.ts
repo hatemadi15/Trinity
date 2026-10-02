@@ -5,14 +5,14 @@ import { hourlySeries, summarize, type Series } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '../engine/power';
 import { utcToEt } from '../engine/time';
 import { readBytes, readJson } from '../engine/__tests__/helpers';
-import { answerFor } from './answer';
+import { answerFor, nearbyAdvice, nearbyWords } from './answer';
 
 // 1361 W while any Sun shows, 100 W load, 1000 Wh battery: ten hours in the dark.
 const CFG: PowerConfig = { ...DEFAULT_POWER, panel: 'full_tracking', areaM2: 1, efficiency: 1, loadW: 100, batteryWh: 1000 };
 const START = '2027-01-01T00:00:00';
 const rep = (v: number, n: number) => new Array<number>(n).fill(v);
 
-function series(sun: number[]): Series {
+function series(sun: number[], earth: number[] = []): Series {
   const n = sun.length;
   return {
     i0: 0,
@@ -22,17 +22,18 @@ function series(sun: number[]): Series {
     earthAz: new Float64Array(n),
     earthEl: new Float64Array(n),
     sunFraction: Float64Array.from(sun),
-    earthVisible: new Uint8Array(n),
+    earthVisible: Uint8Array.from({ length: n }, (_, h) => earth[h] ?? 0),
     sunAu: new Float64Array(n).fill(1),
   };
 }
 
 /** The answer for the first `days` days of a longer series, the way the store asks for it. */
-function answer(sun: number[], days: number, cfg: PowerConfig = CFG) {
-  const scan = series(sun);
+function answer(sun: number[], days: number, cfg: PowerConfig = CFG, earth: number[] = []) {
+  const scan = series(sun, earth);
   const hours = days * 24;
-  const period = series(sun.slice(0, hours));
+  const period = series(sun.slice(0, hours), earth.slice(0, hours));
   return answerFor({
+    siteName: 'Alpha Ridge',
     series: period,
     summary: summarize(period),
     power: powerBudget(period, cfg),
@@ -47,21 +48,23 @@ function answer(sun: number[], days: number, cfg: PowerConfig = CFG) {
 describe('answerFor', () => {
   it('says the lander keeps power when the Sun never sets', () => {
     const a = answer(rep(1, 96), 2);
-    expect(a).toMatchObject({ tone: 'good', kind: 'all', title: 'Landing on 1 January: power for all 2 days', better: null, hint: null });
-    expect(a.sentences).toEqual(['The Sun never sets in these 2 days.']);
+    expect(a).toMatchObject({ tone: 'good', kind: 'all', title: 'Landing at Alpha Ridge on 1 January: power for all 2 days', better: null, hint: null });
+    // Contact with Earth comes first: the lander is no use if it cannot send home what it sees.
+    expect(a.sentences).toEqual(['No radio contact: Earth is out of view for all 2 days.', 'The Sun never sets in these 2 days.']);
   });
 
   it('names the longest night when the battery covers it', () => {
     const a = answer([...rep(1, 20), ...rep(0, 8), ...rep(1, 68)], 2);
-    expect(a.title).toBe('Landing on 1 January: power for all 2 days');
-    expect(a.sentences).toEqual(['The Sun is up 83 % of the time. The longest night lasts 8 hours, and the battery covers it.']);
+    expect(a.title).toBe('Landing at Alpha Ridge on 1 January: power for all 2 days');
+    expect(a.sentences).toEqual(['No radio contact: Earth is out of view for all 2 days.', 'The Sun is up 83 % of the time. The longest night lasts 8 hours, and the battery covers it.']);
   });
 
   it('says how long the power lasts, when the Sun sets, what the battery covers and when the lander is back', () => {
     // Sun for 30 h, night for 40 h, Sun again: the battery carries 10 h of the night.
     const a = answer([...rep(1, 30), ...rep(0, 40), ...rep(1, 122)], 4);
-    expect(a).toMatchObject({ tone: 'bad', kind: 'night', title: 'Landing on 1 January: power for 1 day 16 hours, then night' });
+    expect(a).toMatchObject({ tone: 'bad', kind: 'night', title: 'Landing at Alpha Ridge on 1 January: power for 1 day 16 hours, then night' });
     expect(a.sentences).toEqual([
+      'No radio contact: Earth is out of view for all 1 day 16 hours with power.',
       'The Sun sets on 2 January and stays behind the hills for 1 day 16 hours.',
       'The battery covers the first 10 hours of the night; the lander is back on 3 January.',
     ]);
@@ -78,6 +81,7 @@ describe('answerFor', () => {
     // A thin last sliver of Sun gives 68 W against the 100 W load: the battery is down 32 Wh when the night starts.
     const a = answer([...rep(1, 30), 0.05, ...rep(0, 40), ...rep(1, 121)], 4);
     expect(a.sentences).toEqual([
+      'No radio contact: Earth is out of view for all 1 day 16 hours with power.',
       'The Sun sets on 2 January and stays behind the hills for 1 day 16 hours.',
       'The battery, not quite full when the Sun set, covers the first 9 hours of the night; the lander is back on 3 January.',
     ]);
@@ -86,19 +90,31 @@ describe('answerFor', () => {
   it('names a landing that is not at midnight by its day only', () => {
     const scan = series([...rep(1, 30), ...rep(0, 40), ...rep(1, 122)]);
     const period = series([...rep(1, 30), ...rep(0, 40), ...rep(1, 26)]);
-    const a = answerFor({ series: period, summary: summarize(period), power: powerBudget(period, CFG), startUtc: '2027-01-20T10:00:00', days: 4, loadW: 100, batteryWh: 1000, best: bestLanding(scan, CFG, { from: 0, to: 96, step: 1, capHours: 96 }) });
-    expect(a.title).toBe('Landing on 20 January: power for 1 day 16 hours, then night');
+    const a = answerFor({ siteName: 'Alpha Ridge', series: period, summary: summarize(period), power: powerBudget(period, CFG), startUtc: '2027-01-20T10:00:00', days: 4, loadW: 100, batteryWh: 1000, best: bestLanding(scan, CFG, { from: 0, to: 96, step: 1, capHours: 96 }) });
+    expect(a.title).toBe('Landing at Alpha Ridge on 20 January: power for 1 day 16 hours, then night');
   });
 
   it('says when there is no power from the first hour', () => {
     const a = answer([...rep(0, 30), ...rep(1, 66)], 2, { ...CFG, batteryWh: 0 });
-    expect(a.title).toBe('Landing on 1 January: no power, it is night');
+    expect(a.title).toBe('Landing at Alpha Ridge on 1 January: no power, it is night');
+  });
+
+  it('says how much of the time with power Earth is in view', () => {
+    const sun = [...rep(1, 30), ...rep(0, 40), ...rep(1, 122)];
+    const some = answer(sun, 4, CFG, rep(1, 12));
+    expect(some.sentences[0]).toBe('Earth is in view for 12 hours of the 1 day 16 hours with power.');
+    const all = answer(sun, 4, CFG, rep(1, 192));
+    expect(all.sentences[0]).toBe('Earth is in view for all 1 day 16 hours with power.');
+    const whole = answer(rep(1, 96), 2, CFG, rep(1, 24));
+    expect(whole.sentences[0]).toBe('Earth is in view for 1 day of the 2 days.');
+    expect(answer(rep(1, 96), 2, CFG, rep(1, 96)).sentences[0]).toBe('Earth is in view for all 2 days.');
   });
 
   it('stays true when the period starts in the dark', () => {
     const a = answer([...rep(0, 30), ...rep(1, 20), ...rep(0, 142)], 2);
-    expect(a.title).toBe('Landing on 1 January: power for 10 hours, then night');
+    expect(a.title).toBe('Landing at Alpha Ridge on 1 January: power for 10 hours, then night');
     expect(a.sentences).toEqual([
+      'No radio contact: Earth is out of view for all 10 hours with power.',
       'The period starts in the dark: the Sun stays behind the hills until 2 January.',
       'The battery covers the first 10 hours of the night; the lander is back on 2 January.',
     ]);
@@ -108,35 +124,36 @@ describe('answerFor', () => {
 
   it('stays true when the night outlasts the period', () => {
     const a = answer([...rep(1, 20), ...rep(0, 172)], 2);
-    expect(a.title).toBe('Landing on 1 January: power for 1 day 6 hours, then night');
+    expect(a.title).toBe('Landing at Alpha Ridge on 1 January: power for 1 day 6 hours, then night');
     expect(a.sentences).toEqual([
+      'No radio contact: Earth is out of view for all 1 day 6 hours with power.',
       'The Sun sets on 1 January and stays behind the hills for the rest of the period.',
       'The battery covers the first 10 hours of the night, and the lander stays off for the rest of the period.',
     ]);
     expect(a.better).toBeNull();
-    expect(a.hint).toBe('No landing date in these 2 days gives more power here. A shorter stay or a bigger battery may.');
+    expect(a.hint).toBe('No landing date in these 2 days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.');
   });
 
   it('does not blame the night when the panel is too small for the load', () => {
     const weak: PowerConfig = { ...CFG, areaM2: 0.05 }; // 68 W against a 100 W load: the battery drains in daylight
     const a = answer(rep(1, 96), 2, weak);
-    expect(a).toMatchObject({ tone: 'bad', kind: 'low-sun', title: 'Landing on 1 January: power for 1 day 7 hours, then too little sunlight' });
-    expect(a.sentences[0]).toBe('The Sun is up, but the panel makes about 68 W and the lander uses 100 W.');
+    expect(a).toMatchObject({ tone: 'bad', kind: 'low-sun', title: 'Landing at Alpha Ridge on 1 January: power for 1 day 7 hours, then too little sunlight' });
+    expect(a.sentences[1]).toBe('The Sun is up, but the panel makes about 68 W and the lander uses 100 W.');
     expect(a.sentences.join(' ')).not.toMatch(/night/);
     expect(a.better).toBeNull();
   });
 
   it('says so when there is no sunlight at all', () => {
     const a = answer(rep(0, 96), 2);
-    expect(a).toMatchObject({ tone: 'bad', kind: 'no-sun', title: 'No sunlight in these 2 days', better: null });
+    expect(a).toMatchObject({ tone: 'bad', kind: 'no-sun', title: 'No sunlight at Alpha Ridge in these 2 days', better: null });
     expect(a.sentences).toEqual(['This spot stays in shadow for the whole period. A solar lander cannot work here.']);
     expect(a.hint).toBe('Try another site, or another month.');
   });
 
   it('credits the battery when it alone carries a period without sunlight', () => {
     const a = answer(rep(0, 96), 2, { ...CFG, batteryWh: 10_000 });
-    expect(a).toMatchObject({ tone: 'good', kind: 'all', title: 'Landing on 1 January: power for all 2 days' });
-    expect(a.sentences).toEqual(['There is no sunlight in these 2 days: the battery alone carries the lander.']);
+    expect(a).toMatchObject({ tone: 'good', kind: 'all', title: 'Landing at Alpha Ridge on 1 January: power for all 2 days' });
+    expect(a.sentences).toEqual(['No radio contact: Earth is out of view for all 2 days.', 'There is no sunlight in these 2 days: the battery alone carries the lander.']);
   });
 
   it('never writes "undefined", "NaN" or a zero duration in a sentence', () => {
@@ -158,6 +175,7 @@ describe('answerFor where the Sun goes below the horizon', () => {
     const s = { ...series(sun), sunEl: Float64Array.from(sun.map((v) => (v ? 30 : -20))) };
     const period = { ...series(sun.slice(0, 96)), sunEl: s.sunEl.slice(0, 96) };
     const a = answerFor({
+      siteName: 'Alpha Ridge',
       series: period,
       summary: summarize(period),
       power: powerBudget(period, CFG),
@@ -167,7 +185,7 @@ describe('answerFor where the Sun goes below the horizon', () => {
       batteryWh: CFG.batteryWh,
       best: bestLanding(s, CFG, { from: 0, to: 96, step: 1, capHours: 96 }),
     });
-    expect(a.sentences[0]).toBe('The Sun sets on 2 January and stays below the horizon for 1 day 16 hours.');
+    expect(a.sentences[1]).toBe('The Sun sets on 2 January and stays below the horizon for 1 day 16 hours.');
   });
 });
 
@@ -180,6 +198,7 @@ describe('answerFor on real data', () => {
     const scan = hourlySeries(site, mask, eph, utcToEt(START), 1440);
     const period = hourlySeries(site, mask, eph, utcToEt(START), 720);
     const a = answerFor({
+      siteName: 'de Gerlache Rim 2',
       series: period,
       summary: summarize(period),
       power: powerBudget(period, DEFAULT_POWER),
@@ -189,11 +208,41 @@ describe('answerFor on real data', () => {
       batteryWh: DEFAULT_POWER.batteryWh,
       best: bestLanding(scan, DEFAULT_POWER, { from: 0, to: 720, step: 1, capHours: 720 }),
     });
-    expect(a.title).toBe('Landing on 1 January: power for 3 days 4 hours, then night');
-    expect(a.sentences[0]).toBe('The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.');
-    expect(a.sentences[1]).toBe('The battery, not quite full when the Sun set, covers the first 9 hours of the night; the lander is back on 20 January.');
+    expect(a.title).toBe('Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night');
+    // Earth stays below the horizon until 10 January: the three days with power have no contact at all.
+    expect(a.sentences[0]).toBe('No radio contact: Earth is out of view for all 3 days 4 hours with power.');
+    expect(a.sentences[1]).toBe('The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.');
+    expect(a.sentences[2]).toBe('The battery, not quite full when the Sun set, covers the first 9 hours of the night; the lander is back on 20 January.');
     expect(a.better?.label).toBe('Land on 20 January instead');
     expect(a.better?.note).toBe('From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.');
     expect(a.better?.startUtc).toBe('2027-01-20T10:00:00');
+  });
+});
+
+describe('nearbyAdvice', () => {
+  const here = { id: 'here', name: 'Here', label: 'Here', lat: -88.3, lon: -64.3, category: 'artemis3', polar: true, source: 'x' };
+  // About 12 km, 6 km and 55 km from here, on the same meridian.
+  const summit = { ...here, id: 'summit', name: 'Summit', label: 'Summit', lat: -88.7, lon: -64.3 };
+  const step = { ...here, id: 'step', name: 'Step', label: 'Step', lat: -88.1, lon: -64.3 };
+  const far = { ...here, id: 'far', name: 'Far', label: 'Far', lat: -86.5, lon: -64.3 };
+  const sites = [here, summit, step, far];
+  const o = (nowHours: number) => ({ sunFraction: 0.5, earthFraction: 0.5, nowHours, best: null });
+
+  it('names the nearest site within 30 km that keeps power at least a day longer from the same landing day', () => {
+    const advice = nearbyAdvice(here, sites, { summit: o(720), step: o(90), far: o(720) }, 76);
+    expect(advice?.site.id).toBe('summit');
+    expect(advice?.km).toBeGreaterThan(9);
+    expect(advice?.km).toBeLessThan(15);
+    expect(advice?.hours).toBe(720);
+  });
+
+  it('says it in one sentence: where, how far and how long the power lasts there', () => {
+    expect(nearbyWords({ site: summit, km: 12.3, hours: 720 }, 30)).toBe('Nearby, Summit (12 km away) keeps power for all 30 days from the same landing day.');
+    expect(nearbyWords({ site: summit, km: 4.04, hours: 300 }, 30)).toBe('Nearby, Summit (4 km away) keeps power for 12 days 12 hours from the same landing day.');
+  });
+
+  it('says nothing when no site nearby does clearly better, or before their figures are in', () => {
+    expect(nearbyAdvice(here, sites, { summit: o(80), step: o(90), far: o(720) }, 76)).toBeNull();
+    expect(nearbyAdvice(here, sites, {}, 76)).toBeNull();
   });
 });

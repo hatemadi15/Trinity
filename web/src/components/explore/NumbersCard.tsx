@@ -123,7 +123,7 @@ export function NumbersCard({
         value={Number.isFinite(dark) ? spanShort(dark) : 'no load'}
         unit={
           <>
-            in the dark, <span className="whitespace-nowrap">from full</span>
+            of battery <span className="whitespace-nowrap">when full</span>
           </>
         }
       />

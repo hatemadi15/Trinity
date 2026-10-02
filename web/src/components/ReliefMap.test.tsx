@@ -45,6 +45,9 @@ describe('ReliefMap', () => {
     // Beta Plain is near the right edge: its name goes to the left of its pin.
     expect(screen.getByText('Beta Plain').className).not.toMatch(/\bhidden\b/);
     expect(screen.getByText('Beta Plain').getAttribute('data-side')).toBe('left');
+    // A short line joins every written name to its own pin, so names in a cluster cannot be read as a neighbour's.
+    expect(screen.getByRole('link', { name: 'Alpha Ridge' }).querySelector('svg line')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Beta Plain' }).querySelector('svg line')).toBeTruthy();
   });
 
   it('tells its owner which pin the pointer or the keyboard is on', () => {

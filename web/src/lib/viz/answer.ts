@@ -1,7 +1,9 @@
+import { siteLabel, type Site } from '../data/loaders';
 import type { Landing } from '../engine/landing';
 import type { Series, Summary } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
 import { clockUtc, dateLong, isoAt, pct0, spanWords } from './format';
+import { nearestSites } from './relief';
 
 export type AnswerKind = 'all' | 'night' | 'low-sun' | 'no-sun';
 
@@ -19,6 +21,8 @@ export interface Answer {
 }
 
 export interface AnswerInput {
+  /** The site's name as the page shows it: the title says where and when the lander lands. */
+  siteName: string;
   /** The chosen period, hour by hour, with its summary and battery walk. */
   series: Series;
   summary: Summary;
@@ -32,11 +36,25 @@ export interface AnswerInput {
   best: Landing | null;
 }
 
-export function answerFor({ series, summary, power, startUtc, days, loadW, batteryWh, best }: AnswerInput): Answer {
+export function answerFor({ siteName, series, summary, power, startUtc, days, loadW, batteryWh, best }: AnswerInput): Answer {
   const hours = series.hours;
   const first = power.firstBrownoutHour;
-  // Every answer is for a lander that lands at the start of the period; the title says when that is.
-  const landing = `Landing on ${dateLong(startUtc, 0)}`;
+  // Every answer is for a lander that lands at the start of the period; the title says where and when.
+  const landing = `Landing at ${siteName} on ${dateLong(startUtc, 0)}`;
+  // Contact with Earth during the hours with power comes first: a lander that cannot send home is of little use.
+  const powered = first ?? hours;
+  let contact = 0;
+  for (let h = 0; h < powered; h++) contact += series.earthVisible[h];
+  const spanOf = (n: number) => (first === null ? `${days} days` : `${spanWords(n)} with power`);
+  const contactSentence =
+    powered === 0
+      ? null
+      : contact === 0
+        ? `No radio contact: Earth is out of view for all ${spanOf(powered)}.`
+        : contact >= powered
+          ? `Earth is in view for all ${spanOf(powered)}.`
+          : `Earth is in view for ${spanWords(contact)} of the ${spanOf(powered)}.`;
+  const withContact = (sentences: string[]) => (contactSentence ? [contactSentence, ...sentences] : sentences);
 
   if (first === null) {
     const sentence =
@@ -45,14 +63,14 @@ export function answerFor({ series, summary, power, startUtc, days, loadW, batte
         : summary.longestDarkH === 0
           ? `The Sun never sets in these ${days} days.`
           : `The Sun is up ${pct0(summary.illumFraction)} of the time. The longest night lasts ${spanWords(summary.longestDarkH)}, and the battery covers it.`;
-    return { tone: 'good', kind: 'all', title: `${landing}: power for all ${days} days`, sentences: [sentence], better: null, hint: null };
+    return { tone: 'good', kind: 'all', title: `${landing}: power for all ${days} days`, sentences: withContact([sentence]), better: null, hint: null };
   }
 
   if (summary.illumFraction === 0) {
     return {
       tone: 'bad',
       kind: 'no-sun',
-      title: `No sunlight in these ${days} days`,
+      title: `No sunlight at ${siteName} in these ${days} days`,
       sentences: ['This spot stays in shadow for the whole period. A solar lander cannot work here.'],
       better: null,
       hint: 'Try another site, or another month.',
@@ -118,6 +136,41 @@ export function answerFor({ series, summary, power, startUtc, days, loadW, batte
       note: best.poweredHours >= hours ? `From ${when}, the lander keeps power for all ${days} days.` : `From ${when}: power for ${spanWords(best.poweredHours)} in a row.`,
     };
   }
-  const hint = better ? null : `No landing date in these ${days} days gives more power here. A shorter stay or a bigger battery may.`;
-  return { tone: 'bad', kind, title, sentences, better, hint };
+  const hint = better ? null : `No landing date in these ${days} days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.`;
+  return { tone: 'bad', kind, title, sentences: withContact(sentences), better, hint };
+}
+
+/** A nearby site that does clearly better from the same landing day: what the verdict offers next to the better date. */
+export interface NearbyAdvice {
+  site: Site;
+  km: number;
+  /** Hours with power at that site when the lander arrives at the period start. */
+  hours: number;
+}
+
+/** The nearby advice in one sentence: where, how far, and how long the power lasts there. */
+export function nearbyWords(a: NearbyAdvice, days: number): string {
+  const lasting = a.hours >= days * 24 ? `all ${days} days` : spanWords(a.hours);
+  return `Nearby, ${siteLabel(a.site)} (${Math.round(a.km)} km away) keeps power for ${lasting} from the same landing day.`;
+}
+
+/**
+ * The nearest catalogue site within `maxKm` that keeps power at least `marginH` hours longer than
+ * `poweredHours` when the lander arrives at the same hour (the period start); null when there is none,
+ * or before the overview has its figures.
+ */
+export function nearbyAdvice(
+  site: Site,
+  sites: Site[],
+  overview: Record<string, { nowHours: number } | undefined>,
+  poweredHours: number,
+  maxKm = 30,
+  marginH = 24,
+): NearbyAdvice | null {
+  for (const { site: other, km } of nearestSites(site, sites, sites.length)) {
+    if (km > maxKm) break;
+    const o = overview[other.id];
+    if (o && o.nowHours >= poweredHours + marginH) return { site: other, km, hours: o.nowHours };
+  }
+  return null;
 }

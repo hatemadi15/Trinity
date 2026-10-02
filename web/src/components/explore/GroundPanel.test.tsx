@@ -63,7 +63,7 @@ describe('GroundPanel', () => {
   it('explains the globe and reports a place that cannot be worked out', () => {
     show({ mode: 'globe', customError: 'no DEM coverage north of 60S (lat -40.00)' });
     const text = screen.getByRole('region', { name: 'The whole Moon' }).textContent ?? '';
-    expect(text).toMatch(/Click anywhere south of 60° S to work out that place/);
+    expect(text).toMatch(/Click any point south of 60° S to get its own forecast\./);
     expect(screen.getByRole('alert').textContent).toMatch(/That place cannot be worked out: this tool covers the Moon south of 60° S/);
     expect(screen.queryByRole('button', { name: 'Heights ×3' })).toBeNull();
   });

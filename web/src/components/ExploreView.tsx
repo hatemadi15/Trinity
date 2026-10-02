@@ -7,6 +7,7 @@ import { GroundPanel } from './explore/GroundPanel';
 import { LanderDialog } from './explore/LanderDialog';
 import { NumbersCard } from './explore/NumbersCard';
 import { PeriodBand } from './explore/PeriodBand';
+import { exploreHref } from './sites/SitesView';
 import { TimeBar } from './explore/TimeBar';
 import { TimeChart } from './explore/TimeChart';
 import { VerdictPanel } from './explore/VerdictPanel';
@@ -17,7 +18,8 @@ import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
-import { answerFor } from '@/lib/viz/answer';
+import { timeWithPower } from '@/lib/engine/landing';
+import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
 import { dateTimeUtc } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 import { sceneStateAt } from '@/lib/viz/scene-state';
@@ -74,9 +76,15 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
 
   const scene = useMemo(() => (s.eph && s.series && s.mask ? sceneStateAt(s.eph, s.series, s.mask, s.cursorHour) : null), [s.eph, s.series, s.mask, s.cursorHour]);
   const answer = useMemo(
-    () => (s.series && s.summary && s.power ? answerFor({ series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best }) : null),
-    [s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.best],
+    () => (s.series && s.summary && s.power && s.site ? answerFor({ siteName: siteLabel(s.site), series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best }) : null),
+    [s.site, s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.best],
   );
+  // A nearby site that keeps power clearly longer from the same landing day, once the overview has its figures.
+  const nearby = useMemo(() => {
+    if (!s.site || !s.power) return null;
+    const advice = nearbyAdvice(s.site, s.sites, s.overview, timeWithPower(s.power));
+    return advice ? { words: nearbyWords(advice, s.days), name: siteLabel(advice.site), href: exploreHref(advice.site.id, s.startUtc, s.days) } : null;
+  }, [s.site, s.sites, s.overview, s.power, s.days, s.startUtc]);
 
   if (s.status === 'loading' || s.status === 'idle') {
     return (
@@ -122,7 +130,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             </p>
           )}
           <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
-            <VerdictPanel siteName={siteLabel(site)} answer={answer} onLand={(start) => s.setWindow(start, s.days)} onCompare={onCompare} onYear={() => void store.getState().findBestWindow(s.days)} yearNote={s.bestWindowNote} />
+            <VerdictPanel answer={answer} nearby={nearby} onLand={(start) => s.setWindow(start, s.days)} onCompare={onCompare} onYear={() => void store.getState().findBestWindow(s.days)} yearNote={s.bestWindowNote} />
             <NumbersCard
               site={site}
               summary={s.summary}

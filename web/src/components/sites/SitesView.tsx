@@ -10,7 +10,7 @@ import { siteLabel, type Site } from '@/lib/data/loaders';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { landerLine } from '@/lib/lander';
 import { exploreStore, type ExploreState, type SiteOverview } from '@/lib/store/explore';
-import { dateLong, dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
+import { dateLong, dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 
 const TWO_WEEKS_H = 14 * 24;
@@ -25,7 +25,7 @@ const GROUPS: { title: string; note: string; categories: string[] }[] = [
   { title: 'High points and crater floors', note: 'The extremes: rims that almost never lose the Sun, floors that never see it.', categories: ['classic', 'reference'] },
 ];
 
-const COLUMNS = 'grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1.1fr)_16px] items-center gap-x-5';
+const COLUMNS = 'grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_16px] items-center gap-x-5';
 
 /** The Explore address for a site and a period; the hour is kept only when the period does not start at midnight. */
 export function exploreHref(siteId: string, startUtc: string, days: number): string {
@@ -33,13 +33,12 @@ export function exploreHref(siteId: string, startUtc: string, days: number): str
   return `/explore?site=${siteId}&start=${start}&days=${days}`;
 }
 
-/** A site opens on the landing date its row names, so Explore shows the figure the row promised; without a better date, on the period's start. */
-function siteHref(siteId: string, o: SiteOverview | undefined, startUtc: string, days: number): string {
-  return exploreHref(siteId, o?.best && o.best.hour > 0 ? isoAt(startUtc, o.best.hour) : startUtc, days);
-}
-
-/** Rows are ranked by the longest time with power, then by sunlight; a site without figures goes last. */
-const rank = (o: SiteOverview | undefined) => (o ? (o.best?.poweredHours ?? -1) * 10 + o.sunFraction : -100);
+/**
+ * Rows are ranked by the longest time with power, then by sunlight; a place that never sees Earth in the
+ * period goes after every place that does (a lander that cannot send home is of little use); a site
+ * without figures goes last.
+ */
+const rank = (o: SiteOverview | undefined) => (o ? (o.earthFraction > 0 ? 0 : -1e6) + (o.best?.poweredHours ?? -1) * 10 + o.sunFraction : -1e7);
 
 function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; o: SiteOverview | undefined; href: string; startUtc: string; days: number; active: boolean; onActive: (id: string | null) => void }) {
   const capped = o?.best ? o.best.poweredHours >= days * 24 : false;
@@ -68,7 +67,7 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
               {o.sunFraction > 0 ? (
                 <>
                   <span aria-hidden="true" className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-                    <span className="block h-full rounded-full bg-sun" style={{ width: `${Math.round(o.sunFraction * 100)}%` }} />
+                    <span data-bar="sun" className="block h-full rounded-full bg-sun" style={{ width: `${Math.round(o.sunFraction * 100)}%` }} />
                   </span>
                   <b className="w-12 text-right font-semibold">{pct0(o.sunFraction)}</b>
                 </>
@@ -76,9 +75,18 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
                 <span className="text-[15px] text-ink-2">No sunlight</span>
               )}
             </span>
-            <span className={o.earthFraction > 0 ? 'text-right' : 'text-[15px] text-ink-2'}>
+            <span className="flex items-center gap-3">
               <span className="sr-only"> Earth in view </span>
-              {o.earthFraction > 0 ? pct0(o.earthFraction) : 'No contact with Earth'}
+              {o.earthFraction > 0 ? (
+                <>
+                  <span aria-hidden="true" className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
+                    <span data-bar="earth" className="block h-full rounded-full bg-earth" style={{ width: `${Math.round(o.earthFraction * 100)}%` }} />
+                  </span>
+                  <b className="w-12 text-right font-semibold">{pct0(o.earthFraction)}</b>
+                </>
+              ) : (
+                <span className="text-[15px] text-ink-2">No contact with Earth</span>
+              )}
             </span>
             <span>
               <span className="sr-only"> Longest time with power </span>
@@ -185,7 +193,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
         const site = catalogue.find((x) => x.id === p.id);
         if (!site) return [];
         const best = s.overview[p.id]?.best;
-        return [{ id: p.id, u: p.u, v: p.v, label: siteLabel(site), href: siteHref(p.id, s.overview[p.id], s.startUtc, s.days), tone: best && best.poweredHours >= TWO_WEEKS_H ? ('good' as const) : ('plain' as const) }];
+        return [{ id: p.id, u: p.u, v: p.v, label: siteLabel(site), href: exploreHref(p.id, s.startUtc, s.days), tone: best && best.poweredHours >= TWO_WEEKS_H ? ('good' as const) : ('plain' as const) }];
       })
       .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   }, [groups, catalogue, s.overview, s.startUtc, s.days]);
@@ -228,9 +236,10 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
         <h1 className="display text-[40px] leading-tight">Choose a landing site</h1>
         <p className="mt-3 max-w-[46em] text-lg text-ink-2">
           {catalogue.length} places on the Moon, most of them near the south pole. Each row says how much sunlight and contact with Earth a lander gets there in the {s.days} days from{' '}
-          {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, and how long it keeps power. Pick one to see why.
+          {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, and how long it keeps power if it lands on its best day. Pick one to see why.
         </p>
         <p className="mt-1.5 text-[15px] text-ink-2">The lander: {landerLine(s.params.power)}.</p>
+        <p className="text-[15px] text-ink-2">Rows are sorted by the longest time with power; places that never see Earth in these days come last.</p>
         <div className="mt-6 flex flex-wrap items-end gap-4">
           <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
         </div>
@@ -242,8 +251,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
 
         <div className="mt-8 grid items-start gap-10 xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
           <section aria-label="Map of the sites" className="max-w-[520px] xl:sticky xl:top-6 xl:max-w-none">
-            <ReliefMap pins={pins} activeId={active} onActive={setActive} nameAll />
-            <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
+            <p className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
               <span className="flex items-center gap-2">
                 <i className="h-3 w-3 rounded-full bg-good" />
                 two weeks or more with power
@@ -253,7 +261,8 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                 less
               </span>
             </p>
-            <p className="mt-1.5 text-[15px] text-ink-2">
+            <ReliefMap pins={pins} activeId={active} onActive={setActive} nameAll />
+            <p className="mt-3 text-[15px] text-ink-2">
               The south pole is at the centre of the map. Point at a row to find its site on the map.{offMap.length > 0 ? ` ${offMap.join(' and ')} lie outside this map.` : ''}
             </p>
           </section>
@@ -268,13 +277,13 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                 <div aria-hidden="true" className={`${COLUMNS} mt-4 border-b-2 border-ink px-3 pb-2 text-[15px] font-semibold text-ink-2`}>
                   <span>Site</span>
                   <span>Sunlight</span>
-                  <span className="text-right">Earth in view</span>
+                  <span>Earth in view</span>
                   <span>Longest time with power</span>
                   <span />
                 </div>
                 <ul className="divide-y divide-line-strong">
                   {g.rows.map((site) => (
-                    <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
+                    <Row key={site.id} site={site} o={s.overview[site.id]} href={exploreHref(site.id, s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
                   ))}
                 </ul>
               </section>

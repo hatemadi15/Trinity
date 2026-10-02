@@ -7,30 +7,42 @@ import { VerdictPanel } from './VerdictPanel';
 const night: Answer = {
   tone: 'bad',
   kind: 'night',
-  title: 'Landing on 1 January: power for 3 days 4 hours, then night',
-  sentences: ['The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.', 'The battery, not quite full when the Sun set, covers the first 9 hours of the night; the lander is back on 20 January.'],
+  title: 'Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night',
+  sentences: [
+    'No radio contact: Earth is out of view for all 3 days 4 hours with power.',
+    'The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.',
+    'The battery, not quite full when the Sun set, covers the first 9 hours of the night; the lander is back on 20 January.',
+  ],
   better: { hour: 466, startUtc: '2027-01-20T10:00:00', label: 'Land on 20 January instead', note: 'From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.' },
   hint: null,
 };
-const good: Answer = { tone: 'good', kind: 'all', title: 'Landing on 1 January: power for all 30 days', sentences: ['The Sun never sets in these 30 days.'], better: null, hint: null };
-const stuck: Answer = { ...night, better: null, hint: 'No landing date in these 30 days gives more power here. A shorter stay or a bigger battery may.' };
+const good: Answer = { tone: 'good', kind: 'all', title: 'Landing at de Gerlache Rim 2 on 1 January: power for all 30 days', sentences: ['The Sun never sets in these 30 days.'], better: null, hint: null };
+const stuck: Answer = { ...night, better: null, hint: 'No landing date in these 30 days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.' };
 
-function show(answer: Answer, yearNote: string | null = null) {
+function show(answer: Answer, yearNote: string | null = null, nearby: Parameters<typeof VerdictPanel>[0]['nearby'] = null) {
   const onLand = vi.fn();
   const onCompare = vi.fn();
   const onYear = vi.fn();
-  render(<VerdictPanel siteName="de Gerlache Rim 2" answer={answer} onLand={onLand} onCompare={onCompare} onYear={onYear} yearNote={yearNote} />);
+  render(<VerdictPanel answer={answer} onLand={onLand} onCompare={onCompare} onYear={onYear} yearNote={yearNote} nearby={nearby} />);
   return { onLand, onCompare, onYear };
 }
 
 describe('VerdictPanel', () => {
-  it('leads the page with the answer in words, named for the site', () => {
+  it('leads the page with the answer in words, which names the site and the landing day', () => {
     show(night);
     const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1.textContent).toBe('de Gerlache Rim 2: Landing on 1 January: power for 3 days 4 hours, then night');
+    expect(h1.textContent).toBe('Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night');
     expect(screen.getByText(/The Sun sets on 3 January/)).toBeTruthy();
     expect(screen.getByText(/covers the first 9 hours of the night/)).toBeTruthy();
     expect(screen.getByRole('region', { name: 'The answer' }).getAttribute('data-tone')).toBe('bad');
+  });
+
+  it('gives its first sentence a line of its own, the reasons after it', () => {
+    show(night);
+    const lead = screen.getByText('No radio contact: Earth is out of view for all 3 days 4 hours with power.');
+    expect(lead.tagName).toBe('P');
+    expect(lead.className).toMatch(/\bfont-medium\b/);
+    expect(screen.getByText(/^The Sun sets on 3 January .* the lander is back on 20 January\.$/).tagName).toBe('P');
   });
 
   it('makes the better landing date the one gold button, with what it gives', () => {
@@ -51,7 +63,7 @@ describe('VerdictPanel', () => {
     show(stuck);
     expect(screen.getByRole('button', { name: 'Compare sites' }).className).toMatch(/btn-primary/);
     expect(document.querySelectorAll('.btn-primary')).toHaveLength(1);
-    expect(screen.getByText(/A shorter stay or a bigger battery may/)).toBeTruthy();
+    expect(screen.getByText(/choose a bigger battery \(Lander, above\) or a shorter stay/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Land on/ })).toBeNull();
   });
 
@@ -92,6 +104,15 @@ describe('VerdictPanel', () => {
     const panel = screen.getByRole('region', { name: 'The answer' });
     expect(panel.className).toMatch(/\bflex-col\b/);
     expect(screen.getByRole('button', { name: 'Find the best date in the next 12 months' }).closest('p')!.className).toMatch(/\bmt-auto\b/);
+  });
+
+  it('offers a better place nearby in a sentence with a link to it', () => {
+    show(night, null, { words: 'Nearby, de Gerlache rim summit (12 km away) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' });
+    const panel = screen.getByRole('region', { name: 'The answer' });
+    expect(panel.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days from the same landing day\./);
+    const link = screen.getByRole('link', { name: 'Explore de Gerlache rim summit' });
+    expect(link.getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
+    expect(link.className).toMatch(/\bunderline\b/);
   });
 
   it('offers the search over the next 12 months and reports what it found', () => {

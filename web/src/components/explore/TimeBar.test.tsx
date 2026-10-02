@@ -106,6 +106,14 @@ describe('TimeBar', () => {
     expect(onCursor).toHaveBeenLastCalledWith(71);
   });
 
+  it('says what the yellow of its track is, so it does not read as progress', () => {
+    show(6);
+    const bar = screen.getByRole('region', { name: 'Time' });
+    const key = bar.querySelector<HTMLElement>('[data-part="key"]')!;
+    expect(key.textContent).toBe('Sun up');
+    expect(key.querySelector('[data-swatch]')!.className).toMatch(/\bbg-sun\b/);
+  });
+
   it('draws the sunlight of the period as the track, with the days under it', () => {
     const { container } = show(0);
     expect(container.querySelectorAll('[data-part="lit"]')).toHaveLength(2);

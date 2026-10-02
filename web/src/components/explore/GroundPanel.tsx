@@ -48,7 +48,7 @@ export function GroundPanel({
   reducedMotion: boolean;
 }) {
   let caption: string;
-  if (mode === 'globe') caption = 'The whole Moon. Click anywhere south of 60° S to work out that place. Drag to turn, scroll to zoom.';
+  if (mode === 'globe') caption = 'The whole Moon, lit for the hour of the time bar. Click any point south of 60° S to get its own forecast. Drag to turn, scroll to zoom.';
   else if (heightmap) caption = `NASA elevation data at ${heightmap.meta.cell_m} m per pixel, ${(heightmap.meta.width * heightmap.meta.cell_m) / 1000} km across. Drag to turn, scroll to zoom. The light follows the time bar.`;
   else if (terrainState === 'loading' || windowLoading) caption = 'Loading the terrain…';
   else if (capHeightmap) caption = `NASA elevation data at ${capHeightmap.meta.cell_m} m per pixel, 48 km around the site: too coarse to show its own slopes. The light follows the time bar.`;

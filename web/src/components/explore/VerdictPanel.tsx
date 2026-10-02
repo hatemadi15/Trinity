@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import type { Answer } from '@/lib/viz/answer';
 
 /** A battery on its side: full for a good answer, down to its last sliver for a bad one. */
@@ -13,23 +14,25 @@ function BatteryMark({ good }: { good: boolean }) {
 }
 
 /**
- * The answer, first on the page: what happens to the power, why, and the better landing date. The
- * better date is the one gold button; when there is none, "Compare sites" is.
+ * The answer, first on the page: where and when the lander lands, how long the power lasts and why,
+ * contact with Earth in that time, the better landing date and a better place nearby. The better date
+ * is the one gold button; when there is none, "Compare sites" is.
  */
 export function VerdictPanel({
-  siteName,
   answer,
   onLand,
   onCompare,
   onYear,
   yearNote,
+  nearby = null,
 }: {
-  siteName: string;
   answer: Answer;
   onLand: (startUtc: string) => void;
   onCompare: () => void;
   onYear: () => void;
   yearNote: string | null;
+  /** A nearby site that keeps power clearly longer from the same landing day, in one sentence with its link. */
+  nearby?: { words: string; name: string; href: string } | null;
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -40,12 +43,11 @@ export function VerdictPanel({
         <span className={`mt-[7px] shrink-0 ${good ? 'text-good' : 'text-bad'}`}>
           <BatteryMark good={good} />
         </span>
-        <h1 className="display text-balance text-[26px] leading-[1.12] sm:text-[32px]">
-          <span className="sr-only">{siteName}: </span>
-          {answer.title}
-        </h1>
+        <h1 className="display text-balance text-[26px] leading-[1.12] sm:text-[32px]">{answer.title}</h1>
       </div>
-      <p className="mt-2.5 max-w-[42em] text-[17px] leading-relaxed text-ink">{answer.sentences.join(' ')}</p>
+      {/* The first sentence leads on a line of its own; the reasons follow. */}
+      <p className="mt-2.5 max-w-[42em] text-[17px] font-medium leading-relaxed text-ink">{answer.sentences[0]}</p>
+      {answer.sentences.length > 1 && <p className="mt-1 max-w-[42em] text-[17px] leading-relaxed text-ink">{answer.sentences.slice(1).join(' ')}</p>}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {better && (
           <button type="button" onClick={() => onLand(better.startUtc)} className="btn btn-primary">
@@ -57,6 +59,14 @@ export function VerdictPanel({
         </button>
       </div>
       {(better?.note || answer.hint) && <p className="mt-3 text-ink-2">{better ? better.note : answer.hint}</p>}
+      {nearby && (
+        <p className="mt-3 max-w-[42em] text-ink">
+          {nearby.words}{' '}
+          <Link href={nearby.href} className="font-medium underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+            Explore {nearby.name}
+          </Link>
+        </p>
+      )}
       <p className="mt-auto pt-3 text-ink-2">
         <button type="button" onClick={onYear} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           Find the best date in the next 12 months

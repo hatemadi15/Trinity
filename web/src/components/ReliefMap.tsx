@@ -106,7 +106,7 @@ export function ReliefMap({
                 selected ? '' : p.tone === 'good' ? 'bg-[#46c98b]' : 'bg-stage-ink'
               }`}
             />
-            {place?.leader && near && reach > 0 && (
+            {near && reach > 7 && (
               <svg aria-hidden="true" width={2 * HALF_PIN} height={2 * HALF_PIN} className="pointer-events-none absolute left-0 top-0 overflow-visible">
                 {[
                   ['var(--stage)', 3.5],

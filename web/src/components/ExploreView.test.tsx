@@ -23,10 +23,18 @@ describe('ExploreView', () => {
   it("shows the answer for the default site as the page's heading, with one gold action", async () => {
     await open();
     expect(heading()).toMatch(/de Gerlache Rim 2/);
-    expect(heading()).toMatch(/Landing on 1 January: power for 3 days 4 hours, then night/);
+    expect(heading()).toMatch(/^Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night$/);
     const gold = screen.getByRole('main').querySelectorAll('.btn-primary');
     expect(gold).toHaveLength(1);
     expect(gold[0].textContent).toMatch(/^Land on 20 January/);
+  });
+
+  it('says in the verdict that contact with Earth is lost, and offers the nearby rim summit once the figures are in', async () => {
+    await open();
+    const panel = screen.getByRole('region', { name: 'The answer' });
+    expect(panel.textContent).toMatch(/No radio contact: Earth is out of view for all 3 days 4 hours with power\./);
+    await waitFor(() => expect(panel.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days from the same landing day\./), { timeout: 20_000 });
+    expect(within(panel).getByRole('link', { name: 'Explore de Gerlache rim summit' }).getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
   });
 
   it('lands on the better date when its button is pressed', async () => {
@@ -39,7 +47,7 @@ describe('ExploreView', () => {
   it('offers Compare as the gold action when no date in the period does better', async () => {
     const navigate = vi.fn();
     const { store } = await open('?site=shackleton_center_rim_high', navigate);
-    await waitFor(() => expect(heading()).toMatch(/Landing on 1 January: power for all 30 days/));
+    await waitFor(() => expect(heading()).toMatch(/on 1 January: power for all 30 days/));
     const gold = screen.getByRole('main').querySelectorAll<HTMLElement>('.btn-primary');
     expect(gold).toHaveLength(1);
     expect(gold[0].textContent).toBe('Compare sites');
@@ -83,7 +91,7 @@ describe('ExploreView', () => {
   it('applies the site, start and length from the address', async () => {
     await open('?site=blue_ghost_m1&start=2025-03-02&days=14');
     await waitFor(() => expect(heading()).toMatch(/Blue Ghost/));
-    expect(heading()).toMatch(/Landing on 2 March: power for all 14 days/);
+    expect(heading()).toMatch(/on 2 March: power for all 14 days/);
   });
 
   it('keeps instrument and programme names out of the page', async () => {
