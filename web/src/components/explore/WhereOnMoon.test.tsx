@@ -40,6 +40,14 @@ describe('WhereOnMoon', () => {
     expect(rows[2].textContent).toMatch(/Lunar south pole, 52 km away.*working it out/);
   });
 
+  it('lists no site farther than 300 km as nearby, and says so', () => {
+    render(<WhereOnMoon site={site('blue_ghost_m1')} sites={sites} overview={{}} startUtc="2025-03-02T00:00:00" days={14} />);
+    const panel = screen.getByRole('region', { name: 'Where on the Moon' });
+    expect(within(panel).queryByRole('list', { name: /Nearby sites/ })).toBeNull();
+    expect(panel.textContent).not.toMatch(/km away/);
+    expect(panel.textContent).toMatch(/No other site in the list is within 300 km\./);
+  });
+
   it('says so for a site that lies outside the map, and places a custom site by its coordinates', () => {
     const { unmount } = render(<WhereOnMoon site={site('blue_ghost_m1')} sites={sites} overview={{}} startUtc="2025-03-02T00:00:00" days={14} />);
     expect(screen.getByRole('region', { name: 'Where on the Moon' }).textContent).toMatch(/lies far outside this map of the south pole/);

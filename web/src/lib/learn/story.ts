@@ -1,32 +1,28 @@
 export interface StoryStep {
   title: string;
   body: string;
-  /** Shown instead of `body` when the 3D view is unavailable. */
-  noWebgl?: string;
 }
 
-/** The five moves of the Learn story, in the order a first-time visitor takes them. */
+/** Five steps through the pages, in the order a first-time visitor meets them. */
 export const STORY_STEPS: StoryStep[] = [
   {
-    title: 'Pick a landing site',
-    body: 'Choose a site from the list, or click the globe near the south pole. Each one has its own skyline of crater rims and ridges.',
+    title: 'Choose a landing site',
+    body: 'The site list shows every place the tool knows near the south pole, sorted by how long a solar lander keeps power there if it lands on the best day of the period you choose. Picking a site opens Explore on that day. Any other point south of 60° S can be worked out too.',
   },
   {
-    title: 'Drag through time',
-    body: 'Drag the time slider. The terrain shadows sweep, the Sun and Earth move on the sky dome, and the timeline bars show sunlit hours and Earth contact.',
-    noWebgl:
-      'Drag the time slider. The Sun and Earth move on the sky dome and the timeline bars show sunlit hours and Earth contact; the 3D terrain view needs WebGL, which this device does not offer.',
+    title: 'Read the answer',
+    body: 'Explore answers for a lander that lands on the first day of the period: how long it has power, how much of that time Earth is in view for radio, and a better landing day or a better place nearby when there is one.',
   },
   {
-    title: 'Read the skyline',
-    body: 'On the sky dome the grey rim is the terrain. The Sun only counts when it clears that rim, and near the pole it never rises high, so a small hill can hide it for days.',
+    title: 'See why, hour by hour',
+    body: 'The chart shows the Sun, Earth and the battery over the period. The Sun skims the hills; when it drops behind them the battery takes over until it runs out. Press Play, or drag the time bar at the bottom, to move through the days. Times are in UTC, the clock time at Greenwich on Earth: the Moon keeps no clock of its own.',
   },
   {
-    title: 'Count the night',
-    body: 'The longest night tile is the longest stretch without sunlight. A lander runs on its battery for all of it, so this number decides whether it survives.',
+    title: 'Look at the ground',
+    body: "The shadow map shows the ground around the site from above at the time bar's hour, with north up, and says whether the site is in sunlight. 3D shows the same light on the hills. View all round unrolls the horizon in every direction into one strip, with the paths of the Sun and Earth over the hills.",
   },
   {
-    title: 'Compare and choose',
-    body: 'Press Add to compare on a few sites, then open Compare. The best-window button finds the span of days with the most Sun and Earth contact.',
+    title: 'Compare and check',
+    body: 'Compare puts up to four sites side by side for the same days and lander. Accuracy shows how each step was checked against an independent NASA source, and lets you rerun one check live.',
   },
 ];

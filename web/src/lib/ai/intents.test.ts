@@ -72,11 +72,54 @@ describe('matchIntent', () => {
     expect(m('mast to 0m')?.actions).toEqual([{ type: 'set_params', patch: { mastM: 0 } }]);
   });
 
-  it('switches audience and opens pages', () => {
-    expect(m('switch to learn mode')?.actions).toEqual([{ type: 'set_audience', audience: 'learn' }]);
-    expect(m('Switch to planner')?.actions).toEqual([{ type: 'set_audience', audience: 'planner' }]);
+  it('opens pages, the site list among them, and knows no audience any more', () => {
+    expect(m('open the site list')?.actions).toEqual([{ type: 'open_page', page: 'sites' }]);
+    expect(m('show sites')?.actions).toEqual([{ type: 'open_page', page: 'sites' }]);
+    expect(m('switch to learn mode')).toBeNull();
+    expect(m('Switch to planner')).toBeNull();
     expect(m('open compare')?.actions).toEqual([{ type: 'open_page', page: 'compare' }]);
     expect(m('open the validate page')?.actions).toEqual([{ type: 'open_page', page: 'validate' }]);
+  });
+
+  it('opens pages by the names they have on screen, and says those names', () => {
+    expect(m('open the accuracy page')?.actions).toEqual([{ type: 'open_page', page: 'validate' }]);
+    expect(m('show me how it works')?.actions).toEqual([{ type: 'open_page', page: 'learn' }]);
+    expect(m('Show me the list of landing sites')?.actions).toEqual([{ type: 'open_page', page: 'sites' }]);
+    expect(m('open the accuracy page')?.reply).toBe('Opening Accuracy.');
+    expect(m('open the validate page')?.reply).toBe('Opening Accuracy.');
+    expect(m('open the site list')?.reply).toBe('Opening the site list.');
+  });
+
+  it('sets the period alone, and says which lengths exist when the asked one does not', () => {
+    expect(m('make it 90 days')?.actions).toEqual([{ type: 'set_window', days: 90 }]);
+    expect(m('for 14 days')?.actions).toEqual([{ type: 'set_window', days: 14 }]);
+    expect(m('set the period to 30 days')?.actions).toEqual([{ type: 'set_window', days: 30 }]);
+    expect(m('make it 90 days')?.reply).toBe('Period: 90 days.');
+    const r = m('make it 45 days');
+    expect(r?.actions).toEqual([]);
+    expect(r?.reply).toMatch(/14, 30 or 90 days/);
+  });
+
+  it('answers in the words the pages use', () => {
+    const old = /skyline|window|verdict|planner|validate/i;
+    for (const prompt of ['start on 2027-03-01 for 14 days', 'Find the best 30 day window', 'best 14-day window across the compared sites', 'set the load to 5000 W', 'set the battery to 90000 Wh', 'mast to 25 m', 'mast to 5 m', 'open the validate page', 'compare haworth and nobile rim 2 for 20 days', 'make it 45 days']) {
+      expect(m(prompt)?.reply, prompt).not.toMatch(old);
+    }
+    expect(m('start on 2027-03-01 for 14 days')?.reply).toBe('Period: from 1 March 2027 for 14 days.');
+    expect(m('start on 2027-03-01')?.reply).toBe('Period: from 1 March 2027.');
+  });
+
+  it('finds the best landing date when asked in the words the pages use', () => {
+    expect(m('Find the best landing date for 14 days')?.actions).toEqual([{ type: 'find_best_window', days: 14, scope: 'site' }]);
+    expect(m('best 30-day landing date across the compared sites')?.actions).toEqual([{ type: 'find_best_window', days: 30, scope: 'compare' }]);
+    expect(m('the best landing day for 90 days')?.actions).toEqual([{ type: 'find_best_window', days: 90, scope: 'site' }]);
+    expect(m('best landing date for 45 days')).toBeNull();
+  });
+
+  it('explains the words the pages use too', () => {
+    expect(m('explain the hills')?.actions).toEqual([{ type: 'explain', topic: 'skyline' }]);
+    expect(m('what is the time with power')?.actions).toEqual([{ type: 'explain', topic: 'verdict' }]);
+    expect(m('explain the best landing date')?.actions).toEqual([{ type: 'explain', topic: 'best window' }]);
   });
 
   it('explains the five topics with fixed paragraphs', () => {

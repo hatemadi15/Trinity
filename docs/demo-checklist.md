@@ -16,15 +16,15 @@
 - [ ] Both laptops fully charged; chargers packed; HDMI and USB-C to HDMI adapters packed.
 - [ ] Phone hotspot tested with the laptop (for the JPL re-check, if the venue Wi-Fi is down).
 - [ ] Browser: kiosk or full-screen mode, zoom 100 %, bookmarks bar hidden, notifications off, screen saver and sleep off, night mode off.
-- [ ] Open tabs in order: `/?demo=1`, `/explore?demo=1`, `/compare?demo=1`, `/validate`, `/brief`, the recorded demo video.
+- [ ] Open tabs in order: `/?demo=1` (home), `/sites?demo=1` (Choose a landing site), `/explore?site=de_gerlache_rim_2&demo=1` (Explore), `/compare?demo=1` (Compare sites), `/validate` (Accuracy), `/learn` (How it works), the recorded demo video. Demo mode is remembered per tab, so each tab needs its own `?demo=1`. Open the brief from Explore's "Printable brief" link rather than in a tab of its own: it keeps the tab's demo mode only that way.
 - [ ] Project page draft, video and repository link ready to paste into the submission form.
 
 ## Ten minutes before the pitch
 
 - [ ] Plug into the projector; check 1080p output and that the text is readable from the back of the room.
-- [ ] Reload `/?demo=1`; confirm the landing page, then the de Gerlache card opens Explore with terrain.
-- [ ] Ask the planner one rehearsed question and confirm "rehearsed answer" appears.
-- [ ] Set the start date to 2027-01-01, 30 days, planner settings at defaults.
+- [ ] Reload `/?demo=1`; confirm the home page, then "Explore this site" on de Gerlache Rim 2 opens Explore with the answer, the shadow map and the 3D terrain.
+- [ ] Ask one rehearsed question in "Ask in plain words" and confirm "rehearsed answer" appears under the reply.
+- [ ] Period from 1 January 2027 for 30 days; Lander on the small ready-made one (4 m² panel, 200 W, 2 kWh battery); Compare emptied.
 - [ ] Phone on silent; second laptop on the same page, lid open.
 
 ## During the pitch

@@ -4,13 +4,12 @@ import { allowedNumbers, checkNumbers, cleanNarration, narrationPrompt, numbersI
 import type { StateSummary } from './state-summary';
 
 const summary: StateSummary = {
-  site: { id: 'nobile_rim_2', name: 'Nobile Rim 2 (Artemis III region)', lat: -84.20156, lon: 60.69989 },
+  site: { id: 'nobile_rim_2', name: 'Nobile Rim 2 (Artemis III region)', label: 'Nobile Rim 2', lat: -84.20156, lon: 60.69989 },
   window: { startUtc: '2027-03-01T00:00:00', days: 14 },
   summary: { hours: 336, illumFraction: 1, meanSunFraction: 0.998, longestDarkH: 0, earthVisFraction: 0.67, longestEarthGapH: 225, jointFraction: 0.67 },
-  power: { socMin: 1, brownoutHours: 0, survives: true, meanPowerW: 1118.4 },
+  power: { socMin: 1, brownoutHours: 0, survives: true, meanPowerW: 1118.4, poweredHours: 336, contactHours: 225 },
   params: { power: DEFAULT_POWER, minEarthElDeg: 0, mastM: 2 },
   compare: [],
-  audience: 'planner',
 };
 
 describe('numbersIn', () => {
@@ -36,20 +35,24 @@ describe('checkNumbers', () => {
 });
 
 describe('templateBrief', () => {
-  it('is deterministic, names the site and the verdict, and passes its own number check', () => {
+  it('is deterministic, names the site and how long the power lasts, in the verdict\'s words, and passes its own number check', () => {
     const a = templateBrief(summary);
     expect(templateBrief(summary)).toBe(a);
-    expect(a).toContain('Nobile Rim 2');
-    expect(a).toMatch(/survives/);
-    expect(a).toMatch(/100\.0 %/);
+    expect(a).toMatch(/^Nobile Rim 2 \(84\.202°S, 60\.700°E\), 14 days from 1 March 2027: /);
+    expect(a).toMatch(/landing on 1 March, keeps power for all 14 days, with Earth in view for 9 days 9 hours of that time\.$/);
+    // The paragraph's figures read as the page prints them: whole percents, kWh.
+    expect(a).toMatch(/sunlight 100\u00a0% of the time/);
+    expect(a).not.toMatch(/\d\.\d\s?%/);
+    expect(a).toMatch(/a 2 kWh battery/);
+    expect(a).not.toMatch(/surviv|skyline|window/);
+    expect(a).toMatch(new RegExp(`A lander with a ${DEFAULT_POWER.areaM2} m² upright panel that turns to the Sun \\(${Math.round(DEFAULT_POWER.efficiency * 100)} % efficiency\\), a ${DEFAULT_POWER.loadW} W load`));
     expect(checkNumbers(a, summary)).toBe(true);
   });
 
-  it('says when the battery runs dry', () => {
-    const dark: StateSummary = { ...summary, power: { socMin: 0, brownoutHours: 37, survives: false, meanPowerW: 40.2 } };
+  it('says when the power ends and when there is no radio contact', () => {
+    const dark: StateSummary = { ...summary, power: { socMin: 0, brownoutHours: 37, survives: false, meanPowerW: 40.2, poweredHours: 37, contactHours: 0 } };
     const b = templateBrief(dark);
-    expect(b).toMatch(/does not survive/);
-    expect(b).toMatch(/37 h/);
+    expect(b).toMatch(/has power for 1 day 13 hours, then night, with no radio contact in that time\.$/);
     expect(checkNumbers(b, dark)).toBe(true);
   });
 });

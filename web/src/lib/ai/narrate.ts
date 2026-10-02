@@ -1,5 +1,5 @@
-import { PANEL_LABELS } from '../engine/power';
-import { hoursLabel, pct } from '../viz/format';
+import { PANEL_LABELS, type PanelModel } from '../engine/power';
+import { dateLong, pct0, spanWords } from '../viz/format';
 import type { ChatMessage } from './openrouter';
 import { completeSentences, extractJsonDetailed } from './protocol';
 import type { StateSummary } from './state-summary';
@@ -40,6 +40,7 @@ export function allowedNumbers(s: StateSummary): Set<string> {
   const add = (list: string[]) => list.forEach((x) => out.add(x));
   add(ALWAYS_ALLOWED);
   add(numbersIn(s.site.name));
+  add(numbersIn(s.site.label));
   add(decimalForms(s.site.lat));
   add(decimalForms(s.site.lon));
   add([String(s.window.days)]);
@@ -53,7 +54,7 @@ export function allowedNumbers(s: StateSummary): Set<string> {
   }
   add([String(s.summary.hours), canon(String(s.summary.hours / 24))]);
   for (const f of [s.summary.illumFraction, s.summary.meanSunFraction, s.summary.earthVisFraction, s.summary.jointFraction, s.power.socMin]) add(fractionForms(f));
-  for (const h of [s.summary.longestDarkH, s.summary.longestEarthGapH, s.power.brownoutHours]) add(hourForms(h));
+  for (const h of [s.summary.longestDarkH, s.summary.longestEarthGapH, s.power.brownoutHours, s.power.poweredHours, s.power.contactHours]) add(hourForms(h));
   add([canon(s.power.meanPowerW.toFixed(1)), canon(s.power.meanPowerW.toFixed(0))]);
   const p = s.params.power;
   add([String(p.loadW), String(p.batteryWh), String(p.areaM2), String(p.panelAzimuthDeg), String(s.params.minEarthElDeg), String(s.params.mastM)]);
@@ -101,19 +102,36 @@ export function foreignNumbers(reply: string, s: StateSummary): string[] {
 
 const hemi = (v: number, pos: string, neg: string) => `${Math.abs(v).toFixed(3)}°${v < 0 ? neg : pos}`;
 
-/** The deterministic paragraph: the same numbers as the tiles, in one breath. Shown by default and whenever the model's paragraph fails the check. */
+/** A battery as the pages write it: "2 kWh", "500 Wh". */
+const kwh = (wh: number) => (wh >= 1000 ? `${Number.isInteger(wh / 1000) ? wh / 1000 : (wh / 1000).toFixed(1)} kWh` : `${wh} Wh`);
+
+/** The panel in a sentence, after its size: "a 4 m² upright panel that turns to the Sun". */
+const PANEL_WORDS: Record<PanelModel, string> = {
+  horizontal: 'flat panel facing up',
+  vertical: 'fixed upright panel',
+  vertical_tracking: 'upright panel that turns to the Sun',
+  full_tracking: 'panel that follows the Sun on two axes',
+};
+
+/**
+ * The deterministic paragraph, in the verdict's words: the site and period, sunlight and the longest
+ * night, Earth in view, then the lander and how long it keeps power from landing on the first day,
+ * with how much of that time Earth is in view. Shown by default and whenever the model's paragraph
+ * fails the number check.
+ */
 export function templateBrief(s: StateSummary): string {
   const { summary, power, params } = s;
   const p = params.power;
-  const verdict = power.survives
-    ? `survives the window; the battery never drops below ${pct(power.socMin)}`
-    : `does not survive the window: ${power.brownoutHours} h of brownout, and the battery bottoms out at ${pct(power.socMin)}`;
+  const days = s.window.days;
+  const date = dateLong(s.window.startUtc, 0);
+  const night = summary.longestDarkH > 0 ? `a longest night of ${spanWords(summary.longestDarkH)}` : 'no night';
+  const powerWords = power.poweredHours >= days * 24 ? `keeps power for all ${days} days` : `has power for ${spanWords(power.poweredHours)}, then night`;
+  const contactWords = power.contactHours > 0 ? `with Earth in view for ${spanWords(power.contactHours)} of that time` : 'with no radio contact in that time';
   return (
-    `${s.site.name} (${hemi(s.site.lat, 'N', 'S')}, ${hemi(s.site.lon, 'E', 'W')}), ${s.window.days}-day window from ${s.window.startUtc.slice(0, 10)}: ` +
-    `the Sun is above the skyline ${pct(summary.illumFraction)} of the time with a longest night of ${hoursLabel(summary.longestDarkH)}; ` +
-    `Earth is in view ${pct(summary.earthVisFraction)} of the time with a longest gap of ${hoursLabel(summary.longestEarthGapH)}, and both at once ${pct(summary.jointFraction)}. ` +
-    `With ${PANEL_LABELS[p.panel].toLowerCase()} panels, ${p.areaM2} m² at ${Math.round(p.efficiency * 100)} % efficiency, a ${p.loadW} W load and a ${p.batteryWh} Wh battery starting at ${Math.round(p.initialSocFraction * 100)} %, ` +
-    `the lander ${verdict}, with a mean power of ${power.meanPowerW.toFixed(0)} W.`
+    `${s.site.label} (${hemi(s.site.lat, 'N', 'S')}, ${hemi(s.site.lon, 'E', 'W')}), ${days} days from ${date} ${s.window.startUtc.slice(0, 4)}: ` +
+    `sunlight ${pct0(summary.illumFraction)} of the time and ${night}; Earth in view ${pct0(summary.earthVisFraction)} of the time. ` +
+    `A lander with a ${p.areaM2} m² ${PANEL_WORDS[p.panel]} (${Math.round(p.efficiency * 100)} % efficiency), a ${p.loadW} W load and a ${kwh(p.batteryWh)} battery starting ${Math.round(p.initialSocFraction * 100)} % full, ` +
+    `landing on ${date}, ${powerWords}, ${contactWords}.`
   );
 }
 
@@ -174,6 +192,9 @@ export function isStateSummary(x: unknown): x is StateSummary {
     typeof power.brownoutHours === 'number' &&
     typeof power.survives === 'boolean' &&
     typeof power.meanPowerW === 'number' &&
+    typeof power.poweredHours === 'number' &&
+    typeof power.contactHours === 'number' &&
+    typeof site.label === 'string' &&
     typeof cfg?.panel === 'string' &&
     Object.hasOwn(PANEL_LABELS, cfg.panel) &&
     typeof cfg.loadW === 'number' &&

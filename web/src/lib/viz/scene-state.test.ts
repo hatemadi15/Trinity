@@ -60,9 +60,9 @@ describe('scene state from the store', () => {
 
       it('light is off below the skyline and full from half a degree above it', () => {
         if (s.sunEl < s.skylineAtSun) {
-          expect(s.light).toEqual({ intensity: 0, castShadow: false });
+          expect(s.light).toEqual({ intensity: 0 });
         } else if (s.sunEl >= s.skylineAtSun + 0.5) {
-          expect(s.light).toEqual({ intensity: 1, castShadow: true });
+          expect(s.light).toEqual({ intensity: 1 });
         } else {
           expect(s.light.intensity).toBeGreaterThanOrEqual(0);
           expect(s.light.intensity).toBeLessThanOrEqual(1);
@@ -80,13 +80,13 @@ describe('scene state from the store', () => {
     const raised = new Float64Array(720).fill(5);
     const s = sceneStateAt(eph, series, raised, 0);
     expect(s.skylineAtSun).toBeCloseTo(5, 9);
-    expect(s.light).toEqual({ intensity: 0, castShadow: false });
+    expect(s.light).toEqual({ intensity: 0 });
   });
 
   it('a sunk mask (-10° all round) keeps the light at full intensity', () => {
     const sunk = new Float64Array(720).fill(-10);
     const s = sceneStateAt(eph, series, sunk, 100);
-    expect(s.light).toEqual({ intensity: 1, castShadow: true });
+    expect(s.light).toEqual({ intensity: 1 });
   });
 
   it('rejects a cursor outside the series', () => {

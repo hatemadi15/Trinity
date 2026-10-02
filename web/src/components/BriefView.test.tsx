@@ -29,22 +29,34 @@ async function storeWithFiles() {
 }
 
 describe('BriefView', () => {
-  it('renders a one-page brief with the site, window, KPIs, verdict, charts, method and credits, and prints', async () => {
+  it('speaks like Explore: the verdict title and sentences, the five figures, the Sun and Earth rows, method and credits; and prints', async () => {
     const store = await storeWithFiles();
     render(<BriefView store={store} />);
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Shackleton crater rim/));
-    expect(screen.getByText(/2027-01-01 00:00 UTC/)).toBeTruthy();
-    expect(screen.getByText('Sun above the skyline')).toBeTruthy();
-    expect(screen.getByText('Longest Earth gap')).toBeTruthy();
-    expect(screen.getByText('Survives the window')).toBeTruthy();
-    expect(document.querySelectorAll('svg').length).toBeGreaterThanOrEqual(2); // timeline and sky dome
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Shackleton rim summit'));
+    expect(screen.getByRole('heading', { level: 2, name: /^Landing at Shackleton rim summit on 1 January: power for all 30 days$/ })).toBeTruthy();
+    expect(screen.getByRole('region', { name: /^Landing at Shackleton rim summit/ }).textContent).toMatch(/Earth is in view for/);
+    const figures = [...document.querySelectorAll('dt')].map((d) => d.textContent);
+    expect(figures).toEqual(['Sunlight', 'Contact with Earth', 'Longest night', 'Time with power', 'Battery when full']);
+    expect(document.querySelector('dl')!.className).toMatch(/\bgrid-cols-2\b.*\bsm:grid-cols-3\b/);
+    // The lander once, in words, and Earth's threshold in words.
+    expect(screen.getByRole('heading', { name: 'The lander' }).nextElementSibling!.textContent).toBe(
+      '4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, starting with the battery 100 % full; Earth counts as in view whenever it clears the hills.',
+    );
+    expect(screen.getByRole('img', { name: /^The Sun over the 30 days from 1 January/ }).closest('.stage')).toBeTruthy();
+    expect(screen.getByRole('img', { name: /^Earth over the 30 days from 1 January/ }).closest('.stage')).toBeTruthy();
+    // Day labels under the rows: every other one gives way on a phone, so none overlap.
+    const days = [...document.querySelectorAll<HTMLElement>('[data-day]')];
+    expect(days.map((d) => d.textContent)).toEqual(['1 Jan', '6 Jan', '11 Jan', '16 Jan', '21 Jan', '26 Jan']);
+    days.forEach((d, i) => expect(d.className.includes('max-sm:hidden'), d.textContent!).toBe(i % 2 === 1));
+    expect(document.querySelector('.brief')).toBeTruthy(); // light print tokens whatever the theme
+    const text = document.body.textContent ?? '';
+    expect(text).not.toMatch(/Sun above the skyline|Longest Earth gap|Survives the window|sky dome/i);
     expect(screen.getByRole('heading', { name: 'How this was computed' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Data' })).toBeTruthy();
     expect(screen.getByText(/NASA LRO LOLA polar elevation models/)).toBeTruthy();
-    expect(screen.getByText(/precomputed skyline/)).toBeTruthy();
-    expect(screen.getByText(/Vertical, turns to the Sun/)).toBeTruthy();
+    expect(screen.getByText(/hills measured from NASA elevation data/)).toBeTruthy();
     expect(screen.getByText(/team Astroy\/Ed\)\.$/)).toBeTruthy(); // no unfilled placeholder in the footer
-    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore');
+    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore?site=shackleton_center_rim_high&start=2027-01-01&days=30');
     const print = vi.spyOn(window, 'print').mockImplementation(() => {});
     fireEvent.click(screen.getByRole('button', { name: /Print or save as PDF/ }));
     expect(print).toHaveBeenCalled();
@@ -63,21 +75,21 @@ describe('BriefView', () => {
       );
     });
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Custom site/));
-    expect(screen.getByText(/skyline computed in your browser/)).toBeTruthy();
+    expect(screen.getByText(/hills worked out in your browser/)).toBeTruthy();
     expect(screen.getByText(/coordinates picked by the user/)).toBeTruthy();
   });
 });
 
 describe('BriefView narration', () => {
-  it('shows the template summary by default and the model paragraph after "Write the brief"', async () => {
+  it('shows the template summary by default and the model paragraph after "Let the assistant write it"', async () => {
     const store = await storeWithFiles();
     const narrate = vi.fn(async () => ({ source: 'model' as const, model: 'google/gemma-4-31b-it:free', reply: 'Model paragraph about the rim.' }));
     render(<BriefView store={store} narrate={narrate} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
     expect(screen.getByRole('heading', { name: 'Mission summary' })).toBeTruthy();
-    expect(screen.getByTestId('narration').textContent).toMatch(/Shackleton crater rim.*survives/);
-    expect(screen.getByText(/written from the numbers above/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    expect(screen.getByTestId('narration').textContent).toMatch(/^Shackleton rim summit .*keeps power for all 30 days/);
+    expect(screen.getByText(/written by the app from the figures below/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByTestId('narration').textContent).toBe('Model paragraph about the rim.'));
     expect(screen.getByText(/narrated by gemma-4-31b/)).toBeTruthy();
     expect(narrate).toHaveBeenCalledTimes(1);
@@ -95,9 +107,9 @@ describe('BriefView narration', () => {
       />,
     );
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
-    await waitFor(() => expect(screen.getByText(/planner is offline/)).toBeTruthy());
-    expect(screen.getByTestId('narration').textContent).toMatch(/survives/);
+    fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
+    await waitFor(() => expect(screen.getByText(/assistant is offline/)).toBeTruthy());
+    expect(screen.getByTestId('narration').textContent).toMatch(/keeps power for all 30 days/);
   });
 });
 
@@ -111,12 +123,12 @@ describe('BriefView narration labels', () => {
       .mockRejectedValueOnce(new Error('Too many questions; try again in 12 s.'));
     render(<BriefView store={store} narrate={narrate} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
-    await waitFor(() => expect(screen.getByText(/demo mode; written from the numbers above/)).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
+    await waitFor(() => expect(screen.getByText(/demo mode; written by the app from the figures below/)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByText(/did not pass the number check/)).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByText(/try again in 12 s/)).toBeTruthy());
-    expect(screen.getByTestId('narration').textContent).toMatch(/survives/);
+    expect(screen.getByTestId('narration').textContent).toMatch(/keeps power for all 30 days/);
   });
 });

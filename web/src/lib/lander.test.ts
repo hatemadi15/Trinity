@@ -5,9 +5,9 @@ import { POWER_RANGES } from './planner-ranges';
 
 describe('lander presets', () => {
   it('names three landers by their numbers, the first being the default', () => {
-    expect(LANDER_PRESETS.map((p) => p.label)).toEqual(['4 m² panel, 200 W, 2 kWh battery', '8 m² panel, 400 W, 20 kWh battery', '20 m² panel, 500 W, 50 kWh battery']);
+    expect(LANDER_PRESETS.map((p) => p.label)).toEqual(['4 m² panel, uses 200 W, 2 kWh battery', '8 m² panel, uses 400 W, 20 kWh battery', '20 m² panel, uses 500 W, 50 kWh battery']);
     expect(presetOf(DEFAULT_POWER)?.id).toBe('small');
-    expect(landerName(DEFAULT_POWER)).toBe('4 m² panel, 200 W, 2 kWh battery');
+    expect(landerName(DEFAULT_POWER)).toBe('4 m² panel, uses 200 W, 2 kWh battery');
   });
 
   it('stays inside the ranges the settings accept', () => {

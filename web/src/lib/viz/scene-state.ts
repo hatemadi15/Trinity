@@ -18,7 +18,7 @@ export interface SceneState {
   /** Terrain skyline elevation (deg) at the Sun's and the Earth's azimuth. */
   skylineAtSun: number;
   skylineAtEarth: number;
-  light: { intensity: number; castShadow: boolean };
+  light: { intensity: number };
   earthVisible: boolean;
 }
 

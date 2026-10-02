@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { matchIntent } from '@/lib/ai/intents';
+import catalogue from '@/lib/data/catalogue.json';
+import type { Site } from '@/lib/data/loaders';
 import { maxDuration, POST } from './route';
 
 type Reply = { source: string; model?: string; actions: unknown[]; reply: string; dropped?: string[]; error?: string; retryAfterS?: number };
@@ -68,6 +71,11 @@ describe('POST /api/chat', () => {
     expect(none.source).toBe('none');
     expect(none.actions).toEqual([]);
     expect(none.reply).toMatch(/could not/i);
+    // Every suggestion is one the app answers without the model, in the words the pages use.
+    const tries = [...none.reply.matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+    expect(tries.length).toBe(5);
+    for (const t of tries) expect(matchIntent(t, catalogue.sites as Site[]), t).not.toBeNull();
+    expect(none.reply).not.toMatch(/window/i);
   });
 
   it('uses cached transcripts in demo mode even with a key, and never calls the model', async () => {
@@ -119,13 +127,12 @@ describe('POST /api/chat', () => {
 });
 
 const STATE = {
-  site: { id: 'nobile_rim_2', name: 'Nobile Rim 2 (Artemis III region)', lat: -84.20156, lon: 60.69989 },
+  site: { id: 'nobile_rim_2', name: 'Nobile Rim 2 (Artemis III region)', label: 'Nobile Rim 2', lat: -84.20156, lon: 60.69989 },
   window: { startUtc: '2027-03-01T00:00:00', days: 14 },
   summary: { hours: 336, illumFraction: 1, meanSunFraction: 0.998, longestDarkH: 0, earthVisFraction: 0.67, longestEarthGapH: 225, jointFraction: 0.67 },
-  power: { socMin: 1, brownoutHours: 0, survives: true, meanPowerW: 1118.4 },
+  power: { socMin: 1, brownoutHours: 0, survives: true, meanPowerW: 1118.4, poweredHours: 336, contactHours: 225 },
   params: { power: { panel: 'vertical_tracking', panelAzimuthDeg: 0, areaM2: 4, efficiency: 0.3, loadW: 200, batteryWh: 2000, initialSocFraction: 1 }, minEarthElDeg: 0, mastM: 2 },
   compare: [],
-  audience: 'planner',
 };
 
 describe('POST /api/chat task narrate', () => {
@@ -155,7 +162,7 @@ describe('POST /api/chat task narrate', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(json.source).toBe('template');
     expect(json.reply).toMatch(/Nobile Rim 2/);
-    expect(json.reply).toMatch(/100\.0 %/);
+    expect(json.reply).toMatch(/100\u00a0%/);
   });
 
   it('uses the template without a key or in cached mode, and needs a state', async () => {

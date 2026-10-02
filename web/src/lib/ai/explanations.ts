@@ -1,15 +1,15 @@
 /** Fixed, number-light paragraphs for the five things people ask the planner to explain. */
 export const EXPLANATIONS: Record<string, string> = {
   'longest night':
-    'The longest night is the longest run of consecutive hours in the window when no part of the Sun clears the terrain skyline. Near the south pole the Sun circles the horizon at a low angle, so a ridge to the right side of the sky can cut a lunar day into several short days and nights. A lander has to live through the longest one on stored energy or another heat source, which is why the verdict weighs the battery against this number rather than the average.',
+    'The longest night is the longest run of hours in the period when no part of the Sun clears the hills around the site. Near the south pole the Sun circles the horizon at a low angle, so one ridge can cut a lunar day into several short days and nights. A solar lander lives through each night on its battery, which is why the time with power depends on the longest night rather than the average.',
   'earth gap':
-    'The longest Earth gap is the longest stretch of hours when Earth sits below the skyline, so a direct-to-Earth radio link is impossible without a relay. Earth moves only a few degrees in the lunar sky over a month (libration), so at a polar site it rises and sets slowly and a gap can last days. The planner counts Earth as in view only when it clears the skyline by the minimum elevation you set in the planner settings.',
+    'The longest Earth gap is the longest stretch of hours when Earth is hidden by the hills or below the horizon, so a direct radio link to Earth is impossible without a relay. Earth moves only a few degrees in the lunar sky over a month, so at a polar site it rises and sets slowly and a gap can last days. Earth counts as in view only when it clears the hills by the minimum height set for the lander.',
   'best window':
     'The best window is the landing date, within the next 12 months, from which the lander keeps power the longest: the hours from touchdown to the first hour the battery cannot cover, counted up to the length of the stay you chose. Only hours with the Sun in view are candidates, because a lander arrives in daylight. When two dates give the same time with power, the one with more contact with Earth wins. On the Compare page the time with power is averaged over the compared sites.',
   skyline:
-    'The skyline is the terrain horizon seen from the site: for each of 720 compass directions the planner walks outward along the LOLA elevation grids and records the highest angle any hill, rim or mountain reaches above the local horizontal, from a mast at the chosen height. The Sun and Earth tracks are then compared with it hour by hour; the Sun counts as up when any part of its disk clears the skyline.',
+    'The hills around the site are worked out from NASA elevation data: for each of 720 compass directions the app walks outward across the ground and records the highest angle any hill, rim or mountain reaches above level, as seen from a mast at the chosen height. The Sun and Earth are then compared with those hills hour by hour; the Sun counts as up when any part of it clears them.',
   verdict:
-    'The verdict answers one question: does the battery survive the longest night with the panel, load and battery you set? The hourly budget charges with the surplus while the Sun is up and discharges at the load when it is not; a brownout is an hour when the deficit exceeds what the battery still holds. Green means no brownout in the window, red means the lander goes dark, and the tile shows the lowest state of charge reached.',
+    'The answer says how long a solar lander that lands on the first day keeps power with the panel, load and battery you set: hour by hour the battery charges with what the panel makes beyond the load while the Sun is up, and runs down at the load when it is not, until an hour comes that it cannot cover. "Power for all 30 days" means that never happens in the period; "power for 3 days 4 hours, then night" means it happens then, and the answer says when power comes back.',
 };
 
 const ALIASES: Record<string, string> = {
@@ -24,7 +24,12 @@ const ALIASES: Record<string, string> = {
   'best 14-day window': 'best window',
   'best 30-day window': 'best window',
   'best 90-day window': 'best window',
+  'best date': 'best window',
+  'best landing date': 'best window',
+  'best landing day': 'best window',
   horizon: 'skyline',
+  hills: 'skyline',
+  'hills around the site': 'skyline',
   'terrain skyline': 'skyline',
   'terrain horizon': 'skyline',
   'horizon mask': 'skyline',
@@ -32,6 +37,8 @@ const ALIASES: Record<string, string> = {
   'survive-the-night verdict': 'verdict',
   brownout: 'verdict',
   brownouts: 'verdict',
+  'time with power': 'verdict',
+  answer: 'verdict',
 };
 
 /** Resolves a free-text topic to one of the fixed explanations, or null. */

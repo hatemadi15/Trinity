@@ -18,14 +18,14 @@ describe('LanderDialog', () => {
     const dialog = screen.getByRole('dialog', { name: 'The lander' });
     const presets = within(dialog).getByRole('radiogroup', { name: 'Lander' });
     expect(within(presets).getAllByRole('radio').map((r) => (r as HTMLInputElement).checked)).toEqual([true, false, false, false]);
-    expect(presets.textContent).toMatch(/4 m² panel, 200 W, 2 kWh battery.*10 hours in the dark/);
-    expect(presets.textContent).toMatch(/20 m² panel, 500 W, 50 kWh battery.*4 days 4 hours in the dark/);
+    expect(presets.textContent).toMatch(/4 m² panel, uses 200 W, 2 kWh battery.*10 hours in the dark/);
+    expect(presets.textContent).toMatch(/20 m² panel, uses 500 W, 50 kWh battery.*4 days 4 hours in the dark/);
     expect(presets.textContent).toMatch(/Custom/);
   });
 
   it('applies a preset with the standard panel around it', () => {
     const { onPower } = open({ ...DEFAULT_PARAMS, power: { ...DEFAULT_PARAMS.power, panel: 'horizontal', efficiency: 0.2 } });
-    fireEvent.click(screen.getByRole('radio', { name: /8 m² panel, 400 W, 20 kWh battery/ }));
+    fireEvent.click(screen.getByRole('radio', { name: /8 m² panel, uses 400 W, 20 kWh battery/ }));
     expect(onPower).toHaveBeenLastCalledWith({ areaM2: 8, loadW: 400, batteryWh: 20000, panel: 'vertical_tracking', panelAzimuthDeg: 0, efficiency: 0.3, initialSocFraction: 1 });
   });
 

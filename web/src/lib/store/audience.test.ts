@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { AUDIENCE_KEY, createExploreStore } from './explore';
+import { createExploreStore } from './explore';
 
 const unused = {
   loadSites: async () => [],
@@ -12,26 +12,14 @@ const unused = {
   },
 };
 
-describe('audience', () => {
-  it('defaults to planner, persists Learn mode in localStorage and reads it back', () => {
-    window.localStorage.removeItem(AUDIENCE_KEY);
-    const a = createExploreStore(unused);
-    expect(a.getState().audience).toBe('planner');
-    a.getState().setAudience('learn');
-    expect(a.getState().audience).toBe('learn');
-    expect(window.localStorage.getItem(AUDIENCE_KEY)).toBe('learn');
-    const b = createExploreStore(unused);
-    expect(b.getState().audience).toBe('planner'); // server-safe default until hydrated
-    b.getState().hydrateAudience();
-    expect(b.getState().audience).toBe('learn');
-    b.getState().setAudience('planner');
-    expect(window.localStorage.getItem(AUDIENCE_KEY)).toBe('planner');
-  });
-  it('ignores garbage in storage', () => {
-    window.localStorage.setItem(AUDIENCE_KEY, 'pirate');
-    const c = createExploreStore(unused);
-    c.getState().hydrateAudience();
-    expect(c.getState().audience).toBe('planner');
-    window.localStorage.removeItem(AUDIENCE_KEY);
+describe('the audience is gone', () => {
+  it('has no audience in the store, and an old stored choice changes nothing', () => {
+    window.localStorage.setItem('earthrise.audience', 'learn');
+    const store = createExploreStore(unused);
+    const state = store.getState() as unknown as Record<string, unknown>;
+    expect('audience' in state).toBe(false);
+    expect('setAudience' in state).toBe(false);
+    expect('hydrateAudience' in state).toBe(false);
+    window.localStorage.removeItem('earthrise.audience');
   });
 });

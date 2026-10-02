@@ -177,7 +177,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             reducedMotion={reducedMotion}
           />
           <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide />
-          <PlannerChat store={store} navigate={go} variant="panel" />
+          <PlannerChat store={store} navigate={go} />
         </div>
         <TimeBar series={s.series} power={s.power} startUtc={s.startUtc} cursor={s.cursorHour} hoverHour={hoverHour} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} />
         {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}

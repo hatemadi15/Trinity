@@ -85,7 +85,7 @@ export function TimeBar({
             </span>
             {reduced && <span className="text-[15px] text-ink-2">Playback is off because your system asks for reduced motion.</span>}
             {/* The track's yellow is the Sun, not progress: a key says so. */}
-            <span data-part="key" className="ml-auto flex items-center gap-2 text-[15px] text-ink-2 max-sm:hidden">
+            <span data-part="key" className="flex items-center gap-2 text-[15px] text-ink-2 sm:ml-auto">
               <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full bg-sun" />
               Sun up
             </span>

@@ -17,6 +17,9 @@ describe('home page', () => {
     expect(gold[0].textContent).toBe('Explore a landing site');
     expect(gold[0].getAttribute('href')).toBe('/sites');
     expect(within(hero).getByText('For mission planners, educators and anyone curious.')).toBeTruthy();
+    // The promise in the words of the answer it leads to.
+    expect(hero.textContent).toMatch(/how long a solar lander keeps power there\./);
+    expect(hero.textContent).not.toMatch(/survives the night/);
   });
 
   it('opens on a real forecast: the Sun and Earth over one month at the site, each with the hidden stretch in words', () => {
@@ -98,6 +101,8 @@ describe('home page', () => {
     expect(within(places).getByText('in sunlight')).toBeTruthy();
     expect(within(places).getByText('de Gerlache Rim 2: shadows computed for 2 January 2027')).toBeTruthy();
     expect(places.textContent).toMatch(/Computed from NASA elevation data, not a photograph/);
+    // The faint stripes in the picture are explained where they are seen.
+    expect(places.querySelector('figcaption')!.textContent).toMatch(/Faint stripes are seams in the elevation data, not real ground\./);
     expect(within(places).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['de Gerlache Rim 2', 'Athena lander, March 2025', 'Blue Ghost lander, March 2025']);
     // Every programme and company is named in plain words.
     expect(places.textContent).toMatch(/the first crewed landing of its Artemis programme/);
@@ -113,7 +118,7 @@ describe('home page', () => {
     const links = within(places).getAllByRole('link');
     expect(links.map((a) => a.getAttribute('aria-label'))).toEqual(['Explore this site: de Gerlache Rim 2', 'Explore this site: Athena lander, March 2025', 'Explore this site: Blue Ghost lander, March 2025']);
     expect(links.map((a) => a.textContent)).toEqual(['Explore this site', 'Explore this site', 'Explore this site']);
-    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/explore?site=de_gerlache_rim_2', '/explore?site=im2_athena&start=2025-03-06', '/explore?site=blue_ghost_m1&start=2025-03-02']);
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/explore?site=de_gerlache_rim_2', '/explore?site=im2_athena&start=2025-03-06T18:00', '/explore?site=blue_ghost_m1&start=2025-03-02T09:00']);
     for (const a of links) expect(a.className).toMatch(/(^| )btn( |$)/);
   });
 

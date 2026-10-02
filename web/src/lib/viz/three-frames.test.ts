@@ -20,9 +20,9 @@ describe('three frames', () => {
     expect(dirFromAzEl(0, 90)).toEqual([expect.closeTo(0, 12), 1, expect.closeTo(-0, 12)]);
   });
   it('sunLight returns intensity 0 below the skyline and ramps above it', () => {
-    expect(sunLight(-1, 0.5)).toEqual({ intensity: 0, castShadow: false });
+    expect(sunLight(-1, 0.5)).toEqual({ intensity: 0 });
     expect(sunLight(0.75, 0.5).intensity).toBeCloseTo(0.5, 9);
-    expect(sunLight(2, 0.5)).toEqual({ intensity: 1, castShadow: true });
+    expect(sunLight(2, 0.5)).toEqual({ intensity: 1 });
   });
   it('globe mapping round-trips and puts the south pole at -y', () => {
     expect(latLonToSphere(-90, 0)).toEqual([expect.closeTo(0, 12), -1, expect.closeTo(0, 12)]);

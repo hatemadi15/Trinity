@@ -15,7 +15,7 @@ const scene: SceneState = {
   earthEl: 0.1,
   skylineAtSun: 0.5,
   skylineAtEarth: 0.5,
-  light: { intensity: 1, castShadow: true },
+  light: { intensity: 1 },
   earthVisible: true,
 };
 const site = { id: 'a', name: 'Site A', lat: -89.7, lon: 10, category: 'classic', polar: true, source: '' };

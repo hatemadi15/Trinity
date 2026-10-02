@@ -38,7 +38,7 @@ describe.skipIf(!haveData)('summarizeState', () => {
     await store.getState().addToCompare('de_gerlache_rim_2');
     const s = summarizeState(store.getState());
     expect(s).not.toBeNull();
-    expect(s!.site).toEqual({ id: 'nobile_rim_2', name: 'Nobile Rim 2 (Artemis III region)', lat: -84.20156, lon: 60.69989 });
+    expect(s!.site).toEqual({ id: 'nobile_rim_2', name: 'Nobile Rim 2 (Artemis III region)', label: 'Nobile Rim 2', lat: -84.20156, lon: 60.69989 });
     expect(s!.window).toEqual({ startUtc: '2027-03-01T00:00:00', days: 14 });
     expect(s!.summary.hours).toBe(14 * 24);
     for (const k of ['illumFraction', 'earthVisFraction', 'jointFraction', 'meanSunFraction'] as const) {
@@ -50,13 +50,16 @@ describe.skipIf(!haveData)('summarizeState', () => {
     expect(Number.isInteger(s!.summary.longestDarkH)).toBe(true);
     expect(Number.isInteger(s!.power.brownoutHours)).toBe(true);
     expect(typeof s!.power.survives).toBe('boolean');
+    // Time with power from landing on the first day, capped at the period, and the hours of it with Earth in view.
+    expect(s!.power.poweredHours).toBeGreaterThan(0);
+    expect(s!.power.poweredHours).toBeLessThanOrEqual(14 * 24);
+    expect(s!.power.contactHours).toBeLessThanOrEqual(s!.power.poweredHours);
     expect(s!.power.meanPowerW).toBe(Math.round(s!.power.meanPowerW * 10) / 10); // one decimal
     expect(s!.params.power.loadW).toBe(200);
     expect(s!.params.mastM).toBe(2);
     expect(s!.compare.map((c) => c.id)).toEqual(['de_gerlache_rim_2']);
     expect(s!.compare[0].name).toMatch(/de Gerlache Rim 2/);
     expect(typeof s!.compare[0].survives).toBe('boolean');
-    expect(s!.audience).toBe('planner');
     expect(JSON.stringify(s).length).toBeLessThan(1500); // compact enough for a prompt
   });
 });

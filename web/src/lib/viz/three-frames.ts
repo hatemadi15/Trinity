@@ -15,10 +15,10 @@ export function dirFromAzEl(azDeg: number, elDeg: number): [number, number, numb
 }
 
 /** Direct sunlight fades in over the first half degree above the terrain skyline. */
-export function sunLight(elDeg: number, skylineDeg: number): { intensity: number; castShadow: boolean } {
+export function sunLight(elDeg: number, skylineDeg: number): { intensity: number } {
   const above = elDeg - skylineDeg;
-  if (above <= 0) return { intensity: 0, castShadow: false };
-  return { intensity: Math.min(1, above / 0.5), castShadow: true };
+  if (above <= 0) return { intensity: 0 };
+  return { intensity: Math.min(1, above / 0.5) };
 }
 
 export function latLonToSphere(latDeg: number, lonDeg: number, r = 1): [number, number, number] {

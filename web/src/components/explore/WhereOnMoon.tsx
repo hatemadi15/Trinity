@@ -8,6 +8,9 @@ import type { SiteOverview } from '@/lib/store/explore';
 import { pct0 } from '@/lib/viz/format';
 import { nearestSites, reliefUV } from '@/lib/viz/relief';
 
+/** Farther than this, another site is not "nearby": a mare lander's nearest neighbour is thousands of km away. */
+const NEAR_KM = 300;
+
 /** The place on the relief map of the south pole, one line about it, and the nearest other sites with their sunlight. */
 export function WhereOnMoon({
   site,
@@ -36,7 +39,7 @@ export function WhereOnMoon({
       return [{ id: s.id, ...uv, label: siteLabel(s), href: exploreHref(s.id, startUtc, days), tone: best && best.poweredHours >= 336 ? ('good' as const) : ('plain' as const) }];
     });
   const here = pins.some((p) => p.id === site.id);
-  const near = nearestSites(site, sites, 3);
+  const near = nearestSites(site, sites, 3).filter((n) => n.km <= NEAR_KM);
   return (
     <section aria-label="Where on the Moon" className="panel">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4">
@@ -68,36 +71,42 @@ export function WhereOnMoon({
           </p>
         </div>
         <div className={wide ? 'md:col-start-2 md:row-start-2' : ''}>
-          <p id="near-title" className="mt-4 flex justify-between border-b border-line pb-2 text-[15px] font-semibold text-ink-2">
-            <span>Nearby sites, same {days} days</span>
-            <span>Sunlight</span>
-          </p>
-          <ul aria-label={`Nearby sites, same ${days} days`} className="divide-y divide-line">
-            {near.map(({ site: other, km }) => {
-              const o = overview[other.id];
-              return (
-                <li key={other.id}>
-                  <Link href={exploreHref(other.id, startUtc, days)} className="flex min-h-[48px] items-center gap-4 py-2 hover:bg-surface-2">
-                    <span className="min-w-0 flex-1">
-                      <span className="font-medium underline decoration-line-strong underline-offset-4">{siteLabel(other)}</span>, {km < 10 ? km.toFixed(1) : Math.round(km)} km away
-                    </span>
-                    {!o ? (
-                      <span className="text-[15px] text-ink-2">working it out…</span>
-                    ) : o.sunFraction > 0 ? (
-                      <>
-                        <span aria-hidden="true" className="h-2 w-20 overflow-hidden rounded-full bg-surface-2">
-                          <span className="block h-full rounded-full bg-sun" style={{ width: `${Math.round(o.sunFraction * 100)}%` }} />
+          {near.length === 0 ? (
+            <p className="mt-4 border-t border-line pt-3 text-[15px] text-ink-2">No other site in the list is within {NEAR_KM} km.</p>
+          ) : (
+            <>
+              <p id="near-title" className="mt-4 flex justify-between border-b border-line pb-2 text-[15px] font-semibold text-ink-2">
+                <span>Nearby sites, same {days} days</span>
+                <span>Sunlight</span>
+              </p>
+              <ul aria-label={`Nearby sites, same ${days} days`} className="divide-y divide-line">
+                {near.map(({ site: other, km }) => {
+                  const o = overview[other.id];
+                  return (
+                    <li key={other.id}>
+                      <Link href={exploreHref(other.id, startUtc, days)} className="flex min-h-[48px] items-center gap-4 py-2 hover:bg-surface-2">
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium underline decoration-line-strong underline-offset-4">{siteLabel(other)}</span>, {km < 10 ? km.toFixed(1) : Math.round(km)} km away
                         </span>
-                        <b className="w-14 text-right font-semibold">{pct0(o.sunFraction)}</b>
-                      </>
-                    ) : (
-                      <span className="text-[15px] text-ink-2">no sunlight</span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                        {!o ? (
+                          <span className="text-[15px] text-ink-2">working it out…</span>
+                        ) : o.sunFraction > 0 ? (
+                          <>
+                            <span aria-hidden="true" className="h-2 w-20 overflow-hidden rounded-full bg-surface-2">
+                              <span className="block h-full rounded-full bg-sun" style={{ width: `${Math.round(o.sunFraction * 100)}%` }} />
+                            </span>
+                            <b className="w-14 text-right font-semibold">{pct0(o.sunFraction)}</b>
+                          </>
+                        ) : (
+                          <span className="text-[15px] text-ink-2">no sunlight</span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
         </div>
       </div>
     </section>

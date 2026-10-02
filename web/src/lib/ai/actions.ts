@@ -2,7 +2,8 @@ import type { StoreApi } from 'zustand';
 import type { Site } from '../data/loaders';
 import { PANEL_LABELS, type PanelModel, type PowerConfig } from '../engine/power';
 import { clampTo, PANEL_MODELS, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
-import type { Audience, ExploreState, WindowDays } from '../store/explore';
+import type { ExploreState, WindowDays } from '../store/explore';
+import { dateLong } from '../viz/format';
 import { explanationFor } from './explanations';
 
 /** The closed set of things the planner may do to the app. Validated on the server and again on the client. */
@@ -14,12 +15,11 @@ export type Action =
   | { type: 'set_params'; patch: { minEarthElDeg?: number; mastM?: number } }
   | { type: 'add_to_compare'; id: string }
   | { type: 'remove_from_compare'; id: string }
-  | { type: 'set_audience'; audience: Audience }
   | { type: 'open_page'; page: Page }
   | { type: 'explain'; topic: string };
 
-export type Page = 'explore' | 'compare' | 'validate' | 'brief' | 'learn';
-export const PAGES: readonly Page[] = ['explore', 'compare', 'validate', 'brief', 'learn'];
+export type Page = 'explore' | 'sites' | 'compare' | 'validate' | 'brief' | 'learn';
+export const PAGES: readonly Page[] = ['explore', 'sites', 'compare', 'validate', 'brief', 'learn'];
 export const ACTION_TYPES: readonly Action['type'][] = [
   'select_site',
   'set_window',
@@ -28,10 +28,16 @@ export const ACTION_TYPES: readonly Action['type'][] = [
   'set_params',
   'add_to_compare',
   'remove_from_compare',
-  'set_audience',
   'open_page',
   'explain',
 ];
+/** What each page is called on screen. */
+export const PAGE_NAMES: Record<Page, string> = { explore: 'Explore', sites: 'the site list', compare: 'Compare sites', validate: 'Accuracy', brief: 'the brief', learn: 'How it works' };
+
+/** The period in the words of its controls ("From", "For"): "Period: from 1 March 2027 for 14 days." */
+export function periodNote(startUtc: string, days?: number): string {
+  return `Period: from ${dateLong(startUtc, 0)} ${startUtc.slice(0, 4)}${days ? ` for ${days} days` : ''}.`;
+}
 const DAYS: readonly WindowDays[] = [14, 30, 90];
 /** The hourly ephemeris table spans these years; a window outside it cannot be computed. */
 export const EPHEMERIS_YEARS = { first: 2024, last: 2036 };
@@ -130,10 +136,6 @@ function validateOne(raw: unknown, siteIds: ReadonlySet<string>): One {
       if (Object.keys(patch).length === 0) return { reason: 'set_params: no known field in the patch' };
       return { action: { type: 'set_params', patch } };
     }
-    case 'set_audience':
-      return raw.audience === 'planner' || raw.audience === 'learn'
-        ? { action: { type: 'set_audience', audience: raw.audience } }
-        : { reason: `set_audience: unknown audience "${String(raw.audience)}"` };
     case 'open_page':
       return typeof raw.page === 'string' && (PAGES as readonly string[]).includes(raw.page)
         ? { action: { type: 'open_page', page: raw.page as Page } }
@@ -266,7 +268,7 @@ export async function applyActions(store: StoreApi<ExploreState>, actions: Actio
         const startUtc = a.startUtc ?? s.startUtc;
         const days = a.days ?? s.days;
         s.setWindow(startUtc, days);
-        notes.push(`Window: ${startUtc.slice(0, 10)} for ${days} days.`);
+        notes.push(periodNote(startUtc, days));
         break;
       }
       case 'find_best_window': {
@@ -281,7 +283,7 @@ export async function applyActions(store: StoreApi<ExploreState>, actions: Actio
         break;
       case 'set_params':
         s.setParams(a.patch);
-        notes.push(`Planner settings: ${describeParams(a.patch)}.`);
+        notes.push(`Lander settings: ${describeParams(a.patch)}.`);
         break;
       case 'add_to_compare': {
         const site = s.sites.find((x) => x.id === a.id);
@@ -297,17 +299,13 @@ export async function applyActions(store: StoreApi<ExploreState>, actions: Actio
         s.removeFromCompare(a.id);
         notes.push(`Removed ${nameOf(a.id)} from the comparison.`);
         break;
-      case 'set_audience':
-        s.setAudience(a.audience);
-        notes.push(a.audience === 'learn' ? 'Switched to Learn mode.' : 'Switched to the planner view.');
-        break;
       case 'open_page':
         navigate(`/${a.page}`);
-        notes.push(`Opened ${a.page === 'brief' ? 'the brief' : a.page === 'explore' ? 'Explore' : a.page.charAt(0).toUpperCase() + a.page.slice(1)}.`);
+        notes.push(`Opened ${PAGE_NAMES[a.page]}.`);
         break;
       case 'explain': {
         const e = explanationFor(a.topic);
-        notes.push(e ? e.text : `There is no explanation for "${a.topic}" yet; try the longest night, the Earth gap, the best window, the skyline or the verdict.`);
+        notes.push(e ? e.text : `There is no explanation for "${a.topic}" yet; try the longest night, the Earth gap, the best landing date, the hills or the time with power.`);
         break;
       }
     }

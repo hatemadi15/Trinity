@@ -125,7 +125,7 @@ describe('ExploreView', () => {
     const { store } = await open();
     fireEvent.click(screen.getByRole('button', { name: /Lander/ }));
     const dialog = screen.getByRole('dialog', { name: 'The lander' });
-    fireEvent.click(within(dialog).getByRole('radio', { name: /20 m² panel, 500 W, 50 kWh battery/ }));
+    fireEvent.click(within(dialog).getByRole('radio', { name: /20 m² panel, uses 500 W, 50 kWh battery/ }));
     expect(store.getState().params.power.batteryWh).toBe(50000);
     expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/20 m² panel that turns to the Sun, uses 500 W, 50 kWh battery/);
   });

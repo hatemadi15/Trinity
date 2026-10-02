@@ -68,14 +68,14 @@
      "category": "clps_landed", "polar": true, "landed_utc": "2025-03-06T17:30:00Z",
      "mission_end_utc": "2025-03-07T12:00:00Z",
      "mission_end_source": "Intuitive Machines / NASA release 7 Mar 2025: mission concluded, batteries depleted (hour not published; 12:00 UTC used)",
-     "mission_note": "Athena came to rest on its side in a crater with the Sun low on the skyline; its batteries drained within a day, with about twelve days of daylight left.",
+     "mission_note": "Athena came to rest on its side in a crater with the Sun barely above the hills; its batteries drained within a day, with about twelve days of daylight left.",
      "source": "Intuitive Machines / LROC, March 2025"},
     {"id": "blue_ghost_m1", "name": "Blue Ghost Mission 1 landing site (Mare Crisium)", "lat": 18.562, "lon": 61.810,
      "label": "Blue Ghost Mission 1", "blurb": "Where Blue Ghost worked for 14 days in March 2025, far from the pole",
      "category": "clps_landed", "polar": false, "landed_utc": "2025-03-02T08:34:00Z",
      "mission_end_utc": "2025-03-16T23:25:00Z",
      "mission_end_source": "Firefly Aerospace, Blue Ghost Mission 1 update 16 Mar 2025: mission concluded at 23:25 UTC, about 5 h after lunar sunset",
-     "mission_note": "Blue Ghost ran the full lunar day on flat mare. Firefly reported the end about 5 h after the sunset it observed; our flat-horizon sunset falls about 2.5 h after theirs, so the reported end lands 2.4 h after ours.",
+     "mission_note": "Blue Ghost worked through the whole lunar day on the flat plain of Mare Crisium and fell silent about 5 hours after the sunset it saw. Our sunset, worked out for a flat horizon, comes about 2.5 hours after the one it saw, so its last signal came 2.4 hours after ours.",
      "source": "Firefly Aerospace / NSSDCA, March 2025"}
   ]
 }

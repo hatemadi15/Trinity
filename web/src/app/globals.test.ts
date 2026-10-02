@@ -83,10 +83,9 @@ describe('theme tokens', () => {
     expect(contrast(light['--stage-ink'], light['--hill'])).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('keeps the old token names as aliases until the last old component is gone', () => {
-    expect(light['--canvas']).toBe('var(--page)');
-    expect(light['--panel']).toBe('var(--surface)');
-    expect(light['--sky']).toBe('var(--stage)');
+  it('has none of the old token names left, now the last old component is gone', () => {
+    for (const name of ['--canvas', '--panel', '--sky', '--night', '--sun-bright', '--terrain', '--terrain-edge']) expect(light[name], name).toBeUndefined();
+    expect(css).not.toMatch(/\.glass/);
   });
 });
 
@@ -94,7 +93,7 @@ describe('globals.css layering', () => {
   it('declares the shared classes inside @layer components, so a Tailwind utility can still override them', () => {
     expect(css).not.toMatch(/@utility glass/);
     const joined = (css.match(/@layer components \{([\s\S]*?)\n\}/g) ?? []).join('\n');
-    for (const cls of ['.wrap', '.btn', '.btn-primary', '.btn-ink', '.btn-sm', '.field', '.panel', '.stage', '.display', '.reveal-line', '.reveal-after', '.glass', '.glass-bar']) {
+    for (const cls of ['.wrap', '.btn', '.btn-primary', '.btn-ink', '.btn-sm', '.field', '.panel', '.stage', '.display', '.reveal-line', '.reveal-after']) {
       expect(joined, cls).toMatch(new RegExp(`\\${cls} \\{`));
     }
   });

@@ -1,6 +1,6 @@
 # Hosting Earthrise
 
-Earthrise is a static-first Next.js app with two small server routes (`/api/chat`, `/api/horizons`) and about 250 MB of data files (ephemeris table, skyline masks, DEM tiles, terrain rasters, validation tables). The app runs on Vercel's free Hobby plan; the data lives in a Cloudflare R2 bucket (free tier, no egress fees) and is fetched by the browser from `NEXT_PUBLIC_DATA_BASE`. The same build runs offline on the venue laptop with the data mirrored into `web/public/data`.
+Earthrise is a static-first Next.js app with two small server routes (`/api/chat`, `/api/horizons`) and about 250 MB of data files (ephemeris table, horizon masks, DEM tiles, terrain rasters, validation tables). The app runs on Vercel's free Hobby plan; the data lives in a Cloudflare R2 bucket (free tier, no egress fees) and is fetched by the browser from `NEXT_PUBLIC_DATA_BASE`. The same build runs offline on the venue laptop with the data mirrored into `web/public/data`.
 
 Nothing in this document has been run yet: it prepares the go-live steps for the team to execute. Keys and account ids never go into the repository.
 
@@ -86,7 +86,7 @@ One rule first: every `NEXT_PUBLIC_*` variable is inlined into the client and se
 3. `web/vercel.json` adds the immutable cache header for `/data/*` (only used if the data is ever served by the app) and a one-hour header for the test badge. `web/.vercelignore` keeps the local data mirror out of CLI deployments; Git deployments never see it because `public/data` is gitignored.
 4. Region: leave the default (`iad1`); the routes are light and JPL Horizons sits in the same region.
 5. Limits to keep in mind on Hobby: 100 GB of transfer per month (the data does not count, it comes from R2), 100 MB of source per deployment. Function duration needs no change: Hobby with Fluid compute allows up to 300 s, the chat route caps itself at 60 s (`maxDuration`) and keeps its model time under 24 s per request so the browser's 30 s wait is never exceeded.
-6. After the first deployment, open `/validate`, press **Re-check with JPL now**, and ask the planner one question on `/explore` to confirm both routes and the key.
+6. After the first deployment, open `/validate` (the Accuracy page), press **Re-check with JPL now**, and ask the assistant one question on `/explore` to confirm both routes and the key.
 
 ## 3. GitHub Release mirror
 
@@ -113,7 +113,7 @@ npm start                              # serves http://localhost:3000 with /data
 
 If `web/.env.local` exists on the laptop, make sure it does not say `NEXT_PUBLIC_AI_MODE=live`; the file wins over the shell at build time. `?demo=1` in the URL also switches the planner to rehearsed answers for the tab, whatever the build says.
 
-Open `http://localhost:3000/explore?demo=1`. The Validate page's live re-check needs the internet; without it the page shows the stored comparison and says so. The Horizons fixtures and the validation tables are in the data mirror, so every table renders offline.
+Open `http://localhost:3000/explore?demo=1`. The Accuracy page's live re-check needs the internet; without it the page shows the stored comparison and says so. The Horizons fixtures and the validation tables are in the data mirror, so every table renders offline.
 
 ## 5. Plan B: Cloudflare Pages
 
@@ -124,7 +124,7 @@ If Vercel's transfer or function limits bite, the app can move next to the data:
 - [ ] R2 bucket created, token issued, `publish-r2 --dry-run` reviewed, `publish-r2` run, one file opened in the browser with the immutable header.
 - [ ] CORS policy saved with the Vercel origin; custom domain or Worker in front of the bucket.
 - [ ] Vercel project imported with root `web`; environment variables set before the first build (they are inlined at build time); function duration left at the default.
-- [ ] First deployment: `/explore` loads a site from R2, `/validate` re-checks against JPL, `/explore` answers a planner question with "answered by …".
+- [ ] First deployment: `/explore` loads a site from R2, `/validate` re-checks against JPL, `/explore` answers a question to the assistant with "answered by …".
 - [ ] `?demo=1` on the live URL answers from the rehearsed transcripts.
 - [ ] GitHub Release with the data zip; both venue laptops run `npm start` offline from the zip.
 - [ ] Project page updated with the live URL and the repository link.
