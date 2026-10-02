@@ -26,7 +26,7 @@ export function PeriodControls({ startUtc, days, onChange }: { startUtc: string;
           min="2024-01-02"
           max="2036-12-30"
           onChange={(e) => e.target.value && onChange(`${e.target.value}T00:00:00`, days)}
-          className="field w-[190px]"
+          className="field w-[170px]"
         />
       </div>
       <div className="flex flex-col gap-1.5 text-[15px] text-ink-2">
