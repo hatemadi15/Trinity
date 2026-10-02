@@ -84,7 +84,7 @@ describe('ExploreView', () => {
     act(() => store.getState().setCursor(66));
     const stand = '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=66';
     expect(within(screen.getByRole('region', { name: 'The answer' })).getByRole('link', { name: 'Stand at the site' }).getAttribute('href')).toBe(stand);
-    expect(within(screen.getByRole('region', { name: 'The ground' })).getByRole('link', { name: 'Stand here' }).getAttribute('href')).toBe(stand);
+    expect(within(screen.getByRole('region', { name: 'The ground' })).getByRole('link', { name: 'Stand at the site' }).getAttribute('href')).toBe(stand);
   });
 
   it('lands on the better date when its button is pressed', async () => {

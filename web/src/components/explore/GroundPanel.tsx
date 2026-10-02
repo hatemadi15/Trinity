@@ -51,7 +51,7 @@ function KeyItem({ sample, children }: { sample: ReactNode; children: string }) 
  * default for a polar site), in 3D with the same light, and the view all round with the Sun's and
  * Earth's paths (the default for a site with no polar terrain, which has no map). Above every tab one
  * sentence says whether the site is in sunlight and whether Earth can be reached. Beside the tabs,
- * "Stand here" opens the view from the site itself at the same hour (on flat ground where there is no
+ * "Stand at the site" opens the view from the site itself at the same hour (on flat ground where there is no
  * polar terrain).
  */
 export function GroundPanel({
@@ -174,8 +174,8 @@ export function GroundPanel({
             </button>
           ))}
         </div>
-        <Link href={standHref(site.id, startUtc, days, cursor)} className="btn btn-sm mb-1.5 mt-auto">
-          Stand here
+        <Link href={standHref(site.id, startUtc, days, cursor)} className="btn btn-ink btn-sm mb-1.5 mt-auto">
+          Stand at the site
         </Link>
       </div>
       <p data-part="now" className="mt-4 max-w-[62em] text-[17px] leading-relaxed text-ink">

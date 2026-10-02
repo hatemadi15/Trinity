@@ -6,7 +6,7 @@ import { readJson } from '@/lib/engine/__tests__/helpers';
 import { standHref } from '@/lib/links';
 import { eph, sites } from '@/test/file-loaders';
 import { groundWords } from './ground';
-import { landerState, liveSentence, measuredNote, skyLabel, standQuery } from './stand';
+import { landerState, liveSentence, measuredNote, skyLabel, standQuery, watchNext } from './stand';
 
 const series = (o: Partial<Record<'sunEl' | 'sunAz' | 'sunFraction' | 'earthEl' | 'earthAz' | 'earthVisible', number[]>>): Series => {
   const hours = (o.sunEl ?? [0]).length;
@@ -25,13 +25,23 @@ describe('the stand view’s words', () => {
     expect(standHref('de_gerlache_rim_2', '2027-01-01T00:00:00', 30, 10)).toBe('/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
   });
   it('labels the Sun and Earth by what they are doing', () => {
-    const s = series({ sunEl: [2.4, 1.0, -0.5], sunFraction: [1, 0, 0], earthEl: [4.5, 1.2, -3], earthVisible: [1, 0, 0] });
-    expect(skyLabel('sun', s, 0)).toBe('Sun 2.4° up');
+    const s = series({ sunEl: [2.4, 1.0, -0.5, 1.6], sunFraction: [1, 0, 0, 1], earthEl: [4.2, 1.2, -3, 1.2], earthVisible: [1, 0, 0, 1] });
+    expect(skyLabel('sun', s, 0)).toBe('Sun 2° up');
     expect(skyLabel('sun', s, 1)).toBe('Sun, behind the hills');
     expect(skyLabel('sun', s, 2)).toBe('Sun, below the horizon');
-    expect(skyLabel('earth', s, 0)).toBe('Earth 4.5° up');
+    expect(skyLabel('sun', s, 3)).toBe('Sun 1.6° up');
+    expect(skyLabel('earth', s, 0)).toBe('Earth 4° up');
     expect(skyLabel('earth', s, 1)).toBe('Earth, behind the hills');
     expect(skyLabel('earth', s, 2)).toBe('Earth, below the horizon');
+    expect(skyLabel('earth', s, 3)).toBe('Earth 1.2° up');
+  });
+  it('gives the Sun and Earth the same height in the label as in the sentence', () => {
+    const s = series({ sunEl: [2.4, 1.62], sunFraction: [1, 1], earthEl: [4.2, 0.83], earthVisible: [1, 1] });
+    for (const h of [0, 1]) {
+      const w = groundWords(s, h);
+      expect(w.sun).toContain(`${skyLabel('sun', s, h).replace(/^Sun | up$/g, '')} above the horizon`);
+      expect(w.earth).toContain(`${skyLabel('earth', s, h).replace(/^Earth | up$/g, '')} above the horizon`);
+    }
   });
   it('says when the lander has power, when it went off, when it comes back, and when it never does', () => {
     const powered = Uint8Array.from([...new Array(76).fill(1), ...new Array(390).fill(0), ...new Array(254).fill(1)]);
@@ -45,6 +55,11 @@ describe('the stand view’s words', () => {
   it('joins the ground panel’s two sentences, in total darkness too', () => {
     const s = series({ sunEl: [-0.5], sunFraction: [0], earthEl: [-3], earthVisible: [0] });
     expect(liveSentence(s, 0)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is below the horizon: no radio contact.');
+  });
+  it('does not promise radio contact while the lander has no power', () => {
+    const s = series({ sunEl: [-0.5], sunFraction: [0], earthEl: [4.2], earthVisible: [1] });
+    expect(liveSentence(s, 0, true)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is in view, 4° above the horizon to the east: radio contact is possible.');
+    expect(liveSentence(s, 0, false)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is in view, 4° above the horizon to the east, but the lander has no power for its radio.');
   });
 
   // From a high point the skyline dips below level, so the Sun and Earth can show while just below the
@@ -80,18 +95,44 @@ describe('the stand view’s words', () => {
   });
 });
 
-describe('the note on what is measured', () => {
-  it('names the NASA ground the view stands on, level by level, and what is drawn', () => {
-    expect(measuredNote([20, 80, 960])).toBe(
-      "Ground from NASA's laser altimeter (20 m near you, 80 m to 20 km, 960 m to 125 km), shadows worked out from those heights for every hour, the Sun and Earth from JPL's ephemeris, real stars placed for this site and hour, Earth from NASA's Blue Marble. The small craters underfoot are drawn, not measured.",
+describe('the note on how we know this', () => {
+  const nb = '\u00a0';
+  const rest = "The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of 8,404 stars, and Earth is NASA's Blue Marble photograph. The lander and the small craters underfoot are drawn, not measured.";
+  it('says in plain words where the heights, the shadows, the sky and Earth come from, and what is drawn', () => {
+    expect(measuredNote([20, 80, 960], 8404)).toBe(
+      `Heights measured from orbit by the laser on NASA's Lunar Reconnaissance Orbiter: 20${nb}m steps near you, 80${nb}m out to 20${nb}km and 960${nb}m out to 125${nb}km. The shadows are worked out from those heights for every hour. ${rest}`,
     );
-    expect(measuredNote([80, 960])).toMatch(/^Ground from NASA's laser altimeter \(80 m near you, 960 m to 125 km\)/);
-    expect(measuredNote([960, 960])).toMatch(/^Ground from NASA's laser altimeter \(960 m to 125 km\)/);
+    expect(measuredNote([80, 960], 8404)).toContain(`Orbiter: 80${nb}m steps near you and 960${nb}m out to 125${nb}km.`);
+    expect(measuredNote([960, 960], 8404)).toContain(`Orbiter: 960${nb}m steps out to 125${nb}km.`);
   });
 
   it('says plainly when there is no detailed ground and the ground is drawn flat', () => {
-    expect(measuredNote([])).toBe(
-      "There is no detailed NASA ground for this site, so the ground here is drawn flat. The Sun and Earth come from JPL's ephemeris, real stars are placed for this site and hour, and Earth is NASA's Blue Marble. The small craters underfoot are drawn, not measured.",
-    );
+    expect(measuredNote([], 8404)).toBe(`There are no detailed NASA heights for this site, so the ground here is drawn flat. ${rest}`);
+  });
+});
+
+describe('what to watch for', () => {
+  // 30 days from 1 January: the Sun sets at hour 76, the battery runs out at 100, the Sun comes back at 466
+  // and the power at 470.
+  const hours = 720;
+  const lit = (h: number) => h < 76 || h >= 466;
+  const s = series({
+    sunEl: Array.from({ length: hours }, (_, h) => (h >= 200 && h < 400 ? -0.5 : 0.8)),
+    sunFraction: Array.from({ length: hours }, (_, h) => (lit(h) ? 1 : 0)),
+  });
+  const p = { powered: Uint8Array.from({ length: hours }, (_, h) => (h < 100 || h >= 470 ? 1 : 0)) } as unknown as PowerResult;
+  const start = '2027-01-01T00:00:00';
+  it('names the next thing that happens, and its day', () => {
+    expect(watchNext(s, p, start, 10)).toBe('Press Play to watch the Sun set behind the hills on 4 January.');
+    expect(watchNext(s, p, start, 80)).toBe('Press Play to watch the battery run out on 5 January.');
+    expect(watchNext(s, p, start, 200)).toBe('Press Play to watch the Sun come back on 20 January.');
+    expect(watchNext(s, p, start, 467)).toBe('Press Play to watch the power come back on 20 January.');
+  });
+  it('says the Sun sets below the horizon when it goes down rather than behind the hills', () => {
+    const night = series({ sunEl: [1, 1, -0.4, -0.4], sunFraction: [1, 1, 0, 0] });
+    expect(watchNext(night, null, start, 0)).toBe('Press Play to watch the Sun set below the horizon on 1 January.');
+  });
+  it('falls back to the light on the ground when nothing more happens in the period', () => {
+    expect(watchNext(s, p, start, 600)).toBe('Press Play to watch the light move across the ground.');
   });
 });

@@ -127,22 +127,23 @@ describe('GroundPanel', () => {
     expect(tab('3D').className).toMatch(/\bborder-transparent\b/);
   });
 
-  it('offers to stand at the site beside the tabs, for the same period and hour, as a quiet button', () => {
+  it('offers to stand at the site beside the tabs, for the same period and hour, as a strong button that is not gold', () => {
     show();
-    const link = screen.getByRole('link', { name: 'Stand here' });
+    const link = screen.getByRole('link', { name: 'Stand at the site' });
     expect(link.getAttribute('href')).toBe(standHref(site.id, '2027-01-02T03:00:00', 30, 3));
     // Beside the tabs, not one of them: a tab list holds only tabs.
     expect(link.closest('[role="tablist"]')).toBeNull();
     expect(link.parentElement).toBe(screen.getByRole('tablist').parentElement);
-    // The page's secondary button (44 px tall, 15 px text); gold is kept for the page's one main action.
+    // A dark button (44 px tall, 15 px text) that stands out from the tabs; gold is kept for the page's one main action.
     expect(link.classList.contains('btn')).toBe(true);
+    expect(link.classList.contains('btn-ink')).toBe(true);
     expect(link.classList.contains('btn-sm')).toBe(true);
     expect(link.className).not.toMatch(/btn-primary|bg-sun/);
   });
 
   it('offers to stand at a site with no polar terrain too, for its own period and hour', () => {
     show({ site: mare, sites: [mare], mode: 'globe', days: 14, cursor: 7 });
-    expect(screen.getByRole('link', { name: 'Stand here' }).getAttribute('href')).toBe(standHref(mare.id, '2027-01-02T03:00:00', 14, 7));
+    expect(screen.getByRole('link', { name: 'Stand at the site' }).getAttribute('href')).toBe(standHref(mare.id, '2027-01-02T03:00:00', 14, 7));
   });
 
   it('moves between the tabs with the arrow keys, Home and End', () => {

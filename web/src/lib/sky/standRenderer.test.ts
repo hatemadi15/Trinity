@@ -139,4 +139,56 @@ describe('the stand scene', () => {
     expect(Number.isFinite(outside)).toBe(true);
     expect(outside).toBeLessThan(SHADOW.OUTSIDE_BELOW_M);
   });
+
+  it('stands a lander on the ground beside the site for scale, its light on while it has power', () => {
+    const powered = Uint8Array.from([1, 1, 0]);
+    const field = terrainField(levels(), -64.31, 90);
+    const s = buildScene(flat({ field, lander: { azDeg: 90, distM: 9, powered } }));
+    const lander = s.parts.lander!;
+    expect(lander).toBeTruthy();
+    expect(lander.position.x).toBeCloseTo(9, 6); // due east
+    expect(lander.position.z).toBeCloseTo(0, 6);
+    expect(lander.position.y).toBeCloseTo(heightAt(field, 9, 0), 6);
+    s.update(0);
+    expect(s.parts.landerLight!.color.getHex()).not.toBe(0x000000);
+    s.update(2);
+    expect(s.parts.landerLight!.color.getHex()).toBe(0x000000);
+    // Its shadow on the ground: a box the shader tests the Sun's ray against.
+    const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
+    expect(u.uLanderOn.value).toBe(1);
+    const lo = u.uLanderMin.value as THREE.Vector3, hi = u.uLanderMax.value as THREE.Vector3;
+    expect(lo.x).toBeLessThan(9);
+    expect(hi.x).toBeGreaterThan(9);
+    expect(hi.y - lo.y).toBeGreaterThan(2);
+  });
+
+  it('draws no lander, and no lander shadow, when none is given', () => {
+    const s = buildScene(flat());
+    expect(s.parts.lander).toBeNull();
+    expect((s.parts.ground[0].material as THREE.ShaderMaterial).uniforms.uLanderOn.value).toBe(0);
+  });
+
+  it('lets Earth light the ground at night, like a long exposure, more than by day', () => {
+    const night = { ...series, sunFraction: Float64Array.from([1, 0, 0]), sunEl: Float64Array.from([2, -1, -1]), sunAz: Float64Array.from([250, 250, 250]) } as Series;
+    const s = buildScene(flat({ series: night }));
+    const shine = () => (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms.uEarthshine.value as number;
+    s.update(0);
+    const day = shine();
+    s.update(1);
+    expect(shine()).toBeGreaterThan(3 * day);
+  });
+
+  it('names the bright stars where they stand in the sky', () => {
+    const named = { ...sky, names: [{ index: 0, name: 'Sirius' }] };
+    const s = buildScene(flat({ sky: named }));
+    s.update(0);
+    // Star 0 sits along J2000 x; with the identity rotation that is the site's own sky: find it and look at it.
+    const p = s.parts.stars.geometry.getAttribute('position');
+    const d = new THREE.Vector3(p.getX(0), p.getY(0), p.getZ(0)).normalize();
+    const az = (THREE.MathUtils.radToDeg(Math.atan2(d.x, -d.z)) + 360) % 360, el = THREE.MathUtils.radToDeg(Math.asin(d.y));
+    s.setView(az, el, 60, 16 / 9);
+    const star = s.labels().stars.find((x) => x.name === 'Sirius')!;
+    expect(star.x).toBeCloseTo(0.5, 2);
+    expect(star.visible).toBe(el > 0);
+  });
 });

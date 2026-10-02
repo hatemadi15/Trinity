@@ -19,4 +19,10 @@ describe('the ground shader', () => {
   it('keeps every star below the bloom threshold, so only the Sun blooms', () => {
     expect(STAR_FRAG).toContain('min(vC * a * uGain, vec3(0.95))');
   });
+
+  it('scatters craters irregularly, many small and few large, with rocks and fine grain near the eye', () => {
+    expect(GROUND_FRAG).toMatch(/float craters\(vec2 p, float cell\)[\s\S]*continue;/); // not every cell holds a crater
+    expect(GROUND_FRAG).toContain('float rocks(vec2 p, out float bright)');
+    expect(GROUND_FRAG).toContain('float grain(vec2 p, float px)');
+  });
 });

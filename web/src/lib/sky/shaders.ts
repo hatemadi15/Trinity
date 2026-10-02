@@ -19,21 +19,48 @@ export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
 uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uSunPower; uniform vec2 uHole;
+uniform float uLanderOn; uniform vec3 uLanderMin, uLanderMax;
 ${SHADOW_GLSL}
+// The lander's shadow: does the ray towards the Sun pass through its box? (It is drawn, not part of the heights.)
+float landerShadow(vec3 p, vec3 L) {
+  if (uLanderOn < 0.5) return 1.0;
+  vec3 inv = 1.0 / L;
+  vec3 t0 = (uLanderMin - p) * inv, t1 = (uLanderMax - p) * inv;
+  vec3 lo = min(t0, t1), hi = max(t0, t1);
+  float tin = max(max(lo.x, lo.y), lo.z), tout = min(min(hi.x, hi.y), hi.z);
+  return (tout > max(tin, 0.0)) ? 0.0 : 1.0;
+}
 #include <logdepthbuf_pars_fragment>
 vec2 hash2(vec2 p) { p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3))); return fract(sin(p) * 43758.5453); }
 float hash1(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash1(i), hash1(i + vec2(1, 0)), u.x), mix(hash1(i + vec2(0, 1)), hash1(i + vec2(1, 1)), u.x), u.y); }
-// Bowl-shaped craters with raised rims, three sizes, scattered like a cratered plain (drawn, not measured).
+// Bowl-shaped craters with raised rims, scattered irregularly like a cratered plain (drawn, not measured):
+// about six cells in ten hold one, many small and few large, each with its own depth.
 float craters(vec2 p, float cell) {
   vec2 g = floor(p / cell), f = p / cell - g; float h = 0.0;
   for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
-    vec2 o = vec2(float(i), float(j)); vec2 rnd = hash2(g + o); vec2 c = o + rnd; float rad = mix(0.12, 0.42, fract(rnd.x * 17.31 + rnd.y));
+    vec2 o = vec2(float(i), float(j)); vec2 rnd = hash2(g + o);
+    if (fract(rnd.x * 7.13 + rnd.y * 3.31) > 0.6) continue;
+    vec2 c = o + rnd; float rad = mix(0.1, 0.45, pow(fract(rnd.x * 17.31 + rnd.y), 2.2));
+    float depth = mix(0.16, 0.3, fract(rnd.y * 5.77 + rnd.x));
     float r = length(f - c) / rad;
-    if (r < 1.8) { float bowl = r < 1.0 ? (r * r - 1.0) : 0.0; float rim = 0.32 * exp(-pow((r - 1.0) * 3.2, 2.0)); h += (bowl * 0.24 + rim) * rad * cell; }
+    if (r < 1.8) { float bowl = r < 1.0 ? (r * r - 1.0) : 0.0; float rim = 0.32 * exp(-pow((r - 1.0) * 3.2, 2.0)); h += (bowl * depth + rim) * rad * cell; }
   }
   return h;
+}
+// Rocks: one cell in ten (1.5 m cells) holds a stone 0.1 to 0.5 m across, a little brighter than the dust.
+float rocks(vec2 p, out float bright) {
+  vec2 g = floor(p / 1.5), f = p / 1.5 - g; vec2 rnd = hash2(g + 41.0); bright = 0.0;
+  if (fract(rnd.x * 11.7 + rnd.y * 2.3) > 0.1) return 0.0;
+  float rad = mix(0.035, 0.17, rnd.y); float r = length(f - (0.2 + 0.6 * rnd)) / rad;
+  if (r >= 1.0) return 0.0;
+  bright = 1.0 - r;
+  return sqrt(1.0 - r * r) * rad * 1.5 * 0.8;
+}
+// The dust's fine grain, fading as it shrinks towards a pixel.
+float grain(vec2 p, float px) {
+  return (vnoise(p * 8.0) - 0.5) * 0.03 * smoothstep(1.5, 4.0, 0.125 / px) + (vnoise(p * 25.0) - 0.5) * 0.012 * smoothstep(1.5, 4.0, 0.04 / px);
 }
 // Each size fades out as it shrinks towards a pixel (px: metres of ground per pixel), so nothing sparkles.
 float detailH(vec2 p, float px) {
@@ -41,7 +68,9 @@ float detailH(vec2 p, float px) {
     + craters(p + 17.0, 11.0) * 0.6 * smoothstep(1.5, 4.0, 11.0 / px)
     + craters(p + 93.0, 2.6) * 0.6 * smoothstep(1.5, 4.0, 2.6 / px)
     + (vnoise(p * 0.9) - 0.5) * 0.35 * smoothstep(1.5, 4.0, 1.1 / px)
-    + (vnoise(p * 3.7) - 0.5) * 0.12 * smoothstep(1.5, 4.0, 0.27 / px);
+    + (vnoise(p * 3.7) - 0.5) * 0.12 * smoothstep(1.5, 4.0, 0.27 / px)
+    + craters(p + 151.0, 0.7) * 0.5 * smoothstep(1.5, 4.0, 0.7 / px)
+    + grain(p, px);
 }
 void main() {
   #include <logdepthbuf_fragment>
@@ -55,8 +84,13 @@ void main() {
     float w = 1.0 - smoothstep(250.0, 1600.0, dist);
     if (w > 0.0) {
       float e = max(0.15, px); float h0 = detailH(vWorld.xz, px), hx = detailH(vWorld.xz + vec2(e, 0.0), px), hz = detailH(vWorld.xz + vec2(0.0, e), px);
+      float b0, bx, bz;
+      float r0 = rocks(vWorld.xz, b0), rx = rocks(vWorld.xz + vec2(e, 0.0), bx), rz = rocks(vWorld.xz + vec2(0.0, e), bz);
+      float rockW = w * smoothstep(1.5, 4.0, 0.1 / px);
+      h0 += r0 * rockW; hx += rx * rockW; hz += rz * rockW;
       Nn = normalize(Nn - vec3((hx - h0) / e, 0.0, (hz - h0) / e) * w * 1.15);
-      albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0);
+      albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0
+        + 0.06 * (vnoise(vWorld.xz * 3.1) - 0.5) * smoothstep(1.5, 4.0, 0.32 / px)) + 0.35 * b0 * rockW;
     }
   }
   albedoVar += 0.1 * (vnoise(vWorld.xz * 0.004) - 0.5);
@@ -67,7 +101,7 @@ void main() {
   float surge = 1.0 + 0.9 / (1.0 + tan(alpha * 0.5) / 0.055); // regolith brightens looking away from the Sun
   float ls = mu0 / (mu0 + mu);                                 // Lommel-Seeliger: no limb darkening on the Moon
   // The shadow ray starts from the measured ground; the drawn craters only shade.
-  float vis = mu0 > 0.0 ? sunFraction(vWorld + N0 * 0.4, uSun) : 0.0;
+  float vis = mu0 > 0.0 ? sunFraction(vWorld + N0 * 0.4, uSun) * landerShadow(vWorld + N0 * 0.05, Ls) : 0.0;
   vec3 albedo = vec3(0.17, 0.164, 0.156) * albedoVar;
   vec3 col = albedo * vec3(1.0, 0.99, 0.975) * uSunPower * ls * phase * surge * vis;
   vec3 Le = normalize(uEarth); float mue = max(dot(Nn, Le), 0.0);

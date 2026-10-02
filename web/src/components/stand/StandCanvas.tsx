@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import type { StandRenderer, StandScene } from '@/lib/sky/standRenderer';
+import { compassWord } from '@/lib/viz/ground';
 
 export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'>;
 /** Where to turn the view; a new object turns it again, even to the same place. */
@@ -17,7 +18,8 @@ const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] bord
  * view smoothly; the labels follow the Sun, Earth and the compass points. The shown time glides to the
  * hour at 14 hours a second (faster than Play's 12), so Play sweeps the shadows smoothly; a jump of more
  * than 2 hours is taken at once. On opening, the view settles from the sky down to the horizon in under
- * 4 seconds, unless the system asks for reduced motion.
+ * 4 seconds, unless the system asks for reduced motion. A line says which way the view faces; the bright
+ * stars carry their names at night and when the view looks up.
  */
 export function StandCanvas({
   scene,
@@ -28,6 +30,7 @@ export function StandCanvas({
   createRenderer,
   sunLabel,
   earthLabel,
+  night,
   onFail,
 }: {
   scene: StandScene;
@@ -38,13 +41,18 @@ export function StandCanvas({
   createRenderer: (canvas: HTMLCanvasElement, scene: StandScene) => RendererLike;
   sunLabel: string;
   earthLabel: string;
+  /** The Sun is hidden at the site: the stars carry their names. */
+  night: boolean;
   onFail: (message: string) => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
   const earthRef = useRef<HTMLSpanElement>(null);
   const compassRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const starRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const facingRef = useRef<HTMLParagraphElement>(null);
   const hourRef = useRef(hour);
+  const nightRef = useRef(night);
   const view = useRef({ yaw: startYaw, pitch: reducedMotion ? 2 : 34, fov: 60 });
   const goal = useRef<LookTarget | null>(null);
   const intro = useRef<{ start: number } | null>(reducedMotion ? null : { start: 0 });
@@ -58,6 +66,9 @@ export function StandCanvas({
   useEffect(() => {
     hourRef.current = hour;
   }, [hour]);
+  useEffect(() => {
+    nightRef.current = night;
+  }, [night]);
   useEffect(() => {
     failRef.current = onFail;
   }, [onFail]);
@@ -120,6 +131,11 @@ export function StandCanvas({
       place(sunRef.current, l.sun);
       place(earthRef.current, l.earth);
       l.compass.forEach((c, k) => place(compassRefs.current[k], c));
+      // Star names at night, or when the view looks well up, where they would not crowd the day's sky.
+      const named = nightRef.current || v.pitch > 25;
+      l.stars.forEach((st, k) => place(starRefs.current[k], { ...st, visible: st.visible && named }));
+      const facing = `Facing ${compassWord(v.yaw)}`;
+      if (facingRef.current && facingRef.current.textContent !== facing) facingRef.current.textContent = facing;
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -195,6 +211,13 @@ export function StandCanvas({
           turn(k[0], k[1], k[2]);
         }}
       />
+      <p
+        ref={facingRef}
+        aria-live="off"
+        className="pointer-events-none fixed bottom-[96px] left-1/2 -translate-x-1/2 rounded-[5px] bg-black/70 px-2.5 py-1 text-[15px] text-[#f2f0ea] max-md:bottom-[262px]"
+      >
+        {`Facing ${compassWord(startYaw)}`}
+      </p>
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
         <span ref={sunRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#f6b646]`}>
           {sunLabel}
@@ -202,6 +225,18 @@ export function StandCanvas({
         <span ref={earthRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#74adff]`}>
           {earthLabel}
         </span>
+        {(scene.sky.names ?? []).map((st, k) => (
+          <span
+            key={st.name}
+            ref={(node) => {
+              starRefs.current[k] = node;
+            }}
+            hidden
+            className="pointer-events-none absolute translate-x-2 -translate-y-1/2 whitespace-nowrap text-[14px] text-[#d7d4cc] [text-shadow:0_0_4px_#000]"
+          >
+            {st.name}
+          </span>
+        ))}
         {(['N', 'E', 'S', 'W'] as const).map((letter, k) => (
           <span
             key={letter}

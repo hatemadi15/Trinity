@@ -24,11 +24,13 @@ export interface StandScene {
   mastM: number;
   sky: SkyAssets;
   quality?: 'full' | 'fast';
+  /** A lander drawn beside the site for scale: its direction and distance from the eye, and its power hour by hour. */
+  lander?: { azDeg: number; distM: number; powered: ArrayLike<number> };
 }
 
 type Spot = { x: number; y: number; visible: boolean };
 /** Where the labels go, as fractions of the view's width and height (y is the label's foot). */
-export interface SkyLabels { sun: Spot; earth: Spot; compass: (Spot & { letter: 'N' | 'E' | 'S' | 'W' })[] }
+export interface SkyLabels { sun: Spot; earth: Spot; compass: (Spot & { letter: 'N' | 'E' | 'S' | 'W' })[]; stars: (Spot & { name: string })[] }
 
 const DEG = Math.PI / 180;
 /** The sky sphere and the far skyline ring, metres from the eye. */
@@ -69,7 +71,7 @@ function heightTexture(l: FieldLevel | undefined, half: boolean): THREE.DataText
 /** A level's mesh around the site, out to `halfM` (or the level's edge); returns the mesh and how far it reaches on its nearest side. */
 function groundMesh(l: FieldLevel, lonDeg: number, halfM: number, material: THREE.ShaderMaterial): { mesh: THREE.Mesh; reachM: number } {
   const sc = Math.round(l.siteCol), sr = Math.round(l.siteRow), n = Math.floor(halfM / l.cell);
-  const c0 = Math.max(1, sc - n), c1 = Math.min(l.cols - 2, sc + n), r0 = Math.max(1, sr - n), r1 = Math.min(l.rows - 2, sr + n);
+  const c0 = Math.max(2, sc - n), c1 = Math.min(l.cols - 3, sc + n), r0 = Math.max(2, sr - n), r1 = Math.min(l.rows - 3, sr + n);
   const cols = c1 - c0 + 1, rows = r1 - r0 + 1;
   const pos = new Float32Array(cols * rows * 3), nor = new Float32Array(cols * rows * 3);
   const h = (r: number, c: number) => l.heights[r * l.cols + c];
@@ -79,7 +81,8 @@ function groundMesh(l: FieldLevel, lonDeg: number, halfM: number, material: THRE
       pos[k * 3] = w.x;
       pos[k * 3 + 1] = h(r, c);
       pos[k * 3 + 2] = w.z;
-      const gx = (h(r, c + 1) - h(r, c - 1)) / (2 * l.cell), gy = (h(r - 1, c) - h(r + 1, c)) / (2 * l.cell);
+      // Slopes over two cells each way: the grids' single-row seams do not ripple the light.
+      const gx = (h(r, c + 2) + h(r, c + 1) - h(r, c - 1) - h(r, c - 2)) / (6 * l.cell), gy = (h(r - 2, c) + h(r - 1, c) - h(r + 1, c) - h(r + 2, c)) / (6 * l.cell);
       const g = worldOf(lonDeg, -gx, -gy), len = Math.hypot(g.x, 1, g.z);
       nor[k * 3] = g.x / len;
       nor[k * 3 + 1] = 1 / len;
@@ -160,6 +163,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         uDetail: { value: detail && !fast ? 1 : 0 },
         uSunPower: { value: 3.4 },
         uHole: { value: new THREE.Vector2(hole, hole) },
+        uLanderOn: { value: 0 },
+        uLanderMin: { value: new THREE.Vector3() },
+        uLanderMax: { value: new THREE.Vector3() },
       },
       vertexShader: GROUND_VERT,
       fragmentShader: GROUND_FRAG,
@@ -268,6 +274,22 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   earth.matrixAutoUpdate = false;
   root.add(earth);
 
+  // A lander beside the site, for scale: gold foil body, solar panel, legs, an antenna and a light that shows its power.
+  const lander = scene.lander ? buildLander(scene.lander.azDeg, scene.lander.distM, scene.series.sunAz[0]) : null;
+  const sunLight = new THREE.DirectionalLight(0xffffff, 0), skyLight = new THREE.HemisphereLight(0x8aa7ff, 0x0b0b0b, 0);
+  if (lander) {
+    const lx = lander.group.position.x, lz = lander.group.position.z, ly = heightAt(scene.field, lx, lz);
+    lander.group.position.y = ly;
+    root.add(lander.group, sunLight, sunLight.target, skyLight);
+    sunLight.target.position.set(lx, ly + 1.5, lz);
+    for (const g of ground) {
+      const u = (g.material as THREE.ShaderMaterial).uniforms;
+      u.uLanderOn.value = 1;
+      u.uLanderMin.value.set(lx - 0.9, ly + 0.9, lz - 0.9);
+      u.uLanderMax.value.set(lx + 0.9, ly + 3.2, lz + 0.9);
+    }
+  }
+
   const startMs = Date.parse(scene.startUtc + 'Z');
   const sunDir = new THREE.Vector3(), earthPos = new THREE.Vector3();
   function update(t: number) {
@@ -290,11 +312,20 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     earth.matrixWorldNeedsUpdate = true;
     earthMat.uniforms.uSun.value.set(...sd);
     const full = earthLitFraction(sd as Vec3, ed as Vec3);
+    // Earthlight on the ground; when the Sun is hidden the view is exposed like a long photograph, so it shows.
+    const earthshine = v.earthEl > -0.5 ? 0.25 * full * (1 + 4 * (1 - v.sunFraction)) : 0;
     for (const g of ground) {
       const u = (g.material as THREE.ShaderMaterial).uniforms;
       u.uSun.value.set(...sd);
       u.uEarth.value.set(...ed);
-      u.uEarthshine.value = v.earthEl > -0.5 ? 0.25 * full : 0;
+      u.uEarthshine.value = earthshine;
+    }
+    if (lander) {
+      sunLight.position.copy(sunLight.target.position).addScaledVector(sunDir, 50);
+      sunLight.intensity = 3.2 * v.sunFraction;
+      skyLight.intensity = 0.02 + 0.6 * earthshine;
+      const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
+      lander.lamp.color.setHex(Number(scene.lander!.powered[h]) === 1 ? 0x46c98b : 0x000000);
     }
     // A camera's exposure: faint stars fade while the Sun is in view.
     starMat.uniforms.uGain.value = 1.6 - 1.25 * v.sunFraction;
@@ -323,7 +354,15 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       const d = dirAzEl(k * 90, maskAt(k * 90) + 1);
       return { letter, ...spot(new THREE.Vector3(d[0] * 30000, eye + d[1] * 30000, d[2] * 30000)) };
     });
-    return { sun: spot(sun.position, SUN_D * 3), earth: spot(earthPos, EARTH_R * 1.25), compass };
+    // The brightest stars by name, where they stand above the skyline.
+    const stars = (scene.sky.names ?? []).map(({ index, name }) => {
+      const w = new THREE.Vector3(starPos[index * 3], starPos[index * 3 + 1], starPos[index * 3 + 2]);
+      const d = w.clone().normalize();
+      const az = ((Math.atan2(d.x, -d.z) / DEG) % 360 + 360) % 360, el = Math.asin(d.y) / DEG;
+      const s = spot(w);
+      return { name, ...s, visible: s.visible && el > maskAt(az) };
+    });
+    return { sun: spot(sun.position, SUN_D * 3), earth: spot(earthPos, EARTH_R * 1.25), compass, stars };
   }
 
   const dispose = () => {
@@ -339,7 +378,48 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     });
   };
 
-  return { root, camera, update, setView, labels, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare } };
+  return { root, camera, update, setView, labels, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null } };
+}
+
+/**
+ * A small solar lander, drawn for scale (not measured): a gold foil body on four legs, a deck, a vertical
+ * solar panel facing `panelAzDeg`, an antenna, and a lamp whose colour shows its power. It stands `distM`
+ * from the eye towards `azDeg`; its local origin is the ground under its centre.
+ */
+function buildLander(azDeg: number, distM: number, panelAzDeg: number) {
+  const group = new THREE.Group();
+  const a = azDeg * DEG;
+  group.position.set(distM * Math.sin(a), 0, -distM * Math.cos(a));
+  const foil = new THREE.MeshStandardMaterial({ color: 0xd4a640, metalness: 0.35, roughness: 0.5 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0x9a9a96, metalness: 0.5, roughness: 0.55 });
+  const cells = new THREE.MeshStandardMaterial({ color: 0x1d2b4f, metalness: 0.4, roughness: 0.3 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.0, 1.5), foil);
+  body.position.y = 1.4;
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.06, 1.6), metal);
+  deck.position.y = 1.93;
+  group.add(body, deck);
+  for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+    const top = new THREE.Vector3(0.7 * sx, 0.95, 0.7 * sz), foot = new THREE.Vector3(1.2 * sx, 0.05, 1.2 * sz);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, top.distanceTo(foot), 8), metal);
+    leg.position.copy(top).add(foot).multiplyScalar(0.5);
+    leg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), top.clone().sub(foot).normalize());
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.05, 16), metal);
+    pad.position.copy(foot);
+    group.add(leg, pad);
+  }
+  const p = panelAzDeg * DEG;
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 0.04), cells);
+  panel.position.y = 2.6;
+  panel.rotation.y = Math.atan2(Math.sin(p), -Math.cos(p));
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.1, 8), metal);
+  mast.position.set(0.6, 2.5, -0.6);
+  const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.08, 0.06, 20), metal);
+  dish.position.set(0.6, 3.07, -0.6);
+  const lamp = new THREE.MeshBasicMaterial({ color: 0x46c98b });
+  const light = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), lamp);
+  light.position.set(0.76, 1.75, 0.76);
+  group.add(panel, mast, dish, light);
+  return { group, lamp };
 }
 
 /** The WebGL side: the renderer, bloom for the Sun, and a pixel-ratio step down when frames come slowly. Throws without WebGL 2. */
@@ -366,7 +446,8 @@ export class StandRenderer {
     // Heights go to the GPU as float32 where it can filter them, else as half floats.
     this.built = buildScene(scene, { halfFloat: !this.renderer.extensions.has('OES_texture_float_linear') });
     this.built.starMaterial.uniforms.uPx.value = this.pixelRatio;
-    this.composer = new EffectComposer(this.renderer);
+    // Four samples per pixel in the composer's own target: smooth edges on Earth and the skyline.
+    this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
     this.composer.addPass(new RenderPass(this.built.root, this.built.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.75, 0.45, 0.985);
     this.composer.addPass(this.bloom);

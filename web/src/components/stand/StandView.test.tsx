@@ -3,7 +3,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
-import { liveSentence, skyLabel } from '@/lib/viz/stand';
+import { compassWord } from '@/lib/viz/ground';
+import { landerState, liveSentence, skyLabel, watchNext } from '@/lib/viz/stand';
 import { fileLoaders } from '@/test/file-loaders';
 import { StandView } from './StandView';
 import type { RendererLike } from './StandCanvas';
@@ -26,6 +27,7 @@ vi.mock('@/lib/data/sky', () => ({
     moon: { startMs: 0, stepMs: 1, count: 2, quats: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0]) },
     earthDayUrl: '',
     earthCloudsUrl: '',
+    names: [{ index: 0, name: 'Sirius' }],
   }),
 }));
 
@@ -33,6 +35,7 @@ const everywhere: SkyLabels = {
   sun: { x: 0.5, y: 0.4, visible: true },
   earth: { x: 0.7, y: 0.4, visible: true },
   compass: (['N', 'E', 'S', 'W'] as const).map((letter, k) => ({ letter, x: 0.2 * (k + 1), y: 0.6, visible: true })),
+  stars: [{ name: 'Sirius', x: 0.3, y: 0.2, visible: true }],
 };
 const stub = () => ({ setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels: () => everywhere, dispose: vi.fn() }) satisfies RendererLike;
 
@@ -50,14 +53,21 @@ describe('StandView', () => {
   it('opens on the site, period and hour of the address, with the answer, the live sentence, the lander and the time bar', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     expect(store.getState().cursorHour).toBe(10);
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing at de Gerlache Rim 2 on 1 January/);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing at de\sGerlache\sRim\s2 on 1 January/);
     expect(screen.getByText(/^Standing at de Gerlache Rim 2, 88\.3° S/)).toBeTruthy();
-    expect(screen.getByText(liveSentence(store.getState().series!, 10))).toBeTruthy();
+    expect(screen.getByText(liveSentence(store.getState().series!, 10, true))).toBeTruthy();
     expect(screen.getByText('The lander has power.')).toBeTruthy();
+    // What to watch next, and the site's name kept on one line in the headline.
+    expect(screen.getByText(watchNext(store.getState().series!, store.getState().power, '2027-01-01T00:00:00', 10))).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('de\u00a0Gerlache\u00a0Rim\u00a02');
     expect(screen.getByRole('slider', { name: 'Time' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     for (const name of ['Face the Sun', 'Face Earth', 'Look up']) expect(screen.getByRole('button', { name })).toBeTruthy();
-    await waitFor(() => expect(screen.getAllByText(/The small craters underfoot are drawn, not measured\./).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getAllByText(/small craters underfoot are drawn, not measured\./).length).toBeGreaterThan(0));
+    expect(screen.getAllByText('How we know this').length).toBeGreaterThan(0);
+    // Which way the view faces, and the bright stars by name.
+    expect(screen.getByText(`Facing ${compassWord(store.getState().series!.sunAz[10])}`)).toBeTruthy();
+    expect(screen.getByText('Sirius')).toBeTruthy();
     await waitFor(() => expect(screen.getByText('N')).toBeTruthy());
     for (const letter of ['E', 'S', 'W']) expect(screen.getByText(letter)).toBeTruthy();
     expect(document.querySelector('.theme-dark')).toBeTruthy();
@@ -69,7 +79,7 @@ describe('StandView', () => {
     await waitFor(() => expect(screen.getByText(skyLabel('sun', series, 10))).toBeTruthy());
     expect(screen.getByText(skyLabel('earth', series, 10))).toBeTruthy();
     act(() => store.getState().setCursor(300));
-    await waitFor(() => expect(screen.getByText(liveSentence(series, 300))).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(liveSentence(series, 300, store.getState().power!.powered[300] === 1))).toBeTruthy());
     expect(screen.getByText(skyLabel('sun', series, 300))).toBeTruthy();
   });
 
@@ -80,7 +90,7 @@ describe('StandView', () => {
 
   it('opens a site without polar terrain on flat ground, and says so', async () => {
     await open('?site=blue_ghost_m1&start=2025-03-02T09:00&days=14&hour=0');
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing at Blue Ghost/);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing at Blue\sGhost/);
     await waitFor(() => expect(screen.getAllByText(/the ground here is drawn flat/).length).toBeGreaterThan(0));
   });
 
@@ -91,8 +101,8 @@ describe('StandView', () => {
     await waitFor(() => expect(screen.getByText(/This browser cannot draw the view from the site/)).toBeTruthy());
     expect(screen.getByRole('img', { name: /^The view all round the site/ })).toBeTruthy();
     // The note describes the view from the site, which the fallback does not show.
-    expect(screen.queryByText(/What is measured/)).toBeNull();
-    expect(screen.getByText(liveSentence(store.getState().series!, 10))).toBeTruthy();
+    expect(screen.queryByText(/How we know this/)).toBeNull();
+    expect(screen.getByText(liveSentence(store.getState().series!, 10, true))).toBeTruthy();
   });
 
   it('keeps one renderer while the time moves', async () => {
@@ -104,7 +114,7 @@ describe('StandView', () => {
     await waitFor(() => expect(made).toBe(1));
     act(() => store.getState().setCursor(40));
     act(() => store.getState().setCursor(41));
-    await waitFor(() => expect(screen.getByText(liveSentence(store.getState().series!, 41))).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(liveSentence(store.getState().series!, 41, true))).toBeTruthy());
     expect(made).toBe(1);
   });
 
@@ -120,6 +130,32 @@ describe('StandView', () => {
     fireEvent.pointerUp(canvas, { pointerId: 1 });
     // The fingers moved twice as far apart: the view is half as wide (60° to 30°).
     await waitFor(() => expect(r.setView.mock.calls.at(-1)![2]).toBeCloseTo(30, 0));
+  });
+
+  it('does not promise radio contact while the lander is off', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=219');
+    const st = store.getState();
+    expect(landerState(st.power, st.startUtc, 219).on).toBe(false);
+    expect(st.series!.earthVisible[219]).toBe(1);
+    expect(screen.getByText(/but the lander has no power for its radio\.$/)).toBeTruthy();
+  });
+
+  it('hides the words for a clear view, and brings them back', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the words' }));
+    expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Face the Sun' })).toBeNull();
+    expect(screen.getByRole('slider', { name: 'Time' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show the words' }));
+    expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
+  });
+
+  it('turns "Look up" into "Look ahead", the way back to the horizon', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    fireEvent.click(screen.getByRole('button', { name: 'Look up' }));
+    expect(screen.queryByRole('button', { name: 'Look up' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Look ahead' }));
+    expect(screen.getByRole('button', { name: 'Look up' })).toBeTruthy();
   });
 
   it('lets the renderer go when the view closes', async () => {

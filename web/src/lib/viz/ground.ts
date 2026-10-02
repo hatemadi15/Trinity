@@ -9,7 +9,7 @@ export function compassWord(azDeg: number): string {
 }
 
 /** "2°", or "1.6°" below one degree and a half, where a whole number would say too little. */
-const degrees = (v: number) => (Math.abs(v) < 1.95 ? `${Math.round(v * 10) / 10}°` : `${Math.round(v)}°`);
+export const degrees = (v: number) => (Math.abs(v) < 1.95 ? `${Math.round(v * 10) / 10}°` : `${Math.round(v)}°`);
 
 /**
  * The ground panel's words for one hour: whether the site is in sunlight and why not, and whether
