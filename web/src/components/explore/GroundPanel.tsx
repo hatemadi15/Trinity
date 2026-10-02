@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Scene3DLazy } from '@/components/three';
 import { siteLabel, type Site } from '@/lib/data/loaders';
@@ -7,6 +8,7 @@ import type { Series } from '@/lib/engine/metrics';
 import { sunBearingDeg } from '@/lib/engine/shadow';
 import { useFullscreenEnabled, useIsFullscreen } from '@/lib/hooks/useFullscreen';
 import { useShadowPicture, type ShadowSource } from '@/lib/hooks/useShadowPicture';
+import { standHref } from '@/lib/links';
 import type { Exaggeration, SceneMode, TerrainState } from '@/lib/store/explore';
 import { groundWords } from '@/lib/viz/ground';
 import type { SceneState } from '@/lib/viz/scene-state';
@@ -48,7 +50,9 @@ function KeyItem({ sample, children }: { sample: ReactNode; children: string }) 
  * The ground around the site at the time bar's hour, three ways: from above with its shadows (the
  * default for a polar site), in 3D with the same light, and the view all round with the Sun's and
  * Earth's paths (the default for a site with no polar terrain, which has no map). Above every tab one
- * sentence says whether the site is in sunlight and whether Earth can be reached.
+ * sentence says whether the site is in sunlight and whether Earth can be reached. Beside the tabs,
+ * "Stand here" opens the view from the site itself at the same hour (on flat ground where there is no
+ * polar terrain).
  */
 export function GroundPanel({
   site,
@@ -65,6 +69,7 @@ export function GroundPanel({
   customError,
   when,
   startUtc,
+  days,
   mask,
   series,
   cursor,
@@ -89,6 +94,8 @@ export function GroundPanel({
   when: string;
   /** The period's first hour, for the dates on the view all round. */
   startUtc: string;
+  /** The period's length, for the address of the view from the site. */
+  days: number;
   mask: ArrayLike<number>;
   series: Series;
   cursor: number;
@@ -143,26 +150,33 @@ export function GroundPanel({
         </h2>
         <p className="text-[15px] text-ink-2">{when}</p>
       </div>
-      <div role="tablist" aria-label="How to look at the ground" className="mt-2 flex gap-6 border-b border-line">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            ref={(el) => {
-              tabs.current[t.id] = el;
-            }}
-            type="button"
-            role="tab"
-            id={`ground-tab-${t.id}`}
-            aria-selected={tab === t.id}
-            aria-controls={`ground-panel-${t.id}`}
-            tabIndex={tab === t.id ? 0 : -1}
-            onClick={() => setChosen(t.id)}
-            onKeyDown={onTabKey}
-            className={tabClass(tab === t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* The tabs, and beside them the way to stand at the site. Where the row is too narrow for both, the
+          button goes above the tabs (wrap-reverse), so the chosen tab's underline stays on the line. */}
+      <div className="mt-2 flex flex-wrap-reverse justify-between gap-x-6 gap-y-2 border-b border-line">
+        <div role="tablist" aria-label="How to look at the ground" className="mt-auto flex gap-6">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              ref={(el) => {
+                tabs.current[t.id] = el;
+              }}
+              type="button"
+              role="tab"
+              id={`ground-tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls={`ground-panel-${t.id}`}
+              tabIndex={tab === t.id ? 0 : -1}
+              onClick={() => setChosen(t.id)}
+              onKeyDown={onTabKey}
+              className={tabClass(tab === t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <Link href={standHref(site.id, startUtc, days, cursor)} className="btn btn-sm mb-1.5 mt-auto">
+          Stand here
+        </Link>
       </div>
       <p data-part="now" className="mt-4 max-w-[62em] text-[17px] leading-relaxed text-ink">
         <b className="font-semibold">{words.sun}</b> {words.earth}

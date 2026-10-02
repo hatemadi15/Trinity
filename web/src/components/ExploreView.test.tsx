@@ -79,6 +79,14 @@ describe('ExploreView', () => {
     expect(ground.textContent).not.toMatch(/1 Jan 2027, 10:00 UTC/);
   });
 
+  it("opens the view from the site at the time bar's hour, from under the answer and from beside the ground's tabs", async () => {
+    const { store } = await open();
+    act(() => store.getState().setCursor(66));
+    const stand = '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=66';
+    expect(within(screen.getByRole('region', { name: 'The answer' })).getByRole('link', { name: 'Stand at the site' }).getAttribute('href')).toBe(stand);
+    expect(within(screen.getByRole('region', { name: 'The ground' })).getByRole('link', { name: 'Stand here' }).getAttribute('href')).toBe(stand);
+  });
+
   it('lands on the better date when its button is pressed', async () => {
     const { store } = await open();
     fireEvent.click(screen.getByRole('button', { name: /^Land on 20 January/ }));

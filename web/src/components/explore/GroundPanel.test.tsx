@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Heightmap, HeightmapMeta } from '@/lib/data/terrain';
 import type { Series } from '@/lib/engine/metrics';
+import { standHref } from '@/lib/links';
 import type { SceneState } from '@/lib/viz/scene-state';
 import { GroundPanel } from './GroundPanel';
 
@@ -57,6 +58,7 @@ function show(extra: Partial<Parameters<typeof GroundPanel>[0]> = {}) {
       customError={null}
       when="2 Jan 2027, 06:00 UTC"
       startUtc="2027-01-02T03:00:00"
+      days={30}
       mask={new Float64Array(720)}
       series={series}
       cursor={3}
@@ -123,6 +125,24 @@ describe('GroundPanel', () => {
     expect(tab('Shadow map').className).toMatch(/\bborder-ink\b/);
     expect(tab('Shadow map').className).not.toMatch(/\bbg-ink\b/);
     expect(tab('3D').className).toMatch(/\bborder-transparent\b/);
+  });
+
+  it('offers to stand at the site beside the tabs, for the same period and hour, as a quiet button', () => {
+    show();
+    const link = screen.getByRole('link', { name: 'Stand here' });
+    expect(link.getAttribute('href')).toBe(standHref(site.id, '2027-01-02T03:00:00', 30, 3));
+    // Beside the tabs, not one of them: a tab list holds only tabs.
+    expect(link.closest('[role="tablist"]')).toBeNull();
+    expect(link.parentElement).toBe(screen.getByRole('tablist').parentElement);
+    // The page's secondary button (44 px tall, 15 px text); gold is kept for the page's one main action.
+    expect(link.classList.contains('btn')).toBe(true);
+    expect(link.classList.contains('btn-sm')).toBe(true);
+    expect(link.className).not.toMatch(/btn-primary|bg-sun/);
+  });
+
+  it('offers to stand at a site with no polar terrain too, for its own period and hour', () => {
+    show({ site: mare, sites: [mare], mode: 'globe', days: 14, cursor: 7 });
+    expect(screen.getByRole('link', { name: 'Stand here' }).getAttribute('href')).toBe(standHref(mare.id, '2027-01-02T03:00:00', 14, 7));
   });
 
   it('moves between the tabs with the arrow keys, Home and End', () => {

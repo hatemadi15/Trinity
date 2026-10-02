@@ -4,14 +4,15 @@ import { describe, expect, it } from 'vitest';
 
 const css = fs.readFileSync(path.resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
 
-/** Custom properties declared in the first block that starts with `selector {`. */
+/** Custom properties declared in the first top-level block whose selector list names `selector`. */
 function block(selector: string): Record<string, string> {
-  const start = css.indexOf(`${selector} {`);
-  if (start < 0) throw new Error(`no block for ${selector}`);
-  const body = css.slice(start + selector.length + 2, css.indexOf('\n}', start));
-  const out: Record<string, string> = {};
-  for (const m of body.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)) out[m[1]] = m[2].trim();
-  return out;
+  for (const [, selectors, body] of css.matchAll(/^([^\s@/{}][^{}]*)\{([^{}]*)\n\}/gm)) {
+    if (!selectors.split(',').some((s) => s.trim() === selector)) continue;
+    const out: Record<string, string> = {};
+    for (const m of body.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)) out[m[1]] = m[2].trim();
+    return out;
+  }
+  throw new Error(`no block for ${selector}`);
 }
 
 function luminance(hex: string): number {
@@ -52,6 +53,11 @@ describe('theme tokens', () => {
     expect(light['--stage']).toBe('#000000');
     expect(light['--sun']).toBe('#f2b134');
     expect(dark['--earth']).toBe('#6aa9ff');
+  });
+
+  it('gives the dark values to anything inside .theme-dark in either theme, so the time bar under the black sky stays dark', () => {
+    expect(block('.theme-dark')).toEqual(dark);
+    expect(css).toMatch(/\.theme-dark \{[^}]*color-scheme: dark;/);
   });
 
   it('keeps the stage darker than the dark page and gives it an edge that shows on both, so a picture panel never melts into the page', () => {

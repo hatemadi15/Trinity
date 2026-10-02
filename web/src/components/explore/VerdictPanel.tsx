@@ -15,8 +15,8 @@ function BatteryMark({ good }: { good: boolean }) {
 
 /**
  * The answer, first on the page: where and when the lander lands, how long the power lasts and why,
- * contact with Earth in that time, the better landing date and a better place nearby. The better date
- * is the one gold button; when there is none, "Compare sites" is.
+ * contact with Earth in that time, the better landing date and a better place nearby, then the way to
+ * stand at the site. The better date is the one gold button; when there is none, "Compare sites" is.
  */
 export function VerdictPanel({
   answer,
@@ -25,6 +25,7 @@ export function VerdictPanel({
   onYear,
   yearNote,
   nearby = null,
+  standLink,
 }: {
   answer: Answer;
   onLand: (startUtc: string) => void;
@@ -33,6 +34,8 @@ export function VerdictPanel({
   yearNote: string | null;
   /** A nearby site that keeps power clearly longer from the same landing day, in one sentence with its link. */
   nearby?: { words: string; name: string; href: string } | null;
+  /** The stand view for this site, period and hour. */
+  standLink?: string;
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -81,6 +84,14 @@ export function VerdictPanel({
             </Link>
           </div>
         ))}
+      {/* The way to stand at the site: a plain link, never a second gold action. */}
+      {standLink && (
+        <p className="mt-1">
+          <Link href={standLink} className="inline-flex min-h-[40px] items-center font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+            Stand at the site
+          </Link>
+        </p>
+      )}
       <p className="mt-auto pt-3 text-ink-2">
         <button type="button" onClick={onYear} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           Find the best date in the next 12 months
