@@ -1,4 +1,4 @@
-import { PANEL_LABELS } from '../engine/power';
+import { PANEL_LABELS, type PanelModel } from '../engine/power';
 import { dateLong, pct, spanWords } from '../viz/format';
 import type { ChatMessage } from './openrouter';
 import { completeSentences, extractJsonDetailed } from './protocol';
@@ -102,6 +102,14 @@ export function foreignNumbers(reply: string, s: StateSummary): string[] {
 
 const hemi = (v: number, pos: string, neg: string) => `${Math.abs(v).toFixed(3)}°${v < 0 ? neg : pos}`;
 
+/** The panel in a sentence, after its size: "a 4 m² upright panel that turns to the Sun". */
+const PANEL_WORDS: Record<PanelModel, string> = {
+  horizontal: 'flat panel facing up',
+  vertical: 'fixed upright panel',
+  vertical_tracking: 'upright panel that turns to the Sun',
+  full_tracking: 'panel that follows the Sun on two axes',
+};
+
 /**
  * The deterministic paragraph, in the verdict's words: the site and period, sunlight and the longest
  * night, Earth in view, then the lander and how long it keeps power from landing on the first day,
@@ -119,7 +127,7 @@ export function templateBrief(s: StateSummary): string {
   return (
     `${s.site.label} (${hemi(s.site.lat, 'N', 'S')}, ${hemi(s.site.lon, 'E', 'W')}), ${days} days from ${date} ${s.window.startUtc.slice(0, 4)}: ` +
     `sunlight ${pct(summary.illumFraction)} of the time and ${night}; Earth in view ${pct(summary.earthVisFraction)} of the time. ` +
-    `A lander with ${PANEL_LABELS[p.panel].toLowerCase()} panels, ${p.areaM2} m² at ${Math.round(p.efficiency * 100)} % efficiency, a ${p.loadW} W load and a ${p.batteryWh} Wh battery starting ${Math.round(p.initialSocFraction * 100)} % full, ` +
+    `A lander with a ${p.areaM2} m² ${PANEL_WORDS[p.panel]} (${Math.round(p.efficiency * 100)} % efficiency), a ${p.loadW} W load and a ${p.batteryWh} Wh battery starting ${Math.round(p.initialSocFraction * 100)} % full, ` +
     `landing on ${date}, ${powerWords}, ${contactWords}.`
   );
 }

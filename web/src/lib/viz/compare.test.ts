@@ -32,25 +32,27 @@ describe('bestSentence', () => {
   const summit = result('b', 'Summit', { sun: 1, earth: 0.49, nightH: 0, brownout: null });
   const floor = result('c', 'Floor', { sun: 0, earth: 0, nightH: 720, brownout: 9 });
 
-  it('names the best site for time with power, sunlight and contact with Earth, for the same landing day', () => {
+  it('names the best site for time with power, sunlight and contact with Earth, for the same landing day, each site once', () => {
     expect(bestSentence([ridge, summit, floor], START, 30)).toBe(
-      'Landing on 1 January, the longest time with power is at Summit (all 30 days), the most sunlight at Summit (100 %) and the most contact with Earth at Ridge (54 %).',
+      'Landing on 1 January, Summit has the longest time with power (all 30 days) and the most sunlight (100 %); Ridge has the most contact with Earth (54 %).',
+    );
+    expect(bestSentence([ridge, floor], START, 30)).toBe(
+      'Landing on 1 January, Ridge has the longest time with power (3 d 4 h), the most sunlight (72 %) and the most contact with Earth (54 %).',
     );
   });
 
   it('names every site that ties', () => {
     const twin = result('d', 'Twin', { sun: 1, earth: 0.49, nightH: 0, brownout: null });
     expect(bestSentence([summit, twin], START, 30)).toBe(
-      'Landing on 1 January, the longest time with power is at Summit and Twin (all 30 days), the most sunlight at Summit and Twin (100 %) and the most contact with Earth at Summit and Twin (49 %).',
+      'Landing on 1 January, Summit and Twin have the longest time with power (all 30 days), the most sunlight (100 %) and the most contact with Earth (49 %).',
     );
   });
 
   it('does not crown a site where every site scores nothing', () => {
     const dark = result('e', 'Pit', { sun: 0, earth: 0, nightH: 720, brownout: 3 });
-    expect(bestSentence([floor, dark], START, 30)).toBe('Landing on 1 January, the longest time with power is at Floor (9 h); none of these sites sees the Sun or Earth.');
-    expect(bestSentence([ridge, floor], START, 30)).toMatch(/the most contact with Earth at Ridge/);
+    expect(bestSentence([floor, dark], START, 30)).toBe('Landing on 1 January, Floor has the longest time with power (9 h); none of these sites sees the Sun or Earth.');
     const blind = result('f', 'Blind', { sun: 0.5, earth: 0, nightH: 300, brownout: 40 });
-    expect(bestSentence([blind, floor], START, 30)).toBe('Landing on 1 January, the longest time with power is at Blind (1 d 16 h) and the most sunlight at Blind (50 %); none of these sites sees Earth.');
+    expect(bestSentence([blind, floor], START, 30)).toBe('Landing on 1 January, Blind has the longest time with power (1 d 16 h) and the most sunlight (50 %); none of these sites sees Earth.');
   });
 
   it('asks for a second site when there is one', () => {

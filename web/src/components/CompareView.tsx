@@ -17,6 +17,8 @@ import { dateLong } from '@/lib/viz/format';
 const LINK = 'font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink';
 const TAG = 'shrink-0 rounded-full border border-line px-2.5 py-0.5 text-[15px] text-ink-2';
 const CELL = 'border-b border-line py-3 pr-4 align-middle';
+/** On a phone a cell is a line of its own: its column's name on the left, the figure on the right. */
+const STACKED = 'max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-4 max-sm:border-0 max-sm:py-1.5 max-sm:pr-0 max-sm:before:text-[15px] max-sm:before:text-ink-2 max-sm:before:content-[attr(data-label)]';
 
 /**
  * Compare: up to four sites over the same period with the same lander, as a table (one row per site),
@@ -110,8 +112,9 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
               The sites side by side
             </h2>
             <p className="max-w-[60em] text-[17px] leading-relaxed text-ink">{bestSentence(s.compare, s.startUtc, s.days)}</p>
-            <table className="mt-4 w-full min-w-[900px] border-collapse text-left">
-              <thead>
+            {/* On a phone each site is a block of labelled figures: no table to scroll sideways. */}
+            <table className="mt-4 w-full border-collapse text-left max-sm:block sm:min-w-[900px]">
+              <thead className="max-sm:sr-only">
                 <tr className="text-[15px] text-ink-2">
                   {['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Verdict', ''].map((h, i) => (
                     <th key={i} scope="col" className="border-b-2 border-ink py-2 pr-4 font-semibold">
@@ -120,23 +123,23 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="max-sm:block">
                 {rows.map((r, i) => (
-                  <tr key={r.id}>
-                    <th scope="row" className={`${CELL} font-semibold`}>
+                  <tr key={r.id} className="max-sm:block max-sm:border-b max-sm:border-line max-sm:py-2">
+                    <th scope="row" className={`${CELL} font-semibold max-sm:block max-sm:border-0`}>
                       <Link href={r.href} className={LINK}>
                         {r.name}
                       </Link>
                     </th>
-                    <td className={CELL}>
+                    <td data-label="Sun and Earth" className={`${CELL} ${STACKED}`}>
                       <MiniStrip series={s.compare[i].series} name={r.name} period={period} />
                     </td>
-                    <td className={`${CELL} tabular-nums`}>{r.sunlight}</td>
-                    <td className={`${CELL} tabular-nums`}>{r.earth}</td>
-                    <td className={`${CELL} tabular-nums`}>{r.longestNight}</td>
-                    <td className={`${CELL} tabular-nums`}>{r.power}</td>
-                    <td className={`${CELL} font-medium ${r.tone === 'good' ? 'text-good' : 'text-bad'}`}>{r.verdict}</td>
-                    <td className={`${CELL} text-right`}>
+                    <td data-label="Sunlight" className={`${CELL} ${STACKED} tabular-nums`}>{r.sunlight}</td>
+                    <td data-label="Earth in view" className={`${CELL} ${STACKED} tabular-nums`}>{r.earth}</td>
+                    <td data-label="Longest night" className={`${CELL} ${STACKED} tabular-nums`}>{r.longestNight}</td>
+                    <td data-label="Time with power" className={`${CELL} ${STACKED} tabular-nums`}>{r.power}</td>
+                    <td data-label="Verdict" className={`${CELL} ${STACKED} font-medium ${r.tone === 'good' ? 'text-good' : 'text-bad'}`}>{r.verdict}</td>
+                    <td data-label="" className={`${CELL} ${STACKED} text-right`}>
                       <button type="button" onClick={() => store.getState().removeFromCompare(r.id)} aria-label={`Remove ${r.name}`} className="h-10 rounded-lg border border-line-strong px-3 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
                         Remove
                       </button>
@@ -166,9 +169,9 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
           {full && <p className="pb-3 text-[15px] text-ink-2">Four sites is the most this page compares: remove one to add another.</p>}
         </div>
         {rows.length > 0 && (
-          <p className="flex flex-wrap gap-x-6 gap-y-2">
+          <p className="flex flex-wrap items-center gap-x-6 gap-y-3">
             {rows.length >= 2 && (
-              <button type="button" onClick={() => void store.getState().findBestWindow(s.days, 'compare')} className={`${LINK} text-left`}>
+              <button type="button" onClick={() => void store.getState().findBestWindow(s.days, 'compare')} className="btn text-left">
                 Find the best landing day for these sites in the next 12 months
               </button>
             )}

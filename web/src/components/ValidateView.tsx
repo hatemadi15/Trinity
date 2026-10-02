@@ -2,6 +2,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { AppFrame } from './AppFrame';
 import { dataBase, loadEphemerisFromUrl } from '@/lib/data/loaders';
+import { degreesText } from '@/lib/data/home';
 import { exploreStore } from '@/lib/store/explore';
 import { loadValidation, type BackcastRow, type ValidationDocs } from '@/lib/data/validation';
 import type { HorizonsBody } from '@/lib/horizons/query';
@@ -284,7 +285,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             Error budget
           </h2>
           <ul className="mt-3 flex max-w-[62em] flex-col gap-2 leading-relaxed text-ink-2">
-            <li>Directions to the Sun and Earth: under 0.01° (the first check finds {exp1(horizons.max_abs_delta_el_deg)}).</li>
+            <li>Directions to the Sun and Earth: under 0.01° (the first check finds {degreesText(horizons.max_abs_delta_el_deg)}).</li>
             <li>The hills on the horizon: 0.05 to 0.15°, from NASA&apos;s elevation grids of 20 to 240 m with 1 to 2 m of height noise, which the app reproduces to 0.01°.</li>
             <li>Times of sunrise, sunset and Earthrise: within 15 to 60 minutes near the pole, where the Sun moves half a degree an hour along the horizon and the forecast is hourly.</li>
           </ul>

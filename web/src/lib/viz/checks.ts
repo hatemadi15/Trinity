@@ -25,7 +25,10 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-/** One sentence for the landers: who ended at sunset, and who died early with a stated reason. */
+/** The lander, not its site: "IM-1 Odysseus landing site (Malapert A)" is "IM-1 Odysseus". */
+const lander = (r: BackcastRow) => r.name.replace(/ landing site\b.*$/, '');
+
+/** One sentence for the landers: who ended at sunset, and who ended early with a stated reason. */
 export function backcastSentence(rows: BackcastRow[]): string {
   const dated = rows.filter((r) => r.end_minus_sunset_h !== null);
   if (dated.length === 0) return 'No landed mission has a reported end yet.';
@@ -34,9 +37,9 @@ export function backcastSentence(rows: BackcastRow[]): string {
   const parts: string[] = [];
   if (agreed.length > 0) {
     const worst = Math.max(...agreed.map((r) => Math.abs(r.end_minus_sunset_h!)));
-    parts.push(`${agreed.map((r) => r.name).join(' and ')} ended within ${worst.toFixed(1)} h of the predicted sunset`);
+    parts.push(`${agreed.map(lander).join(' and ')} ended within ${worst.toFixed(1)} h of the predicted sunset`);
   }
-  if (early.length > 0) parts.push(`${early.map((r) => r.name).join(' and ')} died early for known reasons (in the numbers), so their rows only show that the Sun was still up`);
+  if (early.length > 0) parts.push(`${early.map(lander).join(' and ')} ended early for known reasons (see the numbers), so their rows only show that the Sun was still up`);
   return parts.join('; ') + '.';
 }
 

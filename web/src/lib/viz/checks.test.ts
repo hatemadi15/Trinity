@@ -38,7 +38,8 @@ describe('checkCards', () => {
     const c = checkCards(docs)[2];
     expect(c).toMatchObject({ pass: true, figure: '2.4 hours', figureWords: "between Blue Ghost's last signal and our predicted sunset" });
     expect(c.mark).toBe('Passes: within 6 hours of sunset');
-    expect(c.sentence).toMatch(/died early for known reasons/);
+    expect(c.sentence).toMatch(/Blue Ghost Mission 1 ended within 2\.4 h of the predicted sunset; IM-1 Odysseus and IM-2 Athena ended early for known reasons \(see the numbers\), so their rows only show that the Sun was still up\./);
+    expect(c.sentence).not.toMatch(/landing site|died/);
     const late = { ...docs.backcasts, rows: docs.backcasts.rows.map((r) => (r.site_id === 'blue_ghost_m1' ? { ...r, end_minus_sunset_h: 30 } : r)) };
     expect(checkCards({ ...docs, backcasts: late })[2]).toMatchObject({ pass: false, mark: 'Misses: more than 6 hours from sunset' });
   });

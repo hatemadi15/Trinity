@@ -52,15 +52,16 @@ function list(words: string[]): string {
 }
 
 /** The best score among the sites and every site that reaches it. */
-function best(results: SiteResult[], score: (r: SiteResult) => number): { top: number; names: string } {
+function best(results: SiteResult[], score: (r: SiteResult) => number): { top: number; names: string[] } {
   const top = Math.max(...results.map(score));
-  return { top, names: list(results.filter((r) => score(r) === top).map((r) => siteLabel(r.site))) };
+  return { top, names: results.filter((r) => score(r) === top).map((r) => siteLabel(r.site)) };
 }
 
 /**
  * One sentence over the table: for a lander landing on the period's first day, the site with the
  * longest time with power, the most sunlight and the most contact with Earth (ties name every site,
- * compared as the table prints them). A measure where every site scores nothing names no site.
+ * compared as the table prints them), each site named once with everything it wins. A measure where
+ * every site scores nothing names no site.
  */
 export function bestSentence(results: SiteResult[], startUtc: string, days: number): string {
   if (results.length === 0) return '';
@@ -69,9 +70,17 @@ export function bestSentence(results: SiteResult[], startUtc: string, days: numb
   const power = best(results, (r) => poweredHours(r, hours));
   const sun = best(results, (r) => Math.round(r.summary.illumFraction * 100));
   const earth = best(results, (r) => Math.round(r.summary.earthVisFraction * 100));
-  const parts = [`the longest time with power is at ${power.names} (${power.top >= hours ? `all ${days} days` : spanShort(power.top)})`];
-  if (sun.top > 0) parts.push(`the most sunlight at ${sun.names} (${sun.top} %)`);
-  if (earth.top > 0) parts.push(`the most contact with Earth at ${earth.names} (${earth.top} %)`);
+  const wins = [{ names: power.names, words: `the longest time with power (${power.top >= hours ? `all ${days} days` : spanShort(power.top)})` }];
+  if (sun.top > 0) wins.push({ names: sun.names, words: `the most sunlight (${sun.top} %)` });
+  if (earth.top > 0) wins.push({ names: earth.names, words: `the most contact with Earth (${earth.top} %)` });
+  const bySites = new Map<string, { names: string[]; words: string[] }>();
+  for (const w of wins) {
+    const key = w.names.join('\n');
+    const group = bySites.get(key) ?? { names: w.names, words: [] };
+    group.words.push(w.words);
+    bySites.set(key, group);
+  }
+  const clauses = [...bySites.values()].map((g) => `${list(g.names)} ${g.names.length > 1 ? 'have' : 'has'} ${list(g.words)}`);
   const none = sun.top === 0 && earth.top === 0 ? '; none of these sites sees the Sun or Earth.' : earth.top === 0 ? '; none of these sites sees Earth.' : sun.top === 0 ? '; none of these sites sees the Sun.' : '.';
-  return `Landing on ${dateLong(startUtc, 0)}, ${list(parts)}${none}`;
+  return `Landing on ${dateLong(startUtc, 0)}, ${clauses.join('; ')}${none}`;
 }

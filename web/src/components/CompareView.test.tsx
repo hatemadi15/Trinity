@@ -33,7 +33,26 @@ describe('CompareView', () => {
     const store = await open();
     await store.getState().addToCompare('de_gerlache_rim_2');
     await store.getState().addToCompare('de_gerlache_center_rim_high');
-    await waitFor(() => expect(screen.getByRole('main').textContent).toMatch(/Landing on 1 January, the longest time with power is at de Gerlache rim summit \(all 30 days\)/));
+    await waitFor(() => expect(screen.getByRole('main').textContent).toMatch(/Landing on 1 January, de Gerlache rim summit has the longest time with power \(all 30 days\)/));
+    // The year search is a button that looks like one, at least 40 px tall like every control.
+    expect(screen.getByRole('button', { name: 'Find the best landing day for these sites in the next 12 months' }).className).toMatch(/\bbtn\b/);
+  });
+
+  it('on a phone shows each site as a block of labelled figures instead of a table to scroll sideways', async () => {
+    const store = await open();
+    await store.getState().addToCompare('de_gerlache_rim_2');
+    await store.getState().addToCompare('de_gerlache_center_rim_high');
+    const table = await screen.findByRole('table', {}, { timeout: 20_000 });
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
+    expect(table.className).toMatch(/\bmax-sm:block\b/);
+    expect(table.className).not.toMatch(/(^|\s)min-w-\[/);
+    expect(table.querySelector('thead')!.className).toMatch(/\bmax-sm:sr-only\b/);
+    const heads = within(table).getAllByRole('columnheader').map((h) => h.textContent);
+    for (const row of within(table).getAllByRole('row').slice(1)) {
+      const cells = Array.from(row.querySelectorAll('td'));
+      expect(cells.map((c) => c.getAttribute('data-label'))).toEqual(heads.slice(1));
+      expect(cells[1].className).toMatch(/max-sm:before:content-\[attr\(data-label\)\]/);
+    }
   });
 
   it('adds a site from its list and removes one with its own button', async () => {

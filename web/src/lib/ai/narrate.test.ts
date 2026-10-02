@@ -42,6 +42,7 @@ describe('templateBrief', () => {
     expect(a).toMatch(/landing on 1 March, keeps power for all 14 days, with Earth in view for 9 days 9 hours of that time\.$/);
     expect(a).toMatch(/100\.0 %/);
     expect(a).not.toMatch(/surviv|skyline|window/);
+    expect(a).toMatch(new RegExp(`A lander with a ${DEFAULT_POWER.areaM2} m² upright panel that turns to the Sun \\(${Math.round(DEFAULT_POWER.efficiency * 100)} % efficiency\\), a ${DEFAULT_POWER.loadW} W load`));
     expect(checkNumbers(a, summary)).toBe(true);
   });
 
