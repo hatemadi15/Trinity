@@ -7,6 +7,8 @@ describe('PeriodControls', () => {
   it('shows the start date and the three lengths, with the chosen one checked', () => {
     render(<PeriodControls startUtc="2027-01-20T10:00:00" days={30} onChange={() => {}} />);
     expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('2027-01-20');
+    // The date also in words, as the rest of the page writes it: a date box shows the browser's own order of day and month.
+    expect(screen.getByText('20 January 2027')).toBeTruthy();
     const group = screen.getByRole('radiogroup', { name: 'For' });
     expect(group.textContent).toBe('14 days30 days90 days');
     expect((screen.getByRole('radio', { name: '30 days' }) as HTMLInputElement).checked).toBe(true);

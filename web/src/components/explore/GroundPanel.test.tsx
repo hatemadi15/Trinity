@@ -55,6 +55,15 @@ describe('GroundPanel', () => {
     expect(onExaggeration).toHaveBeenCalledWith(3);
   });
 
+  it("keeps its switches out of the picture, in the page's own style: the chosen one dark", () => {
+    show();
+    const view = screen.getByRole('group', { name: 'View' });
+    expect(view.closest('.stage')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Terrain' }).className).toMatch(/\bbg-ink\b/);
+    expect(screen.getByRole('button', { name: 'Globe' }).className).not.toMatch(/\bbg-ink\b/);
+    expect(screen.getByRole('group', { name: 'Heights' }).closest('.stage')).toBeNull();
+  });
+
   it('says in plain words what the picture is made from', () => {
     show({ heightmap: { meta: { cell_m: 20, width: 1024, height: 1024 } } as never, terrainState: 'ready' });
     expect(screen.getByRole('region', { name: 'The ground' }).textContent).toMatch(/NASA elevation data at 20 m per pixel, 20\.48 km across\. Drag to turn, scroll to zoom\. The light follows the time bar\./);

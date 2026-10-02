@@ -56,16 +56,12 @@ describe('TimeBar', () => {
     expect(screen.getByTestId('when').parentElement).toBe(screen.getByTestId('status').parentElement);
   });
 
-  it('keeps the bar short on a phone: Play shows only its sign, and every other day under the track gives way', () => {
+  it('keeps the bar short: Play shows only its sign on a phone, and the days are left to the chart the track lines up with', () => {
     show(6);
     const word = screen.getByRole('button', { name: /Play/ }).querySelector('span')!;
     expect(word.textContent).toBe('Play');
     expect(word.className).toMatch(/max-sm:sr-only/);
-    const ticks = screen.getByTestId('ticks');
-    expect(ticks.className).toMatch(/(^| )@container( |$)/);
-    const spans = [...ticks.querySelectorAll('span')];
-    expect(spans[0].className).not.toMatch(/hidden/);
-    expect(spans[1].className).toMatch(/@max-\[480px\]:hidden/);
+    expect(screen.queryByTestId('ticks')).toBeNull();
   });
 
   it('shows the hour under the pointer on the chart while the handle stays put', () => {
@@ -114,10 +110,9 @@ describe('TimeBar', () => {
     expect(key.querySelector('[data-swatch]')!.className).toMatch(/\bbg-sun\b/);
   });
 
-  it('draws the sunlight of the period as the track, with the days under it', () => {
+  it('draws the sunlight of the period as the track', () => {
     const { container } = show(0);
     expect(container.querySelectorAll('[data-part="lit"]')).toHaveLength(2);
-    expect(screen.getByTestId('ticks').textContent).toBe('1 Jan2 Jan3 Jan');
   });
 
   it('plays an hour at a time from a plain button, not gold or ink, and stops at the end', () => {

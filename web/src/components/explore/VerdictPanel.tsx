@@ -48,27 +48,38 @@ export function VerdictPanel({
       {/* The first sentence leads on a line of its own; the reasons follow. */}
       <p className="mt-2.5 max-w-[42em] text-[17px] font-medium leading-relaxed text-ink">{answer.sentences[0]}</p>
       {answer.sentences.length > 1 && <p className="mt-1 max-w-[42em] text-[17px] leading-relaxed text-ink">{answer.sentences.slice(1).join(' ')}</p>}
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        {better && (
-          <button type="button" onClick={() => onLand(better.startUtc)} className="btn btn-primary">
-            {better.label}
-          </button>
-        )}
-        {!better && (
-          <button type="button" onClick={onCompare} className="btn btn-primary">
-            Compare sites
-          </button>
-        )}
-      </div>
-      {(better?.note || answer.hint) && <p className="mt-3 text-ink-2">{better ? better.note : answer.hint}</p>}
-      {nearby && (
-        <p className="mt-3 max-w-[42em] text-ink">
-          {nearby.words}{' '}
-          <Link href={nearby.href} className="font-medium underline decoration-line-strong underline-offset-4 hover:decoration-ink">
-            Explore {nearby.name}
-          </Link>
-        </p>
+      {/* One gold action: the better date, else the better place nearby (below), else comparing sites. */}
+      {(better || !nearby) && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {better ? (
+            <button type="button" onClick={() => onLand(better.startUtc)} className="btn btn-primary">
+              {better.label}
+            </button>
+          ) : (
+            <button type="button" onClick={onCompare} className="btn btn-primary">
+              Compare sites
+            </button>
+          )}
+        </div>
       )}
+      {(better?.note || answer.hint) && <p className="mt-3 text-ink-2">{better ? better.note : answer.hint}</p>}
+      {/* A better place nearby: a link beside a better date, the gold action when there is no better date. */}
+      {nearby &&
+        (better ? (
+          <p className="mt-3 max-w-[42em] text-ink">
+            {nearby.words}{' '}
+            <Link href={nearby.href} className="font-medium underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+              Explore {nearby.name}
+            </Link>
+          </p>
+        ) : (
+          <div className="mt-3">
+            <p className="max-w-[42em] font-medium text-ink">{nearby.words}</p>
+            <Link href={nearby.href} className="btn btn-primary mt-3">
+              Explore {nearby.name}
+            </Link>
+          </div>
+        ))}
       <p className="mt-auto pt-3 text-ink-2">
         <button type="button" onClick={onYear} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           Find the best date in the next 12 months

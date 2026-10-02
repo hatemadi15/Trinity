@@ -8,7 +8,7 @@ import type { Summary } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { batteryHours, landerLine } from '@/lib/lander';
 import type { MaskMeta, PlannerParams } from '@/lib/store/explore';
-import { pct, spanShort } from '@/lib/viz/format';
+import { pct, pct0, spanShort } from '@/lib/viz/format';
 
 const ICON = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
 
@@ -44,6 +44,7 @@ export function NumbersCard({
   params,
   days,
   maskMeta,
+  contactHours,
 }: {
   site: Site;
   summary: Summary;
@@ -51,6 +52,8 @@ export function NumbersCard({
   params: PlannerParams;
   days: number;
   maskMeta: MaskMeta | null;
+  /** Hours with power that have Earth in view: the contact the verdict speaks of. */
+  contactHours: number;
 }) {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
@@ -92,7 +95,7 @@ export function NumbersCard({
         }
         title="Sunlight"
         note={`share of the ${days} days with the Sun above the hills`}
-        value={pct(summary.illumFraction)}
+        value={pct0(summary.illumFraction)}
       />
       <Line
         icon={
@@ -102,8 +105,8 @@ export function NumbersCard({
           </svg>
         }
         title="Contact with Earth"
-        note={`share of the ${days} days with Earth in view for radio`}
-        value={pct(summary.earthVisFraction)}
+        note={`while the lander has power; Earth is in view ${pct0(summary.earthVisFraction)} of the ${days} days`}
+        value={contactHours > 0 ? spanShort(contactHours) : 'none'}
       />
       <Line
         icon={

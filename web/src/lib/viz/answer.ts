@@ -18,6 +18,9 @@ export interface Answer {
   better: { hour: number; startUtc: string; label: string; note: string } | null;
   /** What to try when the answer is bad and no landing date in the period does better. */
   hint: string | null;
+  /** Hours with power from the landing (the whole period when the power never fails), and how many of them have Earth in view. */
+  poweredHours: number;
+  contactHours: number;
 }
 
 export interface AnswerInput {
@@ -63,7 +66,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
         : summary.longestDarkH === 0
           ? `The Sun never sets in these ${days} days.`
           : `The Sun is up ${pct0(summary.illumFraction)} of the time. The longest night lasts ${spanWords(summary.longestDarkH)}, and the battery covers it.`;
-    return { tone: 'good', kind: 'all', title: `${landing}: power for all ${days} days`, sentences: withContact([sentence]), better: null, hint: null };
+    return { tone: 'good', kind: 'all', title: `${landing}: power for all ${days} days`, sentences: withContact([sentence]), better: null, hint: null, poweredHours: powered, contactHours: contact };
   }
 
   if (summary.illumFraction === 0) {
@@ -74,6 +77,8 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
       sentences: ['This spot stays in shadow for the whole period. A solar lander cannot work here.'],
       better: null,
       hint: 'Try another site, or another month.',
+      poweredHours: powered,
+      contactHours: contact,
     };
   }
 
@@ -118,7 +123,9 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     const full = sunset === 0 || power.energyWh[sunset - 1] >= batteryWh - 1e-6;
     const battery =
       covered > 0
-        ? `The battery covers the first ${spanWords(covered)} of the night${full ? '' : ' (the low Sun before sunset had already drawn on it)'}`
+        ? full
+          ? `The battery covers the first ${spanWords(covered)} of the night`
+          : `As the Sun set the panel already gave less than the lander uses, so the battery covers only the first ${spanWords(covered)} of the night`
         : sunset === 0
           ? 'The battery is empty at the start'
           : 'The battery is empty when the Sun sets';
@@ -137,7 +144,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     };
   }
   const hint = better ? null : `No landing date in these ${days} days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.`;
-  return { tone: 'bad', kind, title, sentences: withContact(sentences), better, hint };
+  return { tone: 'bad', kind, title, sentences: withContact(sentences), better, hint, poweredHours: powered, contactHours: contact };
 }
 
 /** A nearby site that does clearly better from the same landing day: what the verdict offers next to the better date. */

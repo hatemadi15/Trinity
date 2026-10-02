@@ -58,7 +58,7 @@ describe('SkyRow', () => {
     for (const l of heights) expect(l.getAttribute('stroke-dasharray')).toBeNull();
     const words = labelsOf(container).map((l) => l.textContent);
     expect(words).toContain('5° up');
-    expect(words).toContain('horizon');
+    expect(words).toContain('horizon (0°)');
     // The night sits left of the middle, so the words go to the right edge.
     const five = labelsOf(container).find((l) => l.textContent === '5° up')!;
     expect(five.className).toMatch(/right-\[var\(--chart-inset,10px\)\]/);
@@ -80,7 +80,7 @@ describe('SkyRow', () => {
     // The sunset and sunrise labels sit at both edges at the height of the horizon, not at 5°.
     const words = labelsOf(container).map((l) => l.textContent);
     expect(words).toContain('5° up');
-    expect(words).not.toContain('horizon');
+    expect(words).not.toContain('horizon (0°)');
     expect(container.textContent).toMatch(/Sun sets 2 Jan/);
   });
 
@@ -88,7 +88,7 @@ describe('SkyRow', () => {
     const tall = Array.from({ length: hours }, (_, h) => (lit[h] ? -1 : 15));
     const { container } = render(<SkyRow el={el} hill={tall} visible={lit} startUtc={START} body="sun" caption="c" fitHills />);
     expect(container.querySelector('mask')).toBeNull();
-    expect(labelsOf(container).map((l) => l.textContent).filter((t) => /up$|horizon/.test(t ?? ''))).toEqual(['horizon', '5° up', '10° up', '15° up']);
+    expect(labelsOf(container).map((l) => l.textContent).filter((t) => /up$|horizon/.test(t ?? ''))).toEqual(['horizon (0°)', '5° up', '10° up', '15° up']);
   });
 
   it('marks every place where the body goes behind the hills or comes back', () => {

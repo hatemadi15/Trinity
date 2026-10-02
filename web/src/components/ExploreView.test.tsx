@@ -37,6 +37,22 @@ describe('ExploreView', () => {
     expect(within(panel).getByRole('link', { name: 'Explore de Gerlache rim summit' }).getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
   });
 
+  it('leaves the ground out for a polar site the terrain files have no window for, and gives the place the whole row', async () => {
+    window.history.replaceState({}, '', '/explore');
+    const store = createExploreStore(
+      fileLoaders({
+        loadTerrainManifest: async () => ({ windows: [{ site_id: 'shackleton_center', file: 'x.u16', meta: 'x.json' }], cap: { file: 'cap.u16', meta: 'cap.json' } }) as never,
+        loadHeightmap: async () => ({ meta: { cell_m: 960 }, heightsM: new Float32Array(4) }) as never,
+      }),
+    );
+    render(<ExploreView store={store} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy(), { timeout: 20_000 });
+    await store.getState().waitForTerrain();
+    await waitFor(() => expect(screen.queryByRole('region', { name: /The ground|The whole Moon/ })).toBeNull());
+    const place = screen.getByRole('region', { name: 'Where on the Moon' });
+    expect(place.querySelector('[data-part="layout"]')!.className).toMatch(/md:grid-cols/);
+  });
+
   it('lands on the better date when its button is pressed', async () => {
     const { store } = await open();
     fireEvent.click(screen.getByRole('button', { name: /^Land on 20 January/ }));

@@ -137,7 +137,7 @@ describe('scaleWordSides', () => {
 describe('scaleLines', () => {
   it('draws a line every 5° when the row is tall enough for their words, the horizon first', () => {
     expect(scaleLines({ min: -3.86, max: 16.12 }, 200)).toEqual([
-      { deg: 0, words: 'horizon' },
+      { deg: 0, words: 'horizon (0°)' },
       { deg: 5, words: '5° up' },
       { deg: 10, words: '10° up' },
       { deg: 15, words: '15° up' },
@@ -146,10 +146,10 @@ describe('scaleLines', () => {
 
   it('spaces them 10° apart in a short row, and leaves out lines at the very edge of the range', () => {
     expect(scaleLines({ min: -7.52, max: 15.8 }, 120)).toEqual([
-      { deg: 0, words: 'horizon' },
+      { deg: 0, words: 'horizon (0°)' },
       { deg: 10, words: '10° up' },
     ]);
-    expect(scaleLines({ min: -2, max: 5.2 }, 200)).toEqual([{ deg: 0, words: 'horizon' }]);
+    expect(scaleLines({ min: -2, max: 5.2 }, 200)).toEqual([{ deg: 0, words: 'horizon (0°)' }]);
   });
 });
 
@@ -159,7 +159,7 @@ describe('scaleStepFor', () => {
     expect(scaleStepFor({ min: -7.52, max: 15.8 }, 120)).toBe(10);
     // Two rows drawn together use the larger spacing, so "5° up" never sits beside a "10° up" of the same height.
     expect(scaleLines({ min: -3.86, max: 16.12 }, 200, 10)).toEqual([
-      { deg: 0, words: 'horizon' },
+      { deg: 0, words: 'horizon (0°)' },
       { deg: 10, words: '10° up' },
     ]);
   });

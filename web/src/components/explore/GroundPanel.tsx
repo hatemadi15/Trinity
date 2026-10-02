@@ -5,8 +5,9 @@ import type { Heightmap } from '@/lib/data/terrain';
 import type { Exaggeration, SceneMode, TerrainState } from '@/lib/store/explore';
 import type { SceneState } from '@/lib/viz/scene-state';
 
-const SEG = 'flex h-11 overflow-hidden rounded-lg border border-stage-line bg-stage/85 text-[15px] text-stage-ink';
-const seg = (on: boolean) => `px-3.5 ${on ? 'bg-stage-ink font-semibold text-stage' : 'hover:bg-white/10'}`;
+/** The page's segmented control, as for the period: the chosen part dark, the others plain. */
+const SEG = 'flex h-11 overflow-hidden rounded-lg border border-line-strong bg-surface text-[15px]';
+const seg = (on: boolean) => `px-3.5 ${on ? 'bg-ink font-semibold text-page' : 'text-ink-2 hover:bg-surface-2'}`;
 
 /**
  * The ground around the site in 3D, lit for the hour of the time bar. A site far from the pole shows
@@ -62,29 +63,29 @@ export function GroundPanel({
         </h2>
         <p className="text-[15px] text-ink-2">{when}</p>
       </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <div role="group" aria-label="View" className={SEG}>
+          <button type="button" aria-pressed={mode === 'terrain'} onClick={() => onMode('terrain')} className={seg(mode === 'terrain')}>
+            Terrain
+          </button>
+          <button type="button" aria-pressed={mode === 'globe'} onClick={() => onMode('globe')} className={seg(mode === 'globe')}>
+            Globe
+          </button>
+        </div>
+        {mode === 'terrain' && (
+          <div role="group" aria-label="Heights" className={SEG}>
+            <button type="button" aria-pressed={exaggeration === 1} onClick={() => onExaggeration(1)} className={seg(exaggeration === 1)}>
+              True heights
+            </button>
+            <button type="button" aria-pressed={exaggeration === 3} onClick={() => onExaggeration(3)} className={seg(exaggeration === 3)}>
+              Heights ×3
+            </button>
+          </div>
+        )}
+      </div>
       <div className="stage mt-3 aspect-[4/3] sm:min-h-[380px]">
         <div className="absolute inset-0">
           <Scene3DLazy mode={mode} scene={scene} site={site} sites={sites} heightmap={heightmap} capHeightmap={capHeightmap} exaggeration={exaggeration} textureUrl={textureUrl} onPick={onPick} reducedMotion={reducedMotion} />
-        </div>
-        <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap gap-2">
-          <div role="group" aria-label="View" className={`${SEG} pointer-events-auto`}>
-            <button type="button" aria-pressed={mode === 'terrain'} onClick={() => onMode('terrain')} className={seg(mode === 'terrain')}>
-              Terrain
-            </button>
-            <button type="button" aria-pressed={mode === 'globe'} onClick={() => onMode('globe')} className={seg(mode === 'globe')}>
-              Globe
-            </button>
-          </div>
-          {mode === 'terrain' && (
-            <div role="group" aria-label="Heights" className={`${SEG} pointer-events-auto`}>
-              <button type="button" aria-pressed={exaggeration === 1} onClick={() => onExaggeration(1)} className={seg(exaggeration === 1)}>
-                True heights
-              </button>
-              <button type="button" aria-pressed={exaggeration === 3} onClick={() => onExaggeration(3)} className={seg(exaggeration === 3)}>
-                Heights ×3
-              </button>
-            </div>
-          )}
         </div>
       </div>
       <p className="mt-3 text-[15px] text-ink-2">{caption}</p>

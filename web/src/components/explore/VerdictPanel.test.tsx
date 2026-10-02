@@ -11,12 +11,14 @@ const night: Answer = {
   sentences: [
     'No radio contact: Earth is out of view for all 3 days 4 hours with power.',
     'The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.',
-    'The battery covers the first 9 hours of the night (the low Sun before sunset had already drawn on it); power comes back on 20 January.',
+    'As the Sun set the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power comes back on 20 January.',
   ],
   better: { hour: 466, startUtc: '2027-01-20T10:00:00', label: 'Land on 20 January instead', note: 'From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.' },
   hint: null,
+  poweredHours: 76,
+  contactHours: 0,
 };
-const good: Answer = { tone: 'good', kind: 'all', title: 'Landing at de Gerlache Rim 2 on 1 January: power for all 30 days', sentences: ['The Sun never sets in these 30 days.'], better: null, hint: null };
+const good: Answer = { tone: 'good', kind: 'all', title: 'Landing at de Gerlache Rim 2 on 1 January: power for all 30 days', sentences: ['The Sun never sets in these 30 days.'], better: null, hint: null, poweredHours: 720, contactHours: 324 };
 const stuck: Answer = { ...night, better: null, hint: 'No landing date in these 30 days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.' };
 
 function show(answer: Answer, yearNote: string | null = null, nearby: Parameters<typeof VerdictPanel>[0]['nearby'] = null) {
@@ -33,7 +35,7 @@ describe('VerdictPanel', () => {
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1.textContent).toBe('Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night');
     expect(screen.getByText(/The Sun sets on 3 January/)).toBeTruthy();
-    expect(screen.getByText(/covers the first 9 hours of the night/)).toBeTruthy();
+    expect(screen.getByText(/covers only the first 9 hours of the night/)).toBeTruthy();
     expect(screen.getByRole('region', { name: 'The answer' }).getAttribute('data-tone')).toBe('bad');
   });
 
@@ -112,6 +114,16 @@ describe('VerdictPanel', () => {
     const link = screen.getByRole('link', { name: 'Explore de Gerlache rim summit' });
     expect(link.getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
     expect(link.className).toMatch(/\bunderline\b/);
+  });
+
+  it('makes the better place nearby the gold action when no landing day does better', () => {
+    show(stuck, null, { words: 'Nearby, de Gerlache rim summit (12 km away) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' });
+    const gold = screen.getByRole('link', { name: 'Explore de Gerlache rim summit' });
+    expect(gold.className).toMatch(/btn-primary/);
+    expect(document.querySelectorAll('.btn-primary')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Compare sites' })).toBeNull();
+    // The sentence that says why sits right above the button.
+    expect(gold.closest('section')!.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days/);
   });
 
   it('offers the search over the next 12 months and reports what it found', () => {

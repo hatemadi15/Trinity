@@ -60,14 +60,13 @@ describe('TimeChart', () => {
     expect(key.querySelectorAll('svg, [data-swatch]').length).toBeGreaterThanOrEqual(5);
   });
 
-  it('gives the Sun and Earth rows height lines with the same spacing, so a degree means the same in both', () => {
+  it('gives each row its own height scale with words, the Sun row too', () => {
     show();
     const [sun, earth] = screen.getAllByRole('img');
-    const degrees = (row: HTMLElement) => [...row.textContent!.matchAll(/(\d+)° up/g)].map((m) => Number(m[1]));
-    const steps = [...degrees(sun), ...degrees(earth)];
-    // de Gerlache Rim 2 needs 10° spacing in Earth's row, so the Sun's row uses it too: no "5° up" anywhere.
-    expect(steps.every((d) => d % 10 === 0)).toBe(true);
-    expect(sun.querySelectorAll('line[data-height]').length).toBeGreaterThanOrEqual(1);
+    // At de Gerlache Rim 2 in January 2027 the Sun stays within a few degrees of the horizon: 5° apart fits its row.
+    expect(sun.textContent).toMatch(/5° up/);
+    expect(sun.querySelectorAll('line[data-height]').length).toBeGreaterThanOrEqual(2);
+    expect(earth.querySelectorAll('line[data-height]').length).toBeGreaterThanOrEqual(1);
   });
 
   it('names the compass direction of the Sun along the top and the days along the bottom', () => {
@@ -92,6 +91,13 @@ describe('TimeChart', () => {
     const words = [...compass.querySelectorAll<HTMLElement>('[data-direction]')];
     expect(words.length).toBeGreaterThan(2);
     for (const w of words) expect(w.querySelector('[data-tick]')).toBeTruthy();
+  });
+
+  it('draws its time line so that it shows on the black rows and on the light battery row', () => {
+    show();
+    const line = document.querySelector<HTMLElement>('[data-part="cursor"]')!;
+    expect(line.className).toMatch(/\bbg-stage-ink\b/);
+    expect(line.className).toMatch(/\bborder-x\b/);
   });
 
   it('marks the hour of the time bar, and the hour under the pointer', () => {

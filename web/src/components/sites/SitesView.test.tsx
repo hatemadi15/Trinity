@@ -25,13 +25,12 @@ describe('SitesView', () => {
   it('titles the page, says what the figures assume and groups the catalogue in plain words', async () => {
     await ready();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Choose a landing site');
-    expect(screen.getByText(/19 places on the Moon/).textContent).toMatch(
-      /For each, the best day to land in the 30 days from 1 January 2027, how long a lander keeps power from that day, and how much sunlight and contact with Earth it has in its first 30 days\./,
-    );
-    // The order of the rows is said, not left to guess.
-    expect(screen.getByText(/^Rows are sorted/).textContent).toBe('Rows are sorted by the longest time with power.');
-    // The lander gets a line of its own, so the first sentence stays short.
-    expect(screen.getByText(/^The lander:/).textContent).toBe('The lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.');
+    expect(screen.getByText(/19 places on the Moon/).textContent).toBe('19 places on the Moon, most of them near the south pole. Pick one to see its forecast.');
+    // Each measure is explained on a line of its own, the order of the rows too.
+    const term = (name: string) => screen.getByText(name, { selector: 'dt' }).nextElementSibling!.textContent;
+    expect(term('Time with power')).toBe('from the best day to land in the 30 days from 1 January 2027, for a lander with a 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.');
+    expect(term('Sunlight, Earth in view')).toBe('over its first 30 days there. Earth carries the radio link; seen from the pole it sits low, and hills can hide it.');
+    expect(term('Order')).toBe('longest time with power first; places that never see Earth come last, under their own heading.');
     expect(screen.getByText(/three real missions, for the same days as the rest of the list/)).toBeTruthy();
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       'Shortlisted by NASA for a crewed Artemis landing',
@@ -76,8 +75,20 @@ describe('SitesView', () => {
     expect(b).toEqual([...b].sort((x, y) => y - x));
     // Mons Mouton keeps power for 13 d 7 h but never sees Earth in its first 30 days: it sits under the heading, not among the others.
     expect(within(group).getByRole('heading', { level: 3 }).textContent).toBe('No contact with Earth in the first 30 days');
+    expect(group.textContent).toMatch(/These places keep power for a while but cannot reach Earth by radio then\./);
     expect(within(without).getByText('Mons Mouton')).toBeTruthy();
     expect(without.compareDocumentPosition(withContact) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  });
+
+  it('names the best place of the whole list for these days, with a link to it', async () => {
+    const { store } = await ready();
+    const line = screen.getByText(/^Longest time with power in these days:/);
+    const link = within(line).getByRole('link');
+    const id = new URL(link.getAttribute('href')!, 'http://x').searchParams.get('site')!;
+    const o = store.getState().overview;
+    const best = Math.max(...Object.values(o).filter((x) => x.afterEarth > 0).map((x) => x.best?.poweredHours ?? -1));
+    expect(o[id].best?.poweredHours).toBe(best);
+    expect(o[id].afterEarth).toBeGreaterThan(0);
   });
 
   it('draws a bar for contact with Earth as it does for sunlight', async () => {
@@ -123,7 +134,7 @@ describe('SitesView', () => {
     expect(store.getState().days).toBe(14);
     await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(19), { timeout: 20_000 });
     await waitFor(() => expect(rowOf('de Gerlache Rim 2').getAttribute('href')).toMatch(/days=14/));
-    expect(screen.getByText(/19 places on the Moon/).textContent).toMatch(/in the 14 days from 1 January 2027/);
+    expect(screen.getByText('Time with power', { selector: 'dt' }).nextElementSibling!.textContent).toMatch(/in the 14 days from 1 January 2027/);
   });
 
   it('shows the rows before the figures arrive', async () => {

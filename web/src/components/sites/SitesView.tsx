@@ -202,6 +202,16 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
       })
       .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   }, [groups, catalogue, s.overview, s.startUtc, s.days]);
+  const top = useMemo(() => {
+    if (s.overviewBusy) return null;
+    let found: { site: Site; o: SiteOverview } | null = null;
+    for (const site of catalogue) {
+      const o = s.overview[site.id];
+      if (!o?.best || o.afterEarth === 0) continue;
+      if (!found || o.best.poweredHours > found.o.best!.poweredHours || (o.best.poweredHours === found.o.best!.poweredHours && o.afterEarth > found.o.afterEarth)) found = { site, o };
+    }
+    return found;
+  }, [catalogue, s.overview, s.overviewBusy]);
   const offMap = catalogue.filter((x) => !HOME.relief.sites.some((p) => p.id === x.id)).map(siteLabel);
 
   if (s.status === 'idle' || s.status === 'loading') {
@@ -239,12 +249,18 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
     <AppFrame>
       <main className="wrap pb-16 pt-10">
         <h1 className="display text-[40px] leading-tight">Choose a landing site</h1>
-        <p className="mt-3 max-w-[46em] text-lg text-ink-2">
-          {catalogue.length} places on the Moon, most of them near the south pole. For each, the best day to land in the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, how
-          long a lander keeps power from that day, and how much sunlight and contact with Earth it has in its first {s.days} days. Pick one to see why.
-        </p>
-        <p className="mt-1.5 text-[15px] text-ink-2">The lander: {landerLine(s.params.power)}.</p>
-        <p className="text-[15px] text-ink-2">Rows are sorted by the longest time with power.</p>
+        <p className="mt-3 max-w-[46em] text-lg text-ink-2">{catalogue.length} places on the Moon, most of them near the south pole. Pick one to see its forecast.</p>
+        {/* One line per measure, so the three figures of a row are explained one at a time. */}
+        <dl className="mt-3 grid max-w-[64em] grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-[15px] text-ink-2">
+          <dt className="font-semibold text-ink">Time with power</dt>
+          <dd>
+            from the best day to land in the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, for a lander with a {landerLine(s.params.power)}.
+          </dd>
+          <dt className="font-semibold text-ink">Sunlight, Earth in view</dt>
+          <dd>over its first {s.days} days there. Earth carries the radio link; seen from the pole it sits low, and hills can hide it.</dd>
+          <dt className="font-semibold text-ink">Order</dt>
+          <dd>longest time with power first; places that never see Earth come last, under their own heading.</dd>
+        </dl>
         <div className="mt-6 flex flex-wrap items-end gap-4">
           <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
         </div>
@@ -273,6 +289,15 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
           </section>
 
           <div>
+            {top && (
+              <p className="mb-8 text-[17px] text-ink">
+                Longest time with power in these days:{' '}
+                <Link href={siteHref(top.site.id, top.o, s.startUtc, s.days)} className="font-semibold underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+                  {siteLabel(top.site)}
+                </Link>
+                , {top.o.best!.poweredHours >= s.days * 24 ? `all ${s.days} days` : spanShort(Math.round(top.o.best!.poweredHours))} if it lands on {dayMonth(s.startUtc, top.o.best!.hour)}.
+              </p>
+            )}
             {groups.map((g, i) => (
               <section key={g.title} aria-labelledby={`h-group-${i}`} className={i > 0 ? 'mt-10' : ''}>
                 <h2 id={`h-group-${i}`} className="display text-[23px] font-semibold">
@@ -282,7 +307,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                 <div aria-hidden="true" className={`${COLUMNS} mt-4 border-b-2 border-ink px-3 pb-2 text-[15px] font-semibold text-ink-2`}>
                   <span>Site</span>
                   <span>Sunlight</span>
-                  <span>Earth in view</span>
+                  <span>Earth in view (radio)</span>
                   <span>Longest time with power</span>
                   <span />
                 </div>
@@ -294,7 +319,8 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                 {/* Places that never see Earth get a heading of their own, so their place in the order explains itself. */}
                 {g.without.length > 0 && (
                   <>
-                    <h3 className="mt-5 border-b border-line-strong px-3 pb-2 text-[15px] font-semibold text-ink-2">No contact with Earth in the first {s.days} days</h3>
+                    <h3 className="mt-7 px-3 text-[17px] font-semibold text-ink">No contact with Earth in the first {s.days} days</h3>
+                    <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">These places keep power for a while but cannot reach Earth by radio then.</p>
                     <ul className="divide-y divide-line-strong">
                       {g.without.map((site) => (
                         <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />

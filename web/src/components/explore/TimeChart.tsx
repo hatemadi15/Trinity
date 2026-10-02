@@ -4,7 +4,7 @@ import { SkyRow } from '@/components/SkyRow';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { dateLong, dayMonth } from '@/lib/viz/format';
-import { compassTicks, rowRange, scaleStepFor } from '@/lib/viz/skyrow';
+import { compassTicks } from '@/lib/viz/skyrow';
 import { batteryWords, chargeArea, hillsToward, hourAt, offRuns } from '@/lib/viz/timechart';
 
 const SUN_H = 110;
@@ -90,11 +90,6 @@ export function TimeChart({
   const sunHill = useMemo(() => hillsToward(mask, series.sunAz), [mask, series.sunAz]);
   const earthHill = useMemo(() => hillsToward(mask, series.earthAz), [mask, series.earthAz]);
   const sunUp = useMemo(() => Uint8Array.from(series.sunFraction, (f) => (f > 0 ? 1 : 0)), [series.sunFraction]);
-  // The two sky rows agree on the spacing of their height lines, so "5° up" never sits beside a "10° up" at the same height.
-  const scaleStep = Math.max(
-    scaleStepFor(rowRange(series.sunEl, sunHill, { headroom: 4, headroomShare: 0.36 }), SUN_H),
-    scaleStepFor(rowRange(series.earthEl, earthHill, { headroom: 4, headroomShare: 0.36 }), EARTH_H),
-  ) as 5 | 10;
   const pct = (hour: number) => ((hour + 0.5) / hours) * 100;
   const period = `the ${days} days from ${dateLong(startUtc, 0)}`;
 
@@ -161,11 +156,11 @@ export function TimeChart({
         <div className={`${GRID} gap-y-2`}>
           <RowName title="The Sun" />
           <div className="stage">
-            <SkyRow el={series.sunEl} hill={sunHill} visible={sunUp} startUtc={startUtc} body="sun" caption={`The Sun over ${period}`} height={SUN_H} ticks={false} scaleStep={scaleStep} />
+            <SkyRow el={series.sunEl} hill={sunHill} visible={sunUp} startUtc={startUtc} body="sun" caption={`The Sun over ${period}`} height={SUN_H} ticks={false} />
           </div>
           <RowName title="Earth" />
           <div className="stage">
-            <SkyRow el={series.earthEl} hill={earthHill} visible={series.earthVisible} startUtc={startUtc} body="earth" caption={`Earth over ${period}`} height={EARTH_H} ticks={false} scaleStep={scaleStep} />
+            <SkyRow el={series.earthEl} hill={earthHill} visible={series.earthVisible} startUtc={startUtc} body="earth" caption={`Earth over ${period}`} height={EARTH_H} ticks={false} />
           </div>
           {power && (
             <>
@@ -194,7 +189,8 @@ export function TimeChart({
         {/* The time of the time bar, the hour under the pointer, and the layer that listens to the pointer: all over the plot column. */}
         <div className="pointer-events-none absolute inset-y-0 left-[116px] right-0 max-sm:left-0">
           {hoverHour !== null && <div data-part="hover" className="absolute inset-y-0 w-px bg-ink-3" style={{ left: `${pct(hoverHour)}%` }} />}
-          <div data-part="cursor" className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-ink" style={{ left: `${pct(cursor)}%` }}>
+          {/* Light with dark edges: it shows on the black rows and on the light battery row. */}
+          <div data-part="cursor" className="absolute inset-y-0 w-1 -translate-x-1/2 border-x border-ink bg-stage-ink" style={{ left: `${pct(cursor)}%` }}>
             <span className="absolute -top-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full bg-ink" />
           </div>
           <div

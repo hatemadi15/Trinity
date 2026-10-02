@@ -73,7 +73,7 @@ export function scaleStepFor(range: Range, heightPx: number): 5 | 10 {
 export function scaleLines(range: Range, heightPx: number, step: 5 | 10 = scaleStepFor(range, heightPx)): { deg: number; words: string }[] {
   const out: { deg: number; words: string }[] = [];
   for (let deg = 0; deg < range.max - 0.4; deg += step) {
-    if (deg > range.min + 0.4) out.push({ deg, words: deg === 0 ? 'horizon' : `${deg}° up` });
+    if (deg > range.min + 0.4) out.push({ deg, words: deg === 0 ? 'horizon (0°)' : `${deg}° up` });
   }
   return out;
 }

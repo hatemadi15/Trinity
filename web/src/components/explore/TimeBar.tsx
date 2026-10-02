@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { dateTimeUtc, dayMonth } from '@/lib/viz/format';
+import { dateTimeUtc } from '@/lib/viz/format';
 import { statusSentence } from '@/lib/viz/status';
 import { litRuns } from '@/lib/viz/timechart';
 import { PLOT_GRID } from './TimeChart';
@@ -56,9 +56,6 @@ export function TimeBar({
   }, [playing, last, onCursor]);
 
   const shown = Math.min(last, hoverHour ?? cursor);
-  const days = Math.round(hours / 24);
-  const every = days > 45 ? 10 : days > 20 ? 5 : days > 7 ? 2 : 1;
-  const ticks = Array.from({ length: Math.floor((days - 1) / every) + 1 }, (_, k) => k * every);
   const move = (to: number) => onCursor(Math.max(0, Math.min(last, to)));
 
   return (
@@ -118,14 +115,6 @@ export function TimeBar({
                 className="time-range relative"
               />
             </div>
-            {/* On a narrow track every other day gives way, so no two dates touch. */}
-            <p data-testid="ticks" aria-hidden="true" className="@container relative h-5 text-[15px] text-ink-2">
-              {ticks.map((d, i) => (
-                <span key={d} className={`absolute whitespace-nowrap ${i % 2 ? '@max-[480px]:hidden' : ''}`} style={d === 0 ? { left: 0 } : { left: `${((d * 24) / hours) * 100}%`, transform: 'translateX(-50%)' }}>
-                  {dayMonth(startUtc, d * 24)}
-                </span>
-              ))}
-            </p>
           </div>
         </div>
       </div>

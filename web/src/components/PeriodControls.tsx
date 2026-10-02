@@ -1,6 +1,7 @@
 'use client';
 import { useId } from 'react';
 import { WINDOW_DAYS, type WindowDays } from '@/lib/store/explore';
+import { dateLong } from '@/lib/viz/format';
 
 /**
  * The period every figure on a page is for: "From" (a date, midnight UTC) and "For" (14, 30 or 90
@@ -10,9 +11,16 @@ export function PeriodControls({ startUtc, days, onChange }: { startUtc: string;
   const id = useId();
   return (
     <>
-      <label className="flex flex-col gap-1.5 text-[15px] text-ink-2">
-        From
+      <div className="flex flex-col gap-1.5 text-[15px] text-ink-2">
+        {/* The date also in words, as the rest of the page writes it: a date box shows the browser's own order of day and month. */}
+        <span className="flex gap-1.5">
+          <label htmlFor={`${id}-from`}>From</label>
+          <span aria-hidden="true" className="text-ink">
+            {dateLong(startUtc, 0)} {startUtc.slice(0, 4)}
+          </span>
+        </span>
         <input
+          id={`${id}-from`}
           type="date"
           value={startUtc.slice(0, 10)}
           min="2024-01-02"
@@ -20,7 +28,7 @@ export function PeriodControls({ startUtc, days, onChange }: { startUtc: string;
           onChange={(e) => e.target.value && onChange(`${e.target.value}T00:00:00`, days)}
           className="field w-[190px]"
         />
-      </label>
+      </div>
       <div className="flex flex-col gap-1.5 text-[15px] text-ink-2">
         <span id={`${id}-for`}>For</span>
         <div role="radiogroup" aria-labelledby={`${id}-for`} className="flex h-[52px] overflow-hidden rounded-lg border border-line-strong bg-surface text-base">
