@@ -61,7 +61,7 @@ function best(results: SiteResult[], score: (r: SiteResult) => number): { top: n
  * One sentence over the table: for a lander landing on the period's first day, the site with the
  * longest time with power, the most sunlight and the most contact with Earth (ties name every site,
  * compared as the table prints them), each site named once with everything it wins. A measure where
- * every site scores nothing names no site.
+ * every site scores nothing names no site and is said to be missing everywhere.
  */
 export function bestSentence(results: SiteResult[], startUtc: string, days: number): string {
   if (results.length === 0) return '';
@@ -70,7 +70,8 @@ export function bestSentence(results: SiteResult[], startUtc: string, days: numb
   const power = best(results, (r) => poweredHours(r, hours));
   const sun = best(results, (r) => Math.round(r.summary.illumFraction * 100));
   const earth = best(results, (r) => Math.round(r.summary.earthVisFraction * 100));
-  const wins = [{ names: power.names, words: `the longest time with power (${power.top >= hours ? `all ${days} days` : spanShort(power.top)})` }];
+  const wins: { names: string[]; words: string }[] = [];
+  if (power.top > 0) wins.push({ names: power.names, words: `the longest time with power (${power.top >= hours ? `all ${days} days` : spanShort(power.top)})` });
   if (sun.top > 0) wins.push({ names: sun.names, words: `the most sunlight (${sun.top} %)` });
   if (earth.top > 0) wins.push({ names: earth.names, words: `the most contact with Earth (${earth.top} %)` });
   const bySites = new Map<string, { names: string[]; words: string[] }>();
@@ -81,6 +82,11 @@ export function bestSentence(results: SiteResult[], startUtc: string, days: numb
     bySites.set(key, group);
   }
   const clauses = [...bySites.values()].map((g) => `${list(g.names)} ${g.names.length > 1 ? 'have' : 'has'} ${list(g.words)}`);
-  const none = sun.top === 0 && earth.top === 0 ? '; none of these sites sees the Sun or Earth.' : earth.top === 0 ? '; none of these sites sees Earth.' : sun.top === 0 ? '; none of these sites sees the Sun.' : '.';
-  return `Landing on ${dateLong(startUtc, 0)}, ${clauses.join('; ')}${none}`;
+  const lacks: string[] = [];
+  if (power.top === 0) lacks.push('has power at landing');
+  if (sun.top === 0 && earth.top === 0) lacks.push('sees the Sun or Earth');
+  else if (sun.top === 0) lacks.push('sees the Sun');
+  else if (earth.top === 0) lacks.push('sees Earth');
+  if (lacks.length > 0) clauses.push(`none of these sites ${lacks.join(' or ')}`);
+  return `Landing on ${dateLong(startUtc, 0)}, ${clauses.join('; ')}.`;
 }

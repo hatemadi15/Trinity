@@ -52,6 +52,12 @@ describe('bestSentence', () => {
     const dark = result('e', 'Pit', { sun: 0, earth: 0, nightH: 720, brownout: 3 });
     expect(bestSentence([floor, dark], START, 30)).toBe('Landing on 1 January, Floor has the longest time with power (9 h); none of these sites sees the Sun or Earth.');
     const blind = result('f', 'Blind', { sun: 0.5, earth: 0, nightH: 300, brownout: 40 });
+    // A lander that lands with an empty battery in the dark has no time with power anywhere.
+    const flat = result('g', 'Flat', { sun: 0, earth: 0, nightH: 720, brownout: 0 });
+    const pit = result('h', 'Pit', { sun: 0, earth: 0, nightH: 720, brownout: 0 });
+    expect(bestSentence([flat, pit], START, 30)).toBe('Landing on 1 January, none of these sites has power at landing or sees the Sun or Earth.');
+    const dusk = result('i', 'Dusk', { sun: 0.4, earth: 0.3, nightH: 200, brownout: 0 });
+    expect(bestSentence([dusk, flat], START, 30)).toBe('Landing on 1 January, Dusk has the most sunlight (40 %) and the most contact with Earth (30 %); none of these sites has power at landing.');
     expect(bestSentence([blind, floor], START, 30)).toBe('Landing on 1 January, Blind has the longest time with power (1 d 16 h) and the most sunlight (50 %); none of these sites sees Earth.');
   });
 
