@@ -33,10 +33,14 @@ const SIDES: LabelSide[] = ['below', 'above', 'right', 'left', 'below-right', 'b
 /** A diagonal side puts the corner of the box this far along each axis, for the same distance from the pin. */
 const DIAGONAL = Math.SQRT1_2;
 
+/** The size of a 15 px name on its plate, in fractions of a map `sizePx` pixels wide. */
+export function plateSize(text: string, sizePx: number): { w: number; h: number } {
+  return { w: (text.length * CHAR_PX + PAD_PX) / sizePx, h: HEIGHT_PX / sizePx };
+}
+
 /** The box a name takes on one side of its pin, `distancePx` from its centre. */
 export function labelBox(u: number, v: number, text: string, side: LabelSide, sizePx: number, distancePx = NEAR_PX): LabelBox {
-  const w = (text.length * CHAR_PX + PAD_PX) / sizePx;
-  const h = HEIGHT_PX / sizePx;
+  const { w, h } = plateSize(text, sizePx);
   const d = distancePx / sizePx;
   const k = d * DIAGONAL;
   switch (side) {

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ShadowPicture } from '@/lib/engine/shadow-handler';
 import { ShadowMap } from './ShadowMap';
@@ -36,6 +36,45 @@ describe('ShadowMap', () => {
     expect(screen.getByText('5 km')).toBeTruthy();
     expect(screen.getByText('Sun 2° up')).toBeTruthy();
     expect(screen.getByText('Earth below the horizon')).toBeTruthy();
+  });
+
+  it('keeps the words at the end of an arrow inside the map: by their left side on the left, by their right side on the right', () => {
+    show({ lon: 0, sunAz: 270, earthAz: 90, earthEl: 2 });
+    const sun = screen.getByText('Sun 2° up');
+    expect(sun.style.left).toBe('8%');
+    expect(sun.style.transform).toBe('translate(0, -50%)');
+    const earth = screen.getByText('Earth 2° up');
+    expect(earth.style.left).toBe('92%');
+    expect(earth.style.transform).toBe('translate(-100%, -50%)');
+  });
+
+  it("puts the site's name beside the pin, clear of the arrows' words, on a large map and on a phone-sized one", () => {
+    const watchers: ((entries: { contentRect: { width: number } }[]) => void)[] = [];
+    class FakeObserver {
+      constructor(cb: (entries: { contentRect: { width: number } }[]) => void) {
+        watchers.push(cb);
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', FakeObserver);
+    try {
+      // The Sun to the left of the pin, a little low; Earth straight up.
+      show({ lon: 0, sunAz: 263, earthAz: 7 });
+      act(() => watchers.forEach((cb) => cb([{ contentRect: { width: 560 } }])));
+      expect(parseFloat(screen.getByText('de Gerlache Rim 2').style.top)).toBeGreaterThan(50);
+      // On a 290 px map the Sun's words reach under the pin: the name goes above it instead.
+      act(() => watchers.forEach((cb) => cb([{ contentRect: { width: 290 } }])));
+      expect(parseFloat(screen.getByText('de Gerlache Rim 2').style.top)).toBeLessThan(50);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('lets its words give way where they would overlap: the site first, then the Sun, Earth and the scale', () => {
+    show();
+    const priority = (text: string) => screen.getByText(text).closest('[data-label]')?.getAttribute('data-priority');
+    expect([priority('de Gerlache Rim 2'), priority('Sun 2° up'), priority('Earth below the horizon'), priority('5 km')]).toEqual(['0', '1', '2', '3']);
   });
 
   it("turns the arrows with the site: the Sun's map bearing is its azimuth plus the longitude", () => {

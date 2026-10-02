@@ -91,6 +91,13 @@ describe('GroundPanel', () => {
     expect(panel.textContent).toMatch(/Light ground is in sunlight, dark ground in shadow\. Worked out from NASA elevation data at 20 m per pixel: computed, not a photograph\./);
   });
 
+  it('gives the map a square box on a phone and the 3D view the same box from the small screen up', async () => {
+    show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
+    const map = await screen.findByRole('img', { name: /^Shadows at/ });
+    expect(map.parentElement!.className).toMatch(/\baspect-square\b/);
+    expect(map.parentElement!.className).toMatch(/\bsm:aspect-\[4\/3\]/);
+  });
+
   it('moves between the tabs with the arrow keys, Home and End', () => {
     show();
     fireEvent.keyDown(tab('Shadow map'), { key: 'ArrowRight' });
@@ -187,7 +194,7 @@ describe('GroundPanel', () => {
 
   it('a site with no polar terrain: says its horizon is taken as flat, and shows only the globe in 3D', async () => {
     const { client } = show({ site: mare, sites: [mare], mode: 'globe', terrainState: 'ready', capHeightmap: grid('cap', 64, 960) });
-    expect(screen.getByRole('tabpanel', { name: 'Shadow map' }).textContent).toMatch(/This site has no polar terrain: its horizon is taken as flat\./);
+    expect(screen.getByRole('tabpanel', { name: 'Shadow map' }).textContent).toMatch(/This site has no polar terrain: its horizon is taken as flat\. The Horizon tab shows the paths of the Sun and Earth over it\./);
     expect(screen.queryByRole('img', { name: /^Shadows at/ })).toBeNull();
     expect(client.setLevels).not.toHaveBeenCalled();
     fireEvent.click(tab('3D'));

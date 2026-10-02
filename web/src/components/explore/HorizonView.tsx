@@ -23,15 +23,16 @@ export function HorizonView({ mask, series, cursor, lat }: { mask: ArrayLike<num
   const g = useMemo(() => horizonGeometry(mask, series, W, H), [mask, series]);
   const hour = Math.min(series.hours - 1, Math.max(0, cursor));
   const marker = (az: number, el: number) => ({ left: `${(g.x(az) / W) * 100}%`, top: `${(g.y(el) / H) * 100}%` });
-  // The height scale: the horizon at 0°, and the highest whole degree with room for its words.
-  const top = Math.floor(g.maxDeg - 0.5);
+  // The height scale: the horizon at 0°, and a whole degree far enough below the top for its words.
+  const top = Math.floor(g.maxDeg - 0.15 * (g.maxDeg - g.minDeg));
   const scale = [
     ...(g.minDeg < 0 && g.maxDeg > 0 ? [{ deg: 0, words: 'horizon (0°)' }] : []),
     ...(top > 0 ? [{ deg: top, words: `${top}°` }] : []),
   ];
   return (
     <figure className="m-0">
-      <div role="img" aria-label="The horizon all round the site, with the paths of the Sun and Earth over these days" className="stage relative w-full overflow-hidden" style={{ aspectRatio: `${W} / ${H}` }}>
+      {/* Taller than the drawing's own shape on a phone, where 360° in a few hundred pixels would flatten the hills. */}
+      <div role="img" aria-label="The horizon all round the site, with the paths of the Sun and Earth over these days" className="stage relative aspect-[2/1] w-full overflow-hidden sm:aspect-[1000/240]">
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
           <path d={g.skyline} fill="var(--hill)" stroke="var(--hill-edge)" strokeWidth={1.4} vectorEffect="non-scaling-stroke" />
           {scale.map((s) => (
@@ -44,11 +45,15 @@ export function HorizonView({ mask, series, cursor, lat }: { mask: ArrayLike<num
             <polyline key={`s${i}`} points={r.points} fill="none" stroke="var(--stage-sun)" strokeWidth={r.visible ? 3 : 2.4} strokeDasharray={r.visible ? undefined : '2.5 6'} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
           ))}
         </svg>
-        {scale.map((s) => (
-          <span key={s.deg} aria-hidden="true" className="absolute left-2 -translate-y-1/2 whitespace-nowrap rounded-[5px] bg-stage/85 px-1.5 text-[14px] leading-snug text-stage-ink" style={{ top: `${(g.y(s.deg) / H) * 100}%` }}>
-            {s.words}
-          </span>
-        ))}
+        {scale.map((s) => {
+          // Words of a line near the bottom sit above it, near the top below it, elsewhere on it.
+          const at = (g.y(s.deg) / H) * 100;
+          return (
+            <span key={s.deg} aria-hidden="true" className="absolute left-2 whitespace-nowrap rounded-[5px] bg-stage/85 px-1.5 text-[14px] leading-snug text-stage-ink" style={{ top: `${at}%`, transform: at > 85 ? 'translateY(-100%)' : at < 15 ? 'translateY(0)' : 'translateY(-50%)' }}>
+              {s.words}
+            </span>
+          );
+        })}
         <span data-marker="earth" aria-hidden="true" className="absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-stage bg-stage-earth" style={marker(series.earthAz[hour], series.earthEl[hour])} />
         <span data-marker="sun" aria-hidden="true" className="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-stage bg-stage-sun" style={marker(series.sunAz[hour], series.sunEl[hour])} />
       </div>

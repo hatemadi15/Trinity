@@ -145,10 +145,10 @@ export function GroundPanel({
       <div role="tabpanel" id="ground-panel-map" aria-labelledby="ground-tab-map" hidden={tab !== 'map'} className="mt-3">
         {tab === 'map' &&
           (!site.polar ? (
-            <p className="text-ink-2">This site has no polar terrain: its horizon is taken as flat.</p>
+            <p className="text-ink-2">This site has no polar terrain: its horizon is taken as flat. The Horizon tab shows the paths of the Sun and Earth over it.</p>
           ) : finest ? (
             <>
-              <div className="stage flex aspect-[4/3] justify-center sm:min-h-[380px]">
+              <div className="stage flex aspect-square justify-center sm:aspect-[4/3] sm:min-h-[380px]">
                 <ShadowMap picture={picture} widthKm={(finest.width * finest.pxM) / 1000} siteName={siteLabel(site)} lon={site.lon} sunAz={scene.sunAz} sunEl={scene.sunEl} earthAz={scene.earthAz} earthEl={scene.earthEl} when={when} />
               </div>
               <p className="mt-3 text-[15px] text-ink-2">
