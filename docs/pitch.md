@@ -22,7 +22,7 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 [Type "explain the longest night".] The assistant explains, but it never computes: every number on these pages comes from the engine, and the line under each answer says who answered.
 
-[Click "Printable brief".] One page, printable: the answer, five numbers, the Sun and Earth over the period, the method, the data. [Click "Write the brief".] The narrated paragraph is checked number by number against the figures; if the model invents a number, the template wins.
+[Click "Printable brief".] One page, printable: the answer, five numbers, the Sun and Earth over the period, the method, the data. [Click "Let the assistant write it".] The narrated paragraph is checked number by number against the figures; if the model invents a number, the template wins.
 
 ## 3:00 — Validity (45 s)
 

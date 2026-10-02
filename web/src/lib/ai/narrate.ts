@@ -1,5 +1,5 @@
 import { PANEL_LABELS, type PanelModel } from '../engine/power';
-import { dateLong, pct, spanWords } from '../viz/format';
+import { dateLong, pct0, spanWords } from '../viz/format';
 import type { ChatMessage } from './openrouter';
 import { completeSentences, extractJsonDetailed } from './protocol';
 import type { StateSummary } from './state-summary';
@@ -102,6 +102,9 @@ export function foreignNumbers(reply: string, s: StateSummary): string[] {
 
 const hemi = (v: number, pos: string, neg: string) => `${Math.abs(v).toFixed(3)}°${v < 0 ? neg : pos}`;
 
+/** A battery as the pages write it: "2 kWh", "500 Wh". */
+const kwh = (wh: number) => (wh >= 1000 ? `${Number.isInteger(wh / 1000) ? wh / 1000 : (wh / 1000).toFixed(1)} kWh` : `${wh} Wh`);
+
 /** The panel in a sentence, after its size: "a 4 m² upright panel that turns to the Sun". */
 const PANEL_WORDS: Record<PanelModel, string> = {
   horizontal: 'flat panel facing up',
@@ -126,8 +129,8 @@ export function templateBrief(s: StateSummary): string {
   const contactWords = power.contactHours > 0 ? `with Earth in view for ${spanWords(power.contactHours)} of that time` : 'with no radio contact in that time';
   return (
     `${s.site.label} (${hemi(s.site.lat, 'N', 'S')}, ${hemi(s.site.lon, 'E', 'W')}), ${days} days from ${date} ${s.window.startUtc.slice(0, 4)}: ` +
-    `sunlight ${pct(summary.illumFraction)} of the time and ${night}; Earth in view ${pct(summary.earthVisFraction)} of the time. ` +
-    `A lander with a ${p.areaM2} m² ${PANEL_WORDS[p.panel]} (${Math.round(p.efficiency * 100)} % efficiency), a ${p.loadW} W load and a ${p.batteryWh} Wh battery starting ${Math.round(p.initialSocFraction * 100)} % full, ` +
+    `sunlight ${pct0(summary.illumFraction)} of the time and ${night}; Earth in view ${pct0(summary.earthVisFraction)} of the time. ` +
+    `A lander with a ${p.areaM2} m² ${PANEL_WORDS[p.panel]} (${Math.round(p.efficiency * 100)} % efficiency), a ${p.loadW} W load and a ${kwh(p.batteryWh)} battery starting ${Math.round(p.initialSocFraction * 100)} % full, ` +
     `landing on ${date}, ${powerWords}, ${contactWords}.`
   );
 }

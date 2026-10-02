@@ -37,6 +37,7 @@ describe('BriefView', () => {
     expect(screen.getByRole('region', { name: /^Landing at Shackleton rim summit/ }).textContent).toMatch(/Earth is in view for/);
     const figures = [...document.querySelectorAll('dt')].map((d) => d.textContent);
     expect(figures).toEqual(['Sunlight', 'Contact with Earth', 'Longest night', 'Time with power', 'Battery when full']);
+    expect(document.querySelector('dl')!.className).toMatch(/\bgrid-cols-2\b.*\bsm:grid-cols-3\b/);
     expect(screen.getByRole('img', { name: /^The Sun over the 30 days from 1 January/ }).closest('.stage')).toBeTruthy();
     expect(screen.getByRole('img', { name: /^Earth over the 30 days from 1 January/ }).closest('.stage')).toBeTruthy();
     // Day labels under the rows: every other one gives way on a phone, so none overlap.
@@ -76,15 +77,15 @@ describe('BriefView', () => {
 });
 
 describe('BriefView narration', () => {
-  it('shows the template summary by default and the model paragraph after "Write the brief"', async () => {
+  it('shows the template summary by default and the model paragraph after "Let the assistant write it"', async () => {
     const store = await storeWithFiles();
     const narrate = vi.fn(async () => ({ source: 'model' as const, model: 'google/gemma-4-31b-it:free', reply: 'Model paragraph about the rim.' }));
     render(<BriefView store={store} narrate={narrate} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
     expect(screen.getByRole('heading', { name: 'Mission summary' })).toBeTruthy();
     expect(screen.getByTestId('narration').textContent).toMatch(/^Shackleton rim summit .*keeps power for all 30 days/);
-    expect(screen.getByText(/written from the numbers above/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    expect(screen.getByText(/written by the app from the figures below/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByTestId('narration').textContent).toBe('Model paragraph about the rim.'));
     expect(screen.getByText(/narrated by gemma-4-31b/)).toBeTruthy();
     expect(narrate).toHaveBeenCalledTimes(1);
@@ -102,7 +103,7 @@ describe('BriefView narration', () => {
       />,
     );
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByText(/assistant is offline/)).toBeTruthy());
     expect(screen.getByTestId('narration').textContent).toMatch(/keeps power for all 30 days/);
   });
@@ -118,11 +119,11 @@ describe('BriefView narration labels', () => {
       .mockRejectedValueOnce(new Error('Too many questions; try again in 12 s.'));
     render(<BriefView store={store} narrate={narrate} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
-    await waitFor(() => expect(screen.getByText(/demo mode; written from the numbers above/)).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
+    await waitFor(() => expect(screen.getByText(/demo mode; written by the app from the figures below/)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByText(/did not pass the number check/)).toBeTruthy());
-    fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByText(/try again in 12 s/)).toBeTruthy());
     expect(screen.getByTestId('narration').textContent).toMatch(/keeps power for all 30 days/);
   });

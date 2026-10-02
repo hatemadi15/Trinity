@@ -25,7 +25,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
             Earthrise
             <span className="ml-1.5 hidden whitespace-nowrap font-text text-[15px] font-normal tracking-normal text-ink-3 xl:inline">sunlight and signal forecast for the Moon</span>
           </Link>
-          <nav aria-label="Sections" className="order-last flex w-full flex-wrap gap-x-7 gap-y-1 text-[15px] font-medium lg:order-none lg:w-auto lg:flex-nowrap">
+          <nav aria-label="Sections" className="order-last flex w-full flex-wrap gap-x-7 gap-y-1 text-[15px] font-medium max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 lg:order-none lg:w-auto lg:flex-nowrap">
             {NAV.map((item) => (
               <Link key={item.href} href={item.href} className="whitespace-nowrap text-ink-2 hover:text-ink">
                 {item.label}

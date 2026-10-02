@@ -18,6 +18,9 @@ describe('How it works', () => {
     expect(steps.map((s) => s.querySelector('h3')!.textContent)).toEqual(['Choose a landing site', 'Read the answer', 'See why, hour by hour', 'Look at the ground', 'Compare and check']);
     expect(steps[2].textContent).toMatch(/Times are in UTC, the clock time at Greenwich on Earth: the Moon keeps no clock of its own\./);
     expect(steps[3].textContent).toMatch(/shadow map/);
+    expect(steps[0].textContent).toMatch(/Picking a site opens Explore on that day\./);
+    expect(steps[1].textContent).toMatch(/lands on the first day of the period/);
+    expect(steps[3].textContent).toMatch(/View all round unrolls the horizon/);
     expect(steps[4].textContent).toMatch(/Accuracy/);
   });
 

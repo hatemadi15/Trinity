@@ -25,6 +25,9 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
+/** A place without its qualifiers: "Connecting Ridge (Shackleton–de Gerlache ridge)" is "Connecting Ridge". */
+const placeName = (r: { name: string }) => r.name.replace(/\s*\(.*\)$/, '').split(',')[0];
+
 /** The lander, not its site: "IM-1 Odysseus landing site (Malapert A)" is "IM-1 Odysseus". */
 const lander = (r: BackcastRow) => r.name.replace(/ landing site\b.*$/, '');
 
@@ -72,10 +75,10 @@ export function checkCards({ horizons, mazarico, backcasts }: ValidationDocs): C
       id: 'sunlight',
       title: 'How much sunlight a site gets',
       pass: sunPass,
-      mark: sunPass ? `Passes: ${within} of ${covered.length} sites within ${SUNLIGHT_POINTS} points` : `Misses: the typical gap is over ${SUNLIGHT_POINTS} points`,
+      mark: sunPass ? `Passes: the typical gap is under ${SUNLIGHT_POINTS} points` : `Misses: the typical gap is over ${SUNLIGHT_POINTS} points`,
       figure: `${typical.toFixed(1)} points`,
-      figureWords: `the typical gap at ${covered.length} sites, in percentage points`,
-      sentence: `Our share of sunlight against NASA's sunlight map from the LOLA laser altimeter, averaged over 13 years, at the ${covered.length} sites it covers. The two largest misses, ${worstTwo.map((r) => r.name).join(' and ')}, are narrow high features, most likely the map’s 60 m sampling of 20 m peaks.`,
+      figureWords: `the typical gap at ${covered.length} sites; 72 % against 70 % is a gap of 2 points`,
+      sentence: `Our share of sunlight against NASA's sunlight map from the LOLA laser altimeter, averaged over 13 years, at the ${covered.length} sites it covers: ${within} of ${covered.length} sites are within ${SUNLIGHT_POINTS} points. The two largest misses, at ${worstTwo.map(placeName).join(' and ')}, are narrow high features; NASA's map averages the ground over 60 m squares, wider than they are.`,
     },
     {
       id: 'nights',

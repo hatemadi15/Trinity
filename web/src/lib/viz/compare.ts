@@ -2,7 +2,7 @@ import { siteLabel } from '../data/loaders';
 import { timeWithPower } from '../engine/landing';
 import { exploreHref } from '../links';
 import type { SiteResult } from '../store/explore';
-import { dateLong, pct0, spanShort } from './format';
+import { dateLong, dayMonth, pct0, spanShort } from './format';
 
 /** One row of the comparison table: what it says about a site, ready to print. */
 export interface CompareRow {
@@ -27,6 +27,14 @@ export const READY_PAIRS: { title: string; ids: [string, string] }[] = [
 /** Hours with power for a lander that lands at the period's start, capped at the period. */
 const poweredHours = (r: SiteResult, hours: number) => Math.min(hours, timeWithPower(r.power));
 
+/** What happens to a lander that loses power: "Power for 3 d 4 h, then off until 20 Jan", or that it stays off. */
+function poweredWords(r: SiteResult, startUtc: string, hours: number, powered: number): string {
+  let back = powered;
+  while (back < hours && r.power.powered[back] === 0) back++;
+  if (powered === 0) return back < hours ? `No power at landing; on from ${dayMonth(startUtc, back)}` : 'No power at landing';
+  return `Power for ${spanShort(powered)}, then off ${back < hours ? `until ${dayMonth(startUtc, back)}` : 'to the end'}`;
+}
+
 /** A compared site as a row: sunlight and Earth in view over the period, its longest night, and its time with power from the period's first day. */
 export function compareRow(r: SiteResult, startUtc: string, days: number): CompareRow {
   const hours = days * 24;
@@ -41,7 +49,7 @@ export function compareRow(r: SiteResult, startUtc: string, days: number): Compa
     earth: pct0(r.summary.earthVisFraction),
     longestNight: r.summary.longestDarkH > 0 ? spanShort(r.summary.longestDarkH) : 'none',
     power: all ? `all ${days} days` : spanShort(powered),
-    verdict: !lit ? 'No sunlight' : all ? `Power for all ${days} days` : `Power for ${spanShort(powered)}, then night`,
+    verdict: !lit ? 'No sunlight' : all ? `Power for all ${days} days` : poweredWords(r, startUtc, hours, powered),
     tone: lit && all ? 'good' : 'bad',
   };
 }

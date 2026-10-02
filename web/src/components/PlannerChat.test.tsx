@@ -253,7 +253,7 @@ describe('PlannerChat opens when it has something to show', () => {
       render(<PlannerChat store={store} ask={ask} navigate={() => {}} />);
       const panel = screen.getByRole('region', { name: 'Ask in plain words' });
       const box = within(panel).getByLabelText('Ask the assistant');
-      expect(box.getAttribute('placeholder')).toBe('Type a question about a site, a date or the lander');
+      expect(box.getAttribute('placeholder')).toBe('Ask about a site or a date');
       const askButton = within(panel).getByRole('button', { name: 'Ask' }) as HTMLButtonElement;
       expect(askButton.disabled).toBe(false);
       // An empty question sends nothing and puts the cursor in the box.

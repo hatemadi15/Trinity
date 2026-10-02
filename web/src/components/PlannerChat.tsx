@@ -107,7 +107,7 @@ export function PlannerChat({
           aria-label="Ask the assistant"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Type a question about a site, a date or the lander"
+          placeholder="Ask about a site or a date"
           maxLength={500}
           className="field min-w-[260px] flex-1 placeholder:text-ink-3"
         />

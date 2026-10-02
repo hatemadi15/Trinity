@@ -24,14 +24,16 @@ describe('checkCards', () => {
 
   it('passes the sunlight check when the typical gap is within 5 points, and names the largest misses', () => {
     const c = checkCards(docs)[1];
-    expect(c).toMatchObject({ pass: true, figure: '2.6 points', figureWords: 'the typical gap at 15 sites, in percentage points', mark: 'Passes: 11 of 15 sites within 5 points' });
+    expect(c).toMatchObject({ pass: true, figure: '2.6 points', figureWords: 'the typical gap at 15 sites; 72 % against 70 % is a gap of 2 points', mark: 'Passes: the typical gap is under 5 points' });
+    expect(c.sentence).toMatch(/11 of 15 sites are within 5 points\./);
     const worst = docs.mazarico.rows
       .filter((r) => r.covered && r.delta_points !== undefined)
       .sort((a, b) => Math.abs(b.delta_points!) - Math.abs(a.delta_points!))
       .slice(0, 2)
       .map((r) => r.name);
-    for (const name of worst) expect(c.sentence).toContain(name);
-    expect(c.sentence).toMatch(/most likely the map’s 60 m sampling of 20 m peaks/);
+    for (const name of worst) expect(c.sentence).toContain(name.replace(/\s*\(.*\)$/, '').split(',')[0]);
+    expect(c.sentence).toMatch(/are narrow high features; NASA's map averages the ground over 60 m squares, wider than they are\./);
+    expect(c.sentence).not.toMatch(/highest point|sampling/);
   });
 
   it('passes the nights check when the lander that lived to sunset ended within 6 hours of it, and says why the others ended early', () => {

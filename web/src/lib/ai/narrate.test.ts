@@ -40,7 +40,10 @@ describe('templateBrief', () => {
     expect(templateBrief(summary)).toBe(a);
     expect(a).toMatch(/^Nobile Rim 2 \(84\.202°S, 60\.700°E\), 14 days from 1 March 2027: /);
     expect(a).toMatch(/landing on 1 March, keeps power for all 14 days, with Earth in view for 9 days 9 hours of that time\.$/);
-    expect(a).toMatch(/100\.0 %/);
+    // The paragraph's figures read as the page prints them: whole percents, kWh.
+    expect(a).toMatch(/sunlight 100\u00a0% of the time/);
+    expect(a).not.toMatch(/\d\.\d\s?%/);
+    expect(a).toMatch(/a 2 kWh battery/);
     expect(a).not.toMatch(/surviv|skyline|window/);
     expect(a).toMatch(new RegExp(`A lander with a ${DEFAULT_POWER.areaM2} m² upright panel that turns to the Sun \\(${Math.round(DEFAULT_POWER.efficiency * 100)} % efficiency\\), a ${DEFAULT_POWER.loadW} W load`));
     expect(checkNumbers(a, summary)).toBe(true);

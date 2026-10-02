@@ -15,7 +15,7 @@ describe('PeriodBand', () => {
     expect(siteLink.getAttribute('href')).toBe('/sites');
     expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('2027-01-01');
     expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Lander: 4 m² panel, 200 W, 2 kWh battery. Change' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' })).toBeTruthy();
   });
 
   it('opens the lander settings and passes period changes on', () => {

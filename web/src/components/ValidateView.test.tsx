@@ -57,6 +57,8 @@ describe('ValidateView', () => {
       expect(show.getAttribute('aria-expanded')).toBe('false');
       fireEvent.click(show);
       expect(within(r).getByRole('button', { name: 'Hide the numbers' }).getAttribute('aria-expanded')).toBe('true');
+      // A phone shows only part of a table: it says the table moves sideways.
+      expect(within(r).getByText('Swipe the table sideways to see every column.').className).toMatch(/\bsm:hidden\b/);
       expect(within(r).getByRole('table')).toBeTruthy();
     }
     expect(within(regions[1]).getAllByText(/not covered by the 85°S map/).length).toBeGreaterThan(0);
@@ -84,7 +86,9 @@ describe('ValidateView', () => {
 
   it('keeps the error budget, and one gold action on the page', async () => {
     await open();
-    expect(screen.getByRole('region', { name: 'Error budget' }).textContent).toMatch(/under 0\.01° \(the first check finds 0\.00003°\)/);
+    const budget = screen.getByRole('region', { name: 'How far off the forecast can be' });
+    expect(budget.textContent).toMatch(/under 0\.01° \(the first check finds 0\.00003°\)/);
+    expect(budget.querySelector('li')!.textContent).toMatch(/^Sunrise, sunset and Earth rising or setting: within 15 to 60 minutes/);
     const gold = screen.getByRole('main').querySelectorAll('.btn-primary');
     expect(gold).toHaveLength(1);
     expect(gold[0].textContent).toMatch(/Re-check with JPL now/);

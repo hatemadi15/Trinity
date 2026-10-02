@@ -3,12 +3,14 @@ import type { SiteResult } from '@/lib/store/explore';
 import { bestSentence, compareRow, READY_PAIRS } from './compare';
 
 /** A compared site with only what the table reads. */
-function result(id: string, label: string, o: { sun: number; earth: number; nightH: number; brownout: number | null; hours?: number }): SiteResult {
+function result(id: string, label: string, o: { sun: number; earth: number; nightH: number; brownout: number | null; backAt?: number; hours?: number }): SiteResult {
   const hours = o.hours ?? 720;
+  // Powered until the brownout, off until `backAt` (or to the end), then powered again.
+  const powered = Uint8Array.from({ length: hours }, (_, h) => (o.brownout === null || h < o.brownout || (o.backAt !== undefined && h >= o.backAt) ? 1 : 0));
   return {
     site: { id, name: `${label} (formal)`, label, lat: -88, lon: 0, category: 'x', polar: true, source: 'x' },
     summary: { hours, illumFraction: o.sun, meanSunFraction: o.sun, longestDarkH: o.nightH, earthVisFraction: o.earth, longestEarthGapH: 0, jointFraction: 0 },
-    power: { firstBrownoutHour: o.brownout, powerW: new Float64Array(hours) },
+    power: { firstBrownoutHour: o.brownout, powerW: new Float64Array(hours), powered },
   } as unknown as SiteResult;
 }
 
@@ -16,9 +18,14 @@ const START = '2027-01-01T00:00:00';
 
 describe('compareRow', () => {
   it('gives the figures a row shows, with their units, and a link to Explore on the same period', () => {
-    const row = compareRow(result('a', 'Ridge', { sun: 0.724, earth: 0.538, nightH: 400, brownout: 76 }), START, 30);
-    expect(row).toMatchObject({ id: 'a', name: 'Ridge', sunlight: '72 %', earth: '54 %', longestNight: '16 d 16 h', power: '3 d 4 h', verdict: 'Power for 3 d 4 h, then night', tone: 'bad' });
+    const row = compareRow(result('a', 'Ridge', { sun: 0.724, earth: 0.538, nightH: 400, brownout: 76, backAt: 466 }), START, 30);
+    expect(row).toMatchObject({ id: 'a', name: 'Ridge', sunlight: '72 %', earth: '54 %', longestNight: '16 d 16 h', power: '3 d 4 h', verdict: 'Power for 3 d 4 h, then off until 20 Jan', tone: 'bad' });
     expect(row.href).toBe('/explore?site=a&start=2027-01-01&days=30');
+  });
+
+  it('says when the power comes back, or that it does not in the period', () => {
+    expect(compareRow(result('n', 'Nobile', { sun: 0.37, earth: 0.23, nightH: 254, brownout: 10 }), START, 30).verdict).toBe('Power for 10 h, then off to the end');
+    expect(compareRow(result('d', 'Dusk', { sun: 0.4, earth: 0.3, nightH: 200, brownout: 0, backAt: 300 }), START, 30).verdict).toBe('No power at landing; on from 13 Jan');
   });
 
   it('says when power lasts the whole period, and when there is no sunlight at all', () => {

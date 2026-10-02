@@ -162,7 +162,7 @@ describe('POST /api/chat task narrate', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(json.source).toBe('template');
     expect(json.reply).toMatch(/Nobile Rim 2/);
-    expect(json.reply).toMatch(/100\.0 %/);
+    expect(json.reply).toMatch(/100\u00a0%/);
   });
 
   it('uses the template without a key or in cached mode, and needs a state', async () => {

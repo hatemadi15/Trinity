@@ -7,11 +7,11 @@ export interface StoryStep {
 export const STORY_STEPS: StoryStep[] = [
   {
     title: 'Choose a landing site',
-    body: 'The site list shows every place the tool knows near the south pole, sorted by how long a solar lander keeps power there. Each figure is for the best landing day in the period you choose, and any other point south of 60° S can be worked out too.',
+    body: 'The site list shows every place the tool knows near the south pole, sorted by how long a solar lander keeps power there if it lands on the best day of the period you choose. Picking a site opens Explore on that day. Any other point south of 60° S can be worked out too.',
   },
   {
     title: 'Read the answer',
-    body: 'Explore opens on the answer for a lander that lands on the first day: how long it has power, how much of that time Earth is in view for radio, and a better landing day or a better place nearby when there is one.',
+    body: 'Explore answers for a lander that lands on the first day of the period: how long it has power, how much of that time Earth is in view for radio, and a better landing day or a better place nearby when there is one.',
   },
   {
     title: 'See why, hour by hour',
@@ -19,7 +19,7 @@ export const STORY_STEPS: StoryStep[] = [
   },
   {
     title: 'Look at the ground',
-    body: "The shadow map shows the ground around the site from above at the time bar's hour, with north up, and says whether the site is in sunlight. 3D shows the same light on the hills, and the view all round shows the hills with the paths of the Sun and Earth.",
+    body: "The shadow map shows the ground around the site from above at the time bar's hour, with north up, and says whether the site is in sunlight. 3D shows the same light on the hills. View all round unrolls the horizon in every direction into one strip, with the paths of the Sun and Earth over the hills.",
   },
   {
     title: 'Compare and check',

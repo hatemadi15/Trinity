@@ -20,18 +20,18 @@ type Narration = { text: string; source: 'template' | 'model' | 'error'; model?:
 
 /** The line under the summary paragraph: who wrote it, or why the template stands. */
 function narrationLabelFor(n: Narration | null): string {
-  if (!n) return 'written from the numbers above';
+  if (!n) return 'written by the app from the figures below';
   if (n.source === 'model') return `narrated by ${n.model ? shortModel(n.model) : 'the model'}, checked number by number against the figures below`;
-  if (n.source === 'error') return n.message?.startsWith('Too many') ? `${n.message} Written from the numbers above.` : 'the assistant is offline; written from the numbers above';
+  if (n.source === 'error') return n.message?.startsWith('Too many') ? `${n.message} Written by the app from the figures below.` : 'the assistant is offline; written by the app from the figures below';
   switch (n.reason) {
     case 'cached':
-      return 'demo mode; written from the numbers above';
+      return 'demo mode; written by the app from the figures below';
     case 'no-key':
-      return 'no model configured; written from the numbers above';
+      return 'no model configured; written by the app from the figures below';
     case 'model-error':
-      return 'the model did not answer; written from the numbers above';
+      return 'the model did not answer; written by the app from the figures below';
     default:
-      return "the model's paragraph did not pass the number check; written from the numbers above";
+      return "the model's paragraph did not pass the number check; written by the app from the figures below";
   }
 }
 
@@ -121,7 +121,7 @@ export function BriefView({
         <div className="flex items-center justify-between gap-3">
           <h2 className="display text-[18px] font-semibold">Mission summary</h2>
           <button type="button" onClick={() => void write()} disabled={writing} className="no-print btn h-10 px-3 text-[15px] disabled:opacity-50">
-            {writing ? 'Writing…' : 'Write the brief'}
+            {writing ? 'Writing…' : 'Let the assistant write it'}
           </button>
         </div>
         <p data-testid="narration">{shown}</p>
@@ -139,7 +139,7 @@ export function BriefView({
         {answer.better && <p className="mt-1 text-[15px]">{answer.better.note}</p>}
         {answer.hint && <p className="mt-1 text-[15px] text-ink-2">{answer.hint}</p>}
       </section>
-      <dl className="grid grid-cols-3 gap-x-6 gap-y-3 text-[15px]">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-[15px] sm:grid-cols-3">
         {figures.map(([k, v]) => (
           <div key={k}>
             <dt className="text-ink-2">{k}</dt>

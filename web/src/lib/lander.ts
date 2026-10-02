@@ -8,9 +8,9 @@ export interface LanderPreset {
 }
 
 export const LANDER_PRESETS: LanderPreset[] = [
-  { id: 'small', label: '4 m² panel, 200 W, 2 kWh battery', power: { areaM2: 4, loadW: 200, batteryWh: 2000 } },
-  { id: 'medium', label: '8 m² panel, 400 W, 20 kWh battery', power: { areaM2: 8, loadW: 400, batteryWh: 20000 } },
-  { id: 'large', label: '20 m² panel, 500 W, 50 kWh battery', power: { areaM2: 20, loadW: 500, batteryWh: 50000 } },
+  { id: 'small', label: '4 m² panel, uses 200 W, 2 kWh battery', power: { areaM2: 4, loadW: 200, batteryWh: 2000 } },
+  { id: 'medium', label: '8 m² panel, uses 400 W, 20 kWh battery', power: { areaM2: 8, loadW: 400, batteryWh: 20000 } },
+  { id: 'large', label: '20 m² panel, uses 500 W, 50 kWh battery', power: { areaM2: 20, loadW: 500, batteryWh: 50000 } },
 ];
 
 /** The preset these settings are, or null when any field differs from it or from the defaults around it. */

@@ -67,6 +67,7 @@ function CheckPanel({ card, extra, children }: { card: CheckCard; extra?: ReactN
       <button type="button" aria-expanded={open} aria-controls={`${id}-n`} onClick={() => setOpen((v) => !v)} className="btn mt-4">
         {open ? 'Hide the numbers' : 'Show the numbers'}
       </button>
+      {open && <p className="mt-3 text-[15px] text-ink-2 sm:hidden">Swipe the table sideways to see every column.</p>}
       <div id={`${id}-n`} hidden={!open} className="mt-4 overflow-x-auto">
         {open && children}
       </div>
@@ -282,12 +283,12 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
 
         <section aria-labelledby="h-budget" className="panel">
           <h2 id="h-budget" className="display text-[26px] font-semibold">
-            Error budget
+            How far off the forecast can be
           </h2>
           <ul className="mt-3 flex max-w-[62em] flex-col gap-2 leading-relaxed text-ink-2">
+            <li>Sunrise, sunset and Earth rising or setting: within 15 to 60 minutes near the pole, where the Sun moves half a degree an hour along the horizon and the forecast is hourly.</li>
             <li>Directions to the Sun and Earth: under 0.01° (the first check finds {degreesText(horizons.max_abs_delta_el_deg)}).</li>
-            <li>The hills on the horizon: 0.05 to 0.15°, from NASA&apos;s elevation grids of 20 to 240 m with 1 to 2 m of height noise, which the app reproduces to 0.01°.</li>
-            <li>Times of sunrise, sunset and Earthrise: within 15 to 60 minutes near the pole, where the Sun moves half a degree an hour along the horizon and the forecast is hourly.</li>
+            <li>The height of the hills around a site: 0.05 to 0.15°, because NASA&apos;s elevation maps are 1 to 2 m uncertain; the app follows them to 0.01°.</li>
           </ul>
         </section>
       </main>

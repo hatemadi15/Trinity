@@ -13,6 +13,7 @@ describe('AppFrame', () => {
     );
     expect(screen.getByRole('link', { name: /Earthrise/ }).getAttribute('href')).toBe('/');
     const nav = screen.getByRole('navigation', { name: 'Sections' });
+    expect(nav.className).toMatch(/\bmax-sm:grid\b.*\bmax-sm:grid-cols-2\b/); // two by two on a phone, none alone on a line
     const links = [...nav.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
     expect(links).toEqual([
       ['Explore a site', '/sites'],

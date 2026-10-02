@@ -29,6 +29,8 @@ describe('CompareView', () => {
     expect(within(rows[0]).getByRole('img', { name: /^The Sun and Earth at de Gerlache Rim 2 over the 30 days/ })).toBeTruthy();
     // The strips' colours are explained under the table.
     expect(screen.getByRole('main').textContent).toMatch(/In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the 30 days\./);
+    expect(screen.getByRole('main').textContent).toMatch(/Time with power counts from landing until the battery first runs out; Earth in view counts every hour of the period\./);
+    expect(rows[0].textContent).toMatch(/Power for 3 d 4 h, then off until 20 Jan/);
   });
 
   it('says above the table which site is best for each measure', async () => {
@@ -82,6 +84,7 @@ describe('CompareView', () => {
   it('keeps the period and the lander, and offers no more than four sites', async () => {
     const store = await open();
     expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
+    expect(screen.getByRole('main').textContent).toMatch(/Up to four landing sites side by side, for the same days and the same lander, landing on the first day\./);
     expect(screen.getByRole('button', { name: /Lander/ })).toBeTruthy();
     for (const id of ['shackleton_center', 'de_gerlache_center', 'im1_odysseus', 'im2_athena']) await store.getState().addToCompare(id);
     await waitFor(() => expect((screen.getByRole('combobox', { name: 'Add a site' }) as HTMLSelectElement).disabled).toBe(true));
