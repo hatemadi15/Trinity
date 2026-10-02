@@ -45,15 +45,16 @@ describe('StandView', () => {
     expect(screen.getByRole('slider', { name: 'Time' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     for (const name of ['Face the Sun', 'Face Earth', 'Look up']) expect(screen.getByRole('button', { name })).toBeTruthy();
-    expect(screen.getAllByText(/The small craters underfoot are drawn, not measured\./).length).toBeGreaterThan(0);
-    for (const letter of ['N', 'E', 'S', 'W']) expect(screen.getByText(letter)).toBeTruthy();
+    await waitFor(() => expect(screen.getAllByText(/The small craters underfoot are drawn, not measured\./).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.getByText('N')).toBeTruthy());
+    for (const letter of ['E', 'S', 'W']) expect(screen.getByText(letter)).toBeTruthy();
     expect(document.querySelector('.theme-dark')).toBeTruthy();
   });
 
   it('labels the Sun and Earth as Explore does, and follows the time', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const series = store.getState().series!;
-    expect(screen.getByText(skyLabel('sun', series, 10))).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(skyLabel('sun', series, 10))).toBeTruthy());
     expect(screen.getByText(skyLabel('earth', series, 10))).toBeTruthy();
     act(() => store.getState().setCursor(300));
     await waitFor(() => expect(screen.getByText(liveSentence(series, 300))).toBeTruthy());
@@ -68,7 +69,7 @@ describe('StandView', () => {
   it('opens a site without polar terrain on flat ground, and says so', async () => {
     await open('?site=blue_ghost_m1&start=2025-03-02T09:00&days=14&hour=0');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing at Blue Ghost/);
-    expect(screen.getAllByText(/the ground here is drawn flat/).length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getAllByText(/the ground here is drawn flat/).length).toBeGreaterThan(0));
   });
 
   it('falls back to the view all round, with the same words, when the renderer cannot start', async () => {
@@ -77,6 +78,8 @@ describe('StandView', () => {
     });
     await waitFor(() => expect(screen.getByText(/This browser cannot draw the view from the site/)).toBeTruthy());
     expect(screen.getByRole('img', { name: /^The view all round the site/ })).toBeTruthy();
+    // The note describes the view from the site, which the fallback does not show.
+    expect(screen.queryByText(/What is measured/)).toBeNull();
     expect(screen.getByText(liveSentence(store.getState().series!, 10))).toBeTruthy();
   });
 

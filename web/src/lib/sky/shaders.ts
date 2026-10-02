@@ -35,20 +35,28 @@ float craters(vec2 p, float cell) {
   }
   return h;
 }
-float detailH(vec2 p) { return craters(p, 46.0) * 0.55 + craters(p + 17.0, 11.0) * 0.6 + craters(p + 93.0, 2.6) * 0.6 + (vnoise(p * 0.9) - 0.5) * 0.35 + (vnoise(p * 3.7) - 0.5) * 0.12; }
+// Each size fades out as it shrinks towards a pixel (px: metres of ground per pixel), so nothing sparkles.
+float detailH(vec2 p, float px) {
+  return craters(p, 46.0) * 0.55 * smoothstep(1.5, 4.0, 46.0 / px)
+    + craters(p + 17.0, 11.0) * 0.6 * smoothstep(1.5, 4.0, 11.0 / px)
+    + craters(p + 93.0, 2.6) * 0.6 * smoothstep(1.5, 4.0, 2.6 / px)
+    + (vnoise(p * 0.9) - 0.5) * 0.35 * smoothstep(1.5, 4.0, 1.1 / px)
+    + (vnoise(p * 3.7) - 0.5) * 0.12 * smoothstep(1.5, 4.0, 0.27 / px);
+}
 void main() {
   #include <logdepthbuf_fragment>
+  float px = max(length(fwidth(vWorld.xz)), 1.0e-3); // metres of ground per pixel, taken before any branch or discard
   vec2 m = toMap(vWorld.xz);
   if (abs(m.x) < uHole.x && abs(m.y) < uHole.y) discard; // a finer level draws here
-  vec3 Nn = normalize(vNormal);
+  vec3 N0 = normalize(vNormal), Nn = N0;
   float dist = length(vWorld - cameraPosition);
   float albedoVar = 1.0;
   if (uDetail > 0.5) {
     float w = 1.0 - smoothstep(250.0, 1600.0, dist);
     if (w > 0.0) {
-      float e = max(0.15, dist * 0.004); float h0 = detailH(vWorld.xz), hx = detailH(vWorld.xz + vec2(e, 0.0)), hz = detailH(vWorld.xz + vec2(0.0, e));
+      float e = max(0.15, px); float h0 = detailH(vWorld.xz, px), hx = detailH(vWorld.xz + vec2(e, 0.0), px), hz = detailH(vWorld.xz + vec2(0.0, e), px);
       Nn = normalize(Nn - vec3((hx - h0) / e, 0.0, (hz - h0) / e) * w * 1.15);
-      albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) + 0.25 * max(0.0, h0) / 3.0);
+      albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0);
     }
   }
   albedoVar += 0.1 * (vnoise(vWorld.xz * 0.004) - 0.5);
@@ -58,7 +66,8 @@ void main() {
   float phase = exp(-0.82 * alpha);
   float surge = 1.0 + 0.9 / (1.0 + tan(alpha * 0.5) / 0.055); // regolith brightens looking away from the Sun
   float ls = mu0 / (mu0 + mu);                                 // Lommel-Seeliger: no limb darkening on the Moon
-  float vis = mu0 > 0.0 ? sunFraction(vWorld + Nn * 0.4, uSun) : 0.0;
+  // The shadow ray starts from the measured ground; the drawn craters only shade.
+  float vis = mu0 > 0.0 ? sunFraction(vWorld + N0 * 0.4, uSun) : 0.0;
   vec3 albedo = vec3(0.17, 0.164, 0.156) * albedoVar;
   vec3 col = albedo * vec3(1.0, 0.99, 0.975) * uSunPower * ls * phase * surge * vis;
   vec3 Le = normalize(uEarth); float mue = max(dot(Nn, Le), 0.0);

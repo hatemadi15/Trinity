@@ -85,7 +85,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const hour = Math.min(series.hours - 1, Math.max(0, s.cursorHour));
   const answer = answerFor({ siteName: siteLabel(site), series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best });
   const lander = landerState(s.power, s.startUtc, hour);
-  const note = measuredNote(scene ? scene.field.levels.map((l) => l.cell) : []);
+  // The note describes the view from the site: shown with it, not while the ground loads or in the fallback.
+  const note = scene && !failed ? measuredNote(scene.field.levels.map((l) => l.cell)) : null;
   const face = (az: number, el: number, fov: number) => setLook({ yaw: az, pitch: Math.max(-8, Math.min(60, el + 1.5)), fov });
 
   return (
@@ -145,13 +146,17 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         )}
       </div>
 
-      <aside className={`${PLATE} fixed bottom-32 right-4 hidden w-[340px] p-3.5 text-[15px] text-[#c3bfb6] md:block`}>
-        <b className="text-[#f2f0ea]">What is measured.</b> {note}
-      </aside>
-      <details className={`${PLATE} fixed inset-x-4 bottom-32 px-3.5 text-[15px] text-[#c3bfb6] md:hidden`}>
-        <summary className="flex min-h-10 cursor-pointer items-center text-[#f2f0ea]">What is measured</summary>
-        <p className="pb-3">{note}</p>
-      </details>
+      {note && (
+        <>
+          <aside className={`${PLATE} fixed bottom-32 right-4 hidden w-[340px] p-3.5 text-[15px] text-[#c3bfb6] md:block`}>
+            <b className="text-[#f2f0ea]">What is measured.</b> {note}
+          </aside>
+          <details className={`${PLATE} fixed inset-x-4 bottom-32 px-3.5 text-[15px] text-[#c3bfb6] md:hidden`}>
+            <summary className="flex min-h-10 cursor-pointer items-center text-[#f2f0ea]">What is measured</summary>
+            <p className="pb-3">{note}</p>
+          </details>
+        </>
+      )}
 
       <div className="fixed inset-x-0 bottom-0">
         <TimeBar series={series} power={s.power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} />
