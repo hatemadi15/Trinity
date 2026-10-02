@@ -4,6 +4,10 @@ import type { TileManifest } from '../engine/tiles';
 export interface Site {
   id: string;
   name: string;
+  /** Short display name for lists, titles and map pins; `name` stays the formal catalogue name. */
+  label?: string;
+  /** One plain line that says what the place is. */
+  blurb?: string;
   lat: number;
   lon: number;
   category: string;
@@ -17,6 +21,11 @@ export interface Site {
   mission_end_source?: string;
   /** One or two sentences on how the mission ended, for the backcast table. */
   mission_note?: string;
+}
+
+/** The name to show: the short label when the catalogue has one. */
+export function siteLabel(site: Pick<Site, 'name' | 'label'>): string {
+  return site.label ?? site.name;
 }
 
 export interface MaskDoc {

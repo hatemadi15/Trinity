@@ -27,6 +27,9 @@ class Site:
     mission_end_utc: str | None = None
     mission_end_source: str | None = None
     mission_note: str | None = None
+    # Short display name for lists, titles and map pins, and one plain line that says what the place is.
+    label: str | None = None
+    blurb: str | None = None
 
 
 def load_sites(path: Path = config.DATA_DIR / "sites.json") -> list[Site]:
@@ -65,6 +68,8 @@ def derive_rim_points(grid: LolaGrid, sites: list[Site]) -> list[Site]:
                 category="classic",
                 polar=True,
                 source=f"derived: argmax LOLA {grid.label.map_scale_m:.0f} m height in annulus around {s.id}",
+                label=s.derive_rim.get("label"),
+                blurb=s.derive_rim.get("blurb"),
             )
         )
     return out

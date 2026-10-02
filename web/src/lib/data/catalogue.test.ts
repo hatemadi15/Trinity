@@ -9,7 +9,7 @@ describe('catalogue.json', () => {
     const expected = [
       ...readJson<{ sites: Site[] }>('data', 'sites.json').sites,
       ...readJson<{ sites: Site[] }>('data', 'sites_derived.json').sites,
-    ].map((s) => ({ id: s.id, name: s.name, lat: s.lat, lon: s.lon, category: s.category, polar: s.polar }));
+    ].map((s) => ({ id: s.id, name: s.name, label: s.label, blurb: s.blurb, lat: s.lat, lon: s.lon, category: s.category, polar: s.polar }));
     expect(catalogue.sites).toEqual(expected);
     expect(catalogue.sites.length).toBeGreaterThanOrEqual(19);
   });

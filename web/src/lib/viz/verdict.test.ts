@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { verdictFor } from './verdict';
 
-const base = { powerW: new Float64Array(0), energyWh: new Float64Array(0), meanPowerW: 100 };
+const base = { powerW: new Float64Array(0), energyWh: new Float64Array(0), powered: new Uint8Array(0), meanPowerW: 100 };
 
 describe('verdictFor', () => {
   it('good when the battery never empties', () => {

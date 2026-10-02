@@ -1,10 +1,11 @@
 'use client';
 import { useMemo } from 'react';
-import { useTexture } from '@react-three/drei';
+import { Line, useTexture } from '@react-three/drei';
 import type { ThreeEvent } from '@react-three/fiber';
 import { SRGBColorSpace, type Texture } from 'three';
-import type { Site } from '@/lib/data/loaders';
-import { latLonToSphere, sphereToLatLon } from '@/lib/viz/three-frames';
+import { siteLabel, type Site } from '@/lib/data/loaders';
+import { latitudeRing, latLonToSphere, sphereToLatLon } from '@/lib/viz/three-frames';
+import { TextSprite } from './TextSprite';
 
 function markSrgb(texture: Texture | Texture[]) {
   for (const t of Array.isArray(texture) ? texture : [texture]) t.colorSpace = SRGBColorSpace;
@@ -41,6 +42,8 @@ export function Globe({
         .map((s) => ({ id: s.id, position: latLonToSphere(s.lat, s.lon, 1.006), selected: s.id === site.id })),
     [sites, site.id],
   );
+  // The edge of the area this tool covers, drawn and named, so "south of 60° S" can be found on the globe.
+  const ring = useMemo(() => latitudeRing(-60, 1.004, 180), []);
   const onClick: ClickHandler = (e) => {
     if (!onPick || e.delta > PICK_MAX_TRAVEL_PX) return;
     e.stopPropagation();
@@ -50,12 +53,15 @@ export function Globe({
   return (
     <group>
       {textureUrl ? <TexturedMoon url={textureUrl} onClick={onClick} /> : <PlainMoon onClick={onClick} />}
+      <Line points={ring} color="#f5f2ea" lineWidth={1.5} transparent opacity={0.75} />
+      <TextSprite text="60° S" position={latLonToSphere(-60, site.lon, 1.05)} height={0.06} />
       {pins.map((p) => (
         <mesh key={p.id} position={p.position}>
-          <sphereGeometry args={[p.selected ? 0.016 : 0.01, 12, 12]} />
+          <sphereGeometry args={[p.selected ? 0.022 : 0.013, 12, 12]} />
           <meshBasicMaterial color={p.selected ? '#f2b134' : '#b4b0a8'} />
         </mesh>
       ))}
+      {site.polar && <TextSprite text={siteLabel(site)} position={latLonToSphere(site.lat, site.lon, 1.08)} height={0.05} depthTest={false} />}
     </group>
   );
 }

@@ -31,6 +31,20 @@ def test_sky_series_carries_earth_against_the_hills_in_its_direction():
     assert sky["lit"] == [1, 1, 1]
 
 
+def test_battery_facts_give_the_time_with_power_now_and_on_the_best_day():
+    from lunar_pipeline.power import PowerConfig, config_dict
+
+    # 1361 W while any Sun shows, 100 W load, 1000 Wh battery: ten hours in the dark.
+    cfg = PowerConfig(panel="full_tracking", area_m2=1.0, efficiency=1.0, load_w=100.0, battery_wh=1000.0)
+    sun = np.array([0] * 10 + [1] * 20 + [0] * 30 + [1] * 5 + [0] * 40, dtype=np.float64)
+    n = sun.size
+    series = {"sun_az": np.zeros(n), "sun_el": np.full(n, 5.0), "sun_fraction": sun, "sun_au": np.ones(n), "earth_visible": np.zeros(n, dtype=bool)}
+    # Landing at hour 0: ten dark hours on the battery, twenty sunlit, then the battery runs out ten hours into the next night.
+    assert home_assets.battery_facts(series, cfg, n) == {"lander": config_dict(cfg), "now_hours": 40, "best_hour": 10, "best_hours": 30}
+    dark = dict(series, sun_fraction=np.zeros(n))
+    assert home_assets.battery_facts(dark, cfg, n) == {"lander": config_dict(cfg), "now_hours": 10, "best_hour": None, "best_hours": None}
+
+
 def test_night_finds_the_longest_unlit_run_and_the_sunrise_after_it():
     lit = [1, 1, 0, 0, 0, 1, 0, 1, 1]
     assert night(lit) == {"sunset_hour": 2, "sunrise_hour": 5, "hours": 3}
@@ -108,3 +122,5 @@ def test_write_all_produces_the_picture_the_map_and_the_facts(tmp_path):
     ids = {s["id"] for s in doc["relief"]["sites"]}
     assert {"south_pole", "de_gerlache_rim_2", "malapert_massif"} <= ids and "blue_ghost_m1" not in ids
     assert doc["facts"]["horizons_rows"] == 300
+    # The figures of data/fixtures/landing/de_gerlache_rim_2_2027-01-01_30d.json.
+    assert doc["battery"]["now_hours"] == 76 and doc["battery"]["best_hour"] == 466 and doc["battery"]["best_hours"] == 303

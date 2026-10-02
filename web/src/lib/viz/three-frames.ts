@@ -31,3 +31,8 @@ export function sphereToLatLon(p: ArrayLike<number>): { lat: number; lon: number
   const r = Math.hypot(x, y, z);
   return { lat: Math.asin(z / r) * RAD, lon: Math.atan2(y, x) * RAD };
 }
+
+/** Points round the globe at one latitude, `r` from its centre, `n` steps and back to the first point. */
+export function latitudeRing(latDeg: number, r: number, n: number): [number, number, number][] {
+  return Array.from({ length: n + 1 }, (_, k) => latLonToSphere(latDeg, ((k % n) * 360) / n, r));
+}

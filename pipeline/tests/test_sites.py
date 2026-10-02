@@ -1,9 +1,11 @@
+import re
+
 import numpy as np
 import pytest
 
 from lunar_pipeline import config
 from lunar_pipeline.lola import LolaGrid
-from lunar_pipeline.sites import Site, derive_rim_points, load_sites, polar_sites
+from lunar_pipeline.sites import Site, all_sites, derive_rim_points, load_sites, polar_sites
 from tests.conftest import needs_lola
 
 
@@ -69,3 +71,24 @@ def test_landed_missions_carry_reported_ends():
         assert s.landed_utc and s.mission_end_utc and s.mission_end_source
         assert s.mission_end_utc > s.landed_utc
     assert sites["blue_ghost_m1"].mission_end_utc == "2025-03-16T23:25:00Z"
+
+
+def test_every_site_has_a_short_label_and_one_plain_line():
+    sites = all_sites()
+    assert len(sites) == 19
+    for s in sites:
+        assert s.label and len(s.label) <= 28, s.id
+        assert s.blurb and len(s.blurb) <= 72, s.id
+        assert not re.search(r"LOLA|DE440|CLPS|Horizons|Artemis III", f"{s.label} {s.blurb}"), s.id
+    assert len({s.label for s in sites}) == len(sites)
+
+
+def test_derived_rim_point_takes_its_label_and_blurb_from_the_parent(synthetic_grid_factory):
+    grid = synthetic_grid_factory(size=1024, scale_m=20.0)
+    centre = Site(
+        "c", "c", -89.9, 45.0, "classic", True, "test",
+        derive_rim={"r_min_km": 4.0, "r_max_km": 6.0, "label": "Test rim summit", "blurb": "The highest point of the rim"},
+    )
+    derived = derive_rim_points(grid, [centre])[0]
+    assert derived.label == "Test rim summit"
+    assert derived.blurb == "The highest point of the rim"

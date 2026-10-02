@@ -80,6 +80,8 @@ export interface PowerResult {
   powerW: Float64Array;
   /** Battery energy after each hour (Wh). */
   energyWh: Float64Array;
+  /** 1 for an hour the lander had power, 0 for a brownout hour. */
+  powered: Uint8Array;
   socMin: number;
   brownoutHours: number;
   firstBrownoutHour: number | null;
@@ -92,6 +94,7 @@ export function simulateBattery(powerW: Float64Array, cfg: PowerConfig, dtH = 1)
   const n = powerW.length;
   const cap = Math.max(0, cfg.batteryWh);
   const energyWh = new Float64Array(n);
+  const powered = new Uint8Array(n);
   let e = Math.min(cap, Math.max(0, cfg.initialSocFraction) * cap);
   let socMin = cap > 0 ? e / cap : 0;
   let brownoutHours = 0;
@@ -100,6 +103,7 @@ export function simulateBattery(powerW: Float64Array, cfg: PowerConfig, dtH = 1)
   for (let h = 0; h < n; h++) {
     sum += powerW[h];
     let next = e + (powerW[h] - cfg.loadW) * dtH;
+    powered[h] = next < 0 ? 0 : 1;
     if (next < 0) {
       brownoutHours++;
       if (firstBrownoutHour === null) firstBrownoutHour = h;
@@ -110,7 +114,7 @@ export function simulateBattery(powerW: Float64Array, cfg: PowerConfig, dtH = 1)
     const soc = cap > 0 ? e / cap : 0;
     if (soc < socMin) socMin = soc;
   }
-  return { powerW, energyWh, socMin, brownoutHours, firstBrownoutHour, survives: brownoutHours === 0, meanPowerW: n ? sum / n : 0 };
+  return { powerW, energyWh, powered, socMin, brownoutHours, firstBrownoutHour, survives: brownoutHours === 0, meanPowerW: n ? sum / n : 0 };
 }
 
 export function powerBudget(series: Series, cfg: PowerConfig): PowerResult {

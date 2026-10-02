@@ -1,0 +1,95 @@
+'use client';
+import Link from 'next/link';
+import type { Answer } from '@/lib/viz/answer';
+
+/** A battery on its side: full for a good answer, down to its last sliver for a bad one. */
+function BatteryMark({ good }: { good: boolean }) {
+  return (
+    <svg data-icon={good ? 'battery-full' : 'battery-empty'} viewBox="0 0 38 22" width={38} height={22} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinejoin="round" aria-hidden="true">
+      <rect x="1.5" y="1.5" width="31" height="19" rx="3.5" />
+      <path d="M35.5 7.5v7" strokeLinecap="round" />
+      <rect x="5" y="5" width={good ? 24 : 3.5} height="12" rx="1.5" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/**
+ * The answer, first on the page: where and when the lander lands, how long the power lasts and why,
+ * contact with Earth in that time, the better landing date and a better place nearby. The better date
+ * is the one gold button; when there is none, "Compare sites" is.
+ */
+export function VerdictPanel({
+  answer,
+  onLand,
+  onCompare,
+  onYear,
+  yearNote,
+  nearby = null,
+}: {
+  answer: Answer;
+  onLand: (startUtc: string) => void;
+  onCompare: () => void;
+  onYear: () => void;
+  yearNote: string | null;
+  /** A nearby site that keeps power clearly longer from the same landing day, in one sentence with its link. */
+  nearby?: { words: string; name: string; href: string } | null;
+}) {
+  const good = answer.tone === 'good';
+  const better = answer.better;
+  return (
+    <section aria-label="The answer" data-tone={answer.tone} className="panel flex flex-col">
+      <div className="flex items-start gap-3.5">
+        {/* The answer is told in words; the battery only marks it, in the colour of its tone. */}
+        <span className={`mt-[7px] shrink-0 ${good ? 'text-good' : 'text-bad'}`}>
+          <BatteryMark good={good} />
+        </span>
+        <h1 className="display text-balance text-[26px] leading-[1.12] sm:text-[32px]">{answer.title}</h1>
+      </div>
+      {/* The first sentence leads on a line of its own; the reasons follow. */}
+      <p className="mt-2.5 max-w-[42em] text-[17px] font-medium leading-relaxed text-ink">{answer.sentences[0]}</p>
+      {answer.sentences.length > 1 && <p className="mt-1 max-w-[42em] text-[17px] leading-relaxed text-ink">{answer.sentences.slice(1).join(' ')}</p>}
+      {/* One gold action: the better date, else the better place nearby (below), else comparing sites. */}
+      {(better || !nearby) && (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {better ? (
+            <button type="button" onClick={() => onLand(better.startUtc)} className="btn btn-primary">
+              {better.label}
+            </button>
+          ) : (
+            <button type="button" onClick={onCompare} className="btn btn-primary">
+              Compare sites
+            </button>
+          )}
+        </div>
+      )}
+      {(better?.note || answer.hint) && <p className="mt-3 text-ink-2">{better ? better.note : answer.hint}</p>}
+      {/* A better place nearby: a link beside a better date, the gold action when there is no better date. */}
+      {nearby &&
+        (better ? (
+          <p className="mt-3 max-w-[42em] text-ink">
+            {nearby.words}{' '}
+            <Link href={nearby.href} className="font-medium underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+              Explore {nearby.name}
+            </Link>
+          </p>
+        ) : (
+          <div className="mt-3">
+            <p className="max-w-[42em] font-medium text-ink">{nearby.words}</p>
+            <Link href={nearby.href} className="btn btn-primary mt-3">
+              Explore {nearby.name}
+            </Link>
+          </div>
+        ))}
+      <p className="mt-auto pt-3 text-ink-2">
+        <button type="button" onClick={onYear} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+          Find the best date in the next 12 months
+        </button>
+      </p>
+      {yearNote && (
+        <p role="status" className="text-ink-2">
+          {yearNote}
+        </p>
+      )}
+    </section>
+  );
+}

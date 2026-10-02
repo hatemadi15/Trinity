@@ -4,6 +4,7 @@ import { AppFrame } from '@/components/AppFrame';
 import { EarthSetsToo, HillsDecide, SunNeverClimbs } from '@/components/home/WhyDrawings';
 import { SkyRow, SkyRowKey } from '@/components/SkyRow';
 import { degreesText, HOME, PLACES, thousandsText } from '@/lib/data/home';
+import { dateLong, spanWords } from '@/lib/viz/format';
 
 /** An outcome tag states how a place turned out; it is an outline, so the page stays three tones. */
 const TONE = {
@@ -18,7 +19,7 @@ const LINK = 'font-semibold underline decoration-[1.5px] underline-offset-4 hove
 const WHY_CARD = 'grid gap-4 sm:grid-cols-[320px_1fr] sm:items-center sm:gap-6 lg:block lg:space-y-4';
 const CELL = 'py-[18px] pr-4 max-md:block max-md:py-0';
 /** Both forecast rows use one height scale: a degree takes as many pixels in each. */
-const PX_PER_DEG = 7.5;
+const PX_PER_DEG = 6.5;
 /** A number and its percent sign stay on one line. */
 const pct = (n: number) => `${n} %`;
 
@@ -31,7 +32,7 @@ function Check() {
 }
 
 export default function Home() {
-  const { hero, sky, pair, facts } = HOME;
+  const { hero, sky, pair, facts, battery } = HOME;
   const siteLink = `/explore?site=${hero.site_id}`;
   const frameDate = new Date(`${hero.frame_utc}Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   const typical = Math.round(facts.mazarico_median_points);
@@ -60,7 +61,7 @@ export default function Home() {
     <AppFrame>
       <main>
         <section aria-labelledby="h-hero">
-          <div className="wrap pb-8 pt-9">
+          <div className="wrap pb-6 pt-8">
             <h1 id="h-hero" className="display max-w-[1100px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[72px]">
               See when a Moon lander has sunlight and a signal.
             </h1>
@@ -71,7 +72,7 @@ export default function Home() {
               </p>
               <div className="shrink-0">
                 <div className="flex flex-wrap gap-3">
-                  <Link href="/explore" className="btn btn-primary h-[52px] px-[22px] text-[17px]">
+                  <Link href="/sites" className="btn btn-primary h-[52px] px-[22px] text-[17px]">
                     Explore a landing site
                   </Link>
                   <a href="#why" className="btn h-[52px] px-[22px] text-[17px]">
@@ -98,7 +99,15 @@ export default function Home() {
               <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} ticks={false} fitHills reveal />
               <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} reveal />
             </div>
-            <div className="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 pt-7 text-[15px] text-stage-ink-2">
+            {/* What the forecast means for a lander: the promise of the headline, in one sentence. */}
+            <p className="wrap pt-4 text-[17px] font-medium text-stage-ink">
+              A small lander ({battery.lander.area_m2} m² of solar panels, {battery.lander.battery_wh / 1000} kWh battery) landing on {dateLong(sky.start_utc, 0)} keeps power for{' '}
+              {spanWords(battery.now_hours)}
+              {battery.best_hour !== null && battery.best_hours !== null && battery.best_hours > battery.now_hours
+                ? `; landing on ${dateLong(sky.start_utc, battery.best_hour)}, for ${spanWords(battery.best_hours)}.`
+                : '.'}
+            </p>
+            <div className="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 pt-8 text-[15px] text-stage-ink-2">
               <p className="max-w-[62em]">Computed from NASA&apos;s elevation map of the Moon and NASA&apos;s positions of the Sun and Earth.</p>
               <Link href={siteLink} className={`${LINK} whitespace-nowrap text-stage-ink`}>
                 Explore {hero.name}
@@ -240,7 +249,7 @@ export default function Home() {
                 Pick a site near the south pole, or any point you choose, and a date. Earthrise shows its sunlight, its contact with Earth and its battery, hour by hour.
               </p>
             </div>
-            <Link href="/explore" className="btn btn-primary h-[52px] w-fit shrink-0 px-[22px] text-[17px]">
+            <Link href="/sites" className="btn btn-primary h-[52px] w-fit shrink-0 px-[22px] text-[17px]">
               Explore a landing site
             </Link>
           </div>

@@ -31,6 +31,13 @@ export interface HomeDoc {
     blue_ghost_end_minus_sunset_h: number;
   };
   relief: { image: string; half_km: number; sites: { id: string; u: number; v: number }[] };
+  /** What the default lander's battery does at the hero site over the charted month (pipeline: battery_facts). */
+  battery: {
+    lander: { panel: string; panel_azimuth_deg: number; area_m2: number; efficiency: number; load_w: number; battery_wh: number; initial_soc_fraction: number };
+    now_hours: number;
+    best_hour: number | null;
+    best_hours: number | null;
+  };
 }
 
 export const HOME = doc as HomeDoc;

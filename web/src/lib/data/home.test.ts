@@ -40,6 +40,14 @@ describe('home facts', () => {
     }
   });
 
+  it('carries what the battery does at the hero site, the figures of its landing fixture', () => {
+    const fx = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), '../data/fixtures/landing/de_gerlache_rim_2_2027-01-01_30d.json'), 'utf8'));
+    expect(HOME.battery.now_hours).toBe(fx.now_hours);
+    expect(HOME.battery.best_hour).toBe(fx.period_best.hour);
+    expect(HOME.battery.best_hours).toBe(fx.period_best.powered_hours);
+    expect(HOME.battery.lander).toEqual(fx.config);
+  });
+
   it('carries a full month of the hero site and its night', () => {
     expect(HOME.sky.hours).toBe(720);
     expect(HOME.sky.sun_el.length).toBe(720);

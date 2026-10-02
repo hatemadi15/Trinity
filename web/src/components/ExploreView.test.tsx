@@ -1,146 +1,148 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
-import { DataError, type Site } from '@/lib/data/loaders';
-import type { Heightmap, HeightmapMeta } from '@/lib/data/terrain';
-import { loadEphemeris, type EphemerisHeader } from '@/lib/engine/ephemeris';
-import { readBytes, readJson } from '@/lib/engine/__tests__/helpers';
+import { fileLoaders } from '@/test/file-loaders';
 import { ExploreView } from './ExploreView';
 
+/** The page with the real catalogue and sky; `search` is the address it opens with. */
+async function open(search = '', navigate: (href: string) => void = () => {}) {
+  window.history.replaceState({}, '', `/explore${search}`);
+  const store = createExploreStore(fileLoaders());
+  const view = render(<ExploreView store={store} navigate={navigate} />);
+  await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy(), { timeout: 20_000 });
+  return { store, ...view };
+}
+const heading = () => screen.getByRole('heading', { level: 1 }).textContent ?? '';
+
+afterEach(() => {
+  window.history.replaceState({}, '', '/');
+});
+
 describe('ExploreView', () => {
-  it('renders the data-missing state', async () => {
-    const store = createExploreStore({
-      loadSites: async () => {
-        throw new DataError('/data/sites.json', 404);
-      },
-      loadEphemeris: async () => {
-        throw new DataError('/data/ephemeris/x', 404);
-      },
-      loadMask: async () => {
-        throw new DataError('/data/masks/x', 404);
-      },
-    });
-    render(<ExploreView store={store} />);
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/sync-local --tiles/));
+  it("shows the answer for the default site as the page's heading, with one gold action", async () => {
+    await open();
+    expect(heading()).toMatch(/de Gerlache Rim 2/);
+    expect(heading()).toMatch(/^Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night$/);
+    const gold = screen.getByRole('main').querySelectorAll('.btn-primary');
+    expect(gold).toHaveLength(1);
+    expect(gold[0].textContent).toMatch(/^Land on 20 January/);
   });
 
-  it('renders the ready state with the site, tiles, readout and a failed-tiles note', async () => {
-    const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
-    const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
-    const sites = [
-      ...readJson<{ sites: Site[] }>('data', 'sites.json').sites,
-      ...readJson<{ sites: Site[] }>('data', 'sites_derived.json').sites,
-    ];
-    const store = createExploreStore({
-      loadSites: async () => sites,
-      loadEphemeris: async () => eph,
-      loadMask: async (id) => {
-        const m = readJson<{ elevation_deg: number[]; site_height_m: number }>('data', 'masks', `${id}.json`);
-        return { site_id: id, lat: 0, lon: 0, mast_m: 2, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
-      },
-    });
-    render(<ExploreView store={store} />);
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Shackleton/));
-    expect(screen.getByText('Sun above the skyline')).toBeTruthy();
-    // jsdom has no WebGL: the 3D panel shows its fallback, proving the scene mounted with the site.
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/3D view is not available/));
-    expect(screen.getByRole('button', { name: 'Globe' })).toBeTruthy();
-    expect(screen.getByTestId('readout').textContent).toMatch(/2027-01-01 00:00 UTC: Sun .* the skyline/);
-    store.getState().applyMask(
-      { id: 'custom', name: 'Custom', lat: -89.5, lon: 1, category: 'custom', polar: true, source: 'user' },
-      new Float64Array(720),
-      { siteHeightM: 0, source: 'computed', failedTiles: 3 },
+  it('says in the verdict that contact with Earth is lost, and offers the nearby rim summit once the figures are in', async () => {
+    await open();
+    const panel = screen.getByRole('region', { name: 'The answer' });
+    expect(panel.textContent).toMatch(/No radio contact: Earth is out of view for all 3 days 4 hours with power\./);
+    await waitFor(() => expect(panel.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days from the same landing day\./), { timeout: 20_000 });
+    expect(within(panel).getByRole('link', { name: 'Explore de Gerlache rim summit' }).getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
+  });
+
+  it('leaves the ground out for a polar site the terrain files have no window for, and gives the place the whole row', async () => {
+    window.history.replaceState({}, '', '/explore');
+    const store = createExploreStore(
+      fileLoaders({
+        loadTerrainManifest: async () => ({ windows: [{ site_id: 'shackleton_center', file: 'x.u16', meta: 'x.json' }], cap: { file: 'cap.u16', meta: 'cap.json' } }) as never,
+        loadHeightmap: async () => ({ meta: { cell_m: 960 }, heightsM: new Float32Array(4) }) as never,
+      }),
     );
-    await waitFor(() => expect(screen.getByText(/3 terrain tiles could not be loaded/)).toBeTruthy());
-    expect(screen.getByText(/Terrain data is not loaded/)).toBeTruthy();
+    render(<ExploreView store={store} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy(), { timeout: 20_000 });
+    await store.getState().waitForTerrain();
+    await waitFor(() => expect(screen.queryByRole('region', { name: /The ground|The whole Moon/ })).toBeNull());
+    const place = screen.getByRole('region', { name: 'Where on the Moon' });
+    expect(place.querySelector('[data-part="layout"]')!.className).toMatch(/md:grid-cols/);
   });
 
-  it('carries the planner settings, the verdict, the best-window button and add-to-compare', async () => {
-    const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
-    const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
-    const sites = [
-      ...readJson<{ sites: Site[] }>('data', 'sites.json').sites,
-      ...readJson<{ sites: Site[] }>('data', 'sites_derived.json').sites,
-    ];
-    const store = createExploreStore({
-      loadSites: async () => sites,
-      loadEphemeris: async () => eph,
-      loadMask: async (id) => {
-        const m = readJson<{ elevation_deg: number[]; site_height_m: number }>('data', 'masks', `${id}.json`);
-        return { site_id: id, lat: 0, lon: 0, mast_m: 2, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
-      },
-    });
-    render(<ExploreView store={store} />);
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Shackleton/));
-    expect(screen.getByRole('button', { name: /Planner settings/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Best 30-day window from here/ })).toBeTruthy();
-    expect(screen.getByText('Survives the window')).toBeTruthy(); // 4 m² vertical tracking on the rim
-    expect(screen.getByText('Lowest battery')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Add to compare' }));
-    await waitFor(() => expect(screen.getByText('Compared sites (1)')).toBeTruthy());
-    expect(screen.getByRole('button', { name: 'In compare' }).hasAttribute('disabled')).toBe(true);
-    expect(screen.getByRole('link', { name: 'Export brief' })).toBeTruthy();
+  it('lands on the better date when its button is pressed', async () => {
+    const { store } = await open();
+    fireEvent.click(screen.getByRole('button', { name: /^Land on 20 January/ }));
+    expect(store.getState().startUtc).toBe('2027-01-20T10:00:00');
+    await waitFor(() => expect(heading()).toMatch(/12 days 15 hours/));
   });
 
-  it('in Learn mode shows the guided story, whose terrain step notes the missing WebGL', async () => {
-    const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
-    const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
-    const sites = readJson<{ sites: Site[] }>('data', 'sites.json').sites;
-    const store = createExploreStore({
-      loadSites: async () => sites,
-      loadEphemeris: async () => eph,
-      loadMask: async (id) => {
-        const m = readJson<{ elevation_deg: number[]; site_height_m: number }>('data', 'masks', `${id}.json`);
-        return { site_id: id, lat: 0, lon: 0, mast_m: 2, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
-      },
-    });
-    store.getState().setAudience('learn');
-    render(<ExploreView store={store} />);
-    await waitFor(() => expect(screen.getByRole('list', { name: 'Guided story' })).toBeTruthy());
-    const story = screen.getByRole('region', { name: 'Guided story' });
-    fireEvent.click(within(story).getByRole('button', { name: 'Next' }));
-    expect(within(story).getByText(/needs WebGL/)).toBeTruthy();
-    expect(screen.queryByText('Both at once')).toBeNull();
-    store.getState().setAudience('planner');
+  it('offers Compare as the gold action when no date in the period does better', async () => {
+    const navigate = vi.fn();
+    const { store } = await open('?site=shackleton_center_rim_high', navigate);
+    await waitFor(() => expect(heading()).toMatch(/on 1 January: power for all 30 days/));
+    const gold = screen.getByRole('main').querySelectorAll<HTMLElement>('.btn-primary');
+    expect(gold).toHaveLength(1);
+    expect(gold[0].textContent).toBe('Compare sites');
+    fireEvent.click(gold[0]);
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/compare'));
+    expect(store.getState().compareIds).toContain('shackleton_center_rim_high');
   });
 
-  it('captions the terrain while it loads, then the cap fallback, and shows a refused globe pick', async () => {
-    const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
-    const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
-    const sites = readJson<{ sites: Site[] }>('data', 'sites.json').sites;
-    let release!: () => void;
-    const gate = new Promise<void>((r) => {
-      release = r;
-    });
-    const capMeta: HeightmapMeta = {
-      site_id: 'south_cap', lat: -90, lon: 0, kind: 'cap', source: 'synthetic', level: 'L2', cell_m: 960,
-      width: 5, height: 5, row0: 0, col0: 0, min_m: 0, max_m: 0, scale_m_per_unit: 1,
-      site_height_m: 0, line_offset_px: 2, sample_offset_px: 2, site_row_px: 2, site_col_px: 2, fill_source: null,
-    };
-    const store = createExploreStore({
-      loadSites: async () => sites,
-      loadEphemeris: async () => eph,
-      loadMask: async (id) => {
-        const m = readJson<{ elevation_deg: number[]; site_height_m: number }>('data', 'masks', `${id}.json`);
-        return { site_id: id, lat: 0, lon: 0, mast_m: 2, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
-      },
-      loadTerrainManifest: async () => ({ version: 1, windows: [], cap: { file: 'cap.u16', meta: 'cap.json' }, globe_texture: 'moon.jpg' }),
-      loadHeightmap: async (): Promise<Heightmap> => {
-        await gate;
-        return { meta: capMeta, heightsM: new Float32Array(25) };
-      },
-    });
-    render(<ExploreView store={store} />);
-    await waitFor(() => expect(screen.getByText('Loading terrain…')).toBeTruthy());
-    release();
-    await waitFor(() => expect(screen.getByText(/showing the 960 m south-cap model/)).toBeTruthy());
-    act(() => {
-      store.getState().setMode('globe');
-      store.getState().setCustomError('no DEM coverage north of 60S (lat 12.00)');
-    });
-    expect(screen.getByRole('alert').textContent).toBe(
-      'no DEM coverage north of 60S (lat 12.00). Custom sites need LOLA coverage south of 60°S.',
+  it('puts the answer first and the time bar last, and names every region', async () => {
+    await open();
+    const names = ['Why: the 30 days, hour by hour', 'The ground', 'Where on the Moon', 'Ask in plain words'];
+    const regions = names.map((name) => screen.getByRole('region', { name }));
+    for (let i = 1; i < regions.length; i++) {
+      expect(regions[i - 1].compareDocumentPosition(regions[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+    const slider = screen.getByRole('slider', { name: 'Time' });
+    expect(regions[regions.length - 1].compareDocumentPosition(slider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('moves the time from the keyboard and says what is happening at that hour', async () => {
+    const { store } = await open();
+    act(() => store.getState().setCursor(66));
+    const bar = screen.getByRole('region', { name: 'Time' });
+    const before = bar.textContent;
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Time' }), { key: 'ArrowRight' });
+    expect(store.getState().cursorHour).toBe(67);
+    // Hour 67 is when the Sun goes behind the hills on 3 January.
+    await waitFor(() => expect(bar.textContent).toMatch(/Sun behind the hills/));
+    expect(bar.textContent).not.toBe(before);
+  });
+
+  it('opens the lander settings from the band and applies a preset', async () => {
+    const { store } = await open();
+    fireEvent.click(screen.getByRole('button', { name: /Lander/ }));
+    const dialog = screen.getByRole('dialog', { name: 'The lander' });
+    fireEvent.click(within(dialog).getByRole('radio', { name: /20 m² panel, 500 W, 50 kWh battery/ }));
+    expect(store.getState().params.power.batteryWh).toBe(50000);
+    expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/20 m² panel that turns to the Sun, uses 500 W, 50 kWh battery/);
+  });
+
+  it('applies the site, start and length from the address', async () => {
+    await open('?site=blue_ghost_m1&start=2025-03-02&days=14');
+    await waitFor(() => expect(heading()).toMatch(/Blue Ghost/));
+    expect(heading()).toMatch(/on 2 March: power for all 14 days/);
+  });
+
+  it('keeps instrument and programme names out of the page', async () => {
+    await open();
+    expect(screen.getByRole('main').textContent).not.toMatch(/LOLA|DE440|Horizons|CLPS|ephemeris|skyline/);
+  });
+
+  it('says what to do when the data files are missing', async () => {
+    const store = createExploreStore(
+      fileLoaders({
+        loadSites: async () => {
+          throw new Error('could not load /data/sites.json (HTTP 404)');
+        },
+      }),
     );
+    render(<ExploreView store={store} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Data files are missing\..*sync-local --tiles/));
+  });
+
+  it('shows an error it cannot explain', async () => {
+    const store = createExploreStore(
+      fileLoaders({
+        loadEphemeris: async () => {
+          throw new Error('the table is broken');
+        },
+      }),
+    );
+    render(<ExploreView store={store} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Something went wrong while loading\..*the table is broken/));
+  });
+
+  it('has no audience switch, no guided story and no cockpit', async () => {
+    await open();
+    expect(screen.queryByRole('button', { name: 'Planner' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Learn' })).toBeNull();
+    expect(document.querySelector('[data-testid="cockpit"]')).toBeNull();
   });
 });

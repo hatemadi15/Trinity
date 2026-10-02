@@ -51,22 +51,36 @@ describe('SkyRow', () => {
     for (const n of stroked) expect(n.getAttribute('vector-effect')).toBe('non-scaling-stroke');
   });
 
-  it('draws two height lines and says what they are', () => {
+  it('draws two solid height lines and says what they are; dotted is kept for a hidden body', () => {
     const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" />);
-    expect(container.querySelectorAll('line[stroke-dasharray]')).toHaveLength(2);
+    const heights = [...container.querySelectorAll('line[data-height]')];
+    expect(heights).toHaveLength(2);
+    for (const l of heights) expect(l.getAttribute('stroke-dasharray')).toBeNull();
     const words = labelsOf(container).map((l) => l.textContent);
     expect(words).toContain('5° up');
-    expect(words).toContain('horizon');
+    expect(words).toContain('horizon (0°)');
     // The night sits left of the middle, so the words go to the right edge.
     const five = labelsOf(container).find((l) => l.textContent === '5° up')!;
     expect(five.className).toMatch(/right-\[var\(--chart-inset,10px\)\]/);
+    // On a chart narrower than a phone screen the words of the height lines give way to the words about the night.
+    expect(five.className).toMatch(/@max-\[480px\]:hidden/);
   });
 
-  it('keeps the height lines but leaves their words out when both edges hold a label', () => {
+  it('takes the spacing of its height lines from the chart it belongs to', () => {
+    const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" scaleStep={10} />);
+    // The range runs to 5.5°: with 10° spacing only the horizon is left.
+    expect(container.querySelectorAll('line[data-height]')).toHaveLength(1);
+    expect(container.textContent).not.toMatch(/5° up/);
+  });
+
+  it("leaves out only the words of a height line that would sit on another label at both edges", () => {
     const long = Array.from({ length: hours }, (_, h) => (h >= 36 && h < 684 ? 0 : 1));
     const { container } = render(<SkyRow el={el} hill={hillsFor(long)} visible={long} startUtc={START} body="sun" caption="c" />);
-    expect(container.querySelectorAll('line[stroke-dasharray]')).toHaveLength(2);
-    expect(container.textContent).not.toMatch(/5° up|horizon/);
+    expect(container.querySelectorAll('line[data-height]')).toHaveLength(2);
+    // The sunset and sunrise labels sit at both edges at the height of the horizon, not at 5°.
+    const words = labelsOf(container).map((l) => l.textContent);
+    expect(words).toContain('5° up');
+    expect(words).not.toContain('horizon (0°)');
     expect(container.textContent).toMatch(/Sun sets 2 Jan/);
   });
 
@@ -74,7 +88,7 @@ describe('SkyRow', () => {
     const tall = Array.from({ length: hours }, (_, h) => (lit[h] ? -1 : 15));
     const { container } = render(<SkyRow el={el} hill={tall} visible={lit} startUtc={START} body="sun" caption="c" fitHills />);
     expect(container.querySelector('mask')).toBeNull();
-    expect(labelsOf(container).map((l) => l.textContent).filter((t) => /up$|horizon/.test(t ?? ''))).toEqual(['horizon', '5° up', '10° up', '15° up']);
+    expect(labelsOf(container).map((l) => l.textContent).filter((t) => /up$|horizon/.test(t ?? ''))).toEqual(['horizon (0°)', '5° up', '10° up', '15° up']);
   });
 
   it('marks every place where the body goes behind the hills or comes back', () => {
@@ -97,16 +111,44 @@ describe('SkyRow', () => {
     expect(words).toContain('Earth sets 23 Jan');
     // On a phone the chart is too narrow for two sentences side by side: only the longest stretch keeps its words.
     const short = labelsOf(container).find((l) => l.textContent === 'No contact for 7 days 9 hours')!;
-    expect(short.parentElement!.className).toMatch(/max-md:hidden/);
+    // The test is the chart's own width (a container query), not the window's: the chart can be narrow in a wide window.
+    expect((container.firstElementChild as HTMLElement).className).toMatch(/(^| )@container( |$)/);
+    expect(short.parentElement!.className).toMatch(/@max-\[900px\]:hidden/);
     const long = labelsOf(container).find((l) => /^No contact for 9 days 3 hours/.test(l.textContent ?? ''))!;
-    expect(long.parentElement!.className).not.toMatch(/max-md:hidden/);
+    expect(long.parentElement!.className).not.toMatch(/hidden/);
+    expect(long.querySelector('span')!.className).toMatch(/@max-\[560px\]:hidden/);
+  });
+
+  it('drops the rising date of a stretch whose two dates would not fit side by side in a narrow chart', () => {
+    const rise = (visible: number[]) => {
+      const { container, unmount } = render(<SkyRow el={el} hill={hillsFor(visible)} visible={visible} startUtc={START} body="earth" caption="c" />);
+      const cls = labelsOf(container).find((l) => /rises/.test(l.textContent ?? ''))!.className;
+      unmount();
+      return cls;
+    };
+    // Hidden for 45 % of the month, both dates inside: they need about 160 px, 45 % of a 356 px chart, so they part below 360 px.
+    expect(rise(Array.from({ length: hours }, (_, h) => (h >= 100 && h < 424 ? 0 : 1)))).toMatch(/@max-\[360px\]:hidden/);
+    // Hidden for 55 %: the dates part only below 300 px.
+    expect(rise(lit)).toMatch(/@max-\[300px\]:hidden/);
+    // Hidden for 14 %: the dates sit outside the stretch, one on each side, and never meet.
+    expect(rise(Array.from({ length: hours }, (_, h) => (h >= 165 && h < 266 ? 0 : 1)))).not.toMatch(/@max-\[\d+px\]:hidden/);
+  });
+
+  it('ranks its labels, so that where two would overlap at some width the more important one stays', () => {
+    const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" title="Sunlight" />);
+    const priority = (re: RegExp) => labelsOf(container).find((l) => re.test(l.textContent ?? ''))!.dataset.priority;
+    expect(priority(/^Sunlight$/)).toBe('0');
+    expect(priority(/^Night for 16 days 15 hours/)).toBe('1');
+    expect(priority(/Sun sets 3 Jan/)).toBe('2');
+    expect(priority(/^5° up$/)).toBe('4');
+    expect(priority(/^6 Jan$/)).toBe('5');
   });
 
   it('gives rows the same height for a degree when told how many pixels a degree takes', () => {
     const tall = Array.from({ length: hours }, (_, h) => (lit[h] ? -1 : 15));
     const sun = render(<SkyRow el={el} hill={tall} visible={lit} startUtc={START} body="sun" caption="c" fitHills pxPerDeg={10} ticks={false} />);
     const gap = (c: HTMLElement) => {
-      const y = [...c.querySelectorAll('line[stroke-dasharray]')].map((l) => Number(l.getAttribute('y1'))).sort((a, b) => b - a);
+      const y = [...c.querySelectorAll('line[data-height]')].map((l) => Number(l.getAttribute('y1'))).sort((a, b) => b - a);
       return y[0] - y[1];
     };
     // Range -2° to 16°: 18° at 10 px each, plus the 8 px margins above and below.

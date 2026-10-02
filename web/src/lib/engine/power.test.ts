@@ -54,6 +54,15 @@ describe('panel geometry and irradiance', () => {
 
 describe('simulateBattery', () => {
   const cfg: PowerConfig = { ...DEFAULT_POWER, loadW: 100, batteryWh: 1000, initialSocFraction: 1 };
+
+    it('flags each hour as powered or browned out', () => {
+      const p = new Float64Array(14); // darkness: the 1000 Wh battery carries 100 W for ten hours
+      p[12] = 300; // one sunlit hour recharges 200 Wh
+      const r = simulateBattery(p, cfg);
+      expect(Array.from(r.powered)).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1]);
+      expect(r.brownoutHours).toBe(2);
+      expect(r.firstBrownoutHour).toBe(10);
+    });
   it('discharges through the night and reports the minimum state of charge', () => {
     const p = new Float64Array(20); // 20 h of darkness at 100 W load: 1000 Wh is gone after 10 h
     const r = simulateBattery(p, cfg);

@@ -15,7 +15,7 @@ describe('home page', () => {
     const gold = hero.querySelectorAll('.btn-primary');
     expect(gold).toHaveLength(1);
     expect(gold[0].textContent).toBe('Explore a landing site');
-    expect(gold[0].getAttribute('href')).toBe('/explore');
+    expect(gold[0].getAttribute('href')).toBe('/sites');
     expect(within(hero).getByText('For mission planners, educators and anyone curious.')).toBeTruthy();
   });
 
@@ -36,7 +36,7 @@ describe('home page', () => {
     expect(earth.textContent).toMatch(/Earth sets 23 Jan/);
     // One height scale for both rows: a degree takes as many pixels in each.
     const spacing = (row: HTMLElement) => {
-      const y = [...row.querySelectorAll('line[stroke-dasharray]')].map((l) => Number(l.getAttribute('y1'))).sort((a, b) => b - a);
+      const y = [...row.querySelectorAll('line[data-height]')].map((l) => Number(l.getAttribute('y1'))).sort((a, b) => b - a);
       return y[0] - y[1];
     };
     expect(spacing(sun)).toBeCloseTo(spacing(earth), 5);
@@ -47,6 +47,14 @@ describe('home page', () => {
     expect(band.textContent).not.toMatch(/Direction of the Sun|north|south-/);
     expect(sun.querySelector('.reveal-line')).toBeTruthy();
     expect(earth.querySelector('.reveal-line')).toBeTruthy();
+  });
+
+  it('says under the forecast what the battery does there, and the better landing day', () => {
+    render(<Home />);
+    const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
+    expect(band.textContent).toContain(
+      'A small lander (4 m² of solar panels, 2 kWh battery) landing on 1 January keeps power for 3 days 4 hours; landing on 20 January, for 12 days 15 hours.',
+    );
   });
 
   it('explains how to read the forecast before it starts', () => {
@@ -132,7 +140,7 @@ describe('home page', () => {
     render(<Home />);
     const end = screen.getByRole('region', { name: 'Try it on a landing site' });
     const cta = within(end).getByRole('link', { name: 'Explore a landing site' });
-    expect(cta.getAttribute('href')).toBe('/explore');
+    expect(cta.getAttribute('href')).toBe('/sites');
     expect(cta.className).toMatch(/btn-primary/);
     // Two gold buttons on the page, never on one screen: the top and the end.
     expect(document.querySelectorAll('main .btn-primary')).toHaveLength(2);

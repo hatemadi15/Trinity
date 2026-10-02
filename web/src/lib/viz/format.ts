@@ -44,3 +44,36 @@ export function dayMonth(startUtc: string, hour: number): string {
   const d = new Date(start.getTime() + hour * 3_600_000);
   return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}`;
 }
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function at(startUtc: string, hour: number): { start: Date; d: Date } {
+  const start = new Date(startUtc.endsWith('Z') ? startUtc : `${startUtc}Z`);
+  return { start, d: new Date(start.getTime() + hour * 3_600_000) };
+}
+
+/** The UTC date `hour` hours after the start, for sentences and buttons: "20 January"; the year is added when it is not the start's year. */
+export function dateLong(startUtc: string, hour: number): string {
+  const { start, d } = at(startUtc, hour);
+  const text = `${d.getUTCDate()} ${MONTHS_LONG[d.getUTCMonth()]}`;
+  return d.getUTCFullYear() === start.getUTCFullYear() ? text : `${text} ${d.getUTCFullYear()}`;
+}
+
+/** The UTC time of day `hour` hours after the start: "10:00". */
+export function clockUtc(startUtc: string, hour: number): string {
+  return at(startUtc, hour).d.toISOString().slice(11, 16);
+}
+
+/** The UTC instant `hour` hours after the start, in the form the store keeps: "2027-01-20T10:00:00". */
+export function isoAt(startUtc: string, hour: number): string {
+  return at(startUtc, hour).d.toISOString().slice(0, 19);
+}
+
+/** A share as a whole percentage for sentences: "45 %", with a no-break space so the number keeps its sign. */
+export function pct0(x: number): string {
+  return `${Math.round(x * 100)}\u00a0%`;
+}
+/** The UTC date and hour `hour` hours after the start, for the time bar: "2 Jan 2027, 06:00 UTC". */
+export function dateTimeUtc(startUtc: string, hour: number): string {
+  const { d } = at(startUtc, hour);
+  return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${d.toISOString().slice(11, 16)} UTC`;
+}

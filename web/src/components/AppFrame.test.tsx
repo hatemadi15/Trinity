@@ -15,7 +15,7 @@ describe('AppFrame', () => {
     const nav = screen.getByRole('navigation', { name: 'Sections' });
     const links = [...nav.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
     expect(links).toEqual([
-      ['Explore a site', '/explore'],
+      ['Explore a site', '/sites'],
       ['Compare sites', '/compare'],
       ['How it works', '/learn'],
       ['Accuracy', '/validate'],

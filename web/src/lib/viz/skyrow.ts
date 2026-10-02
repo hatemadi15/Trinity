@@ -60,16 +60,20 @@ export function rowRange(
 /** A label needs this many pixels between two height lines. */
 const SCALE_GAP_PX = 26;
 
+/** The spacing of a row's height lines: 5° when the words fit between two lines, 10° otherwise. */
+export function scaleStepFor(range: Range, heightPx: number): 5 | 10 {
+  return (5 * heightPx) / (range.max - range.min) >= SCALE_GAP_PX ? 5 : 10;
+}
+
 /**
  * The height lines drawn across a row for scale, with their words: the horizon (0°, eye level on flat
  * ground) and every 5° above it, or every 10° when 5° is too little room for the words. Lines within 0.4°
  * of the edge of the range are left out.
  */
-export function scaleLines(range: Range, heightPx: number): { deg: number; words: string }[] {
-  const step = (5 * heightPx) / (range.max - range.min) >= SCALE_GAP_PX ? 5 : 10;
+export function scaleLines(range: Range, heightPx: number, step: 5 | 10 = scaleStepFor(range, heightPx)): { deg: number; words: string }[] {
   const out: { deg: number; words: string }[] = [];
   for (let deg = 0; deg < range.max - 0.4; deg += step) {
-    if (deg > range.min + 0.4) out.push({ deg, words: deg === 0 ? 'horizon' : `${deg}° up` });
+    if (deg > range.min + 0.4) out.push({ deg, words: deg === 0 ? 'horizon (0°)' : `${deg}° up` });
   }
   return out;
 }
@@ -205,33 +209,31 @@ export function eventLabelSides(fromPct: number, toPct: number, need = 17): { se
 
 /** Share of the width, in percent, that the height-line words need at an edge. */
 const SCALE_ROOM = 12;
-/** Half the width, in percent, of the words written across the hidden stretch. */
-const STRETCH_HALF = 21;
+/** The words' plate runs from 11 px above its line to 13 px below it; 2 px more keep it clear of its neighbours. */
+const SCALE_ABOVE_PX = 13;
+const SCALE_BELOW_PX = 15;
+
+/** A label on a row: across, in percent of the row's width; down, in pixels from its top. */
+export interface RowBox {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
+/** The edges to try for the height-line words: away from the longest hidden stretch (its middle in percent of the width), the right when nothing is hidden. */
+export function scalePreference(hiddenMiddlePct: number | null): ('left' | 'right')[] {
+  return hiddenMiddlePct === null || hiddenMiddlePct <= 50 ? ['right', 'left'] : ['left', 'right'];
+}
 
 /**
- * The side of the chart for the words on the height lines ("5° up", "horizon"): away from the longest
- * hidden stretch when that side is free of its words, of its sunset and sunrise labels and of the
- * `extra` stretches of the chart that other labels take, otherwise the other side, otherwise nowhere.
- * All positions are percent of the chart's width.
+ * The edge for the words of each height line ("5° up", "horizon"), line by line: the first edge in
+ * `prefer` where the words meet none of the `taken` labels, otherwise the other edge, otherwise none, so
+ * only the words of a line that would sit on another label at both edges are left out.
  */
-export function scaleLabelSide(
-  hidden: { fromPct: number; toPct: number; set: LabelSide; rise: LabelSide } | null,
-  need = 17,
-  extra: [number, number][] = [],
-): 'left' | 'right' | null {
-  if (!hidden) return 'right';
-  const { fromPct, toPct, set, rise } = hidden;
-  const middle = (fromPct + toPct) / 2;
-  const taken: [number, number][] = [[middle - STRETCH_HALF, middle + STRETCH_HALF], ...extra];
-  if (set === 'inside') taken.push([fromPct, fromPct + need]);
-  if (set === 'outside') taken.push([fromPct - need, fromPct]);
-  if (rise === 'inside') taken.push([toPct - need, toPct]);
-  if (rise === 'outside') taken.push([toPct, toPct + need]);
-  const free = (from: number, to: number) => taken.every(([a, b]) => b <= from || a >= to);
-  const sides: ['left' | 'right', boolean][] = [
-    ['left', free(0, SCALE_ROOM)],
-    ['right', free(100 - SCALE_ROOM, 100)],
-  ];
-  if (middle <= 50) sides.reverse();
-  return sides.find(([, ok]) => ok)?.[0] ?? null;
+export function scaleWordSides(lines: { deg: number; y: number }[], taken: RowBox[], prefer: ('left' | 'right')[]): ('left' | 'right' | null)[] {
+  return lines.map(({ y }) => {
+    const free = (x0: number, x1: number) => taken.every((t) => t.x1 <= x0 || t.x0 >= x1 || t.y1 <= y - SCALE_ABOVE_PX || t.y0 >= y + SCALE_BELOW_PX);
+    return prefer.find((side) => (side === 'left' ? free(0, SCALE_ROOM) : free(100 - SCALE_ROOM, 100))) ?? null;
+  });
 }

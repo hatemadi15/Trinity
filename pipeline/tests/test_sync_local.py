@@ -14,5 +14,7 @@ def test_write_catalogue_merges_the_site_files_with_compact_fields(tmp_path: Pat
     derived = json.loads((config.DATA_DIR / "sites_derived.json").read_text(encoding="utf-8"))["sites"]
     assert [s["id"] for s in doc["sites"]] == [s["id"] for s in sites + derived]
     assert set(doc["sites"][0].keys()) == set(CATALOGUE_FIELDS)
+    assert {"label", "blurb"} <= set(CATALOGUE_FIELDS)
+    assert all(s["label"] and s["blurb"] for s in doc["sites"])
     assert "mission_end_source" not in doc["sites"][0]
     assert out.read_bytes().count(b"\r\n") == 0

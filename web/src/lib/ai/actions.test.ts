@@ -137,7 +137,7 @@ describe('applyActions', () => {
       setAudience: rec('setAudience'),
       findBestWindow: vi.fn(async (days: number, scope: string) => {
         calls.push(['findBestWindow', days, scope]);
-        return { startUtc: '2027-03-04T00:00:00', summary: {} };
+        return { startUtc: '2027-03-04T00:00:00', poweredHours: 300, earthFraction: 0.5 };
       }),
     };
     return { store: { getState: () => state } as unknown as StoreApi<ExploreState>, calls };
@@ -172,7 +172,7 @@ describe('applyActions', () => {
     expect(navigate).toHaveBeenCalledWith('/compare');
     expect(notes.length).toBe(actions.length);
     expect(notes[0]).toMatch(/Selected Nobile Rim 2/);
-    expect(notes[6]).toMatch(/best 14-day window: 2027-03-04/);
+    expect(notes[6]).toBe('Moved to the best landing date for 14 days: 2027-03-04.');
     expect(notes[9]).toMatch(/longest night/i);
   });
 
