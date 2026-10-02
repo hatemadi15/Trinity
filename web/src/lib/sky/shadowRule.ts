@@ -7,7 +7,7 @@ import { cellAt, heightAt, type TerrainField } from './terrainField';
  * ground from shadowing itself without lowering the far skyline. At de Gerlache Rim 2 in January 2027 this
  * agrees with the engine on 712 of 720 hours (the misses: the Sun half hidden at sunset and sunrise).
  */
-export const SHADOW = { T0_CELLS: 1.3, T0_MIN_M: 24, GROWTH: 1.05, STEPS: 192, MAX_M: 150000, TOL_M: 0.3, SUN_RADIUS_RAD: 0.00466 } as const;
+export const SHADOW = { T0_CELLS: 1.3, T0_MIN_M: 24, GROWTH: 1.05, STEPS: 192, MAX_M: 150000, TOL_M: 0.3, SUN_RADIUS_RAD: 0.00466, OUTSIDE_BELOW_M: -5e4 } as const;
 /** The fast setting's steps: coarser, the same reach. */
 export const SHADOW_FAST = { GROWTH: 1.115, STEPS: 96 } as const;
 
@@ -24,7 +24,7 @@ export function sunFraction(f: TerrainField, x: number, y: number, z: number, su
   let t = Math.max(SHADOW.T0_MIN_M, SHADOW.T0_CELLS * cellAt(f, x, z));
   for (let i = 0; i < SHADOW.STEPS; i++) {
     const h = heightAt(f, x + dx * t, z + dz * t);
-    if (h < -9e5) break;
+    if (h < SHADOW.OUTSIDE_BELOW_M) break; // beyond the measured ground
     maxTan = Math.max(maxTan, (h - y - SHADOW.TOL_M) / t);
     t *= SHADOW.GROWTH;
     if (t > SHADOW.MAX_M) break;
@@ -61,7 +61,7 @@ float sunFraction(vec3 p, vec3 sun) {
   float maxTan = -10.0; float t = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz));
   for (int i = 0; i < ${SHADOW.STEPS}; i++) {
     if (i >= uSteps) break;
-    float h = heightAt(p.xz + dir * t); if (h < -9.0e5) break;
+    float h = heightAt(p.xz + dir * t); if (h < ${SHADOW.OUTSIDE_BELOW_M.toFixed(1)}) break;
     maxTan = max(maxTan, (h - p.y - ${SHADOW.TOL_M}) / t);
     t *= uGrowth; if (t > ${SHADOW.MAX_M.toFixed(1)}) break;
   }
