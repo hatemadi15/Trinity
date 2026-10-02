@@ -84,6 +84,23 @@ export function headSeries(series: Series, hours: number): Series {
   };
 }
 
+/** `hours` of a series from hour `from` (fewer at its end), sharing its memory; the series itself when that is all of it. */
+export function sliceSeries(series: Series, from: number, hours: number): Series {
+  const end = Math.min(series.hours, from + hours);
+  if (from === 0 && end === series.hours) return series;
+  return {
+    i0: series.i0 + from,
+    hours: end - from,
+    sunAz: series.sunAz.subarray(from, end),
+    sunEl: series.sunEl.subarray(from, end),
+    earthAz: series.earthAz.subarray(from, end),
+    earthEl: series.earthEl.subarray(from, end),
+    sunFraction: series.sunFraction.subarray(from, end),
+    earthVisible: series.earthVisible.subarray(from, end),
+    sunAu: series.sunAu.subarray(from, end),
+  };
+}
+
 export interface ContactWindow {
   start: number;
   end: number;

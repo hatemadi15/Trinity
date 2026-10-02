@@ -54,9 +54,11 @@ export function VerdictPanel({
             {better.label}
           </button>
         )}
-        <button type="button" onClick={onCompare} className={better ? 'btn' : 'btn btn-primary'}>
-          Compare sites
-        </button>
+        {!better && (
+          <button type="button" onClick={onCompare} className="btn btn-primary">
+            Compare sites
+          </button>
+        )}
       </div>
       {(better?.note || answer.hint) && <p className="mt-3 text-ink-2">{better ? better.note : answer.hint}</p>}
       {nearby && (

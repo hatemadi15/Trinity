@@ -6,8 +6,8 @@ import { WhereOnMoon } from './WhereOnMoon';
 
 const site = (id: string) => sites.find((s) => s.id === id)!;
 const overview = {
-  de_gerlache_center_rim_high: { sunFraction: 1, earthFraction: 0.49, nowHours: 720, best: { hour: 0, poweredHours: 720, earthFraction: 0.49 } },
-  de_gerlache_center: { sunFraction: 0, earthFraction: 0, nowHours: 10, best: null },
+  de_gerlache_center_rim_high: { sunFraction: 1, earthFraction: 0.49, nowHours: 720, best: { hour: 0, poweredHours: 720, earthFraction: 0.49 }, afterSun: 1, afterEarth: 0.49 },
+  de_gerlache_center: { sunFraction: 0, earthFraction: 0, nowHours: 10, best: null, afterSun: 0, afterEarth: 0 },
 };
 
 describe('WhereOnMoon', () => {
@@ -17,6 +17,8 @@ describe('WhereOnMoon', () => {
     expect(panel.textContent).toMatch(/de Gerlache Rim 2\. A ridge on a crater rim, 52 km from the pole\./);
     expect(within(panel).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('aria-current')).toBe('true');
     expect(within(panel).getByRole('link', { name: 'See all sites' }).getAttribute('href')).toBe('/sites');
+    // The dots' colours are explained here too, not only on the site list.
+    expect(panel.textContent).toMatch(/two weeks or more with power/);
   });
 
   it('lists the three nearest sites with their sunlight for the same period, as links', () => {

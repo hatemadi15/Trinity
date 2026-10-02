@@ -5,7 +5,7 @@ import { indexForEt, type Ephemeris } from '../engine/ephemeris';
 import { EngineClient } from '../engine-client';
 import { normalizeLon } from '../engine/geometry';
 import { bestLanding, bestLandingAcross, landingScores, timeWithPower, YEAR_HOURS, type Landing } from '../engine/landing';
-import { contactWindows, headSeries, hourlySeries, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
+import { contactWindows, headSeries, hourlySeries, sliceSeries, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig, type PowerResult } from '../engine/power';
 import { etToIso, utcToEt } from '../engine/time';
 import { dayMonth, pct0, spanShort } from '../viz/format';
@@ -47,6 +47,8 @@ export interface SiteResult {
   mastM: number;
   /** The best landing hour inside the period (hours from its start), or null when no hour is sunlit. */
   best: Landing | null;
+  /** The summary of as many days from the best landing hour: what Explore shows when it opens there (the period's own summary when that hour is the start). */
+  after: Summary;
 }
 
 /** What the site list shows for one site over the chosen period. */
@@ -56,6 +58,9 @@ export interface SiteOverview {
   /** Hours with power when the lander arrives at the period start. */
   nowHours: number;
   best: Landing | null;
+  /** Sunlight and contact with Earth over as many days from the best landing hour (the period's own when there is none, or it is the start). */
+  afterSun: number;
+  afterEarth: number;
 }
 export const DEFAULT_START = '2027-01-01T00:00:00';
 
@@ -179,14 +184,17 @@ export function recompute(
   const raw = hourlySeries(site, mask, eph, startEt, reach);
   const scan = params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
   const series = headSeries(scan, hours);
+  const summary = summarize(series);
+  const best = bestLanding(scan, params.power, { from: 0, to: hours, step: 1, capHours: hours });
   return {
     site,
     series,
-    summary: summarize(series),
+    summary,
     power: powerBudget(series, params.power),
     contacts: contactWindows(series),
     mastM,
-    best: bestLanding(scan, params.power, { from: 0, to: hours, step: 1, capHours: hours }),
+    best,
+    after: best && best.hour > 0 ? summarize(sliceSeries(scan, best.hour, hours)) : summary,
   };
 }
 
@@ -508,7 +516,14 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           set({
             overview: {
               ...get().overview,
-              [site.id]: { sunFraction: r.summary.illumFraction, earthFraction: r.summary.earthVisFraction, nowHours: timeWithPower(r.power), best: r.best },
+              [site.id]: {
+                sunFraction: r.summary.illumFraction,
+                earthFraction: r.summary.earthVisFraction,
+                nowHours: timeWithPower(r.power),
+                best: r.best,
+                afterSun: r.after.illumFraction,
+                afterEarth: r.after.earthVisFraction,
+              },
             },
           });
         } catch {

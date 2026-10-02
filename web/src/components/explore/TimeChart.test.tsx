@@ -32,7 +32,7 @@ describe('TimeChart', () => {
     expect(within(chart).getByRole('heading', { level: 2 }).textContent).toBe('Why: the 30 days, hour by hour');
     // One sentence explains the top row and the grey: the Sun goes round the sky, so the grey is the hills that way, not one mountain.
     expect(chart.textContent).toMatch(
-      /Time runs left to right\. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain\./,
+      /Time runs left to right\. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain\. Earth stays low over one stretch of the horizon; the Moon's slow monthly wobble lifts it into view and lowers it out of view\. Press Play in the bar at the bottom to run through the days\./,
     );
   });
 
@@ -76,6 +76,22 @@ describe('TimeChart', () => {
     expect(compass.textContent).toMatch(/west.*south.*east/);
     expect(screen.getByText('Direction of the Sun')).toBeTruthy();
     expect(screen.getByTestId('days').textContent).toMatch(/^1 Jan6 Jan11 Jan16 Jan21 Jan26 Jan$/);
+  });
+
+  it("draws the dotted sample of the key in the Sun's and Earth's colours, as the chart draws them", () => {
+    show();
+    const key = screen.getByRole('list', { name: 'Key' });
+    const dotted = [...key.querySelectorAll('li')].find((li) => li.textContent?.includes('dotted while hidden'))!;
+    const strokes = [...dotted.querySelectorAll('line')].map((l) => l.getAttribute('stroke'));
+    expect(strokes).toEqual(['var(--stage-sun)', 'var(--stage-earth)']);
+  });
+
+  it('ties each direction word to its hour with a tick', () => {
+    show();
+    const compass = screen.getByTestId('compass');
+    const words = [...compass.querySelectorAll<HTMLElement>('[data-direction]')];
+    expect(words.length).toBeGreaterThan(2);
+    for (const w of words) expect(w.querySelector('[data-tick]')).toBeTruthy();
   });
 
   it('marks the hour of the time bar, and the hour under the pointer', () => {

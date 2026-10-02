@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { isoAt } from '../viz/format';
 import { loadEphemeris, type EphemerisHeader } from '../engine/ephemeris';
-import { createExploreStore, DEFAULT_PARAMS, recompute } from './explore';
+import { createExploreStore, DEFAULT_PARAMS, DEFAULT_START, recompute } from './explore';
 import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
 import type { Site } from '../data/loaders';
 import { decodeHeightmap, type HeightmapMeta, type TerrainManifest } from '../data/terrain';
@@ -585,7 +586,14 @@ describe('best landing date and the overview of all sites', () => {
     const o = store.getState().overview;
     expect(Object.keys(o)).toHaveLength(19);
     expect(store.getState().overviewBusy).toBe(false);
-    expect(o.de_gerlache_rim_2).toEqual({ sunFraction: expect.closeTo(0.446, 3), earthFraction: expect.closeTo(0.45, 3), nowHours: 76, best: { hour: 466, poweredHours: 303, earthFraction: expect.any(Number) } });
+    expect(o.de_gerlache_rim_2).toEqual({
+      sunFraction: expect.closeTo(0.446, 3),
+      earthFraction: expect.closeTo(0.45, 3),
+      nowHours: 76,
+      best: { hour: 466, poweredHours: 303, earthFraction: expect.any(Number) },
+      afterSun: expect.closeTo(0.408, 3),
+      afterEarth: expect.closeTo(0.543, 3),
+    });
     expect(o.shackleton_center).toMatchObject({ sunFraction: 0, nowHours: 10, best: null });
     expect(o.shackleton_center_rim_high.nowHours).toBe(720);
     expect(o.blue_ghost_m1.sunFraction).toBeGreaterThan(0.3); // a flat horizon, no skyline file
@@ -634,6 +642,27 @@ describe('best landing date and the overview of all sites', () => {
     const period = recompute(eph, sites.find((s) => s.id === 'malapert_massif')!, Float64Array.from(maskOf('malapert_massif').elevation_deg), '2027-03-01T00:00:00', 14);
     expect(store.getState().overview.malapert_massif.sunFraction).toBeCloseTo(period.summary.illumFraction, 9);
     expect(store.getState().overviewBusy).toBe(false);
+  });
+
+  it('gives each site the sunlight and contact with Earth of the days after its best landing, the figures Explore shows when it opens there', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().loadOverview();
+    const overview = store.getState().overview;
+    const o = overview.de_gerlache_rim_2;
+    expect(o.best?.hour).toBe(466);
+    store.getState().setWindow(isoAt(DEFAULT_START, o.best!.hour), 30);
+    const shown = store.getState().summary!;
+    expect(o.afterSun).toBeCloseTo(shown.illumFraction, 12);
+    expect(o.afterEarth).toBeCloseTo(shown.earthVisFraction, 12);
+    expect(o.afterSun).not.toBeCloseTo(o.sunFraction, 3);
+    // A site whose best landing is the start of the period keeps the period's own figures.
+    const fromStart = Object.values(overview).filter((x) => x.best?.hour === 0);
+    expect(fromStart.length).toBeGreaterThan(0);
+    for (const x of fromStart) {
+      expect(x.afterSun).toBe(x.sunFraction);
+      expect(x.afterEarth).toBe(x.earthFraction);
+    }
   });
 
   it('setting the window it already has changes nothing, so an overview on its way still arrives', async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dirFromAzEl, latLonToSphere, localToThree, moonToThree, sphereToLatLon, sunLight } from './three-frames';
+import { dirFromAzEl, latitudeRing, latLonToSphere, localToThree, moonToThree, sphereToLatLon, sunLight } from './three-frames';
 
 describe('three frames', () => {
   it('moonToThree is a right-handed rotation with the lunar north pole up', () => {
@@ -31,5 +31,17 @@ describe('three frames', () => {
     const back = sphereToLatLon(p);
     expect(back.lat).toBeCloseTo(-85.5, 9);
     expect(back.lon).toBeCloseTo(123.4, 9);
+  });
+});
+
+describe('latitudeRing', () => {
+  it('runs once round the globe at one latitude and closes on itself', () => {
+    const ring = latitudeRing(-60, 1.004, 90);
+    expect(ring).toHaveLength(91);
+    for (const p of ring) {
+      expect(sphereToLatLon(p).lat).toBeCloseTo(-60, 9);
+      expect(Math.hypot(...p)).toBeCloseTo(1.004, 9);
+    }
+    expect(ring[90]).toEqual(ring[0]);
   });
 });

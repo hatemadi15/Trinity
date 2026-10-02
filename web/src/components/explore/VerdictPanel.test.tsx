@@ -11,7 +11,7 @@ const night: Answer = {
   sentences: [
     'No radio contact: Earth is out of view for all 3 days 4 hours with power.',
     'The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.',
-    'The battery, not quite full when the Sun set, covers the first 9 hours of the night; the lander is back on 20 January.',
+    'The battery covers the first 9 hours of the night (the low Sun before sunset had already drawn on it); power comes back on 20 January.',
   ],
   better: { hour: 466, startUtc: '2027-01-20T10:00:00', label: 'Land on 20 January instead', note: 'From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.' },
   hint: null,
@@ -42,7 +42,7 @@ describe('VerdictPanel', () => {
     const lead = screen.getByText('No radio contact: Earth is out of view for all 3 days 4 hours with power.');
     expect(lead.tagName).toBe('P');
     expect(lead.className).toMatch(/\bfont-medium\b/);
-    expect(screen.getByText(/^The Sun sets on 3 January .* the lander is back on 20 January\.$/).tagName).toBe('P');
+    expect(screen.getByText(/^The Sun sets on 3 January .* power comes back on 20 January\.$/).tagName).toBe('P');
   });
 
   it('makes the better landing date the one gold button, with what it gives', () => {
@@ -53,10 +53,9 @@ describe('VerdictPanel', () => {
     fireEvent.click(gold);
     expect(onLand).toHaveBeenCalledWith('2027-01-20T10:00:00');
     expect(screen.getByText('From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.')).toBeTruthy();
-    const compare = screen.getByRole('button', { name: 'Compare sites' });
-    expect(compare.className).not.toMatch(/btn-primary/);
-    fireEvent.click(compare);
-    expect(onCompare).toHaveBeenCalled();
+    // One way forward: with a better date there is no second button beside it.
+    expect(screen.queryByRole('button', { name: 'Compare sites' })).toBeNull();
+    expect(onCompare).not.toHaveBeenCalled();
   });
 
   it('makes "Compare sites" the gold button when no date does better, and says what else to try', () => {

@@ -120,11 +120,12 @@ describe('TimeBar', () => {
     expect(screen.getByTestId('ticks').textContent).toBe('1 Jan2 Jan3 Jan');
   });
 
-  it('plays an hour at a time in ink, not gold, and stops at the end', () => {
+  it('plays an hour at a time from a plain button, not gold or ink, and stops at the end', () => {
     vi.useFakeTimers();
     const { onCursor, rerender } = show(69);
     const play = screen.getByRole('button', { name: 'Play' });
-    expect(play.className).toMatch(/btn-ink/);
+    expect(play.className).toMatch(/\bbtn\b/);
+    expect(play.className).not.toMatch(/btn-ink|btn-primary/);
     expect(play.className).not.toMatch(/btn-primary/);
     fireEvent.click(play);
     expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy();

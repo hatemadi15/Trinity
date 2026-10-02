@@ -138,9 +138,6 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               params={s.params}
               days={s.days}
               maskMeta={s.maskMeta}
-              inCompare={s.compareIds.includes(site.id)}
-              compareFull={s.compareIds.length >= COMPARE_MAX}
-              onAddToCompare={() => void store.getState().addToCompare(site.id)}
             />
           </div>
           <TimeChart

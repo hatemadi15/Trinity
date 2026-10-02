@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { Summary } from '@/lib/engine/metrics';
 import { DEFAULT_POWER, simulateBattery } from '@/lib/engine/power';
 import { DEFAULT_PARAMS } from '@/lib/store/explore';
@@ -12,7 +12,6 @@ const summary: Summary = { hours: 720, illumFraction: 0.4458, meanSunFraction: 0
 const power = simulateBattery(Float64Array.from({ length: 720 }, (_, h) => (h < 66 ? 1600 : 0)), DEFAULT_POWER);
 
 function show(extra: Partial<Parameters<typeof NumbersCard>[0]> = {}) {
-  const onAddToCompare = vi.fn();
   render(
     <NumbersCard
       site={site}
@@ -21,13 +20,9 @@ function show(extra: Partial<Parameters<typeof NumbersCard>[0]> = {}) {
       params={DEFAULT_PARAMS}
       days={30}
       maskMeta={{ siteHeightM: 1432, source: 'featured', failedTiles: 0 }}
-      inCompare={false}
-      compareFull={false}
-      onAddToCompare={onAddToCompare}
       {...extra}
     />,
   );
-  return { onAddToCompare };
 }
 
 describe('NumbersCard', () => {
@@ -73,16 +68,11 @@ describe('NumbersCard', () => {
     expect(dialog.textContent).toMatch(/5 m/);
   });
 
-  it('adds the site to the comparison and links to the printable brief', () => {
-    const { onAddToCompare } = show();
-    fireEvent.click(screen.getByRole('button', { name: 'Add to compare' }));
-    expect(onAddToCompare).toHaveBeenCalled();
+  it('links to the printable brief and leaves comparing to the verdict and the page header', () => {
+    show();
     expect(screen.getByRole('link', { name: 'Printable brief' }).getAttribute('href')).toBe('/brief');
-  });
-
-  it('says so when the site is already compared or the comparison is full', () => {
-    show({ inCompare: true });
-    expect((screen.getByRole('button', { name: 'In the comparison' }) as HTMLButtonElement).disabled).toBe(true);
+    // Readers counted three ways to compare on one screen; the card has none.
+    expect(screen.queryByRole('button', { name: /compare/i })).toBeNull();
   });
 
   it('says in All numbers when a place lies outside the polar elevation maps', () => {

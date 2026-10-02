@@ -44,9 +44,6 @@ export function NumbersCard({
   params,
   days,
   maskMeta,
-  inCompare,
-  compareFull,
-  onAddToCompare,
 }: {
   site: Site;
   summary: Summary;
@@ -54,9 +51,6 @@ export function NumbersCard({
   params: PlannerParams;
   days: number;
   maskMeta: MaskMeta | null;
-  inCompare: boolean;
-  compareFull: boolean;
-  onAddToCompare: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
@@ -130,9 +124,6 @@ export function NumbersCard({
       <p className="mt-auto flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-2">
         <button ref={opener} type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className={QUIET}>
           All numbers
-        </button>
-        <button type="button" onClick={onAddToCompare} disabled={inCompare || compareFull} className={QUIET}>
-          {inCompare ? 'In the comparison' : compareFull ? 'The comparison is full' : 'Add to compare'}
         </button>
         <Link href="/brief" className={`${QUIET} inline-flex items-center`}>
           Printable brief

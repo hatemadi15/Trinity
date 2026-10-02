@@ -80,7 +80,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
   // The lander is back at the first hour with power after the brownout.
   let back = first;
   while (back < hours && power.powered[back] === 0) back++;
-  const backPart = back < hours ? `; the lander is back on ${dateLong(startUtc, back)}.` : ', and the lander stays off for the rest of the period.';
+  const backPart = back < hours ? `; power comes back on ${dateLong(startUtc, back)}.` : ', and the lander stays off for the rest of the period.';
   const lead = `power for ${spanWords(first)}`;
 
   let kind: AnswerKind;
@@ -118,7 +118,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     const full = sunset === 0 || power.energyWh[sunset - 1] >= batteryWh - 1e-6;
     const battery =
       covered > 0
-        ? `The battery${full ? '' : ', not quite full when the Sun set,'} covers the first ${spanWords(covered)} of the night`
+        ? `The battery covers the first ${spanWords(covered)} of the night${full ? '' : ' (the low Sun before sunset had already drawn on it)'}`
         : sunset === 0
           ? 'The battery is empty at the start'
           : 'The battery is empty when the Sun sets';

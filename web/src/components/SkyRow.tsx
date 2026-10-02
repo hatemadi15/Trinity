@@ -1,4 +1,5 @@
 import { useId, type CSSProperties, type ReactNode } from 'react';
+import { LabelGuard } from '@/components/LabelGuard';
 import { dayMonth, spanWords } from '@/lib/viz/format';
 import { compassTicks, eventLabelSides, hiddenBy, hiddenRuns, longestHidden, rowGeometry, rowRange, scaleLines, scalePreference, scaleWordSides, type LabelSide, type RowBox } from '@/lib/viz/skyrow';
 
@@ -14,9 +15,10 @@ const AT_RIGHT = 'right-[var(--chart-inset,10px)]';
  * A label on the picture. Labels are page text laid over the drawing, not text inside it, so they keep
  * their size when the chart gets narrower. A solid plate stands behind the ones that can sit on the hills.
  */
-function Label({ children, size = 16, plate = false, className = '', style }: { children: ReactNode; size?: number; plate?: boolean; className?: string; style?: CSSProperties }) {
+/** A word on the picture. `priority` ranks it for the guard that hides overlaps (0 is kept first). */
+function Label({ children, size = 16, plate = false, className = '', style, priority = 5 }: { children: ReactNode; size?: number; plate?: boolean; className?: string; style?: CSSProperties; priority?: number }) {
   return (
-    <span data-label="" className={`whitespace-nowrap ${plate ? 'rounded-[5px] bg-stage/80 px-1.5' : ''} ${className}`} style={{ fontSize: size, lineHeight: `${size + 8}px`, ...style }}>
+    <span data-label="" data-priority={priority} className={`whitespace-nowrap ${plate ? 'rounded-[5px] bg-stage/80 px-1.5' : ''} ${className}`} style={{ fontSize: size, lineHeight: `${size + 8}px`, ...style }}>
       {children}
     </span>
   );
@@ -115,6 +117,24 @@ export function SkyRowKey({ body, compass = false, className = '' }: { body: 'su
       {compass && <li>Top row: the direction {who} is in on that date.</li>}
     </ul>
   );
+}
+
+/**
+ * Two dates inside one hidden stretch need about 160 px side by side. Below the chart width at which the
+ * stretch is that wide, the rising date gives way: the class for the first of these widths at or above it.
+ * The class names are written out whole so that Tailwind generates them.
+ */
+const PART_BELOW = [
+  [300, '@max-[300px]:hidden'],
+  [320, '@max-[320px]:hidden'],
+  [360, '@max-[360px]:hidden'],
+  [400, '@max-[400px]:hidden'],
+  [440, '@max-[440px]:hidden'],
+  [480, '@max-[480px]:hidden'],
+] as const;
+function riseGivesWay(stretchPct: number): string {
+  const needed = 160 / (stretchPct / 100);
+  return (PART_BELOW.find(([width]) => width >= needed) ?? PART_BELOW[PART_BELOW.length - 1])[1];
 }
 
 /** Half the width, in percent, that the words on a hidden stretch take: the full sentence, and the short form. */
@@ -274,7 +294,7 @@ export function SkyRow({
     : [];
 
   return (
-    <div role="img" aria-label={`${caption}. ${said}`} className="@container relative w-full overflow-hidden text-stage-ink-2" style={{ height: total, background: 'var(--stage)' }}>
+    <LabelGuard role="img" aria-label={`${caption}. ${said}`} className="@container relative w-full overflow-hidden text-stage-ink-2" style={{ height: total, background: 'var(--stage)' }}>
       <svg viewBox={`0 0 ${W} ${total}`} preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
         {g.clipped && (
           <defs>
@@ -304,7 +324,7 @@ export function SkyRow({
       </svg>
 
       {title && (
-        <Label plate className={`absolute font-semibold text-stage-ink ${AT_LEFT}`} style={{ top: titleTop }}>
+        <Label priority={0} plate className={`absolute font-semibold text-stage-ink ${AT_LEFT}`} style={{ top: titleTop }}>
           {title}
         </Label>
       )}
@@ -321,7 +341,7 @@ export function SkyRow({
 
       {scale.map(({ deg, words }, i) =>
         scaleSides[i] ? (
-          <Label key={deg} plate className={`absolute @max-[480px]:hidden ${scaleSides[i] === 'left' ? AT_LEFT : AT_RIGHT}`} style={{ top: g.y(deg) - 11 }}>
+          <Label key={deg} priority={4} plate className={`absolute @max-[480px]:hidden ${scaleSides[i] === 'left' ? AT_LEFT : AT_RIGHT}`} style={{ top: g.y(deg) - 11 }}>
             {words}
           </Label>
         ) : null,
@@ -342,20 +362,20 @@ export function SkyRow({
         <span key={p.run.from} className="contents">
           {p.words && (
             <Centred at={p.middle} className={`${after} ${p.long ? '' : '@max-[900px]:hidden'}`} style={{ top: top + 34 }}>
-              <Label size={17} plate className="font-semibold text-stage-ink">
+              <Label size={17} priority={p.long ? 1 : 3} plate className="font-semibold text-stage-ink">
                 {gap} for {spanWords(p.run.to - p.run.from)}
                 {p.long && <span className="@max-[560px]:hidden">: {reason}</span>}
               </Label>
             </Centred>
           )}
           {p.set && (
-            <Label plate className={`absolute font-semibold ${after}`} style={{ top: under(p.run.from), color, ...(p.set === 'inside' ? { left: `calc(${p.fromPct}% + 12px)` } : { right: `calc(${100 - p.fromPct}% + 12px)` }) }}>
+            <Label priority={p.long ? 2 : 3} plate className={`absolute font-semibold ${after}`} style={{ top: under(p.run.from), color, ...(p.set === 'inside' ? { left: `calc(${p.fromPct}% + 12px)` } : { right: `calc(${100 - p.fromPct}% + 12px)` }) }}>
               <span className="max-lg:hidden">{name} sets </span>
               {dayMonth(startUtc, p.run.from)}
             </Label>
           )}
           {p.rise && (
-            <Label plate className={`absolute font-semibold ${after}`} style={{ top: under(p.run.to), color, ...(p.rise === 'inside' ? { right: `calc(${100 - p.toPct}% + 12px)` } : { left: `calc(${p.toPct}% + 12px)` }) }}>
+            <Label priority={p.long ? 2 : 3} plate className={`absolute font-semibold ${after} ${p.set === 'inside' && p.rise === 'inside' ? riseGivesWay(p.toPct - p.fromPct) : ''}`} style={{ top: under(p.run.to), color, ...(p.rise === 'inside' ? { right: `calc(${100 - p.toPct}% + 12px)` } : { left: `calc(${p.toPct}% + 12px)` }) }}>
               <span className="max-lg:hidden">{name} rises </span>
               {dayMonth(startUtc, p.run.to)}
             </Label>
@@ -386,6 +406,6 @@ export function SkyRow({
           </Centred>
         );
       })}
-    </div>
+    </LabelGuard>
   );
 }

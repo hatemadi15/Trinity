@@ -25,9 +25,11 @@ describe('SitesView', () => {
   it('titles the page, says what the figures assume and groups the catalogue in plain words', async () => {
     await ready();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Choose a landing site');
-    expect(screen.getByText(/19 places on the Moon/).textContent).toMatch(/how much sunlight and contact with Earth a lander gets there in the 30 days from 1 January 2027, and how long it keeps power if it lands on its best day/);
+    expect(screen.getByText(/19 places on the Moon/).textContent).toMatch(
+      /For each, the best day to land in the 30 days from 1 January 2027, how long a lander keeps power from that day, and how much sunlight and contact with Earth it has in its first 30 days\./,
+    );
     // The order of the rows is said, not left to guess.
-    expect(screen.getByText(/^Rows are sorted/).textContent).toBe('Rows are sorted by the longest time with power; places that never see Earth in these days come last.');
+    expect(screen.getByText(/^Rows are sorted/).textContent).toBe('Rows are sorted by the longest time with power.');
     // The lander gets a line of its own, so the first sentence stays short.
     expect(screen.getByText(/^The lander:/).textContent).toBe('The lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.');
     expect(screen.getByText(/three real missions, for the same days as the rest of the list/)).toBeTruthy();
@@ -44,12 +46,13 @@ describe('SitesView', () => {
   it('gives each site its sunlight, its contact with Earth and its longest time with power', async () => {
     await ready();
     const row = rowOf('de Gerlache Rim 2');
-    // The row opens the period it describes (its percentages are for that period); Explore then offers the row's landing date as its gold button.
-    expect(row.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    // The row opens Explore on the landing day it names, and every figure in the row is one Explore shows there:
+    // the sunlight and contact with Earth are for the 30 days from that day.
+    expect(row.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
     expect(row.textContent).toMatch(/A ridge on a crater rim, 52 km from the pole/);
     // A number keeps its percent sign on the same line: a no-break space between them.
-    expect(row.textContent).toMatch(/Sunlight 45 %/);
-    expect(row.textContent).toMatch(/Earth in view 45 %/);
+    expect(row.textContent).toMatch(/Sunlight 41 %/);
+    expect(row.textContent).toMatch(/Earth in view 54 %/);
     expect(row.textContent).toMatch(/Longest time with power 12 d 15 h, if it lands on 20 Jan/);
   });
 
@@ -61,25 +64,27 @@ describe('SitesView', () => {
     expect(rowOf('Shackleton rim summit').textContent).toMatch(/all 30 days/);
   });
 
-  it('sorts each group by time with power once every figure is in, places that never see Earth last', async () => {
+  it('sorts each group by time with power once every figure is in, and puts places that never see Earth under a heading of their own', async () => {
     const { store } = await ready();
-    const first = screen.getAllByRole('list')[0];
-    const rows = [...first.querySelectorAll<HTMLElement>('a[data-row]')].map((a) => store.getState().overview[a.dataset.row!]);
-    expect(rows).toHaveLength(9);
-    // Mons Mouton keeps power for 13 d 7 h but never sees Earth in January 2027: it goes after every place that does.
-    const key = (o: (typeof rows)[number]) => (o.earthFraction > 0 ? 1e6 : 0) + (o.best?.poweredHours ?? -1);
-    const keys = rows.map(key);
-    expect(keys).toEqual([...keys].sort((a, b) => b - a));
-    const ids = [...first.querySelectorAll<HTMLElement>('a[data-row]')].map((a) => a.dataset.row!);
-    const lastWithContact = Math.max(...rows.flatMap((o, i) => (o.earthFraction > 0 ? [i] : [])));
-    expect(ids.indexOf('mons_mouton')).toBeGreaterThan(lastWithContact);
+    const group = screen.getByRole('region', { name: 'Shortlisted by NASA for a crewed Artemis landing' });
+    const [withContact, without] = within(group).getAllByRole('list');
+    const hours = (list: HTMLElement) => [...list.querySelectorAll<HTMLElement>('a[data-row]')].map((a) => store.getState().overview[a.dataset.row!].best?.poweredHours ?? -1);
+    const a = hours(withContact);
+    const b = hours(without);
+    expect(a.length + b.length).toBe(9);
+    expect(a).toEqual([...a].sort((x, y) => y - x));
+    expect(b).toEqual([...b].sort((x, y) => y - x));
+    // Mons Mouton keeps power for 13 d 7 h but never sees Earth in its first 30 days: it sits under the heading, not among the others.
+    expect(within(group).getByRole('heading', { level: 3 }).textContent).toBe('No contact with Earth in the first 30 days');
+    expect(within(without).getByText('Mons Mouton')).toBeTruthy();
+    expect(without.compareDocumentPosition(withContact) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   it('draws a bar for contact with Earth as it does for sunlight', async () => {
     await ready();
     const row = rowOf('de Gerlache Rim 2');
     const earth = row.querySelector<HTMLElement>('[data-bar="earth"]')!;
-    expect(earth.style.width).toBe('45%');
+    expect(earth.style.width).toBe('54%');
     expect(row.querySelector('[data-bar="sun"]')).toBeTruthy();
   });
 
@@ -88,7 +93,7 @@ describe('SitesView', () => {
     const map = screen.getByRole('region', { name: 'Map of the sites' });
     const pins = within(map).getAllByRole('link');
     expect(pins).toHaveLength(17);
-    expect(within(map).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    expect(within(map).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
     expect(map.textContent).toMatch(/IM-1 Odysseus and Blue Ghost Mission 1 lie outside this map/);
     expect(map.textContent).toMatch(/The south pole is at the centre of the map/);
     // The key to the pins' colours comes before the map, on the first screen.

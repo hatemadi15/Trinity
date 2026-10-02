@@ -14,11 +14,23 @@ const BATTERY_H = 30;
 export const PLOT_GRID = 'grid grid-cols-[104px_minmax(0,1fr)] gap-x-3';
 const GRID = `${PLOT_GRID} max-sm:grid-cols-1`;
 
-function Swatch({ color, dotted = false }: { color: string; dotted?: boolean }) {
+function Swatch({ color }: { color: string }) {
   return (
     <span aria-hidden="true" className="flex h-5 w-9 shrink-0 items-center justify-center rounded bg-stage">
       <svg width={26} height={8}>
-        <line x1={2} y1={4} x2={24} y2={4} stroke={color} strokeWidth={dotted ? 2.2 : 3.4} strokeDasharray={dotted ? '2 6' : undefined} strokeLinecap="round" />
+        <line x1={2} y1={4} x2={24} y2={4} stroke={color} strokeWidth={3.4} strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
+/** The dotted sample in both colours, as the chart draws a hidden Sun and a hidden Earth. */
+function DottedSwatch() {
+  return (
+    <span aria-hidden="true" className="flex h-5 w-9 shrink-0 items-center justify-center rounded bg-stage">
+      <svg width={26} height={12}>
+        <line x1={2} y1={3.5} x2={24} y2={3.5} stroke="var(--stage-sun)" strokeWidth={2.2} strokeDasharray="2 6" strokeLinecap="round" />
+        <line x1={2} y1={8.5} x2={24} y2={8.5} stroke="var(--stage-earth)" strokeWidth={2.2} strokeDasharray="2 6" strokeLinecap="round" />
       </svg>
     </span>
   );
@@ -104,7 +116,8 @@ export function TimeChart({
         Why: the {days} days, hour by hour
       </h2>
       <p className="mt-1 max-w-[62em] text-[15px] text-ink">
-        Time runs left to right. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain.
+        Time runs left to right. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain. Earth
+        stays low over one stretch of the horizon; the Moon&apos;s slow monthly wobble lifts it into view and lowers it out of view. Press Play in the bar at the bottom to run through the days.
       </p>
       <ul aria-label="Key" className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
         <li className="flex items-center gap-2">
@@ -116,7 +129,7 @@ export function TimeChart({
           Earth&apos;s height
         </li>
         <li className="flex items-center gap-2">
-          <Swatch color="var(--stage-ink-2)" dotted />
+          <DottedSwatch />
           dotted while hidden
         </li>
         <li className="flex items-center gap-2">
@@ -133,10 +146,12 @@ export function TimeChart({
 
       <div className={`${GRID} mt-3`}>
         <span className="self-end pb-1 text-[15px] leading-tight text-ink-2 max-sm:hidden">Direction of the Sun</span>
-        <div data-testid="compass" aria-hidden="true" className="relative h-6 text-[15px] text-ink-2 max-sm:hidden">
+        <div data-testid="compass" aria-hidden="true" className="relative h-8 text-[15px] text-ink-2 max-sm:hidden">
+          {/* Each word sits over the hour the Sun reaches that direction, with a tick down to the chart. */}
           {compass.map((t) => (
-            <span key={t.hour} className="absolute whitespace-nowrap" style={{ left: `${pct(t.hour)}%`, transform: 'translateX(-50%)' }}>
+            <span key={t.hour} data-direction="" className="absolute top-0 flex flex-col items-center whitespace-nowrap" style={{ left: `${pct(t.hour)}%`, transform: 'translateX(-50%)' }}>
               {t.label}
+              <i data-tick="" className="mt-0.5 block h-1.5 w-px bg-ink-2" />
             </span>
           ))}
         </div>

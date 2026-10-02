@@ -37,6 +37,20 @@ export function WhereOnMoon({ site, sites, overview, startUtc, days }: { site: S
       <div className="mt-3">
         <ReliefMap pins={pins} selectedId={site.id} />
       </div>
+      <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
+        <span className="flex items-center gap-2">
+          <i className="h-3 w-3 rounded-full bg-sun" />
+          this site
+        </span>
+        <span className="flex items-center gap-2">
+          <i className="h-3 w-3 rounded-full bg-good" />
+          two weeks or more with power
+        </span>
+        <span className="flex items-center gap-2">
+          <i className="h-3 w-3 rounded-full border-2 border-ink-3" />
+          less
+        </span>
+      </p>
       <p id="near-title" className="mt-4 flex justify-between border-b border-line pb-2 text-[15px] font-semibold text-ink-2">
         <span>Nearby sites, same {days} days</span>
         <span>Sunlight</span>

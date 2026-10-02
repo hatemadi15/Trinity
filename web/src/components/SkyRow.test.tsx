@@ -119,6 +119,31 @@ describe('SkyRow', () => {
     expect(long.querySelector('span')!.className).toMatch(/@max-\[560px\]:hidden/);
   });
 
+  it('drops the rising date of a stretch whose two dates would not fit side by side in a narrow chart', () => {
+    const rise = (visible: number[]) => {
+      const { container, unmount } = render(<SkyRow el={el} hill={hillsFor(visible)} visible={visible} startUtc={START} body="earth" caption="c" />);
+      const cls = labelsOf(container).find((l) => /rises/.test(l.textContent ?? ''))!.className;
+      unmount();
+      return cls;
+    };
+    // Hidden for 45 % of the month, both dates inside: they need about 160 px, 45 % of a 356 px chart, so they part below 360 px.
+    expect(rise(Array.from({ length: hours }, (_, h) => (h >= 100 && h < 424 ? 0 : 1)))).toMatch(/@max-\[360px\]:hidden/);
+    // Hidden for 55 %: the dates part only below 300 px.
+    expect(rise(lit)).toMatch(/@max-\[300px\]:hidden/);
+    // Hidden for 14 %: the dates sit outside the stretch, one on each side, and never meet.
+    expect(rise(Array.from({ length: hours }, (_, h) => (h >= 165 && h < 266 ? 0 : 1)))).not.toMatch(/@max-\[\d+px\]:hidden/);
+  });
+
+  it('ranks its labels, so that where two would overlap at some width the more important one stays', () => {
+    const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" title="Sunlight" />);
+    const priority = (re: RegExp) => labelsOf(container).find((l) => re.test(l.textContent ?? ''))!.dataset.priority;
+    expect(priority(/^Sunlight$/)).toBe('0');
+    expect(priority(/^Night for 16 days 15 hours/)).toBe('1');
+    expect(priority(/Sun sets 3 Jan/)).toBe('2');
+    expect(priority(/^5° up$/)).toBe('4');
+    expect(priority(/^6 Jan$/)).toBe('5');
+  });
+
   it('gives rows the same height for a degree when told how many pixels a degree takes', () => {
     const tall = Array.from({ length: hours }, (_, h) => (lit[h] ? -1 : 15));
     const sun = render(<SkyRow el={el} hill={tall} visible={lit} startUtc={START} body="sun" caption="c" fitHills pxPerDeg={10} ticks={false} />);
