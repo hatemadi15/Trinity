@@ -33,6 +33,13 @@ describe('stars', () => {
     }
   });
 
+  it('scales brightness with the square root of a star’s light, as the eye sees it, so the faintest catalogue stars still show', () => {
+    expect(starGain(1) / starGain(6)).toBeCloseTo(10, 6); // 5 magnitudes: 100 times the light, 10 times as bright to the eye
+    expect(starGain(6)).toBeGreaterThan(0.08);
+    expect(starGain(-1.46)).toBeLessThanOrEqual(1.6);
+    expect(starSize(6.5)).toBeGreaterThanOrEqual(1.8);
+  });
+
   it('gives brighter stars bigger, brighter points, and colours from blue-white to orange by B−V', () => {
     expect(starSize(-1.46)).toBeGreaterThan(starSize(6));
     expect(starGain(-1.46)).toBeGreaterThan(starGain(6));

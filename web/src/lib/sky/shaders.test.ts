@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GROUND_FRAG } from './shaders';
+import { GROUND_FRAG, STAR_FRAG } from './shaders';
 
 describe('the ground shader', () => {
   it('fades each size of drawn crater by how many pixels it covers, so craters smaller than a pixel never sparkle', () => {
@@ -14,5 +14,9 @@ describe('the ground shader', () => {
   it('starts the shadow ray from the measured ground, not from the drawn craters', () => {
     expect(GROUND_FRAG).toContain('vec3 N0 = normalize(vNormal), Nn = N0;');
     expect(GROUND_FRAG).toContain('sunFraction(vWorld + N0 * 0.4, uSun)');
+  });
+
+  it('keeps every star below the bloom threshold, so only the Sun blooms', () => {
+    expect(STAR_FRAG).toContain('min(vC * a * uGain, vec3(0.95))');
   });
 });

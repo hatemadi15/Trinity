@@ -48,6 +48,10 @@ export function starColour(bv: number): Vec3 {
 }
 
 /** Point size in pixels (before the pixel ratio) by magnitude. */
-export const starSize = (vmag: number): number => Math.max(1.4, 5.2 - vmag * 0.66);
-/** Brightness by magnitude, capped so the brightest stars do not bloom like the Sun. */
-export const starGain = (vmag: number): number => Math.min(1.6, Math.pow(10, -0.4 * (vmag - 1.5)));
+export const starSize = (vmag: number): number => Math.max(1.8, 5.6 - vmag * 0.7);
+/**
+ * Brightness by magnitude: the square root of the star's light, as the eye sees it (five magnitudes are
+ * a hundred times the light, ten times as bright), so stars to magnitude 6.5 still show; capped so the
+ * brightest do not bloom like the Sun.
+ */
+export const starGain = (vmag: number): number => Math.min(1.6, Math.pow(10, -0.2 * (vmag - 1)));

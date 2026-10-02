@@ -112,5 +112,6 @@ varying vec3 vC; uniform float uGain;
 #include <logdepthbuf_pars_fragment>
 void main() {
   #include <logdepthbuf_fragment>
-  vec2 p = gl_PointCoord - 0.5; float a = smoothstep(0.5, 0.0, length(p)); gl_FragColor = vec4(vC * a * uGain, a);
+  // Kept below the bloom threshold (0.985): only the Sun blooms.
+  vec2 p = gl_PointCoord - 0.5; float a = smoothstep(0.5, 0.0, length(p)); gl_FragColor = vec4(min(vC * a * uGain, vec3(0.95)), a);
 }`;
