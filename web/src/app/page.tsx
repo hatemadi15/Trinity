@@ -139,7 +139,7 @@ export default function Home() {
                 <span className="absolute left-[60%] top-[86%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-[#f3f2ee]/90 px-2 py-0.5 text-[15px] text-black">in sunlight</span>
               </div>
               <figcaption className="mt-3 text-[15px] leading-snug text-ink-2">
-                The ridge from above, {Math.round(hero.window_km)} km across. Black is ground the Sun cannot reach at that hour. Computed from NASA elevation data, not a photograph.
+                The ridge from above, {Math.round(hero.window_km)} km across. Black is ground the Sun cannot reach at that hour. Computed from NASA elevation data, not a photograph. Faint stripes are seams in the elevation data, not real ground.
               </figcaption>
             </figure>
             <ul className="border-t-2 border-ink">

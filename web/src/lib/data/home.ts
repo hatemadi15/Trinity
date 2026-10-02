@@ -55,7 +55,7 @@ export function thousandsText(n: number): string {
 
 /**
  * Three real places, in the order of the list on the home page: the ridge in the picture first, then
- * the two landers. Each opens Explore on the site and, for a mission, the date where it happened.
+ * the two landers. Each opens Explore on the site and, for a mission, the first whole hour after it landed.
  */
 export const PLACES: { title: string; outcome: string; tone: 'good' | 'bad' | 'plain'; body: string; href: string }[] = [
   {
@@ -70,13 +70,13 @@ export const PLACES: { title: string; outcome: string; tone: 'good' | 'bad' | 'p
     outcome: 'Ended after one day',
     tone: 'bad',
     body: "Intuitive Machines' Athena came down near a mountain called Mons Mouton and ended on its side in a crater. Replay the sky it saw and how little light reached it.",
-    href: '/explore?site=im2_athena&start=2025-03-06',
+    href: '/explore?site=im2_athena&start=2025-03-06T18:00',
   },
   {
     title: 'Blue Ghost lander, March 2025',
     outcome: 'Worked all 14 days',
     tone: 'good',
     body: "Firefly Aerospace's Blue Ghost landed far from the pole: two weeks of sunlight, Earth always in view. Our predicted sunset falls within hours of its last signal.",
-    href: '/explore?site=blue_ghost_m1&start=2025-03-02',
+    href: '/explore?site=blue_ghost_m1&start=2025-03-02T09:00',
   },
 ];

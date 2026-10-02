@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { loadEphemeris, type EphemerisHeader } from '../engine/ephemeris';
+import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
+import { createExploreStore } from '../store/explore';
 import { degreesText, HOME, PLACES, thousandsText } from './home';
+import type { Site } from './loaders';
 
 const validation = (name: string) => JSON.parse(fs.readFileSync(path.resolve(process.cwd(), '../data/validation', name), 'utf8'));
 
@@ -56,7 +60,39 @@ describe('home facts', () => {
   });
 
   it('lists the places in the order of the page: the ridge in the picture first, then the two landers on their dates', () => {
-    expect(PLACES.map((p) => p.href)).toEqual(['/explore?site=de_gerlache_rim_2', '/explore?site=im2_athena&start=2025-03-06', '/explore?site=blue_ghost_m1&start=2025-03-02']);
+    expect(PLACES.map((p) => p.href)).toEqual(['/explore?site=de_gerlache_rim_2', '/explore?site=im2_athena&start=2025-03-06T18:00', '/explore?site=blue_ghost_m1&start=2025-03-02T09:00']);
     expect(PLACES.map((p) => p.tone)).toEqual(['plain', 'bad', 'good']);
+  });
+});
+
+const haveData = hasFile('data', 'ephemeris', 'moon_me_2024_2036_1h.f32') && hasFile('data', 'masks', 'im2_athena.json');
+
+describe.skipIf(!haveData)('the two landers on the home page', () => {
+  it('open Explore on the first whole hour after the reported landing, with the Sun up there', async () => {
+    const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
+    const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
+    const sites = [...readJson<{ sites: Site[] }>('data', 'sites.json').sites, ...readJson<{ sites: Site[] }>('data', 'sites_derived.json').sites];
+    const store = createExploreStore({
+      loadSites: async () => sites,
+      loadEphemeris: async () => eph,
+      loadMask: async (id: string) => {
+        const m = readJson<{ elevation_deg: number[]; site_height_m: number }>('data', 'masks', `${id}.json`);
+        return { site_id: id, lat: 0, lon: 0, mast_m: 2, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
+      },
+    });
+    await store.getState().init();
+    const landed = new Map<string, string>(validation('backcasts.json').rows.map((r: { site_id: string; landed_utc: string }) => [r.site_id, r.landed_utc]));
+    const landers = PLACES.filter((p) => p.href.includes('start='));
+    expect(landers).toHaveLength(2);
+    for (const p of landers) {
+      const query = p.href.slice(p.href.indexOf('?'));
+      const id = new URLSearchParams(query).get('site')!;
+      const firstHour = new Date(Math.ceil(Date.parse(landed.get(id)!) / 3_600_000) * 3_600_000).toISOString().slice(0, 19);
+      await store.getState().applyQuery(query);
+      const s = store.getState();
+      expect(s.siteId).toBe(id);
+      expect(s.startUtc, id).toBe(firstHour);
+      expect(s.series!.sunFraction[0], id).toBeGreaterThan(0);
+    }
   });
 });

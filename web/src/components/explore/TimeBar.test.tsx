@@ -108,6 +108,8 @@ describe('TimeBar', () => {
     const key = bar.querySelector<HTMLElement>('[data-part="key"]')!;
     expect(key.textContent).toBe('Sun up');
     expect(key.querySelector('[data-swatch]')!.className).toMatch(/\bbg-sun\b/);
+    // On a phone too: the yellow track needs its key there as much as anywhere.
+    expect(key.className).not.toMatch(/hidden/);
   });
 
   it('draws the sunlight of the period as the track', () => {
