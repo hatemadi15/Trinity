@@ -54,12 +54,12 @@ export function liveSentence(s: Series, hour: number, powered?: boolean): string
 }
 
 /**
- * One line on what to watch next: the first change after the hour, of the Sun (its centre crossing the
- * skyline, as the engine counts it) or of the lander's power, with its day; and the other kind's next
+ * One line on what to watch next: the first change after the hour, of the Sun (any part of its disc in
+ * view, as the time bar draws it) or of the lander's power, with its day; and the other kind's next
  * change when it follows within three days ("the Sun set on 3 January, then the battery run out on 4").
  */
 export function watchNext(s: Series, p: PowerResult | null, startUtc: string, hour: number): string {
-  const lit = (h: number) => s.sunFraction[h] >= 0.5;
+  const lit = (h: number) => s.sunFraction[h] > 0;
   const next = (from: number, kind?: 'sun' | 'power'): { h: number; kind: 'sun' | 'power'; text: string } | null => {
     for (let h = Math.max(1, from + 1); h < s.hours; h++) {
       const day = dateLong(startUtc, h);

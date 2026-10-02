@@ -130,6 +130,12 @@ describe('what to watch for', () => {
     // The Sun comes back at 466 and the power at 470: one sentence for both.
     expect(watchNext(s, p, start, 300)).toBe('Press Play to watch the Sun come back on 20 January, then the power come back on 20 January.');
   });
+  it('counts the Sun back with the first part of its disc, as the time bar draws it, so it comes back before the power', () => {
+    const dawn = series({ sunEl: [-0.5, -0.2, 0.1, 0.3], sunFraction: [0, 0, 0.3, 1] });
+    const off = { powered: Uint8Array.from([0, 0, 0, 1]) } as unknown as PowerResult;
+    expect(watchNext(dawn, off, start, 0)).toBe('Press Play to watch the Sun come back on 1 January, then the power come back on 1 January.');
+  });
+
   it('says the Sun sets below the horizon when it goes down rather than behind the hills', () => {
     const night = series({ sunEl: [1, 1, -0.4, -0.4], sunFraction: [1, 1, 0, 0] });
     expect(watchNext(night, null, start, 0)).toBe('Press Play to watch the Sun set below the horizon on 1 January.');
