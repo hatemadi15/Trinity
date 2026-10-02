@@ -276,7 +276,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
 
   // A lander beside the site, for scale: gold foil body, solar panel, legs, an antenna and a light that shows its power.
   const lander = scene.lander ? buildLander(scene.lander.azDeg, scene.lander.distM, scene.series.sunAz[0]) : null;
-  const sunLight = new THREE.DirectionalLight(0xffffff, 0), skyLight = new THREE.HemisphereLight(0x8aa7ff, 0x0b0b0b, 0);
+  // The Sun, and a soft light from the sky and the ground: Earth's blue light above, the sunlit dust's grey below.
+  const sunLight = new THREE.DirectionalLight(0xffffff, 0), skyLight = new THREE.HemisphereLight(0x8aa7ff, 0x6e6a64, 0);
   if (lander) {
     const lx = lander.group.position.x, lz = lander.group.position.z, ly = heightAt(scene.field, lx, lz);
     lander.group.position.y = ly;
@@ -323,7 +324,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     if (lander) {
       sunLight.position.copy(sunLight.target.position).addScaledVector(sunDir, 50);
       sunLight.intensity = 3.2 * v.sunFraction;
-      skyLight.intensity = 0.02 + 0.6 * earthshine;
+      skyLight.intensity = 0.03 + 0.6 * earthshine + 0.25 * v.sunFraction;
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
       lander.lamp.color.setHex(Number(scene.lander!.powered[h]) === 1 ? 0x46c98b : 0x000000);
     }

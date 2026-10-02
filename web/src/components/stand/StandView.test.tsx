@@ -153,6 +153,15 @@ describe('StandView', () => {
     expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
   });
 
+  it('turns to the lander, which stands in sunlight a third of the way round from the Sun', async () => {
+    const r = stub();
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(r.setView).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Face the lander' }));
+    const want = (store.getState().series!.sunAz[10] + 120) % 360;
+    await waitFor(() => expect(Math.abs(((r.setView.mock.calls.at(-1)![0] - want + 540) % 360) - 180)).toBeLessThan(1), { timeout: 4000 });
+  });
+
   it('turns "Look up" into "Look ahead", the way back to the horizon', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     fireEvent.click(screen.getByRole('button', { name: 'Look up' }));

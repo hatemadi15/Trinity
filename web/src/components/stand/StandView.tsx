@@ -19,9 +19,13 @@ import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 const PLATE = 'rounded-lg border border-white/15 bg-black/75';
 const LOOK = 'min-h-10 rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/10';
 const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): RendererLike => new StandRenderer(canvas, scene);
-/** The lander stands this far from the eye, a little to the right of the Sun the view opens on. */
-const LANDER_DIST_M = 9;
-const LANDER_RIGHT_DEG = 35;
+/**
+ * The lander stands this far from the eye, a third of the way round from the Sun the view opens on: with
+ * the Sun in view, anything else in view is lit from behind, so the lander stands where the Sun lights the
+ * side we see. "Face the lander" turns to it.
+ */
+const LANDER_DIST_M = 11;
+const LANDER_ROUND_DEG = 120;
 
 /** "How we know this", folded away until asked for. */
 function HowWeKnow({ note, className }: { note: string; className: string }) {
@@ -83,7 +87,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const siteHeightM = s.heightmap?.meta.site_height_m ?? s.maskMeta?.siteHeightM ?? 0;
     const field = levels.length ? terrainField(levels, s.site.lon, siteHeightM) : flatField(s.site.lon);
     const opening = Math.min(s.series.hours - 1, Math.max(0, openHour));
-    const lander = s.power ? { azDeg: (s.series.sunAz[opening] + LANDER_RIGHT_DEG) % 360, distM: LANDER_DIST_M, powered: s.power.powered } : undefined;
+    const lander = s.power ? { azDeg: (s.series.sunAz[opening] + LANDER_ROUND_DEG) % 360, distM: LANDER_DIST_M, powered: s.power.powered } : undefined;
     return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander };
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality]);
   const onFail = useCallback(() => setFailed('webgl'), []);
@@ -196,6 +200,11 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 <button type="button" className={LOOK} onClick={() => face(series.earthAz[hour], series.earthEl[hour], 16)}>
                   Face Earth
                 </button>
+                {scene?.lander && (
+                  <button type="button" className={LOOK} onClick={() => face(scene.lander!.azDeg, -3.5, 40)}>
+                    Face the lander
+                  </button>
+                )}
                 {lookingUp ? (
                   <button type="button" className={LOOK} onClick={() => face(series.sunAz[hour], 0.5, 60)}>
                     Look ahead
