@@ -30,8 +30,11 @@ function show(cursor: number, extra: Partial<Parameters<typeof TimeBar>[0]> = {}
   return { onCursor, ...view };
 }
 
-/** A period of `days` days from START under a steady Sun, for the dates and the hours the lander is off. */
-function showPeriod(days: number, extra: Partial<Parameters<typeof TimeBar>[0]> = {}) {
+/**
+ * A period of `days` days from START under a steady Sun with Earth out of view, for the dates and the
+ * bands under the sunlight; `over` swaps in other hours of the Sun or of Earth.
+ */
+function showPeriod(days: number, extra: Partial<Parameters<typeof TimeBar>[0]> = {}, over: Partial<Series> = {}) {
   const hours = days * 24;
   const steady: Series = {
     i0: 0,
@@ -43,12 +46,17 @@ function showPeriod(days: number, extra: Partial<Parameters<typeof TimeBar>[0]> 
     sunFraction: new Float64Array(hours).fill(1),
     earthVisible: new Uint8Array(hours),
     sunAu: new Float64Array(hours).fill(1),
+    ...over,
   };
   return render(<TimeBar series={steady} power={null} startUtc={START} cursor={0} hoverHour={null} batteryWh={0} onCursor={vi.fn()} {...extra} />);
 }
 const dateLabels = () => [...screen.getByTestId('dates').querySelectorAll<HTMLElement>('[data-date]')];
 /** The labels left out on a track narrower than `px`, so that the rest do not crowd. */
 const leftOutBelow = (px: number) => dateLabels().filter((l) => l.className.includes(`@max-[${px}px]:hidden`)).map((l) => l.textContent);
+/** How far down the box of the sunlight strip a band starts, in px, from its top-[…px] class. */
+const topPx = (el: Element) => Number(/(?:^| )top-\[(\d+)px\](?: |$)/.exec(el.getAttribute('class') ?? '')?.[1]);
+/** The box the sunlight strip and the bands under it share. */
+const stripBox = (container: HTMLElement) => container.querySelector('[data-part="track"] svg')!.parentElement!;
 
 afterEach(() => {
   vi.useRealTimers();
@@ -172,16 +180,35 @@ describe('TimeBar', () => {
     expect(screen.getByText(/Playback is off because your system asks for reduced motion/)).toBeTruthy();
   });
 
-  it('leaves out the dates and the hours the lander is off unless asked: on Explore the chart above shows both', () => {
+  it('leaves out the dates, the hours the lander is off, the hours Earth is in view and the name of the grey unless asked: on Explore the chart above shows them', () => {
     // The lander of this period is off for part of the night, but only the chart says so.
     expect(power.powered.includes(0)).toBe(true);
-    const { container } = show(6);
+    // Earth is in view on the second day, and the night leaves the strip grey: the chart's rows show both.
+    expect(series.earthVisible.includes(1)).toBe(true);
+    expect(series.sunFraction.includes(0)).toBe(true);
+    const { container, unmount } = show(6);
     expect(screen.queryByTestId('dates')).toBeNull();
     expect(container.querySelector('[data-date]')).toBeNull();
     expect(container.querySelector('[data-part="off"]')).toBeNull();
     expect(container.querySelector('[data-part="key-off"]')).toBeNull();
     expect(screen.queryByText('lander off')).toBeNull();
+    expect(container.querySelector('[data-part="earth"]')).toBeNull();
+    expect(container.querySelector('[data-part="key-earth"]')).toBeNull();
+    expect(screen.queryByText('Earth in view')).toBeNull();
+    expect(container.querySelector('[data-part="key-no-sun"]')).toBeNull();
+    expect(screen.queryByText('no Sun')).toBeNull();
     expect(container.querySelectorAll('[data-swatch]')).toHaveLength(1);
+    // The box of the strip keeps its height: nothing under the strip but the slider's own room.
+    expect(stripBox(container).getAttribute('class')).toBe('relative h-8');
+    unmount();
+    // The hours the lander is off on their own bring neither: Earth's band and the grey's name come with the dates.
+    const offOnly = show(6, { powered: power.powered });
+    expect(offOnly.container.querySelector('[data-part="off"]')).not.toBeNull();
+    expect(offOnly.container.querySelector('[data-part="earth"]')).toBeNull();
+    expect(screen.queryByText('Earth in view')).toBeNull();
+    expect(screen.queryByText('no Sun')).toBeNull();
+    expect(offOnly.container.querySelectorAll('[data-swatch]')).toHaveLength(2);
+    expect(stripBox(offOnly.container).getAttribute('class')).toBe('relative h-8');
   });
 
   it('writes the dates under the track when asked: every 5 days over 30 days, each at the start of its day on the track', () => {
@@ -249,6 +276,8 @@ describe('TimeBar', () => {
     const keys = key.parentElement!;
     expect(keys.tagName).not.toBe('P');
     expect(keys.className).toMatch(/\bsm:ml-auto\b/);
+    // Two keys fit beside the words: without the dates they do not take a line of their own.
+    expect(keys.classList.contains('basis-full')).toBe(false);
   });
 
   it('draws one band for each stretch the lander is off', () => {
@@ -270,5 +299,111 @@ describe('TimeBar', () => {
     const empty = showPeriod(30, { powered: null });
     expect(empty.container.querySelector('[data-part="off"]')).toBeNull();
     expect(screen.queryByText('lander off')).toBeNull();
+  });
+
+  it("draws the hours Earth is in view as a thin band in Earth's colour under the lander-off band, and adds it to the key", () => {
+    const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 100 && h < 200 ? 1 : 0));
+    const powered = Uint8Array.from({ length: 720 }, (_, h) => (h >= 76 && h < 465 ? 0 : 1));
+    const { container } = showPeriod(30, { dates: true, powered }, { earthVisible });
+    const runs = [...container.querySelectorAll<HTMLElement>('[data-part="earth-run"]')];
+    expect(runs).toHaveLength(1);
+    // From hour 100 to hour 200 of the 720, as shares of the track.
+    expect(parseFloat(runs[0].style.left) / 100).toBeCloseTo(100 / 720, 6);
+    expect(parseFloat(runs[0].style.width) / 100).toBeCloseTo(100 / 720, 6);
+    // Earth's colour, which the light page and the stand view's dark one both set; at least 4 px wide, like the off band.
+    expect(runs[0].classList.contains('bg-earth')).toBe(true);
+    expect(runs[0].classList.contains('min-w-1')).toBe(true);
+    // In the box of the sunlight strip and across its whole width, so on the same hours.
+    const band = container.querySelector<HTMLElement>('[data-part="earth"]')!;
+    const box = stripBox(container);
+    expect(band.parentElement).toBe(box);
+    expect(band.classList.contains('inset-x-0')).toBe(true);
+    expect(band.classList.contains('h-1')).toBe(true);
+    expect(band.getAttribute('aria-hidden')).toBe('true');
+    // 4 px tall like the off band, starting 2 px below it, so the two never touch.
+    const off = container.querySelector<HTMLElement>('[data-part="off"]')!;
+    expect(off.parentElement).toBe(box);
+    expect(topPx(off)).toBe(25);
+    expect(topPx(band)).toBe(topPx(off) + 4 + 2);
+    // The box grows from 32 to 36 px to hold it, so the dates under it stay clear.
+    expect(box.classList.contains('h-9')).toBe(true);
+    expect(topPx(band) + 4).toBeLessThanOrEqual(36);
+    // The key names it after "lander off", in the order of the bands from the top, in the same blue.
+    const key = container.querySelector<HTMLElement>('[data-part="key-earth"]')!;
+    expect(key.textContent).toBe('Earth in view');
+    expect(key.querySelector('[data-swatch]')!.classList.contains('bg-earth')).toBe(true);
+    expect(key.previousElementSibling).toBe(container.querySelector('[data-part="key-off"]'));
+  });
+
+  it('draws one Earth band for each stretch Earth is in view, and none, nor its key, while Earth stays out of view', () => {
+    const earthVisible = Uint8Array.from({ length: 336 }, (_, h) => (h < 5 || (h >= 200 && h < 201) ? 1 : 0));
+    const { container, unmount } = showPeriod(14, { dates: true }, { earthVisible });
+    const runs = [...container.querySelectorAll<HTMLElement>('[data-part="earth-run"]')];
+    expect(runs.map((r) => [parseFloat(r.style.left) / 100, parseFloat(r.style.width) / 100])).toEqual([
+      [0, expect.closeTo(5 / 336, 6)],
+      [expect.closeTo(200 / 336, 6), expect.closeTo(1 / 336, 6)],
+    ]);
+    // Without power data the Earth band keeps its place, so it does not take the off band's.
+    expect(container.querySelector('[data-part="off"]')).toBeNull();
+    expect(topPx(container.querySelector('[data-part="earth"]')!)).toBe(31);
+    unmount();
+    const none = showPeriod(30, { dates: true });
+    expect(none.container.querySelector('[data-part="earth"]')).toBeNull();
+    expect(none.container.querySelector('[data-part="earth-run"]')).toBeNull();
+    expect(none.container.querySelector('[data-part="key-earth"]')).toBeNull();
+    expect(screen.queryByText('Earth in view')).toBeNull();
+    // The box keeps the height it has with the dates, so the bar does not change height from one site to another.
+    expect(stripBox(none.container).classList.contains('h-9')).toBe(true);
+  });
+
+  it("names the strip's grey, the hours without the Sun, right after the Sun's yellow when the dates are shown", () => {
+    // The night of the second day leaves the strip grey there.
+    const { container } = show(6, { dates: true });
+    const key = container.querySelector<HTMLElement>('[data-part="key-no-sun"]')!;
+    expect(key.textContent).toBe('no Sun');
+    // The swatch is the strip's own grey: its background, where no yellow is drawn.
+    expect(container.querySelector('[data-part="track"] svg')!.classList.contains('bg-surface-2')).toBe(true);
+    expect(key.querySelector('[data-swatch]')!.classList.contains('bg-surface-2')).toBe(true);
+    const sunKey = container.querySelector('[data-part="key"]')!;
+    expect(key.previousElementSibling).toBe(sunKey);
+  });
+
+  it('names the grey only when some hour has no Sun at all, by the rule the strip is drawn with: any part of the disc is yellow', () => {
+    // A sliver of the Sun all through: the strip is yellow from end to end, with no grey to name.
+    const { container, unmount } = showPeriod(30, { dates: true }, { sunFraction: new Float64Array(720).fill(0.2) });
+    expect(container.querySelectorAll('[data-part="lit"]')).toHaveLength(1);
+    expect(container.querySelector('[data-part="key-no-sun"]')).toBeNull();
+    expect(screen.queryByText('no Sun')).toBeNull();
+    unmount();
+    // One hour without it is grey on the strip, and named.
+    const sunFraction = new Float64Array(720).fill(1);
+    sunFraction[300] = 0;
+    const one = showPeriod(30, { dates: true }, { sunFraction });
+    expect(one.container.querySelectorAll('[data-part="lit"]')).toHaveLength(2);
+    expect(screen.getByText('no Sun')).toBeTruthy();
+  });
+
+  it('keeps all four keys on one baseline on a line of their own, at the right on a wide screen, so the bar keeps one height while the words change', () => {
+    // The night, the hours the battery runs out in it, and Earth on the second day: every key is needed.
+    const { container } = show(6, { dates: true, powered: power.powered });
+    const keys = [...container.querySelectorAll<HTMLElement>('[data-part^="key"]')];
+    expect(keys.map((k) => k.textContent)).toEqual(['Sun up', 'no Sun', 'lander off', 'Earth in view']);
+    // One group, not the line of words itself, so no key strays to the far side of a new line.
+    const group = keys[0].parentElement!;
+    for (const k of keys) expect(k.parentElement).toBe(group);
+    expect(group.tagName).not.toBe('P');
+    expect(group.classList.contains('flex-wrap')).toBe(true);
+    expect(group.classList.contains('items-baseline')).toBe(true);
+    // Four keys do not fit beside a long sentence even on a wide screen: on a line of their own they never
+    // jump between the end of the words and the next line as the hour changes.
+    expect(group.classList.contains('basis-full')).toBe(true);
+    expect(group.classList.contains('sm:justify-end')).toBe(true);
+    for (const k of keys) {
+      // Every swatch in a box as tall as the Sun's, so the words of all four sit on one line; at 15 px in the second ink.
+      expect(k.querySelector('[data-swatch]')!.classList.contains('h-2.5')).toBe(true);
+      expect(k.querySelector('[data-swatch]')!.getAttribute('aria-hidden')).toBe('true');
+      expect(k.classList.contains('text-[15px]')).toBe(true);
+      expect(k.classList.contains('text-ink-2')).toBe(true);
+    }
   });
 });

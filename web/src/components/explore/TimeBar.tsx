@@ -5,7 +5,7 @@ import type { PowerResult } from '@/lib/engine/power';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { dateTimeUtc, dayMonth } from '@/lib/viz/format';
 import { statusSentence } from '@/lib/viz/status';
-import { litRuns, offRuns } from '@/lib/viz/timechart';
+import { litRuns, offRuns, runsWhere } from '@/lib/viz/timechart';
 import { PLOT_GRID } from './TimeChart';
 
 /** Hours of the period shown per second of playback. */
@@ -38,9 +38,11 @@ function dateMarks(hours: number): { hour: number; narrow: string }[] {
  * the handle under the chart's time line. Arrow keys move one hour, Page Up and Page Down one day. While
  * the pointer is on the chart the words follow it; the handle stays.
  *
- * Where no chart is above it (the stand view), `dates` writes the dates under the track, and `powered`
- * (1 for each hour with power, 0 without) draws the hours the lander is off as a red band right under
- * the sunlight, with "lander off" in the key. Explore leaves both to its chart.
+ * Where no chart is above it (the stand view), `dates` writes the dates under the track, draws the hours
+ * Earth is in view as a blue band and names the strip's grey, the hours without the Sun; `powered` (1 for
+ * each hour with power, 0 without) draws the hours the lander is off as a red band right under the
+ * sunlight, with "lander off" in the key. The blue band sits under the red one. Explore leaves all of
+ * these to its chart.
  */
 export function TimeBar({
   series,
@@ -69,6 +71,10 @@ export function TimeBar({
   const reduced = useReducedMotion();
   const cursorRef = useRef(cursor);
   const off = powered ? offRuns(powered.subarray(0, hours)) : [];
+  const lit = litRuns(series.sunFraction);
+  const earth = dates ? runsWhere(hours, (h) => series.earthVisible[h] === 1) : [];
+  // The strip is grey wherever the yellow leaves a gap: by its own rule, an hour with any part of the Sun is yellow.
+  const sunless = dates && lit.reduce((n, r) => n + r.to - r.from, 0) < hours;
 
   useEffect(() => {
     cursorRef.current = cursor;
@@ -120,24 +126,43 @@ export function TimeBar({
               {statusSentence(series, power, shown, batteryWh)}
             </span>
             {reduced && <span className="text-[15px] text-ink-2">Playback is off because your system asks for reduced motion.</span>}
-            {off.length > 0 ? (
-              // The two keys wrap as one, so "lander off" never strays to the far side of a new line.
-              <span className="flex flex-wrap items-baseline gap-x-3 sm:ml-auto">
+            {sunless || off.length > 0 || earth.length > 0 ? (
+              // The keys wrap as one, so none strays to the far side of a new line. Each swatch is a box as
+              // tall as the Sun's, so all of them keep one baseline. With the dates there are up to four, too
+              // many to fit beside a long sentence even on a wide screen: they take a line of their own, so the
+              // bar keeps one height while the words change.
+              <span className={dates ? 'flex basis-full flex-wrap items-baseline gap-x-3 sm:justify-end' : 'flex flex-wrap items-baseline gap-x-3 sm:ml-auto'}>
                 {sunKey}
-                <span data-part="key-off" className="flex items-center gap-2 text-[15px] text-ink-2">
-                  {/* A 4 px line, like the band, in a box as tall as the Sun's swatch: the two keys keep one baseline. */}
-                  <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border-y-[3px] border-transparent bg-bad bg-clip-padding" />
-                  lander off
-                </span>
+                {sunless && (
+                  <span data-part="key-no-sun" className="flex items-center gap-2 text-[15px] text-ink-2">
+                    {/* The strip's own grey, where no yellow is drawn. */}
+                    <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full bg-surface-2" />
+                    no Sun
+                  </span>
+                )}
+                {off.length > 0 && (
+                  <span data-part="key-off" className="flex items-center gap-2 text-[15px] text-ink-2">
+                    {/* A 4 px line, like the band. */}
+                    <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border-y-[3px] border-transparent bg-bad bg-clip-padding" />
+                    lander off
+                  </span>
+                )}
+                {earth.length > 0 && (
+                  <span data-part="key-earth" className="flex items-center gap-2 text-[15px] text-ink-2">
+                    <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border-y-[3px] border-transparent bg-earth bg-clip-padding" />
+                    Earth in view
+                  </span>
+                )}
               </span>
             ) : (
               sunKey
             )}
           </p>
           <div data-part="track" className="col-start-2 max-sm:col-span-2 max-sm:col-start-1">
-            <div className="relative h-8">
+            {/* With the dates the box is 4 px taller, room for Earth's band; the slider keeps its 32 px at the top. */}
+            <div className={dates ? 'relative h-9' : 'relative h-8'}>
               <svg viewBox={`0 0 ${hours} 10`} preserveAspectRatio="none" aria-hidden="true" className="absolute inset-x-0 top-[9px] h-3.5 w-full overflow-hidden rounded-full bg-surface-2">
-                {litRuns(series.sunFraction).map((r) => (
+                {lit.map((r) => (
                   <rect key={r.from} data-part="lit" x={r.from} y={0} width={r.to - r.from} height={10} fill="var(--sun)" />
                 ))}
               </svg>
@@ -146,6 +171,14 @@ export function TimeBar({
                 <div data-part="off" aria-hidden="true" className="absolute inset-x-0 top-[25px] h-1">
                   {off.map((r) => (
                     <i key={r.from} data-part="off-run" className="absolute inset-y-0 min-w-1 rounded-full bg-bad" style={{ left: `${(r.from / hours) * 100}%`, width: `${((r.to - r.from) / hours) * 100}%` }} />
+                  ))}
+                </div>
+              )}
+              {/* 2 px under the off band (25 to 29 px), and there whether or not the lander is ever off; one hour still shows as a dot. */}
+              {earth.length > 0 && (
+                <div data-part="earth" aria-hidden="true" className="absolute inset-x-0 top-[31px] h-1">
+                  {earth.map((r) => (
+                    <i key={r.from} data-part="earth-run" className="absolute inset-y-0 min-w-1 rounded-full bg-earth" style={{ left: `${(r.from / hours) * 100}%`, width: `${((r.to - r.from) / hours) * 100}%` }} />
                   ))}
                 </div>
               )}
