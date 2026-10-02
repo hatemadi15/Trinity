@@ -30,6 +30,26 @@ function show(cursor: number, extra: Partial<Parameters<typeof TimeBar>[0]> = {}
   return { onCursor, ...view };
 }
 
+/** A period of `days` days from START under a steady Sun, for the dates and the hours the lander is off. */
+function showPeriod(days: number, extra: Partial<Parameters<typeof TimeBar>[0]> = {}) {
+  const hours = days * 24;
+  const steady: Series = {
+    i0: 0,
+    hours,
+    sunAz: new Float64Array(hours),
+    sunEl: new Float64Array(hours).fill(5),
+    earthAz: new Float64Array(hours),
+    earthEl: new Float64Array(hours),
+    sunFraction: new Float64Array(hours).fill(1),
+    earthVisible: new Uint8Array(hours),
+    sunAu: new Float64Array(hours).fill(1),
+  };
+  return render(<TimeBar series={steady} power={null} startUtc={START} cursor={0} hoverHour={null} batteryWh={0} onCursor={vi.fn()} {...extra} />);
+}
+const dateLabels = () => [...screen.getByTestId('dates').querySelectorAll<HTMLElement>('[data-date]')];
+/** The labels left out on a track narrower than `px`, so that the rest do not crowd. */
+const leftOutBelow = (px: number) => dateLabels().filter((l) => l.className.includes(`@max-[${px}px]:hidden`)).map((l) => l.textContent);
+
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
@@ -150,5 +170,105 @@ describe('TimeBar', () => {
     show(0);
     expect((screen.getByRole('button', { name: 'Play' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/Playback is off because your system asks for reduced motion/)).toBeTruthy();
+  });
+
+  it('leaves out the dates and the hours the lander is off unless asked: on Explore the chart above shows both', () => {
+    // The lander of this period is off for part of the night, but only the chart says so.
+    expect(power.powered.includes(0)).toBe(true);
+    const { container } = show(6);
+    expect(screen.queryByTestId('dates')).toBeNull();
+    expect(container.querySelector('[data-date]')).toBeNull();
+    expect(container.querySelector('[data-part="off"]')).toBeNull();
+    expect(container.querySelector('[data-part="key-off"]')).toBeNull();
+    expect(screen.queryByText('lander off')).toBeNull();
+    expect(container.querySelectorAll('[data-swatch]')).toHaveLength(1);
+  });
+
+  it('writes the dates under the track when asked: every 5 days over 30 days, each at the start of its day on the track', () => {
+    showPeriod(30, { dates: true });
+    const row = screen.getByTestId('dates');
+    const labels = dateLabels();
+    expect(labels.map((l) => l.textContent)).toEqual(['1 Jan', '6 Jan', '11 Jan', '16 Jan', '21 Jan', '26 Jan']);
+    // In the track's own column, so on the same grid as the sunlight and the chart's plot.
+    expect(row.parentElement).toBe(screen.getByRole('slider', { name: 'Time' }).closest('[data-part="track"]'));
+    // Hour 120 k of 720: the first against the left end, the others centred on theirs.
+    labels.forEach((l, k) => expect(parseFloat(l.style.left)).toBeCloseTo(((k * 120) / 720) * 100, 6));
+    expect(labels[0].style.transform).toBe('');
+    for (const l of labels.slice(1)) expect(l.style.transform).toBe('translateX(-50%)');
+    // None falls outside the track: the last centre leaves half a step (2.5 days) to the right end, room for half a label.
+    for (const l of labels) expect(parseFloat(l.style.left)).toBeGreaterThanOrEqual(0);
+    expect(1 - parseFloat(labels[labels.length - 1].style.left) / 100).toBeGreaterThanOrEqual(2.5 / 30 - 1e-9);
+    // Readable on the grey page and on the stand view's dark one: 15 px in the second ink, which both themes set.
+    expect(row.className).toMatch(/\btext-\[15px\]/);
+    expect(row.className).toMatch(/\btext-ink-2\b/);
+    // The slider already reads the date in words.
+    expect(row.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('keeps the dates apart on a narrow track such as a phone: every other one gives way below the width six need', () => {
+    showPeriod(30, { dates: true });
+    expect(screen.getByTestId('dates').className).toMatch(/(^| )@container( |$)/);
+    expect(leftOutBelow(504)).toEqual(['6 Jan', '16 Jan', '26 Jan']);
+    expect(dateLabels().filter((l) => /hidden/.test(l.className)).map((l) => l.textContent)).toEqual(['6 Jan', '16 Jan', '26 Jan']);
+  });
+
+  it('spaces the dates by the length of the period: every 2 days over 14 days, every 15 over 90', () => {
+    const { unmount } = showPeriod(14, { dates: true });
+    expect(dateLabels().map((l) => l.textContent)).toEqual(['1 Jan', '3 Jan', '5 Jan', '7 Jan', '9 Jan', '11 Jan', '13 Jan']);
+    // Seven labels need a wider track than six before all of them show.
+    expect(leftOutBelow(588)).toEqual(['3 Jan', '7 Jan', '11 Jan']);
+    unmount();
+    showPeriod(90, { dates: true });
+    expect(dateLabels().map((l) => l.textContent)).toEqual(['1 Jan', '16 Jan', '31 Jan', '15 Feb', '2 Mar', '17 Mar']);
+    expect(leftOutBelow(504)).toEqual(['16 Jan', '15 Feb', '17 Mar']);
+  });
+
+  it('draws the hours the lander is off as a thin red band right under the sunlight, and adds it to the key', () => {
+    const powered = Uint8Array.from({ length: 720 }, (_, h) => (h >= 76 && h < 465 ? 0 : 1));
+    const { container } = showPeriod(30, { powered });
+    const runs = [...container.querySelectorAll<HTMLElement>('[data-part="off-run"]')];
+    expect(runs).toHaveLength(1);
+    // From hour 76 to hour 465 of the 720, as shares of the track.
+    expect(parseFloat(runs[0].style.left) / 100).toBeCloseTo(76 / 720, 6);
+    expect(parseFloat(runs[0].style.width) / 100).toBeCloseTo((465 - 76) / 720, 6);
+    expect(runs[0].className).toMatch(/\bbg-bad\b/);
+    // In the box of the sunlight strip and across its whole width, so on the same hours.
+    const band = container.querySelector<HTMLElement>('[data-part="off"]')!;
+    const strip = container.querySelector('[data-part="lit"]')!.closest('svg')!;
+    expect(band.parentElement).toBe(strip.parentElement);
+    expect(band.className).toMatch(/\binset-x-0\b/);
+    expect(band.className).toMatch(/\bh-1\b/);
+    expect(band.getAttribute('aria-hidden')).toBe('true');
+    // The key names it next to the Sun's, in the same red.
+    const key = container.querySelector<HTMLElement>('[data-part="key-off"]')!;
+    expect(key.textContent).toBe('lander off');
+    expect(key.querySelector('[data-swatch]')!.className).toMatch(/\bbg-bad\b/);
+    expect(key.previousElementSibling).toBe(container.querySelector('[data-part="key"]'));
+    expect(container.querySelector('[data-part="key"]')!.textContent).toBe('Sun up');
+    // The two keys wrap as one, at the right on a wide screen, so "lander off" never strays to the far side of a new line.
+    const keys = key.parentElement!;
+    expect(keys.tagName).not.toBe('P');
+    expect(keys.className).toMatch(/\bsm:ml-auto\b/);
+  });
+
+  it('draws one band for each stretch the lander is off', () => {
+    const powered = Uint8Array.from({ length: 336 }, (_, h) => ((h >= 10 && h < 20) || h >= 300 ? 0 : 1));
+    const { container } = showPeriod(14, { powered });
+    const runs = [...container.querySelectorAll<HTMLElement>('[data-part="off-run"]')];
+    expect(runs.map((r) => [parseFloat(r.style.left) / 100, parseFloat(r.style.width) / 100])).toEqual([
+      [expect.closeTo(10 / 336, 6), expect.closeTo(10 / 336, 6)],
+      [expect.closeTo(300 / 336, 6), expect.closeTo(36 / 336, 6)],
+    ]);
+  });
+
+  it('draws no band and no key while the lander keeps power all through', () => {
+    const { container, unmount } = showPeriod(30, { powered: new Uint8Array(720).fill(1) });
+    expect(container.querySelector('[data-part="off"]')).toBeNull();
+    expect(container.querySelector('[data-part="key-off"]')).toBeNull();
+    expect(screen.queryByText('lander off')).toBeNull();
+    unmount();
+    const empty = showPeriod(30, { powered: null });
+    expect(empty.container.querySelector('[data-part="off"]')).toBeNull();
+    expect(screen.queryByText('lander off')).toBeNull();
   });
 });

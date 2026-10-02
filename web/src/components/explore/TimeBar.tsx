@@ -3,13 +3,33 @@ import { useEffect, useRef, useState } from 'react';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { dateTimeUtc } from '@/lib/viz/format';
+import { dateTimeUtc, dayMonth } from '@/lib/viz/format';
 import { statusSentence } from '@/lib/viz/status';
-import { litRuns } from '@/lib/viz/timechart';
+import { litRuns, offRuns } from '@/lib/viz/timechart';
 import { PLOT_GRID } from './TimeChart';
 
 /** Hours of the period shown per second of playback. */
 const HOURS_PER_SECOND = 12;
+
+/** Days between dates under the track: the first of these that leaves at most seven, so every 2 days over 14 days, 5 over 30, 15 over 90. */
+const DATE_STEPS = [1, 2, 5, 10, 15, 30, 60];
+
+/**
+ * The dates under the track, at whole days from the start like the chart's date row. Two dates need about
+ * 84 px from centre to centre: at 15 px the widest, "31 May", is 49 px, and the first date sits against the
+ * left end, so it reaches its whole width to the right. On a track narrower than that for all of them (588 px
+ * for seven, 504 px for six) every other one gives way; a phone 390 px wide has a 308 px track. The class
+ * names are written out whole so that Tailwind generates them.
+ */
+function dateMarks(hours: number): { hour: number; narrow: string }[] {
+  const days = hours / 24;
+  const step = DATE_STEPS.find((s) => days / s <= 7) ?? Math.ceil(days / 7);
+  const narrow = days / step > 6 ? '@max-[588px]:hidden' : '@max-[504px]:hidden';
+  const out: { hour: number; narrow: string }[] = [];
+  // Each centre stays half a step from the right end: room for half a date.
+  for (let k = 0; k * step + step / 2 <= days; k++) out.push({ hour: k * step * 24, narrow: k % 2 === 1 ? narrow : '' });
+  return out;
+}
 
 /**
  * The time bar, pinned to the bottom of the window: Play, the date and hour with one sentence about
@@ -17,6 +37,10 @@ const HOURS_PER_SECOND = 12;
  * the chart panel's edge (1 px border, 24 px padding), so the track runs right under the chart's plot and
  * the handle under the chart's time line. Arrow keys move one hour, Page Up and Page Down one day. While
  * the pointer is on the chart the words follow it; the handle stays.
+ *
+ * Where no chart is above it (the stand view), `dates` writes the dates under the track, and `powered`
+ * (1 for each hour with power, 0 without) draws the hours the lander is off as a red band right under
+ * the sunlight, with "lander off" in the key. Explore leaves both to its chart.
  */
 export function TimeBar({
   series,
@@ -26,6 +50,8 @@ export function TimeBar({
   hoverHour,
   batteryWh,
   onCursor,
+  dates = false,
+  powered = null,
 }: {
   series: Series;
   power: PowerResult | null;
@@ -34,12 +60,15 @@ export function TimeBar({
   hoverHour: number | null;
   batteryWh: number;
   onCursor: (hour: number) => void;
+  dates?: boolean;
+  powered?: Uint8Array | null;
 }) {
   const hours = series.hours;
   const last = Math.max(0, hours - 1);
   const [playing, setPlaying] = useState(false);
   const reduced = useReducedMotion();
   const cursorRef = useRef(cursor);
+  const off = powered ? offRuns(powered.subarray(0, hours)) : [];
 
   useEffect(() => {
     cursorRef.current = cursor;
@@ -57,6 +86,13 @@ export function TimeBar({
 
   const shown = Math.min(last, hoverHour ?? cursor);
   const move = (to: number) => onCursor(Math.max(0, Math.min(last, to)));
+  // The track's yellow is the Sun, not progress: a key says so.
+  const sunKey = (
+    <span data-part="key" className="flex items-center gap-2 text-[15px] text-ink-2 sm:ml-auto">
+      <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full bg-sun" />
+      Sun up
+    </span>
+  );
 
   return (
     <section aria-label="Time" className="sticky bottom-0 z-30 border-t border-line bg-page">
@@ -84,11 +120,19 @@ export function TimeBar({
               {statusSentence(series, power, shown, batteryWh)}
             </span>
             {reduced && <span className="text-[15px] text-ink-2">Playback is off because your system asks for reduced motion.</span>}
-            {/* The track's yellow is the Sun, not progress: a key says so. */}
-            <span data-part="key" className="flex items-center gap-2 text-[15px] text-ink-2 sm:ml-auto">
-              <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full bg-sun" />
-              Sun up
-            </span>
+            {off.length > 0 ? (
+              // The two keys wrap as one, so "lander off" never strays to the far side of a new line.
+              <span className="flex flex-wrap items-baseline gap-x-3 sm:ml-auto">
+                {sunKey}
+                <span data-part="key-off" className="flex items-center gap-2 text-[15px] text-ink-2">
+                  {/* A 4 px line, like the band, in a box as tall as the Sun's swatch: the two keys keep one baseline. */}
+                  <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border-y-[3px] border-transparent bg-bad bg-clip-padding" />
+                  lander off
+                </span>
+              </span>
+            ) : (
+              sunKey
+            )}
           </p>
           <div data-part="track" className="col-start-2 max-sm:col-span-2 max-sm:col-start-1">
             <div className="relative h-8">
@@ -97,6 +141,14 @@ export function TimeBar({
                   <rect key={r.from} data-part="lit" x={r.from} y={0} width={r.to - r.from} height={10} fill="var(--sun)" />
                 ))}
               </svg>
+              {/* 2 px under the sunlight strip (9 to 23 px), on the same hours; a stretch of one hour still shows as a dot. */}
+              {off.length > 0 && (
+                <div data-part="off" aria-hidden="true" className="absolute inset-x-0 top-[25px] h-1">
+                  {off.map((r) => (
+                    <i key={r.from} data-part="off-run" className="absolute inset-y-0 min-w-1 rounded-full bg-bad" style={{ left: `${(r.from / hours) * 100}%`, width: `${((r.to - r.from) / hours) * 100}%` }} />
+                  ))}
+                </div>
+              )}
               <input
                 type="range"
                 aria-label="Time"
@@ -115,6 +167,20 @@ export function TimeBar({
                 className="time-range relative"
               />
             </div>
+            {dates && (
+              <div data-testid="dates" aria-hidden="true" className="@container relative h-6 text-[15px] text-ink-2">
+                {dateMarks(hours).map((d, i) => (
+                  <span
+                    key={d.hour}
+                    data-date=""
+                    className={`absolute whitespace-nowrap ${d.narrow}`}
+                    style={i === 0 ? { left: 0 } : { left: `${(d.hour / hours) * 100}%`, transform: 'translateX(-50%)' }}
+                  >
+                    {dayMonth(startUtc, d.hour)}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
