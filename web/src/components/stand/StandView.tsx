@@ -130,8 +130,11 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             Back to Explore
           </Link>
           {note && (
-            <details className="text-[15px] text-[#c3bfb6] md:hidden">
-              <summary className="flex min-h-10 cursor-pointer items-center text-[#f2f0ea]">What is measured</summary>
+            <details className="group text-[15px] text-[#c3bfb6] md:hidden">
+              <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-[#f2f0ea] [&::-webkit-details-marker]:hidden">
+                <span aria-hidden="true" className="inline-block transition-transform group-open:rotate-90">▸</span>
+                What is measured
+              </summary>
               <p className="pb-1">{note}</p>
             </details>
           )}

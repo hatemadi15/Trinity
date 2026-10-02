@@ -6,6 +6,9 @@ export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' 
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget { yaw: number; pitch: number; fov: number }
 
+/** Degrees the view rests higher on a portrait screen, so the Sun on the horizon sits below the answer's plate. */
+export const portraitLift = (width: number, height: number): number => (height > width ? 8 : 0);
+
 const lerpAngle = (a: number, b: number, f: number) => (a + ((((b - a + 540) % 360) - 180) * f) + 360) % 360;
 const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[15px]';
 
@@ -110,7 +113,8 @@ export function StandCanvas({
         v.fov += (g.fov - v.fov) * 0.08;
         if (Math.abs(((g.yaw - v.yaw + 540) % 360) - 180) < 0.1 && Math.abs(g.pitch - v.pitch) < 0.1 && Math.abs(g.fov - v.fov) < 0.1) goal.current = null;
       }
-      r.setView(v.yaw, v.pitch, v.fov);
+      const lift = portraitLift(el.clientWidth || window.innerWidth, el.clientHeight || window.innerHeight);
+      r.setView(v.yaw, Math.max(-35, Math.min(89, v.pitch + lift)), v.fov);
       r.render();
       const l = r.labels();
       place(sunRef.current, l.sun);
