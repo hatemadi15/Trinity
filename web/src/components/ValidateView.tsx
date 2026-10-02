@@ -1,11 +1,12 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { AppFrame } from './AppFrame';
 import { dataBase, loadEphemerisFromUrl } from '@/lib/data/loaders';
 import { exploreStore } from '@/lib/store/explore';
 import { loadValidation, type BackcastRow, type ValidationDocs } from '@/lib/data/validation';
 import type { HorizonsBody } from '@/lib/horizons/query';
 import { recheckSite, type RecheckResult } from '@/lib/horizons/recheck';
+import { checkCards, type CheckCard } from '@/lib/viz/checks';
 
 type Recheck = (site: { lat: number; lon: number }, body: HorizonsBody, epochsUtc: string[]) => Promise<RecheckResult>;
 
@@ -21,28 +22,6 @@ async function defaultRecheck(site: { lat: number; lon: number }, body: Horizons
   return recheckSite(site, body, epochs, eph);
 }
 
-/** Within this many hours of the predicted sunset, a reported mission end counts as agreeing with the prediction. */
-const SUNSET_AGREEMENT_H = 6;
-
-/** One sentence for the backcast table: who ended at sunset, and who died early with a stated reason. */
-function backcastVerdict(rows: BackcastRow[]): string {
-  const dated = rows.filter((r) => r.end_minus_sunset_h !== null);
-  if (dated.length === 0) return 'No landed mission has a reported end yet.';
-  const agreed = dated.filter((r) => Math.abs(r.end_minus_sunset_h!) <= SUNSET_AGREEMENT_H);
-  const early = dated.filter((r) => r.end_minus_sunset_h! < -SUNSET_AGREEMENT_H);
-  const parts: string[] = [];
-  if (agreed.length > 0) {
-    const worst = Math.max(...agreed.map((r) => Math.abs(r.end_minus_sunset_h!)));
-    parts.push(`${agreed.map((r) => r.name).join(' and ')} ended within ${worst.toFixed(1)} h of the predicted sunset`);
-  }
-  if (early.length > 0) {
-    parts.push(
-      `${early.map((r) => r.name).join(' and ')} died early for known reasons (notes below), so their rows only show that the Sun was still up`,
-    );
-  }
-  return parts.join('; ') + '.';
-}
-
 interface TestBadge {
   generated_utc: string;
   web: { files: number; tests: number };
@@ -50,10 +29,55 @@ interface TestBadge {
 }
 
 const exp1 = (x: number) => `${x.toExponential(1)}°`;
-const pctOf = (x: number) => `${(x * 100).toFixed(1)} %`;
+const pctOf = (x: number) => `${(x * 100).toFixed(1)} %`;
 const signedHours = (h: number) => `${h >= 0 ? '+' : '−'}${Math.abs(h).toFixed(1)} h`;
 const utcShort = (iso: string | null) => (iso ? iso.replace('T', ' ').replace(':00Z', ' UTC').replace('Z', ' UTC') : '—');
+const TH = 'border-b-2 border-ink py-2 pr-4 text-left text-[15px] font-semibold text-ink-2';
+const TD = 'border-b border-line py-2 pr-4 text-[15px]';
+const NUM = `${TD} text-right tabular-nums`;
 
+function Mark({ pass }: { pass: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="currentColor" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {pass ? <path d="M4 12.5l5 5L20 6.5" /> : <path d="M6 6l12 12M18 6L6 18" />}
+    </svg>
+  );
+}
+
+/** One check: its pass mark, figure and sentence, anything it adds (the live re-check), and its numbers on request. */
+function CheckPanel({ card, extra, children }: { card: CheckCard; extra?: ReactNode; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  return (
+    <section aria-labelledby={`${id}-h`} className="panel">
+      <h2 id={`${id}-h`} className="display text-[26px] font-semibold leading-tight">
+        {card.title}
+      </h2>
+      <p className={`mt-2 flex items-center gap-2 font-semibold ${card.pass ? 'text-good' : 'text-bad'}`}>
+        <Mark pass={card.pass} />
+        {card.mark}
+      </p>
+      <p className="mt-3 flex flex-wrap items-baseline gap-x-3">
+        <span className="display text-[40px] leading-none tabular-nums">{card.figure}</span>
+        <span className="text-ink-2">{card.figureWords}</span>
+      </p>
+      <p className="mt-3 max-w-[62em] leading-relaxed text-ink-2">{card.sentence}</p>
+      {extra}
+      <button type="button" aria-expanded={open} aria-controls={`${id}-n`} onClick={() => setOpen((v) => !v)} className="btn mt-4">
+        {open ? 'Hide the numbers' : 'Show the numbers'}
+      </button>
+      <div id={`${id}-n`} hidden={!open} className="mt-4 overflow-x-auto">
+        {open && children}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Accuracy: the three checks of the home page's table, each with a pass mark, its headline figure,
+ * one plain sentence and the full table on request; the live re-check with JPL sits in the first.
+ * Then the error budget and the count of automated tests.
+ */
 export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: { load?: () => Promise<ValidationDocs>; recheck?: Recheck }) {
   const [docs, setDocs] = useState<ValidationDocs | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,28 +107,29 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
   if (error) {
     return (
       <AppFrame>
-        <div role="alert" className="mx-6 my-10 max-w-prose border-l-2 border-bad pl-4 text-ink-2">
-          <p className="text-ink">The validation tables are missing.</p>
-          <p className="mt-2 text-sm">
-            Run <code className="text-ink">uv run python -m lunar_pipeline.cli validate</code> then{' '}
-            <code className="text-ink">uv run python -m lunar_pipeline.cli sync-local</code> inside <code className="text-ink">pipeline/</code> and reload. ({error})
-          </p>
-        </div>
+        <main className="wrap py-12">
+          <div role="alert" className="max-w-prose border-l-2 border-bad pl-4 text-ink-2">
+            <p className="text-ink">The validation tables are missing.</p>
+            <p className="mt-2 text-[15px]">
+              Run <code className="text-ink">uv run python -m lunar_pipeline.cli validate</code> then <code className="text-ink">uv run python -m lunar_pipeline.cli sync-local</code> inside{' '}
+              <code className="text-ink">pipeline/</code> and reload. ({error})
+            </p>
+          </div>
+        </main>
       </AppFrame>
     );
   }
   if (!docs) {
     return (
       <AppFrame>
-        <p className="px-6 py-10 text-ink-2">Loading validation tables…</p>
+        <main className="wrap py-12">
+          <p className="text-ink-2">Loading the checks…</p>
+        </main>
       </AppFrame>
     );
   }
   const { horizons, mazarico, backcasts } = docs;
-  const covered = mazarico.rows.filter((r) => r.covered && r.delta_points !== undefined);
-  const worstMaz = covered.reduce((a, r) => (Math.abs(r.delta_points!) > Math.abs(a.delta_points!) ? r : a), covered[0]);
-  const within5 = covered.filter((r) => Math.abs(r.delta_points!) <= 5).length;
-  const worstTwo = [...covered].sort((a, b) => Math.abs(b.delta_points!) - Math.abs(a.delta_points!)).slice(0, 2);
+  const [directions, sunlight, nights] = checkCards(docs);
   const liveSite = horizons.sites.find((s) => s.site_id === 'shackleton_center') ?? horizons.sites[0];
 
   async function runRecheck() {
@@ -118,55 +143,57 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
     }
   }
 
+  const recheckBlock = (
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <button type="button" onClick={() => void runRecheck()} disabled={live.state === 'busy'} className="btn btn-primary">
+        Re-check with JPL now
+      </button>
+      <span className="text-[15px] text-ink-2" aria-live="polite">
+        {live.state === 'idle' && `Asks JPL for the Sun at ${liveSite.name} at eight moments in 2026 (about 12 s at most).`}
+        {live.state === 'busy' && 'Asking JPL…'}
+        {live.state === 'done' &&
+          (live.result.ok
+            ? `${live.result.n} epochs, worst ${exp1(live.result.worstEl)} in elevation, ${exp1(live.result.worstAzCosEl)} in azimuth (${(live.result.ms / 1000).toFixed(1)} s)`
+            : `${live.result.message}; showing the stored comparison`)}
+      </span>
+    </div>
+  );
+
   return (
     <AppFrame>
-      <main className="mx-auto flex max-w-5xl flex-col gap-5 px-6 py-6">
-        <header className="flex flex-col gap-2">
-          <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight md:text-[44px]">Validate</h1>
-          <p className="max-w-prose text-ink-2">
-            Three checks a planner can rerun: our Sun and Earth directions against JPL Horizons, our sunlit fractions against the LOLA
-            illumination map, and predicted sunsets against what happened to three CLPS landers.
-          </p>
+      <main className="wrap flex flex-col gap-6 pb-14 pt-8">
+        <div>
+          <h1 className="display text-[44px] leading-tight sm:text-[56px]">Accuracy</h1>
+          <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">Each step of the forecast is checked against an independent NASA source. The smaller the gap, the better.</p>
           {badge && (
-            <p className="text-sm text-ink-2">
-              Automated tests: {badge.web.tests} in the web engine and app ({badge.web.files} files), {badge.pipeline.tests} in the Python pipeline; last counted{' '}
-              {utcShort(badge.generated_utc)}.
+            <p className="mt-2 text-[15px] text-ink-2">
+              {badge.web.tests} automated tests in the app and {badge.pipeline.tests} in the data pipeline check the sums on every change; last counted {utcShort(badge.generated_utc)}.
             </p>
           )}
-        </header>
+        </div>
 
-        <section aria-labelledby="h-horizons" className="glass flex flex-col gap-3 rounded-md p-5">
-          <h2 id="h-horizons" className="font-display text-xl font-semibold">
-            Do we point where JPL points?
-          </h2>
-          <p className="font-display text-[28px] font-semibold leading-none tabular-nums" aria-hidden="true">
-            {exp1(horizons.max_abs_delta_el_deg)} <span className="font-text text-sm font-normal leading-tight text-ink-2">worst elevation difference over {horizons.n_rows} rows</span>
-          </p>
-          <p className="text-sm text-ink-2">
-            Worst difference over {horizons.n_rows} rows: {exp1(horizons.max_abs_delta_el_deg)} in elevation, {exp1(horizons.max_abs_delta_az_cos_el_deg)} in azimuth
-            (target 0.01°). Sun and Earth as seen from six sites, 2025–2026, every 30 days, JPL Horizons observer tables with <code>CENTER=coord@301</code>.
-          </p>
-          <table className="w-full text-sm">
+        <CheckPanel card={directions} extra={recheckBlock}>
+          <table className="w-full min-w-[640px] border-collapse">
             <thead>
-              <tr className="border-b border-line text-left text-ink-2">
-                <th className="py-1 pr-3 font-normal">Site</th>
-                <th className="py-1 pr-3 font-normal">Body</th>
-                <th className="py-1 pr-3 text-right font-normal">Rows</th>
-                <th className="py-1 pr-3 text-right font-normal">Worst Δ elevation</th>
-                <th className="py-1 pr-3 text-right font-normal">Worst Δ azimuth · cos el</th>
-                <th className="py-1 font-normal">Query</th>
+              <tr>
+                <th className={TH}>Site</th>
+                <th className={TH}>Body</th>
+                <th className={`${TH} text-right`}>Rows</th>
+                <th className={`${TH} text-right`}>Largest gap in height</th>
+                <th className={`${TH} text-right`}>Largest gap in direction</th>
+                <th className={TH}>Query</th>
               </tr>
             </thead>
             <tbody>
               {horizons.sites.map((s) => (
-                <tr key={`${s.site_id}-${s.body}`} className="border-b border-line/50">
-                  <td className="py-1 pr-3">{s.name}</td>
-                  <td className="py-1 pr-3">{s.body === 'SUN' ? 'Sun' : 'Earth'}</td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{s.n_rows}</td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{exp1(s.max_abs_delta_el_deg)}</td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{exp1(s.max_abs_delta_az_cos_el_deg)}</td>
-                  <td className="py-1">
-                    <a href={s.query_url} target="_blank" rel="noreferrer" className="text-ink-2 underline-offset-4 hover:underline">
+                <tr key={`${s.site_id}-${s.body}`}>
+                  <td className={TD}>{s.name}</td>
+                  <td className={TD}>{s.body === 'SUN' ? 'Sun' : 'Earth'}</td>
+                  <td className={NUM}>{s.n_rows}</td>
+                  <td className={NUM}>{exp1(s.max_abs_delta_el_deg)}</td>
+                  <td className={NUM}>{exp1(s.max_abs_delta_az_cos_el_deg)}</td>
+                  <td className={TD}>
+                    <a href={s.query_url} target="_blank" rel="noreferrer" className="underline decoration-line-strong underline-offset-4 hover:decoration-ink">
                       JPL query
                     </a>
                   </td>
@@ -174,64 +201,36 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
               ))}
             </tbody>
           </table>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => void runRecheck()}
-              disabled={live.state === 'busy'}
-              className="rounded-md bg-sun px-3 py-1 text-sm font-medium text-night hover:bg-sun-bright disabled:opacity-50"
-            >
-              Re-check with JPL now
-            </button>
-            <span className="text-sm text-ink-2" aria-live="polite">
-              {live.state === 'idle' && `Queries JPL for the Sun at ${liveSite.name} at eight epochs in 2026 (about 12 s at most).`}
-              {live.state === 'busy' && 'Asking JPL…'}
-              {live.state === 'done' &&
-                (live.result.ok
-                  ? `${live.result.n} epochs, worst ${exp1(live.result.worstEl)} in elevation, ${exp1(live.result.worstAzCosEl)} in azimuth (${(live.result.ms / 1000).toFixed(1)} s)`
-                  : `${live.result.message}; showing the stored comparison`)}
-            </span>
-          </div>
-        </section>
+        </CheckPanel>
 
-        <section aria-labelledby="h-mazarico" className="glass flex flex-col gap-3 rounded-md p-5">
-          <h2 id="h-mazarico" className="font-display text-xl font-semibold">
-            Do we light what LOLA lights?
-          </h2>
-          <p className="font-display text-[28px] font-semibold leading-none tabular-nums" aria-hidden="true">
-            {within5} of {covered.length} <span className="font-text text-sm font-normal leading-tight text-ink-2">covered sites within 5 points of the LOLA map</span>
+        <CheckPanel card={sunlight}>
+          <p className="mb-3 text-[15px] text-ink-2">
+            Our sunlit share, hourly {mazarico.period[0].slice(0, 10)} to {mazarico.period[1].slice(0, 10)} with a 2 m mast, against the map <code>{mazarico.product}</code> (60 m per pixel, south of 85° S).
           </p>
-          <p className="text-sm text-ink-2">
-            Our sunlit fraction, hourly {mazarico.period[0].slice(0, 10)} to {mazarico.period[1].slice(0, 10)} with a 2 m mast, against the LOLA average-visibility map (
-            <code>{mazarico.product}</code>, 60 m/px, south of 85°S). {within5} of {covered.length} covered sites are within 5 points; worst{' '}
-            {worstMaz ? `${worstMaz.delta_points! >= 0 ? '+' : '−'}${Math.abs(worstMaz.delta_points!).toFixed(1)} points at ${worstMaz.name}` : '—'}. The two largest misses,{' '}
-            {worstTwo.map((r) => r.name).join(' and ')}, are narrow high features, most likely the map’s 60 m sampling of 20 m peaks; the map also averages a
-            different span of years and sees no mast.
-          </p>
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[520px] border-collapse">
             <thead>
-              <tr className="border-b border-line text-left text-ink-2">
-                <th className="py-1 pr-3 font-normal">Site</th>
-                <th className="py-1 pr-3 text-right font-normal">Ours</th>
-                <th className="py-1 pr-3 text-right font-normal">LOLA map</th>
-                <th className="py-1 text-right font-normal">Difference</th>
+              <tr>
+                <th className={TH}>Site</th>
+                <th className={`${TH} text-right`}>Ours</th>
+                <th className={`${TH} text-right`}>NASA&apos;s map</th>
+                <th className={`${TH} text-right`}>Gap</th>
               </tr>
             </thead>
             <tbody>
               {mazarico.rows.map((r) => (
-                <tr key={r.site_id} className="border-b border-line/50">
-                  <td className="py-1 pr-3">{r.name}</td>
+                <tr key={r.site_id}>
+                  <td className={TD}>{r.name}</td>
                   {r.covered && r.delta_points !== undefined ? (
                     <>
-                      <td className="py-1 pr-3 text-right tabular-nums">{pctOf(r.ours_fraction!)}</td>
-                      <td className="py-1 pr-3 text-right tabular-nums">{pctOf(r.map_fraction!)}</td>
-                      <td className="py-1 text-right tabular-nums">
+                      <td className={NUM}>{pctOf(r.ours_fraction!)}</td>
+                      <td className={NUM}>{pctOf(r.map_fraction!)}</td>
+                      <td className={NUM}>
                         {r.delta_points >= 0 ? '+' : '−'}
-                        {Math.abs(r.delta_points).toFixed(1)} pts
+                        {Math.abs(r.delta_points).toFixed(1)} points
                       </td>
                     </>
                   ) : (
-                    <td colSpan={3} className="py-1 text-ink-3">
+                    <td colSpan={3} className={`${TD} text-ink-2`}>
                       not covered by the 85°S map
                     </td>
                   )}
@@ -239,63 +238,56 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
               ))}
             </tbody>
           </table>
-        </section>
+        </CheckPanel>
 
-        <section aria-labelledby="h-backcasts" className="glass flex flex-col gap-3 rounded-md p-5">
-          <h2 id="h-backcasts" className="font-display text-xl font-semibold">
-            Did the landers die when the Sun set?
-          </h2>
-          <p className="text-sm text-ink-2">
-            Predicted local sunset after each CLPS landing (hourly, the site&apos;s LOLA skyline where we have one, a flat horizon for the mare site)
-            against the reported end of the mission. {backcastVerdict(backcasts.rows)}
-          </p>
-          <table className="w-full text-sm">
+        <CheckPanel card={nights}>
+          <table className="w-full min-w-[760px] border-collapse">
             <thead>
-              <tr className="border-b border-line text-left text-ink-2">
-                <th className="py-1 pr-3 font-normal">Mission</th>
-                <th className="py-1 pr-3 font-normal">Landed</th>
-                <th className="py-1 pr-3 text-right font-normal">Sun at landing</th>
-                <th className="py-1 pr-3 font-normal">Predicted sunset</th>
-                <th className="py-1 pr-3 font-normal">Reported end</th>
-                <th className="py-1 pr-3 text-right font-normal">End − sunset</th>
-                <th className="py-1 font-normal">Skyline</th>
+              <tr>
+                <th className={TH}>Mission</th>
+                <th className={TH}>Landed</th>
+                <th className={`${TH} text-right`}>Sun at landing</th>
+                <th className={TH}>Predicted sunset</th>
+                <th className={TH}>Reported end</th>
+                <th className={`${TH} text-right`}>End − sunset</th>
+                <th className={TH}>Horizon</th>
               </tr>
             </thead>
             <tbody>
               {backcasts.rows.map((r: BackcastRow) => (
-                <tr key={r.site_id} className="border-b border-line/50">
-                  <td className="py-1 pr-3">{r.name}</td>
-                  <td className="py-1 pr-3 tabular-nums">{utcShort(r.landed_utc)}</td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{r.sun_el_at_landing_deg.toFixed(1)}°</td>
-                  <td className="py-1 pr-3 tabular-nums">{utcShort(r.sunset_utc)}</td>
-                  <td className="py-1 pr-3 tabular-nums">{utcShort(r.mission_end_utc)}</td>
-                  <td className="py-1 pr-3 text-right tabular-nums">{r.end_minus_sunset_h === null ? '—' : signedHours(r.end_minus_sunset_h)}</td>
-                  <td className="py-1">{r.skyline === 'lola' ? 'LOLA' : 'flat'}</td>
+                <tr key={r.site_id}>
+                  <td className={TD}>{r.name}</td>
+                  <td className={`${TD} tabular-nums`}>{utcShort(r.landed_utc)}</td>
+                  <td className={NUM}>{r.sun_el_at_landing_deg.toFixed(1)}°</td>
+                  <td className={`${TD} tabular-nums`}>{utcShort(r.sunset_utc)}</td>
+                  <td className={`${TD} tabular-nums`}>{utcShort(r.mission_end_utc)}</td>
+                  <td className={NUM}>{r.end_minus_sunset_h === null ? '—' : signedHours(r.end_minus_sunset_h)}</td>
+                  <td className={TD}>{r.skyline === 'lola' ? 'measured hills' : 'flat'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <ul className="flex flex-col gap-2 text-sm">
+          <ul className="mt-4 flex flex-col gap-3 text-[15px]">
             {backcasts.rows.map((r) => (
               <li key={r.site_id} className="flex flex-col gap-0.5">
-                <span className="text-ink-2">
+                <span className="text-ink">
                   {r.name}: {r.mission_note ?? 'no note for this mission yet'}
                 </span>
-                <span className="text-xs text-ink-2">Source: {r.mission_end_source ?? 'not recorded'}</span>
+                <span className="text-ink-2">Source: {r.mission_end_source ?? 'not recorded'}</span>
               </li>
             ))}
           </ul>
-        </section>
+        </CheckPanel>
 
-        <section aria-labelledby="h-budget" className="glass flex flex-col gap-2 rounded-md p-5">
-          <h2 id="h-budget" className="font-display text-xl font-semibold">
+        <section aria-labelledby="h-budget" className="panel">
+          <h2 id="h-budget" className="display text-[26px] font-semibold">
             Error budget
           </h2>
-          <p className="max-w-prose text-sm text-ink-2">
-            Sun and Earth directions: ephemeris &lt; 0.01° (the Horizons rows above show {exp1(horizons.max_abs_delta_el_deg)}). Terrain skyline: 0.05–0.15° from
-            LOLA posts of 20–240 m with 1–2 m height noise, reproduced by the browser engine to 0.01°. Event timing (sunrise, sunset, Earth rise): ±15–60
-            minutes near the pole, where the Sun moves 0.5° per hour along the horizon and the series is hourly.
-          </p>
+          <ul className="mt-3 flex max-w-[62em] flex-col gap-2 leading-relaxed text-ink-2">
+            <li>Directions to the Sun and Earth: under 0.01° (the first check finds {exp1(horizons.max_abs_delta_el_deg)}).</li>
+            <li>The hills on the horizon: 0.05 to 0.15°, from NASA&apos;s elevation grids of 20 to 240 m with 1 to 2 m of height noise, which the app reproduces to 0.01°.</li>
+            <li>Times of sunrise, sunset and Earthrise: within 15 to 60 minutes near the pole, where the Sun moves half a degree an hour along the horizon and the forecast is hourly.</li>
+          </ul>
         </section>
       </main>
     </AppFrame>
