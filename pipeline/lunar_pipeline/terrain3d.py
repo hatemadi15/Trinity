@@ -30,6 +30,7 @@ TEXTURE_CREDIT = (
 DEEP_SOUTH_LAT_DEG = -87.55  # south of this the 20 m grid covers the site (same rule as masks)
 WINDOW_PX = {"L0": 1024, "L1": 512}  # 20.48 km at 20 m; 40.96 km at 80 m
 CAP_FACTOR = 4  # ldem_60s_240m block-averaged 4x -> 1940 x 1940 cells of 960 m
+CONTEXT_PX = 512  # 40.96 km at 80 m around a 20 m window: hills beyond the window still cast their shadows into it
 ENCODING = "zlib(uint16 little-endian, row-major); height_m = min_m + dn * scale_m_per_unit"
 PROJECTION = (
     "south polar stereographic, x = rho sin(lon), y = rho cos(lon), rho = 2R tan((90-|lat|)/2)"
@@ -150,6 +151,37 @@ def write_site_window(site: Site, grids: dict[str, LolaGrid], out_dir: Path) -> 
     return _write_raster(out_dir / f"{site.id}.u16", heights, meta)
 
 
+def write_site_context(site: Site, grids: dict[str, LolaGrid], out_dir: Path) -> Path | None:
+    """The 80 m context grid centred on a 20 m site (None for a site whose window is already 80 m)."""
+    if level_for_site(site) != "L0":
+        return None
+    out_dir.mkdir(parents=True, exist_ok=True)
+    grid = grids["L1"]
+    col, row = grid.pixel_from_latlon(site.lat, site.lon)
+    row0 = round(float(row)) - CONTEXT_PX // 2
+    col0 = round(float(col)) - CONTEXT_PX // 2
+    heights, n_fill = window_heights(grid, row0, col0, CONTEXT_PX, grids.get("L2"))
+    meta = {
+        "site_id": site.id,
+        "lat": site.lat,
+        "lon": site.lon,
+        "kind": "context",
+        "source": f"{GRID_FILES['L1']}.img",
+        "level": "L1",
+        "cell_m": grid.label.map_scale_m,
+        "row0": row0,
+        "col0": col0,
+        "line_offset_px": grid.label.line_offset_px,
+        "sample_offset_px": grid.label.sample_offset_px,
+        "site_row_px": float(row) - row0,
+        "site_col_px": float(col) - col0,
+        "site_height_m": float(grid.value_at(site.lat, site.lon)),
+        "fill_source": f"{GRID_FILES['L2']}.img" if n_fill else None,
+        "fill_px": n_fill,
+    }
+    return _write_raster(out_dir / f"{site.id}.context.u16", heights, meta)
+
+
 def write_south_cap(out_dir: Path, factor: int = CAP_FACTOR, grid: LolaGrid | None = None) -> Path:
     """Block-mean the 240 m south-polar grid by `factor` (4 -> 1940 x 1940 cells of 960 m)."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -200,20 +232,29 @@ def write_all(out_dir: Path = config.OUT_DIR / "terrain") -> Path:
         print(f"[terrain] {site.id}", flush=True)
         path = write_site_window(site, grids, out_dir)
         meta = json.loads(path.with_suffix(".json").read_text())
-        windows.append(
-            {
-                "site_id": site.id,
-                "lat": site.lat,
-                "lon": site.lon,
-                "file": path.name,
-                "meta": path.with_suffix(".json").name,
-                "level": meta["level"],
-                "cell_m": meta["cell_m"],
-                "width": meta["width"],
-                "height": meta["height"],
-                "bytes": meta["bytes"],
+        entry = {
+            "site_id": site.id,
+            "lat": site.lat,
+            "lon": site.lon,
+            "file": path.name,
+            "meta": path.with_suffix(".json").name,
+            "level": meta["level"],
+            "cell_m": meta["cell_m"],
+            "width": meta["width"],
+            "height": meta["height"],
+            "bytes": meta["bytes"],
+        }
+        context = write_site_context(site, grids, out_dir)
+        if context is not None:
+            cmeta = json.loads(context.with_suffix(".json").read_text())
+            entry["context"] = {
+                "file": context.name,
+                "meta": context.with_suffix(".json").name,
+                "cell_m": cmeta["cell_m"],
+                "width": cmeta["width"],
+                "height": cmeta["height"],
             }
-        )
+        windows.append(entry)
     print("[terrain] south_cap", flush=True)
     cap = write_south_cap(out_dir, grid=grids["L2"])
     texture = config.RAW_DIR / "textures" / TEXTURE_FILE
@@ -222,7 +263,7 @@ def write_all(out_dir: Path = config.OUT_DIR / "terrain") -> Path:
     else:
         print(f"[terrain] {texture} missing; run: fetch --group textures", flush=True)
     manifest = {
-        "version": 1,
+        "version": 2,
         "encoding": ENCODING,
         "projection": PROJECTION,
         "pixel": PIXEL,

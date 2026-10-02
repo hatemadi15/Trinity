@@ -68,3 +68,24 @@ def test_write_all_manifest(tmp_path):
     assert {"shackleton_center", "im1_odysseus", "south_pole"} <= ids
     assert manifest["cap"]["file"] == "south_cap.u16"
     assert manifest["globe_texture"] == "lroc_color_2k.jpg"
+
+
+def test_write_site_context_cuts_80_m_around_a_20_m_site(synthetic_grid_factory, tmp_path):
+    from lunar_pipeline.terrain3d import CONTEXT_PX, write_site_context
+
+    grids = {"L0": synthetic_grid_factory(2048, 20.0), "L1": synthetic_grid_factory(1024, 80.0), "L2": synthetic_grid_factory(512, 240.0)}
+    site = Site(id="deep", name="Deep", lat=-89.9, lon=10.0, category="test", polar=True, source="test")
+    path = write_site_context(site, grids, tmp_path)
+    assert path is not None and path.name == "deep.context.u16"
+    meta = json.loads(path.with_suffix(".json").read_text())
+    assert meta["kind"] == "context" and meta["level"] == "L1" and meta["cell_m"] == 80.0
+    assert meta["width"] == meta["height"] == CONTEXT_PX
+    assert abs(meta["site_col_px"] - CONTEXT_PX // 2) <= 1 and abs(meta["site_row_px"] - CONTEXT_PX // 2) <= 1
+
+
+def test_write_site_context_is_none_for_an_80_m_site(synthetic_grid_factory, tmp_path):
+    from lunar_pipeline.terrain3d import write_site_context
+
+    grids = {"L0": synthetic_grid_factory(256, 20.0), "L1": synthetic_grid_factory(256, 80.0), "L2": synthetic_grid_factory(256, 240.0)}
+    site = Site(id="far", name="Far", lat=-85.0, lon=10.0, category="test", polar=True, source="test")
+    assert write_site_context(site, grids, tmp_path) is None
