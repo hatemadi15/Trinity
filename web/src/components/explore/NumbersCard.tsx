@@ -12,7 +12,7 @@ import { pct, spanShort } from '@/lib/viz/format';
 
 const ICON = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
 
-function Line({ icon, title, note, value, unit }: { icon: ReactNode; title: string; note: string; value: string; unit?: string }) {
+function Line({ icon, title, note, value, unit }: { icon: ReactNode; title: string; note: string; value: string; unit?: ReactNode }) {
   return (
     <div className="flex items-center gap-3.5 border-t border-line py-3 first:border-t-0 first:pt-0">
       <span className="shrink-0">{icon}</span>
@@ -121,7 +121,11 @@ export function NumbersCard({
         title="Lander"
         note={landerLine(params.power)}
         value={Number.isFinite(dark) ? spanShort(dark) : 'no load'}
-        unit="in the dark, from full"
+        unit={
+          <>
+            in the dark, <span className="whitespace-nowrap">from full</span>
+          </>
+        }
       />
       <p className="mt-auto flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-2">
         <button ref={opener} type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className={QUIET}>

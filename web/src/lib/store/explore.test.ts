@@ -635,4 +635,19 @@ describe('best landing date and the overview of all sites', () => {
     expect(store.getState().overview.malapert_massif.sunFraction).toBeCloseTo(period.summary.illumFraction, 9);
     expect(store.getState().overviewBusy).toBe(false);
   });
+
+  it('setting the window it already has changes nothing, so an overview on its way still arrives', async () => {
+    // The page applies its address twice in development (React runs effects twice): the second time
+    // must not cancel the overview the first one started.
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    store.getState().setWindow('2027-01-20T10:00:00', 30);
+    const running = store.getState().loadOverview();
+    const before = store.getState().series;
+    store.getState().setWindow('2027-01-20T10:00:00', 30);
+    expect(store.getState().series).toBe(before);
+    await running;
+    expect(Object.keys(store.getState().overview)).toHaveLength(19);
+    expect(store.getState().overviewBusy).toBe(false);
+  });
 });

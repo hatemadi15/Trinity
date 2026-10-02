@@ -315,6 +315,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     },
 
     setWindow(startUtc, days) {
+      // The window it already has changes nothing: dropping the overview here would cancel one on its way, with nothing to start it again.
+      if (startUtc === get().startUtc && days === get().days) return;
       dropOverview();
       const { eph, site, mask, cursorHour } = get();
       if (!eph || !site || !mask) {
