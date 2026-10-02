@@ -45,8 +45,8 @@ export interface SiteResult {
   contacts: ContactWindow[];
   /** Mast height the site's skyline was computed with (m). */
   mastM: number;
-    /** The best landing hour inside the period (hours from its start), or null when no hour is sunlit. */
-    best: Landing | null;
+  /** The best landing hour inside the period (hours from its start), or null when no hour is sunlit. */
+  best: Landing | null;
 }
 
 /** What the site list shows for one site over the chosen period. */
@@ -124,13 +124,13 @@ export interface ExploreState {
   params: PlannerParams;
   power: PowerResult | null;
   contacts: ContactWindow[];
-    /** The best landing hour inside the period for the selected site. */
-    best: Landing | null;
-    /** One entry per catalogue site once `loadOverview` has reached it. */
-    overview: Record<string, SiteOverview>;
-    overviewBusy: boolean;
-    /** Computes the overview site by site for the current period and lander; a no-op when it is already there. */
-    loadOverview: () => Promise<void>;
+  /** The best landing hour inside the period for the selected site. */
+  best: Landing | null;
+  /** One entry per catalogue site once `loadOverview` has reached it. */
+  overview: Record<string, SiteOverview>;
+  overviewBusy: boolean;
+  /** Computes the overview site by site for the current period and lander; a no-op when it is already there. */
+  loadOverview: () => Promise<void>;
   compareIds: string[];
   compare: SiteResult[];
   /** True while the worker computes a skyline (custom site or mast change). */
@@ -142,12 +142,12 @@ export interface ExploreState {
   selectCustom: (lat: number, lon: number) => Promise<void>;
   addToCompare: (id: string) => Promise<void>;
   removeFromCompare: (id: string) => void;
-    /**
-     * Searches the next 12 months from the start date for the landing hour with the longest time with
-     * power and moves the period there; null when none fits. Scope 'compare' takes the mean over the
-     * compared sites (and falls back to the selected site when there are none).
-     */
-    findBestWindow: (days: WindowDays, scope?: 'site' | 'compare') => Promise<{ startUtc: string; poweredHours: number; earthFraction: number } | null>;
+  /**
+   * Searches the next 12 months from the start date for the landing hour with the longest time with
+   * power and moves the period there; null when none fits. Scope 'compare' takes the mean over the
+   * compared sites (and falls back to the selected site when there are none).
+   */
+  findBestWindow: (days: WindowDays, scope?: 'site' | 'compare') => Promise<{ startUtc: string; poweredHours: number; earthFraction: number } | null>;
   /** Resolves once a pending mast debounce and any in-flight skyline recompute have settled. */
   waitForMask: () => Promise<void>;
   /** Resolves once a pending mast debounce has fired (the recompute may still be in flight). */
@@ -431,12 +431,12 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       if (compareIds.includes(id) || compareIds.length >= COMPARE_MAX) return;
       const site = sites.find((s) => s.id === id);
       if (!site) return;
-          try {
-            await ensureMask(site);
-          } catch (err) {
-            set({ error: message(err) });
-            return;
-          }
+      try {
+        await ensureMask(site);
+      } catch (err) {
+        set({ error: message(err) });
+        return;
+      }
       if (get().compareIds.includes(id) || get().compareIds.length >= COMPARE_MAX) return;
       set({ compareIds: [...get().compareIds, id] });
       recomputeCompare();
@@ -447,78 +447,78 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       recomputeCompare();
     },
 
-        async findBestWindow(days, scope = 'site') {
-          const { eph, site, mask, startUtc, params, compareIds, sites } = get();
-          if (!eph) return null;
-          const compared = compareIds.flatMap((id) => {
-            const s = sites.find((x) => x.id === id);
-            const c = masks.get(id);
-            return s && c ? [{ site: s, mask: c.mask }] : [];
-          });
-          const targets = scope === 'compare' && compared.length > 0 ? compared : site && mask ? [{ site, mask }] : [];
-          if (targets.length === 0) return null;
-          const windowHours = days * 24;
-          const startEt = utcToEt(startUtc);
-          const lastEt = eph.t0Et + (eph.n - 1) * eph.stepS;
-          const available = Math.floor((lastEt - startEt) / 3600) - 3; // Catmull-Rom guard rows at the table end
-          const scanHours = Math.min(YEAR_HOURS + windowHours, available);
-          if (scanHours < windowHours) {
-            set({ bestWindowNote: `A ${days}-day period does not fit between this start date and the end of the Sun and Earth table (2036-12-31).` });
-            return null;
-          }
-          // Only landing hours that leave room for the whole period are candidates.
-          const scan = { from: 0, to: Math.min(YEAR_HOURS, scanHours - windowHours + 1), step: 6, capHours: windowHours };
-          const best = bestLandingAcross(
-            targets.map((t) => {
-              const raw = hourlySeries(t.site, t.mask, eph, startEt, scanHours);
-              return landingScores(params.minEarthElDeg > 0 ? withCommsThreshold(raw, t.mask, params.minEarthElDeg) : raw, params.power, scan);
-            }),
-          );
-          if (!best) {
-            set({ bestWindowNote: targets.length > 1 ? 'No hour in the next 12 months has sunlight at every compared site.' : 'No hour in the next 12 months has sunlight here.' });
-            return null;
-          }
-          const newStart = etToIso(startEt + best.hour * 3600).slice(0, 13) + ':00:00';
-          get().setWindow(newStart, days);
-          const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}`;
-          const lasting = spanShort(Math.round(best.poweredHours));
-          set({
-            bestWindowNote:
-              targets.length > 1
-                ? `Across ${targets.length} compared sites: best landing in the next 12 months: ${when}, power for ${lasting} on average.`
-                : `Best landing in the next 12 months: ${when}, power for ${lasting}, Earth in view ${pct0(best.earthFraction)} of that time.`,
-          });
-          return { startUtc: newStart, poweredHours: best.poweredHours, earthFraction: best.earthFraction };
-        },
+    async findBestWindow(days, scope = 'site') {
+      const { eph, site, mask, startUtc, params, compareIds, sites } = get();
+      if (!eph) return null;
+      const compared = compareIds.flatMap((id) => {
+        const s = sites.find((x) => x.id === id);
+        const c = masks.get(id);
+        return s && c ? [{ site: s, mask: c.mask }] : [];
+      });
+      const targets = scope === 'compare' && compared.length > 0 ? compared : site && mask ? [{ site, mask }] : [];
+      if (targets.length === 0) return null;
+      const windowHours = days * 24;
+      const startEt = utcToEt(startUtc);
+      const lastEt = eph.t0Et + (eph.n - 1) * eph.stepS;
+      const available = Math.floor((lastEt - startEt) / 3600) - 3; // Catmull-Rom guard rows at the table end
+      const scanHours = Math.min(YEAR_HOURS + windowHours, available);
+      if (scanHours < windowHours) {
+        set({ bestWindowNote: `A ${days}-day period does not fit between this start date and the end of the Sun and Earth table (2036-12-31).` });
+        return null;
+      }
+      // Only landing hours that leave room for the whole period are candidates.
+      const scan = { from: 0, to: Math.min(YEAR_HOURS, scanHours - windowHours + 1), step: 6, capHours: windowHours };
+      const best = bestLandingAcross(
+        targets.map((t) => {
+          const raw = hourlySeries(t.site, t.mask, eph, startEt, scanHours);
+          return landingScores(params.minEarthElDeg > 0 ? withCommsThreshold(raw, t.mask, params.minEarthElDeg) : raw, params.power, scan);
+        }),
+      );
+      if (!best) {
+        set({ bestWindowNote: targets.length > 1 ? 'No hour in the next 12 months has sunlight at every compared site.' : 'No hour in the next 12 months has sunlight here.' });
+        return null;
+      }
+      const newStart = etToIso(startEt + best.hour * 3600).slice(0, 13) + ':00:00';
+      get().setWindow(newStart, days);
+      const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}`;
+      const lasting = spanShort(Math.round(best.poweredHours));
+      set({
+        bestWindowNote:
+          targets.length > 1
+            ? `Across ${targets.length} compared sites: best landing in the next 12 months: ${when}, power for ${lasting} on average.`
+            : `Best landing in the next 12 months: ${when}, power for ${lasting}, Earth in view ${pct0(best.earthFraction)} of that time.`,
+      });
+      return { startUtc: newStart, poweredHours: best.poweredHours, earthFraction: best.earthFraction };
+    },
 
-        async loadOverview() {
-          const { eph, sites, startUtc, days, params } = get();
-          if (!eph) return;
-          const key = JSON.stringify([startUtc, days, params]);
-          if (key === overviewKey) return; // already there, or on its way, for this period and lander
-          overviewKey = key;
-          const seq = ++overviewSeq;
-          set({ overview: {}, overviewBusy: true });
-          for (const site of sites) {
-            if (site.category === 'custom') continue;
-            try {
-              const cached = await ensureMask(site);
-              if (seq !== overviewSeq) return;
-              const r = recompute(eph, site, cached.mask, startUtc, days, params);
-              set({
-                overview: {
-                  ...get().overview,
-                  [site.id]: { sunFraction: r.summary.illumFraction, earthFraction: r.summary.earthVisFraction, nowHours: timeWithPower(r.power), best: r.best },
-                },
-              });
-            } catch {
-              // a skyline that fails to load, or a period outside the table, leaves this row empty
-            }
-            await new Promise((resolve) => setTimeout(resolve, 0)); // let the page paint between sites
-            if (seq !== overviewSeq) return;
-          }
-          set({ overviewBusy: false });
-        },
+    async loadOverview() {
+      const { eph, sites, startUtc, days, params } = get();
+      if (!eph) return;
+      const key = JSON.stringify([startUtc, days, params]);
+      if (key === overviewKey) return; // already there, or on its way, for this period and lander
+      overviewKey = key;
+      const seq = ++overviewSeq;
+      set({ overview: {}, overviewBusy: true });
+      for (const site of sites) {
+        if (site.category === 'custom') continue;
+        try {
+          const cached = await ensureMask(site);
+          if (seq !== overviewSeq) return;
+          const r = recompute(eph, site, cached.mask, startUtc, days, params);
+          set({
+            overview: {
+              ...get().overview,
+              [site.id]: { sunFraction: r.summary.illumFraction, earthFraction: r.summary.earthVisFraction, nowHours: timeWithPower(r.power), best: r.best },
+            },
+          });
+        } catch {
+          // a skyline that fails to load, or a period outside the table, leaves this row empty
+        }
+        await new Promise((resolve) => setTimeout(resolve, 0)); // let the page paint between sites
+        if (seq !== overviewSeq) return;
+      }
+      set({ overviewBusy: false });
+    },
 
     async waitForMask() {
       await debouncePromise;
@@ -571,28 +571,28 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     },
   }));
 
-    /** The skyline of a catalogue site: from the cache, flat for a mare site, or fetched once. */
-    async function ensureMask(site: Site): Promise<CachedMask> {
-      let cached = masks.get(site.id);
-      if (cached) return cached;
-      if (!site.polar) {
-        // Mare sites lie outside the LOLA polar grids: a flat horizon is the honest skyline there.
-        cached = { mask: new Float64Array(720), meta: { siteHeightM: 0, source: 'flat', failedTiles: 0, mastM: store.getState().params.mastM } };
-      } else {
-        const doc = await loaders.loadMask(site.id);
-        cached = { mask: Float64Array.from(doc.elevation_deg), meta: { siteHeightM: doc.site_height_m, source: 'featured', failedTiles: 0, mastM: doc.mast_m } };
-      }
-      masks.set(site.id, cached);
-      return cached;
+  /** The skyline of a catalogue site: from the cache, flat for a mare site, or fetched once. */
+  async function ensureMask(site: Site): Promise<CachedMask> {
+    let cached = masks.get(site.id);
+    if (cached) return cached;
+    if (!site.polar) {
+      // Mare sites lie outside the LOLA polar grids: a flat horizon is the honest skyline there.
+      cached = { mask: new Float64Array(720), meta: { siteHeightM: 0, source: 'flat', failedTiles: 0, mastM: store.getState().params.mastM } };
+    } else {
+      const doc = await loaders.loadMask(site.id);
+      cached = { mask: Float64Array.from(doc.elevation_deg), meta: { siteHeightM: doc.site_height_m, source: 'featured', failedTiles: 0, mastM: doc.mast_m } };
     }
+    masks.set(site.id, cached);
+    return cached;
+  }
 
-    /** The overview belongs to one period and one lander: forget it, and stop a run still in flight. */
-    function dropOverview(): void {
-      overviewKey = null;
-      overviewSeq++;
-      const { overview, overviewBusy } = store.getState();
-      if (overviewBusy || Object.keys(overview).length > 0) store.setState({ overview: {}, overviewBusy: false });
-    }
+  /** The overview belongs to one period and one lander: forget it, and stop a run still in flight. */
+  function dropOverview(): void {
+    overviewKey = null;
+    overviewSeq++;
+    const { overview, overviewBusy } = store.getState();
+    if (overviewBusy || Object.keys(overview).length > 0) store.setState({ overview: {}, overviewBusy: false });
+  }
 
   /** Recomputes every compared site for the current window and parameters from the mask cache. */
   function recomputeCompare(): void {
