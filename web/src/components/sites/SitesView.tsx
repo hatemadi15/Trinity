@@ -12,6 +12,7 @@ import { landerLine } from '@/lib/lander';
 import { exploreStore, type ExploreState, type SiteOverview } from '@/lib/store/explore';
 import { dateLong, dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
+import { exploreHref } from '@/lib/links';
 
 const TWO_WEEKS_H = 14 * 24;
 
@@ -28,10 +29,7 @@ const GROUPS: { title: string; note: string; categories: string[] }[] = [
 const COLUMNS = 'grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_16px] items-center gap-x-5';
 
 /** The Explore address for a site and a period; the hour is kept only when the period does not start at midnight. */
-export function exploreHref(siteId: string, startUtc: string, days: number): string {
-  const start = startUtc.endsWith('T00:00:00') ? startUtc.slice(0, 10) : startUtc.slice(0, 16);
-  return `/explore?site=${siteId}&start=${start}&days=${days}`;
-}
+export { exploreHref };
 
 /** A row opens Explore on the landing day it names, where every figure of the row is one Explore shows; without a better day, on the period's start. */
 function siteHref(siteId: string, o: SiteOverview | undefined, startUtc: string, days: number): string {

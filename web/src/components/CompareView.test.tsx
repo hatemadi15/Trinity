@@ -2,53 +2,68 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
-import type { Site } from '@/lib/data/loaders';
-import { loadEphemeris, type EphemerisHeader } from '@/lib/engine/ephemeris';
-import { readBytes, readJson } from '@/lib/engine/__tests__/helpers';
+import { fileLoaders } from '@/test/file-loaders';
 import { CompareView } from './CompareView';
 
-function storeWithFiles() {
-  const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
-  const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
-  const sites = [
-    ...readJson<{ sites: Site[] }>('data', 'sites.json').sites,
-    ...readJson<{ sites: Site[] }>('data', 'sites_derived.json').sites,
-  ];
-  return createExploreStore({
-    loadSites: async () => sites,
-    loadEphemeris: async () => eph,
-    loadMask: async (id) => {
-      const m = readJson<{ elevation_deg: number[]; site_height_m: number; mast_m: number }>('data', 'masks', `${id}.json`);
-      return { site_id: id, lat: 0, lon: 0, mast_m: m.mast_m, site_height_m: m.site_height_m, elevation_deg: m.elevation_deg, bands: [], fallback_bands: [] };
-    },
-  });
+async function open() {
+  const store = createExploreStore(fileLoaders());
+  render(<CompareView store={store} />);
+  await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeTruthy(), { timeout: 20_000 });
+  return store;
 }
 
 describe('CompareView', () => {
-  it('shows the empty state, then one column per compared site with KPIs and a verdict', async () => {
-    const store = storeWithFiles();
-    render(<CompareView store={store} />);
-    await waitFor(() => expect(screen.getByText(/Add up to four sites/)).toBeTruthy());
-    await store.getState().addToCompare('shackleton_center_rim_high');
-    await store.getState().addToCompare('shackleton_center');
-    await waitFor(() => expect(screen.getAllByRole('article').length).toBe(2));
-    const cols = screen.getAllByRole('article');
-    expect(cols[0].textContent).toMatch(/Shackleton crater rim/);
-    expect(cols[0].textContent).toMatch(/Sun above the skyline/);
-    expect(cols[0].querySelector('[data-tone]')).toBeTruthy();
-    expect(cols[1].textContent).toMatch(/Shackleton crater centre/);
-    expect(cols[1].textContent).toMatch(/Battery empties after/);
-    expect(cols[0].textContent).toMatch(/2 m mast/);
-    fireEvent.click(within(cols[1]).getByRole('button', { name: 'Remove' }));
-    await waitFor(() => expect(screen.getAllByRole('article').length).toBe(1));
+  it('starts empty with two ready pairs; pressing one compares both sites in a table', async () => {
+    await open();
+    expect(screen.queryByRole('table')).toBeNull();
+    const pair = screen.getByRole('button', { name: /A ridge and the summit 12 km away/ });
+    fireEvent.click(pair);
+    const table = await screen.findByRole('table', {}, { timeout: 20_000 });
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
+    const heads = within(table).getAllByRole('columnheader').map((h) => h.textContent);
+    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Verdict', '']);
+    const rows = within(table).getAllByRole('row').slice(1);
+    expect(rows[0].textContent).toMatch(/de Gerlache Rim 2/);
+    expect(rows[1].textContent).toMatch(/de Gerlache rim summit/);
+    expect(within(rows[0]).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    expect(within(rows[0]).getByRole('img', { name: /^The Sun and Earth at de Gerlache Rim 2 over the 30 days/ })).toBeTruthy();
   });
 
-  it('disables adding at four sites', async () => {
-    const store = storeWithFiles();
-    render(<CompareView store={store} />);
-    await waitFor(() => expect(screen.getByText(/Add up to four sites/)).toBeTruthy());
+  it('says above the table which site is best for each measure', async () => {
+    const store = await open();
+    await store.getState().addToCompare('de_gerlache_rim_2');
+    await store.getState().addToCompare('de_gerlache_center_rim_high');
+    await waitFor(() => expect(screen.getByRole('main').textContent).toMatch(/Landing on 1 January, the longest time with power is at de Gerlache rim summit \(all 30 days\)/));
+  });
+
+  it('adds a site from its list and removes one with its own button', async () => {
+    const store = await open();
+    await store.getState().addToCompare('shackleton_center_rim_high');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Add a site' }), { target: { value: 'shackleton_center' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() => expect(store.getState().compareIds).toEqual(['shackleton_center_rim_high', 'shackleton_center']));
+    const table = await screen.findByRole('table');
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Shackleton crater floor' }));
+    await waitFor(() => expect(store.getState().compareIds).toEqual(['shackleton_center_rim_high']));
+  });
+
+  it('keeps the period and the lander, and offers no more than four sites', async () => {
+    const store = await open();
+    expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Lander/ })).toBeTruthy();
     for (const id of ['shackleton_center', 'de_gerlache_center', 'im1_odysseus', 'im2_athena']) await store.getState().addToCompare(id);
-    await waitFor(() => expect(screen.getAllByRole('article').length).toBe(4));
-    expect((screen.getByRole('combobox', { name: 'Add site' }) as HTMLSelectElement).disabled).toBe(true);
+    await waitFor(() => expect((screen.getByRole('combobox', { name: 'Add a site' }) as HTMLSelectElement).disabled).toBe(true));
+    expect(screen.getByRole('main').textContent).toMatch(/Four sites is the most this page compares/);
+  });
+
+  it('has at most one gold action and none of the old cards', async () => {
+    const store = await open();
+    await store.getState().addToCompare('de_gerlache_rim_2');
+    await store.getState().addToCompare('shackleton_center_rim_high');
+    await screen.findByRole('table');
+    expect(screen.getByRole('main').querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
+    expect(screen.queryByRole('article')).toBeNull();
+    expect(screen.getByRole('main').textContent).not.toMatch(/skyline|Sun above|Both at once|Learn/);
   });
 });

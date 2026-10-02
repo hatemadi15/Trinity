@@ -1,168 +1,186 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
+import { PeriodControls } from './PeriodControls';
 import { PlannerChat } from './PlannerChat';
-import { PlannerParamsPanel } from './PlannerParamsPanel';
-import { Sparkline } from './Sparkline';
-import { VerdictChip } from './VerdictChip';
-import { WindowControls } from './WindowControls';
+import { MiniStrip } from './compare/MiniStrip';
+import { LanderDialog } from './explore/LanderDialog';
+import { siteLabel } from '@/lib/data/loaders';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
-import { COMPARE_MAX, exploreStore, type ExploreState, type SiteResult } from '@/lib/store/explore';
-import { hoursLabel, pct, utcLabel } from '@/lib/viz/format';
+import { landerName } from '@/lib/lander';
+import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
+import { bestSentence, compareRow, READY_PAIRS } from '@/lib/viz/compare';
+import { dateLong } from '@/lib/viz/format';
 
+const LINK = 'font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink';
+const TAG = 'shrink-0 rounded-full border border-line px-2.5 py-0.5 text-[15px] text-ink-2';
+const CELL = 'border-b border-line py-3 pr-4 align-middle';
+
+/**
+ * Compare: up to four sites over the same period with the same lander, as a table (one row per site),
+ * with one sentence above it naming the best site for each measure. An empty page offers two pairs.
+ */
 export function CompareView({ store = exploreStore }: { store?: StoreApi<ExploreState> }) {
   const s = useStore(store);
   useDemoMode(store);
   const [adding, setAdding] = useState('');
+  const [landerOpen, setLanderOpen] = useState(false);
+  const landerRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     void store.getState().init();
   }, [store]);
-  if (s.status !== 'ready' || !s.site) {
+
+  if (s.status !== 'ready') {
     return (
       <AppFrame>
-        <p className="px-6 py-10 text-ink-2">{s.status === 'error' ? s.error : 'Loading NASA data…'}</p>
+        <main className="wrap py-12">
+          <p className="text-ink-2">{s.status === 'error' ? s.error : 'Loading NASA data…'}</p>
+        </main>
       </AppFrame>
     );
   }
-  const current = s.site;
-  const candidates = [current, ...s.sites.filter((x) => x.polar && x.id !== current.id)].filter((x) => !s.compareIds.includes(x.id));
+
+  const rows = s.compare.map((c) => compareRow(c, s.startUtc, s.days));
   const full = s.compareIds.length >= COMPARE_MAX;
+  const candidates = s.sites.filter((x) => x.category !== 'custom' && !s.compareIds.includes(x.id));
+  const period = `the ${s.days} days from ${dateLong(s.startUtc, 0)}`;
+  const add = () => {
+    if (!adding) return;
+    void store.getState().addToCompare(adding);
+    setAdding('');
+  };
+  const addPair = (ids: [string, string]) => {
+    void (async () => {
+      for (const id of ids) await store.getState().addToCompare(id);
+    })();
+  };
+
   return (
     <AppFrame>
-      <main className="flex flex-col">
-        <div className="glass-bar flex flex-wrap items-end justify-between gap-4 border-b border-line px-4 py-2">
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-sm text-ink-2">
-              Add site
-              <select
-                aria-label="Add site"
-                value={adding}
-                disabled={full}
-                onChange={(e) => {
-                  setAdding('');
-                  if (e.target.value) void store.getState().addToCompare(e.target.value);
-                }}
-                className="w-[300px] max-w-full rounded-md border border-line bg-panel px-2 py-1 text-ink disabled:opacity-50"
-              >
-                <option value="">{full ? 'Four sites compared (maximum)' : 'Choose a site…'}</option>
-                {candidates.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <span className="pb-1 text-sm text-ink-3">Compared sites ({s.compareIds.length})</span>
-            <Link href="/brief" className="pb-1 text-sm text-ink-2 underline-offset-4 hover:underline">
-              Export brief
-            </Link>
-          </div>
-          <WindowControls
-            startUtc={s.startUtc}
-            days={s.days}
-            onWindow={s.setWindow}
-            onBestWindow={(d) => void store.getState().findBestWindow(d, 'compare')}
-            bestWindowNote={s.bestWindowNote}
-          />
+      <main className="wrap flex flex-col gap-6 pb-12 pt-8">
+        <div>
+          <h1 className="display text-[34px] leading-tight sm:text-[40px]">Compare sites</h1>
+          <p className="mt-2 max-w-[46em] text-lg text-ink-2">Up to four landing sites over the same days, with the same lander landing on the first of them.</p>
         </div>
-        <div className="flex flex-col gap-3 p-3">
-          <PlannerParamsPanel params={s.params} onParams={s.setParams} onPower={s.setPower} busy={s.maskBusy} />
-          <PlannerChat store={store} />
-          {s.error && (
-            <p role="status" className="text-sm text-warn">
-              {s.error}
-            </p>
-          )}
-          {s.compare.length === 0 ? (
-            <p className="glass rounded-md p-6 text-ink-2">
-              Add up to four sites to compare them over the same window and planner settings. Explore a site and press “Add to
-              compare”, or pick one above.
-            </p>
-          ) : (
-            <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
-              {s.compare.map((c) => (
-                <CompareColumn
-                  key={c.site.id}
-                  result={c}
-                  startUtc={s.startUtc}
-                  days={s.days}
-                  plannerMastM={s.params.mastM}
-                  audience={s.audience}
-                  onRemove={() => store.getState().removeFromCompare(c.site.id)}
-                  onOpen={() => void store.getState().selectSite(c.site.id)}
-                />
+        <section aria-label="What this comparison is for" className="flex flex-wrap items-end gap-4">
+          <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
+          <div className="flex min-w-0 flex-[1_1_250px] flex-col gap-1.5 text-[15px] text-ink-2">
+            <span aria-hidden="true">Lander</span>
+            <button
+              ref={landerRef}
+              type="button"
+              onClick={() => setLanderOpen(true)}
+              aria-haspopup="dialog"
+              aria-label={`Lander: ${landerName(s.params.power)}. Change`}
+              className="field flex min-w-0 items-center gap-3 text-left text-base text-ink"
+            >
+              <span className="grow truncate">{landerName(s.params.power)}</span>
+              <span className={TAG}>change</span>
+            </button>
+          </div>
+        </section>
+        {s.error && (
+          <p role="status" className="text-[15px] text-bad">
+            {s.error}
+          </p>
+        )}
+
+        {rows.length === 0 ? (
+          <section aria-labelledby="h-pairs" className="panel">
+            <h2 id="h-pairs" className="display text-[23px] font-semibold">
+              Start with a pair
+            </h2>
+            <p className="mt-2 text-ink-2">Each pair shows how much a few kilometres change. Or add sites one by one below.</p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              {READY_PAIRS.map((p) => (
+                <button key={p.title} type="button" onClick={() => addPair(p.ids)} className="btn text-left">
+                  <span>
+                    <span className="block font-semibold">{p.title}</span>
+                    <span className="block text-[15px] text-ink-2">{p.ids.map((id) => siteLabel(s.sites.find((x) => x.id === id) ?? { name: id })).join(' and ')}</span>
+                  </span>
+                </button>
               ))}
             </div>
-          )}
-        </div>
-      </main>
-    </AppFrame>
-  );
-}
+          </section>
+        ) : (
+          <section aria-labelledby="h-table" className="panel overflow-x-auto">
+            <h2 id="h-table" className="sr-only">
+              The sites side by side
+            </h2>
+            <p className="max-w-[60em] text-[17px] leading-relaxed text-ink">{bestSentence(s.compare, s.startUtc, s.days)}</p>
+            <table className="mt-4 w-full min-w-[900px] border-collapse text-left">
+              <thead>
+                <tr className="text-[15px] text-ink-2">
+                  {['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Verdict', ''].map((h, i) => (
+                    <th key={i} scope="col" className="border-b-2 border-ink py-2 pr-4 font-semibold">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.id}>
+                    <th scope="row" className={`${CELL} font-semibold`}>
+                      <Link href={r.href} className={LINK}>
+                        {r.name}
+                      </Link>
+                    </th>
+                    <td className={CELL}>
+                      <MiniStrip series={s.compare[i].series} name={r.name} period={period} />
+                    </td>
+                    <td className={`${CELL} tabular-nums`}>{r.sunlight}</td>
+                    <td className={`${CELL} tabular-nums`}>{r.earth}</td>
+                    <td className={`${CELL} tabular-nums`}>{r.longestNight}</td>
+                    <td className={`${CELL} tabular-nums`}>{r.power}</td>
+                    <td className={`${CELL} font-medium ${r.tone === 'good' ? 'text-good' : 'text-bad'}`}>{r.verdict}</td>
+                    <td className={`${CELL} text-right`}>
+                      <button type="button" onClick={() => store.getState().removeFromCompare(r.id)} aria-label={`Remove ${r.name}`} className="h-10 rounded-lg border border-line-strong px-3 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
 
-const LEARN_ROWS = new Set(['Sun above the skyline', 'Longest night', 'Earth in view', 'Longest Earth gap']);
-
-function CompareColumn({
-  result,
-  startUtc,
-  days,
-  plannerMastM,
-  audience,
-  onRemove,
-  onOpen,
-}: {
-  result: SiteResult;
-  startUtc: string;
-  days: number;
-  plannerMastM: number;
-  audience: 'planner' | 'learn';
-  onRemove: () => void;
-  onOpen: () => void;
-}) {
-  const { site, series, summary, power, contacts, mastM } = result;
-  const all: [string, string][] = [
-    ['Sun above the skyline', pct(summary.illumFraction)],
-    ['Longest night', hoursLabel(summary.longestDarkH)],
-    ['Earth in view', pct(summary.earthVisFraction)],
-    ['Longest Earth gap', hoursLabel(summary.longestEarthGapH)],
-    ['Both at once', pct(summary.jointFraction)],
-    ['Lowest battery', pct(power.socMin)],
-  ];
-  // Learn mode keeps the same four numbers as the Explore tiles.
-  const rows = audience === 'learn' ? all.filter(([k]) => LEARN_ROWS.has(k)) : all;
-  return (
-    <article aria-label={site.name} className="glass flex min-w-[300px] max-w-[380px] flex-1 flex-col gap-3 rounded-md p-4">
-      <div>
-        <h2 className="font-display text-xl font-semibold leading-tight">{site.name}</h2>
-        <p className="text-xs text-ink-2">
-          {site.lat.toFixed(3)}°, {site.lon.toFixed(3)}°
-        </p>
-      </div>
-      <Sparkline series={series} />
-      <p className="text-xs text-ink-2">
-        {utcLabel(startUtc, 0)} + {days} days; {contacts.length} Earth contact {contacts.length === 1 ? 'window' : 'windows'}; skyline
-        computed with a {mastM} m mast
-        {mastM !== plannerMastM ? ` (the planner's ${plannerMastM} m mast applies to the Explore site)` : ''}
-      </p>
-      <VerdictChip power={power} />
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-        {rows.map(([k, v]) => (
-          <div key={k} className="border-t border-line pt-2">
-            <dt className="text-xs text-ink-2">{k}</dt>
-            <dd className="font-display text-[26px] font-semibold leading-none tabular-nums">{v}</dd>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1.5 text-[15px] text-ink-2">
+            <label htmlFor="compare-add">Add a site</label>
+            <select id="compare-add" value={adding} disabled={full} onChange={(e) => setAdding(e.target.value)} className="field w-[300px] max-w-full disabled:opacity-60">
+              <option value="">{full ? 'Four sites already' : 'Choose a site…'}</option>
+              {candidates.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {siteLabel(x)}
+                </option>
+              ))}
+            </select>
           </div>
-        ))}
-      </dl>
-      <div className="mt-auto flex gap-2">
-        <Link href="/explore" onClick={onOpen} className="rounded-md border border-line px-3 py-1 text-sm text-ink-2 hover:text-ink">
-          Open in Explore
-        </Link>
-        <button type="button" onClick={onRemove} className="rounded-md border border-line px-3 py-1 text-sm text-ink-2 hover:text-ink">
-          Remove
-        </button>
-      </div>
-    </article>
+          <button type="button" onClick={add} disabled={full || !adding} className="btn">
+            Add
+          </button>
+          {full && <p className="pb-3 text-[15px] text-ink-2">Four sites is the most this page compares: remove one to add another.</p>}
+        </div>
+        {rows.length > 0 && (
+          <p className="flex flex-wrap gap-x-6 gap-y-2">
+            {rows.length >= 2 && (
+              <button type="button" onClick={() => void store.getState().findBestWindow(s.days, 'compare')} className={`${LINK} text-left`}>
+                Find the best landing day for these sites in the next 12 months
+              </button>
+            )}
+            <Link href="/brief" className={LINK}>
+              Printable brief
+            </Link>
+          </p>
+        )}
+        {s.bestWindowNote && <p className="text-[15px] text-ink-2">{s.bestWindowNote}</p>}
+        <PlannerChat store={store} variant="panel" />
+      </main>
+      {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
+    </AppFrame>
   );
 }
