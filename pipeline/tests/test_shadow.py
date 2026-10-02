@@ -1,3 +1,5 @@
+import json
+
 import numpy as np
 import pytest
 
@@ -130,3 +132,28 @@ def test_shade_is_bright_on_sunward_slopes_and_keeps_shape_in_shadow():
     assert img.dtype == np.uint8 and img.shape == z.shape
     assert img[32, 45] > img[32, 15] + 60  # the slope facing the Sun is much brighter than the one facing away
     assert img[32, 15] > 5  # shadowed ground is not pure black
+
+
+def test_fixture_cases_hold_what_cast_and_shade_give(tmp_path):
+    from lunar_pipeline.shadow import write_fixtures
+
+    paths = write_fixtures(tmp_path)
+    assert sorted(p.name for p in paths) == ["chain.json", "ridge.json"]
+    for path in paths:
+        doc = json.loads(path.read_text())
+        levels = [
+            Level(np.array(lv["heights"]).reshape(lv["height"], lv["width"]), lv["px_m"], lv["site_col"], lv["site_row"])
+            for lv in doc["levels"]
+        ]
+        assert len(doc["cases"]) == 5
+        for case in doc["cases"]:
+            lit, margin = cast(levels, case["bearing_deg"], case["el_deg"])
+            assert case["lit"] == lit.astype(int).ravel().tolist()
+            fine = levels[-1]
+            assert case["shade"] == shade(fine.heights_m, fine.px_m, margin, case["bearing_deg"], case["el_deg"]).ravel().tolist()
+            finite = np.isfinite(margin.ravel())
+            assert all((m is None) == (not f) for m, f in zip(case["margin"], finite, strict=True))
+    # The chain's fine grid is shaded by the coarse wall far to its north when the Sun is low in the north.
+    chain = json.loads((tmp_path / "chain.json").read_text())
+    north = next(c for c in chain["cases"] if c["bearing_deg"] == 0.0)
+    assert sum(north["lit"]) < len(north["lit"])

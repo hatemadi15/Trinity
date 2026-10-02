@@ -14,11 +14,11 @@ describe('hosting configuration', () => {
     expect(data!.headers).toContainEqual({ key: 'Cache-Control', value: IMMUTABLE });
   });
 
-  it('next.config sends the same header when the app serves /data itself', async () => {
+  it('next.config makes the browser check /data again when the app serves it itself, since the pipeline rewrites files under the same names', async () => {
     const headers = await nextConfig.headers!();
     const data = headers.find((h) => h.source.startsWith('/data/'));
     expect(data).toBeTruthy();
-    expect(data!.headers).toContainEqual({ key: 'Cache-Control', value: IMMUTABLE });
+    expect(data!.headers).toContainEqual({ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' });
   });
 
   it('.vercelignore keeps the local data mirror out of the deployment', () => {

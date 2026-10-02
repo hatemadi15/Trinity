@@ -25,7 +25,7 @@ Nothing in this document has been run yet: it prepares the go-live steps for the
    uv run python -m lunar_pipeline.cli publish-r2
    ```
 
-   The publisher walks `web/public/data`, uploads every file under the `data/` prefix with its content type and `Cache-Control: public, max-age=31536000, immutable`, and skips files whose size and MD5 already match the object in the bucket. Re-running it after a pipeline change uploads only what changed.
+   The publisher walks `web/public/data`, uploads every file under the `data/` prefix with its content type and `Cache-Control: public, max-age=31536000, immutable`, and skips files whose size and MD5 already match the object in the bucket. Files keep their names when the pipeline regenerates them, and a browser keeps its copy for a year, so publish a changed data run under a new prefix (`publish-r2 --prefix data-2026-10-02`) and point `NEXT_PUBLIC_DATA_BASE` at it: no browser then mixes old and new files. Re-running with the same prefix uploads only what changed, which is safe only before anyone has loaded the data. (When the app serves `web/public/data` itself, as on the venue laptop, `next.config.ts` makes the browser check every file again, so a rebuilt mirror shows at once.)
 
 5. Public access. `r2.dev` URLs are rate-limited and not meant for production, so use one of:
    - **Custom domain** on the bucket (Settings → Public access → Custom domains), for example `data.earthrise.example`. Cloudflare then serves the objects through its CDN with the headers set at upload.

@@ -5,21 +5,15 @@ import { OrbitControls, Stars } from '@react-three/drei';
 import { CameraRig } from './CameraRig';
 import { Globe } from './Globe';
 import { SiteMarker } from './SiteMarker';
-import { shadowHalfKmFor, SunAndEarth } from './SunAndEarth';
-import { CAP_HALF_PX, Terrain } from './Terrain';
+import { SunAndEarth } from './SunAndEarth';
+import { Terrain } from './Terrain';
 import type { Scene3DProps } from './Scene3D';
 import { siteLabel } from '@/lib/data/loaders';
 
 export function Scene3DCanvas(props: Scene3DProps) {
-  const { mode, scene, site, sites, heightmap, capHeightmap, exaggeration, onPick, reducedMotion = false, textureUrl = null, onContextLost } = props;
-  const terrainSizeKm = heightmap
-    ? (heightmap.meta.width * heightmap.meta.cell_m) / 1000
-    : capHeightmap
-      ? ((2 * CAP_HALF_PX + 1) * capHeightmap.meta.cell_m) / 1000
-      : null;
+  const { mode, scene, site, sites, heightmap, capHeightmap, exaggeration, onPick, reducedMotion = false, textureUrl = null, onContextLost, picture = null } = props;
   return (
     <Canvas
-      shadows="percentage"
       dpr={[1, 1.5]}
       camera={{ fov: 40, near: 0.01, far: 400, position: [0, -2, 3] }}
       gl={{ antialias: true }}
@@ -43,9 +37,9 @@ export function Scene3DCanvas(props: Scene3DProps) {
         </>
       ) : (
         <>
-          <Terrain heightmap={heightmap} capHeightmap={capHeightmap} site={site} exaggeration={exaggeration} />
+          <Terrain heightmap={heightmap} capHeightmap={capHeightmap} site={site} exaggeration={exaggeration} picture={picture} />
           <SiteMarker name={siteLabel(site)} />
-          <SunAndEarth scene={scene} mode="terrain" shadowHalfKm={shadowHalfKmFor(terrainSizeKm)} />
+          <SunAndEarth scene={scene} mode="terrain" />
         </>
       )}
       <CameraRig mode={mode} site={site} reducedMotion={reducedMotion} />

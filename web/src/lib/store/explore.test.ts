@@ -179,10 +179,17 @@ describe('explore store terrain (Week 3)', () => {
   });
 
   it.skipIf(!terrainPresent)('opens a polar site the terrain files have no window for on the globe, and a site with one on the terrain', async () => {
-    const store = createExploreStore(terrainLoaders());
+    // Terrain files that list no window for the default site, as before every polar site had one.
+    const real = terrainLoaders();
+    const store = createExploreStore({
+      ...real,
+      loadTerrainManifest: async () => {
+        const m = await real.loadTerrainManifest();
+        return { ...m, windows: m.windows.filter((w) => w.site_id !== 'de_gerlache_rim_2') };
+      },
+    });
     await store.getState().init();
     await store.getState().waitForTerrain();
-    // de Gerlache Rim 2, the default, has no detailed window: only the coarse polar cap.
     expect(store.getState().siteId).toBe('de_gerlache_rim_2');
     expect(store.getState().mode).toBe('globe');
     await store.getState().selectSite('shackleton_center');
@@ -191,6 +198,20 @@ describe('explore store terrain (Week 3)', () => {
     store.getState().setMode('globe');
     await store.getState().selectSite('shackleton_center_rim_high');
     expect(store.getState().mode).toBe('globe');
+  });
+
+  it.skipIf(!terrainPresent)('loads the 80 m context with a 20 m window, and none for an 80 m window', async () => {
+    const store = createExploreStore(terrainLoaders());
+    await store.getState().init();
+    await store.getState().waitForTerrain();
+    // de Gerlache Rim 2 lies south of 87.55 S: a 20 m window with its context.
+    expect(store.getState().heightmap?.meta.site_id).toBe('de_gerlache_rim_2');
+    expect(store.getState().contextHeightmap?.meta.kind).toBe('context');
+    expect(store.getState().contextHeightmap?.meta.cell_m).toBe(80);
+    await store.getState().selectSite('haworth');
+    await store.getState().waitForTerrain();
+    expect(store.getState().heightmap?.meta.site_id).toBe('haworth');
+    expect(store.getState().contextHeightmap).toBeNull();
   });
 
   it.skipIf(!terrainPresent)('selectSite loads the terrain window when listed', async () => {

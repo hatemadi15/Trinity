@@ -25,6 +25,15 @@ function show(extra: Partial<Parameters<typeof TimeChart>[0]> = {}) {
   return { onCursor, onHover, ...view };
 }
 
+describe('TimeChart dates on a phone', () => {
+  it('keeps every other date only from the small screen up, so the dates never run into each other', () => {
+    show();
+    const dates = [...document.querySelectorAll<HTMLElement>('[data-day]')];
+    expect(dates.length).toBeGreaterThan(3);
+    dates.forEach((d, i) => expect(d.className.includes('max-sm:hidden')).toBe(i % 2 === 1));
+  });
+});
+
 describe('TimeChart', () => {
   it('says what it is and that time runs left to right', () => {
     show();

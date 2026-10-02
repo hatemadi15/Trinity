@@ -13,7 +13,6 @@ import { TimeChart } from './explore/TimeChart';
 import { VerdictPanel } from './explore/VerdictPanel';
 import { WhereOnMoon } from './explore/WhereOnMoon';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
-import { windowFileFor } from '@/lib/data/terrain';
 import { globeTextureUrl } from '@/lib/data/terrain';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
@@ -119,9 +118,6 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   }
 
   const site = s.site;
-  const shownHour = hoverHour ?? s.cursorHour;
-  // Until every polar site has detailed terrain (part 3), a polar site without it shows no ground panel: the globe in its place only repeated the map.
-  const ground = !site.polar || !s.terrainManifest || windowFileFor(s.terrainManifest, site.id) !== null;
   return (
     <AppFrame>
       <main className="flex flex-col">
@@ -156,31 +152,31 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             onCursor={s.setCursor}
             onHover={setHoverHour}
           />
-          {ground ? (
-            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-              <GroundPanel
-                site={site}
-                sites={s.sites}
-                scene={scene}
-                mode={s.mode}
-                exaggeration={s.exaggeration}
-                heightmap={s.heightmap}
-                capHeightmap={s.capHeightmap}
-                textureUrl={globeTextureUrl(dataBase(), s.terrainManifest)}
-                terrainState={s.terrainState}
-                windowLoading={s.windowLoading}
-                customError={s.customError}
-                when={dateTimeUtc(s.startUtc, shownHour)}
-                onMode={s.setMode}
-                onExaggeration={s.setExaggeration}
-                onPick={onPick}
-                reducedMotion={reducedMotion}
-              />
-              <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} />
-            </div>
-          ) : (
-            <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide />
-          )}
+          <GroundPanel
+            site={site}
+            sites={s.sites}
+            scene={scene}
+            mode={s.mode}
+            exaggeration={s.exaggeration}
+            heightmap={s.heightmap}
+            contextHeightmap={s.contextHeightmap}
+            capHeightmap={s.capHeightmap}
+            textureUrl={globeTextureUrl(dataBase(), s.terrainManifest)}
+            terrainState={s.terrainState}
+            windowLoading={s.windowLoading}
+            customError={s.customError}
+            // The ground is lit for the time bar's hour, not the hour under the pointer on the chart.
+            when={dateTimeUtc(s.startUtc, s.cursorHour)}
+            startUtc={s.startUtc}
+            mask={s.mask}
+            series={s.series}
+            cursor={s.cursorHour}
+            onMode={s.setMode}
+            onExaggeration={s.setExaggeration}
+            onPick={onPick}
+            reducedMotion={reducedMotion}
+          />
+          <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide />
           <PlannerChat store={store} navigate={go} variant="panel" />
         </div>
         <TimeBar series={s.series} power={s.power} startUtc={s.startUtc} cursor={s.cursorHour} hoverHour={hoverHour} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} />

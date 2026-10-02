@@ -37,20 +37,46 @@ describe('ExploreView', () => {
     expect(within(panel).getByRole('link', { name: 'Explore de Gerlache rim summit' }).getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
   });
 
-  it('leaves the ground out for a polar site the terrain files have no window for, and gives the place the whole row', async () => {
+  it('shows the ground for every site, even a polar site the terrain files have no window for', async () => {
     window.history.replaceState({}, '', '/explore');
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+    const cap = { site_id: 'south_cap', lat: -90, lon: 0, kind: 'cap', source: 's', level: 'L2', cell_m: 960, width: 9, height: 9, row0: 0, col0: 0, min_m: 0, max_m: 0, scale_m_per_unit: 1, site_height_m: 0, line_offset_px: 4, sample_offset_px: 4, site_row_px: 4, site_col_px: 4 };
     const store = createExploreStore(
       fileLoaders({
-        loadTerrainManifest: async () => ({ windows: [{ site_id: 'shackleton_center', file: 'x.u16', meta: 'x.json' }], cap: { file: 'cap.u16', meta: 'cap.json' } }) as never,
-        loadHeightmap: async () => ({ meta: { cell_m: 960 }, heightsM: new Float32Array(4) }) as never,
+        loadTerrainManifest: async () => ({ version: 2, windows: [{ site_id: 'shackleton_center', file: 'x.u16', meta: 'x.json' }], cap: { file: 'cap.u16', meta: 'cap.json' }, globe_texture: 'g.jpg' }) as never,
+        loadHeightmap: async () => ({ meta: cap, heightsM: new Float32Array(81) }) as never,
       }),
     );
     render(<ExploreView store={store} navigate={() => {}} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy(), { timeout: 20_000 });
     await store.getState().waitForTerrain();
-    await waitFor(() => expect(screen.queryByRole('region', { name: /The ground|The whole Moon/ })).toBeNull());
+    expect(store.getState().heightmap).toBeNull();
+    const ground = screen.getByRole('region', { name: 'The ground' });
+    await waitFor(() => expect(within(ground).getByRole('img', { name: /^Shadows at 1 Jan 2027, 00:00 UTC/ })).toBeTruthy());
+    expect(screen.getByRole('region', { name: 'Where on the Moon' })).toBeTruthy();
+  });
+
+  it('gives the ground and the place each the width of the page, the place with its map beside the words', async () => {
+    await open();
+    const ground = screen.getByRole('region', { name: 'The ground' });
     const place = screen.getByRole('region', { name: 'Where on the Moon' });
+    expect(ground.parentElement!.className).not.toMatch(/grid-cols/);
     expect(place.querySelector('[data-part="layout"]')!.className).toMatch(/md:grid-cols/);
+  });
+
+  it("names the hour the ground shows: the time bar's, not the one under the pointer on the chart", async () => {
+    const { store } = await open();
+    act(() => store.getState().setCursor(66));
+    const overlay = document.querySelector<HTMLElement>('.cursor-crosshair')!;
+    overlay.getBoundingClientRect = () => ({ left: 0, top: 0, width: 720, height: 100, right: 720, bottom: 100, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    // jsdom has no PointerEvent: a mouse event of that name carries the position.
+    fireEvent(overlay, new MouseEvent('pointermove', { bubbles: true, clientX: 10.5 }));
+    // The time bar previews the hour under the pointer...
+    await waitFor(() => expect(screen.getByRole('region', { name: 'Time' }).textContent).toMatch(/1 Jan 2027, 10:00 UTC/));
+    // ...while the ground keeps the hour it is lit for.
+    const ground = screen.getByRole('region', { name: 'The ground' });
+    expect(ground.textContent).toMatch(/3 Jan 2027, 18:00 UTC/);
+    expect(ground.textContent).not.toMatch(/1 Jan 2027, 10:00 UTC/);
   });
 
   it('lands on the better date when its button is pressed', async () => {

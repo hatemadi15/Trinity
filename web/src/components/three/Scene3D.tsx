@@ -4,6 +4,7 @@ import { siteLabel, type Site } from '@/lib/data/loaders';
 import type { Heightmap } from '@/lib/data/terrain';
 import type { SceneState } from '@/lib/viz/scene-state';
 import type { SceneMode } from './cameraPresets';
+import type { TerrainPicture } from './Terrain';
 
 export interface Scene3DProps {
   mode: SceneMode;
@@ -19,6 +20,8 @@ export interface Scene3DProps {
   reducedMotion?: boolean;
   /** Called by the canvas when the WebGL context is lost. */
   onContextLost?: () => void;
+  /** The shadow picture the terrain is painted with (terrain mode). */
+  picture?: TerrainPicture | null;
 }
 
 const Scene3DCanvas = lazy(() => import('./Scene3DCanvas').then((m) => ({ default: m.Scene3DCanvas })));
