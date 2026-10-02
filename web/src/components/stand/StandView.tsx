@@ -129,9 +129,16 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 w-fit items-center text-[15px] underline underline-offset-4">
             Back to Explore
           </Link>
+          {note && (
+            <details className="text-[15px] text-[#c3bfb6] md:hidden">
+              <summary className="flex min-h-10 cursor-pointer items-center text-[#f2f0ea]">What is measured</summary>
+              <p className="pb-1">{note}</p>
+            </details>
+          )}
         </section>
         {!failed && (
-          <div role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex max-w-[360px] flex-wrap gap-2 p-2.5`}>
+          // On a phone the buttons sit just above the time bar, clear of the Sun and its label.
+          <div role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex max-w-[360px] flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[152px] max-md:max-w-none`}>
             <button type="button" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
               Face the Sun
             </button>
@@ -141,21 +148,18 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             <button type="button" className={LOOK} onClick={() => setLook({ yaw: series.sunAz[hour], pitch: 70, fov: 72 })}>
               Look up
             </button>
-            <p className="w-full px-1 text-[15px] text-[#c3bfb6]">Drag to look around; scroll to zoom.</p>
+            <p className="w-full px-1 text-[15px] text-[#c3bfb6]">
+              <span className="pointer-coarse:hidden">Drag to look around; scroll to zoom.</span>
+              <span className="hidden pointer-coarse:inline">Drag to look around; pinch to zoom.</span>
+            </p>
           </div>
         )}
       </div>
 
       {note && (
-        <>
-          <aside className={`${PLATE} fixed bottom-32 right-4 hidden w-[340px] p-3.5 text-[15px] text-[#c3bfb6] md:block`}>
-            <b className="text-[#f2f0ea]">What is measured.</b> {note}
-          </aside>
-          <details className={`${PLATE} fixed inset-x-4 bottom-32 px-3.5 text-[15px] text-[#c3bfb6] md:hidden`}>
-            <summary className="flex min-h-10 cursor-pointer items-center text-[#f2f0ea]">What is measured</summary>
-            <p className="pb-3">{note}</p>
-          </details>
-        </>
+        <aside className={`${PLATE} fixed bottom-32 right-4 hidden w-[340px] p-3.5 text-[15px] text-[#c3bfb6] md:block`}>
+          <b className="text-[#f2f0ea]">What is measured.</b> {note}
+        </aside>
       )}
 
       <div className="fixed inset-x-0 bottom-0">

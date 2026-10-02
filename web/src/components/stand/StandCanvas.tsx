@@ -46,6 +46,9 @@ export function StandCanvas({
   const goal = useRef<LookTarget | null>(null);
   const intro = useRef<{ start: number } | null>(reducedMotion ? null : { start: 0 });
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null);
+  // Fingers on the canvas, for a two-finger pinch: spreading them narrows the view.
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ dist: number; fov: number } | null>(null);
   const failRef = useRef(onFail);
   const [dragging, setDragging] = useState(false);
 
@@ -123,6 +126,15 @@ export function StandCanvas({
     };
   }, [scene, createRenderer]);
 
+  const release = (id: number) => {
+    pointers.current.delete(id);
+    if (pointers.current.size < 2) pinch.current = null;
+    if (pointers.current.size === 0) {
+      drag.current = null;
+      setDragging(false);
+    }
+  };
+
   const turn = (dYaw: number, dPitch: number, zoom = 1) => {
     const v = view.current;
     goal.current = null;
@@ -137,31 +149,39 @@ export function StandCanvas({
       <canvas
         ref={canvas}
         role="application"
-        aria-label="The view from the site. Drag or use the arrow keys to look around; plus and minus zoom."
+        aria-label="The view from the site. Drag or use the arrow keys to look around; plus and minus, the wheel or two fingers zoom."
         tabIndex={0}
         className={`fixed inset-0 h-full w-full touch-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         onPointerDown={(e) => {
-          drag.current = { x: e.clientX, y: e.clientY, yaw: view.current.yaw, pitch: view.current.pitch };
+          pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
           goal.current = null;
           intro.current = null;
-          setDragging(true);
           e.currentTarget.setPointerCapture?.(e.pointerId);
+          if (pointers.current.size === 2) {
+            const [a, b] = [...pointers.current.values()];
+            pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, fov: view.current.fov };
+            drag.current = null;
+          } else if (pointers.current.size === 1) {
+            drag.current = { x: e.clientX, y: e.clientY, yaw: view.current.yaw, pitch: view.current.pitch };
+            setDragging(true);
+          }
         }}
         onPointerMove={(e) => {
+          if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          const p = pinch.current;
+          if (p && pointers.current.size >= 2) {
+            const [a, b] = [...pointers.current.values()];
+            view.current.fov = Math.max(14, Math.min(75, (p.fov * p.dist) / (Math.hypot(a.x - b.x, a.y - b.y) || 1)));
+            return;
+          }
           const d = drag.current;
           if (!d) return;
           const k = view.current.fov / (e.currentTarget.clientHeight || window.innerHeight);
           view.current.yaw = (d.yaw - (e.clientX - d.x) * k + 360) % 360;
           view.current.pitch = Math.max(-35, Math.min(85, d.pitch + (e.clientY - d.y) * k));
         }}
-        onPointerUp={() => {
-          drag.current = null;
-          setDragging(false);
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-          setDragging(false);
-        }}
+        onPointerUp={(e) => release(e.pointerId)}
+        onPointerCancel={(e) => release(e.pointerId)}
         onWheel={(e) => turn(0, 0, e.deltaY > 0 ? 1.08 : 0.93)}
         onKeyDown={(e) => {
           const keys: Record<string, [number, number, number?]> = { ArrowLeft: [-3, 0], ArrowRight: [3, 0], ArrowUp: [0, 3], ArrowDown: [0, -3], '+': [0, 0, 0.93], '=': [0, 0, 0.93], '-': [0, 0, 1.08] };

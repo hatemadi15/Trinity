@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
@@ -7,6 +7,18 @@ import { liveSentence, skyLabel } from '@/lib/viz/stand';
 import { fileLoaders } from '@/test/file-loaders';
 import { StandView } from './StandView';
 import type { RendererLike } from './StandCanvas';
+
+// jsdom has no PointerEvent; this one carries the pointer's id on top of the mouse event's position.
+if (typeof window.PointerEvent === 'undefined') {
+  class PointerEventPolyfill extends MouseEvent {
+    pointerId: number;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+    }
+  }
+  window.PointerEvent = PointerEventPolyfill as unknown as typeof PointerEvent;
+}
 
 vi.mock('@/lib/data/sky', () => ({
   loadSkyAssets: async () => ({
@@ -94,6 +106,20 @@ describe('StandView', () => {
     act(() => store.getState().setCursor(41));
     await waitFor(() => expect(screen.getByText(liveSentence(store.getState().series!, 41))).toBeTruthy());
     expect(made).toBe(1);
+  });
+
+  it('zooms with two fingers: spreading them narrows the view', async () => {
+    const r = stub();
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(r.setView).toHaveBeenCalled());
+    const canvas = screen.getByRole('application');
+    fireEvent.pointerDown(canvas, { pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerDown(canvas, { pointerId: 2, clientX: 200, clientY: 100 });
+    fireEvent.pointerMove(canvas, { pointerId: 2, clientX: 300, clientY: 100 });
+    fireEvent.pointerUp(canvas, { pointerId: 2 });
+    fireEvent.pointerUp(canvas, { pointerId: 1 });
+    // The fingers moved twice as far apart: the view is half as wide (60° to 30°).
+    await waitFor(() => expect(r.setView.mock.calls.at(-1)![2]).toBeCloseTo(30, 0));
   });
 
   it('lets the renderer go when the view closes', async () => {
