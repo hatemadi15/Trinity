@@ -8,9 +8,14 @@ def test_cli_has_all_subcommands():
     for cmd in [
         "fetch", "ephemeris", "tiles", "terrain", "sites-derive", "masks", "horizons-fetch", "horizons-compare",
         "report", "fixture-time", "fixture-metrics", "fixture-power", "fixture-landing", "validate", "sync-local", "home-assets",
+        "sky", "fixture-sky",
     ]:
         args = parser.parse_args([cmd] + (["--site", "x"] if cmd in ("report", "fixture-metrics", "fixture-power", "fixture-landing") else []))
         assert args.cmd == cmd
+
+
+def test_fetch_takes_the_sky_group():
+    assert build_parser().parse_args(["fetch", "--group", "sky"]).group == ["sky"]
 
 
 def test_report_requires_site():

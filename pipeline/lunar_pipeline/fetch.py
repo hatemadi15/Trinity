@@ -10,6 +10,7 @@ import certifi
 import requests
 
 from . import config
+from .sky import BSC5P_URL, EARTH_CLOUDS_URL, EARTH_DAY_URL
 
 NAIF = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/"
 # LOLA Data Node (MIT) mirrors the PDS Geosciences products with upper-case names and is much faster.
@@ -42,6 +43,12 @@ ILLUM_STEMS = [
     "lpsr_85s_060m_201608",
 ]
 TEXTURES = ["lroc_color_2k.jpg"]  # 2K equirectangular LRO WAC colour mosaic, 447 KB
+# The sky for the stand view (sky.py): the Yale Bright Star Catalogue (HEASARC) and NASA's Blue Marble Earth maps.
+SKY = [
+    ("heasarc_bsc5p.tdat.gz", BSC5P_URL),
+    ("land_shallow_topo_2048.jpg", EARTH_DAY_URL),
+    ("cloud_combined_2048.jpg", EARTH_CLOUDS_URL),
+]
 
 
 USER_AGENT = "trinity-lunar-pipeline/0.1 (Space Apps 2026)"
@@ -82,6 +89,8 @@ def assets() -> list[Asset]:
             out.append(Asset(name, LOLA_NODE_ILLUM + name.upper(), config.ILLUM_DIR, "illumination"))
     for name in TEXTURES:
         out.append(Asset(name, SVS + name, config.RAW_DIR / "textures", "textures"))
+    for name, url in SKY:
+        out.append(Asset(name, url, config.RAW_DIR / "sky", "sky"))
     return out
 
 

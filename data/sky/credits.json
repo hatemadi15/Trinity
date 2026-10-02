@@ -1,0 +1,12 @@
+{
+ "earth_day": {
+  "title": "Blue Marble: Land Surface, Shallow Water, and Shaded Topography",
+  "url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57752/land_shallow_topo_2048.jpg",
+  "credit": "NASA Goddard Space Flight Center (Reto St\u00f6ckli)"
+ },
+ "earth_clouds": {
+  "title": "Blue Marble: Clouds",
+  "url": "https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57747/cloud_combined_2048.jpg",
+  "credit": "NASA Goddard Space Flight Center"
+ }
+}
