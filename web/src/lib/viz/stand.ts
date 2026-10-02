@@ -35,7 +35,7 @@ export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string
  */
 export function measuredNote(cellsM: number[], starCount: number): string {
   const nb = '\u00a0';
-  const rest = `The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of ${starCount.toLocaleString('en-GB')} stars, and Earth is NASA's Blue Marble photograph. The lander and the small craters underfoot are drawn, not measured.`;
+  const rest = `The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of ${starCount.toLocaleString('en-GB')} stars, and Earth is NASA's Blue Marble photograph. With no air, the sky is black by day as well as by night. The lander and the small craters underfoot are drawn, not measured.`;
   if (cellsM.length === 0) return `There are no detailed NASA heights for this site, so the ground here is drawn flat. ${rest}`;
   const steps = [...new Set(cellsM.map((c) => Math.round(c)))].sort((a, b) => a - b);
   const parts = steps.map((c, i) => `${c}${nb}m${i === 0 ? ' steps' : ''} ${c > 200 ? `out to 125${nb}km` : i === 0 ? 'near you' : `out to 20${nb}km`}`);

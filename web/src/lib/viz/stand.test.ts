@@ -97,7 +97,7 @@ describe('the stand view’s words', () => {
 
 describe('the note on how we know this', () => {
   const nb = '\u00a0';
-  const rest = "The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of 8,404 stars, and Earth is NASA's Blue Marble photograph. The lander and the small craters underfoot are drawn, not measured.";
+  const rest = "The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of 8,404 stars, and Earth is NASA's Blue Marble photograph. With no air, the sky is black by day as well as by night. The lander and the small craters underfoot are drawn, not measured.";
   it('says in plain words where the heights, the shadows, the sky and Earth come from, and what is drawn', () => {
     expect(measuredNote([20, 80, 960], 8404)).toBe(
       `Heights measured from orbit by the laser on NASA's Lunar Reconnaissance Orbiter: 20${nb}m steps near you, 80${nb}m out to 20${nb}km and 960${nb}m out to 125${nb}km. The shadows are worked out from those heights for every hour. ${rest}`,
