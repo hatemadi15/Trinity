@@ -60,7 +60,6 @@ describe.skipIf(!haveData)('summarizeState', () => {
     expect(s!.compare.map((c) => c.id)).toEqual(['de_gerlache_rim_2']);
     expect(s!.compare[0].name).toMatch(/de Gerlache Rim 2/);
     expect(typeof s!.compare[0].survives).toBe('boolean');
-    expect(s!.audience).toBe('planner');
     expect(JSON.stringify(s).length).toBeLessThan(1500); // compact enough for a prompt
   });
 });

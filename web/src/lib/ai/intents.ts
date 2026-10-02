@@ -2,7 +2,7 @@ import type { Site } from '../data/loaders';
 import { PANEL_LABELS, type PanelModel } from '../engine/power';
 import { clampTo, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
 import type { WindowDays } from '../store/explore';
-import { siteByName, type Action, type Page } from './actions';
+import { PAGE_NAMES, periodNote, siteByName, type Action, type Page } from './actions';
 import { EXPLANATIONS, explanationFor } from './explanations';
 
 export { EXPLANATIONS };
@@ -41,6 +41,23 @@ export function parseDate(text: string): string | null {
 }
 
 const notFound = (text: string) => ({ actions: [] as Action[], reply: `I could not find a site called "${text.trim()}" in the catalogue.` });
+const NO_SUCH_PERIOD = 'Periods are 14, 30 or 90 days, so the period stays as it is.';
+
+/** The pages' own names, and the words people use for them, to the page each one opens. */
+const PAGE_WORDS: Record<string, Page> = {
+  explore: 'explore',
+  sites: 'sites',
+  'site list': 'sites',
+  'list of sites': 'sites',
+  'landing sites': 'sites',
+  'list of landing sites': 'sites',
+  compare: 'compare',
+  validate: 'validate',
+  accuracy: 'validate',
+  brief: 'brief',
+  learn: 'learn',
+  'how it works': 'learn',
+};
 
 function panelFor(words: string): PanelModel | null {
   const w = words.toLowerCase();
@@ -68,7 +85,7 @@ export const INTENTS: Intent[] = [
         ...(days ? [{ type: 'set_window', days } as Action] : []),
         { type: 'open_page', page: 'compare' },
       ];
-      const unsupported = m[3] !== undefined && !days ? ' Windows are 14, 30 or 90 days, so the current length stays.' : '';
+      const unsupported = m[3] !== undefined && !days ? ` ${NO_SUCH_PERIOD}` : '';
       return { actions, reply: `Comparing ${a.name} and ${b.name}${days ? ` over ${days} days` : ''}.${unsupported}` };
     },
   },
@@ -82,14 +99,14 @@ export const INTENTS: Intent[] = [
   },
   {
     name: 'best_window',
-    pattern: /^(?:find |show |show me |give me |what is |what's )?(?:the )?best (\d+)[- ]?day window\b(.*)$/i,
+    pattern: /^(?:find |show |show me |give me |what is |what's )?(?:the )?best (?:(\d+)[- ]?day (?:window|landing date|landing day)|landing (?:date|day) for (\d+)[- ]?days?)\b(.*)$/i,
     build(m) {
-      const days = parseDays(m[1]);
+      const days = parseDays(m[1] ?? m[2]);
       if (!days) return null;
-      const scope = /compar/i.test(m[2]) ? 'compare' : 'site';
+      const scope = /compar/i.test(m[3]) ? 'compare' : 'site';
       return {
         actions: [{ type: 'find_best_window', days, scope }],
-        reply: `Scanning the next year for the best ${days}-day window${scope === 'compare' ? ' across the compared sites' : ''}.`,
+        reply: `Searching the next 12 months for the landing date that keeps power longest over ${days} days${scope === 'compare' ? ', on average across the compared sites' : ''}.`,
       };
     },
   },
@@ -102,7 +119,15 @@ export const INTENTS: Intent[] = [
       const days = parseDays(m[2]);
       if (m[2] !== undefined && !days) return null;
       const action: Action = days ? { type: 'set_window', startUtc, days } : { type: 'set_window', startUtc };
-      return { actions: [action], reply: `Window moved to ${startUtc.slice(0, 10)}${days ? ` for ${days} days` : ''}.` };
+      return { actions: [action], reply: periodNote(startUtc, days ?? undefined) };
+    },
+  },
+  {
+    name: 'period',
+    pattern: /^(?:make it|set (?:the )?period to|change (?:the )?period to|for|over) (\d+)[- ]?days?$/i,
+    build(m) {
+      const days = parseDays(m[1]);
+      return days ? { actions: [{ type: 'set_window', days }], reply: `Period: ${days} days.` } : { actions: [], reply: NO_SUCH_PERIOD };
     },
   },
   {
@@ -111,7 +136,7 @@ export const INTENTS: Intent[] = [
     build(m) {
       const asked = Number(m[1]);
       const loadW = clampTo(POWER_RANGES.loadW, asked);
-      return { actions: [{ type: 'set_power', patch: { loadW } }], reply: loadW === asked ? `Load set to ${loadW} W.` : `Load set to ${loadW} W, the ${asked > loadW ? 'highest' : 'lowest'} the planner allows.` };
+      return { actions: [{ type: 'set_power', patch: { loadW } }], reply: loadW === asked ? `Load set to ${loadW} W.` : `Load set to ${loadW} W, the ${asked > loadW ? 'highest' : 'lowest'} the lander settings allow.` };
     },
   },
   {
@@ -120,7 +145,7 @@ export const INTENTS: Intent[] = [
     build(m) {
       const asked = Number(m[1]);
       const batteryWh = clampTo(POWER_RANGES.batteryWh, asked);
-      return { actions: [{ type: 'set_power', patch: { batteryWh } }], reply: batteryWh === asked ? `Battery set to ${batteryWh} Wh.` : `Battery set to ${batteryWh} Wh, the ${asked > batteryWh ? 'largest' : 'smallest'} the planner allows.` };
+      return { actions: [{ type: 'set_power', patch: { batteryWh } }], reply: batteryWh === asked ? `Battery set to ${batteryWh} Wh.` : `Battery set to ${batteryWh} Wh, the ${asked > batteryWh ? 'largest' : 'smallest'} the lander settings allow.` };
     },
   },
   {
@@ -137,23 +162,15 @@ export const INTENTS: Intent[] = [
     build(m) {
       const asked = Number(m[1]);
       const mastM = clampTo(PARAM_RANGES.mastM, asked);
-      return { actions: [{ type: 'set_params', patch: { mastM } }], reply: `Mast set to ${mastM} m${mastM === asked ? '' : `, the ${asked > mastM ? 'highest' : 'lowest'} the planner allows`}; the skyline is recomputed from that height.` };
-    },
-  },
-  {
-    name: 'audience',
-    pattern: /^switch to (learn|planner)(?: mode| view)?$/i,
-    build(m) {
-      const audience = m[1].toLowerCase() as 'learn' | 'planner';
-      return { actions: [{ type: 'set_audience', audience }], reply: audience === 'learn' ? 'Switched to Learn mode.' : 'Switched to the planner view.' };
+      return { actions: [{ type: 'set_params', patch: { mastM } }], reply: `Mast set to ${mastM} m${mastM === asked ? '' : `, the ${asked > mastM ? 'highest' : 'lowest'} the lander settings allow`}; the hills are worked out again from that height.` };
     },
   },
   {
     name: 'open_page',
-    pattern: /^(?:open|go to|take me to|show me|show|switch to) (?:the )?(explore|compare|validate|brief|learn)(?: page| view)?$/i,
+    pattern: /^(?:open|go to|take me to|show me|show|switch to) (?:the )?(explore|sites|site list|list of sites|landing sites|list of landing sites|compare|validate|accuracy|brief|learn|how it works)(?: page| view)?$/i,
     build(m) {
-      const page = m[1].toLowerCase() as Page;
-      return { actions: [{ type: 'open_page', page }], reply: `Opening ${page}.` };
+      const page = PAGE_WORDS[m[1].toLowerCase()];
+      return { actions: [{ type: 'open_page', page }], reply: `Opening ${PAGE_NAMES[page]}.` };
     },
   },
   {

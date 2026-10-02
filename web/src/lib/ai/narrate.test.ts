@@ -10,7 +10,6 @@ const summary: StateSummary = {
   power: { socMin: 1, brownoutHours: 0, survives: true, meanPowerW: 1118.4, poweredHours: 336, contactHours: 225 },
   params: { power: DEFAULT_POWER, minEarthElDeg: 0, mastM: 2 },
   compare: [],
-  audience: 'planner',
 };
 
 describe('numbersIn', () => {

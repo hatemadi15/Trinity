@@ -178,7 +178,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
           </p>
         )}
         {s.bestWindowNote && <p className="text-[15px] text-ink-2">{s.bestWindowNote}</p>}
-        <PlannerChat store={store} variant="panel" />
+        <PlannerChat store={store} />
       </main>
       {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
     </AppFrame>

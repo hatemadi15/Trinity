@@ -27,7 +27,7 @@ const SITES = catalogue.sites as Site[];
 const SITE_IDS: ReadonlySet<string> = new Set(SITES.map((s) => s.id));
 const RETRY_NUDGE = 'Answer again with ONE JSON object only, in the form {"actions": [...], "reply": "..."} and no other text.';
 const NO_ANSWER =
-  'I could not understand that. Try: "show me Nobile Rim 2", "compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "best 14-day window", "set the load to 300 W" or "explain the longest night".';
+  'I could not understand that. Try: "show me Nobile Rim 2", "compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "find the best landing date for 14 days", "set the load to 300 W" or "explain the longest night".';
 
 const limiter = new SlidingWindowLimiter(Number(process.env.AI_RATE_LIMIT_PER_MIN) || 30, 60_000);
 const modelBudgetMs = () => Number(process.env.AI_MODEL_BUDGET_MS) || DEFAULT_MODEL_BUDGET_MS;

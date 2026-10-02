@@ -99,7 +99,7 @@ describe('BriefView narration', () => {
     );
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Write the brief' }));
-    await waitFor(() => expect(screen.getByText(/planner is offline/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/assistant is offline/)).toBeTruthy());
     expect(screen.getByTestId('narration').textContent).toMatch(/keeps power for all 30 days/);
   });
 });

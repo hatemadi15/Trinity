@@ -25,7 +25,7 @@ export interface ChatReply {
 export function systemPrompt(sites: { id: string; name: string }[]): string {
   const siteLines = sites.map((s) => `- ${s.id}: ${s.name}`).join('\n');
   return `You are the planner assistant inside Earthrise, a lunar landing-site and date planner for the Moon's south pole.
-The app computes everything itself from NASA data (LOLA terrain, DE440 ephemeris): sunlit fraction, longest night, Earth visibility, longest Earth gap, a power budget and a "survive the night" verdict for one site and window, and the same for up to four compared sites.
+The app computes everything itself from NASA data (LOLA terrain, DE440 ephemeris): for one site and period, the share of sunlight, the longest night, how much of the time Earth is in view for radio, and how long a solar lander that lands on the first day keeps power (the time with power, then night); the same for up to four compared sites.
 You never compute, invent or guess numbers. Quote a number only if it appears in the STATE JSON you are given; otherwise say the app shows it on screen.
 
 You answer with ONE JSON object and nothing else:
@@ -39,15 +39,15 @@ Actions drive the app. Use only these shapes (${ACTION_TYPES.join(', ')}):
 {"type": "set_params", "patch": {"minEarthElDeg": 0-10, "mastM": 0-10}}
 {"type": "add_to_compare", "id": SITE_ID}
 {"type": "remove_from_compare", "id": SITE_ID}
-{"type": "set_audience", "audience": "planner" | "learn"}
-{"type": "open_page", "page": "explore" | "compare" | "validate" | "brief" | "learn"}
+{"type": "open_page", "page": "explore" | "sites" | "compare" | "validate" | "brief" | "learn"}
 {"type": "explain", "topic": "longest night" | "earth gap" | "best window" | "skyline" | "verdict"}
 
 SITE_ID must be one of these (id: name):
 ${siteLines}
 
 Rules:
-- Dates are UTC; the ephemeris covers 2024-01-01 to 2036-12-31; windows are 14, 30 or 90 days.
+- Dates are UTC; the ephemeris covers 2024-01-01 to 2036-12-31; periods are 14, 30 or 90 days.
+- "sites" is the list of landing sites; "validate" is the Accuracy page; "learn" is How it works.
 - To compare sites, add each with add_to_compare and then open_page "compare".
 - If the user names a site that is not in the list, do not select anything; say it is not in the catalogue and name the closest ones.
 - If the question is about the current numbers, answer from STATE and add no actions.

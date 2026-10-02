@@ -6,7 +6,7 @@ import type { Series } from '@/lib/engine/metrics';
 import type { SceneState } from '@/lib/viz/scene-state';
 import { GroundPanel } from './GroundPanel';
 
-const scene = { sunDirLocal: [0, 0.1, -1], earthDirLocal: [1, 0.1, 0], sunDirMoon: [1, 0, 0], earthDirMoon: [0, 1, 0], sunAz: 0, sunEl: 2, earthAz: 90, earthEl: 3, skylineAtSun: 0, skylineAtEarth: 0, light: { intensity: 1, castShadow: true }, earthVisible: true } as SceneState;
+const scene = { sunDirLocal: [0, 0.1, -1], earthDirLocal: [1, 0.1, 0], sunDirMoon: [1, 0, 0], earthDirMoon: [0, 1, 0], sunAz: 0, sunEl: 2, earthAz: 90, earthEl: 3, skylineAtSun: 0, skylineAtEarth: 0, light: { intensity: 1 }, earthVisible: true } as SceneState;
 const site = { id: 'de_gerlache_rim_2', name: 'de Gerlache Rim 2 (Artemis III region)', label: 'de Gerlache Rim 2', lat: -88.28, lon: -64.31, category: 'artemis3', polar: true, source: 'x' };
 const mare = { id: 'blue_ghost_m1', name: 'Blue Ghost Mission 1 (Mare Crisium)', label: 'Blue Ghost', lat: 18.56, lon: 61.81, category: 'clps', polar: false, source: 'x' };
 const n = 24;

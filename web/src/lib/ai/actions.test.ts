@@ -4,6 +4,7 @@ import type { Site } from '../data/loaders';
 import { readJson } from '../engine/__tests__/helpers';
 import type { ExploreState } from '../store/explore';
 import { applyActions, siteByName, validateActions, type Action } from './actions';
+import { explanationFor } from './explanations';
 
 const sites = [
   ...readJson<{ sites: Site[] }>('data', 'sites.json').sites,
@@ -17,13 +18,19 @@ describe('validateActions', () => {
       { type: 'select_site', id: 'nobile_rim_2' },
       { type: 'set_window', startUtc: '2027-03-01T00:00:00', days: 14 },
       { type: 'find_best_window', days: 30, scope: 'compare' },
-      { type: 'set_audience', audience: 'learn' },
       { type: 'open_page', page: 'compare' },
+      { type: 'open_page', page: 'sites' },
       { type: 'explain', topic: 'longest night' },
     ];
     const r = validateActions(input, ids);
     expect(r.actions).toEqual(input);
     expect(r.dropped).toEqual([]);
+  });
+
+  it('drops a stored answer\'s audience switch, which no longer exists, and keeps its other steps', () => {
+    const r = validateActions([{ type: 'set_audience', audience: 'learn' }, { type: 'open_page', page: 'learn' }], ids);
+    expect(r.actions).toEqual([{ type: 'open_page', page: 'learn' }]);
+    expect(r.dropped.join(' ')).toMatch(/set_audience/);
   });
 
   it('drops unknown action types and reports them', () => {
@@ -134,7 +141,6 @@ describe('applyActions', () => {
         calls.push(['addToCompare', id]);
       }),
       removeFromCompare: rec('removeFromCompare'),
-      setAudience: rec('setAudience'),
       findBestWindow: vi.fn(async (days: number, scope: string) => {
         calls.push(['findBestWindow', days, scope]);
         return { startUtc: '2027-03-04T00:00:00', poweredHours: 300, earthFraction: 0.5 };
@@ -154,7 +160,6 @@ describe('applyActions', () => {
       { type: 'add_to_compare', id: 'de_gerlache_rim_2' },
       { type: 'remove_from_compare', id: 'haworth' },
       { type: 'find_best_window', days: 14 },
-      { type: 'set_audience', audience: 'learn' },
       { type: 'open_page', page: 'compare' },
       { type: 'explain', topic: 'longest night' },
     ];
@@ -167,13 +172,24 @@ describe('applyActions', () => {
       ['addToCompare', 'de_gerlache_rim_2'],
       ['removeFromCompare', 'haworth'],
       ['findBestWindow', 14, 'site'],
-      ['setAudience', 'learn'],
     ]);
     expect(navigate).toHaveBeenCalledWith('/compare');
     expect(notes.length).toBe(actions.length);
     expect(notes[0]).toMatch(/Selected Nobile Rim 2/);
+    expect(notes[1]).toBe('Period: from 1 March 2027 for 14 days.');
+    expect(notes[3]).toBe('Lander settings: mast 5 m.');
     expect(notes[6]).toBe('Moved to the best landing date for 14 days: 2027-03-04.');
-    expect(notes[9]).toMatch(/longest night/i);
+    expect(notes[7]).toBe('Opened Compare sites.');
+    expect(notes[8]).toMatch(/longest night/i);
+  });
+
+  it('names, for a topic it cannot explain, only topics it can, in the words the pages use', async () => {
+    const { store } = fakeStore();
+    const [note] = await applyActions(store, [{ type: 'explain', topic: 'dark matter' }], vi.fn());
+    expect(note).not.toMatch(/skyline|verdict|window/i);
+    const suggested = note.split('; try ')[1].replace(/\.$/, '').split(/, | or /);
+    expect(suggested.length).toBe(5);
+    for (const topic of suggested) expect(explanationFor(topic), topic).not.toBeNull();
   });
 
   it('fills a partial window from the current one and reports unknown sites', async () => {

@@ -5,6 +5,7 @@ import { createStore, type StoreApi } from 'zustand';
 import type { PlannerAnswer } from '@/lib/ai/client';
 import type { Site } from '@/lib/data/loaders';
 import { readJson } from '@/lib/engine/__tests__/helpers';
+import { matchIntent } from '@/lib/ai/intents';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import type { AiMode, ExploreState } from '@/lib/store/explore';
 import { plannerLog } from '@/lib/store/planner-log';
@@ -36,7 +37,6 @@ function fakeStore(aiMode: AiMode = 'live') {
     setWindow: vi.fn((startUtc: string, days: number) => {
       calls.push(['setWindow', startUtc, days]);
     }),
-    setAudience: vi.fn(),
     setPower: vi.fn(),
     setParams: vi.fn(),
     removeFromCompare: vi.fn(),
@@ -52,8 +52,8 @@ function fakeStore(aiMode: AiMode = 'live') {
 const answer = (partial: Partial<PlannerAnswer>): PlannerAnswer => ({ source: 'model', actions: [], reply: '', ...partial });
 
 async function ask(prompt: string) {
-  fireEvent.change(screen.getByLabelText('Ask the planner'), { target: { value: prompt } });
-  fireEvent.submit(screen.getByRole('form', { name: 'Planner question' }));
+  fireEvent.change(screen.getByLabelText('Ask the assistant'), { target: { value: prompt } });
+  fireEvent.submit(screen.getByRole('form', { name: 'Question for the assistant' }));
 }
 
 describe('PlannerChat', () => {
@@ -66,14 +66,14 @@ describe('PlannerChat', () => {
     const askFn = vi.fn(async () =>
       answer({ model: 'google/gemma-4-31b-it:free', actions: [{ type: 'select_site', id: 'nobile_rim_2' }], reply: 'Nobile Rim 2 selected.' }),
     );
-    render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} defaultOpen />);
+    render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} />);
     await ask('show me nobile rim 2');
     await waitFor(() => expect(screen.getByText('Nobile Rim 2 selected.')).toBeTruthy());
     expect(calls).toEqual([['selectSite', 'nobile_rim_2']]);
     expect(screen.getByText(/answered by gemma-4-31b/)).toBeTruthy();
     expect(screen.getByText(/Selected Nobile Rim 2/)).toBeTruthy();
     expect(askFn).toHaveBeenCalledWith('show me nobile rim 2', null, 'live');
-    expect((screen.getByLabelText('Ask the planner') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('Ask the assistant') as HTMLInputElement).value).toBe('');
   });
 
   it('shows the offline copy and the example chips when the request fails, and a chip fills the input', async () => {
@@ -85,22 +85,28 @@ describe('PlannerChat', () => {
           throw new Error('Failed to fetch');
         }}
         navigate={vi.fn()}
-        defaultOpen
       />,
     );
     const chips = screen.getAllByRole('button', { name: /^Try: / });
     expect(chips.map((c) => c.textContent?.replace(/^Try: /, ''))).toEqual(EXAMPLE_PROMPTS);
     expect(EXAMPLE_PROMPTS.length).toBe(4);
     await ask('anything');
-    await waitFor(() => expect(screen.getByText(/The planner is offline/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/The assistant is offline/)).toBeTruthy());
     expect(screen.getAllByRole('button', { name: /^Try: / }).length).toBe(4);
-    fireEvent.click(screen.getByRole('button', { name: 'Try: Best 14-day window' }));
-    expect((screen.getByLabelText('Ask the planner') as HTMLInputElement).value).toBe('Best 14-day window');
+    fireEvent.click(screen.getByRole('button', { name: 'Try: Find the best landing date for 14 days' }));
+    expect((screen.getByLabelText('Ask the assistant') as HTMLInputElement).value).toBe('Find the best landing date for 14 days');
+  });
+
+  it('offers only examples the app answers without the model, in the words the pages use', () => {
+    for (const p of EXAMPLE_PROMPTS) {
+      expect(matchIntent(p, sites), p).not.toBeNull();
+      expect(p).not.toMatch(/window|skyline|verdict/i);
+    }
   });
 
   it('shows the rate-limit copy from the client', async () => {
     const { store } = fakeStore();
-    render(<PlannerChat store={store} ask={async () => answer({ source: 'none', reply: 'Too many questions; try again in 12 s.', retryAfterS: 12 })} navigate={vi.fn()} defaultOpen />);
+    render(<PlannerChat store={store} ask={async () => answer({ source: 'none', reply: 'Too many questions; try again in 12 s.', retryAfterS: 12 })} navigate={vi.fn()} />);
     await ask('open compare');
     await waitFor(() => expect(screen.getByText(/Too many questions; try again in 12 s/)).toBeTruthy());
   });
@@ -112,7 +118,7 @@ describe('PlannerChat', () => {
       .fn()
       .mockResolvedValueOnce(answer({ source: 'cache', reply: 'From the transcript.' }))
       .mockResolvedValueOnce(answer({ source: 'intent', actions: [{ type: 'open_page', page: 'compare' }], reply: 'Opening compare.' }));
-    render(<PlannerChat store={store} ask={askFn} navigate={navigate} defaultOpen />);
+    render(<PlannerChat store={store} ask={askFn} navigate={navigate} />);
     await ask('Show me Nobile Rim 2');
     await waitFor(() => expect(screen.getByText(/rehearsed answer/)).toBeTruthy());
     expect(askFn).toHaveBeenCalledWith('Show me Nobile Rim 2', null, 'cached');
@@ -123,31 +129,26 @@ describe('PlannerChat', () => {
 
   it('drops actions for unknown sites on the client too', async () => {
     const { store, calls } = fakeStore();
-    render(<PlannerChat store={store} ask={async () => answer({ actions: [{ type: 'select_site', id: 'atlantis' }], reply: 'Selected Atlantis.' })} navigate={vi.fn()} defaultOpen />);
+    render(<PlannerChat store={store} ask={async () => answer({ actions: [{ type: 'select_site', id: 'atlantis' }], reply: 'Selected Atlantis.' })} navigate={vi.fn()} />);
     await ask('go to atlantis');
     await waitFor(() => expect(screen.getByText(/could not find "atlantis"/)).toBeTruthy());
     expect(calls).toEqual([]);
   });
 
-  it('keeps the last five exchanges, newest first, and starts collapsed unless asked', async () => {
+  it('keeps the last five exchanges, newest first', async () => {
     const { store } = fakeStore();
     let n = 0;
     const askFn = vi.fn(async (prompt: string) => answer({ source: 'intent', reply: `Reply ${++n} to ${prompt}` }));
-    const { unmount } = render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} defaultOpen />);
+    const { unmount } = render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} />);
     for (let i = 1; i <= 6; i++) {
       await ask(`question ${i}`);
       await waitFor(() => expect(screen.getByText(`Reply ${i} to question ${i}`)).toBeTruthy());
     }
-    const items = within(screen.getByRole('list', { name: 'Planner replies' })).getAllByRole('listitem');
+    const items = within(screen.getByRole('list', { name: 'Replies from the assistant' })).getAllByRole('listitem');
     expect(items.length).toBe(5);
     expect(items[0].textContent).toMatch(/Reply 6/);
     expect(screen.queryByText(/Reply 1 to/)).toBeNull();
     unmount();
-    plannerLog.getState().clear(); // nothing to show: the strip starts collapsed
-    render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} />);
-    expect(screen.queryByLabelText('Ask the planner')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Planner/ }));
-    expect(screen.getByLabelText('Ask the planner')).toBeTruthy();
   });
 });
 
@@ -174,11 +175,11 @@ describe('PlannerChat transcript and failures', () => {
   it('keeps the transcript across instances, as when open_page navigates to Compare', async () => {
     const { store } = fakeStore();
     const askFn = vi.fn(async () => answer({ source: 'intent', reply: 'Comparing two sites.' }));
-    const first = render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} defaultOpen />);
+    const first = render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} />);
     await ask('compare a and b');
     await waitFor(() => expect(screen.getByText('Comparing two sites.')).toBeTruthy());
     first.unmount();
-    render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} defaultOpen />);
+    render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} />);
     expect(screen.getByText('Comparing two sites.')).toBeTruthy();
     expect(screen.getByText(/matched your words/)).toBeTruthy();
   });
@@ -187,12 +188,12 @@ describe('PlannerChat transcript and failures', () => {
     const { store } = fakeStore();
     (store.getState().findBestWindow as unknown as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('window past the table end'));
     render(
-      <PlannerChat store={store} ask={async () => answer({ source: 'intent', actions: [{ type: 'find_best_window', days: 14 }], reply: 'Scanning.' })} navigate={vi.fn()} defaultOpen />,
+      <PlannerChat store={store} ask={async () => answer({ source: 'intent', actions: [{ type: 'find_best_window', days: 14 }], reply: 'Scanning.' })} navigate={vi.fn()} />,
     );
     await ask('best 14-day window');
     await waitFor(() => expect(screen.getByText('Scanning.')).toBeTruthy());
     expect(screen.getByText(/could not be applied.*window past the table end/)).toBeTruthy();
-    expect(screen.queryByText(/planner is offline/)).toBeNull();
+    expect(screen.queryByText(/assistant is offline/)).toBeNull();
   });
 });
 
@@ -227,18 +228,18 @@ describe('PlannerChat opens when it has something to show', () => {
     const { store } = fakeStore();
     plannerLog.getState().push({ prompt: 'compare a and b', reply: 'Comparing two sites.', source: 'intent', notes: [] });
     render(<PlannerChat store={store} ask={vi.fn()} navigate={vi.fn()} />);
-    expect(screen.getByLabelText('Ask the planner')).toBeTruthy();
+    expect(screen.getByLabelText('Ask the assistant')).toBeTruthy();
     expect(screen.getByText('Comparing two sites.')).toBeTruthy();
     expect(screen.getByText(/matched your words/)).toBeTruthy();
   });
 
     it('as a panel is always open, says what the assistant does, and keeps "Ask" out of gold', () => {
       const { store } = fakeStore();
-      render(<PlannerChat store={store} ask={vi.fn()} navigate={() => {}} variant="panel" />);
+      render(<PlannerChat store={store} ask={vi.fn()} navigate={() => {}} />);
       const panel = screen.getByRole('region', { name: 'Ask in plain words' });
       expect(within(panel).getByRole('heading', { level: 2 }).textContent).toBe('Ask in plain words');
       expect(panel.textContent).toMatch(/The assistant moves the controls for you\. It never invents numbers\./);
-      expect(within(panel).getByLabelText('Ask the planner').className).toMatch(/\bfield\b/);
+      expect(within(panel).getByLabelText('Ask the assistant').className).toMatch(/\bfield\b/);
       const askButton = within(panel).getByRole('button', { name: 'Ask' });
       expect(askButton.className).toMatch(/\bbtn\b/);
       expect(askButton.className).not.toMatch(/btn-primary/);
@@ -249,9 +250,9 @@ describe('PlannerChat opens when it has something to show', () => {
     it('as a panel reads as ready: the box says what to type and Ask is never greyed out before a question', () => {
       const { store } = fakeStore();
       const ask = vi.fn();
-      render(<PlannerChat store={store} ask={ask} navigate={() => {}} variant="panel" />);
+      render(<PlannerChat store={store} ask={ask} navigate={() => {}} />);
       const panel = screen.getByRole('region', { name: 'Ask in plain words' });
-      const box = within(panel).getByLabelText('Ask the planner');
+      const box = within(panel).getByLabelText('Ask the assistant');
       expect(box.getAttribute('placeholder')).toBe('Type a question about a site, a date or the lander');
       const askButton = within(panel).getByRole('button', { name: 'Ask' }) as HTMLButtonElement;
       expect(askButton.disabled).toBe(false);

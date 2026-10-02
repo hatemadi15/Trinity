@@ -15,10 +15,8 @@ export const WINDOW_DAYS = [14, 30, 90] as const;
 export type WindowDays = (typeof WINDOW_DAYS)[number];
 export type SceneMode = 'globe' | 'terrain';
 /** Who is looking: planners see every number, Learn mode hides three tiles and adds a guided story. */
-export type Audience = 'planner' | 'learn';
 /** Where planner answers come from: the model when a key is set (live), or the rehearsed transcripts (?demo=1). */
 export type AiMode = 'live' | 'cached';
-export const AUDIENCE_KEY = 'earthrise.audience';
 /** Terrain extras: idle before init, loading until the cap lands, ready, or unavailable (no loaders or a failed fetch). */
 export type TerrainState = 'idle' | 'loading' | 'ready' | 'unavailable';
 export type Exaggeration = 1 | 3;
@@ -159,10 +157,6 @@ export interface ExploreState {
   waitForMask: () => Promise<void>;
   /** Resolves once a pending mast debounce has fired (the recompute may still be in flight). */
   waitForDebounce: () => Promise<void>;
-  audience: Audience;
-  setAudience: (audience: Audience) => void;
-  /** Reads the stored choice after mount so server and first client render agree. */
-  hydrateAudience: () => void;
   aiMode: AiMode;
   setAiMode: (mode: AiMode) => void;
   /** Applies ?site=&start=&days= from a URL once the store is ready; unknown ids and bad dates are ignored. */
@@ -198,15 +192,6 @@ export function recompute(
     best,
     after: best && best.hour > 0 ? summarize(sliceSeries(scan, best.hour, hours)) : summary,
   };
-}
-
-function storedAudience(): Audience {
-  try {
-    const v = typeof window !== 'undefined' ? window.localStorage.getItem(AUDIENCE_KEY) : null;
-    return v === 'learn' ? 'learn' : 'planner';
-  } catch {
-    return 'planner';
-  }
 }
 
 function message(err: unknown): string {
@@ -265,7 +250,6 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     compare: [],
     maskBusy: false,
     bestWindowNote: null,
-    audience: 'planner',
     aiMode: process.env.NEXT_PUBLIC_AI_MODE === 'cached' ? 'cached' : 'live',
 
     async init() {
@@ -551,11 +535,6 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       await debouncePromise;
     },
 
-    hydrateAudience() {
-      const stored = storedAudience();
-      if (stored !== get().audience) set({ audience: stored });
-    },
-
     async applyQuery(search) {
       const q = parseExploreQuery(search);
       if (q.startUtc || q.days) get().setWindow(q.startUtc ?? get().startUtc, q.days ?? get().days);
@@ -566,14 +545,6 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       set({ aiMode: mode });
     },
 
-    setAudience(audience) {
-      set({ audience });
-      try {
-        if (typeof window !== 'undefined') window.localStorage.setItem(AUDIENCE_KEY, audience);
-      } catch {
-        // storage may be unavailable (private mode); the choice still applies to this page
-      }
-    },
 
     setCustomError(customError) {
       set({ customError });

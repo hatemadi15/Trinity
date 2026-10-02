@@ -22,7 +22,7 @@ type Narration = { text: string; source: 'template' | 'model' | 'error'; model?:
 function narrationLabelFor(n: Narration | null): string {
   if (!n) return 'written from the numbers above';
   if (n.source === 'model') return `narrated by ${n.model ? shortModel(n.model) : 'the model'}, checked number by number against the figures below`;
-  if (n.source === 'error') return n.message?.startsWith('Too many') ? `${n.message} Written from the numbers above.` : 'the planner is offline; written from the numbers above';
+  if (n.source === 'error') return n.message?.startsWith('Too many') ? `${n.message} Written from the numbers above.` : 'the assistant is offline; written from the numbers above';
   switch (n.reason) {
     case 'cached':
       return 'demo mode; written from the numbers above';

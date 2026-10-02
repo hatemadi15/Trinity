@@ -40,14 +40,6 @@
   --stage-earth: #6aa9ff;
   --hill: #6d6962;
   --hill-edge: #e9e3d7;
-  /* Old names, still used by the pages that parts 2 to 4 rebuild. */
-  --canvas: var(--page);
-  --panel: var(--surface);
-  --sky: var(--stage);
-  --night: #0a0b0d;
-  --sun-bright: #ffc65c;
-  --terrain: var(--hill);
-  --terrain-edge: #a39e94;
   color-scheme: light;
 }
 
@@ -107,12 +99,6 @@
   --color-stage-sun: var(--stage-sun);
   --color-stage-earth: var(--stage-earth);
   --color-hill: var(--hill);
-  --color-canvas: var(--canvas);
-  --color-panel: var(--panel);
-  --color-sky: var(--sky);
-  --color-night: var(--night);
-  --color-sun-bright: var(--sun-bright);
-  --color-terrain: var(--terrain);
   --font-display: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
   --font-text: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
 }
@@ -289,14 +275,6 @@ html {
     border: 3px solid var(--ink);
     background: var(--surface);
   }
-  /* Old panels: solid surfaces now. Removed in part 4. */
-  .glass {
-    background: var(--surface);
-    border: 1px solid var(--line);
-  }
-  .glass-bar {
-    background: var(--page);
-  }
 }
 
 @keyframes reveal-wipe {
@@ -318,8 +296,8 @@ html {
 
 /*
  * Printable brief: always a light page (A4 portrait), whatever the theme. Every themed token is set
- * here, because an alias such as --canvas is resolved on <html> and would otherwise carry the dark
- * theme's value into the brief.
+ * here, so the dark theme's values on <html> never reach the brief; the stage keeps its black, and
+ * prints it.
  */
 .brief {
   --page: #ffffff;
@@ -342,11 +320,13 @@ html {
   --bad-bg: rgba(184, 60, 60, 0.07);
   --bad-line: rgba(184, 60, 60, 0.35);
   --warn: #8a5a00;
-  --canvas: #ffffff;
-  --panel: #ffffff;
   color-scheme: light;
   background: var(--page);
   color: var(--ink);
+}
+.brief .stage {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 @media print {
   .no-print {

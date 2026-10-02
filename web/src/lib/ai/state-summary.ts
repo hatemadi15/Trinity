@@ -1,7 +1,7 @@
 import { siteLabel } from '../data/loaders';
 import { timeWithPower } from '../engine/landing';
 import type { Summary } from '../engine/metrics';
-import type { Audience, ExploreState, PlannerParams, WindowDays } from '../store/explore';
+import type { ExploreState, PlannerParams, WindowDays } from '../store/explore';
 
 /** The compact, rounded picture of the app the planner sends with each question (well under 2 KB). */
 export interface StateSummary {
@@ -12,7 +12,6 @@ export interface StateSummary {
   power: { socMin: number; brownoutHours: number; survives: boolean; meanPowerW: number; poweredHours: number; contactHours: number };
   params: PlannerParams;
   compare: { id: string; name: string; illumFraction: number; earthVisFraction: number; survives: boolean }[];
-  audience: Audience;
 }
 
 const r3 = (x: number) => Math.round(x * 1000) / 1000;
@@ -52,6 +51,5 @@ export function summarizeState(s: ExploreState): StateSummary | null {
       earthVisFraction: r3(c.summary.earthVisFraction),
       survives: c.power.survives,
     })),
-    audience: s.audience,
   };
 }

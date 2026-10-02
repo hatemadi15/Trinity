@@ -25,6 +25,12 @@ describe('cachedAnswer', () => {
     expect(new Set(TRANSCRIPTS.map((t) => normalizePrompt(t.prompt))).size).toBe(12);
   });
 
+  it('answers in the words the pages use, and can open the site list', () => {
+    for (const t of TRANSCRIPTS) expect(t.reply, t.id).not.toMatch(/skyline|verdict|window|tiles|columns|validate|planner|sunlit fraction|survive/i);
+    expect(cachedAnswer('Show me the list of landing sites')?.actions).toEqual([{ type: 'open_page', page: 'sites' }]);
+    expect(cachedAnswer('Open the accuracy page')?.actions).toEqual([{ type: 'open_page', page: 'validate' }]);
+  });
+
   it('answers a rehearsed prompt regardless of case, punctuation and filler words', () => {
     const exact = cachedAnswer('Show me Nobile Rim 2');
     expect(exact?.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);

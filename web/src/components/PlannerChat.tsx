@@ -11,9 +11,9 @@ import { plannerLog, type Exchange } from '@/lib/store/planner-log';
 export type Ask = (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
 
 /** The four chips shown while the transcript is empty; each is one of the rehearsed prompts. */
-export const EXAMPLE_PROMPTS = ['Show me Nobile Rim 2', 'Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days', 'Best 14-day window', 'Explain the longest night'];
+export const EXAMPLE_PROMPTS = ['Show me Nobile Rim 2', 'Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days', 'Find the best landing date for 14 days', 'Explain the longest night'];
 
-const OFFLINE = 'The planner is offline; the app works without it. Try one of the example questions below, or ask again in a moment.';
+const OFFLINE = 'The assistant is offline; the app works without it. Try one of the example questions below, or ask again in a moment.';
 
 function sourceLabel(x: Exchange): string {
   switch (x.source) {
@@ -26,12 +26,12 @@ function sourceLabel(x: Exchange): string {
     case 'none':
       return 'no answer';
     default:
-      return 'planner offline';
+      return 'assistant offline';
   }
 }
 
 /**
- * One input, one reply, one source line: the planner strip. Questions go to /api/chat with the
+ * One input, one reply, one source line: the assistant's panel. Questions go to /api/chat with the
  * compact state; the answer's actions are validated against the catalogue again here and applied
  * to the store, so the same words drive Explore and Compare whether the model, a rehearsed
  * transcript or the intent matcher answered. The transcript lives in `plannerLog`, so it survives
@@ -41,22 +41,15 @@ export function PlannerChat({
   store = exploreStore,
   ask = askPlanner,
   navigate,
-  defaultOpen = false,
-  variant = 'strip',
 }: {
   store?: StoreApi<ExploreState>;
   ask?: Ask;
   navigate?: (href: string) => void;
-  defaultOpen?: boolean;
-  /** 'strip': the folding bar of the old pages; 'panel': an open section with its own heading (Explore). */
-  variant?: 'strip' | 'panel';
 }) {
   const aiMode = useStore(store, (s) => s.aiMode);
   const exchanges = useStore(plannerLog, (s) => s.exchanges);
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
-  // Open when asked to, or when the transcript already holds an answer (Compare, right after "compare A and B").
-  const [open, setOpen] = useState(() => variant === 'panel' || defaultOpen || plannerLog.getState().exchanges.length > 0);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const panelBox = useRef<HTMLInputElement>(null);
@@ -89,133 +82,60 @@ export function PlannerChat({
   }
 
   const showChips = exchanges.length === 0 || exchanges[0].source === 'error';
-  const latest = exchanges[0];
-    if (variant === 'panel') {
-      return (
-        <section aria-label="Ask in plain words" className="panel">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-            <h2 className="display text-[23px] font-semibold">Ask in plain words</h2>
-            <p className="text-[15px] text-ink-2">
-              The assistant moves the controls for you. It never invents numbers.
-              {aiMode === 'cached' && ' Demo mode: rehearsed answers.'}
-            </p>
-          </div>
-          <form
-            aria-label="Planner question"
-            className="mt-3 flex flex-wrap gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              // An empty question sends nothing: the cursor goes to the box instead.
-              if (!input.trim()) panelBox.current?.focus();
-              else void submit(input);
-            }}
-          >
-            <input
-              ref={panelBox}
-              type="text"
-              aria-label="Ask the planner"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type a question about a site, a date or the lander"
-              maxLength={500}
-              className="field min-w-[260px] flex-1 placeholder:text-ink-3"
-            />
-            <button type="submit" disabled={busy} className="btn h-[52px]">
-              {busy ? 'Thinking…' : 'Ask'}
-            </button>
-          </form>
-          {showChips && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {EXAMPLE_PROMPTS.map((p) => (
-                <button key={p} type="button" aria-label={`Try: ${p}`} onClick={() => setInput(p)} className="min-h-[40px] rounded-full border border-line-strong px-4 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-          {exchanges.length > 0 && (
-            <ol aria-label="Planner replies" className="mt-4 flex flex-col gap-3">
-              {exchanges.map((x, i) => (
-                <li key={x.id} className={i === 0 ? 'text-ink' : 'text-ink-2'}>
-                  <p className={i === 0 ? 'text-base' : 'text-[15px]'}>{x.reply}</p>
-                  {x.notes.length > 0 && <p className="text-[15px] text-ink-2">{x.notes.join(' ')}</p>}
-                  <p className="text-[15px] text-ink-2">
-                    {sourceLabel(x)}, after you asked “{x.prompt}”
-                  </p>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
-      );
-    }
   return (
-    <section aria-label="Planner" className="glass rounded-md px-4 py-2">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-4 py-1 text-left text-sm text-ink"
+    <section aria-label="Ask in plain words" className="panel">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <h2 className="display text-[23px] font-semibold">Ask in plain words</h2>
+        <p className="text-[15px] text-ink-2">
+          The assistant moves the controls for you. It never invents numbers.
+          {aiMode === 'cached' && ' Demo mode: rehearsed answers.'}
+        </p>
+      </div>
+      <form
+        aria-label="Question for the assistant"
+        className="mt-3 flex flex-wrap gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          // An empty question sends nothing: the cursor goes to the box instead.
+          if (!input.trim()) panelBox.current?.focus();
+          else void submit(input);
+        }}
       >
-        <span>
-          Planner: ask in plain words
-          {aiMode === 'cached' && <span className="text-ink-3"> (demo mode, rehearsed answers)</span>}
-          {!open && latest && <span className="text-ink-3"> — {latest.reply.slice(0, 80)}</span>}
-        </span>
-        <span aria-hidden="true">{open ? '▴' : '▾'}</span>
-      </button>
-      {open && (
-        <div className="flex flex-col gap-3 py-3">
-          <form
-            aria-label="Planner question"
-            className="flex flex-wrap gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void submit(input);
-            }}
-          >
-            <input
-              type="text"
-              aria-label="Ask the planner"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask the planner: compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days"
-              maxLength={500}
-              className="min-w-[280px] flex-1 rounded-md border border-line bg-canvas px-3 py-1.5 text-ink placeholder:text-ink-3"
-            />
-            <button type="submit" disabled={busy || !input.trim()} className="rounded-md bg-sun px-3 py-1 text-sm font-medium text-night hover:bg-sun-bright disabled:opacity-50">
-              {busy ? 'Thinking…' : 'Ask'}
+        <input
+          ref={panelBox}
+          type="text"
+          aria-label="Ask the assistant"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Type a question about a site, a date or the lander"
+          maxLength={500}
+          className="field min-w-[260px] flex-1 placeholder:text-ink-3"
+        />
+        <button type="submit" disabled={busy} className="btn h-[52px]">
+          {busy ? 'Thinking…' : 'Ask'}
+        </button>
+      </form>
+      {showChips && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {EXAMPLE_PROMPTS.map((p) => (
+            <button key={p} type="button" aria-label={`Try: ${p}`} onClick={() => setInput(p)} className="min-h-[40px] rounded-full border border-line-strong px-4 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
+              {p}
             </button>
-          </form>
-          {showChips && (
-            <div className="flex flex-wrap gap-2">
-              {EXAMPLE_PROMPTS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  aria-label={`Try: ${p}`}
-                  onClick={() => setInput(p)}
-                  className="rounded-full border border-line px-3 py-0.5 text-xs text-ink-2 hover:border-sun hover:text-ink"
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-          {exchanges.length > 0 && (
-            <ol aria-label="Planner replies" className="flex flex-col gap-3">
-              {exchanges.map((x, i) => (
-                <li key={x.id} className={i === 0 ? 'text-ink' : 'text-ink-3'}>
-                  <p className={i === 0 ? 'text-sm' : 'text-xs'}>{x.reply}</p>
-                  {x.notes.length > 0 && <p className="text-xs text-ink-2">{x.notes.join(' ')}</p>}
-                  <p className="text-xs text-ink-3">
-                    {sourceLabel(x)}, after you asked “{x.prompt}”
-                  </p>
-                </li>
-              ))}
-            </ol>
-          )}
+          ))}
         </div>
+      )}
+      {exchanges.length > 0 && (
+        <ol aria-label="Replies from the assistant" className="mt-4 flex flex-col gap-3">
+          {exchanges.map((x, i) => (
+            <li key={x.id} className={i === 0 ? 'text-ink' : 'text-ink-2'}>
+              <p className={i === 0 ? 'text-base' : 'text-[15px]'}>{x.reply}</p>
+              {x.notes.length > 0 && <p className="text-[15px] text-ink-2">{x.notes.join(' ')}</p>}
+              <p className="text-[15px] text-ink-2">
+                {sourceLabel(x)}, after you asked “{x.prompt}”
+              </p>
+            </li>
+          ))}
+        </ol>
       )}
     </section>
   );
