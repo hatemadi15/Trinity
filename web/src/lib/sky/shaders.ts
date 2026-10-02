@@ -106,6 +106,8 @@ void main() {
   vec3 col = albedo * vec3(1.0, 0.99, 0.975) * uSunPower * ls * phase * surge * vis;
   vec3 Le = normalize(uEarth); float mue = max(dot(Nn, Le), 0.0);
   col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * mue / (mue + mu);
+  // Earth sits low here, so its light grazes the ground; the earthlit slopes around scatter a faint glow.
+  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.12;
   gl_FragColor = vec4(col, 1.0);
 }`;
 

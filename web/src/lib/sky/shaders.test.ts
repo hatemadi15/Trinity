@@ -25,4 +25,8 @@ describe('the ground shader', () => {
     expect(GROUND_FRAG).toContain('float rocks(vec2 p, out float bright)');
     expect(GROUND_FRAG).toContain('float grain(vec2 p, float px)');
   });
+
+  it('keeps a faint earthlit glow on ground that faces away from a low Earth, the light the earthlit slopes around it scatter', () => {
+    expect(GROUND_FRAG).toContain('uEarthshine * 0.12');
+  });
 });
