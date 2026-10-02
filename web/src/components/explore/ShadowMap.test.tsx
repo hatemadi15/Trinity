@@ -24,6 +24,11 @@ describe('ShadowMap', () => {
     expect(screen.getByRole('img', { name: 'Shadows at 1 Jan 2027, 00:00 UTC. The site is in shadow.' })).toBeTruthy();
   });
 
+  it("says the site's state in the same words as the sentence above the map, when it is given", () => {
+    show({ picture: picture(false), siteState: 'partly in sunlight' });
+    expect(screen.getByRole('img', { name: 'Shadows at 1 Jan 2027, 00:00 UTC. The site is partly in sunlight.' })).toBeTruthy();
+  });
+
   it('says it is working out the shadows until the first picture arrives', () => {
     show({ picture: null });
     expect(screen.getByRole('img', { name: 'Shadows at 1 Jan 2027, 00:00 UTC: being worked out.' })).toBeTruthy();

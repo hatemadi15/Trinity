@@ -91,7 +91,8 @@ export function ShadowMap({
   const compassBox = { x: corner === 'tl' ? 0.03 : 0.97 - c, y: corner === 'br' ? 0.97 - c : 0.03, w: c, h: c };
   const scaleBox = { x: 0.04, y: 0.96 - SCALE_H_PX / sizePx, w: km / shownKm + SCALE_PAD_PX / sizePx, h: SCALE_H_PX / sizePx };
   const name = siteNameBox(nameWords, [sunPlate.box, earthPlate.box, compassBox, scaleBox], sizePx);
-  const said = picture ? (picture.siteLit ? '. The site is in sunlight.' : '. The site is in shadow.') : ': being worked out.';
+  // The page's own words for the site when given, so the description never disagrees with the sentence above the map.
+  const said = !picture ? ': being worked out.' : siteState ? `. The site is ${siteState}.` : picture.siteLit ? '. The site is in sunlight.' : '. The site is in shadow.';
   return (
     <LabelGuard role="img" aria-label={`Shadows at ${when}${said}`} className="relative aspect-square h-full overflow-hidden bg-stage">
       <canvas ref={canvas} aria-hidden="true" className={`absolute inset-0 h-full w-full ${picture ? '' : 'invisible'}`} style={{ transform: `rotate(${Math.round(view.rotateDeg * 100) / 100}deg) scale(${Math.round(view.scale * 10000) / 10000})` }} />
