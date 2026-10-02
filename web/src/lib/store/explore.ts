@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from 'zustand';
 import { dataBase, loadEphemerisFromUrl, loadMask, loadSites, type MaskDoc, type Site } from '../data/loaders';
-import { loadHeightmap, loadTerrainManifest, windowFileFor, type Heightmap, type TerrainManifest } from '../data/terrain';
+import { contextFileFor, loadHeightmap, loadTerrainManifest, windowFileFor, type Heightmap, type TerrainManifest } from '../data/terrain';
 import { indexForEt, type Ephemeris } from '../engine/ephemeris';
 import { EngineClient } from '../engine-client';
 import { normalizeLon } from '../engine/geometry';
@@ -115,6 +115,8 @@ export interface ExploreState {
   terrainManifest: TerrainManifest | null;
   /** Detailed heightmap window for the selected site (null for custom sites or without terrain data). */
   heightmap: Heightmap | null;
+  /** The 80 m grid around a 20 m window (null for an 80 m window or before it loads). */
+  contextHeightmap: Heightmap | null;
   capHeightmap: Heightmap | null;
   init: () => Promise<void>;
   selectSite: (id: string) => Promise<void>;
@@ -216,6 +218,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   // registered by applyMask so custom sites stay selectable without a mask file.
   const masks = new Map<string, CachedMask>();
   const windows = new Map<string, Heightmap>();
+  /** 80 m context grids by site; null records a site whose window has none. */
+  const contexts = new Map<string, Heightmap | null>();
   // Sequence tokens so slow loads cannot overwrite a newer selection.
   let selectSeq = 0;
   let windowSeq = 0;
@@ -249,6 +253,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     windowLoading: false,
     terrainManifest: null,
     heightmap: null,
+    contextHeightmap: null,
     capHeightmap: null,
     params: DEFAULT_PARAMS,
     power: null,
@@ -314,6 +319,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           maskBusy: false,
           bestWindowNote: null,
           heightmap: windows.get(id) ?? null,
+          contextHeightmap: contexts.get(id) ?? null,
         });
         void loadWindow(id);
         if ((cached.meta.mastM ?? 2) !== params.mastM) void recomputeMask();
@@ -370,6 +376,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           error: null,
           customError: null,
           heightmap: windows.get(site.id) ?? null,
+          contextHeightmap: contexts.get(site.id) ?? null,
         });
         void loadWindow(site.id);
         if (get().compareIds.includes(site.id)) recomputeCompare();
@@ -717,26 +724,35 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     if (!terrainManifest || !loaders.loadHeightmap) return;
     const entry = windowFileFor(terrainManifest, siteId);
     if (!entry) {
-      if (store.getState().siteId === siteId) store.setState({ heightmap: null, windowLoading: false });
+      if (store.getState().siteId === siteId) store.setState({ heightmap: null, contextHeightmap: null, windowLoading: false });
       return;
     }
+    const contextEntry = contextFileFor(terrainManifest, siteId);
     const seq = ++windowSeq;
     let hm = windows.get(siteId);
-    if (hm) {
+    let cm = contexts.get(siteId);
+    if (hm && cm !== undefined) {
       // A cached window supersedes any fetch still in flight for an earlier selection.
       if (store.getState().windowLoading) store.setState({ windowLoading: false });
     } else {
       store.setState({ windowLoading: true });
       try {
-        hm = await loaders.loadHeightmap(entry.file, entry.meta);
+        // The context is an extra: a failed fetch leaves the window without it.
+        const [window, context] = await Promise.all([
+          hm ? Promise.resolve(hm) : loaders.loadHeightmap(entry.file, entry.meta),
+          contextEntry ? loaders.loadHeightmap(contextEntry.file, contextEntry.meta).catch(() => null) : Promise.resolve(null),
+        ]);
+        hm = window;
+        cm = context;
         windows.set(siteId, hm);
+        contexts.set(siteId, cm);
       } catch {
         if (seq === windowSeq) store.setState({ windowLoading: false });
         return;
       }
       if (seq === windowSeq) store.setState({ windowLoading: false });
     }
-    if (seq === windowSeq && store.getState().siteId === siteId) store.setState({ heightmap: hm });
+    if (seq === windowSeq && store.getState().siteId === siteId) store.setState({ heightmap: hm, contextHeightmap: cm ?? null });
   }
 
   return store;

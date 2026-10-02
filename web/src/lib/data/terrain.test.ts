@@ -4,12 +4,16 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  CAP_SHADOW_HALF_PX,
+  contextFileFor,
   decodeHeightmap,
   latLonToPixel,
+  shadowLevels,
   loadHeightmap,
   loadTerrainManifest,
   pixelToLatLon,
   windowFileFor,
+  type Heightmap,
   type HeightmapMeta,
   type TerrainManifest,
 } from './terrain';
@@ -47,6 +51,51 @@ describe('windowFileFor', () => {
   it('returns the raster and sidecar names of a listed site, null otherwise', () => {
     expect(windowFileFor(manifest, 'a')).toEqual({ file: 'a.u16', meta: 'a.json' });
     expect(windowFileFor(manifest, 'custom_1')).toBeNull();
+  });
+});
+
+describe('contextFileFor', () => {
+  const manifest = {
+    version: 2,
+    windows: [
+      { site_id: 'deep', lat: -89.5, lon: 0, file: 'deep.u16', meta: 'deep.json', level: 'L0', cell_m: 20, width: 4, height: 4, bytes: 1, context: { file: 'deep.context.u16', meta: 'deep.context.json', cell_m: 80, width: 4, height: 4 } },
+      { site_id: 'far', lat: -85, lon: 0, file: 'far.u16', meta: 'far.json', level: 'L1', cell_m: 80, width: 4, height: 4, bytes: 1 },
+    ],
+    cap: { file: 'south_cap.u16', meta: 'south_cap.json' },
+    globe_texture: 'lroc_color_2k.jpg',
+  } satisfies TerrainManifest;
+  it('names the 80 m context of a 20 m window, and nothing for an 80 m window or an unlisted site', () => {
+    expect(contextFileFor(manifest, 'deep')).toEqual({ file: 'deep.context.u16', meta: 'deep.context.json' });
+    expect(contextFileFor(manifest, 'far')).toBeNull();
+    expect(contextFileFor(manifest, 'nowhere')).toBeNull();
+  });
+});
+
+describe('shadowLevels', () => {
+  const grid = (kind: HeightmapMeta['kind'], size: number, cell: number, siteCol: number, siteRow: number, value = 0): Heightmap => ({
+    meta: { site_id: 'x', lat: -89, lon: 0, kind, source: 's', level: 'L', cell_m: cell, width: size, height: size, row0: 0, col0: 0, min_m: 0, max_m: 0, scale_m_per_unit: 1, site_height_m: 0, line_offset_px: (size - 1) / 2, sample_offset_px: (size - 1) / 2, site_row_px: siteRow, site_col_px: siteCol },
+    heightsM: new Float32Array(size * size).fill(value),
+  });
+
+  it('runs coarse to fine: a crop of the cap around the site, then the context, then the window, each with its own site pixel', () => {
+    const cap = grid('cap', 1000, 960, 499.5, 499.5, 7);
+    const context = grid('context', 64, 80, 31.6, 32.2);
+    const window = grid('window', 128, 20, 64.1, 63.9);
+    // A site 0.5 degree from the pole: 15 km, so 15.7 cap pixels from its centre.
+    const levels = shadowLevels({ lat: -89.5, lon: 0 }, window, context, cap);
+    expect(levels.map((l) => l.pxM)).toEqual([960, 80, 20]);
+    expect(levels[0].width).toBe(2 * CAP_SHADOW_HALF_PX + 1);
+    expect(levels[0].heights[0]).toBe(7);
+    expect(levels[1]).toMatchObject({ width: 64, height: 64, siteCol: 31.6, siteRow: 32.2 });
+    expect(levels[2]).toMatchObject({ width: 128, siteCol: 64.1, siteRow: 63.9 });
+    const px = latLonToPixel(cap.meta, -89.5, 0);
+    expect(levels[0].siteRow).toBeCloseTo(px.row - (Math.round(px.row) - CAP_SHADOW_HALF_PX), 9);
+  });
+
+  it('leaves out what is missing: no context for an 80 m window, no cap when it failed to load', () => {
+    const window = grid('window', 64, 80, 31.5, 31.5);
+    expect(shadowLevels({ lat: -85, lon: 0 }, window, null, null).map((l) => l.pxM)).toEqual([80]);
+    expect(shadowLevels({ lat: -85, lon: 0 }, null, null, null)).toEqual([]);
   });
 });
 

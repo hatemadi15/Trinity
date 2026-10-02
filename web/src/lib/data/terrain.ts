@@ -1,4 +1,6 @@
 import { psSouthLatLon, psSouthXY } from '../engine/geometry';
+import type { Level } from '../engine/shadow';
+import { cropHeightmap } from '../viz/terrain-crop';
 import { fetchBytes, fetchJson } from './loaders';
 
 /**
@@ -10,7 +12,7 @@ export interface HeightmapMeta {
   site_id: string;
   lat: number;
   lon: number;
-  kind: 'window' | 'cap';
+  kind: 'window' | 'cap' | 'context';
   source: string;
   level: string;
   /** Cell size in metres (for the cap: the downsampled cell). */
@@ -56,6 +58,8 @@ export interface TerrainWindowEntry {
   width: number;
   height: number;
   bytes: number;
+  /** For a 20 m window: the 80 m grid around it (manifest version 2), so hills beyond the window still shade it. */
+  context?: { file: string; meta: string; cell_m: number; width: number; height: number };
 }
 
 export interface TerrainManifest {
@@ -108,6 +112,30 @@ export async function loadHeightmap(base: string, file: string, metaFile: string
 export function windowFileFor(manifest: TerrainManifest, siteId: string): { file: string; meta: string } | null {
   const entry = manifest.windows.find((w) => w.site_id === siteId);
   return entry ? { file: entry.file, meta: entry.meta } : null;
+}
+
+/** Raster and sidecar file names of the 80 m context around a site's 20 m window, or null when there is none. */
+export function contextFileFor(manifest: TerrainManifest, siteId: string): { file: string; meta: string } | null {
+  const context = manifest.windows.find((w) => w.site_id === siteId)?.context;
+  return context ? { file: context.file, meta: context.meta } : null;
+}
+
+/** Half-size of the cap crop the shadow sweep starts from: ±240 cells of 960 m, about ±230 km, the farthest hills that can still shade a polar site in grazing light. */
+export const CAP_SHADOW_HALF_PX = 240;
+
+const toLevel = (hm: Heightmap): Level => ({ heights: hm.heightsM, width: hm.meta.width, height: hm.meta.height, pxM: hm.meta.cell_m, siteCol: hm.meta.site_col_px, siteRow: hm.meta.site_row_px });
+
+/**
+ * A site's terrain as shadow levels, coarse to fine: a crop of the south cap around the site, the 80 m
+ * context (20 m sites only) and the window. Each keeps its own site pixel, so all share the site-centred
+ * map metres the sweep chains them by. Missing grids are left out.
+ */
+export function shadowLevels(site: { lat: number; lon: number }, window: Heightmap | null, context: Heightmap | null, cap: Heightmap | null): Level[] {
+  const levels: Level[] = [];
+  if (cap) levels.push(toLevel(cropHeightmap(cap, latLonToPixel(cap.meta, site.lat, site.lon), CAP_SHADOW_HALF_PX)));
+  if (context) levels.push(toLevel(context));
+  if (window) levels.push(toLevel(window));
+  return levels;
 }
 
 /** Lat/lon of a (fractional) raster pixel: rows grow southward on the lon 0 meridian, cols eastward. */
