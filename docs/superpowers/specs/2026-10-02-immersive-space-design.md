@@ -33,7 +33,7 @@ One set of modules draws the sky and the ground for all three parts. It is writt
 - **Earth's rotation**: computed in the browser from Greenwich sidereal time and the IAU pole, so the right continents face the Moon; checked against SPICE (`IAU_EARTH`) in a fixture.
 - **Earth's face**: NASA's Blue Marble (public domain), 2048 by 1024, about 1 MB. Earth's phase is lit by the true Sun direction, whatever the hour at the site.
 - **The Moon from space** (part B): NASA SVS CGI Moon Kit colour map (4K) and relief (LOLA, 16 pixels per degree), resampled by the pipeline to web sizes (together under 15 MB).
-- **The ground**: the levels part 3 already serves, meshed around the eye in the site's frame with the Moon's curvature: the 20 m window to 5 km, the 80 m context to 20 km, the south cap (960 m cells) to 125 km. Each is lit by the engine's own shadow picture for the hour (the part 3 sweep on that level), not by GPU shadow maps, so the 3D view and the 2D shadow map always agree.
+- **The ground**: the levels part 3 already serves, meshed around the eye in the site's frame with the Moon's curvature: the 20 m window to 5 km, the 80 m context to 20 km, the south cap (960 m cells) to 125 km. Shadows are worked out on the GPU for every pixel and every frame from those same height levels, by the engine's rule: the steepest rise of the ground towards the Sun against the Sun's elevation, with the Sun's 0.53° disc giving the penumbra (no GPU shadow maps). A TypeScript twin of the shader's rule is tested against the engine's shadow picture (the part 3 sweep), so the 3D view and the 2D shadow map agree.
 - **The far skyline**: beyond 125 km, the site's 720-direction mask (hills out to 220 km) drawn as a dark ring whose top edge is the mask, so the skyline is complete in every direction.
 
 ### 3.2 Realism
@@ -42,7 +42,7 @@ The view must look like a photograph taken on the Moon, because it is drawn from
 
 - **No air.** The sky is black in daylight; the Sun is white (nothing reddens it), small (0.53°) and hard, with camera bloom and a faint six-spike flare; there is no haze, so 100 km hills are as crisp as 1 km ones.
 - **Regolith light.** The ground follows lunar photometry: Lommel–Seeliger reflectance (no limb darkening), a lunar phase function, and the opposition surge, so the ground brightens looking away from the Sun and darkens towards it. Albedo varies gently (highland grey, brighter crater rims).
-- **Shadows.** Hard edges with the true penumbra of the Sun's disc, from the engine's shadow picture; at a low Sun they run for kilometres.
+- **Shadows.** Hard edges with the true penumbra of the Sun's disc, by the engine's rule, every frame; at a low Sun they run for kilometres and sweep across the ground as Play runs.
 - **Underfoot.** Metre-scale relief within 1.5 km: bowl craters with raised rims at three sizes and regolith roughness, drawn in the shader and fading with distance. The view says plainly that these small craters are drawn, not measured.
 - **Earth.** NASA's Blue Marble and cloud maps at 1.9°, lit by the true Sun (its phase), turned by Greenwich sidereal time so the right continents face the Moon, with a thin atmosphere rim. Earthshine lights the ground faintly blue, in proportion to Earth's lit fraction, when Earth is up.
 - **Stars.** The Yale catalogue in its B−V colours; dimmed while the Sun is up (a camera exposure), never in front of the ground.
@@ -63,21 +63,9 @@ The view must look like a photograph taken on the Moon, because it is drawn from
 
 Names are indicative; the plan fixes them. Each module has one job and a test that runs without WebGL.
 
-### 3.4 The C++ core
+### 3.4 The C++ core (later)
 
-The two heaviest calculations move to one C++17 library, `native/`, used by both the browser and the pipeline:
-
-- **Shadow sweep** (part 3's running maximum over the height levels): today 37 ms at half resolution and 135 ms at full in the worker. Target: 12 ms and 45 ms, so Play can redraw shadows every frame at the half level.
-- **Horizon march** (720 directions across the nested tiles, with curvature): today about 2 s cold for a point the user picks. Target: under 0.6 s. It also returns, per direction, the distance of the highest point (for the far ring's shading).
-
-Builds:
-
-- **Browser**: Emscripten to WebAssembly with SIMD, loaded by the existing workers. When the module cannot load, the workers keep using the TypeScript code (today's path), so nothing breaks.
-- **Pipeline**: a shared library (`.dll` built with the MinGW-w64 g++ already installed; `.so` elsewhere) with a plain C ABI, called from Python with `ctypes` and NumPy arrays. When it is missing, the pipeline keeps its NumPy code.
-
-Parity is the rule: the existing golden fixtures (masks within 0.0005°, the shadow fixtures) run against the TypeScript, WebAssembly, NumPy and C++ paths, and all four must agree. The built `.wasm` is committed, so `npm run build` needs no C++ toolchain; a script rebuilds it and a test fails if the committed module is older than its sources.
-
-Downloads to approve before fetching (each over the ~100 MB rule): the Emscripten SDK (about 1 GB installed). The MinGW toolchain is already present.
+The shadow sweep and the horizon march move to one C++ core, compiled to WebAssembly for the browser and loaded by the pipeline through a C ABI. It is specified on its own in `2026-10-02-cpp-core-design.md` and built after part A. Part A uses the TypeScript and NumPy paths that exist today; nothing in part A waits for it.
 
 ## 4. Part A: Stand on the Moon
 
@@ -101,9 +89,9 @@ Downloads to approve before fetching (each over the ~100 MB rule): the Emscripte
 
 **Phone.** The plate shrinks to the title and the live sentence; the look buttons sit under it; the time bar stays. Touch drag looks around.
 
-**Fallback.** Without WebGL, or when the quality check cannot reach 30 frames a second, the button opens today's "View all round" with the same words.
+**Fallback.** Without WebGL 2, the button opens today's "View all round" with the same words.
 
-**Done when.** The view runs at 30 frames a second or more at 1440 by 900 on the development laptop's integrated GPU (60 on a discrete GPU), every body is placed by a tested function, the labels and plates agree with Explore for every hour of a test month, and the blind read (immersion included) passes.
+**Done when.** Every body is placed by a tested function, the shader's shadow rule agrees with the engine's shadow picture, the labels and plates agree with Explore for every hour of a test month, and the blind read (immersion included) passes.
 
 This also closes the deferred "the 3D view has no north or Sun direction".
 
@@ -136,8 +124,8 @@ The rest of the home page follows below (the three facts, the real places, the c
 ## 7. Performance and offline
 
 - New data: stars 0.2 MB, Moon orientation 0.3 MB, Blue Marble 1 MB, Moon textures under 15 MB, the WebAssembly core under 0.3 MB. All in the data mirror and the R2 bucket, cached like the rest.
-- Budgets: the stand view's first frame within 1.5 s of the route with warm caches; at 1440 by 900, at least 30 frames a second on the development laptop's integrated Intel UHD 620 (the class of machine the venue may have) and 60 on a discrete GPU; memory under 400 MB.
-- What the mockup measured: tracing shadows per pixel through the height textures runs at about 11 frames a second on the UHD 620. The product therefore samples the shadow picture the engine computes once per hour and level (the C++ sweep makes that fast enough for Play), and keeps the per-pixel work to the photometry and the detail.
+- Target hardware: the demo runs on a laptop with a discrete GPU, chosen later. Budgets there: the stand view's first frame within 1.5 s of the route with warm caches, 60 frames a second at 1440 by 900, memory under 400 MB. They are measured on that laptop when it is chosen.
+- The development laptop (integrated Intel UHD 620, about 11 frames a second for the mockup) is not a target for now. A quality setting (pixel ratio, shadow steps, detail on or off) keeps it usable; it is not tuned or benchmarked there.
 - The quality step lowers the pixel ratio, then the ground resolution, then the glare; it never drops the words.
 
 ## 8. Accessibility
@@ -159,7 +147,7 @@ The rest of the home page follows below (the three facts, the real places, the c
 
 Three parts, each its own plan and pull request, merged on green:
 
-1. **A, Stand on the Moon**, with the sky data, the sky modules and the C++ core (3 to 16 October).
+1. **A, Stand on the Moon**, with the sky data and the sky modules (from 3 October). The C++ core follows in its own plan.
 2. **B, the arrival and the home journey** (17 to 27 October).
 3. **C, the space look across the pages** (28 October to 4 November).
 
@@ -171,7 +159,7 @@ Sound, VR headsets, a free-flying camera away from the site, rovers, stars faint
 
 ## 12. Risks
 
-- **Venue laptop graphics.** The quality step and the fallback to "View all round" keep the demo alive; rehearse on the laptop in part A.
-- **Toolchain downloads.** Emscripten is about 1 GB; if it cannot be installed, part A ships with the TypeScript paths and the C++ core follows.
+- **Demo laptop graphics.** Full realism needs a discrete GPU; the demo laptop is chosen for it and the budgets are measured there. On weaker machines the quality setting, then "View all round", keep the demo alive.
+- **The C++ core.** Specified separately and built after part A; until then the TypeScript and NumPy paths serve, as today.
 - **Immersion against clarity.** The blind reads keep both scores; the words never move off their plates.
 - **Time.** Each part is shippable alone; if part C slips, the app keeps today's look with parts A and B.
