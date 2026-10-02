@@ -18,7 +18,7 @@ const COMPASS: [number, string][] = [
  * paths over the period (solid while in view, dotted while hidden), and where both are at the hour of
  * the time bar. North is on the left and again on the right.
  */
-export function HorizonView({ mask, series, cursor }: { mask: ArrayLike<number>; series: Series; cursor: number }) {
+export function HorizonView({ mask, series, cursor, lat }: { mask: ArrayLike<number>; series: Series; cursor: number; lat: number }) {
   const g = useMemo(() => horizonGeometry(mask, series, W, H), [mask, series]);
   const hour = Math.min(series.hours - 1, Math.max(0, cursor));
   const marker = (az: number, el: number) => ({ left: `${(g.x(az) / W) * 100}%`, top: `${(g.y(el) / H) * 100}%` });
@@ -45,7 +45,7 @@ export function HorizonView({ mask, series, cursor }: { mask: ArrayLike<number>;
         ))}
       </div>
       <figcaption className="mt-2 text-[15px] text-ink-2">
-        The whole horizon around the site, from north through east, south and west. Over these days the Sun moves from right to left along its path.
+        The whole horizon around the site, from north through east, south and west. Over these days the Sun moves from {lat < 0 ? 'right to left' : 'left to right'} along its path.
       </figcaption>
     </figure>
   );

@@ -36,9 +36,13 @@ export function halfLevel(level: Level): Level {
   return { heights, width: w, height: h, pxM: level.pxM * 2, siteCol: (level.siteCol - 0.5) / 2, siteRow: (level.siteRow - 0.5) / 2 };
 }
 
+/** Sets of levels the worker holds at once: the site on screen and the one before it. */
+const HELD = 2;
+
 /**
- * The worker's whole job, as a pure function so it can run inline and in tests: it keeps each site's
- * levels (and their half-resolution copies, made on first use) and draws the finest level for a Sun.
+ * The worker's whole job, as a pure function so it can run inline and in tests: it keeps the levels of
+ * the last two sites (and their half-resolution copies, made on first use) and draws the finest level
+ * for a Sun.
  */
 export function createShadowHandler(): (req: ShadowRequest) => ShadowResponse {
   const full = new Map<string, Level[]>();
@@ -46,8 +50,14 @@ export function createShadowHandler(): (req: ShadowRequest) => ShadowResponse {
   return (req) => {
     try {
       if (req.type === 'levels') {
+        full.delete(req.key);
         full.set(req.key, req.levels);
         half.delete(req.key);
+        while (full.size > HELD) {
+          const oldest = full.keys().next().value!;
+          full.delete(oldest);
+          half.delete(oldest);
+        }
         return { id: req.id, type: 'ok' };
       }
       const levels = full.get(req.key);

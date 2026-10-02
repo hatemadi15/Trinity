@@ -1,7 +1,8 @@
+import { DataTexture, MeshBasicMaterial, MeshStandardMaterial, SRGBColorSpace } from 'three';
 import { describe, expect, it } from 'vitest';
 import type { Heightmap, HeightmapMeta } from '@/lib/data/terrain';
 import { latLonToPixel } from '@/lib/data/terrain';
-import { contextHoleFor, gridToEnuRotationY } from './Terrain';
+import { contextHoleFor, gridToEnuRotationY, terrainMaterial } from './Terrain';
 
 function meta(over: Partial<HeightmapMeta>): HeightmapMeta {
   return {
@@ -20,6 +21,33 @@ describe('contextHoleFor', () => {
     // (1024 - 1) / 2 * 20 m = 10 230 m; / 960 m = 10.656 cap px on each side.
     expect(hole.halfCols).toBeCloseTo(10.656, 3);
     expect(hole.halfRows).toBeCloseTo(10.656, 3);
+  });
+});
+
+describe('terrainMaterial', () => {
+  it('paints the ground with the shadow picture, unlit, so the 3D view shows the same light as the map', () => {
+    const material = terrainMaterial({ width: 2, height: 3, pixels: Uint8Array.from([10, 20, 30, 40, 50, 60]) });
+    expect(material).toBeInstanceOf(MeshBasicMaterial);
+    expect(material.toneMapped).toBe(false);
+    const map = (material as MeshBasicMaterial).map as DataTexture;
+    expect(map).toBeInstanceOf(DataTexture);
+    expect(map.colorSpace).toBe(SRGBColorSpace);
+    // Texture rows run up from the south edge (v = 0), so the picture's first row (north) comes last.
+    const data = map.image.data as Uint8Array;
+    expect(Array.from(data.slice(0, 8))).toEqual([50, 50, 50, 255, 60, 60, 60, 255]);
+    expect(Array.from(data.slice(16, 24))).toEqual([10, 10, 10, 255, 20, 20, 20, 255]);
+  });
+
+  it("puts the mesh corners on the centres of the picture's corner pixels", () => {
+    const map = (terrainMaterial({ width: 4, height: 2, pixels: new Uint8Array(8) }) as MeshBasicMaterial).map!;
+    expect(map.repeat.x).toBeCloseTo(3 / 4, 9);
+    expect(map.offset.x).toBeCloseTo(1 / 8, 9);
+    expect(map.repeat.y).toBeCloseTo(1 / 2, 9);
+    expect(map.offset.y).toBeCloseTo(1 / 4, 9);
+  });
+
+  it('lights the ground plainly until the first picture arrives', () => {
+    expect(terrainMaterial(null)).toBeInstanceOf(MeshStandardMaterial);
   });
 });
 

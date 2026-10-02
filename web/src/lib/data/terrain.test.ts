@@ -5,6 +5,7 @@ import zlib from 'node:zlib';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   CAP_SHADOW_HALF_PX,
+  CAP_SITE_HALF_PX,
   contextFileFor,
   decodeHeightmap,
   latLonToPixel,
@@ -90,6 +91,15 @@ describe('shadowLevels', () => {
     expect(levels[2]).toMatchObject({ width: 128, siteCol: 64.1, siteRow: 63.9 });
     const px = latLonToPixel(cap.meta, -89.5, 0);
     expect(levels[0].siteRow).toBeCloseTo(px.row - (Math.round(px.row) - CAP_SHADOW_HALF_PX), 9);
+  });
+
+  it('without a window, ends on the 48 km of the cap around the site that the 3D view shows', () => {
+    const cap = grid('cap', 1000, 960, 499.5, 499.5, 7);
+    const levels = shadowLevels({ lat: -89.5, lon: 0 }, null, null, cap);
+    expect(levels.map((l) => l.width)).toEqual([2 * CAP_SHADOW_HALF_PX + 1, 2 * CAP_SITE_HALF_PX + 1]);
+    expect(levels.map((l) => l.pxM)).toEqual([960, 960]);
+    const px = latLonToPixel(cap.meta, -89.5, 0);
+    expect(levels[1].siteRow).toBeCloseTo(px.row - (Math.round(px.row) - CAP_SITE_HALF_PX), 9);
   });
 
   it('leaves out what is missing: no context for an 80 m window, no cap when it failed to load', () => {

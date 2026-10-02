@@ -21,12 +21,6 @@ describe('WhereOnMoon', () => {
     expect(panel.textContent).toMatch(/two weeks or more with power/);
   });
 
-  it('lays the map beside the words when it has the row to itself', () => {
-    render(<WhereOnMoon site={site('de_gerlache_rim_2')} sites={sites} overview={overview} startUtc="2027-01-01T00:00:00" days={30} wide />);
-    const panel = screen.getByRole('region', { name: 'Where on the Moon' });
-    expect(panel.querySelector('[data-part="layout"]')!.className).toMatch(/md:grid-cols-\[minmax\(0,420px\)_minmax\(0,1fr\)\]/);
-  });
-
   it('lists the three nearest sites with their sunlight for the same period, as links', () => {
     render(<WhereOnMoon site={site('de_gerlache_rim_2')} sites={sites} overview={overview} startUtc="2027-01-01T00:00:00" days={30} />);
     const near = screen.getByRole('list', { name: 'Nearby sites, same 30 days' });

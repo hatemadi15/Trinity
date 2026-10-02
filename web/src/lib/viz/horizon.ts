@@ -43,10 +43,14 @@ function runs(az: ArrayLike<number>, el: ArrayLike<number>, visible: (h: number)
   return out;
 }
 
+/** The picture reaches no further below the horizon than this (deg): a mid-latitude night would squash the sky. */
+const LOWEST_DEG = -10;
+
 /**
  * The 360° picture of the horizon around a site: azimuth runs from north on the left through east,
- * south and west back to north; heights fit the skyline and both paths with a degree to spare. Seen
- * from the south polar region the Sun's azimuth falls through the month, so it moves right to left.
+ * south and west back to north; heights fit the skyline and both paths with a degree to spare, down to
+ * 10° below the horizon at most. Seen from the southern hemisphere the Sun's azimuth falls through the
+ * month, so it moves right to left; from the northern, left to right.
  */
 export function horizonGeometry(mask: ArrayLike<number>, series: Series, width: number, height: number): HorizonGeometry {
   let lo = Infinity;
@@ -59,7 +63,7 @@ export function horizonGeometry(mask: ArrayLike<number>, series: Series, width: 
     lo = Math.min(lo, series.sunEl[h], series.earthEl[h]);
     hi = Math.max(hi, series.sunEl[h], series.earthEl[h]);
   }
-  const min = lo - 1;
+  const min = Math.max(lo, LOWEST_DEG) - 1;
   const max = hi + 1;
   const x = (azDeg: number) => (azDeg / 360) * width;
   const y = (elDeg: number) => height * (1 - (elDeg - min) / (max - min));

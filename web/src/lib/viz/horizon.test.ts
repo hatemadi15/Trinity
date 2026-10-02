@@ -36,6 +36,12 @@ describe('horizonGeometry', () => {
     expect(g.y(-3)).toBeCloseTo(200, 6);
   });
 
+  it('keeps the picture to 10° below the horizon, so a night far below it does not squash the sky', () => {
+    const g = horizonGeometry(flatMask, series([90, 180, 270], [-60, 30, -60], [0, 1, 0]), 720, 200);
+    expect(g.y(31)).toBeCloseTo(0, 6);
+    expect(g.y(-11)).toBeCloseTo(200, 6);
+  });
+
   it('splits a path where it crosses north, so it is never drawn across the picture', () => {
     const g = horizonGeometry(flatMask, series([350, 356, 2, 8], [2, 2, 2, 2], [1, 1, 1, 1]), 720, 200);
     expect(g.sun).toHaveLength(2);

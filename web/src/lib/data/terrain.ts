@@ -123,18 +123,24 @@ export function contextFileFor(manifest: TerrainManifest, siteId: string): { fil
 /** Half-size of the cap crop the shadow sweep starts from: ±240 cells of 960 m, about ±230 km, the farthest hills that can still shade a polar site in grazing light. */
 export const CAP_SHADOW_HALF_PX = 240;
 
+/** Half-size of the cap crop shown for a site without a window: ±25 cells of 960 m, 48 km across. */
+export const CAP_SITE_HALF_PX = 25;
+
 const toLevel = (hm: Heightmap): Level => ({ heights: hm.heightsM, width: hm.meta.width, height: hm.meta.height, pxM: hm.meta.cell_m, siteCol: hm.meta.site_col_px, siteRow: hm.meta.site_row_px });
 
 /**
  * A site's terrain as shadow levels, coarse to fine: a crop of the south cap around the site, the 80 m
  * context (20 m sites only) and the window. Each keeps its own site pixel, so all share the site-centred
- * map metres the sweep chains them by. Missing grids are left out.
+ * map metres the sweep chains them by. Missing grids are left out; a site without a window ends on the
+ * 48 km of the cap around it, the ground the 3D view shows for it.
  */
 export function shadowLevels(site: { lat: number; lon: number }, window: Heightmap | null, context: Heightmap | null, cap: Heightmap | null): Level[] {
   const levels: Level[] = [];
-  if (cap) levels.push(toLevel(cropHeightmap(cap, latLonToPixel(cap.meta, site.lat, site.lon), CAP_SHADOW_HALF_PX)));
+  const px = cap ? latLonToPixel(cap.meta, site.lat, site.lon) : null;
+  if (cap && px) levels.push(toLevel(cropHeightmap(cap, px, CAP_SHADOW_HALF_PX)));
   if (context) levels.push(toLevel(context));
   if (window) levels.push(toLevel(window));
+  else if (cap && px) levels.push(toLevel(cropHeightmap(cap, px, CAP_SITE_HALF_PX)));
   return levels;
 }
 

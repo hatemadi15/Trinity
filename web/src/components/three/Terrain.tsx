@@ -1,18 +1,25 @@
 'use client';
 import { useMemo } from 'react';
-import { BufferAttribute, BufferGeometry } from 'three';
+import { BufferAttribute, BufferGeometry, DataTexture, LinearFilter, LinearMipmapLinearFilter, MeshBasicMaterial, MeshStandardMaterial, RGBAFormat, SRGBColorSpace, UnsignedByteType } from 'three';
 import type { Heightmap } from '@/lib/data/terrain';
-import { latLonToPixel } from '@/lib/data/terrain';
+import { CAP_SITE_HALF_PX, latLonToPixel } from '@/lib/data/terrain';
 import { cropHeightmap } from '@/lib/viz/terrain-crop';
 import { useDispose } from '@/lib/hooks/useDispose';
 import { buildTerrainGeometry, heightAtPixel, type TerrainGeometry } from '@/lib/viz/terrain-mesh';
 
-/** Cap fallback window: ±25 px at 960 m = 48 km across, coarse but centred on the site. */
-export const CAP_HALF_PX = 25;
 /** Context ring around a detailed window: ±60 px at 960 m = 116 km across. */
 const CONTEXT_HALF_PX = 60;
 /** The context mesh sits this far below the datum so the detailed window always wins where they overlap. */
 const CONTEXT_DROP_KM = 0.06;
+/** The context ring is painted one flat dark grey, so the lit window stands out. */
+const CONTEXT_GREY = '#2b2b2b';
+
+/** The shadow sweep's grey picture of the ground the mesh is built from, row 0 at the north edge. */
+export interface TerrainPicture {
+  pixels: Uint8Array;
+  width: number;
+  height: number;
+}
 
 /** Picks the detailed window when present, otherwise a cap crop centred on the site. */
 export function terrainSource(
@@ -23,7 +30,7 @@ export function terrainSource(
   if (heightmap) return { hm: heightmap, detailed: true };
   if (!cap) return null;
   const px = latLonToPixel(cap.meta, site.lat, site.lon);
-  const cropped = cropHeightmap(cap, px, CAP_HALF_PX);
+  const cropped = cropHeightmap(cap, px, CAP_SITE_HALF_PX);
   return { hm: { ...cropped, meta: { ...cropped.meta, site_height_m: heightAtPixel(cap, px.col, px.row) } }, detailed: false };
 }
 
@@ -48,6 +55,39 @@ export function gridToEnuRotationY(lonDeg: number): number {
   return (lonDeg * Math.PI) / 180;
 }
 
+/**
+ * The material of the ground: unlit and painted with the shadow picture, so the 3D view shows exactly
+ * the light of the shadow map; plain lit grey until the first picture arrives. Texture rows run up
+ * from the south edge, so the picture's rows are copied in reverse; the texture is shifted half a
+ * pixel so the mesh corners, which sit on the corner pixels' centres, sample those centres.
+ */
+export function terrainMaterial(picture: TerrainPicture | null): MeshBasicMaterial | MeshStandardMaterial {
+  if (!picture) return new MeshStandardMaterial({ color: '#8a857c', roughness: 1, metalness: 0 });
+  const { width: w, height: h, pixels } = picture;
+  const data = new Uint8Array(w * h * 4);
+  for (let r = 0; r < h; r++) {
+    const from = (h - 1 - r) * w;
+    for (let c = 0; c < w; c++) {
+      const v = pixels[from + c];
+      const k = 4 * (r * w + c);
+      data[k] = v;
+      data[k + 1] = v;
+      data[k + 2] = v;
+      data[k + 3] = 255;
+    }
+  }
+  const map = new DataTexture(data, w, h, RGBAFormat, UnsignedByteType);
+  map.colorSpace = SRGBColorSpace;
+  map.magFilter = LinearFilter;
+  map.minFilter = LinearMipmapLinearFilter;
+  map.generateMipmaps = true;
+  map.anisotropy = 8;
+  map.repeat.set((w - 1) / w, (h - 1) / h);
+  map.offset.set(0.5 / w, 0.5 / h);
+  map.needsUpdate = true;
+  return new MeshBasicMaterial({ map, toneMapped: false });
+}
+
 function toBufferGeometry(g: TerrainGeometry): BufferGeometry {
   const geo = new BufferGeometry();
   geo.setAttribute('position', new BufferAttribute(g.positions, 3));
@@ -62,11 +102,14 @@ export function Terrain({
   capHeightmap,
   site,
   exaggeration,
+  picture,
 }: {
   heightmap: Heightmap | null;
   capHeightmap: Heightmap | null;
   site: { lat: number; lon: number };
   exaggeration: 1 | 3;
+  /** The shadow picture of the same grid the mesh is built from (the window, or the cap crop without one). */
+  picture: TerrainPicture | null;
 }) {
   const source = useMemo(() => terrainSource(heightmap, capHeightmap, site), [heightmap, capHeightmap, site]);
   const geometry = useMemo(() => {
@@ -96,17 +139,18 @@ export function Terrain({
       }),
     );
   }, [heightmap, capHeightmap, site, exaggeration]);
+  const material = useMemo(() => terrainMaterial(picture), [picture]);
   useDispose(geometry);
   useDispose(context);
+  useDispose(material);
+  useDispose(material instanceof MeshBasicMaterial ? material.map : null);
   if (!geometry) return null;
   return (
     <group rotation={[0, gridToEnuRotationY(site.lon), 0]}>
-      <mesh geometry={geometry} castShadow receiveShadow>
-        <meshStandardMaterial color="#8a857c" roughness={1} metalness={0} />
-      </mesh>
+      <mesh geometry={geometry} material={material} />
       {context && (
-        <mesh geometry={context} position={[0, -CONTEXT_DROP_KM * exaggeration, 0]} receiveShadow>
-          <meshStandardMaterial color="#7f7a72" roughness={1} metalness={0} />
+        <mesh geometry={context} position={[0, -CONTEXT_DROP_KM * exaggeration, 0]}>
+          <meshBasicMaterial color={CONTEXT_GREY} toneMapped={false} />
         </mesh>
       )}
     </group>

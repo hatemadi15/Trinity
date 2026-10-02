@@ -15,15 +15,12 @@ export function WhereOnMoon({
   overview,
   startUtc,
   days,
-  wide = false,
 }: {
   site: Site;
   sites: Site[];
   overview: Record<string, SiteOverview>;
   startUtc: string;
   days: number;
-  /** The panel has the whole row: the map sits beside the words instead of above them. */
-  wide?: boolean;
 }) {
   const half = HOME.relief.half_km;
   const onMap = (uv: { u: number; v: number }) => uv.u > 0.02 && uv.u < 0.98 && uv.v > 0.02 && uv.v < 0.98;
@@ -45,12 +42,12 @@ export function WhereOnMoon({
           See all sites
         </Link>
       </div>
-      <div data-part="layout" className={wide ? 'mt-3 grid gap-x-8 md:grid-cols-[minmax(0,420px)_minmax(0,1fr)]' : ''}>
-        <p className={`mt-2 text-ink-2 ${wide ? 'md:col-start-2 md:row-start-1' : ''}`}>
+      <div>
+        <p className="mt-2 text-ink-2">
           <b className="font-semibold text-ink">{siteLabel(site)}.</b> {site.blurb ? `${site.blurb}.` : `A place at ${Math.abs(site.lat).toFixed(2)}° ${site.lat < 0 ? 'S' : 'N'}.`}
           {!here && ' It lies far outside this map of the south pole.'}
         </p>
-        <div className={`mt-3 ${wide ? 'md:col-start-1 md:row-span-3 md:row-start-1 md:mt-0' : ''}`}>
+        <div className="mt-3">
           <ReliefMap pins={pins} selectedId={site.id} />
           <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
             <span className="flex items-center gap-2">
@@ -67,7 +64,7 @@ export function WhereOnMoon({
             </span>
           </p>
         </div>
-        <div className={wide ? 'md:col-start-2 md:row-start-2' : ''}>
+        <div>
           <p id="near-title" className="mt-4 flex justify-between border-b border-line pb-2 text-[15px] font-semibold text-ink-2">
             <span>Nearby sites, same {days} days</span>
             <span>Sunlight</span>

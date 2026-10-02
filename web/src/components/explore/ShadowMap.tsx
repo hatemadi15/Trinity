@@ -1,32 +1,17 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
-import type { Level } from '@/lib/engine/shadow';
+import { useEffect, useRef } from 'react';
 import type { ShadowPicture } from '@/lib/engine/shadow-handler';
-import { ShadowClient } from '@/lib/shadow-client';
 import { sunBearingDeg } from '@/lib/engine/shadow';
 import { arrowEnd, heightWords, scaleBarKm } from '@/lib/viz/shadowmap';
 
-/** What the map needs of the shadow worker's client (a stub in tests). */
-export interface ShadowSource {
-  setLevels: (key: string, levels: Level[]) => Promise<void>;
-  picture: (key: string, bearingDeg: number, elDeg: number, half: boolean) => Promise<ShadowPicture | null>;
-}
-
-/** A full-resolution picture is asked for once the hour has rested this long. */
-const REST_MS = 250;
-
-let shared: ShadowClient | null = null;
-const defaultClient = (): ShadowSource => (shared ??= new ShadowClient());
-
 /**
- * The ground around the site from above, with the shadows of the hour: the finest terrain level drawn
- * in grey by the shadow sweep (a quick half-resolution picture while the hour moves, the full one when
- * it rests), the site's pin, a scale bar and arrows from the site towards the Sun and towards Earth.
- * Map-up is the direction of longitude 0, as on the relief map.
+ * The ground around the site from above, with the shadows of the hour: the shadow sweep's grey
+ * picture of the finest terrain level, the site's pin, a scale bar and arrows from the site towards
+ * the Sun and towards Earth. Map-up is the direction of longitude 0, as on the relief map. It fills
+ * the height of its box as a square.
  */
 export function ShadowMap({
-  levels,
-  levelsKey,
+  picture,
   widthKm,
   siteName,
   lon,
@@ -35,10 +20,8 @@ export function ShadowMap({
   earthAz,
   earthEl,
   when,
-  client,
 }: {
-  levels: Level[];
-  levelsKey: string;
+  picture: ShadowPicture | null;
   widthKm: number;
   siteName: string;
   lon: number;
@@ -47,42 +30,8 @@ export function ShadowMap({
   earthAz: number;
   earthEl: number;
   when: string;
-  client?: ShadowSource;
 }) {
-  const source = useRef<ShadowSource | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [picture, setPicture] = useState<ShadowPicture | null>(null);
-  const [ready, setReady] = useState<string | null>(null);
-  const sunBearing = sunBearingDeg(lon, sunAz);
-  const earthBearing = sunBearingDeg(lon, earthAz);
-
-  // Hand the levels to the worker once per site.
-  useEffect(() => {
-    source.current = client ?? defaultClient();
-    let live = true;
-    void source.current.setLevels(levelsKey, levels).then(() => {
-      if (live) setReady(levelsKey);
-    });
-    return () => {
-      live = false;
-    };
-  }, [client, levelsKey, levels]);
-
-  // A quick picture for every hour, the full one once the hour rests.
-  useEffect(() => {
-    if (ready !== levelsKey || !source.current) return;
-    const src = source.current;
-    let live = true;
-    const show = (p: ShadowPicture | null) => {
-      if (live && p) setPicture(p);
-    };
-    void src.picture(levelsKey, sunBearing, sunEl, true).then(show);
-    const full = window.setTimeout(() => void src.picture(levelsKey, sunBearing, sunEl, false).then(show), REST_MS);
-    return () => {
-      live = false;
-      window.clearTimeout(full);
-    };
-  }, [ready, levelsKey, sunBearing, sunEl]);
 
   // Paint the grey picture.
   useEffect(() => {
@@ -103,13 +52,18 @@ export function ShadowMap({
     ctx.putImageData(image, 0, 0);
   }, [picture]);
 
-  const sun = arrowEnd(sunBearing, 100);
-  const earth = arrowEnd(earthBearing, 100);
+  const sun = arrowEnd(sunBearingDeg(lon, sunAz), 100);
+  const earth = arrowEnd(sunBearingDeg(lon, earthAz), 100);
   const km = scaleBarKm(widthKm);
-  const said = picture ? (picture.siteLit ? ' The site is in sunlight.' : ' The site is in shadow.') : '';
+  const said = picture ? (picture.siteLit ? '. The site is in sunlight.' : '. The site is in shadow.') : ': being worked out.';
   return (
-    <div role="img" aria-label={`Shadows at ${when}.${said}`} className="stage relative aspect-square overflow-hidden">
-      <canvas ref={canvas} aria-hidden="true" className="absolute inset-0 h-full w-full" />
+    <div role="img" aria-label={`Shadows at ${when}${said}`} className="relative aspect-square h-full overflow-hidden bg-stage">
+      <canvas ref={canvas} aria-hidden="true" className={`absolute inset-0 h-full w-full ${picture ? '' : 'invisible'}`} />
+      {!picture && (
+        <p aria-hidden="true" className="absolute inset-x-0 top-[30%] text-center text-[15px] text-stage-ink">
+          Working out the shadows…
+        </p>
+      )}
       <svg viewBox="0 0 100 100" aria-hidden="true" className="absolute inset-0 h-full w-full overflow-visible">
         <line data-arrow="earth" x1={50} y1={50} x2={earth.x} y2={earth.y} stroke="var(--stage-earth)" strokeWidth={0.8} strokeDasharray={earthEl < 0 ? '1.5 1.5' : undefined} vectorEffect="non-scaling-stroke" />
         <line data-arrow="sun" x1={50} y1={50} x2={sun.x} y2={sun.y} stroke="var(--stage-sun)" strokeWidth={0.8} strokeDasharray={sunEl < 0 ? '1.5 1.5' : undefined} vectorEffect="non-scaling-stroke" />

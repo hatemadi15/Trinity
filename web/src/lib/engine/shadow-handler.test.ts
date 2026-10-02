@@ -38,6 +38,14 @@ describe('the shadow handler', () => {
     }
   });
 
+  it('holds the levels of the last two sites only', () => {
+    const handle = createShadowHandler();
+    for (const key of ['a', 'b', 'c']) handle({ id: 1, type: 'levels', key, levels: [coarse, fine] });
+    expect(handle({ id: 2, type: 'shade', key: 'a', bearingDeg: 90, elDeg: 2, half: false }).type).toBe('error');
+    expect(handle({ id: 3, type: 'shade', key: 'b', bearingDeg: 90, elDeg: 2, half: false }).type).toBe('picture');
+    expect(handle({ id: 4, type: 'shade', key: 'c', bearingDeg: 90, elDeg: 2, half: false }).type).toBe('picture');
+  });
+
   it('answers a picture for levels it does not hold with an error', () => {
     const res = createShadowHandler()({ id: 9, type: 'shade', key: 'nope', bearingDeg: 0, elDeg: 1, half: false });
     expect(res).toMatchObject({ id: 9, type: 'error' });
