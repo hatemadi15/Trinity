@@ -236,6 +236,34 @@ describe('GroundPanel', () => {
     }
   });
 
+  it('shrugs off a browser that refuses the whole screen', async () => {
+    Object.defineProperty(document, 'fullscreenEnabled', { configurable: true, value: true });
+    // A plain function: a vi.fn would itself attach handlers to the promise it returns.
+    let asked = 0;
+    Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', {
+      configurable: true,
+      value: () => {
+        asked++;
+        return Promise.reject(new TypeError('Permissions check failed'));
+      },
+    });
+    const failures: unknown[] = [];
+    const note = (reason: unknown) => failures.push(reason);
+    process.on('unhandledRejection', note);
+    try {
+      show();
+      fireEvent.click(tab('3D'));
+      fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
+      await new Promise((r) => setTimeout(r, 20));
+      expect(asked).toBe(1);
+      expect(failures).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', note);
+      delete (document as unknown as Record<string, unknown>).fullscreenEnabled;
+      delete (HTMLElement.prototype as unknown as Record<string, unknown>).requestFullscreen;
+    }
+  });
+
   it("shows the horizon in its own tab, with the time bar's hour marked", () => {
     show();
     fireEvent.click(tab('Horizon'));

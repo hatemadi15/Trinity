@@ -185,7 +185,7 @@ export function GroundPanel({
                 </div>
               )}
               {canFull && (
-                <button type="button" onClick={() => void stage.current?.requestFullscreen?.()} className="h-11 rounded-lg border border-line-strong bg-surface px-3.5 text-[15px] text-ink hover:bg-surface-2">
+                <button type="button" onClick={() => void stage.current?.requestFullscreen?.().catch(() => {})} className="h-11 rounded-lg border border-line-strong bg-surface px-3.5 text-[15px] text-ink hover:bg-surface-2">
                   Full screen
                 </button>
               )}
@@ -195,7 +195,7 @@ export function GroundPanel({
                 <Scene3DLazy mode={view} scene={scene} site={site} sites={sites} heightmap={heightmap} capHeightmap={capHeightmap} exaggeration={exaggeration} textureUrl={textureUrl} onPick={onPick} reducedMotion={reducedMotion} picture={view === 'terrain' ? picture : null} />
               </div>
               {isFull && (
-                <button type="button" onClick={() => void document.exitFullscreen?.()} className="absolute right-4 top-4 h-11 rounded-lg border border-stage-ink/40 bg-stage/85 px-3.5 text-[15px] text-stage-ink">
+                <button type="button" onClick={() => void document.exitFullscreen?.().catch(() => {})} className="absolute right-4 top-4 h-11 rounded-lg border border-stage-ink/40 bg-stage/85 px-3.5 text-[15px] text-stage-ink">
                   Leave full screen
                 </button>
               )}
