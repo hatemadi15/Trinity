@@ -167,6 +167,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             customError={s.customError}
             // The ground is lit for the time bar's hour, not the hour under the pointer on the chart.
             when={dateTimeUtc(s.startUtc, s.cursorHour)}
+            startUtc={s.startUtc}
             mask={s.mask}
             series={s.series}
             cursor={s.cursorHour}

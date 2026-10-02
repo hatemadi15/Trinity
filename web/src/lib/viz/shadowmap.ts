@@ -59,7 +59,23 @@ export function compassCorner(ends: { x: number; y: number }[]): Corner {
   return best;
 }
 
-/** "Sun 2° up", or "Earth below the horizon". */
-export function heightWords(name: 'Sun' | 'Earth', elDeg: number): string {
-  return elDeg < 0 ? `${name} below the horizon` : `${name} ${Math.round(elDeg)}° up`;
+/** Whether the hills hide a body that is above the horizon: not at all, in part, or wholly. */
+export type Hidden = 'no' | 'partly' | 'yes';
+
+/** "Sun 2° up", "Sun 2° up, behind the hills", or "Earth below the horizon". */
+export function heightWords(name: 'Sun' | 'Earth', elDeg: number, hidden: Hidden = 'no'): string {
+  if (elDeg < 0) return `${name} below the horizon`;
+  const up = `${name} ${Math.round(elDeg)}° up`;
+  return hidden === 'yes' ? `${up}, behind the hills` : hidden === 'partly' ? `${up}, partly behind the hills` : up;
+}
+
+/**
+ * How the map is turned so that north at the site is up: the grid has longitude 0 up, and north at
+ * longitude λ points along bearing λ, so the picture turns by −λ (the short way round). It is then
+ * enlarged just enough for the turned square to fill its square box.
+ */
+export function turnedView(lonDeg: number): { rotateDeg: number; scale: number } {
+  const rotateDeg = ((((-lonDeg + 180) % 360) + 360) % 360) - 180;
+  const r = (rotateDeg * Math.PI) / 180;
+  return { rotateDeg, scale: Math.abs(Math.cos(r)) + Math.abs(Math.sin(r)) };
 }

@@ -56,6 +56,7 @@ function show(extra: Partial<Parameters<typeof GroundPanel>[0]> = {}) {
       windowLoading={false}
       customError={null}
       when="2 Jan 2027, 06:00 UTC"
+      startUtc="2027-01-02T03:00:00"
       mask={new Float64Array(720)}
       series={series}
       cursor={3}
@@ -105,7 +106,7 @@ describe('GroundPanel', () => {
   it('explains how to read the map beside it: light and dark ground, the arrows, north', async () => {
     show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
     const key = within(screen.getByRole('tabpanel', { name: 'Shadow map' })).getByRole('list', { name: 'How to read the map' });
-    expect([...key.querySelectorAll('li')].map((li) => li.lastElementChild!.textContent)).toEqual(['ground in sunlight', 'ground in shadow', 'towards the Sun', 'towards Earth (dotted when below the horizon)', 'north at the site']);
+    expect([...key.querySelectorAll('li')].map((li) => li.lastElementChild!.textContent)).toEqual(['ground in sunlight', 'ground in shadow', 'towards the Sun', 'towards Earth (dotted when below the horizon)', 'north is up']);
   });
 
   it('gives the map a square box at every width, so no black bands frame it', async () => {
@@ -154,7 +155,7 @@ describe('GroundPanel', () => {
     expect(screen.getByRole('button', { name: 'Terrain' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'Globe' }));
     expect(onMode).toHaveBeenCalledWith('globe');
-    fireEvent.click(screen.getByRole('button', { name: 'Heights ×3' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Stretched ×3' }));
     expect(onExaggeration).toHaveBeenCalledWith(3);
   });
 
@@ -172,7 +173,7 @@ describe('GroundPanel', () => {
   it('says in plain words what the 3D picture is made from', () => {
     show({ heightmap: grid('window', 1024, 20), terrainState: 'ready' });
     fireEvent.click(tab('3D'));
-    expect(screen.getByRole('tabpanel', { name: '3D' }).textContent).toMatch(/NASA elevation data at 20 m per pixel, about 20 km across, in the light of the shadow map\. Drag to turn, scroll to zoom; the light follows the time bar\. Globe shows the whole Moon\./);
+    expect(screen.getByRole('tabpanel', { name: '3D' }).textContent).toMatch(/The same ground in 3D, about 20 km across, lit exactly as on the shadow map; the yellow pin marks the site\. NASA elevation data at 20 m per pixel\. Drag to turn, scroll to zoom; the light follows the time bar\. Globe shows the whole Moon\./);
   });
 
   it('keeps one name in every tab, explains the globe and reports a place that cannot be worked out', () => {
@@ -182,7 +183,7 @@ describe('GroundPanel', () => {
     const text = screen.getByRole('tabpanel', { name: '3D' }).textContent ?? '';
     expect(text).toMatch(/^.*The whole Moon, lit for the hour of the time bar\. Click anywhere inside the ring at 60° S to get that point's own forecast\./);
     expect(screen.getByRole('alert').textContent).toMatch(/That place cannot be worked out: this tool covers the Moon south of 60° S/);
-    expect(screen.queryByRole('button', { name: 'Heights ×3' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Stretched ×3' })).toBeNull();
   });
 
   it('says so while the terrain loads, and when the terrain files are missing', () => {

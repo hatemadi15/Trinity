@@ -44,7 +44,8 @@ describe('HorizonView', () => {
     const high: Series = { ...series, earthEl: Float64Array.from({ length: n }, (_, h) => -5 + h * 0.45) };
     render(<HorizonView mask={new Float64Array(720)} series={high} cursor={10} lat={-88.28} />);
     // Earth climbs from -5° to 16.2°: the picture spans -6° to 17.2°, and its top words sit below its top tenth.
-    const top = screen.getByText('13°');
+    // The gridline is a round number: 10°, not the odd 13° just below the top.
+    const top = screen.getByText('10°');
     expect(parseFloat(top.style.top)).toBeGreaterThanOrEqual(10);
   });
 
@@ -75,6 +76,19 @@ describe('HorizonView', () => {
     const day: Series = { ...series, sunEl: Float64Array.from({ length: n }, (_, h) => h * 1.5), earthEl: new Float64Array(n).fill(27) };
     render(<HorizonView mask={new Float64Array(720)} series={day} cursor={10} lat={18.56} />);
     expect(screen.getByText('horizon (0°)').style.transform).toBe('translateY(-100%)');
+  });
+
+  it('says across the top that left to right is direction, not time, and dates the start and end of the Sun\'s path', () => {
+    render(<HorizonView mask={new Float64Array(720)} series={series} cursor={10} lat={-88.28} startUtc="2027-01-01T00:00:00" />);
+    expect(screen.getByText('Left to right is the direction from the site, not time.')).toBeTruthy();
+    expect(document.querySelector('[data-path-date="start"]')!.textContent).toBe('1 Jan');
+    expect(document.querySelector('[data-path-date="end"]')!.textContent).toBe('2 Jan');
+  });
+
+  it('draws Earth over the Sun, so its small loop stays visible where the paths cross', () => {
+    render(<HorizonView mask={new Float64Array(720)} series={series} cursor={10} lat={-88.28} />);
+    const lines = [...document.querySelectorAll('polyline')];
+    expect(lines[lines.length - 1].getAttribute('stroke')).toBe('var(--stage-earth)');
   });
 
   it('says how much the heights are stretched', () => {

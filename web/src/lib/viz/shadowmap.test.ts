@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrowEnd, compassCorner, heightWords, scaleBarKm } from './shadowmap';
+import { arrowEnd, compassCorner, heightWords, scaleBarKm, turnedView } from './shadowmap';
 
 describe('scaleBarKm', () => {
   it('picks the longest round length that fits in a quarter of the picture', () => {
@@ -37,5 +37,23 @@ describe('heightWords', () => {
     expect(heightWords('Sun', 2.4)).toBe('Sun 2° up');
     expect(heightWords('Earth', 0.2)).toBe('Earth 0° up');
     expect(heightWords('Earth', -1.5)).toBe('Earth below the horizon');
+  });
+
+  it('says so when the hills hide a body that is above the horizon', () => {
+    expect(heightWords('Sun', 2.4, 'yes')).toBe('Sun 2° up, behind the hills');
+    expect(heightWords('Sun', 2.4, 'partly')).toBe('Sun 2° up, partly behind the hills');
+    expect(heightWords('Earth', -1.5, 'yes')).toBe('Earth below the horizon');
+  });
+});
+
+describe('turnedView', () => {
+  it('turns the map so north at the site is up, and enlarges it just enough to fill its square', () => {
+    const v = turnedView(-64.31);
+    expect(v.rotateDeg).toBeCloseTo(64.31, 9);
+    expect(v.scale).toBeCloseTo(Math.cos((64.31 * Math.PI) / 180) + Math.sin((64.31 * Math.PI) / 180), 9);
+    expect(turnedView(0)).toEqual({ rotateDeg: 0, scale: 1 });
+    // Longitudes past 180 turn the short way round.
+    expect(turnedView(-200).rotateDeg).toBeCloseTo(-160, 9);
+    expect(turnedView(90).scale).toBeCloseTo(1, 9);
   });
 });

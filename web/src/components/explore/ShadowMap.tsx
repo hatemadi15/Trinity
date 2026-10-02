@@ -2,16 +2,15 @@
 import { useEffect, useRef } from 'react';
 import { LabelGuard } from '@/components/LabelGuard';
 import type { ShadowPicture } from '@/lib/engine/shadow-handler';
-import { sunBearingDeg } from '@/lib/engine/shadow';
 import { useElementWidth } from '@/lib/hooks/useElementWidth';
-import { arrowEnd, arrowPlate, compassCorner, heightWords, scaleBarKm, siteNameBox, type Corner } from '@/lib/viz/shadowmap';
+import { arrowEnd, arrowPlate, compassCorner, heightWords, scaleBarKm, siteNameBox, turnedView, type Corner, type Hidden } from '@/lib/viz/shadowmap';
 
 /** The map's side before it is measured. */
 const DEFAULT_PX = 560;
 /** The scale bar's plate: its padding and height in pixels. */
 const SCALE_PAD_PX = 16;
 const SCALE_H_PX = 34;
-/** Below this side the arrows' words would cover too much of the map: the reading guide beside it names the arrows instead. */
+/** Below this side the arrows' whole words would cover too much of the map: they are named in one word. */
 const WORDS_MIN_PX = 360;
 /** The compass: its side in pixels, and where it sits in each corner. */
 const COMPASS_PX = 60;
@@ -20,10 +19,9 @@ const D2R = Math.PI / 180;
 
 /**
  * The ground around the site from above, with the shadows of the hour: the shadow sweep's grey
- * picture of the finest terrain level, the site's pin, a scale bar, a compass for north at the site and
- * arrows from the site towards the Sun and towards Earth. Map-up is the direction of longitude 0, as on
- * the relief map, so north at the site points away from the pole. It fills the height of its box as a
- * square.
+ * picture of the finest terrain level, turned so north at the site is up, the site's pin and name
+ * (with whether it is lit), a scale bar, a compass and arrows from the site towards the Sun and
+ * towards Earth along their azimuths. It fills the height of its box as a square.
  */
 export function ShadowMap({
   picture,
@@ -35,6 +33,9 @@ export function ShadowMap({
   earthAz,
   earthEl,
   when,
+  sunHidden = 'no',
+  earthHidden = 'no',
+  siteState,
 }: {
   picture: ShadowPicture | null;
   widthKm: number;
@@ -45,6 +46,11 @@ export function ShadowMap({
   earthAz: number;
   earthEl: number;
   when: string;
+  /** Whether the hills hide the Sun or Earth at this hour (for the arrows' words). */
+  sunHidden?: Hidden;
+  earthHidden?: Hidden;
+  /** "in sunlight", "in shadow"…: added to the site's name. */
+  siteState?: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const { ref: measure, width: sizePx } = useElementWidth<HTMLDivElement>(DEFAULT_PX);
@@ -68,25 +74,27 @@ export function ShadowMap({
     ctx.putImageData(image, 0, 0);
   }, [picture]);
 
-  const sunBearing = sunBearingDeg(lon, sunAz);
-  const earthBearing = sunBearingDeg(lon, earthAz);
-  const sun = arrowEnd(sunBearing, 100);
-  const earth = arrowEnd(earthBearing, 100);
-  const km = scaleBarKm(widthKm);
-  const sunWords = heightWords('Sun', sunEl);
-  const earthWords = heightWords('Earth', earthEl);
+  // North is up: the picture turns by the longitude and the arrows follow the azimuths.
+  const view = turnedView(lon);
+  const shownKm = widthKm / view.scale;
+  const sun = arrowEnd(sunAz, 100);
+  const earth = arrowEnd(earthAz, 100);
+  const km = scaleBarKm(shownKm);
+  const worded = sizePx >= WORDS_MIN_PX;
+  const sunWords = worded ? heightWords('Sun', sunEl, sunHidden) : 'Sun';
+  const earthWords = worded ? heightWords('Earth', earthEl, earthHidden) : 'Earth';
   const sunPlate = arrowPlate(sun, sunWords, sizePx);
   const earthPlate = arrowPlate(earth, earthWords, sizePx);
-  const worded = sizePx >= WORDS_MIN_PX;
+  const nameWords = siteState ? `${siteName}, ${siteState}` : siteName;
   const corner = compassCorner([sun, earth]);
   const c = COMPASS_PX / sizePx;
   const compassBox = { x: corner === 'tl' ? 0.03 : 0.97 - c, y: corner === 'br' ? 0.97 - c : 0.03, w: c, h: c };
-  const scaleBox = { x: 0.04, y: 0.96 - SCALE_H_PX / sizePx, w: km / widthKm + SCALE_PAD_PX / sizePx, h: SCALE_H_PX / sizePx };
-  const name = siteNameBox(siteName, [...(worded ? [sunPlate.box, earthPlate.box] : []), compassBox, scaleBox], sizePx);
+  const scaleBox = { x: 0.04, y: 0.96 - SCALE_H_PX / sizePx, w: km / shownKm + SCALE_PAD_PX / sizePx, h: SCALE_H_PX / sizePx };
+  const name = siteNameBox(nameWords, [sunPlate.box, earthPlate.box, compassBox, scaleBox], sizePx);
   const said = picture ? (picture.siteLit ? '. The site is in sunlight.' : '. The site is in shadow.') : ': being worked out.';
   return (
     <LabelGuard role="img" aria-label={`Shadows at ${when}${said}`} className="relative aspect-square h-full overflow-hidden bg-stage">
-      <canvas ref={canvas} aria-hidden="true" className={`absolute inset-0 h-full w-full ${picture ? '' : 'invisible'}`} />
+      <canvas ref={canvas} aria-hidden="true" className={`absolute inset-0 h-full w-full ${picture ? '' : 'invisible'}`} style={{ transform: `rotate(${Math.round(view.rotateDeg * 100) / 100}deg) scale(${Math.round(view.scale * 10000) / 10000})` }} />
       <div ref={measure} aria-hidden="true" className="pointer-events-none absolute inset-0" />
       {!picture && (
         <p aria-hidden="true" className="absolute inset-x-0 top-[30%] text-center text-[15px] text-stage-ink">
@@ -94,18 +102,18 @@ export function ShadowMap({
         </p>
       )}
       <svg viewBox="0 0 100 100" aria-hidden="true" className="absolute inset-0 h-full w-full overflow-visible">
-        <ArrowLine name="earth" end={earth} bearing={earthBearing} color="var(--stage-earth)" dotted={earthEl < 0} />
-        <ArrowLine name="sun" end={sun} bearing={sunBearing} color="var(--stage-sun)" dotted={sunEl < 0} />
+        <ArrowLine name="earth" end={earth} bearing={earthAz} color="var(--stage-earth)" dotted={earthEl < 0} />
+        <ArrowLine name="sun" end={sun} bearing={sunAz} color="var(--stage-sun)" dotted={sunEl < 0} />
         <circle cx={50} cy={50} r={1.4} fill="var(--stage-sun)" stroke="var(--stage)" strokeWidth={0.6} />
       </svg>
       {/* Words sit on plates: each arrow's words at its far end, the site's name beside its pin clear of them. Where two still overlap the less important gives way. */}
       <span data-label="" data-priority={0} className={`${PLATE} text-stage-ink`} style={{ left: `${name.x * 100}%`, top: `${name.y * 100}%` }}>
-        {siteName}
+        {nameWords}
       </span>
       <div data-label="" data-priority={1} aria-hidden="true" className={`pointer-events-none absolute rounded-full bg-stage/85 ${COMPASS_AT[corner]}`} style={{ width: COMPASS_PX, height: COMPASS_PX }}>
         <span className="absolute inset-[9px] rounded-full border border-stage-ink/40" />
         {(['N', 'E', 'S', 'W'] as const).map((letter, i) => {
-          const b = (lon + 90 * i) * D2R;
+          const b = 90 * i * D2R;
           return (
             <span key={letter} data-compass={letter} className={`absolute -translate-x-1/2 -translate-y-1/2 text-[14px] leading-none ${letter === 'N' ? 'font-bold text-stage-ink' : 'text-stage-ink/80'}`} style={{ left: `${50 + 36 * Math.sin(b)}%`, top: `${50 - 36 * Math.cos(b)}%` }}>
               {letter}
@@ -113,17 +121,13 @@ export function ShadowMap({
           );
         })}
       </div>
-      {worded && (
-        <>
-          <Plate plate={sunPlate} priority={2} className="text-stage-sun">
-            {sunWords}
-          </Plate>
-          <Plate plate={earthPlate} priority={3} className="text-stage-earth">
-            {earthWords}
-          </Plate>
-        </>
-      )}
-      <div data-label="" data-priority={4} className="pointer-events-none absolute bottom-[4%] left-[4%] box-content rounded-[5px] bg-stage/85 px-2 pb-2 pt-0.5 text-[15px] font-medium leading-snug text-stage-ink" style={{ width: `${(km / widthKm) * 100}%` }}>
+      <Plate plate={sunPlate} priority={2} className="text-stage-sun">
+        {sunWords}
+      </Plate>
+      <Plate plate={earthPlate} priority={3} className="text-stage-earth">
+        {earthWords}
+      </Plate>
+      <div data-label="" data-priority={4} className="pointer-events-none absolute bottom-[4%] left-[4%] box-content rounded-[5px] bg-stage/85 px-2 pb-2 pt-0.5 text-[15px] font-medium leading-snug text-stage-ink" style={{ width: `${(km / shownKm) * 100}%` }}>
         {km < 1 ? `${km * 1000} m` : `${km} km`}
         <span className="mt-1 block h-[3px] w-full bg-stage-ink" />
       </div>

@@ -33,7 +33,8 @@ describe('ShadowMap', () => {
   it('marks the site, gives a scale, and points to the Sun and to Earth with their heights', () => {
     show();
     expect(screen.getByText('de Gerlache Rim 2')).toBeTruthy();
-    expect(screen.getByText('5 km')).toBeTruthy();
+    // Turned so north is up, the 20.48 km square shows its middle 15 km: a 2 km bar.
+    expect(screen.getByText('2 km')).toBeTruthy();
     expect(screen.getByText('Sun 2° up')).toBeTruthy();
     expect(screen.getByText('Earth below the horizon')).toBeTruthy();
   });
@@ -74,19 +75,26 @@ describe('ShadowMap', () => {
   it('lets its words give way where they would overlap: the site first, then north, the Sun, Earth and the scale', () => {
     show();
     const priority = (text: string) => screen.getByText(text).closest('[data-label]')?.getAttribute('data-priority');
-    expect([priority('de Gerlache Rim 2'), priority('N'), priority('Sun 2° up'), priority('Earth below the horizon'), priority('5 km')]).toEqual(['0', '1', '2', '3', '4']);
+    expect([priority('de Gerlache Rim 2'), priority('N'), priority('Sun 2° up'), priority('Earth below the horizon'), priority('2 km')]).toEqual(['0', '1', '2', '3', '4']);
   });
 
-  it("shows north at the site: the compass turns with the site's longitude", () => {
+  it('puts north at the top: the picture turns by the site\'s longitude, and the compass has N up', () => {
     show({ lon: -64.31 });
+    const canvas = document.querySelector('canvas')!;
+    expect(canvas.style.transform).toMatch(/rotate\(64\.31\d*deg\)/);
     const letters = Object.fromEntries([...document.querySelectorAll<HTMLElement>('[data-compass]')].map((e) => [e.dataset.compass, e]));
     expect(Object.keys(letters).sort()).toEqual(['E', 'N', 'S', 'W']);
-    // North at a site near the south pole points away from the pole: up and to the left at longitude -64°.
-    const n = letters.N;
-    expect(parseFloat(n.style.left)).toBeLessThan(50);
-    expect(parseFloat(n.style.top)).toBeLessThan(50);
-    const e = letters.E;
-    expect(parseFloat(e.style.left)).toBeGreaterThan(50);
+    expect(parseFloat(letters.N.style.top)).toBeLessThan(30);
+    expect(parseFloat(letters.E.style.left)).toBeGreaterThan(70);
+    expect(parseFloat(letters.S.style.top)).toBeGreaterThan(70);
+    expect(parseFloat(letters.W.style.left)).toBeLessThan(30);
+  });
+
+  it("says on the arrows' words when the hills hide them, and on the site's name whether it is lit", () => {
+    show({ sunEl: 2.4, sunHidden: 'yes', earthEl: 3, earthHidden: 'yes', siteState: 'in shadow' });
+    expect(screen.getByText('Sun 2° up, behind the hills')).toBeTruthy();
+    expect(screen.getByText('Earth 3° up, behind the hills')).toBeTruthy();
+    expect(screen.getByText('de Gerlache Rim 2, in shadow')).toBeTruthy();
   });
 
   it('draws the arrows thick enough to see, with heads, and Earth dotted when it is below the horizon', () => {
@@ -98,7 +106,7 @@ describe('ShadowMap', () => {
     expect(document.querySelectorAll('[data-arrowhead]')).toHaveLength(2);
   });
 
-  it('leaves the arrows unlabelled on a small map, where the words would cover it', () => {
+  it('names the arrows in one word on a small map, where their whole words would cover it', () => {
     const watchers: ((entries: { contentRect: { width: number } }[]) => void)[] = [];
     class FakeObserver {
       constructor(cb: (entries: { contentRect: { width: number } }[]) => void) {
@@ -114,14 +122,16 @@ describe('ShadowMap', () => {
       act(() => watchers.forEach((cb) => cb([{ contentRect: { width: 300 } }])));
       expect(screen.queryByText('Sun 2° up')).toBeNull();
       expect(screen.queryByText('Earth below the horizon')).toBeNull();
+      expect(screen.getByText('Sun')).toBeTruthy();
+      expect(screen.getByText('Earth')).toBeTruthy();
       expect(screen.getByText('de Gerlache Rim 2')).toBeTruthy();
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
-  it("turns the arrows with the site: the Sun's map bearing is its azimuth plus the longitude", () => {
-    show({ lon: 0, sunAz: 90 });
+  it('points each arrow along its azimuth, north being up whatever the longitude', () => {
+    show({ lon: -64.31, sunAz: 90 });
     const sun = document.querySelector<SVGLineElement>('[data-arrow="sun"]')!;
     expect(Number(sun.getAttribute('x2'))).toBeGreaterThan(Number(sun.getAttribute('x1')));
     expect(Number(sun.getAttribute('y2'))).toBeCloseTo(Number(sun.getAttribute('y1')), 6);

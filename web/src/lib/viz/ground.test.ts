@@ -32,8 +32,18 @@ describe('groundWords', () => {
     expect(groundWords(series([{ f: 0, el: 1.6, az: 250 }]), 0).sun).toBe('The site is in shadow: the Sun is 1.6° above the horizon but behind the hills to the west.');
   });
 
-  it('says when the Sun is below the horizon', () => {
-    expect(groundWords(series([{ f: 0, el: -1.2, az: 170 }]), 0).sun).toBe('The site is in shadow: the Sun is below the horizon, to the south.');
+  it('calls it night when the Sun is below the horizon', () => {
+    expect(groundWords(series([{ f: 0, el: -1.2, az: 170 }]), 0).sun).toBe('It is night at the site: the Sun is below the horizon, to the south.');
+  });
+
+  it('gives the map its short words: the site lit or not, and which body the hills hide', () => {
+    const w = (h: Parameters<typeof series>[0][0]) => groundWords(series([h]), 0);
+    expect(w({ f: 1, el: 2, az: 0 })).toMatchObject({ siteState: 'in sunlight', sunHidden: 'no' });
+    expect(w({ f: 0.4, el: 2, az: 0 })).toMatchObject({ siteState: 'partly in sunlight', sunHidden: 'partly' });
+    expect(w({ f: 0, el: 2, az: 0 })).toMatchObject({ siteState: 'in shadow', sunHidden: 'yes' });
+    expect(w({ f: 0, el: -2, az: 0 })).toMatchObject({ siteState: 'at night', sunHidden: 'no' });
+    expect(w({ f: 1, el: 2, az: 0, earth: { el: 3, az: 0, seen: false } }).earthHidden).toBe('yes');
+    expect(w({ f: 1, el: 2, az: 0, earth: { el: 3, az: 0, seen: true } }).earthHidden).toBe('no');
   });
 
   it('says whether the Sun is rising or setting behind the hills when part of it shows', () => {

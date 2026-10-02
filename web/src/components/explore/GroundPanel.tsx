@@ -64,6 +64,7 @@ export function GroundPanel({
   windowLoading,
   customError,
   when,
+  startUtc,
   mask,
   series,
   cursor,
@@ -86,6 +87,8 @@ export function GroundPanel({
   windowLoading: boolean;
   customError: string | null;
   when: string;
+  /** The period's first hour, for the dates on the view all round. */
+  startUtc: string;
   mask: ArrayLike<number>;
   series: Series;
   cursor: number;
@@ -127,7 +130,7 @@ export function GroundPanel({
   const missing = loading ? 'Loading the terrain…' : 'The terrain files are not on this machine.';
   let caption3d: string;
   if (view === 'globe') caption3d = "The whole Moon, lit for the hour of the time bar. Click anywhere inside the ring at 60° S to get that point's own forecast. Drag to turn, scroll to zoom.";
-  else if (heightmap) caption3d = `NASA elevation data at ${heightmap.meta.cell_m} m per pixel, about ${Math.round((heightmap.meta.width * heightmap.meta.cell_m) / 1000)} km across, in the light of the shadow map. Drag to turn, scroll to zoom; the light follows the time bar. Globe shows the whole Moon.`;
+  else if (heightmap) caption3d = `The same ground in 3D, about ${Math.round((heightmap.meta.width * heightmap.meta.cell_m) / 1000)} km across, lit exactly as on the shadow map; the yellow pin marks the site. NASA elevation data at ${heightmap.meta.cell_m} m per pixel. Drag to turn, scroll to zoom; the light follows the time bar. Globe shows the whole Moon.`;
   else if (loading) caption3d = missing;
   else if (capHeightmap) caption3d = `NASA elevation data at ${capHeightmap.meta.cell_m} m per pixel, 48 km around the site: too coarse to show its own slopes. The light follows the time bar.`;
   else caption3d = missing;
@@ -172,7 +175,20 @@ export function GroundPanel({
           ) : finest ? (
             <div className={BESIDE}>
               <div className="stage aspect-square">
-                <ShadowMap picture={picture} widthKm={(finest.width * finest.pxM) / 1000} siteName={siteLabel(site)} lon={site.lon} sunAz={scene.sunAz} sunEl={scene.sunEl} earthAz={scene.earthAz} earthEl={scene.earthEl} when={when} />
+                <ShadowMap
+                  picture={picture}
+                  widthKm={(finest.width * finest.pxM) / 1000}
+                  siteName={siteLabel(site)}
+                  lon={site.lon}
+                  sunAz={scene.sunAz}
+                  sunEl={scene.sunEl}
+                  earthAz={scene.earthAz}
+                  earthEl={scene.earthEl}
+                  when={when}
+                  sunHidden={words.sunHidden}
+                  earthHidden={words.earthHidden}
+                  siteState={words.siteState}
+                />
               </div>
               <div className="text-[15px] text-ink-2">
                 <ul aria-label="How to read the map" className="flex flex-col gap-2 text-ink">
@@ -180,7 +196,7 @@ export function GroundPanel({
                   <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm border border-stage-ink/40 bg-black" />}>ground in shadow</KeyItem>
                   <KeyItem sample={<Arrow color="var(--stage-sun)" />}>towards the Sun</KeyItem>
                   <KeyItem sample={<Arrow color="var(--stage-earth)" dotted />}>towards Earth (dotted when below the horizon)</KeyItem>
-                  <KeyItem sample={<span className="text-[14px] font-bold text-stage-ink">N</span>}>north at the site</KeyItem>
+                  <KeyItem sample={<span className="flex h-5 w-5 items-center justify-center rounded-full border border-stage-ink/40 text-[12px] font-bold text-stage-ink">N</span>}>north is up</KeyItem>
                 </ul>
                 <p className="mt-4 text-ink">Move the time bar at the bottom of the window, or press Play, to watch the shadows move.</p>
                 <p className="mt-3">
@@ -223,7 +239,7 @@ export function GroundPanel({
                     True heights
                   </button>
                   <button type="button" aria-pressed={exaggeration === 3} onClick={() => onExaggeration(3)} className={seg(exaggeration === 3)}>
-                    Heights ×3
+                    Stretched ×3
                   </button>
                 </div>
               )}
@@ -239,7 +255,7 @@ export function GroundPanel({
       </div>
 
       <div role="tabpanel" id="ground-panel-horizon" aria-labelledby="ground-tab-horizon" hidden={tab !== 'horizon'} className="mt-4">
-        {tab === 'horizon' && <HorizonView mask={mask} series={series} cursor={cursor} lat={site.lat} />}
+        {tab === 'horizon' && <HorizonView mask={mask} series={series} cursor={cursor} lat={site.lat} startUtc={startUtc} />}
       </div>
 
       {customError && (
