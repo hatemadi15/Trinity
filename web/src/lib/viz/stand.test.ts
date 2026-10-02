@@ -134,6 +134,9 @@ describe('what to watch for', () => {
     const dawn = series({ sunEl: [-0.5, -0.2, 0.1, 0.3], sunFraction: [0, 0, 0.3, 1] });
     const off = { powered: Uint8Array.from([0, 0, 0, 1]) } as unknown as PowerResult;
     expect(watchNext(dawn, off, start, 0)).toBe('Press Play to watch the Sun come back on 1 January, then the power come back on 1 January.');
+    // In the same hour, the Sun comes first: the power comes back because of it.
+    const same = { powered: Uint8Array.from([0, 0, 1, 1]) } as unknown as PowerResult;
+    expect(watchNext(dawn, same, start, 0)).toBe('Press Play to watch the Sun come back on 1 January, then the power come back on 1 January.');
   });
 
   it('says the Sun sets below the horizon when it goes down rather than behind the hills', () => {

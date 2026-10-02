@@ -63,8 +63,9 @@ export function watchNext(s: Series, p: PowerResult | null, startUtc: string, ho
   const next = (from: number, kind?: 'sun' | 'power'): { h: number; kind: 'sun' | 'power'; text: string } | null => {
     for (let h = Math.max(1, from + 1); h < s.hours; h++) {
       const day = dateLong(startUtc, h);
-      if (kind !== 'sun' && p && p.powered[h] !== p.powered[h - 1]) return { h, kind: 'power', text: p.powered[h] === 0 ? `the battery run out on ${day}` : `the power come back on ${day}` };
+      // In the same hour the Sun comes first: the power changes because of it.
       if (kind !== 'power' && lit(h) !== lit(h - 1)) return { h, kind: 'sun', text: lit(h) ? `the Sun come back on ${day}` : `the Sun set ${s.sunEl[h] < 0 ? 'below the horizon' : 'behind the hills'} on ${day}` };
+      if (kind !== 'sun' && p && p.powered[h] !== p.powered[h - 1]) return { h, kind: 'power', text: p.powered[h] === 0 ? `the battery run out on ${day}` : `the power come back on ${day}` };
     }
     return null;
   };
