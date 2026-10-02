@@ -139,7 +139,7 @@ export function StandCanvas({
         role="application"
         aria-label="The view from the site. Drag or use the arrow keys to look around; plus and minus zoom."
         tabIndex={0}
-        className={`fixed inset-0 h-full w-full touch-none outline-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`fixed inset-0 h-full w-full touch-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         onPointerDown={(e) => {
           drag.current = { x: e.clientX, y: e.clientY, yaw: view.current.yaw, pitch: view.current.pitch };
           goal.current = null;

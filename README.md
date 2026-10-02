@@ -31,6 +31,13 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   nearest neighbours. The time bar at the bottom plays the period hour by hour. The period is 14,
   30 or 90 days from a date you choose; the Lander dialog offers three ready-made landers or your
   own panel, load, battery and mast. `/explore?site=&start=&days=` links to one forecast.
+- **Stand on the Moon** (`/explore/stand`, "Stand here" on Explore): the view from the landing site,
+  full window, for Explore's site, period and hour. NASA's ground out to 125 km, lit by the hour's
+  Sun with the shadows worked out from those heights; the Sun small and white in a black sky; Earth
+  from NASA's Blue Marble, turned for the hour; the real stars, placed for the site and hour. Explore's
+  answer, the sentence for the hour and the lander's state sit on top, the time bar below; Play sweeps
+  the shadows across the ground. `?hour=` sets the hour and `?quality=fast` lightens the drawing for
+  weaker graphics; without WebGL 2 the view all round stands in, with the same words.
 - **Compare sites** (`/compare`): up to four sites in one table for the same days and lander:
   sunlight, Earth in view, longest night and time with power (and when the power comes back), with a small Sun and
   Earth strip per site and one sentence naming the best site for each measure. Empty, it offers two

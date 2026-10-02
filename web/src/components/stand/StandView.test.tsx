@@ -80,6 +80,19 @@ describe('StandView', () => {
     expect(screen.getByText(liveSentence(store.getState().series!, 10))).toBeTruthy();
   });
 
+  it('keeps one renderer while the time moves', async () => {
+    let made = 0;
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => {
+      made++;
+      return stub();
+    });
+    await waitFor(() => expect(made).toBe(1));
+    act(() => store.getState().setCursor(40));
+    act(() => store.getState().setCursor(41));
+    await waitFor(() => expect(screen.getByText(liveSentence(store.getState().series!, 41))).toBeTruthy());
+    expect(made).toBe(1);
+  });
+
   it('lets the renderer go when the view closes', async () => {
     const r = stub();
     const { view } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
