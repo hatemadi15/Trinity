@@ -25,7 +25,7 @@ Missions to the Moon's south pole live or die by two questions: when is the Sun 
 - **Ask in plain words**: typed questions ("compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "find the best landing date for 14 days", "explain the longest night") are turned into validated actions on the same controls. The assistant never computes physics; every number on screen comes from the engine.
 - **Accuracy**: three checks, each with a pass mark, a headline figure and its full table on request, and a live re-check against JPL Horizons.
 - **The brief**: one printable page with the answer, five numbers, the Sun's and Earth's rows over the period, the method and the data, and a narrated paragraph checked number by number against the figures.
-- **How it works**: three drawings of why the south pole is hard and five steps through the pages, in plain words for students and the public.
+- **How it works**: three drawings of why the south pole is hard, the science behind them (the Moon's 1.5° tilt against Earth's 23.4°, libration, how to read the charts, the battery sum) and five steps through the pages, in plain words for students and the public.
 
 ### How it works
 
@@ -38,7 +38,7 @@ Sun and Earth positions come from a precomputed hourly table (2024–2036) built
 | Sun and Earth directions vs JPL Horizons (six sites × two bodies, 2025–2026, every 30 days) | 300 rows, worst 2.7e-5° in elevation, 2.6e-6° in azimuth × cos(el); live re-check button on the Accuracy page |
 | Sunlight vs the LOLA average-visibility map (60 m/px, south of 85°S) | 15 covered sites, 11 within 5 points, typical gap 2.6 points, worst +10.8 points at the Shackleton rim high point (a 20 m peak sampled by a 60 m map) |
 | Predicted sunset vs reported mission end | Blue Ghost M1: +2.4 h (flat mare horizon). IM-1: −67 h, tipped over with panels away from the low Sun. IM-2: −299 h, on its side in a crater |
-| Automated tests | 736 in the web engine and app, 114 in the Python pipeline (2026-10-02); the Accuracy page shows the current count |
+| Automated tests | 740 in the web engine and app, 114 in the Python pipeline (2026-10-02); the Accuracy page shows the current count |
 
 Error budget: directions under 0.01°, the hills on the horizon 0.05–0.15°, event timing ±15–60 minutes near the pole (hourly series, the Sun moves 0.5° per hour along the horizon).
 

@@ -125,7 +125,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
       covered > 0
         ? full
           ? `The battery covers the first ${spanWords(covered)} of the night`
-          : `As the Sun set the panel already gave less than the lander uses, so the battery covers only the first ${spanWords(covered)} of the night`
+          : `As the Sun set, the panel already gave less than the lander uses, so the battery covers only the first ${spanWords(covered)} of the night`
         : sunset === 0
           ? 'The battery is empty at the start'
           : 'The battery is empty when the Sun sets';

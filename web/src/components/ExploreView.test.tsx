@@ -22,8 +22,8 @@ afterEach(() => {
 describe('ExploreView', () => {
   it("shows the answer for the default site as the page's heading, with one gold action", async () => {
     await open();
-    expect(heading()).toMatch(/de Gerlache Rim 2/);
-    expect(heading()).toMatch(/^Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night$/);
+    expect(heading()).toMatch(/de Gerlache Rim\s2/);
+    expect(heading()).toMatch(/^Landing at de Gerlache Rim\s2 on 1 January: power for 3 days 4 hours, then night$/);
     const gold = screen.getByRole('main').querySelectorAll('.btn-primary');
     expect(gold).toHaveLength(1);
     expect(gold[0].textContent).toMatch(/^Land on 20 January/);

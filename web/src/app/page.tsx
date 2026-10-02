@@ -88,7 +88,7 @@ export default function Home() {
               <p id="h-forecast" className="text-[17px] font-semibold">
                 A real forecast: {hero.name}, January 2027
               </p>
-              <p className="mt-1 max-w-[76em] text-base text-stage-ink">
+              <p className="mt-1 max-w-[42em] text-base text-stage-ink">
                 A ridge NASA shortlisted for astronauts. Read it from left to right, one day at a time. Heights are angles above the horizon: 5° is about the width of three fingers held
                 at arm&apos;s length. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day.
               </p>

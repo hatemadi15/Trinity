@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { AppFrame } from '@/components/AppFrame';
 import { WhySection } from '@/components/home/WhySection';
-import { STORY_STEPS } from '@/lib/learn/story';
+import { SCIENCE, STORY_STEPS } from '@/lib/learn/story';
 
-/** How it works: why the pole is hard (the home page's three drawings), then five steps through the pages, then the way in. */
+/** How it works: why the pole is hard (the home page's three drawings), the science behind it, then five steps through the pages, then the way in. */
 export default function LearnPage() {
   return (
     <AppFrame>
@@ -16,6 +16,19 @@ export default function LearnPage() {
           </p>
         </div>
         <WhySection teaching={false} />
+        <section aria-labelledby="h-science" className="wrap pt-16">
+          <h2 id="h-science" className="display text-[34px] sm:text-[40px]">
+            The science behind the three facts
+          </h2>
+          <div className="mt-7 grid gap-x-10 gap-y-7 md:grid-cols-2">
+            {SCIENCE.map((x) => (
+              <div key={x.title} className="max-w-[38em]">
+                <h3 className="display text-[23px] font-semibold leading-tight">{x.title}</h3>
+                <p className="mt-2 leading-relaxed text-ink-2">{x.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
         <section aria-labelledby="h-steps" className="wrap pt-16">
           <h2 id="h-steps" className="display text-[34px] sm:text-[40px]">
             Five steps through the pages

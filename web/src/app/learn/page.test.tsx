@@ -12,6 +12,16 @@ describe('How it works', () => {
     expect(why.querySelectorAll('svg').length).toBeGreaterThanOrEqual(3);
   });
 
+  it('gives the science behind the three facts, for a class', () => {
+    render(<LearnPage />);
+    const science = screen.getByRole('region', { name: 'The science behind the three facts' });
+    expect(within(science).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Why the Sun stays low', 'Why Earth rises and sets so slowly', 'How to read the grey in the charts', 'The battery sum']);
+    expect(science.textContent).toMatch(/tilted only about 1\.5°/);
+    expect(science.textContent).toMatch(/23\.4°, which is why we have seasons/);
+    expect(science.textContent).toMatch(/libration/);
+    expect(science.textContent).toMatch(/2,000 ÷ 200 = 10 hours/);
+  });
+
   it('walks through the screens in five numbered steps, in the order a visitor meets them', () => {
     render(<LearnPage />);
     const steps = within(screen.getByRole('list', { name: 'Five steps' })).getAllByRole('listitem');

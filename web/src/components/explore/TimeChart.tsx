@@ -89,7 +89,7 @@ export function TimeChart({
       <h2 id="h-why-chart" className="display text-[23px] font-semibold">
         Why: the {days} days, hour by hour
       </h2>
-      <p className="mt-1 max-w-[62em] text-[15px] text-ink">
+      <p className="mt-1 max-w-[46em] text-[15px] text-ink">
         Time runs left to right. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain. Earth
         stays low over one stretch of the horizon; the Moon&apos;s slow monthly wobble lifts it into view and lowers it out of view. Press Play in the bar at the bottom to run through the days.
       </p>

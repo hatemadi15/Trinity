@@ -26,3 +26,23 @@ export const STORY_STEPS: StoryStep[] = [
     body: 'Compare puts up to four sites side by side for the same days and lander. Accuracy shows how each step was checked against an independent NASA source, and lets you rerun one check live.',
   },
 ];
+
+/** The science behind the three facts of "Why the south pole is hard", for a class: each with a sum or a word to look up. */
+export const SCIENCE: StoryStep[] = [
+  {
+    title: 'Why the Sun stays low',
+    body: "The Moon's axis is tilted only about 1.5° from upright to its path around the Sun. Earth's is tilted 23.4°, which is why we have seasons. So near the Moon's poles the Sun never climbs more than a few degrees: it circles the horizon once a lunar day, about 29.5 Earth days.",
+  },
+  {
+    title: 'Why Earth rises and sets so slowly',
+    body: 'The Moon always turns the same face to Earth, so from the Moon Earth hangs almost still in the sky. A slow monthly wobble, called libration, moves it a few degrees up and down and from side to side. Near the pole that is enough to lift Earth over the hills, or hide it behind them, for days at a time.',
+  },
+  {
+    title: 'How to read the grey in the charts',
+    body: "The grey under the Sun's line is not a picture of one mountain. Hour by hour it shows how high the hills stand in the direction the Sun is in at that hour, so its shape changes as the Sun goes round. When the gold line runs under the grey, the hills hide the Sun.",
+  },
+  {
+    title: 'The battery sum',
+    body: 'A 2 kWh battery feeding a lander that uses 200 W lasts 2,000 ÷ 200 = 10 hours. In full sunlight a 4 m² panel at 30\u00a0% efficiency makes about 4 × 1,361 × 0.3 ≈ 1,600 W, eight times what the lander uses: the panel is not the problem, the hours without the Sun are.',
+  },
+];
