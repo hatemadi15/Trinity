@@ -37,6 +37,28 @@ export function siteNameBox(name: string, keepOut: LabelBox[], sizePx: number): 
   return placeMapLabels([{ id: 'site', u: 0.5, v: 0.5, text: name }], sizePx, keepOut).get('site')?.box ?? labelBox(0.5, 0.5, name, 'below', sizePx);
 }
 
+export type Corner = 'tl' | 'tr' | 'br';
+/** The corners the compass may take (percent of the map); the bottom left holds the scale bar. */
+const CORNERS: [Corner, number, number][] = [
+  ['tl', 8, 8],
+  ['tr', 92, 8],
+  ['br', 92, 92],
+];
+
+/** The corner for the compass: the one farthest from the ends of the arrows (points in percent of the map). */
+export function compassCorner(ends: { x: number; y: number }[]): Corner {
+  let best: Corner = 'tr';
+  let far = -1;
+  for (const [corner, x, y] of CORNERS) {
+    const d = Math.min(...ends.map((e) => Math.hypot(e.x - x, e.y - y)));
+    if (d > far) {
+      far = d;
+      best = corner;
+    }
+  }
+  return best;
+}
+
 /** "Sun 2° up", or "Earth below the horizon". */
 export function heightWords(name: 'Sun' | 'Earth', elDeg: number): string {
   return elDeg < 0 ? `${name} below the horizon` : `${name} ${Math.round(elDeg)}° up`;

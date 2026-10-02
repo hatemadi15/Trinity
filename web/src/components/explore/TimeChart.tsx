@@ -202,8 +202,8 @@ export function TimeChart({
       <div className={`${GRID} mt-1`}>
         <span className="max-sm:hidden" />
         <div data-testid="days" aria-hidden="true" className="relative h-6 text-[15px] text-ink-2">
-          {dayTicks.map((d) => (
-            <span key={d} className="absolute whitespace-nowrap" style={d === 0 ? { left: 0 } : { left: `${((d * 24) / hours) * 100}%`, transform: 'translateX(-50%)' }}>
+          {dayTicks.map((d, i) => (
+            <span key={d} data-day="" className={`absolute whitespace-nowrap ${i % 2 === 1 ? 'max-sm:hidden' : ''}`} style={d === 0 ? { left: 0 } : { left: `${((d * 24) / hours) * 100}%`, transform: 'translateX(-50%)' }}>
               {dayMonth(startUtc, d * 24)}
             </span>
           ))}

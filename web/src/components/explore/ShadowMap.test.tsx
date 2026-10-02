@@ -63,18 +63,61 @@ describe('ShadowMap', () => {
       show({ lon: 0, sunAz: 263, earthAz: 7 });
       act(() => watchers.forEach((cb) => cb([{ contentRect: { width: 560 } }])));
       expect(parseFloat(screen.getByText('de Gerlache Rim 2').style.top)).toBeGreaterThan(50);
-      // On a 290 px map the Sun's words reach under the pin: the name goes above it instead.
-      act(() => watchers.forEach((cb) => cb([{ contentRect: { width: 290 } }])));
+      // On a 360 px map the Sun's words reach under the pin: the name goes above it instead.
+      act(() => watchers.forEach((cb) => cb([{ contentRect: { width: 360 } }])));
       expect(parseFloat(screen.getByText('de Gerlache Rim 2').style.top)).toBeLessThan(50);
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
-  it('lets its words give way where they would overlap: the site first, then the Sun, Earth and the scale', () => {
+  it('lets its words give way where they would overlap: the site first, then north, the Sun, Earth and the scale', () => {
     show();
     const priority = (text: string) => screen.getByText(text).closest('[data-label]')?.getAttribute('data-priority');
-    expect([priority('de Gerlache Rim 2'), priority('Sun 2° up'), priority('Earth below the horizon'), priority('5 km')]).toEqual(['0', '1', '2', '3']);
+    expect([priority('de Gerlache Rim 2'), priority('N'), priority('Sun 2° up'), priority('Earth below the horizon'), priority('5 km')]).toEqual(['0', '1', '2', '3', '4']);
+  });
+
+  it("shows north at the site: the compass turns with the site's longitude", () => {
+    show({ lon: -64.31 });
+    const letters = Object.fromEntries([...document.querySelectorAll<HTMLElement>('[data-compass]')].map((e) => [e.dataset.compass, e]));
+    expect(Object.keys(letters).sort()).toEqual(['E', 'N', 'S', 'W']);
+    // North at a site near the south pole points away from the pole: up and to the left at longitude -64°.
+    const n = letters.N;
+    expect(parseFloat(n.style.left)).toBeLessThan(50);
+    expect(parseFloat(n.style.top)).toBeLessThan(50);
+    const e = letters.E;
+    expect(parseFloat(e.style.left)).toBeGreaterThan(50);
+  });
+
+  it('draws the arrows thick enough to see, with heads, and Earth dotted when it is below the horizon', () => {
+    show({ earthEl: -1 });
+    const earth = document.querySelector<SVGLineElement>('[data-arrow="earth"]')!;
+    const sun = document.querySelector<SVGLineElement>('[data-arrow="sun"]')!;
+    expect(Number(sun.getAttribute('stroke-width'))).toBeGreaterThanOrEqual(2.5);
+    expect(earth.getAttribute('stroke-dasharray')).toBeTruthy();
+    expect(document.querySelectorAll('[data-arrowhead]')).toHaveLength(2);
+  });
+
+  it('leaves the arrows unlabelled on a small map, where the words would cover it', () => {
+    const watchers: ((entries: { contentRect: { width: number } }[]) => void)[] = [];
+    class FakeObserver {
+      constructor(cb: (entries: { contentRect: { width: number } }[]) => void) {
+        watchers.push(cb);
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', FakeObserver);
+    try {
+      show();
+      expect(screen.queryByText('Sun 2° up')).toBeTruthy();
+      act(() => watchers.forEach((cb) => cb([{ contentRect: { width: 300 } }])));
+      expect(screen.queryByText('Sun 2° up')).toBeNull();
+      expect(screen.queryByText('Earth below the horizon')).toBeNull();
+      expect(screen.getByText('de Gerlache Rim 2')).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("turns the arrows with the site: the Sun's map bearing is its azimuth plus the longitude", () => {

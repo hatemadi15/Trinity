@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import { HorizonView } from './HorizonView';
 
@@ -20,41 +20,67 @@ const series: Series = {
 describe('HorizonView', () => {
   it('shows the horizon all round with the paths of the Sun and Earth, and says how to read it', () => {
     render(<HorizonView mask={new Float64Array(720)} series={series} cursor={10} lat={-88.28} />);
-    expect(screen.getByRole('img', { name: /^The horizon all round the site, with the paths of the Sun and Earth over these days/ })).toBeTruthy();
-    expect(screen.getByText('The whole horizon around the site, from north through east, south and west. Over these days the Sun moves from right to left along its path.')).toBeTruthy();
+    expect(screen.getByRole('img', { name: /^The view all round the site: the hills, and the paths of the Sun and Earth over these days/ })).toBeTruthy();
+    expect(screen.getByText(/^The view all round the site, from north through east, south and west\. From here the Sun goes once round the sky in a month, passing through the north at both ends of the picture, so it moves from right to left\. Earth stays in one part of the sky and only wobbles\./)).toBeTruthy();
     const words = [...document.querySelectorAll('[data-compass]')].map((e) => e.textContent);
     expect(words).toEqual(['north', 'east', 'south', 'west', 'north']);
   });
 
   it('says the Sun moves left to right for a site north of the equator, where it passes through the south', () => {
     render(<HorizonView mask={new Float64Array(720)} series={series} cursor={10} lat={18.56} />);
-    expect(screen.getByText('The whole horizon around the site, from north through east, south and west. Over these days the Sun moves from left to right along its path.')).toBeTruthy();
+    expect(screen.getByText(/From here the Sun rises in the east, passes through the south and sets in the west, so it moves from left to right\./)).toBeTruthy();
   });
 
   it('has a key, and a height scale: the horizon at 0° and the top whole degree', () => {
     render(<HorizonView mask={new Float64Array(720)} series={series} cursor={10} lat={-88.28} />);
     const key = screen.getByRole('list', { name: 'Key' });
-    expect([...key.querySelectorAll('li')].map((li) => li.textContent)).toEqual(["the Sun's path", "Earth's path", 'dotted while hidden', 'the hills all round']);
+    expect([...key.querySelectorAll('li')].map((li) => li.textContent)).toEqual(["the Sun's path", "Earth's path", 'dotted while hidden', 'the hills all round', "the Sun and Earth at the time bar's hour"]);
     // Earth at 4° is the highest thing drawn: the picture reaches 5°, and its top whole degree is 4°.
     expect(screen.getByText('horizon (0°)')).toBeTruthy();
     expect(screen.getByText('4°')).toBeTruthy();
   });
 
-  it('keeps the top degree and its words well inside the picture, and is taller on a phone', () => {
+  it('keeps the top degree and its words well inside the picture', () => {
     const high: Series = { ...series, earthEl: Float64Array.from({ length: n }, (_, h) => -5 + h * 0.45) };
     render(<HorizonView mask={new Float64Array(720)} series={high} cursor={10} lat={-88.28} />);
     // Earth climbs from -5° to 16.2°: the picture spans -6° to 17.2°, and its top words sit below its top tenth.
     const top = screen.getByText('13°');
     expect(parseFloat(top.style.top)).toBeGreaterThanOrEqual(10);
-    const picture = screen.getByRole('img', { name: /^The horizon all round the site/ });
-    expect(picture.className).toMatch(/\baspect-\[2\/1\]/);
-    expect(picture.className).toMatch(/\bsm:aspect-\[1000\/240\]/);
+  });
+
+  it('is taller for its width on a phone, where 360° in a few hundred pixels would flatten the hills, and says how much it stretches them there', () => {
+    const watchers: ((entries: { contentRect: { width: number } }[]) => void)[] = [];
+    class FakeObserver {
+      constructor(cb: (entries: { contentRect: { width: number } }[]) => void) {
+        watchers.push(cb);
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', FakeObserver);
+    try {
+      render(<HorizonView mask={new Float64Array(720)} series={series} cursor={10} lat={-88.28} />);
+      const picture = screen.getByRole('img', { name: /^The view all round the site/ });
+      expect(picture.style.height).toBe('240px');
+      act(() => watchers.forEach((cb) => cb([{ contentRect: { width: 350 } }])));
+      expect(picture.style.height).toBe('170px');
+      // 170 px for 6° up, 350 px for 360° across: about 29 times.
+      expect(screen.getByText(/Heights are stretched about 29 times\./)).toBeTruthy();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('sets the words of a line near the bottom above it, and of a line near the top below it', () => {
     const day: Series = { ...series, sunEl: Float64Array.from({ length: n }, (_, h) => h * 1.5), earthEl: new Float64Array(n).fill(27) };
     render(<HorizonView mask={new Float64Array(720)} series={day} cursor={10} lat={18.56} />);
     expect(screen.getByText('horizon (0°)').style.transform).toBe('translateY(-100%)');
+  });
+
+  it('says how much the heights are stretched', () => {
+    // A picture from -1° to 5°, 1000 by 240: 40 px per degree up, 2.8 px per degree across, about 14 times.
+    render(<HorizonView mask={new Float64Array(720)} series={series} cursor={10} lat={-88.28} />);
+    expect(screen.getByText(/Heights are stretched about 14 times\./)).toBeTruthy();
   });
 
   it('marks where the Sun and Earth are at the hour of the time bar', () => {

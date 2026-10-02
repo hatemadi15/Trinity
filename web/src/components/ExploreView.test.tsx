@@ -56,6 +56,14 @@ describe('ExploreView', () => {
     expect(screen.getByRole('region', { name: 'Where on the Moon' })).toBeTruthy();
   });
 
+  it('gives the ground and the place each the width of the page, the place with its map beside the words', async () => {
+    await open();
+    const ground = screen.getByRole('region', { name: 'The ground' });
+    const place = screen.getByRole('region', { name: 'Where on the Moon' });
+    expect(ground.parentElement!.className).not.toMatch(/grid-cols/);
+    expect(place.querySelector('[data-part="layout"]')!.className).toMatch(/md:grid-cols/);
+  });
+
   it("names the hour the ground shows: the time bar's, not the one under the pointer on the chart", async () => {
     const { store } = await open();
     act(() => store.getState().setCursor(66));

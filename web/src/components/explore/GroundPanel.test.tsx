@@ -80,22 +80,46 @@ afterEach(() => {
 });
 
 describe('GroundPanel', () => {
-  it('opens on the shadow map, with tabs for the 3D view and the horizon', async () => {
+  it('opens on the shadow map, with tabs for the 3D view and the view all round', async () => {
     const { client } = show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
     const tabs = within(screen.getByRole('tablist', { name: 'How to look at the ground' })).getAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(['Shadow map', '3D', 'Horizon']);
+    expect(tabs.map((t) => t.textContent)).toEqual(['Shadow map', '3D', 'View all round']);
     expect(tab('Shadow map').getAttribute('aria-selected')).toBe('true');
     const panel = screen.getByRole('tabpanel', { name: 'Shadow map' });
     await waitFor(() => expect(within(panel).getByRole('img', { name: 'Shadows at 2 Jan 2027, 06:00 UTC. The site is in sunlight.' })).toBeTruthy());
     expect(client.setLevels).toHaveBeenCalledTimes(1);
-    expect(panel.textContent).toMatch(/Light ground is in sunlight, dark ground in shadow\. Worked out from NASA elevation data at 20 m per pixel: computed, not a photograph\./);
+    expect(panel.textContent).toMatch(/Move the time bar at the bottom of the window, or press Play, to watch the shadows move\./);
+    expect(panel.textContent).toMatch(/Worked out from NASA elevation data at 20 m per pixel: computed, not a photograph\. Faint stripes are seams in that data, not real ground\./);
   });
 
-  it('gives the map a square box on a phone and the 3D view the same box from the small screen up', async () => {
+  it('says in words, above every tab, whether the site is in sunlight at that hour and whether Earth can be reached', () => {
+    show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
+    const now = screen.getByRole('region', { name: 'The ground' }).querySelector('[data-part="now"]')!;
+    expect(now.textContent).toBe('The site is in sunlight: the Sun is 2° above the horizon, to the west. Earth is in view, 4° above the horizon to the north: radio contact is possible.');
+    for (const name of ['3D', 'View all round']) {
+      fireEvent.click(tab(name));
+      expect(screen.getByRole('region', { name: 'The ground' }).querySelector('[data-part="now"]')!.textContent).toBe(now.textContent);
+    }
+  });
+
+  it('explains how to read the map beside it: light and dark ground, the arrows, north', async () => {
+    show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
+    const key = within(screen.getByRole('tabpanel', { name: 'Shadow map' })).getByRole('list', { name: 'How to read the map' });
+    expect([...key.querySelectorAll('li')].map((li) => li.lastElementChild!.textContent)).toEqual(['ground in sunlight', 'ground in shadow', 'towards the Sun', 'towards Earth (dotted when below the horizon)', 'north at the site']);
+  });
+
+  it('gives the map a square box at every width, so no black bands frame it', async () => {
     show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
     const map = await screen.findByRole('img', { name: /^Shadows at/ });
     expect(map.parentElement!.className).toMatch(/\baspect-square\b/);
-    expect(map.parentElement!.className).toMatch(/\bsm:aspect-\[4\/3\]/);
+    expect(map.parentElement!.className).not.toMatch(/aspect-\[4\/3\]/);
+  });
+
+  it('tells the tabs from the options: the chosen tab is underlined, the chosen option dark', () => {
+    show();
+    expect(tab('Shadow map').className).toMatch(/\bborder-ink\b/);
+    expect(tab('Shadow map').className).not.toMatch(/\bbg-ink\b/);
+    expect(tab('3D').className).toMatch(/\bborder-transparent\b/);
   });
 
   it('moves between the tabs with the arrow keys, Home and End', () => {
@@ -104,12 +128,12 @@ describe('GroundPanel', () => {
     expect(tab('3D').getAttribute('aria-selected')).toBe('true');
     expect(document.activeElement).toBe(tab('3D'));
     fireEvent.keyDown(tab('3D'), { key: 'End' });
-    expect(tab('Horizon').getAttribute('aria-selected')).toBe('true');
-    fireEvent.keyDown(tab('Horizon'), { key: 'ArrowRight' });
+    expect(tab('View all round').getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(tab('View all round'), { key: 'ArrowRight' });
     expect(tab('Shadow map').getAttribute('aria-selected')).toBe('true');
     fireEvent.keyDown(tab('Shadow map'), { key: 'ArrowLeft' });
-    expect(tab('Horizon').getAttribute('aria-selected')).toBe('true');
-    fireEvent.keyDown(tab('Horizon'), { key: 'Home' });
+    expect(tab('View all round').getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(tab('View all round'), { key: 'Home' });
     expect(tab('Shadow map').getAttribute('aria-selected')).toBe('true');
   });
 
@@ -148,7 +172,7 @@ describe('GroundPanel', () => {
   it('says in plain words what the 3D picture is made from', () => {
     show({ heightmap: grid('window', 1024, 20), terrainState: 'ready' });
     fireEvent.click(tab('3D'));
-    expect(screen.getByRole('tabpanel', { name: '3D' }).textContent).toMatch(/NASA elevation data at 20 m per pixel, 20\.48 km across\. Drag to turn, scroll to zoom\. The light follows the time bar\./);
+    expect(screen.getByRole('tabpanel', { name: '3D' }).textContent).toMatch(/NASA elevation data at 20 m per pixel, about 20 km across, in the light of the shadow map\. Drag to turn, scroll to zoom; the light follows the time bar\. Globe shows the whole Moon\./);
   });
 
   it('keeps one name in every tab, explains the globe and reports a place that cannot be worked out', () => {
@@ -192,9 +216,11 @@ describe('GroundPanel', () => {
     expect(text).not.toMatch(/yet/);
   });
 
-  it('a site with no polar terrain: says its horizon is taken as flat, and shows only the globe in 3D', async () => {
+  it('a site with no polar terrain: opens on the view all round, says why there is no map, and shows only the globe in 3D', async () => {
     const { client } = show({ site: mare, sites: [mare], mode: 'globe', terrainState: 'ready', capHeightmap: grid('cap', 64, 960) });
-    expect(screen.getByRole('tabpanel', { name: 'Shadow map' }).textContent).toMatch(/This site has no polar terrain: its horizon is taken as flat\. The Horizon tab shows the paths of the Sun and Earth over it\./);
+    expect(tab('View all round').getAttribute('aria-selected')).toBe('true');
+    fireEvent.click(tab('Shadow map'));
+    expect(screen.getByRole('tabpanel', { name: 'Shadow map' }).textContent).toMatch(/This tool has height data only around the south pole, so this site's horizon is taken as flat\. The View all round tab shows the paths of the Sun and Earth over it\./);
     expect(screen.queryByRole('img', { name: /^Shadows at/ })).toBeNull();
     expect(client.setLevels).not.toHaveBeenCalled();
     fireEvent.click(tab('3D'));
@@ -264,19 +290,19 @@ describe('GroundPanel', () => {
     }
   });
 
-  it("shows the horizon in its own tab, with the time bar's hour marked", () => {
+  it("shows the view all round in its own tab, with the time bar's hour marked", () => {
     show();
-    fireEvent.click(tab('Horizon'));
-    const panel = screen.getByRole('tabpanel', { name: 'Horizon' });
-    expect(within(panel).getByRole('img', { name: /^The horizon all round the site/ })).toBeTruthy();
-    expect(panel.textContent).toMatch(/the Sun moves from right to left/);
+    fireEvent.click(tab('View all round'));
+    const panel = screen.getByRole('tabpanel', { name: 'View all round' });
+    expect(within(panel).getByRole('img', { name: /^The view all round the site/ })).toBeTruthy();
+    expect(panel.textContent).toMatch(/so it moves from right to left/);
     expect(parseFloat(panel.querySelector<HTMLElement>('[data-marker="sun"]')!.style.left)).toBeCloseTo(((270 - 3) / 360) * 100, 6);
   });
 
-  it('asks for no shadow pictures while the horizon is shown', async () => {
+  it('asks for no shadow pictures while the view all round is shown', async () => {
     const { client } = show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
     await waitFor(() => expect(client.picture).toHaveBeenCalled());
-    fireEvent.click(tab('Horizon'));
+    fireEvent.click(tab('View all round'));
     const asked = client.picture.mock.calls.length;
     await new Promise((r) => setTimeout(r, 350));
     expect(client.picture.mock.calls.length).toBe(asked);

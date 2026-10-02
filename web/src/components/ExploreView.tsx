@@ -152,32 +152,30 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             onCursor={s.setCursor}
             onHover={setHoverHour}
           />
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-            <GroundPanel
-              site={site}
-              sites={s.sites}
-              scene={scene}
-              mode={s.mode}
-              exaggeration={s.exaggeration}
-              heightmap={s.heightmap}
-              contextHeightmap={s.contextHeightmap}
-              capHeightmap={s.capHeightmap}
-              textureUrl={globeTextureUrl(dataBase(), s.terrainManifest)}
-              terrainState={s.terrainState}
-              windowLoading={s.windowLoading}
-              customError={s.customError}
-              // The ground is lit for the time bar's hour, not the hour under the pointer on the chart.
-              when={dateTimeUtc(s.startUtc, s.cursorHour)}
-              mask={s.mask}
-              series={s.series}
-              cursor={s.cursorHour}
-              onMode={s.setMode}
-              onExaggeration={s.setExaggeration}
-              onPick={onPick}
-              reducedMotion={reducedMotion}
-            />
-            <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} />
-          </div>
+          <GroundPanel
+            site={site}
+            sites={s.sites}
+            scene={scene}
+            mode={s.mode}
+            exaggeration={s.exaggeration}
+            heightmap={s.heightmap}
+            contextHeightmap={s.contextHeightmap}
+            capHeightmap={s.capHeightmap}
+            textureUrl={globeTextureUrl(dataBase(), s.terrainManifest)}
+            terrainState={s.terrainState}
+            windowLoading={s.windowLoading}
+            customError={s.customError}
+            // The ground is lit for the time bar's hour, not the hour under the pointer on the chart.
+            when={dateTimeUtc(s.startUtc, s.cursorHour)}
+            mask={s.mask}
+            series={s.series}
+            cursor={s.cursorHour}
+            onMode={s.setMode}
+            onExaggeration={s.setExaggeration}
+            onPick={onPick}
+            reducedMotion={reducedMotion}
+          />
+          <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide />
           <PlannerChat store={store} navigate={go} variant="panel" />
         </div>
         <TimeBar series={s.series} power={s.power} startUtc={s.startUtc} cursor={s.cursorHour} hoverHour={hoverHour} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} />

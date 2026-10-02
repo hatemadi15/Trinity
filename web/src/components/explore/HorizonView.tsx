@@ -1,11 +1,15 @@
 'use client';
 import { useMemo } from 'react';
 import type { Series } from '@/lib/engine/metrics';
+import { useElementWidth } from '@/lib/hooks/useElementWidth';
 import { horizonGeometry } from '@/lib/viz/horizon';
 import { DottedSwatch, HillSwatch, Swatch } from './Swatches';
 
+/** The drawing's own units; the picture is stretched to its box. */
 const W = 1000;
 const H = 240;
+/** The picture's height for its width: a quarter of it, but never flatter than 170 px nor taller than 300 px. */
+const heightFor = (widthPx: number) => Math.round(Math.max(170, Math.min(300, widthPx * 0.24)));
 const COMPASS: [number, string][] = [
   [0, 'north'],
   [90, 'east'],
@@ -15,12 +19,16 @@ const COMPASS: [number, string][] = [
 ];
 
 /**
- * The 360° picture of the horizon around the site: the hills all round in grey, the Sun's and Earth's
- * paths over the period (solid while in view, dotted while hidden), and where both are at the hour of
- * the time bar. North is on the left and again on the right.
+ * The view all round the site: the hills in grey, the Sun's and Earth's paths over the period (solid
+ * while in view, dotted while hidden), and where both are at the hour of the time bar. North is on the
+ * left and again on the right. The caption says which way the Sun goes and how much the heights are
+ * stretched for the picture's real size.
  */
 export function HorizonView({ mask, series, cursor, lat }: { mask: ArrayLike<number>; series: Series; cursor: number; lat: number }) {
   const g = useMemo(() => horizonGeometry(mask, series, W, H), [mask, series]);
+  const { ref, width } = useElementWidth<HTMLDivElement>(W);
+  const heightPx = heightFor(width);
+  const stretch = heightPx / (g.maxDeg - g.minDeg) / (width / 360);
   const hour = Math.min(series.hours - 1, Math.max(0, cursor));
   const marker = (az: number, el: number) => ({ left: `${(g.x(az) / W) * 100}%`, top: `${(g.y(el) / H) * 100}%` });
   // The height scale: the horizon at 0°, and a whole degree far enough below the top for its words.
@@ -31,8 +39,7 @@ export function HorizonView({ mask, series, cursor, lat }: { mask: ArrayLike<num
   ];
   return (
     <figure className="m-0">
-      {/* Taller than the drawing's own shape on a phone, where 360° in a few hundred pixels would flatten the hills. */}
-      <div role="img" aria-label="The horizon all round the site, with the paths of the Sun and Earth over these days" className="stage relative aspect-[2/1] w-full overflow-hidden sm:aspect-[1000/240]">
+      <div ref={ref} role="img" aria-label="The view all round the site: the hills, and the paths of the Sun and Earth over these days" className="stage relative w-full overflow-hidden" style={{ height: heightPx }}>
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
           <path d={g.skyline} fill="var(--hill)" stroke="var(--hill-edge)" strokeWidth={1.4} vectorEffect="non-scaling-stroke" />
           {scale.map((s) => (
@@ -81,9 +88,20 @@ export function HorizonView({ mask, series, cursor, lat }: { mask: ArrayLike<num
           <HillSwatch />
           the hills all round
         </li>
+        <li className="flex items-center gap-2">
+          <span aria-hidden="true" className="flex h-5 w-9 shrink-0 items-center justify-center gap-1.5 rounded bg-stage">
+            <span className="h-2.5 w-2.5 rounded-full bg-stage-sun" />
+            <span className="h-2.5 w-2.5 rounded-full bg-stage-earth" />
+          </span>
+          the Sun and Earth at the time bar&apos;s hour
+        </li>
       </ul>
       <figcaption className="mt-2 text-[15px] text-ink-2">
-        The whole horizon around the site, from north through east, south and west. Over these days the Sun moves from {lat < 0 ? 'right to left' : 'left to right'} along its path.
+        The view all round the site, from north through east, south and west.{' '}
+        {lat < 0
+          ? 'From here the Sun goes once round the sky in a month, passing through the north at both ends of the picture, so it moves from right to left.'
+          : 'From here the Sun rises in the east, passes through the south and sets in the west, so it moves from left to right.'}{' '}
+        Earth stays in one part of the sky and only wobbles. {stretch >= 1.5 ? `Heights are stretched about ${Math.round(stretch)} times.` : 'Heights are drawn to scale.'}
       </figcaption>
     </figure>
   );

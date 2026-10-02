@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrowEnd, heightWords, scaleBarKm } from './shadowmap';
+import { arrowEnd, compassCorner, heightWords, scaleBarKm } from './shadowmap';
 
 describe('scaleBarKm', () => {
   it('picks the longest round length that fits in a quarter of the picture', () => {
@@ -18,6 +18,17 @@ describe('arrowEnd', () => {
     expect(east.y).toBeCloseTo(200, 9);
     const south = arrowEnd(180, 400);
     expect(south.y).toBeCloseTo(368, 9);
+  });
+});
+
+describe('compassCorner', () => {
+  it('puts the compass in the corner farthest from both arrows, never the scale bar\'s', () => {
+    // The Sun to the left, Earth up: the bottom right is free.
+    expect(compassCorner([arrowEnd(270, 100), arrowEnd(0, 100)])).toBe('br');
+    // The Sun down, Earth down and right: the top left.
+    expect(compassCorner([arrowEnd(180, 100), arrowEnd(135, 100)])).toBe('tl');
+    // Both towards the bottom left: the top right, the farthest of the three.
+    expect(compassCorner([arrowEnd(225, 100), arrowEnd(225, 100)])).toBe('tr');
   });
 });
 

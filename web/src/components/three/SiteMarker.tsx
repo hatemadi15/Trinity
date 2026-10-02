@@ -24,7 +24,7 @@ export function SiteMarker({ name }: { name: string }) {
         <ringGeometry args={[0.35, 0.45, 48]} />
         <meshBasicMaterial color="#f2b134" transparent opacity={0.85} side={DoubleSide} depthTest={false} depthWrite={false} />
       </mesh>
-      <TextSprite text={markerLabel(name)} position={[0, 1.65, 0]} height={0.6} depthTest={false} />
+      <TextSprite text={markerLabel(name)} position={[0, 2.1, 0]} height={1.1} depthTest={false} />
     </group>
   );
 }
