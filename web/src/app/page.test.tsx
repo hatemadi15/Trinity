@@ -17,6 +17,9 @@ describe('home page', () => {
     expect(gold[0].textContent).toBe('Explore a landing site');
     expect(gold[0].getAttribute('href')).toBe('/sites');
     expect(within(hero).getByText('For mission planners, educators and anyone curious.')).toBeTruthy();
+    // The promise in the words of the answer it leads to.
+    expect(hero.textContent).toMatch(/how long a solar lander keeps power there\./);
+    expect(hero.textContent).not.toMatch(/survives the night/);
   });
 
   it('opens on a real forecast: the Sun and Earth over one month at the site, each with the hidden stretch in words', () => {

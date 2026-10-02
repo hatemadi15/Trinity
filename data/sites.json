@@ -68,7 +68,7 @@
      "category": "clps_landed", "polar": true, "landed_utc": "2025-03-06T17:30:00Z",
      "mission_end_utc": "2025-03-07T12:00:00Z",
      "mission_end_source": "Intuitive Machines / NASA release 7 Mar 2025: mission concluded, batteries depleted (hour not published; 12:00 UTC used)",
-     "mission_note": "Athena came to rest on its side in a crater with the Sun low on the skyline; its batteries drained within a day, with about twelve days of daylight left.",
+     "mission_note": "Athena came to rest on its side in a crater with the Sun barely above the hills; its batteries drained within a day, with about twelve days of daylight left.",
      "source": "Intuitive Machines / LROC, March 2025"},
     {"id": "blue_ghost_m1", "name": "Blue Ghost Mission 1 landing site (Mare Crisium)", "lat": 18.562, "lon": 61.810,
      "label": "Blue Ghost Mission 1", "blurb": "Where Blue Ghost worked for 14 days in March 2025, far from the pole",

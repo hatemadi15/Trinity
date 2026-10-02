@@ -67,7 +67,7 @@ export default function Home() {
             <div className="mt-6 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
               <p className="max-w-[35em] text-lg leading-relaxed text-ink-2 sm:text-[19px]">
                 At the Moon&apos;s south pole the Sun and Earth never climb high. They skim the horizon, and one hill can hide them for weeks. Pick a landing site and a
-                date: Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and whether the battery survives the night.
+                date: Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and how long a solar lander keeps power there.
               </p>
               <div className="shrink-0">
                 <div className="flex flex-wrap gap-3">
