@@ -196,7 +196,7 @@ export function GroundPanel({
                   <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm border border-stage-ink/40 bg-black" />}>ground in shadow</KeyItem>
                   <KeyItem sample={<Arrow color="var(--stage-sun)" />}>towards the Sun</KeyItem>
                   <KeyItem sample={<Arrow color="var(--stage-earth)" dotted />}>towards Earth (dotted when below the horizon)</KeyItem>
-                  <KeyItem sample={<span className="flex h-5 w-5 items-center justify-center rounded-full border border-stage-ink/40 text-[12px] font-bold text-stage-ink">N</span>}>north is up</KeyItem>
+                  <KeyItem sample={<span className="flex h-6 w-6 items-center justify-center rounded-full border border-stage-ink/40 text-[14px] font-bold leading-none text-stage-ink">N</span>}>north is up</KeyItem>
                 </ul>
                 <p className="mt-4 text-ink">Move the time bar at the bottom of the window, or press Play, to watch the shadows move.</p>
                 <p className="mt-3">

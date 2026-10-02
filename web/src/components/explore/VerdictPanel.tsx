@@ -43,7 +43,8 @@ export function VerdictPanel({
         <span className={`mt-[7px] shrink-0 ${good ? 'text-good' : 'text-bad'}`}>
           <BatteryMark good={good} />
         </span>
-        <h1 className="display text-balance text-[26px] leading-[1.12] sm:text-[32px]">{answer.title}</h1>
+        {/* The site's number stays with its name: "Rim 2" never breaks across two lines. */}
+        <h1 className="display text-balance text-[24px] leading-[1.12] sm:text-[32px]">{answer.title.replace(/ (\d+) on /, '\u00a0$1 on ')}</h1>
       </div>
       {/* The first sentence leads on a line of its own; the reasons follow. */}
       <p className="mt-2.5 max-w-[42em] text-[17px] font-medium leading-relaxed text-ink">{answer.sentences[0]}</p>
