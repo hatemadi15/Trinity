@@ -30,7 +30,10 @@ describe('TimeChart', () => {
     show();
     const chart = screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' });
     expect(within(chart).getByRole('heading', { level: 2 }).textContent).toBe('Why: the 30 days, hour by hour');
-    expect(chart.textContent).toMatch(/Time runs left to right\. Press Play or drag the handle in the bar below\./);
+    // One sentence explains the top row and the grey: the Sun goes round the sky, so the grey is the hills that way, not one mountain.
+    expect(chart.textContent).toMatch(
+      /Time runs left to right\. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain\./,
+    );
   });
 
   it('draws the Sun, Earth and the battery as three named rows with their story in words', () => {
@@ -64,7 +67,7 @@ describe('TimeChart', () => {
     const steps = [...degrees(sun), ...degrees(earth)];
     // de Gerlache Rim 2 needs 10° spacing in Earth's row, so the Sun's row uses it too: no "5° up" anywhere.
     expect(steps.every((d) => d % 10 === 0)).toBe(true);
-    expect(sun.querySelectorAll('line[stroke-dasharray]').length).toBeGreaterThanOrEqual(1);
+    expect(sun.querySelectorAll('line[data-height]').length).toBeGreaterThanOrEqual(1);
   });
 
   it('names the compass direction of the Sun along the top and the days along the bottom', () => {

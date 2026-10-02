@@ -26,6 +26,8 @@ describe('WhereOnMoon', () => {
     expect(rows).toHaveLength(3);
     expect(rows[0].textContent).toMatch(/de Gerlache rim summit.*12 km away.*100 %/); // a no-break space keeps the number with its sign
     expect(rows[0].getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
+    // A row is a link and looks like one: the site's name is underlined.
+    expect(within(rows[0]).getByText('de Gerlache rim summit').className).toMatch(/\bunderline\b/);
     expect(rows[1].textContent).toMatch(/de Gerlache crater floor.*no sunlight/);
     expect(rows[2].textContent).toMatch(/Lunar south pole, 52 km away.*working it out/);
   });

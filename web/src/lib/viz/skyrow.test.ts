@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compassTicks, eventLabelSides, hiddenBy, hiddenRuns, longestHidden, rowGeometry, rowRange, scaleLabelSide, scaleLines, scaleStepFor } from './skyrow';
+import { compassTicks, eventLabelSides, hiddenBy, hiddenRuns, longestHidden, rowGeometry, rowRange, scalePreference, scaleWordSides, scaleLines, scaleStepFor } from './skyrow';
 
 const box = { x: 100, y: 10, w: 800, h: 100 };
 
@@ -90,33 +90,47 @@ describe('rowGeometry with hills above the range', () => {
   });
 });
 
-describe('scaleLabelSide', () => {
-  it('puts the height-line words on the right when nothing is hidden', () => {
-    expect(scaleLabelSide(null)).toBe('right');
+describe('scalePreference', () => {
+  it('prefers the side away from the longest hidden stretch, the right when nothing is hidden', () => {
+    expect(scalePreference(null)).toEqual(['right', 'left']);
+    expect(scalePreference(37)).toEqual(['right', 'left']);
+    expect(scalePreference(80)).toEqual(['left', 'right']);
+  });
+});
+
+describe('scaleWordSides', () => {
+  const lines = [
+    { deg: 0, y: 150 },
+    { deg: 5, y: 40 },
+  ];
+
+  it('writes the words on the preferred side when nothing else is there', () => {
+    expect(scaleWordSides(lines, [], ['right', 'left'])).toEqual(['right', 'right']);
   });
 
-  it('keeps them away from the night and its sunset and sunrise labels', () => {
-    // The home page case: night from 9 % to 65 % of the month, both labels inside it.
-    expect(scaleLabelSide({ fromPct: 9.4, toPct: 64.8, set: 'inside', rise: 'inside' })).toBe('right');
-    // A night at the end of the period.
-    expect(scaleLabelSide({ fromPct: 60, toPct: 100, set: 'inside', rise: null })).toBe('left');
-    // Short nights near an edge, with a label outside the night.
-    expect(scaleLabelSide({ fromPct: 2, toPct: 9, set: null, rise: 'outside' })).toBe('right');
-    expect(scaleLabelSide({ fromPct: 80, toPct: 90, set: 'outside', rise: 'outside' })).toBe('left');
+  it("moves one line's words to the other side when a label sits at its height on the preferred side", () => {
+    // A sunrise label at the right edge, at the height of the horizon line only.
+    const taken = [{ x0: 80, x1: 97, y0: 140, y1: 164 }];
+    expect(scaleWordSides(lines, taken, ['right', 'left'])).toEqual(['left', 'right']);
   });
 
-  it('takes the other side when the preferred one holds a label', () => {
-    // The night sits left of the middle, so the right side is preferred, but the sunrise label reaches into it.
-    expect(scaleLabelSide({ fromPct: 20, toPct: 76, set: null, rise: 'outside' })).toBe('left');
+  it('leaves out only the words of a line that meets labels on both sides', () => {
+    const taken = [
+      { x0: 5, x1: 22, y0: 140, y1: 164 },
+      { x0: 78, x1: 95, y0: 140, y1: 164 },
+    ];
+    expect(scaleWordSides(lines, taken, ['right', 'left'])).toEqual([null, 'right']);
   });
 
-  it('gives up when both sides hold a label', () => {
-    expect(scaleLabelSide({ fromPct: 5, toPct: 95, set: 'inside', rise: 'inside' })).toBeNull();
+  it("measures the words by their plate, which reaches 13 px below the line, and keeps 2 px clear", () => {
+    // Words under the line at y 30.5 would touch a label whose top is at 42.
+    const taken = [{ x0: 76, x1: 99, y0: 42, y1: 67 }];
+    expect(scaleWordSides([{ deg: 10, y: 30.5 }], taken, ['right', 'left'])).toEqual(['left']);
+    expect(scaleWordSides([{ deg: 10, y: 26 }], taken, ['right', 'left'])).toEqual(['right']);
   });
 
-  it('also keeps clear of the words on the other hidden stretches', () => {
-    expect(scaleLabelSide({ fromPct: 0, toPct: 30.4, set: null, rise: 'inside' })).toBe('right');
-    expect(scaleLabelSide({ fromPct: 0, toPct: 30.4, set: null, rise: 'inside' }, 17, [[78, 97]])).toBeNull();
+  it('ignores labels away from the edges', () => {
+    expect(scaleWordSides(lines, [{ x0: 30, x1: 70, y0: 0, y1: 200 }], ['left', 'right'])).toEqual(['left', 'left']);
   });
 });
 

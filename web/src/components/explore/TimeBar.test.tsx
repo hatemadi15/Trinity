@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '@/lib/engine/power';
+import { PLOT_GRID } from './TimeChart';
 import { TimeBar } from './TimeBar';
 
 const CFG: PowerConfig = { ...DEFAULT_POWER, panel: 'full_tracking', areaM2: 1, efficiency: 1, loadW: 100, batteryWh: 1000 };
@@ -39,6 +40,32 @@ describe('TimeBar', () => {
     show(6);
     expect(screen.getByTestId('when').textContent).toBe('1 Jan 2027, 06:00 UTC');
     expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth behind the hills, battery 100 %');
+  });
+
+  it("lines its track up under the chart's plot: the chart's grid, inset by the chart panel's edge", () => {
+    show(6);
+    const bar = screen.getByRole('region', { name: 'Time' });
+    const grid = bar.querySelector<HTMLElement>('[data-part="bar-grid"]')!;
+    for (const c of PLOT_GRID.split(' ')) expect(grid.classList.contains(c)).toBe(true);
+    expect(grid.className).toMatch(/\bpx-\[25px\]/);
+    // Play sits in the column of the row names; the date, the words and the track in the column of the plot.
+    expect(screen.getByRole('button', { name: /Play/ }).className).toMatch(/\brow-span-2\b/);
+    const track = screen.getByRole('slider', { name: 'Time' }).closest<HTMLElement>('[data-part="track"]')!;
+    expect(track.className).toMatch(/\bcol-start-2\b/);
+    // The date and the words share one line.
+    expect(screen.getByTestId('when').parentElement).toBe(screen.getByTestId('status').parentElement);
+  });
+
+  it('keeps the bar short on a phone: Play shows only its sign, and every other day under the track gives way', () => {
+    show(6);
+    const word = screen.getByRole('button', { name: /Play/ }).querySelector('span')!;
+    expect(word.textContent).toBe('Play');
+    expect(word.className).toMatch(/max-sm:sr-only/);
+    const ticks = screen.getByTestId('ticks');
+    expect(ticks.className).toMatch(/(^| )@container( |$)/);
+    const spans = [...ticks.querySelectorAll('span')];
+    expect(spans[0].className).not.toMatch(/hidden/);
+    expect(spans[1].className).toMatch(/@max-\[480px\]:hidden/);
   });
 
   it('shows the hour under the pointer on the chart while the handle stays put', () => {

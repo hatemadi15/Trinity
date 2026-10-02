@@ -1,11 +1,13 @@
 'use client';
 import type { Answer } from '@/lib/viz/answer';
 
-function Icon({ good }: { good: boolean }) {
+/** A battery on its side: full for a good answer, down to its last sliver for a bad one. */
+function BatteryMark({ good }: { good: boolean }) {
   return (
-    <svg viewBox="0 0 32 32" width={34} height={34} fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true">
-      <circle cx="16" cy="16" r="13" />
-      {good ? <path d="M10 16.5l4.2 4.2L22 12.5" /> : <path d="M11.5 11.5l9 9m0-9l-9 9" />}
+    <svg data-icon={good ? 'battery-full' : 'battery-empty'} viewBox="0 0 38 22" width={38} height={22} fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinejoin="round" aria-hidden="true">
+      <rect x="1.5" y="1.5" width="31" height="19" rx="3.5" />
+      <path d="M35.5 7.5v7" strokeLinecap="round" />
+      <rect x="5" y="5" width={good ? 24 : 3.5} height="12" rx="1.5" fill="currentColor" stroke="none" />
     </svg>
   );
 }
@@ -32,10 +34,13 @@ export function VerdictPanel({
   const good = answer.tone === 'good';
   const better = answer.better;
   return (
-    <section aria-label="The answer" data-tone={answer.tone} className={`rounded-lg border px-6 py-5 ${good ? 'border-good-line bg-good-bg' : 'border-bad-line bg-bad-bg'}`}>
-      <div className={`flex items-start gap-3 ${good ? 'text-good' : 'text-bad'}`}>
-        <Icon good={good} />
-        <h1 className="display text-[32px] leading-[1.12]">
+    <section aria-label="The answer" data-tone={answer.tone} className="panel flex flex-col">
+      <div className="flex items-start gap-3.5">
+        {/* The answer is told in words; the battery only marks it, in the colour of its tone. */}
+        <span className={`mt-[7px] shrink-0 ${good ? 'text-good' : 'text-bad'}`}>
+          <BatteryMark good={good} />
+        </span>
+        <h1 className="display text-balance text-[26px] leading-[1.12] sm:text-[32px]">
           <span className="sr-only">{siteName}: </span>
           {answer.title}
         </h1>
@@ -52,7 +57,7 @@ export function VerdictPanel({
         </button>
       </div>
       {(better?.note || answer.hint) && <p className="mt-3 text-ink-2">{better ? better.note : answer.hint}</p>}
-      <p className="mt-2 text-ink-2">
+      <p className="mt-auto pt-3 text-ink-2">
         <button type="button" onClick={onYear} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           Find the best date in the next 12 months
         </button>

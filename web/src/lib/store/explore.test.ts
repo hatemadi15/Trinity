@@ -177,6 +177,21 @@ describe('explore store terrain (Week 3)', () => {
     expect(store.getState().capHeightmap).toBeNull();
   });
 
+  it.skipIf(!terrainPresent)('opens a polar site the terrain files have no window for on the globe, and a site with one on the terrain', async () => {
+    const store = createExploreStore(terrainLoaders());
+    await store.getState().init();
+    await store.getState().waitForTerrain();
+    // de Gerlache Rim 2, the default, has no detailed window: only the coarse polar cap.
+    expect(store.getState().siteId).toBe('de_gerlache_rim_2');
+    expect(store.getState().mode).toBe('globe');
+    await store.getState().selectSite('shackleton_center');
+    expect(store.getState().mode).toBe('terrain');
+    // A globe the user chose stays, whatever the next site has.
+    store.getState().setMode('globe');
+    await store.getState().selectSite('shackleton_center_rim_high');
+    expect(store.getState().mode).toBe('globe');
+  });
+
   it.skipIf(!terrainPresent)('selectSite loads the terrain window when listed', async () => {
     const store = createExploreStore(terrainLoaders());
     await store.getState().init();

@@ -25,7 +25,10 @@ describe('SitesView', () => {
   it('titles the page, says what the figures assume and groups the catalogue in plain words', async () => {
     await ready();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Choose a landing site');
-    expect(screen.getByText(/19 places on the Moon/).textContent).toMatch(/4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.*in the 30 days from 1 January 2027/);
+    expect(screen.getByText(/19 places on the Moon/).textContent).toMatch(/how much sunlight and contact with Earth a lander gets there in the 30 days from 1 January 2027, and how long it keeps power/);
+    // The lander gets a line of its own, so the first sentence stays short.
+    expect(screen.getByText(/^The lander:/).textContent).toBe('The lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.');
+    expect(screen.getByText(/three real missions, for the same days as the rest of the list/)).toBeTruthy();
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       'Shortlisted by NASA for a crewed Artemis landing',
       'Where commercial landers touched down',
@@ -39,12 +42,19 @@ describe('SitesView', () => {
   it('gives each site its sunlight, its contact with Earth and its longest time with power', async () => {
     await ready();
     const row = rowOf('de Gerlache Rim 2');
-    expect(row.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    // The row opens Explore on the landing date it names, so the page shows the figure the row promised.
+    expect(row.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
     expect(row.textContent).toMatch(/A ridge on a crater rim, 52 km from the pole/);
     // A number keeps its percent sign on the same line: a no-break space between them.
     expect(row.textContent).toMatch(/Sunlight 45 %/);
     expect(row.textContent).toMatch(/Earth in view 45 %/);
-    expect(row.textContent).toMatch(/Longest time with power 12 d 15 h, landing 20 Jan/);
+    expect(row.textContent).toMatch(/Longest time with power 12 d 15 h, if it lands on 20 Jan/);
+  });
+
+  it('opens a site without a better landing date at the start of the period', async () => {
+    await ready();
+    expect(rowOf('Shackleton rim summit').getAttribute('href')).toBe('/explore?site=shackleton_center_rim_high&start=2027-01-01&days=30');
+    expect(rowOf('Shackleton crater floor').getAttribute('href')).toMatch(/&start=2027-01-01&days=30$/);
   });
 
   it('says in words when a site has no sunlight or no contact with Earth', async () => {
@@ -68,8 +78,15 @@ describe('SitesView', () => {
     const map = screen.getByRole('region', { name: 'Map of the sites' });
     const pins = within(map).getAllByRole('link');
     expect(pins).toHaveLength(17);
-    expect(within(map).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    expect(within(map).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
     expect(map.textContent).toMatch(/IM-1 Odysseus and Blue Ghost Mission 1 lie outside this map/);
+    expect(map.textContent).toMatch(/The south pole is at the centre of the map/);
+    // The pole is the map's landmark: its name is written before any other.
+    expect(within(map).getByRole('link', { name: 'Lunar south pole' }).querySelector('[data-side]')!.className).not.toMatch(/\bhidden\b/);
+    // Names are written on the map where they fit, the rows at the top of the list first.
+    const top = screen.getAllByRole('list')[0].querySelector<HTMLElement>('a[data-row]')!;
+    const pin = within(map).getByRole('link', { name: top.querySelector('span span')!.textContent! });
+    expect(pin.querySelector('[data-side]')!.className).not.toMatch(/\bhidden\b/);
   });
 
   it('lights the pin of the row under the pointer, and the row of the pin', async () => {

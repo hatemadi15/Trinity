@@ -10,8 +10,9 @@ import { batteryWords, chargeArea, hillsToward, hourAt, offRuns } from '@/lib/vi
 const SUN_H = 110;
 const EARTH_H = 90;
 const BATTERY_H = 30;
-/** The rows share one grid: a narrow column of row names, then the plot. */
-const GRID = 'grid grid-cols-[104px_minmax(0,1fr)] gap-x-3 max-sm:grid-cols-1';
+/** The rows share one grid: a narrow column of row names, then the plot. The time bar uses it too, so its track lines up under the plot. */
+export const PLOT_GRID = 'grid grid-cols-[104px_minmax(0,1fr)] gap-x-3';
+const GRID = `${PLOT_GRID} max-sm:grid-cols-1`;
 
 function Swatch({ color, dotted = false }: { color: string; dotted?: boolean }) {
   return (
@@ -99,12 +100,12 @@ export function TimeChart({
 
   return (
     <section aria-labelledby="h-why-chart" className="panel">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <h2 id="h-why-chart" className="display text-[23px] font-semibold">
-          Why: the {days} days, hour by hour
-        </h2>
-        <p className="text-[15px] text-ink-2">Time runs left to right. Press Play or drag the handle in the bar below.</p>
-      </div>
+      <h2 id="h-why-chart" className="display text-[23px] font-semibold">
+        Why: the {days} days, hour by hour
+      </h2>
+      <p className="mt-1 max-w-[62em] text-[15px] text-ink">
+        Time runs left to right. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain.
+      </p>
       <ul aria-label="Key" className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
         <li className="flex items-center gap-2">
           <Swatch color="var(--stage-sun)" />

@@ -51,12 +51,15 @@ export function GroundPanel({
   if (mode === 'globe') caption = 'The whole Moon. Click anywhere south of 60° S to work out that place. Drag to turn, scroll to zoom.';
   else if (heightmap) caption = `NASA elevation data at ${heightmap.meta.cell_m} m per pixel, ${(heightmap.meta.width * heightmap.meta.cell_m) / 1000} km across. Drag to turn, scroll to zoom. The light follows the time bar.`;
   else if (terrainState === 'loading' || windowLoading) caption = 'Loading the terrain…';
-  else if (capHeightmap) caption = 'A coarse model of the polar cap, 48 km across: this site has no detailed terrain yet. The light follows the time bar.';
+  else if (capHeightmap) caption = `NASA elevation data at ${capHeightmap.meta.cell_m} m per pixel, 48 km around the site: too coarse to show its own slopes. The light follows the time bar.`;
   else caption = 'The terrain files are not on this machine.';
   return (
-    <section aria-label="The ground" className="panel">
+    <section aria-labelledby="h-ground" className="panel">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-        <h2 className="display text-[23px] font-semibold">The ground</h2>
+        {/* Named after what it shows: the globe is the whole Moon, not the ground at the site. */}
+        <h2 id="h-ground" className="display text-[23px] font-semibold">
+          {mode === 'globe' ? 'The whole Moon' : 'The ground'}
+        </h2>
         <p className="text-[15px] text-ink-2">{when}</p>
       </div>
       <div className="stage mt-3 aspect-[4/3] sm:min-h-[380px]">

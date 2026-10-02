@@ -74,8 +74,8 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
 
   const scene = useMemo(() => (s.eph && s.series && s.mask ? sceneStateAt(s.eph, s.series, s.mask, s.cursorHour) : null), [s.eph, s.series, s.mask, s.cursorHour]);
   const answer = useMemo(
-    () => (s.series && s.summary && s.power ? answerFor({ series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, best: s.best }) : null),
-    [s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.best],
+    () => (s.series && s.summary && s.power ? answerFor({ series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best }) : null),
+    [s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.best],
   );
 
   if (s.status === 'loading' || s.status === 'idle') {
@@ -121,7 +121,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               {s.error}
             </p>
           )}
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
             <VerdictPanel siteName={siteLabel(site)} answer={answer} onLand={(start) => s.setWindow(start, s.days)} onCompare={onCompare} onYear={() => void store.getState().findBestWindow(s.days)} yearNote={s.bestWindowNote} />
             <NumbersCard
               site={site}

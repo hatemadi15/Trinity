@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { applyActions, describeDropped, validateActions } from '@/lib/ai/actions';
 import { askPlanner, shortModel, type PlannerAnswer } from '@/lib/ai/client';
@@ -59,6 +59,7 @@ export function PlannerChat({
   const [open, setOpen] = useState(() => variant === 'panel' || defaultOpen || plannerLog.getState().exchanges.length > 0);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  const panelBox = useRef<HTMLInputElement>(null);
 
   async function submit(prompt: string) {
     const q = prompt.trim();
@@ -104,19 +105,22 @@ export function PlannerChat({
             className="mt-3 flex flex-wrap gap-3"
             onSubmit={(e) => {
               e.preventDefault();
-              void submit(input);
+              // An empty question sends nothing: the cursor goes to the box instead.
+              if (!input.trim()) panelBox.current?.focus();
+              else void submit(input);
             }}
           >
             <input
+              ref={panelBox}
               type="text"
               aria-label="Ask the planner"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days"
+              placeholder="Type a question about a site, a date or the lander"
               maxLength={500}
               className="field min-w-[260px] flex-1 placeholder:text-ink-3"
             />
-            <button type="submit" disabled={busy || !input.trim()} className="btn h-[52px]">
+            <button type="submit" disabled={busy} className="btn h-[52px]">
               {busy ? 'Thinking…' : 'Ask'}
             </button>
           </form>

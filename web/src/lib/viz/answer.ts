@@ -26,13 +26,17 @@ export interface AnswerInput {
   startUtc: string;
   days: number;
   loadW: number;
+  /** The battery's capacity: a battery below it when the Sun sets covers less of the night than a full one. */
+  batteryWh: number;
   /** The best landing hour inside the period (hours from the period start), or null when no hour is sunlit. */
   best: Landing | null;
 }
 
-export function answerFor({ series, summary, power, startUtc, days, loadW, best }: AnswerInput): Answer {
+export function answerFor({ series, summary, power, startUtc, days, loadW, batteryWh, best }: AnswerInput): Answer {
   const hours = series.hours;
   const first = power.firstBrownoutHour;
+  // Every answer is for a lander that lands at the start of the period; the title says when that is.
+  const landing = `Landing on ${dateLong(startUtc, 0)}`;
 
   if (first === null) {
     const sentence =
@@ -41,7 +45,7 @@ export function answerFor({ series, summary, power, startUtc, days, loadW, best 
         : summary.longestDarkH === 0
           ? `The Sun never sets in these ${days} days.`
           : `The Sun is up ${pct0(summary.illumFraction)} of the time. The longest night lasts ${spanWords(summary.longestDarkH)}, and the battery covers it.`;
-    return { tone: 'good', kind: 'all', title: `Keeps power for all ${days} days`, sentences: [sentence], better: null, hint: null };
+    return { tone: 'good', kind: 'all', title: `${landing}: power for all ${days} days`, sentences: [sentence], better: null, hint: null };
   }
 
   if (summary.illumFraction === 0) {
@@ -59,19 +63,19 @@ export function answerFor({ series, summary, power, startUtc, days, loadW, best 
   let back = first;
   while (back < hours && power.powered[back] === 0) back++;
   const backPart = back < hours ? `; the lander is back on ${dateLong(startUtc, back)}.` : ', and the lander stays off for the rest of the period.';
-  const lead = first === 0 ? 'No power from the first hour' : `Power for ${spanWords(first)}`;
+  const lead = `power for ${spanWords(first)}`;
 
   let kind: AnswerKind;
   let title: string;
   let sentences: string[];
   if (series.sunFraction[first] > 0) {
     kind = 'low-sun';
-    title = first === 0 ? 'Too little sunlight from the first hour' : `${lead}, then too little sunlight`;
+    title = first === 0 ? `${landing}: too little sunlight from the first hour` : `${landing}: ${lead}, then too little sunlight`;
     sentences = [`The Sun is up, but the panel makes about ${Math.round(power.powerW[first])} W and the lander uses ${loadW} W.`];
     sentences.push(back < hours ? `The lander is back on ${dateLong(startUtc, back)}.` : 'The lander stays off for the rest of the period.');
   } else {
     kind = 'night';
-    title = first === 0 ? `${lead}: it is night` : `${lead}, then night`;
+    title = first === 0 ? `${landing}: no power, it is night` : `${landing}: ${lead}, then night`;
     let sunset = first;
     while (sunset > 0 && series.sunFraction[sunset - 1] === 0) sunset--;
     let sunrise = first;
@@ -92,7 +96,14 @@ export function answerFor({ series, summary, power, startUtc, days, loadW, best 
           ? `The Sun sets on ${dateLong(startUtc, sunset)} and stays ${where} for the rest of the period.`
           : `The Sun sets on ${dateLong(startUtc, sunset)} and stays ${where} for ${spanWords(sunrise - sunset)}.`;
     const covered = first - sunset;
-    const battery = covered > 0 ? `The battery covers the first ${spanWords(covered)}` : sunset === 0 ? 'The battery is empty at the start' : 'The battery is empty when the Sun sets';
+    // A low Sun in the last sunlit hours can give less than the lander uses, so the night may start on a battery that is no longer full.
+    const full = sunset === 0 || power.energyWh[sunset - 1] >= batteryWh - 1e-6;
+    const battery =
+      covered > 0
+        ? `The battery${full ? '' : ', not quite full when the Sun set,'} covers the first ${spanWords(covered)} of the night`
+        : sunset === 0
+          ? 'The battery is empty at the start'
+          : 'The battery is empty when the Sun sets';
     sentences = [dark, `${battery}${backPart}`];
   }
 

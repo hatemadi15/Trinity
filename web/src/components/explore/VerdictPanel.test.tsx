@@ -7,12 +7,12 @@ import { VerdictPanel } from './VerdictPanel';
 const night: Answer = {
   tone: 'bad',
   kind: 'night',
-  title: 'Power for 3 days 4 hours, then night',
-  sentences: ['The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.', 'The battery covers the first 9 hours; the lander is back on 20 January.'],
+  title: 'Landing on 1 January: power for 3 days 4 hours, then night',
+  sentences: ['The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.', 'The battery, not quite full when the Sun set, covers the first 9 hours of the night; the lander is back on 20 January.'],
   better: { hour: 466, startUtc: '2027-01-20T10:00:00', label: 'Land on 20 January instead', note: 'From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.' },
   hint: null,
 };
-const good: Answer = { tone: 'good', kind: 'all', title: 'Keeps power for all 30 days', sentences: ['The Sun never sets in these 30 days.'], better: null, hint: null };
+const good: Answer = { tone: 'good', kind: 'all', title: 'Landing on 1 January: power for all 30 days', sentences: ['The Sun never sets in these 30 days.'], better: null, hint: null };
 const stuck: Answer = { ...night, better: null, hint: 'No landing date in these 30 days gives more power here. A shorter stay or a bigger battery may.' };
 
 function show(answer: Answer, yearNote: string | null = null) {
@@ -27,9 +27,9 @@ describe('VerdictPanel', () => {
   it('leads the page with the answer in words, named for the site', () => {
     show(night);
     const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1.textContent).toBe('de Gerlache Rim 2: Power for 3 days 4 hours, then night');
+    expect(h1.textContent).toBe('de Gerlache Rim 2: Landing on 1 January: power for 3 days 4 hours, then night');
     expect(screen.getByText(/The Sun sets on 3 January/)).toBeTruthy();
-    expect(screen.getByText(/The battery covers the first 9 hours/)).toBeTruthy();
+    expect(screen.getByText(/covers the first 9 hours of the night/)).toBeTruthy();
     expect(screen.getByRole('region', { name: 'The answer' }).getAttribute('data-tone')).toBe('bad');
   });
 
@@ -60,7 +60,38 @@ describe('VerdictPanel', () => {
     const panel = screen.getByRole('region', { name: 'The answer' });
     expect(panel.getAttribute('data-tone')).toBe('good');
     expect(panel.querySelector('svg')).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Keeps power for all 30 days/);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/power for all 30 days/);
+  });
+
+  it('states a bad answer calmly: a plain panel, the heading in ink and an empty battery in the bad colour', () => {
+    show(night);
+    const panel = screen.getByRole('region', { name: 'The answer' });
+    // The plain panel of the page (surface, hairline edge), like the numbers beside it.
+    expect(panel.className).toMatch(/\bpanel\b/);
+    expect(panel.className).not.toMatch(/bad-bg|good-bg/);
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1.closest('.text-bad')).toBeNull();
+    // A two-line title breaks evenly, never leaving one word on its own line; on a phone it is smaller.
+    expect(h1.className).toMatch(/\btext-balance\b/);
+    expect(h1.classList.contains('text-[26px]')).toBe(true);
+    expect(h1.classList.contains('sm:text-[32px]')).toBe(true);
+    const icon = panel.querySelector('[data-icon]')!;
+    expect(icon.getAttribute('data-icon')).toBe('battery-empty');
+    expect(icon.closest('.text-bad')).toBeTruthy();
+  });
+
+  it('marks a good answer with a full battery in the good colour', () => {
+    show(good);
+    const icon = screen.getByRole('region', { name: 'The answer' }).querySelector('[data-icon]')!;
+    expect(icon.getAttribute('data-icon')).toBe('battery-full');
+    expect(icon.closest('.text-good')).toBeTruthy();
+  });
+
+  it('fills the height of its row, with the 12-month search at the foot', () => {
+    show(night);
+    const panel = screen.getByRole('region', { name: 'The answer' });
+    expect(panel.className).toMatch(/\bflex-col\b/);
+    expect(screen.getByRole('button', { name: 'Find the best date in the next 12 months' }).closest('p')!.className).toMatch(/\bmt-auto\b/);
   });
 
   it('offers the search over the next 12 months and reports what it found', () => {

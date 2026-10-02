@@ -10,7 +10,7 @@ import { siteLabel, type Site } from '@/lib/data/loaders';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { landerLine } from '@/lib/lander';
 import { exploreStore, type ExploreState, type SiteOverview } from '@/lib/store/explore';
-import { dateLong, dayMonth, pct0, spanShort } from '@/lib/viz/format';
+import { dateLong, dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 
 const TWO_WEEKS_H = 14 * 24;
@@ -21,7 +21,7 @@ const GROUPS: { title: string; note: string; categories: string[] }[] = [
     note: 'The nine candidate regions NASA named in October 2024. Each figure is for the centre of the region.',
     categories: ['artemis3'],
   },
-  { title: 'Where commercial landers touched down', note: 'Three real missions to replay.', categories: ['clps_landed'] },
+  { title: 'Where commercial landers touched down', note: 'The landing spots of three real missions, for the same days as the rest of the list.', categories: ['clps_landed'] },
   { title: 'High points and crater floors', note: 'The extremes: rims that almost never lose the Sun, floors that never see it.', categories: ['classic', 'reference'] },
 ];
 
@@ -31,6 +31,11 @@ const COLUMNS = 'grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.8fr)_m
 export function exploreHref(siteId: string, startUtc: string, days: number): string {
   const start = startUtc.endsWith('T00:00:00') ? startUtc.slice(0, 10) : startUtc.slice(0, 16);
   return `/explore?site=${siteId}&start=${start}&days=${days}`;
+}
+
+/** A site opens on the landing date its row names, so Explore shows the figure the row promised; without a better date, on the period's start. */
+function siteHref(siteId: string, o: SiteOverview | undefined, startUtc: string, days: number): string {
+  return exploreHref(siteId, o?.best && o.best.hour > 0 ? isoAt(startUtc, o.best.hour) : startUtc, days);
 }
 
 /** Rows are ranked by the longest time with power, then by sunlight; a site without figures goes last. */
@@ -81,7 +86,7 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
                 <>
                   <b className={`block font-semibold ${o.best.poweredHours >= TWO_WEEKS_H ? 'text-good' : ''}`}>{capped ? `all ${days} days` : spanShort(Math.round(o.best.poweredHours))}</b>
                   <span className="block text-[15px] text-ink-2">
-                    <span className="sr-only">, </span>landing {dayMonth(startUtc, o.best.hour)}
+                    <span className="sr-only">, </span>if it lands on {dayMonth(startUtc, o.best.hour)}
                   </span>
                 </>
               ) : (
@@ -172,16 +177,18 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
       return { ...g, rows: settled ? [...rows].sort((a, b) => rank(s.overview[b.id]) - rank(s.overview[a.id])) : rows };
     });
   }, [catalogue, s.overview, s.overviewBusy]);
-  const pins: MapPin[] = useMemo(
-    () =>
-      HOME.relief.sites.flatMap((p) => {
+  const pins: MapPin[] = useMemo(() => {
+    // The pole first, as the map's landmark, then in the order of the list, so the names written on the map are those of the rows at the top.
+    const order = ['south_pole', ...groups.flatMap((g) => g.rows.map((r) => r.id))];
+    return HOME.relief.sites
+      .flatMap((p) => {
         const site = catalogue.find((x) => x.id === p.id);
         if (!site) return [];
         const best = s.overview[p.id]?.best;
-        return [{ id: p.id, u: p.u, v: p.v, label: siteLabel(site), href: exploreHref(p.id, s.startUtc, s.days), tone: best && best.poweredHours >= TWO_WEEKS_H ? ('good' as const) : ('plain' as const) }];
-      }),
-    [catalogue, s.overview, s.startUtc, s.days],
-  );
+        return [{ id: p.id, u: p.u, v: p.v, label: siteLabel(site), href: siteHref(p.id, s.overview[p.id], s.startUtc, s.days), tone: best && best.poweredHours >= TWO_WEEKS_H ? ('good' as const) : ('plain' as const) }];
+      })
+      .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  }, [groups, catalogue, s.overview, s.startUtc, s.days]);
   const offMap = catalogue.filter((x) => !HOME.relief.sites.some((p) => p.id === x.id)).map(siteLabel);
 
   if (s.status === 'idle' || s.status === 'loading') {
@@ -220,9 +227,10 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
       <main className="wrap pb-16 pt-10">
         <h1 className="display text-[40px] leading-tight">Choose a landing site</h1>
         <p className="mt-3 max-w-[46em] text-lg text-ink-2">
-          {catalogue.length} places on the Moon, most of them near the south pole. The figures are for a lander with a {landerLine(s.params.power)}, arriving in the {s.days} days from{' '}
-          {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}: how often it has sunlight and sees Earth, and how long it can stay powered. Pick one to see why.
+          {catalogue.length} places on the Moon, most of them near the south pole. Each row says how much sunlight and contact with Earth a lander gets there in the {s.days} days from{' '}
+          {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, and how long it keeps power. Pick one to see why.
         </p>
+        <p className="mt-1.5 text-[15px] text-ink-2">The lander: {landerLine(s.params.power)}.</p>
         <div className="mt-6 flex flex-wrap items-end gap-4">
           <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
         </div>
@@ -234,7 +242,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
 
         <div className="mt-8 grid items-start gap-10 xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
           <section aria-label="Map of the sites" className="max-w-[520px] xl:sticky xl:top-6 xl:max-w-none">
-            <ReliefMap pins={pins} activeId={active} onActive={setActive} />
+            <ReliefMap pins={pins} activeId={active} onActive={setActive} nameAll />
             <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
               <span className="flex items-center gap-2">
                 <i className="h-3 w-3 rounded-full bg-good" />
@@ -246,7 +254,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
               </span>
             </p>
             <p className="mt-1.5 text-[15px] text-ink-2">
-              The map is 500 km across with the south pole at the centre.{offMap.length > 0 ? ` ${offMap.join(' and ')} lie outside this map.` : ''}
+              The south pole is at the centre of the map. Point at a row to find its site on the map.{offMap.length > 0 ? ` ${offMap.join(' and ')} lie outside this map.` : ''}
             </p>
           </section>
 
@@ -266,7 +274,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                 </div>
                 <ul className="divide-y divide-line-strong">
                   {g.rows.map((site) => (
-                    <Row key={site.id} site={site} o={s.overview[site.id]} href={exploreHref(site.id, s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
+                    <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
                   ))}
                 </ul>
               </section>

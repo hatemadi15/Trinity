@@ -51,9 +51,11 @@ describe('SkyRow', () => {
     for (const n of stroked) expect(n.getAttribute('vector-effect')).toBe('non-scaling-stroke');
   });
 
-  it('draws two height lines and says what they are', () => {
+  it('draws two solid height lines and says what they are; dotted is kept for a hidden body', () => {
     const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" />);
-    expect(container.querySelectorAll('line[stroke-dasharray]')).toHaveLength(2);
+    const heights = [...container.querySelectorAll('line[data-height]')];
+    expect(heights).toHaveLength(2);
+    for (const l of heights) expect(l.getAttribute('stroke-dasharray')).toBeNull();
     const words = labelsOf(container).map((l) => l.textContent);
     expect(words).toContain('5° up');
     expect(words).toContain('horizon');
@@ -67,15 +69,18 @@ describe('SkyRow', () => {
   it('takes the spacing of its height lines from the chart it belongs to', () => {
     const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" scaleStep={10} />);
     // The range runs to 5.5°: with 10° spacing only the horizon is left.
-    expect(container.querySelectorAll('line[stroke-dasharray]')).toHaveLength(1);
+    expect(container.querySelectorAll('line[data-height]')).toHaveLength(1);
     expect(container.textContent).not.toMatch(/5° up/);
   });
 
-  it('keeps the height lines but leaves their words out when both edges hold a label', () => {
+  it("leaves out only the words of a height line that would sit on another label at both edges", () => {
     const long = Array.from({ length: hours }, (_, h) => (h >= 36 && h < 684 ? 0 : 1));
     const { container } = render(<SkyRow el={el} hill={hillsFor(long)} visible={long} startUtc={START} body="sun" caption="c" />);
-    expect(container.querySelectorAll('line[stroke-dasharray]')).toHaveLength(2);
-    expect(container.textContent).not.toMatch(/5° up|horizon/);
+    expect(container.querySelectorAll('line[data-height]')).toHaveLength(2);
+    // The sunset and sunrise labels sit at both edges at the height of the horizon, not at 5°.
+    const words = labelsOf(container).map((l) => l.textContent);
+    expect(words).toContain('5° up');
+    expect(words).not.toContain('horizon');
     expect(container.textContent).toMatch(/Sun sets 2 Jan/);
   });
 
@@ -118,7 +123,7 @@ describe('SkyRow', () => {
     const tall = Array.from({ length: hours }, (_, h) => (lit[h] ? -1 : 15));
     const sun = render(<SkyRow el={el} hill={tall} visible={lit} startUtc={START} body="sun" caption="c" fitHills pxPerDeg={10} ticks={false} />);
     const gap = (c: HTMLElement) => {
-      const y = [...c.querySelectorAll('line[stroke-dasharray]')].map((l) => Number(l.getAttribute('y1'))).sort((a, b) => b - a);
+      const y = [...c.querySelectorAll('line[data-height]')].map((l) => Number(l.getAttribute('y1'))).sort((a, b) => b - a);
       return y[0] - y[1];
     };
     // Range -2° to 16°: 18° at 10 px each, plus the 8 px margins above and below.

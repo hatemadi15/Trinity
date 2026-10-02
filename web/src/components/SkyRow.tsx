@@ -1,6 +1,6 @@
 import { useId, type CSSProperties, type ReactNode } from 'react';
 import { dayMonth, spanWords } from '@/lib/viz/format';
-import { compassTicks, eventLabelSides, hiddenBy, hiddenRuns, longestHidden, rowGeometry, rowRange, scaleLabelSide, scaleLines, type LabelSide } from '@/lib/viz/skyrow';
+import { compassTicks, eventLabelSides, hiddenBy, hiddenRuns, longestHidden, rowGeometry, rowRange, scaleLines, scalePreference, scaleWordSides, type LabelSide, type RowBox } from '@/lib/viz/skyrow';
 
 /** Width of the drawing's own coordinates. The drawing stretches sideways to fill its container; its height is fixed. */
 const W = 1216;
@@ -214,7 +214,6 @@ export function SkyRow({
   // only where these do not collide with words already placed (one lane along the top, one along the line).
   const topLane: [number, number][] = [];
   const lineLane: [number, number][] = [];
-  const others: [number, number][] = [];
   const placed: RunWords[] = [];
   const ordered = dark ? [dark, ...hiddenRuns(visible).filter((r) => r.from !== dark.from)] : [];
   for (const run of ordered) {
@@ -224,34 +223,43 @@ export function SkyRow({
     const middle = ((run.from + run.to) / 2 / hours) * 100;
     const half = long ? LONG_HALF : SHORT_HALF;
     const words = long || (toPct - fromPct >= SHORT_MIN && !overlaps(topLane, middle - half, middle + half));
-    if (words) {
-      topLane.push([middle - half, middle + half]);
-      if (!long) others.push([middle - half, middle + half]);
-    }
+    if (words) topLane.push([middle - half, middle + half]);
     const sides = eventLabelSides(fromPct, toPct, EVENT_NEED);
     const setAt: [number, number] = sides.set === 'inside' ? [fromPct, fromPct + EVENT_NEED] : [fromPct - EVENT_NEED, fromPct];
     const riseAt: [number, number] = sides.rise === 'inside' ? [toPct - EVENT_NEED, toPct] : [toPct, toPct + EVENT_NEED];
     const set = sides.set && (long || !overlaps(lineLane, ...setAt)) ? sides.set : null;
-    if (set) {
-      lineLane.push(setAt);
-      if (!long) others.push(setAt);
-    }
+    if (set) lineLane.push(setAt);
     const rise = sides.rise && (long || !overlaps(lineLane, ...riseAt)) ? sides.rise : null;
-    if (rise) {
-      lineLane.push(riseAt);
-      if (!long) others.push(riseAt);
-    }
+    if (rise) lineLane.push(riseAt);
     placed.push({ run, long, words, middle, fromPct, toPct, set, rise });
   }
-  const main = placed[0];
-  const scaleSide = scaleLabelSide(main ? { fromPct: main.fromPct, toPct: main.toPct, set: main.set, rise: main.rise } : null, EVENT_NEED, others);
   /** Just under the body's line at that hour, but never down in the row of dates. */
   const under = (hour: number) => Math.min(g.y(el[hour]) + 14, top + rowHeight - 27);
-
-  const scale = scaleLines(range, rowHeight, scaleStep);
-  /** The title sits in the top left corner; height-line words on that side keep clear of it. */
   const titleTop = top + 6;
-  const clearOfTitle = (y: number) => !title || scaleSide !== 'left' || y - 11 > titleTop + 25;
+
+  // The words of each height line go to an edge where they meet no other label: the stretch words along
+  // the top lane, the sunset and sunrise labels under the line, the title and the compass row.
+  const taken: RowBox[] = [];
+  for (const p of placed) {
+    const half = p.long ? LONG_HALF : SHORT_HALF;
+    if (p.words) taken.push({ x0: p.middle - half, x1: p.middle + half, y0: top + 34, y1: top + 60 });
+    if (p.set) {
+      const [x0, x1] = p.set === 'inside' ? [p.fromPct, p.fromPct + EVENT_NEED] : [p.fromPct - EVENT_NEED, p.fromPct];
+      taken.push({ x0, x1, y0: under(p.run.from), y1: under(p.run.from) + 24 });
+    }
+    if (p.rise) {
+      const [x0, x1] = p.rise === 'inside' ? [p.toPct - EVENT_NEED, p.toPct] : [p.toPct, p.toPct + EVENT_NEED];
+      taken.push({ x0, x1, y0: under(p.run.to), y1: under(p.run.to) + 24 });
+    }
+  }
+  if (title) taken.push({ x0: 0, x1: 30, y0: titleTop, y1: titleTop + 25 });
+  if (az) taken.push({ x0: 0, x1: 100, y0: 0, y1: top });
+  const scale = scaleLines(range, rowHeight, scaleStep);
+  const scaleSides = scaleWordSides(
+    scale.map(({ deg }) => ({ deg, y: g.y(deg) })),
+    taken,
+    scalePreference(placed[0] ? placed[0].middle : null),
+  );
   const days = Math.round(hours / 24);
   const every = days > 45 ? 10 : 5;
   const dayTicks = ticks ? Array.from({ length: Math.floor(days / every) + 1 }, (_, k) => k * every) : [];
@@ -279,8 +287,9 @@ export function SkyRow({
             </mask>
           </defs>
         )}
+        {/* Height lines are solid hairlines: a dotted line means a hidden Sun or Earth. */}
         {scale.map(({ deg }) => (
-          <line key={deg} x1={0} x2={W} y1={g.y(deg)} y2={g.y(deg)} stroke="var(--stage-ink-2)" strokeOpacity={0.45} strokeWidth={1} strokeDasharray="2 6" vectorEffect="non-scaling-stroke" />
+          <line key={deg} data-height="" x1={0} x2={W} y1={g.y(deg)} y2={g.y(deg)} stroke="var(--stage-ink-2)" strokeOpacity={0.3} strokeWidth={1} vectorEffect="non-scaling-stroke" />
         ))}
         <g mask={g.clipped ? `url(#${id}-mask)` : undefined}>
           <path d={g.hillArea} fill="var(--hill)" />
@@ -310,14 +319,13 @@ export function SkyRow({
         </Centred>
       ))}
 
-      {scaleSide &&
-        scale
-          .filter(({ deg }) => clearOfTitle(g.y(deg)))
-          .map(({ deg, words }) => (
-            <Label key={deg} plate className={`absolute @max-[480px]:hidden ${scaleSide === 'left' ? AT_LEFT : AT_RIGHT}`} style={{ top: g.y(deg) - 11 }}>
-              {words}
-            </Label>
-          ))}
+      {scale.map(({ deg, words }, i) =>
+        scaleSides[i] ? (
+          <Label key={deg} plate className={`absolute @max-[480px]:hidden ${scaleSides[i] === 'left' ? AT_LEFT : AT_RIGHT}`} style={{ top: g.y(deg) - 11 }}>
+            {words}
+          </Label>
+        ) : null,
+      )}
 
       {/* A dot where the body goes behind the hills or comes back. */}
       {g.events.map((e) => (

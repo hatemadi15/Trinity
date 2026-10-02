@@ -7,14 +7,6 @@ import type { PowerConfig } from '@/lib/engine/power';
 import { landerName } from '@/lib/lander';
 import type { WindowDays } from '@/lib/store/explore';
 
-function Chevron() {
-  return (
-    <svg viewBox="0 0 16 16" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-3" aria-hidden="true">
-      <path d="M3 6l5 5 5-5" />
-    </svg>
-  );
-}
-
 const TAG = 'shrink-0 rounded-full border border-line px-2.5 py-0.5 text-[15px] text-ink-2';
 
 /** The four things a forecast is for, in one row: the landing site, the start, the length and the lander. */
@@ -44,7 +36,6 @@ export function PeriodBand({
         <Link href="/sites" aria-label={`Landing site: ${label}. Change site`} className="field flex min-w-0 items-center gap-3 text-base text-ink">
           <span className="grow truncate font-medium">{label}</span>
           <span className={TAG}>change site</span>
-          <Chevron />
         </Link>
       </div>
       <PeriodControls startUtc={startUtc} days={days} onChange={onWindow} />
@@ -53,7 +44,6 @@ export function PeriodBand({
         <button ref={landerRef} type="button" onClick={onLander} aria-haspopup="dialog" aria-label={`Lander: ${lander}. Change`} className="field flex min-w-0 items-center gap-3 text-left text-base text-ink">
           <span className="grow truncate">{lander}</span>
           <span className={TAG}>change</span>
-          <Chevron />
         </button>
       </div>
     </section>

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { HOME } from '@/lib/data/home';
 import { ReliefMap, type MapPin } from './ReliefMap';
 
 const pins: MapPin[] = [
@@ -25,6 +26,25 @@ describe('ReliefMap', () => {
     expect(screen.getByText('Beta Plain')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Alpha Ridge' }).getAttribute('data-active')).toBe('true');
     expect(screen.getByRole('link', { name: 'Beta Plain' }).getAttribute('aria-current')).toBe('true');
+  });
+
+  it('gives a 100 km scale', () => {
+    const { container } = render(<ReliefMap pins={pins} />);
+    const scale = container.querySelector<HTMLElement>('[data-part="scale"]')!;
+    expect(scale.textContent).toBe('100 km');
+    expect(scale.style.width).toBe(`${(100 / (2 * HOME.relief.half_km)) * 100}%`);
+  });
+
+  it('writes on the map every name that fits when asked to name the pins', () => {
+    const { unmount } = render(<ReliefMap pins={pins} />);
+    expect(screen.getByText('Alpha Ridge').className).toMatch(/\bhidden\b/);
+    unmount();
+    render(<ReliefMap pins={pins} nameAll />);
+    expect(screen.getByText('Alpha Ridge').className).not.toMatch(/\bhidden\b/);
+    expect(screen.getByText('Alpha Ridge').getAttribute('data-side')).toBe('below');
+    // Beta Plain is near the right edge: its name goes to the left of its pin.
+    expect(screen.getByText('Beta Plain').className).not.toMatch(/\bhidden\b/);
+    expect(screen.getByText('Beta Plain').getAttribute('data-side')).toBe('left');
   });
 
   it('tells its owner which pin the pointer or the keyboard is on', () => {

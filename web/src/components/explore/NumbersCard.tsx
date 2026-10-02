@@ -22,7 +22,7 @@ function Line({ icon, title, note, value, unit }: { icon: ReactNode; title: stri
       </span>
       <span className="shrink-0 text-right">
         <span className="block display text-[28px] font-semibold leading-none">{value}</span>
-        {unit && <span className="mt-1 block text-[15px] text-ink-2">{unit}</span>}
+        {unit && <span className="mt-1 ml-auto block max-w-[7.5em] text-[15px] text-ink-2">{unit}</span>}
       </span>
     </div>
   );
@@ -121,9 +121,9 @@ export function NumbersCard({
         title="Lander"
         note={landerLine(params.power)}
         value={Number.isFinite(dark) ? spanShort(dark) : 'no load'}
-        unit="in the dark"
+        unit="in the dark, from full"
       />
-      <p className="mt-auto flex flex-wrap gap-x-6 gap-y-1 border-t border-line pt-2">
+      <p className="mt-auto flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-2">
         <button ref={opener} type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className={QUIET}>
           All numbers
         </button>

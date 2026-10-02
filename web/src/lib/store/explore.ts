@@ -286,10 +286,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         const cached = await ensureMask(site);
         if (seq !== selectSeq) return; // a newer selection won
         const { startUtc, days, params } = get(); // re-read: the window may have changed while loading
-        const { mode: currentMode, modeAuto: wasAuto } = get();
-        // A mare site has no polar terrain window: show the globe, and switch back for the next polar site unless the user chose the globe.
-        const mode: SceneMode = !site.polar ? 'globe' : wasAuto ? 'terrain' : currentMode;
-        const modeAuto = !site.polar ? wasAuto || currentMode !== 'globe' : false;
+        const { mode, modeAuto } = viewFor(site, get().terrainManifest, get().mode, get().modeAuto);
         const r = recompute(eph, site, cached.mask, startUtc, days, params);
         set({
           siteId: id,
@@ -658,6 +655,18 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     }
   }
 
+  /**
+   * The view a site opens on. A site without detailed terrain (a mare site, or a polar site the terrain
+   * files have no window for) opens on the globe, which then counts as switched on automatically; the
+   * next site with detailed terrain goes back to the terrain unless the user chose the globe. Without a
+   * manifest nothing is known about windows, and a polar site keeps the view it has.
+   */
+  function viewFor(site: Site, manifest: TerrainManifest | null, current: SceneMode, wasAuto: boolean): { mode: SceneMode; modeAuto: boolean } {
+    const detailed = site.polar && (manifest === null || windowFileFor(manifest, site.id) !== null);
+    if (!detailed) return { mode: 'globe', modeAuto: wasAuto || current !== 'globe' };
+    return { mode: wasAuto ? 'terrain' : current, modeAuto: false };
+  }
+
   /** Terrain manifest and south cap are optional extras; failures leave the 3D view without terrain. */
   async function loadTerrain(): Promise<void> {
     if (!loaders.loadTerrainManifest || !loaders.loadHeightmap) {
@@ -668,6 +677,9 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     try {
       const manifest = await loaders.loadTerrainManifest();
       store.setState({ terrainManifest: manifest });
+      // The site chosen before the manifest arrived may have no detailed window after all.
+      const { site, mode, modeAuto } = store.getState();
+      if (site) store.setState(viewFor(site, manifest, mode, modeAuto));
       const cap = await loaders.loadHeightmap(manifest.cap.file, manifest.cap.meta);
       store.setState({ capHeightmap: cap, terrainState: 'ready' });
       const { siteId } = store.getState();

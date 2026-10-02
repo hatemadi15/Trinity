@@ -23,7 +23,7 @@ describe('ExploreView', () => {
   it("shows the answer for the default site as the page's heading, with one gold action", async () => {
     await open();
     expect(heading()).toMatch(/de Gerlache Rim 2/);
-    expect(heading()).toMatch(/Power for 3 days 4 hours, then night/);
+    expect(heading()).toMatch(/Landing on 1 January: power for 3 days 4 hours, then night/);
     const gold = screen.getByRole('main').querySelectorAll('.btn-primary');
     expect(gold).toHaveLength(1);
     expect(gold[0].textContent).toMatch(/^Land on 20 January/);
@@ -39,7 +39,7 @@ describe('ExploreView', () => {
   it('offers Compare as the gold action when no date in the period does better', async () => {
     const navigate = vi.fn();
     const { store } = await open('?site=shackleton_center_rim_high', navigate);
-    await waitFor(() => expect(heading()).toMatch(/Keeps power for all 30 days/));
+    await waitFor(() => expect(heading()).toMatch(/Landing on 1 January: power for all 30 days/));
     const gold = screen.getByRole('main').querySelectorAll<HTMLElement>('.btn-primary');
     expect(gold).toHaveLength(1);
     expect(gold[0].textContent).toBe('Compare sites');
@@ -83,7 +83,7 @@ describe('ExploreView', () => {
   it('applies the site, start and length from the address', async () => {
     await open('?site=blue_ghost_m1&start=2025-03-02&days=14');
     await waitFor(() => expect(heading()).toMatch(/Blue Ghost/));
-    expect(heading()).toMatch(/Keeps power for all 14 days/);
+    expect(heading()).toMatch(/Landing on 2 March: power for all 14 days/);
   });
 
   it('keeps instrument and programme names out of the page', async () => {

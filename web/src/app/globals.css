@@ -215,6 +215,10 @@ html {
     background: var(--surface);
     padding: 20px 24px;
   }
+  /* The sunlit relief picture would glare on the dark page; in the dark theme it is dimmed. */
+  :root[data-theme="dark"] .relief-picture {
+    filter: brightness(0.72);
+  }
   /* A picture panel. The edge keeps a black picture's outline on the dark page. */
   .stage {
     position: relative;

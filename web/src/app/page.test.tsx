@@ -36,7 +36,7 @@ describe('home page', () => {
     expect(earth.textContent).toMatch(/Earth sets 23 Jan/);
     // One height scale for both rows: a degree takes as many pixels in each.
     const spacing = (row: HTMLElement) => {
-      const y = [...row.querySelectorAll('line[stroke-dasharray]')].map((l) => Number(l.getAttribute('y1'))).sort((a, b) => b - a);
+      const y = [...row.querySelectorAll('line[data-height]')].map((l) => Number(l.getAttribute('y1'))).sort((a, b) => b - a);
       return y[0] - y[1];
     };
     expect(spacing(sun)).toBeCloseTo(spacing(earth), 5);

@@ -39,6 +39,7 @@ function answer(sun: number[], days: number, cfg: PowerConfig = CFG) {
     startUtc: START,
     days,
     loadW: cfg.loadW,
+    batteryWh: cfg.batteryWh,
     best: bestLanding(scan, cfg, { from: 0, to: hours, step: 1, capHours: hours }),
   });
 }
@@ -46,23 +47,23 @@ function answer(sun: number[], days: number, cfg: PowerConfig = CFG) {
 describe('answerFor', () => {
   it('says the lander keeps power when the Sun never sets', () => {
     const a = answer(rep(1, 96), 2);
-    expect(a).toMatchObject({ tone: 'good', kind: 'all', title: 'Keeps power for all 2 days', better: null, hint: null });
+    expect(a).toMatchObject({ tone: 'good', kind: 'all', title: 'Landing on 1 January: power for all 2 days', better: null, hint: null });
     expect(a.sentences).toEqual(['The Sun never sets in these 2 days.']);
   });
 
   it('names the longest night when the battery covers it', () => {
     const a = answer([...rep(1, 20), ...rep(0, 8), ...rep(1, 68)], 2);
-    expect(a.title).toBe('Keeps power for all 2 days');
+    expect(a.title).toBe('Landing on 1 January: power for all 2 days');
     expect(a.sentences).toEqual(['The Sun is up 83 % of the time. The longest night lasts 8 hours, and the battery covers it.']);
   });
 
   it('says how long the power lasts, when the Sun sets, what the battery covers and when the lander is back', () => {
     // Sun for 30 h, night for 40 h, Sun again: the battery carries 10 h of the night.
     const a = answer([...rep(1, 30), ...rep(0, 40), ...rep(1, 122)], 4);
-    expect(a).toMatchObject({ tone: 'bad', kind: 'night', title: 'Power for 1 day 16 hours, then night' });
+    expect(a).toMatchObject({ tone: 'bad', kind: 'night', title: 'Landing on 1 January: power for 1 day 16 hours, then night' });
     expect(a.sentences).toEqual([
       'The Sun sets on 2 January and stays behind the hills for 1 day 16 hours.',
-      'The battery covers the first 10 hours; the lander is back on 3 January.',
+      'The battery covers the first 10 hours of the night; the lander is back on 3 January.',
     ]);
     expect(a.better).toEqual({
       hour: 70,
@@ -73,12 +74,33 @@ describe('answerFor', () => {
     expect(a.hint).toBeNull();
   });
 
+  it('says why the battery covers less of the night than a full one would', () => {
+    // A thin last sliver of Sun gives 68 W against the 100 W load: the battery is down 32 Wh when the night starts.
+    const a = answer([...rep(1, 30), 0.05, ...rep(0, 40), ...rep(1, 121)], 4);
+    expect(a.sentences).toEqual([
+      'The Sun sets on 2 January and stays behind the hills for 1 day 16 hours.',
+      'The battery, not quite full when the Sun set, covers the first 9 hours of the night; the lander is back on 3 January.',
+    ]);
+  });
+
+  it('names a landing that is not at midnight by its day only', () => {
+    const scan = series([...rep(1, 30), ...rep(0, 40), ...rep(1, 122)]);
+    const period = series([...rep(1, 30), ...rep(0, 40), ...rep(1, 26)]);
+    const a = answerFor({ series: period, summary: summarize(period), power: powerBudget(period, CFG), startUtc: '2027-01-20T10:00:00', days: 4, loadW: 100, batteryWh: 1000, best: bestLanding(scan, CFG, { from: 0, to: 96, step: 1, capHours: 96 }) });
+    expect(a.title).toBe('Landing on 20 January: power for 1 day 16 hours, then night');
+  });
+
+  it('says when there is no power from the first hour', () => {
+    const a = answer([...rep(0, 30), ...rep(1, 66)], 2, { ...CFG, batteryWh: 0 });
+    expect(a.title).toBe('Landing on 1 January: no power, it is night');
+  });
+
   it('stays true when the period starts in the dark', () => {
     const a = answer([...rep(0, 30), ...rep(1, 20), ...rep(0, 142)], 2);
-    expect(a.title).toBe('Power for 10 hours, then night');
+    expect(a.title).toBe('Landing on 1 January: power for 10 hours, then night');
     expect(a.sentences).toEqual([
       'The period starts in the dark: the Sun stays behind the hills until 2 January.',
-      'The battery covers the first 10 hours; the lander is back on 2 January.',
+      'The battery covers the first 10 hours of the night; the lander is back on 2 January.',
     ]);
     expect(a.better?.label).toBe('Land on 2 January instead');
     expect(a.better?.note).toBe('From 2 January, 06:00 UTC: power for 1 day 6 hours in a row.');
@@ -86,10 +108,10 @@ describe('answerFor', () => {
 
   it('stays true when the night outlasts the period', () => {
     const a = answer([...rep(1, 20), ...rep(0, 172)], 2);
-    expect(a.title).toBe('Power for 1 day 6 hours, then night');
+    expect(a.title).toBe('Landing on 1 January: power for 1 day 6 hours, then night');
     expect(a.sentences).toEqual([
       'The Sun sets on 1 January and stays behind the hills for the rest of the period.',
-      'The battery covers the first 10 hours, and the lander stays off for the rest of the period.',
+      'The battery covers the first 10 hours of the night, and the lander stays off for the rest of the period.',
     ]);
     expect(a.better).toBeNull();
     expect(a.hint).toBe('No landing date in these 2 days gives more power here. A shorter stay or a bigger battery may.');
@@ -98,7 +120,7 @@ describe('answerFor', () => {
   it('does not blame the night when the panel is too small for the load', () => {
     const weak: PowerConfig = { ...CFG, areaM2: 0.05 }; // 68 W against a 100 W load: the battery drains in daylight
     const a = answer(rep(1, 96), 2, weak);
-    expect(a).toMatchObject({ tone: 'bad', kind: 'low-sun', title: 'Power for 1 day 7 hours, then too little sunlight' });
+    expect(a).toMatchObject({ tone: 'bad', kind: 'low-sun', title: 'Landing on 1 January: power for 1 day 7 hours, then too little sunlight' });
     expect(a.sentences[0]).toBe('The Sun is up, but the panel makes about 68 W and the lander uses 100 W.');
     expect(a.sentences.join(' ')).not.toMatch(/night/);
     expect(a.better).toBeNull();
@@ -113,7 +135,7 @@ describe('answerFor', () => {
 
   it('credits the battery when it alone carries a period without sunlight', () => {
     const a = answer(rep(0, 96), 2, { ...CFG, batteryWh: 10_000 });
-    expect(a).toMatchObject({ tone: 'good', kind: 'all', title: 'Keeps power for all 2 days' });
+    expect(a).toMatchObject({ tone: 'good', kind: 'all', title: 'Landing on 1 January: power for all 2 days' });
     expect(a.sentences).toEqual(['There is no sunlight in these 2 days: the battery alone carries the lander.']);
   });
 
@@ -142,6 +164,7 @@ describe('answerFor where the Sun goes below the horizon', () => {
       startUtc: START,
       days: 4,
       loadW: CFG.loadW,
+      batteryWh: CFG.batteryWh,
       best: bestLanding(s, CFG, { from: 0, to: 96, step: 1, capHours: 96 }),
     });
     expect(a.sentences[0]).toBe('The Sun sets on 2 January and stays below the horizon for 1 day 16 hours.');
@@ -163,11 +186,12 @@ describe('answerFor on real data', () => {
       startUtc: START,
       days: 30,
       loadW: DEFAULT_POWER.loadW,
+      batteryWh: DEFAULT_POWER.batteryWh,
       best: bestLanding(scan, DEFAULT_POWER, { from: 0, to: 720, step: 1, capHours: 720 }),
     });
-    expect(a.title).toBe('Power for 3 days 4 hours, then night');
+    expect(a.title).toBe('Landing on 1 January: power for 3 days 4 hours, then night');
     expect(a.sentences[0]).toBe('The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.');
-    expect(a.sentences[1]).toMatch(/^The battery covers the first \d+ hours; the lander is back on 20 January\.$/);
+    expect(a.sentences[1]).toBe('The battery, not quite full when the Sun set, covers the first 9 hours of the night; the lander is back on 20 January.');
     expect(a.better?.label).toBe('Land on 20 January instead');
     expect(a.better?.note).toBe('From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.');
     expect(a.better?.startUtc).toBe('2027-01-20T10:00:00');

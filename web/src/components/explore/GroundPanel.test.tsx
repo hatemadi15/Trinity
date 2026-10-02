@@ -62,14 +62,28 @@ describe('GroundPanel', () => {
 
   it('explains the globe and reports a place that cannot be worked out', () => {
     show({ mode: 'globe', customError: 'no DEM coverage north of 60S (lat -40.00)' });
-    const text = screen.getByRole('region', { name: 'The ground' }).textContent ?? '';
+    const text = screen.getByRole('region', { name: 'The whole Moon' }).textContent ?? '';
     expect(text).toMatch(/Click anywhere south of 60° S to work out that place/);
     expect(screen.getByRole('alert').textContent).toMatch(/That place cannot be worked out: this tool covers the Moon south of 60° S/);
     expect(screen.queryByRole('button', { name: 'Heights ×3' })).toBeNull();
   });
 
-  it('says so while the terrain loads and when only the coarse model is there', () => {
+  it('says so while the terrain loads', () => {
     show({ terrainState: 'loading' });
     expect(screen.getByRole('region', { name: 'The ground' }).textContent).toMatch(/Loading the terrain…/);
+  });
+
+  it('says what the coarse model shows and what it cannot, without promising more', () => {
+    const cap = { meta: { cell_m: 960 }, heightsM: new Float32Array(0) } as unknown as Parameters<typeof GroundPanel>[0]['capHeightmap'];
+    show({ terrainState: 'ready', capHeightmap: cap });
+    const text = screen.getByRole('region', { name: 'The ground' }).textContent ?? '';
+    expect(text).toMatch(/NASA elevation data at 960 m per pixel, 48 km around the site: too coarse to show its own slopes\. The light follows the time bar\./);
+    expect(text).not.toMatch(/yet/);
+  });
+
+  it('names itself after what it shows: the ground, or the whole Moon', () => {
+    show({ mode: 'globe' });
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('The whole Moon');
+    expect(screen.getByRole('region', { name: 'The whole Moon' })).toBeTruthy();
   });
 });

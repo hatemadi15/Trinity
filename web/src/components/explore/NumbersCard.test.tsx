@@ -36,7 +36,7 @@ describe('NumbersCard', () => {
     const card = screen.getByRole('region', { name: 'The numbers' });
     expect(card.textContent).toMatch(/Sunlight.*share of the 30 days with the Sun above the hills.*44\.6 %/);
     expect(card.textContent).toMatch(/Contact with Earth.*share of the 30 days with Earth in view for radio.*45\.0 %/);
-    expect(card.textContent).toMatch(/Lander.*4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.*10 h.*in the dark/);
+    expect(card.textContent).toMatch(/Lander.*4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.*10 h.*in the dark, from full/);
     expect(card.textContent).not.toMatch(/skyline|LOLA|brownout/i);
   });
 

@@ -45,4 +45,14 @@ describe('PeriodBand', () => {
     for (const control of [screen.getByRole('button', { name: /^Lander:/ }), screen.getByRole('link', { name: /^Landing site:/ })]) expect(control.className).toMatch(/(^| )min-w-0( |$)/);
     expect(screen.getByRole('region', { name: 'What this forecast is for' }).className).toMatch(/(^| )min-w-0( |$)/);
   });
+
+  it('draws no dropdown arrow: the site opens a page and the lander a dialog, and each says "change"', () => {
+    render(<PeriodBand site={site} startUtc="2027-01-01T00:00:00" days={30} onWindow={() => {}} power={DEFAULT_POWER} onLander={() => {}} />);
+    const siteField = screen.getByRole('link', { name: /^Landing site/ });
+    const landerField = screen.getByRole('button', { name: /^Lander/ });
+    expect(siteField.querySelector('svg')).toBeNull();
+    expect(landerField.querySelector('svg')).toBeNull();
+    expect(siteField.textContent).toMatch(/change site$/);
+    expect(landerField.textContent).toMatch(/change$/);
+  });
 });
