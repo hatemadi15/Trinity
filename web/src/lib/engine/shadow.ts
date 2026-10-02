@@ -67,12 +67,20 @@ export function sweep(level: Level, bearingDeg: number, elDeg: number, seed?: (x
     const span = Math.ceil(Math.abs(slope) * (w - 1)) + 1;
     const m = new Float64Array(h + 2 * span).fill(-Infinity);
     const entered = new Uint8Array(h + 2 * span);
-    for (let k = 0; k < w; k++) {
-      const c = ux > 0 ? w - 1 - k : k;
-      const lo = span - Math.floor(slope * (c - start) + 0.5); // line index of row 0 in this column
-      for (let r = 0; r < h; r++) {
-        const line = lo + r;
-        if (seed && !entered[line]) m[line] = seed(xOf(c), yOf(r));
+    // Line index of row 0 in each column; a line is the pixels lo[c] + r = line.
+    const lo = new Int32Array(w);
+    for (let c = 0; c < w; c++) lo[c] = span - Math.floor(slope * (c - start) + 0.5);
+    // Walking away from the Sun a line's row only grows (or only shrinks), so the grid is visited in
+    // memory order: rows in that direction, and in each row the columns from the Sun's side first.
+    const c0 = ux > 0 ? w - 1 : 0;
+    const dc = ux > 0 ? -1 : 1;
+    const rowsDown = slope * dc >= 0;
+    for (let k = 0; k < h; k++) {
+      const r = rowsDown ? k : h - 1 - k;
+      const y = yOf(r);
+      for (let j = 0, c = c0; j < w; j++, c += dc) {
+        const line = lo[c] + r;
+        if (seed && !entered[line]) m[line] = seed(xOf(c), y);
         entered[line] = 1;
         const i = r * w + c;
         mBefore[i] = m[line];
@@ -131,12 +139,47 @@ export function cast(levels: Level[], bearingDeg: number, elDeg: number): { lit:
   return out!;
 }
 
-/** numpy's default percentile (linear between ranks) of values sorted in place. */
-function percentileSorted(sorted: Float64Array, q: number): number {
-  const at = (q / 100) * (sorted.length - 1);
+/** The k-th smallest of values[0, n) (k from 0), found by partitioning in place: values are reordered. */
+function select(values: Float64Array, n: number, k: number): number {
+  let left = 0;
+  let right = n - 1;
+  while (right > left) {
+    // Median of three as the pivot keeps sorted or uniform runs from going quadratic.
+    const mid = (left + right) >>> 1;
+    const a = values[left];
+    const b = values[mid];
+    const c = values[right];
+    const pivot = a < b ? (b < c ? b : a < c ? c : a) : a < c ? a : b < c ? c : b;
+    let i = left;
+    let j = right;
+    while (i <= j) {
+      while (values[i] < pivot) i++;
+      while (values[j] > pivot) j--;
+      if (i <= j) {
+        const t = values[i];
+        values[i] = values[j];
+        values[j] = t;
+        i++;
+        j--;
+      }
+    }
+    if (k <= j) right = j;
+    else if (k >= i) left = i;
+    else return values[k];
+  }
+  return values[k];
+}
+
+/** numpy's default percentile (linear between ranks) of values[0, count), without a full sort; values are reordered. */
+export function percentile(values: Float64Array, count: number, q: number): number {
+  const at = (q / 100) * (count - 1);
   const lo = Math.floor(at);
-  const hi = Math.ceil(at);
-  return sorted[lo] + (sorted[hi] - sorted[lo]) * (at - lo);
+  const low = select(values, count, lo);
+  if (at === lo) return low;
+  // After selecting rank lo, every value from lo + 1 on is at least as large: the next rank is their smallest.
+  let next = Infinity;
+  for (let i = lo + 1; i < count; i++) if (values[i] < next) next = values[i];
+  return low + (next - low) * (at - lo);
 }
 
 /**
@@ -146,7 +189,6 @@ function percentileSorted(sorted: Float64Array, q: number): number {
 export function shade(level: Level, margin: ArrayLike<number>, bearingDeg: number, elDeg: number, softM = 6): Uint8Array {
   const { width: w, height: h, pxM, heights } = level;
   const n = w * h;
-  const z = (r: number, c: number) => heights[r * w + c];
   const b = bearingDeg * DEG;
   const el = elDeg * DEG;
   const lx = Math.sin(b) * Math.cos(el);
@@ -158,12 +200,18 @@ export function shade(level: Level, margin: ArrayLike<number>, bearingDeg: numbe
   const direct = new Float64Array(n);
   const fill = new Float64Array(n);
   const litShare = new Float64Array(n);
-  const sunlit: number[] = [];
+  const sunlit = new Float64Array(n);
+  let lit = 0;
   for (let r = 0; r < h; r++) {
+    // np.gradient: central differences inside, one-sided at the edges; gy runs down the rows.
+    const up = (r > 0 ? r - 1 : r) * w;
+    const down = (r < h - 1 ? r + 1 : r) * w;
+    const dy = ((down - up) / w) * pxM;
     for (let c = 0; c < w; c++) {
-      // np.gradient: central differences inside, one-sided at the edges; gy runs down the rows.
-      const gx = w < 2 ? 0 : c === 0 ? (z(r, 1) - z(r, 0)) / pxM : c === w - 1 ? (z(r, w - 1) - z(r, w - 2)) / pxM : (z(r, c + 1) - z(r, c - 1)) / (2 * pxM);
-      const gy = h < 2 ? 0 : r === 0 ? (z(1, c) - z(0, c)) / pxM : r === h - 1 ? (z(h - 1, c) - z(h - 2, c)) / pxM : (z(r + 1, c) - z(r - 1, c)) / (2 * pxM);
+      const left = c > 0 ? c - 1 : c;
+      const right = c < w - 1 ? c + 1 : c;
+      const gx = right === left ? 0 : (heights[r * w + right] - heights[r * w + left]) / ((right - left) * pxM);
+      const gy = dy === 0 ? 0 : (heights[down + c] - heights[up + c]) / dy;
       const nx = -gx;
       const ny = gy;
       const norm = Math.sqrt(nx * nx + ny * ny + 1);
@@ -172,14 +220,10 @@ export function shade(level: Level, margin: ArrayLike<number>, bearingDeg: numbe
       fill[i] = Math.min(1, Math.max(0, (nx * fx + ny * fy + 0.866) / norm));
       const s = 0.5 - margin[i] / softM;
       litShare[i] = Number.isNaN(s) ? 0 : Math.min(1, Math.max(0, s));
-      if (litShare[i] > 0.5) sunlit.push(direct[i]);
+      if (litShare[i] > 0.5) sunlit[lit++] = direct[i];
     }
   }
-  let k = 1;
-  if (sunlit.length > 0) {
-    const sorted = Float64Array.from(sunlit).sort();
-    k = 1 / Math.max(percentileSorted(sorted, 92), 1e-3);
-  }
+  const k = lit > 0 ? 1 / Math.max(percentile(sunlit, lit, 92), 1e-3) : 1;
   const out = new Uint8Array(n);
   for (let i = 0; i < n; i++) {
     const tone = 1 - Math.exp(-1.9 * Math.min(1.6, Math.max(0, direct[i] * k)) * litShare[i]);

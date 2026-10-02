@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readJson } from './__tests__/helpers';
-import { cast, shade, sunBearingDeg, sweep, type Level } from './shadow';
+import { cast, percentile, shade, sunBearingDeg, sweep, type Level } from './shadow';
 
 const BEARINGS = [0, 45, 90, 135, 180, 225, 270, 315, 12.5, 298];
 const flat = (h = 64, w = 80, px = 20): Level => ({ heights: new Float64Array(h * w), width: w, height: h, pxM: px, siteCol: (w - 1) / 2, siteRow: (h - 1) / 2 });
@@ -38,11 +38,52 @@ describe('sweep', () => {
     expect(lit[30 * w + 31]).toBe(1); // the sunward side is lit
   });
 
+  it('walks the grid in memory order yet keeps every line in order from the Sun: the same result as a plain walk along the lines', () => {
+    // A rough random grid, a seed that varies with position, and bearings all round including the axes and diagonals.
+    let state = 7;
+    const rnd = () => ((state = (state * 1103515245 + 12345) % 2147483648) / 2147483648);
+    const w = 47;
+    const h = 31;
+    const heights = Float64Array.from({ length: w * h }, () => rnd() * 300);
+    const level: Level = { heights, width: w, height: h, pxM: 20, siteCol: 20.3, siteRow: 14.6 };
+    const seed = (x: number, y: number) => (x - y) * 0.01;
+    for (let b = 0; b < 360; b += 7.5) {
+      for (const el of [0.5, 3]) {
+        const got = sweep(level, b, el, seed);
+        const want = plainSweep(level, b, el, seed);
+        expect(Array.from(got.mBefore), `bearing ${b}`).toEqual(Array.from(want.mBefore));
+        expect(Array.from(got.lit), `bearing ${b}`).toEqual(Array.from(want.lit));
+      }
+    }
+  });
+
   it('lets a missing height neither light nor darken the rest of its line', () => {
     const level = flat(20, 20);
     (level.heights as Float64Array)[10 * 20 + 10] = NaN;
     const { lit } = sweep(level, 90, 2);
     expect(Array.from(lit).every((v) => v === 1)).toBe(true);
+  });
+});
+
+describe('percentile', () => {
+  it("is numpy's linear percentile, without sorting the values", () => {
+    let state = 3;
+    const rnd = () => ((state = (state * 1103515245 + 12345) % 2147483648) / 2147483648);
+    for (const n of [1, 2, 3, 10, 101, 1000]) {
+      const values = Float64Array.from({ length: n }, () => Math.round(rnd() * 50) / 10);
+      const sorted = Float64Array.from(values).sort();
+      for (const q of [0, 8, 50, 92, 100]) {
+        const at = (q / 100) * (n - 1);
+        const lo = Math.floor(at);
+        const hi = Math.ceil(at);
+        const want = sorted[lo] + (sorted[hi] - sorted[lo]) * (at - lo);
+        expect(percentile(Float64Array.from(values), n, q), `n ${n}, q ${q}`).toBeCloseTo(want, 12);
+      }
+    }
+  });
+
+  it('reads only the first count values', () => {
+    expect(percentile(Float64Array.from([5, 1, 3, 99, 99]), 3, 50)).toBe(3);
   });
 });
 
@@ -76,3 +117,56 @@ describe('cast and shade match the pipeline', () => {
     });
   }
 });
+
+/** The sweep as first written: lines walked in their own order, column by column for an east-west Sun. */
+function plainSweep(level: Level, bearingDeg: number, elDeg: number, seed: (x: number, y: number) => number): { lit: Uint8Array; mBefore: Float64Array } {
+  const { width: w, height: h, pxM, siteCol, siteRow, heights } = level;
+  const D = Math.PI / 180;
+  const sx = Math.sin(bearingDeg * D);
+  const sy = Math.cos(bearingDeg * D);
+  const t = Math.tan(elDeg * D);
+  const g = new Float64Array(w * h);
+  for (let r = 0; r < h; r++) {
+    for (let c = 0; c < w; c++) {
+      const x = (c - siteCol) * pxM;
+      const y = (siteRow - r) * pxM;
+      g[r * w + c] = heights[r * w + c] - (x * x + y * y) / (2 * 1737400) - (x * sx + y * sy) * t;
+    }
+  }
+  const mBefore = new Float64Array(w * h).fill(-Infinity);
+  const ux = Math.sin(bearingDeg * D);
+  const uy = -Math.cos(bearingDeg * D);
+  const visit = (r: number, c: number, line: number, m: Float64Array, entered: Uint8Array) => {
+    if (!entered[line]) m[line] = seed((c - siteCol) * pxM, (siteRow - r) * pxM);
+    entered[line] = 1;
+    const i = r * w + c;
+    mBefore[i] = m[line];
+    if (g[i] > m[line]) m[line] = g[i];
+  };
+  if (Math.abs(ux) >= Math.abs(uy)) {
+    const slope = uy / ux;
+    const start = ux > 0 ? w - 1 : 0;
+    const span = Math.ceil(Math.abs(slope) * (w - 1)) + 1;
+    const m = new Float64Array(h + 2 * span).fill(-Infinity);
+    const entered = new Uint8Array(h + 2 * span);
+    for (let k = 0; k < w; k++) {
+      const c = ux > 0 ? w - 1 - k : k;
+      const lo = span - Math.floor(slope * (c - start) + 0.5);
+      for (let r = 0; r < h; r++) visit(r, c, lo + r, m, entered);
+    }
+  } else {
+    const slope = ux / uy;
+    const start = uy > 0 ? h - 1 : 0;
+    const span = Math.ceil(Math.abs(slope) * (h - 1)) + 1;
+    const m = new Float64Array(w + 2 * span).fill(-Infinity);
+    const entered = new Uint8Array(w + 2 * span);
+    for (let k = 0; k < h; k++) {
+      const r = uy > 0 ? h - 1 - k : k;
+      const lo = span - Math.floor(slope * (r - start) + 0.5);
+      for (let c = 0; c < w; c++) visit(r, c, lo + c, m, entered);
+    }
+  }
+  const lit = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) lit[i] = mBefore[i] - g[i] <= 0 ? 1 : 0;
+  return { lit, mBefore };
+}
