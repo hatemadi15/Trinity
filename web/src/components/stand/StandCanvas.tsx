@@ -214,7 +214,7 @@ export function StandCanvas({
       <p
         ref={facingRef}
         aria-live="off"
-        className="pointer-events-none fixed bottom-[96px] left-1/2 -translate-x-1/2 rounded-[5px] bg-black/70 px-2.5 py-1 text-[15px] text-[#f2f0ea] max-md:bottom-[262px]"
+        className="pointer-events-none fixed bottom-[calc(var(--bar-h,104px)+14px)] left-1/2 -translate-x-1/2 rounded-[5px] bg-black/70 px-2.5 py-1 text-[15px] text-[#f2f0ea] max-md:bottom-[calc(var(--bar-h,166px)+var(--look-h,0px)+20px)]"
       >
         {`Facing ${compassWord(startYaw)}`}
       </p>

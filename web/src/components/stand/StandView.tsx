@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { HorizonView } from '@/components/explore/HorizonView';
 import { TimeBar } from '@/components/explore/TimeBar';
@@ -88,6 +88,24 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality]);
   const onFail = useCallback(() => setFailed('webgl'), []);
 
+  // The time bar and the phone's look buttons change height with the width and the words: what sits above
+  // them reads their measured heights (--bar-h, --look-h) instead of fixed offsets.
+  const mainRef = useRef<HTMLElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const lookRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      main.style.setProperty('--bar-h', `${barRef.current?.offsetHeight ?? 0}px`);
+      main.style.setProperty('--look-h', `${lookRef.current?.offsetHeight ?? 0}px`);
+    };
+    const ro = new ResizeObserver(measure);
+    for (const el of [barRef.current, lookRef.current]) if (el) ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, [s.status, wordsHidden, failed, scene]);
+
   if (s.status === 'error') {
     return (
       <main className="theme-dark fixed inset-0 grid place-items-center bg-black p-4 text-[#f2f0ea]">
@@ -120,7 +138,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   };
 
   return (
-    <main className="theme-dark fixed inset-0 overflow-hidden bg-black text-[#f2f0ea]">
+    <main ref={mainRef} className="theme-dark fixed inset-0 overflow-hidden bg-black text-[#f2f0ea]">
       {scene && !failed && (
         <StandCanvas
           scene={scene}
@@ -171,7 +189,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           <div className="pointer-events-none flex w-full max-w-[380px] flex-col gap-3 md:items-end">
             {!failed && (
               // On a phone the buttons sit just above the time bar, clear of the Sun and its label.
-              <div role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[152px]`}>
+              <div ref={lookRef} role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[calc(var(--bar-h,166px)+10px)]`}>
                 <button type="button" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
                   Face the Sun
                 </button>
@@ -205,7 +223,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0">
+      <div ref={barRef} className="fixed inset-x-0 bottom-0">
         {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
         <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} dates powered={power.powered} />
       </div>
