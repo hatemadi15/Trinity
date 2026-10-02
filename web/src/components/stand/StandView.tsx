@@ -206,7 +206,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       )}
 
       <div className="fixed inset-x-0 bottom-0">
-        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} />
+        {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
+        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} dates powered={power.powered} />
       </div>
     </main>
   );

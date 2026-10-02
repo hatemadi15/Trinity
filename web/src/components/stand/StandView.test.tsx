@@ -61,6 +61,9 @@ describe('StandView', () => {
     expect(screen.getByText(watchNext(store.getState().series!, store.getState().power, '2027-01-01T00:00:00', 10))).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('de\u00a0Gerlache\u00a0Rim\u00a02');
     expect(screen.getByRole('slider', { name: 'Time' })).toBeTruthy();
+    // No chart above it here: the time bar carries the dates and the hours the lander is off.
+    expect(screen.getByTestId('dates').querySelectorAll('[data-date]').length).toBeGreaterThan(3);
+    expect(screen.getByText('lander off')).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     for (const name of ['Face the Sun', 'Face Earth', 'Look up']) expect(screen.getByRole('button', { name })).toBeTruthy();
     await waitFor(() => expect(screen.getAllByText(/small craters underfoot are drawn, not measured\./).length).toBeGreaterThan(0));
