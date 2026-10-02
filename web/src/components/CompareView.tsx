@@ -181,8 +181,9 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                 Find the best landing day for these sites in the next 12 months
               </button>
             )}
+            {/* The brief is for one site, the one Explore has selected: the link says which. */}
             <Link href="/brief" className={LINK}>
-              Printable brief
+              Printable brief{s.site ? ` for ${siteLabel(s.site)}` : ''}
             </Link>
           </p>
         )}

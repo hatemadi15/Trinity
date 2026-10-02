@@ -9,7 +9,7 @@ import type { NarrationReply } from '@/lib/ai/protocol';
 import { summarizeState, type StateSummary } from '@/lib/ai/state-summary';
 import { siteLabel } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
-import { landerLine, landerName } from '@/lib/lander';
+import { landerLine } from '@/lib/lander';
 import { exploreHref } from '@/lib/links';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
@@ -169,7 +169,8 @@ export function BriefView({
       <section className="flex flex-col gap-1 text-[15px]">
         <h2 className="display text-[18px] font-semibold">The lander</h2>
         <p>
-          {landerName(p)}: {landerLine(p)}, starting with the battery {Math.round(p.initialSocFraction * 100)}&nbsp;% full; Earth counts as in view {s.params.minEarthElDeg}° above the hills.
+          {landerLine(p)}, starting with the battery {Math.round(p.initialSocFraction * 100)}&nbsp;% full; Earth counts as in view{' '}
+          {s.params.minEarthElDeg > 0 ? `when it clears the hills by at least ${s.params.minEarthElDeg}°` : 'whenever it clears the hills'}.
         </p>
       </section>
       <section className="flex flex-col gap-1 text-[15px]">

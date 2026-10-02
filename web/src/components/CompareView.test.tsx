@@ -43,6 +43,8 @@ describe('CompareView', () => {
     await waitFor(() => expect(screen.getByRole('main').textContent).toMatch(/Landing on 1 January, de Gerlache rim summit has the longest time with power \(all 30 days\)/));
     // The year search is a button that looks like one, at least 40 px tall like every control.
     expect(screen.getByRole('button', { name: 'Find the best landing day for these sites in the next 12 months' }).className).toMatch(/\bbtn\b/);
+    // The brief is for one site: the link says which.
+    expect(screen.getByRole('link', { name: `Printable brief for ${store.getState().site!.label}` }).getAttribute('href')).toBe('/brief');
   });
 
   it('lets its long buttons wrap, so none runs off a phone screen', async () => {

@@ -38,6 +38,10 @@ describe('BriefView', () => {
     const figures = [...document.querySelectorAll('dt')].map((d) => d.textContent);
     expect(figures).toEqual(['Sunlight', 'Contact with Earth', 'Longest night', 'Time with power', 'Battery when full']);
     expect(document.querySelector('dl')!.className).toMatch(/\bgrid-cols-2\b.*\bsm:grid-cols-3\b/);
+    // The lander once, in words, and Earth's threshold in words.
+    expect(screen.getByRole('heading', { name: 'The lander' }).nextElementSibling!.textContent).toBe(
+      '4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, starting with the battery 100 % full; Earth counts as in view whenever it clears the hills.',
+    );
     expect(screen.getByRole('img', { name: /^The Sun over the 30 days from 1 January/ }).closest('.stage')).toBeTruthy();
     expect(screen.getByRole('img', { name: /^Earth over the 30 days from 1 January/ }).closest('.stage')).toBeTruthy();
     // Day labels under the rows: every other one gives way on a phone, so none overlap.
