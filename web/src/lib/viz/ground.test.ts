@@ -66,4 +66,10 @@ describe('groundWords', () => {
     expect(groundWords(series([{ f: 1, el: 2, az: 0, earth: { el: -1, az: 72, seen: false } }]), 0).earth).toBe('Earth is below the horizon: no radio contact.');
     expect(groundWords(series([{ f: 1, el: 2, az: 0, earth: { el: 3, az: 72, seen: false } }]), 0).earth).toBe('Earth is behind the hills to the east: no radio contact.');
   });
+
+  it('says "on the horizon" for a Sun or Earth that shows from a high site while at or just below level, never a negative height above it', () => {
+    expect(groundWords(series([{ f: 1, el: -0.4, az: 300 }]), 0).sun).toBe('The site is in sunlight: the Sun is on the horizon, to the north-west.');
+    expect(groundWords(series([{ f: 1, el: 0.02, az: 300 }]), 0).sun).toBe('The site is in sunlight: the Sun is on the horizon, to the north-west.');
+    expect(groundWords(series([{ f: 1, el: 2, az: 0, earth: { el: -0.4, az: 72, seen: true } }]), 0).earth).toBe('Earth is in view on the horizon to the east: radio contact is possible.');
+  });
 });

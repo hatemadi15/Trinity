@@ -24,7 +24,8 @@ export function groundWords(series: Series, hour: number): { sun: string; earth:
   let siteState: string;
   let sunHidden: Hidden = 'no';
   if (f >= 0.999) {
-    sun = `The site is in sunlight: the Sun is ${degrees(el)} above the horizon, to the ${toward}.`;
+    // From a high site the skyline dips below level, so the Sun can show while at or just below level.
+    sun = `The site is in sunlight: the Sun is ${el < 0.05 ? 'on the horizon' : `${degrees(el)} above the horizon`}, to the ${toward}.`;
     siteState = 'in sunlight';
   } else if (f > 0) {
     const before = hour > 0 ? series.sunFraction[hour - 1] : f;
@@ -45,7 +46,8 @@ export function groundWords(series: Series, hour: number): { sun: string; earth:
   const earthEl = series.earthEl[hour];
   const earthToward = compassWord(series.earthAz[hour]);
   let earth: string;
-  if (series.earthVisible[hour] === 1) earth = `Earth is in view, ${degrees(earthEl)} above the horizon to the ${earthToward}: radio contact is possible.`;
+  if (series.earthVisible[hour] === 1)
+    earth = earthEl < 0.05 ? `Earth is in view on the horizon to the ${earthToward}: radio contact is possible.` : `Earth is in view, ${degrees(earthEl)} above the horizon to the ${earthToward}: radio contact is possible.`;
   else if (earthEl < 0) earth = 'Earth is below the horizon: no radio contact.';
   else earth = `Earth is behind the hills to the ${earthToward}: no radio contact.`;
   const earthHidden: Hidden = series.earthVisible[hour] !== 1 && earthEl >= 0 ? 'yes' : 'no';
