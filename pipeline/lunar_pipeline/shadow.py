@@ -16,8 +16,10 @@ from part 3 of the redesign).
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -157,3 +159,63 @@ def shade(heights_m: np.ndarray, px_m: float, margin_m: np.ndarray, bearing_deg:
     k = 1.0 / max(float(np.percentile(sunlit, 92)), 1e-3) if sunlit.size else 1.0
     tone = 1.0 - np.exp(-1.9 * np.clip(direct * k, 0.0, 1.6) * lit)
     return np.clip(255.0 * (0.035 + 0.085 * fill + 0.9 * tone), 0, 255).astype(np.uint8)
+
+
+def fixture_cases() -> dict[str, list[Level]]:
+    """Small grids the browser's port is checked against: a ridge, and a coarse level chained into a fine one.
+
+    Heights are rounded to 0.1 mm so that the numbers written to the fixture give exactly the same answers.
+    """
+    h, w = 24, 32
+    rows, cols = np.indices((h, w), dtype=np.float64)
+    ridge = np.round(300.0 * np.exp(-((cols - 20.0) ** 2) / 18.0) + 20.0 * np.sin(rows / 3.0), 4)
+    coarse = np.zeros((16, 16))
+    coarse[0:3, :] = 900.0  # a wall to the north of the fine grid, outside it
+    frows, fcols = np.indices((20, 20), dtype=np.float64)
+    fine = np.round(15.0 * np.cos(fcols / 4.0) * np.sin(frows / 5.0), 4)
+    return {
+        "ridge": [Level(ridge, 20.0, (w - 1) / 2, (h - 1) / 2)],
+        "chain": [Level(coarse, 80.0, 7.5, 7.5), Level(fine, 20.0, 9.5, 9.5)],
+    }
+
+
+FIXTURE_SUNS = [(250.0, 2.0), (0.0, 1.0), (45.0, 4.0), (123.4, 0.5), (300.0, -0.5)]
+
+
+def write_fixtures(out_dir: Path) -> list[Path]:
+    """Writes one golden file per case grid: the levels, and for each Sun the finest level's lit mask, margin and picture."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for name, levels in fixture_cases().items():
+        cases = []
+        for bearing, el in FIXTURE_SUNS:
+            lit, margin = cast(levels, bearing, el)
+            fine = levels[-1]
+            cases.append(
+                {
+                    "bearing_deg": bearing,
+                    "el_deg": el,
+                    "lit": lit.astype(int).ravel().tolist(),
+                    "margin": [round(float(m), 4) if np.isfinite(m) else None for m in margin.ravel()],
+                    "shade": shade(fine.heights_m, fine.px_m, margin, bearing, el).ravel().tolist(),
+                }
+            )
+        doc = {
+            "name": name,
+            "levels": [
+                {
+                    "heights": lv.heights_m.ravel().tolist(),
+                    "width": int(lv.heights_m.shape[1]),
+                    "height": int(lv.heights_m.shape[0]),
+                    "px_m": lv.px_m,
+                    "site_col": lv.site_col,
+                    "site_row": lv.site_row,
+                }
+                for lv in levels
+            ],
+            "cases": cases,
+        }
+        path = out_dir / f"{name}.json"
+        path.write_text(json.dumps(doc) + "\n")
+        paths.append(path)
+    return paths

@@ -38,6 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
     fl.add_argument("--site", required=True)
     fl.add_argument("--start", default="2027-01-01T00:00:00")
     fl.add_argument("--days", type=int, default=30)
+    sub.add_parser("fixture-shadow", help="write golden shadow-sweep fixtures for the TS port")
     sub.add_parser("validate", help="write validation tables (Horizons, Mazarico, backcasts) into data/validation")
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
@@ -59,6 +60,12 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "tiles":
         from .tiles import write_all
         print(write_all())
+    elif args.cmd == "fixture-shadow":
+        from . import config
+        from .shadow import write_fixtures
+
+        for path in write_fixtures(config.DATA_DIR / "fixtures" / "shadow"):
+            print(path)
     elif args.cmd == "terrain":
         from .terrain3d import write_all
         print(write_all())
