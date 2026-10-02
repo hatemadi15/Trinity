@@ -29,6 +29,10 @@ describe('compareRow', () => {
     expect(compareRow(result('d', 'Dusk', { sun: 0.4, earth: 0.3, nightH: 200, brownout: 0, backAt: 300 }), START, 30).power).toBe('none at landing; on from 13 Jan');
   });
 
+  it('never shows a site in permanent shadow as good, even when the battery outlasts the period', () => {
+    expect(compareRow(result('s', 'Shadow', { sun: 0, earth: 0, nightH: 720, brownout: null }), START, 30)).toMatchObject({ power: 'all 30 days on the battery; no sunlight', tone: 'bad' });
+  });
+
   it('says when power lasts the whole period, and when there is no sunlight at all', () => {
     expect(compareRow(result('b', 'Summit', { sun: 1, earth: 0.5, nightH: 0, brownout: null }), START, 30)).toMatchObject({ power: 'all 30 days', tone: 'good', longestNight: 'none' });
     expect(compareRow(result('c', 'Floor', { sun: 0, earth: 0, nightH: 720, brownout: 9 }), START, 30)).toMatchObject({ power: '9 h on the battery; no sunlight', tone: 'bad', sunlight: '0 %' });

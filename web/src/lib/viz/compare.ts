@@ -30,8 +30,8 @@ const poweredHours = (r: SiteResult, hours: number) => Math.min(hours, timeWithP
 /** How long the power lasts and what follows: "3 d 4 h, then off until 20 Jan", "10 h, then off to the end", "all 30 days". */
 function powerWords(r: SiteResult, startUtc: string, days: number, powered: number): string {
   const hours = days * 24;
+  if (r.summary.illumFraction === 0) return powered >= hours ? `all ${days} days on the battery; no sunlight` : powered > 0 ? `${spanShort(powered)} on the battery; no sunlight` : 'none; no sunlight';
   if (powered >= hours) return `all ${days} days`;
-  if (r.summary.illumFraction === 0) return powered > 0 ? `${spanShort(powered)} on the battery; no sunlight` : 'none; no sunlight';
   let back = powered;
   while (back < hours && r.power.powered[back] === 0) back++;
   if (powered === 0) return back < hours ? `none at landing; on from ${dayMonth(startUtc, back)}` : 'none';
