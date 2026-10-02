@@ -288,12 +288,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     ? buildLander(ls.azDeg, ls.distM, ls.faceAzDeg ?? (scene.series.sunAz[0] - 70 + 360) % 360, ls.earthAzDeg ?? scene.series.earthAz[0], ls.earthElDeg ?? scene.series.earthEl[0])
     : null;
   const landerBox = new THREE.Box3();
-  // The Sun, and a soft light from the sky and the ground: Earth's blue light above, the sunlit dust's grey below.
-  const sunLight = new THREE.DirectionalLight(0xffffff, 0), skyLight = new THREE.HemisphereLight(0x8aa7ff, 0x6e6a64, 0);
+  // The Sun; the sunlit dust's light from below, which fills the lander's shaded sides (as in the Apollo
+  // photographs); and Earth's faint blue light.
+  const sunLight = new THREE.DirectionalLight(0xffffff, 0), skyLight = new THREE.HemisphereLight(0x0a0a0c, 0x8a857c, 0), earthLight = new THREE.AmbientLight(0x8aa7ff, 0);
   if (lander) {
     const lx = lander.group.position.x, lz = lander.group.position.z, ly = heightAt(scene.field, lx, lz);
     lander.group.position.y = ly;
-    root.add(lander.group, sunLight, sunLight.target, skyLight);
+    root.add(lander.group, sunLight, sunLight.target, skyLight, earthLight);
     sunLight.target.position.set(lx, ly + 1.5, lz);
     lander.group.updateMatrixWorld(true);
     landerBox.setFromObject(lander.group);
@@ -343,7 +344,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     if (lander) {
       sunLight.position.copy(sunLight.target.position).addScaledVector(sunDir, 50);
       sunLight.intensity = 3.2 * v.sunFraction;
-      skyLight.intensity = 0.03 + 0.6 * earthshine + 0.25 * v.sunFraction;
+      skyLight.intensity = 0.9 * v.sunFraction;
+      earthLight.intensity = 0.03 + 0.5 * earthshine;
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
       lander.lamp.color.setHex(Number(scene.lander!.powered[h]) === 1 ? 0x46c98b : 0x000000);
     }

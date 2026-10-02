@@ -10,7 +10,7 @@ import { shadowLevels } from '@/lib/data/terrain';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { exploreHref } from '@/lib/links';
 import { StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
-import { flatField, terrainField } from '@/lib/sky/terrainField';
+import { flatField, heightAt, terrainField } from '@/lib/sky/terrainField';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { landerState, liveSentence, measuredNote, poleLine, skyLabel, standingLine, standQuery, watchNext } from '@/lib/viz/stand';
@@ -207,7 +207,18 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   Face Earth
                 </button>
                 {scene?.lander && (
-                  <button type="button" className={LOOK} onClick={() => face(scene.lander!.azDeg, -3.5, 40)}>
+                  <button
+                    type="button"
+                    className={LOOK}
+                    onClick={() => {
+                      // Aim at the lander's middle where it stands: the ground can fall away from the eye.
+                      const l = scene.lander!, a = (l.azDeg * Math.PI) / 180;
+                      const ground = heightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
+                      const eye = heightAt(scene.field, 0, 0) + scene.mastM;
+                      setLookingUp(false);
+                      setLook({ yaw: l.azDeg, pitch: (Math.atan2(ground + 1.7 - eye, l.distM) * 180) / Math.PI, fov: 36 });
+                    }}
+                  >
                     Face the lander
                   </button>
                 )}
