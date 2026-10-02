@@ -6,7 +6,7 @@ import { readJson } from '@/lib/engine/__tests__/helpers';
 import { standHref } from '@/lib/links';
 import { eph, sites } from '@/test/file-loaders';
 import { groundWords } from './ground';
-import { landerState, liveSentence, measuredNote, skyLabel, standQuery, watchNext } from './stand';
+import { landerState, liveSentence, measuredNote, poleLine, skyLabel, standingLine, standQuery, watchNext } from './stand';
 
 const series = (o: Partial<Record<'sunEl' | 'sunAz' | 'sunFraction' | 'earthEl' | 'earthAz' | 'earthVisible', number[]>>): Series => {
   const hours = (o.sunEl ?? [0]).length;
@@ -97,7 +97,7 @@ describe('the stand view’s words', () => {
 
 describe('the note on how we know this', () => {
   const nb = '\u00a0';
-  const rest = "The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of 8,404 stars, and Earth is NASA's Blue Marble photograph. With no air, the sky is black by day as well as by night. The lander and the small craters underfoot are drawn, not measured.";
+  const rest = "The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of 8,404 stars, and Earth is NASA's Blue Marble photograph. With no air, the sky is black by day as well as by night. Earth stays over the same part of the horizon, rising and sinking a few degrees over the month as the Moon nods. The lander and the small craters underfoot are drawn, not measured.";
   it('says in plain words where the heights, the shadows, the sky and Earth come from, and what is drawn', () => {
     expect(measuredNote([20, 80, 960], 8404)).toBe(
       `Heights measured from orbit by the laser on NASA's Lunar Reconnaissance Orbiter: 20${nb}m steps near you, 80${nb}m out to 20${nb}km and 960${nb}m out to 125${nb}km. The shadows are worked out from those heights for every hour. ${rest}`,
@@ -122,16 +122,32 @@ describe('what to watch for', () => {
   });
   const p = { powered: Uint8Array.from({ length: hours }, (_, h) => (h < 100 || h >= 470 ? 1 : 0)) } as unknown as PowerResult;
   const start = '2027-01-01T00:00:00';
-  it('names the next thing that happens, and its day', () => {
-    expect(watchNext(s, p, start, 10)).toBe('Press Play to watch the Sun set behind the hills on 4 January.');
+  it('names the next thing that happens, and its day, and what follows within three days', () => {
+    expect(watchNext(s, p, start, 10)).toBe('Press Play to watch the Sun set behind the hills on 4 January, then the battery run out on 5 January.');
     expect(watchNext(s, p, start, 80)).toBe('Press Play to watch the battery run out on 5 January.');
-    expect(watchNext(s, p, start, 200)).toBe('Press Play to watch the Sun come back on 20 January.');
+    expect(watchNext(s, p, start, 200)).toBe('Press Play to watch the Sun come back on 20 January, then the power come back on 20 January.');
     expect(watchNext(s, p, start, 467)).toBe('Press Play to watch the power come back on 20 January.');
+    // The Sun comes back at 466 and the power at 470: one sentence for both.
+    expect(watchNext(s, p, start, 300)).toBe('Press Play to watch the Sun come back on 20 January, then the power come back on 20 January.');
   });
   it('says the Sun sets below the horizon when it goes down rather than behind the hills', () => {
     const night = series({ sunEl: [1, 1, -0.4, -0.4], sunFraction: [1, 1, 0, 0] });
     expect(watchNext(night, null, start, 0)).toBe('Press Play to watch the Sun set below the horizon on 1 January.');
   });
+  it('says the Moon, near which pole, and that the view is drawn from NASA data', () => {
+    const site = { name: 'de Gerlache Rim 2', lat: -88.28, lon: -64.31, blurb: 'A ridge on a crater rim, 52 km from the pole' };
+    expect(standingLine(site, 'de Gerlache Rim 2', false)).toBe('Standing on the Moon at de Gerlache Rim 2, 88.3° S. A ridge on a crater rim, 52 km from the pole. Drawn from NASA data, not a photograph.');
+    expect(standingLine(site, 'de Gerlache Rim 2', true)).toBe('Standing on the Moon, near its south pole. Drawn from NASA data.');
+    const mare = { name: 'Blue Ghost', lat: 18.56, lon: 61.81 };
+    expect(standingLine(mare, 'Blue Ghost Mission 1', false)).toBe('Standing on the Moon at Blue Ghost Mission 1, 18.6° N. Drawn from NASA data, not a photograph.');
+    expect(standingLine(mare, 'Blue Ghost Mission 1', true)).toBe('Standing on the Moon. Drawn from NASA data.');
+  });
+
+  it('says why the Sun stays low near a pole, and nothing elsewhere', () => {
+    expect(poleLine(-88.28)).toBe("Near the Moon's south pole the Sun never climbs high: it circles just above the horizon once a month, so a low hill can hide it for days.");
+    expect(poleLine(18.56)).toBeNull();
+  });
+
   it('falls back to the light on the ground when nothing more happens in the period', () => {
     expect(watchNext(s, p, start, 600)).toBe('Press Play to watch the light move across the ground.');
   });

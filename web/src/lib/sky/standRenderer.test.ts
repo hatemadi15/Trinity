@@ -112,24 +112,42 @@ describe('the stand scene', () => {
     expect(uniforms('fast').uDetail.value).toBe(0);
   });
 
-  it('puts the labels over the bodies and the compass letters on the skyline, where the camera looks', () => {
+  it('puts the labels over the bodies, where the camera looks', () => {
     const s = buildScene(flat());
     s.update(0);
     s.setView(300, 2, 46, 16 / 9);
-    let l = s.labels();
+    const l = s.labels();
     expect(l.sun.visible).toBe(true);
     expect(l.sun.x).toBeCloseTo(0.5, 2);
     expect(l.sun.y).toBeLessThan(0.49); // lifted above the Sun's glare
     expect(l.earth.visible).toBe(false); // 130° away, out of the camera's view
-    s.setView(315, 2, 60, 16 / 9); // 92° across: north-west in the middle, north and west near the edges
-    l = s.labels();
-    const n = l.compass.find((c) => c.letter === 'N')!;
-    const w = l.compass.find((c) => c.letter === 'W')!;
-    expect(n.visible && w.visible).toBe(true);
-    expect(w.x).toBeLessThan(0.1);
-    expect(n.x).toBeGreaterThan(0.9);
-    expect(l.compass.find((c) => c.letter === 'S')!.visible).toBe(false);
-    expect(l.compass.find((c) => c.letter === 'E')!.visible).toBe(false);
+  });
+
+  it('rests the label of a body below the skyline on the skyline, where it is hidden, not down in the ground', () => {
+    const low = { ...series, earthEl: Float64Array.from([-3, -3, -3]) } as Series;
+    const s = buildScene(flat({ series: low }));
+    s.update(0);
+    s.setView(70, 0, 60, 16 / 9);
+    const e = s.labels().earth;
+    expect(e.visible).toBe(true);
+    expect(e.y).toBeGreaterThan(0.45);
+    expect(e.y).toBeLessThan(0.5); // just above the level skyline, not 3° below it
+  });
+
+  it('hides a label behind the lander', () => {
+    const behind = buildScene(flat({ lander: { azDeg: 300, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    behind.update(0);
+    behind.setView(300, 2, 60, 16 / 9);
+    expect(behind.labels().sun.visible).toBe(false);
+    const aside = buildScene(flat({ lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    aside.update(0);
+    aside.setView(300, 2, 60, 16 / 9);
+    expect(aside.labels().sun.visible).toBe(true);
+  });
+
+  it('traces each mesh’s shadows in its own level or coarser ones, so the coarse ground never meets the fine heights it does not show', () => {
+    const s = buildScene(flat({ field: terrainField(levels(), 0, 100) }));
+    expect(s.parts.ground.map((g) => (g.material as THREE.ShaderMaterial).uniforms.uMinLevel.value)).toEqual([0, 1, 2]);
   });
 
   it('stores heights outside every level as a finite value below the shadow rule’s cut-off, in half floats too', () => {
@@ -153,13 +171,26 @@ describe('the stand scene', () => {
     expect(s.parts.landerLight!.color.getHex()).not.toBe(0x000000);
     s.update(2);
     expect(s.parts.landerLight!.color.getHex()).toBe(0x000000);
-    // Its shadow on the ground: a box the shader tests the Sun's ray against.
+    // Its shadow on the ground: a box, turned with the lander, that the shader tests the Sun's ray against.
     const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
     expect(u.uLanderOn.value).toBe(1);
-    const lo = u.uLanderMin.value as THREE.Vector3, hi = u.uLanderMax.value as THREE.Vector3;
-    expect(lo.x).toBeLessThan(9);
-    expect(hi.x).toBeGreaterThan(9);
+    const c = u.uLanderCenter.value as THREE.Vector3, lo = u.uLanderMin.value as THREE.Vector3, hi = u.uLanderMax.value as THREE.Vector3;
+    expect(c.x).toBeCloseTo(9, 6);
+    expect(c.y).toBeCloseTo(heightAt(field, 9, 0), 6);
+    expect(lo.x).toBeLessThan(0);
+    expect(hi.x).toBeGreaterThan(0);
     expect(hi.y - lo.y).toBeGreaterThan(2);
+    const cs = u.uLanderCS.value as THREE.Vector2;
+    expect(cs.x).toBeCloseTo(Math.cos(lander.rotation.y), 9);
+    expect(cs.y).toBeCloseTo(Math.sin(lander.rotation.y), 9);
+  });
+
+  it('turns the lander so the Sun lights one of the faces the eye sees', () => {
+    const s = buildScene(flat({ lander: { azDeg: 340, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    // Its +x face looks 70° to the left of the Sun the view opens on (300°), towards the eye's side of the Sun.
+    const x = new THREE.Vector3(1, 0, 0).applyQuaternion(s.parts.lander!.quaternion);
+    const az = (THREE.MathUtils.radToDeg(Math.atan2(x.x, -x.z)) + 360) % 360;
+    expect(az).toBeCloseTo(230, 6);
   });
 
   it('draws no lander, and no lander shadow, when none is given', () => {

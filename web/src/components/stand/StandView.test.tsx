@@ -34,7 +34,6 @@ vi.mock('@/lib/data/sky', () => ({
 const everywhere: SkyLabels = {
   sun: { x: 0.5, y: 0.4, visible: true },
   earth: { x: 0.7, y: 0.4, visible: true },
-  compass: (['N', 'E', 'S', 'W'] as const).map((letter, k) => ({ letter, x: 0.2 * (k + 1), y: 0.6, visible: true })),
   stars: [{ name: 'Sirius', x: 0.3, y: 0.2, visible: true }],
 };
 const stub = () => ({ setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels: () => everywhere, dispose: vi.fn() }) satisfies RendererLike;
@@ -54,7 +53,8 @@ describe('StandView', () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     expect(store.getState().cursorHour).toBe(10);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing at de\sGerlache\sRim\s2 on 1 January/);
-    expect(screen.getByText(/^Standing at de Gerlache Rim 2, 88\.3° S/)).toBeTruthy();
+    expect(screen.getByText(/^Standing on the Moon at de Gerlache Rim 2, 88\.3° S\./)).toBeTruthy();
+    expect(screen.getByText(/^Near the Moon's south pole the Sun never climbs high/)).toBeTruthy();
     expect(screen.getByText(liveSentence(store.getState().series!, 10, true))).toBeTruthy();
     expect(screen.getByText('The lander has power.')).toBeTruthy();
     // What to watch next, and the site's name kept on one line in the headline.
@@ -64,15 +64,16 @@ describe('StandView', () => {
     // No chart above it here: the time bar carries the dates and the hours the lander is off.
     expect(screen.getByTestId('dates').querySelectorAll('[data-date]').length).toBeGreaterThan(3);
     expect(screen.getByText('lander off')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    expect(screen.getByRole('link', { name: 'Back to the forecast' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     for (const name of ['Face the Sun', 'Face Earth', 'Look up']) expect(screen.getByRole('button', { name })).toBeTruthy();
     await waitFor(() => expect(screen.getAllByText(/small craters underfoot are drawn, not measured\./).length).toBeGreaterThan(0));
     expect(screen.getAllByText('How we know this').length).toBeGreaterThan(0);
     // Which way the view faces, and the bright stars by name.
     expect(screen.getByText(`Facing ${compassWord(store.getState().series!.sunAz[10])}`)).toBeTruthy();
     expect(screen.getByText('Sirius')).toBeTruthy();
-    await waitFor(() => expect(screen.getByText('N')).toBeTruthy());
-    for (const letter of ['E', 'S', 'W']) expect(screen.getByText(letter)).toBeTruthy();
+    // The compass strip names the eight points along the horizon.
+    await waitFor(() => expect(screen.getAllByText('N').length).toBeGreaterThan(0));
+    for (const point of ['NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']) expect(screen.getAllByText(point).length).toBeGreaterThan(0);
     expect(document.querySelector('.theme-dark')).toBeTruthy();
   });
 
@@ -153,13 +154,17 @@ describe('StandView', () => {
     expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
   });
 
-  it('turns to the lander, which stands in sunlight a third of the way round from the Sun', async () => {
+  it('turns to the lander, which stands 40° to the right of the Sun the view opens on, in the first view', async () => {
     const r = stub();
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
     await waitFor(() => expect(r.setView).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Face the lander' }));
-    const want = (store.getState().series!.sunAz[10] + 120) % 360;
-    await waitFor(() => expect(Math.abs(((r.setView.mock.calls.at(-1)![0] - want + 540) % 360) - 180)).toBeLessThan(1), { timeout: 4000 });
+    const want = (store.getState().series!.sunAz[10] + 40) % 360;
+    const near = () => Math.abs(((r.setView.mock.calls.at(-1)![0] - want + 540) % 360) - 180) < 1;
+    await waitFor(() => expect(near()).toBe(true), { timeout: 4000 });
+    // It settles there, not just passes through on the way somewhere else.
+    await new Promise((done) => setTimeout(done, 700));
+    expect(near()).toBe(true);
   });
 
   it('turns "Look up" into "Look ahead", the way back to the horizon', async () => {

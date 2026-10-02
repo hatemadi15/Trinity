@@ -35,7 +35,7 @@ export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string
  */
 export function measuredNote(cellsM: number[], starCount: number): string {
   const nb = '\u00a0';
-  const rest = `The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of ${starCount.toLocaleString('en-GB')} stars, and Earth is NASA's Blue Marble photograph. With no air, the sky is black by day as well as by night. The lander and the small craters underfoot are drawn, not measured.`;
+  const rest = `The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of ${starCount.toLocaleString('en-GB')} stars, and Earth is NASA's Blue Marble photograph. With no air, the sky is black by day as well as by night. Earth stays over the same part of the horizon, rising and sinking a few degrees over the month as the Moon nods. The lander and the small craters underfoot are drawn, not measured.`;
   if (cellsM.length === 0) return `There are no detailed NASA heights for this site, so the ground here is drawn flat. ${rest}`;
   const steps = [...new Set(cellsM.map((c) => Math.round(c)))].sort((a, b) => a - b);
   const parts = steps.map((c, i) => `${c}${nb}m${i === 0 ? ' steps' : ''} ${c > 200 ? `out to 125${nb}km` : i === 0 ? 'near you' : `out to 20${nb}km`}`);
@@ -55,16 +55,38 @@ export function liveSentence(s: Series, hour: number, powered?: boolean): string
 
 /**
  * One line on what to watch next: the first change after the hour, of the Sun (its centre crossing the
- * skyline, as the engine counts it) or of the lander's power, with its day.
+ * skyline, as the engine counts it) or of the lander's power, with its day; and the other kind's next
+ * change when it follows within three days ("the Sun set on 3 January, then the battery run out on 4").
  */
 export function watchNext(s: Series, p: PowerResult | null, startUtc: string, hour: number): string {
   const lit = (h: number) => s.sunFraction[h] >= 0.5;
-  for (let h = Math.max(1, hour + 1); h < s.hours; h++) {
-    const day = dateLong(startUtc, h);
-    if (p && p.powered[h] !== p.powered[h - 1]) return p.powered[h] === 0 ? `Press Play to watch the battery run out on ${day}.` : `Press Play to watch the power come back on ${day}.`;
-    if (lit(h) !== lit(h - 1)) return lit(h) ? `Press Play to watch the Sun come back on ${day}.` : `Press Play to watch the Sun set ${s.sunEl[h] < 0 ? 'below the horizon' : 'behind the hills'} on ${day}.`;
-  }
-  return 'Press Play to watch the light move across the ground.';
+  const next = (from: number, kind?: 'sun' | 'power'): { h: number; kind: 'sun' | 'power'; text: string } | null => {
+    for (let h = Math.max(1, from + 1); h < s.hours; h++) {
+      const day = dateLong(startUtc, h);
+      if (kind !== 'sun' && p && p.powered[h] !== p.powered[h - 1]) return { h, kind: 'power', text: p.powered[h] === 0 ? `the battery run out on ${day}` : `the power come back on ${day}` };
+      if (kind !== 'power' && lit(h) !== lit(h - 1)) return { h, kind: 'sun', text: lit(h) ? `the Sun come back on ${day}` : `the Sun set ${s.sunEl[h] < 0 ? 'below the horizon' : 'behind the hills'} on ${day}` };
+    }
+    return null;
+  };
+  const first = next(hour);
+  if (!first) return 'Press Play to watch the light move across the ground.';
+  const then = next(first.h - 1, first.kind === 'sun' ? 'power' : 'sun');
+  return then && then.h - first.h <= 72 ? `Press Play to watch ${first.text}, then ${then.text}.` : `Press Play to watch ${first.text}.`;
+}
+
+/**
+ * The view's first line: that this is the Moon, where, and that it is drawn from NASA data. The short one,
+ * for a phone, keeps the Moon and the pole.
+ */
+export function standingLine(site: { lat: number; blurb?: string }, name: string, short: boolean): string {
+  if (short) return `Standing on the Moon${site.lat <= -80 ? ', near its south pole' : site.lat >= 80 ? ', near its north pole' : ''}. Drawn from NASA data.`;
+  return `Standing on the Moon at ${name}, ${Math.abs(site.lat).toFixed(1)}° ${site.lat < 0 ? 'S' : 'N'}.${site.blurb ? ` ${site.blurb}.` : ''} Drawn from NASA data, not a photograph.`;
+}
+
+/** Why the Sun stays low, for a site near a pole; null elsewhere. */
+export function poleLine(lat: number): string | null {
+  if (Math.abs(lat) < 80) return null;
+  return `Near the Moon's ${lat < 0 ? 'south' : 'north'} pole the Sun never climbs high: it circles just above the horizon once a month, so a low hill can hide it for days.`;
 }
 
 /**

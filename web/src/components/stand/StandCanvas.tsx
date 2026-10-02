@@ -10,12 +10,17 @@ export interface LookTarget { yaw: number; pitch: number; fov: number }
 /** Degrees the view rests higher on a portrait screen, so the Sun on the horizon sits below the answer's plate. */
 export const portraitLift = (width: number, height: number): number => (height > width ? 8 : 0);
 
+/** The compass strip: 120° of the horizon across 300 px, ticks every 15°, the eight points named. */
+const STRIP_W = 300, PX_PER_DEG = STRIP_W / 120;
+const POINT = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const TICKS = Array.from({ length: 72 }, (_, k) => -360 + k * 15);
+
 const lerpAngle = (a: number, b: number, f: number) => (a + ((((b - a + 540) % 360) - 180) * f) + 360) % 360;
 const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[15px]';
 
 /**
  * The sky from the site, full window. Drag, the wheel and the arrow keys look around; `look` turns the
- * view smoothly; the labels follow the Sun, Earth and the compass points. The shown time glides to the
+ * view smoothly; the labels follow the Sun and Earth, and a compass strip shows the heading. The shown time glides to the
  * hour at 14 hours a second (faster than Play's 12), so Play sweeps the shadows smoothly; a jump of more
  * than 2 hours is taken at once. On opening, the view settles from the sky down to the horizon in under
  * 4 seconds, unless the system asks for reduced motion. A line says which way the view faces; the bright
@@ -48,9 +53,9 @@ export function StandCanvas({
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
   const earthRef = useRef<HTMLSpanElement>(null);
-  const compassRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const starRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const facingRef = useRef<HTMLParagraphElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const hourRef = useRef(hour);
   const nightRef = useRef(night);
   const view = useRef({ yaw: startYaw, pitch: reducedMotion ? 2 : 34, fov: 60 });
@@ -95,9 +100,13 @@ export function StandCanvas({
     let last = performance.now();
     r.setTime(shown);
     let raf = 0;
+    // Labels never sit under the words: the panels (data-plate) hide any label whose point falls on them.
+    let plates: DOMRect[] = [];
+    const onPlate = (x: number, y: number) => plates.some((r) => x > r.left - 6 && x < r.right + 6 && y > r.top - 6 && y < r.bottom + 6);
     const place = (node: HTMLElement | null, s: { x: number; y: number; visible: boolean }) => {
       if (!node) return;
-      node.hidden = !s.visible;
+      const w = el.clientWidth || window.innerWidth, h = el.clientHeight || window.innerHeight;
+      node.hidden = !s.visible || onPlate(s.x * w, s.y * h);
       node.style.left = `${s.x * 100}%`;
       node.style.top = `${s.y * 100}%`;
     };
@@ -128,14 +137,15 @@ export function StandCanvas({
       r.setView(v.yaw, Math.max(-35, Math.min(89, v.pitch + lift)), v.fov);
       r.render();
       const l = r.labels();
+      plates = [...document.querySelectorAll('[data-plate]')].map((p) => p.getBoundingClientRect()).filter((p) => p.width > 0);
       place(sunRef.current, l.sun);
       place(earthRef.current, l.earth);
-      l.compass.forEach((c, k) => place(compassRefs.current[k], c));
       // Star names at night, or when the view looks well up, where they would not crowd the day's sky.
       const named = nightRef.current || v.pitch > 25;
       l.stars.forEach((st, k) => place(starRefs.current[k], { ...st, visible: st.visible && named }));
-      const facing = `Facing ${compassWord(v.yaw)}`;
+      const facing = v.pitch > 60 ? 'Looking up' : `Facing ${compassWord(v.yaw)}`;
       if (facingRef.current && facingRef.current.textContent !== facing) facingRef.current.textContent = facing;
+      if (trackRef.current) trackRef.current.style.transform = `translateX(${STRIP_W / 2 - (v.yaw + 360) * PX_PER_DEG}px)`;
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -211,13 +221,30 @@ export function StandCanvas({
           turn(k[0], k[1], k[2]);
         }}
       />
-      <p
-        ref={facingRef}
-        aria-live="off"
-        className="pointer-events-none fixed bottom-[calc(var(--bar-h,104px)+14px)] left-1/2 -translate-x-1/2 rounded-[5px] bg-black/70 px-2.5 py-1 text-[15px] text-[#f2f0ea] max-md:bottom-[calc(var(--bar-h,166px)+var(--look-h,0px)+20px)]"
+      <div
+        aria-hidden="true"
+        style={{ width: STRIP_W }}
+        className="pointer-events-none fixed bottom-[calc(var(--bar-h,104px)+14px)] left-1/2 -translate-x-1/2 overflow-hidden rounded-[6px] border border-white/15 bg-black/70 text-[#f2f0ea] max-md:bottom-[calc(var(--bar-h,166px)+var(--look-h,0px)+20px)]"
       >
-        {`Facing ${compassWord(startYaw)}`}
-      </p>
+        <div className="relative h-7">
+          <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>
+            {TICKS.map((d) => {
+              const az = ((d % 360) + 360) % 360;
+              return az % 45 === 0 ? (
+                <span key={d} className="absolute top-1 -translate-x-1/2 text-[14px] font-semibold" style={{ left: (d + 360) * PX_PER_DEG }}>
+                  {POINT[az / 45]}
+                </span>
+              ) : (
+                <i key={d} className="absolute bottom-1 h-2 w-px bg-white/45" style={{ left: (d + 360) * PX_PER_DEG }} />
+              );
+            })}
+          </div>
+          <i className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-white" />
+        </div>
+        <p ref={facingRef} className="pb-1 text-center text-[15px]">
+          {`Facing ${compassWord(startYaw)}`}
+        </p>
+      </div>
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
         <span ref={sunRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#f6b646]`}>
           {sunLabel}
@@ -235,18 +262,6 @@ export function StandCanvas({
             className="pointer-events-none absolute translate-x-2 -translate-y-1/2 whitespace-nowrap text-[14px] text-[#d7d4cc] [text-shadow:0_0_4px_#000]"
           >
             {st.name}
-          </span>
-        ))}
-        {(['N', 'E', 'S', 'W'] as const).map((letter, k) => (
-          <span
-            key={letter}
-            ref={(node) => {
-              compassRefs.current[k] = node;
-            }}
-            hidden
-            className="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-[5px] bg-black/60 px-1.5 text-[15px] font-semibold text-[#f2f0ea]"
-          >
-            {letter}
           </span>
         ))}
       </div>

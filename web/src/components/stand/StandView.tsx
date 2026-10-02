@@ -13,19 +13,20 @@ import { StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, terrainField } from '@/lib/sky/terrainField';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
-import { landerState, liveSentence, measuredNote, skyLabel, standQuery, watchNext } from '@/lib/viz/stand';
+import { landerState, liveSentence, measuredNote, poleLine, skyLabel, standingLine, standQuery, watchNext } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 const PLATE = 'rounded-lg border border-white/15 bg-black/75';
 const LOOK = 'min-h-10 rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/10';
 const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): RendererLike => new StandRenderer(canvas, scene);
 /**
- * The lander stands this far from the eye, a third of the way round from the Sun the view opens on: with
- * the Sun in view, anything else in view is lit from behind, so the lander stands where the Sun lights the
- * side we see. "Face the lander" turns to it.
+ * The lander stands 16 m away, 40° to the right of the Sun the view opens on, so the first view holds the
+ * low Sun and the lander together; it is turned so the Sun lights one of the faces we see (from in front
+ * of the Sun everything else is lit from behind). The view opens 15° right of the Sun, between the two.
  */
-const LANDER_DIST_M = 11;
-const LANDER_ROUND_DEG = 120;
+const LANDER_DIST_M = 16;
+const LANDER_RIGHT_DEG = 40;
+const OPEN_RIGHT_DEG = 15;
 
 /** "How we know this", folded away until asked for. */
 function HowWeKnow({ note, className }: { note: string; className: string }) {
@@ -87,7 +88,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const siteHeightM = s.heightmap?.meta.site_height_m ?? s.maskMeta?.siteHeightM ?? 0;
     const field = levels.length ? terrainField(levels, s.site.lon, siteHeightM) : flatField(s.site.lon);
     const opening = Math.min(s.series.hours - 1, Math.max(0, openHour));
-    const lander = s.power ? { azDeg: (s.series.sunAz[opening] + LANDER_ROUND_DEG) % 360, distM: LANDER_DIST_M, powered: s.power.powered } : undefined;
+    const sunAz = s.series.sunAz[opening];
+    const lander = s.power
+      ? { azDeg: (sunAz + LANDER_RIGHT_DEG) % 360, distM: LANDER_DIST_M, powered: s.power.powered, faceAzDeg: (sunAz - 70 + 360) % 360, earthAzDeg: s.series.earthAz[opening], earthElDeg: s.series.earthEl[opening] }
+      : undefined;
     return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander };
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality]);
   const onFail = useCallback(() => setFailed('webgl'), []);
@@ -148,7 +152,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           scene={scene}
           hour={hour}
           look={look}
-          startYaw={series.sunAz[hour]}
+          startYaw={(series.sunAz[hour] + (scene.lander ? OPEN_RIGHT_DEG : 0)) % 360}
           reducedMotion={reducedMotion}
           createRenderer={createRenderer}
           sunLabel={skyLabel('sun', series, hour)}
@@ -168,25 +172,24 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       {!scene && !failed && <p role="status" className="fixed inset-x-0 top-1/2 text-center text-lg text-[#c3bfb6]">Building the ground from NASA heights…</p>}
 
       {wordsHidden ? (
-        <button type="button" className={`${LOOK} fixed left-4 top-4 bg-black/75`} onClick={() => setWordsHidden(false)}>
+        <button type="button" data-plate="" className={`${LOOK} fixed left-4 top-4 bg-black/75`} onClick={() => setWordsHidden(false)}>
           Show the words
         </button>
       ) : (
         <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start justify-between gap-3 md:flex-row">
-          <section aria-label="The answer for this site" className={`${PLATE} pointer-events-auto grid w-full max-w-[600px] gap-2 p-4 md:p-5`}>
-            <p className="text-[15px] text-[#c3bfb6] max-md:hidden">
-              Standing at {name}, {Math.abs(site.lat).toFixed(1)}° {site.lat < 0 ? 'S' : 'N'}
-              {site.blurb ? `: ${site.blurb}` : ''}.
-            </p>
+          <section data-plate="" aria-label="The answer for this site" className={`${PLATE} pointer-events-auto grid w-full max-w-[600px] gap-2 p-4 md:p-5`}>
+            <p className="text-[15px] text-[#c3bfb6] max-md:hidden">{standingLine(site, name, false)}</p>
+            <p className="text-[15px] text-[#c3bfb6] md:hidden">{standingLine(site, name, true)}</p>
             <h1 className="display text-pretty text-[22px] font-bold leading-tight sm:text-[30px]">{title}</h1>
             <p className="text-base max-md:hidden">{liveSentence(series, hour, lander.on)}</p>
+            {poleLine(site.lat) && <p className="text-[15px] text-[#c3bfb6] max-md:hidden">{poleLine(site.lat)}</p>}
             <p className="flex items-center gap-2 text-[15px]">
               <i aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${lander.on ? 'bg-[#8ddcaa]' : 'bg-[#ff9180]'}`} />
               {lander.text}
             </p>
             <p className="text-[15px] text-[#f6d48a]">{watchNext(series, power, s.startUtc, hour)}</p>
             <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 w-fit items-center text-[15px] underline underline-offset-4">
-              Back to Explore
+              Back to the forecast
             </Link>
             {note && <HowWeKnow note={note} className="md:hidden" />}
           </section>
@@ -194,7 +197,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             {!failed && (
               // On a phone the buttons sit just above the time bar, clear of the Sun and its label.
               // On a phone they make one row that scrolls sideways, so the Sun keeps the middle of the screen.
-              <div ref={lookRef} role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[calc(var(--bar-h,166px)+10px)] max-md:flex-nowrap max-md:overflow-x-auto max-md:[scrollbar-width:none] max-md:[&>button]:shrink-0`}>
+              <div ref={lookRef} data-plate="" role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[calc(var(--bar-h,166px)+10px)] max-md:gap-1.5 max-md:p-2 max-md:[&>button]:px-2.5`}>
                 <button type="button" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
                   Face the Sun
                 </button>
@@ -228,12 +231,16 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 <p className="w-full px-1 text-[15px] text-[#c3bfb6] max-md:hidden">Drag to look around; pinch or scroll to zoom.</p>
               </div>
             )}
-            {note && <HowWeKnow note={note} className={`${PLATE} pointer-events-auto w-full px-3.5 max-md:hidden`} />}
+            {note && (
+              <div data-plate="" className="pointer-events-auto w-full max-md:hidden">
+                <HowWeKnow note={note} className={`${PLATE} px-3.5`} />
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <div ref={barRef} className="fixed inset-x-0 bottom-0">
+      <div ref={barRef} data-plate="" className="fixed inset-x-0 bottom-0">
         {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
         <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} dates powered={power.powered} />
       </div>

@@ -19,13 +19,16 @@ export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
 uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uSunPower; uniform vec2 uHole;
-uniform float uLanderOn; uniform vec3 uLanderMin, uLanderMax;
+uniform float uLanderOn, uSunUp; uniform vec3 uLanderCenter, uLanderMin, uLanderMax; uniform vec2 uLanderCS;
 ${SHADOW_GLSL}
+// Into the lander's own frame (it stands turned about the vertical by the angle whose cos and sin are uLanderCS).
+vec3 toLander(vec3 v) { return vec3(v.x * uLanderCS.x - v.z * uLanderCS.y, v.y, v.x * uLanderCS.y + v.z * uLanderCS.x); }
 // The lander's shadow: does the ray towards the Sun pass through its box? (It is drawn, not part of the heights.)
 float landerShadow(vec3 p, vec3 L) {
   if (uLanderOn < 0.5) return 1.0;
-  vec3 inv = 1.0 / L;
-  vec3 t0 = (uLanderMin - p) * inv, t1 = (uLanderMax - p) * inv;
+  vec3 q = toLander(p - uLanderCenter), d = toLander(L);
+  vec3 inv = 1.0 / d;
+  vec3 t0 = (uLanderMin - q) * inv, t1 = (uLanderMax - q) * inv;
   vec3 lo = min(t0, t1), hi = max(t0, t1);
   float tin = max(max(lo.x, lo.y), lo.z), tout = min(min(hi.x, hi.y), hi.z);
   return (tout > max(tin, 0.0)) ? 0.0 : 1.0;
@@ -36,14 +39,14 @@ float hash1(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.54
 float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash1(i), hash1(i + vec2(1, 0)), u.x), mix(hash1(i + vec2(0, 1)), hash1(i + vec2(1, 1)), u.x), u.y); }
 // Bowl-shaped craters with raised rims, scattered irregularly like a cratered plain (drawn, not measured):
-// about six cells in ten hold one, many small and few large, each with its own depth.
+// about four cells in ten hold one, many small and few large, each with its own, shallow, depth.
 float craters(vec2 p, float cell) {
   vec2 g = floor(p / cell), f = p / cell - g; float h = 0.0;
   for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
     vec2 o = vec2(float(i), float(j)); vec2 rnd = hash2(g + o);
-    if (fract(rnd.x * 7.13 + rnd.y * 3.31) > 0.6) continue;
+    if (fract(rnd.x * 7.13 + rnd.y * 3.31) > 0.4) continue;
     vec2 c = o + rnd; float rad = mix(0.1, 0.45, pow(fract(rnd.x * 17.31 + rnd.y), 2.2));
-    float depth = mix(0.16, 0.3, fract(rnd.y * 5.77 + rnd.x));
+    float depth = mix(0.08, 0.16, fract(rnd.y * 5.77 + rnd.x));
     float r = length(f - c) / rad;
     if (r < 1.8) { float bowl = r < 1.0 ? (r * r - 1.0) : 0.0; float rim = 0.32 * exp(-pow((r - 1.0) * 3.2, 2.0)); h += (bowl * depth + rim) * rad * cell; }
   }
@@ -108,6 +111,8 @@ void main() {
   col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * mue / (mue + mu);
   // Earth sits low here, so its light grazes the ground; the earthlit slopes around scatter a faint glow.
   col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.12;
+  // By day the sunlit dust around scatters a little light into the shadows, which are dark grey, not black.
+  col += albedo * vec3(1.0, 0.99, 0.975) * uSunPower * 0.025 * uSunUp;
   gl_FragColor = vec4(col, 1.0);
 }`;
 

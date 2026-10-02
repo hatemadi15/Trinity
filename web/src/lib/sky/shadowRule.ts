@@ -32,9 +32,13 @@ export function sunFraction(f: TerrainField, x: number, y: number, z: number, su
   return Math.min(1, Math.max(0, (elSun - Math.atan(maxTan)) / (2 * SHADOW.SUN_RADIUS_RAD) + 0.5));
 }
 
-/** The same rule for the ground's fragment shader, over three height textures (finest first); `uSteps` and `uGrowth` come from the quality setting. */
+/**
+ * The same rule for the ground's fragment shader, over three height textures (finest first); `uSteps` and
+ * `uGrowth` come from the quality setting. `uMinLevel` is the level of the mesh being drawn: its rays read
+ * that level and coarser ones only, so a coarse mesh is never shaded by fine heights it does not show.
+ */
 export const SHADOW_GLSL = /* glsl */ `
-uniform sampler2D uH0, uH1, uH2; uniform vec3 uL0, uL1, uL2; uniform vec2 uS0, uS1, uS2; uniform vec2 uCS; uniform int uLevels, uSteps; uniform float uGrowth;
+uniform sampler2D uH0, uH1, uH2; uniform vec3 uL0, uL1, uL2; uniform vec2 uS0, uS1, uS2; uniform vec2 uCS; uniform int uLevels, uSteps, uMinLevel; uniform float uGrowth;
 vec2 toMap(vec2 xz) { float n = -xz.y; return vec2(xz.x * uCS.x + n * uCS.y, -xz.x * uCS.y + n * uCS.x); }
 float lev(sampler2D t, vec3 L, vec2 S, vec2 m, out bool inside) {
   float c = L.x + m.x / L.z, r = L.y - m.y / L.z;
@@ -42,18 +46,18 @@ float lev(sampler2D t, vec3 L, vec2 S, vec2 m, out bool inside) {
   return textureLod(t, vec2((c + 0.5) / S.x, (r + 0.5) / S.y), 0.0).r;
 }
 float heightAt(vec2 xz) {
-  vec2 m = toMap(xz); bool ins;
+  vec2 m = toMap(xz); bool ins; float h;
   if (uLevels == 0) return -dot(m, m) / (2.0 * 1737400.0);
-  float h = lev(uH0, uL0, uS0, m, ins); if (ins) return h;
-  if (uLevels > 1) { h = lev(uH1, uL1, uS1, m, ins); if (ins) return h; }
+  if (uMinLevel <= 0) { h = lev(uH0, uL0, uS0, m, ins); if (ins) return h; }
+  if (uLevels > 1 && uMinLevel <= 1) { h = lev(uH1, uL1, uS1, m, ins); if (ins) return h; }
   if (uLevels > 2) { h = lev(uH2, uL2, uS2, m, ins); if (ins) return h; }
   return -1.0e6;
 }
 float cellAt(vec2 xz) {
   vec2 m = toMap(xz); bool ins;
   if (uLevels == 0) return 20.0;
-  lev(uH0, uL0, uS0, m, ins); if (ins) return uL0.z;
-  if (uLevels > 1) { lev(uH1, uL1, uS1, m, ins); if (ins) return uL1.z; }
+  if (uMinLevel <= 0) { lev(uH0, uL0, uS0, m, ins); if (ins) return uL0.z; }
+  if (uLevels > 1 && uMinLevel <= 1) { lev(uH1, uL1, uS1, m, ins); if (ins) return uL1.z; }
   return uLevels > 2 ? uL2.z : (uLevels > 1 ? uL1.z : uL0.z);
 }
 float sunFraction(vec3 p, vec3 sun) {
