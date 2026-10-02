@@ -157,8 +157,9 @@ export function BriefView({
           <SkyRow el={s.series.earthEl} hill={earthHill} visible={s.series.earthVisible} startUtc={s.startUtc} body="earth" caption={`Earth over ${period}`} height={EARTH_H} ticks={false} />
         </div>
         <div aria-hidden="true" className="relative h-5 text-[14px] text-ink-2">
-          {ticks.map((d) => (
-            <span key={d} className="absolute whitespace-nowrap" style={d === 0 ? { left: 0 } : { left: `${((d * 24) / s.series!.hours) * 100}%`, transform: 'translateX(-50%)' }}>
+          {/* Every other day label gives way on a phone, as on Explore's chart, so none overlap. */}
+          {ticks.map((d, i) => (
+            <span key={d} data-day="" className={`absolute whitespace-nowrap ${i % 2 === 1 ? 'max-sm:hidden' : ''}`} style={d === 0 ? { left: 0 } : { left: `${((d * 24) / s.series!.hours) * 100}%`, transform: 'translateX(-50%)' }}>
               {dayMonth(s.startUtc, d * 24)}
             </span>
           ))}

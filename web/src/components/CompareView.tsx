@@ -97,7 +97,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             <p className="mt-2 text-ink-2">Each pair shows how much a few kilometres change. Or add sites one by one below.</p>
             <div className="mt-4 flex flex-wrap gap-3">
               {READY_PAIRS.map((p) => (
-                <button key={p.title} type="button" onClick={() => addPair(p.ids)} className="btn text-left">
+                <button key={p.title} type="button" onClick={() => addPair(p.ids)} className="btn h-auto min-h-[48px] max-w-full whitespace-normal py-2.5 text-left">
                   <span>
                     <span className="block font-semibold">{p.title}</span>
                     <span className="block text-[15px] text-ink-2">{p.ids.map((id) => siteLabel(s.sites.find((x) => x.id === id) ?? { name: id })).join(' and ')}</span>
@@ -171,7 +171,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
         {rows.length > 0 && (
           <p className="flex flex-wrap items-center gap-x-6 gap-y-3">
             {rows.length >= 2 && (
-              <button type="button" onClick={() => void store.getState().findBestWindow(s.days, 'compare')} className="btn text-left">
+              <button type="button" onClick={() => void store.getState().findBestWindow(s.days, 'compare')} className="btn h-auto min-h-[48px] max-w-full whitespace-normal py-2.5 text-left">
                 Find the best landing day for these sites in the next 12 months
               </button>
             )}

@@ -38,6 +38,16 @@ describe('CompareView', () => {
     expect(screen.getByRole('button', { name: 'Find the best landing day for these sites in the next 12 months' }).className).toMatch(/\bbtn\b/);
   });
 
+  it('lets its long buttons wrap, so none runs off a phone screen', async () => {
+    const store = await open();
+    for (const pair of screen.getAllByRole('button', { name: /A ridge and the summit|A rim in sunlight/ })) expect(pair.className).toMatch(/\bwhitespace-normal\b.*\bh-auto\b|\bh-auto\b.*\bwhitespace-normal\b/);
+    await store.getState().addToCompare('de_gerlache_rim_2');
+    await store.getState().addToCompare('de_gerlache_center_rim_high');
+    const search = await screen.findByRole('button', { name: 'Find the best landing day for these sites in the next 12 months' }, { timeout: 20_000 });
+    expect(search.className).toMatch(/\bwhitespace-normal\b/);
+    expect(search.className).toMatch(/\bh-auto\b/);
+  });
+
   it('on a phone shows each site as a block of labelled figures instead of a table to scroll sideways', async () => {
     const store = await open();
     await store.getState().addToCompare('de_gerlache_rim_2');

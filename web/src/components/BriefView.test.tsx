@@ -39,6 +39,10 @@ describe('BriefView', () => {
     expect(figures).toEqual(['Sunlight', 'Contact with Earth', 'Longest night', 'Time with power', 'Battery when full']);
     expect(screen.getByRole('img', { name: /^The Sun over the 30 days from 1 January/ }).closest('.stage')).toBeTruthy();
     expect(screen.getByRole('img', { name: /^Earth over the 30 days from 1 January/ }).closest('.stage')).toBeTruthy();
+    // Day labels under the rows: every other one gives way on a phone, so none overlap.
+    const days = [...document.querySelectorAll<HTMLElement>('[data-day]')];
+    expect(days.map((d) => d.textContent)).toEqual(['1 Jan', '6 Jan', '11 Jan', '16 Jan', '21 Jan', '26 Jan']);
+    days.forEach((d, i) => expect(d.className.includes('max-sm:hidden'), d.textContent!).toBe(i % 2 === 1));
     expect(document.querySelector('.brief')).toBeTruthy(); // light print tokens whatever the theme
     const text = document.body.textContent ?? '';
     expect(text).not.toMatch(/Sun above the skyline|Longest Earth gap|Survives the window|sky dome/i);
