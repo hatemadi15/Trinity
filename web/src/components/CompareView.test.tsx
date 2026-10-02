@@ -21,7 +21,8 @@ describe('CompareView', () => {
     const table = await screen.findByRole('table', {}, { timeout: 20_000 });
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
     const heads = within(table).getAllByRole('columnheader').map((h) => h.textContent);
-    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Verdict', '']);
+    // What happens to the lander is one phrase, in colour, under "Time with power": no separate verdict repeating it.
+    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', '']);
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows[0].textContent).toMatch(/de Gerlache Rim 2/);
     expect(rows[1].textContent).toMatch(/de Gerlache rim summit/);
@@ -30,7 +31,9 @@ describe('CompareView', () => {
     // The strips' colours are explained under the table.
     expect(screen.getByRole('main').textContent).toMatch(/In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the 30 days\./);
     expect(screen.getByRole('main').textContent).toMatch(/Time with power counts from landing until the battery first runs out; Earth in view counts every hour of the period\./);
-    expect(rows[0].textContent).toMatch(/Power for 3 d 4 h, then off until 20 Jan/);
+    expect(rows[0].textContent).toMatch(/3 d 4 h, then off until 20 Jan/);
+    expect(within(rows[0]).getByText('3 d 4 h, then off until 20 Jan').className).toMatch(/\btext-bad\b/);
+    expect(within(rows[1]).getByText('all 30 days').className).toMatch(/\btext-good\b/);
   });
 
   it('says above the table which site is best for each measure', async () => {

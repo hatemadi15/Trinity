@@ -19,18 +19,19 @@ const START = '2027-01-01T00:00:00';
 describe('compareRow', () => {
   it('gives the figures a row shows, with their units, and a link to Explore on the same period', () => {
     const row = compareRow(result('a', 'Ridge', { sun: 0.724, earth: 0.538, nightH: 400, brownout: 76, backAt: 466 }), START, 30);
-    expect(row).toMatchObject({ id: 'a', name: 'Ridge', sunlight: '72 %', earth: '54 %', longestNight: '16 d 16 h', power: '3 d 4 h', verdict: 'Power for 3 d 4 h, then off until 20 Jan', tone: 'bad' });
+    expect(row).toMatchObject({ id: 'a', name: 'Ridge', sunlight: '72 %', earth: '54 %', longestNight: '16 d 16 h', power: '3 d 4 h, then off until 20 Jan', tone: 'bad' });
+    expect(row).not.toHaveProperty('verdict');
     expect(row.href).toBe('/explore?site=a&start=2027-01-01&days=30');
   });
 
   it('says when the power comes back, or that it does not in the period', () => {
-    expect(compareRow(result('n', 'Nobile', { sun: 0.37, earth: 0.23, nightH: 254, brownout: 10 }), START, 30).verdict).toBe('Power for 10 h, then off to the end');
-    expect(compareRow(result('d', 'Dusk', { sun: 0.4, earth: 0.3, nightH: 200, brownout: 0, backAt: 300 }), START, 30).verdict).toBe('No power at landing; on from 13 Jan');
+    expect(compareRow(result('n', 'Nobile', { sun: 0.37, earth: 0.23, nightH: 254, brownout: 10 }), START, 30).power).toBe('10 h, then off to the end');
+    expect(compareRow(result('d', 'Dusk', { sun: 0.4, earth: 0.3, nightH: 200, brownout: 0, backAt: 300 }), START, 30).power).toBe('none at landing; on from 13 Jan');
   });
 
   it('says when power lasts the whole period, and when there is no sunlight at all', () => {
-    expect(compareRow(result('b', 'Summit', { sun: 1, earth: 0.5, nightH: 0, brownout: null }), START, 30)).toMatchObject({ power: 'all 30 days', verdict: 'Power for all 30 days', tone: 'good', longestNight: 'none' });
-    expect(compareRow(result('c', 'Floor', { sun: 0, earth: 0, nightH: 720, brownout: 9 }), START, 30)).toMatchObject({ verdict: 'No sunlight', tone: 'bad', sunlight: '0 %' });
+    expect(compareRow(result('b', 'Summit', { sun: 1, earth: 0.5, nightH: 0, brownout: null }), START, 30)).toMatchObject({ power: 'all 30 days', tone: 'good', longestNight: 'none' });
+    expect(compareRow(result('c', 'Floor', { sun: 0, earth: 0, nightH: 720, brownout: 9 }), START, 30)).toMatchObject({ power: '9 h on the battery; no sunlight', tone: 'bad', sunlight: '0 %' });
   });
 });
 

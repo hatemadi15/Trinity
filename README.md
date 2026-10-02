@@ -32,7 +32,7 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   30 or 90 days from a date you choose; the Lander dialog offers three ready-made landers or your
   own panel, load, battery and mast. `/explore?site=&start=&days=` links to one forecast.
 - **Compare sites** (`/compare`): up to four sites in one table for the same days and lander:
-  sunlight, Earth in view, longest night, time with power and the verdict, with a small Sun and
+  sunlight, Earth in view, longest night and time with power (and when the power comes back), with a small Sun and
   Earth strip per site and one sentence naming the best site for each measure. Empty, it offers two
   ready pairs that show how much a few kilometres change.
 - **Accuracy** (`/validate`): three checks, each with its pass mark, its headline figure and its

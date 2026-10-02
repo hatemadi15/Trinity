@@ -13,8 +13,8 @@ export interface CompareRow {
   sunlight: string;
   earth: string;
   longestNight: string;
+  /** What happens to a lander that lands on the first day: "all 30 days", or "3 d 4 h, then off until 20 Jan". */
   power: string;
-  verdict: string;
   tone: 'good' | 'bad';
 }
 
@@ -27,12 +27,15 @@ export const READY_PAIRS: { title: string; ids: [string, string] }[] = [
 /** Hours with power for a lander that lands at the period's start, capped at the period. */
 const poweredHours = (r: SiteResult, hours: number) => Math.min(hours, timeWithPower(r.power));
 
-/** What happens to a lander that loses power: "Power for 3 d 4 h, then off until 20 Jan", or that it stays off. */
-function poweredWords(r: SiteResult, startUtc: string, hours: number, powered: number): string {
+/** How long the power lasts and what follows: "3 d 4 h, then off until 20 Jan", "10 h, then off to the end", "all 30 days". */
+function powerWords(r: SiteResult, startUtc: string, days: number, powered: number): string {
+  const hours = days * 24;
+  if (powered >= hours) return `all ${days} days`;
+  if (r.summary.illumFraction === 0) return powered > 0 ? `${spanShort(powered)} on the battery; no sunlight` : 'none; no sunlight';
   let back = powered;
   while (back < hours && r.power.powered[back] === 0) back++;
-  if (powered === 0) return back < hours ? `No power at landing; on from ${dayMonth(startUtc, back)}` : 'No power at landing';
-  return `Power for ${spanShort(powered)}, then off ${back < hours ? `until ${dayMonth(startUtc, back)}` : 'to the end'}`;
+  if (powered === 0) return back < hours ? `none at landing; on from ${dayMonth(startUtc, back)}` : 'none';
+  return `${spanShort(powered)}, then off ${back < hours ? `until ${dayMonth(startUtc, back)}` : 'to the end'}`;
 }
 
 /** A compared site as a row: sunlight and Earth in view over the period, its longest night, and its time with power from the period's first day. */
@@ -48,8 +51,7 @@ export function compareRow(r: SiteResult, startUtc: string, days: number): Compa
     sunlight: pct0(r.summary.illumFraction),
     earth: pct0(r.summary.earthVisFraction),
     longestNight: r.summary.longestDarkH > 0 ? spanShort(r.summary.longestDarkH) : 'none',
-    power: all ? `all ${days} days` : spanShort(powered),
-    verdict: !lit ? 'No sunlight' : all ? `Power for all ${days} days` : poweredWords(r, startUtc, hours, powered),
+    power: powerWords(r, startUtc, days, powered),
     tone: lit && all ? 'good' : 'bad',
   };
 }

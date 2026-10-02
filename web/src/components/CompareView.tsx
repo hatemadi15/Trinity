@@ -121,7 +121,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             <table className="mt-4 w-full border-collapse text-left max-sm:block sm:min-w-[900px]">
               <thead className="max-sm:sr-only">
                 <tr className="text-[15px] text-ink-2">
-                  {['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Verdict', ''].map((h, i) => (
+                  {['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', ''].map((h, i) => (
                     <th key={i} scope="col" className="border-b-2 border-ink py-2 pr-4 font-semibold">
                       {h}
                     </th>
@@ -142,8 +142,9 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                     <td data-label="Sunlight" className={`${CELL} ${STACKED} tabular-nums`}>{r.sunlight}</td>
                     <td data-label="Earth in view" className={`${CELL} ${STACKED} tabular-nums`}>{r.earth}</td>
                     <td data-label="Longest night" className={`${CELL} ${STACKED} tabular-nums`}>{r.longestNight}</td>
-                    <td data-label="Time with power" className={`${CELL} ${STACKED} tabular-nums`}>{r.power}</td>
-                    <td data-label="Verdict" className={`${CELL} ${STACKED} font-medium ${r.tone === 'good' ? 'text-good' : 'text-bad'}`}>{r.verdict}</td>
+                    <td data-label="Time with power" className={`${CELL} ${STACKED} tabular-nums`}>
+                      <span className={`font-medium ${r.tone === 'good' ? 'text-good' : 'text-bad'}`}>{r.power}</span>
+                    </td>
                     <td data-label="" className={`${CELL} ${STACKED} text-right`}>
                       <button type="button" onClick={() => store.getState().removeFromCompare(r.id)} aria-label={`Remove ${r.name}`} className="h-10 rounded-lg border border-line-strong px-3 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
                         Remove
