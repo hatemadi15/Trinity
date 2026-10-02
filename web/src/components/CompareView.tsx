@@ -148,6 +148,9 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                 ))}
               </tbody>
             </table>
+            <p className="mt-3 text-[15px] text-ink-2">
+              In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the {s.days} days.
+            </p>
           </section>
         )}
 

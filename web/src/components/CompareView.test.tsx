@@ -27,6 +27,8 @@ describe('CompareView', () => {
     expect(rows[1].textContent).toMatch(/de Gerlache rim summit/);
     expect(within(rows[0]).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     expect(within(rows[0]).getByRole('img', { name: /^The Sun and Earth at de Gerlache Rim 2 over the 30 days/ })).toBeTruthy();
+    // The strips' colours are explained under the table.
+    expect(screen.getByRole('main').textContent).toMatch(/In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the 30 days\./);
   });
 
   it('says above the table which site is best for each measure', async () => {
