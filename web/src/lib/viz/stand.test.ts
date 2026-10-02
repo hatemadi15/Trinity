@@ -6,7 +6,7 @@ import { readJson } from '@/lib/engine/__tests__/helpers';
 import { standHref } from '@/lib/links';
 import { eph, sites } from '@/test/file-loaders';
 import { groundWords } from './ground';
-import { landerState, liveSentence, skyLabel, standQuery } from './stand';
+import { landerState, liveSentence, measuredNote, skyLabel, standQuery } from './stand';
 
 const series = (o: Partial<Record<'sunEl' | 'sunAz' | 'sunFraction' | 'earthEl' | 'earthAz' | 'earthVisible', number[]>>): Series => {
   const hours = (o.sunEl ?? [0]).length;
@@ -77,5 +77,21 @@ describe('the stand view’s words', () => {
     expect(landerState(p, '2027-01-01T00:00:00', 150).text).toBe('The lander has power again since 5 January.');
     expect(landerState(p, '2027-01-01T00:00:00', 200)).toEqual({ on: false, text: 'The lander is off: its battery ran out on 9 January. Power comes back on 11 January.' });
     expect(landerState(p, '2027-01-01T00:00:00', 260).text).toBe('The lander has power again since 11 January.');
+  });
+});
+
+describe('the note on what is measured', () => {
+  it('names the NASA ground the view stands on, level by level, and what is drawn', () => {
+    expect(measuredNote([20, 80, 960])).toBe(
+      "Ground from NASA's laser altimeter (20 m near you, 80 m to 20 km, 960 m to 125 km), shadows worked out from those heights for every hour, the Sun and Earth from JPL's ephemeris, real stars placed for this site and hour, Earth from NASA's Blue Marble. The small craters underfoot are drawn, not measured.",
+    );
+    expect(measuredNote([80, 960])).toMatch(/^Ground from NASA's laser altimeter \(80 m near you, 960 m to 125 km\)/);
+    expect(measuredNote([960, 960])).toMatch(/^Ground from NASA's laser altimeter \(960 m to 125 km\)/);
+  });
+
+  it('says plainly when there is no detailed ground and the ground is drawn flat', () => {
+    expect(measuredNote([])).toBe(
+      "There is no detailed NASA ground for this site, so the ground here is drawn flat. The Sun and Earth come from JPL's ephemeris, real stars are placed for this site and hour, and Earth is NASA's Blue Marble. The small craters underfoot are drawn, not measured.",
+    );
   });
 });

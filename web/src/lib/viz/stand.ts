@@ -29,6 +29,19 @@ export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string
   return el < 0 ? `${name}, below the horizon` : `${name}, behind the hills`;
 }
 
+/**
+ * The note on what the view is made of: the NASA ground it stands on, level by level (cell sizes in metres,
+ * finest first), and what is drawn rather than measured. Without levels the ground is drawn flat.
+ */
+export function measuredNote(cellsM: number[]): string {
+  if (cellsM.length === 0) {
+    return "There is no detailed NASA ground for this site, so the ground here is drawn flat. The Sun and Earth come from JPL's ephemeris, real stars are placed for this site and hour, and Earth is NASA's Blue Marble. The small craters underfoot are drawn, not measured.";
+  }
+  const steps = [...new Set(cellsM.map((c) => Math.round(c)))].sort((a, b) => a - b);
+  const parts = steps.map((c, i) => `${c} m ${c > 200 ? 'to 125 km' : i === 0 ? 'near you' : 'to 20 km'}`);
+  return `Ground from NASA's laser altimeter (${parts.join(', ')}), shadows worked out from those heights for every hour, the Sun and Earth from JPL's ephemeris, real stars placed for this site and hour, Earth from NASA's Blue Marble. The small craters underfoot are drawn, not measured.`;
+}
+
 /** The ground panel's two sentences for the hour, joined: sunlight or shadow and why, Earth in view or not. */
 export function liveSentence(s: Series, hour: number): string {
   const w = groundWords(s, hour);

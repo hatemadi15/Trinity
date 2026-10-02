@@ -34,8 +34,8 @@ const DEG = Math.PI / 180;
 /** The sky sphere and the far skyline ring, metres from the eye. */
 const RS = 300000, RING = 200000;
 const SUN_D = 2 * RS * Math.tan(0.2665 * DEG), EARTH_R = RS * Math.tan(0.95 * DEG);
-/** How far each level's mesh reaches from the site (finest first); the shadows read the whole level. */
-const MESH_HALF_M = [5000, 20500, 125000];
+/** How far a level's mesh reaches from the site, by its cell size; the coarsest always to 125 km. The shadows read the whole level. */
+const meshReachM = (cellM: number, coarsest: boolean) => (coarsest ? 125000 : cellM <= 30 ? 5000 : cellM <= 200 ? 20500 : 125000);
 /** The value stored for a cell outside the measured ground when heights go to the GPU as half floats. */
 const HALF_OUTSIDE = -65000;
 
@@ -179,8 +179,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     ground.push(mesh);
   } else {
     let hole = 0;
-    levels.slice(0, 3).forEach((l, i) => {
-      const { mesh, reachM } = groundMesh(l, scene.field.lonDeg, MESH_HALF_M[i] ?? MESH_HALF_M[MESH_HALF_M.length - 1], material(i === 0, hole, i));
+    const drawn = levels.slice(0, 3);
+    drawn.forEach((l, i) => {
+      const { mesh, reachM } = groundMesh(l, scene.field.lonDeg, meshReachM(l.cell, i === drawn.length - 1), material(i === 0, hole, i));
       ground.push(mesh);
       // The next, coarser level starts two of this level's cells inside its edge: an overlap, never a gap.
       hole = Math.max(0, reachM - 2 * l.cell);

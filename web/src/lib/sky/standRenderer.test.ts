@@ -89,6 +89,19 @@ describe('the stand scene', () => {
     expect(reach[2]).toBeGreaterThan(120000);
   });
 
+  it('lets an 80 m window reach 20 km and the cap 125 km when a site has no 20 m window', () => {
+    const level = (n: number, cell: number) => ({ heights: new Float32Array(n * n), width: n, height: n, pxM: cell, siteCol: (n - 1) / 2, siteRow: (n - 1) / 2 });
+    const s = buildScene(flat({ field: terrainField([level(481, 960), level(1024, 80)], 0, 0) }));
+    const reach = s.parts.ground.map((g) => {
+      const p = g.geometry.getAttribute('position');
+      let r = 0;
+      for (let i = 0; i < p.count; i++) r = Math.max(r, Math.abs(p.getX(i)), Math.abs(p.getZ(i)));
+      return r;
+    });
+    expect(reach[0]).toBeGreaterThan(20000);
+    expect(reach[1]).toBeGreaterThan(120000);
+  });
+
   it('uses the full shadow steps and the drawn detail at full quality, fewer steps and no detail at fast', () => {
     const uniforms = (q: 'full' | 'fast') => (buildScene(flat({ quality: q, field: terrainField(levels(), 0, 100) })).parts.ground[0].material as THREE.ShaderMaterial).uniforms;
     expect(uniforms('full').uSteps.value).toBe(SHADOW.STEPS);
