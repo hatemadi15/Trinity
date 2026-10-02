@@ -20,13 +20,15 @@ const PLATE = 'rounded-lg border border-white/15 bg-black/75';
 const LOOK = 'min-h-10 rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/10';
 const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): RendererLike => new StandRenderer(canvas, scene);
 /**
- * The lander stands 16 m away, 40° to the right of the Sun the view opens on, so the first view holds the
- * low Sun and the lander together; it is turned so the Sun lights one of the faces we see (from in front
- * of the Sun everything else is lit from behind). The view opens 15° right of the Sun, between the two.
+ * The lander stands 16 m away, 30° to the right of the Sun the view opens on, so the first view holds the
+ * low Sun and the lander together; it is turned so the Sun lights one of the faces we see, its +x face
+ * 75° left of the Sun (from in front of the Sun everything else is lit from behind). The view opens 5°
+ * right of the Sun, which keeps the Sun clear of the answer's panel.
  */
 const LANDER_DIST_M = 16;
-const LANDER_RIGHT_DEG = 40;
-const OPEN_RIGHT_DEG = 15;
+const LANDER_RIGHT_DEG = 30;
+const LANDER_FACE_LEFT_DEG = 75;
+const OPEN_RIGHT_DEG = 5;
 
 /** "How we know this", folded away until asked for. */
 function HowWeKnow({ note, className }: { note: string; className: string }) {
@@ -90,7 +92,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const opening = Math.min(s.series.hours - 1, Math.max(0, openHour));
     const sunAz = s.series.sunAz[opening];
     const lander = s.power
-      ? { azDeg: (sunAz + LANDER_RIGHT_DEG) % 360, distM: LANDER_DIST_M, powered: s.power.powered, faceAzDeg: (sunAz - 70 + 360) % 360, earthAzDeg: s.series.earthAz[opening], earthElDeg: s.series.earthEl[opening] }
+      ? { azDeg: (sunAz + LANDER_RIGHT_DEG) % 360, distM: LANDER_DIST_M, powered: s.power.powered, faceAzDeg: (sunAz - LANDER_FACE_LEFT_DEG + 360) % 360, earthAzDeg: s.series.earthAz[opening], earthElDeg: s.series.earthEl[opening] }
       : undefined;
     return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander };
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality]);
@@ -197,7 +199,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             {!failed && (
               // On a phone the buttons sit just above the time bar, clear of the Sun and its label.
               // On a phone they make one row that scrolls sideways, so the Sun keeps the middle of the screen.
-              <div ref={lookRef} data-plate="" role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[calc(var(--bar-h,166px)+10px)] max-md:gap-1.5 max-md:p-2 max-md:[&>button]:px-2.5`}>
+              <div ref={lookRef} data-plate="" role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[calc(var(--bar-h,211px)+10px)] max-md:gap-1.5 max-md:p-2 max-md:[&>button]:px-2.5`}>
                 <button type="button" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
                   Face the Sun
                 </button>

@@ -224,7 +224,7 @@ export function StandCanvas({
       <div
         aria-hidden="true"
         style={{ width: STRIP_W }}
-        className="pointer-events-none fixed bottom-[calc(var(--bar-h,104px)+14px)] left-1/2 -translate-x-1/2 overflow-hidden rounded-[6px] border border-white/15 bg-black/70 text-[#f2f0ea] max-md:bottom-[calc(var(--bar-h,166px)+var(--look-h,0px)+20px)]"
+        className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 overflow-hidden rounded-[6px] border border-white/15 bg-black/70 text-[#f2f0ea] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,0px)+20px)]"
       >
         <div className="relative h-7">
           <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>

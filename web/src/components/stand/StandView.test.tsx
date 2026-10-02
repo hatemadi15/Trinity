@@ -154,12 +154,12 @@ describe('StandView', () => {
     expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
   });
 
-  it('turns to the lander, which stands 40° to the right of the Sun the view opens on, in the first view', async () => {
+  it('turns to the lander, which stands 30° to the right of the Sun the view opens on, in the first view', async () => {
     const r = stub();
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
     await waitFor(() => expect(r.setView).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Face the lander' }));
-    const want = (store.getState().series!.sunAz[10] + 40) % 360;
+    const want = (store.getState().series!.sunAz[10] + 30) % 360;
     const near = () => Math.abs(((r.setView.mock.calls.at(-1)![0] - want + 540) % 360) - 180) < 1;
     await waitFor(() => expect(near()).toBe(true), { timeout: 4000 });
     // It settles there, not just passes through on the way somewhere else.
