@@ -6,6 +6,7 @@ import type { PowerResult } from '@/lib/engine/power';
 import { dateLong, dayMonth } from '@/lib/viz/format';
 import { compassTicks } from '@/lib/viz/skyrow';
 import { batteryWords, chargeArea, hillsToward, hourAt, offRuns } from '@/lib/viz/timechart';
+import { DottedSwatch, HillSwatch, Swatch } from './Swatches';
 
 const SUN_H = 110;
 const EARTH_H = 90;
@@ -13,28 +14,6 @@ const BATTERY_H = 30;
 /** The rows share one grid: a narrow column of row names, then the plot. The time bar uses it too, so its track lines up under the plot. */
 export const PLOT_GRID = 'grid grid-cols-[104px_minmax(0,1fr)] gap-x-3';
 const GRID = `${PLOT_GRID} max-sm:grid-cols-1`;
-
-function Swatch({ color }: { color: string }) {
-  return (
-    <span aria-hidden="true" className="flex h-5 w-9 shrink-0 items-center justify-center rounded bg-stage">
-      <svg width={26} height={8}>
-        <line x1={2} y1={4} x2={24} y2={4} stroke={color} strokeWidth={3.4} strokeLinecap="round" />
-      </svg>
-    </span>
-  );
-}
-
-/** The dotted sample in both colours, as the chart draws a hidden Sun and a hidden Earth. */
-function DottedSwatch() {
-  return (
-    <span aria-hidden="true" className="flex h-5 w-9 shrink-0 items-center justify-center rounded bg-stage">
-      <svg width={26} height={12}>
-        <line x1={2} y1={3.5} x2={24} y2={3.5} stroke="var(--stage-sun)" strokeWidth={2.2} strokeDasharray="2 6" strokeLinecap="round" />
-        <line x1={2} y1={8.5} x2={24} y2={8.5} stroke="var(--stage-earth)" strokeWidth={2.2} strokeDasharray="2 6" strokeLinecap="round" />
-      </svg>
-    </span>
-  );
-}
 
 /** The ticks whose position (percent of the width) lies in [from, to], keeping at least `gap` between neighbours. */
 function spaced<T extends { hour: number }>(ticks: T[], at: (hour: number) => number, from: number, to: number, gap: number): T[] {
@@ -128,9 +107,7 @@ export function TimeChart({
           dotted while hidden
         </li>
         <li className="flex items-center gap-2">
-          <span aria-hidden="true" data-swatch="" className="flex h-5 w-9 shrink-0 items-center justify-center rounded bg-stage">
-            <span className="block h-2.5 w-6 rounded-sm bg-hill" style={{ borderTop: '1.5px solid var(--hill-edge)' }} />
-          </span>
+          <HillSwatch />
           the hills in its direction at that time
         </li>
         <li className="flex items-center gap-2">

@@ -13,6 +13,9 @@ export interface HorizonGeometry {
   earth: PathRun[];
   x: (azDeg: number) => number;
   y: (elDeg: number) => number;
+  /** Heights (deg) at the bottom and the top of the picture. */
+  minDeg: number;
+  maxDeg: number;
 }
 
 const f1 = (v: number) => (Math.round(v * 10) / 10).toString();
@@ -77,5 +80,7 @@ export function horizonGeometry(mask: ArrayLike<number>, series: Series, width: 
     earth: runs(series.earthAz, series.earthEl, (h) => series.earthVisible[h] === 1, x, y),
     x,
     y,
+    minDeg: min,
+    maxDeg: max,
   };
 }

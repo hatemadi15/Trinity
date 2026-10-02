@@ -34,6 +34,7 @@ describe('horizonGeometry', () => {
     const g = horizonGeometry(mask, series([90, 91], [-2, 2], [0, 1]), 720, 200);
     expect(g.y(7)).toBeCloseTo(0, 6);
     expect(g.y(-3)).toBeCloseTo(200, 6);
+    expect([g.minDeg, g.maxDeg]).toEqual([-3, 7]);
   });
 
   it('keeps the picture to 10° below the horizon, so a night far below it does not squash the sky', () => {
