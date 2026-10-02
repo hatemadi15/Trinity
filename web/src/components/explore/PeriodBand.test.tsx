@@ -20,6 +20,9 @@ describe('PeriodBand', () => {
     // so "4 m² panel, uses 200 W, 2 kWh battery" fits whole at 1440 px (measured in the browser).
     expect(screen.getByRole('button', { name: /^Lander: / }).parentElement!.className).toMatch(/flex-\[1\.8_1_250px\]/);
     expect(screen.getByLabelText('From').className).toMatch(/\bw-\[170px\]/);
+    const landerButton = screen.getByRole('button', { name: /^Lander: / });
+    expect(landerButton.className).toMatch(/\bmax-sm:h-auto\b/);
+    expect(landerButton.querySelector('span')!.className).toMatch(/\bmax-sm:whitespace-normal\b/);
   });
 
   it('opens the lander settings and passes period changes on', () => {

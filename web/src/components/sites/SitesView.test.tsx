@@ -28,9 +28,11 @@ describe('SitesView', () => {
     expect(screen.getByText(/19 places on the Moon/).textContent).toBe('19 places on the Moon, most of them near the south pole. Pick one to see its forecast.');
     // Each measure is explained on a line of its own, the order of the rows too.
     const term = (name: string) => screen.getByText(name, { selector: 'dt' }).nextElementSibling!.textContent;
-    expect(term('Time with power')).toBe('from the best day to land in the 30 days from 1 January 2027, for a lander with a 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.');
-    expect(term('Sunlight, Earth in view')).toBe('over its first 30 days there. Earth carries the radio link; seen from the pole it sits low, and hills can hide it.');
-    expect(term('Order')).toBe('longest time with power first; places that never see Earth come last, under their own heading.');
+    expect(term('Each row')).toBe(
+      "a lander that lands on the site's best day in the 30 days from 1 January 2027, named under the site, and the 30 days after that day. Explore and Compare land on the first day of the period, so their figures can differ.",
+    );
+    expect(term('The lander')).toBe('4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.');
+    expect(term('Order')).toBe('in each group, longest time with power first; places that never see Earth come last, under their own heading.');
     expect(screen.getByText(/three real missions, for the same days as the rest of the list/)).toBeTruthy();
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       'Shortlisted by NASA for a crewed Artemis landing',
@@ -52,7 +54,10 @@ describe('SitesView', () => {
     // A number keeps its percent sign on the same line: a no-break space between them.
     expect(row.textContent).toMatch(/Sunlight 41 %/);
     expect(row.textContent).toMatch(/Earth in view 54 %/);
-    expect(row.textContent).toMatch(/Longest time with power 12 d 15 h, if it lands on 20 Jan/);
+    // The landing day comes first, under the name: every figure to its right counts from it.
+    expect(row.textContent).toMatch(/de Gerlache Rim 2, Best landing day: 20 Jan/);
+    expect(row.textContent).toMatch(/Longest time with power 12 d 15 h/);
+    expect(row.textContent).not.toMatch(/if it lands on/);
   });
 
   it('says in words when a site has no sunlight or no contact with Earth', async () => {
@@ -134,7 +139,7 @@ describe('SitesView', () => {
     expect(store.getState().days).toBe(14);
     await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(19), { timeout: 20_000 });
     await waitFor(() => expect(rowOf('de Gerlache Rim 2').getAttribute('href')).toMatch(/days=14/));
-    expect(screen.getByText('Time with power', { selector: 'dt' }).nextElementSibling!.textContent).toMatch(/in the 14 days from 1 January 2027/);
+    expect(screen.getByText('Each row', { selector: 'dt' }).nextElementSibling!.textContent).toMatch(/in the 14 days from 1 January 2027, named under the site, and the 14 days after that day/);
   });
 
   it('shows the rows before the figures arrive', async () => {

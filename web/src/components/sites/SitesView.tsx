@@ -57,6 +57,12 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
       >
         <span>
           <span className="block text-[17px] font-semibold leading-snug">{siteLabel(site)}</span>
+          {/* The day every figure of the row counts from, before the figures. */}
+          {o?.best && (
+            <span className="mt-0.5 block text-[15px] font-medium text-ink">
+              <span className="sr-only">, </span>Best landing day: {dayMonth(startUtc, o.best.hour)}
+            </span>
+          )}
           <span className="mt-0.5 block text-[15px] text-ink-2">{site.blurb}</span>
         </span>
         {!o ? (
@@ -94,9 +100,6 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
               {o.best ? (
                 <>
                   <b className={`block font-semibold ${o.best.poweredHours >= TWO_WEEKS_H ? 'text-good' : ''}`}>{capped ? `all ${days} days` : spanShort(Math.round(o.best.poweredHours))}</b>
-                  <span className="block text-[15px] text-ink-2">
-                    <span className="sr-only">, </span>if it lands on {dayMonth(startUtc, o.best.hour)}
-                  </span>
                 </>
               ) : (
                 <span className="text-[15px] text-ink-2">No power from the Sun</span>
@@ -248,16 +251,17 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
       <main className="wrap pb-16 pt-10">
         <h1 className="display text-[40px] leading-tight">Choose a landing site</h1>
         <p className="mt-3 max-w-[46em] text-lg text-ink-2">{catalogue.length} places on the Moon, most of them near the south pole. Pick one to see its forecast.</p>
-        {/* One line per measure, so the three figures of a row are explained one at a time. */}
-        <dl className="mt-3 grid max-w-[64em] grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-[15px] text-ink-2">
-          <dt className="font-semibold text-ink">Time with power</dt>
+        {/* What a row counts from, the lander, the order: the figures of a row differ from Explore's first day, and this says why. */}
+        <dl className="mt-3 grid max-w-[52em] grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-[15px] text-ink-2">
+          <dt className="font-semibold text-ink">Each row</dt>
           <dd>
-            from the best day to land in the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, for a lander with a {landerLine(s.params.power)}.
+            a lander that lands on the site&apos;s best day in the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, named under the site, and the {s.days} days after that day.
+            Explore and Compare land on the first day of the period, so their figures can differ.
           </dd>
-          <dt className="font-semibold text-ink">Sunlight, Earth in view</dt>
-          <dd>over its first {s.days} days there. Earth carries the radio link; seen from the pole it sits low, and hills can hide it.</dd>
+          <dt className="font-semibold text-ink">The lander</dt>
+          <dd>{landerLine(s.params.power)}.</dd>
           <dt className="font-semibold text-ink">Order</dt>
-          <dd>longest time with power first; places that never see Earth come last, under their own heading.</dd>
+          <dd>in each group, longest time with power first; places that never see Earth come last, under their own heading.</dd>
         </dl>
         <div className="mt-6 flex flex-wrap items-end gap-4">
           <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />

@@ -104,8 +104,12 @@ export function NumbersCard({
             <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
           </svg>
         }
-        title="Contact with Earth"
-        note={`while the lander has power; Earth is in view ${pct0(summary.earthVisFraction)} of the ${days} days`}
+        title="Radio contact while it has power"
+        note={
+          contactHours > 0 || summary.earthVisFraction === 0
+            ? `Earth is in view ${pct0(summary.earthVisFraction)} of the ${days} days in all`
+            : `Earth is in view ${pct0(summary.earthVisFraction)} of the ${days} days, but not while the lander has power`
+        }
         value={contactHours > 0 ? spanShort(contactHours) : 'none'}
       />
       <Line

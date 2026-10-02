@@ -62,7 +62,7 @@ function CheckPanel({ card, extra, children }: { card: CheckCard; extra?: ReactN
         <span className="display text-[40px] leading-none tabular-nums">{card.figure}</span>
         <span className="text-ink-2">{card.figureWords}</span>
       </p>
-      <p className="mt-3 max-w-[62em] leading-relaxed text-ink-2">{card.sentence}</p>
+      <p data-part="sentence" className="mt-3 max-w-[46em] leading-relaxed text-ink-2">{card.sentence}</p>
       {extra}
       <button type="button" aria-expanded={open} aria-controls={`${id}-n`} onClick={() => setOpen((v) => !v)} className="btn mt-4">
         {open ? 'Hide the numbers' : 'Show the numbers'}

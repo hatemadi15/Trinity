@@ -73,7 +73,7 @@ export function BriefView({
   const powered = Math.min(hours, timeWithPower(s.power));
   const figures: [string, string][] = [
     ['Sunlight', `${pct0(s.summary.illumFraction)} of the ${s.days} days`],
-    ['Contact with Earth', answer.contactHours > 0 ? `${spanShort(answer.contactHours)} while the lander has power` : 'none while the lander has power'],
+    ['Radio contact while it has power', answer.contactHours > 0 ? spanShort(answer.contactHours) : 'none'],
     ['Longest night', s.summary.longestDarkH > 0 ? spanShort(s.summary.longestDarkH) : 'none'],
     ['Time with power', powered >= hours ? `all ${s.days} days` : spanShort(powered)],
     ['Battery when full', `${spanShort(p.loadW > 0 ? p.batteryWh / p.loadW : 0)} at ${p.loadW} W`],

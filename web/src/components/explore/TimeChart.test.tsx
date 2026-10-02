@@ -18,6 +18,11 @@ const mask = Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'ma
 const series = hourlySeries({ lat: -88.28, lon: -64.31 }, mask, eph, utcToEt(START), 720);
 const power = powerBudget(series, DEFAULT_POWER);
 
+it('keeps its explanation to a readable line length', () => {
+  show();
+  expect(screen.getByText(/^Time runs left to right\./).className).toMatch(/\bmax-w-\[46em\]/);
+});
+
 function show(extra: Partial<Parameters<typeof TimeChart>[0]> = {}) {
   const onCursor = vi.fn();
   const onHover = vi.fn();

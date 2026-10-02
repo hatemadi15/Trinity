@@ -57,6 +57,7 @@ describe('ValidateView', () => {
       expect(show.getAttribute('aria-expanded')).toBe('false');
       fireEvent.click(show);
       expect(within(r).getByRole('button', { name: 'Hide the numbers' }).getAttribute('aria-expanded')).toBe('true');
+      expect(r.querySelector('[data-part="sentence"]')!.className).toMatch(/\bmax-w-\[46em\]/);
       // A phone shows only part of a table: it says the table moves sideways.
       expect(within(r).getByText('Swipe the table sideways to see every column.').className).toMatch(/\bsm:hidden\b/);
       expect(within(r).getByRole('table')).toBeTruthy();

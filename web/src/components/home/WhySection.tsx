@@ -54,7 +54,7 @@ export function WhySection({ teaching = true }: { teaching?: boolean }) {
           <Link href="/learn" className={LINK}>
             How it works
           </Link>{' '}
-          walks through the same ideas in five steps.
+          gives the science behind these three facts, with sums a class can check.
         </p>
       )}
     </section>

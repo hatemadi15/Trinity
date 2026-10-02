@@ -83,7 +83,7 @@ describe('answerFor', () => {
     expect(a.sentences).toEqual([
       'No radio contact: Earth is out of view for all 1 day 16 hours with power.',
       'The Sun sets on 2 January and stays behind the hills for 1 day 16 hours.',
-      'As the Sun set the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power comes back on 3 January.',
+      'As the Sun set, the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power comes back on 3 January.',
     ]);
   });
 
@@ -221,7 +221,7 @@ describe('answerFor on real data', () => {
     // Earth stays below the horizon until 10 January: the three days with power have no contact at all.
     expect(a.sentences[0]).toBe('No radio contact: Earth is out of view for all 3 days 4 hours with power.');
     expect(a.sentences[1]).toBe('The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.');
-    expect(a.sentences[2]).toBe('As the Sun set the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power comes back on 20 January.');
+    expect(a.sentences[2]).toBe('As the Sun set, the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power comes back on 20 January.');
     expect(a.better?.label).toBe('Land on 20 January instead');
     expect(a.better?.note).toBe('From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.');
     expect(a.better?.startUtc).toBe('2027-01-20T10:00:00');

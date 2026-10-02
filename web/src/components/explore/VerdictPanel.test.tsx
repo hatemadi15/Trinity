@@ -11,7 +11,7 @@ const night: Answer = {
   sentences: [
     'No radio contact: Earth is out of view for all 3 days 4 hours with power.',
     'The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.',
-    'As the Sun set the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power comes back on 20 January.',
+    'As the Sun set, the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power comes back on 20 January.',
   ],
   better: { hour: 466, startUtc: '2027-01-20T10:00:00', label: 'Land on 20 January instead', note: 'From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.' },
   hint: null,

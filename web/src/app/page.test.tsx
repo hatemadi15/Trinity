@@ -60,6 +60,16 @@ describe('home page', () => {
     );
   });
 
+  it('sends a teacher to the science behind the three facts', () => {
+    render(<Home />);
+    expect(screen.getByText(/^Teaching this\?/).textContent).toBe('Teaching this? How it works gives the science behind these three facts, with sums a class can check.');
+  });
+
+  it("keeps the forecast's explanation to a readable line length", () => {
+    render(<Home />);
+    expect(screen.getByText(/^A ridge NASA shortlisted for astronauts\. Read it from left to right/).className).toMatch(/\bmax-w-\[42em\]/);
+  });
+
   it('explains how to read the forecast before it starts', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });

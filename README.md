@@ -39,7 +39,8 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   full table on request: the Sun's and Earth's directions against JPL Horizons (with a live
   re-check), sunlight against NASA's LOLA illumination map, and predicted sunsets against how three
   real missions ended. Also the error budget and the count of automated tests.
-- **How it works** (`/learn`): the three drawings and five steps through the pages.
+- **How it works** (`/learn`): the three drawings, the science behind them for a class (the Moon's
+  small tilt, libration, how to read the charts, the battery sum) and five steps through the pages.
 - **The brief** (`/brief`): one printable page with Explore's answer, five numbers, the Sun's and
   Earth's rows over the period, the lander, the method and the data, and an optional narrated
   paragraph checked number by number against the figures.

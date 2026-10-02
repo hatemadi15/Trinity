@@ -32,14 +32,14 @@ describe('NumbersCard', () => {
     const card = screen.getByRole('region', { name: 'The numbers' });
     expect(card.textContent).toMatch(/Sunlight.*share of the 30 days with the Sun above the hills.*45 %/);
     // Contact is counted in the hours the lander has power, the figure the verdict gives; the whole period's share is in the note.
-    expect(card.textContent).toMatch(/Contact with Earth.*while the lander has power; Earth is in view 45 % of the 30 days.*none/);
+    expect(card.textContent).toMatch(/Radio contact while it has power.*Earth is in view 45 % of the 30 days, but not while the lander has power.*none/);
     expect(card.textContent).toMatch(/Lander.*4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.*10 h.*of battery when full/);
     expect(card.textContent).not.toMatch(/skyline|LOLA|brownout/i);
   });
 
   it('gives the hours of contact while the lander has power', () => {
     show({ contactHours: 77 });
-    expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/Contact with Earth.*3 d 5 h/);
+    expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/Radio contact while it has power.*3 d 5 h/);
   });
 
   it('opens every number in a dialog, in plain words', () => {

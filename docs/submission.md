@@ -25,7 +25,7 @@ Missions to the Moon's south pole live or die by two questions: when is the Sun 
 - **Ask in plain words**: typed questions ("compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "find the best landing date for 14 days", "explain the longest night") are turned into validated actions on the same controls. The assistant never computes physics; every number on screen comes from the engine.
 - **Accuracy**: three checks, each with a pass mark, a headline figure and its full table on request, and a live re-check against JPL Horizons.
 - **The brief**: one printable page with the answer, five numbers, the Sun's and Earth's rows over the period, the method and the data, and a narrated paragraph checked number by number against the figures.
-- **How it works**: three drawings of why the south pole is hard and five steps through the pages, in plain words for students and the public.
+- **How it works**: three drawings of why the south pole is hard, the science behind them (the Moon's 1.5° tilt against Earth's 23.4°, libration, how to read the charts, the battery sum) and five steps through the pages, in plain words for students and the public.
 
 ### How it works
 
