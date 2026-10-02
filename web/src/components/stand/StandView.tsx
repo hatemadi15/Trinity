@@ -194,7 +194,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             {!failed && (
               // On a phone the buttons sit just above the time bar, clear of the Sun and its label.
               // On a phone they make one row that scrolls sideways, so the Sun keeps the middle of the screen.
-              <div ref={lookRef} role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[calc(var(--bar-h,166px)+10px)] max-md:flex-nowrap max-md:overflow-x-auto max-md:[&>button]:shrink-0`}>
+              <div ref={lookRef} role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[calc(var(--bar-h,166px)+10px)] max-md:flex-nowrap max-md:overflow-x-auto max-md:[scrollbar-width:none] max-md:[&>button]:shrink-0`}>
                 <button type="button" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
                   Face the Sun
                 </button>
