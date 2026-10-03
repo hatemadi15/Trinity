@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compassMark, easeStep, horizonLift, labelSides, starNamesShown } from './StandCanvas';
+import { compassMark, easeStep, horizonLift, labelSides, partSide, starNamesShown } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -53,6 +53,26 @@ describe('star names that would touch', () => {
     // Far apart, both on the right; a star out of sight takes no room.
     expect(labelSides([at(100, 100), at(600, 100)])).toEqual(['right', 'right']);
     expect(labelSides([{ ...at(870, 300), visible: false }, at(826, 302, 42)])).toEqual(['none', 'right']);
+  });
+});
+
+describe('the names of the lander parts', () => {
+  // The card over the view, as in the 1440 × 900 view: 16 to 576 px across, 16 to 401 px down.
+  const card = { left: 16, top: 16, right: 576, bottom: 401 };
+  it('puts a part name on its first side, or on the next when the first would touch a panel on the screen', () => {
+    // The power light just right of the card: its name on the left would run into the card, so it goes right.
+    expect(partSide(673, 414, 130, 28, ['left', 'right'], [card], 1440, 900)).toBe('right');
+    expect(partSide(673, 414, 130, 28, ['left', 'right'], [], 1440, 900)).toBe('left');
+    // Well below the card, the left is clear.
+    expect(partSide(673, 600, 130, 28, ['left', 'right'], [card], 1440, 900)).toBe('left');
+  });
+  it('keeps a part name on the screen, and leaves it out when no side is clear', () => {
+    // Near the left edge, a name on the left would leave the screen.
+    expect(partSide(60, 600, 130, 28, ['left', 'right'], [], 1440, 900)).toBe('right');
+    // Under the card on both sides.
+    expect(partSide(300, 300, 130, 28, ['left', 'right'], [card], 1440, 900)).toBeNull();
+    // Above, or below when the card is in the way above.
+    expect(partSide(700, 420, 100, 28, ['above', 'below'], [{ left: 600, top: 300, right: 800, bottom: 400 }], 1440, 900)).toBe('below');
   });
 });
 

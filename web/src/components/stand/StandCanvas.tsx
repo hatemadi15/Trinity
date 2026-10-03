@@ -73,6 +73,44 @@ export function labelSides(spots: { x: number; y: number; w: number; h: number; 
   });
 }
 const SIDE = { right: 'translate(8px, -50%)', left: 'translate(calc(-100% - 8px), -50%)' } as const;
+
+type PartSide = 'above' | 'below' | 'left' | 'right';
+type Rect = { left: number; top: number; right: number; bottom: number };
+/** Where a lander part's name sits off the part: 6 px above or below it, or 12 px to one side. */
+const PART_SIDE: Record<PartSide, string> = {
+  above: 'translate(-50%, calc(-100% - 6px))',
+  below: 'translate(-50%, 6px)',
+  left: 'translate(calc(-100% - 12px), -50%)',
+  right: 'translate(12px, -50%)',
+};
+
+/**
+ * Which side of a lander part its name goes: the first of `sides` where the name (`w` × `h` pixels, off the
+ * part at `x`, `y`) stays on the `W` × `H` screen and 4 px clear of every panel on it, or null when none does.
+ */
+export function partSide(x: number, y: number, w: number, h: number, sides: readonly PartSide[], plates: Rect[], W: number, H: number): PartSide | null {
+  const box = (s: PartSide): Rect =>
+    s === 'above'
+      ? { left: x - w / 2, right: x + w / 2, top: y - 6 - h, bottom: y - 6 }
+      : s === 'below'
+        ? { left: x - w / 2, right: x + w / 2, top: y + 6, bottom: y + 6 + h }
+        : s === 'left'
+          ? { left: x - 12 - w, right: x - 12, top: y - h / 2, bottom: y + h / 2 }
+          : { left: x + 12, right: x + 12 + w, top: y - h / 2, bottom: y + h / 2 };
+  return (
+    sides.find((s) => {
+      const b = box(s);
+      if (b.left < 4 || b.right > W - 4 || b.top < 4 || b.bottom > H - 4) return false;
+      return !plates.some((p) => b.right > p.left - 4 && b.left < p.right + 4 && b.bottom > p.top - 4 && b.top < p.bottom + 4);
+    }) ?? null
+  );
+}
+/** The sides each part's name tries, in order. */
+const PARTS = [
+  ['panel', 'Solar panel', ['above', 'below']],
+  ['dish', 'Radio dish', ['right', 'left']],
+  ['lamp', 'Power light', ['left', 'right']],
+] as const;
 const BODIES = [
   ['sun', 'Sun', 'bg-[#f6b646] border-[#f6b646]'],
   ['earth', 'Earth', 'bg-[#74adff] border-[#74adff]'],
@@ -275,11 +313,26 @@ export function StandCanvas({
       // Zoomed in on the lander, its parts carry their names (and its own name gives way to them).
       const close = v.fov < ZOOMED_FOV;
       place(landerRef.current, close && l.parts?.panel.visible ? null : l.lander);
-      for (const k of ['panel', 'dish', 'lamp'] as const) place(partRefs.current[k], close && l.parts ? l.parts[k] : null);
       // The power light says whether it is lit.
       const lampNode = partRefs.current.lamp, hr0 = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));
       const lampText = `Power light: ${scene.lander && Number(scene.lander.powered[hr0]) === 1 ? 'on' : 'off'}`;
       if (lampNode && lampNode.textContent !== lampText) lampNode.textContent = lampText;
+      // Each part's name on the first of its sides clear of the panels, so none is lost behind the card.
+      for (const [k, , sides] of PARTS) {
+        const node = partRefs.current[k], s = close && l.parts ? l.parts[k] : null;
+        if (!node) continue;
+        if (!s || !s.visible) {
+          node.hidden = true;
+          continue;
+        }
+        node.style.left = `${s.x * 100}%`;
+        node.style.top = `${s.y * 100}%`;
+        node.hidden = false;
+        const b = node.getBoundingClientRect();
+        const side = partSide(s.x * W, s.y * H, b.width, b.height, sides, plates, W, H);
+        if (side) node.style.transform = PART_SIDE[side];
+        else node.hidden = true;
+      }
       // Your own shadow, long across the ground while the Sun is low.
       const sh = l.shadow;
       if (shadowRef.current && sh) {
@@ -485,20 +538,15 @@ export function StandCanvas({
           Your shadow
         </span>
         {scene.lander &&
-          (
-            [
-              ['panel', 'Solar panel', '-translate-x-1/2 -translate-y-[calc(100%+6px)]'],
-              ['dish', 'Radio dish', 'translate-x-3 -translate-y-1/2'],
-              ['lamp', 'Power light', '-translate-x-[calc(100%+12px)] -translate-y-1/2'],
-            ] as const
-          ).map(([k, name, at]) => (
+          PARTS.map(([k, name, sides]) => (
             <span
               key={k}
               ref={(node) => {
                 partRefs.current[k] = node;
               }}
               hidden
-              className={`${LABEL} ${at} text-[14px] text-[#e4e1da]`}
+              style={{ transform: PART_SIDE[sides[0]] }}
+              className={`${LABEL} text-[14px] text-[#e4e1da]`}
             >
               {name}
             </span>
