@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Scene3DLazy } from '@/components/three';
 import { siteLabel, type Site } from '@/lib/data/loaders';
@@ -7,6 +8,7 @@ import type { Series } from '@/lib/engine/metrics';
 import { sunBearingDeg } from '@/lib/engine/shadow';
 import { useFullscreenEnabled, useIsFullscreen } from '@/lib/hooks/useFullscreen';
 import { useShadowPicture, type ShadowSource } from '@/lib/hooks/useShadowPicture';
+import { standHref } from '@/lib/links';
 import type { Exaggeration, SceneMode, TerrainState } from '@/lib/store/explore';
 import { groundWords } from '@/lib/viz/ground';
 import type { SceneState } from '@/lib/viz/scene-state';
@@ -16,19 +18,32 @@ import { ShadowMap } from './ShadowMap';
 /** The page's segmented control, as for the period: the chosen part dark, the others plain. */
 const SEG = 'flex h-11 overflow-hidden rounded-lg border border-line-strong bg-surface text-[15px]';
 const seg = (on: boolean) => `px-3.5 ${on ? 'bg-ink font-semibold text-page' : 'text-ink-2 hover:bg-surface-2'}`;
-/** Tabs are underlined words, so they never look like the options inside a tab. */
-const tabClass = (on: boolean) => `-mb-px h-11 border-b-[3px] px-1 text-[16px] ${on ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2 hover:text-ink'}`;
+/** Tabs are underlined words, so they never look like the options inside a tab. On a phone they are 15 px, so all three fit on one line. */
+const tabClass = (on: boolean) => `-mb-px h-11 whitespace-nowrap border-b-[3px] px-1 text-[16px] max-sm:text-[15px] max-[389px]:text-[14px] max-[389px]:tracking-tight ${on ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2 hover:text-ink'}`;
 /** The picture beside its reading guide from the medium screen up, above it on a phone. */
 const BESIDE = 'grid gap-x-8 gap-y-4 md:grid-cols-[minmax(0,560px)_minmax(0,1fr)]';
 
 export type GroundTab = 'map' | '3d' | 'horizon';
-/** The tab a polar site opens on: the shadow map reads at a glance, so it comes before the 3D view. */
+/** The tab a polar site opens on: the shadow map reads at a glance, so it comes before "3D from above". */
 export const DEFAULT_GROUND_TAB: GroundTab = 'map';
+/** The 3D tab is named for where it looks from, so it reads apart from "Stand at the site", at eye level. */
 const TABS: { id: GroundTab; label: string }[] = [
   { id: 'map', label: 'Shadow map' },
-  { id: '3d', label: '3D' },
-  { id: 'horizon', label: 'View all round' },
+  { id: '3d', label: '3D from above' },
+  { id: 'horizon', label: 'Horizon chart' },
 ];
+
+/**
+ * The line under the tabs that says what the chosen tab shows, so the three read as three different
+ * things. The line for "3D from above" uses the tab's name; its ground is the window's own size (about
+ * 20 km at 20 m per pixel, 41 km at 80 m), and the globe is the whole Moon.
+ */
+function aboutTab(tab: GroundTab, view: SceneMode, km: number | null): string {
+  if (tab === 'map') return "The ground from above at the time bar's hour, north up.";
+  if (tab === 'horizon') return 'The horizon all round, unrolled into one strip, with the paths of the Sun and Earth.';
+  if (view === 'globe') return 'The whole Moon in 3D from above, as a model you can turn.';
+  return km === null ? 'The same ground in 3D from above, as a model you can turn.' : `The same ${km} km of ground in 3D from above, as a model you can turn.`;
+}
 /** The 3D picture's box, the element put on the whole screen. */
 const FULL = '[data-full="3d"]';
 
@@ -45,10 +60,14 @@ function KeyItem({ sample, children }: { sample: ReactNode; children: string }) 
 }
 
 /**
- * The ground around the site at the time bar's hour, three ways: from above with its shadows (the
- * default for a polar site), in 3D with the same light, and the view all round with the Sun's and
- * Earth's paths (the default for a site with no polar terrain, which has no map). Above every tab one
- * sentence says whether the site is in sunlight and whether Earth can be reached.
+ * The ground around the site at the time bar's hour, three ways: the shadow map, from above with its
+ * shadows (the default for a polar site); "3D from above", the same ground in the same light, to turn;
+ * and the horizon chart, the horizon all round in one strip with the Sun's and Earth's paths (the
+ * default for a site with no polar terrain, which has no map). Under the tabs one line says what the
+ * chosen tab shows, then one sentence, the same for every tab, says whether the site is in sunlight
+ * and whether Earth can be reached. Beside the tabs, "Stand at the site" opens the full-window view
+ * from the site itself at the same hour (on flat ground where there is no polar terrain), with a line
+ * that says so.
  */
 export function GroundPanel({
   site,
@@ -65,6 +84,7 @@ export function GroundPanel({
   customError,
   when,
   startUtc,
+  days,
   mask,
   series,
   cursor,
@@ -87,8 +107,10 @@ export function GroundPanel({
   windowLoading: boolean;
   customError: string | null;
   when: string;
-  /** The period's first hour, for the dates on the view all round. */
+  /** The period's first hour, for the dates on the horizon chart. */
   startUtc: string;
+  /** The period's length, for the address of the view from the site. */
+  days: number;
   mask: ArrayLike<number>;
   series: Series;
   cursor: number;
@@ -99,7 +121,7 @@ export function GroundPanel({
   /** The shadow worker's client; tests pass a stub. */
   shadowClient?: ShadowSource;
 }) {
-  // Until a tab is chosen, a site with no polar terrain opens on the view all round: it has no map.
+  // Until a tab is chosen, a site with no polar terrain opens on the horizon chart: it has no map.
   const [chosen, setChosen] = useState<GroundTab | null>(null);
   const tab = chosen ?? (site.polar ? DEFAULT_GROUND_TAB : 'horizon');
   const tabs = useRef<Partial<Record<GroundTab, HTMLButtonElement | null>>>({});
@@ -128,9 +150,11 @@ export function GroundPanel({
   };
 
   const missing = loading ? 'Loading the terrain…' : 'The terrain files are not on this machine.';
+  // The window's width, for the line under the tabs and the 3D caption alike.
+  const windowKm = heightmap ? Math.round((heightmap.meta.width * heightmap.meta.cell_m) / 1000) : null;
   let caption3d: string;
   if (view === 'globe') caption3d = "The whole Moon, lit for the hour of the time bar. Click anywhere inside the ring at 60° S to get that point's own forecast. Drag to turn, scroll to zoom.";
-  else if (heightmap) caption3d = `The same ground in 3D, about ${Math.round((heightmap.meta.width * heightmap.meta.cell_m) / 1000)} km across, lit exactly as on the shadow map; the yellow pin marks the site. NASA elevation data at ${heightmap.meta.cell_m} m per pixel. Drag to turn, scroll to zoom; the light follows the time bar. Globe shows the whole Moon.`;
+  else if (heightmap) caption3d = `The same ground in 3D, about ${windowKm} km across, lit exactly as on the shadow map; the yellow pin marks the site. NASA elevation data at ${heightmap.meta.cell_m} m per pixel. Drag to turn, scroll to zoom; the light follows the time bar. Globe shows the whole Moon.`;
   else if (loading) caption3d = missing;
   else if (capHeightmap) caption3d = `NASA elevation data at ${capHeightmap.meta.cell_m} m per pixel, 48 km around the site: too coarse to show its own slopes. The light follows the time bar.`;
   else caption3d = missing;
@@ -143,35 +167,52 @@ export function GroundPanel({
         </h2>
         <p className="text-[15px] text-ink-2">{when}</p>
       </div>
-      <div role="tablist" aria-label="How to look at the ground" className="mt-2 flex gap-6 border-b border-line">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            ref={(el) => {
-              tabs.current[t.id] = el;
-            }}
-            type="button"
-            role="tab"
-            id={`ground-tab-${t.id}`}
-            aria-selected={tab === t.id}
-            aria-controls={`ground-panel-${t.id}`}
-            tabIndex={tab === t.id ? 0 : -1}
-            onClick={() => setChosen(t.id)}
-            onKeyDown={onTabKey}
-            className={tabClass(tab === t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* The tabs, and beside them the way to stand at the site with its line. Where the row is too narrow
+          for both, the button and its line go above the tabs (wrap-reverse), so the chosen tab's underline
+          stays on the line. On a phone the tabs spread across the row instead of keeping 24 px apart. */}
+      <div className="mt-2 flex flex-wrap-reverse justify-between gap-x-6 gap-y-2 border-b border-line">
+        <div role="tablist" aria-label="How to look at the ground" className="mt-auto flex gap-6 max-sm:w-full max-sm:justify-between max-sm:gap-0">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              ref={(el) => {
+                tabs.current[t.id] = el;
+              }}
+              type="button"
+              role="tab"
+              id={`ground-tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls={`ground-panel-${t.id}`}
+              tabIndex={tab === t.id ? 0 : -1}
+              onClick={() => setChosen(t.id)}
+              onKeyDown={onTabKey}
+              className={tabClass(tab === t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {/* The line beside the button, or under it where the row is narrow, describes it without renaming it. */}
+        <div className="mb-1.5 mt-auto flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link href={standHref(site.id, startUtc, days, cursor)} aria-describedby="ground-stand-note" className="btn btn-ink btn-sm">
+            Stand at the site
+          </Link>
+          <p id="ground-stand-note" className="text-pretty text-[15px] text-ink-2">
+            Full window: look around as if you stood there.
+          </p>
+        </div>
       </div>
-      <p data-part="now" className="mt-4 max-w-[62em] text-[17px] leading-relaxed text-ink">
+      <p data-part="about" className="mt-3 text-pretty text-[15px] text-ink-2">
+        {aboutTab(tab, view, windowKm)}
+      </p>
+      <p data-part="now" className="mt-3 max-w-[62em] text-[17px] leading-relaxed text-ink">
         <b className="font-semibold">{words.sun}</b> {words.earth}
       </p>
 
       <div role="tabpanel" id="ground-panel-map" aria-labelledby="ground-tab-map" hidden={tab !== 'map'} className="mt-4">
         {tab === 'map' &&
           (!site.polar ? (
-            <p className="text-ink-2">This tool has height data only around the south pole, so this site&apos;s horizon is taken as flat. The View all round tab shows the paths of the Sun and Earth over it.</p>
+            <p className="text-ink-2">This tool has height data only around the south pole, so this site&apos;s horizon is taken as flat. The Horizon chart tab shows the paths of the Sun and Earth over it.</p>
           ) : finest ? (
             <div className={BESIDE}>
               <div className="stage aspect-square">

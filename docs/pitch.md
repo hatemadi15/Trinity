@@ -16,6 +16,8 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 [Scroll to "Start from a real place"; click "Explore this site" on de Gerlache Rim 2.] This ridge is one of the nine regions NASA shortlisted for the first crewed Artemis landing. The page opens on the answer, in one sentence: a small solar lander landing on 1 January has power for 3 days 4 hours, then night. [Point at the chart "Why: the 30 days, hour by hour".] Here is why: the gold line is the Sun, skimming the hills; on 3 January it drops behind them and stays there for more than two weeks, and the battery runs out. [Press Play on the time bar.] The shadow map is computed from NASA's elevation data for each hour, with north up: watch the ridge go dark.
 
+[Click "Stand at the site".] And this is the same hour standing on the ridge: NASA's ground out to 125 kilometres, the shadows worked out from those heights, a small white Sun low in a black sky, and a lander beside you for scale. The card says what the forecast said: power for three days, no radio contact, then sixteen days without power. Earth is below the horizon; the pointer at the edge of the screen says by how much. [Press Play.] Watch the shadows sweep across the ground and the Sun drop behind the hills on 3 January; the battery runs out the next day. [Click the flag "Earth in view, 10 Jan".] Earth comes over the hills on 10 January, but by then the lander has no power to call it. [Click "Back to the forecast".]
+
 [Point at the line under the answer.] Twelve kilometres away, the rim summit keeps power for all 30 days from the same landing day. [Click "Explore de Gerlache rim summit".] Green. A few kilometres decide whether a lander lives.
 
 [Type in "Ask in plain words": "compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days". Enter.] The assistant turned that sentence into actions and opened Compare sites. [Compare page.] Two candidates, same days, same lander, one row each: sunlight, Earth in view, longest night, time with power, and a sentence that names the best site for each. [Click "Find the best landing day for these sites in the next 12 months".] It searches the year and moves the period to the landing day that keeps them powered longest on average.
@@ -30,11 +32,11 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 ## 3:45 — Impact and next (35 s)
 
-Planners get a first answer in a minute and a brief they can hand to engineering. Students and the public get the same pages in plain words, and How it works gives teachers the science behind them, with sums a class can check. Anyone can replay real missions from the home page. Next: NAC imagery per site, standing on the surface in first person, relay passes, and a public API for the tables.
+Planners get a first answer in a minute and a brief they can hand to engineering. Students and the public get the same pages in plain words, and How it works gives teachers the science behind them, with sums a class can check. Anyone can replay real missions from the home page. Next: NAC imagery per site, arriving at a site from orbit, relay passes, and a public API for the tables.
 
 ## 4:20 — Data and team (20 s)
 
-NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and 854 automated tests keep the two in step. Team Astroy/Ed.
+NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and 1,192 automated tests keep the two in step. Team Astroy/Ed.
 
 ## 4:40 — Close (20 s)
 
@@ -44,6 +46,7 @@ When is the Sun up, and can Earth hear you? Earthrise answers in a minute, shows
 
 - The assistant does not answer: the page falls back to rehearsed answers on its own; say "rehearsed answer" and continue.
 - The 3D view is black: stay on the Shadow map tab; it shows the same light from above.
+- The stand view is slow or black: add `?quality=fast` to its address, or skip it and stay on Explore's shadow map.
 - Page does not load: switch to the backup laptop (same URL), or play the recorded demo from the second tab and narrate over it.
 - JPL re-check fails (no internet): the page says so and keeps the stored comparison; the point stands.
 

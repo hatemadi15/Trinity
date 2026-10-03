@@ -10,8 +10,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="lunar_pipeline")
     sub = p.add_subparsers(dest="cmd", required=True)
     f = sub.add_parser("fetch", help="download NASA source files")
-    f.add_argument("--group", action="append", choices=["kernels", "lola", "illumination", "textures"])
+    f.add_argument("--group", action="append", choices=["kernels", "lola", "illumination", "textures", "sky"])
     sub.add_parser("ephemeris", help="build the hourly MOON_ME Sun/Earth table")
+    sub.add_parser("sky", help="build data/sky: stars, the Moon's orientation, Earth maps")
     sub.add_parser("tiles", help="cut DEM tiles into data_out/tiles")
     sub.add_parser("terrain", help="cut 3D terrain rasters into data_out/terrain")
     sub.add_parser("sites-derive", help="derive crater-rim high points")
@@ -39,6 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     fl.add_argument("--start", default="2027-01-01T00:00:00")
     fl.add_argument("--days", type=int, default=30)
     sub.add_parser("fixture-shadow", help="write golden shadow-sweep fixtures for the TS port")
+    sub.add_parser("fixture-sky", help="write SPICE fixtures for the web's sky maths")
     sub.add_parser("validate", help="write validation tables (Horizons, Mazarico, backcasts) into data/validation")
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
@@ -57,6 +59,11 @@ def main(argv: list[str] | None = None) -> None:
     elif args.cmd == "ephemeris":
         from .ephemeris import write_table
         print(write_table())
+    elif args.cmd == "sky":
+        from . import sky
+
+        for path in sky.build():
+            print(path)
     elif args.cmd == "tiles":
         from .tiles import write_all
         print(write_all())
@@ -65,6 +72,13 @@ def main(argv: list[str] | None = None) -> None:
         from .shadow import write_fixtures
 
         for path in write_fixtures(config.DATA_DIR / "fixtures" / "shadow"):
+            print(path)
+    elif args.cmd == "fixture-sky":
+        from . import sky
+        from .sites import all_sites
+
+        sites = [s for s in all_sites() if s.id in ("de_gerlache_rim_2", "blue_ghost_m1")]
+        for path in sky.fixtures(sites):
             print(path)
     elif args.cmd == "terrain":
         from .terrain3d import write_all

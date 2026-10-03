@@ -1,0 +1,13 @@
+{
+ "start_utc": "2024-01-01T00:00:00",
+ "step_hours": 6,
+ "count": 18997,
+ "convention": "q rotates J2000 vectors into MOON_ME; v_me = R(q) v_j2000; [w, x, y, z]",
+ "kernels": [
+  "naif0012.tls",
+  "pck00011.tpc",
+  "moon_pa_de440_200625.bpc",
+  "moon_de440_250416.tf",
+  "de440s.bsp"
+ ]
+}

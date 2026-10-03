@@ -33,15 +33,17 @@ describe('compassCorner', () => {
 });
 
 describe('heightWords', () => {
-  it('says how high a body stands, in whole degrees, or that it is below the horizon', () => {
-    expect(heightWords('Sun', 2.4)).toBe('Sun 2° up');
-    expect(heightWords('Earth', 0.2)).toBe('Earth 0° up');
+  it('says how high a body stands, in tenths of a degree below 10, or that it is below the horizon', () => {
+    // Tenths below 10°, as the sentence beside the map and the view from the site say it.
+    expect(heightWords('Sun', 2.4)).toBe('Sun 2.4° up');
+    expect(heightWords('Earth', 0.2)).toBe('Earth 0.2° up');
+    expect(heightWords('Sun', 12.4)).toBe('Sun 12° up');
     expect(heightWords('Earth', -1.5)).toBe('Earth below the horizon');
   });
 
   it('says so when the hills hide a body that is above the horizon', () => {
-    expect(heightWords('Sun', 2.4, 'yes')).toBe('Sun 2° up, behind the hills');
-    expect(heightWords('Sun', 2.4, 'partly')).toBe('Sun 2° up, partly behind the hills');
+    expect(heightWords('Sun', 2.4, 'yes')).toBe('Sun 2.4° up, behind the hills');
+    expect(heightWords('Sun', 2.4, 'partly')).toBe('Sun 2.4° up, partly behind the hills');
     expect(heightWords('Earth', -1.5, 'yes')).toBe('Earth below the horizon');
   });
 });

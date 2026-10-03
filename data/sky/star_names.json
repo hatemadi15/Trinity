@@ -1,0 +1,159 @@
+{
+ "names": [
+  {
+   "index": 0,
+   "name": "Sirius",
+   "vmag": -1.46
+  },
+  {
+   "index": 1,
+   "name": "Canopus",
+   "vmag": -0.72
+  },
+  {
+   "index": 2,
+   "name": "Arcturus",
+   "vmag": -0.04
+  },
+  {
+   "index": 3,
+   "name": "Alpha Centauri",
+   "vmag": -0.01
+  },
+  {
+   "index": 4,
+   "name": "Vega",
+   "vmag": 0.03
+  },
+  {
+   "index": 5,
+   "name": "Capella",
+   "vmag": 0.08
+  },
+  {
+   "index": 6,
+   "name": "Rigel",
+   "vmag": 0.12
+  },
+  {
+   "index": 7,
+   "name": "Procyon",
+   "vmag": 0.38
+  },
+  {
+   "index": 8,
+   "name": "Achernar",
+   "vmag": 0.46
+  },
+  {
+   "index": 9,
+   "name": "Betelgeuse",
+   "vmag": 0.5
+  },
+  {
+   "index": 10,
+   "name": "Hadar",
+   "vmag": 0.61
+  },
+  {
+   "index": 11,
+   "name": "Altair",
+   "vmag": 0.77
+  },
+  {
+   "index": 12,
+   "name": "Aldebaran",
+   "vmag": 0.85
+  },
+  {
+   "index": 13,
+   "name": "Antares",
+   "vmag": 0.96
+  },
+  {
+   "index": 14,
+   "name": "Spica",
+   "vmag": 0.98
+  },
+  {
+   "index": 15,
+   "name": "Pollux",
+   "vmag": 1.14
+  },
+  {
+   "index": 16,
+   "name": "Fomalhaut",
+   "vmag": 1.16
+  },
+  {
+   "index": 17,
+   "name": "Mimosa",
+   "vmag": 1.25
+  },
+  {
+   "index": 18,
+   "name": "Deneb",
+   "vmag": 1.25
+  },
+  {
+   "index": 19,
+   "name": "Acrux",
+   "vmag": 1.33
+  },
+  {
+   "index": 21,
+   "name": "Regulus",
+   "vmag": 1.35
+  },
+  {
+   "index": 22,
+   "name": "Adhara",
+   "vmag": 1.5
+  },
+  {
+   "index": 23,
+   "name": "Gacrux",
+   "vmag": 1.63
+  },
+  {
+   "index": 24,
+   "name": "Shaula",
+   "vmag": 1.63
+  },
+  {
+   "index": 27,
+   "name": "Miaplacidus",
+   "vmag": 1.68
+  },
+  {
+   "index": 30,
+   "name": "Alnair",
+   "vmag": 1.74
+  },
+  {
+   "index": 37,
+   "name": "Avior",
+   "vmag": 1.86
+  },
+  {
+   "index": 41,
+   "name": "Atria",
+   "vmag": 1.92
+  },
+  {
+   "index": 43,
+   "name": "Peacock",
+   "vmag": 1.94
+  },
+  {
+   "index": 51,
+   "name": "Polaris",
+   "vmag": 2.02
+  },
+  {
+   "index": 132,
+   "name": "Imai",
+   "vmag": 2.8
+  }
+ ]
+}

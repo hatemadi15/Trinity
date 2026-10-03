@@ -1,0 +1,14 @@
+{
+ "count": 8404,
+ "columns": [
+  "x",
+  "y",
+  "z",
+  "vmag",
+  "bv"
+ ],
+ "frame": "J2000",
+ "source": "Yale Bright Star Catalogue, 5th revised ed. (Hoffleit & Warren 1991), NASA HEASARC bsc5p",
+ "url": "https://heasarc.gsfc.nasa.gov/FTP/heasarc/dbase/tdat_files/heasarc_bsc5p.tdat.gz",
+ "sha256": "122628cde2d8bedf7e16ddf5f888167ac58c04b5592d6155408ce297f3073931"
+}

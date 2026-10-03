@@ -17,6 +17,7 @@ import { globeTextureUrl } from '@/lib/data/terrain';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
+import { standHref } from '@/lib/links';
 import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { timeWithPower } from '@/lib/engine/landing';
 import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
@@ -129,7 +130,15 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             </p>
           )}
           <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
-            <VerdictPanel answer={answer} nearby={nearby} onLand={(start) => s.setWindow(start, s.days)} onCompare={onCompare} onYear={() => void store.getState().findBestWindow(s.days)} yearNote={s.bestWindowNote} />
+            <VerdictPanel
+              answer={answer}
+              nearby={nearby}
+              standLink={standHref(site.id, s.startUtc, s.days, s.cursorHour)}
+              onLand={(start) => s.setWindow(start, s.days)}
+              onCompare={onCompare}
+              onYear={() => void store.getState().findBestWindow(s.days)}
+              yearNote={s.bestWindowNote}
+            />
             <NumbersCard
               site={site}
               summary={s.summary}
@@ -168,6 +177,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             // The ground is lit for the time bar's hour, not the hour under the pointer on the chart.
             when={dateTimeUtc(s.startUtc, s.cursorHour)}
             startUtc={s.startUtc}
+            days={s.days}
             mask={s.mask}
             series={s.series}
             cursor={s.cursorHour}

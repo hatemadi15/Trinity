@@ -43,7 +43,9 @@
   color-scheme: light;
 }
 
-:root[data-theme="dark"] {
+/* The same values inside .theme-dark in either theme: the stand view's black sky keeps its time bar dark. */
+:root[data-theme="dark"],
+.theme-dark {
   /* A grey one step above the black stage, so picture panels keep their outline. */
   --page: #222220;
   --surface: #2c2c2a;

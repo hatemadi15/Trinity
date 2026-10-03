@@ -21,11 +21,14 @@ const night: Answer = {
 const good: Answer = { tone: 'good', kind: 'all', title: 'Landing at de Gerlache Rim 2 on 1 January: power for all 30 days', sentences: ['The Sun never sets in these 30 days.'], better: null, hint: null, poweredHours: 720, contactHours: 324 };
 const stuck: Answer = { ...night, better: null, hint: 'No landing date in these 30 days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.' };
 
-function show(answer: Answer, yearNote: string | null = null, nearby: Parameters<typeof VerdictPanel>[0]['nearby'] = null) {
+const summit = { words: 'Nearby, de Gerlache rim summit (12 km away) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' };
+const stand = '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10';
+
+function show(answer: Answer, yearNote: string | null = null, nearby: Parameters<typeof VerdictPanel>[0]['nearby'] = null, standLink?: string) {
   const onLand = vi.fn();
   const onCompare = vi.fn();
   const onYear = vi.fn();
-  render(<VerdictPanel answer={answer} onLand={onLand} onCompare={onCompare} onYear={onYear} yearNote={yearNote} nearby={nearby} />);
+  render(<VerdictPanel answer={answer} onLand={onLand} onCompare={onCompare} onYear={onYear} yearNote={yearNote} nearby={nearby} standLink={standLink} />);
   return { onLand, onCompare, onYear };
 }
 
@@ -126,6 +129,28 @@ describe('VerdictPanel', () => {
     expect(screen.queryByRole('button', { name: 'Compare sites' })).toBeNull();
     // The sentence that says why sits right above the button.
     expect(gold.closest('section')!.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days/);
+  });
+
+  it('offers to stand at the site in a plain link after the nearby line, never a second gold action', () => {
+    show(night, null, summit, stand);
+    const link = screen.getByRole('link', { name: 'Stand at the site' });
+    expect(link.getAttribute('href')).toBe(stand);
+    expect(link.className).toMatch(/\bunderline\b/);
+    expect(link.className).not.toMatch(/\bbtn\b/);
+    expect(document.querySelectorAll('.btn-primary')).toHaveLength(1);
+    // Easy to hit, like the 12-month search: 40 px tall, on a box that takes a height.
+    expect(link.className).toMatch(/\bmin-h-\[40px\]/);
+    expect(link.className).toMatch(/\binline-flex\b/);
+    // Under the answer: after the better place nearby, before the 12-month search at the foot.
+    const nearby = screen.getByRole('link', { name: 'Explore de Gerlache rim summit' });
+    expect(nearby.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const year = screen.getByRole('button', { name: 'Find the best date in the next 12 months' });
+    expect(link.compareDocumentPosition(year) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('offers no way to stand at the site when it is given none', () => {
+    show(night, null, summit);
+    expect(screen.queryByRole('link', { name: 'Stand at the site' })).toBeNull();
   });
 
   it('offers the search over the next 12 months and reports what it found', () => {
