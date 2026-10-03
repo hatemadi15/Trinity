@@ -54,4 +54,10 @@ describe('the ground shader', () => {
     expect(main.lastIndexOf('soft(mTerrain)')).toBeGreaterThan(main.lastIndexOf('if ('));
     expect(main.lastIndexOf('soft(mTerrain)')).toBeLessThan(lastBrace);
   });
+
+  it('leaves the shadows nearly black at a low Sun: the light the dust scatters into them is under 1 % of the Sun’s', () => {
+    const m = GROUND_FRAG.match(/uSunPower \* ([0-9.]+) \* uSunUp/);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeLessThan(0.01);
+  });
 });

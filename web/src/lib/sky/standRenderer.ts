@@ -631,8 +631,10 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
 }
 
 /**
- * The WebGL side: the renderer, bloom for the Sun, a pixel-ratio step down when frames come slowly, and one
- * frame at full sharpness whenever the view comes to rest (nothing is drawn while it rests). Throws without
+ * The WebGL side: the renderer, bloom for the Sun, and its pacing. No frame is queued while the graphics
+ * chip is still drawing the last one (a fence after each frame says when it is done), so a slow chip never
+ * falls behind; one that keeps the view waiting draws fewer pixels while the view moves; and whenever the
+ * view comes to rest one frame is drawn at full sharpness (nothing is drawn while it rests). Throws without
  * WebGL 2.
  */
 export class StandRenderer {
@@ -649,7 +651,9 @@ export class StandRenderer {
   /** The ratio the canvas is drawn at now. */
   private drawnRatio: number;
   private readonly pacer = new FramePacer();
-  private last = 0;
+  /** The fence after the last frame, and how many times the view waited for it since the last frame. */
+  private fence: WebGLSync | null = null;
+  private waits = 0;
   private slow = 0;
   private frames = 0;
 
@@ -712,37 +716,55 @@ export class StandRenderer {
     this.setView(this.view.yaw, this.view.pitch, this.view.fov);
   }
 
+  /** Whether the chip is still drawing the last frame. */
+  private busy(): boolean {
+    if (!this.fence) return false;
+    const gl = this.renderer.getContext() as WebGL2RenderingContext;
+    if (gl.getSyncParameter(this.fence, gl.SYNC_STATUS) !== gl.SIGNALED) return true;
+    gl.deleteSync(this.fence);
+    this.fence = null;
+    return false;
+  }
+
+  /** Draws the frame and sets a fence after it. */
+  private draw() {
+    this.composer.render();
+    const gl = this.renderer.getContext() as WebGL2RenderingContext;
+    this.fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    gl.flush();
+  }
+
   render() {
     const now = performance.now();
     const maps = (this.built.parts.earth.material as THREE.ShaderMaterial).uniforms.uMaps.value;
     const v = this.view;
     const key = `${v.yaw.toFixed(3)} ${v.pitch.toFixed(3)} ${v.fov.toFixed(3)} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps}`;
-    const mode = this.pacer.next(key, now, this.pixelRatio >= this.fullRatio);
+    const busy = this.busy();
+    const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.fullRatio, busy });
     if (mode === 'idle') {
-      this.last = 0;
+      if (busy) this.waits++;
       return;
     }
     if (mode === 'sharp') {
       // The view has come to rest: one frame at full sharpness, which stays on the screen.
       this.drawAt(this.fullRatio);
-      this.composer.render();
-      this.last = 0;
+      this.draw();
+      this.waits = 0;
       return;
     }
     if (this.drawnRatio !== this.pixelRatio) this.drawAt(this.pixelRatio);
-    // Frame times count only between frames drawn one after another.
-    const dt = this.last ? (now - this.last) / 1000 : 0;
-    this.last = now;
+    // A chip that keeps the view waiting (three looks or more a frame, about 50 ms) draws fewer pixels while
+    // the view moves; the words and the numbers never change.
     this.frames++;
-    // If frames keep coming slowly, draw fewer pixels while moving; the words and the numbers never change.
-    if (dt > 0.045 && this.frames > 30) this.slow++;
+    if (this.waits >= 3 && this.frames > 10) this.slow++;
     else this.slow = Math.max(0, this.slow - 1);
-    if (this.slow > 20 && this.pixelRatio > 0.6) {
-      this.pixelRatio = Math.max(0.6, this.pixelRatio - 0.2);
+    this.waits = 0;
+    if (this.slow > 8 && this.pixelRatio > 0.45) {
+      this.pixelRatio = Math.max(0.45, this.pixelRatio - 0.15);
       this.slow = 0;
       this.drawAt(this.pixelRatio);
     }
-    this.composer.render();
+    this.draw();
   }
 
   labels(): SkyLabels {
@@ -750,6 +772,7 @@ export class StandRenderer {
   }
 
   dispose() {
+    if (this.fence) (this.renderer.getContext() as WebGL2RenderingContext).deleteSync(this.fence);
     this.built.root.environment?.dispose();
     this.built.dispose();
     this.composer.dispose();

@@ -31,7 +31,18 @@ describe('when the stand view draws', () => {
 
   it('skips the sharp frame when the moving frames were already full sharpness', () => {
     const p = new FramePacer();
-    p.next('a', 0, true);
-    expect(p.next('a', REST_MS, true)).toBe('idle');
+    p.next('a', 0, { fullWhileMoving: true });
+    expect(p.next('a', REST_MS, { fullWhileMoving: true })).toBe('idle');
+  });
+
+  it('queues no frame while the graphics chip is still drawing the last one, then draws the newest view', () => {
+    const p = new FramePacer();
+    expect(p.next('a', 0)).toBe('move');
+    expect(p.next('b', 16, { busy: true })).toBe('idle');
+    expect(p.next('c', 32, { busy: true })).toBe('idle');
+    expect(p.next('c', 48)).toBe('move');
+    // The rest is counted from the last change, and its sharp frame also waits for the chip.
+    expect(p.next('c', 32 + REST_MS, { busy: true })).toBe('idle');
+    expect(p.next('c', 40 + REST_MS)).toBe('sharp');
   });
 });

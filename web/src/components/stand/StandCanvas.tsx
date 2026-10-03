@@ -146,9 +146,11 @@ export function StandCanvas({
       }
       const g = goal.current;
       if (g) {
-        v.yaw = lerpAngle(v.yaw, g.yaw, 0.08);
-        v.pitch += (g.pitch - v.pitch) * 0.08;
-        v.fov += (g.fov - v.fov) * 0.08;
+        // Eased by the time passed, not the frames drawn: as quick on a slow graphics chip as on a fast one.
+        const k = 1 - Math.exp(-dt * 5);
+        v.yaw = lerpAngle(v.yaw, g.yaw, k);
+        v.pitch += (g.pitch - v.pitch) * k;
+        v.fov += (g.fov - v.fov) * k;
         if (Math.abs(((g.yaw - v.yaw + 540) % 360) - 180) < 0.1 && Math.abs(g.pitch - v.pitch) < 0.1 && Math.abs(g.fov - v.fov) < 0.1) goal.current = null;
       }
       const lift = portraitLift(el.clientWidth || window.innerWidth, el.clientHeight || window.innerHeight);

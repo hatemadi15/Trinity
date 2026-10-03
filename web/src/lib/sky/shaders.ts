@@ -168,8 +168,9 @@ void main() {
   // facets would otherwise streak) and the earthlit slopes around scatter a faint glow over the rest.
   col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.6 * mue / (mue + mu);
   col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.18;
-  // By day the sunlit dust around scatters a little light into the shadows, which are dark grey, not black.
-  col += albedo * vec3(1.0, 0.99, 0.975) * uSunPower * 0.025 * uSunUp;
+  // By day the sunlit dust around scatters a little light into the shadows; at a Sun this low very little
+  // (under 1 % of the Sun's), so they are nearly black, as in photographs taken on the Moon.
+  col += albedo * vec3(1.0, 0.99, 0.975) * uSunPower * 0.008 * uSunUp;
   gl_FragColor = vec4(col, 1.0);
 }`;
 
