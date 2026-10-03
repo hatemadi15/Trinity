@@ -645,9 +645,14 @@ export class StandRenderer {
   private size = { w: 1, h: 1 };
   private view = { yaw: 0, pitch: 0, fov: 60 };
   private hour = 0;
-  /** The pixel ratio while the view moves (stepped down on a slow chip), and the one for a still view. */
+  /**
+   * The pixel ratio while the view moves (stepped down on a slow chip), and the one for a still view: full,
+   * unless a still frame took the chip so long (over 0.9 s) that the next one draws fewer pixels, well clear
+   * of the two seconds after which Windows resets a graphics chip that seems stuck.
+   */
   private pixelRatio: number;
-  private readonly fullRatio: number;
+  private sharpRatio: number;
+  private sharpSince: number | null = null;
   /** The ratio the canvas is drawn at now. */
   private drawnRatio: number;
   private readonly pacer = new FramePacer();
@@ -661,7 +666,7 @@ export class StandRenderer {
     const gl = canvas.getContext('webgl2', { antialias: true });
     if (!gl) throw new Error('WebGL 2 is not available');
     this.renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true, logarithmicDepthBuffer: true });
-    this.pixelRatio = this.fullRatio = this.drawnRatio = scene.quality === 'fast' ? 0.75 : Math.min(window.devicePixelRatio || 1, 1.5);
+    this.pixelRatio = this.sharpRatio = this.drawnRatio = scene.quality === 'fast' ? 0.75 : Math.min(window.devicePixelRatio || 1, 1.5);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
@@ -716,13 +721,19 @@ export class StandRenderer {
     this.setView(this.view.yaw, this.view.pitch, this.view.fov);
   }
 
-  /** Whether the chip is still drawing the last frame. */
-  private busy(): boolean {
+  /** Whether the chip is still drawing the last frame; once a still frame is done, how long it took sets the next one's pixels. */
+  private busy(now: number): boolean {
     if (!this.fence) return false;
     const gl = this.renderer.getContext() as WebGL2RenderingContext;
     if (gl.getSyncParameter(this.fence, gl.SYNC_STATUS) !== gl.SIGNALED) return true;
     gl.deleteSync(this.fence);
     this.fence = null;
+    if (this.sharpSince !== null) {
+      // The time grows with the pixels, so with the square of the ratio: aim for 0.6 s.
+      const took = now - this.sharpSince;
+      if (took > 900) this.sharpRatio = Math.max(this.pixelRatio, this.sharpRatio * Math.sqrt(600 / took));
+      this.sharpSince = null;
+    }
     return false;
   }
 
@@ -739,16 +750,17 @@ export class StandRenderer {
     const maps = (this.built.parts.earth.material as THREE.ShaderMaterial).uniforms.uMaps.value;
     const v = this.view;
     const key = `${v.yaw.toFixed(3)} ${v.pitch.toFixed(3)} ${v.fov.toFixed(3)} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps}`;
-    const busy = this.busy();
-    const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.fullRatio, busy });
+    const busy = this.busy(now);
+    const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.sharpRatio, busy });
     if (mode === 'idle') {
       if (busy) this.waits++;
       return;
     }
     if (mode === 'sharp') {
       // The view has come to rest: one frame at full sharpness, which stays on the screen.
-      this.drawAt(this.fullRatio);
+      this.drawAt(this.sharpRatio);
       this.draw();
+      this.sharpSince = now;
       this.waits = 0;
       return;
     }
