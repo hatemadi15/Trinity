@@ -9,6 +9,7 @@ import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { shadowLevels } from '@/lib/data/terrain';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { exploreHref, standHref } from '@/lib/links';
+import { LANDER } from '@/lib/sky/landerShape';
 import { lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, heightAt, terrainField } from '@/lib/sky/terrainField';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
@@ -76,6 +77,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const [look, setLook] = useState<LookTarget | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [wordsHidden, setWordsHidden] = useState(false);
+  // Once the visitor turns the view (by hand or with a button), the card keeps to the headline and the
+  // lander's line, so the scene has the room; More brings the rest back.
+  const [explored, setExplored] = useState(false);
+  const onExplore = useCallback(() => setExplored(true), []);
   // A key moment chosen from its flag on the time bar: a line over the view says why, for 12 seconds or
   // until the view is turned another way.
   const [caption, setCaption] = useState<string | null>(null);
@@ -121,13 +126,14 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       : undefined;
     return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander };
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality]);
-  // How far below level the lander's nearest foot lies from the eye: the opening view keeps it in sight.
-  const feetEl = useMemo(() => {
+  // How far below level the lander's nearest foot lies from the eye, and which way: the opening view keeps
+  // it in sight while the lander is in view.
+  const feet = useMemo(() => {
     if (!scene?.lander) return null;
     const l = scene.lander, a = (l.azDeg * Math.PI) / 180;
     const ground = heightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
     const eye = heightAt(scene.field, 0, 0) + scene.mastM;
-    return (Math.atan2(ground - eye, l.distM - LANDER_FOOT_M) * 180) / Math.PI;
+    return { el: (Math.atan2(ground - eye, l.distM - LANDER_FOOT_M) * 180) / Math.PI, az: l.azDeg };
   }, [scene]);
   const onFail = useCallback(() => setFailed('webgl'), []);
   const onReady = useCallback(() => setDrawn(true), []);
@@ -189,6 +195,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // The note describes the view from the site: shown with it, not while the ground loads or in the fallback.
   const note = scene && !failed ? measuredNote(scene.field.levels.map((l) => l.cell), scene.sky.stars.count) : null;
   const face = (az: number, el: number, fov: number) => {
+    setExplored(true);
     setLookingUp(false);
     setCaption(null);
     setLook({ yaw: az, pitch: Math.max(-8, Math.min(60, el + 1.5)), fov });
@@ -199,10 +206,14 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const l = scene.lander, a = (l.azDeg * Math.PI) / 180;
     const ground = heightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
     const eye = heightAt(scene.field, 0, 0) + scene.mastM;
+    setExplored(true);
     setLookingUp(false);
     setCaption(null);
     setLook({ yaw: l.azDeg, pitch: (Math.atan2(ground + 1.7 - eye, l.distM) * 180) / Math.PI, fov: 36 });
   };
+  // Whether the view sees the back of the lander's panel: its cells face the Sun the lander was turned to.
+  const cellsAz = scene?.lander?.faceAzDeg !== undefined ? scene.lander.faceAzDeg + 90 - LANDER.panel.yawDeg : null;
+  const panelBackSeen = cellsAz !== null && scene?.lander ? Math.abs(((((scene.lander.azDeg + 180 - cellsAz + 540) % 360) + 360) % 360) - 180) > 90 : false;
   // The radio story: no contact while it has power from the landing, and when power and Earth meet.
   const contact = answer.poweredHours > 0 ? answer.sentences[0] : null;
   const radio = radioNext(series, power, s.startUtc);
@@ -218,6 +229,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     setCaption(momentCaption(m.kind, series, m.hour, site.lat) || null);
   };
   const opening = openHour === null ? hour : Math.min(series.hours - 1, Math.max(0, openHour));
+  // At night with Earth up the view opens on Earth, narrower, so Earth (four times the Sun's width) shows large.
+  const openOnEarth = series.sunFraction[opening] === 0 && series.earthVisible[opening] === 1;
   // After the first power cut, what needs power again holds only if the lander lives through the night.
   let ifSurvivesFrom: number | null = null;
   if (power.firstBrownoutHour !== null) {
@@ -231,6 +244,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // Looking up: at the Southern Cross (else away from the Sun, 50° up), the sky alone in view, clear of
   // the ground: a slope rising beside you would curve up from a corner like the edge of a planet.
   const lookUp = () => {
+    setExplored(true);
     setLookingUp(true);
     setCaption(null);
     const cross = scene ? lookUpTarget(scene.sky, site.lat, site.lon, Date.parse(s.startUtc + 'Z') + hour * 3600e3) : null;
@@ -238,13 +252,16 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   };
   const crossNamed = !!scene && scene.sky.names?.some((n) => n.name === 'Acrux');
   // The line over the view: why a key moment happens, why Earth sits where it does, what looking up shows,
-  // or, at night with Earth up, where the light comes from.
+  // or, at night, where the light comes from: Earth's, or, with neither the Sun nor Earth up, none (and why
+  // farther hills can still be lit).
   const overView =
     caption ??
     (lookingUp
       ? viewCaption('up', crossNamed ? site.lat : Math.abs(site.lat))
-      : series.sunFraction[hour] === 0 && series.earthVisible[hour] === 1
-        ? viewCaption('earthlight', site.lat)
+      : series.sunFraction[hour] === 0
+        ? series.earthVisible[hour] === 1
+          ? viewCaption('earthlight', site.lat)
+          : viewCaption('dark', site.lat, series.sunEl[hour])
         : null);
 
   return (
@@ -263,7 +280,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           onFail={onFail}
           onReady={onReady}
           clean={wordsHidden}
-          keepInView={feetEl}
+          keepInView={feet}
+          startFov={openOnEarth ? (tall() ? 50 : 36) : undefined}
+          onExplore={onExplore}
         />
       )}
       {failed && s.mask && (
@@ -287,22 +306,24 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             ref={topRef}
             data-plate=""
             aria-label="The answer for this site"
-            className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 md:max-h-[calc(100dvh-var(--bar-h,185px)-32px)] md:gap-2.5 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-48px)]`}
+            className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 md:max-h-[calc(100dvh-var(--bar-h,185px)-32px)] md:gap-2.5 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-40px)]`}
           >
-            <p className="text-[15px] text-[#c3bfb6] max-md:hidden">{standingLine(site, oneLine, 'top', flat)}</p>
+            {/* Once the view is turned, the card keeps to the headline and the lander's line. */}
+            {(!explored || more) && <p className="text-[15px] text-[#c3bfb6] max-md:hidden">{standingLine(site, oneLine, 'top', flat)}</p>}
             {/* A phone keeps the site and the pole, in one line. */}
-            <p className="text-[13px] text-[#c3bfb6] md:hidden">{standingLine(site, oneLine, 'phone')}</p>
-            <h1 className="display text-pretty text-[18px] font-bold leading-tight sm:text-[28px]">{title}</h1>
-            <p className="flex items-baseline gap-2 text-[15px] md:text-base">
+            <p className="text-[14px] text-[#c3bfb6] md:hidden">{standingLine(site, oneLine, 'phone')}</p>
+            <h1 className={`display text-pretty text-[18px] font-bold leading-tight ${explored && !more ? 'sm:text-[22px]' : 'sm:text-[28px]'}`}>{title}</h1>
+            {/* On a phone the lander's line waits under More: the headline and the better day keep the card short. */}
+            <p className={`flex items-baseline gap-2 text-[15px] md:text-base ${more ? '' : 'max-md:hidden'}`}>
               <i aria-hidden="true" data-tone={lander.tone} className={`h-3 w-3 shrink-0 translate-y-px rounded-full ${TONE[lander.tone]}`} />
               <span>{lander.text}</span>
             </p>
             {/* On a phone the rest waits under More, so the view keeps the screen. */}
-            <p className={`text-[14px] text-[#f6d48a] md:text-[15px] ${more ? '' : 'max-md:hidden'}`}>{watchNext(series, power, s.startUtc, hour)}</p>
+            {(!explored || more) && <p className={`text-[14px] text-[#f6d48a] md:text-[15px] ${more ? '' : 'max-md:hidden'}`}>{watchNext(series, power, s.startUtc, hour)}</p>}
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
               {better && (
                 // A new period: the whole view opens again from its first hour.
-                <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a] ${more ? '' : 'max-md:hidden'}`}>
+                <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a] ${explored && !more ? 'md:hidden' : ''}`}>
                   {better.label}
                 </a>
               )}
@@ -315,8 +336,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             </div>
             {more && (
               <div className="grid gap-2 border-t border-white/10 pt-3 text-[15px] text-[#e4e1da]">
+                {/* The radio story first: when power and Earth first meet, else how much of the time they do. */}
+                {radio ? <p>{radio}</p> : contact && <p>{contact}</p>}
                 <p>{standingLine(site, name, 'more')}</p>
-                {contact && <p>{radio ? `${contact} ${radio}` : contact}</p>}
                 {whyLines(site.lat, series, hour).map((w) => (
                   <p key={w}>{w}</p>
                 ))}
@@ -334,9 +356,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 data-plate=""
                 role="group"
                 aria-label="Look towards"
-                className={`${PLATE} pointer-events-auto flex flex-wrap items-center gap-1.5 p-1.5 lg:flex-nowrap max-md:fixed max-md:inset-x-4 max-md:bottom-[calc(var(--bar-h,211px)+10px)] max-md:flex-nowrap max-md:justify-between max-md:gap-1 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
+                className={`${PLATE} pointer-events-auto flex flex-wrap items-center gap-1.5 p-1.5 lg:flex-nowrap max-md:fixed max-md:inset-x-0 max-md:bottom-[var(--bar-h,211px)] max-md:flex-nowrap max-md:justify-between max-md:gap-1 max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:bg-[#1e1e1e] max-md:px-3 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
               >
-                <span className="pl-1 text-[13px] text-[#c3bfb6] md:hidden">Face</span>
+                <span className="pl-1 text-[14px] text-[#c3bfb6] md:hidden">Face</span>
                 <button type="button" aria-label="Face the Sun" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
                   <Short short="Sun" long="Face the Sun" />
                 </button>
@@ -358,7 +380,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     className={LOOK}
                     onClick={() => {
                       faceLander();
-                      setCaption(viewCaption('lander', site.lat));
+                      setCaption(`${viewCaption('lander', site.lat)}${panelBackSeen ? ' From here you see its back: its cells face the Sun.' : ''}`);
                     }}
                   >
                     <Short short="Lander" long="Face the lander" />
@@ -379,7 +401,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <Short short="Hide words" long="Hide the words" />
                 </button>
               </div>
-              <p className="pr-1 text-right text-[13px] text-[#c3bfb6] [text-shadow:0_0_4px_#000] max-md:hidden">Drag to look around; pinch or scroll to zoom.</p>
+              <p className="pr-1 text-right text-[14px] text-[#c3bfb6] [text-shadow:0_0_4px_#000] max-md:hidden">Drag to look around; pinch or scroll to zoom.</p>
             </div>
           )}
         </div>
@@ -388,7 +410,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         // Why a key moment happens, or what looking up shows: above the compass (on a phone, above the buttons).
         <p
           data-plate=""
-          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+80px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+20px)]`}
+          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+80px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]`}
         >
           {overView}
         </p>

@@ -40,16 +40,16 @@ describe('ShadowMap', () => {
     expect(screen.getByText('de Gerlache Rim 2')).toBeTruthy();
     // Turned so north is up, the 20.48 km square shows its middle 15 km: a 2 km bar.
     expect(screen.getByText('2 km')).toBeTruthy();
-    expect(screen.getByText('Sun 2° up')).toBeTruthy();
+    expect(screen.getByText('Sun 2.4° up')).toBeTruthy();
     expect(screen.getByText('Earth below the horizon')).toBeTruthy();
   });
 
   it('keeps the words at the end of an arrow inside the map: by their left side on the left, by their right side on the right', () => {
     show({ lon: 0, sunAz: 270, earthAz: 90, earthEl: 2 });
-    const sun = screen.getByText('Sun 2° up');
+    const sun = screen.getByText('Sun 2.4° up');
     expect(sun.style.left).toBe('8%');
     expect(sun.style.transform).toBe('translate(0, -50%)');
-    const earth = screen.getByText('Earth 2° up');
+    const earth = screen.getByText('Earth 2.0° up');
     expect(earth.style.left).toBe('92%');
     expect(earth.style.transform).toBe('translate(-100%, -50%)');
   });
@@ -80,7 +80,7 @@ describe('ShadowMap', () => {
   it('lets its words give way where they would overlap: the site first, then north, the Sun, Earth and the scale', () => {
     show();
     const priority = (text: string) => screen.getByText(text).closest('[data-label]')?.getAttribute('data-priority');
-    expect([priority('de Gerlache Rim 2'), priority('N'), priority('Sun 2° up'), priority('Earth below the horizon'), priority('2 km')]).toEqual(['0', '1', '2', '3', '4']);
+    expect([priority('de Gerlache Rim 2'), priority('N'), priority('Sun 2.4° up'), priority('Earth below the horizon'), priority('2 km')]).toEqual(['0', '1', '2', '3', '4']);
   });
 
   it('puts north at the top: the picture turns by the site\'s longitude, and the compass has N up', () => {
@@ -97,8 +97,8 @@ describe('ShadowMap', () => {
 
   it("says on the arrows' words when the hills hide them, and on the site's name whether it is lit", () => {
     show({ sunEl: 2.4, sunHidden: 'yes', earthEl: 3, earthHidden: 'yes', siteState: 'in shadow' });
-    expect(screen.getByText('Sun 2° up, behind the hills')).toBeTruthy();
-    expect(screen.getByText('Earth 3° up, behind the hills')).toBeTruthy();
+    expect(screen.getByText('Sun 2.4° up, behind the hills')).toBeTruthy();
+    expect(screen.getByText('Earth 3.0° up, behind the hills')).toBeTruthy();
     expect(screen.getByText('de Gerlache Rim 2, in shadow')).toBeTruthy();
   });
 
@@ -123,9 +123,9 @@ describe('ShadowMap', () => {
     vi.stubGlobal('ResizeObserver', FakeObserver);
     try {
       show();
-      expect(screen.queryByText('Sun 2° up')).toBeTruthy();
+      expect(screen.queryByText('Sun 2.4° up')).toBeTruthy();
       act(() => watchers.forEach((cb) => cb([{ contentRect: { width: 300 } }])));
-      expect(screen.queryByText('Sun 2° up')).toBeNull();
+      expect(screen.queryByText('Sun 2.4° up')).toBeNull();
       expect(screen.queryByText('Earth below the horizon')).toBeNull();
       expect(screen.getByText('Sun')).toBeTruthy();
       expect(screen.getByText('Earth')).toBeTruthy();

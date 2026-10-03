@@ -8,8 +8,13 @@ export function compassWord(azDeg: number): string {
   return POINTS[Math.round((((azDeg % 360) + 360) % 360) / 45) % 8];
 }
 
-/** "2°", or "1.6°" below one degree and a half, where a whole number would say too little. */
-export const degrees = (v: number) => (Math.abs(v) < 1.95 ? `${Math.round(v * 10) / 10}°` : `${Math.round(v)}°`);
+/**
+ * A height in degrees: to a tenth of a degree under 10° ("2.5°", "2.0°"), where near a pole the Sun and Earth
+ * spend their days and a whole degree says too little, and whole from 10° ("12°"). The switch sits at 9.95°,
+ * where a tenth would round to 10.0°. The forecast's sentences and the stand view's labels both use it, so
+ * they give the same height for the same hour.
+ */
+export const degrees = (v: number) => (Math.abs(v) < 9.95 ? `${(Math.round(v * 10) / 10).toFixed(1)}°` : `${Math.round(v)}°`);
 
 /**
  * The ground panel's words for one hour: whether the site is in sunlight and why not, and whether
@@ -38,7 +43,8 @@ export function groundWords(series: Series, hour: number): { sun: string; earth:
     sun = `It is night at the site: the Sun is below the horizon, to the ${toward}.`;
     siteState = 'at night';
   } else {
-    sun = `The site is in shadow: the Sun is ${degrees(el)} above the horizon but behind the hills to the ${toward}.`;
+    // Within a twentieth of a degree of level it is on the horizon, as in sunlight, never "0.0° above" it.
+    sun = `The site is in shadow: the Sun is ${el < 0.05 ? 'on the horizon' : `${degrees(el)} above the horizon`} but behind the hills to the ${toward}.`;
     siteState = 'in shadow';
     sunHidden = 'yes';
   }

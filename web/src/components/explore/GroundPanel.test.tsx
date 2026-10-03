@@ -101,7 +101,8 @@ describe('GroundPanel', () => {
   it('says in words, above every tab, whether the site is in sunlight at that hour and whether Earth can be reached', () => {
     show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
     const now = screen.getByRole('region', { name: 'The ground' }).querySelector('[data-part="now"]')!;
-    expect(now.textContent).toBe('The site is in sunlight: the Sun is 2° above the horizon, to the west. Earth is in view, 4° above the horizon to the north: radio contact is possible.');
+    // Heights under 10° to a tenth of a degree, as the stand view's labels give them.
+    expect(now.textContent).toBe('The site is in sunlight: the Sun is 2.0° above the horizon, to the west. Earth is in view, 4.0° above the horizon to the north: radio contact is possible.');
     for (const name of ['3D model', 'Horizon chart']) {
       fireEvent.click(tab(name));
       expect(screen.getByRole('region', { name: 'The ground' }).querySelector('[data-part="now"]')!.textContent).toBe(now.textContent);

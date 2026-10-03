@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { crossStars, type StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
+import { shadowWords, starLabel } from '@/lib/viz/stand';
 
 export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void> };
 /** Where to turn the view; a new object turns it again, even to the same place. */
@@ -42,6 +43,34 @@ export function slopeWord(yawDeg: number, upAzDeg: number, grade: number): strin
   if (grade < Math.tan((5 * Math.PI) / 180)) return '';
   const rel = Math.abs(((((yawDeg - upAzDeg + 540) % 360) + 360) % 360) - 180);
   return rel <= 45 ? ', uphill' : rel >= 135 ? ', downhill' : '';
+}
+
+/**
+ * Pointers to the Sun, Earth and the lander when they lie beyond either side of the view: from that edge of
+ * the screen, at about the height they stand at (`el`, degrees), held 24 px inside the room between the
+ * panels (`freeTop` to `freeBottom`), two on one side stacked 34 px apart; none for what is in view.
+ */
+export function edgePointers(
+  bodies: { key: string; az: number; el: number }[],
+  v: { yaw: number; pitch: number; fov: number; W: number; H: number; freeTop: number; freeBottom: number },
+): { key: string; side: 'left' | 'right'; y: number }[] {
+  const t = Math.tan((v.fov * Math.PI) / 360), half = (Math.atan(t * (v.W / v.H)) * 180) / Math.PI;
+  const lo = v.freeTop + 24, hi = Math.max(lo, v.freeBottom - 24);
+  const out: { key: string; side: 'left' | 'right'; y: number }[] = [];
+  for (const b of bodies) {
+    const rel = ((((b.az - v.yaw + 540) % 360) + 360) % 360) - 180;
+    if (Math.abs(rel) <= half - 2) continue;
+    const y = v.H / 2 - (Math.tan(((b.el - v.pitch) * Math.PI) / 180) / t) * (v.H / 2);
+    out.push({ key: b.key, side: rel > 0 ? 'right' : 'left', y: Math.min(hi, Math.max(lo, y)) });
+  }
+  for (const side of ['left', 'right'] as const) {
+    const on = out.filter((p) => p.side === side).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < on.length; i++) if (on[i].y - on[i - 1].y < 34) on[i].y = on[i - 1].y + 34;
+    // Pushed past the room's foot: the stack slides up.
+    const over = on.length ? on[on.length - 1].y - hi : 0;
+    if (over > 0) for (const p of on) p.y = Math.max(lo, p.y - over);
+  }
+  return out;
 }
 
 /** The Southern Cross's four stars, named only while the cross's own name is not shown. */
@@ -203,6 +232,8 @@ export function StandCanvas({
   onReady,
   clean = false,
   keepInView = null,
+  startFov,
+  onExplore,
 }: {
   scene: StandScene;
   hour: number;
@@ -219,8 +250,15 @@ export function StandCanvas({
   onReady?: () => void;
   /** The clean view: no label and no compass over the picture. */
   clean?: boolean;
-  /** Degrees below level that the opening view keeps in sight above the time bar (the lander's feet). */
-  keepInView?: number | null;
+  /**
+   * What the opening view keeps in sight above the time bar while it is in view across the screen: the
+   * lander's feet, `el` degrees below level, towards `az`.
+   */
+  keepInView?: { el: number; az: number } | null;
+  /** How wide the view opens (degrees, top to bottom); else 60, or 80 on a tall screen. */
+  startFov?: number;
+  /** Called the first time the view is turned by hand (a drag, a key, the wheel or a pinch). */
+  onExplore?: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
@@ -239,12 +277,13 @@ export function StandCanvas({
   const facingRef = useRef<HTMLParagraphElement>(null);
   const facingPhoneRef = useRef<HTMLParagraphElement>(null);
   const markRefs = useRef<Partial<Record<Body, HTMLElement | null>>>({});
-  const edgeRefs = useRef<Partial<Record<string, HTMLElement | null>>>({});
+  const pointerRefs = useRef<Partial<Record<Body, HTMLElement | null>>>({});
   const trackRef = useRef<HTMLDivElement>(null);
   const hourRef = useRef(hour);
   const nightRef = useRef(night);
   // A tall screen opens wider (80° up and down), so the Sun and the lander both fit across it.
-  const view = useRef({ yaw: startYaw, pitch: reducedMotion ? 2 : 34, fov: typeof window !== 'undefined' && window.innerHeight > window.innerWidth ? 80 : 60 });
+  const view = useRef({ yaw: startYaw, pitch: reducedMotion ? 2 : 34, fov: startFov ?? (typeof window !== 'undefined' && window.innerHeight > window.innerWidth ? 80 : 60) });
+  const exploreRef = useRef(onExplore);
   const goal = useRef<LookTarget | null>(null);
   const intro = useRef<{ start: number } | null>(reducedMotion ? null : { start: 0 });
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null);
@@ -269,6 +308,9 @@ export function StandCanvas({
   useEffect(() => {
     keepRef.current = keepInView;
   }, [keepInView]);
+  useEffect(() => {
+    exploreRef.current = onExplore;
+  }, [onExplore]);
   useEffect(() => {
     failRef.current = onFail;
   }, [onFail]);
@@ -382,8 +424,11 @@ export function StandCanvas({
       const lift = horizonLift(W, H, v.fov, freeTop, freeBottom) * Math.max(0, Math.min(1, (30 - v.pitch) / 10));
       let pitch = v.pitch + lift;
       // The opening view looks a little lower if it must, so the lander's feet stay in sight above the bar.
-      if (openingRef.current && keepRef.current !== null) {
-        const fitted = fitPitch(H, v.fov, freeBottom, keepRef.current, pitch);
+      const keep = keepRef.current;
+      const keepRel = keep ? Math.abs(((((keep.az - v.yaw + 540) % 360) + 360) % 360) - 180) : 180;
+      const halfW = (Math.atan(Math.tan((v.fov * Math.PI) / 360) * (W / H)) * 180) / Math.PI;
+      if (openingRef.current && keep && keepRel < halfW) {
+        const fitted = fitPitch(H, v.fov, freeBottom, keep.el, pitch);
         fitOffset.current = (fitted - pitch) * settled;
         pitch += fitOffset.current;
       }
@@ -425,8 +470,9 @@ export function StandCanvas({
       // Your own shadow, long across the ground while the Sun is low.
       const sh = l.shadow;
       if (shadowRef.current && sh) {
-        // With the height it is worked out for, so the Sun's height can be checked from it.
-        const text = `Your shadow, ${Math.round(sh.lengthM)} m long\n(you are 1.8 m tall)`;
+        // With the height it is worked out for, so the Sun's height can be checked from it, and on a slope what
+        // it would be on level ground.
+        const text = shadowWords(sh.lengthM, sh.levelM);
         if (shadowRef.current.textContent !== text) shadowRef.current.textContent = text;
       }
       place(shadowRef.current, sh ?? null);
@@ -468,10 +514,23 @@ export function StandCanvas({
           if (m.x !== null) mark.style.left = `${m.x}px`;
           mark.dataset.up = up ? '1' : '0';
         }
-        for (const side of ['left', 'right'] as const) {
-          const e = edgeRefs.current[`${side}-${k}`];
-          if (e) e.hidden = m.edge !== side;
-        }
+      }
+      // What lies beyond either side of the view: a pointer from that edge of the screen, at its height.
+      const els: Record<Body, number> = { sun: scene.series.sunEl[hr], earth: scene.series.earthEl[hr], lander: -12 };
+      const pointers = edgePointers(
+        where.map(([k, az]) => ({ key: k, az, el: els[k] })),
+        { yaw: v.yaw, pitch, fov: v.fov, W, H, freeTop, freeBottom },
+      );
+      for (const [k] of BODIES) {
+        const node = pointerRefs.current[k];
+        if (!node) continue;
+        const p = pointers.find((x) => x.key === k);
+        node.hidden = !p;
+        if (!p) continue;
+        node.dataset.side = p.side;
+        node.style.top = `${p.y}px`;
+        node.style.left = p.side === 'left' ? '8px' : '';
+        node.style.right = p.side === 'right' ? '8px' : '';
       }
       raf = requestAnimationFrame(tick);
     };
@@ -495,6 +554,7 @@ export function StandCanvas({
 
   const turn = (dYaw: number, dPitch: number, zoom = 1) => {
     endOpening();
+    exploreRef.current?.();
     const v = view.current;
     goal.current = null;
     intro.current = null;
@@ -514,6 +574,7 @@ export function StandCanvas({
         onPointerDown={(e) => {
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
           endOpening();
+          exploreRef.current?.();
           goal.current = null;
           intro.current = null;
           e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -583,24 +644,24 @@ export function StandCanvas({
           {`Facing ${compassWord(startYaw)}`}
         </p>
       </div>
-        {/* Bodies beyond the strip, named beside its nearer end, in one row. */}
-        {(['left', 'right'] as const).map((side) => (
-          <span key={side} className={`absolute top-1.5 flex gap-1 ${side === 'left' ? 'right-full mr-2 flex-row-reverse' : 'left-full ml-2'}`}>
-            {BODIES.map(([k, name, colour]) => (
-              <span
-                key={k}
-                data-edge={`${side}-${k}`}
-                ref={(node) => {
-                  edgeRefs.current[`${side}-${k}`] = node;
-                }}
-                hidden
-                className="flex items-center gap-1 whitespace-nowrap rounded border border-white/15 bg-black/75 px-1.5 text-[13px] leading-5"
-              >
-                {side === 'left' && <i className={`h-2 w-2 rounded-full ${colour}`} />}
-                {k === 'sun' ? sunLabel : k === 'earth' ? earthLabel : name}
-                {side === 'right' && <i className={`h-2 w-2 rounded-full ${colour}`} />}
-              </span>
-            ))}
+      </div>
+      {/* What lies beyond either side of the view: a pointer at that edge of the screen, at its height. */}
+      <div aria-hidden="true" hidden={clean} className="pointer-events-none fixed inset-0 overflow-hidden">
+        {BODIES.map(([k, name, colour]) => (
+          <span
+            key={k}
+            data-pointer={k}
+            ref={(node) => {
+              pointerRefs.current[k] = node;
+            }}
+            hidden
+            className="group absolute flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-0.5 text-[14px] text-[#f2f0ea] data-[side=right]:flex-row-reverse"
+          >
+            <svg width="8" height="10" viewBox="0 0 8 10" className="shrink-0 fill-current group-data-[side=right]:rotate-180">
+              <path d="M0 5 8 0v10z" />
+            </svg>
+            <i className={`h-2 w-2 shrink-0 rounded-full ${colour}`} />
+            {k === 'sun' ? sunLabel : k === 'earth' ? earthLabel : name}
           </span>
         ))}
       </div>
@@ -609,7 +670,7 @@ export function StandCanvas({
         ref={facingPhoneRef}
         aria-hidden="true"
         hidden={clean}
-        className="pointer-events-none fixed right-4 top-[calc(var(--top-h,220px)+8px)] rounded-[6px] border border-white/15 bg-black/70 px-2 py-0.5 text-[13px] text-[#f2f0ea] md:hidden"
+        className="pointer-events-none fixed right-4 top-[calc(var(--top-h,220px)+8px)] rounded-[6px] border border-white/15 bg-black/70 px-2 py-0.5 text-[14px] text-[#f2f0ea] md:hidden"
       >
         {`Facing ${compassWord(startYaw)}`}
       </p>
@@ -656,7 +717,7 @@ export function StandCanvas({
             style={{ transform: SIDE.right }}
             className="pointer-events-none absolute whitespace-nowrap text-[14px] text-[#d7d4cc] [text-shadow:0_0_4px_#000]"
           >
-            {name}
+            {starLabel(name)}
           </span>
         ))}
       </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clearOf, compassMark, easeStep, fitPitch, horizonLift, labelSides, partSide, slopeWord, starNamesShown } from './StandCanvas';
+import { clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, partSide, slopeWord, starNamesShown } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -145,3 +145,37 @@ describe('a label beside a panel', () => {
   });
 });
 
+describe('pointers to what is out of view', () => {
+  // 1440 x 900, 60 degrees top to bottom, facing 300 degrees (north-west), level; free room 424 to 737 px.
+  const view = { yaw: 300, pitch: 0, fov: 60, W: 1440, H: 900, freeTop: 424, freeBottom: 737 };
+  it('points to a body beyond either side of the view from that edge of the screen, at about its height, and to none in view', () => {
+    const p = edgePointers([
+      { key: 'sun', az: 290, el: 2 },
+      { key: 'earth', az: 40, el: -1.2 },
+      { key: 'lander', az: 200, el: -20 },
+    ], view);
+    // The Sun is in view: no pointer. Earth is 100 degrees right; the lander 100 degrees left.
+    expect(p.map((x) => [x.key, x.side])).toEqual([
+      ['earth', 'right'],
+      ['lander', 'left'],
+    ]);
+    // Earth just below level sits near the middle of the screen, in the free room.
+    const e = p.find((x) => x.key === 'earth')!;
+    expect(e.y).toBeGreaterThan(450);
+    expect(e.y).toBeLessThan(737 - 24);
+    // The lander far below: held 24 px inside the room's foot.
+    expect(p.find((x) => x.key === 'lander')!.y).toBe(737 - 24);
+  });
+  it('stacks two pointers on one side 34 px apart, never inside the panels above and below', () => {
+    const p = edgePointers([
+      { key: 'earth', az: 40, el: 3 },
+      { key: 'lander', az: 45, el: 3 },
+    ], view);
+    expect(p).toHaveLength(2);
+    expect(Math.abs(p[0].y - p[1].y)).toBeGreaterThanOrEqual(34);
+    for (const x of p) {
+      expect(x.y).toBeGreaterThanOrEqual(424 + 24);
+      expect(x.y).toBeLessThanOrEqual(737 - 24);
+    }
+  });
+});

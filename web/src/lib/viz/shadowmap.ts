@@ -1,4 +1,5 @@
 /** Geometry and words for the shadow map: its scale bar, the arrows to the Sun and Earth, where the words go. */
+import { degrees } from './ground';
 import { labelBox, placeMapLabels, plateSize, type LabelBox } from './maplabels';
 
 const ROUND_KM = [0.5, 1, 2, 5, 10, 20, 50];
@@ -62,10 +63,10 @@ export function compassCorner(ends: { x: number; y: number }[]): Corner {
 /** Whether the hills hide a body that is above the horizon: not at all, in part, or wholly. */
 export type Hidden = 'no' | 'partly' | 'yes';
 
-/** "Sun 2° up", "Sun 2° up, behind the hills", or "Earth below the horizon". */
+/** "Sun 2.4° up", "Sun 2.4° up, behind the hills", or "Earth below the horizon": tenths below 10°, as everywhere. */
 export function heightWords(name: 'Sun' | 'Earth', elDeg: number, hidden: Hidden = 'no'): string {
   if (elDeg < 0) return `${name} below the horizon`;
-  const up = `${name} ${Math.round(elDeg)}° up`;
+  const up = `${name} ${degrees(elDeg)} up`;
   return hidden === 'yes' ? `${up}, behind the hills` : hidden === 'partly' ? `${up}, partly behind the hills` : up;
 }
 

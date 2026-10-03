@@ -2,7 +2,7 @@ import type { Series } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
 import { parseExploreQuery, type ExploreQuery } from '../store/query';
 import { dateLong, dayMonth, spanWords } from './format';
-import { groundWords } from './ground';
+import { degrees, groundWords } from './ground';
 
 /** Explore's address plus the hour the view opens on: `?site=&start=&days=&hour=`; a malformed hour is left out. */
 export function standQuery(search: string | URLSearchParams): ExploreQuery & { hour?: number } {
@@ -14,25 +14,80 @@ export function standQuery(search: string | URLSearchParams): ExploreQuery & { h
 }
 
 /**
- * A height for the sky's labels: to a tenth of a degree under 10° ("2.4°", "2.0°"), where near a pole the Sun
- * and Earth spend their days and a whole degree says too little, and whole from 10° ("12°"). The switch sits
- * at 9.95°, where a tenth would round to 10.0°, as ground.ts's `degrees` switches at 1.95°.
- */
-const height = (el: number) => (el < 9.95 ? `${(Math.round(el * 10) / 10).toFixed(1)}°` : `${Math.round(el)}°`);
-
-/**
- * The label beside the Sun or Earth in the sky: "Sun 2.4° up", "Earth 12° up", "Sun, behind the hills",
- * "Earth, below the horizon". The height keeps a tenth of a degree under 10°, and is whole from there.
- * Whether the body shows comes from the skyline, as in the ground panel's words: from a high point the
- * skyline dips below level, so a body can show while just below the level horizon, and is then "on the
- * horizon" rather than below it or a negative height up.
+ * The label beside the Sun or Earth in the sky: "Sun 2.4° up", "Earth 12° up"; and out of view its height
+ * still, as how far below the horizon Earth is says how long the radio waits: "Sun 0.4° up, behind the
+ * hills", "Earth, 1.2° below the horizon". Heights are written as `degrees` writes them for the forecast's
+ * sentences, a tenth of a degree under 10° and whole from there, so the two give the same height. Whether
+ * the body shows comes from the skyline, as in the ground panel's words: from a high point the skyline dips
+ * below level, so a body can show while just below the level horizon, and is then "on the horizon" rather
+ * than below it or a negative height up. Within a twentieth of a degree of level a body out of view is "on
+ * the horizon, behind the hills" or "just below the horizon", never 0.0°.
  */
 export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string {
   const name = body === 'sun' ? 'Sun' : 'Earth';
   const el = body === 'sun' ? s.sunEl[hour] : s.earthEl[hour];
   const shows = body === 'sun' ? s.sunFraction[hour] > 0 : s.earthVisible[hour] === 1;
-  if (shows) return el >= 0.05 ? `${name} ${height(el)} up` : `${name}, on the horizon`;
-  return el < 0 ? `${name}, below the horizon` : `${name}, behind the hills`;
+  if (shows) return el >= 0.05 ? `${name} ${degrees(el)} up` : `${name}, on the horizon`;
+  if (el < 0) return el > -0.05 ? `${name}, just below the horizon` : `${name}, ${degrees(-el)} below the horizon`;
+  return el >= 0.05 ? `${name} ${degrees(el)} up, behind the hills` : `${name}, on the horizon, behind the hills`;
+}
+
+/**
+ * The label on your own shadow, in whole metres, on two lines: its length along the ground you stand on
+ * (`lengthM`), and when the slope makes that a tenth or more shorter or longer than on level ground
+ * (`levelM`, for a person 1.8 m tall), the length on level ground too, from which a reader can check the
+ * Sun's height: "Your shadow, 30 m long up this slope\n(42 m on level ground; you are 1.8 m tall)", or "down
+ * this slope" when the slope makes it longer. Otherwise, and when the two would read the same in whole
+ * metres: "Your shadow, 42 m long\n(you are 1.8 m tall)". The newline is a line break in the label.
+ */
+export function shadowWords(lengthM: number, levelM: number): string {
+  const length = Math.round(lengthM);
+  const level = Math.round(levelM);
+  if (length === level || Math.abs(lengthM - levelM) < 0.1 * levelM) return `Your shadow, ${length} m long\n(you are 1.8 m tall)`;
+  return `Your shadow, ${length} m long ${lengthM < levelM ? 'up' : 'down'} this slope\n(${level} m on level ground; you are 1.8 m tall)`;
+}
+
+/**
+ * The IAU constellations of the bright stars the app names (public/data/sky/star_names.json, by the
+ * catalogue designations in pipeline/lunar_pipeline/sky.py), in one style: a one-word Latin name as English
+ * speakers use it ("Carina", "Scorpius"), a two-word one in its English form ("Southern Triangle" for
+ * Triangulum Australe, "Great Dog" for Canis Major, "Little Bear" for Ursa Minor). The Southern Cross's four
+ * stars and its pointers, Alpha Centauri and Hadar, are left out: they keep their plain names.
+ */
+const CONSTELLATIONS: [string, string[]][] = [
+  ['Great Dog', ['Sirius', 'Adhara']],
+  ['Little Dog', ['Procyon']],
+  ['Little Bear', ['Polaris']],
+  ['Southern Fish', ['Fomalhaut']],
+  ['Southern Triangle', ['Atria']],
+  ['Aquila', ['Altair']],
+  ['Auriga', ['Capella']],
+  ['Boötes', ['Arcturus']],
+  ['Carina', ['Canopus', 'Miaplacidus', 'Avior']],
+  ['Cygnus', ['Deneb']],
+  ['Eridanus', ['Achernar']],
+  ['Gemini', ['Pollux']],
+  ['Grus', ['Alnair']],
+  ['Leo', ['Regulus']],
+  ['Lyra', ['Vega']],
+  ['Orion', ['Rigel', 'Betelgeuse']],
+  ['Pavo', ['Peacock']],
+  ['Scorpius', ['Antares', 'Shaula']],
+  ['Taurus', ['Aldebaran']],
+  ['Virgo', ['Spica']],
+];
+const CONSTELLATION_OF = new Map(CONSTELLATIONS.flatMap(([constellation, stars]) => stars.map((star) => [star, constellation] as const)));
+
+/**
+ * A bright star's name as the view writes it beside the star: with its constellation, as the name alone
+ * means nothing to most students, "Atria, Southern Triangle", "Canopus, Carina". The Southern Cross's own
+ * four stars (Acrux, Mimosa, Gacrux, Imai) and its pointers (Alpha Centauri, Hadar) keep their plain names,
+ * as the caption after Look up names the cross and the pointers; so does any name it does not know, the
+ * Southern Cross's own included.
+ */
+export function starLabel(name: string): string {
+  const constellation = CONSTELLATION_OF.get(name);
+  return constellation ? `${name}, ${constellation}` : name;
 }
 
 /**
@@ -68,9 +123,9 @@ export function liveSentence(s: Series, hour: number, powered?: boolean): string
  * on the time bar under the card: "Press Play or a flag below: the Sun goes behind the hills on 3 January,
  * and the battery runs out on 4 January." A Sun that leaves the view while still above the level horizon
  * goes behind the hills; below it, it "sets below the horizon". On the same day the day is said once: "...:
- * the Sun comes back on 20 January, and the power with it, if the lander survives 16 days of night colder
- * than −170 °C." The power coming back always carries that condition, straight after it, as the forecast
- * counts energy only: the whole days of that stretch without power, counted as in the headline
+ * the Sun comes back on 20 January, and the power with it, if the lander survives 16 days without power in a
+ * night colder than −170 °C." The power coming back always carries that condition, straight after it, as the
+ * forecast counts energy only: the whole days of that stretch without power, counted as in the headline
  * (nightHeadline); when the battery ran out with the Sun still up, for too little sunlight, it claims no
  * night: "if the lander survives 2 days without power". With no change left in the period: "Press Play to
  * watch the light move across the ground."
@@ -183,24 +238,28 @@ export function keyMoments(s: Series, p: PowerResult | null, startUtc: string): 
 /**
  * The caption over the view when a key moment is chosen, for the moment's own hour: what happens then, and
  * why, in plain words. A Sun that leaves the view while still above the level horizon has not set, and the
- * caption says so: a hill hides it. `kind` is the moment's kind from keyMoments, not its label; anything
- * else gets an empty caption. Given the site's latitude, the sunset's line on the pole is left out far from
- * the poles.
+ * caption says so: a hill hides it. When the Sun leaves the view, or the battery runs out with none of the
+ * Sun in view, while the Sun is less than 2° below the horizon, the caption adds that higher ground farther
+ * off still catches it (farLit), so the lit peaks over the dark site read as what they are. `kind` is the
+ * moment's kind from keyMoments, not its label; anything else gets an empty caption. Given the site's
+ * latitude, the sunset's line on the pole is left out far from the poles.
  */
 export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: number): string {
   const up = s.sunEl[hour] >= 0;
   const sunset = up ? 'The Sun has not set: it is so low that this hill hides it' : 'The Sun sinks below the horizon';
   const earth = s.earthVisible[hour] === 1;
+  // With the Sun in view the site itself is lit: there is nothing to explain about the ground farther off.
+  const far = s.sunFraction[hour] === 0 ? farLit(s.sunEl[hour]) : '';
   switch (kind) {
     case 'sunset':
-      return lat !== undefined && poleLine(lat) === null ? `${sunset}.` : `${sunset}. This close to the pole it never climbs more than a few degrees.`;
+      return `${lat !== undefined && poleLine(lat) === null ? `${sunset}.` : `${sunset}. This close to the pole it never climbs more than a few degrees.`}${far}`;
     case 'sunset-power-off':
-      return `${sunset}, and the lander's power goes with it.`;
+      return `${sunset}, and the lander's power goes with it.${far}`;
     case 'battery-out':
       // With too little sunlight the battery can run out while the Sun is still in view.
       return s.sunFraction[hour] > 0
         ? 'The battery runs out: the Sun is still up, but the panel gets too little sunlight to keep the lander going.'
-        : `The battery runs out: with the Sun ${up ? 'behind the hills' : 'below the horizon'}, the panel makes nothing until it comes back.`;
+        : `The battery runs out: with the Sun ${up ? 'behind the hills' : 'below the horizon'}, the panel makes nothing until it comes back.${far}`;
     case 'earth-in':
       return "Earth rises over the hills. It barely moves in the Moon's sky: the Moon's slight rocking lifts it over the horizon here for about two weeks a month.";
     case 'sun-back':
@@ -217,22 +276,41 @@ export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: n
 /**
  * The line over the view after Face Earth ("earth"), after Look up ("up"), after Face the lander ("lander"),
  * or when night falls with Earth in view ("earthlight"): why Earth barely moves in the sky, and near a pole
- * how it still rises and sets; why the stars show by day, and from a southern site first which way the view
- * turned, to the Southern Cross; why the lander's solar panel stands upright near a pole, and elsewhere that
- * the lander is drawn as built for the poles; and what lights the ground at night.
+ * how it still rises and sets; that the stars are there by day, though eyes dazzled by the bright ground
+ * hardly see them (which is why Apollo photos show none), and come out looking up, as whyLines says too, and
+ * from a southern site first which way the view turned, to the Southern Cross; why the lander's solar panel
+ * stands upright near a pole, and elsewhere that the lander is drawn as built for the poles; and what lights
+ * the ground at night.
  */
-export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander', lat: number): string {
+export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander', lat: number): string;
+/**
+ * The line over the view at an hour with neither the Sun nor Earth in view ("dark"): that the view is
+ * brightened, as a long-exposure photo would be, and while the Sun (`sunElDeg` degrees up, or below when
+ * negative) is less than 2° below the horizon, that higher ground farther off still catches it, so its lit
+ * peaks over the dark site read as what they are.
+ */
+export function viewCaption(kind: 'dark', lat: number, sunElDeg: number): string;
+export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander' | 'dark', lat: number, sunElDeg?: number): string {
   if (kind === 'earth') return `Earth barely moves in the Moon's sky: the Moon keeps one face towards it${poleLine(lat) === null ? '' : ', and only its slight rocking lifts Earth over the horizon or hides it'}.`;
   if (kind === 'up') {
-    const why = 'With no air, the sky stays black and the stars show even with the Sun up.';
-    return lat > 0 ? `${why} These are the same stars seen from Earth.` : `Turned towards the Southern Cross and its two pointers, Alpha Centauri and Hadar: the stars seen from Earth's southern half. ${why}`;
+    const why = 'With no air the sky is black even by day, and the stars are there: eyes dazzled by the bright ground hardly see them, which is why Apollo photos show none, but looking up, away from the ground, they come out.';
+    return lat > 0 ? why : `Turned towards the Southern Cross and its pointers, Alpha Centauri and Hadar. ${why}`;
   }
   if (kind === 'lander') {
     return poleLine(lat) === null
       ? 'The lander is drawn as built for the poles, its solar panel upright for a low Sun.'
       : 'Its solar panel stands upright because here the Sun never climbs more than a few degrees: a flat panel would catch almost nothing.';
   }
+  if (kind === 'dark') return `Neither the Sun nor Earth lights the ground here: the view is brightened, as a long-exposure photo would be.${sunElDeg === undefined ? '' : farLit(sunElDeg)}`;
   return 'Lit only by Earthlight: sunlight bounced off Earth, brightened here as a long-exposure photo would show it.';
+}
+
+/**
+ * " Higher ground farther off still catches the Sun." while the Sun is less than 2° below the horizon, as
+ * whyLines has it, else nothing: the sentence that ends a caption over a dark site with lit peaks beyond.
+ */
+function farLit(sunElDeg: number): string {
+  return sunElDeg > -2 ? ' Higher ground farther off still catches the Sun.' : '';
 }
 
 /**
@@ -263,13 +341,14 @@ const KM_PER_DEGREE = 30.32;
 
 /**
  * Why the view looks as it does at the hour, a line each, in order: near a pole, why the Sun stays low and
- * why Earth rises and sets; by day, why the sky is black, why few stars are seen, and that looking up, away
- * from the sunlit ground, brings them out; with none of the Sun in view, where it is while farther hills are
- * still lit; at night with Earth in view, what lights the ground, that the view is brightened as a
- * long-exposure photo would be, and why it looks blue; with Earth in view, how big it looks; near a pole,
- * how far off the pole is and which way, so that north and south still mean something; and with none of the
- * Sun in view, how cold the night is, and why the forecast says the power comes back only "if" the lander
- * survives it. Each line is there only when it applies.
+ * why Earth rises and sets; by day, why the sky is black, that its stars are there though dazzled eyes hardly
+ * see them and Apollo's cameras caught none, and that looking up, away from the sunlit ground, brings them
+ * out, as the caption after Look up says (viewCaption); with none of the Sun in view, where it is while
+ * farther hills are still lit; at night with Earth in view, what lights the ground, that the view is
+ * brightened as a long-exposure photo would be, and why it looks blue; with Earth in view, how big it looks;
+ * near a pole, how far off the pole is and which way, so that north and south still mean something; and with
+ * none of the Sun in view, how cold the night is, and why the forecast says the power comes back only "if"
+ * the lander survives it. Each line is there only when it applies.
  */
 export function whyLines(lat: number, s: Series, hour: number): string[] {
   const lines: string[] = [];
@@ -281,7 +360,9 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
   const earth = s.earthVisible[hour] === 1;
   const lit = s.sunFraction[hour] > 0;
   if (lit) {
-    lines.push('With no air to scatter sunlight, the sky stays black by day. Eyes dazzled by the sunlit ground, or a camera set for it as on Apollo, see few stars; look up, away from the ground, and they come out.');
+    lines.push(
+      "With no air to scatter sunlight, the sky stays black by day, and the stars are still there. Eyes dazzled by the sunlit ground hardly see them, and Apollo's cameras, set for that bright ground, caught none; look up, away from the ground, and they come out.",
+    );
   } else {
     if (el >= 0) lines.push('The Sun is still up, hidden behind the hills: higher ground farther off still catches its light.');
     else if (el > -2) lines.push('The Sun is just below the horizon here, but higher ground farther off still catches its light.');
@@ -331,26 +412,31 @@ export function statusLine(s: Series, p: PowerResult | null, startUtc: string, h
  * The stand view's headline, from Explore's answer title (answerFor's): the site's name goes to the line
  * above (standingLine), so "Landing at <siteName> on 1 January: ..." becomes "Landing on 1 January: ..." and
  * "No sunlight at <siteName> in these 30 days" becomes "No sunlight in these 30 days"; the night becomes a
- * count of days that adds up with the power (nightHeadline); and the radio's verdict goes straight after the
- * power (radioHeadline): "Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days of
- * night". Every other title keeps its words but the site's name. `poweredHours` is the answer's hours with
- * power from the landing, and `contactHours` those of them with Earth in view.
+ * count of the days without power that adds up with the power (nightHeadline); and the radio's verdict goes
+ * straight after the power (radioHeadline): "Landing on 1 January: power for 3 days 4 hours, no radio
+ * contact, then 16 days without power". Every span of days and hours keeps to one line, with no-break spaces
+ * inside it, so "3 days 4 hours" never breaks after "days"; the rest may wrap. That is the headline's alone:
+ * spanWords keeps plain spaces for every other caller. Every other title keeps its words but the site's name.
+ * `poweredHours` is the answer's hours with power from the landing, and `contactHours` those of them with
+ * Earth in view.
  */
 export function standHeadline(title: string, siteName: string, s: Series, p: PowerResult, startUtc: string, contactHours: number, poweredHours: number): string {
   const landing = `Landing at ${siteName} on `;
   const dark = `No sunlight at ${siteName} in `;
   const unnamed = title.startsWith(landing) ? `Landing on ${title.slice(landing.length)}` : title.startsWith(dark) ? `No sunlight in ${title.slice(dark.length)}` : title;
-  return radioHeadline(nightHeadline(unnamed, s, p, startUtc), contactHours, poweredHours);
+  return unbrokenSpans(radioHeadline(nightHeadline(unnamed, s, p, startUtc), contactHours, poweredHours));
 }
 
 /**
- * The headline with the night as a count of days that adds up with the power, when the power runs out at
- * night (no part of the Sun in view at the first hour without power) and the title ends ", then night":
- * "...: power for 3 days 4 hours, then 16 days of night", the whole days from the first hour without power to
- * the first with power again (daysOff: between their dates, at least one, "1 day of night"), so that 1
- * January, 3 days 4 hours and 16 days bring you to 20 January, where the power comes back. That holds when
- * the period starts in the dark too, as the count starts where the power runs out. When the power does not
- * come back in the period: "..., then night to the end of the period". Any other title comes back as it is.
+ * The headline with the stretch without power as a count of days that adds up with the power, when the power
+ * runs out at night (no part of the Sun in view at the first hour without power) and the title ends ", then
+ * night": "...: power for 3 days 4 hours, then 16 days without power", the whole days from the first hour
+ * without power to the first with power again (daysOff: between their dates, at least one, "1 day without
+ * power"), so that 1 January, 3 days 4 hours and 16 days bring you to 20 January, where the power comes back.
+ * It is called what it is, the time without power: the time bar's flags for the battery running out and the
+ * power back are those 16 days apart, while from the Sun going down the night is longer. That holds when the
+ * period starts in the dark too, as the count starts where the power runs out. When the power does not come
+ * back in the period: "..., then no power to the end of the period". Any other title comes back as it is.
  */
 export function nightHeadline(title: string, s: Series, p: PowerResult, startUtc: string): string {
   const tail = ', then night';
@@ -358,8 +444,8 @@ export function nightHeadline(title: string, s: Series, p: PowerResult, startUtc
   if (first === null || s.sunFraction[first] !== 0 || !title.endsWith(tail)) return title;
   const head = title.slice(0, -tail.length);
   const back = stretchEnd(p.powered, first);
-  if (back >= p.powered.length) return `${head}, then night to the end of the period`;
-  return `${head}, then ${spanWords(daysOff(startUtc, first, back) * 24)} of night`;
+  if (back >= p.powered.length) return `${head}, then no power to the end of the period`;
+  return `${head}, then ${spanWords(daysOff(startUtc, first, back) * 24)} without power`;
 }
 
 /**
@@ -367,7 +453,7 @@ export function nightHeadline(title: string, s: Series, p: PowerResult, startUtc
  * about both: of the hours with power from the landing, those with Earth in view, as "no radio contact",
  * "radio all the while" or "radio for 12 days 3 hours". It goes straight after the power, before the first
  * ", then" when the title has one, else at the end: "...: power for 3 days 4 hours, no radio contact, then
- * 16 days of night", "...: power for all 30 days, radio for 12 days 3 hours". Without power from the
+ * 16 days without power", "...: power for all 30 days, radio for 12 days 3 hours". Without power from the
  * landing the title comes back as it is, and so does a title that says nothing of the power, as "No
  * sunlight in these 30 days": there is no power for the verdict to follow, and "radio all the while" for
  * the battery's few hours would read as the whole period.
@@ -439,12 +525,21 @@ function daysOff(startUtc: string, from: number, back: number): number {
 
 /**
  * The stretch without power that ends at `back`, the first hour with power again, for the condition on the
- * power coming back: "16 days of night colder than −170 °C" when the power ran out at night (no part of the
- * Sun in view at the stretch's first hour), else "2 days without power", when the battery ran down for too
- * little sunlight with the Sun still up. The days are counted by daysOff.
+ * power coming back, its days counted by daysOff as the headline counts them: "16 days without power in a
+ * night colder than −170 °C" when the power ran out at night (no part of the Sun in view at the stretch's
+ * first hour), else "2 days without power", when the battery ran down for too little sunlight with the Sun
+ * still up.
  */
 function offWords(s: Series, p: PowerResult, startUtc: string, back: number): string {
   const from = stretchStart(p.powered, back - 1);
-  const days = spanWords(daysOff(startUtc, from, back) * 24);
-  return s.sunFraction[from] === 0 ? `${days} of night colder than −170 °C` : `${days} without power`;
+  const off = `${spanWords(daysOff(startUtc, from, back) * 24)} without power`;
+  return s.sunFraction[from] === 0 ? `${off} in a night colder than −170 °C` : off;
+}
+
+/** A span of days or hours as spanWords writes it: "3 days 4 hours", "16 days", "1 hour". */
+const SPAN = /\b\d+ (?:days?|hours?)(?: \d+ hours?)?\b/g;
+
+/** The text with no-break spaces inside each span of days and hours, so that none breaks across two lines. */
+function unbrokenSpans(text: string): string {
+  return text.replace(SPAN, (span) => span.replace(/ /g, '\u00a0'));
 }
