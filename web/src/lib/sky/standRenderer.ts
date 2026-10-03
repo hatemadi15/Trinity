@@ -14,7 +14,7 @@ import { FramePacer } from './framePacer';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { placeStars, starColour, starGain, starSize } from './stars';
 import { LANDER, LEG_ENDS } from './landerShape';
-import { BOULDERS, boulderMeshes, placeBoulders, siteSeed } from './boulders';
+import { BOULDERS, boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
 import { heightAt, worldOf, type FieldLevel, type TerrainField } from './terrainField';
 
 /** Everything the stand view draws for one site and period. `fast`: a lower pixel ratio, no drawn detail, coarser shadow steps. */
@@ -46,14 +46,47 @@ export interface SkyLabels {
   stars: (Spot & { name: string })[];
   lander: Spot | null;
   parts?: { panel: Spot; dish: Spot; lamp: Spot } | null;
-  /** Your own shadow while any of the Sun is up: a spot 15 m along it, and its length in metres. */
-  shadow?: (Spot & { lengthM: number }) | null;
+  /**
+   * Your own shadow while any of the Sun is up: a spot 15 m along it, its length along the real ground and
+   * what it would be on level ground, in metres.
+   */
+  shadow?: (Spot & { lengthM: number; levelM: number }) | null;
 }
 
 const DEG = Math.PI / 180;
 /** The sky sphere and the far skyline ring, metres from the eye. */
 const RS = 300000, RING = 200000;
 const SUN_D = 2 * RS * Math.tan(0.2665 * DEG), EARTH_R = RS * Math.tan(0.95 * DEG);
+
+/**
+ * The share of the Sun's light that the sunlit dust round a shadow scatters into it: 1.5 % with the Sun 8°
+ * up or more, less as it sinks (with the sine of its height, so with how much sunlight the ground round
+ * catches), and never under a third of that.
+ */
+export function bounceShare(sunElDeg: number): number {
+  const k = Math.sin(Math.max(0, sunElDeg) * DEG) / Math.sin(8 * DEG);
+  return 0.015 * Math.min(1, Math.max(0.3, k));
+}
+
+/**
+ * How long your shadow is along the real ground, metres: the ray towards the Sun from the top of a person
+ * `tallM` tall, traced out along the shadow until it meets the ground, which stands `riseAt(d)` metres
+ * above your feet d metres out (0 on level ground: then 1.8 / tan of the Sun's height). 500 m at most.
+ */
+export function shadowOnGround(riseAt: (d: number) => number, sunElDeg: number, tallM = 1.8): number {
+  const t = Math.tan(Math.max(0.2, sunElDeg) * DEG);
+  for (let d = 0.25; d <= 500; d += 0.25) {
+    const rise = riseAt(d);
+    if (tallM - d * t <= rise) return Math.min(500, Math.hypot(d, rise));
+  }
+  return 500;
+}
+
+/**
+ * The light that stands for eyes adapting to the dark, when neither the Sun nor Earth lights the scene: up
+ * to 0.35, none while either does (the sunlit share counts once, Earth's light twice).
+ */
+const nightFloor = (sunFraction: number, earthshine: number) => 0.35 * Math.max(0, 1 - Math.min(1, sunFraction + 2 * earthshine));
 /** How far a level's mesh reaches from the site, by its cell size; the coarsest always to 125 km. The shadows read the whole level. */
 const meshReachM = (cellM: number, coarsest: boolean) => (coarsest ? 125000 : cellM <= 30 ? 5000 : cellM <= 200 ? 20500 : 125000);
 /** The value stored for a cell outside the measured ground when heights go to the GPU as half floats. */
@@ -218,6 +251,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         uSunUp: { value: 0 },
         uRocks: { value: Array.from({ length: BOULDERS.MAX }, () => new THREE.Vector4()) },
         uRockCount: { value: 0 },
+        uBounce: { value: 0.015 },
+        uNight: { value: 0 },
       },
       vertexShader: GROUND_VERT,
       fragmentShader: GROUND_FRAG,
@@ -298,9 +333,10 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // The Sun: white, small and hard, with only a small glow close round the disc: with no air there is no
   // halo across the sky and no starburst, only what a lens adds right at the disc.
   const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, '#fff'], [0.46, '#fff'], [0.5, 'rgba(255,255,255,0)']]), color: new THREE.Color(14, 14, 13.5), transparent: true, depthWrite: false, toneMapped: false }));
-  const glare = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, 'rgba(255,255,255,0.5)'], [0.12, 'rgba(240,244,255,0.16)'], [0.45, 'rgba(220,230,255,0.025)'], [1, 'rgba(0,0,0,0)']]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
-  sun.scale.setScalar(SUN_D * 2.05);
-  glare.scale.setScalar(SUN_D * 6);
+  const glare = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, 'rgba(255,255,255,0.35)'], [0.12, 'rgba(240,244,255,0.1)'], [0.45, 'rgba(220,230,255,0.015)'], [1, 'rgba(0,0,0,0)']]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+  // The disc at its true size (it fills 92 % of its sprite), so Earth beside it is plainly four times wider.
+  sun.scale.setScalar(SUN_D / 0.92);
+  glare.scale.setScalar(SUN_D * 4);
   root.add(sun, glare);
 
   // Earth: NASA's Blue Marble and clouds, 1.9° wide, lit by the Sun and turned for the hour.
@@ -351,6 +387,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const seed = siteSeed(scene.site.lat, scene.site.lon);
   const rocks = boulderMeshes(placeBoulders(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => heightAt(scene.field, x, z), seed);
   root.add(rocks.group);
+  // Pebbles: the near ground's grit, shapes the low Sun catches.
+  const pebbles = pebbleMesh(placePebbles(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => heightAt(scene.field, x, z), seed);
+  root.add(pebbles);
   for (const g of ground) {
     const u = (g.material as THREE.ShaderMaterial).uniforms;
     rocks.spheres.forEach((v, i) => (u.uRocks.value as THREE.Vector4[])[i].copy(v));
@@ -361,6 +400,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // A camera's exposure: by day it is set for the sunlit ground, so only the brightest stars show, and they
   // come out as the view looks up, away from the dazzling ground.
   let sunNow = 0, sunElNow = 0, pitchNow = 0;
+  // Your shadow's length along the ground, kept until the Sun moves.
+  let shadowKey = '', shadowLen = 0;
   const viewDir = new THREE.Vector3(0, 0, -1);
   const skyward = () => {
     const up = Math.min(1, Math.max(0, (pitchNow - 15) / 20));
@@ -416,15 +457,17 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       u.uEarth.value.set(...ed);
       u.uEarthshine.value = earthshine;
       u.uSunUp.value = v.sunFraction;
+      u.uBounce.value = bounceShare(v.sunEl);
+      u.uNight.value = nightFloor(v.sunFraction, earthshine);
     }
     // The lights for the lander and the boulders.
     sunLight.position.copy(sunLight.target.position).addScaledVector(sunDir, 50);
     sunLight.intensity = 3.2 * v.sunFraction;
     // The dust lights the shaded sides only faintly at a Sun this low: they stand nearly in silhouette.
-    skyLight.intensity = 0.4 * v.sunFraction;
+    skyLight.intensity = 0.25 * v.sunFraction;
     // A floor, as eyes adapt to the dark: faint by day, enough at night for the shapes to show when neither
-    // the Sun nor Earth lights them.
-    earthLight.intensity = 0.15 + 0.5 * earthshine + 0.35 * Math.max(0, 1 - Math.min(1, v.sunFraction + 2 * earthshine));
+    // the Sun nor Earth lights them (the ground gets the same).
+    earthLight.intensity = 0.15 + 0.5 * earthshine + nightFloor(v.sunFraction, earthshine);
     if (lander) {
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
       // Lit green with power; off, a dark bead that still shows where the light is.
@@ -505,9 +548,16 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     // Your own shadow, while any of the Sun is up: 15 m out along it, on the ground.
     let shadow: SkyLabels['shadow'] = null;
     if (sunNow > 0) {
-      const away = new THREE.Vector3(-sunDir.x, 0, -sunDir.z).normalize().multiplyScalar(15);
-      const at = spot(new THREE.Vector3(away.x, heightAt(scene.field, away.x, away.z) + 0.05, away.z), 0, false);
-      shadow = { ...at, lengthM: Math.min(500, 1.8 / Math.tan(Math.max(0.2, sunElNow) * DEG)) };
+      const dir = new THREE.Vector3(-sunDir.x, 0, -sunDir.z).normalize();
+      const at = spot(new THREE.Vector3(dir.x * 15, heightAt(scene.field, dir.x * 15, dir.z * 15) + 0.05, dir.z * 15), 0, false);
+      // Along the real ground, worked out again only when the Sun has moved.
+      const key = `${sunElNow.toFixed(2)},${dir.x.toFixed(3)},${dir.z.toFixed(3)}`;
+      if (key !== shadowKey) {
+        const feet = heightAt(scene.field, 0, 0);
+        shadowLen = shadowOnGround((d) => heightAt(scene.field, dir.x * d, dir.z * d) - feet, sunElNow);
+        shadowKey = key;
+      }
+      shadow = { ...at, lengthM: shadowLen, levelM: Math.min(500, 1.8 / Math.tan(Math.max(0.2, sunElNow) * DEG)) };
     }
     return { sun: bodySpot(sun.position, SUN_D * 3), earth: bodySpot(earthPos, EARTH_R * 1.25), stars, lander: landerSpot, parts, shadow };
   }
@@ -525,7 +575,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     });
   };
 
-  return { root, camera, update, setView, labels, exposure, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? earthLight : null, boulders: rocks.group } };
+  return { root, camera, update, setView, labels, exposure, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? earthLight : null, boulders: rocks.group, pebbles } };
 }
 
 /** A texture drawn on a canvas of the given size (repeating), or none outside a browser. */
@@ -561,14 +611,17 @@ const foilTexture = () =>
     }
   });
 
-/** The back of the solar panel: a light grey sheet on a darker frame of struts. */
+/** The back of the solar panel: a plain pale sheet in a thin frame with one spar, so it never reads as cells. */
 const panelBackTexture = () =>
   surface(256, 192, (g) => {
-    g.fillStyle = '#b9bcc2';
+    g.fillStyle = '#d8d5ce';
     g.fillRect(0, 0, 256, 192);
-    g.fillStyle = '#6f737b';
-    for (const x of [0, 84, 170, 248]) g.fillRect(x, 0, 8, 192);
-    for (const y of [0, 92, 184]) g.fillRect(0, y, 256, 8);
+    g.fillStyle = '#8b8d92';
+    g.fillRect(0, 0, 256, 5);
+    g.fillRect(0, 187, 256, 5);
+    g.fillRect(0, 0, 5, 192);
+    g.fillRect(251, 0, 5, 192);
+    g.fillRect(126, 0, 4, 192);
   });
 
 /** Solar cells: dark blue squares between thin silver lines; the back of the panel is a grey frame. */
@@ -752,7 +805,7 @@ export class StandRenderer {
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
     this.composer.addPass(new RenderPass(this.built.root, this.built.camera));
     // A tight bloom: the Sun's disc glows a little, the sky round it stays black.
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.2, 0.985);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.22, 0.15, 0.985);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
   }

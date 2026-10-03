@@ -6,7 +6,7 @@ import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS } from './boulders';
 import { dirAzEl } from './frames';
-import { buildScene, lookUpTarget, toTextureHeights, type StandScene } from './standRenderer';
+import { bounceShare, buildScene, lookUpTarget, shadowOnGround, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, terrainField } from './terrainField';
 
 const series = {
@@ -410,5 +410,51 @@ describe('the stand scene', () => {
     bare.update(0);
     expect((bare.root.children.find((c) => c instanceof THREE.DirectionalLight) as THREE.DirectionalLight).intensity).toBeGreaterThan(0);
   });
-});
 
+  it('scatters less light into the shadows the lower the Sun: 1.5 % of it from 8 degrees up, a third of that below', () => {
+    expect(bounceShare(10)).toBeCloseTo(0.015, 9);
+    expect(bounceShare(8)).toBeCloseTo(0.015, 9);
+    expect(bounceShare(2.5)).toBeCloseTo(0.015 * Math.max(0.3, Math.sin((2.5 * Math.PI) / 180) / Math.sin((8 * Math.PI) / 180)), 9);
+    expect(bounceShare(0.5)).toBeCloseTo(0.015 * 0.3, 9);
+    const s = buildScene(flat());
+    s.update(0);
+    const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
+    expect(u.uBounce.value).toBeCloseTo(bounceShare(2), 9);
+  });
+
+  it('lights the ground faintly at night when neither the Sun nor Earth does, and not by day', () => {
+    const dark = { ...series, sunFraction: Float64Array.from([0, 0, 0]), sunEl: Float64Array.from([-1, -1, -1]), earthEl: Float64Array.from([-3, -3, -3]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
+    const night = buildScene(flat({ series: dark }));
+    night.update(0);
+    expect((night.parts.ground[0].material as THREE.ShaderMaterial).uniforms.uNight.value).toBeGreaterThanOrEqual(0.3);
+    const day = buildScene(flat());
+    day.update(0);
+    expect((day.parts.ground[0].material as THREE.ShaderMaterial).uniforms.uNight.value).toBe(0);
+  });
+
+  it('draws the Sun\u2019s disc at its true size, 0.53 degrees, so Earth beside it is plainly four times wider', () => {
+    const s = buildScene(flat());
+    s.update(0);
+    // The disc fills 92 % of its sprite.
+    const discDeg = (2 * Math.atan((0.92 * s.parts.sun.scale.x) / 2 / s.parts.sun.position.length()) * 180) / Math.PI;
+    expect(discDeg).toBeCloseTo(0.533, 2);
+    expect(s.parts.glare.scale.x / s.parts.sun.scale.x).toBeLessThanOrEqual(4.2);
+  });
+
+  it('strews pebbles round the eye as shapes the light catches', () => {
+    const s = buildScene(flat({ lander: { azDeg: 90, distM: 16, powered: Uint8Array.from([1, 1, 0]) } }));
+    expect((s.parts.pebbles as THREE.InstancedMesh).count).toBeGreaterThan(200);
+  });
+
+  it('measures your shadow along the real ground: shorter up a slope, longer down one, the level length on the flat', () => {
+    const tan = (d: number) => Math.tan((d * Math.PI) / 180);
+    const level = 1.8 / tan(2.5);
+    expect(shadowOnGround(() => 0, 2.5)).toBeCloseTo(level, 0);
+    // Rising 2.5 degrees along the shadow: the Sun's ray from your head meets the ground at 1.8 / (tan 2.5 + tan 2.5).
+    const up = shadowOnGround((d) => d * tan(2.5), 2.5);
+    expect(up).toBeCloseTo(1.8 / (2 * tan(2.5)) / Math.cos((2.5 * Math.PI) / 180), 0);
+    expect(shadowOnGround((d) => -d * tan(1), 2.5)).toBeGreaterThan(level * 1.3);
+    // Never longer than 500 m.
+    expect(shadowOnGround((d) => -d * tan(3), 2.5)).toBe(500);
+  });
+});

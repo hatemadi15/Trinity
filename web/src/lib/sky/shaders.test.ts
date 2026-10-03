@@ -56,11 +56,8 @@ describe('the ground shader', () => {
     expect(main.lastIndexOf('soft(mTerrain)')).toBeLessThan(lastBrace);
   });
 
-  it('leaves the shadows dark at a low Sun but not empty: the dust scatters 1 to 2 % of the Sun’s light into them, as in Apollo photographs', () => {
-    const m = GROUND_FRAG.match(/uSunPower \* ([0-9.]+) \* uSunUp/);
-    expect(m).not.toBeNull();
-    expect(Number(m![1])).toBeGreaterThanOrEqual(0.01);
-    expect(Number(m![1])).toBeLessThan(0.02);
+  it('fills the shadows with the light the sunlit dust round them scatters, a share that falls with the Sun (bounceShare)', () => {
+    expect(GROUND_FRAG).toContain('uSunPower * uBounce * uSunUp');
   });
 
   it('gives every loop a length set by a uniform, so the Windows shader compiler cannot unroll them into a minute-long build', () => {
@@ -118,5 +115,18 @@ describe('the ground shader', () => {
     expect(GROUND_FRAG).toContain('float rocksClearance(vec3 p, vec3 L)');
     expect(GROUND_FRAG).toContain('soft(mBoulders)');
   });
-});
 
+  it('lights the ground faintly at night when neither the Sun nor Earth does, as the lander is lit, so it stands on something', () => {
+    expect(GROUND_FRAG).toContain('uNight');
+  });
+
+  it('gives the dust near the eye a fine grain, so it reads as soil rather than snow', () => {
+    expect(GROUND_FRAG).toMatch(/0\.05 \/ px/);
+  });
+
+  it('keeps your shadow\u2019s arms against its body, so no thin rails run beside it', () => {
+    const viewer = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float viewerClearance('), GROUND_FRAG.indexOf('float soft('));
+    expect(viewer).toContain('side * 0.19');
+    expect(viewer).not.toContain('side * 0.27');
+  });
+});

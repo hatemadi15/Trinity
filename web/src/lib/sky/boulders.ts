@@ -65,38 +65,94 @@ export function placeBoulders(seed: number, lander: { x: number; z: number } | n
 }
 
 /**
- * The boulders' meshes, lumpy and faceted, of the dust's grey, each sunk into the ground at `groundY(x, z)`
- * so it never floats; and for each a sphere (centre and radius, in a Vector4) that stands for it in the
- * ground shader's shadows, reaching about as high as the rock.
+ * The boulders' meshes: broken rock, coarse facets of uneven radius (each corner pushed in or out by its own
+ * amount, the same wherever faces meet, so no crack opens), in the dust's grey a shade lighter or darker
+ * rock by rock, each sunk into the ground at `groundY(x, z)` so it never floats; and for each a sphere
+ * (centre and radius, in a Vector4) that stands for it in the ground shader's shadows, its top at the rock's.
  */
 export function boulderMeshes(list: Boulder[], groundY: (x: number, z: number) => number, seed: number): { group: THREE.Group; spheres: THREE.Vector4[] } {
   const next = seeded(seed ^ 0x9e3779b9);
   const group = new THREE.Group();
-  const material = new THREE.MeshStandardMaterial({ color: 0x8b8781, roughness: 1, metalness: 0, flatShading: true });
   const spheres: THREE.Vector4[] = [];
   for (const b of list) {
-    const geo = new THREE.IcosahedronGeometry(1, 2);
+    const geo = new THREE.IcosahedronGeometry(1, 1);
     const pos = geo.getAttribute('position');
-    // Lumps: a few waves over the unit sphere, with this rock's own phases.
-    const ph = [next(), next(), next(), next()].map((u) => u * 2 * Math.PI);
+    // Each corner of the rock in or out by its own amount; corners shared by several faces move together.
+    const push = new Map<string, number>();
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-      const k = 1 + 0.16 * Math.sin(2.3 * x + ph[0]) * Math.sin(2.9 * z + ph[1]) + 0.1 * Math.sin(4.7 * y + ph[2]) + 0.06 * Math.sin(6.1 * (x + z) + ph[3]);
+      const key = `${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`;
+      if (!push.has(key)) push.set(key, 0.78 + 0.4 * next());
+      const k = push.get(key)!;
       pos.setXYZ(i, x * k, y * k, z * k);
     }
     geo.computeVertexNormals();
+    const shade = 0.9 + 0.2 * next();
+    const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(0x8b8781).multiplyScalar(shade), roughness: 1, metalness: 0, flatShading: true });
     const mesh = new THREE.Mesh(geo, material);
-    const hh = FLAT * b.r, g = groundY(b.x, b.z);
-    mesh.scale.set(b.r, hh, b.r);
-    mesh.rotation.y = next() * 2 * Math.PI;
+    const hh = FLAT * b.r * (0.9 + 0.2 * next()), g = groundY(b.x, b.z);
+    mesh.scale.set(b.r, hh, b.r * (0.85 + 0.3 * next()));
+    mesh.rotation.set((next() - 0.5) * 0.25, next() * 2 * Math.PI, (next() - 0.5) * 0.25);
     mesh.position.set(b.x, g + LIFT * hh, b.z);
     group.add(mesh);
-    // A sphere whose top meets the rock's: its centre where the rock's is, a little narrower than the rock.
-    const top = LIFT * hh + hh;
+    // A sphere whose top meets the rock's highest corner: its centre where the rock's is, a little narrower.
+    let high = 0;
+    for (let i = 0; i < pos.count; i++) high = Math.max(high, pos.getY(i));
+    const top = LIFT * hh + high * hh;
     const w = 0.75 * b.r;
     spheres.push(new THREE.Vector4(b.x, g + top - w, b.z, w));
   }
   return { group, spheres };
+}
+
+/** A pebble: where it lies (world metres) and its radius. */
+export interface Pebble {
+  x: number;
+  z: number;
+  r: number;
+}
+
+/** How many pebbles, and how far out (metres): strewn round the eye, the near ground's grit. */
+export const PEBBLES = { COUNT: 360, NEAR_M: 2, FAR_M: 30 } as const;
+
+/**
+ * The pebbles, from a seed: spread evenly 2 to 30 m out, 3 to 20 cm across with few large ones (the radius
+ * grows with the fourth power of a random number), none within 2.5 m of the lander.
+ */
+export function placePebbles(seed: number, lander: { x: number; z: number } | null): Pebble[] {
+  const next = seeded(seed ^ 0x51ed270b);
+  const out: Pebble[] = [];
+  for (let tries = 0; out.length < PEBBLES.COUNT && tries < 4 * PEBBLES.COUNT; tries++) {
+    const d = Math.sqrt(PEBBLES.NEAR_M ** 2 + next() * (PEBBLES.FAR_M ** 2 - PEBBLES.NEAR_M ** 2));
+    const a = next() * 2 * Math.PI;
+    const r = 0.015 + 0.085 * next() ** 4;
+    const x = d * Math.sin(a), z = -d * Math.cos(a);
+    if (lander && Math.hypot(x - lander.x, z - lander.z) < 2.5) continue;
+    out.push({ x, z, r });
+  }
+  return out;
+}
+
+/**
+ * The pebbles as one set of faceted shapes the light catches, each half sunk into the ground at
+ * `groundY(x, z)`, turned and squashed its own way, a little lighter or darker than its neighbours.
+ */
+export function pebbleMesh(list: Pebble[], groundY: (x: number, z: number) => number, seed: number): THREE.InstancedMesh {
+  const next = seeded(seed ^ 0x2545f491);
+  const mesh = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, flatShading: true }), list.length);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), at = new THREE.Vector3(), c = new THREE.Color();
+  list.forEach((p, i) => {
+    const hy = p.r * (0.55 + 0.3 * next());
+    sc.set(p.r * (0.8 + 0.4 * next()), hy, p.r * (0.8 + 0.4 * next()));
+    q.setFromEuler(e.set((next() - 0.5) * 0.6, next() * 2 * Math.PI, (next() - 0.5) * 0.6));
+    at.set(p.x, groundY(p.x, p.z) + 0.3 * hy, p.z);
+    mesh.setMatrixAt(i, m.compose(at, q, sc));
+    mesh.setColorAt(i, c.setHex(0x8b8781).multiplyScalar(0.85 + 0.3 * next()));
+  });
+  mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  mesh.frustumCulled = false;
+  return mesh;
 }
 
 /** The boulders' shadows in the ground shader: the least angle by which the ray towards the Sun clears one. */

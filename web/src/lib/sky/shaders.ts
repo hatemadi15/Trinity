@@ -22,7 +22,7 @@ export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
 uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uSunPower; uniform vec2 uHole;
-uniform float uLanderOn, uSunUp; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
+uniform float uLanderOn, uSunUp, uBounce, uNight; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
 ${SHADOW_GLSL}
 ${HIDE_GLSL}
 ${BOULDER_GLSL}
@@ -144,8 +144,8 @@ float viewerClearance(vec3 p, vec3 L) {
   float m = capsuleClear(p, L, uViewer + side * 0.11 + up * 0.05, up * 0.85, 0.07);   // legs
   m = min(m, capsuleClear(p, L, uViewer - side * 0.11 + up * 0.05, up * 0.85, 0.07));
   m = min(m, capsuleClear(p, L, uViewer + up * 0.95, up * 0.5, 0.17));                // body
-  m = min(m, capsuleClear(p, L, uViewer + side * 0.27 + up * 0.85, up * 0.55, 0.05)); // arms
-  m = min(m, capsuleClear(p, L, uViewer - side * 0.27 + up * 0.85, up * 0.55, 0.05));
+  m = min(m, capsuleClear(p, L, uViewer + side * 0.19 + up * 0.85, up * 0.55, 0.05)); // arms, against the body
+  m = min(m, capsuleClear(p, L, uViewer - side * 0.19 + up * 0.85, up * 0.55, 0.05));
   m = min(m, capsuleClear(p, L, uViewer + up * 1.62, up * 0.06, 0.11));               // head
   return m;
 }
@@ -187,7 +187,9 @@ void main() {
       hz += stones(vWorld.xz + vec2(0.0, e), 1.5, 41.0, 0.18, 0.05, 0.3, bz) * rockW + stones(vWorld.xz + vec2(0.0, e), 0.6, 73.0, 0.4, 0.015, 0.07, cz) * pebbleW;
       Nn = normalize(Nn - vec3((hx - h0) / e, 0.0, (hz - h0) / e) * w * 1.15 * (1.0 - hide));
       albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0
-        + 0.06 * (vnoise(vWorld.xz * 3.1) - 0.5) * smoothstep(1.5, 4.0, 0.32 / px)) + 0.35 * b0 * rockW + 0.25 * c0 * pebbleW;
+        + 0.06 * (vnoise(vWorld.xz * 3.1) - 0.5) * smoothstep(1.5, 4.0, 0.32 / px)
+        // Grit: the dust's fine grain, a few centimetres across, close to the eye.
+        + 0.08 * (vnoise(vWorld.xz * 23.0) - 0.5) * smoothstep(1.5, 4.0, 0.05 / px)) + 0.35 * b0 * rockW + 0.25 * c0 * pebbleW;
       // Not worked out where the measured ground already hides the whole Sun.
       if (facing && mTerrain > -${(3 * SHADOW.SUN_RADIUS_RAD).toFixed(5)}) {
         // Judged against the measured ground's own slope towards the Sun.
@@ -216,9 +218,12 @@ void main() {
   // around scatter only a faint glow over the rest (slopes facing away stay dark).
   col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.9 * mue / (mue + mu);
   col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.07;
-  // By day the sunlit dust around scatters a little light into the shadows: at a Sun this low little (1.5 %
-  // of the Sun's), so they are dark but not empty, as in photographs taken on the Moon.
-  col += albedo * vec3(1.0, 0.99, 0.975) * uSunPower * 0.015 * uSunUp;
+  // By day the sunlit dust around scatters a little light into the shadows, the less the lower the Sun
+  // (uBounce, from bounceShare): at a Sun a few degrees up they are nearly black, as in the photographs.
+  col += albedo * vec3(1.0, 0.99, 0.975) * uSunPower * uBounce * uSunUp;
+  // At night with neither the Sun nor Earth up, a faint light that stands for eyes adapting to the dark (the
+  // lander gets the same), so the ground still shows under it.
+  col += albedo * vec3(0.55, 0.6, 0.75) * uNight;
   gl_FragColor = vec4(col, 1.0);
 }`;
 

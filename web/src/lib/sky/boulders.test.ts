@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BOULDER_GLSL, BOULDERS, boulderMeshes, placeBoulders, siteSeed } from './boulders';
+import { BOULDER_GLSL, BOULDERS, boulderMeshes, PEBBLES, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
 
 describe('the boulders near the eye', () => {
   const lander = { x: 16 * Math.sin(Math.PI / 4), z: -16 * Math.cos(Math.PI / 4) };
@@ -55,14 +55,14 @@ describe('the boulders near the eye', () => {
         hi = Math.max(hi, y);
       }
       expect(lo).toBeLessThan(10);
-      expect(hi - 10).toBeGreaterThan(0.85 * b.r);
-      expect(hi - 10).toBeLessThan(1.4 * b.r);
+      expect(hi - 10).toBeGreaterThan(0.75 * b.r);
+      expect(hi - 10).toBeLessThan(1.45 * b.r);
       // The shadow's sphere: where the rock is, reaching about as high.
       const s = spheres[i];
       expect(s.x).toBeCloseTo(b.x, 6);
       expect(s.z).toBeCloseTo(b.z, 6);
-      expect(s.y + s.w - 10).toBeGreaterThan(0.9 * b.r);
-      expect(s.y + s.w - 10).toBeLessThan(1.3 * b.r);
+      // Its top at the rock's highest corner.
+      expect(s.y + s.w - 10).toBeCloseTo(hi - 10, 6);
     });
   });
 
@@ -70,5 +70,39 @@ describe('the boulders near the eye', () => {
     expect(BOULDER_GLSL).toContain('float rocksClearance(vec3 p, vec3 L)');
     expect(BOULDER_GLSL).toContain(`uniform vec4 uRocks[${BOULDERS.MAX}]`);
     expect(BOULDER_GLSL).toMatch(/for \(int i = 0; i < \d+ \* uOne; i\+\+\)/);
+  });
+
+  it('are angular, faceted rocks of uneven radius, not smooth capsules', () => {
+    const { group } = boulderMeshes(placeBoulders(7, null), () => 0, 7);
+    for (const mesh of group.children as unknown as { geometry: { getAttribute: (n: string) => { count: number; getX: (i: number) => number; getY: (i: number) => number; getZ: (i: number) => number } }; material: { flatShading: boolean } }[]) {
+      expect(mesh.material.flatShading).toBe(true);
+      const pos = mesh.geometry.getAttribute('position');
+      let lo = Infinity, hi = 0;
+      for (let k = 0; k < pos.count; k++) {
+        const r = Math.hypot(pos.getX(k), pos.getY(k), pos.getZ(k));
+        lo = Math.min(lo, r);
+        hi = Math.max(hi, r);
+      }
+      expect(lo / hi).toBeLessThan(0.85);
+      // Coarse facets, as broken rock has, not a smooth round surface: 80 faces at most.
+      expect(pos.count / 3).toBeLessThanOrEqual(80);
+    }
+  });
+
+  it('come with hundreds of pebbles strewn round the eye, 3 to 20 cm across, few large, clear of the lander and of your feet', () => {
+    const lander = { x: 16, z: 0 };
+    const list = placePebbles(siteSeed(-88.28, -64.31), lander);
+    expect(list.length).toBe(PEBBLES.COUNT);
+    for (const p of list) {
+      const d = Math.hypot(p.x, p.z);
+      expect(d).toBeGreaterThanOrEqual(PEBBLES.NEAR_M);
+      expect(d).toBeLessThanOrEqual(PEBBLES.FAR_M);
+      expect(p.r).toBeGreaterThanOrEqual(0.015);
+      expect(p.r).toBeLessThanOrEqual(0.1);
+      expect(Math.hypot(p.x - lander.x, p.z - lander.z)).toBeGreaterThanOrEqual(2.5);
+    }
+    expect(list.filter((p) => p.r > 0.06).length).toBeLessThan(list.length / 5);
+    const mesh = pebbleMesh(list, () => 0, 7);
+    expect(mesh.count).toBe(list.length);
   });
 });
