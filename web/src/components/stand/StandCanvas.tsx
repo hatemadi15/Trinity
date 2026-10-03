@@ -86,9 +86,9 @@ export function pointerClear(box: Rect, labels: Rect[], lo: number, hi: number):
   return above - h / 2 >= lo ? above : Math.min(hi, hit.bottom + 6 + h / 2);
 }
 
-/** A pointer's words: the label's, without what its arrow already says ("below the horizon", "behind the hills"). */
+/** A pointer's words: the label's, "behind the hills" as "hidden" ("below the horizon" stays: below what?). */
 export function pointerWords(label: string): string {
-  return label.replace(' below the horizon', ' below').replace(', behind the hills', ', hidden');
+  return label.replace(', behind the hills', ', hidden');
 }
 
 /** The Southern Cross's four stars, named only while the cross's own name is not shown. */
@@ -462,7 +462,7 @@ export function StandCanvas({
       place(earthRef.current, l.earth);
       // Zoomed in on the lander, its parts carry their names (and its own name gives way to them).
       const close = v.fov < ZOOMED_FOV;
-      place(landerRef.current, close && l.parts?.panel.visible ? null : l.lander);
+      place(landerRef.current, (close && l.parts?.panel.visible) || (H > W && !close) ? null : l.lander);
       // The power light says whether it is lit.
       const lampNode = lampTextRef.current, hr0 = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));
       const lampText = `Power light: ${scene.lander && Number(scene.lander.powered[hr0]) === 1 ? 'on' : 'off'}`;

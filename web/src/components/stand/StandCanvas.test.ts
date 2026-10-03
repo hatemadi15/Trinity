@@ -195,7 +195,8 @@ describe('a pointer beside a label', () => {
 
 describe('the words on a pointer', () => {
   it('keep the height and drop what the arrow already says', () => {
-    expect(pointerWords('Earth, 5.7° below the horizon')).toBe('Earth, 5.7° below');
+    // "Below what?": the horizon stays.
+    expect(pointerWords('Earth, 5.7° below the horizon')).toBe('Earth, 5.7° below the horizon');
     expect(pointerWords('Sun 1.5° up, behind the hills')).toBe('Sun 1.5° up, hidden');
     expect(pointerWords('Sun 2.5° up')).toBe('Sun 2.5° up');
     expect(pointerWords('Earth, on the horizon')).toBe('Earth, on the horizon');

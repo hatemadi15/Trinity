@@ -26,19 +26,18 @@ const LOOK = 'min-h-10 rounded-lg border border-white/20 px-3.5 text-[15px] hove
 const TONE = { radio: 'bg-[#8ddcaa]', power: 'bg-[#f6c86a]', off: 'bg-[#ff9180]' } as const;
 const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): RendererLike => new StandRenderer(canvas, scene);
 /**
- * The lander stands where it landed, at the period's first hour: 16 m away, 30° to the right of the Sun
- * then (or of Earth when the period starts in the dark; 20° on a tall screen, whose view is narrower),
- * whatever hour the view opens on. It is turned so the Sun lights one of the faces we see, its +x face 75°
- * left of that Sun (from in front of the Sun everything else is lit from behind). The view opens 5° right
- * of the Sun or Earth, which keeps the Sun clear of the answer's panel; on a tall screen halfway between the
- * Sun and the lander, so both fit across it.
+ * The lander stands where it landed, at the period's first hour: 16 m away, 60° to the left of the Sun then
+ * (or of Earth when the period starts in the dark; 20° on a tall screen, whose view is narrower), whatever
+ * hour the view opens on. It is turned so its solar panel faces that Sun, its +x face 75° left of it. The
+ * view opens 40° left of the Sun, so the Sun stands near the view's right edge, clear of the answer's panel,
+ * and the ground and the lander before you are lit from the side, not from behind; on a tall screen halfway
+ * between the Sun and the lander, so both fit across it.
  */
 const LANDER_DIST_M = 16;
 const LANDER_FACE_LEFT_DEG = 75;
-const OPEN_RIGHT_DEG = 5;
 const tall = () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
-const landerRight = () => (tall() ? 20 : 30);
-const openRight = () => (tall() ? landerRight() / 2 : OPEN_RIGHT_DEG);
+const landerFromSun = () => (tall() ? -20 : -60);
+const openFromSun = () => (tall() ? landerFromSun() / 2 : -40);
 /** How far out from the lander's middle the near edge of its nearest foot can stand, metres: the opening keeps it in sight. */
 const LANDER_FOOT_M = 2.1;
 
@@ -122,7 +121,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     // Where it landed: placed by the period's first hour, not the hour the view opens on.
     const landing = openingAnchor(s.series, 0);
     const lander = s.power
-      ? { azDeg: (landing + landerRight()) % 360, distM: LANDER_DIST_M, powered: s.power.powered, faceAzDeg: (s.series.sunAz[0] - LANDER_FACE_LEFT_DEG + 360) % 360, earthAzDeg: s.series.earthAz[0], earthElDeg: s.series.earthEl[0] }
+      ? { azDeg: (landing + landerFromSun() + 360) % 360, distM: LANDER_DIST_M, powered: s.power.powered, faceAzDeg: (s.series.sunAz[0] - LANDER_FACE_LEFT_DEG + 360) % 360, earthAzDeg: s.series.earthAz[0], earthElDeg: s.series.earthEl[0] }
       : undefined;
     return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander };
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality]);
@@ -271,7 +270,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           scene={scene}
           hour={hour}
           look={look}
-          startYaw={(openingAnchor(series, opening) + (openOnEarth ? -4 : scene.lander ? openRight() : 0) + 360) % 360}
+          startYaw={(openingAnchor(series, opening) + (openOnEarth ? -4 : scene.lander ? openFromSun() : 0) + 360) % 360}
           reducedMotion={reducedMotion}
           createRenderer={createRenderer}
           sunLabel={skyLabel('sun', series, hour)}

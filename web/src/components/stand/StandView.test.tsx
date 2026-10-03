@@ -95,7 +95,8 @@ describe('StandView', () => {
     for (const m of keyMoments(st.series!, st.power, st.startUtc)) expect(screen.getByRole('button', { name: `${m.label}, ${m.day}` })).toBeTruthy();
     // Which way the view faces, and the bright stars by name.
     // On the compass strip, and in the phone's small note.
-    expect(screen.getAllByText(`Facing ${compassWord(st.series!.sunAz[10])}`).length).toBe(2);
+    // The view opens 40 degrees left of the Sun, the Sun near its right edge.
+    expect(screen.getAllByText(`Facing ${compassWord((st.series!.sunAz[10] - 40 + 360) % 360)}`).length).toBe(2);
     expect(screen.getByText(starLabel('Sirius'))).toBeTruthy();
     // The compass strip names the eight points along the horizon.
     await waitFor(() => expect(screen.getAllByText('N').length).toBeGreaterThan(0));
@@ -213,12 +214,12 @@ describe('StandView', () => {
     expect(screen.getByRole('button', { name: 'Face Earth' })).toBeTruthy();
   });
 
-  it('turns to the lander, which stands 30° to the right of the Sun at the landing', async () => {
+  it('turns to the lander, which stands 60° to the left of the Sun at the landing (on a wide screen)', async () => {
     const r = stub();
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
     await waitFor(() => expect(r.setView).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Face the lander' }));
-    const want = (store.getState().series!.sunAz[0] + 30) % 360;
+    const want = (store.getState().series!.sunAz[0] - 60 + 360) % 360;
     const near = () => Math.abs(((r.setView.mock.calls.at(-1)![0] - want + 540) % 360) - 180) < 1;
     await waitFor(() => expect(near()).toBe(true), { timeout: 4000 });
     // It settles there, not just passes through on the way somewhere else.
@@ -237,7 +238,7 @@ describe('StandView', () => {
     await waitFor(() => expect(r.setView).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Face the lander' }));
     // 30 degrees right of the Sun at the landing, hour 0, as when the view opens on that hour.
-    const want = (st.series!.sunAz[0] + 30) % 360;
+    const want = (st.series!.sunAz[0] - 60 + 360) % 360;
     const near = () => Math.abs(((r.setView.mock.calls.at(-1)![0] - want + 540) % 360) - 180) < 1;
     await waitFor(() => expect(near()).toBe(true), { timeout: 4000 });
   });
@@ -269,7 +270,7 @@ describe('StandView', () => {
     expect(st.power!.powered[st.cursorHour]).toBe(0);
     expect(st.power!.powered[st.cursorHour - 1]).toBe(1);
     // The battery runs out: the view turns to the lander, and a line over the view says why.
-    const want = (st.series!.sunAz[0] + 30) % 360;
+    const want = (st.series!.sunAz[0] - 60 + 360) % 360;
     await waitFor(() => expect(Math.abs(((r.setView.mock.calls.at(-1)![0] - want + 540) % 360) - 180)).toBeLessThan(1), { timeout: 4000 });
     expect(screen.getByText(momentCaption(m.kind, st.series!, m.hour, -88.28))).toBeTruthy();
   });
@@ -363,5 +364,14 @@ describe('StandView', () => {
     await waitFor(() => expect(r.setTime).toHaveBeenCalled());
     view.unmount();
     expect(r.dispose).toHaveBeenCalled();
+  });
+
+  it('opens with the Sun near the right of a wide view, not straight ahead, so the ground before it is lit from the side', async () => {
+    const r = stub();
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=0', () => r);
+    await waitFor(() => expect(r.setView).toHaveBeenCalled());
+    const sunAz = store.getState().series!.sunAz[0];
+    const rel = ((((sunAz - r.setView.mock.calls[0][0] + 540) % 360) + 360) % 360) - 180;
+    expect(rel).toBeCloseTo(40, 0);
   });
 });

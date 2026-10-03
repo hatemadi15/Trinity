@@ -318,7 +318,7 @@ export function viewCaption(kind: 'dark', lat: number, sunElDeg: number): string
 export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander' | 'dark', lat: number, sunElDeg?: number): string {
   if (kind === 'earth') return `Earth barely moves in the Moon's sky: the Moon keeps one face towards it${poleLine(lat) === null ? '' : ', and only its slight rocking lifts Earth over the horizon or hides it'}.`;
   if (kind === 'up') {
-    const why = `With no air the sky is black even by day, and the stars come out as you look up. ${APOLLO}`;
+    const why = `With no air the sky is black even by day, and the stars are always there: you see them once the bright ground is out of view. ${APOLLO}`;
     return lat > 0 ? why : `Turned towards the Southern Cross and its pointers, Alpha Centauri and Hadar. ${why}`;
   }
   if (kind === 'lander') {
@@ -399,7 +399,7 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
   const earth = s.earthVisible[hour] === 1;
   const lit = s.sunFraction[hour] > 0;
   if (lit) {
-    lines.push(`With no air to scatter sunlight, the sky stays black by day, and the stars are still there. ${APOLLO} Eyes dazzled by the bright ground also see few; look up, away from it, and more come out.`);
+    lines.push(`With no air to scatter sunlight, the sky stays black by day, and the stars are still there. ${APOLLO} Eyes dazzled by the bright ground also see few; once it is out of view, you see them.`);
   } else {
     if (el >= 0) lines.push('The Sun is still up, hidden behind the hills: higher ground farther off still catches its light.');
     else if (el > -2) lines.push('The Sun is just below the horizon here, but higher ground farther off still catches its light.');

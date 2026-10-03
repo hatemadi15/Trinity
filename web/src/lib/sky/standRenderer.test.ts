@@ -383,6 +383,9 @@ describe('the stand scene', () => {
     // Across the light, with the Sun out of the frame, as set.
     s.setView(30, 2, 60, 16 / 9);
     expect(s.exposure()).toBeGreaterThan(0.7);
+    // The Sun near the edge of the frame barely stops it down: the glare is in the corner, not the middle.
+    s.setView(300 - 40, 2, 60, 16 / 9);
+    expect(s.exposure()).toBeGreaterThan(0.9);
     // Down-Sun the regolith shines back towards the Sun: the camera takes in about a third of the light.
     s.setView(120, -8, 60, 16 / 9);
     expect(s.exposure()).toBeLessThan(0.5);

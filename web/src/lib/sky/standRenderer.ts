@@ -333,7 +333,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // The Sun: white, small and hard, with only a small glow close round the disc: with no air there is no
   // halo across the sky and no starburst, only what a lens adds right at the disc.
   const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, '#fff'], [0.46, '#fff'], [0.5, 'rgba(255,255,255,0)']]), color: new THREE.Color(14, 14, 13.5), transparent: true, depthWrite: false, toneMapped: false }));
-  const glare = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, 'rgba(255,255,255,0.35)'], [0.06, 'rgba(240,244,255,0.12)'], [0.22, 'rgba(225,232,255,0.035)'], [0.6, 'rgba(220,230,255,0.008)'], [1, 'rgba(0,0,0,0)']]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+  const glare = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, 'rgba(255,255,255,0.6)'], [0.06, 'rgba(240,244,255,0.22)'], [0.22, 'rgba(225,232,255,0.06)'], [0.6, 'rgba(220,230,255,0.014)'], [1, 'rgba(0,0,0,0)']]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
   // The disc at its true size (it fills 92 % of its sprite), so Earth beside it is plainly four times wider.
   sun.scale.setScalar(SUN_D / 0.92);
   // A faint lens glare round it, so it reads as the Sun with no label; its bright core stays at the disc.
@@ -433,7 +433,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     // With the Sun itself in the frame the camera stops down for it, so the ground before it is backlit.
     const at = tmp.copy(sunDir).multiplyScalar(1000).add(camera.position).project(camera);
     const inFrame = at.z < 1 && Math.abs(at.x) <= 1 && Math.abs(at.y) <= 1;
-    return Math.min(ground, inFrame ? 1 - 0.4 * Math.min(1, sunNow) : 1);
+    // The more so the nearer the middle it stands: near an edge the glare is in a corner.
+    const off = Math.min(1, Math.hypot(at.x, at.y));
+    return Math.min(ground, inFrame ? 1 - 0.4 * Math.min(1, sunNow) * (1 - off) : 1);
   }
   const sunDir = new THREE.Vector3(), earthPos = new THREE.Vector3();
   function update(t: number) {
@@ -625,9 +627,9 @@ const foilTexture = () =>
 /** The back of the solar panel: a plain pale sheet in a thin frame with one spar, so it never reads as cells. */
 const panelBackTexture = () =>
   surface(256, 192, (g) => {
-    g.fillStyle = '#d8d5ce';
+    g.fillStyle = '#9fa1a6';
     g.fillRect(0, 0, 256, 192);
-    g.fillStyle = '#8b8d92';
+    g.fillStyle = '#6c6e73';
     g.fillRect(0, 0, 256, 5);
     g.fillRect(0, 187, 256, 5);
     g.fillRect(0, 0, 5, 192);
@@ -674,7 +676,7 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
   const pad = new THREE.MeshStandardMaterial({ name: 'pad', color: 0x8d8d88, metalness: 0.15, roughness: 0.85 });
   const metal = new THREE.MeshStandardMaterial({ color: 0xa3a39e, metalness: 0.6, roughness: 0.45 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x2c2c2e, metalness: 0.5, roughness: 0.55, side: THREE.DoubleSide });
-  const white = new THREE.MeshStandardMaterial({ color: 0xe9e8e4, metalness: 0.05, roughness: 0.7 });
+  const white = new THREE.MeshStandardMaterial({ color: 0xc9c7c2, metalness: 0.05, roughness: 0.8 });
   const cellMap = cellsTexture(), backMap = panelBackTexture();
   const cells = new THREE.MeshStandardMaterial({ color: cellMap ? 0xffffff : 0x1d2b4f, map: cellMap, metalness: 0.35, roughness: 0.28 });
   const panelBack = new THREE.MeshStandardMaterial({ color: backMap ? 0xffffff : 0xb9bcc2, map: backMap, metalness: 0.2, roughness: 0.6 });

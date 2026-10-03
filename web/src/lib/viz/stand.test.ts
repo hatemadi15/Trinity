@@ -204,7 +204,7 @@ describe('why the view looks as it does', () => {
   // short exposures), that dazzled eyes see few too, and that looking up, away from the ground, brings more
   // out: the caption after Look up says the first three, in the same words for the cameras.
   const black =
-    "With no air to scatter sunlight, the sky stays black by day, and the stars are still there. Apollo's cameras used short exposures for the bright ground, too short to catch the stars. Eyes dazzled by the bright ground also see few; look up, away from it, and more come out.";
+    "With no air to scatter sunlight, the sky stays black by day, and the stars are still there. Apollo's cameras used short exposures for the bright ground, too short to catch the stars. Eyes dazzled by the bright ground also see few; once it is out of view, you see them.";
   const hidden = 'The Sun is still up, hidden behind the hills: higher ground farther off still catches its light.';
   const justBelow = 'The Sun is just below the horizon here, but higher ground farther off still catches its light.';
   // Why a Sun just below the horizon, or behind a hill, leaves the site dark at once.
@@ -283,11 +283,11 @@ describe('why the view looks as it does', () => {
   });
   // Apollo's photos show no stars because its cameras' short exposures, set for the bright ground, were too
   // short for them: not because eyes were dazzled. A reader who meets both must find the same reason in each.
-  it('agrees with the caption after Look up: the sky is black by day, Apollo’s cameras used exposures too short to catch the stars, and looking up brings them out; dazzled eyes see few too', () => {
+  it('agrees with the caption after Look up: the sky is black by day, Apollo’s cameras used exposures too short to catch the stars, and the stars show once the bright ground is out of view; dazzled eyes see few too', () => {
     const day = whyLines(-88.28, series({ sunEl: [2.4], sunFraction: [1] }), 0).find((l) => l.startsWith('With no air'))!;
     const cameras = "Apollo's cameras used short exposures for the bright ground, too short to catch the stars.";
     for (const text of [day, viewCaption('up', -88.28), viewCaption('up', 18.56)]) {
-      for (const claim of [/sky (is|stays) black/, /look up/, /come out/]) expect(text).toMatch(claim);
+      for (const claim of [/sky (is|stays) black/, /out of view/]) expect(text).toMatch(claim);
       expect(text).toContain(cameras);
       // Nothing puts Apollo's missing stars down to dazzled eyes.
       expect(text).not.toMatch(/which is why Apollo|Apollo photos show none|hardly see them/);
@@ -772,8 +772,8 @@ describe('the line over the view', () => {
   // Apollo's photos show no stars because the cameras' exposures, short for the bright ground, were too short
   // for them: not because eyes were dazzled. By day the view, like such a camera, shows none until it looks
   // up, so the caption says that too. Two short sentences, for students.
-  it('says the sky is black by day, that the stars come out as you look up, and that Apollo’s cameras used exposures too short to catch them, after Look up, and from a southern site first which way the view turned', () => {
-    const why = "With no air the sky is black even by day, and the stars come out as you look up. Apollo's cameras used short exposures for the bright ground, too short to catch the stars.";
+  it('says the sky is black by day, that the stars are always there and show once the bright ground is out of view, and that Apollo’s cameras used exposures too short to catch them, after Look up, and from a southern site first which way the view turned', () => {
+    const why = "With no air the sky is black even by day, and the stars are always there: you see them once the bright ground is out of view. Apollo's cameras used short exposures for the bright ground, too short to catch the stars.";
     // From a southern site Look up turns towards the Southern Cross: the caption says so before it says why.
     expect(viewCaption('up', -88.28)).toBe(`Turned towards the Southern Cross and its pointers, Alpha Centauri and Hadar. ${why}`);
     expect(viewCaption('up', 18.56)).toBe(why);
