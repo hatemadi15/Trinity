@@ -65,7 +65,6 @@ describe('StandView', () => {
     // Where you stand, and what is measured and what is added: "Hills: NASA height data." (or, without NASA
     // heights, "Ground drawn flat: no NASA heights here.") and "Small craters and rocks: added to look real."
     expect(screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole\. (Hills: NASA height data|Ground drawn flat: no NASA heights here)\. Small craters and rocks: added to look real\.$/)).toBeTruthy();
-    expect(screen.getByText(/^At de\sGerlache\sRim\s2, near the Moon's south pole\.$/)).toBeTruthy();
     // The site's name stays on one line: no break inside "de Gerlache Rim 2".
     expect(document.body.textContent).toContain('de\u00a0Gerlache\u00a0Rim\u00a02');
     // One line joins the lander's power and its radio; then what to watch next.
@@ -88,7 +87,10 @@ describe('StandView', () => {
     // No chart above it here: the time bar carries the dates, the hours the lander is off, and those it can radio home.
     expect(screen.getByTestId('dates').querySelectorAll('[data-date]').length).toBeGreaterThan(3);
     expect(screen.getByText('lander off')).toBeTruthy();
-    expect(screen.getByText('radio contact')).toBeTruthy();
+    // The key names only what the bar draws: here no radio contact while the lander has power, only the
+    // contact after the night, if it survives it.
+    expect(screen.queryByText('radio contact')).toBeNull();
+    expect(screen.getByText('radio, if it survives the night')).toBeTruthy();
     for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
     // The key moments are flags on the time bar, not a panel of their own.
     expect(screen.queryByRole('group', { name: 'Key moments' })).toBeNull();
@@ -104,22 +106,56 @@ describe('StandView', () => {
     expect(document.querySelector('.theme-dark')).toBeTruthy();
   });
 
-  it('opens "More" on the radio story, why the sky looks as it does, and how we know, then folds it away', async () => {
+  it('gives the reasons one at a time under "Why this happens", the radio story first and how we know last, then folds them away', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    const more = screen.getByRole('button', { name: 'Why this happens' });
-    expect(more.getAttribute('aria-expanded')).toBe('false');
-    fireEvent.click(more);
-    expect(screen.getByRole('button', { name: 'Less' }).getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText(/^Standing on the Moon at de Gerlache Rim 2, 88\.3° S\./)).toBeTruthy();
-    // The radio story first, without repeating the headline: when power and Earth first meet.
+    const why = screen.getByRole('button', { name: /^Why this happens/ });
+    expect(why.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(why);
+    // The same button, still named for what it holds, now open: nothing beside it moves.
+    expect(screen.getByRole('button', { name: /^Why this happens/ }).getAttribute('aria-expanded')).toBe('true');
+    // The radio story first, without repeating the headline: when power and Earth first meet. One reason at a
+    // time, so the card never scrolls inside itself.
     expect(screen.getByText('The first day the lander has both power and a view of Earth is 20 January.')).toBeTruthy();
-    expect(screen.getByText(/^Near the Moon's south pole the Sun circles the sky once a month/)).toBeTruthy();
-    expect(screen.getByText(/^Earth hangs almost still in the Moon's sky/)).toBeTruthy();
-    expect(screen.getByText(/^With no air to scatter sunlight, the sky stays black by day/)).toBeTruthy();
+    expect(screen.queryByText(/^Earth hangs almost still in the Moon's sky/)).toBeNull();
+    const count = screen.getByText(/^1 of \d+$/);
+    const n = Number(count.textContent!.split(' of ')[1]);
+    expect((screen.getByRole('button', { name: 'Previous reason' }) as HTMLButtonElement).disabled).toBe(true);
+    const seen: string[] = [];
+    for (let k = 1; k < n; k++) {
+      fireEvent.click(screen.getByRole('button', { name: 'Next reason' }));
+      expect(screen.getByText(`${k + 1} of ${n}`)).toBeTruthy();
+      seen.push(document.querySelector('[data-reason]')!.textContent!);
+    }
+    expect((screen.getByRole('button', { name: 'Next reason' }) as HTMLButtonElement).disabled).toBe(true);
+    const all = seen.join(' | ');
+    expect(all).toMatch(/88\.3° S\./);
+    expect(all).toMatch(/Near the Moon's south pole the Sun circles the sky once a month/);
+    expect(all).toMatch(/Earth hangs almost still in the Moon's sky/);
+    expect(all).toMatch(/With no air to scatter sunlight, the sky stays black by day/);
+    // How we know comes last, open on its page.
+    expect(seen.at(-1)).toMatch(/^How we know this/);
     await waitFor(() => expect(screen.getAllByText(/small craters underfoot are drawn, not measured\./).length).toBeGreaterThan(0));
-    expect(screen.getByText('How we know this')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Less' }));
-    expect(screen.queryByText(/^Earth hangs almost still/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Previous reason' }));
+    expect(screen.getByText(`${n - 1} of ${n}`)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Why this happens/ }));
+    expect(screen.queryByRole('button', { name: 'Next reason' })).toBeNull();
+    // Opened again, it starts from the first reason.
+    fireEvent.click(screen.getByRole('button', { name: /^Why this happens/ }));
+    expect(screen.getByText(`1 of ${n}`)).toBeTruthy();
+  });
+
+  it('keeps the links where they are when the reasons open: the better day on its own row, the why and the way back on the next', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const better = await screen.findByRole('link', { name: /^Try 20 January instead/ });
+    expect(better.parentElement!.querySelectorAll('a, button').length).toBe(1);
+    const why = screen.getByRole('button', { name: /^Why this happens/ });
+    const back = screen.getByRole('link', { name: 'Back to the forecast' });
+    const row = why.parentElement!;
+    expect(back.parentElement).toBe(row);
+    fireEvent.click(why);
+    const after = screen.getByRole('button', { name: /^Why this happens/ });
+    expect(after.parentElement).toBe(row);
+    expect([...row.children].indexOf(after)).toBeLessThan([...row.children].indexOf(screen.getByRole('link', { name: 'Back to the forecast' })));
   });
 
   it('labels the Sun and Earth as Explore does, and follows the time', async () => {
@@ -142,7 +178,9 @@ describe('StandView', () => {
   it('opens a site without polar terrain on flat ground, and says so', async () => {
     await open('?site=blue_ghost_m1&start=2025-03-02T09:00&days=14&hour=0');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Landing on 2 March: power for all 14\u00a0days, radio all the while');
-    fireEvent.click(screen.getByRole('button', { name: 'Why this happens' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Why this happens/ }));
+    // How we know comes last among the reasons.
+    while (!(screen.getByRole('button', { name: 'Next reason' }) as HTMLButtonElement).disabled) fireEvent.click(screen.getByRole('button', { name: 'Next reason' }));
     await waitFor(() => expect(screen.getAllByText(/the ground here is drawn flat/).length).toBeGreaterThan(0));
   });
 
@@ -153,7 +191,8 @@ describe('StandView', () => {
     await waitFor(() => expect(screen.getByText(/This browser cannot draw the view from the site/)).toBeTruthy());
     expect(screen.getByRole('img', { name: /^The view all round the site/ })).toBeTruthy();
     // The note describes the view from the site, which the fallback does not show.
-    fireEvent.click(screen.getByRole('button', { name: 'Why this happens' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Why this happens/ }));
+    while (!(screen.getByRole('button', { name: 'Next reason' }) as HTMLButtonElement).disabled) fireEvent.click(screen.getByRole('button', { name: 'Next reason' }));
     expect(screen.queryByText(/How we know this/)).toBeNull();
     const st = store.getState();
     expect(screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text)).toBeTruthy();
@@ -287,33 +326,64 @@ describe('StandView', () => {
     expect(screen.getByText((t) => t.startsWith(viewCaption('lander', -88.28)))).toBeTruthy();
   });
 
-  it('keeps a phone’s card to the headline, the lander’s line and the better day: what to watch waits under the why, the way back stays', async () => {
+  it('folds a phone\u2019s card to the headline, so the view keeps most of the screen, with More for the rest', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const st = store.getState();
     const better = await screen.findByRole('link', { name: /^Try 20 January instead/ });
-    expect(better.className).not.toMatch(/\bmax-md:hidden\b/);
-    expect(screen.getByRole('link', { name: 'Back to the forecast' }).className).not.toMatch(/\bmax-md:hidden\b/);
-    expect(screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text).closest('p')!.className).not.toMatch(/\bmax-md:hidden\b/);
-    const watch = () => screen.getByText(watchNext(st.series!, st.power, st.startUtc, 10));
-    expect(watch().className).toMatch(/\bmax-md:hidden\b/);
-    fireEvent.click(screen.getByRole('button', { name: 'Why this happens' }));
-    expect(watch().className).not.toMatch(/\bmax-md:hidden\b/);
+    // Hidden on a phone until More: the site's line (what is measured and what is added, as on a wide screen),
+    // the lander's line, what to watch, the better day and the links.
+    const folded = () => [
+      screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole\. /),
+      screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text).closest('p')!,
+      screen.getByText(watchNext(st.series!, st.power, st.startUtc, 10)),
+      better.parentElement!,
+      screen.getByRole('link', { name: 'Back to the forecast' }).parentElement!,
+    ];
+    for (const el of folded()) expect(el.className).toMatch(/\bmax-md:hidden\b/);
+    // The headline stays.
+    expect(screen.getByRole('heading', { level: 1 }).className).not.toMatch(/\bmax-md:hidden\b/);
+    const more = screen.getByRole('button', { name: 'More' });
+    expect(more.className).toMatch(/\bmd:hidden\b/);
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(more);
+    for (const el of folded()) expect(el.className).not.toMatch(/\bmax-md:hidden\b/);
+    fireEvent.click(screen.getByRole('button', { name: 'Less' }));
+    for (const el of folded()) expect(el.className).toMatch(/\bmax-md:hidden\b/);
   });
 
-  it('drops the top line once the view is turned, keeping what to watch and the better day, and the why brings it back', async () => {
+  it('keeps one card whatever the view does: the top line, the headline\u2019s size and the prompts stay when the view turns', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const st = store.getState();
     const watch = watchNext(st.series!, st.power, st.startUtc, 10);
     await waitFor(() => expect(screen.getByText(watch)).toBeTruthy());
+    const size = screen.getByRole('heading', { level: 1 }).className;
     expect(screen.getByText(/^Standing at de\sGerlache/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Face the Sun' }));
-    expect(screen.queryByText(/^Standing at de\sGerlache/)).toBeNull();
-    // The prompts stay: what to watch, and the better day.
-    expect(screen.getByText(watch)).toBeTruthy();
-    expect(screen.getByRole('link', { name: /^Try 20 January instead/ }).className).not.toMatch(/\bmd:hidden\b/);
-    expect(screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Why this happens' }));
     expect(screen.getByText(/^Standing at de\sGerlache/)).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1 }).className).toBe(size);
+    expect(screen.getByText(watch)).toBeTruthy();
+    expect(screen.getByRole('link', { name: /^Try 20 January instead/ })).toBeTruthy();
+    expect(screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text)).toBeTruthy();
+  });
+
+  it('opens a tall screen with the lander near the middle and the Sun towards the right edge', async () => {
+    const was = { w: window.innerWidth, h: window.innerHeight };
+    Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 844, configurable: true });
+    try {
+      const r = stub();
+      const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=0', () => r);
+      await waitFor(() => expect(r.setView).toHaveBeenCalled());
+      const sunAz = store.getState().series!.sunAz[0];
+      const rel = (az: number) => ((((sunAz - az + 540) % 360) + 360) % 360) - 180;
+      // The view 15 degrees left of the Sun; the lander 20 degrees left of it, 5 degrees left of the middle.
+      expect(rel(r.setView.mock.calls[0][0])).toBeCloseTo(15, 0);
+      fireEvent.click(screen.getByRole('button', { name: 'Face the lander' }));
+      await waitFor(() => expect(rel(r.setView.mock.calls.at(-1)![0])).toBeCloseTo(20, 0), { timeout: 4000 });
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { value: was.w, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: was.h, configurable: true });
+    }
   });
 
   it('opens a night with Earth up on Earth, narrower, so it shows large', async () => {

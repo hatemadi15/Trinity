@@ -148,15 +148,22 @@ describe('the stand scene', () => {
     expect(buildScene(flat()).labels().lander).toBeNull();
   });
 
-  it('hides a label behind the lander', () => {
+  it('names a body behind the lander over the lander\u2019s top, at the body\u2019s own azimuth, so where it went still shows', () => {
     const behind = buildScene(flat({ lander: { azDeg: 300, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
     behind.update(0);
     behind.setView(300, 2, 60, 16 / 9);
-    expect(behind.labels().sun.visible).toBe(false);
+    const l = behind.labels();
+    expect(l.sun.visible).toBe(true);
+    expect(l.sun.x).toBeCloseTo(0.5, 2);
+    // Above the lander: its name's spot is over its top.
+    expect(l.sun.y).toBeLessThanOrEqual(l.lander!.y + 1e-9);
+    // Clear of the lander, the label stays over the body itself.
     const aside = buildScene(flat({ lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
     aside.update(0);
     aside.setView(300, 2, 60, 16 / 9);
-    expect(aside.labels().sun.visible).toBe(true);
+    const a = aside.labels();
+    expect(a.sun.visible).toBe(true);
+    expect(a.sun.y).toBeGreaterThan(l.sun.y);
   });
 
   it('traces each mesh’s shadows in its own level or coarser ones, so the coarse ground never meets the fine heights it does not show', () => {
@@ -479,15 +486,52 @@ describe('the stand scene', () => {
     expect(s.parts.landerFill!.intensity).toBeLessThanOrEqual(0.06);
   });
 
-  it('dresses the lander in shiny gold foil and stands it on matte pads, so its feet do not sparkle', () => {
+  it('dresses the lander in gold foil with a broad sheen and stands it on matte pads, so neither an edge nor a foot glints like a lamp', () => {
     const s = buildScene(flat({ lander: { azDeg: 90, distM: 9, powered: Uint8Array.from([1, 1, 1]) } }));
     const mats = new Set<THREE.MeshStandardMaterial>();
     s.parts.lander!.traverse((o) => {
       const m = (o as THREE.Mesh).material;
       for (const x of Array.isArray(m) ? m : m ? [m] : []) if (x instanceof THREE.MeshStandardMaterial) mats.add(x);
     });
-    expect([...mats].some((m) => m.name === 'foil' && m.metalness >= 0.8)).toBe(true);
+    // Metal, but rough enough that a facet catching the low Sun shows a soft sheen, not a bright line that
+    // two readers took for the power light.
+    expect([...mats].some((m) => m.name === 'foil' && m.metalness >= 0.7 && m.roughness >= 0.5)).toBe(true);
     expect([...mats].some((m) => m.name === 'pad' && m.metalness <= 0.25)).toBe(true);
+  });
+
+  it('puts the power light on the face of the lander the eye sees, and makes it glow while the lander has power', () => {
+    // The lander 40 degrees left of the Sun, turned as the view turns it: its +x face 75 degrees left of the Sun.
+    const s = buildScene(flat({ lander: { azDeg: 260, distM: 16, powered: Uint8Array.from([1, 1, 0]), faceAzDeg: 225 } }));
+    s.update(0);
+    s.setView(260, 0, 36, 16 / 9);
+    const lander = s.parts.lander!;
+    let lamp: THREE.Mesh | null = null;
+    lander.traverse((o) => {
+      const m = (o as THREE.Mesh).material;
+      if (m === s.parts.landerLight) lamp = o as THREE.Mesh;
+    });
+    expect(lamp).toBeTruthy();
+    const at = new THREE.Vector3().setFromMatrixPosition(lamp!.matrixWorld);
+    const eye = new THREE.Vector3(0, heightAt(flatField(-64.31), 0, 0) + 2, 0);
+    // On the near side: nearer the eye than the lander's middle by most of the body's width.
+    expect(at.distanceTo(eye)).toBeLessThan(lander.position.distanceTo(eye) - 0.6);
+    // Its name points at it.
+    const p = at.clone().project(s.camera);
+    const spot = s.labels().parts!.lamp;
+    expect(spot.x).toBeCloseTo((p.x + 1) / 2, 6);
+    // Lit, it glows (brighter than white, so the camera's bloom catches it); off, a dark bead.
+    expect(s.parts.landerLight!.color.g).toBeGreaterThan(1);
+    s.update(2);
+    expect(s.parts.landerLight!.color.getHex()).toBe(0x2b2e2c);
+  });
+
+  it('works out the level length of your shadow from the Sun\u2019s height as the view shows it, so the sum can be checked', () => {
+    // The Sun 2.46 degrees up, shown as 2.5: 1.8 m / tan 2.5 degrees, about 41 m, not 1.8 / tan 2.46.
+    const shown = { ...series, sunEl: Float64Array.from([2.46, 1, -1]) } as Series;
+    const s = buildScene(flat({ series: shown }));
+    s.update(0);
+    s.setView(120, -8, 60, 16 / 9);
+    expect(s.labels().shadow!.levelM).toBeCloseTo(1.8 / Math.tan((2.5 * Math.PI) / 180), 6);
   });
 
   it('lets the shiny foil mirror only a little of the dust round it by day, so the side away from the Sun stays dark', () => {

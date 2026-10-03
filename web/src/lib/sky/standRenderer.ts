@@ -36,6 +36,8 @@ export interface StandScene {
 }
 
 type Spot = { x: number; y: number; visible: boolean };
+/** How much brighter than its colour the lit power light shines: above white, so the bloom gives it a glow. */
+const LAMP_GLOW = 2.5;
 /**
  * Where the labels go, as fractions of the view's width and height (y is the label's foot); `parts` are the
  * lander's solar panel (its top), antenna dish and power light, named when the view is close.
@@ -483,7 +485,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     if (lander) {
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
       // Lit green with power; off, a dark bead that still shows where the light is.
-      lander.lamp.color.setHex(Number(scene.lander!.powered[h]) === 1 ? 0x46c98b : 0x2b2e2c);
+      if (Number(scene.lander!.powered[h]) === 1) lander.lamp.color.setHex(0x46c98b).multiplyScalar(LAMP_GLOW);
+      else lander.lamp.color.setHex(0x2b2e2c);
     }
     sunNow = v.sunFraction;
     sunElNow = v.sunEl;
@@ -521,13 +524,25 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     const lift = radius > 0 ? radius / world.distanceTo(camera.position) / Math.tan((camera.fov * DEG) / 2) / 2 : 0;
     return { x, y: y - lift, visible };
   }
-  /** A body's label: over the body, or resting on the skyline where the body is hidden below it. */
+  /** Where the lander's name goes: over its top, high enough that the ray to it clears the lander itself. */
+  const landerTop = () => (lander ? new THREE.Vector3(lander.group.position.x, lander.group.position.y + 3.9, lander.group.position.z) : null);
+  /**
+   * A body's label: over the body, or resting on the skyline where the body is hidden below it. Where the
+   * lander stands in front of that spot, the label goes over the lander's top, still at the body's azimuth:
+   * a Sun gone down behind the hill behind the lander is named there, not left out.
+   */
   function bodySpot(world: THREE.Vector3, radius: number): Spot {
     const d = tmp.copy(world).sub(camera.position).normalize();
     const az = ((Math.atan2(d.x, -d.z) / DEG) % 360 + 360) % 360, el = Math.asin(d.y) / DEG, sky = maskAt(az);
-    if (el >= sky) return spot(world, radius);
-    const s = dirAzEl(az, sky + 0.4);
-    return spot(new THREE.Vector3(s[0] * 30000, eye + s[1] * 30000, s[2] * 30000));
+    const sk = dirAzEl(az, sky + 0.4);
+    const at = el >= sky ? world : new THREE.Vector3(sk[0] * 30000, eye + sk[1] * 30000, sk[2] * 30000);
+    const r = el >= sky ? radius : 0;
+    const seen = spot(at, r);
+    const top = landerTop();
+    if (seen.visible || !top) return seen;
+    const free = spot(at, r, false);
+    if (!free.visible) return seen;
+    return { x: free.x, y: Math.min(free.y, spot(top, 0, false).y), visible: true };
   }
   function labels(): SkyLabels {
     // The brightest stars by name, where they stand above the skyline.
@@ -549,7 +564,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       stars.push({ name: 'Southern Cross', ...s, y: s.y + 0.03, visible: s.visible && el > maskAt(az) });
     }
     // The lander's name over its top (high enough that the ray to it clears the lander itself), and its parts.
-    const landerSpot = lander ? spot(new THREE.Vector3(lander.group.position.x, lander.group.position.y + 3.9, lander.group.position.z)) : null;
+    const top = landerTop();
+    const landerSpot = top ? spot(top) : null;
     const on = (local: THREE.Vector3) => spot(local.clone().applyMatrix4(lander!.group.matrixWorld), 0, false);
     const parts = lander
       ? {
@@ -570,7 +586,10 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         shadowLen = shadowOnGround((d) => heightAt(scene.field, dir.x * d, dir.z * d) - feet, sunElNow);
         shadowKey = key;
       }
-      shadow = { ...at, lengthM: shadowLen, levelM: Math.min(500, 1.8 / Math.tan(Math.max(0.2, sunElNow) * DEG)) };
+      // The level length from the Sun's height as its label shows it (tenths below 10 degrees), so the sum
+      // 1.8 m / tan(height) can be checked from the numbers on the screen.
+      const shownEl = Math.abs(sunElNow) < 9.95 ? Math.round(sunElNow * 10) / 10 : Math.round(sunElNow);
+      shadow = { ...at, lengthM: shadowLen, levelM: Math.min(500, 1.8 / Math.tan(Math.max(0.2, shownEl) * DEG)) };
     }
     return { sun: bodySpot(sun.position, SUN_D * 3), earth: bodySpot(earthPos, EARTH_R * 1.25), stars, lander: landerSpot, parts, shadow };
   }
@@ -671,7 +690,9 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
     foilMap.repeat.set(4, 1);
   }
   // Foil is shiny: it mirrors the black sky and the grey dust, and catches the Sun in bright creases.
-  const foil = new THREE.MeshStandardMaterial({ name: 'foil', color: foilMap ? 0xffffff : 0xd4a640, map: foilMap, metalness: 0.85, roughness: 0.3 });
+  // Rough enough that a facet catching a low Sun shows a soft sheen rather than a bright line, which two
+  // readers took for the power light.
+  const foil = new THREE.MeshStandardMaterial({ name: 'foil', color: foilMap ? 0xffffff : 0xd4a640, map: foilMap, metalness: 0.75, roughness: 0.55 });
   // The pads are matte, so the feet do not sparkle.
   const pad = new THREE.MeshStandardMaterial({ name: 'pad', color: 0x8d8d88, metalness: 0.15, roughness: 0.85 });
   const metal = new THREE.MeshStandardMaterial({ color: 0xa3a39e, metalness: 0.6, roughness: 0.45 });
@@ -741,10 +762,13 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
   const toEarth = new THREE.Vector3(e[0], e[1], e[2]).applyAxisAngle(new THREE.Vector3(0, 1, 0), -group.rotation.y);
   dish.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), toEarth);
   group.add(dish);
-  // The power light, on the +x face (towards the eye's side of the Sun).
+  // The power light, on the face that looks most nearly at the eye (the faces are 45 degrees apart; a
+  // direction phi from +x towards +z looks at azimuth faceAzDeg + phi), so its name never points through the body.
+  const phi = Math.round((((azDeg + 180 - faceAzDeg) % 360) + 360) % 360 / 45) * 45 * DEG;
+  const lampPos = new THREE.Vector3(Math.cos(phi) * (apothem + 0.06), L.body.y0 + bodyH * 0.72, Math.sin(phi) * (apothem + 0.06));
   const lamp = new THREE.MeshBasicMaterial({ color: 0x46c98b });
-  add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 10), lamp), apothem + 0.04, L.body.y0 + bodyH * 0.72, 0.28);
-  return { group, lamp, panel, dish, lampPos: new THREE.Vector3(apothem + 0.04, L.body.y0 + bodyH * 0.72, 0.28) };
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), lamp), lampPos.x, lampPos.y, lampPos.z);
+  return { group, lamp, panel, dish, lampPos };
 }
 
 /** The camera's exposure setting, before it stops down for bright ground (see the scene's exposure). */

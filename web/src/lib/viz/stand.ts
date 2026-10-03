@@ -125,12 +125,13 @@ export function liveSentence(s: Series, hour: number, powered?: boolean): string
  * on the time bar under the card: "Press Play or a flag below: the Sun goes behind the hills on 3 January,
  * and the battery runs out on 4 January." A Sun that leaves the view while still above the level horizon
  * goes behind the hills; below it, it "sets below the horizon". On the same day the day is said once: "...:
- * the Sun comes back on 20 January, and the power with it, if the lander survives 16 days without power in a
- * night colder than −170 °C." The power coming back always carries that condition, straight after it, as the
- * forecast counts energy only: the whole days of that stretch without power, counted as in the headline
- * (nightHeadline); when the battery ran out with the Sun still up, for too little sunlight, it claims no
- * night: "if the lander survives 2 days without power". With no change left in the period: "Press Play to
- * watch the light move across the ground."
+ * the Sun comes back on 20 January, and the power with it, if the lander survives 16 days without power in
+ * the dark, colder than −170 °C." The power coming back always carries that condition, straight after it,
+ * as the forecast counts energy only: the whole days of that stretch without power, counted as in the
+ * headline (nightHeadline), "in the dark" and not "a night", as the hills may only hide the Sun (offWords);
+ * when the battery ran out with the Sun still up, for too little sunlight, it says nothing of the dark: "if
+ * the lander survives 2 days without power". With no change left in the period: "Press Play to watch the
+ * light move across the ground."
  */
 export function watchNext(s: Series, p: PowerResult | null, startUtc: string, hour: number): string {
   const lit = (h: number) => s.sunFraction[h] > 0;
@@ -249,13 +250,18 @@ export function keyMoments(s: Series, p: PowerResult | null, startUtc: string): 
  * why, in plain words, in three short sentences at most. A Sun that leaves the view while still above the
  * level horizon has not set, and the caption says so: a hill hides it. When the Sun leaves the view the
  * caption says there is no twilight (NO_TWILIGHT), so a site dark the hour the Sun goes reads as what it is.
- * When the Sun leaves the view, or the battery runs out with none of the Sun in view, while the Sun is less
- * than 2° below the horizon, the caption adds that higher ground farther off still catches it (farLit), so
- * the lit peaks over the dark site read as what they are. When the Sun comes back with the power, the panel
- * powers the lander again "if it survived the night", as the forecast does not work that out. `kind` is the
- * moment's kind from keyMoments, not its label; anything else gets an empty caption. Near a pole the sunset
- * says, in its first sentence, that the Sun never climbs more than a few degrees; given the site's latitude,
- * that is left out far from the poles.
+ * When the battery runs out with none of the Sun in view, the view, turned to the lander, still shows the
+ * ground about it, and with the Sun gone a reader asks what lights it: so the caption says, in the words of
+ * the line over the view at night (viewCaption), "The ground is lit only by Earthlight: sunlight bounced off
+ * Earth, brightened here as a long-exposure photo would show it." with Earth in view, else "Neither the Sun
+ * nor Earth lights the ground here: the view is brightened, as a long-exposure photo would be." No caption
+ * says that higher ground farther off still catches the Sun, as the view of a key moment need not show that
+ * ground: when the battery runs out it is turned to the lander, with none in sight. The line in the dark
+ * (viewCaption) and the card's lines on why (whyLines) say it. When the Sun comes back with the power, the
+ * panel powers the lander again "if it survived the night", as the forecast does not work that out. `kind`
+ * is the moment's kind from keyMoments, not its label; anything else gets an empty caption. Near a pole the
+ * sunset says, in its first sentence, that the Sun never climbs more than a few degrees; given the site's
+ * latitude, that is left out far from the poles.
  */
 export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: number): string {
   const up = s.sunEl[hour] >= 0;
@@ -264,19 +270,21 @@ export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: n
   const pole = lat === undefined || poleLine(lat) !== null;
   const low = 'this close to the pole it never climbs more than a few degrees';
   const earth = s.earthVisible[hour] === 1;
-  // With the Sun in view the site itself is lit: there is nothing to explain about the ground farther off.
-  const far = s.sunFraction[hour] === 0 ? farLit(s.sunEl[hour]) : '';
+  // What lights the ground the view still shows with the Sun gone, as the line over the view says at night.
+  const light = earth
+    ? 'The ground is lit only by Earthlight: sunlight bounced off Earth, brightened here as a long-exposure photo would show it.'
+    : 'Neither the Sun nor Earth lights the ground here: the view is brightened, as a long-exposure photo would be.';
   switch (kind) {
     case 'sunset':
-      // The pole joins the first sentence: with no twilight and the far hills, three sentences in all.
-      return `${!pole ? sunset : up ? `The Sun has not set: ${low}, so this hill hides it` : `${sunset}: ${low}`}. ${NO_TWILIGHT}${far}`;
+      // The pole joins the first sentence: with no twilight, two sentences in all.
+      return `${!pole ? sunset : up ? `The Sun has not set: ${low}, so this hill hides it` : `${sunset}: ${low}`}. ${NO_TWILIGHT}`;
     case 'sunset-power-off':
-      return `${sunset}, and the lander's power goes with it. ${NO_TWILIGHT}${far}`;
+      return `${sunset}, and the lander's power goes with it. ${NO_TWILIGHT}`;
     case 'battery-out':
       // With too little sunlight the battery can run out while the Sun is still in view.
       return s.sunFraction[hour] > 0
         ? 'The battery runs out: the Sun is still up, but the panel gets too little sunlight to keep the lander going.'
-        : `The battery runs out: with the Sun ${up ? 'behind the hills' : 'below the horizon'}, the panel makes nothing until it comes back.${far}`;
+        : `The battery runs out: with the Sun ${up ? 'behind the hills' : 'below the horizon'}, the panel makes nothing until it comes back. ${light}`;
     case 'earth-in':
       return "Earth rises over the hills. It barely moves in the Moon's sky: the Moon's slight rocking lifts it over the horizon here for about two weeks a month.";
     case 'sun-back':
@@ -342,27 +350,28 @@ const NO_TWILIGHT = 'With no air there is no twilight: once the Sun is hidden, i
 
 /**
  * " Higher ground farther off still catches the Sun." while the Sun is less than 2° below the horizon, as
- * whyLines has it, else nothing: the sentence that ends a caption over a dark site with lit peaks beyond.
+ * whyLines has it, else nothing: the sentence that ends the line in the dark (viewCaption), over a dark site
+ * with lit peaks beyond. The captions for key moments leave it out (momentCaption).
  */
 function farLit(sunElDeg: number): string {
   return sunElDeg > -2 ? ' Higher ground farther off still catches the Sun.' : '';
 }
 
 /**
- * The line above the headline, which carries the site's name, and its longer form under More. "top", at the
- * top of a wide screen: where you stand and near which pole, then what is measured and what is drawn, in
- * short parts a student can take one at a time: "Standing at de Gerlache Rim 2, near the Moon's south pole.
- * Hills: NASA height data. Small craters and rocks: added to look real." With `flat`, for a site without NASA
- * heights whose ground is drawn flat, it claims no hills: "Standing at Blue Ghost Mission 1. Ground drawn
- * flat: no NASA heights here. Small craters and rocks: added to look real." "phone", where and near which
- * pole only: "At de Gerlache Rim 2, near the Moon's south pole." "more", under More: the Moon, the latitude,
- * the site's own note, and that the view is drawn from NASA data, not a photograph. The pole is named from
- * 80° on, south or north, and not at all between.
+ * The line above the headline, which carries the site's name, and what More adds to it. "top", at the top
+ * of the card (on a phone once it is opened): where you stand and near which pole, then what is measured
+ * and what is drawn, in short parts a student can take one at a time: "Standing at de Gerlache Rim 2, near
+ * the Moon's south pole. Hills: NASA height data. Small craters and rocks: added to look real." With
+ * `flat`, for a site without NASA heights whose ground is drawn flat, it claims no hills: "Standing at Blue
+ * Ghost Mission 1. Ground drawn flat: no NASA heights here. Small craters and rocks: added to look real."
+ * "more", under More, below the top line: only what that line does not say, the latitude and the site's own
+ * note, "de Gerlache Rim 2 lies at 88.3° S. A ridge on a crater rim, 52 km from the pole.", or the latitude
+ * alone for a site without a note, "Blue Ghost Mission 1 lies at 18.6° N." The pole is named from 80° on,
+ * south or north, and not at all between.
  */
-export function standingLine(site: { lat: number; blurb?: string }, name: string, kind: 'top' | 'phone' | 'more', flat = false): string {
-  if (kind === 'more') return `Standing on the Moon at ${name}, ${Math.abs(site.lat).toFixed(1)}° ${site.lat < 0 ? 'S' : 'N'}.${site.blurb ? ` ${site.blurb}.` : ''} Drawn from NASA data, not a photograph.`;
+export function standingLine(site: { lat: number; blurb?: string }, name: string, kind: 'top' | 'more', flat = false): string {
+  if (kind === 'more') return `${name} lies at ${Math.abs(site.lat).toFixed(1)}° ${site.lat < 0 ? 'S' : 'N'}.${site.blurb ? ` ${site.blurb}.` : ''}`;
   const pole = site.lat <= -80 ? ", near the Moon's south pole" : site.lat >= 80 ? ", near the Moon's north pole" : '';
-  if (kind === 'phone') return `At ${name}${pole}.`;
   return `Standing at ${name}${pole}. ${flat ? 'Ground drawn flat: no NASA heights here.' : 'Hills: NASA height data.'} Small craters and rocks: added to look real.`;
 }
 
@@ -565,15 +574,16 @@ function daysOff(startUtc: string, from: number, back: number): number {
 
 /**
  * The stretch without power that ends at `back`, the first hour with power again, for the condition on the
- * power coming back, its days counted by daysOff as the headline counts them: "16 days without power in a
- * night colder than −170 °C" when the power ran out at night (no part of the Sun in view at the stretch's
+ * power coming back, its days counted by daysOff as the headline counts them: "16 days without power in the
+ * dark, colder than −170 °C" when the power ran out in the dark (no part of the Sun in view at the stretch's
  * first hour), else "2 days without power", when the battery ran down for too little sunlight with the Sun
- * still up.
+ * still up. It says "in the dark", not "a night": the hills may only hide the Sun, as the time bar's flag
+ * ("Sun behind the hills") and its key ("in shadow") have it, and a reader would ask which it is.
  */
 function offWords(s: Series, p: PowerResult, startUtc: string, back: number): string {
   const from = stretchStart(p.powered, back - 1);
   const off = `${spanWords(daysOff(startUtc, from, back) * 24)} without power`;
-  return s.sunFraction[from] === 0 ? `${off} in a night colder than −170 °C` : off;
+  return s.sunFraction[from] === 0 ? `${off} in the dark, colder than −170 °C` : off;
 }
 
 /** A span of days or hours as spanWords writes it: "3 days 4 hours", "16 days", "1 hour". */

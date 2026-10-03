@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, partSide, pointerClear, pointerWords, slopeWord, starNamesShown } from './StandCanvas';
+import { clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, liftClear, partSide, pointerClear, pointerWords, slopeWord, starNamesShown } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -203,3 +203,19 @@ describe('the words on a pointer', () => {
   });
 });
 
+describe('a body named over the lander', () => {
+  it('rises clear of the names it meets, its foot 4 px over the highest, and gives way when the room above runs out', () => {
+    const box = { left: 100, right: 200, top: 300, bottom: 320 };
+    // The lander's name, and a part's name above it.
+    const names = [
+      { left: 150, right: 250, top: 310, bottom: 330 },
+      { left: 120, right: 180, top: 280, bottom: 302 },
+    ];
+    expect(liftClear(box, names, 0)).toBe(320 - 280 + 4);
+    // Clear already: it stays.
+    expect(liftClear(box, [{ left: 210, right: 260, top: 300, bottom: 320 }], 0)).toBe(0);
+    expect(liftClear(box, [], 0)).toBe(0);
+    // Its top may not rise above the room's top.
+    expect(liftClear(box, names, 270)).toBeNull();
+  });
+});

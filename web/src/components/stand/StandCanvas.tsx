@@ -201,6 +201,22 @@ export function clearOf(b: Rect, plates: Rect[], W: number): number | null {
   return null;
 }
 
+/**
+ * How far (pixels, up) to lift a label so it clears the names it meets: its foot 4 px over the top of the
+ * highest of them, again if it then meets another; null when that would take its top above `minTop`, the top
+ * of the room it may use. A Sun named over the lander, gone behind it, so rises over the lander's own names.
+ */
+export function liftClear(b: Rect, others: Rect[], minTop: number): number | null {
+  let dy = 0;
+  for (let k = 0; k <= others.length; k++) {
+    const q = { left: b.left, right: b.right, top: b.top - dy, bottom: b.bottom - dy };
+    const hit = others.filter((o) => q.right > o.left && q.left < o.right && q.bottom > o.top - 4 && q.top < o.bottom);
+    if (hit.length === 0) return q.top < minTop ? null : dy;
+    dy = b.bottom - Math.min(...hit.map((o) => o.top)) + 4;
+  }
+  return null;
+}
+
 /** The sides each part's name tries, in order. */
 const PARTS = [
   ['panel', 'Solar panel', ['above', 'below']],
@@ -485,6 +501,22 @@ export function StandCanvas({
           node.dataset.side = side;
         } else node.hidden = true;
       }
+      // The Sun or Earth named over the lander (gone behind it) rises clear of the lander's own names, and
+      // gives way where that would take it into a panel.
+      const names = [landerRef.current, ...Object.values(partRefs.current).map((n) => n?.querySelector<HTMLElement>('[data-text]') ?? null)]
+        .filter((n): n is HTMLElement => !!n && !n.closest('[hidden]'))
+        .map((n) => n.getBoundingClientRect())
+        .filter((b) => b.width > 0);
+      for (const [node, at] of [[sunRef.current, l.sun], [earthRef.current, l.earth]] as const) {
+        if (!node || node.hidden || names.length === 0) continue;
+        const dy = liftClear(node.getBoundingClientRect(), names, freeTop + 4);
+        if (dy === null) node.hidden = true;
+        else if (dy > 0) {
+          node.style.top = `calc(${at.y * 100}% - ${dy}px)`;
+          const b = node.getBoundingClientRect();
+          if (plates.some((q) => b.right > q.left - 4 && b.left < q.right + 4 && b.bottom > q.top - 4 && b.top < q.bottom + 4)) node.hidden = true;
+        }
+      }
       // Your own shadow, long across the ground while the Sun is low.
       const sh = l.shadow;
       if (shadowRef.current && sh) {
@@ -683,7 +715,9 @@ export function StandCanvas({
               <path d="M0 5 8 0v10z" />
             </svg>
             <i className={`h-2 w-2 shrink-0 rounded-full ${colour}`} />
-            {k === 'sun' ? pointerWords(sunLabel) : k === 'earth' ? pointerWords(earthLabel) : name}
+            {/* On a phone the name alone, so the pointer does not lie across the narrow view. */}
+            <span className="max-md:hidden">{k === 'sun' ? pointerWords(sunLabel) : k === 'earth' ? pointerWords(earthLabel) : name}</span>
+            <span className="md:hidden">{name}</span>
           </span>
         ))}
       </div>
