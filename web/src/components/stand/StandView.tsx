@@ -165,7 +165,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const lander = statusLine(series, power, s.startUtc, hour);
   // The better landing day opens its own view, from its first hour; the button says why it is better.
   const better = answer.better
-    ? { label: `${answer.better.label}${series.earthVisible[answer.better.hour] === 1 ? ': power and radio together' : ''}`, href: standHref(site.id, answer.better.startUtc, s.days, 0) }
+    ? { label: series.earthVisible[answer.better.hour] === 1 ? `${answer.better.label.replace(' instead', '')}: power and radio` : answer.better.label, href: standHref(site.id, answer.better.startUtc, s.days, 0) }
     : null;
   // The note describes the view from the site: shown with it, not while the ground loads or in the fallback.
   const note = scene && !failed ? measuredNote(scene.field.levels.map((l) => l.cell), scene.sky.stars.count) : null;

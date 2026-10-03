@@ -11,9 +11,14 @@ describe('the view on a tall screen', () => {
     expect(horizonLift(390, 844, 80, 0, 614)).toBeLessThan(lift);
   });
 
-  it('does not tilt a wide screen, where the words sit at the sides', () => {
-    expect(horizonLift(1440, 900, 60, 360, 700)).toBe(0);
-    expect(horizonLift(900, 900, 60, 360, 700)).toBe(0);
+  it('on a wide screen, where the words sit at the sides, rests the horizon a little above the middle of the room above the time bar', () => {
+    // 900 px high, the time bar from 730 px: the horizon at 55 % of the 730 px above it, 401.5 px, so the
+    // lander below it clears the bar.
+    const lift = horizonLift(1440, 900, 60, 0, 730);
+    const y = 450 + 450 * (Math.tan((lift * Math.PI) / 180) / Math.tan((30 * Math.PI) / 180));
+    expect(y).toBeCloseTo(0.55 * 730, 0);
+    // Words at the top left do not move it.
+    expect(horizonLift(1440, 900, 60, 400, 730)).toBeCloseTo(lift, 9);
   });
 
   it('keeps the tilt within bounds when the free band is odd', () => {

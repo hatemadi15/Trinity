@@ -8,14 +8,15 @@ export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' 
 export interface LookTarget { yaw: number; pitch: number; fov: number }
 
 /**
- * Degrees the view rests higher on a tall screen, so the horizon (the Sun on it) sits a little above the
- * middle of the band left free between the words above and the buttons below (`freeTop` to `freeBottom`,
- * pixels down the screen), with room under it for the ground and the lander. A wide screen keeps its words
- * at the sides and does not tilt.
+ * Degrees the view rests higher (or lower, when negative), so the horizon (the Sun on it) sits where the
+ * view has room, with room under it for the ground and the lander: on a tall screen 40 % down the band left
+ * free between the words above and the buttons below (`freeTop` to `freeBottom`, pixels down the screen);
+ * on a wide screen, whose words sit at the sides, 55 % down the room above the time bar (`freeBottom`).
  */
 export function horizonLift(width: number, height: number, fovDeg: number, freeTop: number, freeBottom: number): number {
-  if (height <= width || freeBottom - freeTop < 60) return 0;
-  const y = freeTop + 0.4 * (freeBottom - freeTop);
+  const wide = height <= width;
+  if (freeBottom - (wide ? 0 : freeTop) < 60) return 0;
+  const y = wide ? 0.55 * freeBottom : freeTop + 0.4 * (freeBottom - freeTop);
   const t = ((y - height / 2) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
   return Math.max(-15, Math.min(15, (Math.atan(t) * 180) / Math.PI));
 }
@@ -237,9 +238,11 @@ export function StandCanvas({
       let freeTop = 0, freeBottom = H;
       for (const p of plates) {
         if (p.top < H * 0.4 && p.bottom < H * 0.65) freeTop = Math.max(freeTop, p.bottom);
-        else if (p.bottom > H * 0.6 && p.top > H * 0.35) freeBottom = Math.min(freeBottom, p.top);
+        // On a wide screen only what spans the screen (the time bar) bounds the room below, not the compass.
+        else if (p.bottom > H * 0.6 && p.top > H * 0.35 && (H > W || p.width >= W * 0.5)) freeBottom = Math.min(freeBottom, p.top);
       }
-      const lift = horizonLift(W, H, v.fov, freeTop, freeBottom);
+      // Only near the horizon: looking up keeps its own framing, the horizon along the bottom edge.
+      const lift = horizonLift(W, H, v.fov, freeTop, freeBottom) * Math.max(0, Math.min(1, (30 - v.pitch) / 10));
       r.setView(v.yaw, Math.max(-35, Math.min(89, v.pitch + lift)), v.fov);
       r.render();
       const l = r.labels();
