@@ -5,7 +5,7 @@ import { loadEphemeris, type EphemerisHeader } from '@/lib/engine/ephemeris';
 import { hourlySeries } from '@/lib/engine/metrics';
 import { utcToEt } from '@/lib/engine/time';
 import { dirAzEl } from './frames';
-import { SHADOW, SHADOW_FAST, SHADOW_GLSL, sunFraction } from './shadowRule';
+import { HIDE_GLSL, hiddenShadowShare, SHADOW, SHADOW_FAST, SHADOW_GLSL, sunFraction } from './shadowRule';
 import { flatField, terrainField } from './terrainField';
 
 const terrain = ['web', 'public', 'data', 'terrain'];
@@ -66,5 +66,29 @@ describe('the shadow rule', () => {
       }
     }
     expect(agree / 720).toBeGreaterThanOrEqual(0.985);
+  });
+});
+
+describe('shadows a bump hides from the eye', () => {
+  const tan = (deg: number) => Math.tan((deg * Math.PI) / 180);
+  it('hides all of a far shadow straight down-Sun, where the sight line is lower than the Sun', () => {
+    // The Sun 2 degrees up behind you; a point whose sight line dips less than that.
+    expect(hiddenShadowShare(tan(2), tan(1.5), 1)).toBe(1);
+  });
+  it('hides only the part of a near shadow behind the bump: tan(Sun) / tan(dip) of it', () => {
+    // 20 m away from an eye 1.8 m up, the sight line dips 5.1 degrees.
+    expect(hiddenShadowShare(tan(2), tan(5.1), 1)).toBeCloseTo(tan(2) / tan(5.1), 6);
+  });
+  it('hides less as the eye looks past the bump’s side, and nothing across or towards the Sun', () => {
+    // 30 degrees off down-Sun: a bump three times as wide as it is tall hides 3 tan(2 degrees) / sin(30 degrees).
+    expect(hiddenShadowShare(tan(2), tan(1), Math.cos(Math.PI / 6))).toBeCloseTo((3 * tan(2)) / 0.5, 6);
+    expect(hiddenShadowShare(tan(2), tan(5), 0)).toBe(0);
+    expect(hiddenShadowShare(tan(2), tan(5), -0.7)).toBe(0);
+    // With the Sun down there is no shadow to hide.
+    expect(hiddenShadowShare(-0.01, tan(5), 1)).toBe(0);
+  });
+  it('is the same rule in the shader', () => {
+    expect(HIDE_GLSL).toContain('float hiddenShadowShare(float tanSun, float tanDip, float cosPlan)');
+    expect(HIDE_GLSL).toContain('3.0 * tanSun');
   });
 });

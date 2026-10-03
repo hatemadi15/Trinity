@@ -36,7 +36,7 @@ describe('the ground shader', () => {
     // A march towards the Sun over the drawn heights, and each rock's own shadow, judged against the measured slope.
     expect(GROUND_FRAG).toContain('float detailRise(');
     expect(GROUND_FRAG).toContain('float rockMargin(');
-    expect(GROUND_FRAG).toMatch(/vis \*= mix\(1\.0, soft\(mDetail\), wDetail\)/);
+    expect(GROUND_FRAG).toMatch(/vis \*= mix\(1\.0, mix\(soft\(mDetail\), 1\.0, hide\), wDetail\)/);
   });
 
   it('casts the lander’s shadow from its drawn shape, with the Sun’s disc for a soft edge', () => {
@@ -99,4 +99,24 @@ describe('the ground shader', () => {
     const surge = GROUND_FRAG.match(/surge = 1\.0 \+ ([0-9.]+) \//);
     expect(Number(surge![1])).toBeLessThanOrEqual(0.5);
   });
+
+  it('lets the drawn bumps hide their own shadows and their sides away from the Sun where the eye looks down-Sun', () => {
+    expect(GROUND_FRAG).toContain('float hiddenShadowShare(');
+    // Judged over the measured ground's own surface.
+    expect(GROUND_FRAG).toMatch(/float hide = hiddenShadowShare\(/);
+    expect(GROUND_FRAG).toContain('mix(soft(mDetail), 1.0, hide)');
+    expect(GROUND_FRAG).toContain('* (1.0 - hide)');
+  });
+
+  it('casts your shadow as a person’s, not a post: two legs, a body, two arms and a head, square to the Sun', () => {
+    const viewer = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float viewerClearance('), GROUND_FRAG.indexOf('float soft('));
+    expect(viewer.match(/capsuleClear\(p, L,/g)?.length).toBe(6);
+    expect(viewer).toContain('normalize(vec3(-L.z, 0.0, L.x))');
+  });
+
+  it('darkens the ground in the boulders’ shadows, with the Sun’s disc for a soft edge', () => {
+    expect(GROUND_FRAG).toContain('float rocksClearance(vec3 p, vec3 L)');
+    expect(GROUND_FRAG).toContain('soft(mBoulders)');
+  });
 });
+

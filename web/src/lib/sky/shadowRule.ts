@@ -75,3 +75,32 @@ float sunMargin(vec3 p, vec3 sun) {
 }
 float sunFraction(vec3 p, vec3 sun) { return clamp(sunMargin(p, sun) / (2.0 * ${SHADOW.SUN_RADIUS_RAD}) + 0.5, 0.0, 1.0); }
 `;
+
+/** How much wider than tall the drawn bumps (craters and stones) are taken to be, for hiddenShadowShare. */
+const BUMP_WIDTH = 3;
+
+/**
+ * The share (0 to 1) of a drawn bump's shadow that the bump itself hides from the eye. The drawn craters and
+ * stones are shading on the ground, not shapes, so nothing would hide their shadows; a real bump does. With
+ * the Sun behind you, a sight line flatter than the Sun's rays (a far point) sees none of the shadow beyond
+ * each bump, and a steeper one (a near point) misses tan(Sun's height) / tan(sight line's dip) of it. Looking
+ * past a bump's side, the eye sees round it: the share falls as the plan angle's sine grows against the
+ * bump's width. All three are taken over the ground's own surface: `tanSun`, the Sun's height above it;
+ * `tanDip`, the sight line's; `cosPlan`, the cosine of the angle, along the ground, between the ways to the
+ * eye and to the Sun. This is why photographs taken with the Sun behind the camera show bright, nearly
+ * shadowless ground.
+ */
+export function hiddenShadowShare(tanSun: number, tanDip: number, cosPlan: number): number {
+  if (cosPlan <= 0 || tanSun <= 0) return 0;
+  const sinPlan = Math.sqrt(Math.max(0, 1 - cosPlan * cosPlan));
+  return Math.min(1, tanSun / Math.max(tanDip, 1e-4), (BUMP_WIDTH * tanSun) / Math.max(sinPlan, 1e-4));
+}
+
+/** hiddenShadowShare for the ground shader. */
+export const HIDE_GLSL = /* glsl */ `
+float hiddenShadowShare(float tanSun, float tanDip, float cosPlan) {
+  if (cosPlan <= 0.0 || tanSun <= 0.0) return 0.0;
+  float sinPlan = sqrt(max(0.0, 1.0 - cosPlan * cosPlan));
+  return min(1.0, min(tanSun / max(tanDip, 1.0e-4), ${BUMP_WIDTH.toFixed(1)} * tanSun / max(sinPlan, 1.0e-4)));
+}
+`;

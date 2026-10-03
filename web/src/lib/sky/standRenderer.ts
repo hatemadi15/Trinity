@@ -14,6 +14,7 @@ import { FramePacer } from './framePacer';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { placeStars, starColour, starGain, starSize } from './stars';
 import { LANDER, LEG_ENDS } from './landerShape';
+import { BOULDERS, boulderMeshes, placeBoulders, siteSeed } from './boulders';
 import { heightAt, worldOf, type FieldLevel, type TerrainField } from './terrainField';
 
 /** Everything the stand view draws for one site and period. `fast`: a lower pixel ratio, no drawn detail, coarser shadow steps. */
@@ -215,6 +216,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         uLanderCenter: { value: new THREE.Vector3() },
         uLanderCS: { value: new THREE.Vector2(1, 0) },
         uSunUp: { value: 0 },
+        uRocks: { value: Array.from({ length: BOULDERS.MAX }, () => new THREE.Vector4()) },
+        uRockCount: { value: 0 },
       },
       vertexShader: GROUND_VERT,
       fragmentShader: GROUND_FRAG,
@@ -327,10 +330,11 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // The Sun; the sunlit dust's light from below, which fills the lander's shaded sides (as in the Apollo
   // photographs); and Earth's faint blue light.
   const sunLight = new THREE.DirectionalLight(0xffffff, 0), skyLight = new THREE.HemisphereLight(0x0a0a0c, 0x8a857c, 0), earthLight = new THREE.AmbientLight(0x8aa7ff, 0);
+  root.add(sunLight, sunLight.target, skyLight, earthLight);
   if (lander) {
     const lx = lander.group.position.x, lz = lander.group.position.z, ly = heightAt(scene.field, lx, lz);
     lander.group.position.y = ly;
-    root.add(lander.group, sunLight, sunLight.target, skyLight, earthLight);
+    root.add(lander.group);
     sunLight.target.position.set(lx, ly + 1.5, lz);
     lander.group.updateMatrixWorld(true);
     landerBox.setFromObject(lander.group);
@@ -343,14 +347,44 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     }
   }
 
+  // Boulders round the eye, kept clear of the lander, with their shadows on the ground.
+  const seed = siteSeed(scene.site.lat, scene.site.lon);
+  const rocks = boulderMeshes(placeBoulders(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => heightAt(scene.field, x, z), seed);
+  root.add(rocks.group);
+  for (const g of ground) {
+    const u = (g.material as THREE.ShaderMaterial).uniforms;
+    rocks.spheres.forEach((v, i) => (u.uRocks.value as THREE.Vector4[])[i].copy(v));
+    u.uRockCount.value = rocks.spheres.length;
+  }
+
   const startMs = Date.parse(scene.startUtc + 'Z');
-  // A camera's exposure: faint stars fade while the Sun is in view, and come out again as the view looks up,
-  // away from the dazzling ground.
+  // A camera's exposure: by day it is set for the sunlit ground, so only the brightest stars show, and they
+  // come out as the view looks up, away from the dazzling ground.
   let sunNow = 0, sunElNow = 0, pitchNow = 0;
-  const expose = () => {
-    const day = 1.6 - 1.25 * sunNow, up = Math.min(1, Math.max(0, (pitchNow - 15) / 20));
-    starMat.uniforms.uGain.value = day + (1.6 - day) * up * up * (3 - 2 * up);
+  const viewDir = new THREE.Vector3(0, 0, -1);
+  const skyward = () => {
+    const up = Math.min(1, Math.max(0, (pitchNow - 15) / 20));
+    return up * up * (3 - 2 * up);
   };
+  const expose = () => {
+    const day = 1.6 - 1.45 * sunNow;
+    starMat.uniforms.uGain.value = day + (1.6 - day) * skyward();
+  };
+  // How much the regolith in the middle of the view sends back towards the eye, as the ground shader lights
+  // it (phase and opposition surge), for the angle between the ways to the eye and to the Sun.
+  const regolithBack = (alpha: number) => Math.exp(-0.82 * alpha) * (1 + 0.45 / (1 + Math.tan(alpha / 2) / 0.055));
+  /**
+   * The camera's exposure against its setting (1): looking down-Sun at sunlit ground, which shines back
+   * towards the Sun several times as brightly as it does across the light, it stops down, as a camera on
+   * automatic would, to about a third at most; not towards the Sun, not while the sky fills the view, and not
+   * at night.
+   */
+  function exposure(): number {
+    if (sunNow <= 0) return 1;
+    const alpha = Math.acos(Math.min(1, Math.max(-1, -viewDir.dot(sunDir))));
+    const g = Math.min(1, Math.max(0.35, Math.pow(regolithBack((120 * Math.PI) / 180) / regolithBack(alpha), 0.6)));
+    return 1 + (g - 1) * (1 - skyward()) * Math.min(1, sunNow);
+  }
   const sunDir = new THREE.Vector3(), earthPos = new THREE.Vector3();
   function update(t: number) {
     const v = sampleSeries(scene.series, t);
@@ -383,13 +417,14 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       u.uEarthshine.value = earthshine;
       u.uSunUp.value = v.sunFraction;
     }
+    // The lights for the lander and the boulders.
+    sunLight.position.copy(sunLight.target.position).addScaledVector(sunDir, 50);
+    sunLight.intensity = 3.2 * v.sunFraction;
+    // The dust lights the shaded sides only faintly at a Sun this low: they stand nearly in silhouette.
+    skyLight.intensity = 0.4 * v.sunFraction;
+    // A faint floor: with neither the Sun nor Earth up their shapes still show.
+    earthLight.intensity = 0.15 + 0.5 * earthshine;
     if (lander) {
-      sunLight.position.copy(sunLight.target.position).addScaledVector(sunDir, 50);
-      sunLight.intensity = 3.2 * v.sunFraction;
-      // The dust lights the lander's shaded side only faintly at a Sun this low: it stands nearly in silhouette.
-      skyLight.intensity = 0.4 * v.sunFraction;
-      // A faint floor: with neither the Sun nor Earth up the lander's shape still shows.
-      earthLight.intensity = 0.15 + 0.5 * earthshine;
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
       lander.lamp.color.setHex(Number(scene.lander!.powered[h]) === 1 ? 0x46c98b : 0x000000);
     }
@@ -414,6 +449,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
     const d = dirAzEl(yawDeg, pitchDeg);
+    viewDir.set(d[0], d[1], d[2]).normalize();
     camera.lookAt(d[0], eye + d[1], d[2]);
     camera.updateMatrixWorld();
   }
@@ -487,7 +523,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     });
   };
 
-  return { root, camera, update, setView, labels, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? earthLight : null } };
+  return { root, camera, update, setView, labels, exposure, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? earthLight : null, boulders: rocks.group } };
 }
 
 /** A texture drawn on a canvas of the given size (repeating), or none outside a browser. */
@@ -640,6 +676,9 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
   return { group, lamp, panel, dish, lampPos: new THREE.Vector3(apothem + 0.04, L.body.y0 + bodyH * 0.72, 0.28) };
 }
 
+/** The camera's exposure setting, before it stops down for bright ground (see the scene's exposure). */
+const EXPOSURE = 1.05;
+
 /**
  * The WebGL side: the renderer, bloom for the Sun, and its pacing. No frame is queued while the graphics
  * chip is still drawing the last one (a fence after each frame says when it is done), so a slow chip never
@@ -686,7 +725,7 @@ export class StandRenderer {
     this.pixelRatio = this.sharpRatio = this.drawnRatio = scene.quality === 'fast' ? 0.75 : Math.min(window.devicePixelRatio || 1, 1.5);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = EXPOSURE;
     // Heights go to the GPU as float32 where it can filter them, else as half floats.
     this.built = buildScene(scene, { halfFloat: !this.renderer.extensions.has('OES_texture_float_linear') });
     // The lander's foil and metal mirror what is round them: the black sky above, the grey dust below.
@@ -761,6 +800,8 @@ export class StandRenderer {
 
   /** Draws the frame and sets a fence after it. */
   private draw() {
+    // The camera stops down looking down-Sun at the sunlit ground (the output pass reads this exposure).
+    this.renderer.toneMappingExposure = EXPOSURE * this.built.exposure();
     this.composer.render();
     const gl = this.renderer.getContext() as WebGL2RenderingContext;
     this.fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);

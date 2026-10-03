@@ -1,5 +1,6 @@
+import { BOULDER_GLSL } from './boulders';
 import { LANDER_GLSL } from './landerShape';
-import { SHADOW, SHADOW_GLSL } from './shadowRule';
+import { HIDE_GLSL, SHADOW, SHADOW_GLSL } from './shadowRule';
 
 /*
  * The stand view's shaders, from the approved mockup: the ground (regolith light, the engine's shadows,
@@ -23,6 +24,8 @@ varying vec3 vWorld; varying vec3 vNormal;
 uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uSunPower; uniform vec2 uHole;
 uniform float uLanderOn, uSunUp; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
 ${SHADOW_GLSL}
+${HIDE_GLSL}
+${BOULDER_GLSL}
 ${LANDER_GLSL}
 // Into the lander's own frame (it stands turned about the vertical by the angle whose cos and sin are uLanderCS).
 vec3 toLander(vec3 v) { return vec3(v.x * uLanderCS.x - v.z * uLanderCS.y, v.y, v.x * uLanderCS.y + v.z * uLanderCS.x); }
@@ -122,18 +125,29 @@ float rockMargin(vec2 p, float h0, vec2 d, float tanEff, float px, float grow, f
   }
   return res;
 }
-// Your own shadow: a person standing where the view stands (a capsule 1.8 m tall over uViewer, the ground under
-// the eye); the angle by which the ray towards the Sun clears it. At a 2 degree Sun it reaches some 50 m.
-float viewerClearance(vec3 p, vec3 L) {
-  if (length(p.xz - uViewer.xz) > 140.0 || dot(uViewer.xz - p.xz, L.xz) <= 0.0) return 1.0;
-  vec3 a = uViewer + vec3(0.0, 0.25, 0.0), v = vec3(0.0, 1.3, 0.0);
-  // The nearest points of the ray p + t L and the segment a + s v, refined twice.
+// The angle by which the ray p + t L clears a capsule (the segment a to a + v, radius r): from the nearest
+// points of the ray and the segment, refined twice.
+float capsuleClear(vec3 p, vec3 L, vec3 a, vec3 v, float r) {
   float t = max(dot(a + 0.5 * v - p, L), 0.05), s = 0.5;
   for (int k = 0; k < 2 * uOne; k++) {
     s = clamp(dot(p + L * t - a, v) / dot(v, v), 0.0, 1.0);
     t = max(dot(a + v * s - p, L), 0.05);
   }
-  return (length(p + L * t - a - v * s) - 0.25) / t;
+  return (length(p + L * t - a - v * s) - r) / t;
+}
+// Your own shadow: a person 1.8 m tall standing where the view stands (uViewer, the ground under the eye),
+// square to the Sun, so the shadow shows two legs, a body, two arms and a head; the angle by which the ray
+// towards the Sun clears them. At a 2 degree Sun the shadow reaches some 50 m.
+float viewerClearance(vec3 p, vec3 L) {
+  if (length(p.xz - uViewer.xz) > 140.0 || dot(uViewer.xz - p.xz, L.xz) <= 0.0) return 1.0;
+  vec3 side = normalize(vec3(-L.z, 0.0, L.x)), up = vec3(0.0, 1.0, 0.0);
+  float m = capsuleClear(p, L, uViewer + side * 0.11 + up * 0.05, up * 0.85, 0.07);   // legs
+  m = min(m, capsuleClear(p, L, uViewer - side * 0.11 + up * 0.05, up * 0.85, 0.07));
+  m = min(m, capsuleClear(p, L, uViewer + up * 0.95, up * 0.5, 0.17));                // body
+  m = min(m, capsuleClear(p, L, uViewer + side * 0.27 + up * 0.85, up * 0.55, 0.05)); // arms
+  m = min(m, capsuleClear(p, L, uViewer - side * 0.27 + up * 0.85, up * 0.55, 0.05));
+  m = min(m, capsuleClear(p, L, uViewer + up * 1.62, up * 0.06, 0.11));               // head
+  return m;
 }
 // A shadow's margin (radians by which the Sun's centre clears what would hide it) as light: spread over the
 // Sun's disc, or over the margin's change across one pixel where that is wider, so far edges never stair-step.
@@ -148,14 +162,20 @@ void main() {
   float dist = length(vWorld - cameraPosition);
   // The shadows, as margins: the measured ground's (its ray starts from the measured ground, not the drawn
   // craters), the lander's (from its drawn shape), and the drawn craters' and rocks' near the eye.
-  float mTerrain = -1.0, mLander = 1.0, mViewer = 1.0, mDetail = 1.0, wDetail = 0.0;
+  float mTerrain = -1.0, mLander = 1.0, mViewer = 1.0, mBoulders = 1.0, mDetail = 1.0, wDetail = 0.0;
   bool facing = dot(N0, Ls) > 0.0;
   if (facing) {
     mTerrain = sunMargin(vWorld + N0 * 0.4, uSun);
     if (uLanderOn > 0.5) mLander = landerClearance(toLander(vWorld + N0 * 0.05 - uLanderCenter), toLander(Ls));
     mViewer = viewerClearance(vWorld + N0 * 0.05, Ls);
+    if (length(vWorld.xz) < 140.0) mBoulders = rocksClearance(vWorld + N0 * 0.05, Ls);
   }
   float albedoVar = 1.0;
+  // Looking down-Sun the drawn bumps would hide their own shadows and the sides they turn from the Sun, as
+  // real ones do: over the measured ground's surface, how much of each is out of the eye's sight.
+  float sv = dot(V, N0), ss = dot(Ls, N0);
+  vec3 vAlong = V - N0 * sv, sAlong = Ls - N0 * ss;
+  float hide = hiddenShadowShare(ss / max(length(sAlong), 1.0e-5), sv / max(length(vAlong), 1.0e-5), dot(vAlong, sAlong) / max(length(vAlong) * length(sAlong), 1.0e-5));
   if (uDetail > 0.5) {
     float w = 1.0 - smoothstep(250.0, 1600.0, dist);
     if (w > 0.0) {
@@ -165,7 +185,7 @@ void main() {
       h0 += stones(vWorld.xz, 1.5, 41.0, 0.18, 0.05, 0.3, b0) * rockW + stones(vWorld.xz, 0.6, 73.0, 0.4, 0.015, 0.07, c0) * pebbleW;
       hx += stones(vWorld.xz + vec2(e, 0.0), 1.5, 41.0, 0.18, 0.05, 0.3, bx) * rockW + stones(vWorld.xz + vec2(e, 0.0), 0.6, 73.0, 0.4, 0.015, 0.07, cx) * pebbleW;
       hz += stones(vWorld.xz + vec2(0.0, e), 1.5, 41.0, 0.18, 0.05, 0.3, bz) * rockW + stones(vWorld.xz + vec2(0.0, e), 0.6, 73.0, 0.4, 0.015, 0.07, cz) * pebbleW;
-      Nn = normalize(Nn - vec3((hx - h0) / e, 0.0, (hz - h0) / e) * w * 1.15);
+      Nn = normalize(Nn - vec3((hx - h0) / e, 0.0, (hz - h0) / e) * w * 1.15 * (1.0 - hide));
       albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0
         + 0.06 * (vnoise(vWorld.xz * 3.1) - 0.5) * smoothstep(1.5, 4.0, 0.32 / px)) + 0.35 * b0 * rockW + 0.25 * c0 * pebbleW;
       // Not worked out where the measured ground already hides the whole Sun.
@@ -187,8 +207,8 @@ void main() {
   float surge = 1.0 + 0.45 / (1.0 + tan(alpha * 0.5) / 0.055); // regolith brightens looking away from the Sun
   float ls = mu0 / (mu0 + mu);                                 // Lommel-Seeliger: no limb darkening on the Moon
   // Outside every branch, where the pixel's neighbours are known: the margins turn into light.
-  float vis = soft(mTerrain) * soft(mLander) * soft(mViewer);
-  vis *= mix(1.0, soft(mDetail), wDetail);
+  float vis = soft(mTerrain) * soft(mLander) * soft(mViewer) * soft(mBoulders);
+  vis *= mix(1.0, mix(soft(mDetail), 1.0, hide), wDetail);
   vec3 albedo = vec3(0.17, 0.164, 0.156) * albedoVar;
   vec3 col = albedo * vec3(1.0, 0.99, 0.975) * uSunPower * ls * phase * surge * vis;
   vec3 Le = normalize(uEarth); float mue = max(dot(Nn, Le), 0.0);

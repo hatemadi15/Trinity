@@ -4,6 +4,7 @@ import type { Series } from '@/lib/engine/metrics';
 import type { SkyAssets } from '@/lib/data/sky';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { LANDER, LEG_ENDS } from './landerShape';
+import { BOULDERS } from './boulders';
 import { dirAzEl } from './frames';
 import { buildScene, lookUpTarget, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, terrainField } from './terrainField';
@@ -360,4 +361,47 @@ describe('the stand scene', () => {
     s.update(0);
     expect(s.parts.landerFill!.intensity).toBeGreaterThanOrEqual(0.12);
   });
+
+  it('stops the exposure down looking down-Sun at the sunlit ground, as a camera would, but not towards the Sun, looking up or at night', () => {
+    const s = buildScene(flat());
+    s.update(0);
+    // The Sun is at 300 degrees: facing it, the exposure is as set.
+    s.setView(300, 2, 60, 16 / 9);
+    expect(s.exposure()).toBeCloseTo(1, 2);
+    // Down-Sun the regolith shines back towards the Sun: the camera takes in about a third of the light.
+    s.setView(120, -8, 60, 16 / 9);
+    expect(s.exposure()).toBeLessThan(0.5);
+    expect(s.exposure()).toBeGreaterThanOrEqual(0.35);
+    // Looking up, the sky fills the view.
+    s.setView(120, 45, 60, 16 / 9);
+    expect(s.exposure()).toBeCloseTo(1, 2);
+    // At night there is no sunlit ground to stop down for.
+    s.update(2);
+    s.setView(120, -8, 60, 16 / 9);
+    expect(s.exposure()).toBe(1);
+  });
+
+  it('shows only the brightest stars by day while the view takes in the sunlit ground', () => {
+    const s = buildScene(flat());
+    s.update(0);
+    s.setView(300, 0, 60, 16 / 9);
+    expect(s.starMaterial.uniforms.uGain.value as number).toBeLessThanOrEqual(0.2);
+  });
+
+  it('sets boulders round the eye, clear of the lander, and hands their shadows to the ground', () => {
+    const s = buildScene(flat({ lander: { azDeg: 90, distM: 16, powered: Uint8Array.from([1, 1, 0]) } }));
+    const rocks = s.parts.boulders.children;
+    expect(rocks.length).toBe(BOULDERS.COUNT);
+    for (const r of rocks) expect(Math.hypot(r.position.x - 16, r.position.z)).toBeGreaterThan(4);
+    const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
+    expect(u.uRockCount.value).toBe(rocks.length);
+    expect((u.uRocks.value as THREE.Vector4[])[0].x).toBeCloseTo(rocks[0].position.x, 6);
+    // Lit by the scene's lights even with no lander.
+    const bare = buildScene(flat());
+    expect(bare.parts.boulders.children.length).toBe(BOULDERS.COUNT);
+    expect(bare.root.children.some((c) => c instanceof THREE.DirectionalLight)).toBe(true);
+    bare.update(0);
+    expect((bare.root.children.find((c) => c instanceof THREE.DirectionalLight) as THREE.DirectionalLight).intensity).toBeGreaterThan(0);
+  });
 });
+
