@@ -114,6 +114,7 @@ export function StandCanvas({
   night,
   onFail,
   onReady,
+  clean = false,
 }: {
   scene: StandScene;
   hour: number;
@@ -128,10 +129,14 @@ export function StandCanvas({
   onFail: (message: string) => void;
   /** Called once the renderer's shaders are built and the view can be drawn. */
   onReady?: () => void;
+  /** The clean view: no label and no compass over the picture. */
+  clean?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
   const landerRef = useRef<HTMLSpanElement>(null);
+  const shadowRef = useRef<HTMLSpanElement>(null);
+  const cleanRef = useRef(clean);
   const partRefs = useRef<Record<'panel' | 'dish' | 'lamp', HTMLSpanElement | null>>({ panel: null, dish: null, lamp: null });
   const earthRef = useRef<HTMLSpanElement>(null);
   const starRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -162,6 +167,9 @@ export function StandCanvas({
   useEffect(() => {
     nightRef.current = night;
   }, [night]);
+  useEffect(() => {
+    cleanRef.current = clean;
+  }, [clean]);
   useEffect(() => {
     failRef.current = onFail;
   }, [onFail]);
@@ -256,8 +264,8 @@ export function StandCanvas({
       const lift = horizonLift(W, H, v.fov, freeTop, freeBottom) * Math.max(0, Math.min(1, (30 - v.pitch) / 10));
       r.setView(v.yaw, Math.max(-35, Math.min(89, v.pitch + lift)), v.fov);
       r.render();
-      if (!drawnRef.current) {
-        for (const n of [sunRef.current, earthRef.current, landerRef.current, ...Object.values(partRefs.current), ...starRefs.current]) if (n) n.hidden = true;
+      if (!drawnRef.current || cleanRef.current) {
+        for (const n of [sunRef.current, earthRef.current, landerRef.current, shadowRef.current, ...Object.values(partRefs.current), ...starRefs.current]) if (n) n.hidden = true;
         raf = requestAnimationFrame(tick);
         return;
       }
@@ -268,6 +276,18 @@ export function StandCanvas({
       const close = v.fov < ZOOMED_FOV;
       place(landerRef.current, close && l.parts?.panel.visible ? null : l.lander);
       for (const k of ['panel', 'dish', 'lamp'] as const) place(partRefs.current[k], close && l.parts ? l.parts[k] : null);
+      // The power light says whether it is lit.
+      const lampNode = partRefs.current.lamp, hr0 = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));
+      const lampText = `Power light: ${scene.lander && Number(scene.lander.powered[hr0]) === 1 ? 'on' : 'off'}`;
+      if (lampNode && lampNode.textContent !== lampText) lampNode.textContent = lampText;
+      // Your own shadow, long across the ground while the Sun is low.
+      const sh = l.shadow;
+      if (shadowRef.current && sh) {
+        const m = sh.lengthM >= 20 ? Math.round(sh.lengthM / 10) * 10 : Math.round(sh.lengthM);
+        const text = `Your shadow, about ${m} m long`;
+        if (shadowRef.current.textContent !== text) shadowRef.current.textContent = text;
+      }
+      place(shadowRef.current, sh ?? null);
       // Star names at night, or when the view looks well up, where they would not crowd the day's sky; each
       // on the side of its star that keeps it clear of the names already placed.
       const nameShown = starNamesShown(l.stars, nightRef.current || v.pitch > 25);
@@ -387,7 +407,7 @@ export function StandCanvas({
           turn(k[0], k[1], k[2]);
         }}
       />
-      <div aria-hidden="true" style={{ width: STRIP_W }} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 text-[#f2f0ea] max-md:hidden">
+      <div aria-hidden="true" hidden={clean} style={{ width: STRIP_W }} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 text-[#f2f0ea] max-md:hidden">
       <div data-plate="" className="relative overflow-hidden rounded-[6px] border border-white/15 bg-black/70">
         <div className="relative h-8" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
           <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>
@@ -444,6 +464,7 @@ export function StandCanvas({
       <p
         ref={facingPhoneRef}
         aria-hidden="true"
+        hidden={clean}
         className="pointer-events-none fixed right-4 top-[calc(var(--top-h,220px)+8px)] rounded-[6px] border border-white/15 bg-black/70 px-2 py-0.5 text-[13px] text-[#f2f0ea] md:hidden"
       >
         {`Facing ${compassWord(startYaw)}`}
@@ -460,6 +481,9 @@ export function StandCanvas({
             {`The lander, ${Math.round(scene.lander.distM)} m away`}
           </span>
         )}
+        <span ref={shadowRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-1/2 text-[14px] text-[#e4e1da]`}>
+          Your shadow
+        </span>
         {scene.lander &&
           (
             [

@@ -37,6 +37,7 @@ const everywhere: SkyLabels = {
   stars: [{ name: 'Sirius', x: 0.3, y: 0.2, visible: true }],
   lander: { x: 0.8, y: 0.6, visible: true },
   parts: { panel: { x: 0.8, y: 0.5, visible: true }, dish: { x: 0.82, y: 0.48, visible: true }, lamp: { x: 0.78, y: 0.58, visible: true } },
+  shadow: { x: 0.5, y: 0.8, visible: true, lengthM: 51.5 },
 };
 const stub = () => ({ setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels: () => everywhere, dispose: vi.fn() }) satisfies RendererLike;
 
@@ -57,7 +58,8 @@ describe('StandView', () => {
     expect(st.cursorHour).toBe(10);
     // The headline says how long the night lasts, and keeps the site's name on one line.
     const h1 = screen.getByRole('heading', { level: 1 }).textContent!;
-    expect(h1).toMatch(/^Landing at de\sGerlache\sRim\s2 on 1 January: power for 3 days 4 hours, then night until 20 January$/);
+    // Both verdicts the challenge asks for: power, and radio contact with Earth.
+    expect(h1).toMatch(/^Landing at de\sGerlache\sRim\s2 on 1 January: power for 3 days 4 hours, no radio contact, then night until 20 January$/);
     expect(h1).toContain('de\u00a0Gerlache\u00a0Rim\u00a02');
     expect(screen.getByText('Standing on the Moon, near its south pole. Drawn from NASA data.')).toBeTruthy();
     // One line joins the lander's power and its radio; then what to watch next.
@@ -68,8 +70,8 @@ describe('StandView', () => {
     expect(status.parentElement!.querySelector('[data-tone]')!.getAttribute('data-tone')).toBe('power');
     expect(screen.getByText(watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10))).toBeTruthy();
     // The better landing day, one click away, and the way back.
-    // It says why: on that day the lander has both power and Earth.
-    const better = screen.getByRole('link', { name: 'Land on 20 January: power and radio' });
+    // It says why, as a comparison: days of power and of radio from that landing.
+    const better = screen.getByRole('link', { name: /^Land on 20 January: power for \d+ days, radio for \d+$/ });
     expect(better.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
     expect(screen.getByRole('link', { name: 'Back to the forecast' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     // The rest waits under "More": the radio story, the whys and how we know.
@@ -182,12 +184,18 @@ describe('StandView', () => {
     expect(screen.getByText(/^The lander is off: its battery ran out on 4 January\. Earth is in view, but the radio has no power\.$/)).toBeTruthy();
   });
 
-  it('hides the words and the buttons for a clean view, keeping the time bar, and brings them back', async () => {
+  it('hides the words, the buttons, the labels and the compass for a clean view, keeping a bare time bar, and brings them back', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    await waitFor(() => expect(screen.getByText('Sirius').hidden).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Hide the words' }));
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
     for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up']) expect(screen.queryByRole('button', { name })).toBeNull();
     expect(screen.getByRole('slider', { name: 'Time' })).toBeTruthy();
+    // Nothing over the picture but the bare time bar: no labels, no compass, no key, no flags.
+    await waitFor(() => expect(screen.getByText('Sirius').hidden).toBe(true));
+    for (const el of screen.getAllByText(/^Facing /)) expect(el.closest('[hidden]')).not.toBeNull();
+    expect(screen.queryByText('lander off')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Jump to a moment' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Show the words' }));
     expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Face Earth' })).toBeTruthy();
@@ -206,7 +214,7 @@ describe('StandView', () => {
     expect(near()).toBe(true);
     // Zoomed in on it, the compass says so, and its parts carry their names.
     expect(screen.getAllByText(/^Facing [a-z-]+, zoomed in$/).length).toBe(2);
-    for (const part of ['Solar panel', 'Radio dish', 'Power light']) expect(screen.getByText(part).hidden).toBe(false);
+    for (const part of ['Solar panel', 'Radio dish', 'Power light: on']) expect(screen.getByText(part).hidden).toBe(false);
   });
 
   it('keeps the lander where it landed, whatever hour the view opens on', async () => {
@@ -232,10 +240,10 @@ describe('StandView', () => {
     await waitFor(() => expect(r.setView.mock.calls.at(-1)![2]).toBeCloseTo(70, 0), { timeout: 4000 });
     expect(r.setView.mock.calls.at(-1)![1]).toBeCloseTo(32, 0);
     expect(r.setView.mock.calls.at(-1)![1] - r.setView.mock.calls.at(-1)![2] / 2).toBeLessThan(0);
-    expect(screen.getByText(/^The same stars as seen from Earth/)).toBeTruthy();
+    expect(screen.getByText(/^With no air, the sky stays black and the stars show even with the Sun up\./)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Look ahead' }));
     expect(screen.getByRole('button', { name: 'Look up' })).toBeTruthy();
-    expect(screen.queryByText(/^The same stars as seen from Earth/)).toBeNull();
+    expect(screen.queryByText(/^With no air, the sky stays black and the stars show even with the Sun up\./)).toBeNull();
   });
 
   it("jumps to a key moment from its flag on the time bar, turns to what it is about and says why", async () => {
@@ -257,6 +265,11 @@ describe('StandView', () => {
   it('names the lander where it stands, with its distance', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     await waitFor(() => expect(screen.getByText('The lander, 16 m away')).toBeTruthy());
+  });
+
+  it('names your own shadow and its length while the Sun is up', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    await waitFor(() => expect(screen.getByText('Your shadow, about 50 m long').hidden).toBe(false));
   });
 
   it('keeps "Building the ground" up until the renderer has its shaders ready, then shows the view', async () => {

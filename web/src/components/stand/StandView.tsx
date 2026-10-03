@@ -13,7 +13,8 @@ import { lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRen
 import { flatField, heightAt, terrainField } from '@/lib/sky/terrainField';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
-import { keyMoments, measuredNote, momentCaption, nightHeadline, radioNext, skyLabel, standingLine, standQuery, statusLine, watchNext, whyLines } from '@/lib/viz/stand';
+import { dateLong } from '@/lib/viz/format';
+import { betterLabel, keyMoments, measuredNote, momentCaption, nightHeadline, radioHeadline, radioNext, skyLabel, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates blur what is behind them, so no thin line of the sky shows through the words.
@@ -161,12 +162,14 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const name = siteLabel(site);
   const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best });
   // The site's name stays on one line: "de Gerlache Rim 2", never "Rim / 2".
-  const title = nightHeadline(answer.title, series, power, s.startUtc).replace(name, name.replace(/ /g, ' '));
+  // The headline gives both verdicts the challenge asks for: power, and radio contact with Earth.
+  const title = radioHeadline(nightHeadline(answer.title, series, power, s.startUtc), answer.contactHours, answer.poweredHours).replace(name, name.replace(/ /g, ' '));
   const lander = statusLine(series, power, s.startUtc, hour);
   // The better landing day opens its own view, from its first hour; the button says why it is better.
-  const better = answer.better
-    ? { label: series.earthVisible[answer.better.hour] === 1 ? `${answer.better.label.replace(' instead', '')}: power and radio` : answer.better.label, href: standHref(site.id, answer.better.startUtc, s.days, 0) }
-    : null;
+  const better =
+    answer.better && s.best
+      ? { label: betterLabel(dateLong(s.startUtc, answer.better.hour), s.best.poweredHours, s.best.poweredHours * s.best.earthFraction), href: standHref(site.id, answer.better.startUtc, s.days, 0) }
+      : null;
   // The note describes the view from the site: shown with it, not while the ground loads or in the fallback.
   const note = scene && !failed ? measuredNote(scene.field.levels.map((l) => l.cell), scene.sky.stars.count) : null;
   const face = (az: number, el: number, fov: number) => {
@@ -208,14 +211,15 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     setLook({ yaw: cross ? cross.az : (series.sunAz[hour] + 180) % 360, pitch: 32, fov: 70 });
   };
   const crossNamed = !!scene && scene.sky.names?.some((n) => n.name === 'Acrux');
-  // The line over the view: why a key moment happens, or what looking up shows.
+  // The line over the view: why a key moment happens, why Earth sits where it does, what looking up shows,
+  // or, at night with Earth up, where the light comes from.
   const overView =
     caption ??
     (lookingUp
-      ? crossNamed
-        ? 'The same stars as seen from Earth’s southern half: the Southern Cross, and its two pointers, Alpha Centauri and Hadar.'
-        : 'The same stars as seen from Earth: with no air, they shine by day too.'
-      : null);
+      ? viewCaption('up', crossNamed ? site.lat : Math.abs(site.lat))
+      : series.sunFraction[hour] === 0 && series.earthVisible[hour] === 1
+        ? viewCaption('earthlight', site.lat)
+        : null);
 
   return (
     <main ref={mainRef} className="theme-dark fixed inset-0 overflow-hidden bg-black text-[#f2f0ea]">
@@ -232,6 +236,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           night={series.sunFraction[hour] < 0.5}
           onFail={onFail}
           onReady={onReady}
+          clean={wordsHidden}
         />
       )}
       {failed && s.mask && (
@@ -270,7 +275,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
               {better && (
                 // A new period: the whole view opens again from its first hour.
-                <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a] ${more ? '' : 'max-md:hidden'}`}>
+                <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}>
                   {better.label}
                 </a>
               )}
@@ -306,7 +311,15 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 <button type="button" aria-label="Face the Sun" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
                   <Short short="Sun" long="Face the Sun" />
                 </button>
-                <button type="button" aria-label="Face Earth" className={LOOK} onClick={() => face(series.earthAz[hour], series.earthEl[hour], 16)}>
+                <button
+                  type="button"
+                  aria-label="Face Earth"
+                  className={LOOK}
+                  onClick={() => {
+                    face(series.earthAz[hour], series.earthEl[hour], 16);
+                    setCaption(viewCaption('earth', site.lat));
+                  }}
+                >
                   <Short short="Earth" long="Face Earth" />
                 </button>
                 {scene?.lander && (
@@ -315,16 +328,16 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   </button>
                 )}
                 {lookingUp ? (
-                  <button type="button" aria-label="Look ahead" className={LOOK} onClick={() => face(series.sunAz[hour], 0.5, 60)}>
+                  <button type="button" aria-label="Look ahead" className={`${LOOK} md:min-w-[7.25rem]`} onClick={() => face(series.sunAz[hour], 0.5, 60)}>
                     <Short short="Ahead" long="Look ahead" />
                   </button>
                 ) : (
-                  <button type="button" aria-label="Look up" className={LOOK} onClick={lookUp}>
+                  <button type="button" aria-label="Look up" className={`${LOOK} md:min-w-[7.25rem]`} onClick={lookUp}>
                     <Short short="Look up" long="Look up" />
                   </button>
                 )}
                 <button type="button" aria-label="Hide the words" className={LOOK} onClick={() => setWordsHidden(true)}>
-                  <Short short="Hide text" long="Hide the words" />
+                  <Short short="Hide words" long="Hide the words" />
                 </button>
               </div>
               <p className="pr-1 text-right text-[13px] text-[#c3bfb6] [text-shadow:0_0_4px_#000] max-md:hidden">Drag to look around; pinch or scroll to zoom.</p>
@@ -344,7 +357,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
 
       <div ref={barRef} data-plate="" className="fixed inset-x-0 bottom-0">
         {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
-        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} dates powered={power.powered} compact moments={moments} onMoment={onMoment} />
+        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} />
       </div>
     </main>
   );

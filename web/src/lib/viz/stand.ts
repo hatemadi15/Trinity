@@ -1,7 +1,7 @@
 import type { Series } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
 import { parseExploreQuery, type ExploreQuery } from '../store/query';
-import { dateLong, dayMonth } from './format';
+import { dateLong, dayMonth, spanWords } from './format';
 import { degrees, groundWords } from './ground';
 
 /** Explore's address plus the hour the view opens on: `?site=&start=&days=&hour=`; a malformed hour is left out. */
@@ -134,24 +134,26 @@ export function keyMoments(s: Series, p: PowerResult | null, startUtc: string): 
 
 /**
  * The caption over the view when a key moment is chosen, for the moment's own hour: what happens then, and
- * why, in plain words. `label` is one of keyMoments' labels; any other gets an empty caption. Given the
- * site's latitude, the sunset's line on the pole is left out far from the poles.
+ * why, in plain words. A sunset with the Sun still above the level horizon is no sunset, and the caption
+ * says so: a hill hides a Sun that has not set. `label` is one of keyMoments' labels; any other gets an
+ * empty caption. Given the site's latitude, the sunset's line on the pole is left out far from the poles.
  */
 export function momentCaption(label: string, s: Series, hour: number, lat?: number): string {
-  const sinks = `The Sun sinks ${s.sunEl[hour] < 0 ? 'below the horizon' : 'behind the hills'}`;
+  const up = s.sunEl[hour] >= 0;
+  const sunset = up ? 'The Sun has not set: it is so low that this hill hides it' : 'The Sun sinks below the horizon';
   const earth = s.earthVisible[hour] === 1;
   switch (label) {
     case 'Sunset':
-      return lat !== undefined && poleLine(lat) === null ? `${sinks}.` : `${sinks}. This close to the pole it never climbs more than a few degrees.`;
+      return lat !== undefined && poleLine(lat) === null ? `${sunset}.` : `${sunset}. This close to the pole it never climbs more than a few degrees.`;
     case 'Sunset and power off':
-      return `${sinks}, and the lander's power goes with it.`;
+      return `${sunset}, and the lander's power goes with it.`;
     case 'Battery runs out':
       // With too little sunlight the battery can run out while the Sun is still in view.
       return s.sunFraction[hour] > 0
         ? 'The battery runs out: the Sun is still up, but the panel gets too little sunlight to keep the lander going.'
-        : 'The battery runs out: with the Sun gone, the panel makes nothing until it comes back.';
+        : `The battery runs out: with the Sun ${up ? 'behind the hills' : 'below the horizon'}, the panel makes nothing until it comes back.`;
     case 'Earth in view':
-      return 'Earth rises over the hills: the Moon rocks a little as it goes round, enough to lift Earth into view here.';
+      return "Earth rises over the hills. It barely moves in the Moon's sky: the Moon's slight rocking lifts it over the horizon here for about two weeks a month.";
     case 'Sun back':
       return `The Sun is back over the hills.${earth ? ' With Earth in view too, a working lander could radio home.' : ''}`;
     case 'Sun and power back':
@@ -161,6 +163,20 @@ export function momentCaption(label: string, s: Series, hour: number, lat?: numb
     default:
       return '';
   }
+}
+
+/**
+ * The line over the view after Face Earth ("earth"), after Look up ("up"), or when night falls with Earth in
+ * view ("earthlight"): why Earth barely moves in the sky, and near a pole how it still rises and sets; why
+ * the stars show by day, and from a southern site which ones these are; and what lights the ground at night.
+ */
+export function viewCaption(kind: 'earth' | 'up' | 'earthlight', lat: number): string {
+  if (kind === 'earth') return `Earth barely moves in the Moon's sky: the Moon keeps one face towards it${poleLine(lat) === null ? '' : ', and only its slight rocking lifts Earth over the horizon or hides it'}.`;
+  if (kind === 'up') {
+    const which = lat > 0 ? 'These are the same stars seen from Earth.' : "These are the stars seen from Earth's southern half: the Southern Cross and its two pointers, Alpha Centauri and Hadar.";
+    return `With no air, the sky stays black and the stars show even with the Sun up. ${which}`;
+  }
+  return 'Lit only by Earthlight: sunlight bounced off Earth, brightened here as a long photograph would show it.';
 }
 
 /**
@@ -178,12 +194,17 @@ export function poleLine(lat: number): string | null {
   return `Near the Moon's ${lat < 0 ? 'south' : 'north'} pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon, so a low hill can hide it for days.`;
 }
 
+/** Kilometres to a degree of latitude on the Moon, from its radius of 1,737.4 km. */
+const KM_PER_DEGREE = 30.32;
+
 /**
  * Why the view looks as it does at the hour, a line each, in order: near a pole, why the Sun stays low and
  * why Earth rises and sets; by day, why the sky is black and why few stars are seen; with none of the Sun
  * in view, where it is while farther hills are still lit; at night with Earth in view, what lights the
- * ground and why it looks blue; and with Earth in view, how big it looks. Each line is there only when it
- * applies.
+ * ground and why it looks blue; with Earth in view, how big it looks; near a pole, how far off the pole is
+ * and which way, so that north and south still mean something; and with none of the Sun in view, how cold
+ * the night is, and why the forecast says the power comes back only "if" the lander survives it. Each line
+ * is there only when it applies.
  */
 export function whyLines(lat: number, s: Series, hour: number): string[] {
   const lines: string[] = [];
@@ -193,7 +214,8 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
   }
   const el = s.sunEl[hour];
   const earth = s.earthVisible[hour] === 1;
-  if (s.sunFraction[hour] > 0) {
+  const lit = s.sunFraction[hour] > 0;
+  if (lit) {
     lines.push('With no air to scatter sunlight, the sky stays black by day, and the brightest stars still show. Eyes dazzled by the sunlit ground, or a camera set for it as on Apollo, see few of them.');
   } else {
     if (el >= 0) lines.push('The Sun is still up, hidden behind the hills: higher ground farther off still catches its light.');
@@ -201,6 +223,9 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
     if (earth) lines.push('At night only Earth lights the ground: sunlight bounced off Earth. The view is brightened, as a long photograph would be, so the ground shows, and that light is why it looks blue.');
   }
   if (earth) lines.push('Earth looks about 2° wide from here, nearly four times as wide as the full Moon looks from Earth.');
+  // At the pole itself every way leads away from it; a site off the pole still has one way towards it.
+  if (pole) lines.push(`North and south still work here: the pole itself is ${Math.round((90 - Math.abs(lat)) * KM_PER_DEGREE)} km to the ${lat < 0 ? 'south' : 'north'}.`);
+  if (!lit) lines.push('The night here is colder than −170 °C. Most landers are not built to survive it, which is why the forecast says "if".');
   return lines;
 }
 
@@ -251,6 +276,34 @@ export function nightHeadline(title: string, s: Series, p: PowerResult, startUtc
   if (sunrise >= s.hours) return `${head}, then night to the end of the period`;
   if (sunset === 0) return title;
   return `${head}, then night until ${dateLong(startUtc, sunrise)}`;
+}
+
+/**
+ * The headline, after nightHeadline, with the radio's verdict beside the power's, as the challenge asks
+ * about both: of the hours with power from the landing, those with Earth in view, as "no radio contact",
+ * "radio all the while" or "radio for 12 days 3 hours". It goes straight after the power, before the first
+ * ", then" when the title has one, else at the end: "...: power for 3 days 4 hours, no radio contact, then
+ * night until 20 January", "...: power for all 30 days, radio for 12 days 3 hours". Without power from the
+ * landing the title comes back as it is.
+ */
+export function radioHeadline(title: string, contactHours: number, poweredHours: number): string {
+  if (poweredHours <= 0) return title;
+  const radio = contactHours <= 0 ? 'no radio contact' : contactHours >= poweredHours ? 'radio all the while' : `radio for ${spanWords(contactHours)}`;
+  const then = title.indexOf(', then ');
+  return then < 0 ? `${title}, ${radio}` : `${title.slice(0, then)}, ${radio}${title.slice(then)}`;
+}
+
+/**
+ * The better landing day's button, in whole days: "Land on 20 January: power for 13 days, radio for 3", or
+ * "...: power for 13 days, no radio" when Earth is never in view in that time. `dayLong` is the day as
+ * dateLong writes it; the hours are those with power from that day, and those of them with Earth in view,
+ * each counted to the nearest day, and any time at all as at least one.
+ */
+export function betterLabel(dayLong: string, poweredHours: number, radioHours: number): string {
+  const days = (hours: number) => (hours > 0 ? Math.max(1, Math.round(hours / 24)) : 0);
+  const radio = radioHours <= 0 ? 'no radio' : `radio for ${days(radioHours)}`;
+  // Whole days in words: "13 days", "1 day".
+  return `Land on ${dayLong}: power for ${spanWords(days(poweredHours) * 24)}, ${radio}`;
 }
 
 /**
