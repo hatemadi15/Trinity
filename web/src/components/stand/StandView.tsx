@@ -30,6 +30,8 @@ const LANDER_DIST_M = 16;
 const LANDER_RIGHT_DEG = 30;
 const LANDER_FACE_LEFT_DEG = 75;
 const OPEN_RIGHT_DEG = 5;
+/** On a tall screen the view opens halfway between the Sun and the lander, so both fit across it. */
+const openRight = () => (typeof window !== 'undefined' && window.innerHeight > window.innerWidth ? LANDER_RIGHT_DEG / 2 : OPEN_RIGHT_DEG);
 
 /** "How we know this", folded away until asked for. */
 function HowWeKnow({ note, className }: { note: string; className: string }) {
@@ -165,7 +167,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           scene={scene}
           hour={hour}
           look={look}
-          startYaw={(openingAnchor(series, opening) + (scene.lander ? OPEN_RIGHT_DEG : 0)) % 360}
+          startYaw={(openingAnchor(series, opening) + (scene.lander ? openRight() : 0)) % 360}
           reducedMotion={reducedMotion}
           createRenderer={createRenderer}
           sunLabel={skyLabel('sun', series, hour)}
