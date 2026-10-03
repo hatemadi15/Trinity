@@ -40,11 +40,12 @@ describe('ExploreView', () => {
   it('shows the ground for every site, even a polar site the terrain files have no window for', async () => {
     window.history.replaceState({}, '', '/explore');
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
-    const cap = { site_id: 'south_cap', lat: -90, lon: 0, kind: 'cap', source: 's', level: 'L2', cell_m: 960, width: 9, height: 9, row0: 0, col0: 0, min_m: 0, max_m: 0, scale_m_per_unit: 1, site_height_m: 0, line_offset_px: 4, sample_offset_px: 4, site_row_px: 4, site_col_px: 4 };
+    // A cap 125 km across round the pole, so de Gerlache Rim 2, 52 km out, lies on it (a site off the cap gets none).
+    const cap = { site_id: 'south_cap', lat: -90, lon: 0, kind: 'cap', source: 's', level: 'L2', cell_m: 960, width: 131, height: 131, row0: 0, col0: 0, min_m: 0, max_m: 0, scale_m_per_unit: 1, site_height_m: 0, line_offset_px: 65, sample_offset_px: 65, site_row_px: 65, site_col_px: 65 };
     const store = createExploreStore(
       fileLoaders({
         loadTerrainManifest: async () => ({ version: 2, windows: [{ site_id: 'shackleton_center', file: 'x.u16', meta: 'x.json' }], cap: { file: 'cap.u16', meta: 'cap.json' }, globe_texture: 'g.jpg' }) as never,
-        loadHeightmap: async () => ({ meta: cap, heightsM: new Float32Array(81) }) as never,
+        loadHeightmap: async () => ({ meta: cap, heightsM: new Float32Array(131 * 131) }) as never,
       }),
     );
     render(<ExploreView store={store} navigate={() => {}} />);

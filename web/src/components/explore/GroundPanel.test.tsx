@@ -23,6 +23,7 @@ const series: Series = {
   sunAu: new Float64Array(n).fill(1),
 };
 
+/** A square grid centred on the pole; a cap of 131 cells of 960 m reaches past de Gerlache Rim 2, 52 km out. */
 function grid(kind: HeightmapMeta['kind'], size: number, cell: number): Heightmap {
   const mid = (size - 1) / 2;
   return {
@@ -136,7 +137,7 @@ describe('GroundPanel', () => {
     expect(about()).toBe('The same 41 km of ground in 3D from above, as a model you can turn.');
     cleanup();
     // Without a window (still loading, or only the coarse cap), no size is promised.
-    show({ terrainState: 'ready', capHeightmap: grid('cap', 64, 960) });
+    show({ terrainState: 'ready', capHeightmap: grid('cap', 131, 960) });
     fireEvent.click(tab('3D from above'));
     expect(about()).toBe('The same ground in 3D from above, as a model you can turn.');
     cleanup();
@@ -324,13 +325,13 @@ describe('GroundPanel', () => {
   });
 
   it('waits for the detailed terrain instead of drawing the coarse one first', () => {
-    const { client } = show({ terrainState: 'ready', capHeightmap: grid('cap', 64, 960), windowLoading: true });
+    const { client } = show({ terrainState: 'ready', capHeightmap: grid('cap', 131, 960), windowLoading: true });
     expect(screen.getByRole('tabpanel', { name: 'Shadow map' }).textContent).toMatch(/Loading the terrain…/);
     expect(client.setLevels).not.toHaveBeenCalled();
   });
 
   it('says what the coarse model shows and what it cannot, without promising more', async () => {
-    show({ terrainState: 'ready', capHeightmap: grid('cap', 64, 960) });
+    show({ terrainState: 'ready', capHeightmap: grid('cap', 131, 960) });
     const map = screen.getByRole('tabpanel', { name: 'Shadow map' });
     await waitFor(() => expect(within(map).getByRole('img', { name: /^Shadows at/ })).toBeTruthy());
     expect(map.textContent).toMatch(/Worked out from NASA elevation data at 960 m per pixel: too coarse to show the site's own slopes\./);
@@ -341,7 +342,7 @@ describe('GroundPanel', () => {
   });
 
   it('a site with no polar terrain: opens on the horizon chart, says why there is no map, and shows only the globe in 3D from above', async () => {
-    const { client } = show({ site: mare, sites: [mare], mode: 'globe', terrainState: 'ready', capHeightmap: grid('cap', 64, 960) });
+    const { client } = show({ site: mare, sites: [mare], mode: 'globe', terrainState: 'ready', capHeightmap: grid('cap', 131, 960) });
     expect(tab('Horizon chart').getAttribute('aria-selected')).toBe('true');
     fireEvent.click(tab('Shadow map'));
     expect(screen.getByRole('tabpanel', { name: 'Shadow map' }).textContent).toMatch(/This tool has height data only around the south pole, so this site's horizon is taken as flat\. The Horizon chart tab shows the paths of the Sun and Earth over it\./);
