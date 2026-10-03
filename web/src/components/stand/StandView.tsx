@@ -306,29 +306,28 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             ref={topRef}
             data-plate=""
             aria-label="The answer for this site"
-            className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 md:max-h-[calc(100dvh-var(--bar-h,185px)-32px)] md:gap-2.5 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-40px)]`}
+            className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin] md:max-h-[calc(100dvh-var(--bar-h,185px)-32px)] md:gap-2.5 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-40px)]`}
           >
             {/* Once the view is turned, the card keeps to the headline and the lander's line. */}
             {(!explored || more) && <p className="text-[15px] text-[#c3bfb6] max-md:hidden">{standingLine(site, oneLine, 'top', flat)}</p>}
             {/* A phone keeps the site and the pole, in one line. */}
             <p className="text-[14px] text-[#c3bfb6] md:hidden">{standingLine(site, oneLine, 'phone')}</p>
             <h1 className={`display text-pretty text-[18px] font-bold leading-tight ${explored && !more ? 'sm:text-[22px]' : 'sm:text-[28px]'}`}>{title}</h1>
-            {/* On a phone the lander's line waits under More: the headline and the better day keep the card short. */}
-            <p className={`flex items-baseline gap-2 text-[15px] md:text-base ${more ? '' : 'max-md:hidden'}`}>
+            <p className="flex items-baseline gap-2 text-[15px] md:text-base">
               <i aria-hidden="true" data-tone={lander.tone} className={`h-3 w-3 shrink-0 translate-y-px rounded-full ${TONE[lander.tone]}`} />
               <span>{lander.text}</span>
             </p>
             {/* On a phone the rest waits under More, so the view keeps the screen. */}
-            {(!explored || more) && <p className={`text-[14px] text-[#f6d48a] md:text-[15px] ${more ? '' : 'max-md:hidden'}`}>{watchNext(series, power, s.startUtc, hour)}</p>}
+            <p className={`text-[14px] text-[#f6d48a] md:text-[15px] ${more ? '' : 'max-md:hidden'}`}>{watchNext(series, power, s.startUtc, hour)}</p>
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
               {better && (
                 // A new period: the whole view opens again from its first hour.
-                <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a] ${explored && !more ? 'md:hidden' : ''}`}>
+                <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}>
                   {better.label}
                 </a>
               )}
               <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4" aria-expanded={more} onClick={() => setMore((m) => !m)}>
-                {more ? 'Less' : 'More'}
+                {more ? 'Less' : 'Why this happens'}
               </button>
               <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center text-[15px] underline underline-offset-4">
                 Back to the forecast

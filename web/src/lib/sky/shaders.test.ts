@@ -105,9 +105,11 @@ describe('the ground shader', () => {
     expect(GROUND_FRAG).toContain('* (1.0 - hide)');
   });
 
-  it('casts your shadow as a person’s, not a post: two legs, a body, two arms and a head, square to the Sun', () => {
+  it('casts your shadow as an astronaut’s: two legs apart, a body, a backpack, two arms and a helmet, square to the Sun', () => {
     const viewer = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float viewerClearance('), GROUND_FRAG.indexOf('float soft('));
-    expect(viewer.match(/capsuleClear\(p, L,/g)?.length).toBe(6);
+    expect(viewer.match(/capsuleClear\(p, L,/g)?.length).toBe(7);
+    expect(viewer).toContain('backpack');
+    expect(viewer).toContain('helmet');
     expect(viewer).toContain('normalize(vec3(-L.z, 0.0, L.x))');
   });
 
@@ -126,7 +128,11 @@ describe('the ground shader', () => {
 
   it('keeps your shadow\u2019s arms against its body, so no thin rails run beside it', () => {
     const viewer = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float viewerClearance('), GROUND_FRAG.indexOf('float soft('));
-    expect(viewer).toContain('side * 0.19');
+    expect(viewer).toContain('side * 0.26');
     expect(viewer).not.toContain('side * 0.27');
+  });
+
+  it('lights the night ground a neutral grey: Earth’s blue only when Earth is up', () => {
+    expect(GROUND_FRAG).toContain('vec3(0.62, 0.63, 0.66) * uNight');
   });
 });

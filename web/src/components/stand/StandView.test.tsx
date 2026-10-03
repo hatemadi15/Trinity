@@ -105,7 +105,7 @@ describe('StandView', () => {
 
   it('opens "More" on the radio story, why the sky looks as it does, and how we know, then folds it away', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    const more = screen.getByRole('button', { name: 'More' });
+    const more = screen.getByRole('button', { name: 'Why this happens' });
     expect(more.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(more);
     expect(screen.getByRole('button', { name: 'Less' }).getAttribute('aria-expanded')).toBe('true');
@@ -141,7 +141,7 @@ describe('StandView', () => {
   it('opens a site without polar terrain on flat ground, and says so', async () => {
     await open('?site=blue_ghost_m1&start=2025-03-02T09:00&days=14&hour=0');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Landing on 2 March: power for all 14\u00a0days, radio all the while');
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Why this happens' }));
     await waitFor(() => expect(screen.getAllByText(/the ground here is drawn flat/).length).toBeGreaterThan(0));
   });
 
@@ -152,7 +152,7 @@ describe('StandView', () => {
     await waitFor(() => expect(screen.getByText(/This browser cannot draw the view from the site/)).toBeTruthy());
     expect(screen.getByRole('img', { name: /^The view all round the site/ })).toBeTruthy();
     // The note describes the view from the site, which the fallback does not show.
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Why this happens' }));
     expect(screen.queryByText(/How we know this/)).toBeNull();
     const st = store.getState();
     expect(screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text)).toBeTruthy();
@@ -286,32 +286,33 @@ describe('StandView', () => {
     expect(screen.getByText((t) => t.startsWith(viewCaption('lander', -88.28)))).toBeTruthy();
   });
 
-  it('keeps a phone’s card to the headline and the better day: the lander’s line and what to watch wait under More, the way back stays', async () => {
+  it('keeps a phone’s card to the headline, the lander’s line and the better day: what to watch waits under the why, the way back stays', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const st = store.getState();
     const better = await screen.findByRole('link', { name: /^Try 20 January instead/ });
     expect(better.className).not.toMatch(/\bmax-md:hidden\b/);
     expect(screen.getByRole('link', { name: 'Back to the forecast' }).className).not.toMatch(/\bmax-md:hidden\b/);
-    const line = () => screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text).closest('p')!;
-    expect(line().className).toMatch(/\bmax-md:hidden\b/);
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
-    expect(line().className).not.toMatch(/\bmax-md:hidden\b/);
+    expect(screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text).closest('p')!.className).not.toMatch(/\bmax-md:hidden\b/);
+    const watch = () => screen.getByText(watchNext(st.series!, st.power, st.startUtc, 10));
+    expect(watch().className).toMatch(/\bmax-md:hidden\b/);
+    fireEvent.click(screen.getByRole('button', { name: 'Why this happens' }));
+    expect(watch().className).not.toMatch(/\bmax-md:hidden\b/);
   });
 
-  it('keeps the card to the headline and the lander’s line once the view is turned, and More brings the rest back', async () => {
+  it('drops the top line once the view is turned, keeping what to watch and the better day, and the why brings it back', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const st = store.getState();
     const watch = watchNext(st.series!, st.power, st.startUtc, 10);
     await waitFor(() => expect(screen.getByText(watch)).toBeTruthy());
     expect(screen.getByText(/^Standing at de\sGerlache/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Face the Sun' }));
-    expect(screen.queryByText(watch)).toBeNull();
     expect(screen.queryByText(/^Standing at de\sGerlache/)).toBeNull();
-    expect(screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text)).toBeTruthy();
-    // The better day stays on a phone, where the card is short anyway, and steps aside on a wide screen.
-    expect(screen.getByRole('link', { name: /^Try 20 January instead/ }).className).toMatch(/\bmd:hidden\b/);
-    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    // The prompts stay: what to watch, and the better day.
     expect(screen.getByText(watch)).toBeTruthy();
+    expect(screen.getByRole('link', { name: /^Try 20 January instead/ }).className).not.toMatch(/\bmd:hidden\b/);
+    expect(screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Why this happens' }));
+    expect(screen.getByText(/^Standing at de\sGerlache/)).toBeTruthy();
   });
 
   it('opens a night with Earth up on Earth, narrower, so it shows large', async () => {

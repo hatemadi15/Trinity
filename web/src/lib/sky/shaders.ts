@@ -135,18 +135,20 @@ float capsuleClear(vec3 p, vec3 L, vec3 a, vec3 v, float r) {
   }
   return (length(p + L * t - a - v * s) - r) / t;
 }
-// Your own shadow: a person 1.8 m tall standing where the view stands (uViewer, the ground under the eye),
-// square to the Sun, so the shadow shows two legs, a body, two arms and a head; the angle by which the ray
-// towards the Sun clears them. At a 2 degree Sun the shadow reaches some 50 m.
+// Your own shadow: an astronaut 1.8 m tall standing where the view stands (uViewer, the ground under the
+// eye), square to the Sun, so the shadow shows two legs apart, a body with a backpack behind it, two arms and
+// a round helmet; the angle by which the ray towards the Sun clears them. At a 2 degree Sun it reaches some
+// 50 m on level ground.
 float viewerClearance(vec3 p, vec3 L) {
   if (length(p.xz - uViewer.xz) > 140.0 || dot(uViewer.xz - p.xz, L.xz) <= 0.0) return 1.0;
-  vec3 side = normalize(vec3(-L.z, 0.0, L.x)), up = vec3(0.0, 1.0, 0.0);
-  float m = capsuleClear(p, L, uViewer + side * 0.11 + up * 0.05, up * 0.85, 0.07);   // legs
-  m = min(m, capsuleClear(p, L, uViewer - side * 0.11 + up * 0.05, up * 0.85, 0.07));
-  m = min(m, capsuleClear(p, L, uViewer + up * 0.95, up * 0.5, 0.17));                // body
-  m = min(m, capsuleClear(p, L, uViewer + side * 0.19 + up * 0.85, up * 0.55, 0.05)); // arms, against the body
-  m = min(m, capsuleClear(p, L, uViewer - side * 0.19 + up * 0.85, up * 0.55, 0.05));
-  m = min(m, capsuleClear(p, L, uViewer + up * 1.62, up * 0.06, 0.11));               // head
+  vec3 side = normalize(vec3(-L.z, 0.0, L.x)), up = vec3(0.0, 1.0, 0.0), away = -normalize(vec3(L.x, 0.0, L.z));
+  float m = capsuleClear(p, L, uViewer + side * 0.14 + up * 0.05, up * 0.85, 0.08);         // legs, apart
+  m = min(m, capsuleClear(p, L, uViewer - side * 0.14 + up * 0.05, up * 0.85, 0.08));
+  m = min(m, capsuleClear(p, L, uViewer + up * 0.95, up * 0.5, 0.19));                      // body
+  m = min(m, capsuleClear(p, L, uViewer + away * 0.18 + up * 1.05, up * 0.45, 0.23));       // backpack, behind
+  m = min(m, capsuleClear(p, L, uViewer + side * 0.26 + up * 0.85, up * 0.55, 0.07));       // arms
+  m = min(m, capsuleClear(p, L, uViewer - side * 0.26 + up * 0.85, up * 0.55, 0.07));
+  m = min(m, capsuleClear(p, L, uViewer + up * 1.6, up * 0.02, 0.16));                      // helmet
   return m;
 }
 // A shadow's margin (radians by which the Sun's centre clears what would hide it) as light: spread over the
@@ -223,7 +225,7 @@ void main() {
   col += albedo * vec3(1.0, 0.99, 0.975) * uSunPower * uBounce * uSunUp;
   // At night with neither the Sun nor Earth up, a faint light that stands for eyes adapting to the dark (the
   // lander gets the same), so the ground still shows under it.
-  col += albedo * vec3(0.55, 0.6, 0.75) * uNight;
+  col += albedo * vec3(0.62, 0.63, 0.66) * uNight;
   gl_FragColor = vec4(col, 1.0);
 }`;
 

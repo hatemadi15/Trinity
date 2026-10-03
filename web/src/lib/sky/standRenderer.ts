@@ -333,10 +333,11 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // The Sun: white, small and hard, with only a small glow close round the disc: with no air there is no
   // halo across the sky and no starburst, only what a lens adds right at the disc.
   const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, '#fff'], [0.46, '#fff'], [0.5, 'rgba(255,255,255,0)']]), color: new THREE.Color(14, 14, 13.5), transparent: true, depthWrite: false, toneMapped: false }));
-  const glare = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, 'rgba(255,255,255,0.35)'], [0.12, 'rgba(240,244,255,0.1)'], [0.45, 'rgba(220,230,255,0.015)'], [1, 'rgba(0,0,0,0)']]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+  const glare = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, 'rgba(255,255,255,0.35)'], [0.06, 'rgba(240,244,255,0.12)'], [0.22, 'rgba(225,232,255,0.035)'], [0.6, 'rgba(220,230,255,0.008)'], [1, 'rgba(0,0,0,0)']]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
   // The disc at its true size (it fills 92 % of its sprite), so Earth beside it is plainly four times wider.
   sun.scale.setScalar(SUN_D / 0.92);
-  glare.scale.setScalar(SUN_D * 4);
+  // A faint lens glare round it, so it reads as the Sun with no label; its bright core stays at the disc.
+  glare.scale.setScalar(SUN_D * 8);
   root.add(sun, glare);
 
   // Earth: NASA's Blue Marble and clouds, 1.9° wide, lit by the Sun and turned for the hour.
@@ -366,7 +367,10 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // The Sun; the sunlit dust's light from below, which fills the lander's shaded sides (as in the Apollo
   // photographs); and Earth's faint blue light.
   const sunLight = new THREE.DirectionalLight(0xffffff, 0), skyLight = new THREE.HemisphereLight(0x0a0a0c, 0x8a857c, 0), earthLight = new THREE.AmbientLight(0x8aa7ff, 0);
-  root.add(sunLight, sunLight.target, skyLight, earthLight);
+  // A neutral fill: faint by day, and at night the light that stands for eyes adapting to the dark (grey,
+  // not Earth's blue, which comes only with Earth).
+  const fillLight = new THREE.AmbientLight(0xc4c6ca, 0);
+  root.add(sunLight, sunLight.target, skyLight, earthLight, fillLight);
   if (lander) {
     const lx = lander.group.position.x, lz = lander.group.position.z, ly = heightAt(scene.field, lx, lz);
     lander.group.position.y = ly;
@@ -408,7 +412,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     return up * up * (3 - 2 * up);
   };
   const expose = () => {
-    const day = 1.6 - 1.45 * sunNow;
+    // By day, none: a camera set for the sunlit ground does not catch them (as the captions say).
+    const day = 1.6 - 1.6 * sunNow;
     starMat.uniforms.uGain.value = day + (1.6 - day) * skyward();
   };
   // How much the regolith in the middle of the view sends back towards the eye, as the ground shader lights
@@ -424,7 +429,11 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     if (sunNow <= 0) return 1;
     const alpha = Math.acos(Math.min(1, Math.max(-1, -viewDir.dot(sunDir))));
     const g = Math.min(1, Math.max(0.35, Math.pow(regolithBack((120 * Math.PI) / 180) / regolithBack(alpha), 0.6)));
-    return 1 + (g - 1) * (1 - skyward()) * Math.min(1, sunNow);
+    const ground = 1 + (g - 1) * (1 - skyward()) * Math.min(1, sunNow);
+    // With the Sun itself in the frame the camera stops down for it, so the ground before it is backlit.
+    const at = tmp.copy(sunDir).multiplyScalar(1000).add(camera.position).project(camera);
+    const inFrame = at.z < 1 && Math.abs(at.x) <= 1 && Math.abs(at.y) <= 1;
+    return Math.min(ground, inFrame ? 1 - 0.4 * Math.min(1, sunNow) : 1);
   }
   const sunDir = new THREE.Vector3(), earthPos = new THREE.Vector3();
   function update(t: number) {
@@ -464,10 +473,11 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     sunLight.position.copy(sunLight.target.position).addScaledVector(sunDir, 50);
     sunLight.intensity = 3.2 * v.sunFraction;
     // The dust lights the shaded sides only faintly at a Sun this low: they stand nearly in silhouette.
-    skyLight.intensity = 0.25 * v.sunFraction;
-    // A floor, as eyes adapt to the dark: faint by day, enough at night for the shapes to show when neither
-    // the Sun nor Earth lights them (the ground gets the same).
-    earthLight.intensity = 0.15 + 0.5 * earthshine + nightFloor(v.sunFraction, earthshine);
+    skyLight.intensity = 0.08 * v.sunFraction;
+    // Earth's blue light only while Earth is up; the neutral fill, faint by day, and at night enough for the
+    // shapes to show when neither the Sun nor Earth lights them (the ground gets the same).
+    earthLight.intensity = 0.5 * earthshine;
+    fillLight.intensity = 0.03 + nightFloor(v.sunFraction, earthshine);
     if (lander) {
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
       // Lit green with power; off, a dark bead that still shows where the light is.
@@ -575,7 +585,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     });
   };
 
-  return { root, camera, update, setView, labels, exposure, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? earthLight : null, boulders: rocks.group, pebbles } };
+  return { root, camera, update, setView, labels, exposure, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, boulders: rocks.group, pebbles } };
 }
 
 /** A texture drawn on a canvas of the given size (repeating), or none outside a browser. */
@@ -593,10 +603,10 @@ function surface(w: number, h: number, draw: (g: CanvasRenderingContext2D) => vo
   return t;
 }
 
-/** Crinkled gold foil: a warm base with light and dark creases. */
+/** Crinkled gold foil: a bright amber base with light and dark creases. */
 const foilTexture = () =>
   surface(256, 256, (g) => {
-    g.fillStyle = '#c99a3c';
+    g.fillStyle = '#d9ab4a';
     g.fillRect(0, 0, 256, 256);
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -657,7 +667,10 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
     foilMap.wrapS = foilMap.wrapT = THREE.RepeatWrapping;
     foilMap.repeat.set(4, 1);
   }
-  const foil = new THREE.MeshStandardMaterial({ color: foilMap ? 0xffffff : 0xd4a640, map: foilMap, metalness: 0.45, roughness: 0.38 });
+  // Foil is shiny: it mirrors the black sky and the grey dust, and catches the Sun in bright creases.
+  const foil = new THREE.MeshStandardMaterial({ name: 'foil', color: foilMap ? 0xffffff : 0xd4a640, map: foilMap, metalness: 0.85, roughness: 0.3 });
+  // The pads are matte, so the feet do not sparkle.
+  const pad = new THREE.MeshStandardMaterial({ name: 'pad', color: 0x8d8d88, metalness: 0.15, roughness: 0.85 });
   const metal = new THREE.MeshStandardMaterial({ color: 0xa3a39e, metalness: 0.6, roughness: 0.45 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x2c2c2e, metalness: 0.5, roughness: 0.55, side: THREE.DoubleSide });
   const white = new THREE.MeshStandardMaterial({ color: 0xe9e8e4, metalness: 0.05, roughness: 0.7 });
@@ -698,7 +711,7 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
     rod(top, foot, L.legs.r, metal);
     const knee: Vec3 = [top[0] + (foot[0] - top[0]) * 0.5, top[1] + (foot[1] - top[1]) * 0.5, top[2] + (foot[2] - top[2]) * 0.5];
     rod(knee, [top[0] * 0.55, L.body.y0 + 0.05, top[2] * 0.55], 0.022, metal);
-    add(new THREE.Mesh(new THREE.CylinderGeometry(L.legs.padR * 0.85, L.legs.padR, L.legs.padH, 18), metal), foot[0], L.legs.padH / 2, foot[2]);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(L.legs.padR * 0.85, L.legs.padR, L.legs.padH, 18), pad), foot[0], L.legs.padH / 2, foot[2]);
   }
   // Instruments on the deck: a white box and a dark one, and a camera on a short mast.
   L.boxes.forEach((b, i) => add(new THREE.Mesh(new THREE.BoxGeometry(...b.size), i === 0 ? white : dark), ...b.c));

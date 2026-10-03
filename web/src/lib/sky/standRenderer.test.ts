@@ -305,7 +305,8 @@ describe('the stand scene', () => {
     const s = buildScene(flat());
     const sprites = s.root.children.filter((o) => (o as THREE.Sprite).isSprite);
     expect(sprites).toHaveLength(2);
-    expect(s.parts.glare.scale.x / s.parts.sun.scale.x).toBeLessThan(6);
+    // A faint glare four diameters out, no wider.
+    expect(s.parts.glare.scale.x / s.parts.sun.scale.x).toBeLessThanOrEqual(7.5);
   });
 
   it('stands your own shadow on the ground under the eye', () => {
@@ -360,7 +361,10 @@ describe('the stand scene', () => {
     const dark = { ...series, sunFraction: Float64Array.from([0, 0, 0]), sunEl: Float64Array.from([-1, -1, -1]), earthEl: Float64Array.from([-3, -3, -3]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
     const s = buildScene(flat({ series: dark, lander: { azDeg: 90, distM: 9, powered: Uint8Array.from([0, 0, 0]) } }));
     s.update(0);
-    expect(s.parts.landerFill!.intensity).toBeGreaterThanOrEqual(0.45);
+    expect(s.parts.landerFill!.intensity).toBeGreaterThanOrEqual(0.35);
+    // Neutral grey, not Earth's blue: Earth is down.
+    const c = s.parts.landerFill!.color;
+    expect(Math.abs(c.r - c.b)).toBeLessThan(0.08);
     // A light that is off still shows as a dark bead, not as nothing.
     expect(s.parts.landerLight!.color.getHex()).not.toBe(0x000000);
     // By day the night's floor goes: what is left is the faint fill and Earth's light.
@@ -369,12 +373,16 @@ describe('the stand scene', () => {
     expect(day.parts.landerFill!.intensity).toBeLessThan(s.parts.landerFill!.intensity - 0.15);
   });
 
-  it('stops the exposure down looking down-Sun at the sunlit ground, as a camera would, but not towards the Sun, looking up or at night', () => {
+  it('stops the exposure down looking down-Sun at the sunlit ground and with the Sun in the frame, as a camera would, but not looking up or at night', () => {
     const s = buildScene(flat());
     s.update(0);
-    // The Sun is at 300 degrees: facing it, the exposure is as set.
+    // The Sun is at 300 degrees: facing it, the camera stops down for the Sun in the frame, so the ground
+    // before it is backlit and dark.
     s.setView(300, 2, 60, 16 / 9);
-    expect(s.exposure()).toBeCloseTo(1, 2);
+    expect(s.exposure()).toBeCloseTo(0.6, 2);
+    // Across the light, with the Sun out of the frame, as set.
+    s.setView(30, 2, 60, 16 / 9);
+    expect(s.exposure()).toBeGreaterThan(0.7);
     // Down-Sun the regolith shines back towards the Sun: the camera takes in about a third of the light.
     s.setView(120, -8, 60, 16 / 9);
     expect(s.exposure()).toBeLessThan(0.5);
@@ -388,11 +396,11 @@ describe('the stand scene', () => {
     expect(s.exposure()).toBe(1);
   });
 
-  it('shows only the brightest stars by day while the view takes in the sunlit ground', () => {
+  it('shows no stars by day while the view takes in the sunlit ground, as a camera set for it would not', () => {
     const s = buildScene(flat());
     s.update(0);
     s.setView(300, 0, 60, 16 / 9);
-    expect(s.starMaterial.uniforms.uGain.value as number).toBeLessThanOrEqual(0.2);
+    expect(s.starMaterial.uniforms.uGain.value as number).toBeLessThanOrEqual(0.02);
   });
 
   it('sets boulders round the eye, clear of the lander, and hands their shadows to the ground', () => {
@@ -438,7 +446,8 @@ describe('the stand scene', () => {
     // The disc fills 92 % of its sprite.
     const discDeg = (2 * Math.atan((0.92 * s.parts.sun.scale.x) / 2 / s.parts.sun.position.length()) * 180) / Math.PI;
     expect(discDeg).toBeCloseTo(0.533, 2);
-    expect(s.parts.glare.scale.x / s.parts.sun.scale.x).toBeLessThanOrEqual(4.2);
+    // A faint glare reaches four diameters out; its bright core stays at the disc.
+    expect(s.parts.glare.scale.x / s.parts.sun.scale.x).toBeLessThanOrEqual(7.5);
   });
 
   it('strews pebbles round the eye as shapes the light catches', () => {
@@ -456,5 +465,25 @@ describe('the stand scene', () => {
     expect(shadowOnGround((d) => -d * tan(1), 2.5)).toBeGreaterThan(level * 1.3);
     // Never longer than 500 m.
     expect(shadowOnGround((d) => -d * tan(3), 2.5)).toBe(500);
+  });
+
+  it('leaves the lander\u2019s side away from a low Sun nearly dark by day: little fill from the dust and none from Earth\u2019s blue', () => {
+    const s = buildScene(flat({ lander: { azDeg: 90, distM: 9, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(0);
+    const lights = s.root.children.filter((o) => (o as THREE.Light).isLight) as THREE.Light[];
+    const hemi = lights.find((l) => l instanceof THREE.HemisphereLight)!;
+    expect(hemi.intensity).toBeLessThanOrEqual(0.1);
+    expect(s.parts.landerFill!.intensity).toBeLessThanOrEqual(0.06);
+  });
+
+  it('dresses the lander in shiny gold foil and stands it on matte pads, so its feet do not sparkle', () => {
+    const s = buildScene(flat({ lander: { azDeg: 90, distM: 9, powered: Uint8Array.from([1, 1, 1]) } }));
+    const mats = new Set<THREE.MeshStandardMaterial>();
+    s.parts.lander!.traverse((o) => {
+      const m = (o as THREE.Mesh).material;
+      for (const x of Array.isArray(m) ? m : m ? [m] : []) if (x instanceof THREE.MeshStandardMaterial) mats.add(x);
+    });
+    expect([...mats].some((m) => m.name === 'foil' && m.metalness >= 0.8)).toBe(true);
+    expect([...mats].some((m) => m.name === 'pad' && m.metalness <= 0.25)).toBe(true);
   });
 });

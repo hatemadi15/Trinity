@@ -75,15 +75,20 @@ export function edgePointers(
 
 /**
  * Where a pointer's middle goes (pixels down the screen) so its `box` keeps 6 px clear of the labels on the
- * sky: where it is when clear; else just below the label it meets, or just above it when below would leave
- * the room (`lo` to `hi`).
+ * sky: where it is when clear; else just above the label it meets (labels sit over their things, so above is
+ * open sky), or just below it when above would leave the room (`lo` to `hi`).
  */
 export function pointerClear(box: Rect, labels: Rect[], lo: number, hi: number): number {
   const h = box.bottom - box.top, mid = box.top + h / 2;
   const hit = labels.find((l) => box.right > l.left && box.left < l.right && box.bottom > l.top - 6 && box.top < l.bottom + 6);
   if (!hit) return mid;
-  const below = hit.bottom + 6 + h / 2;
-  return below + h / 2 <= hi ? below : Math.max(lo, hit.top - 6 - h / 2);
+  const above = hit.top - 6 - h / 2;
+  return above - h / 2 >= lo ? above : Math.min(hi, hit.bottom + 6 + h / 2);
+}
+
+/** A pointer's words: the label's, without what its arrow already says ("below the horizon", "behind the hills"). */
+export function pointerWords(label: string): string {
+  return label.replace(' below the horizon', ' below').replace(', behind the hills', ', hidden');
 }
 
 /** The Southern Cross's four stars, named only while the cross's own name is not shown. */
@@ -678,7 +683,7 @@ export function StandCanvas({
               <path d="M0 5 8 0v10z" />
             </svg>
             <i className={`h-2 w-2 shrink-0 rounded-full ${colour}`} />
-            {k === 'sun' ? sunLabel : k === 'earth' ? earthLabel : name}
+            {k === 'sun' ? pointerWords(sunLabel) : k === 'earth' ? pointerWords(earthLabel) : name}
           </span>
         ))}
       </div>
