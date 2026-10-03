@@ -231,6 +231,34 @@ describe('StandView', () => {
     expect(screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text)).toBeTruthy();
   });
 
+  it('falls back to the horizon chart when the view’s shaders fail to build, a shader fails while drawing, or the graphics context is lost', async () => {
+    const fallback = /This browser cannot draw the view from the site/;
+    // The shaders fail to build: the renderer's ready promise rejects.
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => ({ ...stub(), ready: new Promise<void>((_, no) => setTimeout(() => no(new Error('A shader did not compile')), 10)) }));
+    await waitFor(() => expect(screen.getByText(fallback)).toBeTruthy());
+    cleanup();
+    // A shader fails on its first use, after the view was ready: the renderer says so through onLost.
+    const r: RendererLike = stub();
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(r.onLost).toBeTypeOf('function'));
+    act(() => r.onLost!('A shader of the view did not compile'));
+    await waitFor(() => expect(screen.getByText(fallback)).toBeTruthy());
+    cleanup();
+    // The graphics context is lost (a driver reset): nothing would ever draw again.
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const canvas = await waitFor(() => {
+      const c = document.querySelector('canvas');
+      expect(c).not.toBeNull();
+      return c!;
+    });
+    act(() => {
+      canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true }));
+    });
+    await waitFor(() => expect(screen.getByText(fallback)).toBeTruthy());
+    // The words stay, as with any fallback.
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing on 1 January/);
+  });
+
   it('keeps one renderer while the time moves', async () => {
     let made = 0;
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => {

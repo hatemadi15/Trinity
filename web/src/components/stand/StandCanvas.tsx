@@ -5,7 +5,7 @@ import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
 import { shadowWords, starLabel } from '@/lib/viz/stand';
 
-export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void> };
+export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget { yaw: number; pitch: number; fov: number }
 
@@ -377,11 +377,25 @@ export function StandCanvas({
       return;
     }
     let live = true;
-    void Promise.resolve(r.ready).then(() => {
-      if (!live) return;
-      drawnRef.current = true;
-      readyRef.current?.();
-    });
+    // A view that cannot draw gives way to the fallback, with the same words: shaders that fail to build or on
+    // their first use, or a graphics context lost to a driver reset (after which nothing would draw again).
+    const fail = (why: string) => {
+      if (live) failRef.current(why);
+    };
+    r.onLost = fail;
+    void Promise.resolve(r.ready).then(
+      () => {
+        if (!live) return;
+        drawnRef.current = true;
+        readyRef.current?.();
+      },
+      (e: unknown) => fail(e instanceof Error ? e.message : String(e)),
+    );
+    const lost = (e: Event) => {
+      e.preventDefault();
+      fail('The graphics context was lost');
+    };
+    el.addEventListener('webglcontextlost', lost);
     const size = () => r.resize(el.clientWidth || window.innerWidth, el.clientHeight || window.innerHeight);
     size();
     window.addEventListener('resize', size);
@@ -594,6 +608,7 @@ export function StandCanvas({
       live = false;
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', size);
+      el.removeEventListener('webglcontextlost', lost);
       r.dispose();
     };
   }, [scene, createRenderer]);

@@ -817,6 +817,8 @@ export class StandRenderer {
    */
   readonly ready: Promise<void>;
   private compiled = false;
+  /** Told when the view can no longer draw: a shader failed to compile or link on its first use. */
+  onLost?: (why: string) => void;
 
   constructor(canvas: HTMLCanvasElement, scene: StandScene) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -841,10 +843,12 @@ export class StandRenderer {
     this.built.root.environment = pmrem.fromScene(envScene, 0).texture;
     pmrem.dispose();
     around.dispose();
-    const built = () => {
+    // A shader that fails shows only on its first use; then the view gives way to the fallback.
+    this.renderer.debug.onShaderError = () => this.onLost?.('A shader of the view did not compile');
+    // Shaders that fail to build reject `ready`, so the view gives way to the fallback rather than draw black.
+    this.ready = this.renderer.compileAsync(this.built.root, this.built.camera).then(() => {
       this.compiled = true;
-    };
-    this.ready = this.renderer.compileAsync(this.built.root, this.built.camera).then(built, built);
+    });
     this.built.starMaterial.uniforms.uPx.value = this.pixelRatio;
     // Four samples per pixel in the composer's own target: smooth edges on Earth and the skyline.
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
