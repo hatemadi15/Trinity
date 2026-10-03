@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LANDER_GLSL } from './landerShape';
 import { GROUND_FRAG, STAR_FRAG } from './shaders';
 
 describe('the ground shader', () => {
@@ -13,7 +14,7 @@ describe('the ground shader', () => {
 
   it('starts the shadow ray from the measured ground, not from the drawn craters', () => {
     expect(GROUND_FRAG).toContain('vec3 N0 = normalize(vNormal), Nn = N0;');
-    expect(GROUND_FRAG).toContain('sunFraction(vWorld + N0 * 0.4, uSun)');
+    expect(GROUND_FRAG).toContain('sunMargin(vWorld + N0 * 0.4, uSun)');
   });
 
   it('keeps every star below the bloom threshold, so only the Sun blooms', () => {
@@ -28,5 +29,29 @@ describe('the ground shader', () => {
 
   it('keeps a faint earthlit glow on ground that faces away from a low Earth, the light the earthlit slopes around it scatter', () => {
     expect(GROUND_FRAG).toContain('uEarthshine * 0.18');
+  });
+
+  it('lets the drawn craters and rocks cast long shadows at a low Sun, not only shade', () => {
+    // A march towards the Sun over the drawn heights, and each rock's own shadow, judged against the measured slope.
+    expect(GROUND_FRAG).toContain('float detailRise(');
+    expect(GROUND_FRAG).toContain('float rockMargin(');
+    expect(GROUND_FRAG).toMatch(/vis \*= mix\(1\.0, soft\(mDetail\), wDetail\)/);
+  });
+
+  it('casts the lander’s shadow from its drawn shape, with the Sun’s disc for a soft edge', () => {
+    expect(GROUND_FRAG).toContain(LANDER_GLSL.trim().slice(0, 60));
+    expect(GROUND_FRAG).toContain('landerClearance(toLander(');
+    expect(GROUND_FRAG).not.toContain('uLanderMin');
+  });
+
+  it('softens every shadow edge to at least the change across one pixel, so far edges never stair-step', () => {
+    expect(GROUND_FRAG).toMatch(/float soft\(float m\) \{[^}]*fwidth\(m\)/);
+    expect(GROUND_FRAG).toContain('soft(mTerrain)');
+    expect(GROUND_FRAG).toContain('soft(mLander)');
+    // The derivatives are taken outside every branch.
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    const lastBrace = main.lastIndexOf('}');
+    expect(main.lastIndexOf('soft(mTerrain)')).toBeGreaterThan(main.lastIndexOf('if ('));
+    expect(main.lastIndexOf('soft(mTerrain)')).toBeLessThan(lastBrace);
   });
 });

@@ -3,7 +3,9 @@ import * as THREE from 'three';
 import type { Series } from '@/lib/engine/metrics';
 import type { SkyAssets } from '@/lib/data/sky';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
-import { buildScene, toTextureHeights, type StandScene } from './standRenderer';
+import { LANDER, LEG_ENDS } from './landerShape';
+import { dirAzEl } from './frames';
+import { buildScene, lookUpTarget, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, terrainField } from './terrainField';
 
 const series = {
@@ -182,18 +184,38 @@ describe('the stand scene', () => {
     expect(s.parts.landerLight!.color.getHex()).not.toBe(0x000000);
     s.update(2);
     expect(s.parts.landerLight!.color.getHex()).toBe(0x000000);
-    // Its shadow on the ground: a box, turned with the lander, that the shader tests the Sun's ray against.
+    // Its shadow on the ground: the shader casts it from the lander's drawn shape, placed and turned with it.
     const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
     expect(u.uLanderOn.value).toBe(1);
-    const c = u.uLanderCenter.value as THREE.Vector3, lo = u.uLanderMin.value as THREE.Vector3, hi = u.uLanderMax.value as THREE.Vector3;
+    const c = u.uLanderCenter.value as THREE.Vector3;
     expect(c.x).toBeCloseTo(9, 6);
     expect(c.y).toBeCloseTo(heightAt(field, 9, 0), 6);
-    expect(lo.x).toBeLessThan(0);
-    expect(hi.x).toBeGreaterThan(0);
-    expect(hi.y - lo.y).toBeGreaterThan(2);
+    expect(u.uLanderMin).toBeUndefined();
     const cs = u.uLanderCS.value as THREE.Vector2;
     expect(cs.x).toBeCloseTo(Math.cos(lander.rotation.y), 9);
     expect(cs.y).toBeCloseTo(Math.sin(lander.rotation.y), 9);
+  });
+
+  it('builds the lander from the same numbers its shadow is cast from', () => {
+    const s = buildScene(flat({ lander: { azDeg: 90, distM: 9, powered: Uint8Array.from([1, 1, 1]) } }));
+    const meshes: THREE.Mesh[] = [];
+    s.parts.lander!.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh);
+    });
+    const cyl = (m: THREE.Mesh) => (m.geometry instanceof THREE.CylinderGeometry ? m.geometry.parameters : null);
+    // An eight-sided body, not a box.
+    const body = meshes.find((m) => cyl(m)?.radialSegments === 8 && cyl(m)?.radiusTop === LANDER.body.r);
+    expect(body).toBeTruthy();
+    expect(body!.position.y).toBeCloseTo((LANDER.body.y0 + LANDER.body.y1) / 2, 6);
+    // A pad under each foot, on the diagonals.
+    for (const { foot } of LEG_ENDS) {
+      expect(meshes.some((m) => cyl(m)?.radiusBottom === LANDER.legs.padR && Math.abs(m.position.x - foot[0]) < 1e-6 && Math.abs(m.position.z - foot[2]) < 1e-6)).toBe(true);
+    }
+    // The engine's bell under the body, and the panel where its shadow is cast from.
+    expect(meshes.some((m) => cyl(m)?.radiusBottom === LANDER.bell.r)).toBe(true);
+    const panel = meshes.find((m) => m.geometry instanceof THREE.BoxGeometry && m.geometry.parameters.width === LANDER.panel.size[0]);
+    expect(panel!.position.y).toBeCloseTo(LANDER.panel.c[1], 6);
+    expect(panel!.rotation.y).toBeCloseTo((LANDER.panel.yawDeg * Math.PI) / 180, 6);
   });
 
   it('turns the lander so the Sun lights one of the faces the eye sees', () => {
@@ -243,5 +265,37 @@ describe('the stand scene', () => {
     expect(s.parts.cross!.geometry.getAttribute('position').count).toBe(4);
     expect(s.labels().stars.map((x) => x.name)).toContain('Southern Cross');
     expect(buildScene(flat()).parts.cross).toBeNull();
+  });
+
+  it('finds where to look up: the middle of the Southern Cross, where the scene draws it, or nothing without its stars', () => {
+    const four = { count: 4, j2000: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0.8, 0]), vmag: Float32Array.from([1, 1, 1, 1]), bv: Float32Array.from([0, 0, 0, 0]) };
+    const names = [{ index: 0, name: 'Acrux' }, { index: 1, name: 'Mimosa' }, { index: 2, name: 'Gacrux' }, { index: 3, name: 'Imai' }];
+    const withCross = { ...sky, stars: four, names };
+    const scene = flat({ sky: withCross });
+    const s = buildScene(scene);
+    s.update(5);
+    const p = s.parts.stars.geometry.getAttribute('position');
+    const mid = new THREE.Vector3();
+    for (let k = 0; k < 4; k++) mid.add(new THREE.Vector3(p.getX(k), p.getY(k), p.getZ(k)).normalize());
+    mid.normalize();
+    const t = lookUpTarget(withCross, scene.site.lat, scene.site.lon, Date.parse(scene.startUtc + 'Z') + 5 * 3600e3)!;
+    expect(t).not.toBeNull();
+    const d = dirAzEl(t.az, t.el);
+    expect(new THREE.Vector3(...d).angleTo(mid)).toBeLessThan(1e-4);
+    expect(lookUpTarget(sky, scene.site.lat, scene.site.lon, Date.parse(scene.startUtc + 'Z'))).toBeNull();
+  });
+
+  it('gives the screen positions of the lander’s panel, dish and power light, for their names when the view is close', () => {
+    const s = buildScene(flat({ lander: { azDeg: 0, distM: 12, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(0);
+    s.setView(0, 4, 36, 16 / 9);
+    const parts = s.labels().parts!;
+    for (const k of ['panel', 'dish', 'lamp'] as const) {
+      expect(parts[k].visible).toBe(true);
+      expect(Math.abs(parts[k].x - 0.5)).toBeLessThan(0.2);
+    }
+    // The panel stands above the power light.
+    expect(parts.panel.y).toBeLessThan(parts.lamp.y);
+    expect(buildScene(flat()).labels().parts).toBeNull();
   });
 });

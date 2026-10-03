@@ -1,8 +1,10 @@
-import { SHADOW_GLSL } from './shadowRule';
+import { LANDER_GLSL } from './landerShape';
+import { SHADOW, SHADOW_GLSL } from './shadowRule';
 
 /*
  * The stand view's shaders, from the approved mockup: the ground (regolith light, the engine's shadows,
- * metre-scale craters drawn near the eye), Earth (NASA's Blue Marble, lit by the true Sun) and the stars.
+ * metre-scale craters and rocks drawn near the eye, with their own long shadows, and the lander's shadow),
+ * Earth (NASA's Blue Marble, lit by the true Sun) and the stars.
  */
 
 export const GROUND_VERT = /* glsl */ `
@@ -19,20 +21,11 @@ export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
 uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uSunPower; uniform vec2 uHole;
-uniform float uLanderOn, uSunUp; uniform vec3 uLanderCenter, uLanderMin, uLanderMax; uniform vec2 uLanderCS;
+uniform float uLanderOn, uSunUp; uniform vec3 uLanderCenter; uniform vec2 uLanderCS;
 ${SHADOW_GLSL}
+${LANDER_GLSL}
 // Into the lander's own frame (it stands turned about the vertical by the angle whose cos and sin are uLanderCS).
 vec3 toLander(vec3 v) { return vec3(v.x * uLanderCS.x - v.z * uLanderCS.y, v.y, v.x * uLanderCS.y + v.z * uLanderCS.x); }
-// The lander's shadow: does the ray towards the Sun pass through its box? (It is drawn, not part of the heights.)
-float landerShadow(vec3 p, vec3 L) {
-  if (uLanderOn < 0.5) return 1.0;
-  vec3 q = toLander(p - uLanderCenter), d = toLander(L);
-  vec3 inv = 1.0 / d;
-  vec3 t0 = (uLanderMin - q) * inv, t1 = (uLanderMax - q) * inv;
-  vec3 lo = min(t0, t1), hi = max(t0, t1);
-  float tin = max(max(lo.x, lo.y), lo.z), tout = min(min(hi.x, hi.y), hi.z);
-  return (tout > max(tin, 0.0)) ? 0.0 : 1.0;
-}
 #include <logdepthbuf_pars_fragment>
 vec2 hash2(vec2 p) { p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3))); return fract(sin(p) * 43758.5453); }
 float hash1(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -68,23 +61,75 @@ float rocks(vec2 p, out float bright) {
 float grain(vec2 p, float px) {
   return (vnoise(p * 8.0) - 0.5) * 0.03 * smoothstep(1.5, 4.0, 0.125 / px) + (vnoise(p * 25.0) - 0.5) * 0.012 * smoothstep(1.5, 4.0, 0.04 / px);
 }
-// Each size fades out as it shrinks towards a pixel (px: metres of ground per pixel), so nothing sparkles.
-float detailH(vec2 p, float px) {
-  return craters(p, 46.0) * 0.55 * smoothstep(1.5, 4.0, 46.0 / px)
-    + craters(p + 17.0, 11.0) * 0.6 * smoothstep(1.5, 4.0, 11.0 / px)
-    + craters(p + 93.0, 2.6) * 0.6 * smoothstep(1.5, 4.0, 2.6 / px)
-    + (vnoise(p * 0.9) - 0.5) * 0.35 * smoothstep(1.5, 4.0, 1.1 / px)
-    + (vnoise(p * 3.7) - 0.5) * 0.12 * smoothstep(1.5, 4.0, 0.27 / px)
-    + craters(p + 151.0, 0.7) * 0.5 * smoothstep(1.5, 4.0, 0.7 / px)
-    + grain(p, px);
+// The big craters alone: from more than 9 m off, only they rise high enough to shade a point.
+float bigH(vec2 p, float px) {
+  float h = craters(p, 46.0) * 0.55 * smoothstep(1.5, 4.0, 46.0 / px);
+  float k = smoothstep(1.5, 4.0, 11.0 / px);
+  if (k > 0.0) h += craters(p + 17.0, 11.0) * 0.6 * k;
+  return h;
 }
+// Each size fades out as it shrinks towards a pixel (px: metres of ground per pixel), so nothing sparkles;
+// a size already faded away is not worked out at all.
+float detailH(vec2 p, float px) {
+  float h = bigH(p, px) + grain(p, px);
+  float k = smoothstep(1.5, 4.0, 2.6 / px);
+  if (k > 0.0) h += craters(p + 93.0, 2.6) * 0.6 * k + (vnoise(p * 0.9) - 0.5) * 0.35 * smoothstep(1.5, 4.0, 1.1 / px);
+  k = smoothstep(1.5, 4.0, 0.7 / px);
+  if (k > 0.0) h += (vnoise(p * 3.7) - 0.5) * 0.12 * smoothstep(1.5, 4.0, 0.27 / px) + craters(p + 151.0, 0.7) * 0.5 * k;
+  return h;
+}
+// The drawn ground's steepest rise towards the Sun (as a slope) from a point at drawn height h0, along d:
+// every size of crater out to 9 m, then the big ones out to 120 m. At a 2 degree Sun a rim 0.3 m high throws
+// a shadow 9 m long, so most bowls lie in the dark, as in photographs taken on the Moon at a low Sun.
+float detailRise(vec2 p, float h0, vec2 d, float px) {
+  float rise = -1.0, t = 0.1;
+  for (int i = 0; i < 16; i++) { rise = max(rise, (detailH(p + d * t, px) - h0) / t); t *= 1.33; }
+  for (int i = 0; i < 12; i++) { rise = max(rise, (bigH(p + d * t, px) - h0) / t); t *= 1.24; }
+  return rise;
+}
+// The rocks' own shadows: cell by cell along the ray towards the Sun (the 1.5 m cells rocks() lays them out
+// in), out to 9 m, each rock a low dome on the drawn ground. Returns the least angle by which the ray clears
+// one (negative through it); grow (0 to 1) fades the rocks in as they grow larger than a pixel.
+float rockMargin(vec2 p, float h0, vec2 d, float tanEff, float px, float grow) {
+  float res = 1.0;
+  if (grow <= 0.0) return res;
+  vec2 g = floor(p / 1.5), st = sign(d), inv = 1.0 / max(abs(d), vec2(1.0e-5));
+  vec2 next = ((g + max(st, 0.0)) * 1.5 - p) * st * inv, delta = 1.5 * inv;
+  for (int i = 0; i < 10; i++) {
+    vec2 rnd = hash2(g + 41.0);
+    if (fract(rnd.x * 11.7 + rnd.y * 2.3) <= 0.1) {
+      float rad = mix(0.035, 0.17, rnd.y) * 1.5;
+      vec2 v = (g + 0.2 + 0.6 * rnd) * 1.5 - p;
+      float tc = dot(v, d), e = abs(v.x * d.y - v.y * d.x);
+      if (tc > 0.05 && e < rad + 0.5) {
+        float top = detailH(p + v, px) + 0.8 * rad * grow * sqrt(max(0.0, 1.0 - e * e / (rad * rad)));
+        res = min(res, max(h0 + tc * tanEff - top, e - rad) / tc);
+      }
+    }
+    if (next.x < next.y) { g.x += st.x; next.x += delta.x; } else { g.y += st.y; next.y += delta.y; }
+    if (min(next.x, next.y) > 9.0) break;
+  }
+  return res;
+}
+// A shadow's margin (radians by which the Sun's centre clears what would hide it) as light: spread over the
+// Sun's disc, or over the margin's change across one pixel where that is wider, so far edges never stair-step.
+float soft(float m) { return clamp(m / max(${(2 * SHADOW.SUN_RADIUS_RAD).toFixed(5)}, fwidth(m)) + 0.5, 0.0, 1.0); }
 void main() {
   #include <logdepthbuf_fragment>
   float px = max(length(fwidth(vWorld.xz)), 1.0e-3); // metres of ground per pixel, taken before any branch or discard
   vec2 m = toMap(vWorld.xz);
   if (abs(m.x) < uHole.x && abs(m.y) < uHole.y) discard; // a finer level draws here
   vec3 N0 = normalize(vNormal), Nn = N0;
+  vec3 Ls = normalize(uSun), V = normalize(cameraPosition - vWorld);
   float dist = length(vWorld - cameraPosition);
+  // The shadows, as margins: the measured ground's (its ray starts from the measured ground, not the drawn
+  // craters), the lander's (from its drawn shape), and the drawn craters' and rocks' near the eye.
+  float mTerrain = -1.0, mLander = 1.0, mDetail = 1.0, wDetail = 0.0;
+  bool facing = dot(N0, Ls) > 0.0;
+  if (facing) {
+    mTerrain = sunMargin(vWorld + N0 * 0.4, uSun);
+    if (uLanderOn > 0.5) mLander = landerClearance(toLander(vWorld + N0 * 0.05 - uLanderCenter), toLander(Ls));
+  }
   float albedoVar = 1.0;
   if (uDetail > 0.5) {
     float w = 1.0 - smoothstep(250.0, 1600.0, dist);
@@ -97,17 +142,25 @@ void main() {
       Nn = normalize(Nn - vec3((hx - h0) / e, 0.0, (hz - h0) / e) * w * 1.15);
       albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0
         + 0.06 * (vnoise(vWorld.xz * 3.1) - 0.5) * smoothstep(1.5, 4.0, 0.32 / px)) + 0.35 * b0 * rockW;
+      // Not worked out where the measured ground already hides the whole Sun.
+      if (facing && mTerrain > -${(3 * SHADOW.SUN_RADIUS_RAD).toFixed(5)}) {
+        // Judged against the measured ground's own slope towards the Sun.
+        vec2 dS = normalize(Ls.xz); float tanEl = Ls.y / max(length(Ls.xz), 1.0e-4);
+        float tanEff = tanEl + (N0.x * dS.x + N0.z * dS.y) / max(N0.y, 0.25);
+        mDetail = min(atan(tanEff) - atan(detailRise(vWorld.xz, h0, dS, px)), rockMargin(vWorld.xz, h0, dS, tanEff, px, smoothstep(1.5, 4.0, 0.3 / px)));
+        wDetail = w;
+      }
     }
   }
   albedoVar += 0.1 * (vnoise(vWorld.xz * 0.004) - 0.5);
-  vec3 Ls = normalize(uSun), V = normalize(cameraPosition - vWorld);
   float mu0 = max(dot(Nn, Ls), 0.0), mu = max(dot(Nn, V), 0.03);
   float alpha = acos(clamp(dot(Ls, V), -1.0, 1.0));
   float phase = exp(-0.82 * alpha);
   float surge = 1.0 + 0.9 / (1.0 + tan(alpha * 0.5) / 0.055); // regolith brightens looking away from the Sun
   float ls = mu0 / (mu0 + mu);                                 // Lommel-Seeliger: no limb darkening on the Moon
-  // The shadow ray starts from the measured ground; the drawn craters only shade.
-  float vis = mu0 > 0.0 ? sunFraction(vWorld + N0 * 0.4, uSun) * landerShadow(vWorld + N0 * 0.05, Ls) : 0.0;
+  // Outside every branch, where the pixel's neighbours are known: the margins turn into light.
+  float vis = soft(mTerrain) * soft(mLander);
+  vis *= mix(1.0, soft(mDetail), wDetail);
   vec3 albedo = vec3(0.17, 0.164, 0.156) * albedoVar;
   vec3 col = albedo * vec3(1.0, 0.99, 0.975) * uSunPower * ls * phase * surge * vis;
   vec3 Le = normalize(uEarth); float mue = max(dot(Nn, Le), 0.0);

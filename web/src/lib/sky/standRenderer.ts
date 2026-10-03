@@ -7,11 +7,13 @@ import type { SkyAssets } from '../data/sky';
 import { R_MOON_M } from '../engine/constants';
 import type { Series } from '../engine/metrics';
 import { earthAxes, earthLitFraction } from './earth';
-import { dirAzEl, enuBasis, type Vec3 } from './frames';
+import { dirAzEl, enuBasis, meToWorld, type Vec3 } from './frames';
 import { moonMatrixAt } from './moonOrientation';
 import { EARTH_FRAG, EARTH_VERT, GROUND_FRAG, GROUND_VERT, STAR_FRAG, STAR_VERT } from './shaders';
+import { FramePacer } from './framePacer';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { placeStars, starColour, starGain, starSize } from './stars';
+import { LANDER, LEG_ENDS } from './landerShape';
 import { heightAt, worldOf, type FieldLevel, type TerrainField } from './terrainField';
 
 /** Everything the stand view draws for one site and period. `fast`: a lower pixel ratio, no drawn detail, coarser shadow steps. */
@@ -33,8 +35,11 @@ export interface StandScene {
 }
 
 type Spot = { x: number; y: number; visible: boolean };
-/** Where the labels go, as fractions of the view's width and height (y is the label's foot). */
-export interface SkyLabels { sun: Spot; earth: Spot; stars: (Spot & { name: string })[]; lander: Spot | null }
+/**
+ * Where the labels go, as fractions of the view's width and height (y is the label's foot); `parts` are the
+ * lander's solar panel (its top), antenna dish and power light, named when the view is close.
+ */
+export interface SkyLabels { sun: Spot; earth: Spot; stars: (Spot & { name: string })[]; lander: Spot | null; parts?: { panel: Spot; dish: Spot; lamp: Spot } | null }
 
 const DEG = Math.PI / 180;
 /** The sky sphere and the far skyline ring, metres from the eye. */
@@ -50,6 +55,26 @@ export function crossStars(names: { index: number; name: string }[] | undefined)
   const at = (n: string) => names?.find((x) => x.name === n)?.index;
   const [a, g, m, i] = [at('Acrux'), at('Gacrux'), at('Mimosa'), at('Imai')];
   return a === undefined || g === undefined || m === undefined || i === undefined ? null : [a, g, m, i];
+}
+
+/**
+ * Where "Look up" turns: the middle of the Southern Cross in the site's sky at a time (degrees; the cross
+ * stands about 50° up from the Moon's south pole all month), or null when its four stars are not all named.
+ */
+export function lookUpTarget(sky: SkyAssets, latDeg: number, lonDeg: number, utcMs: number): { az: number; el: number } | null {
+  const idx = crossStars(sky.names);
+  if (!idx) return null;
+  const m = moonMatrixAt(sky.moon, utcMs), b = enuBasis(latDeg, lonDeg), j = sky.stars.j2000;
+  const sum: Vec3 = [0, 0, 0];
+  for (const k of idx) {
+    const x = j[k * 3], y = j[k * 3 + 1], z = j[k * 3 + 2];
+    const w = meToWorld(b, [m[0] * x + m[1] * y + m[2] * z, m[3] * x + m[4] * y + m[5] * z, m[6] * x + m[7] * y + m[8] * z]);
+    const n = Math.hypot(w[0], w[1], w[2]) || 1;
+    for (let i = 0; i < 3; i++) sum[i] += w[i] / n;
+  }
+  const n = Math.hypot(sum[0], sum[1], sum[2]) || 1;
+  const d: Vec3 = [sum[0] / n, sum[1] / n, sum[2] / n];
+  return { az: ((Math.atan2(d[0], -d[2]) / DEG) % 360 + 360) % 360, el: Math.asin(d[1]) / DEG };
 }
 
 const lerpAngle = (a: number, b: number, f: number) => (a + ((((b - a + 540) % 360) - 180) * f) + 360) % 360;
@@ -178,8 +203,6 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         uLanderOn: { value: 0 },
         uLanderCenter: { value: new THREE.Vector3() },
         uLanderCS: { value: new THREE.Vector2(1, 0) },
-        uLanderMin: { value: new THREE.Vector3() },
-        uLanderMax: { value: new THREE.Vector3() },
         uSunUp: { value: 0 },
       },
       vertexShader: GROUND_VERT,
@@ -324,9 +347,6 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       u.uLanderOn.value = 1;
       u.uLanderCenter.value.set(lx, ly, lz);
       u.uLanderCS.value.set(Math.cos(yaw), Math.sin(yaw));
-      // The body, the deck and the panel; the light passes under the body, between the legs.
-      u.uLanderMin.value.set(-0.95, 0.85, -0.95);
-      u.uLanderMax.value.set(0.95, 3.35, 0.95);
     }
   }
 
@@ -375,6 +395,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     }
     // A camera's exposure: faint stars fade while the Sun is in view.
     starMat.uniforms.uGain.value = 1.6 - 1.25 * v.sunFraction;
+    // What the lander's foil and metal mirror (the sunlit dust below) dims with the Sun.
+    root.environmentIntensity = 0.12 + 0.88 * v.sunFraction;
   }
 
   const fwd = new THREE.Vector3(), tmp = new THREE.Vector3(), ray = new THREE.Ray(), hit = new THREE.Vector3();
@@ -392,13 +414,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     camera.lookAt(d[0], eye + d[1], d[2]);
     camera.updateMatrixWorld();
   }
-  /** A world point on the screen; `radius` lifts the spot above a body's disc (metres at the body). */
-  function spot(world: THREE.Vector3, radius = 0): Spot {
+  /** A world point on the screen; `radius` lifts the spot above a body's disc (metres at the body); `occlude` false for a point on the lander itself. */
+  function spot(world: THREE.Vector3, radius = 0, occlude = true): Spot {
     camera.getWorldDirection(fwd);
     const ahead = tmp.copy(world).sub(camera.position).dot(fwd) > 0;
     const p = tmp.copy(world).project(camera);
     const x = (p.x + 1) / 2, y = (1 - p.y) / 2;
-    const visible = ahead && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !behindLander(world);
+    const visible = ahead && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05 && !(occlude && behindLander(world));
     const lift = radius > 0 ? radius / world.distanceTo(camera.position) / Math.tan((camera.fov * DEG) / 2) / 2 : 0;
     return { x, y: y - lift, visible };
   }
@@ -429,9 +451,17 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       const s = spot(mid);
       stars.push({ name: 'Southern Cross', ...s, y: s.y + 0.03, visible: s.visible && el > maskAt(az) });
     }
-    // The lander's name over its top (high enough that the ray to it clears the lander itself).
+    // The lander's name over its top (high enough that the ray to it clears the lander itself), and its parts.
     const landerSpot = lander ? spot(new THREE.Vector3(lander.group.position.x, lander.group.position.y + 3.9, lander.group.position.z)) : null;
-    return { sun: bodySpot(sun.position, SUN_D * 3), earth: bodySpot(earthPos, EARTH_R * 1.25), stars, lander: landerSpot };
+    const on = (local: THREE.Vector3) => spot(local.clone().applyMatrix4(lander!.group.matrixWorld), 0, false);
+    const parts = lander
+      ? {
+          panel: on(new THREE.Vector3(LANDER.panel.c[0], LANDER.panel.c[1] + LANDER.panel.size[1] / 2, LANDER.panel.c[2])),
+          dish: on(new THREE.Vector3(LANDER.antenna.x, LANDER.antenna.y1 + 0.1, LANDER.antenna.z)),
+          lamp: on(lander.lampPos),
+        }
+      : null;
+    return { sun: bodySpot(sun.position, SUN_D * 3), earth: bodySpot(earthPos, EARTH_R * 1.25), stars, lander: landerSpot, parts };
   }
 
   const dispose = () => {
@@ -507,11 +537,12 @@ const cellsTexture = () =>
   });
 
 /**
- * A small solar lander, drawn for scale (not measured): a gold foil body on four splayed legs with
- * footpads and thrusters below, a deck with two payload boxes and a white radiator, a vertical solar
- * panel facing the Sun the view opens on, an antenna dish pointing at Earth, and a lamp whose colour shows
- * its power. It stands `distM` from the eye towards `azDeg`, turned so that its +x face looks towards
- * `faceAzDeg`; its local origin is the ground under its centre.
+ * A small solar lander, drawn for scale (not measured), from the numbers its shadow is cast from (LANDER):
+ * an eight-sided gold foil body with the engine's bell beneath, four splayed legs on the diagonals with pads
+ * and struts, a deck with instrument boxes, a camera and a white radiator, an upright solar panel facing the
+ * Sun the view opens on, an antenna dish pointing at Earth, and a lamp whose colour shows its power. It
+ * stands `distM` from the eye towards `azDeg`, turned so that its +x face looks towards `faceAzDeg`; its
+ * local origin is the ground under its centre.
  */
 function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg: number, earthElDeg: number) {
   const group = new THREE.Group();
@@ -520,9 +551,14 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
   // Its +x face towards faceAzDeg: three's turn about y by θ points local +x at azimuth 90° − θ.
   group.rotation.y = (90 - faceAzDeg) * DEG;
   const foilMap = foilTexture();
-  const foil = new THREE.MeshStandardMaterial({ color: foilMap ? 0xffffff : 0xd4a640, map: foilMap, metalness: 0.3, roughness: 0.42 });
-  const metal = new THREE.MeshStandardMaterial({ color: 0xa3a39e, metalness: 0.55, roughness: 0.5 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x3a3a3c, metalness: 0.4, roughness: 0.6 });
+  if (foilMap) {
+    // Each of the eight faces shows half the crinkled sheet, not an eighth of it stretched.
+    foilMap.wrapS = foilMap.wrapT = THREE.RepeatWrapping;
+    foilMap.repeat.set(4, 1);
+  }
+  const foil = new THREE.MeshStandardMaterial({ color: foilMap ? 0xffffff : 0xd4a640, map: foilMap, metalness: 0.45, roughness: 0.38 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0xa3a39e, metalness: 0.6, roughness: 0.45 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x2c2c2e, metalness: 0.5, roughness: 0.55, side: THREE.DoubleSide });
   const white = new THREE.MeshStandardMaterial({ color: 0xe9e8e4, metalness: 0.05, roughness: 0.7 });
   const cellMap = cellsTexture(), backMap = panelBackTexture();
   const cells = new THREE.MeshStandardMaterial({ color: cellMap ? 0xffffff : 0x1d2b4f, map: cellMap, metalness: 0.35, roughness: 0.28 });
@@ -532,56 +568,73 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
     group.add(m);
     return m;
   };
-  add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.1, 1.6), foil), 0, 1.45, 0);
-  add(new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.07, 1.72), metal), 0, 2.04, 0);
-  // A white radiator on the -z side, two payload boxes and a camera on the deck.
-  add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 0.03), white), 0, 1.45, -0.82);
-  add(new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.3, 0.4), white), -0.45, 2.23, 0.45);
-  add(new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.35), dark), 0.5, 2.19, 0.5);
-  add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.5, 10), metal), -0.6, 2.33, -0.55);
-  add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.1, 0.12), dark), -0.6, 2.62, -0.55);
-  // Legs with footpads, and a strut from each leg back to the body.
-  for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
-    const top = new THREE.Vector3(0.72 * sx, 1.0, 0.72 * sz), foot = new THREE.Vector3(1.35 * sx, 0.06, 1.35 * sz);
-    const knee = top.clone().lerp(foot, 0.55), base = new THREE.Vector3(0.78 * sx, 0.92, 0);
-    for (const [p, q, r] of [[top, foot, 0.045], [knee, base, 0.025]] as [THREE.Vector3, THREE.Vector3, number][]) {
-      const rod = new THREE.Mesh(new THREE.CylinderGeometry(r, r, p.distanceTo(q), 8), metal);
-      rod.position.copy(p).add(q).multiplyScalar(0.5);
-      rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), p.clone().sub(q).normalize());
-      group.add(rod);
-    }
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.27, 0.06, 18), metal), foot.x, 0.04, foot.z);
+  /** A round rod from p to q. */
+  const rod = (p: Vec3, q: Vec3, r: number, mat: THREE.Material) => {
+    const P = new THREE.Vector3(...p), Q = new THREE.Vector3(...q);
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, P.distanceTo(Q), 8), mat);
+    m.position.copy(P).add(Q).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), P.clone().sub(Q).normalize());
+    group.add(m);
+    return m;
+  };
+  const L = LANDER;
+  // The body: eight-sided (its flat faces towards ±x, ±z and the diagonals), gold foil, a dark base.
+  const bodyH = L.body.y1 - L.body.y0;
+  add(new THREE.Mesh(new THREE.CylinderGeometry(L.body.r, L.body.r, bodyH, 8, 1, false, Math.PI / 8), [foil, metal, dark]), 0, L.body.y0 + bodyH / 2, 0);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(L.deck.r, L.deck.r, L.deck.y1 - L.deck.y0, 8, 1, false, Math.PI / 8), metal), 0, (L.deck.y0 + L.deck.y1) / 2, 0);
+  const apothem = L.body.r * Math.cos(Math.PI / 8);
+  // A white radiator on the -z face, and a dark band of thrusters round the top of the body.
+  add(new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.72, 0.03), white), 0, L.body.y0 + bodyH * 0.48, -apothem - 0.016);
+  for (let k = 0; k < 4; k++) {
+    const t = (k * 90 + 45) * DEG;
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.12), dark), Math.sin(t) * (apothem + 0.05), L.body.y1 - 0.12, Math.cos(t) * (apothem + 0.05));
   }
-  // Thrusters under the body.
-  for (const [x, z] of [[0, 0], [0.45, 0.45], [-0.45, -0.45]]) add(new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.25, 14, 1, true), dark), x, 0.8, z).rotation.x = Math.PI;
+  // The engine's bell under the body.
+  const bell = add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, L.bell.r, L.bell.y1 - L.bell.y0, 20, 1, true), dark), 0, (L.bell.y0 + L.bell.y1) / 2, 0);
+  bell.name = 'bell';
+  // Legs on the diagonals with round pads, and a strut from each leg back to the body.
+  for (const { top, foot } of LEG_ENDS) {
+    rod(top, foot, L.legs.r, metal);
+    const knee: Vec3 = [top[0] + (foot[0] - top[0]) * 0.5, top[1] + (foot[1] - top[1]) * 0.5, top[2] + (foot[2] - top[2]) * 0.5];
+    rod(knee, [top[0] * 0.55, L.body.y0 + 0.05, top[2] * 0.55], 0.022, metal);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(L.legs.padR * 0.85, L.legs.padR, L.legs.padH, 18), metal), foot[0], L.legs.padH / 2, foot[2]);
+  }
+  // Instruments on the deck: a white box and a dark one, and a camera on a short mast.
+  L.boxes.forEach((b, i) => add(new THREE.Mesh(new THREE.BoxGeometry(...b.size), i === 0 ? white : dark), ...b.c));
+  rod([L.camera.x, L.deck.y1, L.camera.z], [L.camera.x, L.camera.y1, L.camera.z], L.camera.r, metal);
+  add(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.11, 0.13), dark), L.camera.x, L.camera.y1 + 0.05, L.camera.z);
   // The solar panel faces the opening Sun: local +z looks 90° right of local +x (faceAzDeg + 90), the Sun is
   // 70° left of local +x, so the panel turns 20° towards +x; its cells are on that +z side.
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.25, 0.04), [metal, metal, metal, metal, cells, panelBack]);
-  panel.position.y = 2.75;
-  panel.rotation.y = 20 * DEG;
-  add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.7, 8), metal), 0, 2.35, 0);
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(...L.panel.size), [metal, metal, metal, metal, cells, panelBack]);
+  panel.position.set(...L.panel.c);
+  panel.rotation.y = L.panel.yawDeg * DEG;
   group.add(panel);
+  rod([0, L.deck.y1, 0], [0, L.panel.c[1], 0], L.panel.mastR, metal);
   // The antenna: a mast, and a shallow dish with its feed, pointing at Earth.
-  add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 8), metal), 0.62, 2.55, -0.62);
-  const bowl = Array.from({ length: 9 }, (_, k) => new THREE.Vector2(0.01 + (k / 8) * 0.34, 0.11 * (k / 8) ** 2));
+  rod([L.antenna.x, L.deck.y1, L.antenna.z], [L.antenna.x, L.antenna.y1, L.antenna.z], L.antenna.r, metal);
+  const bowl = Array.from({ length: 9 }, (_, k) => new THREE.Vector2(0.01 + (k / 8) * L.antenna.dishR, 0.11 * (k / 8) ** 2));
   const dishMat = new THREE.MeshStandardMaterial({ color: 0xe9e8e4, metalness: 0.1, roughness: 0.55, side: THREE.DoubleSide });
   const dish = new THREE.Group();
   dish.add(new THREE.Mesh(new THREE.LatheGeometry(bowl, 28), dishMat));
   const feed = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6), metal);
   feed.position.y = 0.11;
   dish.add(feed);
-  dish.position.set(0.62, 3.08, -0.62);
+  dish.position.set(L.antenna.x, L.antenna.y1 + 0.08, L.antenna.z);
   const e = dirAzEl(earthAzDeg, Math.max(0, earthElDeg));
   const toEarth = new THREE.Vector3(e[0], e[1], e[2]).applyAxisAngle(new THREE.Vector3(0, 1, 0), -group.rotation.y);
   dish.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), toEarth);
   group.add(dish);
-  // The power light, on the side that looks towards the eye's side of the Sun.
+  // The power light, on the +x face (towards the eye's side of the Sun).
   const lamp = new THREE.MeshBasicMaterial({ color: 0x46c98b });
-  add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 10), lamp), 0.82, 1.75, 0.3);
-  return { group, lamp };
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 10), lamp), apothem + 0.04, L.body.y0 + bodyH * 0.72, 0.28);
+  return { group, lamp, panel, dish, lampPos: new THREE.Vector3(apothem + 0.04, L.body.y0 + bodyH * 0.72, 0.28) };
 }
 
-/** The WebGL side: the renderer, bloom for the Sun, and a pixel-ratio step down when frames come slowly. Throws without WebGL 2. */
+/**
+ * The WebGL side: the renderer, bloom for the Sun, a pixel-ratio step down when frames come slowly, and one
+ * frame at full sharpness whenever the view comes to rest (nothing is drawn while it rests). Throws without
+ * WebGL 2.
+ */
 export class StandRenderer {
   private renderer: THREE.WebGLRenderer;
   private composer: EffectComposer;
@@ -589,7 +642,13 @@ export class StandRenderer {
   private built: ReturnType<typeof buildScene>;
   private size = { w: 1, h: 1 };
   private view = { yaw: 0, pitch: 0, fov: 60 };
+  private hour = 0;
+  /** The pixel ratio while the view moves (stepped down on a slow chip), and the one for a still view. */
   private pixelRatio: number;
+  private readonly fullRatio: number;
+  /** The ratio the canvas is drawn at now. */
+  private drawnRatio: number;
+  private readonly pacer = new FramePacer();
   private last = 0;
   private slow = 0;
   private frames = 0;
@@ -598,12 +657,25 @@ export class StandRenderer {
     const gl = canvas.getContext('webgl2', { antialias: true });
     if (!gl) throw new Error('WebGL 2 is not available');
     this.renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true, logarithmicDepthBuffer: true });
-    this.pixelRatio = scene.quality === 'fast' ? 0.75 : Math.min(window.devicePixelRatio || 1, 1.5);
+    this.pixelRatio = this.fullRatio = this.drawnRatio = scene.quality === 'fast' ? 0.75 : Math.min(window.devicePixelRatio || 1, 1.5);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     // Heights go to the GPU as float32 where it can filter them, else as half floats.
     this.built = buildScene(scene, { halfFloat: !this.renderer.extensions.has('OES_texture_float_linear') });
+    // The lander's foil and metal mirror what is round them: the black sky above, the grey dust below.
+    const around = new THREE.SphereGeometry(1, 32, 16), pos = around.getAttribute('position'), tint = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const c = pos.getY(i) < 0 ? 0.34 * Math.min(1, -pos.getY(i) * 4) : 0;
+      tint.set([c, c * 0.97, c * 0.93], i * 3);
+    }
+    around.setAttribute('color', new THREE.BufferAttribute(tint, 3));
+    const envScene = new THREE.Scene();
+    envScene.add(new THREE.Mesh(around, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    this.built.root.environment = pmrem.fromScene(envScene, 0).texture;
+    pmrem.dispose();
+    around.dispose();
     this.built.starMaterial.uniforms.uPx.value = this.pixelRatio;
     // Four samples per pixel in the composer's own target: smooth edges on Earth and the skyline.
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
@@ -614,6 +686,7 @@ export class StandRenderer {
   }
 
   setTime(hour: number) {
+    this.hour = hour;
     this.built.update(hour);
   }
 
@@ -624,9 +697,16 @@ export class StandRenderer {
 
   resize(w: number, h: number) {
     this.size = { w: Math.max(1, w), h: Math.max(1, h) };
-    this.renderer.setPixelRatio(this.pixelRatio);
+    this.drawAt(this.drawnRatio);
+  }
+
+  /** Sizes the canvas and the passes for a pixel ratio. */
+  private drawAt(ratio: number) {
+    this.drawnRatio = ratio;
+    this.built.starMaterial.uniforms.uPx.value = ratio;
+    this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(this.size.w, this.size.h, false);
-    this.composer.setPixelRatio(this.pixelRatio);
+    this.composer.setPixelRatio(ratio);
     this.composer.setSize(this.size.w, this.size.h);
     this.bloom.setSize(this.size.w, this.size.h);
     this.setView(this.view.yaw, this.view.pitch, this.view.fov);
@@ -634,17 +714,33 @@ export class StandRenderer {
 
   render() {
     const now = performance.now();
+    const maps = (this.built.parts.earth.material as THREE.ShaderMaterial).uniforms.uMaps.value;
+    const v = this.view;
+    const key = `${v.yaw.toFixed(3)} ${v.pitch.toFixed(3)} ${v.fov.toFixed(3)} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps}`;
+    const mode = this.pacer.next(key, now, this.pixelRatio >= this.fullRatio);
+    if (mode === 'idle') {
+      this.last = 0;
+      return;
+    }
+    if (mode === 'sharp') {
+      // The view has come to rest: one frame at full sharpness, which stays on the screen.
+      this.drawAt(this.fullRatio);
+      this.composer.render();
+      this.last = 0;
+      return;
+    }
+    if (this.drawnRatio !== this.pixelRatio) this.drawAt(this.pixelRatio);
+    // Frame times count only between frames drawn one after another.
     const dt = this.last ? (now - this.last) / 1000 : 0;
     this.last = now;
     this.frames++;
-    // If frames keep coming slowly, draw fewer pixels; the words and the numbers never change.
+    // If frames keep coming slowly, draw fewer pixels while moving; the words and the numbers never change.
     if (dt > 0.045 && this.frames > 30) this.slow++;
     else this.slow = Math.max(0, this.slow - 1);
     if (this.slow > 20 && this.pixelRatio > 0.6) {
       this.pixelRatio = Math.max(0.6, this.pixelRatio - 0.2);
-      this.built.starMaterial.uniforms.uPx.value = this.pixelRatio;
       this.slow = 0;
-      this.resize(this.size.w, this.size.h);
+      this.drawAt(this.pixelRatio);
     }
     this.composer.render();
   }
@@ -654,6 +750,7 @@ export class StandRenderer {
   }
 
   dispose() {
+    this.built.root.environment?.dispose();
     this.built.dispose();
     this.composer.dispose();
     this.renderer.dispose();

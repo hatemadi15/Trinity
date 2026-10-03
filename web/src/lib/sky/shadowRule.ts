@@ -60,7 +60,8 @@ float cellAt(vec2 xz) {
   if (uLevels > 1 && uMinLevel <= 1) { lev(uH1, uL1, uS1, m, ins); if (ins) return uL1.z; }
   return uLevels > 2 ? uL2.z : (uLevels > 1 ? uL1.z : uL0.z);
 }
-float sunFraction(vec3 p, vec3 sun) {
+// The angle (radians) by which the Sun's centre clears the steepest rise of the ground towards it.
+float sunMargin(vec3 p, vec3 sun) {
   float horiz = length(sun.xz); float elSun = atan(sun.y, horiz); vec2 dir = sun.xz / horiz;
   float maxTan = -10.0; float t = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz));
   for (int i = 0; i < ${SHADOW.STEPS}; i++) {
@@ -69,6 +70,7 @@ float sunFraction(vec3 p, vec3 sun) {
     maxTan = max(maxTan, (h - p.y - ${SHADOW.TOL_M}) / t);
     t *= uGrowth; if (t > ${SHADOW.MAX_M.toFixed(1)}) break;
   }
-  return clamp((elSun - atan(maxTan)) / (2.0 * ${SHADOW.SUN_RADIUS_RAD}) + 0.5, 0.0, 1.0);
+  return elSun - atan(maxTan);
 }
+float sunFraction(vec3 p, vec3 sun) { return clamp(sunMargin(p, sun) / (2.0 * ${SHADOW.SUN_RADIUS_RAD}) + 0.5, 0.0, 1.0); }
 `;
