@@ -8,15 +8,16 @@ import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { shadowLevels } from '@/lib/data/terrain';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { exploreHref } from '@/lib/links';
-import { StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
+import { exploreHref, standHref } from '@/lib/links';
+import { lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, heightAt, terrainField } from '@/lib/sky/terrainField';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
-import { keyMoments, landerState, liveSentence, measuredNote, poleLine, radioNext, skyLabel, standingLine, standQuery, watchNext } from '@/lib/viz/stand';
+import { keyMoments, measuredNote, nightHeadline, radioNext, skyLabel, standingLine, standQuery, statusLine, watchNext, whyLines } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
-const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/90';
+// The plates blur what is behind them, so no thin line of the sky shows through the words.
+const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/90 backdrop-blur-sm';
 const LOOK = 'min-h-10 rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/10';
 const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): RendererLike => new StandRenderer(canvas, scene);
 /**
@@ -50,9 +51,11 @@ function HowWeKnow({ note, className }: { note: string; className: string }) {
 
 /**
  * Stand on the Moon: the full-window view from the landing site for the site, period and hour of the
- * address (Explore's address plus `hour`), with Explore's answer, the sentence for the hour, the lander's
- * state, what to watch next and the time bar on quiet plates that can be hidden for a clear view. A lander
- * stands beside the site for scale. Without WebGL 2 it shows the view all round with the same words.
+ * address (Explore's address plus `hour`). Over the view, little: the headline (with how long the night
+ * lasts), one line on the lander's power and radio, what to watch next, the better landing day and the way
+ * back; "More" opens the radio story, why the sky looks as it does and how we know. The buttons to turn
+ * the view and the key moments stay when the words are hidden. A lander stands beside the site for scale.
+ * Without WebGL 2 it shows the view all round with the same words.
  */
 export function StandView({ store = exploreStore, createRenderer = defaultRenderer }: { store?: StoreApi<ExploreState>; createRenderer?: (canvas: HTMLCanvasElement, scene: StandScene) => RendererLike }) {
   const s = useStore(store);
@@ -64,7 +67,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const [look, setLook] = useState<LookTarget | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [wordsHidden, setWordsHidden] = useState(false);
-  // On a phone only the headline, the lander and what to watch show until "More about this hour".
+  // "More": the radio story, why the sky looks as it does, and how we know (and the key moments on a phone).
   const [more, setMore] = useState(false);
   // ?quality=fast for weaker graphics: a lower pixel ratio, no drawn detail, coarser shadow steps.
   const [quality] = useState<'full' | 'fast'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('quality') === 'fast' ? 'fast' : 'full'));
@@ -146,8 +149,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const name = siteLabel(site);
   const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best });
   // The site's name stays on one line: "de Gerlache Rim 2", never "Rim / 2".
-  const title = answer.title.replace(name, name.replace(/ /g, ' '));
-  const lander = landerState(power, s.startUtc, hour);
+  const title = nightHeadline(answer.title, series, power).replace(name, name.replace(/ /g, ' '));
+  const lander = statusLine(series, power, s.startUtc, hour);
+  // The better landing day opens its own view, from its first hour.
+  const better = answer.better ? { label: answer.better.label, href: standHref(site.id, answer.better.startUtc, s.days, 0) } : null;
   // The note describes the view from the site: shown with it, not while the ground loads or in the fallback.
   const note = scene && !failed ? measuredNote(scene.field.levels.map((l) => l.cell), scene.sky.stars.count) : null;
   const face = (az: number, el: number, fov: number) => {
@@ -159,6 +164,14 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const radio = radioNext(series, power, s.startUtc);
   const moments = keyMoments(series, power, s.startUtc);
   const opening = openHour === null ? hour : Math.min(series.hours - 1, Math.max(0, openHour));
+  // Looking up: towards the Southern Cross (else away from the Sun), wide and raised so the horizon stays
+  // in sight along the bottom edge.
+  const lookUp = () => {
+    setLookingUp(true);
+    const cross = scene ? lookUpTarget(scene.sky, site.lat, site.lon, Date.parse(s.startUtc + 'Z') + hour * 3600e3) : null;
+    setLook({ yaw: cross ? cross.az : (series.sunAz[hour] + 180) % 360, pitch: 36, fov: 80 });
+  };
+  const crossNamed = !!scene && scene.sky.names?.some((n) => n.name === 'Acrux');
 
   return (
     <main ref={mainRef} className="theme-dark fixed inset-0 overflow-hidden bg-black text-[#f2f0ea]">
@@ -186,111 +199,115 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       )}
       {!scene && !failed && <p role="status" className="fixed inset-x-0 top-1/2 text-center text-lg text-[#c3bfb6]">Building the ground from NASA heights…</p>}
 
-      {wordsHidden ? (
-        <button type="button" data-plate="" className={`${LOOK} fixed left-4 top-4 bg-black/75`} onClick={() => setWordsHidden(false)}>
-          Show the words
-        </button>
-      ) : (
-        <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start justify-between gap-3 md:flex-row">
-          <section ref={topRef} data-plate="" aria-label="The answer for this site" className={`${PLATE} pointer-events-auto grid w-full max-w-[600px] gap-2 p-4 md:p-5`}>
-            <p className="text-[15px] text-[#c3bfb6] max-md:hidden">{standingLine(site, name, false)}</p>
-            <p className="text-[14px] text-[#c3bfb6] md:hidden">{standingLine(site, name, true)}</p>
-            <h1 className="display text-pretty text-[20px] font-bold leading-tight sm:text-[30px]">{title}</h1>
-            <div className={`grid gap-2 ${more ? '' : 'max-md:hidden'}`}>
-              {contact && (
-                <p className="text-base">
-                  <span>{contact}</span>
-                  {radio && <span> </span>}
-                  {radio && <span>{radio}</span>}
-                </p>
-              )}
-              <p className="text-base">{liveSentence(series, hour, lander.on)}</p>
-              {poleLine(site.lat) && <p className="text-[15px] text-[#e4e1da]">{poleLine(site.lat)}</p>}
-            </div>
-            <p className="flex items-center gap-2 text-[15px]">
-              <i aria-hidden="true" className={`h-3 w-3 shrink-0 rounded-full ${lander.on ? 'bg-[#8ddcaa]' : 'bg-[#ff9180]'}`} />
-              {lander.text}
+      <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start justify-between gap-3 md:flex-row">
+        {wordsHidden ? (
+          <span />
+        ) : (
+          <section
+            ref={topRef}
+            data-plate=""
+            aria-label="The answer for this site"
+            className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2.5 p-4 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-48px)] max-md:overflow-y-auto`}
+          >
+            <p className="text-[14px] text-[#c3bfb6] md:text-[15px]">{standingLine(site, name, true)}</p>
+            <h1 className="display text-pretty text-[20px] font-bold leading-tight sm:text-[28px]">{title}</h1>
+            <p className="flex items-baseline gap-2 text-base">
+              <i aria-hidden="true" className={`h-3 w-3 shrink-0 translate-y-px rounded-full ${lander.on ? 'bg-[#8ddcaa]' : 'bg-[#ff9180]'}`} />
+              <span>{lander.text}</span>
             </p>
             <p className="text-[15px] text-[#f6d48a]">{watchNext(series, power, s.startUtc, hour)}</p>
-            <div className={`grid gap-1 ${more ? '' : 'max-md:hidden'}`}>
-              <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 w-fit items-center text-[15px] underline underline-offset-4">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+              {better && (
+                // A new period: the whole view opens again from its first hour.
+                <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}>
+                  {better.label}
+                </a>
+              )}
+              <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4" aria-expanded={more} onClick={() => setMore((m) => !m)}>
+                {more ? 'Less' : 'More'}
+              </button>
+              <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center text-[15px] underline underline-offset-4">
                 Back to the forecast
               </Link>
-              {note && <HowWeKnow note={note} className="md:hidden" />}
             </div>
-            <button type="button" className="flex min-h-10 w-fit items-center text-[15px] underline underline-offset-4 md:hidden" aria-expanded={more} onClick={() => setMore((m) => !m)}>
-              {more ? 'Fewer words' : 'More about this hour'}
-            </button>
+            {more && (
+              <div className="grid gap-2 border-t border-white/10 pt-3 text-[15px] text-[#e4e1da]">
+                <p>{standingLine(site, name, false)}</p>
+                {contact && <p>{radio ? `${contact} ${radio}` : contact}</p>}
+                {whyLines(site.lat, series, hour).map((w) => (
+                  <p key={w}>{w}</p>
+                ))}
+                {note && <HowWeKnow note={note} className="" />}
+              </div>
+            )}
           </section>
-          <div className="pointer-events-none flex w-full max-w-[380px] flex-col gap-3 md:items-end">
-            {!failed && (
-              // On a phone the buttons make one row of short names just above the time bar, clear of the Sun.
-              <div ref={lookRef} data-plate="" role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[calc(var(--bar-h,211px)+10px)] max-md:flex-nowrap max-md:justify-between max-md:gap-1 max-md:p-1.5 max-md:[&>button]:px-2`}>
-                <button type="button" aria-label="Face the Sun" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
-                  <Short short="Sun" long="Face the Sun" />
+        )}
+        <div className="pointer-events-none flex w-full max-w-[380px] flex-col gap-3 md:items-end">
+          {!failed && (
+            // On a phone the buttons make one row of short names just above the time bar, clear of the Sun.
+            <div ref={lookRef} data-plate="" role="group" aria-label="Look towards" className={`${PLATE} pointer-events-auto flex flex-wrap gap-2 p-2.5 max-md:fixed max-md:inset-x-4 max-md:bottom-[calc(var(--bar-h,211px)+10px)] max-md:flex-nowrap max-md:justify-between max-md:gap-1 max-md:p-1.5 max-md:[&>button]:px-2`}>
+              <button type="button" aria-label="Face the Sun" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
+                <Short short="Sun" long="Face the Sun" />
+              </button>
+              <button type="button" aria-label="Face Earth" className={LOOK} onClick={() => face(series.earthAz[hour], series.earthEl[hour], 16)}>
+                <Short short="Earth" long="Face Earth" />
+              </button>
+              {scene?.lander && (
+                <button
+                  type="button"
+                  aria-label="Face the lander"
+                  className={LOOK}
+                  onClick={() => {
+                    // Aim at the lander's middle where it stands: the ground can fall away from the eye.
+                    const l = scene.lander!, a = (l.azDeg * Math.PI) / 180;
+                    const ground = heightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
+                    const eye = heightAt(scene.field, 0, 0) + scene.mastM;
+                    setLookingUp(false);
+                    setLook({ yaw: l.azDeg, pitch: (Math.atan2(ground + 1.7 - eye, l.distM) * 180) / Math.PI, fov: 36 });
+                  }}
+                >
+                  <Short short="Lander" long="Face the lander" />
                 </button>
-                <button type="button" aria-label="Face Earth" className={LOOK} onClick={() => face(series.earthAz[hour], series.earthEl[hour], 16)}>
-                  <Short short="Earth" long="Face Earth" />
+              )}
+              {lookingUp ? (
+                <button type="button" aria-label="Look ahead" className={LOOK} onClick={() => face(series.sunAz[hour], 0.5, 60)}>
+                  <Short short="Ahead" long="Look ahead" />
                 </button>
-                {scene?.lander && (
-                  <button
-                    type="button"
-                    aria-label="Face the lander"
-                    className={LOOK}
-                    onClick={() => {
-                      // Aim at the lander's middle where it stands: the ground can fall away from the eye.
-                      const l = scene.lander!, a = (l.azDeg * Math.PI) / 180;
-                      const ground = heightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
-                      const eye = heightAt(scene.field, 0, 0) + scene.mastM;
-                      setLookingUp(false);
-                      setLook({ yaw: l.azDeg, pitch: (Math.atan2(ground + 1.7 - eye, l.distM) * 180) / Math.PI, fov: 36 });
-                    }}
-                  >
-                    <Short short="Lander" long="Face the lander" />
-                  </button>
-                )}
-                {lookingUp ? (
-                  <button type="button" aria-label="Look ahead" className={LOOK} onClick={() => face(series.sunAz[hour], 0.5, 60)}>
-                    <Short short="Ahead" long="Look ahead" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    aria-label="Look up"
-                    className={LOOK}
-                    onClick={() => {
-                      setLookingUp(true);
-                      setLook({ yaw: series.sunAz[hour], pitch: 70, fov: 72 });
-                    }}
-                  >
-                    <Short short="Up" long="Look up" />
-                  </button>
-                )}
-                <button type="button" aria-label="Hide the words" className={LOOK} onClick={() => setWordsHidden(true)}>
-                  <Short short="Hide" long="Hide the words" />
+              ) : (
+                <button type="button" aria-label="Look up" className={LOOK} onClick={lookUp}>
+                  <Short short="Look up" long="Look up" />
                 </button>
-                <p className="w-full px-1 text-[15px] text-[#c3bfb6] max-md:hidden">Drag to look around; pinch or scroll to zoom.</p>
+              )}
+              <button type="button" aria-label={wordsHidden ? 'Show the words' : 'Hide the words'} className={LOOK} onClick={() => setWordsHidden((h) => !h)}>
+                <Short short={wordsHidden ? 'Show text' : 'Hide text'} long={wordsHidden ? 'Show the words' : 'Hide the words'} />
+              </button>
+              <p className="w-full px-1 text-[15px] text-[#c3bfb6] max-md:hidden">Drag to look around; pinch or scroll to zoom.</p>
+            </div>
+          )}
+          {moments.length > 0 && (
+            <div data-plate="" role="group" aria-label="Key moments" className={`${PLATE} pointer-events-auto w-full p-2.5 ${more || wordsHidden ? '' : 'max-md:hidden'}`}>
+              <p className="px-1 pb-1.5 text-[15px] text-[#c3bfb6]">Jump to</p>
+              <div className="flex flex-wrap gap-2">
+                {moments.map((m) => (
+                  <button key={m.label} type="button" className={LOOK} onClick={() => s.setCursor(m.hour)}>
+                    {`${m.label}, ${m.day}`}
+                  </button>
+                ))}
               </div>
-            )}
-            {note && (
-              <div data-plate="" className="pointer-events-auto w-full max-md:hidden">
-                <HowWeKnow note={note} className={`${PLATE} px-3.5`} />
-              </div>
-            )}
-            {moments.length > 0 && (
-              <div data-plate="" role="group" aria-label="Key moments" className={`${PLATE} pointer-events-auto w-full p-2.5 ${more ? '' : 'max-md:hidden'}`}>
-                <p className="px-1 pb-1.5 text-[15px] text-[#c3bfb6]">Jump to</p>
-                <div className="flex flex-wrap gap-2">
-                  {moments.map((m) => (
-                    <button key={m.label} type="button" className={LOOK} onClick={() => s.setCursor(m.hour)}>
-                      {`${m.label}, ${m.day}`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
+      </div>
+      {lookingUp && !failed && (
+        // What looking up shows, above the compass (on a phone, above the buttons).
+        <p
+          data-plate=""
+          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+80px)] left-1/2 w-[min(440px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+20px)]`}
+        >
+          {crossNamed
+            ? 'The same stars as seen from Earth’s southern half: the Southern Cross, and its two pointers, Alpha Centauri and Hadar.'
+            : 'The same stars as seen from Earth: with no air, they shine by day too.'}
+        </p>
       )}
 
       <div ref={barRef} data-plate="" className="fixed inset-x-0 bottom-0">
