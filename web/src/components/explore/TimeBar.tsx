@@ -41,8 +41,9 @@ function dateMarks(hours: number): { hour: number; narrow: string }[] {
  * Where no chart is above it (the stand view), `dates` writes the dates under the track, draws the hours
  * Earth is in view as a blue band and names the strip's grey, the hours without the Sun; `powered` (1 for
  * each hour with power, 0 without) draws the hours the lander is off as a red band right under the
- * sunlight, with "lander off" in the key. The blue band sits under the red one. Explore leaves all of
- * these to its chart.
+ * sunlight, with "lander off" in the key. The blue band sits under the red one; the hours with both power
+ * and Earth in view, when the lander can radio home, are a thicker green band over it ("radio contact").
+ * Explore leaves all of these to its chart.
  */
 export function TimeBar({
   series,
@@ -73,6 +74,7 @@ export function TimeBar({
   const off = powered ? offRuns(powered.subarray(0, hours)) : [];
   const lit = litRuns(series.sunFraction);
   const earth = dates ? runsWhere(hours, (h) => series.earthVisible[h] === 1) : [];
+  const contact = dates && powered ? runsWhere(hours, (h) => powered[h] === 1 && series.earthVisible[h] === 1) : [];
   // The strip is grey wherever the yellow leaves a gap: by its own rule, an hour with any part of the Sun is yellow.
   const sunless = dates && lit.reduce((n, r) => n + r.to - r.from, 0) < hours;
 
@@ -153,6 +155,12 @@ export function TimeBar({
                     Earth in view
                   </span>
                 )}
+                {contact.length > 0 && (
+                  <span data-part="key-contact" className="flex items-center gap-2 text-[15px] text-ink-2">
+                    <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full bg-good" />
+                    radio contact
+                  </span>
+                )}
               </span>
             ) : (
               sunKey
@@ -179,6 +187,14 @@ export function TimeBar({
                 <div data-part="earth" aria-hidden="true" className="absolute inset-x-0 top-[31px] h-1">
                   {earth.map((r) => (
                     <i key={r.from} data-part="earth-run" className="absolute inset-y-0 min-w-1 rounded-full bg-earth" style={{ left: `${(r.from / hours) * 100}%`, width: `${((r.to - r.from) / hours) * 100}%` }} />
+                  ))}
+                </div>
+              )}
+              {/* Over the Earth band (30 to 36 px), thicker: the hours the lander can radio home. */}
+              {contact.length > 0 && (
+                <div data-part="contact" aria-hidden="true" className="absolute inset-x-0 top-[30px] h-1.5">
+                  {contact.map((r) => (
+                    <i key={r.from} data-part="contact-run" className="absolute inset-y-0 min-w-1.5 rounded-full bg-good" style={{ left: `${(r.from / hours) * 100}%`, width: `${((r.to - r.from) / hours) * 100}%` }} />
                   ))}
                 </div>
               )}

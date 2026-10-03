@@ -335,6 +335,38 @@ describe('TimeBar', () => {
     expect(key.previousElementSibling).toBe(container.querySelector('[data-part="key-off"]'));
   });
 
+  it("draws the hours with both power and Earth in view, when the lander can radio home, as a thicker green band over Earth’s, and names it in the key", () => {
+    const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 100 && h < 300 ? 1 : 0));
+    const powered = Uint8Array.from({ length: 720 }, (_, h) => (h >= 76 && h < 250 ? 0 : 1));
+    const { container } = showPeriod(30, { dates: true, powered }, { earthVisible });
+    const runs = [...container.querySelectorAll<HTMLElement>('[data-part="contact-run"]')];
+    // Power is back at hour 250 while Earth is still in view, until hour 300.
+    expect(runs).toHaveLength(1);
+    expect(parseFloat(runs[0].style.left) / 100).toBeCloseTo(250 / 720, 6);
+    expect(parseFloat(runs[0].style.width) / 100).toBeCloseTo(50 / 720, 6);
+    expect(runs[0].classList.contains('bg-good')).toBe(true);
+    // 6 px tall over the 4 px Earth band, inside the strip's box.
+    const band = container.querySelector<HTMLElement>('[data-part="contact"]')!;
+    expect(band.parentElement).toBe(stripBox(container));
+    expect(band.classList.contains('h-1.5')).toBe(true);
+    expect(topPx(band)).toBe(30);
+    const key = container.querySelector<HTMLElement>('[data-part="key-contact"]')!;
+    expect(key.textContent).toBe('radio contact');
+    expect(key.querySelector('[data-swatch]')!.classList.contains('bg-good')).toBe(true);
+    expect(key.previousElementSibling).toBe(container.querySelector('[data-part="key-earth"]'));
+  });
+
+  it('draws no radio band, nor its key, while power and Earth never meet, or without the power data', () => {
+    const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 100 && h < 200 ? 1 : 0));
+    const powered = Uint8Array.from({ length: 720 }, (_, h) => (h >= 76 && h < 465 ? 0 : 1));
+    const { container, unmount } = showPeriod(30, { dates: true, powered }, { earthVisible });
+    expect(container.querySelector('[data-part="contact"]')).toBeNull();
+    expect(screen.queryByText('radio contact')).toBeNull();
+    unmount();
+    const none = showPeriod(30, { dates: true }, { earthVisible });
+    expect(none.container.querySelector('[data-part="contact"]')).toBeNull();
+  });
+
   it('draws one Earth band for each stretch Earth is in view, and none, nor its key, while Earth stays out of view', () => {
     const earthVisible = Uint8Array.from({ length: 336 }, (_, h) => (h < 5 || (h >= 200 && h < 201) ? 1 : 0));
     const { container, unmount } = showPeriod(14, { dates: true }, { earthVisible });
@@ -385,23 +417,23 @@ describe('TimeBar', () => {
     expect(screen.getByText('no Sun')).toBeTruthy();
   });
 
-  it('keeps all four keys on one baseline on a line of their own, at the right on a wide screen, so the bar keeps one height while the words change', () => {
-    // The night, the hours the battery runs out in it, and Earth on the second day: every key is needed.
+  it('keeps all five keys on one baseline on a line of their own, at the right on a wide screen, so the bar keeps one height while the words change', () => {
+    // The night, the hours the battery runs out in it, and Earth on the second day while the lander has power: every key is needed.
     const { container } = show(6, { dates: true, powered: power.powered });
     const keys = [...container.querySelectorAll<HTMLElement>('[data-part^="key"]')];
-    expect(keys.map((k) => k.textContent)).toEqual(['Sun up', 'no Sun', 'lander off', 'Earth in view']);
+    expect(keys.map((k) => k.textContent)).toEqual(['Sun up', 'no Sun', 'lander off', 'Earth in view', 'radio contact']);
     // One group, not the line of words itself, so no key strays to the far side of a new line.
     const group = keys[0].parentElement!;
     for (const k of keys) expect(k.parentElement).toBe(group);
     expect(group.tagName).not.toBe('P');
     expect(group.classList.contains('flex-wrap')).toBe(true);
     expect(group.classList.contains('items-baseline')).toBe(true);
-    // Four keys do not fit beside a long sentence even on a wide screen: on a line of their own they never
+    // Five keys do not fit beside a long sentence even on a wide screen: on a line of their own they never
     // jump between the end of the words and the next line as the hour changes.
     expect(group.classList.contains('basis-full')).toBe(true);
     expect(group.classList.contains('sm:justify-end')).toBe(true);
     for (const k of keys) {
-      // Every swatch in a box as tall as the Sun's, so the words of all four sit on one line; at 15 px in the second ink.
+      // Every swatch in a box as tall as the Sun's, so the words of all five sit on one line; at 15 px in the second ink.
       expect(k.querySelector('[data-swatch]')!.classList.contains('h-2.5')).toBe(true);
       expect(k.querySelector('[data-swatch]')!.getAttribute('aria-hidden')).toBe('true');
       expect(k.classList.contains('text-[15px]')).toBe(true);
