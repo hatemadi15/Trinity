@@ -10,6 +10,17 @@ export interface LookTarget { yaw: number; pitch: number; fov: number }
 /** Degrees the view rests higher on a portrait screen, so the Sun on the horizon sits below the answer's plate. */
 export const portraitLift = (width: number, height: number): number => (height > width ? 3 : 0);
 
+/** The Southern Cross's four stars, named only while the cross's own name is not shown. */
+const CROSS = new Set(['Acrux', 'Mimosa', 'Gacrux', 'Imai']);
+/**
+ * Which star names show: the bright stars where they stand in view, when `named` (at night, or looking up);
+ * the Southern Cross by its own name rather than its four stars', so the names do not pile up on it.
+ */
+export function starNamesShown(stars: { name: string; visible: boolean }[], named: boolean): boolean[] {
+  const cross = named && stars.some((s) => s.name === 'Southern Cross' && s.visible);
+  return stars.map((s) => named && s.visible && !(cross && CROSS.has(s.name)));
+}
+
 /** The compass strip: 120° of the horizon across 300 px, ticks every 15°, the eight points named; its ends fade, so no letter is cut in half. */
 const STRIP_W = 300, PX_PER_DEG = STRIP_W / 120;
 const STRIP_FADE = 'linear-gradient(to right, transparent, #000 16%, #000 84%, transparent)';
@@ -165,8 +176,8 @@ export function StandCanvas({
       const close = v.fov < ZOOMED_FOV;
       for (const k of ['panel', 'dish', 'lamp'] as const) place(partRefs.current[k], close && l.parts ? l.parts[k] : null);
       // Star names at night, or when the view looks well up, where they would not crowd the day's sky.
-      const named = nightRef.current || v.pitch > 25;
-      l.stars.forEach((st, k) => place(starRefs.current[k], { ...st, visible: st.visible && named }));
+      const nameShown = starNamesShown(l.stars, nightRef.current || v.pitch > 25);
+      l.stars.forEach((st, k) => place(starRefs.current[k], { ...st, visible: nameShown[k] }));
       const facing = v.pitch > 60 ? 'Looking up' : `Facing ${compassWord(v.yaw)}${v.fov < ZOOMED_FOV ? ', zoomed in' : ''}`;
       if (facingRef.current && facingRef.current.textContent !== facing) facingRef.current.textContent = facing;
       if (trackRef.current) trackRef.current.style.transform = `translateX(${STRIP_W / 2 - (v.yaw + 360) * PX_PER_DEG}px)`;
