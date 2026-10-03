@@ -300,6 +300,7 @@ export function StandCanvas({
   const landerRef = useRef<HTMLSpanElement>(null);
   const shadowRef = useRef<HTMLSpanElement>(null);
   const cleanRef = useRef(clean);
+  const reducedRef = useRef(reducedMotion);
   const partRefs = useRef<Record<'panel' | 'dish' | 'lamp', HTMLSpanElement | null>>({ panel: null, dish: null, lamp: null });
   const lampTextRef = useRef<HTMLSpanElement>(null);
   // The opening view (until the first turn), which keeps the lander's feet in sight, and how much lower
@@ -341,6 +342,9 @@ export function StandCanvas({
     cleanRef.current = clean;
   }, [clean]);
   useEffect(() => {
+    reducedRef.current = reducedMotion;
+  }, [reducedMotion]);
+  useEffect(() => {
     keepRef.current = keepInView;
   }, [keepInView]);
   useEffect(() => {
@@ -362,8 +366,12 @@ export function StandCanvas({
   useEffect(() => {
     if (!look) return;
     endOpening();
-    goal.current = { ...look };
     intro.current = null;
+    // With reduced motion the view is there at once: no camera flight.
+    if (reducedRef.current) {
+      view.current = { ...look };
+      goal.current = null;
+    } else goal.current = { ...look };
   }, [look]);
 
   useEffect(() => {

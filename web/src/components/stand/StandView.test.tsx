@@ -281,6 +281,24 @@ describe('StandView', () => {
     expect(q.get('quality')).toBe('fast');
   });
 
+  it('turns the view at once, with no camera flight, when the visitor asks for reduced motion', async () => {
+    const was = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
+    try {
+      const r = stub();
+      const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+      await waitFor(() => expect(r.setView).toHaveBeenCalled());
+      const before = r.setView.mock.calls.length;
+      fireEvent.click(screen.getByRole('button', { name: 'Face the lander' }));
+      await waitFor(() => expect(r.setView.mock.calls.length).toBeGreaterThan(before));
+      // The first frame after the press already faces the lander: no frames on the way.
+      const want = (store.getState().series!.sunAz[0] - 40 + 360) % 360;
+      expect(Math.abs(((r.setView.mock.calls[before][0] - want + 540) % 360) - 180)).toBeLessThan(0.01);
+    } finally {
+      window.matchMedia = was;
+    }
+  });
+
   it('keeps one renderer while the time moves', async () => {
     let made = 0;
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => {
