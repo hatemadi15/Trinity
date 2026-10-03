@@ -83,13 +83,15 @@ def test_star_names_json_labels_30_bright_stars_at_their_rows_of_stars_bin():
     names = json.loads(NAMES_JSON.read_text(encoding='utf-8'))['names']
     table = np.frombuffer((sky.OUT / 'stars.bin').read_bytes(), dtype='<f4').reshape(-1, 5)
     by_name = {n['name']: n for n in names}
-    assert len(names) == 30 and set(by_name) == set(sky.NAMED_STARS)
-    assert len({n['index'] for n in names}) == 30
+    assert len(names) == 31 and set(by_name) == set(sky.NAMED_STARS)
+    assert len({n['index'] for n in names}) == 31
+    # The fourth star of the Southern Cross, for its lines.
+    assert by_name['Imai']['vmag'] < 3
     assert [n['index'] for n in names] == sorted(n['index'] for n in names)  # brightest first, as in stars.bin
     assert by_name['Sirius']['index'] == 0 and by_name['Sirius']['vmag'] == pytest.approx(-1.46)
     for n in names:
         assert table[n['index'], 3] == pytest.approx(n['vmag'], abs=0.01), n['name']
-    for name in ('Canopus', 'Achernar', 'Rigil Kentaurus'):
+    for name in ('Canopus', 'Achernar', 'Alpha Centauri'):
         assert by_name[name]['vmag'] < 1, name
     assert by_name['Acrux']['vmag'] < 1.5  # the catalogue keeps Acrux's two stars apart: 1.33 and 1.73 (0.76 together)
     # Where magnitudes tie (Mimosa and Deneb 1.25, Acrux and Alpha Cen B 1.33, Gacrux and Shaula 1.63), the named star's row.

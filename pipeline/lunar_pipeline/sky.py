@@ -28,12 +28,12 @@ START_UTC, END_UTC, STEP_H = '2024-01-01T00:00:00', '2037-01-01T00:00:00', 6
 # where the catalogue numbers the stars of a pair (Alp1 Cen), constellation. A trailing letter is the catalogue's ADS
 # component, for the one designation it gives to two stars: Gam Cru A is Gacrux, Gam Cru B (HR 4764, V 6.4) its companion.
 NAMED_STARS = {
-    'Sirius': 'Alp CMa', 'Canopus': 'Alp Car', 'Rigil Kentaurus': 'Alp1 Cen', 'Arcturus': 'Alp Boo', 'Vega': 'Alp Lyr',
+    'Sirius': 'Alp CMa', 'Canopus': 'Alp Car', 'Alpha Centauri': 'Alp1 Cen', 'Arcturus': 'Alp Boo', 'Vega': 'Alp Lyr',
     'Capella': 'Alp Aur', 'Rigel': 'Bet Ori', 'Procyon': 'Alp CMi', 'Achernar': 'Alp Eri', 'Betelgeuse': 'Alp Ori',
     'Hadar': 'Bet Cen', 'Altair': 'Alp Aql', 'Acrux': 'Alp1 Cru', 'Aldebaran': 'Alp Tau', 'Antares': 'Alp Sco',
     'Spica': 'Alp Vir', 'Pollux': 'Bet Gem', 'Fomalhaut': 'Alp PsA', 'Deneb': 'Alp Cyg', 'Mimosa': 'Bet Cru',
     'Regulus': 'Alp Leo', 'Adhara': 'Eps CMa', 'Shaula': 'Lam Sco', 'Gacrux': 'Gam Cru A', 'Alnair': 'Alp Gru',
-    'Peacock': 'Alp Pav', 'Miaplacidus': 'Bet Car', 'Atria': 'Alp TrA', 'Avior': 'Eps Car', 'Polaris': 'Alp UMi',
+    'Peacock': 'Alp Pav', 'Miaplacidus': 'Bet Car', 'Atria': 'Alp TrA', 'Avior': 'Eps Car', 'Polaris': 'Alp UMi', 'Imai': 'Del Cru',
 }
 # Flamsteed number (ignored), Greek letter, component digit, constellation, ADS letter: "9Alp CMa", "Alp1Cen", "Mu 1Sco", "Gam Cru A".
 _BAYER = re.compile(r'\d*\s*([A-Z][a-z]{1,2})\s*(\d?)\s*([A-Z][A-Za-z]{2})(?:\s+([A-Z]))?')

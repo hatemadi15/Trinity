@@ -17,7 +17,7 @@
   },
   {
    "index": 3,
-   "name": "Rigil Kentaurus",
+   "name": "Alpha Centauri",
    "vmag": -0.01
   },
   {
@@ -149,6 +149,11 @@
    "index": 51,
    "name": "Polaris",
    "vmag": 2.02
+  },
+  {
+   "index": 132,
+   "name": "Imai",
+   "vmag": 2.8
   }
  ]
 }
