@@ -184,7 +184,8 @@ describe('the stand scene', () => {
     s.update(0);
     expect(s.parts.landerLight!.color.getHex()).not.toBe(0x000000);
     s.update(2);
-    expect(s.parts.landerLight!.color.getHex()).toBe(0x000000);
+    // Off: a dark bead, not the green.
+    expect(s.parts.landerLight!.color.getHex()).toBe(0x2b2e2c);
     // Its shadow on the ground: the shader casts it from the lander's drawn shape, placed and turned with it.
     const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
     expect(u.uLanderOn.value).toBe(1);
@@ -355,11 +356,17 @@ describe('the stand scene', () => {
     expect(s.labels().shadow).toBeNull();
   });
 
-  it('keeps a faint light on the lander when neither the Sun nor Earth lights it, so its shape still shows', () => {
+  it('keeps a light on the lander when neither the Sun nor Earth lights it, so its shape still shows, and only a faint one by day', () => {
     const dark = { ...series, sunFraction: Float64Array.from([0, 0, 0]), sunEl: Float64Array.from([-1, -1, -1]), earthEl: Float64Array.from([-3, -3, -3]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
     const s = buildScene(flat({ series: dark, lander: { azDeg: 90, distM: 9, powered: Uint8Array.from([0, 0, 0]) } }));
     s.update(0);
-    expect(s.parts.landerFill!.intensity).toBeGreaterThanOrEqual(0.12);
+    expect(s.parts.landerFill!.intensity).toBeGreaterThanOrEqual(0.45);
+    // A light that is off still shows as a dark bead, not as nothing.
+    expect(s.parts.landerLight!.color.getHex()).not.toBe(0x000000);
+    // By day the night's floor goes: what is left is the faint fill and Earth's light.
+    const day = buildScene(flat({ lander: { azDeg: 90, distM: 9, powered: Uint8Array.from([1, 1, 1]) } }));
+    day.update(0);
+    expect(day.parts.landerFill!.intensity).toBeLessThan(s.parts.landerFill!.intensity - 0.15);
   });
 
   it('stops the exposure down looking down-Sun at the sunlit ground, as a camera would, but not towards the Sun, looking up or at night', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compassMark, easeStep, fitPitch, horizonLift, labelSides, lowHorizonPitch, partSide, slopeWord, starNamesShown } from './StandCanvas';
+import { clearOf, compassMark, easeStep, fitPitch, horizonLift, labelSides, partSide, slopeWord, starNamesShown } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -96,17 +96,6 @@ describe('turning the view', () => {
   });
 });
 
-describe('looking up with the horizon kept', () => {
-  it('pitches up just so far that the level horizon runs straight along the bottom of the room above the time bar', () => {
-    // 900 px tall, 75 degrees up and down, the time bar from 715 px: the horizon 36 px above it.
-    const p = lowHorizonPitch(900, 75, 715);
-    const y = 450 + (Math.tan((p * Math.PI) / 180) / Math.tan((37.5 * Math.PI) / 180)) * 450;
-    expect(y).toBeCloseTo(715 - 36, 6);
-    expect(p).toBeGreaterThan(15);
-    expect(p).toBeLessThan(30);
-  });
-});
-
 describe('the opening view', () => {
   it('looks down just enough to keep the lander’s feet 56 px above the time bar, and never looks down for them more than 10 degrees', () => {
     const tanHalf = Math.tan((30 * Math.PI) / 180);
@@ -137,6 +126,22 @@ describe('star names beside other stars', () => {
     // Hadar at 820 px, Alpha Centauri’s dot 54 px to its right: Hadar’s 50 px name goes left.
     const at = (x: number, y: number, w = 50, h = 20) => ({ x, y, w, h, visible: true });
     expect(labelSides([at(820, 260), at(874, 262, 110)])).toEqual(['left', 'right']);
+  });
+});
+
+describe('a label beside a panel', () => {
+  const card = { left: 16, top: 16, right: 576, bottom: 424 };
+  it('slides along clear of the panel when it only touches its edge, by the shorter way', () => {
+    // Earth's label 150 px wide, centred at 652 px: its left end runs 3 px into the card (and its 4 px margin).
+    const b = { left: 577, right: 727, top: 350, bottom: 378 };
+    expect(clearOf(b, [card], 1440)).toBe(576 + 4 - 577);
+    // Already clear: no shift.
+    expect(clearOf({ left: 600, right: 750, top: 350, bottom: 378 }, [card], 1440)).toBe(0);
+  });
+  it('is left out when clearing the panel would take it more than 60 % of its width from where it belongs, or off the screen', () => {
+    expect(clearOf({ left: 300, right: 450, top: 350, bottom: 378 }, [card], 1440)).toBeNull();
+    // Right at the screen's right edge: clearing a panel there would push it off.
+    expect(clearOf({ left: 1300, right: 1436, top: 30, bottom: 58 }, [{ left: 1380, top: 16, right: 1424, bottom: 70 }], 1440)).toBe(-(1436 - 1376));
   });
 });
 

@@ -228,13 +228,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       }
     }
   }
-  // Looking up: towards the Southern Cross (else away from the Sun), wide, and raised just so far that the
-  // level horizon runs straight along the bottom of the view.
+  // Looking up: at the Southern Cross (else away from the Sun, 50° up), the sky alone in view, clear of
+  // the ground: a slope rising beside you would curve up from a corner like the edge of a planet.
   const lookUp = () => {
     setLookingUp(true);
     setCaption(null);
     const cross = scene ? lookUpTarget(scene.sky, site.lat, site.lon, Date.parse(s.startUtc + 'Z') + hour * 3600e3) : null;
-    setLook({ yaw: cross ? cross.az : (series.sunAz[hour] + 180) % 360, pitch: 20, fov: 75, horizon: 'low' });
+    setLook({ yaw: cross ? cross.az : (series.sunAz[hour] + 180) % 360, pitch: cross ? Math.max(42, Math.min(70, cross.el - 4)) : 50, fov: 62 });
   };
   const crossNamed = !!scene && scene.sky.names?.some((n) => n.name === 'Acrux');
   // The line over the view: why a key moment happens, why Earth sits where it does, what looking up shows,

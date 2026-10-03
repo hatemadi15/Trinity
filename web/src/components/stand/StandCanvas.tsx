@@ -6,13 +6,7 @@ import { compassWord } from '@/lib/viz/ground';
 
 export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void> };
 /** Where to turn the view; a new object turns it again, even to the same place. */
-export interface LookTarget {
-  yaw: number;
-  pitch: number;
-  fov: number;
-  /** "low": keep the level horizon along the bottom of the room (looking up); `pitch` is then worked out. */
-  horizon?: 'low';
-}
+export interface LookTarget { yaw: number; pitch: number; fov: number }
 
 /**
  * Degrees the view rests higher (or lower, when negative), so the horizon (the Sun on it) sits where the
@@ -26,16 +20,6 @@ export function horizonLift(width: number, height: number, fovDeg: number, freeT
   const y = wide ? 0.55 * freeBottom : freeTop + 0.4 * (freeBottom - freeTop);
   const t = ((y - height / 2) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
   return Math.max(-15, Math.min(15, (Math.atan(t) * 180) / Math.PI));
-}
-
-/**
- * The pitch (degrees) at which the level horizon runs straight along the bottom of the room, 36 px above
- * `freeBottom` (pixels down the screen): looking up with the ground kept in sight as one level line, never
- * as a sliver of slope curving up from a corner.
- */
-export function lowHorizonPitch(height: number, fovDeg: number, freeBottom: number): number {
-  const y = freeBottom - 36;
-  return (Math.atan(((y - height / 2) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360)) * 180) / Math.PI;
 }
 
 /**
@@ -152,6 +136,24 @@ export function partSide(x: number, y: number, w: number, h: number, sides: read
     }) ?? null
   );
 }
+/**
+ * How far (pixels, + right) a label's box must slide along its line to keep 4 px clear of every panel: 0 when
+ * it is clear already; the shorter way when it only meets a panel's edge; null when that would take it more
+ * than 60 % of its own width from where it belongs, or off the `W`-wide screen.
+ */
+export function clearOf(b: Rect, plates: Rect[], W: number): number | null {
+  const meets = (q: Rect) => plates.filter((p) => q.right > p.left - 4 && q.left < p.right + 4 && q.bottom > p.top - 4 && q.top < p.bottom + 4);
+  const hit = meets(b);
+  if (hit.length === 0) return 0;
+  const width = b.right - b.left;
+  const ways = [Math.max(...hit.map((p) => p.right + 4 - b.left)), Math.min(...hit.map((p) => p.left - 4 - b.right))].sort((x, y) => Math.abs(x) - Math.abs(y));
+  for (const d of ways) {
+    const q = { left: b.left + d, right: b.right + d, top: b.top, bottom: b.bottom };
+    if (Math.abs(d) <= 0.6 * width && q.left >= 4 && q.right <= W - 4 && meets(q).length === 0) return d;
+  }
+  return null;
+}
+
 /** The sides each part's name tries, in order. */
 const PARTS = [
   ['panel', 'Solar panel', ['above', 'below']],
@@ -227,9 +229,8 @@ export function StandCanvas({
   const cleanRef = useRef(clean);
   const partRefs = useRef<Record<'panel' | 'dish' | 'lamp', HTMLSpanElement | null>>({ panel: null, dish: null, lamp: null });
   const lampTextRef = useRef<HTMLSpanElement>(null);
-  // Looking up with the horizon kept along the bottom; the opening view (until the first turn), which keeps
-  // the lander's feet in sight, and how much lower than the view's own pitch it looks for them.
-  const lowRef = useRef(false);
+  // The opening view (until the first turn), which keeps the lander's feet in sight, and how much lower
+  // than the view's own pitch it looks for them.
   const openingRef = useRef(true);
   const fitOffset = useRef(0);
   const keepRef = useRef(keepInView);
@@ -284,7 +285,6 @@ export function StandCanvas({
   useEffect(() => {
     if (!look) return;
     endOpening();
-    lowRef.current = look.horizon === 'low';
     goal.current = { ...look };
     intro.current = null;
   }, [look]);
@@ -335,7 +335,12 @@ export function StandCanvas({
         node.style.left = `calc(${s.x * 100}% - ${shift}px)`;
         b = node.getBoundingClientRect();
       }
-      if (b.width > 0 && plates.some((p) => b.right > p.left - 4 && b.left < p.right + 4 && b.bottom > p.top - 4 && b.top < p.bottom + 4)) node.hidden = true;
+      // Beside a panel: slid along clear of it when it only meets the panel's edge, else left out.
+      if (b.width > 0) {
+        const d = clearOf(b, plates, w);
+        if (d === null) node.hidden = true;
+        else if (d !== 0) node.style.left = `calc(${s.x * 100}% + ${d - shift}px)`;
+      }
     };
     const tick = (now: number) => {
       const step = (now - last) / 1000;
@@ -366,11 +371,6 @@ export function StandCanvas({
         if (f >= 1) intro.current = null;
       }
       const g = goal.current;
-      // Looking up, the pitch follows the room, so the level horizon stays along its bottom.
-      if (lowRef.current) {
-        if (g) g.pitch = lowHorizonPitch(H, g.fov, freeBottom);
-        else v.pitch = lowHorizonPitch(H, v.fov, freeBottom);
-      }
       if (g) {
         const k = easeStep(step);
         v.yaw = lerpAngle(v.yaw, g.yaw, k);
@@ -378,8 +378,8 @@ export function StandCanvas({
         v.fov += (g.fov - v.fov) * k;
         if (Math.abs(((g.yaw - v.yaw + 540) % 360) - 180) < 0.1 && Math.abs(g.pitch - v.pitch) < 0.1 && Math.abs(g.fov - v.fov) < 0.1) goal.current = null;
       }
-      // Only near the horizon, and not while looking up, which keeps its own framing.
-      const lift = lowRef.current ? 0 : horizonLift(W, H, v.fov, freeTop, freeBottom) * Math.max(0, Math.min(1, (30 - v.pitch) / 10));
+      // Only near the horizon: looking up keeps its own framing.
+      const lift = horizonLift(W, H, v.fov, freeTop, freeBottom) * Math.max(0, Math.min(1, (30 - v.pitch) / 10));
       let pitch = v.pitch + lift;
       // The opening view looks a little lower if it must, so the lander's feet stay in sight above the bar.
       if (openingRef.current && keepRef.current !== null) {
@@ -426,7 +426,7 @@ export function StandCanvas({
       const sh = l.shadow;
       if (shadowRef.current && sh) {
         // With the height it is worked out for, so the Sun's height can be checked from it.
-        const text = `Your shadow, ${Math.round(sh.lengthM)} m long (you are 1.8 m tall)`;
+        const text = `Your shadow, ${Math.round(sh.lengthM)} m long\n(you are 1.8 m tall)`;
         if (shadowRef.current.textContent !== text) shadowRef.current.textContent = text;
       }
       place(shadowRef.current, sh ?? null);
@@ -451,7 +451,7 @@ export function StandCanvas({
         const b = node.getBoundingClientRect();
         if (b.width > 0 && plates.some((q) => b.right > q.left - 4 && b.left < q.right + 4 && b.bottom > q.top - 4 && b.top < q.bottom + 4)) node.hidden = true;
       });
-      const facing = v.pitch > 60 ? 'Looking up' : `Facing ${compassWord(v.yaw)}${slopeWord(v.yaw, slope.upAz, slope.grade)}${v.fov < ZOOMED_FOV ? ', zoomed in' : ''}`;
+      const facing = v.pitch > 35 ? `Looking up, to the ${compassWord(v.yaw)}` : `Facing ${compassWord(v.yaw)}${slopeWord(v.yaw, slope.upAz, slope.grade)}${v.fov < ZOOMED_FOV ? ', zoomed in' : ''}`;
       for (const f of [facingRef.current, facingPhoneRef.current]) if (f && f.textContent !== facing) f.textContent = facing;
       if (trackRef.current) trackRef.current.style.transform = `translateX(${STRIP_W / 2 - (v.yaw + 360) * PX_PER_DEG}px)`;
       // The Sun, Earth and the lander on the compass strip: filled while in view, hollow while hidden.
@@ -495,7 +495,6 @@ export function StandCanvas({
 
   const turn = (dYaw: number, dPitch: number, zoom = 1) => {
     endOpening();
-    lowRef.current = false;
     const v = view.current;
     goal.current = null;
     intro.current = null;
@@ -515,7 +514,6 @@ export function StandCanvas({
         onPointerDown={(e) => {
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
           endOpening();
-          lowRef.current = false;
           goal.current = null;
           intro.current = null;
           e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -627,7 +625,7 @@ export function StandCanvas({
             {`The lander, ${Math.round(scene.lander.distM)} m away`}
           </span>
         )}
-        <span ref={shadowRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-1/2 text-[14px] text-[#e4e1da]`}>
+        <span ref={shadowRef} hidden className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-pre-line rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-center text-[14px] leading-snug text-[#e4e1da]">
           Your shadow
         </span>
         {scene.lander &&

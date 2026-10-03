@@ -7,7 +7,7 @@ import { compassWord } from '@/lib/viz/ground';
 import { keyMoments, landerState, momentCaption, skyLabel, statusLine, viewCaption, watchNext } from '@/lib/viz/stand';
 import { fileLoaders } from '@/test/file-loaders';
 import { StandView } from './StandView';
-import { lowHorizonPitch, type RendererLike } from './StandCanvas';
+import type { RendererLike } from './StandCanvas';
 
 // jsdom has no PointerEvent; this one carries the pointer's id on top of the mouse event's position.
 if (typeof window.PointerEvent === 'undefined') {
@@ -237,17 +237,16 @@ describe('StandView', () => {
     await waitFor(() => expect(near()).toBe(true), { timeout: 4000 });
   });
 
-  it('looks up with the horizon kept at the bottom, says these are the stars seen from Earth, and turns "Look up" into "Look ahead"', async () => {
+  it('looks up at the sky clear of the ground, says these are the stars seen from Earth, and turns "Look up" into "Look ahead"', async () => {
     const r = stub();
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
     await waitFor(() => expect(r.setView).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Look up' }));
     expect(screen.queryByRole('button', { name: 'Look up' })).toBeNull();
-    // A wide view (75° up and down) raised just so far that the level horizon runs along the bottom of the
-    // room above the time bar (here the whole window: nothing is laid out in this test).
-    await waitFor(() => expect(r.setView.mock.calls.at(-1)![2]).toBeCloseTo(75, 0), { timeout: 4000 });
-    await waitFor(() => expect(r.setView.mock.calls.at(-1)![1]).toBeCloseTo(lowHorizonPitch(window.innerHeight, 75, window.innerHeight), 0), { timeout: 4000 });
-    expect(r.setView.mock.calls.at(-1)![1] - r.setView.mock.calls.at(-1)![2] / 2).toBeLessThan(0);
+    // 50° up with 62° from top to bottom: the bottom edge 19° up, above the hills and any slope beside you.
+    await waitFor(() => expect(r.setView.mock.calls.at(-1)![2]).toBeCloseTo(62, 0), { timeout: 4000 });
+    await waitFor(() => expect(r.setView.mock.calls.at(-1)![1]).toBeCloseTo(50, 0), { timeout: 4000 });
+    expect(r.setView.mock.calls.at(-1)![1] - r.setView.mock.calls.at(-1)![2] / 2).toBeGreaterThan(15);
     expect(screen.getByText(/^With no air, the sky stays black and the stars show even with the Sun up\./)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Look ahead' }));
     expect(screen.getByRole('button', { name: 'Look up' })).toBeTruthy();

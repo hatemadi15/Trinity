@@ -422,11 +422,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     sunLight.intensity = 3.2 * v.sunFraction;
     // The dust lights the shaded sides only faintly at a Sun this low: they stand nearly in silhouette.
     skyLight.intensity = 0.4 * v.sunFraction;
-    // A faint floor: with neither the Sun nor Earth up their shapes still show.
-    earthLight.intensity = 0.15 + 0.5 * earthshine;
+    // A floor, as eyes adapt to the dark: faint by day, enough at night for the shapes to show when neither
+    // the Sun nor Earth lights them.
+    earthLight.intensity = 0.15 + 0.5 * earthshine + 0.35 * Math.max(0, 1 - Math.min(1, v.sunFraction + 2 * earthshine));
     if (lander) {
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
-      lander.lamp.color.setHex(Number(scene.lander!.powered[h]) === 1 ? 0x46c98b : 0x000000);
+      // Lit green with power; off, a dark bead that still shows where the light is.
+      lander.lamp.color.setHex(Number(scene.lander!.powered[h]) === 1 ? 0x46c98b : 0x2b2e2c);
     }
     sunNow = v.sunFraction;
     sunElNow = v.sunEl;
