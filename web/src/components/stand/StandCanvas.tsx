@@ -203,15 +203,16 @@ export function clearOf(b: Rect, plates: Rect[], W: number): number | null {
 
 /**
  * How far (pixels, up) to lift a label so it clears the names it meets: its foot 4 px over the top of the
- * highest of them, again if it then meets another; null when that would take its top above `minTop`, the top
- * of the room it may use. A Sun named over the lander, gone behind it, so rises over the lander's own names.
+ * highest of them, again if it then meets another; 0 when it meets none, wherever it is; null when lifting
+ * it would take its top above `minTop`, the top of the room it may use. A Sun named over the lander, gone
+ * behind it, so rises over the lander's own names.
  */
 export function liftClear(b: Rect, others: Rect[], minTop: number): number | null {
   let dy = 0;
   for (let k = 0; k <= others.length; k++) {
     const q = { left: b.left, right: b.right, top: b.top - dy, bottom: b.bottom - dy };
     const hit = others.filter((o) => q.right > o.left && q.left < o.right && q.bottom > o.top - 4 && q.top < o.bottom);
-    if (hit.length === 0) return q.top < minTop ? null : dy;
+    if (hit.length === 0) return dy > 0 && q.top < minTop ? null : dy;
     dy = b.bottom - Math.min(...hit.map((o) => o.top)) + 4;
   }
   return null;
@@ -509,7 +510,7 @@ export function StandCanvas({
         .filter((b) => b.width > 0);
       for (const [node, at] of [[sunRef.current, l.sun], [earthRef.current, l.earth]] as const) {
         if (!node || node.hidden || names.length === 0) continue;
-        const dy = liftClear(node.getBoundingClientRect(), names, freeTop + 4);
+        const dy = liftClear(node.getBoundingClientRect(), names, 4);
         if (dy === null) node.hidden = true;
         else if (dy > 0) {
           node.style.top = `calc(${at.y * 100}% - ${dy}px)`;

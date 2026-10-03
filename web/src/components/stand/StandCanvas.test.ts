@@ -215,7 +215,10 @@ describe('a body named over the lander', () => {
     // Clear already: it stays.
     expect(liftClear(box, [{ left: 210, right: 260, top: 300, bottom: 320 }], 0)).toBe(0);
     expect(liftClear(box, [], 0)).toBe(0);
-    // Its top may not rise above the room's top.
+    // A label that meets nothing stays where its body put it, high in the sky or not.
+    expect(liftClear(box, [], 400)).toBe(0);
+    expect(liftClear(box, [{ left: 210, right: 260, top: 300, bottom: 320 }], 400)).toBe(0);
+    // Lifted, its top may not rise above the room's top.
     expect(liftClear(box, names, 270)).toBeNull();
   });
 });
