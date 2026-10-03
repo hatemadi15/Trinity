@@ -110,6 +110,8 @@ const contactRunsOf = (container: HTMLElement, hours: number) =>
     const from = Math.round((parseFloat(r.style.left) / 100) * hours);
     return { from, to: from + Math.round((parseFloat(r.style.width) / 100) * hours), hatched: r.hasAttribute('data-if-survives') };
   });
+/** The words of the key's entries, in order. */
+const keyWords = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('[data-part^="key"]')].map((k) => k.textContent);
 /**
  * A length in px from a class such as `max-sm:h-[27px]` or `max-sm:h-10` (a Tailwind step of 4 px): `prop` is
  * the utility (h, w, size), `prefix` the variant before it ('' for none, 'max-sm:' on a phone).
@@ -138,6 +140,18 @@ const STAND_MOMENTS = [
   { label: 'Earth in view, 10 Jan', hour: 216 },
   { label: 'Sun back, 20 Jan', hour: 456 },
 ];
+/**
+ * A period like the stand view's 30 days from 1 January 2027 at de Gerlache Rim 2, with what the stand view
+ * passes the bar: the Sun sets on the 3rd and the battery runs out on the 4th, before Earth comes into view on
+ * the 10th; the Sun and the power come back on the 20th, while Earth is still in view, until the 23rd. So all
+ * its radio contact, the 20th to the 23rd, needs the lander to have survived the night.
+ */
+function showStandPeriod(extra: Partial<Parameters<typeof TimeBar>[0]> = {}) {
+  const sunFraction = Float64Array.from({ length: 720 }, (_, h) => (h < 50 || h >= 456 ? 1 : 0));
+  const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
+  const powered = Uint8Array.from({ length: 720 }, (_, h) => (h >= 76 && h < 456 ? 0 : 1));
+  return showPeriod(30, { dates: true, powered, ifSurvivesFrom: 456, ...extra }, { sunFraction, earthVisible });
+}
 /** A ResizeObserver whose one report sets the width the flags' row measures; call the result inside act(). */
 function measuredTrack(): (px: number) => void {
   let report: ((entries: { contentRect: { width: number } }[]) => void) | null = null;
@@ -508,12 +522,13 @@ describe('TimeBar', () => {
     expect(run.parentElement).toBe(container.querySelector('[data-part="contact"]'));
     // The lander-off band does not change.
     expect(container.querySelector('[data-part="off"]')!.outerHTML).toBe(offBefore);
-    // The key says it after "radio contact": a hatched line as thick as the band, then the words, which say what
-    // the hatching is (radio) so they do not read as a fragment.
+    // The key names it: a hatched line as thick as the band, then the words, which say what the hatching is (radio)
+    // so they do not read as a fragment. No hour of the green is solid here, so "radio contact" is not named, and
+    // the hatched entry comes right after Earth's.
     const key = container.querySelector<HTMLElement>('[data-part="key-if-survives"]')!;
     expect(key.textContent).toBe('radio, if it survives the night');
-    expect(key.previousElementSibling).toBe(container.querySelector('[data-part="key-contact"]'));
-    expect(container.querySelector('[data-part="key-contact"]')!.textContent).toBe('radio contact');
+    expect(key.previousElementSibling).toBe(container.querySelector('[data-part="key-earth"]'));
+    expect(container.querySelector('[data-part="key-contact"]')).toBeNull();
     for (const c of ['flex', 'items-center', 'gap-2', 'text-[15px]', 'text-ink-2']) expect(key.classList.contains(c)).toBe(true);
     const swatch = key.querySelector('[data-swatch]')!;
     expect(swatch.className).toMatch(HATCHED);
@@ -608,6 +623,63 @@ describe('TimeBar', () => {
     const one = showPeriod(30, { dates: true }, { sunFraction });
     expect(one.container.querySelectorAll('[data-part="lit"]')).toHaveLength(2);
     expect(screen.getByText('in shadow')).toBeTruthy();
+  });
+
+  it('leaves "radio contact" out of the key when the lander loses power before Earth comes into view: the bar draws no solid green, only the hatched radio after the night', () => {
+    const { container } = showStandPeriod();
+    // All the radio band holds is hatched, from the 20th, when the power comes back, to the 23rd.
+    expect(contactRunsOf(container, 720)).toEqual([{ from: 456, to: 552, hatched: true }]);
+    expect(container.querySelector('[data-part="contact-run"]:not([data-if-survives])')).toBeNull();
+    // So the key names no solid green for a reader to go looking for: the hatched entry comes right after Earth's.
+    expect(keyWords(container)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio, if it survives the night']);
+    expect(container.querySelector('[data-part="key-contact"]')).toBeNull();
+    expect(screen.queryByText('radio contact')).toBeNull();
+    expect(container.querySelector('[data-part="key-if-survives"]')!.previousElementSibling).toBe(container.querySelector('[data-part="key-earth"]'));
+  });
+
+  it('names "radio contact" when the bar draws some hour of solid green, before the hatched entry when some hour is hatched too', () => {
+    // Earth in view from the 2nd to the 5th: the lander has power until the battery runs out on the 4th, so the green
+    // is solid from the 2nd until then. Earth is gone when the power comes back on the 20th, so no hour is hatched.
+    const sunFraction = Float64Array.from({ length: 720 }, (_, h) => (h < 50 || h >= 456 ? 1 : 0));
+    const powered = Uint8Array.from({ length: 720 }, (_, h) => (h >= 76 && h < 456 ? 0 : 1));
+    const early = Uint8Array.from({ length: 720 }, (_, h) => (h >= 24 && h < 100 ? 1 : 0));
+    const { container, unmount } = showPeriod(30, { dates: true, powered, ifSurvivesFrom: 456 }, { sunFraction, earthVisible: early });
+    expect(contactRunsOf(container, 720)).toEqual([{ from: 24, to: 76, hatched: false }]);
+    expect(keyWords(container)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact']);
+    expect(screen.queryByText('radio, if it survives the night')).toBeNull();
+    unmount();
+    // With Earth in view again from the 20th to the 23rd, both kinds of green are drawn, and both named, the solid first.
+    const twice = Uint8Array.from({ length: 720 }, (_, h) => ((h >= 24 && h < 100) || (h >= 456 && h < 552) ? 1 : 0));
+    const both = showPeriod(30, { dates: true, powered, ifSurvivesFrom: 456 }, { sunFraction, earthVisible: twice });
+    expect(contactRunsOf(both.container, 720)).toEqual([
+      { from: 24, to: 76, hatched: false },
+      { from: 456, to: 552, hatched: true },
+    ]);
+    expect(keyWords(both.container)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
+  });
+
+  it('leaves "lander off" out of the key when no hour is without power', () => {
+    // A lander that keeps its power all through, the night as well: no red band. Earth comes into view on the 10th.
+    const sunFraction = Float64Array.from({ length: 720 }, (_, h) => (h < 50 || h >= 456 ? 1 : 0));
+    const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
+    const { container } = showPeriod(30, { dates: true, powered: new Uint8Array(720).fill(1), ifSurvivesFrom: null }, { sunFraction, earthVisible });
+    expect(container.querySelector('[data-part="off"]')).toBeNull();
+    expect(keyWords(container)).toEqual(['in sunlight', 'in shadow', 'Earth in view', 'radio contact']);
+    expect(screen.queryByText('lander off')).toBeNull();
+  });
+
+  it('leaves "in sunlight" out of the key when no hour has any of the Sun: there is no yellow to name', () => {
+    // A period all in shadow: the strip is grey from end to end, and the key names the grey alone.
+    const dark = new Float64Array(720);
+    const { container, unmount } = showPeriod(30, { dates: true }, { sunFraction: dark });
+    expect(container.querySelector('[data-part="lit"]')).toBeNull();
+    expect(keyWords(container)).toEqual(['in shadow']);
+    expect(screen.queryByText('in sunlight')).toBeNull();
+    unmount();
+    // Explore's key names the yellow alone, so for such a period it has no entry at all.
+    const explore = showPeriod(30, {}, { sunFraction: dark });
+    expect(explore.container.querySelector('[data-part^="key"]')).toBeNull();
+    expect(explore.container.querySelector('[data-swatch]')).toBeNull();
   });
 
   it('keeps all five keys on one baseline on a line of their own, at the right on a wide screen, so the bar keeps one height while the words change', () => {
@@ -707,6 +779,23 @@ describe('TimeBar', () => {
     expect(key.getAttribute('aria-expanded')).toBe('false');
     expect(group.classList.contains('max-sm:hidden')).toBe(true);
     expect(key.classList.contains('bg-surface-2')).toBe(false);
+  });
+
+  it('on a phone when compact, keeps to the same rule behind the Key button: the keys it opens name only what the bar draws', () => {
+    // The stand view's period, where the only radio drawn is hatched: no "radio contact" behind the button either.
+    showStandPeriod({ compact: true });
+    const key = screen.getByRole('button', { name: 'Key' });
+    fireEvent.click(key);
+    const group = document.getElementById(key.getAttribute('aria-controls')!)!;
+    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio, if it survives the night']);
+    cleanup();
+    // A lander that keeps its power all through: no "lander off" behind the button.
+    const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
+    showPeriod(30, { dates: true, powered: new Uint8Array(720).fill(1), compact: true }, { earthVisible });
+    const open = screen.getByRole('button', { name: 'Key' });
+    fireEvent.click(open);
+    const keys = document.getElementById(open.getAttribute('aria-controls')!)!;
+    expect([...keys.children].map((k) => k.textContent)).toEqual(['in sunlight', 'Earth in view', 'radio contact']);
   });
 
   it('on a phone when compact, keeps the Key button on the line of the date and hour, at its right end, the date breaking only after its comma', () => {

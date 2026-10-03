@@ -148,8 +148,18 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number)
  *
  * Once the battery has run out in the night, what the lander does after the power comes back holds only if
  * it survives that night, which the forecast does not work out: from `ifSurvivesFrom` on, the radio band is
- * hatched in its green rather than solid, and the key adds "radio, if it survives the night" after "radio
- * contact", the hatching named so that the words never read as a fragment.
+ * hatched in its green rather than solid, and the key names it "radio, if it survives the night", after
+ * "radio contact" when some of the band is still solid, the hatching named so that the words never read as
+ * a fragment.
+ *
+ * The key names only what the bar draws for the period shown, so no reader goes looking for a band that is
+ * not there: each entry comes only with at least one hour of its own band, in its usual place among the
+ * others. "in sunlight" needs an hour with some of the Sun, "in shadow" one with none of it, "lander off" one
+ * without power, "Earth in view" one with Earth in view, "radio contact" one of solid green and "radio, if it
+ * survives the night" one of hatched green. So where the battery runs out before Earth comes into view, all
+ * the radio contact comes after the night and the key names only the hatched band; and on Explore, whose key
+ * names the yellow alone, a period with no sunlight has no key at all. The phone's key, behind the Key
+ * button, keeps to the same rule.
  *
  * With the dates, `moments` puts a flag right above the track at each of the period's key moments, such as
  * "Sunset 3 Jan": a click on one moves the handle to its hour, then tells the page (`onMoment`). A flag
@@ -262,9 +272,14 @@ export function TimeBar({
             { from: survives, to: r.to, ifSurvives: true },
           ],
   );
+  // The key names each kind of green only when some hour of it is drawn: a band all hatched, as when the battery
+  // runs out before Earth comes into view, has no solid "radio contact" to name.
+  const solid = contactRuns.some((r) => !r.ifSurvives);
   const ifSurvives = contactRuns.some((r) => r.ifSurvives);
   // The strip is grey wherever the yellow leaves a gap: by its own rule, an hour with any part of the Sun is yellow.
   const sunless = rich && lit.reduce((n, r) => n + r.to - r.from, 0) < hours;
+  // A period without such an hour has no yellow, so nothing for "in sunlight" to name.
+  const sunlit = lit.length > 0;
   // With the dates each band is 6 px tall and at least as wide, so one hour still shows as a dot, and each key's
   // swatch is a line as thick as its band. The off band alone, without the dates, keeps to 4 px.
   const band = dates ? { h: 'h-1.5', minW: 'min-w-1.5', swatch: 'border-y-2' } : { h: 'h-1', minW: 'min-w-1', swatch: 'border-y-[3px]' };
@@ -324,8 +339,8 @@ export function TimeBar({
       )}
     </span>
   );
-  // The track's yellow is the site in sunlight, not progress: a key says so. Not "Sun up": a Sun up behind the
-  // hills leaves the strip grey.
+  // The track's yellow is the site in sunlight, not progress: a key says so, when any yellow is drawn. Not "Sun
+  // up": a Sun up behind the hills leaves the strip grey.
   const sunKey = (
     <span data-part="key" className="flex items-center gap-2 text-[15px] text-ink-2 sm:ml-auto">
       <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full bg-sun" />
@@ -402,7 +417,7 @@ export function TimeBar({
                 id={keyed ? keysId : undefined}
                 className={`${dates ? 'flex basis-full flex-wrap items-baseline gap-x-3 sm:justify-end' : 'flex flex-wrap items-baseline gap-x-3 sm:ml-auto'} ${compact ? ['max-sm:gap-x-2 max-sm:[&>span]:text-[14px] max-sm:[&_i]:w-4', dates && 'md:ml-auto md:basis-auto', !keyOpen && 'max-sm:hidden'].filter(Boolean).join(' ') : ''}`}
               >
-                {sunKey}
+                {sunlit && sunKey}
                 {sunless && (
                   <span data-part="key-no-sun" className="flex items-center gap-2 text-[15px] text-ink-2">
                     {/* The strip's own grey, where no yellow is drawn, with an edge light enough to see on the dark bar. */}
@@ -423,7 +438,7 @@ export function TimeBar({
                     Earth in view
                   </span>
                 )}
-                {contact.length > 0 && (
+                {solid && (
                   <span data-part="key-contact" className="flex items-center gap-2 text-[15px] text-ink-2">
                     <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border-y-2 border-transparent bg-good bg-clip-padding" />
                     radio contact
@@ -438,7 +453,7 @@ export function TimeBar({
                 )}
               </span>
             ) : (
-              sunKey
+              sunlit && sunKey
             ))}
           </p>
           <div data-part="track" className="col-start-2 max-sm:col-span-2 max-sm:col-start-1">
