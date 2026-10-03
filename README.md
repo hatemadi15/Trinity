@@ -26,18 +26,22 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   Earth is in view while the lander has power, a better landing day inside the period ("Land on 20
   January instead") or a better place nearby, and a search of the next 12 months. Below it: the
   numbers (every figure under "All numbers"), a chart of the Sun, Earth and the battery hour by
-  hour with the hills in each direction, the ground at the time bar's hour (a north-up shadow map,
-  the same light on the terrain in 3D, and the view all round), and where the site lies with its
+  hour with the hills in each direction, the ground at the time bar's hour (three tabs: a north-up
+  shadow map, a 3D model in the same light and a horizon chart), and where the site lies with its
   nearest neighbours. The time bar at the bottom plays the period hour by hour. The period is 14,
   30 or 90 days from a date you choose; the Lander dialog offers three ready-made landers or your
   own panel, load, battery and mast. `/explore?site=&start=&days=` links to one forecast.
-- **Stand on the Moon** (`/explore/stand`, "Stand here" on Explore): the view from the landing site,
-  full window, for Explore's site, period and hour. NASA's ground out to 125 km, lit by the hour's
+- **Stand on the Moon** (`/explore/stand`, "Stand at the site" on Explore): the view from the landing
+  site, full window, for Explore's site, period and hour. NASA's ground out to 125 km, lit by the hour's
   Sun with the shadows worked out from those heights; the Sun small and white in a black sky; Earth
-  from NASA's Blue Marble, turned for the hour; the real stars, placed for the site and hour. Explore's
-  answer, the sentence for the hour and the lander's state sit on top, the time bar below; Play sweeps
-  the shadows across the ground. `?hour=` sets the hour and `?quality=fast` lightens the drawing for
-  weaker graphics; without WebGL 2 the view all round stands in, with the same words.
+  from NASA's Blue Marble, turned for the hour; the real stars, placed for the site and hour (by day
+  they show once you look up, away from the bright ground). A lander stands 16 m away, with rocks and
+  small craters around you: these are drawn, not measured, and the view says so. A card at the top
+  left gives the answer (power, radio contact, the night and a better landing day) and the lander's
+  state at the hour; the time bar below plays the period and carries flags for its key moments (the
+  Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back).
+  `?hour=` sets the hour and `?quality=fast` lightens the drawing for weaker graphics; without WebGL 2
+  the horizon chart stands in, with the same words.
 - **Compare sites** (`/compare`): up to four sites in one table for the same days and lander:
   sunlight, Earth in view, longest night and time with power (and when the power comes back), with a small Sun and
   Earth strip per site and one sentence naming the best site for each measure. Empty, it offers two

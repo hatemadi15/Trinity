@@ -16,7 +16,7 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 [Scroll to "Start from a real place"; click "Explore this site" on de Gerlache Rim 2.] This ridge is one of the nine regions NASA shortlisted for the first crewed Artemis landing. The page opens on the answer, in one sentence: a small solar lander landing on 1 January has power for 3 days 4 hours, then night. [Point at the chart "Why: the 30 days, hour by hour".] Here is why: the gold line is the Sun, skimming the hills; on 3 January it drops behind them and stays there for more than two weeks, and the battery runs out. [Press Play on the time bar.] The shadow map is computed from NASA's elevation data for each hour, with north up: watch the ridge go dark.
 
-[Click "Stand here".] And this is the same hour standing on the ridge: NASA's ground out to 125 kilometres, the shadows worked out from those heights, a white Sun in a black sky, Earth turned for the hour and the real stars. [Press Play.] Watch the Sun slide along the skyline and drop behind the ridge, while Earth stays up. Every line on the plates is the same answer as on Explore. [Click "Back to Explore".]
+[Click "Stand at the site".] And this is the same hour standing on the ridge: NASA's ground out to 125 kilometres, the shadows worked out from those heights, a small white Sun low in a black sky, and a lander beside you for scale. The card says what the forecast said: power for three days, no radio contact, then sixteen days without power. Earth is below the horizon; the pointer at the edge of the screen says by how much. [Press Play.] Watch the shadows sweep across the ground and the Sun drop behind the hills on 3 January; the battery runs out the next day. [Click the flag "Earth in view, 10 Jan".] Earth comes over the hills on 10 January, but by then the lander has no power to call it. [Click "Back to the forecast".]
 
 [Point at the line under the answer.] Twelve kilometres away, the rim summit keeps power for all 30 days from the same landing day. [Click "Explore de Gerlache rim summit".] Green. A few kilometres decide whether a lander lives.
 
@@ -36,7 +36,7 @@ Planners get a first answer in a minute and a brief they can hand to engineering
 
 ## 4:20 — Data and team (20 s)
 
-NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and 955 automated tests keep the two in step. Team Astroy/Ed.
+NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and 1,171 automated tests keep the two in step. Team Astroy/Ed.
 
 ## 4:40 — Close (20 s)
 
