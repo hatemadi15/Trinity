@@ -14,28 +14,32 @@ import { flatField, heightAt, terrainField } from '@/lib/sky/terrainField';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong } from '@/lib/viz/format';
-import { betterLabel, keyMoments, measuredNote, momentCaption, nightHeadline, radioHeadline, radioNext, skyLabel, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines } from '@/lib/viz/stand';
+import { betterLabel, keyMoments, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates blur what is behind them, so no thin line of the sky shows through the words.
 const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/90 backdrop-blur-sm';
-const LOOK = 'min-h-10 rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/10';
+// Hover lightens a button a little; the keyboard's focus gets a ring, so neither reads as a button left on.
+const LOOK = 'min-h-10 rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f6d48a]';
 /** The dot by the lander's line: green only with radio contact (as on the time bar), amber with power alone, red when off. */
 const TONE = { radio: 'bg-[#8ddcaa]', power: 'bg-[#f6c86a]', off: 'bg-[#ff9180]' } as const;
 const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): RendererLike => new StandRenderer(canvas, scene);
 /**
  * The lander stands where it landed, at the period's first hour: 16 m away, 30° to the right of the Sun
- * then (or of Earth when the period starts in the dark), whatever hour the view opens on. It is turned so
- * the Sun lights one of the faces we see, its +x face 75° left of that Sun (from in front of the Sun
- * everything else is lit from behind). The view opens 5° right of the Sun or Earth, which keeps the Sun
- * clear of the answer's panel.
+ * then (or of Earth when the period starts in the dark; 20° on a tall screen, whose view is narrower),
+ * whatever hour the view opens on. It is turned so the Sun lights one of the faces we see, its +x face 75°
+ * left of that Sun (from in front of the Sun everything else is lit from behind). The view opens 5° right
+ * of the Sun or Earth, which keeps the Sun clear of the answer's panel; on a tall screen halfway between the
+ * Sun and the lander, so both fit across it.
  */
 const LANDER_DIST_M = 16;
-const LANDER_RIGHT_DEG = 30;
 const LANDER_FACE_LEFT_DEG = 75;
 const OPEN_RIGHT_DEG = 5;
-/** On a tall screen the view opens halfway between the Sun and the lander, so both fit across it. */
-const openRight = () => (typeof window !== 'undefined' && window.innerHeight > window.innerWidth ? LANDER_RIGHT_DEG / 2 : OPEN_RIGHT_DEG);
+const tall = () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
+const landerRight = () => (tall() ? 20 : 30);
+const openRight = () => (tall() ? landerRight() / 2 : OPEN_RIGHT_DEG);
+/** How far out from the lander's middle its nearest foot stands, metres: the opening keeps it in sight. */
+const LANDER_FOOT_M = 1.9;
 
 /** "How we know this", folded away until asked for. */
 function HowWeKnow({ note, className }: { note: string; className: string }) {
@@ -113,10 +117,18 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     // Where it landed: placed by the period's first hour, not the hour the view opens on.
     const landing = openingAnchor(s.series, 0);
     const lander = s.power
-      ? { azDeg: (landing + LANDER_RIGHT_DEG) % 360, distM: LANDER_DIST_M, powered: s.power.powered, faceAzDeg: (s.series.sunAz[0] - LANDER_FACE_LEFT_DEG + 360) % 360, earthAzDeg: s.series.earthAz[0], earthElDeg: s.series.earthEl[0] }
+      ? { azDeg: (landing + landerRight()) % 360, distM: LANDER_DIST_M, powered: s.power.powered, faceAzDeg: (s.series.sunAz[0] - LANDER_FACE_LEFT_DEG + 360) % 360, earthAzDeg: s.series.earthAz[0], earthElDeg: s.series.earthEl[0] }
       : undefined;
     return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander };
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality]);
+  // How far below level the lander's nearest foot lies from the eye: the opening view keeps it in sight.
+  const feetEl = useMemo(() => {
+    if (!scene?.lander) return null;
+    const l = scene.lander, a = (l.azDeg * Math.PI) / 180;
+    const ground = heightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
+    const eye = heightAt(scene.field, 0, 0) + scene.mastM;
+    return (Math.atan2(ground - eye, l.distM - LANDER_FOOT_M) * 180) / Math.PI;
+  }, [scene]);
   const onFail = useCallback(() => setFailed('webgl'), []);
   const onReady = useCallback(() => setDrawn(true), []);
 
@@ -161,9 +173,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const hour = Math.min(series.hours - 1, Math.max(0, s.cursorHour));
   const name = siteLabel(site);
   const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best });
-  // The site's name stays on one line: "de Gerlache Rim 2", never "Rim / 2".
-  // The headline gives both verdicts the challenge asks for: power, and radio contact with Earth.
-  const title = radioHeadline(nightHeadline(answer.title, series, power, s.startUtc), answer.contactHours, answer.poweredHours).replace(name, name.replace(/ /g, ' '));
+  // The headline gives both verdicts the challenge asks for, power and radio contact with Earth, and how long
+  // the night lasts; the site's name is in the line above it, kept on one line ("de Gerlache Rim 2", never
+  // "Rim / 2").
+  const title = standHeadline(answer.title, name, series, power, s.startUtc, answer.contactHours, answer.poweredHours);
+  const oneLine = name.replace(/ /g, ' ');
+  // Without NASA heights the ground is drawn flat, and the line above the headline says so.
+  const flat = !!scene && scene.field.levels.length === 0;
   const lander = statusLine(series, power, s.startUtc, hour);
   // The better landing day opens its own view, from its first hour; the button says why it is better.
   const better =
@@ -192,23 +208,23 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const radio = radioNext(series, power, s.startUtc);
   // The key moments, as flags on the time bar: each moves the time there, turns the view to what it is about
   // (the lander for its power, Earth for Earth, else the Sun) and says why.
-  const moments = keyMoments(series, power, s.startUtc).map((m) => ({ label: `${m.label}, ${m.day}`, hour: m.hour, kind: m.label }));
+  const moments = keyMoments(series, power, s.startUtc).map((m) => ({ label: `${m.label}, ${m.day}`, hour: m.hour, kind: m.kind }));
   const onMoment = (f: { label: string; hour: number }) => {
     const m = moments.find((x) => x.label === f.label && x.hour === f.hour);
     if (!m) return;
-    if (m.kind === 'Battery runs out' || m.kind === 'Power back') faceLander();
-    else if (m.kind === 'Earth in view') face(series.earthAz[m.hour], series.earthEl[m.hour], 16);
+    if (m.kind === 'battery-out' || m.kind === 'power-back') faceLander();
+    else if (m.kind === 'earth-in') face(series.earthAz[m.hour], series.earthEl[m.hour], 16);
     else face(series.sunAz[m.hour], series.sunEl[m.hour] - 2, 46);
     setCaption(momentCaption(m.kind, series, m.hour, site.lat) || null);
   };
   const opening = openHour === null ? hour : Math.min(series.hours - 1, Math.max(0, openHour));
-  // Looking up: towards the Southern Cross (else away from the Sun), wide and raised so the horizon stays
-  // in sight along the bottom edge.
+  // Looking up: towards the Southern Cross (else away from the Sun), wide, and raised just so far that the
+  // level horizon runs straight along the bottom of the view.
   const lookUp = () => {
     setLookingUp(true);
     setCaption(null);
     const cross = scene ? lookUpTarget(scene.sky, site.lat, site.lon, Date.parse(s.startUtc + 'Z') + hour * 3600e3) : null;
-    setLook({ yaw: cross ? cross.az : (series.sunAz[hour] + 180) % 360, pitch: 32, fov: 70 });
+    setLook({ yaw: cross ? cross.az : (series.sunAz[hour] + 180) % 360, pitch: 20, fov: 75, horizon: 'low' });
   };
   const crossNamed = !!scene && scene.sky.names?.some((n) => n.name === 'Acrux');
   // The line over the view: why a key moment happens, why Earth sits where it does, what looking up shows,
@@ -237,12 +253,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           onFail={onFail}
           onReady={onReady}
           clean={wordsHidden}
+          keepInView={feetEl}
         />
       )}
       {failed && s.mask && (
         <div className="fixed inset-x-4 top-1/2 mx-auto max-w-[900px] -translate-y-1/3">
           <p className="mb-3 text-[15px] text-[#c3bfb6]">
-            {failed === 'webgl' ? 'This browser cannot draw the view from the site, so here is the view all round instead.' : 'The view from the site could not be loaded, so here is the view all round instead.'}
+            {failed === 'webgl' ? 'This browser cannot draw the view from the site, so here is the horizon chart instead.' : 'The view from the site could not be loaded, so here is the horizon chart instead.'}
           </p>
           <HorizonView mask={s.mask} series={series} cursor={hour} lat={site.lat} startUtc={s.startUtc} />
         </div>
@@ -260,11 +277,11 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             ref={topRef}
             data-plate=""
             aria-label="The answer for this site"
-            className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 p-3.5 md:gap-2.5 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-48px)] max-md:overflow-y-auto`}
+            className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 md:max-h-[calc(100dvh-var(--bar-h,185px)-32px)] md:gap-2.5 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-48px)]`}
           >
-            <p className="text-[15px] text-[#c3bfb6] max-md:hidden">{standingLine(site, name, true)}</p>
-            {/* A phone keeps the Moon and the pole, in one line. */}
-            <p className="text-[13px] text-[#c3bfb6] md:hidden">{standingLine(site, name, true).replace(' Drawn from NASA data.', '')}</p>
+            <p className="text-[15px] text-[#c3bfb6] max-md:hidden">{standingLine(site, oneLine, 'top', flat)}</p>
+            {/* A phone keeps the site and the pole, in one line. */}
+            <p className="text-[13px] text-[#c3bfb6] md:hidden">{standingLine(site, oneLine, 'phone')}</p>
             <h1 className="display text-pretty text-[18px] font-bold leading-tight sm:text-[28px]">{title}</h1>
             <p className="flex items-baseline gap-2 text-[15px] md:text-base">
               <i aria-hidden="true" data-tone={lander.tone} className={`h-3 w-3 shrink-0 translate-y-px rounded-full ${TONE[lander.tone]}`} />
@@ -275,25 +292,27 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
               {better && (
                 // A new period: the whole view opens again from its first hour.
-                <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}>
+                <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a] ${more ? '' : 'max-md:hidden'}`}>
                   {better.label}
                 </a>
               )}
               <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4" aria-expanded={more} onClick={() => setMore((m) => !m)}>
                 {more ? 'Less' : 'More'}
               </button>
-              <Link href={exploreHref(site.id, s.startUtc, s.days)} className={`flex min-h-10 items-center text-[15px] underline underline-offset-4 ${more ? '' : 'max-md:hidden'}`}>
+              <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center text-[15px] underline underline-offset-4">
                 Back to the forecast
               </Link>
             </div>
             {more && (
               <div className="grid gap-2 border-t border-white/10 pt-3 text-[15px] text-[#e4e1da]">
-                <p>{standingLine(site, name, false)}</p>
+                <p>{standingLine(site, name, 'more')}</p>
                 {contact && <p>{radio ? `${contact} ${radio}` : contact}</p>}
                 {whyLines(site.lat, series, hour).map((w) => (
                   <p key={w}>{w}</p>
                 ))}
                 {note && <HowWeKnow note={note} className="" />}
+                {/* A fade at the card's foot while more lies below, so the scroll shows. */}
+                <div aria-hidden="true" className="pointer-events-none sticky -bottom-3.5 -mx-3.5 -mb-3.5 h-7 bg-gradient-to-t from-[#060607] to-transparent md:-bottom-5 md:-mx-5 md:-mb-5" />
               </div>
             )}
           </section>
@@ -323,10 +342,20 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <Short short="Earth" long="Face Earth" />
                 </button>
                 {scene?.lander && (
-                  <button type="button" aria-label="Face the lander" className={LOOK} onClick={faceLander}>
+                  <button
+                    type="button"
+                    aria-label="Face the lander"
+                    className={LOOK}
+                    onClick={() => {
+                      faceLander();
+                      setCaption(viewCaption('lander', site.lat));
+                    }}
+                  >
                     <Short short="Lander" long="Face the lander" />
                   </button>
                 )}
+                {/* On a phone the "Face" buttons end here: what follows is not a way to face. */}
+                <i aria-hidden="true" className="h-7 w-px shrink-0 bg-white/25 md:hidden" />
                 {lookingUp ? (
                   <button type="button" aria-label="Look ahead" className={`${LOOK} md:min-w-[7.25rem]`} onClick={() => face(series.sunAz[hour], 0.5, 60)}>
                     <Short short="Ahead" long="Look ahead" />

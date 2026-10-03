@@ -1,11 +1,18 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { crossStars, type StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
+import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
 
 export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void> };
 /** Where to turn the view; a new object turns it again, even to the same place. */
-export interface LookTarget { yaw: number; pitch: number; fov: number }
+export interface LookTarget {
+  yaw: number;
+  pitch: number;
+  fov: number;
+  /** "low": keep the level horizon along the bottom of the room (looking up); `pitch` is then worked out. */
+  horizon?: 'low';
+}
 
 /**
  * Degrees the view rests higher (or lower, when negative), so the horizon (the Sun on it) sits where the
@@ -19,6 +26,37 @@ export function horizonLift(width: number, height: number, fovDeg: number, freeT
   const y = wide ? 0.55 * freeBottom : freeTop + 0.4 * (freeBottom - freeTop);
   const t = ((y - height / 2) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
   return Math.max(-15, Math.min(15, (Math.atan(t) * 180) / Math.PI));
+}
+
+/**
+ * The pitch (degrees) at which the level horizon runs straight along the bottom of the room, 36 px above
+ * `freeBottom` (pixels down the screen): looking up with the ground kept in sight as one level line, never
+ * as a sliver of slope curving up from a corner.
+ */
+export function lowHorizonPitch(height: number, fovDeg: number, freeBottom: number): number {
+  const y = freeBottom - 36;
+  return (Math.atan(((y - height / 2) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360)) * 180) / Math.PI;
+}
+
+/**
+ * The opening view's pitch, lowered just enough that the point `elDeg` below level (the lander's feet) sits
+ * 28 px above `freeBottom`, and by 10 degrees at most; `pitchDeg` as it is when that point is in view already.
+ */
+export function fitPitch(height: number, fovDeg: number, freeBottom: number, elDeg: number, pitchDeg: number): number {
+  const t = ((height / 2 - (freeBottom - 28)) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
+  const p = elDeg - (Math.atan(t) * 180) / Math.PI;
+  return p >= pitchDeg ? pitchDeg : Math.max(p, pitchDeg - 10);
+}
+
+/**
+ * ", uphill" or ", downhill" when the view faces within 45° of up or down the slope you stand on (uphill
+ * towards `upAzDeg`, `grade` its rise per metre), when it is steeper than 5°; else nothing. A tilted skyline
+ * then reads as the slope it is, not as a tilted head.
+ */
+export function slopeWord(yawDeg: number, upAzDeg: number, grade: number): string {
+  if (grade < Math.tan((5 * Math.PI) / 180)) return '';
+  const rel = Math.abs(((((yawDeg - upAzDeg + 540) % 360) + 360) % 360) - 180);
+  return rel <= 45 ? ', uphill' : rel >= 135 ? ', downhill' : '';
 }
 
 /** The Southern Cross's four stars, named only while the cross's own name is not shown. */
@@ -51,21 +89,26 @@ export function compassMark(azDeg: number, yawDeg: number): { x: number | null; 
 
 /**
  * Which side of its star each name goes, in order: on the right, or on the left when the right would touch a
- * name already placed (8 px apart at least), or left out when both would. `x`, `y` is the star on the
+ * name already placed (8 px apart at least) or another named star's dot, or left out when both would. `x`, `y` is the star on the
  * screen, `w`, `h` its name's size, in pixels.
  */
 export function labelSides(spots: { x: number; y: number; w: number; h: number; visible: boolean }[]): ('right' | 'left' | 'none')[] {
-  const taken: { l: number; r: number; t: number; b: number }[] = [];
-  const free = (q: { l: number; r: number; t: number; b: number }) => !taken.some((o) => q.l < o.r + 8 && q.r + 8 > o.l && q.t < o.b && q.b > o.t);
-  return spots.map((s) => {
+  type Box = { l: number; r: number; t: number; b: number };
+  const taken: Box[] = [];
+  // The other named stars' dots: no name may cover one (2 px clear of it).
+  const dots = spots.map((s) => (s.visible ? { l: s.x - 3, r: s.x + 3, t: s.y - 3, b: s.y + 3 } : null));
+  const free = (q: Box, self: number) =>
+    !taken.some((o) => q.l < o.r + 8 && q.r + 8 > o.l && q.t < o.b && q.b > o.t) &&
+    !dots.some((o, k) => o !== null && k !== self && q.l < o.r + 2 && q.r + 2 > o.l && q.t < o.b + 2 && q.b + 2 > o.t);
+  return spots.map((s, k) => {
     if (!s.visible) return 'none';
     const t = s.y - s.h / 2, b = s.y + s.h / 2;
     const right = { l: s.x + 8, r: s.x + 8 + s.w, t, b }, left = { l: s.x - 8 - s.w, r: s.x - 8, t, b };
-    if (free(right)) {
+    if (free(right, k)) {
       taken.push(right);
       return 'right';
     }
-    if (free(left)) {
+    if (free(left, k)) {
       taken.push(left);
       return 'left';
     }
@@ -76,27 +119,30 @@ const SIDE = { right: 'translate(8px, -50%)', left: 'translate(calc(-100% - 8px)
 
 type PartSide = 'above' | 'below' | 'left' | 'right';
 type Rect = { left: number; top: number; right: number; bottom: number };
-/** Where a lander part's name sits off the part: 6 px above or below it, or 12 px to one side. */
+/** A lander part's name hangs off the part on a leader line: 26 px long to one side, 20 px above or below. */
+const LEADER_X = 26, LEADER_Y = 20;
+/** Where the name and its line sit for each side: the line's free end on the part. */
 const PART_SIDE: Record<PartSide, string> = {
-  above: 'translate(-50%, calc(-100% - 6px))',
-  below: 'translate(-50%, 6px)',
-  left: 'translate(calc(-100% - 12px), -50%)',
-  right: 'translate(12px, -50%)',
+  above: 'translate(-50%, -100%)',
+  below: 'translate(-50%, 0)',
+  left: 'translate(-100%, -50%)',
+  right: 'translate(0, -50%)',
 };
 
 /**
- * Which side of a lander part its name goes: the first of `sides` where the name (`w` × `h` pixels, off the
- * part at `x`, `y`) stays on the `W` × `H` screen and 4 px clear of every panel on it, or null when none does.
+ * Which side of a lander part its name goes: the first of `sides` where the name (`w` × `h` pixels, at the
+ * end of its leader line from the part at `x`, `y`) stays on the `W` × `H` screen and 4 px clear of every
+ * panel on it, or null when none does.
  */
 export function partSide(x: number, y: number, w: number, h: number, sides: readonly PartSide[], plates: Rect[], W: number, H: number): PartSide | null {
   const box = (s: PartSide): Rect =>
     s === 'above'
-      ? { left: x - w / 2, right: x + w / 2, top: y - 6 - h, bottom: y - 6 }
+      ? { left: x - w / 2, right: x + w / 2, top: y - LEADER_Y - h, bottom: y }
       : s === 'below'
-        ? { left: x - w / 2, right: x + w / 2, top: y + 6, bottom: y + 6 + h }
+        ? { left: x - w / 2, right: x + w / 2, top: y, bottom: y + LEADER_Y + h }
         : s === 'left'
-          ? { left: x - 12 - w, right: x - 12, top: y - h / 2, bottom: y + h / 2 }
-          : { left: x + 12, right: x + 12 + w, top: y - h / 2, bottom: y + h / 2 };
+          ? { left: x - LEADER_X - w, right: x, top: y - h / 2, bottom: y + h / 2 }
+          : { left: x, right: x + LEADER_X + w, top: y - h / 2, bottom: y + h / 2 };
   return (
     sides.find((s) => {
       const b = box(s);
@@ -153,6 +199,7 @@ export function StandCanvas({
   onFail,
   onReady,
   clean = false,
+  keepInView = null,
 }: {
   scene: StandScene;
   hour: number;
@@ -169,6 +216,8 @@ export function StandCanvas({
   onReady?: () => void;
   /** The clean view: no label and no compass over the picture. */
   clean?: boolean;
+  /** Degrees below level that the opening view keeps in sight above the time bar (the lander's feet). */
+  keepInView?: number | null;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
@@ -176,6 +225,13 @@ export function StandCanvas({
   const shadowRef = useRef<HTMLSpanElement>(null);
   const cleanRef = useRef(clean);
   const partRefs = useRef<Record<'panel' | 'dish' | 'lamp', HTMLSpanElement | null>>({ panel: null, dish: null, lamp: null });
+  const lampTextRef = useRef<HTMLSpanElement>(null);
+  // Looking up with the horizon kept along the bottom; the opening view (until the first turn), which keeps
+  // the lander's feet in sight, and how much lower than the view's own pitch it looks for them.
+  const lowRef = useRef(false);
+  const openingRef = useRef(true);
+  const fitOffset = useRef(0);
+  const keepRef = useRef(keepInView);
   const earthRef = useRef<HTMLSpanElement>(null);
   const starRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const facingRef = useRef<HTMLParagraphElement>(null);
@@ -209,14 +265,26 @@ export function StandCanvas({
     cleanRef.current = clean;
   }, [clean]);
   useEffect(() => {
+    keepRef.current = keepInView;
+  }, [keepInView]);
+  useEffect(() => {
     failRef.current = onFail;
   }, [onFail]);
   useEffect(() => {
     readyRef.current = onReady;
   }, [onReady]);
+  /** The opening view ends: its lower pitch becomes the view's own, so nothing jumps. */
+  const endOpening = () => {
+    if (!openingRef.current) return;
+    view.current.pitch += fitOffset.current;
+    fitOffset.current = 0;
+    openingRef.current = false;
+  };
   useEffect(() => {
     if (!look) return;
-    goal.current = look;
+    endOpening();
+    lowRef.current = look.horizon === 'low';
+    goal.current = { ...look };
     intro.current = null;
   }, [look]);
 
@@ -239,6 +307,10 @@ export function StandCanvas({
     const size = () => r.resize(el.clientWidth || window.innerWidth, el.clientHeight || window.innerHeight);
     size();
     window.addEventListener('resize', size);
+    // The slope you stand on, over 10 m each way, for the facing line.
+    const hAt = (x: number, z: number) => heightAt(scene.field, x, z);
+    const gx = (hAt(10, 0) - hAt(-10, 0)) / 20, gz = (hAt(0, 10) - hAt(0, -10)) / 20;
+    const slope = { grade: Math.hypot(gx, gz), upAz: ((Math.atan2(gx, -gz) * 180) / Math.PI + 360) % 360 };
     let shown = hourRef.current;
     let last = performance.now();
     r.setTime(shown);
@@ -274,21 +346,6 @@ export function StandCanvas({
         r.setTime(shown);
       }
       const v = view.current;
-      const i = intro.current;
-      if (i && !drag.current) {
-        if (i.start === 0) i.start = now;
-        const f = Math.min(1, (now - i.start) / 3800);
-        v.pitch = 34 + (2 - 34) * (1 - Math.pow(1 - f, 3));
-        if (f >= 1) intro.current = null;
-      }
-      const g = goal.current;
-      if (g) {
-        const k = easeStep(step);
-        v.yaw = lerpAngle(v.yaw, g.yaw, k);
-        v.pitch += (g.pitch - v.pitch) * k;
-        v.fov += (g.fov - v.fov) * k;
-        if (Math.abs(((g.yaw - v.yaw + 540) % 360) - 180) < 0.1 && Math.abs(g.pitch - v.pitch) < 0.1 && Math.abs(g.fov - v.fov) < 0.1) goal.current = null;
-      }
       // The panels on the screen: labels keep off them, and on a tall screen the horizon sits between them.
       plates = [...document.querySelectorAll('[data-plate]')].map((p) => p.getBoundingClientRect()).filter((p) => p.width > 0);
       const W = el.clientWidth || window.innerWidth, H = el.clientHeight || window.innerHeight;
@@ -298,9 +355,38 @@ export function StandCanvas({
         // On a wide screen only what spans the screen (the time bar) bounds the room below, not the compass.
         else if (p.bottom > H * 0.6 && p.top > H * 0.35 && (H > W || p.width >= W * 0.5)) freeBottom = Math.min(freeBottom, p.top);
       }
-      // Only near the horizon: looking up keeps its own framing, the horizon along the bottom edge.
-      const lift = horizonLift(W, H, v.fov, freeTop, freeBottom) * Math.max(0, Math.min(1, (30 - v.pitch) / 10));
-      r.setView(v.yaw, Math.max(-35, Math.min(89, v.pitch + lift)), v.fov);
+      const i = intro.current;
+      let settled = 1;
+      if (i && !drag.current) {
+        if (i.start === 0) i.start = now;
+        const f = Math.min(1, (now - i.start) / 3800);
+        settled = 1 - Math.pow(1 - f, 3);
+        v.pitch = 34 + (2 - 34) * settled;
+        if (f >= 1) intro.current = null;
+      }
+      const g = goal.current;
+      // Looking up, the pitch follows the room, so the level horizon stays along its bottom.
+      if (lowRef.current) {
+        if (g) g.pitch = lowHorizonPitch(H, g.fov, freeBottom);
+        else v.pitch = lowHorizonPitch(H, v.fov, freeBottom);
+      }
+      if (g) {
+        const k = easeStep(step);
+        v.yaw = lerpAngle(v.yaw, g.yaw, k);
+        v.pitch += (g.pitch - v.pitch) * k;
+        v.fov += (g.fov - v.fov) * k;
+        if (Math.abs(((g.yaw - v.yaw + 540) % 360) - 180) < 0.1 && Math.abs(g.pitch - v.pitch) < 0.1 && Math.abs(g.fov - v.fov) < 0.1) goal.current = null;
+      }
+      // Only near the horizon, and not while looking up, which keeps its own framing.
+      const lift = lowRef.current ? 0 : horizonLift(W, H, v.fov, freeTop, freeBottom) * Math.max(0, Math.min(1, (30 - v.pitch) / 10));
+      let pitch = v.pitch + lift;
+      // The opening view looks a little lower if it must, so the lander's feet stay in sight above the bar.
+      if (openingRef.current && keepRef.current !== null) {
+        const fitted = fitPitch(H, v.fov, freeBottom, keepRef.current, pitch);
+        fitOffset.current = (fitted - pitch) * settled;
+        pitch += fitOffset.current;
+      }
+      r.setView(v.yaw, Math.max(-35, Math.min(89, pitch)), v.fov);
       r.render();
       if (!drawnRef.current || cleanRef.current) {
         for (const n of [sunRef.current, earthRef.current, landerRef.current, shadowRef.current, ...Object.values(partRefs.current), ...starRefs.current]) if (n) n.hidden = true;
@@ -314,7 +400,7 @@ export function StandCanvas({
       const close = v.fov < ZOOMED_FOV;
       place(landerRef.current, close && l.parts?.panel.visible ? null : l.lander);
       // The power light says whether it is lit.
-      const lampNode = partRefs.current.lamp, hr0 = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));
+      const lampNode = lampTextRef.current, hr0 = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));
       const lampText = `Power light: ${scene.lander && Number(scene.lander.powered[hr0]) === 1 ? 'on' : 'off'}`;
       if (lampNode && lampNode.textContent !== lampText) lampNode.textContent = lampText;
       // Each part's name on the first of its sides clear of the panels, so none is lost behind the card.
@@ -328,16 +414,18 @@ export function StandCanvas({
         node.style.left = `${s.x * 100}%`;
         node.style.top = `${s.y * 100}%`;
         node.hidden = false;
-        const b = node.getBoundingClientRect();
+        const b = (node.querySelector('[data-text]') ?? node).getBoundingClientRect();
         const side = partSide(s.x * W, s.y * H, b.width, b.height, sides, plates, W, H);
-        if (side) node.style.transform = PART_SIDE[side];
-        else node.hidden = true;
+        if (side) {
+          node.style.transform = PART_SIDE[side];
+          node.dataset.side = side;
+        } else node.hidden = true;
       }
       // Your own shadow, long across the ground while the Sun is low.
       const sh = l.shadow;
       if (shadowRef.current && sh) {
-        const m = sh.lengthM >= 20 ? Math.round(sh.lengthM / 10) * 10 : Math.round(sh.lengthM);
-        const text = `Your shadow, about ${m} m long`;
+        // With the height it is worked out for, so the Sun's height can be checked from it.
+        const text = `Your shadow, ${Math.round(sh.lengthM)} m long (you are 1.8 m tall)`;
         if (shadowRef.current.textContent !== text) shadowRef.current.textContent = text;
       }
       place(shadowRef.current, sh ?? null);
@@ -362,7 +450,7 @@ export function StandCanvas({
         const b = node.getBoundingClientRect();
         if (b.width > 0 && plates.some((q) => b.right > q.left - 4 && b.left < q.right + 4 && b.bottom > q.top - 4 && b.top < q.bottom + 4)) node.hidden = true;
       });
-      const facing = v.pitch > 60 ? 'Looking up' : `Facing ${compassWord(v.yaw)}${v.fov < ZOOMED_FOV ? ', zoomed in' : ''}`;
+      const facing = v.pitch > 60 ? 'Looking up' : `Facing ${compassWord(v.yaw)}${slopeWord(v.yaw, slope.upAz, slope.grade)}${v.fov < ZOOMED_FOV ? ', zoomed in' : ''}`;
       for (const f of [facingRef.current, facingPhoneRef.current]) if (f && f.textContent !== facing) f.textContent = facing;
       if (trackRef.current) trackRef.current.style.transform = `translateX(${STRIP_W / 2 - (v.yaw + 360) * PX_PER_DEG}px)`;
       // The Sun, Earth and the lander on the compass strip: filled while in view, hollow while hidden.
@@ -405,6 +493,8 @@ export function StandCanvas({
   };
 
   const turn = (dYaw: number, dPitch: number, zoom = 1) => {
+    endOpening();
+    lowRef.current = false;
     const v = view.current;
     goal.current = null;
     intro.current = null;
@@ -423,6 +513,8 @@ export function StandCanvas({
         className={`fixed inset-0 h-full w-full touch-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         onPointerDown={(e) => {
           pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          endOpening();
+          lowRef.current = false;
           goal.current = null;
           intro.current = null;
           e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -506,7 +598,7 @@ export function StandCanvas({
                 className="flex items-center gap-1 whitespace-nowrap rounded border border-white/15 bg-black/75 px-1.5 text-[13px] leading-5"
               >
                 {side === 'left' && <i className={`h-2 w-2 rounded-full ${colour}`} />}
-                {name}
+                {k === 'sun' ? sunLabel : k === 'earth' ? earthLabel : name}
                 {side === 'right' && <i className={`h-2 w-2 rounded-full ${colour}`} />}
               </span>
             ))}
@@ -523,10 +615,10 @@ export function StandCanvas({
         {`Facing ${compassWord(startYaw)}`}
       </p>
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
-        <span ref={sunRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#f6b646]`}>
+        <span ref={sunRef} hidden data-sky="sun" className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#f6b646]`}>
           {sunLabel}
         </span>
-        <span ref={earthRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#74adff]`}>
+        <span ref={earthRef} hidden data-sky="earth" className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#74adff]`}>
           {earthLabel}
         </span>
         {scene.lander && (
@@ -545,10 +637,14 @@ export function StandCanvas({
                 partRefs.current[k] = node;
               }}
               hidden
+              data-side={sides[0]}
               style={{ transform: PART_SIDE[sides[0]] }}
-              className={`${LABEL} text-[14px] text-[#e4e1da]`}
+              className="group pointer-events-none absolute flex items-center data-[side=above]:flex-col-reverse data-[side=below]:flex-col data-[side=left]:flex-row-reverse"
             >
-              {name}
+              <i className="block shrink-0 bg-white/70 group-data-[side=above]:h-5 group-data-[side=above]:w-px group-data-[side=below]:h-5 group-data-[side=below]:w-px group-data-[side=left]:h-px group-data-[side=left]:w-[26px] group-data-[side=right]:h-px group-data-[side=right]:w-[26px]" />
+              <span data-text="" ref={k === 'lamp' ? lampTextRef : undefined} className="whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[14px] text-[#e4e1da]">
+                {name}
+              </span>
             </span>
           ))}
         {[...(scene.sky.names ?? []).map((n) => n.name), ...(crossStars(scene.sky.names) ? ['Southern Cross'] : [])].map((name, k) => (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compassMark, easeStep, horizonLift, labelSides, partSide, starNamesShown } from './StandCanvas';
+import { compassMark, easeStep, fitPitch, horizonLift, labelSides, lowHorizonPitch, partSide, slopeWord, starNamesShown } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -95,3 +95,48 @@ describe('turning the view', () => {
     expect(easeStep(-1)).toBe(0);
   });
 });
+
+describe('looking up with the horizon kept', () => {
+  it('pitches up just so far that the level horizon runs straight along the bottom of the room above the time bar', () => {
+    // 900 px tall, 75 degrees up and down, the time bar from 715 px: the horizon 36 px above it.
+    const p = lowHorizonPitch(900, 75, 715);
+    const y = 450 + (Math.tan((p * Math.PI) / 180) / Math.tan((37.5 * Math.PI) / 180)) * 450;
+    expect(y).toBeCloseTo(715 - 36, 6);
+    expect(p).toBeGreaterThan(15);
+    expect(p).toBeLessThan(30);
+  });
+});
+
+describe('the opening view', () => {
+  it('looks down just enough to keep the lander’s feet 28 px above the time bar, and never looks down for them more than 10 degrees', () => {
+    const tanHalf = Math.tan((30 * Math.PI) / 180);
+    const yOf = (el: number, pitch: number) => 450 - (Math.tan(((el - pitch) * Math.PI) / 180) / tanHalf) * 450;
+    // The feet 23 degrees below level: at a pitch of -4.2 they sit below the bar at 715 px.
+    expect(yOf(-23, -4.2)).toBeGreaterThan(715);
+    const p = fitPitch(900, 60, 715, -23, -4.2);
+    expect(yOf(-23, p)).toBeCloseTo(715 - 28, 6);
+    // Already in view: the pitch stays.
+    expect(fitPitch(900, 60, 715, -10, -4.2)).toBe(-4.2);
+    // Far below: at most 10 degrees lower.
+    expect(fitPitch(900, 60, 715, -60, -4.2)).toBeCloseTo(-14.2, 6);
+  });
+});
+
+describe('the slope you stand on', () => {
+  it('says uphill or downhill when the view faces up or down a slope steeper than 5 degrees, and nothing across it or on the level', () => {
+    const steep = Math.tan((12 * Math.PI) / 180);
+    expect(slopeWord(200, 180, steep)).toBe(', uphill');
+    expect(slopeWord(10, 180, steep)).toBe(', downhill');
+    expect(slopeWord(270, 180, steep)).toBe('');
+    expect(slopeWord(180, 180, Math.tan((3 * Math.PI) / 180))).toBe('');
+  });
+});
+
+describe('star names beside other stars', () => {
+  it('moves a name to the left of its star when on the right it would cover another named star’s dot', () => {
+    // Hadar at 820 px, Alpha Centauri’s dot 54 px to its right: Hadar’s 50 px name goes left.
+    const at = (x: number, y: number, w = 50, h = 20) => ({ x, y, w, h, visible: true });
+    expect(labelSides([at(820, 260), at(874, 262, 110)])).toEqual(['left', 'right']);
+  });
+});
+

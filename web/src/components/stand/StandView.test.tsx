@@ -4,10 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
-import { keyMoments, landerState, momentCaption, skyLabel, statusLine, watchNext } from '@/lib/viz/stand';
+import { keyMoments, landerState, momentCaption, skyLabel, statusLine, viewCaption, watchNext } from '@/lib/viz/stand';
 import { fileLoaders } from '@/test/file-loaders';
 import { StandView } from './StandView';
-import type { RendererLike } from './StandCanvas';
+import { lowHorizonPitch, type RendererLike } from './StandCanvas';
 
 // jsdom has no PointerEvent; this one carries the pointer's id on top of the mouse event's position.
 if (typeof window.PointerEvent === 'undefined') {
@@ -45,7 +45,7 @@ async function open(search: string, createRenderer: () => RendererLike = stub) {
   window.history.replaceState(null, '', `/explore/stand${search}`);
   const store = createExploreStore(fileLoaders());
   const view = render(<StandView store={store} createRenderer={() => createRenderer()} />);
-  await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing at/), { timeout: 20_000 });
+  await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing on /), { timeout: 20_000 });
   return { store, view };
 }
 
@@ -58,10 +58,15 @@ describe('StandView', () => {
     expect(st.cursorHour).toBe(10);
     // The headline says how long the night lasts, and keeps the site's name on one line.
     const h1 = screen.getByRole('heading', { level: 1 }).textContent!;
-    // Both verdicts the challenge asks for: power, and radio contact with Earth.
-    expect(h1).toMatch(/^Landing at de\sGerlache\sRim\s2 on 1 January: power for 3 days 4 hours, no radio contact, then night until 20 January$/);
-    expect(h1).toContain('de\u00a0Gerlache\u00a0Rim\u00a02');
-    expect(screen.getByText('Standing on the Moon, near its south pole. Drawn from NASA data.')).toBeTruthy();
+    // Both verdicts the challenge asks for, power and radio, and a night whose length adds up to the day the
+    // power comes back.
+    expect(h1).toBe('Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days of night');
+    // Where you stand, and what is measured and what is drawn: with NASA heights "hills from NASA heights,
+    // small craters and rocks drawn"; without, the ground is drawn flat.
+    expect(screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole: (hills from NASA heights, small craters and rocks drawn|no NASA heights here, so the ground is drawn flat, with small craters and rocks)\.$/)).toBeTruthy();
+    expect(screen.getByText(/^At de\sGerlache\sRim\s2, near the Moon's south pole\.$/)).toBeTruthy();
+    // The site's name stays on one line: no break inside "de Gerlache Rim 2".
+    expect(document.body.textContent).toContain('de\u00a0Gerlache\u00a0Rim\u00a02');
     // One line joins the lander's power and its radio; then what to watch next.
     expect(screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text)).toBeTruthy();
     const status = screen.getByText(statusLine(st.series!, st.power, st.startUtc, 10).text);
@@ -71,7 +76,7 @@ describe('StandView', () => {
     expect(screen.getByText(watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10))).toBeTruthy();
     // The better landing day, one click away, and the way back.
     // It says why, as a comparison: days of power and of radio from that landing.
-    const better = screen.getByRole('link', { name: /^Land on 20 January: power for \d+ days, radio for \d+$/ });
+    const better = screen.getByRole('link', { name: /^Try 20 January instead: power for \d+ days?, (radio for \d+ days?|no radio contact)$/ });
     expect(better.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
     expect(screen.getByRole('link', { name: 'Back to the forecast' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     // The rest waits under "More": the radio story, the whys and how we know.
@@ -117,11 +122,13 @@ describe('StandView', () => {
   it('labels the Sun and Earth as Explore does, and follows the time', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const series = store.getState().series!;
-    await waitFor(() => expect(screen.getByText(skyLabel('sun', series, 10))).toBeTruthy());
-    expect(screen.getByText(skyLabel('earth', series, 10))).toBeTruthy();
+    // The labels on the sky (the compass's end chips may say the same).
+    const sky = (body: 'sun' | 'earth') => document.querySelector(`[data-sky="${body}"]`)?.textContent;
+    await waitFor(() => expect(sky('sun')).toBe(skyLabel('sun', series, 10)));
+    expect(sky('earth')).toBe(skyLabel('earth', series, 10));
     act(() => store.getState().setCursor(300));
     await waitFor(() => expect(screen.getByText(statusLine(series, store.getState().power, store.getState().startUtc, 300).text)).toBeTruthy());
-    expect(screen.getByText(skyLabel('sun', series, 300))).toBeTruthy();
+    expect(sky('sun')).toBe(skyLabel('sun', series, 300));
   });
 
   it('clamps an hour beyond the period to its last hour', async () => {
@@ -131,12 +138,12 @@ describe('StandView', () => {
 
   it('opens a site without polar terrain on flat ground, and says so', async () => {
     await open('?site=blue_ghost_m1&start=2025-03-02T09:00&days=14&hour=0');
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing at Blue\sGhost/);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Landing on 2 March: power for all 14 days, radio all the while');
     fireEvent.click(screen.getByRole('button', { name: 'More' }));
     await waitFor(() => expect(screen.getAllByText(/the ground here is drawn flat/).length).toBeGreaterThan(0));
   });
 
-  it('falls back to the view all round, with the same words, when the renderer cannot start', async () => {
+  it('falls back to the horizon chart, with the same words, when the renderer cannot start', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => {
       throw new Error('WebGL 2 is not available');
     });
@@ -236,9 +243,10 @@ describe('StandView', () => {
     await waitFor(() => expect(r.setView).toHaveBeenCalled());
     fireEvent.click(screen.getByRole('button', { name: 'Look up' }));
     expect(screen.queryByRole('button', { name: 'Look up' })).toBeNull();
-    // A wide view (70° up and down) raised 32°: the horizon stays in sight at the bottom edge.
-    await waitFor(() => expect(r.setView.mock.calls.at(-1)![2]).toBeCloseTo(70, 0), { timeout: 4000 });
-    expect(r.setView.mock.calls.at(-1)![1]).toBeCloseTo(32, 0);
+    // A wide view (75° up and down) raised just so far that the level horizon runs along the bottom of the
+    // room above the time bar (here the whole window: nothing is laid out in this test).
+    await waitFor(() => expect(r.setView.mock.calls.at(-1)![2]).toBeCloseTo(75, 0), { timeout: 4000 });
+    await waitFor(() => expect(r.setView.mock.calls.at(-1)![1]).toBeCloseTo(lowHorizonPitch(window.innerHeight, 75, window.innerHeight), 0), { timeout: 4000 });
     expect(r.setView.mock.calls.at(-1)![1] - r.setView.mock.calls.at(-1)![2] / 2).toBeLessThan(0);
     expect(screen.getByText(/^With no air, the sky stays black and the stars show even with the Sun up\./)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Look ahead' }));
@@ -251,7 +259,7 @@ describe('StandView', () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
     await waitFor(() => expect(r.setView).toHaveBeenCalled());
     const st0 = store.getState();
-    const m = keyMoments(st0.series!, st0.power, st0.startUtc).find((x) => x.label === 'Battery runs out')!;
+    const m = keyMoments(st0.series!, st0.power, st0.startUtc).find((x) => x.kind === 'battery-out')!;
     fireEvent.click(screen.getByRole('button', { name: `${m.label}, ${m.day}` }));
     const st = store.getState();
     expect(st.power!.powered[st.cursorHour]).toBe(0);
@@ -259,7 +267,7 @@ describe('StandView', () => {
     // The battery runs out: the view turns to the lander, and a line over the view says why.
     const want = (st.series!.sunAz[0] + 30) % 360;
     await waitFor(() => expect(Math.abs(((r.setView.mock.calls.at(-1)![0] - want + 540) % 360) - 180)).toBeLessThan(1), { timeout: 4000 });
-    expect(screen.getByText(momentCaption(m.label, st.series!, m.hour, -88.28))).toBeTruthy();
+    expect(screen.getByText(momentCaption(m.kind, st.series!, m.hour, -88.28))).toBeTruthy();
   });
 
   it('names the lander where it stands, with its distance', async () => {
@@ -267,9 +275,26 @@ describe('StandView', () => {
     await waitFor(() => expect(screen.getByText('The lander, 16 m away')).toBeTruthy());
   });
 
+  it('says why the lander’s solar panel stands upright when the view turns to it', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Face the lander' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Face the lander' }));
+    expect(screen.getByText(viewCaption('lander', -88.28))).toBeTruthy();
+  });
+
+  it('keeps a phone’s card to the headline and the lander’s line: the better day and what to watch wait under More, the way back stays', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const better = await screen.findByRole('link', { name: /^Try 20 January instead/ });
+    expect(better.className).toMatch(/\bmax-md:hidden\b/);
+    expect(screen.getByRole('link', { name: 'Back to the forecast' }).className).not.toMatch(/\bmax-md:hidden\b/);
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('link', { name: /^Try 20 January instead/ }).className).not.toMatch(/\bmax-md:hidden\b/);
+  });
+
   it('names your own shadow and its length while the Sun is up', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    await waitFor(() => expect(screen.getByText('Your shadow, about 50 m long').hidden).toBe(false));
+    // With the height it is worked out for, so a reader can check the Sun's height from it.
+    await waitFor(() => expect(screen.getByText('Your shadow, 52 m long (you are 1.8 m tall)').hidden).toBe(false));
   });
 
   it('keeps "Building the ground" up until the renderer has its shaders ready, then shows the view', async () => {
