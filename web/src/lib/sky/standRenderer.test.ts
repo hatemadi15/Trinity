@@ -298,4 +298,21 @@ describe('the stand scene', () => {
     expect(parts.panel.y).toBeLessThan(parts.lamp.y);
     expect(buildScene(flat()).labels().parts).toBeNull();
   });
+
+  it('draws the Sun as a hard disc with only a small glow and no starburst: there is no air to scatter its light', () => {
+    const s = buildScene(flat());
+    const sprites = s.root.children.filter((o) => (o as THREE.Sprite).isSprite);
+    expect(sprites).toHaveLength(2);
+    expect(s.parts.glare.scale.x / s.parts.sun.scale.x).toBeLessThan(6);
+  });
+
+  it('stands your own shadow on the ground under the eye', () => {
+    const field = terrainField(levels(), -64.31, 90);
+    const s = buildScene(flat({ field }));
+    const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
+    const v = u.uViewer.value as THREE.Vector3;
+    expect(v.x).toBe(0);
+    expect(v.z).toBe(0);
+    expect(v.y).toBeCloseTo(heightAt(field, 0, 0), 6);
+  });
 });

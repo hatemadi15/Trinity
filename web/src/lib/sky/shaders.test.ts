@@ -23,7 +23,7 @@ describe('the ground shader', () => {
 
   it('scatters craters irregularly, many small and few large, with rocks and fine grain near the eye', () => {
     expect(GROUND_FRAG).toMatch(/float craters\(vec2 p, float cell\)[\s\S]*continue;/); // not every cell holds a crater
-    expect(GROUND_FRAG).toContain('float rocks(vec2 p, out float bright)');
+    expect(GROUND_FRAG).toContain('float stones(vec2 p, float cell, float seed, float presence, float r0, float r1, out float bright)');
     expect(GROUND_FRAG).toContain('float grain(vec2 p, float px)');
   });
 
@@ -66,5 +66,22 @@ describe('the ground shader', () => {
     expect(loops.length).toBeGreaterThan(5);
     for (const l of loops) expect(l).toMatch(/uOne|uSteps/);
     expect(GROUND_FRAG).toMatch(/uniform int [^;]*uOne/);
+  });
+
+  it('casts your own shadow: a person standing where the view stands, long across the ground at a low Sun', () => {
+    expect(GROUND_FRAG).toContain('float viewerClearance(vec3 p, vec3 L)');
+    expect(GROUND_FRAG).toContain('uniform vec3 uViewer');
+    expect(GROUND_FRAG).toContain('soft(mViewer)');
+  });
+
+  it('scatters pebbles as well as rocks, each layer throwing its own shadows', () => {
+    // Two layers of stones (rocks in 1.5 m cells, pebbles in 0.6 m cells), each with shadows cell by cell.
+    expect((GROUND_FRAG.match(/rockMargin\(vWorld\.xz/g) ?? []).length).toBe(2);
+    expect((GROUND_FRAG.match(/stones\(/g) ?? []).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('makes crater rims uneven, so their shadows have ragged edges rather than smooth blots', () => {
+    const craters = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float craters('), GROUND_FRAG.indexOf('float stones('));
+    expect(craters).toMatch(/rim \*= [^;]*vnoise\(/);
   });
 });

@@ -21,7 +21,7 @@ export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
 uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uSunPower; uniform vec2 uHole;
-uniform float uLanderOn, uSunUp; uniform vec3 uLanderCenter; uniform vec2 uLanderCS;
+uniform float uLanderOn, uSunUp; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
 ${SHADOW_GLSL}
 ${LANDER_GLSL}
 // Into the lander's own frame (it stands turned about the vertical by the angle whose cos and sin are uLanderCS).
@@ -44,18 +44,25 @@ float craters(vec2 p, float cell) {
     vec2 d = f - c; float ang = 6.2832 * fract(rnd.x * 3.7 + rnd.y * 9.1);
     vec2 dr = vec2(d.x * cos(ang) + d.y * sin(ang), (-d.x * sin(ang) + d.y * cos(ang)) * mix(1.0, 1.35, fract(rnd.y * 13.3)));
     float r = length(dr) / rad, age = fract(rnd.x * 21.7 + rnd.y * 4.3);
-    if (r < 1.8) { float bowl = r < 1.0 ? (r * r - 1.0) : 0.0; float rim = mix(0.12, 0.38, age) * exp(-pow((r - 1.0) * mix(2.0, 4.0, age), 2.0)); h += (bowl * depth * mix(0.6, 1.0, age) + rim) * rad * cell; }
+    if (r < 1.8) {
+      float bowl = r < 1.0 ? (r * r - 1.0) : 0.0; float rim = mix(0.12, 0.38, age) * exp(-pow((r - 1.0) * mix(2.0, 4.0, age), 2.0));
+      // Rims are uneven, higher in some places than others, so their shadows have ragged edges.
+      rim *= 0.55 + 0.9 * vnoise(dr / rad * 2.5 + rnd * 37.0);
+      h += (bowl * depth * mix(0.6, 1.0, age) + rim) * rad * cell;
+    }
   }
   return h;
 }
-// Rocks: one cell in ten (1.5 m cells) holds a stone 0.1 to 0.5 m across, a little brighter than the dust.
-float rocks(vec2 p, out float bright) {
-  vec2 g = floor(p / 1.5), f = p / 1.5 - g; vec2 rnd = hash2(g + 41.0); bright = 0.0;
-  if (fract(rnd.x * 11.7 + rnd.y * 2.3) > 0.1) return 0.0;
-  float rad = mix(0.035, 0.17, rnd.y); float r = length(f - (0.2 + 0.6 * rnd)) / rad;
+// Stones, each a low dome a little brighter than the dust, in two layers: rocks (one cell in ten of 1.5 m
+// holds one 0.1 to 0.5 m across, few of them large) and pebbles (one cell in four of 0.6 m holds one 3 to
+// 12 cm across). r0 and r1 are the smallest and largest radius in metres; seed tells the layers apart.
+float stones(vec2 p, float cell, float seed, float presence, float r0, float r1, out float bright) {
+  vec2 g = floor(p / cell), f = p / cell - g; vec2 rnd = hash2(g + seed); bright = 0.0;
+  if (fract(rnd.x * 11.7 + rnd.y * 2.3) > presence) return 0.0;
+  float rad = mix(r0, r1, rnd.y * rnd.y); float r = length(f - (0.2 + 0.6 * rnd)) * cell / rad;
   if (r >= 1.0) return 0.0;
   bright = 1.0 - r;
-  return sqrt(1.0 - r * r) * rad * 1.5 * 0.8;
+  return sqrt(1.0 - r * r) * rad * 0.8;
 }
 // The dust's fine grain, fading as it shrinks towards a pixel.
 float grain(vec2 p, float px) {
@@ -87,19 +94,20 @@ float detailRise(vec2 p, float h0, vec2 d, float px) {
   for (int i = 0; i < 12 * uOne; i++) { rise = max(rise, (bigH(p + d * t, px) - h0) / t); t *= 1.24; }
   return rise;
 }
-// The rocks' own shadows: cell by cell along the ray towards the Sun (the 1.5 m cells rocks() lays them out
-// in), out to 9 m, each rock a low dome on the drawn ground. Returns the least angle by which the ray clears
-// one (negative through it); grow (0 to 1) fades the rocks in as they grow larger than a pixel.
-float rockMargin(vec2 p, float h0, vec2 d, float tanEff, float px, float grow) {
+// A layer of stones' own shadows: cell by cell along the ray towards the Sun (the cells stones() lays that
+// layer out in), out to reach metres, each stone a low dome on the drawn ground. Returns the least angle by
+// which the ray clears one (negative through it); grow (0 to 1) fades the stones in as they grow larger than
+// a pixel.
+float rockMargin(vec2 p, float h0, vec2 d, float tanEff, float px, float grow, float cell, float seed, float presence, float r0, float r1, float reach) {
   float res = 1.0;
   if (grow <= 0.0) return res;
-  vec2 g = floor(p / 1.5), st = sign(d), inv = 1.0 / max(abs(d), vec2(1.0e-5));
-  vec2 next = ((g + max(st, 0.0)) * 1.5 - p) * st * inv, delta = 1.5 * inv;
+  vec2 g = floor(p / cell), st = sign(d), inv = 1.0 / max(abs(d), vec2(1.0e-5));
+  vec2 next = ((g + max(st, 0.0)) * cell - p) * st * inv, delta = cell * inv;
   for (int i = 0; i < 10 * uOne; i++) {
-    vec2 rnd = hash2(g + 41.0);
-    if (fract(rnd.x * 11.7 + rnd.y * 2.3) <= 0.1) {
-      float rad = mix(0.035, 0.17, rnd.y) * 1.5;
-      vec2 v = (g + 0.2 + 0.6 * rnd) * 1.5 - p;
+    vec2 rnd = hash2(g + seed);
+    if (fract(rnd.x * 11.7 + rnd.y * 2.3) <= presence) {
+      float rad = mix(r0, r1, rnd.y * rnd.y);
+      vec2 v = (g + 0.2 + 0.6 * rnd) * cell - p;
       float tc = dot(v, d), e = abs(v.x * d.y - v.y * d.x);
       if (tc > 0.05 && e < rad + 0.5) {
         float top = detailH(p + v, px) + 0.8 * rad * grow * sqrt(max(0.0, 1.0 - e * e / (rad * rad)));
@@ -107,9 +115,22 @@ float rockMargin(vec2 p, float h0, vec2 d, float tanEff, float px, float grow) {
       }
     }
     if (next.x < next.y) { g.x += st.x; next.x += delta.x; } else { g.y += st.y; next.y += delta.y; }
-    if (min(next.x, next.y) > 9.0) break;
+    if (min(next.x, next.y) > reach) break;
   }
   return res;
+}
+// Your own shadow: a person standing where the view stands (a capsule 1.8 m tall over uViewer, the ground under
+// the eye); the angle by which the ray towards the Sun clears it. At a 2 degree Sun it reaches some 50 m.
+float viewerClearance(vec3 p, vec3 L) {
+  if (length(p.xz - uViewer.xz) > 140.0 || dot(uViewer.xz - p.xz, L.xz) <= 0.0) return 1.0;
+  vec3 a = uViewer + vec3(0.0, 0.25, 0.0), v = vec3(0.0, 1.3, 0.0);
+  // The nearest points of the ray p + t L and the segment a + s v, refined twice.
+  float t = max(dot(a + 0.5 * v - p, L), 0.05), s = 0.5;
+  for (int k = 0; k < 2 * uOne; k++) {
+    s = clamp(dot(p + L * t - a, v) / dot(v, v), 0.0, 1.0);
+    t = max(dot(a + v * s - p, L), 0.05);
+  }
+  return (length(p + L * t - a - v * s) - 0.25) / t;
 }
 // A shadow's margin (radians by which the Sun's centre clears what would hide it) as light: spread over the
 // Sun's disc, or over the margin's change across one pixel where that is wider, so far edges never stair-step.
@@ -124,30 +145,34 @@ void main() {
   float dist = length(vWorld - cameraPosition);
   // The shadows, as margins: the measured ground's (its ray starts from the measured ground, not the drawn
   // craters), the lander's (from its drawn shape), and the drawn craters' and rocks' near the eye.
-  float mTerrain = -1.0, mLander = 1.0, mDetail = 1.0, wDetail = 0.0;
+  float mTerrain = -1.0, mLander = 1.0, mViewer = 1.0, mDetail = 1.0, wDetail = 0.0;
   bool facing = dot(N0, Ls) > 0.0;
   if (facing) {
     mTerrain = sunMargin(vWorld + N0 * 0.4, uSun);
     if (uLanderOn > 0.5) mLander = landerClearance(toLander(vWorld + N0 * 0.05 - uLanderCenter), toLander(Ls));
+    mViewer = viewerClearance(vWorld + N0 * 0.05, Ls);
   }
   float albedoVar = 1.0;
   if (uDetail > 0.5) {
     float w = 1.0 - smoothstep(250.0, 1600.0, dist);
     if (w > 0.0) {
       float e = max(0.15, px); float h0 = detailH(vWorld.xz, px), hx = detailH(vWorld.xz + vec2(e, 0.0), px), hz = detailH(vWorld.xz + vec2(0.0, e), px);
-      float b0, bx, bz;
-      float r0 = rocks(vWorld.xz, b0), rx = rocks(vWorld.xz + vec2(e, 0.0), bx), rz = rocks(vWorld.xz + vec2(0.0, e), bz);
-      float rockW = w * smoothstep(1.5, 4.0, 0.1 / px);
-      h0 += r0 * rockW; hx += rx * rockW; hz += rz * rockW;
+      float b0, bx, bz, c0, cx, cz;
+      float rockW = w * smoothstep(1.5, 4.0, 0.1 / px), pebbleW = w * smoothstep(1.5, 4.0, 0.03 / px);
+      h0 += stones(vWorld.xz, 1.5, 41.0, 0.1, 0.05, 0.26, b0) * rockW + stones(vWorld.xz, 0.6, 73.0, 0.25, 0.015, 0.06, c0) * pebbleW;
+      hx += stones(vWorld.xz + vec2(e, 0.0), 1.5, 41.0, 0.1, 0.05, 0.26, bx) * rockW + stones(vWorld.xz + vec2(e, 0.0), 0.6, 73.0, 0.25, 0.015, 0.06, cx) * pebbleW;
+      hz += stones(vWorld.xz + vec2(0.0, e), 1.5, 41.0, 0.1, 0.05, 0.26, bz) * rockW + stones(vWorld.xz + vec2(0.0, e), 0.6, 73.0, 0.25, 0.015, 0.06, cz) * pebbleW;
       Nn = normalize(Nn - vec3((hx - h0) / e, 0.0, (hz - h0) / e) * w * 1.15);
       albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0
-        + 0.06 * (vnoise(vWorld.xz * 3.1) - 0.5) * smoothstep(1.5, 4.0, 0.32 / px)) + 0.35 * b0 * rockW;
+        + 0.06 * (vnoise(vWorld.xz * 3.1) - 0.5) * smoothstep(1.5, 4.0, 0.32 / px)) + 0.35 * b0 * rockW + 0.25 * c0 * pebbleW;
       // Not worked out where the measured ground already hides the whole Sun.
       if (facing && mTerrain > -${(3 * SHADOW.SUN_RADIUS_RAD).toFixed(5)}) {
         // Judged against the measured ground's own slope towards the Sun.
         vec2 dS = normalize(Ls.xz); float tanEl = Ls.y / max(length(Ls.xz), 1.0e-4);
         float tanEff = tanEl + (N0.x * dS.x + N0.z * dS.y) / max(N0.y, 0.25);
-        mDetail = min(atan(tanEff) - atan(detailRise(vWorld.xz, h0, dS, px)), rockMargin(vWorld.xz, h0, dS, tanEff, px, smoothstep(1.5, 4.0, 0.3 / px)));
+        float mRocks = rockMargin(vWorld.xz, h0, dS, tanEff, px, smoothstep(1.5, 4.0, 0.3 / px), 1.5, 41.0, 0.1, 0.05, 0.26, 9.0);
+        float mPebbles = rockMargin(vWorld.xz, h0, dS, tanEff, px, smoothstep(1.5, 4.0, 0.09 / px), 0.6, 73.0, 0.25, 0.015, 0.06, 2.5);
+        mDetail = min(atan(tanEff) - atan(detailRise(vWorld.xz, h0, dS, px)), min(mRocks, mPebbles));
         wDetail = w;
       }
     }
@@ -159,7 +184,7 @@ void main() {
   float surge = 1.0 + 0.9 / (1.0 + tan(alpha * 0.5) / 0.055); // regolith brightens looking away from the Sun
   float ls = mu0 / (mu0 + mu);                                 // Lommel-Seeliger: no limb darkening on the Moon
   // Outside every branch, where the pixel's neighbours are known: the margins turn into light.
-  float vis = soft(mTerrain) * soft(mLander);
+  float vis = soft(mTerrain) * soft(mLander) * soft(mViewer);
   vis *= mix(1.0, soft(mDetail), wDetail);
   vec3 albedo = vec3(0.17, 0.164, 0.156) * albedoVar;
   vec3 col = albedo * vec3(1.0, 0.99, 0.975) * uSunPower * ls * phase * surge * vis;

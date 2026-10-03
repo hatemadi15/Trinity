@@ -194,6 +194,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         uMinLevel: { value: level },
         uSteps: { value: fast ? SHADOW_FAST.STEPS : SHADOW.STEPS },
         uOne: { value: 1 },
+        uViewer: { value: new THREE.Vector3(0, eye - scene.mastM, 0) },
         uGrowth: { value: fast ? SHADOW_FAST.GROWTH : SHADOW.GROWTH },
         uSun: { value: new THREE.Vector3(1, 0, 0) },
         uEarth: { value: new THREE.Vector3(0, 1, 0) },
@@ -282,31 +283,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     root.add(cross);
   }
 
-  // The Sun: white, small and hard, as a camera on the Moon sees it; glare and a faint six-spike flare.
+  // The Sun: white, small and hard, with only a small glow close round the disc: with no air there is no
+  // halo across the sky and no starburst, only what a lens adds right at the disc.
   const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, '#fff'], [0.46, '#fff'], [0.5, 'rgba(255,255,255,0)']]), color: new THREE.Color(14, 14, 13.5), transparent: true, depthWrite: false, toneMapped: false }));
-  const glare = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, 'rgba(255,255,255,0.55)'], [0.06, 'rgba(240,244,255,0.2)'], [0.3, 'rgba(220,230,255,0.035)'], [1, 'rgba(0,0,0,0)']]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
-  const spikes = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: canvasTexture((g) => {
-        g.translate(256, 256);
-        for (let k = 0; k < 6; k++) {
-          g.rotate(Math.PI / 3);
-          const grd = g.createLinearGradient(0, 0, 250, 0);
-          grd.addColorStop(0, 'rgba(255,255,255,0.5)');
-          grd.addColorStop(1, 'rgba(255,255,255,0)');
-          g.fillStyle = grd;
-          g.fillRect(0, -1.2, 250, 2.4);
-        }
-      }),
-      blending: THREE.AdditiveBlending,
-      transparent: true,
-      depthWrite: false,
-    }),
-  );
+  const glare = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, 'rgba(255,255,255,0.5)'], [0.12, 'rgba(240,244,255,0.16)'], [0.45, 'rgba(220,230,255,0.025)'], [1, 'rgba(0,0,0,0)']]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
   sun.scale.setScalar(SUN_D * 2.05);
-  glare.scale.setScalar(SUN_D * 34);
-  spikes.scale.setScalar(SUN_D * 26);
-  root.add(sun, glare, spikes);
+  glare.scale.setScalar(SUN_D * 10);
+  root.add(sun, glare);
 
   // Earth: NASA's Blue Marble and clouds, 1.9° wide, lit by the Sun and turned for the hour.
   const earthMat = new THREE.ShaderMaterial({ uniforms: { uDay: { value: null }, uClouds: { value: null }, uSun: { value: new THREE.Vector3(1, 0, 0) }, uMaps: { value: 0 } }, vertexShader: EARTH_VERT, fragmentShader: EARTH_FRAG });
@@ -359,10 +342,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     sunDir.set(...sd);
     sun.position.set(sd[0] * RS, sd[1] * RS + eye, sd[2] * RS);
     glare.position.copy(sun.position);
-    spikes.position.copy(sun.position);
     // The glare comes from the part of the disc the hills leave in view.
     (glare.material as THREE.SpriteMaterial).opacity = v.sunFraction;
-    (spikes.material as THREE.SpriteMaterial).opacity = 0.55 * v.sunFraction;
     const when = startMs + t * 3600e3;
     const m = moonMatrixAt(scene.sky.moon, when);
     placeStars(st, m, basis, RS, starPos);
@@ -389,7 +370,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     if (lander) {
       sunLight.position.copy(sunLight.target.position).addScaledVector(sunDir, 50);
       sunLight.intensity = 3.2 * v.sunFraction;
-      skyLight.intensity = 0.9 * v.sunFraction;
+      // The dust lights the lander's shaded side only faintly at a Sun this low: it stands nearly in silhouette.
+      skyLight.intensity = 0.4 * v.sunFraction;
       earthLight.intensity = 0.03 + 0.5 * earthshine;
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
       lander.lamp.color.setHex(Number(scene.lander!.powered[h]) === 1 ? 0x46c98b : 0x000000);
@@ -397,7 +379,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     // A camera's exposure: faint stars fade while the Sun is in view.
     starMat.uniforms.uGain.value = 1.6 - 1.25 * v.sunFraction;
     // What the lander's foil and metal mirror (the sunlit dust below) dims with the Sun.
-    root.environmentIntensity = 0.12 + 0.88 * v.sunFraction;
+    root.environmentIntensity = 0.08 + 0.42 * v.sunFraction;
   }
 
   const fwd = new THREE.Vector3(), tmp = new THREE.Vector3(), ray = new THREE.Ray(), hit = new THREE.Vector3();
@@ -701,7 +683,8 @@ export class StandRenderer {
     // Four samples per pixel in the composer's own target: smooth edges on Earth and the skyline.
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
     this.composer.addPass(new RenderPass(this.built.root, this.built.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.75, 0.45, 0.985);
+    // A tight bloom: the Sun's disc glows a little, the sky round it stays black.
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.45, 0.2, 0.985);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
   }
