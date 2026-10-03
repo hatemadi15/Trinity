@@ -136,7 +136,7 @@ export function TimeBar({
                 {sunless && (
                   <span data-part="key-no-sun" className="flex items-center gap-2 text-[15px] text-ink-2">
                     {/* The strip's own grey, where no yellow is drawn. */}
-                    <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full bg-surface-2" />
+                    <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border border-line-strong bg-surface-2" />
                     no Sun
                   </span>
                 )}

@@ -233,4 +233,15 @@ describe('the stand scene', () => {
     expect(star.x).toBeCloseTo(0.5, 2);
     expect(star.visible).toBe(el > 0);
   });
+
+  it('draws the Southern Cross between its four stars, and names it', () => {
+    const four = { count: 4, j2000: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0.8, 0]), vmag: Float32Array.from([1, 1, 1, 1]), bv: Float32Array.from([0, 0, 0, 0]) };
+    const names = [{ index: 0, name: 'Acrux' }, { index: 1, name: 'Mimosa' }, { index: 2, name: 'Gacrux' }, { index: 3, name: 'Imai' }];
+    const s = buildScene(flat({ sky: { ...sky, stars: four, names } }));
+    s.update(0);
+    expect(s.parts.cross).not.toBeNull();
+    expect(s.parts.cross!.geometry.getAttribute('position').count).toBe(4);
+    expect(s.labels().stars.map((x) => x.name)).toContain('Southern Cross');
+    expect(buildScene(flat()).parts.cross).toBeNull();
+  });
 });

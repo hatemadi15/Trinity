@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { StandRenderer, StandScene } from '@/lib/sky/standRenderer';
+import { crossStars, type StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { compassWord } from '@/lib/viz/ground';
 
 export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'>;
@@ -265,16 +265,16 @@ export function StandCanvas({
             {`The lander, ${Math.round(scene.lander.distM)} m away`}
           </span>
         )}
-        {(scene.sky.names ?? []).map((st, k) => (
+        {[...(scene.sky.names ?? []).map((n) => n.name), ...(crossStars(scene.sky.names) ? ['Southern Cross'] : [])].map((name, k) => (
           <span
-            key={st.name}
+            key={name}
             ref={(node) => {
               starRefs.current[k] = node;
             }}
             hidden
             className="pointer-events-none absolute translate-x-2 -translate-y-1/2 whitespace-nowrap text-[14px] text-[#d7d4cc] [text-shadow:0_0_4px_#000]"
           >
-            {st.name}
+            {name}
           </span>
         ))}
       </div>

@@ -45,6 +45,13 @@ const meshReachM = (cellM: number, coarsest: boolean) => (coarsest ? 125000 : ce
 /** The value stored for a cell outside the measured ground when heights go to the GPU as half floats. */
 const HALF_OUTSIDE = -65000;
 
+/** The Southern Cross's four stars (long bar Acrux to Gacrux, short bar Mimosa to Imai), when all are named. */
+export function crossStars(names: { index: number; name: string }[] | undefined): [number, number, number, number] | null {
+  const at = (n: string) => names?.find((x) => x.name === n)?.index;
+  const [a, g, m, i] = [at('Acrux'), at('Gacrux'), at('Mimosa'), at('Imai')];
+  return a === undefined || g === undefined || m === undefined || i === undefined ? null : [a, g, m, i];
+}
+
 const lerpAngle = (a: number, b: number, f: number) => (a + ((((b - a + 540) % 360) - 180) * f) + 360) % 360;
 
 /** The series at a fractional hour, angles taken the short way round. */
@@ -237,6 +244,19 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const stars = new THREE.Points(starGeo, starMat);
   stars.frustumCulled = false;
   root.add(stars);
+  // The Southern Cross: two faint lines between its four stars.
+  const crossIdx = crossStars(scene.sky.names);
+  const crossPos = new Float32Array(12);
+  const cross = crossIdx
+    ? new THREE.LineSegments(
+        new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(crossPos, 3)),
+        new THREE.LineBasicMaterial({ color: 0x8090b0, transparent: true, opacity: 0.55, depthWrite: false }),
+      )
+    : null;
+  if (cross) {
+    cross.frustumCulled = false;
+    root.add(cross);
+  }
 
   // The Sun: white, small and hard, as a camera on the Moon sees it; glare and a faint six-spike flare.
   const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, '#fff'], [0.46, '#fff'], [0.5, 'rgba(255,255,255,0)']]), color: new THREE.Color(14, 14, 13.5), transparent: true, depthWrite: false, toneMapped: false }));
@@ -326,6 +346,10 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     const m = moonMatrixAt(scene.sky.moon, when);
     placeStars(st, m, basis, RS, starPos);
     starGeo.getAttribute('position').needsUpdate = true;
+    if (cross && crossIdx) {
+      crossIdx.forEach((k, j) => crossPos.set(starPos.subarray(k * 3, k * 3 + 3), j * 3));
+      cross.geometry.getAttribute('position').needsUpdate = true;
+    }
     const ax = earthAxes(m, basis, when);
     earthPos.set(ed[0] * RS, ed[1] * RS + eye, ed[2] * RS);
     earth.matrix.makeBasis(new THREE.Vector3(...ax.x), new THREE.Vector3(...ax.y), new THREE.Vector3(...ax.z)).setPosition(earthPos);
@@ -395,6 +419,16 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       const s = spot(w);
       return { name, ...s, visible: s.visible && el > maskAt(az) };
     });
+    if (crossIdx) {
+      // Its name a little below the cross's middle.
+      const mid = new THREE.Vector3();
+      for (const k of crossIdx) mid.add(new THREE.Vector3(starPos[k * 3], starPos[k * 3 + 1], starPos[k * 3 + 2]));
+      mid.multiplyScalar(0.25);
+      const d = mid.clone().normalize();
+      const az = ((Math.atan2(d.x, -d.z) / DEG) % 360 + 360) % 360, el = Math.asin(d.y) / DEG;
+      const s = spot(mid);
+      stars.push({ name: 'Southern Cross', ...s, y: s.y + 0.03, visible: s.visible && el > maskAt(az) });
+    }
     // The lander's name over its top (high enough that the ray to it clears the lander itself).
     const landerSpot = lander ? spot(new THREE.Vector3(lander.group.position.x, lander.group.position.y + 3.9, lander.group.position.z)) : null;
     return { sun: bodySpot(sun.position, SUN_D * 3), earth: bodySpot(earthPos, EARTH_R * 1.25), stars, lander: landerSpot };
@@ -413,7 +447,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     });
   };
 
-  return { root, camera, update, setView, labels, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null } };
+  return { root, camera, update, setView, labels, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null } };
 }
 
 /** A texture drawn on a canvas of the given size (repeating), or none outside a browser. */

@@ -364,6 +364,8 @@ describe('TimeBar', () => {
     // The swatch is the strip's own grey: its background, where no yellow is drawn.
     expect(container.querySelector('[data-part="track"] svg')!.classList.contains('bg-surface-2')).toBe(true);
     expect(key.querySelector('[data-swatch]')!.classList.contains('bg-surface-2')).toBe(true);
+    // An edge, so the grey shows against the bar's own background.
+    expect(key.querySelector('[data-swatch]')!.classList.contains('border-line-strong')).toBe(true);
     const sunKey = container.querySelector('[data-part="key"]')!;
     expect(key.previousElementSibling).toBe(sunKey);
   });
