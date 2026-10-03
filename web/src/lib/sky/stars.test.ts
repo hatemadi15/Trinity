@@ -42,6 +42,9 @@ describe('stars', () => {
 
   it('gives brighter stars bigger, brighter points, and colours from blue-white to orange by B−V', () => {
     expect(starSize(-1.46)).toBeGreaterThan(starSize(6));
+    // The bright stars read as points of light, not pixels: the brightest about 8 px across.
+    expect(starSize(0)).toBeGreaterThanOrEqual(7);
+    expect(starSize(6.5)).toBeGreaterThanOrEqual(2.2);
     expect(starGain(-1.46)).toBeGreaterThan(starGain(6));
     expect(starColour(-0.3)[2]).toBeGreaterThan(starColour(-0.3)[0]);
     expect(starColour(1.6)[0]).toBeGreaterThan(starColour(1.6)[2]);

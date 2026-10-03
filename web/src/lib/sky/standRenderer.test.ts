@@ -315,4 +315,49 @@ describe('the stand scene', () => {
     expect(v.z).toBe(0);
     expect(v.y).toBeCloseTo(heightAt(field, 0, 0), 6);
   });
+
+  it('smooths single-row seams in the heights over three cells each way, so they do not ripple the light', () => {
+    // A flat level with one row 2 m higher: the steepest normal anywhere stays within 2 m / (12 cells)
+    const n = 64, cell = 20, heights = new Float32Array(n * n).fill(100);
+    for (let c = 0; c < n; c++) heights[32 * n + c] = 102;
+    const level = { heights, width: n, height: n, pxM: cell, siteCol: (n - 1) / 2, siteRow: (n - 1) / 2 };
+    const s = buildScene(flat({ field: terrainField([level], -64.31, 100) }));
+    const nor = s.parts.ground[0].geometry.getAttribute('normal');
+    let worst = 0;
+    for (let i = 0; i < nor.count; i++) worst = Math.max(worst, Math.hypot(nor.getX(i), nor.getZ(i)) / nor.getY(i));
+    // (plus the Moon's own curve, which the site's frame drops by r² / 2R: a slope of 0.0004 640 m out)
+    expect(worst).toBeLessThanOrEqual(2 / (12 * cell) + 0.0005);
+  });
+
+  it('lets the stars come out as the view looks up away from the dazzling ground, as a camera would expose for the sky', () => {
+    const s = buildScene(flat());
+    s.update(0);
+    s.setView(250, 0, 60, 16 / 9);
+    const ahead = s.starMaterial.uniforms.uGain.value as number;
+    s.setView(250, 40, 60, 16 / 9);
+    const up = s.starMaterial.uniforms.uGain.value as number;
+    expect(up).toBeGreaterThan(2 * ahead);
+    expect(up).toBeCloseTo(1.6, 6);
+  });
+
+  it('marks your own shadow, and how long it is, while the Sun is up', () => {
+    const s = buildScene(flat());
+    s.update(0);
+    // Facing away from the Sun (at 300 degrees), looking down a little: the shadow lies ahead.
+    s.setView(120, -8, 60, 16 / 9);
+    const sh = s.labels().shadow!;
+    expect(sh.visible).toBe(true);
+    // A person 1.8 m tall at a 2 degree Sun.
+    expect(sh.lengthM).toBeCloseTo(1.8 / Math.tan((2 * Math.PI) / 180), 0);
+    // With none of the Sun in view there is no shadow.
+    s.update(2);
+    expect(s.labels().shadow).toBeNull();
+  });
+
+  it('keeps a faint light on the lander when neither the Sun nor Earth lights it, so its shape still shows', () => {
+    const dark = { ...series, sunFraction: Float64Array.from([0, 0, 0]), sunEl: Float64Array.from([-1, -1, -1]), earthEl: Float64Array.from([-3, -3, -3]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
+    const s = buildScene(flat({ series: dark, lander: { azDeg: 90, distM: 9, powered: Uint8Array.from([0, 0, 0]) } }));
+    s.update(0);
+    expect(s.parts.landerFill!.intensity).toBeGreaterThanOrEqual(0.12);
+  });
 });

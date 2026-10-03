@@ -53,13 +53,16 @@ float craters(vec2 p, float cell) {
   }
   return h;
 }
-// Stones, each a low dome a little brighter than the dust, in two layers: rocks (one cell in ten of 1.5 m
-// holds one 0.1 to 0.5 m across, few of them large) and pebbles (one cell in four of 0.6 m holds one 3 to
-// 12 cm across). r0 and r1 are the smallest and largest radius in metres; seed tells the layers apart.
+// Stones, each a lumpy low dome a little brighter than the dust, in two layers: rocks (about one cell in six
+// of 1.5 m holds one 0.1 to 0.6 m across, few of them large) and pebbles (two cells in five of 0.6 m hold one
+// 3 to 14 cm across). r0 and r1 are the smallest and largest radius in metres; seed tells the layers apart.
 float stones(vec2 p, float cell, float seed, float presence, float r0, float r1, out float bright) {
   vec2 g = floor(p / cell), f = p / cell - g; vec2 rnd = hash2(g + seed); bright = 0.0;
   if (fract(rnd.x * 11.7 + rnd.y * 2.3) > presence) return 0.0;
-  float rad = mix(r0, r1, rnd.y * rnd.y); float r = length(f - (0.2 + 0.6 * rnd)) * cell / rad;
+  vec2 v = f - (0.2 + 0.6 * rnd);
+  // Lumpy: the outline swells and dents with the direction from the stone's centre.
+  float lump = 1.0 + 0.35 * (vnoise(normalize(v + 1.0e-5) * 1.7 + rnd * 23.0) - 0.5);
+  float rad = mix(r0, r1, rnd.y * rnd.y) * lump; float r = length(v) * cell / rad;
   if (r >= 1.0) return 0.0;
   bright = 1.0 - r;
   return sqrt(1.0 - r * r) * rad * 0.8;
@@ -70,7 +73,7 @@ float grain(vec2 p, float px) {
 }
 // The big craters alone: from more than 9 m off, only they rise high enough to shade a point.
 float bigH(vec2 p, float px) {
-  float h = craters(p, 46.0) * 0.55 * smoothstep(1.5, 4.0, 46.0 / px);
+  float h = craters(p, 46.0) * 0.4 * smoothstep(1.5, 4.0, 46.0 / px);
   float k = smoothstep(1.5, 4.0, 11.0 / px);
   if (k > 0.0) h += craters(p + 17.0, 11.0) * 0.6 * k;
   return h;
@@ -80,7 +83,7 @@ float bigH(vec2 p, float px) {
 float detailH(vec2 p, float px) {
   float h = bigH(p, px) + grain(p, px);
   float k = smoothstep(1.5, 4.0, 2.6 / px);
-  if (k > 0.0) h += craters(p + 93.0, 2.6) * 0.6 * k + (vnoise(p * 0.9) - 0.5) * 0.35 * smoothstep(1.5, 4.0, 1.1 / px);
+  if (k > 0.0) h += craters(p + 93.0, 2.6) * 0.6 * k + (vnoise(p * 0.9) - 0.5) * 0.12 * smoothstep(1.5, 4.0, 1.1 / px);
   k = smoothstep(1.5, 4.0, 0.7 / px);
   if (k > 0.0) h += (vnoise(p * 3.7) - 0.5) * 0.12 * smoothstep(1.5, 4.0, 0.27 / px) + craters(p + 151.0, 0.7) * 0.5 * k;
   return h;
@@ -159,9 +162,9 @@ void main() {
       float e = max(0.15, px); float h0 = detailH(vWorld.xz, px), hx = detailH(vWorld.xz + vec2(e, 0.0), px), hz = detailH(vWorld.xz + vec2(0.0, e), px);
       float b0, bx, bz, c0, cx, cz;
       float rockW = w * smoothstep(1.5, 4.0, 0.1 / px), pebbleW = w * smoothstep(1.5, 4.0, 0.03 / px);
-      h0 += stones(vWorld.xz, 1.5, 41.0, 0.1, 0.05, 0.26, b0) * rockW + stones(vWorld.xz, 0.6, 73.0, 0.25, 0.015, 0.06, c0) * pebbleW;
-      hx += stones(vWorld.xz + vec2(e, 0.0), 1.5, 41.0, 0.1, 0.05, 0.26, bx) * rockW + stones(vWorld.xz + vec2(e, 0.0), 0.6, 73.0, 0.25, 0.015, 0.06, cx) * pebbleW;
-      hz += stones(vWorld.xz + vec2(0.0, e), 1.5, 41.0, 0.1, 0.05, 0.26, bz) * rockW + stones(vWorld.xz + vec2(0.0, e), 0.6, 73.0, 0.25, 0.015, 0.06, cz) * pebbleW;
+      h0 += stones(vWorld.xz, 1.5, 41.0, 0.18, 0.05, 0.3, b0) * rockW + stones(vWorld.xz, 0.6, 73.0, 0.4, 0.015, 0.07, c0) * pebbleW;
+      hx += stones(vWorld.xz + vec2(e, 0.0), 1.5, 41.0, 0.18, 0.05, 0.3, bx) * rockW + stones(vWorld.xz + vec2(e, 0.0), 0.6, 73.0, 0.4, 0.015, 0.07, cx) * pebbleW;
+      hz += stones(vWorld.xz + vec2(0.0, e), 1.5, 41.0, 0.18, 0.05, 0.3, bz) * rockW + stones(vWorld.xz + vec2(0.0, e), 0.6, 73.0, 0.4, 0.015, 0.07, cz) * pebbleW;
       Nn = normalize(Nn - vec3((hx - h0) / e, 0.0, (hz - h0) / e) * w * 1.15);
       albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0
         + 0.06 * (vnoise(vWorld.xz * 3.1) - 0.5) * smoothstep(1.5, 4.0, 0.32 / px)) + 0.35 * b0 * rockW + 0.25 * c0 * pebbleW;
@@ -170,8 +173,8 @@ void main() {
         // Judged against the measured ground's own slope towards the Sun.
         vec2 dS = normalize(Ls.xz); float tanEl = Ls.y / max(length(Ls.xz), 1.0e-4);
         float tanEff = tanEl + (N0.x * dS.x + N0.z * dS.y) / max(N0.y, 0.25);
-        float mRocks = rockMargin(vWorld.xz, h0, dS, tanEff, px, smoothstep(1.5, 4.0, 0.3 / px), 1.5, 41.0, 0.1, 0.05, 0.26, 9.0);
-        float mPebbles = rockMargin(vWorld.xz, h0, dS, tanEff, px, smoothstep(1.5, 4.0, 0.09 / px), 0.6, 73.0, 0.25, 0.015, 0.06, 2.5);
+        float mRocks = rockMargin(vWorld.xz, h0, dS, tanEff, px, smoothstep(1.5, 4.0, 0.3 / px), 1.5, 41.0, 0.18, 0.05, 0.3, 9.0);
+        float mPebbles = rockMargin(vWorld.xz, h0, dS, tanEff, px, smoothstep(1.5, 4.0, 0.09 / px), 0.6, 73.0, 0.4, 0.015, 0.07, 2.5);
         mDetail = min(atan(tanEff) - atan(detailRise(vWorld.xz, h0, dS, px)), min(mRocks, mPebbles));
         wDetail = w;
       }
@@ -181,7 +184,7 @@ void main() {
   float mu0 = max(dot(Nn, Ls), 0.0), mu = max(dot(Nn, V), 0.03);
   float alpha = acos(clamp(dot(Ls, V), -1.0, 1.0));
   float phase = exp(-0.82 * alpha);
-  float surge = 1.0 + 0.9 / (1.0 + tan(alpha * 0.5) / 0.055); // regolith brightens looking away from the Sun
+  float surge = 1.0 + 0.45 / (1.0 + tan(alpha * 0.5) / 0.055); // regolith brightens looking away from the Sun
   float ls = mu0 / (mu0 + mu);                                 // Lommel-Seeliger: no limb darkening on the Moon
   // Outside every branch, where the pixel's neighbours are known: the margins turn into light.
   float vis = soft(mTerrain) * soft(mLander) * soft(mViewer);
@@ -189,13 +192,13 @@ void main() {
   vec3 albedo = vec3(0.17, 0.164, 0.156) * albedoVar;
   vec3 col = albedo * vec3(1.0, 0.99, 0.975) * uSunPower * ls * phase * surge * vis;
   vec3 Le = normalize(uEarth); float mue = max(dot(Nn, Le), 0.0);
-  // Earth sits low here, so its light grazes the ground: the slopes facing it shine (softly, as the 20 m
-  // facets would otherwise streak) and the earthlit slopes around scatter a faint glow over the rest.
-  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.6 * mue / (mue + mu);
-  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.18;
-  // By day the sunlit dust around scatters a little light into the shadows; at a Sun this low very little
-  // (under 1 % of the Sun's), so they are nearly black, as in photographs taken on the Moon.
-  col += albedo * vec3(1.0, 0.99, 0.975) * uSunPower * 0.008 * uSunUp;
+  // Earth sits low here, so its light grazes the ground: the slopes facing it shine, and the earthlit slopes
+  // around scatter only a faint glow over the rest (slopes facing away stay dark).
+  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.9 * mue / (mue + mu);
+  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.07;
+  // By day the sunlit dust around scatters a little light into the shadows: at a Sun this low little (1.5 %
+  // of the Sun's), so they are dark but not empty, as in photographs taken on the Moon.
+  col += albedo * vec3(1.0, 0.99, 0.975) * uSunPower * 0.015 * uSunUp;
   gl_FragColor = vec4(col, 1.0);
 }`;
 

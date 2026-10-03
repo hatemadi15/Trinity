@@ -27,8 +27,9 @@ describe('the ground shader', () => {
     expect(GROUND_FRAG).toContain('float grain(vec2 p, float px)');
   });
 
-  it('keeps a faint earthlit glow on ground that faces away from a low Earth, the light the earthlit slopes around it scatter', () => {
-    expect(GROUND_FRAG).toContain('uEarthshine * 0.18');
+  it('keeps a faint earthlit glow on ground that faces away from a low Earth, but lights mostly the slopes that face it', () => {
+    expect(GROUND_FRAG).toContain('uEarthshine * 0.07');
+    expect(GROUND_FRAG).toContain('uEarthshine * 0.9 * mue / (mue + mu)');
   });
 
   it('lets the drawn craters and rocks cast long shadows at a low Sun, not only shade', () => {
@@ -55,10 +56,11 @@ describe('the ground shader', () => {
     expect(main.lastIndexOf('soft(mTerrain)')).toBeLessThan(lastBrace);
   });
 
-  it('leaves the shadows nearly black at a low Sun: the light the dust scatters into them is under 1 % of the Sun’s', () => {
+  it('leaves the shadows dark at a low Sun but not empty: the dust scatters 1 to 2 % of the Sun’s light into them, as in Apollo photographs', () => {
     const m = GROUND_FRAG.match(/uSunPower \* ([0-9.]+) \* uSunUp/);
     expect(m).not.toBeNull();
-    expect(Number(m![1])).toBeLessThan(0.01);
+    expect(Number(m![1])).toBeGreaterThanOrEqual(0.01);
+    expect(Number(m![1])).toBeLessThan(0.02);
   });
 
   it('gives every loop a length set by a uniform, so the Windows shader compiler cannot unroll them into a minute-long build', () => {
@@ -83,5 +85,18 @@ describe('the ground shader', () => {
   it('makes crater rims uneven, so their shadows have ragged edges rather than smooth blots', () => {
     const craters = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float craters('), GROUND_FRAG.indexOf('float stones('));
     expect(craters).toMatch(/rim \*= [^;]*vnoise\(/);
+  });
+
+  it('keeps the drawn ground’s gentle swells low, so the near ground does not ripple like dunes', () => {
+    const m = GROUND_FRAG.match(/\(vnoise\(p \* 0\.9\) - 0\.5\) \* ([0-9.]+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m![1])).toBeLessThanOrEqual(0.15);
+  });
+
+  it('makes stones lumpy, not round domes, and brightens the regolith less where it looks away from the Sun', () => {
+    const stones = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float stones('), GROUND_FRAG.indexOf('float grain('));
+    expect(stones).toContain('vnoise(');
+    const surge = GROUND_FRAG.match(/surge = 1\.0 \+ ([0-9.]+) \//);
+    expect(Number(surge![1])).toBeLessThanOrEqual(0.5);
   });
 });

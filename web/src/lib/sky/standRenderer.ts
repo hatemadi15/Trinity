@@ -39,7 +39,15 @@ type Spot = { x: number; y: number; visible: boolean };
  * Where the labels go, as fractions of the view's width and height (y is the label's foot); `parts` are the
  * lander's solar panel (its top), antenna dish and power light, named when the view is close.
  */
-export interface SkyLabels { sun: Spot; earth: Spot; stars: (Spot & { name: string })[]; lander: Spot | null; parts?: { panel: Spot; dish: Spot; lamp: Spot } | null }
+export interface SkyLabels {
+  sun: Spot;
+  earth: Spot;
+  stars: (Spot & { name: string })[];
+  lander: Spot | null;
+  parts?: { panel: Spot; dish: Spot; lamp: Spot } | null;
+  /** Your own shadow while any of the Sun is up: a spot 15 m along it, and its length in metres. */
+  shadow?: (Spot & { lengthM: number }) | null;
+}
 
 const DEG = Math.PI / 180;
 /** The sky sphere and the far skyline ring, metres from the eye. */
@@ -107,7 +115,7 @@ function heightTexture(l: FieldLevel | undefined, half: boolean): THREE.DataText
 /** A level's mesh around the site, out to `halfM` (or the level's edge); returns the mesh and how far it reaches on its nearest side. */
 function groundMesh(l: FieldLevel, lonDeg: number, halfM: number, material: THREE.ShaderMaterial): { mesh: THREE.Mesh; reachM: number } {
   const sc = Math.round(l.siteCol), sr = Math.round(l.siteRow), n = Math.floor(halfM / l.cell);
-  const c0 = Math.max(2, sc - n), c1 = Math.min(l.cols - 3, sc + n), r0 = Math.max(2, sr - n), r1 = Math.min(l.rows - 3, sr + n);
+  const c0 = Math.max(3, sc - n), c1 = Math.min(l.cols - 4, sc + n), r0 = Math.max(3, sr - n), r1 = Math.min(l.rows - 4, sr + n);
   const cols = c1 - c0 + 1, rows = r1 - r0 + 1;
   const pos = new Float32Array(cols * rows * 3), nor = new Float32Array(cols * rows * 3);
   const h = (r: number, c: number) => l.heights[r * l.cols + c];
@@ -117,8 +125,9 @@ function groundMesh(l: FieldLevel, lonDeg: number, halfM: number, material: THRE
       pos[k * 3] = w.x;
       pos[k * 3 + 1] = h(r, c);
       pos[k * 3 + 2] = w.z;
-      // Slopes over two cells each way: the grids' single-row seams do not ripple the light.
-      const gx = (h(r, c + 2) + h(r, c + 1) - h(r, c - 1) - h(r, c - 2)) / (6 * l.cell), gy = (h(r - 2, c) + h(r - 1, c) - h(r + 1, c) - h(r + 2, c)) / (6 * l.cell);
+      // Slopes over three cells each way: the grids' single-row seams do not ripple or streak the light.
+      const gx = (h(r, c + 3) + h(r, c + 2) + h(r, c + 1) - h(r, c - 1) - h(r, c - 2) - h(r, c - 3)) / (12 * l.cell);
+      const gy = (h(r - 3, c) + h(r - 2, c) + h(r - 1, c) - h(r + 1, c) - h(r + 2, c) - h(r + 3, c)) / (12 * l.cell);
       const g = worldOf(lonDeg, -gx, -gy), len = Math.hypot(g.x, 1, g.z);
       nor[k * 3] = g.x / len;
       nor[k * 3 + 1] = 1 / len;
@@ -288,7 +297,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, '#fff'], [0.46, '#fff'], [0.5, 'rgba(255,255,255,0)']]), color: new THREE.Color(14, 14, 13.5), transparent: true, depthWrite: false, toneMapped: false }));
   const glare = new THREE.Sprite(new THREE.SpriteMaterial({ map: radial([[0, 'rgba(255,255,255,0.5)'], [0.12, 'rgba(240,244,255,0.16)'], [0.45, 'rgba(220,230,255,0.025)'], [1, 'rgba(0,0,0,0)']]), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
   sun.scale.setScalar(SUN_D * 2.05);
-  glare.scale.setScalar(SUN_D * 10);
+  glare.scale.setScalar(SUN_D * 6);
   root.add(sun, glare);
 
   // Earth: NASA's Blue Marble and clouds, 1.9° wide, lit by the Sun and turned for the hour.
@@ -335,6 +344,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   }
 
   const startMs = Date.parse(scene.startUtc + 'Z');
+  // A camera's exposure: faint stars fade while the Sun is in view, and come out again as the view looks up,
+  // away from the dazzling ground.
+  let sunNow = 0, sunElNow = 0, pitchNow = 0;
+  const expose = () => {
+    const day = 1.6 - 1.25 * sunNow, up = Math.min(1, Math.max(0, (pitchNow - 15) / 20));
+    starMat.uniforms.uGain.value = day + (1.6 - day) * up * up * (3 - 2 * up);
+  };
   const sunDir = new THREE.Vector3(), earthPos = new THREE.Vector3();
   function update(t: number) {
     const v = sampleSeries(scene.series, t);
@@ -372,12 +388,14 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       sunLight.intensity = 3.2 * v.sunFraction;
       // The dust lights the lander's shaded side only faintly at a Sun this low: it stands nearly in silhouette.
       skyLight.intensity = 0.4 * v.sunFraction;
-      earthLight.intensity = 0.03 + 0.5 * earthshine;
+      // A faint floor: with neither the Sun nor Earth up the lander's shape still shows.
+      earthLight.intensity = 0.15 + 0.5 * earthshine;
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
       lander.lamp.color.setHex(Number(scene.lander!.powered[h]) === 1 ? 0x46c98b : 0x000000);
     }
-    // A camera's exposure: faint stars fade while the Sun is in view.
-    starMat.uniforms.uGain.value = 1.6 - 1.25 * v.sunFraction;
+    sunNow = v.sunFraction;
+    sunElNow = v.sunEl;
+    expose();
     // What the lander's foil and metal mirror (the sunlit dust below) dims with the Sun.
     root.environmentIntensity = 0.08 + 0.42 * v.sunFraction;
   }
@@ -390,6 +408,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     return ray.intersectBox(landerBox, hit) !== null && hit.distanceTo(camera.position) < world.distanceTo(camera.position);
   };
   function setView(yawDeg: number, pitchDeg: number, fovDeg: number, aspect: number) {
+    pitchNow = pitchDeg;
+    expose();
     camera.fov = fovDeg;
     camera.aspect = aspect;
     camera.updateProjectionMatrix();
@@ -444,7 +464,14 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
           lamp: on(lander.lampPos),
         }
       : null;
-    return { sun: bodySpot(sun.position, SUN_D * 3), earth: bodySpot(earthPos, EARTH_R * 1.25), stars, lander: landerSpot, parts };
+    // Your own shadow, while any of the Sun is up: 15 m out along it, on the ground.
+    let shadow: SkyLabels['shadow'] = null;
+    if (sunNow > 0) {
+      const away = new THREE.Vector3(-sunDir.x, 0, -sunDir.z).normalize().multiplyScalar(15);
+      const at = spot(new THREE.Vector3(away.x, heightAt(scene.field, away.x, away.z) + 0.05, away.z), 0, false);
+      shadow = { ...at, lengthM: Math.min(500, 1.8 / Math.tan(Math.max(0.2, sunElNow) * DEG)) };
+    }
+    return { sun: bodySpot(sun.position, SUN_D * 3), earth: bodySpot(earthPos, EARTH_R * 1.25), stars, lander: landerSpot, parts, shadow };
   }
 
   const dispose = () => {
@@ -460,7 +487,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     });
   };
 
-  return { root, camera, update, setView, labels, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null } };
+  return { root, camera, update, setView, labels, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? earthLight : null } };
 }
 
 /** A texture drawn on a canvas of the given size (repeating), or none outside a browser. */
@@ -684,7 +711,7 @@ export class StandRenderer {
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
     this.composer.addPass(new RenderPass(this.built.root, this.built.camera));
     // A tight bloom: the Sun's disc glows a little, the sky round it stays black.
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.45, 0.2, 0.985);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.2, 0.985);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
   }
