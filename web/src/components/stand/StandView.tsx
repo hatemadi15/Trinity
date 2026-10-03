@@ -101,7 +101,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
 
   const scene = useMemo<StandScene | null>(() => {
     if (openHour === null || !sky || !s.site || !s.series || !s.mask) return null;
-    const levels = shadowLevels(s.site, s.heightmap, s.contextHeightmap, s.capHeightmap);
+    // Only a polar site stands on NASA heights; elsewhere the ground is drawn flat (and the card says so).
+    const levels = s.site.polar ? shadowLevels(s.site, s.heightmap, s.contextHeightmap, s.capHeightmap) : [];
     const siteHeightM = s.heightmap?.meta.site_height_m ?? s.maskMeta?.siteHeightM ?? 0;
     const field = levels.length ? terrainField(levels, s.site.lon, siteHeightM) : flatField(s.site.lon);
     // Where it landed: placed by the period's first hour, not the hour the view opens on.

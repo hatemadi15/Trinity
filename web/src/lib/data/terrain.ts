@@ -131,12 +131,16 @@ const toLevel = (hm: Heightmap): Level => ({ heights: hm.heightsM, width: hm.met
 /**
  * A site's terrain as shadow levels, coarse to fine: a crop of the south cap around the site, the 80 m
  * context (20 m sites only) and the window. Each keeps its own site pixel, so all share the site-centred
- * map metres the sweep chains them by. Missing grids are left out; a site without a window ends on the
- * 48 km of the cap around it, the ground the 3D view shows for it.
+ * map metres the sweep chains them by. Missing grids are left out, and so is the cap for a site off it (far
+ * from the pole), which then has no levels; a site without a window ends on the 48 km of the cap around it,
+ * the ground the 3D view shows for it.
  */
 export function shadowLevels(site: { lat: number; lon: number }, window: Heightmap | null, context: Heightmap | null, cap: Heightmap | null): Level[] {
   const levels: Level[] = [];
-  const px = cap ? latLonToPixel(cap.meta, site.lat, site.lon) : null;
+  // A site off the cap (one far from the pole) gets none of it: a crop would clamp to the cap's edge and put the
+  // site's own pixel outside the ground.
+  const at = cap ? latLonToPixel(cap.meta, site.lat, site.lon) : null;
+  const px = cap && at && at.col >= 0 && at.row >= 0 && at.col <= cap.meta.width - 1 && at.row <= cap.meta.height - 1 ? at : null;
   if (cap && px) levels.push(toLevel(cropHeightmap(cap, px, CAP_SHADOW_HALF_PX)));
   if (context) levels.push(toLevel(context));
   if (window) levels.push(toLevel(window));

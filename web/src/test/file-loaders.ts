@@ -1,6 +1,8 @@
+import zlib from 'node:zlib';
 import type { Site } from '@/lib/data/loaders';
+import type { HeightmapMeta, TerrainManifest } from '@/lib/data/terrain';
 import { loadEphemeris, type EphemerisHeader } from '@/lib/engine/ephemeris';
-import { readBytes, readJson } from '@/lib/engine/__tests__/helpers';
+import { hasFile, readBytes, readJson } from '@/lib/engine/__tests__/helpers';
 import type { Loaders } from '@/lib/store/explore';
 
 const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
@@ -18,4 +20,24 @@ export function fileLoaders(overrides: Partial<Loaders> = {}): Loaders {
     },
     ...overrides,
   };
+}
+
+/** Whether the terrain files are in web/public/data/terrain (git-ignored: tests that need them skip without them). */
+export const terrainPresent = hasFile('web', 'public', 'data', 'terrain', 'manifest.json');
+
+/**
+ * fileLoaders plus the real terrain files, as the browser loads them: the manifest, the cap, the windows. Each
+ * raster is inflated with Node's zlib, as jsdom has no DecompressionStream, into metres as decodeHeightmap does.
+ */
+export function terrainFileLoaders(overrides: Partial<Loaders> = {}): Loaders {
+  return fileLoaders({
+    loadTerrainManifest: async () => readJson<TerrainManifest>('web', 'public', 'data', 'terrain', 'manifest.json'),
+    loadHeightmap: async (file: string, metaFile: string) => {
+      const meta = readJson<HeightmapMeta>('web', 'public', 'data', 'terrain', metaFile);
+      const raw = zlib.inflateSync(readBytes('web', 'public', 'data', 'terrain', file));
+      const dn = new Uint16Array(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
+      return { meta, heightsM: Float32Array.from(dn, (v) => meta.min_m + v * meta.scale_m_per_unit) };
+    },
+    ...overrides,
+  });
 }

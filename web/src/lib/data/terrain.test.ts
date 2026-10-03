@@ -93,6 +93,14 @@ describe('shadowLevels', () => {
     expect(levels[0].siteRow).toBeCloseTo(px.row - (Math.round(px.row) - CAP_SHADOW_HALF_PX), 9);
   });
 
+  it('leaves the cap out for a site off it, such as one on the near side far from the pole: no levels, so flat ground', () => {
+    const cap = grid('cap', 1000, 960, 499.5, 499.5, 7);
+    // Blue Ghost, at 18.6 degrees north: thousands of cap pixels away, where a crop would clamp to the cap's edge.
+    expect(shadowLevels({ lat: 18.56, lon: 61.81 }, null, null, cap)).toEqual([]);
+    // 60 degrees south lies beyond a cap 480 km round the pole.
+    expect(shadowLevels({ lat: -60, lon: 0 }, null, null, cap)).toEqual([]);
+  });
+
   it('without a window, ends on the 48 km of the cap around the site that the 3D view shows', () => {
     const cap = grid('cap', 1000, 960, 499.5, 499.5, 7);
     const levels = shadowLevels({ lat: -89.5, lon: 0 }, null, null, cap);

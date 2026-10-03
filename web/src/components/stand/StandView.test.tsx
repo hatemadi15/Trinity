@@ -5,7 +5,8 @@ import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
 import { keyMoments, landerState, momentCaption, skyLabel, starLabel, statusLine, viewCaption, watchNext } from '@/lib/viz/stand';
-import { fileLoaders } from '@/test/file-loaders';
+import { fileLoaders, terrainFileLoaders, terrainPresent } from '@/test/file-loaders';
+import type { StandScene } from '@/lib/sky/standRenderer';
 import { StandView } from './StandView';
 import type { RendererLike } from './StandCanvas';
 
@@ -183,6 +184,38 @@ describe('StandView', () => {
     while (!(screen.getByRole('button', { name: 'Next reason' }) as HTMLButtonElement).disabled) fireEvent.click(screen.getByRole('button', { name: 'Next reason' }));
     await waitFor(() => expect(screen.getAllByText(/the ground here is drawn flat/).length).toBeGreaterThan(0));
   });
+
+  // With the terrain files the browser loads (the south cap for every site): a site far from the pole must not
+  // stand on a crop of the cap's edge.
+  async function openWithTerrain(search: string) {
+    let scene: StandScene | null = null;
+    window.history.replaceState(null, '', `/explore/stand${search}`);
+    const store = createExploreStore(terrainFileLoaders());
+    render(
+      <StandView
+        store={store}
+        createRenderer={(_canvas, sc) => {
+          scene = sc;
+          return stub();
+        }}
+      />,
+    );
+    await waitFor(() => expect(scene).not.toBeNull(), { timeout: 30_000 });
+    return { store, scene: scene! as StandScene };
+  }
+
+  it.skipIf(!terrainPresent)('opens a site far from the pole on flat ground, with the polar terrain loaded too, and says so', async () => {
+    const { scene } = await openWithTerrain('?site=blue_ghost_m1&start=2025-03-02T09:00&days=14&hour=0');
+    expect(scene.field.levels.length).toBe(0);
+    expect(screen.getByText(/Ground drawn flat: no NASA heights here\./)).toBeTruthy();
+  }, 40_000);
+
+  it.skipIf(!terrainPresent)('stands a polar site on its NASA heights, the window finest', async () => {
+    const { scene } = await openWithTerrain('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=0');
+    expect(scene.field.levels.length).toBeGreaterThanOrEqual(2);
+    expect(Math.min(...scene.field.levels.map((l) => l.cell))).toBe(20);
+    expect(screen.getByText(/Hills: NASA height data\./)).toBeTruthy();
+  }, 40_000);
 
   it('falls back to the horizon chart, with the same words, when the renderer cannot start', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => {
