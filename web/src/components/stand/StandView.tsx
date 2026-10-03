@@ -271,7 +271,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           scene={scene}
           hour={hour}
           look={look}
-          startYaw={(openingAnchor(series, opening) + (scene.lander ? openRight() : 0)) % 360}
+          startYaw={(openingAnchor(series, opening) + (openOnEarth ? -4 : scene.lander ? openRight() : 0) + 360) % 360}
           reducedMotion={reducedMotion}
           createRenderer={createRenderer}
           sunLabel={skyLabel('sun', series, hour)}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, partSide, slopeWord, starNamesShown } from './StandCanvas';
+import { clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, partSide, pointerClear, slopeWord, starNamesShown } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -179,3 +179,17 @@ describe('pointers to what is out of view', () => {
     }
   });
 });
+
+describe('a pointer beside a label', () => {
+  it('moves below a label it would cover, or above it when below has no room, and stays put when clear', () => {
+    // The lander's label 400 to 428 px down; a pointer 26 px tall centred at 420 px on the same side.
+    const label = { left: 200, right: 368, top: 400, bottom: 428 };
+    const box = { left: 160, right: 382, top: 407, bottom: 433 };
+    expect(pointerClear(box, [label], 250, 600)).toBe(428 + 6 + 13);
+    // With the room ending at 440, it goes above.
+    expect(pointerClear(box, [label], 250, 440)).toBe(400 - 6 - 13);
+    // Clear of it: where it is.
+    expect(pointerClear({ ...box, top: 500, bottom: 526 }, [label], 250, 600)).toBe(513);
+  });
+});
+

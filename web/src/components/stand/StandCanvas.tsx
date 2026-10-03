@@ -73,6 +73,19 @@ export function edgePointers(
   return out;
 }
 
+/**
+ * Where a pointer's middle goes (pixels down the screen) so its `box` keeps 6 px clear of the labels on the
+ * sky: where it is when clear; else just below the label it meets, or just above it when below would leave
+ * the room (`lo` to `hi`).
+ */
+export function pointerClear(box: Rect, labels: Rect[], lo: number, hi: number): number {
+  const h = box.bottom - box.top, mid = box.top + h / 2;
+  const hit = labels.find((l) => box.right > l.left && box.left < l.right && box.bottom > l.top - 6 && box.top < l.bottom + 6);
+  if (!hit) return mid;
+  const below = hit.bottom + 6 + h / 2;
+  return below + h / 2 <= hi ? below : Math.max(lo, hit.top - 6 - h / 2);
+}
+
 /** The Southern Cross's four stars, named only while the cross's own name is not shown. */
 const CROSS = new Set(['Acrux', 'Mimosa', 'Gacrux', 'Imai']);
 /**
@@ -531,6 +544,10 @@ export function StandCanvas({
         node.style.top = `${p.y}px`;
         node.style.left = p.side === 'left' ? '8px' : '';
         node.style.right = p.side === 'right' ? '8px' : '';
+        // Clear of the labels on the sky, so a pointer never covers the lander's name or the Sun's.
+        const labels = [sunRef.current, earthRef.current, landerRef.current, shadowRef.current].filter((n): n is HTMLSpanElement => !!n && !n.hidden).map((n) => n.getBoundingClientRect());
+        const b = node.getBoundingClientRect();
+        if (b.height > 0) node.style.top = `${pointerClear(b, labels, freeTop + 24, freeBottom - 8)}px`;
       }
       raf = requestAnimationFrame(tick);
     };
