@@ -37,6 +37,47 @@ const STRIP_FADE = 'linear-gradient(to right, transparent, #000 16%, #000 84%, t
 /** Narrower than this (degrees up and down) the view is zoomed in: the compass says so, and the lander's parts are named. */
 const ZOOMED_FOV = 45;
 const POINT = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+/**
+ * Where a body's mark goes on the compass strip, for the way the view faces: pixels from the strip's left
+ * while it is within 56° of the middle, else the end it lies beyond (left or right), where its name shows.
+ */
+export function compassMark(azDeg: number, yawDeg: number): { x: number | null; edge: 'left' | 'right' | null } {
+  const rel = ((((azDeg - yawDeg + 540) % 360) + 360) % 360) - 180;
+  if (Math.abs(rel) <= 56) return { x: STRIP_W / 2 + rel * PX_PER_DEG, edge: null };
+  return { x: null, edge: rel > 0 ? 'right' : 'left' };
+}
+
+/**
+ * Which side of its star each name goes, in order: on the right, or on the left when the right would touch a
+ * name already placed (8 px apart at least), or left out when both would. `x`, `y` is the star on the
+ * screen, `w`, `h` its name's size, in pixels.
+ */
+export function labelSides(spots: { x: number; y: number; w: number; h: number; visible: boolean }[]): ('right' | 'left' | 'none')[] {
+  const taken: { l: number; r: number; t: number; b: number }[] = [];
+  const free = (q: { l: number; r: number; t: number; b: number }) => !taken.some((o) => q.l < o.r + 8 && q.r + 8 > o.l && q.t < o.b && q.b > o.t);
+  return spots.map((s) => {
+    if (!s.visible) return 'none';
+    const t = s.y - s.h / 2, b = s.y + s.h / 2;
+    const right = { l: s.x + 8, r: s.x + 8 + s.w, t, b }, left = { l: s.x - 8 - s.w, r: s.x - 8, t, b };
+    if (free(right)) {
+      taken.push(right);
+      return 'right';
+    }
+    if (free(left)) {
+      taken.push(left);
+      return 'left';
+    }
+    return 'none';
+  });
+}
+const SIDE = { right: 'translate(8px, -50%)', left: 'translate(calc(-100% - 8px), -50%)' } as const;
+const BODIES = [
+  ['sun', 'Sun', 'bg-[#f6b646] border-[#f6b646]'],
+  ['earth', 'Earth', 'bg-[#74adff] border-[#74adff]'],
+  ['lander', 'Lander', 'bg-[#f2f0ea] border-[#f2f0ea]'],
+] as const;
+type Body = (typeof BODIES)[number][0];
 const TICKS = Array.from({ length: 72 }, (_, k) => -360 + k * 15);
 
 const lerpAngle = (a: number, b: number, f: number) => (a + ((((b - a + 540) % 360) - 180) * f) + 360) % 360;
@@ -48,8 +89,10 @@ const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] bord
  * hour at 14 hours a second (faster than Play's 12), so Play sweeps the shadows smoothly; a jump of more
  * than 2 hours is taken at once. On opening, the view settles from the sky down to the horizon in under
  * 4 seconds, unless the system asks for reduced motion. A line says which way the view faces, and when it
- * is zoomed in; the bright stars carry their names at night and when the view looks up; zoomed in on the
- * lander, its solar panel, dish and power light carry theirs.
+ * is zoomed in (on a phone, a small note at the top right); the compass strip marks the Sun, Earth and the
+ * lander at their bearings, hollow while below the horizon, or names them at its end when they lie beyond;
+ * the bright stars carry their names at night and when the view looks up, each on whichever side keeps it
+ * clear of the others; zoomed in on the lander, its solar panel, dish and power light carry theirs.
  */
 export function StandCanvas({
   scene,
@@ -85,6 +128,9 @@ export function StandCanvas({
   const earthRef = useRef<HTMLSpanElement>(null);
   const starRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const facingRef = useRef<HTMLParagraphElement>(null);
+  const facingPhoneRef = useRef<HTMLParagraphElement>(null);
+  const markRefs = useRef<Partial<Record<Body, HTMLElement | null>>>({});
+  const edgeRefs = useRef<Partial<Record<string, HTMLElement | null>>>({});
   const trackRef = useRef<HTMLDivElement>(null);
   const hourRef = useRef(hour);
   const nightRef = useRef(night);
@@ -199,16 +245,53 @@ export function StandCanvas({
       const l = r.labels();
       place(sunRef.current, l.sun);
       place(earthRef.current, l.earth);
-      place(landerRef.current, l.lander);
-      // Zoomed in on the lander, its parts carry their names.
+      // Zoomed in on the lander, its parts carry their names (and its own name gives way to them).
       const close = v.fov < ZOOMED_FOV;
+      place(landerRef.current, close && l.parts?.panel.visible ? null : l.lander);
       for (const k of ['panel', 'dish', 'lamp'] as const) place(partRefs.current[k], close && l.parts ? l.parts[k] : null);
-      // Star names at night, or when the view looks well up, where they would not crowd the day's sky.
+      // Star names at night, or when the view looks well up, where they would not crowd the day's sky; each
+      // on the side of its star that keeps it clear of the names already placed.
       const nameShown = starNamesShown(l.stars, nightRef.current || v.pitch > 25);
       l.stars.forEach((st, k) => place(starRefs.current[k], { ...st, visible: nameShown[k] }));
+      const boxes = l.stars.map((st, k) => {
+        const node = starRefs.current[k];
+        if (!node || node.hidden) return { x: 0, y: 0, w: 0, h: 0, visible: false };
+        const b = node.getBoundingClientRect();
+        return { x: st.x * W, y: st.y * H, w: b.width, h: b.height, visible: true };
+      });
+      labelSides(boxes).forEach((side, k) => {
+        const node = starRefs.current[k];
+        if (!node || node.hidden) return;
+        if (side === 'none') {
+          node.hidden = true;
+          return;
+        }
+        node.style.transform = SIDE[side];
+        const b = node.getBoundingClientRect();
+        if (b.width > 0 && plates.some((q) => b.right > q.left - 4 && b.left < q.right + 4 && b.bottom > q.top - 4 && b.top < q.bottom + 4)) node.hidden = true;
+      });
       const facing = v.pitch > 60 ? 'Looking up' : `Facing ${compassWord(v.yaw)}${v.fov < ZOOMED_FOV ? ', zoomed in' : ''}`;
-      if (facingRef.current && facingRef.current.textContent !== facing) facingRef.current.textContent = facing;
+      for (const f of [facingRef.current, facingPhoneRef.current]) if (f && f.textContent !== facing) f.textContent = facing;
       if (trackRef.current) trackRef.current.style.transform = `translateX(${STRIP_W / 2 - (v.yaw + 360) * PX_PER_DEG}px)`;
+      // The Sun, Earth and the lander on the compass strip: filled while in view, hollow while hidden.
+      const hr = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));
+      const where: [Body, number, boolean][] = [
+        ['sun', scene.series.sunAz[hr], scene.series.sunFraction[hr] > 0],
+        ['earth', scene.series.earthAz[hr], scene.series.earthVisible[hr] === 1],
+      ];
+      if (scene.lander) where.push(['lander', scene.lander.azDeg, true]);
+      for (const [k, az, up] of where) {
+        const m = compassMark(az, v.yaw), mark = markRefs.current[k];
+        if (mark) {
+          mark.hidden = m.x === null;
+          if (m.x !== null) mark.style.left = `${m.x}px`;
+          mark.dataset.up = up ? '1' : '0';
+        }
+        for (const side of ['left', 'right'] as const) {
+          const e = edgeRefs.current[`${side}-${k}`];
+          if (e) e.hidden = m.edge !== side;
+        }
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -291,7 +374,7 @@ export function StandCanvas({
         style={{ width: STRIP_W }}
         className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 overflow-hidden rounded-[6px] border border-white/15 bg-black/70 text-[#f2f0ea] max-md:hidden"
       >
-        <div className="relative h-7" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
+        <div className="relative h-8" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
           <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>
             {TICKS.map((d) => {
               const az = ((d % 360) + 360) % 360;
@@ -305,11 +388,49 @@ export function StandCanvas({
             })}
           </div>
         </div>
-        <i className="absolute left-1/2 top-0 h-7 w-0.5 -translate-x-1/2 bg-white" />
+        <i className="absolute left-1/2 top-0 h-8 w-0.5 -translate-x-1/2 bg-white" />
+        {BODIES.map(([k, , colour]) => (
+          <i
+            key={k}
+            data-mark={k}
+            ref={(node) => {
+              markRefs.current[k] = node;
+            }}
+            hidden
+            className={`absolute bottom-[calc(100%-30px)] h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 ${colour} data-[up=0]:bg-transparent`}
+          />
+        ))}
+        {(['left', 'right'] as const).map((side) => (
+          <span key={side} className={`absolute top-1 flex flex-col gap-0.5 ${side === 'left' ? 'left-1.5 items-start' : 'right-1.5 items-end'}`}>
+            {BODIES.map(([k, name, colour]) => (
+              <span
+                key={k}
+                data-edge={`${side}-${k}`}
+                ref={(node) => {
+                  edgeRefs.current[`${side}-${k}`] = node;
+                }}
+                hidden
+                className="flex items-center gap-1 rounded bg-black/80 px-1 text-[12px] leading-4"
+              >
+                {side === 'left' && <i className={`h-2 w-2 rounded-full ${colour}`} />}
+                {name}
+                {side === 'right' && <i className={`h-2 w-2 rounded-full ${colour}`} />}
+              </span>
+            ))}
+          </span>
+        ))}
         <p ref={facingRef} className="pb-1 text-center text-[15px]">
           {`Facing ${compassWord(startYaw)}`}
         </p>
       </div>
+      {/* On a phone, with no room for the strip: which way the view faces, small, at the top right of the view. */}
+      <p
+        ref={facingPhoneRef}
+        aria-hidden="true"
+        className="pointer-events-none fixed right-4 top-[calc(var(--top-h,220px)+8px)] rounded-[6px] border border-white/15 bg-black/70 px-2 py-0.5 text-[13px] text-[#f2f0ea] md:hidden"
+      >
+        {`Facing ${compassWord(startYaw)}`}
+      </p>
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
         <span ref={sunRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#f6b646]`}>
           {sunLabel}
@@ -326,7 +447,7 @@ export function StandCanvas({
           (
             [
               ['panel', 'Solar panel', '-translate-x-1/2 -translate-y-[calc(100%+6px)]'],
-              ['dish', 'Dish, aimed at Earth', 'translate-x-3 -translate-y-1/2'],
+              ['dish', 'Radio dish', 'translate-x-3 -translate-y-1/2'],
               ['lamp', 'Power light', '-translate-x-[calc(100%+12px)] -translate-y-1/2'],
             ] as const
           ).map(([k, name, at]) => (
@@ -348,7 +469,8 @@ export function StandCanvas({
               starRefs.current[k] = node;
             }}
             hidden
-            className="pointer-events-none absolute translate-x-2 -translate-y-1/2 whitespace-nowrap text-[14px] text-[#d7d4cc] [text-shadow:0_0_4px_#000]"
+            style={{ transform: SIDE.right }}
+            className="pointer-events-none absolute whitespace-nowrap text-[14px] text-[#d7d4cc] [text-shadow:0_0_4px_#000]"
           >
             {name}
           </span>

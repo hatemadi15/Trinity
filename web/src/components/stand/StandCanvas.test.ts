@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { horizonLift, starNamesShown } from './StandCanvas';
+import { compassMark, horizonLift, labelSides, starNamesShown } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -36,5 +36,27 @@ describe('the star names', () => {
     // With the cross itself out of sight, its stars keep their names.
     const hidden = [at('Acrux'), at('Southern Cross', false)];
     expect(starNamesShown(hidden, true)).toEqual([true, false]);
+  });
+});
+
+describe('star names that would touch', () => {
+  const at = (x: number, y: number, w = 100, h = 20) => ({ x, y, w, h, visible: true });
+  it('puts a name on the right of its star, or on the left when the right is taken, or leaves it out', () => {
+    // Two stars 44 px apart: the second's name goes to its left; a third between them has no room.
+    expect(labelSides([at(870, 300), at(826, 302, 42)])).toEqual(['right', 'left']);
+    expect(labelSides([at(870, 300), at(826, 302, 42), at(850, 301)])).toEqual(['right', 'left', 'none']);
+    // Far apart, both on the right; a star out of sight takes no room.
+    expect(labelSides([at(100, 100), at(600, 100)])).toEqual(['right', 'right']);
+    expect(labelSides([{ ...at(870, 300), visible: false }, at(826, 302, 42)])).toEqual(['none', 'right']);
+  });
+});
+
+describe('the marks on the compass strip', () => {
+  it('puts a body on the strip at its bearing from the way the view faces, or at the nearer end when it is out of the strip', () => {
+    // The strip spans 120 degrees across 300 px: 2.5 px a degree, the middle at 150 px.
+    expect(compassMark(300, 315)).toEqual({ x: 150 - 15 * 2.5, edge: null });
+    expect(compassMark(10, 350)).toEqual({ x: 150 + 20 * 2.5, edge: null });
+    expect(compassMark(45, 315)).toEqual({ x: null, edge: 'right' });
+    expect(compassMark(200, 315)).toEqual({ x: null, edge: 'left' });
   });
 });

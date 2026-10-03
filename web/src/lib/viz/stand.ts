@@ -1,7 +1,7 @@
 import type { Series } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
 import { parseExploreQuery, type ExploreQuery } from '../store/query';
-import { dateLong, dayMonth, spanWords } from './format';
+import { dateLong, dayMonth } from './format';
 import { degrees, groundWords } from './ground';
 
 /** Explore's address plus the hour the view opens on: `?site=&start=&days=&hour=`; a malformed hour is left out. */
@@ -59,7 +59,8 @@ export function liveSentence(s: Series, hour: number, powered?: boolean): string
  * view, as the time bar draws it) or of the lander's power, with its day; and the other kind's next change
  * when it follows within three days. "Press Play: the Sun sets behind the hills on 3 January, and the
  * battery runs out on 4 January." On the same day the day is said once: "Press Play: the Sun comes back on
- * 20 January, and the power with it."
+ * 20 January, and the power with it, if the lander survives the cold of the night." The power coming back
+ * always carries that condition, straight after it, as the forecast counts energy only.
  */
 export function watchNext(s: Series, p: PowerResult | null, startUtc: string, hour: number): string {
   const lit = (h: number) => s.sunFraction[h] > 0;
@@ -72,16 +73,18 @@ export function watchNext(s: Series, p: PowerResult | null, startUtc: string, ho
     }
     return null;
   };
+  // Kept next to the power coming back, so that it never reads as a condition on the Sun.
+  const ifSurvives = (c: Change) => (c.kind === 'power' && c.back ? ', if the lander survives the cold of the night' : '');
   const first = next(hour);
   if (!first) return 'Press Play to watch the light move across the ground.';
   const day = dateLong(startUtc, first.h);
   const then = next(first.h - 1, first.kind === 'sun' ? 'power' : 'sun');
-  if (!then || then.h - first.h > 72) return `Press Play: ${first.what} on ${day}.`;
+  if (!then || then.h - first.h > 72) return `Press Play: ${first.what} on ${day}${ifSurvives(first)}.`;
   const thenDay = dateLong(startUtc, then.h);
-  if (thenDay !== day) return `Press Play: ${first.what} on ${day}, and ${then.what} on ${thenDay}.`;
+  if (thenDay !== day) return `Press Play: ${first.what} on ${day}${ifSurvives(first)}, and ${then.what} on ${thenDay}${ifSurvives(then)}.`;
   // The Sun brings the power back with it.
-  if (first.kind === 'sun' && first.back && then.back) return `Press Play: ${first.what} on ${day}, and the power with it.`;
-  return `Press Play: ${first.what} on ${day}, and ${then.what} the same day.`;
+  if (first.kind === 'sun' && first.back && then.back) return `Press Play: ${first.what} on ${day}, and the power with it${ifSurvives(then)}.`;
+  return `Press Play: ${first.what} on ${day}${ifSurvives(first)}, and ${then.what} the same day${ifSurvives(then)}.`;
 }
 
 /**
@@ -130,6 +133,37 @@ export function keyMoments(s: Series, p: PowerResult | null, startUtc: string): 
 }
 
 /**
+ * The caption over the view when a key moment is chosen, for the moment's own hour: what happens then, and
+ * why, in plain words. `label` is one of keyMoments' labels; any other gets an empty caption. Given the
+ * site's latitude, the sunset's line on the pole is left out far from the poles.
+ */
+export function momentCaption(label: string, s: Series, hour: number, lat?: number): string {
+  const sinks = `The Sun sinks ${s.sunEl[hour] < 0 ? 'below the horizon' : 'behind the hills'}`;
+  const earth = s.earthVisible[hour] === 1;
+  switch (label) {
+    case 'Sunset':
+      return lat !== undefined && poleLine(lat) === null ? `${sinks}.` : `${sinks}. This close to the pole it never climbs more than a few degrees.`;
+    case 'Sunset and power off':
+      return `${sinks}, and the lander's power goes with it.`;
+    case 'Battery runs out':
+      // With too little sunlight the battery can run out while the Sun is still in view.
+      return s.sunFraction[hour] > 0
+        ? 'The battery runs out: the Sun is still up, but the panel gets too little sunlight to keep the lander going.'
+        : 'The battery runs out: with the Sun gone, the panel makes nothing until it comes back.';
+    case 'Earth in view':
+      return 'Earth rises over the hills: the Moon rocks a little as it goes round, enough to lift Earth into view here.';
+    case 'Sun back':
+      return `The Sun is back over the hills.${earth ? ' With Earth in view too, a working lander could radio home.' : ''}`;
+    case 'Sun and power back':
+      return `The Sun is back, and the panel powers the lander again.${earth ? ' Earth is in view, so it can radio home.' : ''}`;
+    case 'Power back':
+      return 'The panel makes enough power again.';
+    default:
+      return '';
+  }
+}
+
+/**
  * The view's first line: that this is the Moon, where, and that it is drawn from NASA data. The short one,
  * for a phone, keeps the Moon and the pole.
  */
@@ -141,14 +175,15 @@ export function standingLine(site: { lat: number; blurb?: string }, name: string
 /** Why the Sun stays low, for a site near a pole; null elsewhere. */
 export function poleLine(lat: number): string | null {
   if (Math.abs(lat) < 80) return null;
-  return `Near the Moon's ${lat < 0 ? 'south' : 'north'} pole the Sun never climbs high: it circles just above the horizon once a month, so a low hill can hide it for days.`;
+  return `Near the Moon's ${lat < 0 ? 'south' : 'north'} pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon, so a low hill can hide it for days.`;
 }
 
 /**
- * Why the view looks as it does at the hour, a sentence each, in order: near a pole, why the Sun stays low
- * and why Earth rises and sets; by day, why the sky is black; with none of the Sun in view, where it is
- * while farther hills are still lit; at night with Earth in view, why the ground looks blue. Each sentence
- * is there only when it applies.
+ * Why the view looks as it does at the hour, a line each, in order: near a pole, why the Sun stays low and
+ * why Earth rises and sets; by day, why the sky is black and why few stars are seen; with none of the Sun
+ * in view, where it is while farther hills are still lit; at night with Earth in view, what lights the
+ * ground and why it looks blue; and with Earth in view, how big it looks. Each line is there only when it
+ * applies.
  */
 export function whyLines(lat: number, s: Series, hour: number): string[] {
   const lines: string[] = [];
@@ -157,13 +192,15 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
     lines.push(pole, "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon rocks a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.");
   }
   const el = s.sunEl[hour];
+  const earth = s.earthVisible[hour] === 1;
   if (s.sunFraction[hour] > 0) {
-    lines.push('With no air to scatter sunlight, the sky stays black by day, and the stars shine beside the Sun.');
-    return lines;
+    lines.push('With no air to scatter sunlight, the sky stays black by day, and the brightest stars still show. Eyes dazzled by the sunlit ground, or a camera set for it as on Apollo, see few of them.');
+  } else {
+    if (el >= 0) lines.push('The Sun is still up, hidden behind the hills: higher ground farther off still catches its light.');
+    else if (el > -2) lines.push('The Sun is just below the horizon here, but higher ground farther off still catches its light.');
+    if (earth) lines.push('At night only Earth lights the ground: sunlight bounced off Earth. The view is brightened, as a long photograph would be, so the ground shows, and that light is why it looks blue.');
   }
-  if (el >= 0) lines.push('The Sun is still up, hidden behind the hills: higher ground farther off still catches its light.');
-  else if (el > -2) lines.push('The Sun is just below the horizon here, but higher ground farther off still catches its light.');
-  if (s.earthVisible[hour] === 1) lines.push('At night only Earth lights the ground, which is why it looks blue.');
+  if (earth) lines.push('Earth looks about 2° wide from here, nearly four times as wide as the full Moon looks from Earth.');
   return lines;
 }
 
@@ -184,24 +221,25 @@ export function landerState(p: PowerResult | null, startUtc: string, hour: numbe
  * The lander's power and its radio contact for the hour in one sentence: whether it has power, since or
  * until when (the dates of the hour's own stretch, as in landerState), and whether Earth is in view for
  * its radio, or where Earth is when it is not. `on` is whether it has power; true until that is worked out.
+ * `tone` is for the page's dot: "radio" with power and Earth in view, "power" with power alone or while the
+ * power is being worked out, and "off" without power.
  */
-export function statusLine(s: Series, p: PowerResult | null, startUtc: string, hour: number): { on: boolean; text: string } {
-  if (!p) return { on: true, text: WORKING };
+export function statusLine(s: Series, p: PowerResult | null, startUtc: string, hour: number): { on: boolean; tone: 'radio' | 'power' | 'off'; text: string } {
+  if (!p) return { on: true, tone: 'power', text: WORKING };
   const w = stretchWords(p, startUtc, hour);
   const seen = s.earthVisible[hour] === 1;
-  if (!w.on) return { on: false, text: `${w.off} ${seen ? 'Earth is in view, but the radio has no power.' : w.back}` };
-  if (seen) return { on: true, text: `${w.has}${w.again ? ',' : ''} and can radio Earth.` };
-  return { on: true, text: `${w.has}, but Earth is ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind the hills'}, so it cannot radio home.` };
+  if (!w.on) return { on: false, tone: 'off', text: `${w.off} ${seen ? 'Earth is in view, but the radio has no power.' : w.back}` };
+  if (seen) return { on: true, tone: 'radio', text: `${w.has}${w.again ? ',' : ''} and can radio Earth.` };
+  return { on: true, tone: 'power', text: `${w.has}, but Earth is ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind the hills'}, so it cannot radio home.` };
 }
 
 /**
- * The headline with how long the night lasts, when the power runs out at night and the title ends ", then
- * night": "..., then 17 days of night" (to the nearest day), "..., then a night of 20 hours" for a night
- * shorter than two days, or "..., then night to the end of the period". The night runs from the sunset
- * before the power cut to the next sunrise. Any other title comes back as it is, and so does a night that
- * began before the period, as its length is not known.
+ * The headline with the day the night ends, when the power runs out at night and the title ends ", then
+ * night": "..., then night until 20 January", the day the Sun comes back. A date adds up where a count of
+ * days did not. When the Sun does not come back in the period: "..., then night to the end of the period".
+ * Any other title comes back as it is, and so does the title when the period starts in the dark.
  */
-export function nightHeadline(title: string, s: Series, p: PowerResult): string {
+export function nightHeadline(title: string, s: Series, p: PowerResult, startUtc: string): string {
   const tail = ', then night';
   const first = p.firstBrownoutHour;
   if (first === null || s.sunFraction[first] !== 0 || !title.endsWith(tail)) return title;
@@ -212,8 +250,7 @@ export function nightHeadline(title: string, s: Series, p: PowerResult): string 
   const head = title.slice(0, -tail.length);
   if (sunrise >= s.hours) return `${head}, then night to the end of the period`;
   if (sunset === 0) return title;
-  const span = sunrise - sunset;
-  return span >= 48 ? `${head}, then ${Math.round(span / 24)} days of night` : `${head}, then a night of ${spanWords(span)}`;
+  return `${head}, then night until ${dateLong(startUtc, sunrise)}`;
 }
 
 /**
