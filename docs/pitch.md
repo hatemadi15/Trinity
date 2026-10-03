@@ -36,7 +36,7 @@ Planners get a first answer in a minute and a brief they can hand to engineering
 
 ## 4:20 — Data and team (20 s)
 
-NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and 1,171 automated tests keep the two in step. Team Astroy/Ed.
+NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and 1,192 automated tests keep the two in step. Team Astroy/Ed.
 
 ## 4:40 — Close (20 s)
 

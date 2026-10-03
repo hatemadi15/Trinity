@@ -166,7 +166,7 @@ Sound, VR headsets, a free-flying camera away from the site, rovers, stars faint
 
 ## 13. Amendment: Part A as built (4 October 2026)
 
-Part A was built on `feat/immersive-a` through twelve blind reads and twelve fix passes. This section records what was built where it differs from section 4, and the reads. Every change below has its ruling, with what it costs if wrong, in the plan's ledger.
+Part A was built on `feat/immersive-a` through twelve blind reads and twelve fix passes. This section records what was built where it differs from section 4, and the reads. Every change below has its ruling, with what it costs if wrong, in the plan's ledger (`docs/superpowers/plans/2026-10-02-immersive-a-stand-on-the-moon.ledger.md`).
 
 ### 13.1 Where it differs from section 4
 
