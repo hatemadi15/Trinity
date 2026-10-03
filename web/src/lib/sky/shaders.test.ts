@@ -27,6 +27,6 @@ describe('the ground shader', () => {
   });
 
   it('keeps a faint earthlit glow on ground that faces away from a low Earth, the light the earthlit slopes around it scatter', () => {
-    expect(GROUND_FRAG).toContain('uEarthshine * 0.12');
+    expect(GROUND_FRAG).toContain('uEarthshine * 0.18');
   });
 });

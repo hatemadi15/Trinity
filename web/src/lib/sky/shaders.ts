@@ -47,8 +47,11 @@ float craters(vec2 p, float cell) {
     if (fract(rnd.x * 7.13 + rnd.y * 3.31) > 0.4) continue;
     vec2 c = o + rnd; float rad = mix(0.1, 0.45, pow(fract(rnd.x * 17.31 + rnd.y), 2.2));
     float depth = mix(0.08, 0.16, fract(rnd.y * 5.77 + rnd.x));
-    float r = length(f - c) / rad;
-    if (r < 1.8) { float bowl = r < 1.0 ? (r * r - 1.0) : 0.0; float rim = 0.32 * exp(-pow((r - 1.0) * 3.2, 2.0)); h += (bowl * depth + rim) * rad * cell; }
+    // Each crater a little out of round, with its own rim: old ones soft and low, young ones sharp.
+    vec2 d = f - c; float ang = 6.2832 * fract(rnd.x * 3.7 + rnd.y * 9.1);
+    vec2 dr = vec2(d.x * cos(ang) + d.y * sin(ang), (-d.x * sin(ang) + d.y * cos(ang)) * mix(1.0, 1.35, fract(rnd.y * 13.3)));
+    float r = length(dr) / rad, age = fract(rnd.x * 21.7 + rnd.y * 4.3);
+    if (r < 1.8) { float bowl = r < 1.0 ? (r * r - 1.0) : 0.0; float rim = mix(0.12, 0.38, age) * exp(-pow((r - 1.0) * mix(2.0, 4.0, age), 2.0)); h += (bowl * depth * mix(0.6, 1.0, age) + rim) * rad * cell; }
   }
   return h;
 }
@@ -108,9 +111,10 @@ void main() {
   vec3 albedo = vec3(0.17, 0.164, 0.156) * albedoVar;
   vec3 col = albedo * vec3(1.0, 0.99, 0.975) * uSunPower * ls * phase * surge * vis;
   vec3 Le = normalize(uEarth); float mue = max(dot(Nn, Le), 0.0);
-  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * mue / (mue + mu);
-  // Earth sits low here, so its light grazes the ground; the earthlit slopes around scatter a faint glow.
-  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.12;
+  // Earth sits low here, so its light grazes the ground: the slopes facing it shine (softly, as the 20 m
+  // facets would otherwise streak) and the earthlit slopes around scatter a faint glow over the rest.
+  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.6 * mue / (mue + mu);
+  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.18;
   // By day the sunlit dust around scatters a little light into the shadows, which are dark grey, not black.
   col += albedo * vec3(1.0, 0.99, 0.975) * uSunPower * 0.025 * uSunUp;
   gl_FragColor = vec4(col, 1.0);

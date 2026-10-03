@@ -34,7 +34,7 @@ export interface StandScene {
 
 type Spot = { x: number; y: number; visible: boolean };
 /** Where the labels go, as fractions of the view's width and height (y is the label's foot). */
-export interface SkyLabels { sun: Spot; earth: Spot; stars: (Spot & { name: string })[] }
+export interface SkyLabels { sun: Spot; earth: Spot; stars: (Spot & { name: string })[]; lander: Spot | null }
 
 const DEG = Math.PI / 180;
 /** The sky sphere and the far skyline ring, metres from the eye. */
@@ -333,7 +333,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     earthMat.uniforms.uSun.value.set(...sd);
     const full = earthLitFraction(sd as Vec3, ed as Vec3);
     // Earthlight on the ground; when the Sun is hidden the view is exposed like a long photograph, so it shows.
-    const earthshine = v.earthEl > -0.5 ? 0.25 * full * (1 + 4 * (1 - v.sunFraction)) : 0;
+    const earthshine = v.earthEl > -0.5 ? 0.25 * full * (1 + 3 * (1 - v.sunFraction)) : 0;
     for (const g of ground) {
       const u = (g.material as THREE.ShaderMaterial).uniforms;
       u.uSun.value.set(...sd);
@@ -395,7 +395,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       const s = spot(w);
       return { name, ...s, visible: s.visible && el > maskAt(az) };
     });
-    return { sun: bodySpot(sun.position, SUN_D * 3), earth: bodySpot(earthPos, EARTH_R * 1.25), stars };
+    // The lander's name over its top (high enough that the ray to it clears the lander itself).
+    const landerSpot = lander ? spot(new THREE.Vector3(lander.group.position.x, lander.group.position.y + 3.9, lander.group.position.z)) : null;
+    return { sun: bodySpot(sun.position, SUN_D * 3), earth: bodySpot(earthPos, EARTH_R * 1.25), stars, lander: landerSpot };
   }
 
   const dispose = () => {
@@ -447,6 +449,16 @@ const foilTexture = () =>
     }
   });
 
+/** The back of the solar panel: a light grey sheet on a darker frame of struts. */
+const panelBackTexture = () =>
+  surface(256, 192, (g) => {
+    g.fillStyle = '#b9bcc2';
+    g.fillRect(0, 0, 256, 192);
+    g.fillStyle = '#6f737b';
+    for (const x of [0, 84, 170, 248]) g.fillRect(x, 0, 8, 192);
+    for (const y of [0, 92, 184]) g.fillRect(0, y, 256, 8);
+  });
+
 /** Solar cells: dark blue squares between thin silver lines; the back of the panel is a grey frame. */
 const cellsTexture = () =>
   surface(256, 192, (g) => {
@@ -478,8 +490,9 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
   const metal = new THREE.MeshStandardMaterial({ color: 0xa3a39e, metalness: 0.55, roughness: 0.5 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x3a3a3c, metalness: 0.4, roughness: 0.6 });
   const white = new THREE.MeshStandardMaterial({ color: 0xe9e8e4, metalness: 0.05, roughness: 0.7 });
-  const cellMap = cellsTexture();
+  const cellMap = cellsTexture(), backMap = panelBackTexture();
   const cells = new THREE.MeshStandardMaterial({ color: cellMap ? 0xffffff : 0x1d2b4f, map: cellMap, metalness: 0.35, roughness: 0.28 });
+  const panelBack = new THREE.MeshStandardMaterial({ color: backMap ? 0xffffff : 0xb9bcc2, map: backMap, metalness: 0.2, roughness: 0.6 });
   const add = (m: THREE.Mesh, x: number, y: number, z: number) => {
     m.position.set(x, y, z);
     group.add(m);
@@ -509,22 +522,28 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
   for (const [x, z] of [[0, 0], [0.45, 0.45], [-0.45, -0.45]]) add(new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.25, 14, 1, true), dark), x, 0.8, z).rotation.x = Math.PI;
   // The solar panel faces the opening Sun: local +z looks 90° right of local +x (faceAzDeg + 90), the Sun is
   // 70° left of local +x, so the panel turns 20° towards +x; its cells are on that +z side.
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.25, 0.04), [metal, metal, metal, metal, cells, dark]);
+  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.9, 1.25, 0.04), [metal, metal, metal, metal, cells, panelBack]);
   panel.position.y = 2.75;
   panel.rotation.y = 20 * DEG;
   add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.7, 8), metal), 0, 2.35, 0);
   group.add(panel);
-  // The antenna: a mast and a dish pointing at Earth.
+  // The antenna: a mast, and a shallow dish with its feed, pointing at Earth.
   add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.0, 8), metal), 0.62, 2.55, -0.62);
-  const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.05, 0.12, 24, 1, true), white);
-  dish.material.side = THREE.DoubleSide;
-  dish.position.set(0.62, 3.1, -0.62);
+  const bowl = Array.from({ length: 9 }, (_, k) => new THREE.Vector2(0.01 + (k / 8) * 0.34, 0.11 * (k / 8) ** 2));
+  const dishMat = new THREE.MeshStandardMaterial({ color: 0xe9e8e4, metalness: 0.1, roughness: 0.55, side: THREE.DoubleSide });
+  const dish = new THREE.Group();
+  dish.add(new THREE.Mesh(new THREE.LatheGeometry(bowl, 28), dishMat));
+  const feed = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6), metal);
+  feed.position.y = 0.11;
+  dish.add(feed);
+  dish.position.set(0.62, 3.08, -0.62);
   const e = dirAzEl(earthAzDeg, Math.max(0, earthElDeg));
   const toEarth = new THREE.Vector3(e[0], e[1], e[2]).applyAxisAngle(new THREE.Vector3(0, 1, 0), -group.rotation.y);
   dish.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), toEarth);
   group.add(dish);
+  // The power light, on the side that looks towards the eye's side of the Sun.
   const lamp = new THREE.MeshBasicMaterial({ color: 0x46c98b });
-  add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), lamp), 0.81, 1.85, 0.81);
+  add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 14, 10), lamp), 0.82, 1.75, 0.3);
   return { group, lamp };
 }
 

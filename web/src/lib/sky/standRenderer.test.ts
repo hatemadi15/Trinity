@@ -134,6 +134,17 @@ describe('the stand scene', () => {
     expect(e.y).toBeLessThan(0.5); // just above the level skyline, not 3° below it
   });
 
+  it('names the lander where it stands, above its top', () => {
+    const s = buildScene(flat({ lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(0);
+    s.setView(60, 0, 40, 16 / 9);
+    const l = s.labels().lander!;
+    expect(l.visible).toBe(true);
+    expect(l.x).toBeCloseTo(0.5, 1);
+    expect(l.y).toBeLessThan(0.5);
+    expect(buildScene(flat()).labels().lander).toBeNull();
+  });
+
   it('hides a label behind the lander', () => {
     const behind = buildScene(flat({ lander: { azDeg: 300, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
     behind.update(0);

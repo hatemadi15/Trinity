@@ -52,13 +52,15 @@ export function StandCanvas({
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
+  const landerRef = useRef<HTMLSpanElement>(null);
   const earthRef = useRef<HTMLSpanElement>(null);
   const starRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const facingRef = useRef<HTMLParagraphElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const hourRef = useRef(hour);
   const nightRef = useRef(night);
-  const view = useRef({ yaw: startYaw, pitch: reducedMotion ? 2 : 34, fov: 60 });
+  // A tall screen opens wider (80° up and down), so the Sun and the lander both fit across it.
+  const view = useRef({ yaw: startYaw, pitch: reducedMotion ? 2 : 34, fov: typeof window !== 'undefined' && window.innerHeight > window.innerWidth ? 80 : 60 });
   const goal = useRef<LookTarget | null>(null);
   const intro = useRef<{ start: number } | null>(reducedMotion ? null : { start: 0 });
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null);
@@ -100,15 +102,19 @@ export function StandCanvas({
     let last = performance.now();
     r.setTime(shown);
     let raf = 0;
-    // Labels never sit under the words: the panels (data-plate) hide any label whose point falls on them.
+    // Labels never touch the words: a label whose box meets a panel (data-plate) is hidden.
     let plates: DOMRect[] = [];
-    const onPlate = (x: number, y: number) => plates.some((r) => x > r.left - 6 && x < r.right + 6 && y > r.top - 6 && y < r.bottom + 6);
-    const place = (node: HTMLElement | null, s: { x: number; y: number; visible: boolean }) => {
+    const place = (node: HTMLElement | null, s: { x: number; y: number; visible: boolean } | null) => {
       if (!node) return;
-      const w = el.clientWidth || window.innerWidth, h = el.clientHeight || window.innerHeight;
-      node.hidden = !s.visible || onPlate(s.x * w, s.y * h);
+      if (!s || !s.visible) {
+        node.hidden = true;
+        return;
+      }
       node.style.left = `${s.x * 100}%`;
       node.style.top = `${s.y * 100}%`;
+      node.hidden = false;
+      const b = node.getBoundingClientRect();
+      if (b.width > 0 && plates.some((p) => b.right > p.left - 4 && b.left < p.right + 4 && b.bottom > p.top - 4 && b.top < p.bottom + 4)) node.hidden = true;
     };
     const tick = (now: number) => {
       const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
@@ -140,6 +146,7 @@ export function StandCanvas({
       plates = [...document.querySelectorAll('[data-plate]')].map((p) => p.getBoundingClientRect()).filter((p) => p.width > 0);
       place(sunRef.current, l.sun);
       place(earthRef.current, l.earth);
+      place(landerRef.current, l.lander);
       // Star names at night, or when the view looks well up, where they would not crowd the day's sky.
       const named = nightRef.current || v.pitch > 25;
       l.stars.forEach((st, k) => place(starRefs.current[k], { ...st, visible: st.visible && named }));
@@ -223,8 +230,9 @@ export function StandCanvas({
       />
       <div
         aria-hidden="true"
+        data-plate=""
         style={{ width: STRIP_W }}
-        className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 overflow-hidden rounded-[6px] border border-white/15 bg-black/70 text-[#f2f0ea] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,0px)+20px)]"
+        className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 overflow-hidden rounded-[6px] border border-white/15 bg-black/70 text-[#f2f0ea] max-md:bottom-auto max-md:top-[calc(var(--top-h,220px)+8px)]"
       >
         <div className="relative h-7">
           <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>
@@ -252,6 +260,11 @@ export function StandCanvas({
         <span ref={earthRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#74adff]`}>
           {earthLabel}
         </span>
+        {scene.lander && (
+          <span ref={landerRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#f2f0ea]`}>
+            {`The lander, ${Math.round(scene.lander.distM)} m away`}
+          </span>
+        )}
         {(scene.sky.names ?? []).map((st, k) => (
           <span
             key={st.name}

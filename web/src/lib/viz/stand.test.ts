@@ -6,7 +6,7 @@ import { readJson } from '@/lib/engine/__tests__/helpers';
 import { standHref } from '@/lib/links';
 import { eph, sites } from '@/test/file-loaders';
 import { groundWords } from './ground';
-import { landerState, liveSentence, measuredNote, poleLine, skyLabel, standingLine, standQuery, watchNext } from './stand';
+import { keyMoments, landerState, liveSentence, measuredNote, poleLine, radioNext, skyLabel, standingLine, standQuery, watchNext } from './stand';
 
 const series = (o: Partial<Record<'sunEl' | 'sunAz' | 'sunFraction' | 'earthEl' | 'earthAz' | 'earthVisible', number[]>>): Series => {
   const hours = (o.sunEl ?? [0]).length;
@@ -97,7 +97,7 @@ describe('the stand view’s words', () => {
 
 describe('the note on how we know this', () => {
   const nb = '\u00a0';
-  const rest = "The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of 8,404 stars, and Earth is NASA's Blue Marble photograph. With no air, the sky is black by day as well as by night. Earth stays over the same part of the horizon, rising and sinking a few degrees over the month as the Moon nods. The lander and the small craters underfoot are drawn, not measured.";
+  const rest = "The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of 8,404 stars, and Earth is NASA's Blue Marble photograph at its true size (Face Earth zooms in on it). With no air, the sky is black by day as well as by night; at night only Earth lights the ground, which is why it looks blue. Earth stays over the same part of the horizon, rising and sinking a few degrees over the month as the Moon nods. Times are Earth's clock (UTC): a day on the Moon lasts about a month. The forecast counts energy only: whether the lander survives the cold of the night is not worked out. The lander, its solar panel standing upright to catch the low Sun, and the small craters underfoot are drawn, not measured.";
   it('says in plain words where the heights, the shadows, the sky and Earth come from, and what is drawn', () => {
     expect(measuredNote([20, 80, 960], 8404)).toBe(
       `Heights measured from orbit by the laser on NASA's Lunar Reconnaissance Orbiter: 20${nb}m steps near you, 80${nb}m out to 20${nb}km and 960${nb}m out to 125${nb}km. The shadows are worked out from those heights for every hour. ${rest}`,
@@ -125,18 +125,18 @@ describe('what to watch for', () => {
   it('names the next thing that happens, and its day, and what follows within three days', () => {
     expect(watchNext(s, p, start, 10)).toBe('Press Play to watch the Sun set behind the hills on 4 January, then the battery run out on 5 January.');
     expect(watchNext(s, p, start, 80)).toBe('Press Play to watch the battery run out on 5 January.');
-    expect(watchNext(s, p, start, 200)).toBe('Press Play to watch the Sun come back on 20 January, then the power come back on 20 January.');
+    expect(watchNext(s, p, start, 200)).toBe('Press Play to watch the Sun come back on 20 January, and the power come back the same day.');
     expect(watchNext(s, p, start, 467)).toBe('Press Play to watch the power come back on 20 January.');
-    // The Sun comes back at 466 and the power at 470: one sentence for both.
-    expect(watchNext(s, p, start, 300)).toBe('Press Play to watch the Sun come back on 20 January, then the power come back on 20 January.');
+    // The Sun comes back at 466 and the power at 470, the same day: the day is said once.
+    expect(watchNext(s, p, start, 300)).toBe('Press Play to watch the Sun come back on 20 January, and the power come back the same day.');
   });
   it('counts the Sun back with the first part of its disc, as the time bar draws it, so it comes back before the power', () => {
     const dawn = series({ sunEl: [-0.5, -0.2, 0.1, 0.3], sunFraction: [0, 0, 0.3, 1] });
     const off = { powered: Uint8Array.from([0, 0, 0, 1]) } as unknown as PowerResult;
-    expect(watchNext(dawn, off, start, 0)).toBe('Press Play to watch the Sun come back on 1 January, then the power come back on 1 January.');
+    expect(watchNext(dawn, off, start, 0)).toBe('Press Play to watch the Sun come back on 1 January, and the power come back the same day.');
     // In the same hour, the Sun comes first: the power comes back because of it.
     const same = { powered: Uint8Array.from([0, 0, 1, 1]) } as unknown as PowerResult;
-    expect(watchNext(dawn, same, start, 0)).toBe('Press Play to watch the Sun come back on 1 January, then the power come back on 1 January.');
+    expect(watchNext(dawn, same, start, 0)).toBe('Press Play to watch the Sun come back on 1 January, and the power come back the same day.');
   });
 
   it('says the Sun sets below the horizon when it goes down rather than behind the hills', () => {
@@ -155,6 +155,35 @@ describe('what to watch for', () => {
   it('says why the Sun stays low near a pole, and nothing elsewhere', () => {
     expect(poleLine(-88.28)).toBe("Near the Moon's south pole the Sun never climbs high: it circles just above the horizon once a month, so a low hill can hide it for days.");
     expect(poleLine(18.56)).toBeNull();
+  });
+
+  it('says when power and Earth in view first come together, when they do not from the landing', () => {
+    // Earth is in view for hours 200-499; the power is on before 100 and from 470.
+    const e = series({
+      sunEl: Array.from({ length: hours }, () => 1),
+      sunFraction: Array.from({ length: hours }, (_, h) => (lit(h) ? 1 : 0)),
+      earthVisible: Array.from({ length: hours }, (_, h) => (h >= 200 && h < 500 ? 1 : 0)),
+    });
+    expect(radioNext(e, p, start)).toBe('Power and Earth in view come together first on 20 January.');
+    const always = series({ sunEl: [1, 1], sunFraction: [1, 1], earthVisible: [1, 1] });
+    expect(radioNext(always, { powered: Uint8Array.from([1, 1]) } as unknown as PowerResult, start)).toBeNull();
+    const never = series({ sunEl: [1, 1], sunFraction: [1, 1], earthVisible: [0, 0] });
+    expect(radioNext(never, { powered: Uint8Array.from([1, 1]) } as unknown as PowerResult, start)).toBe('Power and Earth in view never come together in this period.');
+  });
+
+  it('lists the key moments of the period, in order, each once', () => {
+    const e = series({
+      sunEl: Array.from({ length: hours }, () => 1),
+      sunFraction: Array.from({ length: hours }, (_, h) => (lit(h) ? 1 : 0)),
+      earthVisible: Array.from({ length: hours }, (_, h) => (h >= 200 && h < 500 ? 1 : 0)),
+    });
+    expect(keyMoments(e, p, start)).toEqual([
+      { label: 'Sunset', hour: 76, day: '4 Jan' },
+      { label: 'Battery runs out', hour: 100, day: '5 Jan' },
+      { label: 'Earth in view', hour: 200, day: '9 Jan' },
+      { label: 'Sun back', hour: 466, day: '20 Jan' },
+      { label: 'Power back', hour: 470, day: '20 Jan' },
+    ]);
   });
 
   it('falls back to the light on the ground when nothing more happens in the period', () => {

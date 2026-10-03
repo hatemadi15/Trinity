@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
@@ -35,6 +35,7 @@ const everywhere: SkyLabels = {
   sun: { x: 0.5, y: 0.4, visible: true },
   earth: { x: 0.7, y: 0.4, visible: true },
   stars: [{ name: 'Sirius', x: 0.3, y: 0.2, visible: true }],
+  lander: { x: 0.8, y: 0.6, visible: true },
 };
 const stub = () => ({ setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels: () => everywhere, dispose: vi.fn() }) satisfies RendererLike;
 
@@ -57,6 +58,9 @@ describe('StandView', () => {
     expect(screen.getByText(/^Near the Moon's south pole the Sun never climbs high/)).toBeTruthy();
     expect(screen.getByText(liveSentence(store.getState().series!, 10, true))).toBeTruthy();
     expect(screen.getByText('The lander has power.')).toBeTruthy();
+    // The radio story under the headline: no contact while it has power, and when the two come together.
+    expect(screen.getByText(/^No radio contact: Earth is out of view for all 3 days 4 hours with power\.$/)).toBeTruthy();
+    expect(screen.getByText('Power and Earth in view come together first on 20 January.')).toBeTruthy();
     // What to watch next, and the site's name kept on one line in the headline.
     expect(screen.getByText(watchNext(store.getState().series!, store.getState().power, '2027-01-01T00:00:00', 10))).toBeTruthy();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('de\u00a0Gerlache\u00a0Rim\u00a02');
@@ -167,12 +171,42 @@ describe('StandView', () => {
     expect(near()).toBe(true);
   });
 
+  it('opens a night hour towards Earth, with the lander beside it', async () => {
+    const r = stub();
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=219', () => r);
+    const st = store.getState();
+    expect(st.series!.sunFraction[219]).toBe(0);
+    expect(st.series!.earthVisible[219]).toBe(1);
+    await waitFor(() => expect(r.setView).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Face the lander' }));
+    const want = (st.series!.earthAz[219] + 30) % 360;
+    const near = () => Math.abs(((r.setView.mock.calls.at(-1)![0] - want + 540) % 360) - 180) < 1;
+    await waitFor(() => expect(near()).toBe(true), { timeout: 4000 });
+    await new Promise((done) => setTimeout(done, 700));
+    expect(near()).toBe(true);
+  });
+
   it('turns "Look up" into "Look ahead", the way back to the horizon', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     fireEvent.click(screen.getByRole('button', { name: 'Look up' }));
     expect(screen.queryByRole('button', { name: 'Look up' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Look ahead' }));
     expect(screen.getByRole('button', { name: 'Look up' })).toBeTruthy();
+  });
+
+  it("jumps to the period's key moments in one click", async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const moments = screen.getByRole('group', { name: 'Key moments' });
+    const battery = within(moments).getByRole('button', { name: /^Battery runs out, / });
+    fireEvent.click(battery);
+    const st = store.getState();
+    expect(st.power!.powered[st.cursorHour]).toBe(0);
+    expect(st.power!.powered[st.cursorHour - 1]).toBe(1);
+  });
+
+  it('names the lander where it stands, with its distance', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    await waitFor(() => expect(screen.getByText('The lander, 16 m away')).toBeTruthy());
   });
 
   it('lets the renderer go when the view closes', async () => {

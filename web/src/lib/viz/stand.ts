@@ -1,7 +1,7 @@
 import type { Series } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
 import { parseExploreQuery, type ExploreQuery } from '../store/query';
-import { dateLong } from './format';
+import { dateLong, dayMonth } from './format';
 import { degrees, groundWords } from './ground';
 
 /** Explore's address plus the hour the view opens on: `?site=&start=&days=&hour=`; a malformed hour is left out. */
@@ -35,7 +35,7 @@ export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string
  */
 export function measuredNote(cellsM: number[], starCount: number): string {
   const nb = '\u00a0';
-  const rest = `The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of ${starCount.toLocaleString('en-GB')} stars, and Earth is NASA's Blue Marble photograph. With no air, the sky is black by day as well as by night. Earth stays over the same part of the horizon, rising and sinking a few degrees over the month as the Moon nods. The lander and the small craters underfoot are drawn, not measured.`;
+  const rest = `The Sun and Earth are placed by NASA's tables of the planets' positions, the stars come from a catalogue of ${starCount.toLocaleString('en-GB')} stars, and Earth is NASA's Blue Marble photograph at its true size (Face Earth zooms in on it). With no air, the sky is black by day as well as by night; at night only Earth lights the ground, which is why it looks blue. Earth stays over the same part of the horizon, rising and sinking a few degrees over the month as the Moon nods. Times are Earth's clock (UTC): a day on the Moon lasts about a month. The forecast counts energy only: whether the lander survives the cold of the night is not worked out. The lander, its solar panel standing upright to catch the low Sun, and the small craters underfoot are drawn, not measured.`;
   if (cellsM.length === 0) return `There are no detailed NASA heights for this site, so the ground here is drawn flat. ${rest}`;
   const steps = [...new Set(cellsM.map((c) => Math.round(c)))].sort((a, b) => a - b);
   const parts = steps.map((c, i) => `${c}${nb}m${i === 0 ? ' steps' : ''} ${c > 200 ? `out to 125${nb}km` : i === 0 ? 'near you' : `out to 20${nb}km`}`);
@@ -56,23 +56,56 @@ export function liveSentence(s: Series, hour: number, powered?: boolean): string
 /**
  * One line on what to watch next: the first change after the hour, of the Sun (any part of its disc in
  * view, as the time bar draws it) or of the lander's power, with its day; and the other kind's next
- * change when it follows within three days ("the Sun set on 3 January, then the battery run out on 4").
+ * change when it follows within three days ("the Sun set on 3 January, then the battery run out on 4",
+ * or "... and the power come back the same day").
  */
 export function watchNext(s: Series, p: PowerResult | null, startUtc: string, hour: number): string {
   const lit = (h: number) => s.sunFraction[h] > 0;
-  const next = (from: number, kind?: 'sun' | 'power'): { h: number; kind: 'sun' | 'power'; text: string } | null => {
+  const next = (from: number, kind?: 'sun' | 'power'): { h: number; kind: 'sun' | 'power'; what: string } | null => {
     for (let h = Math.max(1, from + 1); h < s.hours; h++) {
-      const day = dateLong(startUtc, h);
       // In the same hour the Sun comes first: the power changes because of it.
-      if (kind !== 'power' && lit(h) !== lit(h - 1)) return { h, kind: 'sun', text: lit(h) ? `the Sun come back on ${day}` : `the Sun set ${s.sunEl[h] < 0 ? 'below the horizon' : 'behind the hills'} on ${day}` };
-      if (kind !== 'sun' && p && p.powered[h] !== p.powered[h - 1]) return { h, kind: 'power', text: p.powered[h] === 0 ? `the battery run out on ${day}` : `the power come back on ${day}` };
+      if (kind !== 'power' && lit(h) !== lit(h - 1)) return { h, kind: 'sun', what: lit(h) ? 'the Sun come back' : `the Sun set ${s.sunEl[h] < 0 ? 'below the horizon' : 'behind the hills'}` };
+      if (kind !== 'sun' && p && p.powered[h] !== p.powered[h - 1]) return { h, kind: 'power', what: p.powered[h] === 0 ? 'the battery run out' : 'the power come back' };
     }
     return null;
   };
   const first = next(hour);
   if (!first) return 'Press Play to watch the light move across the ground.';
+  const day = dateLong(startUtc, first.h);
   const then = next(first.h - 1, first.kind === 'sun' ? 'power' : 'sun');
-  return then && then.h - first.h <= 72 ? `Press Play to watch ${first.text}, then ${then.text}.` : `Press Play to watch ${first.text}.`;
+  if (!then || then.h - first.h > 72) return `Press Play to watch ${first.what} on ${day}.`;
+  const thenDay = dateLong(startUtc, then.h);
+  return thenDay === day ? `Press Play to watch ${first.what} on ${day}, and ${then.what} the same day.` : `Press Play to watch ${first.what} on ${day}, then ${then.what} on ${thenDay}.`;
+}
+
+/**
+ * When the lander has no contact with Earth while it has power from the landing: the first day power and
+ * Earth in view come together, or that they never do in the period. Null when it has contact from the start.
+ */
+export function radioNext(s: Series, p: PowerResult, startUtc: string): string | null {
+  let h = 0;
+  for (; h < s.hours && p.powered[h] === 1; h++) if (s.earthVisible[h] === 1) return null;
+  for (; h < s.hours; h++) if (p.powered[h] === 1 && s.earthVisible[h] === 1) return `Power and Earth in view come together first on ${dateLong(startUtc, h)}.`;
+  return 'Power and Earth in view never come together in this period.';
+}
+
+export interface Moment { label: string; hour: number; day: string }
+
+/** The period's key moments, each the first of its kind after the landing, in order of time: one click each. */
+export function keyMoments(s: Series, p: PowerResult | null, startUtc: string): Moment[] {
+  const lit = (h: number) => s.sunFraction[h] > 0;
+  const found = new Map<string, number>();
+  const mark = (label: string, h: number) => {
+    if (!found.has(label)) found.set(label, h);
+  };
+  for (let h = 1; h < s.hours; h++) {
+    if (lit(h - 1) && !lit(h)) mark('Sunset', h);
+    if (!lit(h - 1) && lit(h) && found.has('Sunset')) mark('Sun back', h);
+    if (p && p.powered[h - 1] === 1 && p.powered[h] === 0) mark('Battery runs out', h);
+    if (p && p.powered[h - 1] === 0 && p.powered[h] === 1 && found.has('Battery runs out')) mark('Power back', h);
+    if (s.earthVisible[h - 1] === 0 && s.earthVisible[h] === 1) mark('Earth in view', h);
+  }
+  return [...found].map(([label, hour]) => ({ label, hour, day: dayMonth(startUtc, hour) })).sort((a, b) => a.hour - b.hour);
 }
 
 /**
