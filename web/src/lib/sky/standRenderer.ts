@@ -15,7 +15,7 @@ import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { placeStars, starColour, starGain, starSize } from './stars';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS, boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
-import { heightAt, worldOf, type FieldLevel, type TerrainField } from './terrainField';
+import { heightAt, meshHeightAt, worldOf, type FieldLevel, type TerrainField } from './terrainField';
 
 /** Everything the stand view draws for one site and period. `fast`: a lower pixel ratio, no drawn detail, coarser shadow steps. */
 export interface StandScene {
@@ -208,6 +208,11 @@ const radial = (stops: [number, string][]) =>
     g.fillRect(0, 0, 512, 512);
   });
 
+/** How high the eye stands over the drawn ground: the mast's height (2 m by default), never under a person's 1.5 m. */
+export const eyeHeightM = (mastM: number) => Math.max(1.5, mastM);
+/** Where the eye is: over the drawn ground at the site, so the mesh never stands above it. */
+export const eyeAt = (scene: Pick<StandScene, 'field' | 'mastM'>) => meshHeightAt(scene.field, 0, 0) + eyeHeightM(scene.mastM);
+
 /**
  * The scene for a site and period, without WebGL: the measured ground, the far skyline, the stars, the
  * Sun and Earth, and the camera. `update(hour)` moves the bodies and sets the light for a fractional hour;
@@ -219,7 +224,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const fast = scene.quality === 'fast';
   const basis = enuBasis(scene.site.lat, scene.site.lon);
   const levels = scene.field.levels;
-  const eye = heightAt(scene.field, 0, 0) + scene.mastM;
+  const eye = eyeAt(scene);
   const camera = new THREE.PerspectiveCamera(60, 1, 0.3, 700000);
   camera.position.set(0, eye, 0);
 
@@ -239,7 +244,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         uMinLevel: { value: level },
         uSteps: { value: fast ? SHADOW_FAST.STEPS : SHADOW.STEPS },
         uOne: { value: 1 },
-        uViewer: { value: new THREE.Vector3(0, eye - scene.mastM, 0) },
+        uViewer: { value: new THREE.Vector3(0, meshHeightAt(scene.field, 0, 0), 0) },
         uGrowth: { value: fast ? SHADOW_FAST.GROWTH : SHADOW.GROWTH },
         uSun: { value: new THREE.Vector3(1, 0, 0) },
         uEarth: { value: new THREE.Vector3(0, 1, 0) },
@@ -374,7 +379,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const fillLight = new THREE.AmbientLight(0xc4c6ca, 0);
   root.add(sunLight, sunLight.target, skyLight, earthLight, fillLight);
   if (lander) {
-    const lx = lander.group.position.x, lz = lander.group.position.z, ly = heightAt(scene.field, lx, lz);
+    const lx = lander.group.position.x, lz = lander.group.position.z, ly = meshHeightAt(scene.field, lx, lz);
     lander.group.position.y = ly;
     root.add(lander.group);
     sunLight.target.position.set(lx, ly + 1.5, lz);
@@ -391,10 +396,10 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
 
   // Boulders round the eye, kept clear of the lander, with their shadows on the ground.
   const seed = siteSeed(scene.site.lat, scene.site.lon);
-  const rocks = boulderMeshes(placeBoulders(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => heightAt(scene.field, x, z), seed);
+  const rocks = boulderMeshes(placeBoulders(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => meshHeightAt(scene.field, x, z), seed);
   root.add(rocks.group);
   // Pebbles: the near ground's grit, shapes the low Sun catches.
-  const pebbles = pebbleMesh(placePebbles(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => heightAt(scene.field, x, z), seed);
+  const pebbles = pebbleMesh(placePebbles(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => meshHeightAt(scene.field, x, z), seed);
   root.add(pebbles);
   for (const g of ground) {
     const u = (g.material as THREE.ShaderMaterial).uniforms;

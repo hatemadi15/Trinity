@@ -10,8 +10,8 @@ import { shadowLevels } from '@/lib/data/terrain';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { exploreHref, standHref } from '@/lib/links';
 import { LANDER } from '@/lib/sky/landerShape';
-import { lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
-import { flatField, heightAt, terrainField } from '@/lib/sky/terrainField';
+import { eyeAt, lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
+import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong } from '@/lib/viz/format';
@@ -117,8 +117,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const feet = useMemo(() => {
     if (!scene?.lander) return null;
     const l = scene.lander, a = (l.azDeg * Math.PI) / 180;
-    const ground = heightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
-    const eye = heightAt(scene.field, 0, 0) + scene.mastM;
+    const ground = meshHeightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
+    const eye = eyeAt(scene);
     return { el: (Math.atan2(ground - eye, l.distM - LANDER_FOOT_M) * 180) / Math.PI, az: l.azDeg };
   }, [scene]);
   const onFail = useCallback(() => setFailed('webgl'), []);
@@ -189,8 +189,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const faceLander = () => {
     if (!scene?.lander) return;
     const l = scene.lander, a = (l.azDeg * Math.PI) / 180;
-    const ground = heightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
-    const eye = heightAt(scene.field, 0, 0) + scene.mastM;
+    const ground = meshHeightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
+    const eye = eyeAt(scene);
     setLookingUp(false);
     setCaption(null);
     setLook({ yaw: l.azDeg, pitch: (Math.atan2(ground + 1.7 - eye, l.distM) * 180) / Math.PI, fov: 36 });

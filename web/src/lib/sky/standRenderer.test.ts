@@ -7,7 +7,7 @@ import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS } from './boulders';
 import { dirAzEl } from './frames';
 import { bounceShare, buildScene, lookUpTarget, shadowOnGround, toTextureHeights, type StandScene } from './standRenderer';
-import { flatField, heightAt, terrainField } from './terrainField';
+import { flatField, heightAt, meshHeightAt, terrainField } from './terrainField';
 
 const series = {
   i0: 0,
@@ -187,7 +187,7 @@ describe('the stand scene', () => {
     expect(lander).toBeTruthy();
     expect(lander.position.x).toBeCloseTo(9, 6); // due east
     expect(lander.position.z).toBeCloseTo(0, 6);
-    expect(lander.position.y).toBeCloseTo(heightAt(field, 9, 0), 6);
+    expect(lander.position.y).toBeCloseTo(meshHeightAt(field, 9, 0), 6);
     s.update(0);
     expect(s.parts.landerLight!.color.getHex()).not.toBe(0x000000);
     s.update(2);
@@ -198,7 +198,7 @@ describe('the stand scene', () => {
     expect(u.uLanderOn.value).toBe(1);
     const c = u.uLanderCenter.value as THREE.Vector3;
     expect(c.x).toBeCloseTo(9, 6);
-    expect(c.y).toBeCloseTo(heightAt(field, 9, 0), 6);
+    expect(c.y).toBeCloseTo(meshHeightAt(field, 9, 0), 6);
     expect(u.uLanderMin).toBeUndefined();
     const cs = u.uLanderCS.value as THREE.Vector2;
     expect(cs.x).toBeCloseTo(Math.cos(lander.rotation.y), 9);
@@ -323,7 +323,7 @@ describe('the stand scene', () => {
     const v = u.uViewer.value as THREE.Vector3;
     expect(v.x).toBe(0);
     expect(v.z).toBe(0);
-    expect(v.y).toBeCloseTo(heightAt(field, 0, 0), 6);
+    expect(v.y).toBeCloseTo(meshHeightAt(field, 0, 0), 6);
   });
 
   it('smooths single-row seams in the heights over three cells each way, so they do not ripple the light', () => {
@@ -538,5 +538,24 @@ describe('the stand scene', () => {
     const s = buildScene(flat({ lander: { azDeg: 90, distM: 9, powered: Uint8Array.from([1, 1, 1]) } }));
     s.update(0);
     expect(s.root.environmentIntensity).toBeLessThanOrEqual(0.2);
+  });
+
+  it('stands the eye, the lander and the rocks on the drawn ground, so the eye is never under it, even on the cap\u2019s 960 m cells', () => {
+    // A saddle under the eye: the drawn triangles stand 20 m above the smooth height at the site.
+    const n = 41, heights = new Float32Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) heights[r * n + c] = (c + r) % 2 === 0 ? 0 : 40;
+    const field = terrainField([{ heights, width: n, height: n, pxM: 960, siteCol: 20.5, siteRow: 20.5 }], -64.31, 0);
+    const s = buildScene(flat({ field, lander: { azDeg: 90, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    expect(s.camera.position.y).toBeCloseTo(meshHeightAt(field, 0, 0) + 2, 6);
+    expect(s.parts.lander!.position.y).toBeCloseTo(meshHeightAt(field, 16, 0), 6);
+    // A rock sits on the drawn ground where it lies.
+    const rock = s.parts.boulders.children[0] as THREE.Mesh;
+    expect(rock.position.y).toBeGreaterThan(meshHeightAt(field, rock.position.x, rock.position.z) - 1);
+  });
+
+  it('keeps the eye at least a person\u2019s eye height above the ground, whatever the mast', () => {
+    const s = buildScene(flat({ mastM: 0 }));
+    expect(s.camera.position.y - meshHeightAt(flatField(-64.31), 0, 0)).toBeCloseTo(1.5, 6);
+    expect(buildScene(flat({ mastM: 6 })).camera.position.y).toBeCloseTo(6, 6);
   });
 });
