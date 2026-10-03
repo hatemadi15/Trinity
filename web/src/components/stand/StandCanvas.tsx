@@ -8,13 +8,14 @@ export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' 
 export interface LookTarget { yaw: number; pitch: number; fov: number }
 
 /**
- * Degrees the view rests higher on a tall screen, so the horizon (with the Sun and the lander on it) sits just
- * below the middle of the band left free between the words above and the buttons below (`freeTop` to
- * `freeBottom`, pixels down the screen). A wide screen keeps its words at the sides and does not tilt.
+ * Degrees the view rests higher on a tall screen, so the horizon (the Sun on it) sits a little above the
+ * middle of the band left free between the words above and the buttons below (`freeTop` to `freeBottom`,
+ * pixels down the screen), with room under it for the ground and the lander. A wide screen keeps its words
+ * at the sides and does not tilt.
  */
 export function horizonLift(width: number, height: number, fovDeg: number, freeTop: number, freeBottom: number): number {
   if (height <= width || freeBottom - freeTop < 60) return 0;
-  const y = freeTop + 0.55 * (freeBottom - freeTop);
+  const y = freeTop + 0.4 * (freeBottom - freeTop);
   const t = ((y - height / 2) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
   return Math.max(-15, Math.min(15, (Math.atan(t) * 180) / Math.PI));
 }
