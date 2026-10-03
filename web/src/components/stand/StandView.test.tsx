@@ -266,8 +266,12 @@ describe('StandView', () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
     await waitFor(() => expect(r.resize).toHaveBeenCalled());
     expect(screen.getByText('Building the ground from NASA heights…')).toBeTruthy();
+    // No label floats over the empty view while it builds.
+    await new Promise((done) => setTimeout(done, 100));
+    expect(screen.getByText('Sirius').hidden).toBe(true);
     await act(async () => finish());
     await waitFor(() => expect(screen.queryByText('Building the ground from NASA heights…')).toBeNull());
+    await waitFor(() => expect(screen.getByText('Sirius').hidden).toBe(false));
   });
 
   it('lets the renderer go when the view closes', async () => {

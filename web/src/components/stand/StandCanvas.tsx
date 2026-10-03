@@ -145,6 +145,8 @@ export function StandCanvas({
   const pinch = useRef<{ dist: number; fov: number } | null>(null);
   const failRef = useRef(onFail);
   const readyRef = useRef(onReady);
+  // Until the first frame is drawn no label shows: none floats over the empty view while it builds.
+  const drawnRef = useRef(false);
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
@@ -177,7 +179,9 @@ export function StandCanvas({
     }
     let live = true;
     void Promise.resolve(r.ready).then(() => {
-      if (live) readyRef.current?.();
+      if (!live) return;
+      drawnRef.current = true;
+      readyRef.current?.();
     });
     const size = () => r.resize(el.clientWidth || window.innerWidth, el.clientHeight || window.innerHeight);
     size();
@@ -245,6 +249,11 @@ export function StandCanvas({
       const lift = horizonLift(W, H, v.fov, freeTop, freeBottom) * Math.max(0, Math.min(1, (30 - v.pitch) / 10));
       r.setView(v.yaw, Math.max(-35, Math.min(89, v.pitch + lift)), v.fov);
       r.render();
+      if (!drawnRef.current) {
+        for (const n of [sunRef.current, earthRef.current, landerRef.current, ...Object.values(partRefs.current), ...starRefs.current]) if (n) n.hidden = true;
+        raf = requestAnimationFrame(tick);
+        return;
+      }
       const l = r.labels();
       place(sunRef.current, l.sun);
       place(earthRef.current, l.earth);
@@ -371,12 +380,8 @@ export function StandCanvas({
           turn(k[0], k[1], k[2]);
         }}
       />
-      <div
-        aria-hidden="true"
-        data-plate=""
-        style={{ width: STRIP_W }}
-        className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 overflow-hidden rounded-[6px] border border-white/15 bg-black/70 text-[#f2f0ea] max-md:hidden"
-      >
+      <div aria-hidden="true" style={{ width: STRIP_W }} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 text-[#f2f0ea] max-md:hidden">
+      <div data-plate="" className="relative overflow-hidden rounded-[6px] border border-white/15 bg-black/70">
         <div className="relative h-8" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
           <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>
             {TICKS.map((d) => {
@@ -403,8 +408,13 @@ export function StandCanvas({
             className={`absolute bottom-[calc(100%-30px)] h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 ${colour} data-[up=0]:bg-transparent`}
           />
         ))}
+        <p ref={facingRef} className="pb-1 text-center text-[15px]">
+          {`Facing ${compassWord(startYaw)}`}
+        </p>
+      </div>
+        {/* Bodies beyond the strip, named beside its nearer end, in one row. */}
         {(['left', 'right'] as const).map((side) => (
-          <span key={side} className={`absolute top-1 flex flex-col gap-0.5 ${side === 'left' ? 'left-1.5 items-start' : 'right-1.5 items-end'}`}>
+          <span key={side} className={`absolute top-1.5 flex gap-1 ${side === 'left' ? 'right-full mr-2 flex-row-reverse' : 'left-full ml-2'}`}>
             {BODIES.map(([k, name, colour]) => (
               <span
                 key={k}
@@ -413,7 +423,7 @@ export function StandCanvas({
                   edgeRefs.current[`${side}-${k}`] = node;
                 }}
                 hidden
-                className="flex items-center gap-1 rounded bg-black/80 px-1 text-[12px] leading-4"
+                className="flex items-center gap-1 whitespace-nowrap rounded border border-white/15 bg-black/75 px-1.5 text-[13px] leading-5"
               >
                 {side === 'left' && <i className={`h-2 w-2 rounded-full ${colour}`} />}
                 {name}
@@ -422,9 +432,6 @@ export function StandCanvas({
             ))}
           </span>
         ))}
-        <p ref={facingRef} className="pb-1 text-center text-[15px]">
-          {`Facing ${compassWord(startYaw)}`}
-        </p>
       </div>
       {/* On a phone, with no room for the strip: which way the view faces, small, at the top right of the view. */}
       <p
