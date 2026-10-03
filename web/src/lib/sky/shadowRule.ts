@@ -34,11 +34,12 @@ export function sunFraction(f: TerrainField, x: number, y: number, z: number, su
 
 /**
  * The same rule for the ground's fragment shader, over three height textures (finest first); `uSteps` and
- * `uGrowth` come from the quality setting. `uMinLevel` is the level of the mesh being drawn: its rays read
+ * `uGrowth` come from the quality setting. `uOne` is always 1: a loop whose length depends on a uniform
+ * cannot be unrolled, which keeps Windows' shader compiler from spending a minute on it. `uMinLevel` is the level of the mesh being drawn: its rays read
  * that level and coarser ones only, so a coarse mesh is never shaded by fine heights it does not show.
  */
 export const SHADOW_GLSL = /* glsl */ `
-uniform sampler2D uH0, uH1, uH2; uniform vec3 uL0, uL1, uL2; uniform vec2 uS0, uS1, uS2; uniform vec2 uCS; uniform int uLevels, uSteps, uMinLevel; uniform float uGrowth;
+uniform sampler2D uH0, uH1, uH2; uniform vec3 uL0, uL1, uL2; uniform vec2 uS0, uS1, uS2; uniform vec2 uCS; uniform int uLevels, uSteps, uMinLevel, uOne; uniform float uGrowth;
 vec2 toMap(vec2 xz) { float n = -xz.y; return vec2(xz.x * uCS.x + n * uCS.y, -xz.x * uCS.y + n * uCS.x); }
 float lev(sampler2D t, vec3 L, vec2 S, vec2 m, out bool inside) {
   float c = L.x + m.x / L.z, r = L.y - m.y / L.z;
@@ -64,7 +65,7 @@ float cellAt(vec2 xz) {
 float sunMargin(vec3 p, vec3 sun) {
   float horiz = length(sun.xz); float elSun = atan(sun.y, horiz); vec2 dir = sun.xz / horiz;
   float maxTan = -10.0; float t = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz));
-  for (int i = 0; i < ${SHADOW.STEPS}; i++) {
+  for (int i = 0; i < ${SHADOW.STEPS} * uOne; i++) {
     if (i >= uSteps) break;
     float h = heightAt(p.xz + dir * t); if (h < ${SHADOW.OUTSIDE_BELOW_M.toFixed(1)}) break;
     maxTan = max(maxTan, (h - p.y - ${SHADOW.TOL_M}) / t);

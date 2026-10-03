@@ -60,4 +60,11 @@ describe('the ground shader', () => {
     expect(m).not.toBeNull();
     expect(Number(m![1])).toBeLessThan(0.01);
   });
+
+  it('gives every loop a length set by a uniform, so the Windows shader compiler cannot unroll them into a minute-long build', () => {
+    const loops = GROUND_FRAG.split('\n').filter((l) => /for \(int /.test(l));
+    expect(loops.length).toBeGreaterThan(5);
+    for (const l of loops) expect(l).toMatch(/uOne|uSteps/);
+    expect(GROUND_FRAG).toMatch(/uniform int [^;]*uOne/);
+  });
 });

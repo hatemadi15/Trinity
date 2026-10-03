@@ -35,7 +35,7 @@ float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 
 // about four cells in ten hold one, many small and few large, each with its own, shallow, depth.
 float craters(vec2 p, float cell) {
   vec2 g = floor(p / cell), f = p / cell - g; float h = 0.0;
-  for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+  for (int j = -uOne; j <= uOne; j++) for (int i = -uOne; i <= uOne; i++) {
     vec2 o = vec2(float(i), float(j)); vec2 rnd = hash2(g + o);
     if (fract(rnd.x * 7.13 + rnd.y * 3.31) > 0.4) continue;
     vec2 c = o + rnd; float rad = mix(0.1, 0.45, pow(fract(rnd.x * 17.31 + rnd.y), 2.2));
@@ -83,8 +83,8 @@ float detailH(vec2 p, float px) {
 // a shadow 9 m long, so most bowls lie in the dark, as in photographs taken on the Moon at a low Sun.
 float detailRise(vec2 p, float h0, vec2 d, float px) {
   float rise = -1.0, t = 0.1;
-  for (int i = 0; i < 16; i++) { rise = max(rise, (detailH(p + d * t, px) - h0) / t); t *= 1.33; }
-  for (int i = 0; i < 12; i++) { rise = max(rise, (bigH(p + d * t, px) - h0) / t); t *= 1.24; }
+  for (int i = 0; i < 16 * uOne; i++) { rise = max(rise, (detailH(p + d * t, px) - h0) / t); t *= 1.33; }
+  for (int i = 0; i < 12 * uOne; i++) { rise = max(rise, (bigH(p + d * t, px) - h0) / t); t *= 1.24; }
   return rise;
 }
 // The rocks' own shadows: cell by cell along the ray towards the Sun (the 1.5 m cells rocks() lays them out
@@ -95,7 +95,7 @@ float rockMargin(vec2 p, float h0, vec2 d, float tanEff, float px, float grow) {
   if (grow <= 0.0) return res;
   vec2 g = floor(p / 1.5), st = sign(d), inv = 1.0 / max(abs(d), vec2(1.0e-5));
   vec2 next = ((g + max(st, 0.0)) * 1.5 - p) * st * inv, delta = 1.5 * inv;
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < 10 * uOne; i++) {
     vec2 rnd = hash2(g + 41.0);
     if (fract(rnd.x * 11.7 + rnd.y * 2.3) <= 0.1) {
       float rad = mix(0.035, 0.17, rnd.y) * 1.5;

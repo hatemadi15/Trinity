@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { crossStars, type StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { compassWord } from '@/lib/viz/ground';
 
-export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'>;
+export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void> };
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget { yaw: number; pitch: number; fov: number }
 
@@ -62,6 +62,7 @@ export function StandCanvas({
   earthLabel,
   night,
   onFail,
+  onReady,
 }: {
   scene: StandScene;
   hour: number;
@@ -74,6 +75,8 @@ export function StandCanvas({
   /** The Sun is hidden at the site: the stars carry their names. */
   night: boolean;
   onFail: (message: string) => void;
+  /** Called once the renderer's shaders are built and the view can be drawn. */
+  onReady?: () => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
@@ -94,6 +97,7 @@ export function StandCanvas({
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const pinch = useRef<{ dist: number; fov: number } | null>(null);
   const failRef = useRef(onFail);
+  const readyRef = useRef(onReady);
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
@@ -105,6 +109,9 @@ export function StandCanvas({
   useEffect(() => {
     failRef.current = onFail;
   }, [onFail]);
+  useEffect(() => {
+    readyRef.current = onReady;
+  }, [onReady]);
   useEffect(() => {
     if (!look) return;
     goal.current = look;
@@ -121,6 +128,10 @@ export function StandCanvas({
       failRef.current(e instanceof Error ? e.message : String(e));
       return;
     }
+    let live = true;
+    void Promise.resolve(r.ready).then(() => {
+      if (live) readyRef.current?.();
+    });
     const size = () => r.resize(el.clientWidth || window.innerWidth, el.clientHeight || window.innerHeight);
     size();
     window.addEventListener('resize', size);
@@ -202,6 +213,7 @@ export function StandCanvas({
     };
     raf = requestAnimationFrame(tick);
     return () => {
+      live = false;
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', size);
       r.dispose();

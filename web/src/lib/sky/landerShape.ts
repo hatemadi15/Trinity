@@ -153,7 +153,7 @@ float landerClearance(vec3 p, vec3 L) {
   float t1 = -b + sqrt(disc);
   if (t1 <= 0.0) return 1.0;
   float t = max(-b - sqrt(disc), 0.02), res = 1.0;
-  for (int i = 0; i < 72; i++) {
+  for (int i = 0; i < 72 * uOne; i++) {
     if (t >= t1) break;
     float h = landerSdf(p + L * t);
     res = min(res, h / t);

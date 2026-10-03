@@ -247,6 +247,17 @@ describe('StandView', () => {
     await waitFor(() => expect(screen.getByText('The lander, 16 m away')).toBeTruthy());
   });
 
+  it('keeps "Building the ground" up until the renderer has its shaders ready, then shows the view', async () => {
+    let finish = () => {};
+    const ready = new Promise<void>((done) => (finish = done));
+    const r = { ...stub(), ready };
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(r.resize).toHaveBeenCalled());
+    expect(screen.getByText('Building the ground from NASA heights…')).toBeTruthy();
+    await act(async () => finish());
+    await waitFor(() => expect(screen.queryByText('Building the ground from NASA heights…')).toBeNull());
+  });
+
   it('lets the renderer go when the view closes', async () => {
     const r = stub();
     const { view } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);

@@ -64,6 +64,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // The hour the view opened on, once the ground has loaded: it places the lander in the first view.
   const [openHour, setOpenHour] = useState<number | null>(null);
   const [failed, setFailed] = useState<'webgl' | 'data' | null>(null);
+  // The view's shaders are built: until then "Building the ground" stays up.
+  const [drawn, setDrawn] = useState(false);
   const [look, setLook] = useState<LookTarget | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [wordsHidden, setWordsHidden] = useState(false);
@@ -106,6 +108,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander };
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality]);
   const onFail = useCallback(() => setFailed('webgl'), []);
+  const onReady = useCallback(() => setDrawn(true), []);
 
   // The time bar and the phone's look buttons change height with the width and the words: what sits above
   // them reads their measured heights (--bar-h, --look-h) instead of fixed offsets.
@@ -187,6 +190,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           earthLabel={skyLabel('earth', series, hour)}
           night={series.sunFraction[hour] < 0.5}
           onFail={onFail}
+          onReady={onReady}
         />
       )}
       {failed && s.mask && (
@@ -197,7 +201,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           <HorizonView mask={s.mask} series={series} cursor={hour} lat={site.lat} startUtc={s.startUtc} />
         </div>
       )}
-      {!scene && !failed && <p role="status" className="fixed inset-x-0 top-1/2 text-center text-lg text-[#c3bfb6]">Building the ground from NASA heights…</p>}
+      {!failed && (!scene || !drawn) && <p role="status" className="fixed inset-x-0 top-1/2 text-center text-lg text-[#c3bfb6]">Building the ground from NASA heights…</p>}
 
       <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start justify-between gap-3 md:flex-row">
         {wordsHidden ? (

@@ -193,6 +193,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         uLevels: { value: Math.min(3, levels.length) },
         uMinLevel: { value: level },
         uSteps: { value: fast ? SHADOW_FAST.STEPS : SHADOW.STEPS },
+        uOne: { value: 1 },
         uGrowth: { value: fast ? SHADOW_FAST.GROWTH : SHADOW.GROWTH },
         uSun: { value: new THREE.Vector3(1, 0, 0) },
         uEarth: { value: new THREE.Vector3(0, 1, 0) },
@@ -661,6 +662,13 @@ export class StandRenderer {
   private waits = 0;
   private slow = 0;
   private frames = 0;
+  /**
+   * Resolves once the shaders are built. They are built off the page's thread where the browser can
+   * (KHR_parallel_shader_compile), so the page never freezes while the ground's long shader compiles;
+   * nothing is drawn before.
+   */
+  readonly ready: Promise<void>;
+  private compiled = false;
 
   constructor(canvas: HTMLCanvasElement, scene: StandScene) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -685,6 +693,10 @@ export class StandRenderer {
     this.built.root.environment = pmrem.fromScene(envScene, 0).texture;
     pmrem.dispose();
     around.dispose();
+    const built = () => {
+      this.compiled = true;
+    };
+    this.ready = this.renderer.compileAsync(this.built.root, this.built.camera).then(built, built);
     this.built.starMaterial.uniforms.uPx.value = this.pixelRatio;
     // Four samples per pixel in the composer's own target: smooth edges on Earth and the skyline.
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
@@ -746,6 +758,7 @@ export class StandRenderer {
   }
 
   render() {
+    if (!this.compiled) return;
     const now = performance.now();
     const maps = (this.built.parts.earth.material as THREE.ShaderMaterial).uniforms.uMaps.value;
     const v = this.view;
