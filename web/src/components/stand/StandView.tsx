@@ -218,6 +218,16 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     setCaption(momentCaption(m.kind, series, m.hour, site.lat) || null);
   };
   const opening = openHour === null ? hour : Math.min(series.hours - 1, Math.max(0, openHour));
+  // After the first power cut, what needs power again holds only if the lander lives through the night.
+  let ifSurvivesFrom: number | null = null;
+  if (power.firstBrownoutHour !== null) {
+    for (let h = power.firstBrownoutHour; h < series.hours; h++) {
+      if (power.powered[h] === 1) {
+        ifSurvivesFrom = h;
+        break;
+      }
+    }
+  }
   // Looking up: towards the Southern Cross (else away from the Sun), wide, and raised just so far that the
   // level horizon runs straight along the bottom of the view.
   const lookUp = () => {
@@ -386,7 +396,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
 
       <div ref={barRef} data-plate="" className="fixed inset-x-0 bottom-0">
         {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
-        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} />
+        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} ifSurvivesFrom={ifSurvivesFrom} clockNote=" (Earth time)" />
       </div>
     </main>
   );

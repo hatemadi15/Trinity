@@ -291,6 +291,13 @@ describe('StandView', () => {
     expect(screen.getByRole('link', { name: /^Try 20 January instead/ }).className).not.toMatch(/\bmax-md:hidden\b/);
   });
 
+  it('marks the radio contact after the night as only if the lander survives it, and says the clock is Earth’s', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    // The battery runs out on 4 January; the contact from 20 January needs the lander to live through the night.
+    await waitFor(() => expect(screen.getByText('if it survives the night')).toBeTruthy());
+    expect(screen.getByText(/\(Earth time\)/)).toBeTruthy();
+  });
+
   it('names your own shadow and its length while the Sun is up', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // With the height it is worked out for, so a reader can check the Sun's height from it.

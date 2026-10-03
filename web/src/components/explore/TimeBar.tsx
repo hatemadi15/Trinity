@@ -19,8 +19,8 @@ const DATE_STEPS = [1, 2, 5, 10, 15, 30, 60];
  * The dates under the track, at whole days from the start like the chart's date row. Two dates need about
  * 84 px from centre to centre: at 15 px the widest, "31 May", is 49 px, and the first date sits against the
  * left end, so it reaches its whole width to the right. On a track narrower than that for all of them (588 px
- * for seven, 504 px for six) every other one gives way; a phone 390 px wide has a 308 px track. The class
- * names are written out whole so that Tailwind generates them.
+ * for seven, 504 px for six) every other one gives way; a phone 390 px wide has a 308 px track (358 px when
+ * compact). The class names are written out whole so that Tailwind generates them.
  */
 function dateMarks(hours: number): { hour: number; narrow: string }[] {
   const days = hours / 24;
@@ -31,6 +31,12 @@ function dateMarks(hours: number): { hour: number; narrow: string }[] {
   for (let k = 0; k * step + step / 2 <= days; k++) out.push({ hour: k * step * 24, narrow: k % 2 === 1 ? narrow : '' });
   return out;
 }
+
+/**
+ * Diagonal stripes of the radio band's green at 45°, the ground between them clear: radio contact that comes
+ * only if the lander lives through the night. The class is written out whole so that Tailwind generates it.
+ */
+const HATCH = 'bg-[repeating-linear-gradient(45deg,var(--good)_0_2px,transparent_2px_4px)]';
 
 /** A moment of the period worth a jump: what happens, and its hour from the start. */
 type KeyMoment = { label: string; hour: number };
@@ -47,20 +53,45 @@ function flagSpan(m: KeyMoment, hours: number, trackPx: number): { from: number;
 }
 
 /**
- * The row of each flag over the track, 0 right above it or 1 above that, for moments in order of time: a
- * flag takes the first row where it clears the flag placed before it in that row, and row 1 all the same
- * when neither has room, as there is no third. A flag that ends at its hour, near the right end, counts
- * where it really runs.
+ * The row of each flag over the track, 0 right above it or 1 above that, for moments in order of time. A
+ * flag takes the first row when it clears the flag placed last there. When it does not and its stem would
+ * come down behind that flag's words, that flag goes up instead, if its own stem then stays clear of the new
+ * one and it clears the second row: as the stem of a flag in the second row comes down past the first, each
+ * stem stays in sight. Else the new flag takes the row where it covers less of the words of the flag placed
+ * last there, the second on a tie, as there is no third row. A flag that ends at its hour, near the right
+ * end, counts where it really runs, its stem on its right edge.
  */
 export function momentRows(moments: KeyMoment[], hours: number, trackPx: number): number[] {
-  // The flag placed last in the first row.
-  let first: { from: number; to: number } | null = null;
-  return moments.map((m) => {
-    const span = flagSpan(m, hours, trackPx);
-    if (first && span.from < first.to && first.from < span.to) return 1;
-    first = span;
-    return 0;
+  const spans = moments.map((m) => flagSpan(m, hours, trackPx));
+  // How far two flags run over each other, in px: 0 when they clear each other, or when either is none (-1).
+  const over = (a: number, b: number) => (a < 0 || b < 0 ? 0 : Math.max(0, Math.min(spans[a].to, spans[b].to) - Math.max(spans[a].from, spans[b].from)));
+  // Whether the stem of flag a, at its hour, would come down behind the words of flag b.
+  const behind = (a: number, b: number) => {
+    const at = spans[a].flipped ? spans[a].to : spans[a].from;
+    return spans[b].from < at && at < spans[b].to;
+  };
+  const rows: number[] = [];
+  // The flags placed last in the first row and in the second.
+  let first = -1;
+  let second = -1;
+  spans.forEach((_, k) => {
+    if (over(k, first) === 0) {
+      rows.push(0);
+      first = k;
+    } else if (behind(k, first) && !behind(first, k) && over(first, second) === 0) {
+      rows[first] = 1;
+      second = first;
+      rows.push(0);
+      first = k;
+    } else if (over(k, second) <= over(k, first)) {
+      rows.push(1);
+      second = k;
+    } else {
+      rows.push(0);
+      first = k;
+    }
   });
+  return rows;
 }
 
 /**
@@ -78,14 +109,26 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number)
  * band ("radio contact"), so the blue runs whole for as long as Earth is in view. With the dates each band
  * is 6 px tall, 2 px under the one above. Explore leaves all of these to its chart.
  *
+ * Once the battery has run out in the night, what the lander does after the power comes back holds only if
+ * it survives that night, which the forecast does not work out: from `ifSurvivesFrom` on, the radio band is
+ * hatched in its green rather than solid, and the key adds "if it survives the night" after "radio contact".
+ *
  * With the dates, `moments` puts a flag right above the track at each of the period's key moments, such as
  * "Sunset 3 Jan": a click on one moves the handle to its hour, then tells the page (`onMoment`). A flag
- * starts at its hour, where a 1 px tick on its left edge points down to the strip; one whose words would
- * run past the right end of the track ends at its hour instead, the tick on its right edge. A flag that
- * would cover the one before it goes up to a second row (`momentRows`), the most there is; the ticks of
- * that row run down behind the flags of the first. The flag of the moment the handle is on shows as
- * chosen, with a gold edge. With `compact`, on a phone each flag is a dot on the top edge of the strip (the
- * chosen one gold), its words kept for screen readers, with room around it for a finger.
+ * looks like the button it is: a pointer, an edge that stands out on the dark bar, and a lighter fill with a
+ * brighter edge under the pointer or the keyboard's focus. It starts at its hour, where a 1 px stem in its
+ * edge colour runs from its left edge down to the strip; one whose words would run past the right end of the
+ * track ends at its hour instead, the stem on its right edge. Of two flags that would meet, one goes up to a
+ * second row (`momentRows`), the most there is: the one whose stem then comes down in sight, so each flag
+ * leads the eye to its own hour even when two stand a few pixels apart. The flag of the moment the handle is
+ * on shows as chosen, with a gold edge. With `compact`, on a phone each flag is a dot on the top edge of the
+ * strip, its words kept for screen readers, with room around it for a finger; the chosen dot is gold and
+ * shows its words in a chip just above it, so a tap shows what the dot was.
+ *
+ * `compact` keeps the bar low for the stand view: no sentence beside the date (the page says it in its own
+ * words), and with the dates the keys join the date's line from a medium screen up, where they fit. On a
+ * phone the keys are smaller, Play keeps its word, and the bar drops the chart panel's inset to make room
+ * for it. `clockNote` puts a few words after the date and hour on a medium screen and up.
  *
  * `bare` is for the stand view's clean view, for a classroom: the picture with as little as possible over
  * it. The bar keeps only Play, the date and hour, and the track with its sunlight and handle.
@@ -104,6 +147,8 @@ export function TimeBar({
   bare = false,
   moments,
   onMoment,
+  ifSurvivesFrom = null,
+  clockNote,
 }: {
   series: Series;
   power: PowerResult | null;
@@ -114,7 +159,11 @@ export function TimeBar({
   onCursor: (hour: number) => void;
   dates?: boolean;
   powered?: Uint8Array | null;
-  /** No sentence beside the date at any width (the page says it in its own words), and smaller keys on a phone, so the bar stays low. */
+  /**
+   * No sentence beside the date at any width (the page says it in its own words), and with `dates` the keys on
+   * the date's line from md up where they fit, so the bar stays low. On a phone: smaller keys, Play with its
+   * word, no chart-panel inset, and the chosen flag's words in a chip over its dot.
+   */
   compact?: boolean;
   /** Only Play, the date and hour, and the track with its sunlight and handle: no sentence, keys, bands, flags or dates. */
   bare?: boolean;
@@ -122,6 +171,17 @@ export function TimeBar({
   moments?: KeyMoment[];
   /** Told which moment it was, once a click on its flag has moved the handle there. */
   onMoment?: (m: KeyMoment) => void;
+  /**
+   * The hour from which the bar's marks that need power hold only if the lander survives the night: the first
+   * hour with power again after the first power cut, or null when it never needs to. From that hour on the
+   * radio band is hatched rather than solid, and named "if it survives the night" in the key; only with `dates`.
+   */
+  ifSurvivesFrom?: number | null;
+  /**
+   * Words right after the date and hour, in the second ink, on a medium screen and up only (a phone has no
+   * room): " (Earth time)" reads "1 Jan 2027, 00:00 UTC (Earth time)". Not shown when `bare`.
+   */
+  clockNote?: string;
 }) {
   const hours = series.hours;
   const last = Math.max(0, hours - 1);
@@ -134,6 +194,20 @@ export function TimeBar({
   const lit = litRuns(series.sunFraction);
   const earth = rich ? runsWhere(hours, (h) => series.earthVisible[h] === 1) : [];
   const contact = rich && powered ? runsWhere(hours, (h) => powered[h] === 1 && series.earthVisible[h] === 1) : [];
+  // From `ifSurvivesFrom` on the contact holds only if the lander survives the night: those hours are hatched,
+  // and a stretch that runs across that hour is split there.
+  const survives = ifSurvivesFrom ?? Infinity;
+  const contactRuns = contact.flatMap((r) =>
+    r.to <= survives
+      ? [{ ...r, ifSurvives: false }]
+      : r.from >= survives
+        ? [{ ...r, ifSurvives: true }]
+        : [
+            { from: r.from, to: survives, ifSurvives: false },
+            { from: survives, to: r.to, ifSurvives: true },
+          ],
+  );
+  const ifSurvives = contactRuns.some((r) => r.ifSurvives);
   // The strip is grey wherever the yellow leaves a gap: by its own rule, an hour with any part of the Sun is yellow.
   const sunless = rich && lit.reduce((n, r) => n + r.to - r.from, 0) < hours;
   // With the dates each band is 6 px tall and at least as wide, so one hour still shows as a dot, and each key's
@@ -145,6 +219,8 @@ export function TimeBar({
   const { ref: flagsRef, width: trackPx } = useElementWidth<HTMLDivElement>(1000);
   const rows = momentRows(flags, hours, trackPx);
   const flipped = flags.map((m) => flagSpan(m, hours, trackPx).flipped);
+  // On a phone when compact the flags are dots; the one the handle is on also shows its words, in a chip.
+  const chip = compact ? flags.find((m) => cursor === m.hour) : undefined;
 
   useEffect(() => {
     cursorRef.current = cursor;
@@ -162,6 +238,11 @@ export function TimeBar({
 
   const shown = Math.min(last, hoverHour ?? cursor);
   const move = (to: number) => onCursor(Math.max(0, Math.min(last, to)));
+  const when = (
+    <span data-testid="when" className="text-[17px] font-semibold">
+      {dateTimeUtc(startUtc, shown)}
+    </span>
+  );
   // The track's yellow is the Sun, not progress: a key says so.
   const sunKey = (
     <span data-part="key" className="flex items-center gap-2 text-[15px] text-ink-2 sm:ml-auto">
@@ -173,7 +254,11 @@ export function TimeBar({
   return (
     <section aria-label="Time" className="sticky bottom-0 z-30 border-t border-line bg-page">
       <div className="wrap">
-        <div data-part="bar-grid" className={`${PLOT_GRID} items-center gap-y-1 px-[25px] py-2.5 max-sm:grid-cols-[auto_minmax(0,1fr)]`}>
+        {/* Compact (the stand view), no chart is above the bar to line the track up with, so on a phone the bar drops
+            the chart panel's inset and spends it on Play's word. */}
+        <div data-part="bar-grid" className={`${PLOT_GRID} items-center gap-y-1 px-[25px] py-2.5 max-sm:grid-cols-[auto_minmax(0,1fr)]${compact ? ' max-sm:px-0' : ''}`}>
+          {/* On a phone Play is its sign alone, except when compact: there its word stays beside the sign, a little
+              tighter at the sides, at a width that holds "Pause" as well, so the date beside it never moves. */}
           <button
             type="button"
             disabled={reduced}
@@ -181,17 +266,25 @@ export function TimeBar({
               if (!playing && cursor >= last) onCursor(0);
               setPlaying((p) => !p);
             }}
-            className="btn row-span-2 w-full max-sm:row-span-1 max-sm:w-auto"
+            className={`btn row-span-2 w-full max-sm:row-span-1 max-sm:w-auto${compact ? ' max-sm:min-w-[92px] max-sm:gap-2 max-sm:px-3' : ''}`}
           >
             <svg viewBox="0 0 16 16" width={14} height={14} fill="currentColor" aria-hidden="true">
               {playing ? <path d="M3 2h4v12H3zM9 2h4v12H9z" /> : <path d="M4 2l10 6-10 6z" />}
             </svg>
-            <span className="max-sm:sr-only">{playing ? 'Pause' : 'Play'}</span>
+            <span className={compact ? undefined : 'max-sm:sr-only'}>{playing ? 'Pause' : 'Play'}</span>
           </button>
           <p className="flex flex-wrap items-baseline gap-x-3 leading-snug">
-            <span data-testid="when" className="text-[17px] font-semibold">
-              {dateTimeUtc(startUtc, shown)}
-            </span>
+            {clockNote && !bare ? (
+              // The note follows the date and hour in the same run of words, never on a line of its own.
+              <span className="md:whitespace-nowrap">
+                {when}
+                <span data-testid="clock-note" className="text-[15px] text-ink-2 max-md:hidden">
+                  {clockNote}
+                </span>
+              </span>
+            ) : (
+              when
+            )}
             {/* Compact, the page says it in its own words; the slider still reads it. Bare, the date and hour are all. */}
             {!compact && !bare && (
               <span data-testid="status" className="text-[15px] text-ink-2">
@@ -201,15 +294,17 @@ export function TimeBar({
             {reduced && !bare && <span className="text-[15px] text-ink-2">Playback is off because your system asks for reduced motion.</span>}
             {!bare && (sunless || off.length > 0 || earth.length > 0 ? (
               // The keys wrap as one, so none strays to the far side of a new line. Each swatch is a box as
-              // tall as the Sun's, so all of them keep one baseline. With the dates there are up to four, too
+              // tall as the Sun's, so all of them keep one baseline. With the dates there are up to six, too
               // many to fit beside a long sentence even on a wide screen: they take a line of their own, so the
-              // bar keeps one height while the words change.
-              <span className={`${dates ? 'flex basis-full flex-wrap items-baseline gap-x-3 sm:justify-end' : 'flex flex-wrap items-baseline gap-x-3 sm:ml-auto'} ${compact ? 'max-sm:gap-x-2 max-sm:[&>span]:text-[13px] max-sm:[&_i]:w-4' : ''}`}>
+              // bar keeps one height while the words change. Compact, there is no sentence: from md up they
+              // take only their own width, so they join the date's line where they fit, at its right end (else
+              // they go to the next line whole, at the right all the same), and the bar is a line lower.
+              <span className={`${dates ? 'flex basis-full flex-wrap items-baseline gap-x-3 sm:justify-end' : 'flex flex-wrap items-baseline gap-x-3 sm:ml-auto'} ${compact ? `max-sm:gap-x-2 max-sm:[&>span]:text-[13px] max-sm:[&_i]:w-4${dates ? ' md:ml-auto md:basis-auto' : ''}` : ''}`}>
                 {sunKey}
                 {sunless && (
                   <span data-part="key-no-sun" className="flex items-center gap-2 text-[15px] text-ink-2">
-                    {/* The strip's own grey, where no yellow is drawn. */}
-                    <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border border-line-strong bg-surface-2" />
+                    {/* The strip's own grey, where no yellow is drawn, with an edge light enough to see on the dark bar. */}
+                    <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border border-ink-3 bg-surface-2" />
                     no Sun
                   </span>
                 )}
@@ -232,6 +327,13 @@ export function TimeBar({
                     radio contact
                   </span>
                 )}
+                {ifSurvives && (
+                  <span data-part="key-if-survives" className="flex items-center gap-2 text-[15px] text-ink-2">
+                    {/* The band's own stripes, in a line as thick as the band. */}
+                    <i data-swatch="" aria-hidden="true" className={`block h-2.5 w-6 rounded-full border-y-2 border-transparent bg-clip-padding ${HATCH}`} />
+                    if it survives the night
+                  </span>
+                )}
               </span>
             ) : (
               sunKey
@@ -240,10 +342,10 @@ export function TimeBar({
           <div data-part="track" className="col-start-2 max-sm:col-span-2 max-sm:col-start-1">
             {flags.length > 0 && (
               // Right above the strip and on its hours, in rows of 22 px (a flag 20 px tall, 2 px under it), the
-              // first row nearest the strip. The ticks come first, so one from the second row runs down behind the
-              // flags of the first. On a phone when compact the flags are dots on the strip's top edge and the row
-              // is 11 px: with the grid's 4 px gap and the slider's 9 px over the strip, room for a 24 px target
-              // that stays clear of Play. The row is lifted over the slider there, so the targets win those 9 px.
+              // first row nearest the strip; each flag's stem runs down to the strip in sight (`momentRows`). On a
+              // phone when compact the flags are dots on the strip's top edge and the row is 11 px: with the grid's
+              // 4 px gap and the slider's 9 px over the strip, room for a 24 px target that stays clear of Play.
+              // The row is lifted over the slider there, so the targets win those 9 px.
               <div
                 ref={flagsRef}
                 data-part="moments"
@@ -251,26 +353,18 @@ export function TimeBar({
                 aria-label="Jump to a moment"
                 className={`relative ${rows.includes(1) ? 'h-[44px]' : 'h-[22px]'}${compact ? ' max-sm:z-[1] max-sm:h-[11px]' : ''}`}
               >
-                {flags.map((m, i) => (
-                  // From the bottom of the flag to the strip, which starts 9 px down the box under the flags.
-                  <i
-                    key={`${m.hour} ${m.label}`}
-                    data-part="moment-tick"
-                    aria-hidden="true"
-                    className={`absolute -bottom-[9px] w-px bg-ink-2 ${rows[i] === 1 ? 'h-[33px]' : 'h-[11px]'}${flipped[i] ? ' -ml-px' : ''}${compact ? ' max-sm:hidden' : ''}`}
-                    style={{ left: `${(m.hour / hours) * 100}%` }}
-                  />
-                ))}
                 {flags.map((m, i) => {
                   const left = `${(m.hour / hours) * 100}%`;
-                  // The moment the handle is on shows as chosen: the Sun's gold for its edge, on the grey the others
-                  // take under the pointer; on a phone, a gold dot.
+                  // The moment the handle is on shows as chosen: the Sun's gold for its edge, on a lighter ground
+                  // than the others'; on a phone, a gold dot.
                   const chosen = cursor === m.hour;
-                  // The corner over the tick is square, so the tick runs on from the flag's edge. The keyboard's
-                  // ring is the page's own (globals.css); a flag under the pointer or the focus comes to the front.
-                  // On a phone when compact: a 24 px target centred on its hour, its bottom on the strip's top
-                  // edge, with the dot in it (one that ends at its hour is already a whole target to the left,
-                  // so it comes back half of one).
+                  // A button by its look: a pointer, an edge that stands out on the dark bar, and under the pointer
+                  // or the keyboard's focus a lighter fill and a brighter edge (the chosen one's gold brightens).
+                  // The keyboard's ring is the page's own, 2 px of gold 2 px out (globals.css); a flag under the
+                  // pointer or the focus comes to the front, ring and all. The corner over the stem is square, so
+                  // the stem runs on from the flag's edge. On a phone when compact: a 24 px target centred on its
+                  // hour, its bottom on the strip's top edge, with the dot in it (one that ends at its hour is
+                  // already a whole target to the left, so it comes back half of one).
                   return (
                     <button
                       key={`${m.hour} ${m.label}`}
@@ -283,14 +377,37 @@ export function TimeBar({
                         move(m.hour);
                         onMoment?.(m);
                       }}
-                      className={`absolute flex h-5 items-center whitespace-nowrap rounded border ${chosen ? 'border-sun bg-surface-2' : 'border-line-strong bg-surface'} px-1.5 text-[13px] leading-none text-ink hover:z-10 hover:bg-surface-2 focus-visible:z-10 ${rows[i] === 1 ? 'bottom-[24px]' : 'bottom-[2px]'} ${flipped[i] ? 'rounded-br-none' : 'rounded-bl-none'}${compact ? ` max-sm:-bottom-[9px] max-sm:size-6 max-sm:rounded-full max-sm:border-0 max-sm:bg-transparent max-sm:p-0 ${flipped[i] ? 'max-sm:ml-3' : 'max-sm:-ml-3'}` : ''}`}
+                      className={`absolute flex h-5 cursor-pointer items-center whitespace-nowrap rounded border ${chosen ? 'border-sun bg-surface-2 hover:border-sun-hover focus-visible:border-sun-hover' : 'border-ink-3 bg-surface hover:border-ink focus-visible:border-ink'} px-1.5 text-[13px] leading-none text-ink hover:z-10 hover:bg-line focus-visible:z-10 focus-visible:bg-line ${rows[i] === 1 ? 'bottom-[24px]' : 'bottom-[2px]'} ${flipped[i] ? 'rounded-br-none' : 'rounded-bl-none'}${compact ? ` max-sm:-bottom-[9px] max-sm:size-6 max-sm:rounded-full max-sm:border-0 max-sm:bg-transparent max-sm:p-0 ${flipped[i] ? 'max-sm:ml-3' : 'max-sm:-ml-3'}` : ''}`}
                       style={flipped[i] ? { left, transform: 'translateX(-100%)' } : { left }}
                     >
                       <span className={compact ? 'max-sm:sr-only' : undefined}>{m.label}</span>
+                      {/* The stem: 1 px of the flag's own edge colour, whatever that is, from 1 px up into its bottom edge
+                          down to the strip at its hour, on its left edge or, for a flag that ends at its hour, its
+                          right: 2 px under a flag of the first row and 9 px down the box under the row, 22 px more from
+                          the second. It takes no taps from the slider under it. */}
+                      <i
+                        data-part="moment-stem"
+                        aria-hidden="true"
+                        className={`pointer-events-none absolute top-full w-0 border-l border-inherit ${rows[i] === 1 ? 'h-[34px]' : 'h-[12px]'} ${flipped[i] ? '-right-px' : '-left-px'}${compact ? ' max-sm:hidden' : ''}`}
+                      />
                       {compact && <i data-part="moment-dot" aria-hidden="true" className={`absolute bottom-0 left-1/2 hidden size-2 -translate-x-1/2 rounded-full ${chosen ? 'bg-sun' : 'bg-ink'} max-sm:block`} />}
                     </button>
                   );
                 })}
+                {chip && (
+                  // The chosen dot's words, on a phone, so a tap shows what the dot was: 18 px tall with its foot on the
+                  // row's, 1 px over the dot. It sits at its hour's share of the track, drawn back by the same share of
+                  // its own width, so it never runs off either end of the track and its dot is always under it. A
+                  // label only: taps go through it, and the dot's button carries the words for screen readers.
+                  <span
+                    data-part="moment-chip"
+                    aria-hidden="true"
+                    className="pointer-events-none absolute bottom-0 hidden h-[18px] items-center whitespace-nowrap rounded border border-sun bg-surface-2 px-1.5 text-[14px] leading-none text-ink max-sm:flex"
+                    style={{ left: `${(chip.hour / hours) * 100}%`, transform: `translateX(-${(chip.hour / hours) * 100}%)` }}
+                  >
+                    {chip.label}
+                  </span>
+                )}
               </div>
             )}
             {/* With the dates the box is 47 px tall, room for the three bands under the strip; the slider keeps its 32 px at the top. Bare, there are none. */}
@@ -317,11 +434,18 @@ export function TimeBar({
                 </div>
               )}
               {/* The hours the lander can radio home, on a row of their own 2 px under Earth's (41 to 47 px), never over
-                  it: the blue stays whole for as long as Earth is in view. */}
-              {contact.length > 0 && (
+                  it: the blue stays whole for as long as Earth is in view. Hatched where it needs the lander to have
+                  survived the night. */}
+              {contactRuns.length > 0 && (
                 <div data-part="contact" aria-hidden="true" className="absolute inset-x-0 top-[41px] h-1.5">
-                  {contact.map((r) => (
-                    <i key={r.from} data-part="contact-run" className="absolute inset-y-0 min-w-1.5 rounded-full bg-good" style={{ left: `${(r.from / hours) * 100}%`, width: `${((r.to - r.from) / hours) * 100}%` }} />
+                  {contactRuns.map((r) => (
+                    <i
+                      key={r.from}
+                      data-part="contact-run"
+                      data-if-survives={r.ifSurvives ? '' : undefined}
+                      className={`absolute inset-y-0 min-w-1.5 rounded-full ${r.ifSurvives ? HATCH : 'bg-good'}`}
+                      style={{ left: `${(r.from / hours) * 100}%`, width: `${((r.to - r.from) / hours) * 100}%` }}
+                    />
                   ))}
                 </div>
               )}
