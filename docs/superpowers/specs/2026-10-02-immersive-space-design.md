@@ -163,3 +163,74 @@ Sound, VR headsets, a free-flying camera away from the site, rovers, stars faint
 - **The C++ core.** Specified separately and built after part A; until then the TypeScript and NumPy paths serve, as today.
 - **Immersion against clarity.** The blind reads keep both scores; the words never move off their plates.
 - **Time.** Each part is shippable alone; if part C slips, the app keeps today's look with parts A and B.
+
+## 13. Amendment: Part A as built (4 October 2026)
+
+Part A was built on `feat/immersive-a` through twelve blind reads and twelve fix passes. This section records what was built where it differs from section 4, and the reads. Every change below has its ruling, with what it costs if wrong, in the plan's ledger.
+
+### 13.1 Where it differs from section 4
+
+- **The ways in.** "Stand at the site" beside the ground panel's tabs and under the answer, not "Stand here". The forecast page's tabs are now "Shadow map", "3D from above" and "Horizon chart", with a line saying what each shows. The horizon chart is also the fallback without WebGL 2.
+- **The opening.** On a wide screen the view opens 35° left of the Sun, so the Sun stands near the right edge and the ground before you is lit from the side. The lander stands 16 m away, 40° left of the Sun at the period's first hour, whatever hour the view opens on. A tall screen puts the lander 20° left of the Sun and opens 15° left of it, so the lander stands near the middle. A night opening with Earth up faces Earth. The view still eases down from the sky over 3.8 s, skipped with reduced motion. Read 10 asked for this: facing straight into the Sun, everything in view is lit from behind, and the daytime scene read as night.
+- **The Sun.** A white disc at its true 0.53°, with a faint glare and a tight bloom; there is no six-spike flare (read 5 took it for a camera fault, and read 8 found the glow as big as Earth). The exposure acts like a camera's. It stops down when the view looks down-Sun at sunlit ground (to 0.35 at most), and when the Sun is in the frame (to 0.6 with the Sun in the middle, less towards the edges).
+- **The stars.** None by day until the view tilts up (from 15° to 35° of pitch), and all of them at night; section 4 had them dimmed by day. The caption after "Look up" says why: there is no air, and cameras set for the bright ground (Apollo's) use exposures too short to catch the stars.
+- **Look up.** The sky alone, 50° up with a 62° field, the Southern Cross a little above the middle where it is up. Section 4 had a 72° field with the horizon, but at this site a slope beside the eye curved up from a corner like a planet's edge (read 7).
+- **Drawn, not measured.** None of these is in section 4; the readers asked for all of them:
+  - a small solar lander for scale, whose model and soft shadow come from one shape table, so the two match; its power light sits on the face you see and glows while it has power;
+  - fourteen boulders and 360 pebbles, placed from the site's own seed;
+  - stones and crater rims that cast their own shadows;
+  - your own shadow, a person 1.8 m tall, with its length given in words; the level length is worked out from the Sun's height as its label shows it, so the sum checks.
+
+  The line above the headline says the small craters and rocks are added to look real.
+- **Night.** Earthlight lights the ground and the slopes that face Earth. A neutral fill stands for eyes adapting to the dark, so the lander and the ground do not vanish when neither the Sun nor Earth lights them. The fill is not physical, and the night captions say what does and does not light the ground.
+- **The words.** One card at the top left, the same in every state. It holds the headline ("Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power"), the lander's state at the hour, what to watch next, a better landing day on its own row, and the way back. "Why this happens" gives one reason a page, so the card never scrolls: the radio story, the site's latitude, the pole, Earth's rocking, the black sky and the rest, then how we know.
+  - **Key moments.** The Sun going behind the hills, the battery running out, Earth coming into view and the Sun coming back are flags on the time bar. Each flag moves the time, turns the view and captions what it shows.
+  - **Pointers.** The Sun, Earth or the lander beyond either side of the view gets a pointer at that edge with its state. A body hidden behind the lander is named over the lander.
+  - **The time bar's key.** It names only what the bar draws.
+  - **Compass.** A strip that says "Facing west" replaces the N, E, S and W letters, which both readers of read 2 took for strays.
+  - **Help line.** "Drag to look around; pinch or scroll to zoom." stays on wide screens instead of going after the first drag.
+  - **Hide the words.** Leaves only a bare time bar.
+- **Looking.** Zoom 14° to 75°. "Face the Sun" uses a 46° field, "Face Earth" 16°, and "Face the lander" 36°, with the lander's parts named on leader lines. Play runs 12 hours a second, as section 4 says.
+- **Phone.** The card folds to the headline until "More". The look buttons sit on the time bar ("Face: Sun, Earth, Lander", "Look up", "Hide words"). The key folds behind a "Key" button, the key moments are dots with a chip naming the next one, and the pointers carry the body's name alone.
+- **Performance.** Not measured, as the demo laptop is not chosen yet. The view draws only when something changes, then one sharp frame after 300 ms at rest, and `?quality=fast` lightens it. On the development laptop's integrated graphics a still frame at full quality takes seconds, which section 7 allows.
+
+### 13.2 The blind reads
+
+Each round, two fresh readers judged still screenshots, at 1440 by 900 and on a phone at 390 by 844. One reader was a hackathon judge, the other a secondary-school science teacher. Scores are in the order purpose, next step, look, room, readability, then immersion after the semicolon.
+
+The gate: purpose, next step and look at 4 or more, room and readability at 3 or more, and immersion at 4, for both readers. Where a reader gave the phone a separate score, it is in brackets.
+
+| Read | Judge | Teacher | Fails on |
+|---|---|---|---|
+| 1 | 4, 4, 4, 3, 4; 3 | 4, 4, 3, 3, 3; 2 | look, immersion |
+| 2 | 4, 4, 3, 3, 4; 3 | 4, 4, 3, 3, 4; 3 | look, immersion |
+| 3 | 4, 4, 4, 3, 4; 4 (phone: look 2, room 1, immersion 1) | 4, 4, 3, 3, 4; 3 | look, immersion, the phone |
+| 4 | 4, 4, 4, 3 (phone 2), 4; 3 | 4, 4, 4, 2, 4; 3 | room, immersion |
+| 5 | 4, 4, 3, 2, 4; 3 | 4, 4, 4, 3 (phone 2), 4; 3 | look, room, immersion |
+| 6 | 4, 4, 4, 3, 4; 3 | 4, 4, 3, 3, 4; 3 | look, immersion |
+| 7 | 4, 4, 3, 3, 4; 3 | 4, 4, 3, 3 (phone 2), 4; 3 | look, immersion |
+| 8 | 4, 4, 4, 3, 4; 3 | 4, 4, 4, 3 (phone 2), 4; 3 | immersion |
+| 9 | 4, 4, 3, 3, 4; 3 | 4, 4, 4, 3 (phone 2), 4; 3 | look, immersion |
+| 10 | 4, 4, 4, 2, 4; 3 | 4, 4, 4, 3, 4; 3 | room, immersion |
+| 11 | 5, 4, 4, 3 (desktop 4, phone 2), 4; 4 | 4, 4, 4, 2, 3; 4 | the teacher's room |
+| 12 | 5, 4, 4, 3, 4; 3 | 4, 4, 4, 3, 3; 4 | the judge's immersion |
+
+Immersion stood at 3 for both readers from the fourth read to the tenth, through passes that each answered what both readers had named: long shadows, rocks, a lander, the true-size Sun, the night light. It moved once the opening was lit from the side and the words over the scene were cut (passes 11 and 12). Reads 11 and 12 each met the whole gate for one reader: the judge in read 11, the teacher in read 12. Each read fell short by one score from the other reader: the teacher's room in read 11, the judge's immersion in read 12.
+
+**Ruling.** Part A closes after read 12, as ruled after read 11: one bounded pass on what both readers of read 11 named, then a last read, whatever it said. The scores left short lie within the reads' own scatter: the same build scored 3 and 4 for immersion from the two readers. What both readers of read 12 named moves to parts B and C (13.3). Part B's reads add a recorded walk, a sequence of frames with Play sweeping the shadows and a turn round the horizon, to the stills. Cost if wrong: part A ships one score short of its gate in its last read.
+
+### 13.3 Asks carried to parts B and C
+
+From reads 10 to 12, not built in part A:
+
+- The month's paths of the Sun and Earth drawn in the scene: solid where they clear the skyline, faint where the hills hide them, with the days of the flags marked (judge, reads 10 and 12; teacher, read 10).
+- Where a hidden Sun or Earth sits, marked on the hill that hides it, and the level horizon drawn as a faint line, so "Sun 1.5° up, behind the hills" reads at a glance (both, read 12).
+- One name for the dark stretch, which the view calls "in shadow", "behind the hills", "in the dark" and "the night" (judge, read 12; both, read 11).
+- On a phone: the lander's line and the better day shown without "More", Earth's angle back on its pointer, the key's colours named without "Key", and button words on one line (both, read 12). Read 11 asked for the opposite on the first two, so the phone's card has to balance room against these.
+- Captions of two lines at most, kept off the middle of the scene (both, read 12).
+- Comparing two landing days, and the same day at another site, inside the view (judge, reads 10 and 12).
+- A classroom setting with larger type and brighter grey text (teacher, read 12).
+- "Why this happens" with the pole first, and a way to read all the reasons as one list (judge and teacher, read 12, who disagree on paging).
+- Finer models: a lander that is more than a box, your shadow lying on the ground rather than standing like a figure, rocks as solid stones, and near craters that read as more than ink (both, reads 11 and 12).
+- Earth's rise over the month and the lack of twilight explained where they happen, not only under "Look up" (teacher, read 12).
+- The battery's level in the view, as on the forecast page (judge, reads 11 and 12).
