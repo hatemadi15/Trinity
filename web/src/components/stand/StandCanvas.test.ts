@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compassMark, horizonLift, labelSides, starNamesShown } from './StandCanvas';
+import { compassMark, easeStep, horizonLift, labelSides, starNamesShown } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -63,5 +63,15 @@ describe('the marks on the compass strip', () => {
     expect(compassMark(10, 350)).toEqual({ x: 150 + 20 * 2.5, edge: null });
     expect(compassMark(45, 315)).toEqual({ x: null, edge: 'right' });
     expect(compassMark(200, 315)).toEqual({ x: null, edge: 'left' });
+  });
+});
+
+describe('turning the view', () => {
+  it('eases by the time passed, so a turn takes as long when frames come a second apart as when they come 60 times a second', () => {
+    expect(easeStep(1 / 60)).toBeCloseTo(1 - Math.exp(-5 / 60), 9);
+    // A frame half a second late moves most of the way; a frame later than that counts as half a second.
+    expect(easeStep(0.5)).toBeCloseTo(1 - Math.exp(-2.5), 9);
+    expect(easeStep(2)).toBeCloseTo(easeStep(0.5), 9);
+    expect(easeStep(-1)).toBe(0);
   });
 });

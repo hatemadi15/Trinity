@@ -81,6 +81,13 @@ const BODIES = [
 type Body = (typeof BODIES)[number][0];
 const TICKS = Array.from({ length: 72 }, (_, k) => -360 + k * 15);
 
+/**
+ * How far a turn of the view moves in a frame that came `dt` seconds after the last: by time, not frames, so
+ * a turn takes as long on a slow graphics chip as on a fast one; a frame later than half a second counts as
+ * half a second, so a stall never makes the view jump.
+ */
+export const easeStep = (dt: number): number => 1 - Math.exp(-5 * Math.min(0.5, Math.max(0, dt)));
+
 const lerpAngle = (a: number, b: number, f: number) => (a + ((((b - a + 540) % 360) - 180) * f) + 360) % 360;
 const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[15px]';
 
@@ -212,7 +219,8 @@ export function StandCanvas({
       if (b.width > 0 && plates.some((p) => b.right > p.left - 4 && b.left < p.right + 4 && b.bottom > p.top - 4 && b.top < p.bottom + 4)) node.hidden = true;
     };
     const tick = (now: number) => {
-      const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
+      const step = (now - last) / 1000;
+      const dt = Math.min(0.1, Math.max(0, step));
       last = now;
       const d = hourRef.current - shown;
       if (d !== 0) {
@@ -229,8 +237,7 @@ export function StandCanvas({
       }
       const g = goal.current;
       if (g) {
-        // Eased by the time passed, not the frames drawn: as quick on a slow graphics chip as on a fast one.
-        const k = 1 - Math.exp(-dt * 5);
+        const k = easeStep(step);
         v.yaw = lerpAngle(v.yaw, g.yaw, k);
         v.pitch += (g.pitch - v.pitch) * k;
         v.fov += (g.fov - v.fov) * k;
