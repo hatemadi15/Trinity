@@ -113,7 +113,14 @@ export function StandCanvas({
       node.style.left = `${s.x * 100}%`;
       node.style.top = `${s.y * 100}%`;
       node.hidden = false;
-      const b = node.getBoundingClientRect();
+      let b = node.getBoundingClientRect();
+      // Kept inside the screen: a label near an edge slides in rather than being cut off.
+      const w = el.clientWidth || window.innerWidth;
+      const shift = b.right > w - 4 ? b.right - (w - 4) : b.left < 4 ? b.left - 4 : 0;
+      if (b.width > 0 && shift !== 0) {
+        node.style.left = `calc(${s.x * 100}% - ${shift}px)`;
+        b = node.getBoundingClientRect();
+      }
       if (b.width > 0 && plates.some((p) => b.right > p.left - 4 && b.left < p.right + 4 && b.bottom > p.top - 4 && b.top < p.bottom + 4)) node.hidden = true;
     };
     const tick = (now: number) => {
