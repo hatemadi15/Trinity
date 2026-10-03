@@ -19,7 +19,7 @@ export const STORY_STEPS: StoryStep[] = [
   },
   {
     title: 'Look at the ground',
-    body: "The shadow map shows the ground around the site from above at the time bar's hour, with north up, and says whether the site is in sunlight. 3D shows the same light on the hills. View all round unrolls the horizon in every direction into one strip, with the paths of the Sun and Earth over the hills.",
+    body: "The shadow map shows the ground around the site from above at the time bar's hour, with north up, and says whether the site is in sunlight. The 3D model shows the same light on the hills. The horizon chart unrolls the horizon in every direction into one strip, with the paths of the Sun and Earth over the hills.",
   },
   {
     title: 'Compare and check',

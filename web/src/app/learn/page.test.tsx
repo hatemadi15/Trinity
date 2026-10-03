@@ -30,7 +30,10 @@ describe('How it works', () => {
     expect(steps[3].textContent).toMatch(/shadow map/);
     expect(steps[0].textContent).toMatch(/Picking a site opens Explore on that day\./);
     expect(steps[1].textContent).toMatch(/lands on the first day of the period/);
-    expect(steps[3].textContent).toMatch(/View all round unrolls the horizon/);
+    // The ground's tabs by the names they carry on the page.
+    expect(steps[3].textContent).toMatch(/The 3D model shows the same light on the hills\./);
+    expect(steps[3].textContent).toMatch(/The horizon chart unrolls the horizon/);
+    expect(steps[3].textContent).not.toMatch(/View all round|3D shows/);
     expect(steps[4].textContent).toMatch(/Accuracy/);
   });
 
