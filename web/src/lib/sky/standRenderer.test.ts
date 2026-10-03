@@ -486,4 +486,10 @@ describe('the stand scene', () => {
     expect([...mats].some((m) => m.name === 'foil' && m.metalness >= 0.8)).toBe(true);
     expect([...mats].some((m) => m.name === 'pad' && m.metalness <= 0.25)).toBe(true);
   });
+
+  it('lets the shiny foil mirror only a little of the dust round it by day, so the side away from the Sun stays dark', () => {
+    const s = buildScene(flat({ lander: { azDeg: 90, distM: 9, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(0);
+    expect(s.root.environmentIntensity).toBeLessThanOrEqual(0.2);
+  });
 });

@@ -487,7 +487,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     sunElNow = v.sunEl;
     expose();
     // What the lander's foil and metal mirror (the sunlit dust below) dims with the Sun.
-    root.environmentIntensity = 0.08 + 0.42 * v.sunFraction;
+    // Little: at a Sun this low the dust round is dim, and the foil's shaded side must stay dark.
+    root.environmentIntensity = 0.06 + 0.12 * v.sunFraction;
   }
 
   const fwd = new THREE.Vector3(), tmp = new THREE.Vector3(), ray = new THREE.Ray(), hit = new THREE.Vector3();
