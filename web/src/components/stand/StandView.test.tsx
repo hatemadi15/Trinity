@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
@@ -193,18 +193,21 @@ describe('StandView', () => {
     expect(screen.getByText(/^The lander is off: its battery ran out on 4 January\. Earth is in view, but the radio has no power\.$/)).toBeTruthy();
   });
 
-  it('hides the words, the buttons, the labels and the compass for a clean view, keeping a bare time bar, and brings them back', async () => {
+  it('hides the words, the buttons, the labels and the compass for a clean view, keeping a bare time bar with the moments as dots, and brings them back', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     await waitFor(() => expect(screen.getByText(starLabel('Sirius')).hidden).toBe(false));
     fireEvent.click(screen.getByRole('button', { name: 'Hide the words' }));
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
     for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up']) expect(screen.queryByRole('button', { name })).toBeNull();
     expect(screen.getByRole('slider', { name: 'Time' })).toBeTruthy();
-    // Nothing over the picture but the bare time bar: no labels, no compass, no key, no flags.
+    // Nothing over the picture but the bare time bar: no labels, no compass, no key, and the key moments
+    // only as dots, their words kept for screen readers, so a class can still be taken from one to the next.
     await waitFor(() => expect(screen.getByText(starLabel('Sirius')).hidden).toBe(true));
     for (const el of screen.getAllByText(/^Facing /)) expect(el.closest('[hidden]')).not.toBeNull();
     expect(screen.queryByText('lander off')).toBeNull();
-    expect(screen.queryByRole('group', { name: 'Jump to a moment' })).toBeNull();
+    const dots = within(screen.getByRole('group', { name: 'Jump to a moment' })).getAllByRole('button');
+    expect(dots.length).toBeGreaterThan(0);
+    for (const b of dots) expect(b.querySelector('span')!.classList.contains('sr-only')).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Show the words' }));
     expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Face Earth' })).toBeTruthy();

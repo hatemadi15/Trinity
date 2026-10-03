@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '@/lib/engine/power';
 import { PLOT_GRID } from './TimeChart';
-import { momentRows, TimeBar } from './TimeBar';
+import { dotShifts, momentRows, TimeBar } from './TimeBar';
 
 const CFG: PowerConfig = { ...DEFAULT_POWER, panel: 'full_tracking', areaM2: 1, efficiency: 1, loadW: 100, batteryWh: 1000 };
 const HOURS = 72;
@@ -110,6 +110,50 @@ const contactRunsOf = (container: HTMLElement, hours: number) =>
     const from = Math.round((parseFloat(r.style.left) / 100) * hours);
     return { from, to: from + Math.round((parseFloat(r.style.width) / 100) * hours), hatched: r.hasAttribute('data-if-survives') };
   });
+/**
+ * A length in px from a class such as `max-sm:h-[27px]` or `max-sm:h-10` (a Tailwind step of 4 px): `prop` is
+ * the utility (h, w, size), `prefix` the variant before it ('' for none, 'max-sm:' on a phone).
+ */
+const classPx = (el: Element, prop: string, prefix = '') => {
+  for (const c of (el.getAttribute('class') ?? '').split(/\s+/)) {
+    if (!c.startsWith(`${prefix}${prop}-`)) continue;
+    const v = c.slice(prefix.length + prop.length + 1);
+    const px = /^\[(\d+(?:\.\d+)?)px\]$/.exec(v);
+    const step = /^(\d+(?:\.\d+)?)$/.exec(v);
+    if (px) return Number(px[1]);
+    if (step) return Number(step[1]) * 4;
+  }
+  return NaN;
+};
+/** Every size of type the bar's classes set, in px, at any width (`text-[15px]`, `max-sm:[&>span]:text-[14px]`). */
+const textSizes = (container: HTMLElement) =>
+  [...container.querySelectorAll('*')].flatMap((el) => [...el.classList].flatMap((c) => /(?:^|:)text-\[(\d+(?:\.\d+)?)px\]$/.exec(c)?.[1] ?? []).map(Number));
+/** The stand view's key moments as it labels them, with a comma before the day. */
+const STAND_MOMENTS = [
+  { label: 'Sunset, 3 Jan', hour: 50 },
+  { label: 'Battery runs out, 4 Jan', hour: 76 },
+  { label: 'Earth in view, 10 Jan', hour: 216 },
+  { label: 'Sun and power back, 20 Jan', hour: 456 },
+];
+/** A ResizeObserver whose one report sets the width the flags' row measures; call the result inside act(). */
+function measuredTrack(): (px: number) => void {
+  let report: ((entries: { contentRect: { width: number } }[]) => void) | null = null;
+  class FakeObserver {
+    constructor(cb: (entries: { contentRect: { width: number } }[]) => void) {
+      report = cb;
+    }
+    observe() {}
+    disconnect() {}
+  }
+  vi.stubGlobal('ResizeObserver', FakeObserver);
+  return (px) => report!([{ contentRect: { width: px } }]);
+}
+/**
+ * Where the target of a moment's dot starts along a track `trackPx` wide, in px: at its hour's share, back by
+ * the whole target when its flag ends at its hour, then by its own margin (`--dot-x`).
+ */
+const dotTargetLeft = (b: HTMLElement, trackPx: number) =>
+  (parseFloat(b.style.left) / 100) * trackPx + (b.style.transform === 'translateX(-100%)' ? -24 : 0) + parseFloat(b.style.getPropertyValue('--dot-x'));
 
 afterEach(() => {
   vi.useRealTimers();
@@ -584,9 +628,10 @@ describe('TimeBar', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, clockNote: ' (Earth time)' });
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
     expect([...group.children].map((k) => k.textContent)).toEqual(['Sun up', 'no Sun', 'lander off', 'Earth in view', 'radio contact']);
-    // In the date's own line of words, after the date and its note.
+    // In the date's own line of words, after the date and its note, and after the Key button that stands for them on a phone.
     expect(group.parentElement).toBe(screen.getByTestId('when').closest('p'));
-    expect(group.previousElementSibling).toBe(screen.getByTestId('clock-note').parentElement);
+    expect(group.previousElementSibling).toBe(screen.getByRole('button', { name: 'Key' }));
+    expect(group.previousElementSibling!.previousElementSibling).toBe(screen.getByTestId('clock-note').parentElement);
     // On a phone a line of their own under the date, as before; from md up as wide as they are, so they sit beside
     // the date when they fit (else on the next line, at the right all the same), pushed to the right end.
     for (const c of ['basis-full', 'md:basis-auto', 'md:ml-auto', 'sm:justify-end', 'flex-wrap', 'items-baseline']) expect(group.classList.contains(c)).toBe(true);
@@ -605,13 +650,112 @@ describe('TimeBar', () => {
     expect(screen.getByTestId('when').textContent).toBe('1 Jan 2027, 06:00 UTC');
     // The slider still reads the hour in words.
     expect(screen.getByRole('slider', { name: 'Time' }).getAttribute('aria-valuetext')).toBe('1 Jan 2027, 06:00 UTC: Sun up, Earth behind the hills, battery 100 %');
+    // Smaller on a phone, but no smaller than the 14 px every word in the bar keeps to.
     const group = container.querySelector('[data-part="key-off"]')!.parentElement!;
-    expect(group.className).toContain('max-sm:[&>span]:text-[13px]');
+    expect(group.className).toContain('max-sm:[&>span]:text-[14px]');
     cleanup();
     // Without compact the sentence shows at every width.
     show(6, { dates: true });
     expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth behind the hills, battery 100 %');
     expect(screen.getByTestId('status').className).not.toMatch(/hidden/);
+  });
+
+  it('on a phone when compact, puts the key behind a Key button, shut at first: a real button 40 px tall that says whether it is open', () => {
+    const { container } = show(6, { dates: true, powered: power.powered, compact: true, ifSurvivesFrom: 30, clockNote: ' (Earth time)' });
+    const key = screen.getByRole('button', { name: 'Key' });
+    expect((key as HTMLButtonElement).type).toBe('button');
+    expect(key.getAttribute('aria-expanded')).toBe('false');
+    // The bar's plain button, 40 px tall rather than Play's 48, its word at the 15 px of the bar's other words, with an
+    // edge that stands out on the stand view's dark bar, like the flags'.
+    expect(key.classList.contains('btn')).toBe(true);
+    expect(classPx(key, 'h')).toBe(40);
+    for (const c of ['text-[15px]', 'border-ink-3']) expect(key.classList.contains(c)).toBe(true);
+    // On a phone only: from sm up the keys have room, and show as before.
+    expect(key.classList.contains('sm:hidden')).toBe(true);
+    // It names the keys it opens, all six of them, and on a phone they stay shut until it is pressed.
+    const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
+    expect(group.id).not.toBe('');
+    expect(key.getAttribute('aria-controls')).toBe(group.id);
+    expect([...group.children].map((k) => k.textContent)).toEqual(['Sun up', 'no Sun', 'lander off', 'Earth in view', 'radio contact', 'if it survives the night']);
+    expect(group.classList.contains('max-sm:hidden')).toBe(true);
+    expect(group.className).not.toMatch(/(^| )(sm:|md:)?hidden( |$)/);
+  });
+
+  it('opens the key on a phone with the Key button, showing the keys as they were, and shuts it again', () => {
+    const { container } = show(6, { dates: true, powered: power.powered, compact: true, ifSurvivesFrom: 30 });
+    const key = screen.getByRole('button', { name: 'Key' });
+    const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
+    const shut = [...group.classList];
+    fireEvent.click(key);
+    expect(key.getAttribute('aria-expanded')).toBe('true');
+    // As they were: a line of their own under the date, wrapping, at 14 px with shorter swatches.
+    expect([...group.classList, 'max-sm:hidden'].sort()).toEqual(shut.sort());
+    for (const c of ['flex', 'basis-full', 'flex-wrap', 'items-baseline', 'max-sm:gap-x-2', 'max-sm:[&>span]:text-[14px]', 'max-sm:[&_i]:w-4']) expect(group.classList.contains(c)).toBe(true);
+    // Open, the button looks on: the lighter ground of a chosen flag.
+    expect(key.classList.contains('bg-surface-2')).toBe(true);
+    fireEvent.click(key);
+    expect(key.getAttribute('aria-expanded')).toBe('false');
+    expect(group.classList.contains('max-sm:hidden')).toBe(true);
+    expect(key.classList.contains('bg-surface-2')).toBe(false);
+  });
+
+  it('on a phone when compact, keeps the Key button on the line of the date and hour, at its right end, the date breaking only after its comma', () => {
+    show(6, { dates: true, powered: power.powered, compact: true, clockNote: ' (Earth time)' });
+    const key = screen.getByRole('button', { name: 'Key' });
+    const when = screen.getByTestId('when');
+    const pair = screen.getByTestId('clock-note').parentElement!;
+    // Right after the date and its note, in the same line of words, pushed to the right end.
+    expect(key.parentElement).toBe(when.closest('p'));
+    expect(key.previousElementSibling).toBe(pair);
+    for (const c of ['ml-auto', 'shrink-0']) expect(key.classList.contains(c)).toBe(true);
+    // On a phone the date takes the room the button leaves rather than send it to a line of its own, which would
+    // make the bar taller, and the two are centred on each other.
+    for (const c of ['max-sm:flex-1', 'max-sm:min-w-0']) expect(pair.classList.contains(c)).toBe(true);
+    expect(when.closest('p')!.classList.contains('max-sm:items-center')).toBe(true);
+    // Short of room it breaks after the comma, never inside "1 Jan 2027" or "06:00 UTC".
+    expect(when.textContent).toBe('1 Jan 2027, 06:00 UTC');
+    expect([...when.children].map((c) => [c.textContent, c.classList.contains('whitespace-nowrap')])).toEqual([
+      ['1 Jan 2027,', true],
+      ['06:00 UTC', true],
+    ]);
+    cleanup();
+    // Without a note the date itself takes the room.
+    show(6, { dates: true, powered: power.powered, compact: true });
+    for (const c of ['max-sm:flex-1', 'max-sm:min-w-0']) expect(screen.getByTestId('when').classList.contains(c)).toBe(true);
+  });
+
+  it('has no Key button without compact or when bare: the keys stay in sight, or are not there at all', () => {
+    const { container } = show(6, { dates: true, powered: power.powered });
+    expect(screen.queryByRole('button', { name: 'Key' })).toBeNull();
+    const group = container.querySelector('[data-part="key"]')!.parentElement!;
+    expect(group.className).not.toMatch(/hidden/);
+    expect(group.hasAttribute('id')).toBe(false);
+    expect(screen.getByTestId('when').children).toHaveLength(0);
+    cleanup();
+    show(6, { dates: true, powered: power.powered, compact: true, bare: true });
+    expect(screen.queryByRole('button', { name: 'Key' })).toBeNull();
+  });
+
+  it('sets every word in the bar at 14 px or more, in every mode and at every width', () => {
+    // Every mode the bar has, with every part it can carry, and its keys open where a button hides them.
+    const all = { dates: true, powered: power.powered, moments: [{ label: 'Sunset 2 Jan', hour: 24 }, { label: 'Earth in view 2 Jan', hour: 30 }], onMoment: vi.fn(), ifSurvivesFrom: 30, clockNote: ' (Earth time)' };
+    const modes: Partial<Parameters<typeof TimeBar>[0]>[] = [{}, { powered: power.powered }, all, { ...all, compact: true }, { ...all, bare: true }, { ...all, compact: true, bare: true }];
+    for (const mode of modes) {
+      for (const cursor of [6, 24]) {
+        const { container } = show(cursor, mode);
+        const key = screen.queryByRole('button', { name: 'Key' });
+        if (key) fireEvent.click(key);
+        const sizes = textSizes(container);
+        expect(sizes.length).toBeGreaterThan(0);
+        expect(Math.min(...sizes)).toBeGreaterThanOrEqual(14);
+        // Nor any of Tailwind's own sizes under 14 px.
+        expect(container.innerHTML).not.toMatch(/(?:^|[\s":])text-(?:xs|2xs)(?=[\s"])/);
+        cleanup();
+      }
+    }
+    // The flags too: their words were 13 px.
+    showPeriod(30, { dates: true, moments: MOMENTS });
+    for (const f of flagsOf(document.body)) expect(f.classList.contains('text-[14px]')).toBe(true);
   });
 
   it('writes a note after the date and hour on a wide screen only, in the second ink, on the same line', () => {
@@ -636,28 +780,76 @@ describe('TimeBar', () => {
     expect(screen.queryByTestId('clock-note')).toBeNull();
   });
 
-  it('keeps only Play, the date and hour, and the track with its sunlight and handle when bare, for a clean view of the picture', () => {
+  it('keeps only Play, the date and hour, the track with its sunlight and handle, and the moments as dots when bare, for a clean view of the picture', () => {
     // The stand view's bar with every part it can carry: the night, the hours the lander is off, Earth on the second day, a moment.
     for (const compact of [true, false]) {
       const { container } = show(6, { dates: true, powered: power.powered, compact, moments: [{ label: 'Sunset 2 Jan', hour: 24 }], onMoment: vi.fn(), ifSurvivesFrom: 30, clockNote: ' (Earth time)', bare: true });
       expect(screen.getByTestId('when').textContent).toBe('1 Jan 2027, 06:00 UTC');
       expect(screen.getByRole('slider', { name: 'Time' })).toBeTruthy();
       expect(container.querySelectorAll('[data-part="lit"]')).toHaveLength(2);
-      // Play is the one button: no flags.
-      expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Play']);
-      // No sentence, no keys, no bands, no flags and no dates.
+      // Play and the moment's dot are the buttons: no Key button.
+      expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Play', 'Sunset 2 Jan']);
+      // No sentence, no note, no keys, no bands, no stems and no dates.
       expect(screen.queryByTestId('status')).toBeNull();
+      expect(screen.queryByTestId('clock-note')).toBeNull();
       expect(container.querySelector('[data-part^="key"]')).toBeNull();
       expect(container.querySelector('[data-swatch]')).toBeNull();
-      for (const part of ['off', 'earth', 'contact', 'moments', 'moment', 'moment-tick']) expect(container.querySelector(`[data-part="${part}"]`)).toBeNull();
+      for (const part of ['off', 'earth', 'contact', 'moment-stem', 'moment-tick']) expect(container.querySelector(`[data-part="${part}"]`)).toBeNull();
       expect(screen.queryByTestId('dates')).toBeNull();
       expect(container.querySelector('[data-date]')).toBeNull();
-      // The date and hour are all the bar writes.
-      expect(screen.getByRole('region', { name: 'Time' }).textContent).toBe('Play1 Jan 2027, 06:00 UTC');
+      // Besides the date and hour the bar writes only the chip over the dots: the dot's own words are for screen readers.
+      expect(container.querySelector('[data-part="moment"] span')!.classList.contains('sr-only')).toBe(true);
+      expect(screen.getByRole('region', { name: 'Time' }).textContent).toBe('Play1 Jan 2027, 06:00 UTCSunset 2 JanNext: Sunset 2 Jan');
       // With no band under the strip its box keeps only the slider's own room, so the bar stays as low as it can.
       expect(stripBox(container).getAttribute('class')).toBe('relative h-8');
       cleanup();
     }
+  });
+
+  it('keeps the moments as dots on the track when bare, at every width, so a class can jump between them without the words coming back', () => {
+    const onCursor = vi.fn();
+    const onMoment = vi.fn();
+    const { container } = showPeriod(30, { dates: true, moments: STAND_MOMENTS, compact: true, bare: true, onCursor, onMoment, cursor: 60 });
+    // The phone's row of dots at every width: 27 px over the strip, lifted over the slider, with no rows of flags.
+    const row = container.querySelector<HTMLElement>('[data-part="moments"]')!;
+    expect(classPx(row, 'h')).toBe(27);
+    expect(row.classList.contains('z-[1]')).toBe(true);
+    expect(row.className).not.toMatch(/max-sm:|h-\[22px\]|h-\[44px\]/);
+    flagsOf(container).forEach((f, k) => {
+      // Named for screen readers, its words hidden at every width.
+      expect(f.getAttribute('aria-label')).toBe(STAND_MOMENTS[k].label);
+      expect(f.querySelector('span')!.classList.contains('sr-only')).toBe(true);
+      // A target 40 px tall and 24 px wide, centred on its hour with its foot on the strip's top edge, and no flag's look.
+      expect(classPx(f, 'h')).toBe(40);
+      expect(classPx(f, 'w')).toBe(24);
+      for (const c of ['absolute', '-bottom-[9px]', 'ml-[var(--dot-x)]', 'rounded-full', 'cursor-pointer']) expect(f.classList.contains(c)).toBe(true);
+      expect(f.style.transform).toBe('');
+      expect(f.style.getPropertyValue('--dot-x')).toBe('-12px');
+      expect(f.outerHTML).not.toMatch(/max-sm:|border-ink-3|text-\[14px\]|(^| )h-5( |$)/);
+      expect(f.querySelector('[data-part="moment-stem"]')).toBeNull();
+      // A 12 px dot at its foot, in sight at every width.
+      const dot = f.querySelector('[data-part="moment-dot"]')!;
+      for (const c of ['block', 'size-3', 'bottom-0', 'bg-ink']) expect(dot.classList.contains(c)).toBe(true);
+      expect(dot.classList.contains('hidden')).toBe(false);
+    });
+    // The chip names the next moment, at every width.
+    const chip = container.querySelector<HTMLElement>('[data-part="moment-chip"]')!;
+    expect(chip.textContent).toBe('Next: Battery runs out, 4 Jan');
+    expect(chip.classList.contains('flex')).toBe(true);
+    expect(chip.className).not.toMatch(/(^| )hidden( |$)|max-sm:/);
+    // Pressing a dot moves the handle there, then tells the page, as a flag does.
+    fireEvent.click(screen.getByRole('button', { name: 'Earth in view, 10 Jan' }));
+    expect(onCursor).toHaveBeenCalledWith(216);
+    expect(onMoment).toHaveBeenCalledWith(STAND_MOMENTS[2]);
+    expect(onCursor.mock.invocationCallOrder[0]).toBeLessThan(onMoment.mock.invocationCallOrder[0]);
+    cleanup();
+    // On a moment's hour the chip names that one, gold over its gold dot.
+    const on = showPeriod(30, { dates: true, moments: STAND_MOMENTS, bare: true, cursor: 216 });
+    const chosen = on.container.querySelector<HTMLElement>('[data-part="moment-chip"]')!;
+    expect(chosen.textContent).toBe('Earth in view, 10 Jan');
+    expect(chosen.classList.contains('border-sun')).toBe(true);
+    expect(flagsOf(on.container)[2].getAttribute('aria-current')).toBe('true');
+    expect(flagsOf(on.container)[2].querySelector('[data-part="moment-dot"]')!.classList.contains('bg-sun')).toBe(true);
   });
 
   it('still plays, and moves with the slider and its keys, when bare', () => {
@@ -694,9 +886,9 @@ describe('TimeBar', () => {
     // Each starts at its hour, where its stem comes down on its left edge; all four have room to the right.
     for (const f of flags) expect(f.style.transform).toBe('');
     for (const s of stemsOf(container)) expect(s.classList.contains('-left-px')).toBe(true);
-    // Small words in the ink on the panel colour, inside a thin rounded edge, on one line 20 px tall.
+    // Words at 14 px, the smallest the bar sets, in the ink on the panel colour, inside a thin rounded edge, on one line 20 px tall.
     for (const f of flags) {
-      for (const c of ['text-[13px]', 'text-ink', 'bg-surface', 'border', 'border-ink-3', 'rounded', 'h-5', 'items-center', 'whitespace-nowrap']) {
+      for (const c of ['text-[14px]', 'text-ink', 'bg-surface', 'border', 'border-ink-3', 'rounded', 'h-5', 'items-center', 'whitespace-nowrap']) {
         expect(f.classList.contains(c)).toBe(true);
       }
     }
@@ -872,11 +1064,11 @@ describe('TimeBar', () => {
       disconnect() {}
     }
     vi.stubGlobal('ResizeObserver', FakeObserver);
-    const { container } = showPeriod(30, { dates: true, moments: [{ label: 'Earth in view 26 Jan', hour: 600 }] });
-    // Until measured, 1000 px: hour 600 of the 720 leaves 167 px, room for the 158 px of its words.
+    const { container } = showPeriod(30, { dates: true, moments: [{ label: 'Earth in view 25 Jan', hour: 590 }] });
+    // Until measured, 1000 px: hour 590 of the 720 leaves 181 px, room for the 169 px of its words.
     expect(flagsOf(container)[0].style.transform).toBe('');
     act(() => report!([{ contentRect: { width: 600 } }]));
-    // On 600 px it leaves 100 px: the flag ends at its hour.
+    // On 600 px it leaves 108 px: the flag ends at its hour.
     expect(flagsOf(container)[0].style.transform).toBe('translateX(-100%)');
   });
 
@@ -919,10 +1111,13 @@ describe('TimeBar', () => {
     // Only on a phone, where the flags are dots; elsewhere the chosen flag shows its words itself.
     expect(chip.classList.contains('hidden')).toBe(true);
     expect(chip.classList.contains('max-sm:flex')).toBe(true);
-    // In the row of the flags, its foot on the row's foot: the dot's top is 1 px under it (the dot, 8 px, rests on
-    // the strip, 9 px down the box under the row).
+    // In the row of the flags, its foot 4 px up the row, 1 px over the dot: the dot, 12 px, rests on the strip, 9 px
+    // down the box under the row, so its top is 3 px up the row. Over the dots' targets, which it does not hide.
     expect(chip.parentElement).toBe(container.querySelector('[data-part="moments"]'));
-    expect(chip.classList.contains('bottom-0')).toBe(true);
+    expect(chip.classList.contains('bottom-[4px]')).toBe(true);
+    expect(classPx(chip, 'h')).toBe(18);
+    expect(4 + 18).toBeLessThanOrEqual(classPx(chip.parentElement!, 'h', 'max-sm:'));
+    expect(chip.classList.contains('z-20')).toBe(true);
     // At its hour's share of the track, drawn back by the same share of its own width: at the start of the track it
     // starts there, at the end it ends there, and its dot is always under it.
     expect(parseFloat(chip.style.left)).toBeCloseTo((456 / 720) * 100, 6);
@@ -939,16 +1134,57 @@ describe('TimeBar', () => {
     expect(first.textContent).toBe('Sunrise 1 Jan');
     expect(parseFloat(first.style.left)).toBe(0);
     cleanup();
-    // None while the time is between moments, and none without compact.
-    expect(showPeriod(30, { dates: true, moments: MOMENTS, compact: true, cursor: 100 }).container.querySelector('[data-part="moment-chip"]')).toBeNull();
+    // None after the last moment, and none without compact, where every flag shows its words.
+    expect(showPeriod(30, { dates: true, moments: MOMENTS, compact: true, cursor: 500 }).container.querySelector('[data-part="moment-chip"]')).toBeNull();
     cleanup();
     expect(showPeriod(30, { dates: true, moments: MOMENTS, cursor: 456 }).container.querySelector('[data-part="moment-chip"]')).toBeNull();
+    cleanup();
+    expect(showPeriod(30, { dates: true, moments: MOMENTS, cursor: 100 }).container.querySelector('[data-part="moment-chip"]')).toBeNull();
   });
 
-  it('on a phone when compact, makes each flag a dot on the top edge of the strip, named for screen readers and big enough to tap', () => {
+  it('on a phone when compact, names the next moment in the chip while the time is on none: "Next: Battery runs out, 4 Jan"', () => {
+    const chipAt = (cursor: number) => {
+      cleanup();
+      return showPeriod(30, { dates: true, moments: STAND_MOMENTS, compact: true, cursor }).container.querySelector<HTMLElement>('[data-part="moment-chip"]');
+    };
+    const chip = chipAt(60)!;
+    expect(chip.textContent).toBe('Next: Battery runs out, 4 Jan');
+    expect(chip.hasAttribute('data-next')).toBe(true);
+    // Over the next moment's dot, kept inside the track like the chosen one's.
+    expect(parseFloat(chip.style.left)).toBeCloseTo((76 / 720) * 100, 6);
+    expect(chip.style.transform).toBe(`translateX(-${(76 / 720) * 100}%)`);
+    // Not chosen: the plain edge and ground of a flag at rest rather than the gold, "Next:" in the second ink; on a
+    // phone only, a label that taps go through.
+    for (const c of ['border', 'border-ink-3', 'bg-surface', 'text-[14px]', 'text-ink', 'hidden', 'max-sm:flex', 'pointer-events-none', 'bottom-[4px]']) expect(chip.classList.contains(c)).toBe(true);
+    expect(chip.classList.contains('border-sun')).toBe(false);
+    expect(chip.querySelector('.text-ink-2')!.textContent).toBe('Next:');
+    expect(chip.getAttribute('aria-hidden')).toBe('true');
+    // No dot is chosen meanwhile.
+    expect(document.querySelector('[data-part="moment"][aria-current]')).toBeNull();
+    // From the start, the first moment is next.
+    expect(chipAt(0)!.textContent).toBe('Next: Sunset, 3 Jan');
+    // On a moment's hour the chip names that one, chosen, as before.
+    const on = chipAt(76)!;
+    expect(on.textContent).toBe('Battery runs out, 4 Jan');
+    expect(on.hasAttribute('data-next')).toBe(false);
+    expect(on.classList.contains('border-sun')).toBe(true);
+    expect(chipAt(217)!.textContent).toBe('Next: Sun and power back, 20 Jan');
+    expect(chipAt(456)!.textContent).toBe('Sun and power back, 20 Jan');
+    // With no moment after the time, no chip.
+    expect(chipAt(457)).toBeNull();
+    expect(chipAt(719)).toBeNull();
+  });
+
+  it('on a phone when compact, makes each flag a dot on the top edge of the strip, named for screen readers, with a target 40 px tall and 24 px wide', () => {
     const { container } = showPeriod(30, { dates: true, moments: MOMENTS, compact: true });
-    // The bar stays low: the flags take 11 px over the strip there, the room a finger needs above the dots.
-    expect(container.querySelector('[data-part="moments"]')!.classList.contains('max-sm:h-[11px]')).toBe(true);
+    // The flags take 27 px over the strip there: with the grid's 4 px gap above the row and the slider's 9 px over the
+    // strip under it, room for a target 40 px tall whose top stays clear of Play and the date, and whose foot stays
+    // off the strip, which the slider keeps for a finger. No more: the bar stays as low as that allows.
+    const row = container.querySelector<HTMLElement>('[data-part="moments"]')!;
+    expect(classPx(row, 'h', 'max-sm:')).toBe(27);
+    expect(row.classList.contains('max-sm:z-[1]')).toBe(true);
+    expect(container.querySelector('[data-part="bar-grid"]')!.classList.contains('gap-y-1')).toBe(true);
+    expect(topPx(container.querySelector('[data-part="track"] svg')!)).toBe(9);
     flagsOf(container).forEach((f, k) => {
       expect(f.getAttribute('aria-label')).toBe(MOMENTS[k].label);
       expect(screen.getByRole('button', { name: MOMENTS[k].label })).toBe(f);
@@ -956,12 +1192,17 @@ describe('TimeBar', () => {
       const words = f.querySelector('span')!;
       expect(words.textContent).toBe(MOMENTS[k].label);
       expect(words.classList.contains('max-sm:sr-only')).toBe(true);
-      // An 8 px round dot, on a phone only.
+      // A 12 px round dot, on a phone only, at the foot of its target.
       const dot = f.querySelector<HTMLElement>('[data-part="moment-dot"]')!;
-      for (const c of ['size-2', 'rounded-full', 'hidden', 'max-sm:block']) expect(dot.classList.contains(c)).toBe(true);
+      for (const c of ['size-3', 'rounded-full', 'hidden', 'max-sm:block', 'absolute', 'bottom-0', 'left-1/2', '-translate-x-1/2']) expect(dot.classList.contains(c)).toBe(true);
       expect(dot.getAttribute('aria-hidden')).toBe('true');
-      // A target 24 px square, without the flag's edge or panel colour.
-      for (const c of ['max-sm:size-6', 'max-sm:border-0', 'max-sm:bg-transparent']) expect(f.classList.contains(c)).toBe(true);
+      // A target 40 px tall and 24 px wide, its foot on the strip's top edge, without the flag's edge or panel colour.
+      expect(classPx(f, 'h', 'max-sm:')).toBe(40);
+      expect(classPx(f, 'w', 'max-sm:')).toBe(24);
+      expect(classPx(f, 'h', 'max-sm:')).toBe(4 + classPx(row, 'h', 'max-sm:') + 9);
+      for (const c of ['max-sm:-bottom-[9px]', 'max-sm:rounded-full', 'max-sm:border-0', 'max-sm:bg-transparent', 'max-sm:p-0', 'max-sm:ml-[var(--dot-x)]']) expect(f.classList.contains(c)).toBe(true);
+      // Centred on its hour: half a target back, or, for a flag that ends at its hour (already a whole target back), half a target on.
+      expect(f.style.getPropertyValue('--dot-x')).toBe(f.style.transform === 'translateX(-100%)' ? '12px' : '-12px');
     });
     // No stems there: the dot sits on the strip itself.
     for (const s of stemsOf(container)) expect(s.classList.contains('max-sm:hidden')).toBe(true);
@@ -970,9 +1211,38 @@ describe('TimeBar', () => {
     const wide = showPeriod(30, { dates: true, moments: MOMENTS });
     for (const f of flagsOf(wide.container)) {
       expect(f.querySelector('[data-part="moment-dot"]')).toBeNull();
-      expect(f.outerHTML).not.toMatch(/max-sm:/);
+      expect(f.outerHTML).not.toMatch(/max-sm:|--dot-x/);
     }
     expect(wide.container.querySelector('[data-part="moments"]')!.className).not.toMatch(/max-sm:/);
+  });
+
+  it('on a phone when compact, moves dots too close for their targets apart, so each keeps a target of its own 24 px wide', () => {
+    const report = measuredTrack();
+    const { container } = showPeriod(30, { dates: true, moments: STAND_MOMENTS, compact: true });
+    const exact = (px: number) => STAND_MOMENTS.map((m) => (m.hour / 720) * px);
+    // Until measured (1000 px) the dots are on their hours, 36 px apart and more.
+    expect(flagsOf(container).map((f) => dotTargetLeft(f, 1000) + 12)).toEqual(exact(1000).map((x) => expect.closeTo(x, 9)));
+    // On a phone's 358 px track the 3rd and the 4th lie 13 px apart: the two dots move apart evenly, so their targets
+    // meet without covering each other; the other two stay on their hours.
+    act(() => report(358));
+    const at = exact(358);
+    const middle = (at[0] + at[1]) / 2;
+    const lefts = flagsOf(container).map((f) => dotTargetLeft(f, 358));
+    expect(lefts.map((l) => l + 12)).toEqual([middle - 12, middle + 12, at[2], at[3]].map((x) => expect.closeTo(x, 9)));
+    for (let k = 1; k < lefts.length; k++) expect(lefts[k] - lefts[k - 1]).toBeGreaterThanOrEqual(24 - 1e-9);
+    // The last ends at its hour as a flag, so its target comes back from a whole target to the left.
+    expect(flagsOf(container)[3].style.transform).toBe('translateX(-100%)');
+    // The chip stays over its dot wherever that has moved: at its hour, moved as far as the dot, and drawn back by the
+    // dot's share of the track.
+    cleanup();
+    const report2 = measuredTrack();
+    const chosen = showPeriod(30, { dates: true, moments: STAND_MOMENTS, compact: true, cursor: 50 });
+    act(() => report2(358));
+    const chip = chosen.container.querySelector<HTMLElement>('[data-part="moment-chip"]')!;
+    expect(chip.textContent).toBe('Sunset, 3 Jan');
+    expect(parseFloat(chip.style.left)).toBeCloseTo((50 / 720) * 100, 9);
+    expect(parseFloat(chip.style.marginLeft)).toBeCloseTo(middle - 12 - at[0], 9);
+    expect(Number(/^translateX\(-([\d.]+)%\)$/.exec(chip.style.transform)?.[1])).toBeCloseTo(((middle - 12) / 358) * 100, 9);
   });
 });
 
@@ -981,8 +1251,8 @@ describe('momentRows', () => {
     expect(momentRows([MOMENTS[0], MOMENTS[2], MOMENTS[3]], 720, 1000)).toEqual([0, 0, 0]);
   });
 
-  it('lifts the first of two moments a day apart on a 30-day track 1000 px wide, as the second one’s stem would come down behind it: 33 px apart, and "Sunset 3 Jan" is about 100 px wide', () => {
-    // "Battery runs out 4 Jan" starts at 100 px, on the words of "Sunset 3 Jan" (67 to 167 px); "Sunset 3 Jan", lifted,
+  it('lifts the first of two moments a day apart on a 30-day track 1000 px wide, as the second one’s stem would come down behind it: 33 px apart, and "Sunset 3 Jan" is about 107 px wide', () => {
+    // "Battery runs out 4 Jan" starts at 100 px, on the words of "Sunset 3 Jan" (67 to 174 px); "Sunset 3 Jan", lifted,
     // brings its stem down at 67 px, clear of the other.
     expect(
       momentRows(
@@ -1014,8 +1284,8 @@ describe('momentRows', () => {
 
   it('keeps a flag in the first row, over the end of the one before it, when going up would cover more of the words there', () => {
     // On a 538 px track (a 768 px screen), "Sun and power back, 20 Jan" ends at its hour, 341 px, so it runs back to
-    // 140 px: up, it would cover all of "Earth in view, 10 Jan" (161 to 327 px); down, the last 97 px of
-    // "Battery runs out, 4 Jan" (57 to 236 px). Four flags this long cannot all stay clear in two rows.
+    // 125 px: up, it would cover all of "Earth in view, 10 Jan" (161 to 338 px); down, the last 124 px of
+    // "Battery runs out, 4 Jan" (57 to 249 px). Four flags this long cannot all stay clear in two rows.
     const stand = [
       { label: 'Sunset, 3 Jan', hour: 50 },
       { label: 'Battery runs out, 4 Jan', hour: 76 },
@@ -1028,8 +1298,8 @@ describe('momentRows', () => {
   });
 
   it('lifts the later of two all the same when each would come down behind the other: a flag ending at its hour reaches back over the one before', () => {
-    // "Earth in view 25 Jan" runs from 800 to 958 px; "Sun and power back, 29 Jan" ends at its hour, 950 px, so it runs
-    // back to 749 px, over the other's stem, and its own stem at 950 px is on the other's words.
+    // "Earth in view 25 Jan" runs from 800 to 969 px; "Sun and power back, 29 Jan" ends at its hour, 950 px, so it runs
+    // back to 735 px, over the other's stem, and its own stem at 950 px is on the other's words.
     expect(
       momentRows(
         [
@@ -1043,20 +1313,20 @@ describe('momentRows', () => {
   });
 
   it('takes a flag at the very end as ending at its hour: it reaches back over one just before it, and clears one further back', () => {
-    // Run to the right, "Sun back 30 Jan" at the last hour would start at 999 px, past the end of "Earth in view 26 Jan" at 991 px.
-    // Ending at its hour it starts at 877 px, on those words, so one of the two goes up: itself, as its stem, on its
+    // Run to the right, "Sun back 30 Jan" at the last hour would start at 999 px, past the end of "Earth in view 25 Jan" at 988 px.
+    // Ending at its hour it starts at 869 px, on those words, so one of the two goes up: itself, as its stem, on its
     // right edge at 999 px, comes down past the end of the other.
     expect(
       momentRows(
         [
-          { label: 'Earth in view 26 Jan', hour: 600 },
+          { label: 'Earth in view 25 Jan', hour: 590 },
           { label: 'Sun back 30 Jan', hour: 719 },
         ],
         720,
         1000,
       ),
     ).toEqual([0, 1]);
-    // "Earth in view 21 Jan" ends at 825 px: the two share the first row.
+    // "Earth in view 21 Jan" ends at 836 px: the two share the first row.
     expect(
       momentRows(
         [
@@ -1071,5 +1341,59 @@ describe('momentRows', () => {
 
   it('has no rows for no moments', () => {
     expect(momentRows([], 720, 1000)).toEqual([]);
+  });
+});
+
+describe('dotShifts', () => {
+  it('leaves each dot on its hour while their targets, 24 px wide and centred on them, clear each other', () => {
+    expect(dotShifts(STAND_MOMENTS, 720, 1000)).toEqual([0, 0, 0, 0]);
+    expect(dotShifts([], 720, 358)).toEqual([]);
+    // Exactly 24 px apart, the targets meet without covering each other.
+    expect(dotShifts([{ label: 'a', hour: 100 }, { label: 'b', hour: 124 }], 720, 720)).toEqual([0, 0]);
+  });
+
+  it("moves two dots a day apart on a phone's 358 px track apart evenly about their middle, until their targets meet", () => {
+    const at = STAND_MOMENTS.map((m) => (m.hour / 720) * 358);
+    // 13 px apart, so each moves by half of the 11 px the two lack.
+    const half = (24 - (at[1] - at[0])) / 2;
+    expect(half).toBeCloseTo(5.5, 0);
+    expect(dotShifts(STAND_MOMENTS, 720, 358)).toEqual([expect.closeTo(-half, 9), expect.closeTo(half, 9), 0, 0]);
+  });
+
+  it('spreads a run of close dots about the middle of their hours, and takes in the dot before when the run then reaches its target', () => {
+    // On a track as wide as the period has hours: the dots at 130 and 140 px meet; spread about 135 px they reach back to
+    // 111 px, over the target of the dot at 100 px (88 to 112 px), so all three spread about 123⅓ px, 24 px apart.
+    const shifts = dotShifts(
+      [
+        { label: 'a', hour: 100 },
+        { label: 'b', hour: 130 },
+        { label: 'c', hour: 140 },
+      ],
+      720,
+      720,
+    );
+    expect(shifts).toEqual([expect.closeTo(-2 / 3, 9), expect.closeTo(-20 / 3, 9), expect.closeTo(22 / 3, 9)]);
+    // Two at one hour sit side by side about it.
+    expect(dotShifts([{ label: 'a', hour: 300 }, { label: 'b', hour: 300 }], 720, 720)).toEqual([expect.closeTo(-12, 9), expect.closeTo(12, 9)]);
+  });
+
+  it('keeps the dots on the track at either end, moving the run inwards rather than past the end', () => {
+    expect(dotShifts([{ label: 'a', hour: 0 }, { label: 'b', hour: 5 }], 720, 720)).toEqual([expect.closeTo(0, 9), expect.closeTo(19, 9)]);
+    expect(dotShifts([{ label: 'a', hour: 715 }, { label: 'b', hour: 719 }], 720, 720)).toEqual([expect.closeTo(-19, 9), expect.closeTo(1, 9)]);
+  });
+
+  it('never lets two targets cover each other, nor a dot leave the track, whatever the hours', () => {
+    let seed = 7;
+    const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let run = 0; run < 500; run++) {
+      const hours = 24 * (7 + Math.floor(rand() * 84));
+      const trackPx = 300 + Math.floor(rand() * 900);
+      const moments = Array.from({ length: 1 + Math.floor(rand() * 6) }, () => ({ label: 'm', hour: Math.floor(rand() * hours) })).sort((a, b) => a.hour - b.hour);
+      const shifts = dotShifts(moments, hours, trackPx);
+      const centres = moments.map((m, k) => (m.hour / hours) * trackPx + shifts[k]);
+      for (let k = 1; k < centres.length; k++) expect(centres[k] - centres[k - 1]).toBeGreaterThanOrEqual(24 - 1e-9);
+      expect(centres[0]).toBeGreaterThanOrEqual(-1e-9);
+      expect(centres[centres.length - 1]).toBeLessThanOrEqual(trackPx + 1e-9);
+    }
   });
 });
