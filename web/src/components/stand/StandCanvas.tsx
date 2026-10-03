@@ -8,7 +8,7 @@ export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' 
 export interface LookTarget { yaw: number; pitch: number; fov: number }
 
 /** Degrees the view rests higher on a portrait screen, so the Sun on the horizon sits below the answer's plate. */
-export const portraitLift = (width: number, height: number): number => (height > width ? 8 : 0);
+export const portraitLift = (width: number, height: number): number => (height > width ? 3 : 0);
 
 /** The compass strip: 120° of the horizon across 300 px, ticks every 15°, the eight points named. */
 const STRIP_W = 300, PX_PER_DEG = STRIP_W / 120;
