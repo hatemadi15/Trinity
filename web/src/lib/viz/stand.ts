@@ -36,15 +36,17 @@ export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string
  * The label on your own shadow, in whole metres, on two lines: its length along the ground you stand on
  * (`lengthM`), and when the slope makes that a tenth or more shorter or longer than on level ground
  * (`levelM`, for a person 1.8 m tall), the length on level ground too, from which a reader can check the
- * Sun's height: "Your shadow, 30 m long up this slope\n(42 m on level ground; you are 1.8 m tall)", or "down
- * this slope" when the slope makes it longer. Otherwise, and when the two would read the same in whole
- * metres: "Your shadow, 42 m long\n(you are 1.8 m tall)". The newline is a line break in the label.
+ * Sun's height: "Your shadow, about 9 m long up this slope\n(about 42 m on level ground; you are 1.8 m
+ * tall)", or "down this slope" when the slope makes it longer. Otherwise, and when the two would read the
+ * same in whole metres: "Your shadow, about 42 m long\n(you are 1.8 m tall)". Each length is "about": the
+ * Sun's label rounds its height (2.46° reads "2.5°"), so a reader's 1.8 / tan 2.5° = 41 m can differ from
+ * the 42 m shown. The newline is a line break in the label.
  */
 export function shadowWords(lengthM: number, levelM: number): string {
   const length = Math.round(lengthM);
   const level = Math.round(levelM);
-  if (length === level || Math.abs(lengthM - levelM) < 0.1 * levelM) return `Your shadow, ${length} m long\n(you are 1.8 m tall)`;
-  return `Your shadow, ${length} m long ${lengthM < levelM ? 'up' : 'down'} this slope\n(${level} m on level ground; you are 1.8 m tall)`;
+  if (length === level || Math.abs(lengthM - levelM) < 0.1 * levelM) return `Your shadow, about ${length} m long\n(you are 1.8 m tall)`;
+  return `Your shadow, about ${length} m long ${lengthM < levelM ? 'up' : 'down'} this slope\n(about ${level} m on level ground; you are 1.8 m tall)`;
 }
 
 /**
@@ -171,7 +173,8 @@ export function radioNext(s: Series, p: PowerResult, startUtc: string): string |
  * What a key moment is about, for the page to act on whatever its label says: the Sun leaving the view
  * ("sunset", whether it sets or the hills hide it), the Sun back ("sun-back"), the battery running out
  * ("battery-out"), the power back ("power-back"), Earth coming into view ("earth-in"), and the two joined
- * moments, the Sun leaving with the power ("sunset-power-off") and the Sun back with it ("sun-power-back").
+ * moments, the Sun leaving with the power ("sunset-power-off") and the Sun back with it ("sun-power-back",
+ * labelled "Sun back" like the Sun's alone, as the power needs the lander to have survived the night).
  */
 export type MomentKind = 'sunset' | 'sun-back' | 'battery-out' | 'power-back' | 'earth-in' | 'sunset-power-off' | 'sun-power-back';
 
@@ -183,13 +186,17 @@ export interface Moment {
   day: string;
 }
 
-/** The labels of the key moments whose words do not depend on where the Sun is. */
+/**
+ * The labels of the key moments whose words do not depend on where the Sun is. The Sun and the power back
+ * together is "Sun back" all the same: after a power cut at night the power comes back only if the lander
+ * survived the night, which the forecast does not work out (the time bar hatches what depends on it).
+ */
 const LABELS: Record<Exclude<MomentKind, 'sunset' | 'sunset-power-off'>, string> = {
   'sun-back': 'Sun back',
   'battery-out': 'Battery runs out',
   'power-back': 'Power back',
   'earth-in': 'Earth in view',
-  'sun-power-back': 'Sun and power back',
+  'sun-power-back': 'Sun back',
 };
 
 /**
@@ -199,7 +206,9 @@ const LABELS: Record<Exclude<MomentKind, 'sunset' | 'sunset-power-off'>, string>
  * "Battery runs out", "Power back" and "Earth in view". When the battery runs out later on the day the Sun
  * leaves the view, the two are one moment at the Sun's hour, "Sunset and power off" or "Sun behind the
  * hills, power off" by the same rule; when the power comes back on the day the Sun does, one at the Sun's
- * hour, "Sun and power back".
+ * hour of the kind "sun-power-back", labelled "Sun back": the power back needs the lander to have survived
+ * the night, which the forecast does not work out, so the flag claims only the Sun, and its caption
+ * (momentCaption) says the rest.
  */
 export function keyMoments(s: Series, p: PowerResult | null, startUtc: string): Moment[] {
   const lit = (h: number) => s.sunFraction[h] > 0;
@@ -237,24 +246,32 @@ export function keyMoments(s: Series, p: PowerResult | null, startUtc: string): 
 
 /**
  * The caption over the view when a key moment is chosen, for the moment's own hour: what happens then, and
- * why, in plain words. A Sun that leaves the view while still above the level horizon has not set, and the
- * caption says so: a hill hides it. When the Sun leaves the view, or the battery runs out with none of the
- * Sun in view, while the Sun is less than 2° below the horizon, the caption adds that higher ground farther
- * off still catches it (farLit), so the lit peaks over the dark site read as what they are. `kind` is the
- * moment's kind from keyMoments, not its label; anything else gets an empty caption. Given the site's
- * latitude, the sunset's line on the pole is left out far from the poles.
+ * why, in plain words, in three short sentences at most. A Sun that leaves the view while still above the
+ * level horizon has not set, and the caption says so: a hill hides it. When the Sun leaves the view the
+ * caption says there is no twilight (NO_TWILIGHT), so a site dark the hour the Sun goes reads as what it is.
+ * When the Sun leaves the view, or the battery runs out with none of the Sun in view, while the Sun is less
+ * than 2° below the horizon, the caption adds that higher ground farther off still catches it (farLit), so
+ * the lit peaks over the dark site read as what they are. When the Sun comes back with the power, the panel
+ * powers the lander again "if it survived the night", as the forecast does not work that out. `kind` is the
+ * moment's kind from keyMoments, not its label; anything else gets an empty caption. Near a pole the sunset
+ * says, in its first sentence, that the Sun never climbs more than a few degrees; given the site's latitude,
+ * that is left out far from the poles.
  */
 export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: number): string {
   const up = s.sunEl[hour] >= 0;
   const sunset = up ? 'The Sun has not set: it is so low that this hill hides it' : 'The Sun sinks below the horizon';
+  // Given no latitude, the site is taken to be near a pole, as before.
+  const pole = lat === undefined || poleLine(lat) !== null;
+  const low = 'this close to the pole it never climbs more than a few degrees';
   const earth = s.earthVisible[hour] === 1;
   // With the Sun in view the site itself is lit: there is nothing to explain about the ground farther off.
   const far = s.sunFraction[hour] === 0 ? farLit(s.sunEl[hour]) : '';
   switch (kind) {
     case 'sunset':
-      return `${lat !== undefined && poleLine(lat) === null ? `${sunset}.` : `${sunset}. This close to the pole it never climbs more than a few degrees.`}${far}`;
+      // The pole joins the first sentence: with no twilight and the far hills, three sentences in all.
+      return `${!pole ? sunset : up ? `The Sun has not set: ${low}, so this hill hides it` : `${sunset}: ${low}`}. ${NO_TWILIGHT}${far}`;
     case 'sunset-power-off':
-      return `${sunset}, and the lander's power goes with it.${far}`;
+      return `${sunset}, and the lander's power goes with it. ${NO_TWILIGHT}${far}`;
     case 'battery-out':
       // With too little sunlight the battery can run out while the Sun is still in view.
       return s.sunFraction[hour] > 0
@@ -265,7 +282,7 @@ export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: n
     case 'sun-back':
       return `The Sun is back over the hills.${earth ? ' With Earth in view too, a working lander could radio home.' : ''}`;
     case 'sun-power-back':
-      return `The Sun is back, and the panel powers the lander again.${earth ? ' Earth is in view, so it can radio home.' : ''}`;
+      return `The Sun is back, and the panel powers the lander again, if it survived the night.${earth ? ' Earth is in view, so it could radio home.' : ''}`;
     case 'power-back':
       return 'The panel makes enough power again.';
     default:
@@ -274,26 +291,34 @@ export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: n
 }
 
 /**
+ * Why Apollo's photos show no stars, in the same words after Look up (viewCaption) and in the card's lines on
+ * why (whyLines): the cameras' short exposures, not dazzled eyes.
+ */
+const APOLLO = "Apollo's cameras used short exposures for the bright ground, too short to catch the stars.";
+
+/**
  * The line over the view after Face Earth ("earth"), after Look up ("up"), after Face the lander ("lander"),
  * or when night falls with Earth in view ("earthlight"): why Earth barely moves in the sky, and near a pole
- * how it still rises and sets; that the stars are there by day, though eyes dazzled by the bright ground
- * hardly see them (which is why Apollo photos show none), and come out looking up, as whyLines says too, and
- * from a southern site first which way the view turned, to the Southern Cross; why the lander's solar panel
- * stands upright near a pole, and elsewhere that the lander is drawn as built for the poles; and what lights
- * the ground at night.
+ * how it still rises and sets; in two short sentences, that with no air the sky is black by day and the stars
+ * come out as you look up (as in the view, which like a camera set for the sunlit ground shows none by day
+ * until it looks up), and that Apollo's cameras used short exposures for the bright ground, too short to
+ * catch them, in the words whyLines uses too, and from a southern site first which way the view turned, to
+ * the Southern Cross; why the lander's solar panel stands upright near a pole, and elsewhere that the lander
+ * is drawn as built for the poles; and what lights the ground at night.
  */
 export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander', lat: number): string;
 /**
- * The line over the view at an hour with neither the Sun nor Earth in view ("dark"): that the view is
- * brightened, as a long-exposure photo would be, and while the Sun (`sunElDeg` degrees up, or below when
- * negative) is less than 2° below the horizon, that higher ground farther off still catches it, so its lit
- * peaks over the dark site read as what they are.
+ * The line over the view at an hour with neither the Sun nor Earth in view ("dark"), in three sentences at
+ * most: that the view is brightened, as a long-exposure photo would be, and to the eye would be far darker;
+ * that with no air there is no twilight (NO_TWILIGHT); and while the Sun (`sunElDeg` degrees up, or below
+ * when negative) is less than 2° below the horizon, that higher ground farther off still catches it, so its
+ * lit peaks over the dark site read as what they are.
  */
 export function viewCaption(kind: 'dark', lat: number, sunElDeg: number): string;
 export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander' | 'dark', lat: number, sunElDeg?: number): string {
   if (kind === 'earth') return `Earth barely moves in the Moon's sky: the Moon keeps one face towards it${poleLine(lat) === null ? '' : ', and only its slight rocking lifts Earth over the horizon or hides it'}.`;
   if (kind === 'up') {
-    const why = 'With no air the sky is black even by day, and the stars are there: eyes dazzled by the bright ground hardly see them, which is why Apollo photos show none, but looking up, away from the ground, they come out.';
+    const why = `With no air the sky is black even by day, and the stars come out as you look up. ${APOLLO}`;
     return lat > 0 ? why : `Turned towards the Southern Cross and its pointers, Alpha Centauri and Hadar. ${why}`;
   }
   if (kind === 'lander') {
@@ -301,9 +326,19 @@ export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander' | 'da
       ? 'The lander is drawn as built for the poles, its solar panel upright for a low Sun.'
       : 'Its solar panel stands upright because here the Sun never climbs more than a few degrees: a flat panel would catch almost nothing.';
   }
-  if (kind === 'dark') return `Neither the Sun nor Earth lights the ground here: the view is brightened, as a long-exposure photo would be.${sunElDeg === undefined ? '' : farLit(sunElDeg)}`;
+  if (kind === 'dark') {
+    const brightened = 'Neither the Sun nor Earth lights the ground here: the view is brightened, as a long-exposure photo would be; to your eyes it would be far darker.';
+    return `${brightened} ${NO_TWILIGHT}${sunElDeg === undefined ? '' : farLit(sunElDeg)}`;
+  }
   return 'Lit only by Earthlight: sunlight bounced off Earth, brightened here as a long-exposure photo would show it.';
 }
+
+/**
+ * Why a Sun just below the horizon, or behind a hill, leaves the site dark at once: on the Moon no air
+ * scatters its light. After the Sun leaves the view (momentCaption), in the dark (viewCaption), and in the
+ * card's lines on why whenever none of the Sun is in view (whyLines).
+ */
+const NO_TWILIGHT = 'With no air there is no twilight: once the Sun is hidden, it is dark.';
 
 /**
  * " Higher ground farther off still catches the Sun." while the Sun is less than 2° below the horizon, as
@@ -315,19 +350,20 @@ function farLit(sunElDeg: number): string {
 
 /**
  * The line above the headline, which carries the site's name, and its longer form under More. "top", at the
- * top of a wide screen: where you stand, near which pole, and what is measured and what is drawn, "Standing
- * at de Gerlache Rim 2, near the Moon's south pole: hills from NASA heights, small craters and rocks drawn."
- * With `flat`, for a site without NASA heights whose ground is drawn flat, it claims no hills: "Standing at
- * Blue Ghost Mission 1: no NASA heights here, so the ground is drawn flat, with small craters and rocks."
- * "phone", where and near which pole only: "At de Gerlache Rim 2, near the Moon's south pole." "more", under
- * More: the Moon, the latitude, the site's own note, and that the view is drawn from NASA data, not a
- * photograph. The pole is named from 80° on, south or north, and not at all between.
+ * top of a wide screen: where you stand and near which pole, then what is measured and what is drawn, in
+ * short parts a student can take one at a time: "Standing at de Gerlache Rim 2, near the Moon's south pole.
+ * Hills: NASA height data. Small craters and rocks: added to look real." With `flat`, for a site without NASA
+ * heights whose ground is drawn flat, it claims no hills: "Standing at Blue Ghost Mission 1. Ground drawn
+ * flat: no NASA heights here. Small craters and rocks: added to look real." "phone", where and near which
+ * pole only: "At de Gerlache Rim 2, near the Moon's south pole." "more", under More: the Moon, the latitude,
+ * the site's own note, and that the view is drawn from NASA data, not a photograph. The pole is named from
+ * 80° on, south or north, and not at all between.
  */
 export function standingLine(site: { lat: number; blurb?: string }, name: string, kind: 'top' | 'phone' | 'more', flat = false): string {
   if (kind === 'more') return `Standing on the Moon at ${name}, ${Math.abs(site.lat).toFixed(1)}° ${site.lat < 0 ? 'S' : 'N'}.${site.blurb ? ` ${site.blurb}.` : ''} Drawn from NASA data, not a photograph.`;
   const pole = site.lat <= -80 ? ", near the Moon's south pole" : site.lat >= 80 ? ", near the Moon's north pole" : '';
   if (kind === 'phone') return `At ${name}${pole}.`;
-  return `Standing at ${name}${pole}: ${flat ? 'no NASA heights here, so the ground is drawn flat, with small craters and rocks' : 'hills from NASA heights, small craters and rocks drawn'}.`;
+  return `Standing at ${name}${pole}. ${flat ? 'Ground drawn flat: no NASA heights here.' : 'Hills: NASA height data.'} Small craters and rocks: added to look real.`;
 }
 
 /** Why the Sun stays low, for a site near a pole; null elsewhere. */
@@ -341,14 +377,17 @@ const KM_PER_DEGREE = 30.32;
 
 /**
  * Why the view looks as it does at the hour, a line each, in order: near a pole, why the Sun stays low and
- * why Earth rises and sets; by day, why the sky is black, that its stars are there though dazzled eyes hardly
- * see them and Apollo's cameras caught none, and that looking up, away from the sunlit ground, brings them
- * out, as the caption after Look up says (viewCaption); with none of the Sun in view, where it is while
- * farther hills are still lit; at night with Earth in view, what lights the ground, that the view is
- * brightened as a long-exposure photo would be, and why it looks blue; with Earth in view, how big it looks;
- * near a pole, how far off the pole is and which way, so that north and south still mean something; and with
- * none of the Sun in view, how cold the night is, and why the forecast says the power comes back only "if"
- * the lander survives it. Each line is there only when it applies.
+ * why Earth rises and sets; by day, why the sky is black, that its stars are there, that Apollo's cameras
+ * used short exposures for the bright ground, too short to catch them, as the caption after Look up says in
+ * the same words (viewCaption), that eyes dazzled by the bright ground see few as well, and that looking up,
+ * away from it, brings more out; with none of the Sun in view, where it is while farther hills are still
+ * lit, and that with no air there is no twilight (NO_TWILIGHT); at night with Earth in view, what lights the
+ * ground, that the view is brightened as a long-exposure photo would be, and why it looks blue; with Earth
+ * in view, how big it looks; near a pole, how far off the pole is and which way, so that north and south
+ * still mean something; with none of the Sun in view, how cold the night is, and why the forecast says the
+ * power comes back only "if" the lander survives it; and last, at every hour, that the radio forecast is for
+ * a link straight to Earth, which a relay satellite such as Chang'e 4's would change. Each line is there only
+ * when it applies.
  */
 export function whyLines(lat: number, s: Series, hour: number): string[] {
   const lines: string[] = [];
@@ -360,18 +399,19 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
   const earth = s.earthVisible[hour] === 1;
   const lit = s.sunFraction[hour] > 0;
   if (lit) {
-    lines.push(
-      "With no air to scatter sunlight, the sky stays black by day, and the stars are still there. Eyes dazzled by the sunlit ground hardly see them, and Apollo's cameras, set for that bright ground, caught none; look up, away from the ground, and they come out.",
-    );
+    lines.push(`With no air to scatter sunlight, the sky stays black by day, and the stars are still there. ${APOLLO} Eyes dazzled by the bright ground also see few; look up, away from it, and more come out.`);
   } else {
     if (el >= 0) lines.push('The Sun is still up, hidden behind the hills: higher ground farther off still catches its light.');
     else if (el > -2) lines.push('The Sun is just below the horizon here, but higher ground farther off still catches its light.');
+    lines.push(NO_TWILIGHT);
     if (earth) lines.push('At night only Earth lights the ground: sunlight bounced off Earth. The view is brightened, as a long-exposure photo would be, so the ground shows, and that light is why it looks blue.');
   }
   if (earth) lines.push('Earth looks about 2° wide from here, nearly four times as wide as the full Moon looks from Earth.');
   // At the pole itself every way leads away from it; a site off the pole still has one way towards it.
   if (pole) lines.push(`North and south still work here: the pole itself is ${Math.round((90 - Math.abs(lat)) * KM_PER_DEGREE)} km to the ${lat < 0 ? 'south' : 'north'}.`);
   if (!lit) lines.push('The night here is colder than −170 °C. Most landers are not built to survive it, which is why the forecast says "if".');
+  // The radio hours are those with Earth in view and the lander powered: a relay satellite would change them.
+  lines.push("The radio forecast is for a link straight to Earth; a relay satellite, as China's Chang'e 4 used, would change it.");
   return lines;
 }
 

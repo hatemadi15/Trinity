@@ -62,9 +62,9 @@ describe('StandView', () => {
     // power comes back.
     // Each span on one line (no-break spaces), and the stretch without power named as such, so it adds up with the flags.
     expect(h1).toBe('Landing on 1 January: power for 3\u00a0days\u00a04\u00a0hours, no radio contact, then 16\u00a0days without power');
-    // Where you stand, and what is measured and what is drawn: with NASA heights "hills from NASA heights,
-    // small craters and rocks drawn"; without, the ground is drawn flat.
-    expect(screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole: (hills from NASA heights, small craters and rocks drawn|no NASA heights here, so the ground is drawn flat, with small craters and rocks)\.$/)).toBeTruthy();
+    // Where you stand, and what is measured and what is added: "Hills: NASA height data." (or, without NASA
+    // heights, "Ground drawn flat: no NASA heights here.") and "Small craters and rocks: added to look real."
+    expect(screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole\. (Hills: NASA height data|Ground drawn flat: no NASA heights here)\. Small craters and rocks: added to look real\.$/)).toBeTruthy();
     expect(screen.getByText(/^At de\sGerlache\sRim\s2, near the Moon's south pole\.$/)).toBeTruthy();
     // The site's name stays on one line: no break inside "de Gerlache Rim 2".
     expect(document.body.textContent).toContain('de\u00a0Gerlache\u00a0Rim\u00a02');
@@ -332,14 +332,14 @@ describe('StandView', () => {
   it('marks the radio contact after the night as only if the lander survives it, and says the clock is Earth’s', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The battery runs out on 4 January; the contact from 20 January needs the lander to live through the night.
-    await waitFor(() => expect(screen.getByText('if it survives the night')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('radio, if it survives the night')).toBeTruthy());
     expect(screen.getByText(/\(Earth time\)/)).toBeTruthy();
   });
 
   it('names your own shadow and its length while the Sun is up', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // With the height it is worked out for, so a reader can check the Sun's height from it.
-    await waitFor(() => expect(screen.getByText('Your shadow, 52 m long (you are 1.8 m tall)').hidden).toBe(false));
+    await waitFor(() => expect(screen.getByText('Your shadow, about 52 m long (you are 1.8 m tall)').hidden).toBe(false));
   });
 
   it('keeps "Building the ground" up until the renderer has its shaders ready, then shows the view', async () => {

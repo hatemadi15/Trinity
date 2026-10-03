@@ -136,17 +136,20 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number)
  * the pointer is on the chart the words follow it; the handle stays. No word in the bar, in any of its
  * modes, is set smaller than 14 px.
  *
- * Where no chart is above it (the stand view), `dates` writes the dates under the track, draws the hours
- * Earth is in view as a blue band and names the strip's grey, the hours without the Sun; `powered` (1 for
- * each hour with power, 0 without) draws the hours the lander is off as a red band right under the
- * sunlight, with "lander off" in the key. The blue band sits under the red one, and under the blue, on a
- * row of its own, the hours with both power and Earth in view, when the lander can radio home, are a green
- * band ("radio contact"), so the blue runs whole for as long as Earth is in view. With the dates each band
- * is 6 px tall, 2 px under the one above. Explore leaves all of these to its chart.
+ * The key names the track's yellow "in sunlight": the hours with any part of the Sun in view from the site,
+ * not all those with the Sun up, as a Sun up behind the hills leaves the strip grey. Where no chart is above
+ * it (the stand view), `dates` writes the dates under the track, draws the hours Earth is in view as a blue
+ * band and names the strip's grey, the hours the site is in shadow, "in shadow"; `powered` (1 for each hour
+ * with power, 0 without) draws the hours the lander is off as a red band right under the sunlight, with
+ * "lander off" in the key. The blue band sits under the red one, and under the blue, on a row of its own,
+ * the hours with both power and Earth in view, when the lander can radio home, are a green band ("radio
+ * contact"), so the blue runs whole for as long as Earth is in view. With the dates each band is 6 px tall,
+ * 2 px under the one above. Explore leaves all of these to its chart.
  *
  * Once the battery has run out in the night, what the lander does after the power comes back holds only if
  * it survives that night, which the forecast does not work out: from `ifSurvivesFrom` on, the radio band is
- * hatched in its green rather than solid, and the key adds "if it survives the night" after "radio contact".
+ * hatched in its green rather than solid, and the key adds "radio, if it survives the night" after "radio
+ * contact", the hatching named so that the words never read as a fragment.
  *
  * With the dates, `moments` puts a flag right above the track at each of the period's key moments, such as
  * "Sunset 3 Jan": a click on one moves the handle to its hour, then tells the page (`onMoment`). A flag
@@ -222,7 +225,8 @@ export function TimeBar({
   /**
    * The hour from which the bar's marks that need power hold only if the lander survives the night: the first
    * hour with power again after the first power cut, or null when it never needs to. From that hour on the
-   * radio band is hatched rather than solid, and named "if it survives the night" in the key; only with `dates`.
+   * radio band is hatched rather than solid, and named "radio, if it survives the night" in the key; only with
+   * `dates`.
    */
   ifSurvivesFrom?: number | null;
   /**
@@ -320,11 +324,12 @@ export function TimeBar({
       )}
     </span>
   );
-  // The track's yellow is the Sun, not progress: a key says so.
+  // The track's yellow is the site in sunlight, not progress: a key says so. Not "Sun up": a Sun up behind the
+  // hills leaves the strip grey.
   const sunKey = (
     <span data-part="key" className="flex items-center gap-2 text-[15px] text-ink-2 sm:ml-auto">
       <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full bg-sun" />
-      Sun up
+      in sunlight
     </span>
   );
 
@@ -402,7 +407,7 @@ export function TimeBar({
                   <span data-part="key-no-sun" className="flex items-center gap-2 text-[15px] text-ink-2">
                     {/* The strip's own grey, where no yellow is drawn, with an edge light enough to see on the dark bar. */}
                     <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border border-ink-3 bg-surface-2" />
-                    no Sun
+                    in shadow
                   </span>
                 )}
                 {off.length > 0 && (
@@ -428,7 +433,7 @@ export function TimeBar({
                   <span data-part="key-if-survives" className="flex items-center gap-2 text-[15px] text-ink-2">
                     {/* The band's own stripes, in a line as thick as the band. */}
                     <i data-swatch="" aria-hidden="true" className={`block h-2.5 w-6 rounded-full border-y-2 border-transparent bg-clip-padding ${HATCH}`} />
-                    if it survives the night
+                    radio, if it survives the night
                   </span>
                 )}
               </span>
