@@ -40,10 +40,11 @@ export function lowHorizonPitch(height: number, fovDeg: number, freeBottom: numb
 
 /**
  * The opening view's pitch, lowered just enough that the point `elDeg` below level (the lander's feet) sits
- * 28 px above `freeBottom`, and by 10 degrees at most; `pitchDeg` as it is when that point is in view already.
+ * 56 px above `freeBottom`, clear of the bar with room for the legs' own spread, and by 10 degrees at most;
+ * `pitchDeg` as it is when that point is in view already.
  */
 export function fitPitch(height: number, fovDeg: number, freeBottom: number, elDeg: number, pitchDeg: number): number {
-  const t = ((height / 2 - (freeBottom - 28)) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
+  const t = ((height / 2 - (freeBottom - 56)) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
   const p = elDeg - (Math.atan(t) * 180) / Math.PI;
   return p >= pitchDeg ? pitchDeg : Math.max(p, pitchDeg - 10);
 }

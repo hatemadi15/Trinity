@@ -38,8 +38,8 @@ const OPEN_RIGHT_DEG = 5;
 const tall = () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
 const landerRight = () => (tall() ? 20 : 30);
 const openRight = () => (tall() ? landerRight() / 2 : OPEN_RIGHT_DEG);
-/** How far out from the lander's middle its nearest foot stands, metres: the opening keeps it in sight. */
-const LANDER_FOOT_M = 1.9;
+/** How far out from the lander's middle the near edge of its nearest foot can stand, metres: the opening keeps it in sight. */
+const LANDER_FOOT_M = 2.1;
 
 /** "How we know this", folded away until asked for. */
 function HowWeKnow({ note, className }: { note: string; className: string }) {

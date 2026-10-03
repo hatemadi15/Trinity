@@ -108,13 +108,13 @@ describe('looking up with the horizon kept', () => {
 });
 
 describe('the opening view', () => {
-  it('looks down just enough to keep the lander’s feet 28 px above the time bar, and never looks down for them more than 10 degrees', () => {
+  it('looks down just enough to keep the lander’s feet 56 px above the time bar, and never looks down for them more than 10 degrees', () => {
     const tanHalf = Math.tan((30 * Math.PI) / 180);
     const yOf = (el: number, pitch: number) => 450 - (Math.tan(((el - pitch) * Math.PI) / 180) / tanHalf) * 450;
     // The feet 23 degrees below level: at a pitch of -4.2 they sit below the bar at 715 px.
     expect(yOf(-23, -4.2)).toBeGreaterThan(715);
     const p = fitPitch(900, 60, 715, -23, -4.2);
-    expect(yOf(-23, p)).toBeCloseTo(715 - 28, 6);
+    expect(yOf(-23, p)).toBeCloseTo(715 - 56, 6);
     // Already in view: the pitch stays.
     expect(fitPitch(900, 60, 715, -10, -4.2)).toBe(-4.2);
     // Far below: at most 10 degrees lower.
