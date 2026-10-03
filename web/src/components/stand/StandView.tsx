@@ -26,18 +26,18 @@ const LOOK = 'min-h-10 rounded-lg border border-white/20 px-3.5 text-[15px] hove
 const TONE = { radio: 'bg-[#8ddcaa]', power: 'bg-[#f6c86a]', off: 'bg-[#ff9180]' } as const;
 const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): RendererLike => new StandRenderer(canvas, scene);
 /**
- * The lander stands where it landed, at the period's first hour: 16 m away, 60° to the left of the Sun then
+ * The lander stands where it landed, at the period's first hour: 16 m away, 40° to the left of the Sun then
  * (or of Earth when the period starts in the dark; 20° on a tall screen, whose view is narrower), whatever
  * hour the view opens on. It is turned so its solar panel faces that Sun, its +x face 75° left of it. The
- * view opens 40° left of the Sun, so the Sun stands near the view's right edge, clear of the answer's panel,
- * and the ground and the lander before you are lit from the side, not from behind; on a tall screen halfway
- * between the Sun and the lander, so both fit across it.
+ * view opens 35° left of the Sun, so the Sun stands near the view's right edge and the lander just right of
+ * the answer's panel, and the ground before you is lit from the side, not from behind; on a tall screen
+ * halfway between the Sun and the lander, so both fit across it.
  */
 const LANDER_DIST_M = 16;
 const LANDER_FACE_LEFT_DEG = 75;
 const tall = () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
-const landerFromSun = () => (tall() ? -20 : -60);
-const openFromSun = () => (tall() ? landerFromSun() / 2 : -40);
+const landerFromSun = () => (tall() ? -20 : -40);
+const openFromSun = () => (tall() ? landerFromSun() / 2 : -35);
 /** How far out from the lander's middle the near edge of its nearest foot can stand, metres: the opening keeps it in sight. */
 const LANDER_FOOT_M = 2.1;
 
