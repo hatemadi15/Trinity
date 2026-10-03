@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
+import { useElementWidth } from '@/lib/hooks/useElementWidth';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { dateTimeUtc, dayMonth } from '@/lib/viz/format';
 import { statusSentence } from '@/lib/viz/status';
@@ -31,6 +32,37 @@ function dateMarks(hours: number): { hour: number; narrow: string }[] {
   return out;
 }
 
+/** A moment of the period worth a jump: what happens, and its hour from the start. */
+type KeyMoment = { label: string; hour: number };
+
+/**
+ * Where a flag runs along a track `trackPx` wide, in px. Its width is a guess from its words: 13 px type
+ * takes about 7.2 px a letter, and the padding and edge 14 px more. It starts at its hour or, when it would
+ * run past the right end of the track, ends there (`flipped`).
+ */
+function flagSpan(m: KeyMoment, hours: number, trackPx: number): { from: number; to: number; flipped: boolean } {
+  const at = hours > 0 ? (m.hour / hours) * trackPx : 0;
+  const width = m.label.length * 7.2 + 14;
+  return at + width > trackPx ? { from: at - width, to: at, flipped: true } : { from: at, to: at + width, flipped: false };
+}
+
+/**
+ * The row of each flag over the track, 0 right above it or 1 above that, for moments in order of time: a
+ * flag takes the first row where it clears the flag placed before it in that row, and row 1 all the same
+ * when neither has room, as there is no third. A flag that ends at its hour, near the right end, counts
+ * where it really runs.
+ */
+export function momentRows(moments: KeyMoment[], hours: number, trackPx: number): number[] {
+  // The flag placed last in the first row.
+  let first: { from: number; to: number } | null = null;
+  return moments.map((m) => {
+    const span = flagSpan(m, hours, trackPx);
+    if (first && span.from < first.to && first.from < span.to) return 1;
+    first = span;
+    return 0;
+  });
+}
+
 /**
  * The time bar, pinned to the bottom of the window: Play, the date and hour with one sentence about
  * that hour, and a slider whose track is the sunlight of the period. It uses the chart's grid, inset by
@@ -44,6 +76,14 @@ function dateMarks(hours: number): { hour: number; narrow: string }[] {
  * sunlight, with "lander off" in the key. The blue band sits under the red one; the hours with both power
  * and Earth in view, when the lander can radio home, are a thicker green band over it ("radio contact").
  * Explore leaves all of these to its chart.
+ *
+ * With the dates, `moments` puts a flag right above the track at each of the period's key moments, such as
+ * "Sunset 3 Jan": a click on one moves the handle to its hour, then tells the page (`onMoment`). A flag
+ * starts at its hour, where a 1 px tick on its left edge points down to the strip; one whose words would
+ * run past the right end of the track ends at its hour instead, the tick on its right edge. A flag that
+ * would cover the one before it goes up to a second row (`momentRows`), the most there is; the ticks of
+ * that row run down behind the flags of the first. With `compact`, on a phone each flag is a dot on the
+ * top edge of the strip, its words kept for screen readers, with room around it for a finger.
  */
 export function TimeBar({
   series,
@@ -56,6 +96,8 @@ export function TimeBar({
   dates = false,
   powered = null,
   compact = false,
+  moments,
+  onMoment,
 }: {
   series: Series;
   power: PowerResult | null;
@@ -68,6 +110,10 @@ export function TimeBar({
   powered?: Uint8Array | null;
   /** On a phone: no sentence beside the date (the page says it already) and smaller keys, so the bar stays low. */
   compact?: boolean;
+  /** The period's key moments in order of time, as flags over the track; only with `dates`. */
+  moments?: KeyMoment[];
+  /** Told which moment it was, once a click on its flag has moved the handle there. */
+  onMoment?: (m: KeyMoment) => void;
 }) {
   const hours = series.hours;
   const last = Math.max(0, hours - 1);
@@ -80,6 +126,12 @@ export function TimeBar({
   const contact = dates && powered ? runsWhere(hours, (h) => powered[h] === 1 && series.earthVisible[h] === 1) : [];
   // The strip is grey wherever the yellow leaves a gap: by its own rule, an hour with any part of the Sun is yellow.
   const sunless = dates && lit.reduce((n, r) => n + r.to - r.from, 0) < hours;
+  // The flags come with the dates only, so Explore is drawn as before. Their rows, and which of them end at
+  // their hour, depend on the track's width, measured once they are drawn (1000 px until then).
+  const flags = dates && moments ? moments : [];
+  const { ref: flagsRef, width: trackPx } = useElementWidth<HTMLDivElement>(1000);
+  const rows = momentRows(flags, hours, trackPx);
+  const flipped = flags.map((m) => flagSpan(m, hours, trackPx).flipped);
 
   useEffect(() => {
     cursorRef.current = cursor;
@@ -170,6 +222,57 @@ export function TimeBar({
             )}
           </p>
           <div data-part="track" className="col-start-2 max-sm:col-span-2 max-sm:col-start-1">
+            {flags.length > 0 && (
+              // Right above the strip and on its hours, in rows of 22 px (a flag 20 px tall, 2 px under it), the
+              // first row nearest the strip. The ticks come first, so one from the second row runs down behind the
+              // flags of the first. On a phone when compact the flags are dots on the strip's top edge and the row
+              // is 11 px: with the grid's 4 px gap and the slider's 9 px over the strip, room for a 24 px target
+              // that stays clear of Play. The row is lifted over the slider there, so the targets win those 9 px.
+              <div
+                ref={flagsRef}
+                data-part="moments"
+                role="group"
+                aria-label="Jump to a moment"
+                className={`relative ${rows.includes(1) ? 'h-[44px]' : 'h-[22px]'}${compact ? ' max-sm:z-[1] max-sm:h-[11px]' : ''}`}
+              >
+                {flags.map((m, i) => (
+                  // From the bottom of the flag to the strip, which starts 9 px down the box under the flags.
+                  <i
+                    key={`${m.hour} ${m.label}`}
+                    data-part="moment-tick"
+                    aria-hidden="true"
+                    className={`absolute -bottom-[9px] w-px bg-ink-2 ${rows[i] === 1 ? 'h-[33px]' : 'h-[11px]'}${flipped[i] ? ' -ml-px' : ''}${compact ? ' max-sm:hidden' : ''}`}
+                    style={{ left: `${(m.hour / hours) * 100}%` }}
+                  />
+                ))}
+                {flags.map((m, i) => {
+                  const left = `${(m.hour / hours) * 100}%`;
+                  // The corner over the tick is square, so the tick runs on from the flag's edge. The keyboard's
+                  // ring is the page's own (globals.css); a flag under the pointer or the focus comes to the front.
+                  // On a phone when compact: a 24 px target centred on its hour, its bottom on the strip's top
+                  // edge, with the dot in it (one that ends at its hour is already a whole target to the left,
+                  // so it comes back half of one).
+                  return (
+                    <button
+                      key={`${m.hour} ${m.label}`}
+                      type="button"
+                      data-part="moment"
+                      data-row={rows[i]}
+                      aria-label={compact ? m.label : undefined}
+                      onClick={() => {
+                        move(m.hour);
+                        onMoment?.(m);
+                      }}
+                      className={`absolute flex h-5 items-center whitespace-nowrap rounded border border-line-strong bg-surface px-1.5 text-[13px] leading-none text-ink hover:z-10 hover:bg-surface-2 focus-visible:z-10 ${rows[i] === 1 ? 'bottom-[24px]' : 'bottom-[2px]'} ${flipped[i] ? 'rounded-br-none' : 'rounded-bl-none'}${compact ? ` max-sm:-bottom-[9px] max-sm:size-6 max-sm:rounded-full max-sm:border-0 max-sm:bg-transparent max-sm:p-0 ${flipped[i] ? 'max-sm:ml-3' : 'max-sm:-ml-3'}` : ''}`}
+                      style={flipped[i] ? { left, transform: 'translateX(-100%)' } : { left }}
+                    >
+                      <span className={compact ? 'max-sm:sr-only' : undefined}>{m.label}</span>
+                      {compact && <i data-part="moment-dot" aria-hidden="true" className="absolute bottom-0 left-1/2 hidden size-2 -translate-x-1/2 rounded-full bg-ink max-sm:block" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {/* With the dates the box is 4 px taller, room for Earth's band; the slider keeps its 32 px at the top. */}
             <div className={dates ? 'relative h-9' : 'relative h-8'}>
               <svg viewBox={`0 0 ${hours} 10`} preserveAspectRatio="none" aria-hidden="true" className="absolute inset-x-0 top-[9px] h-3.5 w-full overflow-hidden rounded-full bg-surface-2">

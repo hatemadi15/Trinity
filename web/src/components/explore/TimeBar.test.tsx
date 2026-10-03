@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '@/lib/engine/power';
 import { PLOT_GRID } from './TimeChart';
-import { TimeBar } from './TimeBar';
+import { momentRows, TimeBar } from './TimeBar';
 
 const CFG: PowerConfig = { ...DEFAULT_POWER, panel: 'full_tracking', areaM2: 1, efficiency: 1, loadW: 100, batteryWh: 1000 };
 const HOURS = 72;
@@ -57,6 +57,18 @@ const leftOutBelow = (px: number) => dateLabels().filter((l) => l.className.incl
 const topPx = (el: Element) => Number(/(?:^| )top-\[(\d+)px\](?: |$)/.exec(el.getAttribute('class') ?? '')?.[1]);
 /** The box the sunlight strip and the bands under it share. */
 const stripBox = (container: HTMLElement) => container.querySelector('[data-part="track"] svg')!.parentElement!;
+/**
+ * The stand view's key moments over 30 days from START, in order of time: the Sun sets on the 3rd, the
+ * battery runs out on the 4th, Earth comes into view on the 10th, and the Sun and the power come back on the 20th.
+ */
+const MOMENTS = [
+  { label: 'Sunset 3 Jan', hour: 50 },
+  { label: 'Battery runs out 4 Jan', hour: 76 },
+  { label: 'Earth in view 10 Jan', hour: 216 },
+  { label: 'Sun and power back 20 Jan', hour: 456 },
+];
+const flagsOf = (container: HTMLElement) => [...container.querySelectorAll<HTMLButtonElement>('[data-part="moment"]')];
+const ticksOf = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('[data-part="moment-tick"]')];
 
 afterEach(() => {
   vi.useRealTimers();
@@ -449,5 +461,223 @@ describe('TimeBar', () => {
     cleanup();
     show(6, { dates: true });
     expect(screen.getByTestId('status').classList.contains('max-sm:hidden')).toBe(false);
+  });
+
+  it("puts a flag above the track at each of the period's key moments, at the share of the track its hour gives", () => {
+    const { container } = showPeriod(30, { dates: true, moments: MOMENTS });
+    const flags = flagsOf(container);
+    expect(flags.map((f) => f.textContent)).toEqual(MOMENTS.map((m) => m.label));
+    // Buttons, each named by its moment.
+    for (const m of MOMENTS) expect(screen.getByRole('button', { name: m.label }).getAttribute('data-part')).toBe('moment');
+    for (const f of flags) expect(f.type).toBe('button');
+    // Hours 50, 76, 216 and 456 of the 720, as shares of the track, like the sunlight and the bands under it.
+    flags.forEach((f, k) => expect(parseFloat(f.style.left) / 100).toBeCloseTo(MOMENTS[k].hour / 720, 6));
+    // In the track's own column, right above the strip, so the flags line up with the hours.
+    const row = container.querySelector<HTMLElement>('[data-part="moments"]')!;
+    expect(row.parentElement).toBe(screen.getByRole('slider', { name: 'Time' }).closest('[data-part="track"]'));
+    expect(row.nextElementSibling).toBe(stripBox(container));
+    // Each starts at its hour, where a 1 px tick points down to the strip; all four have room to the right.
+    const ticks = ticksOf(container);
+    expect(ticks).toHaveLength(MOMENTS.length);
+    ticks.forEach((t, k) => {
+      expect(t.style.left).toBe(flags[k].style.left);
+      expect(t.classList.contains('w-px')).toBe(true);
+      expect(t.getAttribute('aria-hidden')).toBe('true');
+    });
+    for (const f of flags) expect(f.style.transform).toBe('');
+    // Small words in the ink on the panel colour, inside a thin rounded edge, on one line 20 px tall; grey under the pointer.
+    for (const f of flags) {
+      for (const c of ['text-[13px]', 'text-ink', 'bg-surface', 'border', 'border-line-strong', 'rounded', 'h-5', 'items-center', 'whitespace-nowrap', 'hover:bg-surface-2']) {
+        expect(f.classList.contains(c)).toBe(true);
+      }
+    }
+  });
+
+  it('draws no flags without the dates or without moments: Explore stays exactly as it was', () => {
+    const before = show(6).container.innerHTML;
+    cleanup();
+    const explore = show(6, { moments: MOMENTS, onMoment: vi.fn() });
+    expect(explore.container.querySelector('[data-part="moment"]')).toBeNull();
+    expect(explore.container.innerHTML).toBe(before);
+    cleanup();
+    const plain = showPeriod(30, { dates: true }).container.innerHTML;
+    cleanup();
+    const empty = showPeriod(30, { dates: true, moments: [] });
+    expect(empty.container.querySelector('[data-part="moments"]')).toBeNull();
+    expect(empty.container.innerHTML).toBe(plain);
+  });
+
+  it("moves the handle to a flag's hour on a click, then tells the page which moment it was", () => {
+    const onCursor = vi.fn();
+    const onMoment = vi.fn();
+    showPeriod(30, { dates: true, moments: MOMENTS, onCursor, onMoment });
+    fireEvent.click(screen.getByRole('button', { name: 'Earth in view 10 Jan' }));
+    expect(onCursor).toHaveBeenCalledTimes(1);
+    expect(onCursor).toHaveBeenCalledWith(216);
+    expect(onMoment).toHaveBeenCalledTimes(1);
+    expect(onMoment.mock.calls[0][0]).toBe(MOMENTS[2]);
+    // The handle first, then the page.
+    expect(onCursor.mock.invocationCallOrder[0]).toBeLessThan(onMoment.mock.invocationCallOrder[0]);
+    cleanup();
+    // Without onMoment a flag still moves the handle.
+    const alone = vi.fn();
+    showPeriod(30, { dates: true, moments: MOMENTS, onCursor: alone });
+    fireEvent.click(screen.getByRole('button', { name: 'Sunset 3 Jan' }));
+    expect(alone).toHaveBeenCalledWith(50);
+  });
+
+  it('lifts a flag that would cover the one before it to a second row, whose ticks run down behind the first row to the strip', () => {
+    // On the 1000 px a track has without a layout (jsdom), "Battery runs out 4 Jan" starts on the words of "Sunset 3 Jan".
+    const { container } = showPeriod(30, { dates: true, moments: MOMENTS });
+    const flags = flagsOf(container);
+    expect(flags.map((f) => f.dataset.row)).toEqual(['0', '1', '0', '0']);
+    // Two rows of 22 px, each flag 20 px tall with 2 px under it; the first row right above the strip.
+    expect(container.querySelector('[data-part="moments"]')!.classList.contains('h-[44px]')).toBe(true);
+    expect(flags[0].classList.contains('bottom-[2px]')).toBe(true);
+    expect(flags[1].classList.contains('bottom-[24px]')).toBe(true);
+    // Every tick reaches the strip, 9 px down the box under the flags: 2 + 9 px from the first row, 22 px more from the second.
+    const ticks = ticksOf(container);
+    expect(topPx(container.querySelector('[data-part="track"] svg')!)).toBe(9);
+    expect(ticks.map((t) => t.classList.contains('-bottom-[9px]'))).toEqual([true, true, true, true]);
+    expect(ticks.map((t) => (t.classList.contains('h-[33px]') ? 33 : t.classList.contains('h-[11px]') ? 11 : null))).toEqual([11, 33, 11, 11]);
+    // The ticks come before the flags, so one from the second row passes behind the flags of the first.
+    for (const t of ticks) expect(t.compareDocumentPosition(flags[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    cleanup();
+    // Moments far apart keep to one row.
+    const one = showPeriod(30, { dates: true, moments: [MOMENTS[0], MOMENTS[2], MOMENTS[3]] });
+    expect(flagsOf(one.container).map((f) => f.dataset.row)).toEqual(['0', '0', '0']);
+    expect(one.container.querySelector('[data-part="moments"]')!.classList.contains('h-[22px]')).toBe(true);
+  });
+
+  it('ends a flag at its hour when its words would run past the right end of the track, the tick on its right edge', () => {
+    const moments = [
+      { label: 'Earth in view 21 Jan', hour: 480 },
+      { label: 'Sun back 30 Jan', hour: 719 },
+    ];
+    const { container } = showPeriod(30, { dates: true, moments });
+    const [earth, sun] = flagsOf(container);
+    const [earthTick, sunTick] = ticksOf(container);
+    expect(earth.style.transform).toBe('');
+    expect(sun.style.transform).toBe('translateX(-100%)');
+    expect(parseFloat(sun.style.left) / 100).toBeCloseTo(719 / 720, 6);
+    // The tick stays on the hour, on the flag's right edge rather than its left.
+    expect(sunTick.style.left).toBe(sun.style.left);
+    expect(sunTick.classList.contains('-ml-px')).toBe(true);
+    expect(earthTick.classList.contains('-ml-px')).toBe(false);
+    // The corner over the tick is square, so the tick runs on from the flag's edge.
+    expect(earth.classList.contains('rounded-bl-none')).toBe(true);
+    expect(sun.classList.contains('rounded-br-none')).toBe(true);
+  });
+
+  it('measures the track, so on a narrow one a flag near the right end ends at its hour', () => {
+    let report: ((entries: { contentRect: { width: number } }[]) => void) | null = null;
+    class FakeObserver {
+      constructor(cb: (entries: { contentRect: { width: number } }[]) => void) {
+        report = cb;
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal('ResizeObserver', FakeObserver);
+    const { container } = showPeriod(30, { dates: true, moments: [{ label: 'Earth in view 26 Jan', hour: 600 }] });
+    // Until measured, 1000 px: hour 600 of the 720 leaves 167 px, room for the 158 px of its words.
+    expect(flagsOf(container)[0].style.transform).toBe('');
+    act(() => report!([{ contentRect: { width: 600 } }]));
+    // On 600 px it leaves 100 px: the flag ends at its hour.
+    expect(flagsOf(container)[0].style.transform).toBe('translateX(-100%)');
+  });
+
+  it('on a phone when compact, makes each flag a dot on the top edge of the strip, named for screen readers and big enough to tap', () => {
+    const { container } = showPeriod(30, { dates: true, moments: MOMENTS, compact: true });
+    // The bar stays low: the flags take 11 px over the strip there, the room a finger needs above the dots.
+    expect(container.querySelector('[data-part="moments"]')!.classList.contains('max-sm:h-[11px]')).toBe(true);
+    flagsOf(container).forEach((f, k) => {
+      expect(f.getAttribute('aria-label')).toBe(MOMENTS[k].label);
+      expect(screen.getByRole('button', { name: MOMENTS[k].label })).toBe(f);
+      // The words stay, for screen readers only.
+      const words = f.querySelector('span')!;
+      expect(words.textContent).toBe(MOMENTS[k].label);
+      expect(words.classList.contains('max-sm:sr-only')).toBe(true);
+      // An 8 px round dot, on a phone only.
+      const dot = f.querySelector<HTMLElement>('[data-part="moment-dot"]')!;
+      for (const c of ['size-2', 'rounded-full', 'hidden', 'max-sm:block']) expect(dot.classList.contains(c)).toBe(true);
+      expect(dot.getAttribute('aria-hidden')).toBe('true');
+      // A target 24 px square, without the flag's edge or panel colour.
+      for (const c of ['max-sm:size-6', 'max-sm:border-0', 'max-sm:bg-transparent']) expect(f.classList.contains(c)).toBe(true);
+    });
+    // No ticks there: the dot sits on the strip itself.
+    for (const t of ticksOf(container)) expect(t.classList.contains('max-sm:hidden')).toBe(true);
+    cleanup();
+    // Without compact the flags keep their words at every width.
+    const wide = showPeriod(30, { dates: true, moments: MOMENTS });
+    for (const f of flagsOf(wide.container)) {
+      expect(f.querySelector('[data-part="moment-dot"]')).toBeNull();
+      expect(f.outerHTML).not.toMatch(/max-sm:/);
+    }
+    expect(wide.container.querySelector('[data-part="moments"]')!.className).not.toMatch(/max-sm:/);
+  });
+});
+
+describe('momentRows', () => {
+  it('keeps moments far apart in the first row', () => {
+    expect(momentRows([MOMENTS[0], MOMENTS[2], MOMENTS[3]], 720, 1000)).toEqual([0, 0, 0]);
+  });
+
+  it('lifts the second of two moments a day apart on a 30-day track 1000 px wide: 33 px apart, and "Sunset 3 Jan" is about 100 px wide', () => {
+    expect(
+      momentRows(
+        [
+          { label: 'Sunset 3 Jan', hour: 48 },
+          { label: 'Battery runs out 4 Jan', hour: 72 },
+        ],
+        720,
+        1000,
+      ),
+    ).toEqual([0, 1]);
+  });
+
+  it('puts a third close one in the second row too when both are taken, and goes back to the first once that is clear', () => {
+    expect(
+      momentRows(
+        [
+          { label: 'Sunset 3 Jan', hour: 48 },
+          { label: 'Battery runs out 4 Jan', hour: 72 },
+          { label: 'Earth in view 5 Jan', hour: 96 },
+          { label: 'Power back 9 Jan', hour: 200 },
+        ],
+        720,
+        1000,
+      ),
+    ).toEqual([0, 1, 1, 0]);
+  });
+
+  it('takes a flag at the very end as ending at its hour: it reaches back over one just before it, and clears one further back', () => {
+    // Run to the right, "Sun back 30 Jan" at the last hour would start at 999 px, past the end of "Earth in view 26 Jan" at 991 px.
+    // Ending at its hour it starts at 877 px, on those words, so it goes up a row.
+    expect(
+      momentRows(
+        [
+          { label: 'Earth in view 26 Jan', hour: 600 },
+          { label: 'Sun back 30 Jan', hour: 719 },
+        ],
+        720,
+        1000,
+      ),
+    ).toEqual([0, 1]);
+    // "Earth in view 21 Jan" ends at 825 px: the two share the first row.
+    expect(
+      momentRows(
+        [
+          { label: 'Earth in view 21 Jan', hour: 480 },
+          { label: 'Sun back 30 Jan', hour: 719 },
+        ],
+        720,
+        1000,
+      ),
+    ).toEqual([0, 0]);
+  });
+
+  it('has no rows for no moments', () => {
+    expect(momentRows([], 720, 1000)).toEqual([]);
   });
 });
