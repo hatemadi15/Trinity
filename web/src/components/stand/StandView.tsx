@@ -176,8 +176,25 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // The better landing day opens its own view, from its first hour; the button says why it is better.
   const better =
     answer.better && s.best
-      ? { label: betterLabel(dateLong(s.startUtc, answer.better.hour), s.best.poweredHours, s.best.poweredHours * s.best.earthFraction), href: standHref(site.id, answer.better.startUtc, s.days, 0) }
+      ? {
+          label: betterLabel(dateLong(s.startUtc, answer.better.hour), s.best.poweredHours, s.best.poweredHours * s.best.earthFraction),
+          startUtc: answer.better.startUtc,
+          href: `${standHref(site.id, answer.better.startUtc, s.days, 0)}${quality === 'fast' ? '&quality=fast' : ''}`,
+        }
       : null;
+  // The better landing day, in place: the same lander and drawing, the new period, and the view opening again
+  // from its first hour, as a fresh visit would; the address follows, so a reload or a shared link agrees.
+  const land = (startUtc: string, href: string) => {
+    s.setWindow(startUtc, s.days);
+    s.setCursor(0);
+    setOpenHour(0);
+    setLook(null);
+    setLookingUp(false);
+    setCaption(null);
+    setMore(false);
+    setPage(0);
+    window.history.replaceState(null, '', href);
+  };
   // The note describes the view from the site: shown with it, not while the ground loads or in the fallback.
   const note = scene && !failed ? measuredNote(scene.field.levels.map((l) => l.cell), scene.sky.stars.count) : null;
   const face = (az: number, el: number, fov: number) => {
@@ -258,6 +275,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     <main ref={mainRef} className="theme-dark fixed inset-0 overflow-hidden bg-black text-[#f2f0ea]">
       {scene && !failed && (
         <StandCanvas
+          // A new period opens the view again, as a fresh visit would: from the sky, to its first hour.
+          key={s.startUtc}
           scene={scene}
           hour={hour}
           look={look}
@@ -309,10 +328,16 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             </p>
             <p className={`text-[14px] text-[#f6d48a] md:text-[15px] ${cardOpen ? '' : 'max-md:hidden'}`}>{watchNext(series, power, s.startUtc, hour)}</p>
             {better && (
-              // A new period: the whole view opens again from its first hour. On a row of its own, so the links
-              // below never move.
+              // The better day, on a row of its own, so the links below never move.
               <div className={cardOpen ? '' : 'max-md:hidden'}>
-                <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}>
+                <a
+                  href={better.href}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    land(better.startUtc, better.href);
+                  }}
+                  className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
+                >
                   {better.label}
                 </a>
               </div>

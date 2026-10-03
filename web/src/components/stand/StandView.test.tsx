@@ -259,6 +259,28 @@ describe('StandView', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing on 1 January/);
   });
 
+  it('lands on the better day in place, keeping the lander the visitor set and the drawing quality, and the address follows', async () => {
+    window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10&quality=fast');
+    const store = createExploreStore(fileLoaders());
+    render(<StandView store={store} createRenderer={() => stub()} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing on 1 January/), { timeout: 20_000 });
+    // A lander of the visitor's own: a bigger battery than the default.
+    act(() => store.getState().setPower({ batteryWh: store.getState().params.power.batteryWh * 3 }));
+    const battery = store.getState().params.power.batteryWh;
+    const better = await screen.findByRole('link', { name: /^Try \d+ January instead/ });
+    const start = new URL(better.getAttribute('href')!, 'http://x').searchParams.get('start')!;
+    fireEvent.click(better);
+    // The same page, the new period: the lander is the visitor's still, and the view opens again from its first hour.
+    await waitFor(() => expect(store.getState().startUtc.slice(0, 10)).toBe(start.slice(0, 10)));
+    expect(store.getState().params.power.batteryWh).toBe(battery);
+    expect(store.getState().cursorHour).toBe(0);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).not.toMatch(/^Landing on 1 January/);
+    const q = new URLSearchParams(window.location.search);
+    expect(q.get('start')!.slice(0, 10)).toBe(start.slice(0, 10));
+    expect(q.get('hour')).toBe('0');
+    expect(q.get('quality')).toBe('fast');
+  });
+
   it('keeps one renderer while the time moves', async () => {
     let made = 0;
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => {
