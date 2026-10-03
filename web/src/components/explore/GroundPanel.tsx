@@ -19,29 +19,30 @@ import { ShadowMap } from './ShadowMap';
 const SEG = 'flex h-11 overflow-hidden rounded-lg border border-line-strong bg-surface text-[15px]';
 const seg = (on: boolean) => `px-3.5 ${on ? 'bg-ink font-semibold text-page' : 'text-ink-2 hover:bg-surface-2'}`;
 /** Tabs are underlined words, so they never look like the options inside a tab. On a phone they are 15 px, so all three fit on one line. */
-const tabClass = (on: boolean) => `-mb-px h-11 border-b-[3px] px-1 text-[16px] max-sm:text-[15px] ${on ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2 hover:text-ink'}`;
+const tabClass = (on: boolean) => `-mb-px h-11 whitespace-nowrap border-b-[3px] px-1 text-[16px] max-sm:text-[15px] max-[389px]:text-[14px] max-[389px]:tracking-tight ${on ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2 hover:text-ink'}`;
 /** The picture beside its reading guide from the medium screen up, above it on a phone. */
 const BESIDE = 'grid gap-x-8 gap-y-4 md:grid-cols-[minmax(0,560px)_minmax(0,1fr)]';
 
 export type GroundTab = 'map' | '3d' | 'horizon';
-/** The tab a polar site opens on: the shadow map reads at a glance, so it comes before the 3D model. */
+/** The tab a polar site opens on: the shadow map reads at a glance, so it comes before "3D from above". */
 export const DEFAULT_GROUND_TAB: GroundTab = 'map';
+/** The 3D tab is named for where it looks from, so it reads apart from "Stand at the site", at eye level. */
 const TABS: { id: GroundTab; label: string }[] = [
   { id: 'map', label: 'Shadow map' },
-  { id: '3d', label: '3D model' },
+  { id: '3d', label: '3D from above' },
   { id: 'horizon', label: 'Horizon chart' },
 ];
 
 /**
  * The line under the tabs that says what the chosen tab shows, so the three read as three different
- * things. The 3D model's size is the window's own (about 20 km at 20 m per pixel, 41 km at 80 m); the
- * globe is the whole Moon.
+ * things. The line for "3D from above" uses the tab's name; its ground is the window's own size (about
+ * 20 km at 20 m per pixel, 41 km at 80 m), and the globe is the whole Moon.
  */
 function aboutTab(tab: GroundTab, view: SceneMode, km: number | null): string {
   if (tab === 'map') return "The ground from above at the time bar's hour, north up.";
   if (tab === 'horizon') return 'The horizon all round, unrolled into one strip, with the paths of the Sun and Earth.';
-  if (view === 'globe') return 'The whole Moon as a model you can turn.';
-  return km === null ? 'The same ground as a model you can turn.' : `The same ${km} km of ground as a model you can turn.`;
+  if (view === 'globe') return 'The whole Moon in 3D from above, as a model you can turn.';
+  return km === null ? 'The same ground in 3D from above, as a model you can turn.' : `The same ${km} km of ground in 3D from above, as a model you can turn.`;
 }
 /** The 3D picture's box, the element put on the whole screen. */
 const FULL = '[data-full="3d"]';
@@ -60,7 +61,7 @@ function KeyItem({ sample, children }: { sample: ReactNode; children: string }) 
 
 /**
  * The ground around the site at the time bar's hour, three ways: the shadow map, from above with its
- * shadows (the default for a polar site); the 3D model, the same ground in the same light, to turn;
+ * shadows (the default for a polar site); "3D from above", the same ground in the same light, to turn;
  * and the horizon chart, the horizon all round in one strip with the Sun's and Earth's paths (the
  * default for a site with no polar terrain, which has no map). Under the tabs one line says what the
  * chosen tab shows, then one sentence, the same for every tab, says whether the site is in sunlight

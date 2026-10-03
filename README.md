@@ -27,8 +27,8 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   January instead") or a better place nearby, and a search of the next 12 months. Below it: the
   numbers (every figure under "All numbers"), a chart of the Sun, Earth and the battery hour by
   hour with the hills in each direction, the ground at the time bar's hour (three tabs: a north-up
-  shadow map, a 3D model in the same light and a horizon chart), and where the site lies with its
-  nearest neighbours. The time bar at the bottom plays the period hour by hour. The period is 14,
+  shadow map, the same light in 3D from above, and a horizon chart), and where the site lies with
+  its nearest neighbours. The time bar at the bottom plays the period hour by hour. The period is 14,
   30 or 90 days from a date you choose; the Lander dialog offers three ready-made landers or your
   own panel, load, battery and mast. `/explore?site=&start=&days=` links to one forecast.
 - **Stand on the Moon** (`/explore/stand`, "Stand at the site" on Explore): the view from the landing

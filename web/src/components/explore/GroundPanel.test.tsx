@@ -83,10 +83,10 @@ afterEach(() => {
 });
 
 describe('GroundPanel', () => {
-  it('opens on the shadow map, with tabs for the 3D model and the horizon chart', async () => {
+  it('opens on the shadow map, with tabs for 3D from above and the horizon chart', async () => {
     const { client } = show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
     const tabs = within(screen.getByRole('tablist', { name: 'How to look at the ground' })).getAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual(['Shadow map', '3D model', 'Horizon chart']);
+    expect(tabs.map((t) => t.textContent)).toEqual(['Shadow map', '3D from above', 'Horizon chart']);
     // New names, the same ids: links and the panels they control keep working.
     expect(tabs.map((t) => t.id)).toEqual(['ground-tab-map', 'ground-tab-3d', 'ground-tab-horizon']);
     expect(tabs.map((t) => t.getAttribute('aria-controls'))).toEqual(['ground-panel-map', 'ground-panel-3d', 'ground-panel-horizon']);
@@ -103,7 +103,7 @@ describe('GroundPanel', () => {
     const now = screen.getByRole('region', { name: 'The ground' }).querySelector('[data-part="now"]')!;
     // Heights under 10° to a tenth of a degree, as the stand view's labels give them.
     expect(now.textContent).toBe('The site is in sunlight: the Sun is 2.0° above the horizon, to the west. Earth is in view, 4.0° above the horizon to the north: radio contact is possible.');
-    for (const name of ['3D model', 'Horizon chart']) {
+    for (const name of ['3D from above', 'Horizon chart']) {
       fireEvent.click(tab(name));
       expect(screen.getByRole('region', { name: 'The ground' }).querySelector('[data-part="now"]')!.textContent).toBe(now.textContent);
     }
@@ -122,43 +122,72 @@ describe('GroundPanel', () => {
     expect(about().className).toMatch(/\btext-\[15px\]/);
     expect(about().className).toMatch(/\btext-ink-2\b/);
     expect(about().textContent).toBe("The ground from above at the time bar's hour, north up.");
-    fireEvent.click(tab('3D model'));
-    expect(about().textContent).toBe('The same 20 km of ground as a model you can turn.');
+    fireEvent.click(tab('3D from above'));
+    expect(about().textContent).toBe('The same 20 km of ground in 3D from above, as a model you can turn.');
     fireEvent.click(tab('Horizon chart'));
     expect(about().textContent).toBe('The horizon all round, unrolled into one strip, with the paths of the Sun and Earth.');
   });
 
-  it("gives the 3D model's size from the ground it shows, and says when it shows the whole Moon", () => {
+  it('gives the size of the ground in 3D from above, and says when it shows the whole Moon', () => {
     const about = () => screen.getByRole('region', { name: 'The ground' }).querySelector('[data-part="about"]')!.textContent;
     // A site north of 87.55° S has an 80 m window of 512 pixels, about 41 km across.
     show({ heightmap: grid('window', 512, 80), terrainState: 'ready' });
-    fireEvent.click(tab('3D model'));
-    expect(about()).toBe('The same 41 km of ground as a model you can turn.');
+    fireEvent.click(tab('3D from above'));
+    expect(about()).toBe('The same 41 km of ground in 3D from above, as a model you can turn.');
     cleanup();
     // Without a window (still loading, or only the coarse cap), no size is promised.
     show({ terrainState: 'ready', capHeightmap: grid('cap', 64, 960) });
-    fireEvent.click(tab('3D model'));
-    expect(about()).toBe('The same ground as a model you can turn.');
+    fireEvent.click(tab('3D from above'));
+    expect(about()).toBe('The same ground in 3D from above, as a model you can turn.');
     cleanup();
     show({ mode: 'globe', heightmap: grid('window', 8, 20), terrainState: 'ready' });
-    fireEvent.click(tab('3D model'));
-    expect(about()).toBe('The whole Moon as a model you can turn.');
+    fireEvent.click(tab('3D from above'));
+    expect(about()).toBe('The whole Moon in 3D from above, as a model you can turn.');
     cleanup();
     // A site with no polar terrain shows only the globe.
     show({ site: mare, sites: [mare], mode: 'terrain' });
-    fireEvent.click(tab('3D model'));
-    expect(about()).toBe('The whole Moon as a model you can turn.');
+    fireEvent.click(tab('3D from above'));
+    expect(about()).toBe('The whole Moon in 3D from above, as a model you can turn.');
+  });
+
+  it('calls the 3D tab "3D from above", so it reads apart from standing at the site at eye level', () => {
+    show({ heightmap: grid('window', 1024, 20), terrainState: 'ready' });
+    const list = screen.getByRole('tablist', { name: 'How to look at the ground' });
+    // Two ways into 3D: this tab looks down on the ground, the button beside it stands on it.
+    const above = within(list).getByRole('tab', { name: '3D from above' });
+    expect(within(list).queryByRole('tab', { name: /model/ })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Stand at the site' }).closest('[role="tablist"]')).toBeNull();
+    // A new name, the same id: links and the panel it controls keep working.
+    expect(above.id).toBe('ground-tab-3d');
+    fireEvent.click(above);
+    expect(screen.getByRole('tabpanel', { name: '3D from above' }).id).toBe('ground-panel-3d');
+  });
+
+  it("uses the tab's name in the line under the tabs, for the ground and for the whole Moon alike", () => {
+    const about = () => screen.getByRole('region', { name: 'The ground' }).querySelector('[data-part="about"]')!.textContent;
+    show({ heightmap: grid('window', 1024, 20), terrainState: 'ready' });
+    fireEvent.click(tab('3D from above'));
+    expect(about()).toContain('3D from above');
+    cleanup();
+    show({ mode: 'globe' });
+    fireEvent.click(tab('3D from above'));
+    expect(about()).toContain('3D from above');
   });
 
   it('keeps the three tabs on one line on a phone: the words at 15 px, spread across the row', () => {
     show();
     const list = screen.getByRole('tablist');
-    // 16 px words 24 px apart need about 334 px; a 390 px phone leaves 308 inside the panel.
+    // 16 px words 24 px apart need about 370 px; a 390 px phone leaves 308 inside the panel, and 15 px
+    // words with no gap need about 303.
     expect(list.className).toMatch(/(^|\s)gap-6(\s|$)/);
     expect(list.className).toMatch(/(^|\s)max-sm:w-full\s+max-sm:justify-between\s+max-sm:gap-0(\s|$)/);
     for (const t of within(list).getAllByRole('tab')) {
       expect(t.className).toMatch(/(^|\s)text-\[16px\](\s|$)/);
       expect(t.className).toMatch(/(^|\s)max-sm:text-\[15px\](\s|$)/);
+      // Phones narrower than 390 px (375 and 360 leave 293 and 278 px) take the words at 14 px, set a little
+      // tighter (about 270 px), and a label never breaks onto two lines inside its tab.
+      expect(t.className).toMatch(/(^|\s)whitespace-nowrap(\s|$)/);
+      expect(t.className).toMatch(/(^|\s)max-\[389px\]:text-\[14px\]\s+max-\[389px\]:tracking-tight(\s|$)/);
     }
   });
 
@@ -181,7 +210,7 @@ describe('GroundPanel', () => {
     show();
     expect(tab('Shadow map').className).toMatch(/\bborder-ink\b/);
     expect(tab('Shadow map').className).not.toMatch(/\bbg-ink\b/);
-    expect(tab('3D model').className).toMatch(/\bborder-transparent\b/);
+    expect(tab('3D from above').className).toMatch(/\bborder-transparent\b/);
   });
 
   it('offers to stand at the site beside the tabs, for the same period and hour, as a strong button that is not gold', () => {
@@ -220,9 +249,9 @@ describe('GroundPanel', () => {
   it('moves between the tabs with the arrow keys, Home and End', () => {
     show();
     fireEvent.keyDown(tab('Shadow map'), { key: 'ArrowRight' });
-    expect(tab('3D model').getAttribute('aria-selected')).toBe('true');
-    expect(document.activeElement).toBe(tab('3D model'));
-    fireEvent.keyDown(tab('3D model'), { key: 'End' });
+    expect(tab('3D from above').getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(tab('3D from above'));
+    fireEvent.keyDown(tab('3D from above'), { key: 'End' });
     expect(tab('Horizon chart').getAttribute('aria-selected')).toBe('true');
     fireEvent.keyDown(tab('Horizon chart'), { key: 'ArrowRight' });
     expect(tab('Shadow map').getAttribute('aria-selected')).toBe('true');
@@ -232,9 +261,9 @@ describe('GroundPanel', () => {
     expect(tab('Shadow map').getAttribute('aria-selected')).toBe('true');
   });
 
-  it('titles the picture, says which hour it shows and mounts the 3D model in its tab', async () => {
+  it('titles the picture, says which hour it shows and mounts the 3D view in its tab', async () => {
     show();
-    fireEvent.click(tab('3D model'));
+    fireEvent.click(tab('3D from above'));
     const panel = screen.getByRole('region', { name: 'The ground' });
     expect(panel.textContent).toMatch(/2 Jan 2027, 06:00 UTC/);
     // jsdom has no WebGL: the 3D view shows its fallback, which proves it mounted with the site.
@@ -245,7 +274,7 @@ describe('GroundPanel', () => {
 
   it('switches between the terrain and the globe, and between true and tripled heights', () => {
     const { onMode, onExaggeration } = show();
-    fireEvent.click(tab('3D model'));
+    fireEvent.click(tab('3D from above'));
     expect(screen.getByRole('button', { name: 'Terrain' }).getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(screen.getByRole('button', { name: 'Globe' }));
     expect(onMode).toHaveBeenCalledWith('globe');
@@ -255,7 +284,7 @@ describe('GroundPanel', () => {
 
   it("keeps its switches out of the picture, in the page's own style: the chosen one dark", () => {
     show();
-    fireEvent.click(tab('3D model'));
+    fireEvent.click(tab('3D from above'));
     const view = screen.getByRole('group', { name: 'View' });
     expect(view.closest('.stage')).toBeNull();
     expect(screen.getByRole('button', { name: 'Terrain' }).className).toMatch(/\bbg-ink\b/);
@@ -266,15 +295,15 @@ describe('GroundPanel', () => {
 
   it('says in plain words what the 3D picture is made from', () => {
     show({ heightmap: grid('window', 1024, 20), terrainState: 'ready' });
-    fireEvent.click(tab('3D model'));
-    expect(screen.getByRole('tabpanel', { name: '3D model' }).textContent).toMatch(/The same ground in 3D, about 20 km across, lit exactly as on the shadow map; the yellow pin marks the site\. NASA elevation data at 20 m per pixel\. Drag to turn, scroll to zoom; the light follows the time bar\. Globe shows the whole Moon\./);
+    fireEvent.click(tab('3D from above'));
+    expect(screen.getByRole('tabpanel', { name: '3D from above' }).textContent).toMatch(/The same ground in 3D, about 20 km across, lit exactly as on the shadow map; the yellow pin marks the site\. NASA elevation data at 20 m per pixel\. Drag to turn, scroll to zoom; the light follows the time bar\. Globe shows the whole Moon\./);
   });
 
   it('keeps one name in every tab, explains the globe and reports a place that cannot be worked out', () => {
     show({ mode: 'globe', customError: 'no DEM coverage north of 60S (lat -40.00)' });
-    fireEvent.click(tab('3D model'));
+    fireEvent.click(tab('3D from above'));
     expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('The ground');
-    const text = screen.getByRole('tabpanel', { name: '3D model' }).textContent ?? '';
+    const text = screen.getByRole('tabpanel', { name: '3D from above' }).textContent ?? '';
     expect(text).toMatch(/^.*The whole Moon, lit for the hour of the time bar\. Click anywhere inside the ring at 60° S to get that point's own forecast\./);
     expect(screen.getByRole('alert').textContent).toMatch(/That place cannot be worked out: this tool covers the Moon south of 60° S/);
     expect(screen.queryByRole('button', { name: 'Stretched ×3' })).toBeNull();
@@ -284,9 +313,9 @@ describe('GroundPanel', () => {
     show({ terrainState: 'loading' });
     expect(screen.getByRole('tabpanel', { name: 'Shadow map' }).textContent).toMatch(/Loading the terrain…/);
     act(() => {
-      fireEvent.click(tab('3D model'));
+      fireEvent.click(tab('3D from above'));
     });
-    expect(screen.getByRole('tabpanel', { name: '3D model' }).textContent).toMatch(/Loading the terrain…/);
+    expect(screen.getByRole('tabpanel', { name: '3D from above' }).textContent).toMatch(/Loading the terrain…/);
   });
 
   it('says when the terrain files are not on this machine', () => {
@@ -305,22 +334,22 @@ describe('GroundPanel', () => {
     const map = screen.getByRole('tabpanel', { name: 'Shadow map' });
     await waitFor(() => expect(within(map).getByRole('img', { name: /^Shadows at/ })).toBeTruthy());
     expect(map.textContent).toMatch(/Worked out from NASA elevation data at 960 m per pixel: too coarse to show the site's own slopes\./);
-    fireEvent.click(tab('3D model'));
-    const text = screen.getByRole('tabpanel', { name: '3D model' }).textContent ?? '';
+    fireEvent.click(tab('3D from above'));
+    const text = screen.getByRole('tabpanel', { name: '3D from above' }).textContent ?? '';
     expect(text).toMatch(/NASA elevation data at 960 m per pixel, 48 km around the site: too coarse to show its own slopes\. The light follows the time bar\./);
     expect(text).not.toMatch(/yet/);
   });
 
-  it('a site with no polar terrain: opens on the horizon chart, says why there is no map, and shows only the globe in the 3D model', async () => {
+  it('a site with no polar terrain: opens on the horizon chart, says why there is no map, and shows only the globe in 3D from above', async () => {
     const { client } = show({ site: mare, sites: [mare], mode: 'globe', terrainState: 'ready', capHeightmap: grid('cap', 64, 960) });
     expect(tab('Horizon chart').getAttribute('aria-selected')).toBe('true');
     fireEvent.click(tab('Shadow map'));
     expect(screen.getByRole('tabpanel', { name: 'Shadow map' }).textContent).toMatch(/This tool has height data only around the south pole, so this site's horizon is taken as flat\. The Horizon chart tab shows the paths of the Sun and Earth over it\./);
     expect(screen.queryByRole('img', { name: /^Shadows at/ })).toBeNull();
     expect(client.setLevels).not.toHaveBeenCalled();
-    fireEvent.click(tab('3D model'));
+    fireEvent.click(tab('3D from above'));
     expect(screen.queryByRole('button', { name: 'Terrain' })).toBeNull();
-    expect(screen.getByRole('tabpanel', { name: '3D model' }).textContent).toMatch(/The whole Moon/);
+    expect(screen.getByRole('tabpanel', { name: '3D from above' }).textContent).toMatch(/The whole Moon/);
     await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/Blue Ghost/));
   });
 
@@ -340,7 +369,7 @@ describe('GroundPanel', () => {
     });
     try {
       show();
-      fireEvent.click(tab('3D model'));
+      fireEvent.click(tab('3D from above'));
       fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
       expect(shown).toHaveLength(1);
       expect(shown[0].classList.contains('stage')).toBe(true);
@@ -373,7 +402,7 @@ describe('GroundPanel', () => {
     process.on('unhandledRejection', note);
     try {
       show();
-      fireEvent.click(tab('3D model'));
+      fireEvent.click(tab('3D from above'));
       fireEvent.click(screen.getByRole('button', { name: 'Full screen' }));
       await new Promise((r) => setTimeout(r, 20));
       expect(asked).toBe(1);
