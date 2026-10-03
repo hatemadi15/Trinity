@@ -7,8 +7,17 @@ export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' 
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget { yaw: number; pitch: number; fov: number }
 
-/** Degrees the view rests higher on a portrait screen, so the Sun on the horizon sits below the answer's plate. */
-export const portraitLift = (width: number, height: number): number => (height > width ? 3 : 0);
+/**
+ * Degrees the view rests higher on a tall screen, so the horizon (with the Sun and the lander on it) sits just
+ * below the middle of the band left free between the words above and the buttons below (`freeTop` to
+ * `freeBottom`, pixels down the screen). A wide screen keeps its words at the sides and does not tilt.
+ */
+export function horizonLift(width: number, height: number, fovDeg: number, freeTop: number, freeBottom: number): number {
+  if (height <= width || freeBottom - freeTop < 60) return 0;
+  const y = freeTop + 0.55 * (freeBottom - freeTop);
+  const t = ((y - height / 2) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
+  return Math.max(-15, Math.min(15, (Math.atan(t) * 180) / Math.PI));
+}
 
 /** The Southern Cross's four stars, named only while the cross's own name is not shown. */
 const CROSS = new Set(['Acrux', 'Mimosa', 'Gacrux', 'Imai']);
@@ -164,11 +173,18 @@ export function StandCanvas({
         v.fov += (g.fov - v.fov) * k;
         if (Math.abs(((g.yaw - v.yaw + 540) % 360) - 180) < 0.1 && Math.abs(g.pitch - v.pitch) < 0.1 && Math.abs(g.fov - v.fov) < 0.1) goal.current = null;
       }
-      const lift = portraitLift(el.clientWidth || window.innerWidth, el.clientHeight || window.innerHeight);
+      // The panels on the screen: labels keep off them, and on a tall screen the horizon sits between them.
+      plates = [...document.querySelectorAll('[data-plate]')].map((p) => p.getBoundingClientRect()).filter((p) => p.width > 0);
+      const W = el.clientWidth || window.innerWidth, H = el.clientHeight || window.innerHeight;
+      let freeTop = 0, freeBottom = H;
+      for (const p of plates) {
+        if (p.top < H * 0.4 && p.bottom < H * 0.65) freeTop = Math.max(freeTop, p.bottom);
+        else if (p.bottom > H * 0.6 && p.top > H * 0.35) freeBottom = Math.min(freeBottom, p.top);
+      }
+      const lift = horizonLift(W, H, v.fov, freeTop, freeBottom);
       r.setView(v.yaw, Math.max(-35, Math.min(89, v.pitch + lift)), v.fov);
       r.render();
       const l = r.labels();
-      plates = [...document.querySelectorAll('[data-plate]')].map((p) => p.getBoundingClientRect()).filter((p) => p.width > 0);
       place(sunRef.current, l.sun);
       place(earthRef.current, l.earth);
       place(landerRef.current, l.lander);
@@ -260,7 +276,7 @@ export function StandCanvas({
         aria-hidden="true"
         data-plate=""
         style={{ width: STRIP_W }}
-        className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 overflow-hidden rounded-[6px] border border-white/15 bg-black/70 text-[#f2f0ea] max-md:bottom-auto max-md:top-[calc(var(--top-h,220px)+8px)]"
+        className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 overflow-hidden rounded-[6px] border border-white/15 bg-black/70 text-[#f2f0ea] max-md:hidden"
       >
         <div className="relative h-7" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
           <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>

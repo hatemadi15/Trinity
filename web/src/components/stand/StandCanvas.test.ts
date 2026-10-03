@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { portraitLift, starNamesShown } from './StandCanvas';
+import { horizonLift, starNamesShown } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
-  it('rests a few degrees higher on a portrait screen, so the Sun sits below the answer, and not at all on a wide one', () => {
-    expect(portraitLift(1440, 900)).toBe(0);
-    expect(portraitLift(900, 900)).toBe(0);
-    expect(portraitLift(390, 844)).toBeCloseTo(3, 0);
+  it('rests higher on a tall screen so the horizon sits just below the middle of the band free of words and buttons', () => {
+    // A phone: words down to 330 px, buttons from 614 px; the horizon at 55 % of the band, 486 px.
+    const lift = horizonLift(390, 844, 80, 330, 614);
+    const y = 422 + 422 * (Math.tan((lift * Math.PI) / 180) / Math.tan((40 * Math.PI) / 180));
+    expect(y).toBeCloseTo(330 + 0.55 * 284, 0);
+    // With the words hidden the band starts at the top, and the view rests lower.
+    expect(horizonLift(390, 844, 80, 0, 614)).toBeLessThan(lift);
+  });
+
+  it('does not tilt a wide screen, where the words sit at the sides', () => {
+    expect(horizonLift(1440, 900, 60, 360, 700)).toBe(0);
+    expect(horizonLift(900, 900, 60, 360, 700)).toBe(0);
+  });
+
+  it('keeps the tilt within bounds when the free band is odd', () => {
+    expect(horizonLift(390, 844, 80, 800, 820)).toBe(0);
+    expect(Math.abs(horizonLift(390, 844, 80, 700, 840))).toBeLessThanOrEqual(15);
   });
 });
 

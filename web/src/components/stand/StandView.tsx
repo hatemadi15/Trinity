@@ -207,16 +207,18 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             ref={topRef}
             data-plate=""
             aria-label="The answer for this site"
-            className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2.5 p-4 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-48px)] max-md:overflow-y-auto`}
+            className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 p-3.5 md:gap-2.5 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-48px)] max-md:overflow-y-auto`}
           >
-            <p className="text-[14px] text-[#c3bfb6] md:text-[15px]">{standingLine(site, name, true)}</p>
-            <h1 className="display text-pretty text-[20px] font-bold leading-tight sm:text-[28px]">{title}</h1>
-            <p className="flex items-baseline gap-2 text-base">
+            <p className="text-[15px] text-[#c3bfb6] max-md:hidden">{standingLine(site, name, true)}</p>
+            {/* A phone keeps the Moon and the pole, in one line. */}
+            <p className="text-[13px] text-[#c3bfb6] md:hidden">{standingLine(site, name, true).replace(' Drawn from NASA data.', '')}</p>
+            <h1 className="display text-pretty text-[18px] font-bold leading-tight sm:text-[28px]">{title}</h1>
+            <p className="flex items-baseline gap-2 text-[15px] md:text-base">
               <i aria-hidden="true" className={`h-3 w-3 shrink-0 translate-y-px rounded-full ${lander.on ? 'bg-[#8ddcaa]' : 'bg-[#ff9180]'}`} />
               <span>{lander.text}</span>
             </p>
-            <p className="text-[15px] text-[#f6d48a]">{watchNext(series, power, s.startUtc, hour)}</p>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            <p className="text-[14px] text-[#f6d48a] md:text-[15px]">{watchNext(series, power, s.startUtc, hour)}</p>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-0">
               {better && (
                 // A new period: the whole view opens again from its first hour.
                 <a href={better.href} className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}>
@@ -312,7 +314,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
 
       <div ref={barRef} data-plate="" className="fixed inset-x-0 bottom-0">
         {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
-        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} dates powered={power.powered} />
+        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} dates powered={power.powered} compact />
       </div>
     </main>
   );

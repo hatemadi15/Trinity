@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '@/lib/engine/power';
@@ -439,5 +439,15 @@ describe('TimeBar', () => {
       expect(k.classList.contains('text-[15px]')).toBe(true);
       expect(k.classList.contains('text-ink-2')).toBe(true);
     }
+  });
+
+  it('keeps the bar low on a phone when compact: no sentence beside the date there, and smaller keys', () => {
+    const { container } = show(6, { dates: true, powered: power.powered, compact: true });
+    expect(screen.getByTestId('status').classList.contains('max-sm:hidden')).toBe(true);
+    const group = container.querySelector('[data-part="key-off"]')!.parentElement!;
+    expect(group.className).toContain('max-sm:[&>span]:text-[13px]');
+    cleanup();
+    show(6, { dates: true });
+    expect(screen.getByTestId('status').classList.contains('max-sm:hidden')).toBe(false);
   });
 });

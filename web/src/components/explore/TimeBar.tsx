@@ -55,6 +55,7 @@ export function TimeBar({
   onCursor,
   dates = false,
   powered = null,
+  compact = false,
 }: {
   series: Series;
   power: PowerResult | null;
@@ -65,6 +66,8 @@ export function TimeBar({
   onCursor: (hour: number) => void;
   dates?: boolean;
   powered?: Uint8Array | null;
+  /** On a phone: no sentence beside the date (the page says it already) and smaller keys, so the bar stays low. */
+  compact?: boolean;
 }) {
   const hours = series.hours;
   const last = Math.max(0, hours - 1);
@@ -124,7 +127,7 @@ export function TimeBar({
             <span data-testid="when" className="text-[17px] font-semibold">
               {dateTimeUtc(startUtc, shown)}
             </span>
-            <span data-testid="status" className="text-[15px] text-ink-2">
+            <span data-testid="status" className={`text-[15px] text-ink-2 ${compact ? 'max-sm:hidden' : ''}`}>
               {statusSentence(series, power, shown, batteryWh)}
             </span>
             {reduced && <span className="text-[15px] text-ink-2">Playback is off because your system asks for reduced motion.</span>}
@@ -133,7 +136,7 @@ export function TimeBar({
               // tall as the Sun's, so all of them keep one baseline. With the dates there are up to four, too
               // many to fit beside a long sentence even on a wide screen: they take a line of their own, so the
               // bar keeps one height while the words change.
-              <span className={dates ? 'flex basis-full flex-wrap items-baseline gap-x-3 sm:justify-end' : 'flex flex-wrap items-baseline gap-x-3 sm:ml-auto'}>
+              <span className={`${dates ? 'flex basis-full flex-wrap items-baseline gap-x-3 sm:justify-end' : 'flex flex-wrap items-baseline gap-x-3 sm:ml-auto'} ${compact ? 'max-sm:gap-x-2 max-sm:[&>span]:text-[13px] max-sm:[&_i]:w-4' : ''}`}>
                 {sunKey}
                 {sunless && (
                   <span data-part="key-no-sun" className="flex items-center gap-2 text-[15px] text-ink-2">
