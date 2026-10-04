@@ -15,7 +15,7 @@ import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong } from '@/lib/viz/format';
-import { betterLabel, keyMoments, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines } from '@/lib/viz/stand';
+import { betterLabel, keyMoments, landerCaption, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates blur what is behind them, so no thin line of the sky shows through the words.
@@ -44,11 +44,13 @@ const LANDER_FOOT_M = 2.1;
 /**
  * Stand on the Moon: the full-window view from the landing site for the site, period and hour of the
  * address (Explore's address plus `hour`). Over the view, one card that keeps its shape: the headline (with
- * how long the night lasts), one line on the lander's power and radio, what to watch next, the better landing
- * day and the way back; "Why this happens" gives the radio story, why the sky looks as it does and how we
- * know, one reason at a time. On a phone the card folds to the headline until "More". The key moments stay
- * as dots when the words are hidden. A lander stands beside the site for scale. Without WebGL 2 it shows the
- * horizon chart with the same words.
+ * how long the night lasts), one line on the lander's power, its battery's level and its radio, what to watch
+ * next, the better landing day and the way back; "Why this happens" gives where the site lies, why the light
+ * and the sky look as they do (the pole first), the radio story and how we know, one reason at a time or all
+ * as one list. On a phone the card folds to the headline until "More". A key moment, chosen from its flag or
+ * passed as the time moves on, gets a line over the view on why; the moments stay as dots when the words are
+ * hidden. A lander stands beside the site for scale. Without WebGL 2 it shows the horizon chart with the same
+ * words.
  */
 export function StandView({ store = exploreStore, createRenderer = defaultRenderer }: { store?: StoreApi<ExploreState>; createRenderer?: (canvas: HTMLCanvasElement, scene: StandScene) => RendererLike }) {
   const s = useStore(store);
@@ -62,18 +64,20 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const [look, setLook] = useState<LookTarget | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [wordsHidden, setWordsHidden] = useState(false);
-  // A key moment chosen from its flag on the time bar: a line over the view says why, for 12 seconds or
-  // until the view is turned another way.
+  // A key moment chosen from its flag on the time bar, or passed as the time moves on (onCursor): a line over
+  // the view says why, for 12 seconds or until the view is turned another way.
   const [caption, setCaption] = useState<string | null>(null);
   useEffect(() => {
     if (!caption) return;
     const id = window.setTimeout(() => setCaption(null), 12000);
     return () => window.clearTimeout(id);
   }, [caption]);
-  // "Why this happens": the radio story, why the sky looks as it does, and how we know, one reason at a time
-  // (`page`), so the card never scrolls inside itself.
+  // "Why this happens": where the site lies, why the light and the sky look as they do, the radio story and how
+  // we know, one reason at a time (`page`), so the card never scrolls inside itself; or all of them as one list
+  // (`allReasons`), for a reader who would rather read them together.
   const [more, setMore] = useState(false);
   const [page, setPage] = useState(0);
+  const [allReasons, setAllReasons] = useState(false);
   // On a phone the card folds to the headline until "More", so the view keeps most of the screen.
   const [cardOpen, setCardOpen] = useState(false);
   // ?quality=fast for weaker graphics: a lower pixel ratio, no drawn detail, coarser shadow steps.
@@ -123,6 +127,22 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   }, [scene]);
   const onFail = useCallback(() => setFailed('webgl'), []);
   const onReady = useCallback(() => setDrawn(true), []);
+  // The time bar moves the time (Play each hour, the slider, a key): moved forward by two days or less across a
+  // key moment, the line over the view says why, as the moment's flag does, but the view stays where it is. Of
+  // the moments passed, the last. Done here as the time moves rather than in an effect on the hour; it reads
+  // the store when called, so it never changes and Play's timer is not set again every hour.
+  const onCursor = useCallback(
+    (to: number) => {
+      const from = store.getState().cursorHour;
+      store.getState().setCursor(to);
+      const st = store.getState();
+      const at = st.cursorHour;
+      if (!st.site || !st.series || at <= from || at - from > 48) return;
+      const passed = keyMoments(st.series, st.power, st.startUtc).filter((m) => from < m.hour && m.hour <= at).at(-1);
+      if (passed) setCaption(momentCaption(passed.kind, st.series, passed.hour, st.site.lat) || null);
+    },
+    [store],
+  );
 
   // The time bar and the phone's look buttons change height with the width and the words: what sits above
   // them reads their measured heights (--bar-h, --look-h) instead of fixed offsets.
@@ -172,7 +192,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const oneLine = name.replace(/ /g, ' ');
   // Without NASA heights the ground is drawn flat, and the line above the headline says so.
   const flat = !!scene && scene.field.levels.length === 0;
-  const lander = statusLine(series, power, s.startUtc, hour);
+  // With the battery's level while it has power, as the forecast page gives it.
+  const lander = statusLine(series, power, s.startUtc, hour, s.params.power.batteryWh);
   // The better landing day opens its own view, from its first hour; the button says why it is better.
   const better =
     answer.better && s.best
@@ -218,10 +239,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // The radio story: no contact while it has power from the landing, and when power and Earth meet.
   const contact = answer.poweredHours > 0 ? answer.sentences[0] : null;
   const radio = radioNext(series, power, s.startUtc);
-  // "Why this happens", one reason a page: the radio story first, then where the site is and why the light and
-  // the sky look as they do, and how we know last.
+  // "Why this happens", one reason a page or all as a list: where the site lies first, then why the light and
+  // the sky look as they do (the pole first among them), then the radio story, and how we know last.
   const reasons: { title?: string; text: string }[] = [
-    ...[radio ?? contact, standingLine(site, name, 'more'), ...whyLines(site.lat, series, hour)].filter((t): t is string => !!t).map((text) => ({ text })),
+    ...[standingLine(site, name, 'more'), ...whyLines(site.lat, series, hour), radio ?? contact].filter((t): t is string => !!t).map((text) => ({ text })),
     ...(note ? [{ title: 'How we know this', text: note }] : []),
   ];
   const shownPage = Math.min(page, reasons.length - 1);
@@ -258,9 +279,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     setLook({ yaw: cross ? cross.az : (series.sunAz[hour] + 180) % 360, pitch: cross ? Math.max(42, Math.min(70, cross.el - 4)) : 50, fov: 62 });
   };
   const crossNamed = !!scene && scene.sky.names?.some((n) => n.name === 'Acrux');
-  // The line over the view: why a key moment happens, why Earth sits where it does, what looking up shows,
-  // or, at night, where the light comes from: Earth's, or, with neither the Sun nor Earth up, none (and why
-  // farther hills can still be lit).
+  // The line over the view, two lines at most: why a key moment happens, why Earth sits where it does, what
+  // looking up shows, or, at night, where the light comes from: Earth's, or, with neither the Sun nor Earth in
+  // view, none (why farther hills can still be lit is left to "Why this happens").
   const overView =
     caption ??
     (lookingUp
@@ -268,7 +289,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       : series.sunFraction[hour] === 0
         ? series.earthVisible[hour] === 1
           ? viewCaption('earthlight', site.lat)
-          : viewCaption('dark', site.lat, series.sunEl[hour])
+          : viewCaption('dark', site.lat)
         : null);
 
   return (
@@ -364,19 +385,40 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             </div>
             {more && reasons.length > 0 && (
               <div className="grid gap-2 border-t border-white/10 pt-3 text-[15px] text-[#e4e1da]">
-                <div data-reason="" aria-live="polite">
-                  {reasons[shownPage].title && <p className="font-semibold text-[#f2f0ea]">{reasons[shownPage].title}</p>}
-                  <p>{reasons[shownPage].text}</p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4 disabled:no-underline disabled:opacity-40" disabled={shownPage === 0} onClick={() => setPage(shownPage - 1)}>
-                    Previous reason
-                  </button>
-                  <span className="text-[14px] text-[#c3bfb6]">
-                    {shownPage + 1} of {reasons.length}
-                  </span>
-                  <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4 disabled:no-underline disabled:opacity-40" disabled={shownPage === reasons.length - 1} onClick={() => setPage(shownPage + 1)}>
-                    Next reason
+                {allReasons ? (
+                  // All the reasons as one list, in the same order.
+                  <ul className="grid gap-2">
+                    {reasons.map((r) => (
+                      <li key={r.text}>
+                        {r.title && <p className="font-semibold text-[#f2f0ea]">{r.title}</p>}
+                        <p>{r.text}</p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div data-reason="" aria-live="polite">
+                    {reasons[shownPage].title && <p className="font-semibold text-[#f2f0ea]">{reasons[shownPage].title}</p>}
+                    <p>{reasons[shownPage].text}</p>
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  {!allReasons && (
+                    <>
+                      <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4 disabled:no-underline disabled:opacity-40" disabled={shownPage === 0} onClick={() => setPage(shownPage - 1)}>
+                        Previous reason
+                      </button>
+                      <span className="text-[14px] text-[#c3bfb6]">
+                        {shownPage + 1} of {reasons.length}
+                      </span>
+                      <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4 disabled:no-underline disabled:opacity-40" disabled={shownPage === reasons.length - 1} onClick={() => setPage(shownPage + 1)}>
+                        Next reason
+                      </button>
+                    </>
+                  )}
+                  {/* Beside the pager, the way between the page and the list. Its words say what it does, so it
+                      carries no pressed state: a toggle's words must not change with its state. */}
+                  <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4" onClick={() => setAllReasons((all) => !all)}>
+                    {allReasons ? 'One at a time' : 'Show all reasons'}
                   </button>
                 </div>
               </div>
@@ -414,7 +456,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     className={LOOK}
                     onClick={() => {
                       faceLander();
-                      setCaption(`${viewCaption('lander', site.lat)}${panelBackSeen ? ' From here you see its back: its cells face the Sun.' : ''}`);
+                      setCaption(landerCaption(site.lat, panelBackSeen));
                     }}
                   >
                     <Short short="Lander" long="Face the lander" />
@@ -452,7 +494,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
 
       <div ref={barRef} data-plate="" className="fixed inset-x-0 bottom-0">
         {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
-        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} ifSurvivesFrom={ifSurvivesFrom} clockNote=" (Earth time)" />
+        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={onCursor} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} ifSurvivesFrom={ifSurvivesFrom} clockNote=" (Earth time)" />
       </div>
     </main>
   );
