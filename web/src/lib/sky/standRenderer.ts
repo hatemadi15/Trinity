@@ -469,7 +469,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     }
     const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setIndex(idx);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity, depthWrite: false, depthTest: !faint, side: THREE.DoubleSide, toneMapped: false }));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour, ...BLENDED, opacity, depthWrite: false, depthTest: !faint, side: THREE.DoubleSide, toneMapped: false }));
     mesh.frustumCulled = false;
     mesh.renderOrder = faint ? ORDER.FAINT : ORDER.SOLID;
     guides.add(mesh);
@@ -526,7 +526,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
           g.stroke();
         }),
         color: colour,
-        transparent: true,
+        ...BLENDED,
         depthTest: false,
         depthWrite: false,
         toneMapped: false,
@@ -1067,11 +1067,18 @@ const cellsTexture = () =>
   });
 
 /**
- * The order the guides draw in, after everything solid (three.js draws the transparent things last, by this
- * order): the faint bands, then the solid ones, then the rings on hidden bodies; and after them all the lander, so
- * that it covers them where it stands in front of them.
+ * The order the guides draw in, after the ground (all of them with the solid things, by this order): the faint bands,
+ * then the solid ones, then the rings on hidden bodies; and after them all the lander, so that it covers them where it
+ * stands in front of them.
  */
 const ORDER = { FAINT: 1, SOLID: 2, RINGS: 3, LANDER: 4 } as const;
+/**
+ * The guides' blending: as three.js's normal blending, but set as a custom one, so three.js draws them with the solid
+ * things (in ORDER, after the ground and before the lander) rather than in its transparent pass after everything
+ * solid. A lander drawn in that pass, after the guides, went missing from the arrival's view once the flight had passed
+ * over the cap (the finest ground's depth came out in front of it there, though not for a solid lander drawn last).
+ */
+const BLENDED = { transparent: false, blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor } as const;
 
 /**
  * A small solar lander, drawn for scale (not measured), from the numbers its shadow is cast from (LANDER):
@@ -1173,17 +1180,9 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
   const lamp = new THREE.MeshBasicMaterial({ color: 0x46c98b });
   add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), lamp), lampPos.x, lampPos.y, lampPos.z);
   // Drawn after the guides (ORDER), so it covers the paths, the level horizon and the rings that show through the
-  // ground behind it: with the transparent things, which three.js draws last, but solid (opacity 1), and tested and
-  // written in depth as before, so the hills still hide it and its parts hide each other as they did.
+  // ground behind it; solid, and tested and written in depth, so the hills still hide it and its parts hide each other.
   group.traverse((o) => {
-    const m = o as THREE.Mesh;
-    if (!m.isMesh) return;
-    m.renderOrder = ORDER.LANDER;
-    for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
-      mat.transparent = true;
-      // Each face once, as a solid thing is drawn: two-sided transparent things are drawn back faces first.
-      mat.forceSinglePass = true;
-    }
+    if ((o as THREE.Mesh).isMesh) o.renderOrder = ORDER.LANDER;
   });
   return { group, lamp, panel, dish, lampPos };
 }

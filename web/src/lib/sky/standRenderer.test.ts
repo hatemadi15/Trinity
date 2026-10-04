@@ -646,6 +646,14 @@ describe('the guides', () => {
     // the depth of the ground drawn before it, so the hills still hide it as they hide the rest.
     const lander = drawn(s.parts.lander!);
     expect(lander.length).toBeGreaterThan(20);
+    // Every part of it drawn with the solid things, the guides as well (blended over what is drawn before them, by the
+    // same sum as three.js's normal blending): a lander drawn in three.js's transparent pass went missing from the
+    // arrival's view after the flight had passed over the cap.
+    for (const part of lander) expect(part.material.transparent).toBe(false);
+    for (const guide of drawn(s.parts.guides)) {
+      expect(guide.material.transparent).toBe(false);
+      expect(guide.material.blending).toBe(THREE.CustomBlending);
+    }
     for (const part of lander) {
       expect([part.material.opacity, part.material.depthTest, part.material.depthWrite]).toEqual([1, true, true]);
       for (const guide of drawn(s.parts.guides)) expect(drawsAfter(part, guide)).toBe(true);
