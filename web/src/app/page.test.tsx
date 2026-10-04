@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { HOME } from '@/lib/data/home';
 import Home from './page';
+
+// The arrival's live stage needs WebGL; the page's words and stills render without it.
+vi.mock('@/components/home/ArrivalCanvas', () => ({ default: () => null }));
 
 const HEADLINE = 'See when a Moon lander has sunlight and a signal.';
 const pct = (n: number) => `${n} %`;
@@ -12,10 +15,13 @@ describe('home page', () => {
     render(<Home />);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(HEADLINE);
     const hero = screen.getByRole('region', { name: HEADLINE });
+    // The arrival's first screen and its last each hold one gold action: explore a landing site, then this one.
     const gold = hero.querySelectorAll('.btn-primary');
-    expect(gold).toHaveLength(1);
-    expect(gold[0].textContent).toBe('Explore a landing site');
-    expect(gold[0].getAttribute('href')).toBe('/sites');
+    expect([...gold].map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['Explore a landing site', '/sites'],
+      ['Explore this site', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
+    ]);
+    for (const beat of hero.querySelectorAll('[data-beat]')) expect(beat.querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
     expect(within(hero).getByText('For mission planners, educators and anyone curious.')).toBeTruthy();
     // The promise in the words of the answer it leads to.
     expect(hero.textContent).toMatch(/how long a solar lander keeps power there\./);
@@ -24,8 +30,7 @@ describe('home page', () => {
 
   it('opens on a real forecast: the Sun and Earth over one month at the site, each with the hidden stretch in words', () => {
     render(<Home />);
-    const hero = screen.getByRole('region', { name: HEADLINE });
-    const band = within(hero).getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
+    const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     const sun = within(band).getByRole('img', { name: /^The Sun at de Gerlache Rim 2, January 2027/ });
     const earth = within(band).getByRole('img', { name: /^Earth from de Gerlache Rim 2, January 2027/ });
     expect(sun.getAttribute('aria-label')).toMatch(/hidden from 3 Jan to 20 Jan, 16 days 15 hours/);
@@ -157,8 +162,8 @@ describe('home page', () => {
     const cta = within(end).getByRole('link', { name: 'Explore a landing site' });
     expect(cta.getAttribute('href')).toBe('/sites');
     expect(cta.className).toMatch(/btn-primary/);
-    // Two gold buttons on the page, never on one screen: the top and the end.
-    expect(document.querySelectorAll('main .btn-primary')).toHaveLength(2);
+    // Three gold buttons on the page, never two on one screen: the first screen, the arrival's last, the end.
+    expect(document.querySelectorAll('main .btn-primary')).toHaveLength(3);
   });
 
   it('underlines the links that stand alone, so they do not read as plain text', () => {

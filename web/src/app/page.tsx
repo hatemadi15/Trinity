@@ -1,9 +1,11 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { AppFrame } from '@/components/AppFrame';
+import { Arrival } from '@/components/home/Arrival';
 import { WhySection } from '@/components/home/WhySection';
 import { SkyRow, SkyRowKey } from '@/components/SkyRow';
 import { degreesText, HOME, PLACES, thousandsText } from '@/lib/data/home';
+import { arrivalWords } from '@/lib/viz/arrival';
 import { dateLong, spanWords } from '@/lib/viz/format';
 
 /** An outcome tag states how a place turned out; it is an outline, so the page stays three tones. */
@@ -59,61 +61,38 @@ export default function Home() {
   return (
     <AppFrame>
       <main>
-        <section aria-labelledby="h-hero">
-          <div className="wrap pb-6 pt-8">
-            <h1 id="h-hero" className="display max-w-[1100px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[72px]">
-              See when a Moon lander has sunlight and a signal.
-            </h1>
-            <div className="mt-6 flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
-              <p className="max-w-[35em] text-lg leading-relaxed text-ink-2 sm:text-[19px]">
-                At the Moon&apos;s south pole the Sun and Earth never climb high. They skim the horizon, and one hill can hide them for weeks. Pick a landing site and a
-                date: Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and how long a solar lander keeps power there.
-              </p>
-              <div className="shrink-0">
-                <div className="flex flex-wrap gap-3">
-                  <Link href="/sites" className="btn btn-primary h-[52px] px-[22px] text-[17px]">
-                    Explore a landing site
-                  </Link>
-                  <a href="#why" className="btn h-[52px] px-[22px] text-[17px]">
-                    See how it works
-                  </a>
-                </div>
-                <p className="mt-3 text-base text-ink-2">For mission planners, educators and anyone curious.</p>
-              </div>
-            </div>
-          </div>
-          {/* The forecast runs from edge to edge on a black band, a window onto the Moon in both themes. Its side labels line up with the page gutter. */}
-          <figure aria-labelledby="h-forecast" data-stage="" className="border-y border-stage-edge bg-stage pb-7 pt-4 text-stage-ink [--chart-inset:16px] sm:[--chart-inset:32px]">
-            <figcaption className="wrap">
-              <p id="h-forecast" className="text-[17px] font-semibold">
-                A real forecast: {hero.name}, January 2027
-              </p>
-              <p className="mt-1 max-w-[42em] text-base text-stage-ink">
-                A ridge NASA shortlisted for astronauts. Read it from left to right, one day at a time. Heights are angles above the horizon: 5° is about the width of three fingers held
-                at arm&apos;s length. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day.
-              </p>
-              <SkyRowKey body="both" className="mt-2.5 text-stage-ink-2" />
-            </figcaption>
-            <div className="mt-2">
-              <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} ticks={false} fitHills reveal />
-              <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} reveal />
-            </div>
-            {/* What the forecast means for a lander: the promise of the headline, in one sentence. */}
-            <p className="wrap pt-4 text-[17px] font-medium text-stage-ink">
-              A small lander ({battery.lander.area_m2} m² of solar panels, {battery.lander.battery_wh / 1000} kWh battery) landing on {dateLong(sky.start_utc, 0)} keeps power for{' '}
-              {spanWords(battery.now_hours)}
-              {battery.best_hour !== null && battery.best_hours !== null && battery.best_hours > battery.now_hours
-                ? `; landing on ${dateLong(sky.start_utc, battery.best_hour)}, for ${spanWords(battery.best_hours)}.`
-                : '.'}
+        <Arrival words={arrivalWords()} />
+        {/* The forecast runs from edge to edge on a black band, a window onto the Moon in both themes. Its side labels line up with the page gutter. */}
+        <figure aria-labelledby="h-forecast" data-stage="" className="border-y border-stage-edge bg-stage pb-7 pt-4 text-stage-ink [--chart-inset:16px] sm:[--chart-inset:32px]">
+          <figcaption className="wrap">
+            <p id="h-forecast" className="text-[17px] font-semibold">
+              A real forecast: {hero.name}, January 2027
             </p>
-            <div className="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 pt-8 text-[15px] text-stage-ink-2">
-              <p className="max-w-[62em]">Computed from NASA&apos;s elevation map of the Moon and NASA&apos;s positions of the Sun and Earth.</p>
-              <Link href={siteLink} className={`${LINK} whitespace-nowrap text-stage-ink`}>
-                Explore {hero.name}
-              </Link>
-            </div>
-          </figure>
-        </section>
+            <p className="mt-1 max-w-[42em] text-base text-stage-ink">
+              A ridge NASA shortlisted for astronauts. Read it from left to right, one day at a time. Heights are angles above the horizon: 5° is about the width of three fingers held
+              at arm&apos;s length. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day.
+            </p>
+            <SkyRowKey body="both" className="mt-2.5 text-stage-ink-2" />
+          </figcaption>
+          <div className="mt-2">
+            <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} ticks={false} fitHills reveal />
+            <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} reveal />
+          </div>
+          {/* What the forecast means for a lander: the promise of the headline, in one sentence. */}
+          <p className="wrap pt-4 text-[17px] font-medium text-stage-ink">
+            A small lander ({battery.lander.area_m2} m² of solar panels, {battery.lander.battery_wh / 1000} kWh battery) landing on {dateLong(sky.start_utc, 0)} keeps power for{' '}
+            {spanWords(battery.now_hours)}
+            {battery.best_hour !== null && battery.best_hours !== null && battery.best_hours > battery.now_hours
+              ? `; landing on ${dateLong(sky.start_utc, battery.best_hour)}, for ${spanWords(battery.best_hours)}.`
+              : '.'}
+          </p>
+          <div className="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 pt-8 text-[15px] text-stage-ink-2">
+            <p className="max-w-[62em]">Computed from NASA&apos;s elevation map of the Moon and NASA&apos;s positions of the Sun and Earth.</p>
+            <Link href={siteLink} className={`${LINK} whitespace-nowrap text-stage-ink`}>
+              Explore {hero.name}
+            </Link>
+          </div>
+        </figure>
 
         <WhySection />
 
