@@ -4,19 +4,17 @@
  */
 
 /**
- * The progress of each key: the Moon, the pole, the pole again (the sweep's end), the cap, the ridge, standing,
- * and standing at the end of the month at the site.
+ * The progress of each key: the Moon, the pole, the pole again (the camera rests over it while its words are read),
+ * the cap, the ridge, standing, and standing at the end of the month at the site.
  */
 export const STOPS = [0, 1, 1.5, 2, 3, 4, 5] as const;
 /** The flight's last stop and the arrival's: standing at the end of the month at the site. */
 export const LAST = 5;
 /**
- * Where each beat's words stand, a screen each: the first screen, the pole mid-sweep, the cap, the ridge,
- * standing, the month at the site half run, its end.
+ * Where each beat's words stand, a screen each: the first screen, the pole, the cap, the ridge, standing, the
+ * month at the site half run, its end.
  */
 export const BEAT_STOPS = [0, 1.25, 2, 3, 4, 4.5, 5] as const;
-/** While the camera holds over the pole the hours run through one synodic month: the Sun goes once round. */
-export const SWEEP = { from: 1, to: 1.5, hours: 708.73 } as const;
 /** After landing the hours run on at the site, at an even pace, to the end of the story (`siteEndHour`). */
 export const SITE = { from: 4, to: 5 } as const;
 /** Seconds of play from stop to stop: fifteen to standing, the video's first fifteen seconds, then six through the month. */
@@ -25,12 +23,14 @@ export const PLAY = [3, 3.5, 2, 3, 3.5, 6] as const;
 /** 0 to 1 with no speed at either end: the camera rests at each stop. */
 export const smoother = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 
-/** The hour shown at progress `p`: the landing hour, the month's sweep over the pole, then the month at the site. */
+/**
+ * The hour shown at progress `p`: the landing hour all the way down (the camera holds over the pole a moment, at
+ * that hour), then the month at the site, once and in order.
+ */
 export function hourAt(p: number, startHour: number, reduced = false, siteEndHour = startHour): number {
   if (p >= SITE.to) return siteEndHour;
-  if (p > SITE.from) return reduced ? startHour : startHour + ((siteEndHour - startHour) * (p - SITE.from)) / (SITE.to - SITE.from);
-  if (reduced || p <= SWEEP.from || p >= SWEEP.to) return startHour;
-  return startHour + SWEEP.hours * smoother((p - SWEEP.from) / (SWEEP.to - SWEEP.from));
+  if (p > SITE.from && !reduced) return startHour + ((siteEndHour - startHour) * (p - SITE.from)) / (SITE.to - SITE.from);
+  return startHour;
 }
 
 /** Straight between the beats' stops: screen k is beat k. */

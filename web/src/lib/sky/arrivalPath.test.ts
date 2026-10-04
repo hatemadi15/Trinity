@@ -6,7 +6,7 @@ import { aimAt, flightKeys, moonCentre, polePoint, poseAt, siteEndHour, siteTrac
 import { HERO_HOUR, hero } from '@/lib/viz/arrival';
 import { keyMoments } from '@/lib/viz/stand';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
-import { BEAT_STOPS, hourAt, PLAY, playProgress, playSeconds, progressFromScroll, scrollFromProgress, STOPS, SWEEP } from './arrivalTiming';
+import { BEAT_STOPS, hourAt, PLAY, playProgress, playSeconds, progressFromScroll, scrollFromProgress, STOPS } from './arrivalTiming';
 
 const level = (x: number, z: number) => -(x * x + z * z) / (2 * R_MOON_M);
 const e = dirAzEl(71.09, -5.95), km = 393550e3;
@@ -172,11 +172,8 @@ describe('the flight', () => {
     }
   });
 
-  it('sweeps one synodic month while it holds over the pole, and none with reduced motion', () => {
-    expect(hourAt(0.5, 10)).toBe(10);
-    expect(hourAt(SWEEP.from + 0.25, 10)).toBeCloseTo(10 + SWEEP.hours / 2, 6);
-    expect(hourAt(SWEEP.to - 1e-9, 10)).toBeCloseTo(10 + SWEEP.hours, 3);
-    expect(hourAt(1.25, 10, true)).toBe(10);
+  it('keeps the landing hour over the pole: the month runs once, in order, at the site after landing', () => {
+    for (const p of [0.5, 1, 1.25, 1.5, 2, 3, 4]) expect(hourAt(p, 10, false, 586)).toBe(10);
   });
 
   it('maps scroll to progress beat by beat, and plays fifteen seconds from the first screen to standing, then six through the month at the site', () => {

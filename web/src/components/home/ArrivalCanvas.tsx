@@ -7,7 +7,7 @@ import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { contextFileFor, loadHeightmap, loadTerrainManifest, shadowLevels, windowFileFor, type Heightmap } from '@/lib/data/terrain';
 import type { Level } from '@/lib/engine/shadow';
 import { flightKeys, polePoint, poseAt, siteEndHour, siteTrack, type Key, type PathInput } from '@/lib/sky/arrivalPath';
-import { hourAt, SITE, SWEEP } from '@/lib/sky/arrivalTiming';
+import { hourAt, SITE } from '@/lib/sky/arrivalTiming';
 import { dirAzEl, enuBasis, type Vec3 } from '@/lib/sky/frames';
 import { eyeAt, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
@@ -123,7 +123,7 @@ const EDGE_IN_PX = 12;
 /**
  * The arrival's live stage: the Moon from space down to the stand view, by the flight's progress. It starts
  * on the sky and the globe and swaps in the measured ground when it comes; labels name Earth and the pole from
- * space, the site on the way down and the Sun once standing; during the month's sweep a line gives the date.
+ * space, the site on the way down and the Sun once standing; through the month at the site a line gives the date.
  */
 export default function ArrivalCanvas({ progress, reduced, capture = false, onLive, onFail, createRenderer = newRenderer, loaders }: StageProps) {
   const h = useMemo(() => hero(), []);
@@ -369,13 +369,12 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       point(earthEdgeRef.current, earthArrowRef.current, p > 3.8 && !earthNow.inView ? earthNow.v : null);
       const d = dateRef.current;
       if (d) {
-        const atSite = p > SITE.from;
-        d.hidden = !((p > SWEEP.from && p < SWEEP.to) || atSite);
+        d.hidden = p <= SITE.from;
         if (!d.hidden) {
           const day = dateLong(h.startUtc, Math.round(hour)), dated = /\d{4}$/.test(day) ? day : `${day} ${h.startUtc.slice(0, 4)}`;
-          // The month runs by in a few seconds: the chip says so, so the light going round reads as time passing;
-          // at the site it names each moment for a day or so after it passes.
-          const recent = atSite ? [...moments].reverse().find((m) => m.hour <= hour && hour - m.hour < 30) : undefined;
+          // The month runs by in a few seconds: the chip says so, so the light going round reads as time passing,
+          // and it names each moment for a day or so after it passes.
+          const recent = [...moments].reverse().find((m) => m.hour <= hour && hour - m.hour < 30);
           d.textContent = `${dated}: ${recent ? recent.label : 'a month, sped up'}`;
         }
       }

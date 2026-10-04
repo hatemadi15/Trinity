@@ -177,8 +177,8 @@ describe('the arrival’s live stage', () => {
     // On the view's edge, inset so the chip stays whole.
     const x = parseFloat(edge.style.left), y = parseFloat(edge.style.top);
     expect(Math.min(x, 100 - x, y, 100 - y)).toBeLessThan(12);
-    // The month's date, with its year, and that the month runs fast.
-    expect(screen.getByText(/^\d{1,2} January 2027: a month, sped up$/)).toBeTruthy();
+    // Over the pole the hour holds (the month runs once, at the site after landing): no date's chip yet.
+    expect(screen.queryByText(/January 2027:/)).toBeNull();
     // In view (standing, the Sun to the right of the middle), the Sun's own label instead.
     sunSeen = true;
     progress.current = 4;

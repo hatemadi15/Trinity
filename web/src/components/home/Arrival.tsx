@@ -9,8 +9,7 @@ import type { StageProps } from './ArrivalCanvas';
 
 // three.js comes with the stage, after the page's words: nothing on this module's import path pulls it in.
 const LiveStage = dynamic(() => import('./ArrivalCanvas'), { ssr: false });
-/** The first screen and the four beats, a screen of scrolling each. */
-/** Screens in the arrival, a beat each: the Moon, the pole's month, the cap, the ridge, standing, the month at the site, the answer. */
+/** Screens in the arrival, a beat each: the Moon, the pole, the cap, the ridge, standing, the month at the site, the answer. */
 const BEATS = BEAT_STOPS.length;
 const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/85 backdrop-blur-sm';
 const SENTENCE = 'display text-balance text-[28px] leading-[1.08] sm:text-[36px]';
