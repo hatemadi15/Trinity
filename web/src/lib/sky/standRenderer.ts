@@ -617,8 +617,12 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   let bounceNow = 0;
   function applyLight() {
     const { sunFraction, full, earthUp } = lightNow, eyeOnly = 1 - aloftNow;
-    const earthshine = earthUp ? 0.25 * full * (1 + 3 * (1 - sunFraction) * eyeOnly) : 0;
+    // Standing, Earth lights the ground only while it is up at the site (brightened at night like a long
+    // exposure); from the air each slope takes its light as it faces Earth, Earth up over it or not, so the
+    // night side reads faintly as ground. The globe gets the same, by the same rule.
+    const earthshine = earthUp ? 0.25 * full * (1 + 3 * (1 - sunFraction) * eyeOnly) : 0.25 * full * aloftNow;
     const night = nightFloor(sunFraction, earthshine) * eyeOnly;
+    if (globe) globe.material.uniforms.uEarthshine.value = 0.25 * full;
     for (const g of ground) {
       const u = (g.material as THREE.ShaderMaterial).uniforms;
       u.uEarthshine.value = earthshine;
@@ -741,8 +745,6 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     placeEarth();
     standing(alt < STANDING_M);
     measured(!flight || alt < MEASURED_M);
-    // The globe's earthlit night glow fades out from twice the height the measured ground comes in at, down to it.
-    if (globe) (globe.material.uniforms.uGlow as THREE.IUniform<number>).value = flight ? Math.min(1, Math.max(0, (alt - MEASURED_M) / MEASURED_M)) : 1;
     spaceNow = flight ? Math.min(1, Math.max(0, (alt - 30e3) / (600e3 - 30e3))) : 0;
     const aloft = Math.min(1, Math.max(0, (alt - ALOFT_M) / (5000 - ALOFT_M)));
     if (aloft !== aloftNow) {

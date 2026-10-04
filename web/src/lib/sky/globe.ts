@@ -103,7 +103,7 @@ void main() {
 export const GLOBE_FRAG = /* glsl */ `
 precision highp float;
 uniform sampler2D uColor, uNormal, uHeights;
-uniform float uColorOn, uNormalOn, uRadius, uAlbedoScale, uSunPower, uEarthshine, uGlow, uCut, uBlendM;
+uniform float uColorOn, uNormalOn, uRadius, uAlbedoScale, uSunPower, uEarthshine, uCut, uBlendM;
 uniform vec3 uSun, uSunMe, uEarthMe, uSiteMe; uniform mat3 uToWorld;
 varying vec3 vDir; varying vec2 vUv; varying vec3 vWorld;
 #include <logdepthbuf_pars_fragment>
@@ -141,9 +141,11 @@ void main() {
   // in the 250 km beyond, so the cut leaves no step in brightness.
   if (uBlendM > 0.0) albedo = mix(vec3(0.17, 0.164, 0.156), albedo, smoothstep(uBlendM, uBlendM + 250000.0, acos(clamp(dot(up, uSiteMe), -1.0, 1.0)) * uRadius));
   vec3 col = albedo * vec3(1.0, 0.99, 0.975) * uSunPower * (mu0 / (mu0 + mu)) * phase * surge * vis;
-  // Earthshine: the night side faintly lit by Earth, more as Earth is fuller; faded out (uGlow) as the measured
-  // ground comes in, whose night side is lit by Earth only where Earth is up at the site.
-  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * uGlow * max(dot(nMe, normalize(uEarthMe)), 0.0);
+  // Earthshine: the night side faintly lit by Earth, more as Earth is fuller, by the measured ground's rule (the
+  // slopes facing Earth shine, a faint glow over the rest), so the two match where they meet.
+  float mue = max(dot(nMe, normalize(uEarthMe)), 0.0);
+  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.9 * mue / (mue + mu);
+  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * 0.07;
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -177,7 +179,6 @@ export function buildGlobe(o: { basis: Basis; siteHeightM: number; assets: Globe
       uAlbedoScale: { value: o.assets.albedoScale },
       uSunPower: { value: 3.4 },
       uEarthshine: { value: 0 },
-      uGlow: { value: 1 },
       uBlendM: { value: -1 },
       uCut: { value: o.cutM > 0 ? Math.cos(o.cutM / R_MOON_M) : 2 },
       uSun: { value: new THREE.Vector3(1, 0, 0) },
@@ -221,7 +222,8 @@ export function buildGlobe(o: { basis: Basis; siteHeightM: number; assets: Globe
       material.uniforms.uSun.value.set(...sunWorld);
       material.uniforms.uSunMe.value.copy(v.set(...sunWorld).applyMatrix3(back)).normalize();
       material.uniforms.uEarthMe.value.copy(v.set(...earthWorld).applyMatrix3(back)).normalize();
-      material.uniforms.uEarthshine.value = 0.03 * earthLit;
+      // As the measured ground takes it from the air (standRenderer's applyLight).
+      material.uniforms.uEarthshine.value = 0.25 * earthLit;
     },
     setCut(on) {
       material.uniforms.uCut.value = on && o.cutM > 0 ? Math.cos(o.cutM / R_MOON_M) : 2;

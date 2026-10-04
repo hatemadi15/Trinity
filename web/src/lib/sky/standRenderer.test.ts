@@ -826,16 +826,17 @@ describe('the stand scene in flight', () => {
     expect(g.uniforms.uBlendM.value).toBeLessThan(0);
   });
 
-  it('fades the globe’s earthlit night glow out as the measured ground comes in, so its edge leaves no ring on the night side', () => {
-    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
-    const glow = (s.parts.globe!.material as THREE.ShaderMaterial).uniforms.uGlow;
-    s.setPose(at([0, 9.0e6, 0]), 1.6);
-    expect(glow.value).toBe(1);
+  it('lights the night side faintly by Earth from the air, the measured ground and the globe alike, so it reads as ground and their join shows no ring', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100), series: hourly(3, () => 300, () => -5, () => 70, () => -6) }));
+    const ground = (s.parts.ground[2].material as THREE.ShaderMaterial).uniforms, sphere = (s.parts.globe!.material as THREE.ShaderMaterial).uniforms;
+    s.update(0); // the Sun and Earth both below the site's horizon
+    s.setView(300, 2, 60, 1.6);
+    expect(ground.uEarthshine.value).toBe(0); // standing: Earth is down here
     s.setPose(at([0, 9.0e5, 0]), 1.6);
-    expect(glow.value).toBe(0);
-    s.setPose(at([0, 2.4e6, 0]), 1.6);
-    expect(glow.value).toBeGreaterThan(0);
-    expect(glow.value).toBeLessThan(1);
+    // From the air each slope takes Earth's light as it faces Earth; the globe the same, by the same rule.
+    expect(ground.uEarthshine.value).toBeGreaterThan(0);
+    expect(sphere.uEarthshine.value).toBeCloseTo(ground.uEarthshine.value, 9);
+    expect((s.parts.globe!.material as THREE.ShaderMaterial).fragmentShader).toContain('uEarthshine * 0.9 * mue / (mue + mu)');
   });
 
   it('draws the far craters on every level of the measured ground, the near detail on the finest alone, and neither when the view is set to fast', () => {
