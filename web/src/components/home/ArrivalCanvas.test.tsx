@@ -197,6 +197,24 @@ describe('the arrival’s live stage', () => {
     expect(edge.textContent).toMatch(/^Earth, \d+(\.\d)?° below the horizon/);
   });
 
+  it('turns a label beside its point to the other side where it would run off the view, as on a phone', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      // The view 390 wide; a label beside its point reaching past its right edge unless turned.
+      const b = this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 390, bottom: 844 } : this.hasAttribute('data-flip') ? { left: 100, top: 400, right: 300, bottom: 424 } : { left: 300, top: 400, right: 500, bottom: 424 };
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const earth = await screen.findByText(/^Earth, [\d,]+ km away$/);
+      await waitFor(() => expect(earth.hasAttribute('data-flip')).toBe(true));
+      expect(earth.hidden).toBe(false);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
   it('gives way to the stills when the Moon’s files do not load, and lets the renderer go when it leaves', async () => {
     const { r } = stub();
     const onFail = vi.fn();

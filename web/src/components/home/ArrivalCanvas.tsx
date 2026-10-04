@@ -101,13 +101,15 @@ export function pathInput(h: Hero, scene: StandScene, aspect: number): PathInput
 const CHIP = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[15px]';
 /** A label over what it names, with a dot on the point; or beside it, to its right. */
 const LABEL = `${CHIP} -translate-x-1/2 -translate-y-[130%]`;
-const LABEL_RIGHT = `${CHIP} translate-x-3 -translate-y-1/2`;
-/** Beside Earth, clear of its disc (at most about 60 px across). */
-const LABEL_BESIDE_EARTH = `${CHIP} translate-x-[36px] -translate-y-1/2`;
+const LABEL_RIGHT = `${CHIP} group translate-x-3 -translate-y-1/2 data-[flip]:-translate-x-[calc(100%+12px)]`;
+/** Beside Earth, clear of its disc (at most about 60 px across). Either turns to the left where it would run off the view. */
+const LABEL_BESIDE_EARTH = `${CHIP} translate-x-[36px] -translate-y-1/2 data-[flip]:-translate-x-[calc(100%+36px)]`;
 const DOT = 'absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current';
+/** The dot of a label beside its point: on the label's left, or its right when the label turns. */
+const SIDE_DOT = `${DOT} -left-3 top-1/2 group-data-[flip]:left-auto group-data-[flip]:-right-3 group-data-[flip]:translate-x-1/2`;
 type Tag = 'earth' | 'pole' | 'site' | 'sun';
-/** How far in from the view's edge the pointer to an unseen Sun stands, in pixels. */
-const EDGE_IN_PX = 56;
+/** How far a pointer to a body out of view stands in from the view's edge, beyond half its own size, in pixels. */
+const EDGE_IN_PX = 12;
 
 /**
  * The arrival's live stage: the Moon from space down to the stand view, by the flight's progress. It starts
@@ -225,6 +227,11 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       if (!n.hidden && at) {
         n.style.left = `${at.x * 100}%`;
         n.style.top = `${at.y * 100}%`;
+        // A label beside its point turns to the other side where it would run off the view.
+        if (k === 'earth' || k === 'pole') {
+          n.removeAttribute('data-flip');
+          if (n.getBoundingClientRect().right > el.getBoundingClientRect().right - 4) n.setAttribute('data-flip', '');
+        }
         const b = n.getBoundingClientRect();
         if (meets(b, words) || meets(b, placed)) n.hidden = true;
         else placed.push(b);
@@ -273,9 +280,12 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         chip.hidden = true;
         const len = v ? Math.hypot(v.x, v.y) : 0;
         if (!drawn || !v || len < 1e-6) return;
-        // From the point the camera looks at, out towards the body to the edge.
-        const ux = v.x / len, uy = -v.y / len, ax = W * (0.5 + pose.shift[0]), ay = H * (0.5 - pose.shift[1]), m = EDGE_IN_PX;
-        const tx = ux > 0 ? (W - m - ax) / ux : ux < 0 ? (m - ax) / ux : Infinity, ty = uy > 0 ? (H - m - ay) / uy : uy < 0 ? (m - ay) / uy : Infinity;
+        // From the point the camera looks at, out towards the body to the edge, the chip kept whole: in from each
+        // edge by half its own size and a little.
+        chip.hidden = false;
+        const mx = chip.offsetWidth / 2 + EDGE_IN_PX, my = chip.offsetHeight / 2 + EDGE_IN_PX;
+        const ux = v.x / len, uy = -v.y / len, ax = W * (0.5 + pose.shift[0]), ay = H * (0.5 - pose.shift[1]);
+        const tx = ux > 0 ? (W - mx - ax) / ux : ux < 0 ? (mx - ax) / ux : Infinity, ty = uy > 0 ? (H - my - ay) / uy : uy < 0 ? (my - ay) / uy : Infinity;
         const t = Math.max(0, Math.min(tx, ty));
         chip.style.left = `${((ax + ux * t) / W) * 100}%`;
         chip.style.top = `${((ay + uy * t) / H) * 100}%`;
@@ -318,7 +328,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
           Earth, {(Math.round(h.earthKm[HERO_HOUR] / 1000) * 1000).toLocaleString('en-US')} km away
         </span>
         <span ref={(n) => { tags.current.pole = n; }} hidden className={LABEL_RIGHT}>
-          <i aria-hidden="true" className={`${DOT} -left-3 top-1/2`} />
+          <i aria-hidden="true" className={SIDE_DOT} />
           The Moon&apos;s south pole
         </span>
         <span ref={(n) => { tags.current.site = n; }} hidden className={`${LABEL} text-[#f6d48a]`}>
