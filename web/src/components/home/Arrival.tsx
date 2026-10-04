@@ -1,7 +1,7 @@
 'use client';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useEffect, useRef, useState, type ComponentType, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type MouseEvent } from 'react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { BEAT_STOPS, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
 import type { ArrivalWords } from '@/lib/viz/arrival';
@@ -14,6 +14,8 @@ const BEATS = 5;
 const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/85 backdrop-blur-sm';
 const SENTENCE = 'display text-balance text-[28px] leading-[1.08] sm:text-[36px]';
 const still = (k: number, shape: 'wide' | 'tall') => `/arrival/beat-${k}-${shape}.jpg`;
+/** The page's address does not change under the section, so there is nothing to subscribe to. */
+const noSubscribe = () => () => {};
 
 /**
  * The home page's arrival: the Moon from space, then four beats down to standing at the hero site, as the
@@ -33,11 +35,12 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
   const [live, setLive] = useState(false);
   const [failed, setFailed] = useState(false);
   // ?arrival=<progress> holds the flight there for stills and the recorded walk; &bare=1 leaves the words out.
-  const [capture] = useState<{ at: number; bare: boolean } | null>(() => {
-    if (typeof window === 'undefined') return null;
-    const q = new URLSearchParams(window.location.search), at = q.get('arrival');
+  // Read after hydration (the server has no address), so the page's first paint matches the server's HTML.
+  const search = useSyncExternalStore(noSubscribe, () => window.location.search, () => '');
+  const capture = useMemo(() => {
+    const q = new URLSearchParams(search), at = q.get('arrival');
     return at === null || !Number.isFinite(Number(at)) ? null : { at: Math.min(4, Math.max(0, Number(at))), bare: q.get('bare') === '1' };
-  });
+  }, [search]);
   useEffect(() => {
     if (capture) progress.current = capture.at;
   }, [capture]);

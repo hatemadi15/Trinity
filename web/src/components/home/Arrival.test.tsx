@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { hydrateRoot } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BEAT_STOPS } from '@/lib/sky/arrivalTiming';
 import { arrivalWords } from '@/lib/viz/arrival';
@@ -30,6 +32,7 @@ describe('the arrival', () => {
   afterEach(() => {
     vi.useRealTimers();
     delete (window as { matchMedia?: unknown }).matchMedia;
+    window.history.replaceState(null, '', '/');
   });
 
   it('reads in order without the pictures: the headline, the three beats, then the answer for the site and its two actions', () => {
@@ -83,6 +86,26 @@ describe('the arrival', () => {
     expect(stage!.reduced).toBe(true);
     fireEvent.click(screen.getByRole('link', { name: 'Explore a landing site' }));
     expect(window.scrollTo).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds the flight where ?arrival= says, words left out with &bare=1, hydrating the server’s page without a mismatch', async () => {
+    // The server renders without the address's query (it builds the page once, for every visitor).
+    window.history.replaceState(null, '', '/');
+    const html = renderToString(<Arrival words={words} Stage={Stage} />);
+    window.history.replaceState(null, '', '/?arrival=2&bare=1');
+    const container = document.createElement('div');
+    container.innerHTML = html;
+    document.body.appendChild(container);
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    await act(async () => {
+      hydrateRoot(container, <Arrival words={words} Stage={Stage} />);
+    });
+    expect(errors.mock.calls.filter((c) => String(c[0]).includes('hydrat'))).toEqual([]);
+    errors.mockRestore();
+    expect(stage!.progress.current).toBe(2);
+    expect(stage!.capture).toBe(true);
+    expect(container.querySelector('[data-beat="0"]')!.closest('[hidden]')).not.toBeNull();
+    container.remove();
   });
 
   it('shows the stills when the live view cannot draw, beat by beat', () => {

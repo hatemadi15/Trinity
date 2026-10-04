@@ -961,7 +961,11 @@ export class StandRenderer {
     pmrem.dispose();
     around.dispose();
     // A shader that fails shows only on its first use; then the view gives way to the fallback.
-    this.renderer.debug.onShaderError = () => this.onLost?.('A shader of the view did not compile');
+    this.renderer.debug.onShaderError = (gl, program, vs, fs) => {
+      // The driver's own words on what failed, for whoever looks at the console.
+      console.error('A shader of the view did not compile.', gl.getProgramInfoLog(program), gl.getShaderInfoLog(vs), gl.getShaderInfoLog(fs));
+      this.onLost?.('A shader of the view did not compile');
+    };
     // Shaders that fail to build reject `ready`, so the view gives way to the fallback rather than draw black.
     this.ready = this.renderer.compileAsync(this.built.root, this.built.camera).then(() => {
       this.compiled = true;
