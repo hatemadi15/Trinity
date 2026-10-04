@@ -126,8 +126,9 @@ describe('StandView', () => {
     expect(status.parentElement!.querySelector('[data-tone]')!.getAttribute('data-tone')).toBe('power');
     expect(screen.getByText(watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10))).toBeTruthy();
     // The better landing day, one click away, and the way back.
-    // It says why, as a comparison: days of power and of radio from that landing.
-    const better = screen.getByRole('link', { name: /^Try 20 January instead: power for \d+ days?, (radio for \d+ days?|no radio contact)$/ });
+    // It says why, as a comparison: the power and the radio from that landing, to the hour, as the headline gives
+    // its spans and the home page's forecast gives this landing ("12 days 15 hours", never "13 days").
+    const better = screen.getByRole('link', { name: /^Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours$/ });
     expect(better.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
     expect(screen.getByRole('link', { name: 'Back to the forecast' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     // The rest waits under "More": the radio story, the whys and how we know.

@@ -5,7 +5,8 @@ import { recompute } from '@/lib/store/explore';
 import { eph, sites } from '@/test/file-loaders';
 import { answerFor } from './answer';
 import { arrivalWords, hero } from './arrival';
-import { standHeadline } from './stand';
+import { spanWords } from './format';
+import { betterLabel, standHeadline } from './stand';
 
 const engine = () => {
   const site = sites.find((s) => s.id === HOME.hero.site_id)!;
@@ -33,8 +34,11 @@ describe('the arrival', () => {
     const a = answerFor({ siteName: 'de Gerlache Rim 2', series: r.series, summary: r.summary, power: r.power, startUtc: '2027-01-01T00:00:00', days: 30, loadW: 200, batteryWh: 2000, best: r.best });
     expect(w.answer).toBe(standHeadline(a.title, 'de Gerlache Rim 2', r.series, r.power, '2027-01-01T00:00:00', a.contactHours, a.poweredHours));
     expect(plain(w.answer)).toBe('Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power');
-    // In whole days, as the stand view's better day says it, so the two never give one landing two lengths.
-    expect(plain(w.better ?? '')).toBe('Land on 20 January instead: power for 13 days in a row.');
+    // To the hour, as the headline above it says its spans: the forecast below it and the stand view's better day
+    // give this landing the same length, so the page never gives one landing two.
+    expect(plain(w.better ?? '')).toBe('Land on 20 January instead: power for 12 days 15 hours in a row.');
+    expect(plain(w.better ?? '')).toContain(`power for ${spanWords(HOME.battery.best_hours!)} in a row`);
+    expect(betterLabel('20 January', r.best!.poweredHours, r.best!.poweredHours * r.best!.earthFraction)).toMatch(/^Try 20 January instead: power for 12 days 15 hours, /);
     expect(w.siteLine).toMatch(/^Standing at de Gerlache Rim 2, near the Moon's south pole\./);
     expect(w.exploreHref).toBe(`/explore?site=${site.id}&start=2027-01-01&days=30`);
     expect(w.beats).toEqual(['At the south pole the Sun never climbs: it circles the horizon once a month.', 'One hill can hide it for weeks.', 'This ridge was shortlisted for astronauts.']);

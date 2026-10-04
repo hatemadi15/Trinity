@@ -5,7 +5,8 @@ import { summarize, type Series } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerResult } from '../engine/power';
 import { exploreHref } from '../links';
 import { answerFor } from './answer';
-import { standHeadline, standingLine, wholeDays } from './stand';
+import { spanWords } from './format';
+import { standHeadline, standingLine } from './stand';
 
 /** The hour the arrival shows: 1 January 2027, 10:00 UTC (the Sun on the ridge), the hour section 5 names. */
 export const HERO_HOUR = 10;
@@ -31,7 +32,9 @@ export interface ArrivalWords { beats: [string, string, string]; siteLine: strin
 
 /**
  * The arrival's words, worked out on the server so they are page text: the beats, then standing at the site
- * with Explore's answer as the stand view words it, the better landing day, and Explore's address.
+ * with Explore's answer as the stand view words it, the better landing day, and Explore's address. The better
+ * day's power is said to the hour, as the headline says its spans and as the forecast below and the stand
+ * view's better day say it: "power for 12 days 15 hours in a row".
  */
 export function arrivalWords(doc: HomeDoc = HOME): ArrivalWords {
   const h = hero(doc), name = siteLabel(h.site), b = doc.battery;
@@ -41,7 +44,7 @@ export function arrivalWords(doc: HomeDoc = HOME): ArrivalWords {
     beats: BEAT_SENTENCES,
     siteLine: standingLine(h.site, name, 'top'),
     answer: standHeadline(answer.title, name, h.series, h.power, h.startUtc, answer.contactHours, answer.poweredHours),
-    better: answer.better && best ? `${answer.better.label}: power for ${wholeDays(best.poweredHours)} in a row.` : null,
+    better: answer.better && best ? `${answer.better.label}: power for ${spanWords(best.poweredHours)} in a row.` : null,
     exploreHref: exploreHref(h.site.id, h.startUtc, h.days),
   };
 }

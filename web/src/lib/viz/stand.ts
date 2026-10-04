@@ -508,18 +508,17 @@ export function radioHeadline(title: string, contactHours: number, poweredHours:
 }
 
 /**
- * The better landing day's button, a suggestion that says what it does, in whole days with their unit:
- * "Try 20 January instead: power for 13 days, radio for 3 days", or "...: power for 13 days, no radio
- * contact" when Earth is never in view in that time. `dayLong` is the day as dateLong writes it; the hours
- * are those with power from that day, and those of them with Earth in view, each counted to the nearest day,
- * and any time at all as at least one ("1 day").
+ * The better landing day's button, a suggestion that says what it does, to the hour as the headline says its
+ * spans: "Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours", or "...: power for 12
+ * days 15 hours, no radio contact" when Earth is never in view in that time. The home page's forecast and the
+ * arrival give that landing the same "12 days 15 hours", so no page gives one landing two lengths. `dayLong` is
+ * the day as dateLong writes it; the hours are those with power from that day, and those of them with Earth in
+ * view, which the page passes as a share of the hours with power: both read as the whole hours they were
+ * counted in.
  */
-/** A stretch in whole days, at least one when there is any: "13 days". The better landing day is said this way everywhere. */
-export const wholeDays = (hours: number) => spanWords((hours > 0 ? Math.max(1, Math.round(hours / 24)) : 0) * 24);
-
 export function betterLabel(dayLong: string, poweredHours: number, radioHours: number): string {
-  const radio = radioHours <= 0 ? 'no radio contact' : `radio for ${wholeDays(radioHours)}`;
-  return `Try ${dayLong} instead: power for ${wholeDays(poweredHours)}, ${radio}`;
+  const radio = Math.round(radioHours) <= 0 ? 'no radio contact' : `radio for ${spanWords(radioHours)}`;
+  return `Try ${dayLong} instead: power for ${spanWords(poweredHours)}, ${radio}`;
 }
 
 /**

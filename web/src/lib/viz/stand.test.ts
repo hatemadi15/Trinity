@@ -463,22 +463,23 @@ describe('the headline’s radio', () => {
 });
 
 describe('the better landing day’s button', () => {
-  it('says what it does, and the power and the radio from that day in whole days, each with its unit', () => {
-    // 12 days 15 hours of power, 3 days 3 hours of it with Earth in view.
-    expect(betterLabel('20 January', 303, 75)).toBe('Try 20 January instead: power for 13 days, radio for 3 days');
-    // To the nearest day: 12 days 11 hours is 12 days, a day and a half is 2.
-    expect(betterLabel('20 January', 299, 36)).toBe('Try 20 January instead: power for 12 days, radio for 2 days');
+  it('says what it does, and the power and the radio from that day to the hour, as the headline and the forecast say them', () => {
+    // 12 days 15 hours of power, 3 days 3 hours of it with Earth in view: the home page's forecast says "12 days
+    // 15 hours" for this landing, and the button must not say 13 days.
+    expect(betterLabel('20 January', 303, 75)).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 3 hours');
     // A whole period's power, as the page passes it.
     expect(betterLabel('13 January 2028', 720, 720)).toBe('Try 13 January 2028 instead: power for 30 days, radio for 30 days');
-    // The page passes the hours with Earth in view as a share of the hours with power: not always whole.
-    expect(betterLabel('20 January', 303, 75.6)).toBe('Try 20 January instead: power for 13 days, radio for 3 days');
+    // The page passes the hours with Earth in view as a share of the hours with power, not always whole: they read
+    // as the whole hours they were counted in.
+    expect(betterLabel('20 January', 303, 303 * (77 / 303))).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours');
+    expect(betterLabel('20 January', 303, 75.6)).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 4 hours');
   });
-  it('counts any time at all as at least a day, and says "1 day"', () => {
-    expect(betterLabel('2 January', 5, 3)).toBe('Try 2 January instead: power for 1 day, radio for 1 day');
-    expect(betterLabel('2 January', 30, 1)).toBe('Try 2 January instead: power for 1 day, radio for 1 day');
+  it('gives a stretch shorter than a day in hours', () => {
+    expect(betterLabel('2 January', 5, 3)).toBe('Try 2 January instead: power for 5 hours, radio for 3 hours');
+    expect(betterLabel('2 January', 30, 1)).toBe('Try 2 January instead: power for 1 day 6 hours, radio for 1 hour');
   });
   it('says so when Earth is never in view in that time', () => {
-    expect(betterLabel('20 January', 303, 0)).toBe('Try 20 January instead: power for 13 days, no radio contact');
+    expect(betterLabel('20 January', 303, 0)).toBe('Try 20 January instead: power for 12 days 15 hours, no radio contact');
   });
 });
 
