@@ -322,6 +322,21 @@ describe('the arrival’s live stage', () => {
     }
   });
 
+  it('once landed points to a body out of view along the horizon, left or right, never up into the sky the Sun never climbs', async () => {
+    const { r } = stub();
+    r.labels = vi.fn(() => ({ sun: { x: 0.5, y: 0.5, visible: false } })) as unknown as typeof r.labels;
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours);
+    // Mid-month the camera faces Earth, the Sun well round behind it.
+    render(<ArrivalCanvas progress={{ current: 4 + (300 - HERO_HOUR) / (end - HERO_HOUR) }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect(document.querySelector('[data-sun-edge]')).not.toBeNull());
+    const edge = document.querySelector('[data-sun-edge]') as HTMLElement;
+    await waitFor(() => expect(edge.hidden).toBe(false));
+    const x = parseFloat(edge.style.left), turn = Number(/rotate\((-?[\d.e-]+)rad\)/.exec((edge.querySelector('b') as HTMLElement).style.transform)?.[1]);
+    expect(Math.min(x, 100 - x)).toBeLessThan(15);
+    expect(Math.abs(Math.sin(turn))).toBeLessThan(1e-6);
+  });
+
   it('once landed names Earth where it shows, with how high it stands, as it names the Sun', async () => {
     const { r } = stub();
     r.labels = vi.fn(() => ({ sun: { x: 0.8, y: 0.5, visible: false }, earth: { x: 0.6, y: 0.4, visible: true } })) as unknown as typeof r.labels;
@@ -382,6 +397,30 @@ describe('the arrival’s live stage', () => {
     expect(dx + dy).toBeLessThan(0);
     progress.current = 3;
     await waitFor(() => expect(night.hidden).toBe(true));
+  });
+
+  it('keeps the night’s name whole inside a phone’s view, by its own width', async () => {
+    const was = { w: window.innerWidth, h: window.innerHeight };
+    Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 844, configurable: true });
+    const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.textContent?.startsWith('Night here') ? 300 : 0;
+    });
+    try {
+      const { r } = stub();
+      const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+      render(<ArrivalCanvas progress={{ current: 1.25 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const night = await screen.findByText('Night here: the Sun is below the horizon');
+      await waitFor(() => expect(night.hidden).toBe(false));
+      // Its middle at least half its width and 8 px in from either edge of the 390 px view.
+      const x = (parseFloat(night.style.left) / 100) * 390;
+      expect(x - 150).toBeGreaterThanOrEqual(8 - 1e-6);
+      expect(x + 150).toBeLessThanOrEqual(390 - 8 + 1e-6);
+    } finally {
+      width.mockRestore();
+      Object.defineProperty(window, 'innerWidth', { value: was.w, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: was.h, configurable: true });
+    }
   });
 
   it('keeps the last beat’s names off the lander', async () => {

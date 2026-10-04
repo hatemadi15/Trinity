@@ -138,6 +138,7 @@ const TICK_KEY = [
 ] as const;
 /** A moment's mark on the date's bar, in its body's colour: the Sun's amber, Earth's blue, else white (the battery). */
 const tickColour = (kind: string) => (kind.startsWith('earth') ? '#74adff' : kind.startsWith('sun') ? '#f6b646' : '#e5e3dc');
+const DEG = Math.PI / 180;
 /** How far a pointer to a body out of view stands in from the view's edge, beyond half its own size, in pixels. */
 const EDGE_IN_PX = 12;
 
@@ -359,21 +360,36 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         return { v, inView: v.z < 0 && Math.abs(nx) < 0.97 && Math.abs(ny) < 0.97 };
       };
       /** A pointer chip on the view's edge towards a direction out of view, kept far enough in to stay whole. */
-      const point = (chip: HTMLElement | null, arrow: HTMLElement | null, v: THREE.Vector3 | null) => {
+      // The camera's pitch, degrees: where a body's height falls on the view's edge once landed.
+      const pitchDeg = Math.asin(Math.max(-1, Math.min(1, new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(...pose.quaternion)).y))) / DEG;
+      /**
+       * A pointer chip on the view's edge towards a direction out of view, kept far enough in to stay whole. In flight
+       * it stands where the line from the point the camera looks at, out towards the body, meets the edge. Once landed
+       * (`elDeg`, the body's height) it stands on the left or right edge, the way round the body is, at the body's
+       * height, its arrow along the horizon: a Sun or Earth behind you is never pointed to up in the sky.
+       */
+      const point = (chip: HTMLElement | null, arrow: HTMLElement | null, v: THREE.Vector3 | null, elDeg?: number) => {
         if (!chip) return;
         chip.hidden = true;
         const len = v ? Math.hypot(v.x, v.y) : 0;
-        if (!drawn || !v || len < 1e-6) return;
-        // From the point the camera looks at, out towards the body to the edge, the chip kept whole: in from each
-        // edge by half its own size and a little.
+        if (!drawn || !v || (len < 1e-6 && elDeg === undefined)) return;
         chip.hidden = false;
         const mx = chip.offsetWidth / 2 + EDGE_IN_PX, my = chip.offsetHeight / 2 + EDGE_IN_PX;
-        const ux = v.x / len, uy = -v.y / len, ax = W * (0.5 + pose.shift[0]), ay = H * (0.5 - pose.shift[1]);
-        const tx = ux > 0 ? (W - mx - ax) / ux : ux < 0 ? (mx - ax) / ux : Infinity, ty = uy > 0 ? (H - my - ay) / uy : uy < 0 ? (my - ay) / uy : Infinity;
-        const t = Math.max(0, Math.min(tx, ty));
-        chip.style.left = `${((ax + ux * t) / W) * 100}%`;
-        chip.style.top = `${((ay + uy * t) / H) * 100}%`;
-        if (arrow) arrow.style.transform = `rotate(${Math.atan2(uy, ux)}rad)`;
+        if (elDeg !== undefined) {
+          const right = v.x >= 0, y = H * (0.5 - pose.shift[1]) - (Math.tan((elDeg - pitchDeg) * DEG) / tanV) * (H / 2);
+          chip.style.left = `${((right ? W - mx : mx) / W) * 100}%`;
+          chip.style.top = `${(Math.min(H - my, Math.max(my, y)) / H) * 100}%`;
+          if (arrow) arrow.style.transform = `rotate(${right ? 0 : Math.PI}rad)`;
+        } else {
+          // From the point the camera looks at, out towards the body to the edge, in from each edge by half the chip's
+          // own size and a little.
+          const ux = v.x / len, uy = -v.y / len, ax = W * (0.5 + pose.shift[0]), ay = H * (0.5 - pose.shift[1]);
+          const tx = ux > 0 ? (W - mx - ax) / ux : ux < 0 ? (mx - ax) / ux : Infinity, ty = uy > 0 ? (H - my - ay) / uy : uy < 0 ? (my - ay) / uy : Infinity;
+          const t = Math.max(0, Math.min(tx, ty));
+          chip.style.left = `${((ax + ux * t) / W) * 100}%`;
+          chip.style.top = `${((ay + uy * t) / H) * 100}%`;
+          if (arrow) arrow.style.transform = `rotate(${Math.atan2(uy, ux)}rad)`;
+        }
         const b = chip.getBoundingClientRect();
         chip.hidden = meets(b, words) || meets(b, placed);
         if (!chip.hidden) placed.push(b);
@@ -401,11 +417,12 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         night.hidden = true;
         const len = Math.hypot(sunNow.v.x, sunNow.v.y);
         if (drawn && p > 0.85 && p < 1.6 && len > 1e-6) {
-          const ux = -sunNow.v.x / len, uy = sunNow.v.y / len, r0 = 0.28 * Math.min(W, H);
-          const x = Math.min(W - 140, Math.max(140, W * (0.5 + pose.shift[0]) + ux * r0)), y = Math.min(H - 40, Math.max(40, H * (0.5 - pose.shift[1]) + uy * r0));
+          // Whole inside the view by its own width (measured shown), as on a phone, where it is most of the view's width.
+          night.hidden = false;
+          const ux = -sunNow.v.x / len, uy = sunNow.v.y / len, r0 = 0.28 * Math.min(W, H), hw = Math.min(W / 2, night.offsetWidth / 2 + 8);
+          const x = Math.min(W - hw, Math.max(hw, W * (0.5 + pose.shift[0]) + ux * r0)), y = Math.min(H - 40, Math.max(40, H * (0.5 - pose.shift[1]) + uy * r0));
           night.style.left = `${(x / W) * 100}%`;
           night.style.top = `${(y / H) * 100}%`;
-          night.hidden = false;
           const b = night.getBoundingClientRect();
           night.hidden = meets(b, words) || meets(b, placed);
           if (!night.hidden) placed.push(b);
@@ -432,8 +449,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       // A phone's narrow view has no room for them beside the bodies' own names: none there.
       named(pathNameRefs.current.sun, lab?.pathNames?.find((pn) => pn.body === 'sun'), aspect >= 1 && hour < story.rise);
       named(pathNameRefs.current.earth, lab?.pathNames?.find((pn) => pn.body === 'earth'), aspect >= 1 && hour >= story.rise - 24 && hour < story.back);
-      point(edgeRef.current, arrowRef.current, p > 0.85 && !sunNow.inView ? sunNow.v : null);
-      point(earthEdgeRef.current, earthArrowRef.current, p > 3.8 && !earthNow.inView ? earthNow.v : null);
+      point(edgeRef.current, arrowRef.current, p > 0.85 && !sunNow.inView ? sunNow.v : null, p > LANDED ? h.series.sunEl[hi] : undefined);
+      point(earthEdgeRef.current, earthArrowRef.current, p > LANDED && !earthNow.inView ? earthNow.v : null, h.series.earthEl[hi]);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
