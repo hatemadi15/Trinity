@@ -101,12 +101,15 @@ export function pathInput(h: Hero, scene: StandScene, aspect: number): PathInput
 const CHIP = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[15px]';
 /** A label over what it names, with a dot on the point; or beside it, to its right. */
 const LABEL = `${CHIP} -translate-x-1/2 -translate-y-[130%]`;
-const LABEL_RIGHT = `${CHIP} group translate-x-3 -translate-y-1/2 data-[flip]:-translate-x-[calc(100%+12px)]`;
-/** Beside Earth, clear of its disc (at most about 60 px across). Either turns to the left where it would run off the view. */
-const LABEL_BESIDE_EARTH = `${CHIP} translate-x-[36px] -translate-y-1/2 data-[flip]:-translate-x-[calc(100%+36px)]`;
+const LABEL_RIGHT = `${CHIP} group translate-x-3 -translate-y-1/2 data-[side=left]:-translate-x-[calc(100%+12px)] data-[side=below]:-translate-x-1/2 data-[side=below]:translate-y-3`;
+/**
+ * Beside Earth, clear of its disc (at most about 60 px across). Either label beside its point turns to the left
+ * where it would run off the view, and goes under the point where neither side has room.
+ */
+const LABEL_BESIDE_EARTH = `${CHIP} translate-x-[36px] -translate-y-1/2 data-[side=left]:-translate-x-[calc(100%+36px)] data-[side=below]:-translate-x-1/2 data-[side=below]:translate-y-[22px]`;
 const DOT = 'absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current';
 /** The dot of a label beside its point: on the label's left, or its right when the label turns. */
-const SIDE_DOT = `${DOT} -left-3 top-1/2 group-data-[flip]:left-auto group-data-[flip]:-right-3 group-data-[flip]:translate-x-1/2`;
+const SIDE_DOT = `${DOT} -left-3 top-1/2 group-data-[side=left]:left-auto group-data-[side=left]:-right-3 group-data-[side=left]:translate-x-1/2 group-data-[side=below]:left-1/2 group-data-[side=below]:-top-3`;
 type Tag = 'earth' | 'pole' | 'site' | 'sun';
 /** How far a pointer to a body out of view stands in from the view's edge, beyond half its own size, in pixels. */
 const EDGE_IN_PX = 12;
@@ -227,10 +230,15 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       if (!n.hidden && at) {
         n.style.left = `${at.x * 100}%`;
         n.style.top = `${at.y * 100}%`;
-        // A label beside its point turns to the other side where it would run off the view.
+        // A label beside its point turns to the other side where it would run off the view, and goes under the
+        // point where neither side has room.
         if (k === 'earth' || k === 'pole') {
-          n.removeAttribute('data-flip');
-          if (n.getBoundingClientRect().right > el.getBoundingClientRect().right - 4) n.setAttribute('data-flip', '');
+          const view = el.getBoundingClientRect();
+          n.removeAttribute('data-side');
+          if (n.getBoundingClientRect().right > view.right - 4) {
+            n.setAttribute('data-side', 'left');
+            if (n.getBoundingClientRect().left < view.left + 4) n.setAttribute('data-side', 'below');
+          }
         }
         const b = n.getBoundingClientRect();
         if (meets(b, words) || meets(b, placed)) n.hidden = true;

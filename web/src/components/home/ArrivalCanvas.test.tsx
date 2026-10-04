@@ -197,19 +197,28 @@ describe('the arrival’s live stage', () => {
     expect(edge.textContent).toMatch(/^Earth, \d+(\.\d)?° below the horizon/);
   });
 
-  it('turns a label beside its point to the other side where it would run off the view, as on a phone', async () => {
+  it('turns a label beside its point to the other side where it would run off the view, and under it where neither side fits, as on a phone', async () => {
     const { r } = stub();
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    let room = 'left';
     const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      // The view 390 wide; a label beside its point reaching past its right edge unless turned.
-      const b = this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 390, bottom: 844 } : this.hasAttribute('data-flip') ? { left: 100, top: 400, right: 300, bottom: 424 } : { left: 300, top: 400, right: 500, bottom: 424 };
+      // The view 390 wide; a label beside its point reaches past its right edge, and past its left edge too when there is no room.
+      const side = this.getAttribute('data-side');
+      const b =
+        this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 390, bottom: 844 }
+        : side === 'left' ? (room === 'left' ? { left: 100, top: 400, right: 300, bottom: 424 } : { left: -20, top: 400, right: 180, bottom: 424 })
+        : side === 'below' ? { left: 95, top: 430, right: 295, bottom: 454 }
+        : { left: 300, top: 400, right: 500, bottom: 424 };
       return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
     });
     try {
-      render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const progress = { current: 0 };
+      render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
       const earth = await screen.findByText(/^Earth, [\d,]+ km away$/);
-      await waitFor(() => expect(earth.hasAttribute('data-flip')).toBe(true));
+      await waitFor(() => expect(earth.getAttribute('data-side')).toBe('left'));
       expect(earth.hidden).toBe(false);
+      room = 'none';
+      await waitFor(() => expect(earth.getAttribute('data-side')).toBe('below'));
     } finally {
       rect.mockRestore();
     }
