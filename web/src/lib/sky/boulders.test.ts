@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { BOULDER_GLSL, BOULDERS, boulderMeshes, PEBBLES, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
 
@@ -72,20 +73,36 @@ describe('the boulders near the eye', () => {
     expect(BOULDER_GLSL).toMatch(/for \(int i = 0; i < \d+ \* uOne; i\+\+\)/);
   });
 
-  it('are angular, faceted rocks of uneven radius, not smooth capsules', () => {
-    const { group } = boulderMeshes(placeBoulders(7, null), () => 0, 7);
-    for (const mesh of group.children as unknown as { geometry: { getAttribute: (n: string) => { count: number; getX: (i: number) => number; getY: (i: number) => number; getZ: (i: number) => number } }; material: { flatShading: boolean } }[]) {
-      expect(mesh.material.flatShading).toBe(true);
-      const pos = mesh.geometry.getAttribute('position');
-      let lo = Infinity, hi = 0;
-      for (let k = 0; k < pos.count; k++) {
-        const r = Math.hypot(pos.getX(k), pos.getY(k), pos.getZ(k));
-        lo = Math.min(lo, r);
-        hi = Math.max(hi, r);
+  it('are rounded rocks of uneven radius, worn smooth, not faceted blocks, and stay close to the shape their shadows are cast from', () => {
+    for (const seed of [7, siteSeed(-88.28, -64.31)]) {
+      const { group } = boulderMeshes(placeBoulders(seed, null), () => 0, seed);
+      for (const mesh of group.children as THREE.Mesh[]) {
+        expect((mesh.material as THREE.MeshStandardMaterial).flatShading).toBe(false);
+        const pos = mesh.geometry.getAttribute('position'), nor = mesh.geometry.getAttribute('normal'), index = mesh.geometry.getIndex()!;
+        // Enough corners to look round, each one shared by every face round it, so each has one normal and no seam opens.
+        expect(pos.count).toBeGreaterThanOrEqual(250);
+        expect(new Set(Array.from({ length: pos.count }, (_, k) => [pos.getX(k), pos.getY(k), pos.getZ(k)].map((v) => v.toFixed(4)).join())).size).toBe(pos.count);
+        // Smooth: the normals at the two ends of every edge within 25 degrees of each other, so no crease shows.
+        let worst = 0;
+        for (let k = 0; k < index.count; k += 3) {
+          for (let j = 0; j < 3; j++) {
+            const a = new THREE.Vector3().fromBufferAttribute(nor, index.getX(k + j)), b = new THREE.Vector3().fromBufferAttribute(nor, index.getX(k + ((j + 1) % 3)));
+            worst = Math.max(worst, a.angleTo(b));
+          }
+        }
+        expect(worst).toBeLessThan((25 * Math.PI) / 180);
+        // Uneven, not a smooth ellipsoid, yet within a fifth of its radius everywhere: the sphere its shadow is cast
+        // from stands for it.
+        let lo = Infinity, hi = 0;
+        for (let k = 0; k < pos.count; k++) {
+          const r = Math.hypot(pos.getX(k), pos.getY(k), pos.getZ(k));
+          lo = Math.min(lo, r);
+          hi = Math.max(hi, r);
+        }
+        expect(lo).toBeGreaterThanOrEqual(0.8);
+        expect(hi).toBeLessThanOrEqual(1.2);
+        expect(lo / hi).toBeLessThan(0.85);
       }
-      expect(lo / hi).toBeLessThan(0.85);
-      // Coarse facets, as broken rock has, not a smooth round surface: 80 faces at most.
-      expect(pos.count / 3).toBeLessThanOrEqual(80);
     }
   });
 

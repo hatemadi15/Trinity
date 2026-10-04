@@ -600,7 +600,82 @@ describe('the guides', () => {
     s.setGuides(false);
     expect(s.labels().marks).toEqual([expect.objectContaining({ text: '3 Jan', visible: false })]);
   });
+
+  it('draws one synodic month of each path round the hour, so a period longer than a month never shows a path twice', () => {
+    // 30 days: longer than the 708.7 hours from one new Moon to the next, after which the Sun's path comes round
+    // again a little higher or lower and reads as two lines.
+    const s = buildScene(flat({ series: hourly(720, (h) => (300 + (h * 360) / 708.73) % 360, (h) => 2 - h / 700, (h) => 70 + h / 100, (h) => 4 + Math.sin(h / 50)) }));
+    for (const t of [2, 360.4, 717.6]) {
+      s.update(t);
+      for (const b of pathBands(s)) {
+        // The hours at the two ends of the pieces drawn, six indices an hour: a whole month, never more, round the hour.
+        const first = b.geometry.drawRange.start / 6, last = first + b.geometry.drawRange.count / 6;
+        expect(last - first).toBeLessThan(708.73);
+        expect(last - first).toBeGreaterThanOrEqual(708);
+        expect(first).toBeLessThanOrEqual(t);
+        expect(last).toBeGreaterThanOrEqual(t);
+      }
+    }
+    // A period of a month or less draws whole; the level horizon goes all round whatever the hour.
+    const short = buildScene(flat());
+    short.update(1);
+    for (const b of pathBands(short)) expect(b.geometry.drawRange).toEqual({ start: 0, count: 6 * (series.hours - 1) });
+    const level = s.parts.guides.children.filter((c): c is THREE.Mesh => c instanceof THREE.Mesh)[4];
+    expect(level.geometry.drawRange.count).toBeGreaterThanOrEqual(level.geometry.getIndex()!.count);
+  });
+
+  it('draws nothing of a path below the level horizon, where it would run under the ground, and all of it above', () => {
+    // The Sun circles once in two days, dipping 3 degrees below the level horizon and coming back; Earth stays 4
+    // degrees up for a day, then lies just under the horizon, where its band's upper edge would peek over it.
+    const sunEl = (h: number) => 3 * Math.cos((2 * Math.PI * (h + 0.87)) / 48), earthEl = (h: number) => (h < 24 ? 4 : -0.05);
+    const s = buildScene(flat({ series: hourly(48, (h) => (h * 7.5) % 360, sunEl, (h) => 70 + h / 2, earthEl) }));
+    s.update(0);
+    const [sun, sunFaint, earth, earthFaint] = pathBands(s);
+    for (const [b, el] of [[sun, sunEl], [sunFaint, sunEl], [earth, earthEl], [earthFaint, earthEl]] as const) {
+      const drawn = pieces(b);
+      // No triangle drawn wholly below the level horizon, not even where the path goes down through it...
+      expect(drawn.flat().filter((t) => t.every((v) => v.y < 0))).toHaveLength(0);
+      drawn.forEach((tris, i) => {
+        // ... nothing of an hour's piece whose two ends both lie below it, and the whole of each piece above it.
+        if (el(i) < 0 && el(i + 1) < 0) expect(tris).toHaveLength(0);
+        if (el(i) > 0 && el(i + 1) > 0) expect(tris).toHaveLength(2);
+      });
+    }
+  });
+
+  it('keeps a path where it shows below the level horizon, through a dip in the skyline: there it is in the sky, not under the ground', () => {
+    // From a high point the skyline can dip below level: here 2 degrees deep from 60 to 100 degrees round. Earth
+    // lies 1 degree below level, from 50 to 110 degrees round.
+    const mask = { az0: 0, step: 0.5, el: Array.from({ length: 720 }, (_, k) => (k * 0.5 >= 60 && k * 0.5 <= 100 ? -2 : 0)) };
+    const earthAz = (h: number) => 50 + 1.25 * h;
+    const s = buildScene(flat({ mask, series: hourly(48, (h) => 300 + h / 10, () => 2, earthAz, () => -1) }));
+    s.update(0);
+    for (const b of pathBands(s).slice(2)) {
+      pieces(b).forEach((tris, i) => {
+        // In the dip, where Earth shows, its path draws; on either side, under the ground, nothing.
+        if (earthAz(i) > 61 && earthAz(i + 1) < 99) expect(tris).toHaveLength(2);
+        if (earthAz(i + 1) < 59 || earthAz(i) > 101) expect(tris).toHaveLength(0);
+      });
+    }
+  });
 });
+
+/** A series of `hours` hours with the Sun and Earth along the given azimuths and heights, both in view all the while. */
+function hourly(hours: number, sunAz: (h: number) => number, sunEl: (h: number) => number, earthAz: (h: number) => number, earthEl: (h: number) => number): Series {
+  const of = (f: (h: number) => number) => Float64Array.from({ length: hours }, (_, h) => f(h));
+  return { i0: 0, hours, sunAz: of(sunAz), sunEl: of(sunEl), earthAz: of(earthAz), earthEl: of(earthEl), sunFraction: of(() => 1), earthVisible: new Uint8Array(hours).fill(1), sunAu: of(() => 1) } as Series;
+}
+/** The guides' four path bands, in order: the Sun's solid and faint, Earth's solid and faint. */
+const pathBands = (s: ReturnType<typeof buildScene>) => s.parts.guides.children.filter((c): c is THREE.Mesh => c instanceof THREE.Mesh).slice(0, 4);
+/** Each hour's piece of a band, as its triangles that draw anything (those with an area), each as its three corners. */
+const pieces = (b: THREE.Mesh) => {
+  const p = b.geometry.getAttribute('position'), index = b.geometry.getIndex()!;
+  return Array.from({ length: index.count / 6 }, (_, i) =>
+    [0, 3]
+      .map((o) => [0, 1, 2].map((j) => new THREE.Vector3().fromBufferAttribute(p, index.getX(6 * i + o + j))))
+      .filter((t) => new THREE.Triangle(t[0], t[1], t[2]).getArea() > 0),
+  );
+};
 
 const globe: GlobeAssets = { color: { low: 'c1.jpg', high: 'c4.jpg' }, normal: { low: 'n1.jpg', high: 'n4.jpg' }, heights: { width: 4, height: 2, metres: new Float32Array(8) }, albedoScale: 0.8, credit: '' };
 /** A camera at `position` looking along `look` (straight down by default). */

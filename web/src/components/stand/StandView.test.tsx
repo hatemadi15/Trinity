@@ -4,10 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
-import { keyMoments, landerCaption, landerState, momentCaption, skyLabel, starLabel, statusLine, viewCaption, watchNext } from '@/lib/viz/stand';
+import { keyMoments, landerCaption, landerState, momentCaption, skyLabel, starLabel, statusLine, viewCaption, watchNext, type MomentKind } from '@/lib/viz/stand';
 import { fileLoaders, terrainFileLoaders, terrainPresent } from '@/test/file-loaders';
 import type { StandScene } from '@/lib/sky/standRenderer';
-import { StandView } from './StandView';
+import { pathMarks, StandView } from './StandView';
 import type { RendererLike } from './StandCanvas';
 
 // jsdom has no PointerEvent; this one carries the pointer's id on top of the mouse event's position.
@@ -73,10 +73,11 @@ describe('StandView', () => {
       />,
     );
     await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])').length).toBeGreaterThan(0), { timeout: 20_000 });
-    // The Sun goes behind the hills on 3 January and is back on the 20th; Earth comes into view on the 10th.
+    // The Sun goes behind the hills on 3 January and is back on the 20th; Earth comes into view on the 10th. Each
+    // chip names what happens there, as its flag on the time bar does.
     const marks = (scene! as StandScene).marks!;
-    expect(marks.filter((m) => m.body === 'sun').map((m) => m.text)).toEqual(['3 Jan', '20 Jan']);
-    expect(marks.filter((m) => m.body === 'earth').map((m) => m.text)).toEqual(['10 Jan']);
+    expect(marks.filter((m) => m.body === 'sun').map((m) => m.text)).toEqual(['Sun behind hills, 3 Jan', 'Sun back, 20 Jan']);
+    expect(marks.filter((m) => m.body === 'earth').map((m) => m.text)).toEqual(['Earth in view, 10 Jan']);
     expect([...document.querySelectorAll('[data-path-mark]')].map((n) => n.textContent)).toEqual(marks.map((m) => m.text));
     expect(screen.getByText('Level horizon')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Hide the words' }));
@@ -84,6 +85,21 @@ describe('StandView', () => {
     await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])')).toHaveLength(0));
     expect(screen.getByText('Level horizon').closest('[hidden]')).not.toBeNull();
   }, 30_000);
+
+  it('names each day on the paths as its flag names it, short: where the Sun leaves and comes back, and where Earth comes into view', () => {
+    const at = (kind: MomentKind, label: string, hour: number, day: string) => ({ kind, label, hour, day });
+    expect(
+      pathMarks([at('sunset', 'Sun behind the hills', 67, '3 Jan'), at('battery-out', 'Battery runs out', 76, '4 Jan'), at('earth-in', 'Earth in view', 219, '10 Jan'), at('sun-power-back', 'Sun back', 466, '20 Jan')]),
+    ).toEqual([
+      { hour: 67, body: 'sun', text: 'Sun behind hills, 3 Jan' },
+      { hour: 219, body: 'earth', text: 'Earth in view, 10 Jan' },
+      { hour: 466, body: 'sun', text: 'Sun back, 20 Jan' },
+    ]);
+    // A Sun below the level horizon sets. The power's part of a joined moment stays on its flag: the path is the Sun's.
+    const sets = pathMarks([at('sunset-power-off', 'Sunset and power off', 5, '2 Mar'), at('sun-back', 'Sun back', 300, '15 Mar'), at('power-back', 'Power back', 301, '15 Mar')]);
+    expect(sets.map((m) => m.text)).toEqual(['Sunset, 2 Mar', 'Sun back, 15 Mar']);
+    expect(pathMarks([at('sunset-power-off', 'Sun behind the hills, power off', 5, '2 Mar')]).map((m) => m.text)).toEqual(['Sun behind hills, 2 Mar']);
+  });
 
   it('opens on the site, period and hour of the address, with a short answer over the view: the headline, one line on the lander, what to watch', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');

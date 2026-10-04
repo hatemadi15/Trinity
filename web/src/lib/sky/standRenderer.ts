@@ -399,18 +399,31 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   skyGroup.add(earth);
 
   // The guides (hidden with the words): the month's paths of the Sun and Earth, solid where they clear the
-  // skyline and faint where the hills hide them; the level horizon all round, faint; and a ring where a hidden
-  // Sun or Earth sits, on the hill that hides it.
+  // skyline, faint where the hills hide them and not at all where they run under the ground; the level horizon
+  // all round, faint; and a ring where a hidden Sun or Earth sits, on the hill that hides it.
   const guides = new THREE.Group();
   skyGroup.add(guides);
   const RG = RS * 0.98;
-  /** A band 0.15 degrees tall along directions on the sky, as a mesh: WebGL draws lines a pixel thin. */
-  const band = (dirs: Vec3[], colour: number, faint: boolean, opacity: number) => {
+  /**
+   * A band 0.15 degrees tall along directions on the sky, as a mesh: WebGL draws lines a pixel thin. Along a
+   * path, `floor` is each hour's lowest open sky (degrees): the level horizon, or the skyline where it dips below
+   * level, as it can from a high point. Below it the path runs under the ground, not behind a hill, and draws
+   * nothing: an hour's piece whose two ends both lie there, and a triangle wholly there (where the path goes down
+   * through it), are left as points, so every hour keeps its six indices and a range of hours stays a range of
+   * indices.
+   */
+  const band = (dirs: Vec3[], colour: number, faint: boolean, opacity: number, floor?: number[]) => {
     const n = dirs.length, pos = new Float32Array(n * 6), idx: number[] = [], half = RG * Math.tan(0.075 * DEG);
     for (let i = 0; i < n; i++) {
       const d = new THREE.Vector3(...dirs[i]).normalize(), up = new THREE.Vector3(0, 1, 0).addScaledVector(d, -d.y).normalize(), c = d.clone().multiplyScalar(RG);
       pos.set([c.x + up.x * half, c.y + up.y * half, c.z + up.z * half, c.x - up.x * half, c.y - up.y * half, c.z - up.z * half], i * 6);
-      if (i < n - 1) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 2, i * 2 + 1, i * 2 + 3);
+    }
+    // Heights as sines: a corner k belongs to the hour k / 2.
+    const low = floor?.map((f) => Math.sin(f * DEG));
+    const under = (k: number) => !!low && pos[k * 3 + 1] / RG < low[k >> 1];
+    for (let i = 0; i < n - 1; i++) {
+      const a = i * 2, gone = !!low && dirs[i][1] < low[i] && dirs[i + 1][1] < low[i + 1];
+      for (const t of [[a, a + 1, a + 2], [a + 2, a + 1, a + 3]]) idx.push(...(gone || t.every(under) ? [a, a, a] : t));
     }
     const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setIndex(idx);
@@ -421,13 +434,21 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   };
   const along = (az: ArrayLike<number>, el: ArrayLike<number>) => Array.from({ length: scene.series.hours }, (_, h) => dirAzEl(az[h], el[h]));
   const sunDirs = along(scene.series.sunAz, scene.series.sunEl), earthDirs = along(scene.series.earthAz, scene.series.earthEl);
-  guides.add(
-    band(sunDirs, 0xf6b646, false, 0.9),
-    band(sunDirs, 0xf6b646, true, 0.3),
-    band(earthDirs, 0x74adff, false, 0.9),
-    band(earthDirs, 0x74adff, true, 0.3),
-    band(Array.from({ length: 361 }, (_, k) => dirAzEl(k, 0)), 0xffffff, true, 0.18),
-  );
+  // Each hour's lowest open sky along a path: below the level horizon only where the skyline dips under it.
+  const floorAlong = (az: ArrayLike<number>) => Array.from({ length: scene.series.hours }, (_, h) => Math.min(0, maskAt(az[h])));
+  const sunFloor = floorAlong(scene.series.sunAz), earthFloor = floorAlong(scene.series.earthAz);
+  const paths = [band(sunDirs, 0xf6b646, false, 0.9, sunFloor), band(sunDirs, 0xf6b646, true, 0.3, sunFloor), band(earthDirs, 0x74adff, false, 0.9, earthFloor), band(earthDirs, 0x74adff, true, 0.3, earthFloor)];
+  guides.add(...paths, band(Array.from({ length: 361 }, (_, k) => dirAzEl(k, 0)), 0xffffff, true, 0.18));
+  /**
+   * Each path for one synodic month round the hour, centred on it where the period allows: 709 hours, the first
+   * and the last 708 apart, under the 708.7 from one new Moon to the next. Over a longer period a path comes
+   * round on itself a little higher or lower and reads as two lines. A period of a month or less is drawn whole.
+   */
+  const MONTH_H = 709;
+  const pathWindow = (t: number) => {
+    const from = Math.min(Math.max(0, Math.round(t) - (MONTH_H - 1) / 2), Math.max(0, scene.series.hours - MONTH_H));
+    for (const p of paths) p.geometry.setDrawRange(from * 6, (Math.min(MONTH_H, scene.series.hours) - 1) * 6);
+  };
   const ring = (colour: number, degrees: number) => {
     const s = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -588,7 +609,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     sunDir.set(...sd);
     sun.position.set(sd[0] * RS, sd[1] * RS, sd[2] * RS);
     glare.position.copy(sun.position);
-    // A ring where a hidden Sun or Earth sits, on the hill that hides it.
+    // The month of each path round the hour; a ring where a hidden Sun or Earth sits, on the hill that hides it.
+    pathWindow(t);
     const hi = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
     markers.sun.visible = v.sunFraction === 0;
     markers.sun.position.set(sd[0] * RG, sd[1] * RG, sd[2] * RG);

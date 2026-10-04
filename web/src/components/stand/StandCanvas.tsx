@@ -226,6 +226,22 @@ export function liftClear(b: Rect, others: Rect[], minTop: number): number | nul
   return null;
 }
 
+/**
+ * Which of the days on the paths show, in order (`chips`, their boxes where placed, null for one not shown):
+ * each in its place unless it comes within 4 px of a label shown (`labels`) or of a chip shown before it, which
+ * keeps its place; a chip that gives way takes no room. A chip not yet laid out (no width) shows and takes none.
+ */
+export function chipsShown(chips: (Rect | null)[], labels: Rect[]): boolean[] {
+  const taken = [...labels];
+  return chips.map((b) => {
+    if (!b) return false;
+    if (b.right <= b.left) return true;
+    if (taken.some((o) => b.left < o.right + 4 && b.right > o.left - 4 && b.top < o.bottom + 4 && b.bottom > o.top - 4)) return false;
+    taken.push(b);
+    return true;
+  });
+}
+
 /** The sides each part's name tries, in order. */
 const PARTS = [
   ['panel', 'Solar panel', ['above', 'below']],
@@ -259,7 +275,8 @@ const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] bord
  * is zoomed in (on a phone, a small note at the top right); the compass strip marks the Sun, Earth and the
  * lander at their bearings, hollow while below the horizon, or names them at its end when they lie beyond;
  * the bright stars carry their names at night and when the view looks up, each on whichever side keeps it
- * clear of the others; zoomed in on the lander, its solar panel, dish and power light carry theirs.
+ * clear of the others; zoomed in on the lander, its solar panel, dish and power light carry theirs. The key
+ * moments' days on the paths give way to all of these, and to each other.
  */
 export function StandCanvas({
   scene,
@@ -563,8 +580,7 @@ export function StandCanvas({
         if (shadowRef.current.textContent !== text) shadowRef.current.textContent = text;
       }
       place(shadowRef.current, sh ?? null);
-      // The key moments' days where the paths pass them, and the level horizon's name at the view's left.
-      (l.marks ?? []).forEach((m, k) => place(pathRefs.current[k], m));
+      // The level horizon's name at the view's left.
       const ly = levelY(shownPitch, v.fov);
       place(levelRef.current, { x: 0, y: ly, visible: ly > 0.08 && ly < 0.92 });
       // Star names at night, or when the view looks well up, where they would not crowd the day's sky; each
@@ -627,6 +643,22 @@ export function StandCanvas({
         const b = node.getBoundingClientRect();
         if (b.height > 0) node.style.top = `${pointerClear(b, labels, freeTop + 24, freeBottom - 8)}px`;
       }
+      // The key moments' days where the paths pass them, placed last: for the frame a chip gives way to every
+      // label shown (the Sun's, Earth's, the lander's and its parts' names, your shadow's, the star names, the
+      // pointers and the level horizon's name) and to the chips before it, so none covers a name or crowds another.
+      const shownLabels = [sunRef.current, earthRef.current, landerRef.current, shadowRef.current, levelRef.current, ...Object.values(partRefs.current), ...starRefs.current, ...Object.values(pointerRefs.current)]
+        .filter((n): n is HTMLElement => !!n && !n.closest('[hidden]'))
+        .map((n) => n.getBoundingClientRect())
+        .filter((b) => b.width > 0);
+      const chips = (l.marks ?? []).map((m, k) => {
+        const node = pathRefs.current[k];
+        place(node, m);
+        return node && !node.hidden ? node.getBoundingClientRect() : null;
+      });
+      chipsShown(chips, shownLabels).forEach((on, k) => {
+        const node = pathRefs.current[k];
+        if (node && !on) node.hidden = true;
+      });
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);

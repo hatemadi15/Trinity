@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, partSide, pointerClear, pointerWords, slopeWord, starNamesShown } from './StandCanvas';
+// @vitest-environment jsdom
+import { render, waitFor } from '@testing-library/react';
+import { createElement } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+import type { Series } from '@/lib/engine/metrics';
+import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
+import { flatField } from '@/lib/sky/terrainField';
+import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, partSide, pointerClear, pointerWords, slopeWord, StandCanvas, starNamesShown, type RendererLike } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -230,5 +236,75 @@ describe('the level horizon', () => {
     expect(levelY(-10, 60)).toBeLessThan(0.5);
     // At 30° up in a 60° view the level horizon is on the bottom edge.
     expect(levelY(30, 60)).toBeCloseTo(1, 9);
+  });
+});
+
+describe('the days on the paths', () => {
+  type Box = { left: number; top: number; right: number; bottom: number };
+  const at = (left: number, top: number, right: number, bottom: number): Box => ({ left, top, right, bottom });
+  // The view as jsdom has it, 1024 x 768, facing north: the Sun ahead, Earth 120 degrees right, out of view.
+  const series = { i0: 0, hours: 3, sunAz: Float64Array.from([0, 0, 0]), sunEl: Float64Array.from([2, 2, 2]), earthAz: Float64Array.from([120, 120, 120]), earthEl: Float64Array.from([3, 3, 3]), sunFraction: Float64Array.from([1, 1, 1]), earthVisible: Uint8Array.from([1, 1, 1]), sunAu: Float64Array.from([1, 1, 1]) } as Series;
+  const sky = { stars: { count: 0, j2000: new Float32Array(), vmag: new Float32Array(), bv: new Float32Array() }, moon: { startMs: 0, stepMs: 1, count: 2, quats: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0]) }, earthDayUrl: '', earthCloudsUrl: '' };
+  // Earth's name, the level horizon's and the pointer to Earth, as the browser lays them out; and six chips: the
+  // first on Earth's name, the second clear, the third on the second, the fourth on the level horizon's name, the
+  // fifth on the pointer, and the sixth only on the third.
+  const EARTH = at(500, 300, 660, 328), LEVEL = at(12, 430, 120, 458), POINTER = at(860, 400, 1016, 426);
+  const CHIPS: [string, Box][] = [
+    ['Earth in view, 10 Jan', at(540, 310, 700, 338)],
+    ['Sun behind hills, 3 Jan', at(200, 200, 370, 228)],
+    ['Sun back, 20 Jan', at(300, 210, 430, 238)],
+    ['Sunset, 25 Jan', at(60, 440, 170, 468)],
+    ['Sun back, 28 Jan', at(880, 410, 1000, 438)],
+    ['Earth in view, 29 Jan', at(420, 230, 560, 258)],
+  ];
+  const box = (el: Element): Box | undefined =>
+    el.getAttribute('data-sky') === 'earth'
+      ? EARTH
+      : el.getAttribute('data-pointer') === 'earth'
+        ? POINTER
+        : el.textContent === 'Level horizon'
+          ? LEVEL
+          : el.hasAttribute('data-path-mark')
+            ? CHIPS.find(([text]) => text === el.textContent)?.[1]
+            : undefined;
+
+  it('give way, frame by frame, to every label shown and to the chips before them, and come back once clear', async () => {
+    let earthNamed = true;
+    const labels = (): SkyLabels => ({
+      sun: { x: 0.5, y: 0.45, visible: true },
+      earth: { x: 0.57, y: 0.43, visible: earthNamed },
+      stars: [],
+      lander: null,
+      marks: CHIPS.map(([text], k) => ({ text, x: 0.1 + 0.1 * k, y: 0.3, visible: true })),
+    });
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
+    const scene: StandScene = { field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky, marks: CHIPS.map(([text], k) => ({ hour: k, body: 'sun', text })) };
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const b = box(this) ?? at(0, 0, 0, 0);
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      render(createElement(StandCanvas, { scene, hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun 2.0° up', earthLabel: 'Earth 3.0° up', night: false, onFail: vi.fn() }));
+      const hidden = () => [...document.querySelectorAll<HTMLElement>('[data-path-mark]')].map((n) => n.hidden);
+      await waitFor(() => expect(document.querySelector<HTMLElement>('[data-pointer="earth"]')!.hidden).toBe(false));
+      await waitFor(() => expect(hidden()[1]).toBe(false));
+      // The labels shown keep their places; of two chips on each other the earlier stays; a chip left out takes no room.
+      expect(hidden()).toEqual([true, false, true, true, true, false]);
+      // Earth's name goes: the chip it covered comes back.
+      earthNamed = false;
+      await waitFor(() => expect(hidden()[0]).toBe(false));
+      expect(hidden()).toEqual([false, false, true, true, true, false]);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
+  it('keep 4 px clear of a label, and leave out none for a chip not shown or not yet laid out', () => {
+    const b = (left: number, top: number, width = 100) => at(left, top, left + width, top + 28);
+    // 2 px from the label is too close; 5 px is clear.
+    expect(chipsShown([b(100, 100)], [b(202, 100)])).toEqual([false]);
+    expect(chipsShown([b(100, 100)], [b(205, 100)])).toEqual([true]);
+    // A chip not shown stays so; one with no width yet shows and takes no room, so the next one shows too.
+    expect(chipsShown([null, b(0, 0, 0), b(0, 0)], [])).toEqual([false, true, true]);
   });
 });

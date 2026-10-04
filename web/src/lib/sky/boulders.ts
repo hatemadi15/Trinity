@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /**
  * A few boulders near the eye, drawn (not measured, like the small craters underfoot): real shapes the view
@@ -18,8 +19,13 @@ export const BOULDERS = { COUNT: 14, NEAR_M: 6, FAR_M: 45, R_MIN: 0.15, R_MAX: 0
 
 /** Height over radius: the boulders are a little flattened, as rocks that have settled. */
 const FLAT = 0.7;
-/** How far the middle of a boulder sits above the ground, in its half-heights: the rest is sunk. */
-const LIFT = 0.55;
+/** How far the middle of a boulder sits above the ground, in its half-heights: the rest is sunk, bedded in the dust. */
+const LIFT = 0.45;
+/**
+ * A boulder's shape: a ball divided finely enough to look round (detail 6, 492 corners), swelled in and out by
+ * four broad waves and three smaller ones, its largest swell this share of its radius.
+ */
+const ROCK = { DETAIL: 6, BROAD: 4, SMALL: 3, SWELL: 0.18 } as const;
 
 /** A small seeded random number generator (mulberry32): the same seed gives the same numbers. */
 function seeded(seed: number): () => number {
@@ -65,30 +71,54 @@ export function placeBoulders(seed: number, lander: { x: number; z: number } | n
 }
 
 /**
- * The boulders' meshes: broken rock, coarse facets of uneven radius (each corner pushed in or out by its own
- * amount, the same wherever faces meet, so no crack opens), in the dust's grey a shade lighter or darker
- * rock by rock, each sunk into the ground at `groundY(x, z)` so it never floats; and for each a sphere
- * (centre and radius, in a Vector4) that stands for it in the ground shader's shadows, its top at the rock's.
+ * A rock's shape, its radius about 1: a finely divided ball with one vertex for each corner, shared by the faces
+ * round it (so the normals are smooth and no crack opens), pushed in and out along its radius by waves in random
+ * directions: four broad ones, a swell or two across the rock, and three smaller ones for its lumps. Their sum is
+ * taken about its mean, so the rock keeps its size, and scaled so its largest swell, in or out, is ROCK.SWELL.
+ */
+function rockShape(next: () => number): THREE.BufferGeometry {
+  const ball = new THREE.IcosahedronGeometry(1, ROCK.DETAIL);
+  // Without its normals and texture coordinates, which split the corners along seams, each corner merges into one vertex.
+  ball.deleteAttribute('normal');
+  ball.deleteAttribute('uv');
+  const geo = mergeVertices(ball);
+  ball.dispose();
+  const wave = (lo: number, hi: number, weight: number) => {
+    const z = 2 * next() - 1, t = 2 * Math.PI * next(), s = Math.sqrt(1 - z * z);
+    return { u: [s * Math.cos(t), z, s * Math.sin(t)], f: lo + (hi - lo) * next(), a: weight * (0.6 + 0.4 * next()), p: 2 * Math.PI * next() };
+  };
+  const waves = [...Array.from({ length: ROCK.BROAD }, () => wave(1, 2.2, 1)), ...Array.from({ length: ROCK.SMALL }, () => wave(3, 4.5, 0.2))];
+  const pos = geo.getAttribute('position'), swell = new Float64Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    for (const w of waves) swell[i] += w.a * Math.sin(w.f * (pos.getX(i) * w.u[0] + pos.getY(i) * w.u[1] + pos.getZ(i) * w.u[2]) + w.p);
+  }
+  const mean = swell.reduce((sum, v) => sum + v, 0) / pos.count;
+  let most = 0;
+  for (const v of swell) most = Math.max(most, Math.abs(v - mean));
+  for (let i = 0; i < pos.count; i++) {
+    const k = 1 + (ROCK.SWELL * (swell[i] - mean)) / (most || 1);
+    pos.setXYZ(i, pos.getX(i) * k, pos.getY(i) * k, pos.getZ(i) * k);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * The boulders' meshes: rounded rocks of uneven radius, worn smooth as the Moon's rocks are by ages of small
+ * impacts rather than broken into facets (rockShape), lit with smooth normals, in the dust's grey a shade lighter
+ * or darker rock by rock, each sunk into the ground at `groundY(x, z)` so it never floats; and for each a sphere
+ * (centre and radius, in a Vector4) that stands for it in the ground shader's shadows, its top at the rock's. Each
+ * rock keeps within a fifth of its radius of the flattened ball the sphere stands for, so its shadow still fits it.
  */
 export function boulderMeshes(list: Boulder[], groundY: (x: number, z: number) => number, seed: number): { group: THREE.Group; spheres: THREE.Vector4[] } {
   const next = seeded(seed ^ 0x9e3779b9);
   const group = new THREE.Group();
   const spheres: THREE.Vector4[] = [];
   for (const b of list) {
-    const geo = new THREE.IcosahedronGeometry(1, 1);
+    const geo = rockShape(next);
     const pos = geo.getAttribute('position');
-    // Each corner of the rock in or out by its own amount; corners shared by several faces move together.
-    const push = new Map<string, number>();
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-      const key = `${x.toFixed(3)},${y.toFixed(3)},${z.toFixed(3)}`;
-      if (!push.has(key)) push.set(key, 0.78 + 0.4 * next());
-      const k = push.get(key)!;
-      pos.setXYZ(i, x * k, y * k, z * k);
-    }
-    geo.computeVertexNormals();
     const shade = 0.9 + 0.2 * next();
-    const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(0x8b8781).multiplyScalar(shade), roughness: 1, metalness: 0, flatShading: true });
+    const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(0x8b8781).multiplyScalar(shade), roughness: 1, metalness: 0 });
     const mesh = new THREE.Mesh(geo, material);
     const hh = FLAT * b.r * (0.9 + 0.2 * next()), g = groundY(b.x, b.z);
     mesh.scale.set(b.r, hh, b.r * (0.85 + 0.3 * next()));

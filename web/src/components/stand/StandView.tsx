@@ -16,7 +16,7 @@ import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong } from '@/lib/viz/format';
-import { betterLabel, keyMoments, landerCaption, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines } from '@/lib/viz/stand';
+import { betterLabel, keyMoments, landerCaption, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates blur what is behind them, so no thin line of the sky shows through the words.
@@ -30,6 +30,22 @@ const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): Renderer
 const tall = () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
 /** How far out from the lander's middle the near edge of its nearest foot can stand, metres: the opening keeps it in sight. */
 const LANDER_FOOT_M = 2.1;
+
+/**
+ * The key moments' days on the paths, each named as its flag on the time bar names it, short, so a chip says
+ * what happens where it sits: on the Sun's path where it leaves the view, "Sun behind hills, 3 Jan" when a hill
+ * hides a Sun still up, else "Sunset, 3 Jan", and where it comes back, "Sun back, 20 Jan"; on Earth's where it
+ * comes into view, "Earth in view, 10 Jan". The power's part of a joined moment stays on its flag: the path is
+ * the Sun's.
+ */
+export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
+  return moments.flatMap((m): NonNullable<StandScene['marks']> => {
+    if (m.kind === 'earth-in') return [{ hour: m.hour, body: 'earth', text: `Earth in view, ${m.day}` }];
+    if (m.kind === 'sun-back' || m.kind === 'sun-power-back') return [{ hour: m.hour, body: 'sun', text: `Sun back, ${m.day}` }];
+    if (m.kind === 'sunset' || m.kind === 'sunset-power-off') return [{ hour: m.hour, body: 'sun', text: `${m.label.startsWith('Sunset') ? 'Sunset' : 'Sun behind hills'}, ${m.day}` }];
+    return [];
+  });
+}
 
 /**
  * Stand on the Moon: the full-window view from the landing site for the site, period and hour of the
@@ -102,9 +118,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     // Where it landed: placed by the period's first hour, not the hour the view opens on.
     const lander = s.power ? standLander(s.series, s.power, tall()) : undefined;
     // The key moments' days on the paths: the Sun's leaving and coming back on its path, Earth coming into view on Earth's.
-    const marks = keyMoments(s.series, s.power, s.startUtc).flatMap((m): NonNullable<StandScene['marks']> =>
-      m.kind === 'earth-in' ? [{ hour: m.hour, body: 'earth', text: m.day }] : m.kind === 'sunset' || m.kind === 'sunset-power-off' || m.kind === 'sun-back' || m.kind === 'sun-power-back' ? [{ hour: m.hour, body: 'sun', text: m.day }] : [],
-    );
+    const marks = pathMarks(keyMoments(s.series, s.power, s.startUtc));
     return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander, marks };
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality]);
   // How far below level the lander's nearest foot lies from the eye, and which way: the opening view keeps
