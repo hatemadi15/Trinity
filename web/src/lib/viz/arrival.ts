@@ -29,7 +29,8 @@ export function hero(doc: HomeDoc = HOME): Hero {
 
 /**
  * The beats' sentences, a screen each, between the first screen and the answer: the pole, the cap, the landing
- * (a solar lander, so the battery that runs out later is its own), standing as the month at the site begins, and
+ * (a small uncrewed solar lander: the battery that runs out later is its own, and no one is stranded with it), standing
+ * as the month at the site begins, and
  * its middle (from the engine's key moments).
  */
 export interface ArrivalWords { beats: string[]; siteLine: string; answer: string; better: string | null; exploreHref: string }
@@ -49,7 +50,7 @@ export function arrivalWords(doc: HomeDoc = HOME): ArrivalWords {
   return {
     beats: [
       ...BEAT_SENTENCES,
-      `Land a solar lander here on ${landing}: the Sun stands just above the hills.`,
+      `Land a small uncrewed solar lander here on ${landing}: the Sun stands just above the hills.`,
       `One hill can hide the Sun for weeks. Here is ${month} at this spot, sped up.`,
       earthIn && out
         ? `Earth comes into view on ${dateLong(h.startUtc, earthIn.hour)}, but the lander's battery ran out on ${dateLong(h.startUtc, out.hour)}.`
