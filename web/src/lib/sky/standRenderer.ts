@@ -52,8 +52,12 @@ export interface StandScene {
 type Spot = { x: number; y: number; visible: boolean };
 /** A path's name ("Sun's path this month"), at a place on its path, for a label. */
 export type PathName = Spot & { body: 'sun' | 'earth'; text: string };
-/** How the labels are asked for: `above`, each path's name hangs over its line (the arrival), so it keeps off the other path. */
-export interface LabelOptions { above?: boolean }
+/**
+ * How the labels are asked for: `above`, each path's name hangs over its line (the arrival), so it keeps off the
+ * other path; `middle`, the share of the view's width the names gather towards (half way unless given: the arrival
+ * gives the side its words leave free).
+ */
+export interface LabelOptions { above?: boolean; middle?: number }
 /** A box on the screen, its sides as fractions of the view's width (left, right) and height (top, bottom). */
 export interface ScreenBox {
   left: number;
@@ -911,8 +915,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     const k = skyGroup.scale.x;
     const onScreen = landerOnScreen();
     const pathNames = [
-      pathName('sun', "Sun's path this month", sunDirs, scene.series.sunEl, sunFloor, sunDir, onScreen, o.above ? { dirs: earthDirs, el: scene.series.earthEl, floor: earthFloor } : null),
-      pathName('earth', "Earth's path this month", earthDirs, scene.series.earthEl, earthFloor, earthDir, onScreen, o.above ? { dirs: sunDirs, el: scene.series.sunEl, floor: sunFloor } : null),
+      pathName('sun', "Sun's path this month", sunDirs, scene.series.sunEl, sunFloor, sunDir, onScreen, o.above ? { dirs: earthDirs, el: scene.series.earthEl, floor: earthFloor } : null, o.middle),
+      pathName('earth', "Earth's path this month", earthDirs, scene.series.earthEl, earthFloor, earthDir, onScreen, o.above ? { dirs: sunDirs, el: scene.series.sunEl, floor: sunFloor } : null, o.middle),
     ];
     return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow, marks, pathNames, landerBox: onScreen };
   }
@@ -936,12 +940,12 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   /**
    * A path's name, at an hour of it that shows: drawn (not under the ground) and clear of the day that fades at
    * either end, in view, not behind the lander, and above the level horizon where it can be; as near the middle of
-   * the view as it can be while 10° or more from the body itself (whose own label names it), else as far from the
-   * body as it can be. None while the guides are hidden. With `other` (the arrival, which hangs each name over its
+   * the view (or `middle` across it) as it can be while 10° or more from the body itself (whose own label names it),
+   * else as far from the body as it can be. None while the guides are hidden. With `other` (the arrival, which hangs each name over its
    * line) it keeps 12° or more round from the other path where that shows, so no name is read as the other's,
    * and a loop (Earth's) is named at its highest point, so none of it runs through the name over it.
    */
-  function pathName(body: PathName['body'], text: string, dirs: Vec3[], el: ArrayLike<number>, floor: number[], now: THREE.Vector3, box: ScreenBox | null, other: { dirs: Vec3[]; el: ArrayLike<number>; floor: number[] } | null = null): PathName {
+  function pathName(body: PathName['body'], text: string, dirs: Vec3[], el: ArrayLike<number>, floor: number[], now: THREE.Vector3, box: ScreenBox | null, other: { dirs: Vec3[]; el: ArrayLike<number>; floor: number[] } | null = null, middle = 0.5): PathName {
     let best = { x: 0, y: 0, visible: false }, score = Infinity;
     if (!guides.visible) return { body, text, ...best };
     camera.getWorldDirection(fwd);
@@ -960,7 +964,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       if (x < 0.1 || x > 0.9 || y < 0.1 || y > 0.85) continue;
       if (box && x > box.left && x < box.right && y > box.top && y < box.bottom) continue;
       const away = d.angleTo(now) / DEG, near = away < 10 ? 5 + (10 - away) / 10 : 0;
-      let s = (Number(el[h]) < 0 ? 10 : 0) + (near || Math.abs(x - 0.5));
+      let s = (Number(el[h]) < 0 ? 10 : 0) + (near || Math.abs(x - middle));
       if (other) {
         const az = bearing(d.x, d.z), gap = otherAz.reduce((g, a) => Math.min(g, Math.abs(((a - az + 540) % 360) - 180)), 180);
         if (gap < 12) s += 4;

@@ -728,6 +728,17 @@ describe('the guides', () => {
     expect(az < 63 - 12 || az > 77 + 12).toBe(true);
   });
 
+  it('gathers the paths’ names towards the middle it is given, as the arrival asks for the side its words leave free', () => {
+    const sunAz = (h: number) => (300 + (h * 360) / 708.73) % 360;
+    const s = buildScene(flat({ series: hourly(1000, sunAz, () => 2, () => 70, () => 4) }));
+    s.update(10);
+    s.setView(300, 2, 60, 16 / 9);
+    const middle = s.labels({ above: true }).pathNames![0], right = s.labels({ above: true, middle: 0.72 }).pathNames![0];
+    expect(right.visible).toBe(true);
+    expect(Math.abs(right.x - 0.72)).toBeLessThan(0.05);
+    expect(right.x).toBeGreaterThan(middle.x + 0.1);
+  });
+
   it('hides the level horizon alone when asked, as the arrival does, the paths still shown', () => {
     const s = buildScene(flat());
     s.setGuides(true, false);

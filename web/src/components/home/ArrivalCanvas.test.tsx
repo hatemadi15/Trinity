@@ -250,7 +250,7 @@ describe('the arrival’s live stage', () => {
     await waitFor(() => expect(sunPath.hidden).toBe(false));
     expect(earthPath.hidden).toBe(true);
     // Each name over its line, kept off the other path; the guides without the level horizon.
-    expect(r.labels).toHaveBeenLastCalledWith({ above: true });
+    expect(r.labels).toHaveBeenLastCalledWith({ above: true, middle: 0.65 });
     expect(r.setGuides).toHaveBeenLastCalledWith(true, false);
     expect(screen.queryByText('Level horizon')).toBeNull();
     progress.current = at(rise + 40);
@@ -259,6 +259,29 @@ describe('the arrival’s live stage', () => {
     progress.current = at(back + 40);
     await waitFor(() => expect(earthPath.hidden).toBe(true));
     expect(sunPath.hidden).toBe(true);
+  });
+
+  it('keeps a path’s name whole inside the view, moved in from the edge it would run past, as on a phone; on a wide screen it asks for names right of the words', async () => {
+    const { r } = stub();
+    r.labels = vi.fn(() => ({ sun: { x: 0.2, y: 0.5, visible: false }, pathNames: [{ body: 'sun', text: "Sun's path this month", x: 0.9, y: 0.4, visible: true }] })) as unknown as typeof r.labels;
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      // The view 390 wide; the name 170 wide round its point, moved in by as many pixels as its left says.
+      const el = this as HTMLElement, shift = Number(/- (-?[\d.]+)px/.exec(el.style?.left ?? '')?.[1] ?? 0);
+      const b = this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 390, bottom: 844 } : el.hasAttribute('data-path-name') ? { left: 351 - 85 - shift, top: 300, right: 351 + 85 - shift, bottom: 324 } : { left: 0, top: 0, right: 0, bottom: 0 };
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+      render(<ArrivalCanvas progress={{ current: 4 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const name = await screen.findByText("Sun's path this month");
+      await waitFor(() => expect(name.hidden).toBe(false));
+      // 351 + 85 reaches 46 px past the edge less the 4 px kept clear: moved in 50 px.
+      expect(name.style.left).toBe('calc(90% - 50px)');
+    } finally {
+      rect.mockRestore();
+    }
+    // The view here is wider than tall: the names gather right of the words at the left.
+    expect(r.labels).toHaveBeenLastCalledWith({ above: true, middle: 0.65 });
   });
 
   it('once landed names Earth where it shows, with how high it stands, as it names the Sun', async () => {

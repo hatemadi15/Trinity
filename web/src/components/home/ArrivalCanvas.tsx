@@ -374,8 +374,9 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         if (earthTextRef.current) earthTextRef.current.textContent = skyLabel('earth', h.series, hi);
         if (earthHereTextRef.current) earthHereTextRef.current.textContent = skyLabel('earth', h.series, hi);
       }
-      // The paths' names hang over their lines, each kept off the other's path.
-      const lab = p > 0.85 ? r.labels({ above: true }) : null;
+      // The paths' names hang over their lines, each kept off the other's path, and on a wide screen gather right of
+      // the words at the left.
+      const lab = p > 0.85 ? r.labels({ above: true, middle: aspect >= 1 ? 0.65 : 0.5 }) : null;
       // Once standing, the lander's box on the screen counts as placed: no name sits on it.
       if (p > 3.8 && lab?.landerBox) {
         const view = el.getBoundingClientRect(), b = lab.landerBox;
@@ -407,7 +408,13 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         if (n.hidden || !at) return;
         n.style.left = `${at.x * 100}%`;
         n.style.top = `${at.y * 100}%`;
-        const b = n.getBoundingClientRect();
+        // Whole inside the view: moved in from an edge it would run past, as a long name does on a phone.
+        let b = n.getBoundingClientRect();
+        const view = el.getBoundingClientRect(), over = Math.max(0, b.right - (view.right - 4)) - Math.max(0, view.left + 4 - b.left);
+        if (over !== 0) {
+          n.style.left = `calc(${at.x * 100}% - ${over}px)`;
+          b = n.getBoundingClientRect();
+        }
         n.hidden = meets(b, words) || meets(b, placed);
         if (!n.hidden) placed.push(b);
       };
