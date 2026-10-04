@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { siteLabel } from '@/lib/data/loaders';
 import type { StandScene } from '@/lib/sky/standRenderer';
@@ -69,6 +69,52 @@ describe('the arrival’s live stage', () => {
     await waitFor(() => expect(scenes).toHaveLength(1));
     expect(scenes[0].ground).toBe(true);
     expect(scenes[0].lander?.distM).toBe(16);
+  });
+
+  it('sets the hour, the pose and the labels only when something changes, not every frame', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const progress = { current: 2 };
+    render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(3));
+    await new Promise((res) => setTimeout(res, 120));
+    // Many frames at rest: the hour once, the pose once, the labels once.
+    expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(5);
+    expect(r.setTime).toHaveBeenCalledTimes(1);
+    expect(r.setPose).toHaveBeenCalledTimes(1);
+    expect(r.labels).toHaveBeenCalledTimes(1);
+    // A move: once more each.
+    progress.current = 2.5;
+    await waitFor(() => expect(r.setPose).toHaveBeenCalledTimes(2));
+    expect(r.setTime).toHaveBeenCalledTimes(1); // the same hour all the way down
+  });
+
+  it('stops its frames while the arrival is out of view, and starts them again when it comes back', async () => {
+    let seen: ((entries: { isIntersecting: boolean }[]) => void) | null = null;
+    const was = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = class {
+      constructor(cb: (entries: { isIntersecting: boolean }[]) => void) {
+        seen = cb;
+      }
+      observe() {}
+      disconnect() {}
+    } as unknown as typeof IntersectionObserver;
+    try {
+      const { r } = stub();
+      const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+      render(<ArrivalCanvas progress={{ current: 2 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      await waitFor(() => expect(seen).not.toBeNull());
+      await waitFor(() => expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(2));
+      act(() => seen!([{ isIntersecting: false }]));
+      await new Promise((res) => setTimeout(res, 50));
+      const paused = (r.render as ReturnType<typeof vi.fn>).mock.calls.length;
+      await new Promise((res) => setTimeout(res, 120));
+      expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBe(paused);
+      act(() => seen!([{ isIntersecting: true }]));
+      await waitFor(() => expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(paused));
+    } finally {
+      globalThis.IntersectionObserver = was;
+    }
   });
 
   it('builds a new pose when the view changes shape, at the same progress', async () => {

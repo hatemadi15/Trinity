@@ -1242,7 +1242,8 @@ export class StandRenderer {
   private half: boolean;
   /** A scene built beside the one on the screen (the ground arriving), which replaces it once compiled. */
   private next: { built: ReturnType<typeof buildScene>; compiled: boolean } | null = null;
-  private generation = 0;
+  /** Counts the scenes put on the screen: whatever the labels read changes with each. */
+  generation = 0;
   /** Whether the guides show (hidden with the words, and in flight). */
   private guides = true;
   private level = true;

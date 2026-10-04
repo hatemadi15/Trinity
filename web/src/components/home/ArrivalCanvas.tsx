@@ -18,6 +18,8 @@ import { standLander } from '@/lib/viz/standOpening';
 
 /** The renderer as the arrival drives it; a stub in tests. */
 export type ArrivalRenderer = Pick<StandRenderer, 'setTime' | 'setPose' | 'setScene' | 'setGuides' | 'resize' | 'render' | 'project' | 'labels' | 'dispose' | 'resting'> & {
+  /** Counts the scenes put on the screen (StandRenderer's); a stub may leave it out. */
+  generation?: number;
   ready?: Promise<void>;
   onLost?: (why: string) => void;
   onSharp?: () => void;
@@ -291,7 +293,13 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
         else placed.push(b);
       }
     };
+    // What was set last, so a frame where nothing has changed sets nothing: the hour's sky (thousands of stars placed
+    // again), the pose, and the labels' pass over the page's boxes. The renderer draws only what changed. At rest the
+    // labels are placed again four times a second, for words that move without a scroll (a font arriving).
+    let lastHour = NaN, lastMove = '', lastLabels = '', labelledAt = 0, posed: ReturnType<typeof poseAt> | null = null;
+    const RELABEL_MS = 250;
     const tick = () => {
+      raf = 0;
       const s = sceneRef.current!;
       const W = el.clientWidth || window.innerWidth, H = el.clientHeight || window.innerHeight, aspect = W / H;
       if (keyed.scene !== s || Math.abs(keyed.aspect - aspect) > 1e-3) {
@@ -300,19 +308,34 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
         keys = flightKeys(input);
         keyed = { scene: s, aspect };
       }
-      const p = progress.current, hour = hourAt(p, HERO_HOUR, endHour), pose = poseAt(keys, p, input!);
-      // The pose first: the hour's light depends on how high the camera is.
-      r.setPose(pose);
-      r.setTime(hour);
-      // The month's paths only once standing: in flight their faint bands would cross the Moon.
-      // The paths and the rings without the level horizon: the story is told without it.
-      r.setGuides(p > LANDED, false);
+      const p = progress.current, hour = hourAt(p, HERO_HOUR, endHour), move = `${p} ${keys.length} ${aspect} ${W}x${H}`;
+      if (move !== lastMove || !posed) {
+        lastMove = move;
+        posed = poseAt(keys, p, input!);
+        // The pose first: the hour's light depends on how high the camera is.
+        r.setPose(posed);
+        // The month's paths only once standing: in flight their faint bands would cross the Moon.
+        // The paths and the rings without the level horizon: the story is told without it.
+        r.setGuides(p > LANDED, false);
+      }
+      if (hour !== lastHour) {
+        lastHour = hour;
+        r.setTime(hour);
+      }
       r.render();
       if (sharp && r.resting) settle();
       if (drawn && !live) {
         live = true;
         liveRef.current();
       }
+      const labelsKey = `${move} ${hour} ${drawn} ${r.generation ?? 0}`, now = performance.now();
+      if (labelsKey === lastLabels && now - labelledAt < RELABEL_MS) {
+        raf = visible ? requestAnimationFrame(tick) : 0;
+        return;
+      }
+      lastLabels = labelsKey;
+      labelledAt = now;
+      const pose = posed;
       // Words faded near the top (a beat's, scrolling away) no longer count: they are gone from over the date's bar.
       words = [...document.querySelectorAll<HTMLElement>('[data-words]')]
         .filter((w) => Number(w.style.opacity || 1) >= 0.25)
@@ -454,12 +477,23 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
       named(pathNameRefs.current.earth, lab?.pathNames?.find((pn) => pn.body === 'earth'), aspect >= 1 && hour >= story.rise - 24 && hour < story.back);
       point(edgeRef.current, arrowRef.current, p > 0.85 && !sunNow.inView ? sunNow.v : null, p > LANDED ? h.series.sunEl[hi] : undefined);
       point(earthEdgeRef.current, earthArrowRef.current, p > LANDED && !earthNow.inView ? earthNow.v : null, h.series.earthEl[hi]);
-      raf = requestAnimationFrame(tick);
+      raf = visible ? requestAnimationFrame(tick) : 0;
     };
+    // While the arrival is out of view no frames are drawn; they start again when it comes back.
+    let visible = true;
+    const watch =
+      typeof IntersectionObserver === 'undefined'
+        ? null
+        : new IntersectionObserver((entries) => {
+            visible = entries.some((e) => e.isIntersecting);
+            if (visible && !raf) raf = requestAnimationFrame(tick);
+          });
+    watch?.observe(el);
     raf = requestAnimationFrame(tick);
     return () => {
       alive = false;
       cancelAnimationFrame(raf);
+      watch?.disconnect();
       el.removeEventListener('webglcontextlost', lost);
       r.dispose();
       rRef.current = null;
