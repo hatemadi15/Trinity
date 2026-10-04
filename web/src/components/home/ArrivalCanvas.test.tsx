@@ -225,6 +225,28 @@ describe('the arrival’s live stage', () => {
     }
   });
 
+  it('names the lines once standing, as the stand view does: each body’s path and the level horizon', async () => {
+    const { r } = stub();
+    r.labels = vi.fn(() => ({
+      sun: { x: 0.8, y: 0.5, visible: true },
+      pathNames: [
+        { body: 'sun', text: "Sun's path this month", x: 0.3, y: 0.45, visible: true },
+        { body: 'earth', text: "Earth's path this month", x: 0.6, y: 0.4, visible: true },
+      ],
+    })) as unknown as typeof r.labels;
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const progress = { current: 2 };
+    render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    const sunPath = await screen.findByText("Sun's path this month"), level = await screen.findByText('Level horizon');
+    await waitFor(() => expect(r.setPose).toHaveBeenCalled());
+    expect(sunPath.hidden).toBe(true); // not in flight
+    expect(level.hidden).toBe(true);
+    progress.current = 4;
+    await waitFor(() => expect(sunPath.hidden).toBe(false));
+    expect(screen.getByText("Earth's path this month").hidden).toBe(false);
+    expect(level.hidden).toBe(false);
+  });
+
   it('gives way to the stills when the Moon’s files do not load, and lets the renderer go when it leaves', async () => {
     const { r } = stub();
     const onFail = vi.fn();

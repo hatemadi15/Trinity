@@ -129,6 +129,9 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
   const edgeRef = useRef<HTMLSpanElement>(null), arrowRef = useRef<HTMLElement>(null);
   // Once standing, the pointer to Earth, wherever it is out of view.
   const earthEdgeRef = useRef<HTMLSpanElement>(null), earthArrowRef = useRef<HTMLElement>(null);
+  // Once standing, the names of the lines, as the stand view gives them: each body's path and the level horizon.
+  const pathNameRefs = useRef<Record<'sun' | 'earth', HTMLSpanElement | null>>({ sun: null, earth: null });
+  const levelRef = useRef<HTMLSpanElement>(null);
   const [sky, setSky] = useState<SkyAssets | null>(null);
   const [globe, setGlobe] = useState<GlobeAssets | null>(null);
   const [levels, setLevels] = useState<Level[] | null>(null);
@@ -303,7 +306,24 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         if (!chip.hidden) placed.push(b);
       };
       const sunNow = seen(dirAzEl(h.series.sunAz[hi], h.series.sunEl[hi])), earthNow = seen(dirAzEl(h.series.earthAz[hi], h.series.earthEl[hi]));
-      show('sun', p > 0.85 && sunNow.inView ? r.labels().sun : null);
+      const lab = p > 0.85 ? r.labels() : null;
+      show('sun', lab && sunNow.inView ? lab.sun : null);
+      // The lines' names once standing (the guides show only then), each giving way to the words and the labels placed.
+      const named = (n: HTMLElement | null, at: { x: number; y: number; visible: boolean } | null | undefined) => {
+        if (!n) return;
+        n.hidden = !(drawn && p > 3.8 && at && at.visible);
+        if (n.hidden || !at) return;
+        n.style.left = `${at.x * 100}%`;
+        n.style.top = `${at.y * 100}%`;
+        const b = n.getBoundingClientRect();
+        n.hidden = meets(b, words) || meets(b, placed);
+        if (!n.hidden) placed.push(b);
+      };
+      for (const body of ['sun', 'earth'] as const) named(pathNameRefs.current[body], lab?.pathNames?.find((pn) => pn.body === body));
+      // The level horizon at the view's left edge: where the level line straight ahead crosses the view.
+      const ahead = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(...pose.quaternion));
+      const level = r.project([pose.position[0] + ahead.x * 1e5, pose.position[1], pose.position[2] + ahead.z * 1e5]);
+      named(levelRef.current, p > 3.8 && level.visible ? { x: 0, y: level.y, visible: level.y > 0.08 && level.y < 0.92 } : null);
       point(edgeRef.current, arrowRef.current, p > 0.85 && !sunNow.inView ? sunNow.v : null);
       point(earthEdgeRef.current, earthArrowRef.current, p > 3.8 && !earthNow.inView ? earthNow.v : null);
       const d = dateRef.current;
@@ -354,6 +374,15 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
           <b ref={arrowRef} aria-hidden="true" className="ml-1.5 inline-block">
             →
           </b>
+        </span>
+        <span ref={(n) => { pathNameRefs.current.sun = n; }} hidden data-path-name="" className={`${CHIP} -translate-x-1/2 translate-y-2 text-[#f6d48a]`}>
+          Sun&apos;s path this month
+        </span>
+        <span ref={(n) => { pathNameRefs.current.earth = n; }} hidden data-path-name="" className={`${CHIP} -translate-x-1/2 translate-y-2 text-[#a9c8ff]`}>
+          Earth&apos;s path this month
+        </span>
+        <span ref={levelRef} hidden className={`${CHIP} translate-x-3 -translate-y-1/2 text-[#c3bfb6]`}>
+          Level horizon
         </span>
         <span ref={earthEdgeRef} hidden data-earth-edge="" className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#74adff]`}>
           {skyLabel('earth', h.series, HERO_HOUR)}
