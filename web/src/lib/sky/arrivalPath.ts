@@ -45,14 +45,14 @@ export const FLIGHT = { wholeDist: 9.0e6, wholeTilt: 14, poleAlt: 9.0e5, poleFov
  * The shot beside the lander, from landing to the end of the month at the site, by the view's shape: where the
  * lander's middle stands (degrees right of the view's middle and below level, metres away: the camera stands a few
  * metres up behind it), the camera's pitch and the view's height (degrees), and how far right of the middle the
- * Sun and Earth stand when the story is about them. On a wide screen the lander stands right of the middle, clear
- * of the words at the left, the Sun or Earth further right; at the end it moves left, under the answer's card,
- * the Sun at the right edge lighting its side. On a phone, whose view is narrow, the lander stands under the Sun or
- * Earth, above the words at the bottom; at the end the view tips up, so it stands under the answer's card at the
- * top, the Sun beyond the right edge lighting it from the side.
+ * Sun and Earth stand when the story is about them. On a wide screen the lander stands low at the left, under the
+ * words and the answer's card, and the Sun near the right edge, so the Sun lights its side rather than standing
+ * behind it (a lander against the Sun reads as a dark box). On a phone, whose view is narrow, the lander stands
+ * under the Sun or Earth, above the words at the bottom; at the end the view tips up, so it stands under the
+ * answer's card at the top, the Sun beyond the right edge lighting it from the side.
  */
 export const BESIDE = {
-  wide: { right: 12, below: 10, dist: 14, pitch: 2, fov: 60, sun: 35, earth: 22, end: { right: -20, sun: 40, pitch: 2 } },
+  wide: { right: -18, below: 13, dist: 14, pitch: 2, fov: 60, sun: 33, earth: 22, end: { right: -18, sun: 33, pitch: 2 } },
   tall: { right: -4, below: 8, dist: 16, pitch: -2, fov: 80, sun: 10, earth: 8, end: { right: -4, sun: 70, pitch: 14 } },
 } as const;
 /** The lander's middle over the ground under it (it is 3.4 m tall), metres. */

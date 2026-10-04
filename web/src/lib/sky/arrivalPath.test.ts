@@ -95,10 +95,12 @@ describe('the flight', () => {
       expect(inView(sun)).toBe(true);
       expect(sun.y).toBeGreaterThan(see(top).y);
       expect(end.fov).toBe(aspect < 1 ? BESIDE.tall.fov : BESIDE.wide.fov);
-      // On a wide screen right of the middle, clear of the words at the left, the Sun further right.
+      // On a wide screen low at the left, under the words, the Sun at the far right lighting its side: not a dark box
+      // against the Sun.
       if (aspect > 1) {
-        expect(lander.x).toBeGreaterThan(0.1);
-        expect(sun.x).toBeGreaterThan(lander.x + 0.2);
+        expect(see(top).y).toBeLessThan(-0.2);
+        expect(lander.x).toBeLessThan(0);
+        expect(sun.x).toBeGreaterThan(lander.x + 1);
       }
     }
   });
@@ -261,8 +263,8 @@ describe('the flight', () => {
         before = p;
       }
       // On a wide screen, while the words stand at the left (the screens of the month's start and middle), the lander
-      // stands right of the middle.
-      if (aspect > 1) for (const t of [HERO_HOUR, hourAt(4.5, HERO_HOUR, false, last)]) expect(viewOf(poseAtHour(t), aspect)(mid).x).toBeGreaterThan(0.1);
+      // stands under them, in the lower part of the view.
+      if (aspect > 1) for (const t of [HERO_HOUR, hourAt(4.5, HERO_HOUR, false, last)]) expect(viewOf(poseAtHour(t), aspect)(top).y).toBeLessThan(-0.2);
     }
   });
 
