@@ -45,6 +45,8 @@ describe('the arrival', () => {
       expect(k, part).toBeGreaterThan(at);
       at = k;
     }
+    // The challenge's landers (NASA's CLPS), named in plain words on the first screen: who it is for.
+    expect(screen.getByText("For planners of NASA's commercial Moon landers, educators and anyone curious.")).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Explore this site' }).getAttribute('href')).toBe(words.exploreHref);
     expect(screen.getByRole('link', { name: 'Choose a landing site' }).getAttribute('href')).toBe('/sites');
     // The headline keeps its spans of days and hours on one line with no-break spaces, as the stand view's does.

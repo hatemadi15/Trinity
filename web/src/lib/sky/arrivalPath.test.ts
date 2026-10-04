@@ -85,6 +85,33 @@ describe('the flight', () => {
     STOPS.forEach((p, k) => expect(new THREE.Vector3(...poseAt(keys, p, i).position).distanceTo(keys[k].position)).toBeLessThan(1e-3));
   });
 
+  it('opens with the Moon north up, as most pictures show it: the south pole at the bottom of the disc and Earth just beyond it', () => {
+    for (const aspect of [1.6, 390 / 844]) {
+      const i = input(aspect), see = viewOf(poseAt(flightKeys(i), 0, i), aspect);
+      const C = see(moonCentre(i.siteHeightM)), pole = see(polePoint(i)), E = see(i.earth);
+      expect(pole.y).toBeLessThan(C.y);
+      expect(E.y).toBeLessThan(pole.y);
+      expect(Math.abs(pole.x - C.x)).toBeLessThan(0.05);
+    }
+  });
+
+  it('on a phone ends with the picture moved down, so the Sun shows under the answer’s card at the top', () => {
+    // A phone opens 15 degrees left of the Sun (standOpening), not 35 as on a wide screen.
+    const i = { ...input(390 / 844), stand: { yaw: 322.33 - 15, pitch: 2, fov: 80 } }, pose = poseAt(flightKeys(i), 4, i), see = viewOf(pose, i.aspect);
+    const sun = see(new THREE.Vector3(0, i.eyeY, 0).addScaledVector(new THREE.Vector3(...i.sun), 1e5));
+    expect(inView(sun)).toBe(true);
+    expect(sun.y).toBeLessThan(-0.1);
+    // On a wide screen the card stands at the left, and the frame is the stand view's own.
+    expect(poseAt(flightKeys(input()), 4, input()).shift).toEqual([0, 0]);
+  });
+
+  it('pitches from over the pole down onto the cap without rolling the picture over', () => {
+    const i = input(), keys = flightKeys(i);
+    const right = (p: number) => new THREE.Vector3(1, 0, 0).applyQuaternion(new THREE.Quaternion(...poseAt(keys, p, i).quaternion));
+    const from = right(1.5);
+    for (let p = 1.5; p <= 2; p += 0.01) expect(right(p).angleTo(from)).toBeLessThan((45 * Math.PI) / 180);
+  });
+
   it('turns smoothly too: no step turns the view by more than two degrees, so the picture never whips round', () => {
     const i = input(), keys = flightKeys(i);
     let last = new THREE.Quaternion(...poseAt(keys, 0, i).quaternion);
@@ -123,11 +150,11 @@ describe('the flight', () => {
     }
   });
 
-  it('on a phone opens with the Moon low in the view and Earth over its pole, so the words above it stay clear', () => {
+  it('on a phone opens with the Moon low in the view, its south pole and Earth below it still in view, so the words above stay clear', () => {
     const i = input(390 / 844), keys = flightKeys(i), p = poseAt(keys, 0, i), see = viewOf(p, i.aspect);
     const C = moonCentre(i.siteHeightM), up = new THREE.Vector3(0, 1, 0).applyQuaternion(new THREE.Quaternion(...p.quaternion));
-    expect(see(C.clone().addScaledVector(up, R_MOON_M)).y).toBeLessThan(0); // its top below the middle
-    expect(inView(see(i.earth), 1)).toBe(true);
+    expect(see(C.clone().addScaledVector(up, R_MOON_M)).y).toBeLessThan(0.2); // its top in the lower part
+    expect(inView(see(i.earth), 0.98)).toBe(true);
   });
 
   it('keeps the whole Moon in a view barely wider than tall: the shift for the words gives way first', () => {

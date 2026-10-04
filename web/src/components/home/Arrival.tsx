@@ -160,10 +160,13 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
                 See how it works
               </a>
             </div>
-            <p data-words="" className="mt-3 w-fit text-base text-[#c6c5c0]">For mission planners, educators and anyone curious.</p>
-          </div>
-          <div className="wrap w-full">
-            <p data-words="" className="w-fit text-[15px] text-[#c6c5c0]">Scroll to fly down to the Moon&apos;s south pole.</p>
+            <p data-words="" className="mt-3 w-fit text-base text-[#c6c5c0]">
+              For planners of NASA&apos;s commercial Moon landers, educators and anyone curious.
+            </p>
+            {/* With the opening words, so it shows on the first screen and leaves with them, never over the Moon. */}
+            <p data-words="" className="mt-5 w-fit text-[15px] text-[#c6c5c0]">
+              Scroll to fly down to the Moon&apos;s south pole <span aria-hidden="true">↓</span>
+            </p>
           </div>
         </div>
         {words.beats.map((text, k) => (

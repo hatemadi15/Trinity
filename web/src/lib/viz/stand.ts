@@ -514,10 +514,12 @@ export function radioHeadline(title: string, contactHours: number, poweredHours:
  * are those with power from that day, and those of them with Earth in view, each counted to the nearest day,
  * and any time at all as at least one ("1 day").
  */
+/** A stretch in whole days, at least one when there is any: "13 days". The better landing day is said this way everywhere. */
+export const wholeDays = (hours: number) => spanWords((hours > 0 ? Math.max(1, Math.round(hours / 24)) : 0) * 24);
+
 export function betterLabel(dayLong: string, poweredHours: number, radioHours: number): string {
-  const days = (hours: number) => spanWords((hours > 0 ? Math.max(1, Math.round(hours / 24)) : 0) * 24);
-  const radio = radioHours <= 0 ? 'no radio contact' : `radio for ${days(radioHours)}`;
-  return `Try ${dayLong} instead: power for ${days(poweredHours)}, ${radio}`;
+  const radio = radioHours <= 0 ? 'no radio contact' : `radio for ${wholeDays(radioHours)}`;
+  return `Try ${dayLong} instead: power for ${wholeDays(poweredHours)}, ${radio}`;
 }
 
 /**

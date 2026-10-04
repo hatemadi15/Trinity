@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import * as THREE from 'three';
 import { loadGlobeAssets, type GlobeAssets } from '@/lib/data/globe';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
@@ -7,7 +8,7 @@ import { contextFileFor, loadHeightmap, loadTerrainManifest, shadowLevels, windo
 import type { Level } from '@/lib/engine/shadow';
 import { flightKeys, polePoint, poseAt, type Key, type PathInput } from '@/lib/sky/arrivalPath';
 import { hourAt, SWEEP } from '@/lib/sky/arrivalTiming';
-import { dirAzEl, enuBasis } from '@/lib/sky/frames';
+import { dirAzEl, enuBasis, type Vec3 } from '@/lib/sky/frames';
 import { eyeAt, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
 import { HERO_HOUR, hero, type Hero } from '@/lib/viz/arrival';
@@ -97,8 +98,16 @@ export function pathInput(h: Hero, scene: StandScene, aspect: number): PathInput
   };
 }
 
-const LABEL = 'pointer-events-none absolute -translate-x-1/2 -translate-y-[130%] whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[15px]';
+const CHIP = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[15px]';
+/** A label over what it names, with a dot on the point; or beside it, to its right. */
+const LABEL = `${CHIP} -translate-x-1/2 -translate-y-[130%]`;
+const LABEL_RIGHT = `${CHIP} translate-x-3 -translate-y-1/2`;
+/** Beside Earth, clear of its disc (at most about 60 px across). */
+const LABEL_BESIDE_EARTH = `${CHIP} translate-x-[36px] -translate-y-1/2`;
+const DOT = 'absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current';
 type Tag = 'earth' | 'pole' | 'site' | 'sun';
+/** How far in from the view's edge the pointer to an unseen Sun stands, in pixels. */
+const EDGE_IN_PX = 56;
 
 /**
  * The arrival's live stage: the Moon from space down to the stand view, by the flight's progress. It starts
@@ -111,6 +120,10 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
   const canvas = useRef<HTMLCanvasElement>(null);
   const tags = useRef<Record<Tag, HTMLSpanElement | null>>({ earth: null, pole: null, site: null, sun: null });
   const dateRef = useRef<HTMLParagraphElement>(null);
+  // The pointer to the Sun from the view's edge while it is out of sight, and its arrow.
+  const edgeRef = useRef<HTMLSpanElement>(null), arrowRef = useRef<HTMLElement>(null);
+  // Once standing, the pointer to Earth, wherever it is out of view.
+  const earthEdgeRef = useRef<HTMLSpanElement>(null), earthArrowRef = useRef<HTMLElement>(null);
   const [sky, setSky] = useState<SkyAssets | null>(null);
   const [globe, setGlobe] = useState<GlobeAssets | null>(null);
   const [levels, setLevels] = useState<Level[] | null>(null);
@@ -226,9 +239,9 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         keys = flightKeys(input);
         keyed = { scene: s, aspect };
       }
-      const p = progress.current, hour = hourAt(p, HERO_HOUR, reducedRef.current);
+      const p = progress.current, hour = hourAt(p, HERO_HOUR, reducedRef.current), pose = poseAt(keys, p, input!);
       // The pose first: the hour's light depends on how high the camera is.
-      r.setPose(poseAt(keys, p, input!));
+      r.setPose(pose);
       r.setTime(hour);
       // The month's paths only once standing: in flight their faint bands would cross the Moon.
       r.setGuides(p > 3.8);
@@ -243,11 +256,45 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       show('earth', p < 0.85 ? r.project(input!.earth, true) : null);
       show('pole', p < 2.6 ? r.project(polePoint(input!), true) : null);
       show('site', p > 1.6 && p < 3.8 ? r.project([0, input!.groundAt(0, 0), 0], true) : null);
-      show('sun', p > 3.8 ? r.labels().sun : null);
+      // After the whole Moon the Sun is named where it shows, and pointed to from the view's edge where it does
+      // not, so its circle round the pole during the month is seen, not only told; once standing, Earth is
+      // pointed to as well, so the missing radio has a place. Whether a body shows is worked out here, from its
+      // direction in the camera's frame and the view's width and shift.
+      const hi = Math.min(h.series.hours - 1, Math.max(0, Math.round(hour))), toCamera = new THREE.Quaternion(...pose.quaternion).invert();
+      const tanV = Math.tan((pose.fov * Math.PI) / 360);
+      const seen = (dir: Vec3) => {
+        const v = new THREE.Vector3(...dir).applyQuaternion(toCamera);
+        const nx = v.x / -v.z / (tanV * aspect) + 2 * pose.shift[0], ny = v.y / -v.z / tanV + 2 * pose.shift[1];
+        return { v, inView: v.z < 0 && Math.abs(nx) < 0.97 && Math.abs(ny) < 0.97 };
+      };
+      /** A pointer chip on the view's edge towards a direction out of view, kept far enough in to stay whole. */
+      const point = (chip: HTMLElement | null, arrow: HTMLElement | null, v: THREE.Vector3 | null) => {
+        if (!chip) return;
+        chip.hidden = true;
+        const len = v ? Math.hypot(v.x, v.y) : 0;
+        if (!drawn || !v || len < 1e-6) return;
+        // From the point the camera looks at, out towards the body to the edge.
+        const ux = v.x / len, uy = -v.y / len, ax = W * (0.5 + pose.shift[0]), ay = H * (0.5 - pose.shift[1]), m = EDGE_IN_PX;
+        const tx = ux > 0 ? (W - m - ax) / ux : ux < 0 ? (m - ax) / ux : Infinity, ty = uy > 0 ? (H - m - ay) / uy : uy < 0 ? (m - ay) / uy : Infinity;
+        const t = Math.max(0, Math.min(tx, ty));
+        chip.style.left = `${((ax + ux * t) / W) * 100}%`;
+        chip.style.top = `${((ay + uy * t) / H) * 100}%`;
+        if (arrow) arrow.style.transform = `rotate(${Math.atan2(uy, ux)}rad)`;
+        const b = chip.getBoundingClientRect();
+        chip.hidden = meets(b, words) || meets(b, placed);
+        if (!chip.hidden) placed.push(b);
+      };
+      const sunNow = seen(dirAzEl(h.series.sunAz[hi], h.series.sunEl[hi])), earthNow = seen(dirAzEl(h.series.earthAz[hi], h.series.earthEl[hi]));
+      show('sun', p > 0.85 && sunNow.inView ? r.labels().sun : null);
+      point(edgeRef.current, arrowRef.current, p > 0.85 && !sunNow.inView ? sunNow.v : null);
+      point(earthEdgeRef.current, earthArrowRef.current, p > 3.8 && !earthNow.inView ? earthNow.v : null);
       const d = dateRef.current;
       if (d) {
         d.hidden = !(p > SWEEP.from && p < SWEEP.to);
-        if (!d.hidden) d.textContent = dateLong(h.startUtc, Math.round(hour));
+        if (!d.hidden) {
+          const day = dateLong(h.startUtc, Math.round(hour));
+          d.textContent = /\d{4}$/.test(day) ? day : `${day} ${h.startUtc.slice(0, 4)}`;
+        }
       }
       raf = requestAnimationFrame(tick);
     };
@@ -266,17 +313,33 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
     <>
       <canvas ref={canvas} aria-hidden="true" className="absolute inset-0 h-full w-full" />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        <span ref={(n) => { tags.current.earth = n; }} hidden className={`${LABEL} text-[#74adff]`}>
-          Earth
+        {/* Earth and the pole lie close together at the Moon's foot: their names stand beside them, to the right. */}
+        <span ref={(n) => { tags.current.earth = n; }} hidden className={`${LABEL_BESIDE_EARTH} text-[#74adff]`}>
+          Earth, {(Math.round(h.earthKm[HERO_HOUR] / 1000) * 1000).toLocaleString('en-US')} km away
         </span>
-        <span ref={(n) => { tags.current.pole = n; }} hidden className={LABEL}>
+        <span ref={(n) => { tags.current.pole = n; }} hidden className={LABEL_RIGHT}>
+          <i aria-hidden="true" className={`${DOT} -left-3 top-1/2`} />
           The Moon&apos;s south pole
         </span>
         <span ref={(n) => { tags.current.site = n; }} hidden className={`${LABEL} text-[#f6d48a]`}>
+          <i aria-hidden="true" className={`${DOT} left-1/2 top-[130%]`} />
           {siteLabel(h.site)}
         </span>
         <span ref={(n) => { tags.current.sun = n; }} hidden className={`${LABEL} text-[#f6b646]`}>
+          <i aria-hidden="true" className={`${DOT} left-1/2 top-[130%]`} />
           {skyLabel('sun', h.series, HERO_HOUR)}
+        </span>
+        <span ref={edgeRef} hidden data-sun-edge="" className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#f6b646]`}>
+          Sun
+          <b ref={arrowRef} aria-hidden="true" className="ml-1.5 inline-block">
+            →
+          </b>
+        </span>
+        <span ref={earthEdgeRef} hidden data-earth-edge="" className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#74adff]`}>
+          {skyLabel('earth', h.series, HERO_HOUR)}
+          <b ref={earthArrowRef} aria-hidden="true" className="ml-1.5 inline-block">
+            →
+          </b>
         </span>
         <p ref={dateRef} hidden className="absolute left-1/2 top-6 -translate-x-1/2 rounded-[5px] border border-white/15 bg-black/75 px-3 py-1 text-[16px] text-[#f6d48a]" />
       </div>

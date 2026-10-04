@@ -5,8 +5,7 @@ import { summarize, type Series } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerResult } from '../engine/power';
 import { exploreHref } from '../links';
 import { answerFor } from './answer';
-import { spanWords } from './format';
-import { standHeadline, standingLine } from './stand';
+import { standHeadline, standingLine, wholeDays } from './stand';
 
 /** The hour the arrival shows: 1 January 2027, 10:00 UTC (the Sun on the ridge), the hour section 5 names. */
 export const HERO_HOUR = 10;
@@ -42,7 +41,7 @@ export function arrivalWords(doc: HomeDoc = HOME): ArrivalWords {
     beats: BEAT_SENTENCES,
     siteLine: standingLine(h.site, name, 'top'),
     answer: standHeadline(answer.title, name, h.series, h.power, h.startUtc, answer.contactHours, answer.poweredHours),
-    better: answer.better && best ? `${answer.better.label}: power for ${spanWords(best.poweredHours)} in a row.` : null,
+    better: answer.better && best ? `${answer.better.label}: power for ${wholeDays(best.poweredHours)} in a row.` : null,
     exploreHref: exploreHref(h.site.id, h.startUtc, h.days),
   };
 }

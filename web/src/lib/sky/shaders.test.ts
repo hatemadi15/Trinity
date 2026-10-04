@@ -12,6 +12,17 @@ describe('the ground shader', () => {
     expect((GROUND_FRAG.match(/smoothstep\(1\.5, 4\.0, /g) ?? []).length).toBeGreaterThanOrEqual(5);
   });
 
+  it('draws craters from 200 m to 3 km across on ground seen from afar, each size faded in by the pixels it spans, as shading only', () => {
+    // The measured cap's cells are 960 m: from tens of kilometres up it read as smooth wax without them.
+    const far = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float farH('), GROUND_FRAG.indexOf('void main()'));
+    expect(far).toMatch(/float farH\(vec2 p, float px\)/);
+    for (const cell of ['3200.0', '800.0', '200.0']) expect(far).toContain(`smoothstep(1.5, 4.0, ${cell} / px)`);
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    // Faded in with the distance as the near detail fades out, bending only the shading normal.
+    expect(main).toMatch(/float wFar = smoothstep\([0-9.]+, [0-9.]+, dist\)/);
+    expect(main).toMatch(/Nn = normalize\(Nn - vec3\(\(fx - f0\) \/ e, 0\.0, \(fz - f0\) \/ e\) \* wFar/);
+  });
+
   it('starts the shadow ray from the measured ground, not from the drawn craters', () => {
     expect(GROUND_FRAG).toContain('vec3 N0 = normalize(vNormal), Nn = N0;');
     expect(GROUND_FRAG).toContain('sunMargin(vWorld + N0 * 0.4, uSun)');

@@ -33,7 +33,7 @@ export interface PathInput {
  * with Earth beyond its south pole; the pole from 900 km; the cap from 90 km up, 150 km back, lit from the
  * side; the ridge from 2 km up, 5 km back; then the eye. Metres and degrees.
  */
-export const FLIGHT = { wholeDist: 9.0e6, wholeTilt: 14, poleAlt: 9.0e5, poleFov: 40, capBack: 1.5e5, capAlt: 9.0e4, capFov: 50, ridgeBack: 5000, ridgeClear: 2000, ridgeFov: 45, wideShift: 0.17, tallShift: -0.22 } as const;
+export const FLIGHT = { wholeDist: 9.0e6, wholeTilt: 14, poleAlt: 9.0e5, poleFov: 40, capBack: 1.5e5, capAlt: 9.0e4, capFov: 50, ridgeBack: 5000, ridgeClear: 2000, ridgeFov: 45, wideShift: 0.17, tallShift: -0.22, standTallShift: -0.1 } as const;
 
 const V = (v: Vec3) => new THREE.Vector3(v[0], v[1], v[2]);
 /** On a wide screen what a beat is about stands right of the middle, clear of the words at the left; on a phone, in the middle. */
@@ -54,7 +54,10 @@ function slerpUnit(a: THREE.Vector3, b: THREE.Vector3, f: number): THREE.Vector3
   return a.clone().multiplyScalar(Math.sin((1 - f) * th) / s).addScaledVector(b, Math.sin(f * th) / s);
 }
 
-/** The whole Moon from the far side, tilted towards the south pole, so Earth stands just beyond the pole's limb. */
+/**
+ * The whole Moon from the far side, tilted towards the south pole, so Earth stands just beyond the pole's limb:
+ * north up, as most pictures of the Moon show it, so the south pole is at the bottom and Earth below it.
+ */
 function wholeMoon(i: PathInput): Key {
   const C = moonCentre(i.siteHeightM), E = V(i.earth), toEarth = E.clone().sub(C).normalize(), anti = toEarth.clone().negate();
   const towardsPole = southOf(i).addScaledVector(anti, -southOf(i).dot(anti)).normalize();
@@ -64,7 +67,7 @@ function wholeMoon(i: PathInput): Key {
   const rho = Math.asin(R_MOON_M / FLIGHT.wholeDist), sep = toC.angleTo(toE), earthR = Math.asin(6371e3 / E.distanceTo(from));
   const span = rho + sep + earthR; // from the far limb to Earth's far edge
   const look = toC.clone().applyAxisAngle(new THREE.Vector3().crossVectors(toC, toE).normalize(), span / 2 - rho);
-  const up = toE.clone().addScaledVector(look, -toE.dot(look)).normalize(); // Earth towards the top
+  const up = toE.clone().addScaledVector(look, -toE.dot(look)).normalize().negate(); // Earth towards the bottom
   const tall = i.aspect < 1;
   const fov = Math.max((span / DEG) * 1.25, tall ? (2 * Math.atan(Math.tan(rho * 1.2) / i.aspect)) / DEG : 0);
   // On a wide screen the Moon sits right of the middle, clear of the words, as far as the view's width allows:
@@ -74,10 +77,14 @@ function wholeMoon(i: PathInput): Key {
   return { position: from, target: from.clone().addScaledVector(look, FLIGHT.wholeDist), up, fov, shift: tall ? [0, FLIGHT.tallShift] : [wide, 0] };
 }
 
-/** Straight down on the south pole, the near side (Earth's way) at the top. */
+/**
+ * Straight down on the south pole, the far side at the top: from the whole Moon (north up) the camera pitches
+ * down onto the pole, and from here it pitches up onto the cap, which it looks across towards the far side,
+ * so the picture never rolls over.
+ */
 function abovePole(i: PathInput): Key {
   const C = moonCentre(i.siteHeightM), south = southOf(i), toEarth = V(i.earth).sub(C).normalize();
-  return { position: C.clone().addScaledVector(south, R_MOON_M + FLIGHT.poleAlt), target: V(polePoint(i)), up: toEarth.addScaledVector(south, -toEarth.dot(south)).normalize(), fov: tallFov(FLIGHT.poleFov, i.aspect), shift: aside(i) };
+  return { position: C.clone().addScaledVector(south, R_MOON_M + FLIGHT.poleAlt), target: V(polePoint(i)), up: toEarth.addScaledVector(south, -toEarth.dot(south)).normalize().negate(), fov: tallFov(FLIGHT.poleFov, i.aspect), shift: aside(i) };
 }
 
 /** Square to the Sun along the ground, on the side away from the pole: the camera looks past the site at it. */
@@ -99,9 +106,10 @@ function overRidge(i: PathInput, side: THREE.Vector3): Key {
   return { position: from, target: new THREE.Vector3(0, i.groundAt(0, 0), 0), up: new THREE.Vector3(0, 1, 0), fov: tallFov(FLIGHT.ridgeFov, i.aspect), shift: aside(i) };
 }
 
+/** The stand view's opening; on a phone the picture moves down, so the Sun and the lander show under the answer's card at the top. */
 function standing(i: PathInput): Key {
   const from = new THREE.Vector3(0, i.eyeY, 0);
-  return { position: from, target: from.clone().add(V(dirAzEl(i.stand.yaw, i.stand.pitch)).multiplyScalar(1000)), up: new THREE.Vector3(0, 1, 0), fov: i.stand.fov, shift: [0, 0] };
+  return { position: from, target: from.clone().add(V(dirAzEl(i.stand.yaw, i.stand.pitch)).multiplyScalar(1000)), up: new THREE.Vector3(0, 1, 0), fov: i.stand.fov, shift: i.aspect < 1 ? [0, FLIGHT.standTallShift] : [0, 0] };
 }
 
 /** The six keys at STOPS. */
@@ -143,9 +151,8 @@ export function poseAt(keys: Key[], p: number, i: PathInput): Pose {
   const position = k === STOPS.length - 2 ? descend(a, b, f, i) : orbit(a, b, f, i);
   const target = a.target.clone().lerp(b.target, f);
   // Where both stops share the up it is held (the horizon stays level on the way down). Elsewhere it is the up of
-  // the two stops' aims turned part way, square to the line of sight: from the pole to the cap the picture has to
-  // roll half round, and an up swung straight from Earth's way to the sky's would pass by the line of sight and
-  // do the whole roll in a moment.
+  // the two stops' aims turned part way, square to the line of sight, so the picture turns as one smooth turn:
+  // an up swung straight from one stop's to the next could pass by the line of sight and roll in a moment.
   let up = a.up.equals(b.up) ? a.up.clone() : new THREE.Vector3(0, 1, 0).applyQuaternion(aimOf(a).slerp(aimOf(b), f));
   const fwd = target.clone().sub(position).normalize();
   if (Math.abs(fwd.dot(up)) > 0.999) up = new THREE.Vector3(1, 0, 0).addScaledVector(fwd, -fwd.x).normalize();

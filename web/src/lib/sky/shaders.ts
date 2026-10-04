@@ -100,6 +100,18 @@ float detailRise(vec2 p, float h0, vec2 d, float px) {
   for (int i = 0; i < 12 * uOne; i++) { rise = max(rise, (bigH(p + d * t, px) - h0) / t); t *= 1.24; }
   return rise;
 }
+// Seen from afar (the flight over the cap, the far hills from the eye): craters from 200 m to 3 km across, drawn
+// too, for the measured cells (960 m on the cap) are too coarse to show them. Each size fades in once it spans a
+// few pixels, so nothing sparkles, and they only shade: the shadows still come from the measured ground.
+float farH(vec2 p, float px) {
+  float h = 0.0, k = smoothstep(1.5, 4.0, 3200.0 / px);
+  if (k > 0.0) h += craters(p + 311.0, 3200.0) * 0.9 * k;
+  k = smoothstep(1.5, 4.0, 800.0 / px);
+  if (k > 0.0) h += craters(p + 577.0, 800.0) * 1.0 * k;
+  k = smoothstep(1.5, 4.0, 200.0 / px);
+  if (k > 0.0) h += craters(p + 919.0, 200.0) * 1.0 * k;
+  return h;
+}
 // A layer of stones' own shadows: cell by cell along the ray towards the Sun (the cells stones() lays that
 // layer out in), out to reach metres, each stone a low dome on the drawn ground. Returns the least angle by
 // which the ray clears one (negative through it); grow (0 to 1) fades the stones in as they grow larger than
@@ -204,6 +216,12 @@ void main() {
         wDetail = w;
       }
     }
+  }
+  // From afar, farH's craters on the measured ground, faded in as the near ones fade out (by 1600 m).
+  float wFar = smoothstep(800.0, 2400.0, dist);
+  if (uDetail > 0.5 && wFar > 0.0) {
+    float e = max(px, 1.0), f0 = farH(vWorld.xz, px), fx = farH(vWorld.xz + vec2(e, 0.0), px), fz = farH(vWorld.xz + vec2(0.0, e), px);
+    Nn = normalize(Nn - vec3((fx - f0) / e, 0.0, (fz - f0) / e) * wFar * (1.0 - hide));
   }
   albedoVar += 0.1 * (vnoise(vWorld.xz * 0.004) - 0.5);
   float mu0 = max(dot(Nn, Ls), 0.0), mu = max(dot(Nn, V), 0.03);

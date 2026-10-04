@@ -22,7 +22,7 @@ describe('home page', () => {
       ['Explore this site', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
     ]);
     for (const beat of hero.querySelectorAll('[data-beat]')) expect(beat.querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
-    expect(within(hero).getByText('For mission planners, educators and anyone curious.')).toBeTruthy();
+    expect(within(hero).getByText("For planners of NASA's commercial Moon landers, educators and anyone curious.")).toBeTruthy();
     // The promise in the words of the answer it leads to.
     expect(hero.textContent).toMatch(/how long a solar lander keeps power there\./);
     expect(hero.textContent).not.toMatch(/survives the night/);

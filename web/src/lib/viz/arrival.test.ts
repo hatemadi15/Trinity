@@ -33,7 +33,8 @@ describe('the arrival', () => {
     const a = answerFor({ siteName: 'de Gerlache Rim 2', series: r.series, summary: r.summary, power: r.power, startUtc: '2027-01-01T00:00:00', days: 30, loadW: 200, batteryWh: 2000, best: r.best });
     expect(w.answer).toBe(standHeadline(a.title, 'de Gerlache Rim 2', r.series, r.power, '2027-01-01T00:00:00', a.contactHours, a.poweredHours));
     expect(plain(w.answer)).toBe('Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power');
-    expect(plain(w.better ?? '')).toBe('Land on 20 January instead: power for 12 days 15 hours in a row.');
+    // In whole days, as the stand view's better day says it, so the two never give one landing two lengths.
+    expect(plain(w.better ?? '')).toBe('Land on 20 January instead: power for 13 days in a row.');
     expect(w.siteLine).toMatch(/^Standing at de Gerlache Rim 2, near the Moon's south pole\./);
     expect(w.exploreHref).toBe(`/explore?site=${site.id}&start=2027-01-01&days=30`);
     expect(w.beats).toEqual(['At the south pole the Sun never climbs: it circles the horizon once a month.', 'One hill can hide it for weeks.', 'This ridge was shortlisted for astronauts.']);

@@ -125,7 +125,7 @@ describe('the arrival’s live stage', () => {
     });
     try {
       render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
-      const earth = await screen.findByText('Earth');
+      const earth = await screen.findByText(/^Earth, [\d,]+ km away$/);
       await waitFor(() => expect(r.setPose).toHaveBeenCalled());
       await new Promise((res) => setTimeout(res, 50));
       expect(earth.hidden).toBe(true);
@@ -150,6 +150,51 @@ describe('the arrival’s live stage', () => {
     } finally {
       rect.mockRestore();
     }
+  });
+
+  it('names Earth with how far it is, so its small disc is not taken for a small world', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    expect(await screen.findByText(/^Earth, 3\d\d,000 km away$/)).toBeTruthy();
+  });
+
+  it('points to the Sun from the edge of the view while it is out of sight, through the month, and names it where it shows', async () => {
+    const { r } = stub();
+    let sunSeen = false;
+    r.labels = vi.fn(() => ({ sun: { x: 0.6, y: 0.4, visible: sunSeen } })) as unknown as typeof r.labels;
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const progress = { current: 1.25 };
+    render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect(document.querySelector('[data-sun-edge]')).not.toBeNull());
+    const edge = document.querySelector('[data-sun-edge]') as HTMLElement;
+    expect(edge.textContent).toMatch(/^Sun/);
+    await waitFor(() => expect(edge.hidden).toBe(false));
+    // On the view's edge, inset so the chip stays whole.
+    const x = parseFloat(edge.style.left), y = parseFloat(edge.style.top);
+    expect(Math.min(x, 100 - x, y, 100 - y)).toBeLessThan(12);
+    // The month's date, with its year.
+    expect(screen.getByText(/^\d{1,2} January 2027$/)).toBeTruthy();
+    // In view (standing, the Sun to the right of the middle), the Sun's own label instead.
+    sunSeen = true;
+    progress.current = 4;
+    await waitFor(() => expect(edge.hidden).toBe(true));
+    expect(screen.getByText(/^Sun /, { selector: 'span:not([data-sun-edge])' }).hidden).toBe(false);
+  });
+
+  it('once standing, points to Earth from the edge of the view with where it is, so the missing radio has a place', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const progress = { current: 2 };
+    render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect(document.querySelector('[data-earth-edge]')).not.toBeNull());
+    const edge = document.querySelector('[data-earth-edge]') as HTMLElement;
+    await waitFor(() => expect(r.setPose).toHaveBeenCalled());
+    expect(edge.hidden).toBe(true); // not in flight
+    progress.current = 4;
+    // At the hero hour Earth is 6° below the horizon, behind the view.
+    await waitFor(() => expect(edge.hidden).toBe(false));
+    expect(edge.textContent).toMatch(/^Earth, \d+(\.\d)?° below the horizon/);
   });
 
   it('gives way to the stills when the Moon’s files do not load, and lets the renderer go when it leaves', async () => {
