@@ -284,6 +284,44 @@ describe('the arrival’s live stage', () => {
     expect(r.labels).toHaveBeenLastCalledWith({ above: true, middle: 0.65 });
   });
 
+  it('names no path on a phone, whose narrow view has no room for the names beside Earth and the Sun', async () => {
+    const was = { w: window.innerWidth, h: window.innerHeight };
+    Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 844, configurable: true });
+    try {
+      const { r } = stub();
+      r.labels = vi.fn(() => ({ sun: { x: 0.8, y: 0.5, visible: true }, pathNames: [{ body: 'sun', text: "Sun's path this month", x: 0.3, y: 0.45, visible: true }] })) as unknown as typeof r.labels;
+      const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+      render(<ArrivalCanvas progress={{ current: 4 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const name = await screen.findByText("Sun's path this month");
+      await waitFor(() => expect(r.setPose).toHaveBeenCalled());
+      await new Promise((res) => setTimeout(res, 50));
+      expect(name.hidden).toBe(true);
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { value: was.w, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: was.h, configurable: true });
+    }
+  });
+
+  it('raises Earth’s name from space beside it where it would run off the bottom of the view, as on a phone', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      // The view 390 by 844; Earth's name, beside its point near the foot of the view, runs past the bottom unless raised.
+      const side = this.getAttribute('data-side');
+      const b = this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 390, bottom: 844 } : side === 'up' ? { left: 200, top: 700, right: 380, bottom: 800 } : { left: 200, top: 780, right: 380, bottom: 880 };
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const earth = await screen.findByText(/^Earth, [\d,]+ km away/);
+      await waitFor(() => expect(earth.getAttribute('data-side')).toBe('up'));
+      expect(earth.hidden).toBe(false);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
   it('once landed names Earth where it shows, with how high it stands, as it names the Sun', async () => {
     const { r } = stub();
     r.labels = vi.fn(() => ({ sun: { x: 0.8, y: 0.5, visible: false }, earth: { x: 0.6, y: 0.4, visible: true } })) as unknown as typeof r.labels;
@@ -307,22 +345,22 @@ describe('the arrival’s live stage', () => {
     const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours), year = h.startUtc.slice(0, 4);
     const at = (hour: number) => 4 + (hour - HERO_HOUR) / (end - HERO_HOUR);
     const bar = document.querySelector('[data-date-bar]') as HTMLElement, mark = bar.querySelector('[data-mark]') as HTMLElement;
-    // Landed: the date and what lights the ground, the month from its first day to its last with its moments marked.
+    // Landed: the date and what lights the ground, the month with its moments marked, and what the marks' colours say.
     await waitFor(() => expect(bar.hidden).toBe(false));
     expect(within(bar).getByText(`${dateLong(h.startUtc, HERO_HOUR)} ${year}: in sunlight`)).toBeTruthy();
-    expect(within(bar).getByText(dateLong(h.startUtc, 0))).toBeTruthy();
-    expect(within(bar).getByText(dateLong(h.startUtc, h.series.hours - 1))).toBeTruthy();
     expect(bar.querySelectorAll('[data-tick]')).toHaveLength(moments.length);
+    for (const key of ['The Sun hides or comes back', 'The battery runs out', 'Earth comes into view']) expect(within(bar).getByText(key)).toBeTruthy();
     // Each moment named for a day or so after it passes, the mark at its hour in the month.
     const earth = moments.find((m) => m.kind === 'earth-in')!;
     progress.current = at(earth.hour + 6);
     await waitFor(() => expect(bar.textContent).toContain(`${dateLong(h.startUtc, earth.hour + 6)} ${year}: ${earth.label}`));
     expect(parseFloat(mark.style.left)).toBeCloseTo(((earth.hour + 6) / (h.series.hours - 1)) * 100, 0);
-    // Then what lights the ground: Earth alone, which is why it looks blue; or nothing at all.
+    // Then what lights the ground: Earth alone, which is why it looks blue; or nothing at all. Either way the picture
+    // is brightened, and says so: the ground would look near black.
     progress.current = at(earth.hour + 60);
-    await waitFor(() => expect(bar.textContent).toContain(': lit only by Earthlight'));
+    await waitFor(() => expect(bar.textContent).toContain(': lit only by Earthlight (picture brightened)'));
     progress.current = at(moments.find((m) => m.kind === 'battery-out')!.hour + 60);
-    await waitFor(() => expect(bar.textContent).toContain(': in the dark'));
+    await waitFor(() => expect(bar.textContent).toContain(': in the dark (picture brightened)'));
     // At the end, the last hour of the story; before landing, no bar.
     progress.current = 5;
     await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBe(end));

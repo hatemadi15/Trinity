@@ -109,23 +109,33 @@ const CHIP_BOX = 'pointer-events-none absolute rounded-[5px] border border-white
 const CHIP = `${CHIP_BOX} whitespace-nowrap`;
 /** A label over what it names, with a dot on the point; or beside it, to its right. */
 const LABEL = `${CHIP} -translate-x-1/2 -translate-y-[130%]`;
-const LABEL_RIGHT = `${CHIP} group translate-x-3 -translate-y-1/2 data-[side=left]:-translate-x-[calc(100%+12px)] data-[side=below]:-translate-x-1/2 data-[side=below]:translate-y-3`;
+const LABEL_RIGHT = `${CHIP} group translate-x-3 -translate-y-1/2 data-[side=left]:-translate-x-[calc(100%+12px)] data-[side=below]:-translate-x-1/2 data-[side=below]:translate-y-3 data-[side=up]:-translate-y-full`;
 /**
  * Beside Earth, clear of its disc (at most about 60 px across). Either label beside its point turns to the left
  * where it would run off the view, and goes under the point where neither side has room.
  */
-const LABEL_BESIDE_EARTH = `${CHIP_BOX} w-max max-w-[15rem] translate-x-[36px] -translate-y-1/2 data-[side=left]:-translate-x-[calc(100%+36px)] data-[side=below]:-translate-x-1/2 data-[side=below]:translate-y-[22px]`;
+const LABEL_BESIDE_EARTH = `${CHIP_BOX} w-max max-w-[15rem] translate-x-[36px] -translate-y-1/2 data-[side=left]:-translate-x-[calc(100%+36px)] data-[side=below]:-translate-x-1/2 data-[side=below]:translate-y-[22px] data-[side=up]:-translate-y-full`;
 const DOT = 'absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current';
 /** The dot of a label beside its point: on the label's left, or its right when the label turns. */
-const SIDE_DOT = `${DOT} -left-3 top-1/2 group-data-[side=left]:left-auto group-data-[side=left]:-right-3 group-data-[side=left]:translate-x-1/2 group-data-[side=below]:left-1/2 group-data-[side=below]:-top-3`;
+const SIDE_DOT = `${DOT} -left-3 top-1/2 group-data-[side=left]:left-auto group-data-[side=left]:-right-3 group-data-[side=left]:translate-x-1/2 group-data-[side=below]:left-1/2 group-data-[side=below]:-top-3 group-data-[side=up]:top-full`;
 type Tag = 'earth' | 'pole' | 'site' | 'sun' | 'earthHere';
 /** Once landed (the guides show then too): the date's bar and the month's lines. */
 const LANDED = 3.8;
-/** What lights the ground at the site at an hour, in words: the Sun, Earth alone (which is why the ground turns blue), or nothing. */
+/**
+ * What lights the ground at the site at an hour, in words: the Sun, Earth alone (which is why the ground turns blue),
+ * or nothing. Without the Sun the picture is brightened, as the stand view says, and the words say so: the ground
+ * would look near black.
+ */
 export function lightWords(series: Pick<Hero['series'], 'sunFraction' | 'earthVisible'>, hour: number): string {
   if (series.sunFraction[hour] > 0) return 'in sunlight';
-  return series.earthVisible[hour] === 1 ? 'lit only by Earthlight' : 'in the dark';
+  return series.earthVisible[hour] === 1 ? 'lit only by Earthlight (picture brightened)' : 'in the dark (picture brightened)';
 }
+/** The date bar's key: what each colour of mark stands for. */
+const TICK_KEY = [
+  ['#f6b646', 'The Sun hides or comes back'],
+  ['#e5e3dc', 'The battery runs out'],
+  ['#74adff', 'Earth comes into view'],
+] as const;
 /** A moment's mark on the date's bar, in its body's colour: the Sun's amber, Earth's blue, else white (the battery). */
 const tickColour = (kind: string) => (kind.startsWith('earth') ? '#74adff' : kind.startsWith('sun') ? '#f6b646' : '#e5e3dc');
 /** How far a pointer to a body out of view stands in from the view's edge, beyond half its own size, in pixels. */
@@ -265,14 +275,15 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         n.style.left = `${at.x * 100}%`;
         n.style.top = `${at.y * 100}%`;
         // A label beside its point turns to the other side where it would run off the view, and goes under the
-        // point where neither side has room.
+        // point where neither side has room; beside it, it rises where it would run off the bottom, as Earth's long
+        // name does on a phone.
         if (k === 'earth' || k === 'pole') {
           const view = el.getBoundingClientRect();
           n.removeAttribute('data-side');
           if (n.getBoundingClientRect().right > view.right - 4) {
             n.setAttribute('data-side', 'left');
             if (n.getBoundingClientRect().left < view.left + 4) n.setAttribute('data-side', 'below');
-          }
+          } else if (n.getBoundingClientRect().bottom > view.bottom - 4) n.setAttribute('data-side', 'up');
         }
         const b = n.getBoundingClientRect();
         if (meets(b, words) || meets(b, placed)) n.hidden = true;
@@ -418,8 +429,9 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         n.hidden = meets(b, words) || meets(b, placed);
         if (!n.hidden) placed.push(b);
       };
-      named(pathNameRefs.current.sun, lab?.pathNames?.find((pn) => pn.body === 'sun'), hour < story.rise);
-      named(pathNameRefs.current.earth, lab?.pathNames?.find((pn) => pn.body === 'earth'), hour >= story.rise - 24 && hour < story.back);
+      // A phone's narrow view has no room for them beside the bodies' own names: none there.
+      named(pathNameRefs.current.sun, lab?.pathNames?.find((pn) => pn.body === 'sun'), aspect >= 1 && hour < story.rise);
+      named(pathNameRefs.current.earth, lab?.pathNames?.find((pn) => pn.body === 'earth'), aspect >= 1 && hour >= story.rise - 24 && hour < story.back);
       point(edgeRef.current, arrowRef.current, p > 0.85 && !sunNow.inView ? sunNow.v : null);
       point(earthEdgeRef.current, earthArrowRef.current, p > 3.8 && !earthNow.inView ? earthNow.v : null);
       raf = requestAnimationFrame(tick);
@@ -491,9 +503,13 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
             ))}
             <b ref={markRef} data-mark="" className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-black bg-[#f6d48a]" />
           </div>
-          <p className="mt-1.5 flex justify-between text-[14px] text-[#c6c5c0]">
-            <span>{dateLong(h.startUtc, 0)}</span>
-            <span>{dateLong(h.startUtc, h.series.hours - 1)}</span>
+          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] text-[#c6c5c0]">
+            {TICK_KEY.map(([colour, text]) => (
+              <span key={text} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <i aria-hidden="true" className="inline-block h-3 w-[3px] rounded-full" style={{ background: colour }} />
+                {text}
+              </span>
+            ))}
           </p>
         </div>
       </div>
