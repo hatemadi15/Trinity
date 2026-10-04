@@ -123,6 +123,26 @@ describe('the arrival', () => {
     expect(screen.getByRole('link', { name: 'Fly to the south pole' }).getAttribute('href')).toBe('/sites');
   });
 
+  it('stops playing when the page scrolls by any other hand: the scrollbar dragged, autoscroll, a link to a section', () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'setTimeout'] });
+    render(<Arrival words={words} Stage={Stage} />);
+    scrolled(0);
+    fireEvent.click(screen.getByRole('link', { name: 'Fly to the south pole' }));
+    act(() => vi.advanceTimersByTime(1000));
+    const calls = (window.scrollTo as unknown as ReturnType<typeof vi.fn>).mock.calls.length;
+    expect(calls).toBeGreaterThan(5);
+    // The scrollbar dragged far from where the flight last put the page: no wheel, touch or key.
+    const was = window.scrollY;
+    Object.defineProperty(window, 'scrollY', { value: 12345, configurable: true });
+    try {
+      fireEvent.scroll(window);
+      act(() => vi.advanceTimersByTime(3000));
+      expect((window.scrollTo as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(calls);
+    } finally {
+      Object.defineProperty(window, 'scrollY', { value: was, configurable: true });
+    }
+  });
+
   it('hands the answer the focus when the flight it plays reaches the site, as Skip does', () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'setTimeout'] });
     render(<Arrival words={words} Stage={Stage} />);

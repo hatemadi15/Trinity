@@ -26,9 +26,12 @@ const FADE_TOP_PX = 72, FADE_PX = 64;
 const screenOf = (el: HTMLElement | null) => (el ? el.offsetHeight / BEATS : 0) || window.innerHeight || 1;
 /** Screens scrolled past the arrival's top, 0 to the last. */
 const screensIn = (el: HTMLElement | null) => (el ? Math.min(BEATS - 1, Math.max(0, -el.getBoundingClientRect().top / screenOf(el))) : 0);
-/** Scrolls the page to `s` screens into the arrival. */
-function scrollInto(el: HTMLElement | null, s: number) {
-  if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top + s * screenOf(el), behavior: 'instant' });
+/** Scrolls the page to `s` screens into the arrival; returns where it asked the page to be (its scrollY), if anywhere. */
+function scrollInto(el: HTMLElement | null, s: number): number | null {
+  if (!el) return null;
+  const top = window.scrollY + el.getBoundingClientRect().top + s * screenOf(el);
+  window.scrollTo({ top, behavior: 'instant' });
+  return top;
 }
 /** The page's address does not change under the section, so there is nothing to subscribe to. */
 const noSubscribe = () => () => {};
@@ -86,14 +89,17 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
     };
   }, [reduced, capture]);
 
-  // Play: the page scrolls through the arrival by itself; a wheel, a touch or a key stops it where it is.
+  // Play: the page scrolls through the arrival by itself; a wheel, a touch or a key stops it where it is, and so does
+  // the page scrolling anywhere Play did not put it (the scrollbar dragged, autoscroll, a link to a section).
   useEffect(() => {
     if (!playing) return;
     const t0 = performance.now(), from = playSeconds(progressFromScroll(screens()));
-    let raf = 0;
+    // Where Play put the page on its last two frames: a scroll event may land after the next frame has moved on.
+    let raf = 0, put: number | null = null, before: number | null = null;
     const tick = (now: number) => {
       const p = playProgress(from + (now - t0) / 1000);
-      goTo(scrollFromProgress(p));
+      before = put;
+      put = goTo(scrollFromProgress(p));
       if (p >= LAST) {
         // At the site: the answer takes the focus, as with Skip, so a screen reader reads it next.
         setPlaying(false);
@@ -102,11 +108,17 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
     };
     raf = requestAnimationFrame(tick);
     const stop = () => setPlaying(false);
+    const near = (y: number | null) => y !== null && Math.abs(window.scrollY - y) <= 2;
+    const moved = () => {
+      if (put !== null && !near(put) && !near(before)) stop();
+    };
     const kinds = ['wheel', 'touchstart', 'keydown'] as const;
     for (const k of kinds) window.addEventListener(k, stop, { passive: true });
+    window.addEventListener('scroll', moved, { passive: true });
     return () => {
       cancelAnimationFrame(raf);
       for (const k of kinds) window.removeEventListener(k, stop);
+      window.removeEventListener('scroll', moved);
     };
   }, [playing]);
 
