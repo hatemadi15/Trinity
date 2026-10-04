@@ -21,3 +21,12 @@ export function cachedTexture(url: string, srgb: boolean): { texture: THREE.Text
   cache.set(url, entry);
   return entry;
 }
+
+/**
+ * Gives back the GPU copies of every cached texture, as a renderer goes: three's dispose event has each renderer that
+ * uploaded one free its copy and stop listening, so the old renderer's context is no longer held. The textures stay
+ * in the cache with their images, and the next renderer uploads them again without fetching anything.
+ */
+export function releaseCachedTextures(): void {
+  for (const { texture } of cache.values()) texture.dispose();
+}

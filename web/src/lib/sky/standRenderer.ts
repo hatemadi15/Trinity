@@ -15,7 +15,7 @@ import { moonMatrixAt } from './moonOrientation';
 import { EARTH_FRAG, EARTH_VERT, GROUND_FRAG, GROUND_VERT, STAR_FRAG, STAR_VERT } from './shaders';
 import { FramePacer } from './framePacer';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
-import { cachedTexture } from './textureCache';
+import { cachedTexture, releaseCachedTextures } from './textureCache';
 import { placeStars, starColour, starGain, starSize } from './stars';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS, boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
@@ -1205,6 +1205,7 @@ export class StandRenderer {
   private renderer: THREE.WebGLRenderer;
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
+  private output: OutputPass;
   private built: ReturnType<typeof buildScene>;
   private size = { w: 1, h: 1 };
   private view = { yaw: 0, pitch: 0, fov: 60 };
@@ -1290,7 +1291,8 @@ export class StandRenderer {
     // A tight bloom: the Sun's disc glows a little, the sky round it stays black.
     this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.22, 0.15, 0.985);
     this.composer.addPass(this.bloom);
-    this.composer.addPass(new OutputPass());
+    this.output = new OutputPass();
+    this.composer.addPass(this.output);
   }
 
   setTime(hour: number) {
@@ -1462,13 +1464,19 @@ export class StandRenderer {
     this.built.setGuides(on, level);
   }
 
+  /**
+   * Gives everything back: the scenes, the passes, the renderer, and the shared textures' GPU copies (kept for the
+   * page's life in the cache, they would otherwise hold this renderer's context after it has gone).
+   */
   dispose() {
     if (this.fence) (this.renderer.getContext() as WebGL2RenderingContext).deleteSync(this.fence);
     this.built.root.environment?.dispose();
     this.built.dispose();
     this.next?.built.dispose();
     this.bloom.dispose();
+    this.output.dispose();
     this.composer.dispose();
+    releaseCachedTextures();
     this.renderer.dispose();
   }
 }
