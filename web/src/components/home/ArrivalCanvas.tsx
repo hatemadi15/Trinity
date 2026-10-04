@@ -200,9 +200,11 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       };
     }
     let keys: Key[] = [], input: PathInput | null = null, keyed: { scene: StandScene | null; aspect: number } = { scene: null, aspect: 0 };
-    // The words on the screen (marked data-words): a label that would fall on them waits until they move on.
+    // The words on the screen (marked data-words), and the labels already placed this frame: a label that would
+    // fall on either waits until they move apart (Earth's first, then the pole's, the site's and the Sun's).
     let words: DOMRect[] = [];
-    const onWords = (b: DOMRect) => words.some((w) => b.left < w.right && b.right > w.left && b.top < w.bottom && b.bottom > w.top);
+    const placed: DOMRect[] = [];
+    const meets = (b: DOMRect, rects: DOMRect[]) => rects.some((w) => b.left < w.right && b.right > w.left && b.top < w.bottom && b.bottom > w.top);
     const show = (k: Tag, at: { x: number; y: number; visible: boolean } | null) => {
       const n = tags.current[k];
       if (!n) return;
@@ -210,7 +212,9 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       if (!n.hidden && at) {
         n.style.left = `${at.x * 100}%`;
         n.style.top = `${at.y * 100}%`;
-        if (onWords(n.getBoundingClientRect())) n.hidden = true;
+        const b = n.getBoundingClientRect();
+        if (meets(b, words) || meets(b, placed)) n.hidden = true;
+        else placed.push(b);
       }
     };
     const tick = () => {
@@ -235,6 +239,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         liveRef.current();
       }
       words = [...document.querySelectorAll('[data-words]')].map((w) => w.getBoundingClientRect()).filter((b) => b.width > 0 && b.height > 0);
+      placed.length = 0;
       show('earth', p < 0.85 ? r.project(input!.earth, true) : null);
       show('pole', p < 2.6 ? r.project(polePoint(input!), true) : null);
       show('site', p > 1.6 && p < 3.8 ? r.project([0, input!.groundAt(0, 0), 0], true) : null);

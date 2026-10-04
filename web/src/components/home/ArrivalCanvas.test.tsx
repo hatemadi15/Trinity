@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { siteLabel } from '@/lib/data/loaders';
 import type { StandScene } from '@/lib/sky/standRenderer';
+import { hero } from '@/lib/viz/arrival';
 import ArrivalCanvas, { type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
 
 const sky = { stars: { count: 0, j2000: new Float32Array(), vmag: new Float32Array(), bv: new Float32Array() }, moon: { startMs: 0, stepMs: 1, count: 2, quats: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0]) }, earthDayUrl: '', earthCloudsUrl: '' };
@@ -132,6 +134,21 @@ describe('the arrival’s live stage', () => {
     } finally {
       rect.mockRestore();
       words.remove();
+    }
+  });
+
+  it('keeps two labels from landing on each other: the pole’s keeps its place and the site’s waits', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    // Every label at the same spot, as the pole and the site are from high above.
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(() => ({ left: 100, top: 100, right: 220, bottom: 124, x: 100, y: 100, width: 120, height: 24, toJSON: () => ({}) }) as DOMRect);
+    try {
+      render(<ArrivalCanvas progress={{ current: 2 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const pole = await screen.findByText("The Moon's south pole"), site = await screen.findByText(siteLabel(hero().site).replace(/ /g, ' '));
+      await waitFor(() => expect(pole.hidden).toBe(false));
+      expect(site.hidden).toBe(true);
+    } finally {
+      rect.mockRestore();
     }
   });
 
