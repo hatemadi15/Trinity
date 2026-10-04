@@ -321,8 +321,16 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         }
       }
       show('earth', p < 0.85 ? r.project(input!.earth, true) : null);
-      show('pole', p < 2.6 ? r.project(polePoint(input!), true) : null);
-      show('site', p > 1.6 && p < 3.8 ? r.project([0, input!.groundAt(0, 0), 0], true) : null);
+      // From the cap down the ridge is the beat's subject ("NASA has shortlisted this ridge"): its name is placed
+      // first, and the pole's gives way where the two would meet, as they do on a phone.
+      const poleAt = p < 2.6 ? r.project(polePoint(input!), true) : null, siteAt = p > 1.6 && p < LANDED ? r.project([0, input!.groundAt(0, 0), 0], true) : null;
+      if (p > 1.6) {
+        show('site', siteAt);
+        show('pole', poleAt);
+      } else {
+        show('pole', poleAt);
+        show('site', siteAt);
+      }
       // After the whole Moon the Sun is named where it shows, and pointed to from the view's edge where it does
       // not, so its circle round the pole during the month is seen, not only told; once standing, Earth is
       // pointed to as well, so the missing radio has a place. Whether a body shows is worked out here, from its

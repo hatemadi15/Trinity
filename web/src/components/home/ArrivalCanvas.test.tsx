@@ -140,7 +140,7 @@ describe('the arrival’s live stage', () => {
     }
   });
 
-  it('keeps two labels from landing on each other: the pole’s keeps its place and the site’s waits', async () => {
+  it('keeps two labels from landing on each other: from the cap down the site’s keeps its place (the beat names the ridge) and the pole’s waits', async () => {
     const { r } = stub();
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
     // Every label at the same spot, as the pole and the site are from high above.
@@ -148,8 +148,8 @@ describe('the arrival’s live stage', () => {
     try {
       render(<ArrivalCanvas progress={{ current: 2 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
       const pole = await screen.findByText("The Moon's south pole"), site = await screen.findByText(siteLabel(hero().site).replace(/ /g, ' '));
-      await waitFor(() => expect(pole.hidden).toBe(false));
-      expect(site.hidden).toBe(true);
+      await waitFor(() => expect(site.hidden).toBe(false));
+      expect(pole.hidden).toBe(true);
     } finally {
       rect.mockRestore();
     }
