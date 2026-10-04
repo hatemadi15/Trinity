@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
-import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, partSide, pointerClear, pointerWords, slopeWord, StandCanvas, starNamesShown, type RendererLike } from './StandCanvas';
+import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, offLander, partSide, pointerClear, pointerWords, slopeWord, StandCanvas, starNamesShown, type RendererLike } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -306,5 +306,165 @@ describe('the days on the paths', () => {
     expect(chipsShown([b(100, 100)], [b(205, 100)])).toEqual([true]);
     // A chip not shown stays so; one with no width yet shows and takes no room, so the next one shows too.
     expect(chipsShown([null, b(0, 0, 0), b(0, 0)], [])).toEqual([false, true, true]);
+  });
+});
+
+/** A place as a style gives it ("50%", "calc(50% - 12px)", "8px"), in pixels of a side `whole` pixels long. */
+const stylePx = (v: string, whole: number) => {
+  const m = /^(?:calc\()?(-?[\d.]+(?:e-?\d+)?)(%|px)(?: ([+-]) ([\d.]+(?:e-?\d+)?)px)?\)?$/.exec(v);
+  if (!m) throw new Error(`a place the layout cannot read: "${v}"`);
+  return (m[2] === '%' ? (Number(m[1]) / 100) * whole : Number(m[1])) + (m[3] ? (m[3] === '-' ? -1 : 1) * Number(m[4]) : 0);
+};
+/**
+ * The labels laid out as a browser lays them out on jsdom's 1024 x 768 view: each box at its size (`size`, none for
+ * the rest) where its style puts it, shifted as its classes shift it: a body's or the lander's name over its spot, a
+ * day's chip higher, a path's name hanging under its spot, a pointer centred on its height at an edge.
+ */
+function layout(size: (el: HTMLElement) => [number, number] | undefined) {
+  return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    const el = this as HTMLElement, wh = size(el);
+    let b = { left: 0, top: 0, right: 0, bottom: 0 };
+    if (wh && !el.hidden) {
+      const [w, h] = wh;
+      if (el.hasAttribute('data-pointer')) {
+        const left = el.style.left ? stylePx(el.style.left, 1024) : 1024 - stylePx(el.style.right, 1024) - w, mid = stylePx(el.style.top, 768);
+        b = { left, top: mid - h / 2, right: left + w, bottom: mid + h / 2 };
+      } else {
+        const x = stylePx(el.style.left, 1024) - w / 2, y = stylePx(el.style.top, 768);
+        const top = el.hasAttribute('data-path-mark') ? y - 1.4 * h : el.hasAttribute('data-path-name') ? y + 0.25 * h : y - h;
+        b = { left: x, top, right: x + w, bottom: top + h };
+      }
+    }
+    return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+  });
+}
+/** Whether two boxes come within 4 px of each other. */
+const near = (a: { left: number; top: number; right: number; bottom: number }, b: { left: number; top: number; right: number; bottom: number }) =>
+  a.right > b.left - 4 && a.left < b.right + 4 && a.bottom > b.top - 4 && a.top < b.bottom + 4;
+/** Facing north, the Sun ahead and Earth 120 degrees right, out of view. */
+const northSeries = { i0: 0, hours: 3, sunAz: Float64Array.from([0, 0, 0]), sunEl: Float64Array.from([2, 2, 2]), earthAz: Float64Array.from([120, 120, 120]), earthEl: Float64Array.from([3, 3, 3]), sunFraction: Float64Array.from([1, 1, 1]), earthVisible: Uint8Array.from([1, 1, 1]), sunAu: Float64Array.from([1, 1, 1]) } as Series;
+const noStars = { stars: { count: 0, j2000: new Float32Array(), vmag: new Float32Array(), bv: new Float32Array() }, moon: { startMs: 0, stepMs: 1, count: 2, quats: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0]) }, earthDayUrl: '', earthCloudsUrl: '' };
+/** The sizes the browser gives the labels: the bodies' names, the lander's, a day's chip, a path's name and a pointer. */
+const sizes = (el: HTMLElement): [number, number] | undefined =>
+  el.getAttribute('data-sky') === 'sun'
+    ? [220, 30]
+    : el.getAttribute('data-sky') === 'earth'
+      ? [180, 30]
+      : el.textContent?.startsWith('The lander')
+        ? [160, 30]
+        : el.hasAttribute('data-path-mark')
+          ? [150, 28]
+          : el.hasAttribute('data-path-name')
+            ? [170, 30]
+            : el.hasAttribute('data-pointer')
+              ? [156, 26]
+              : undefined;
+
+describe('a label over the lander', () => {
+  const lander = { left: 400, top: 300, right: 600, bottom: 560 };
+  it('moves the least way that clears the lander’s body by 4 px, to its left or right or above it, and stays where it is when clear', () => {
+    expect(offLander({ left: 300, right: 420, top: 400, bottom: 430 }, lander, 1024, 4)).toEqual({ dx: 400 - 4 - 420, dy: 0 });
+    expect(offLander({ left: 590, right: 700, top: 400, bottom: 430 }, lander, 1024, 4)).toEqual({ dx: 600 + 4 - 590, dy: 0 });
+    expect(offLander({ left: 450, right: 550, top: 290, bottom: 320 }, lander, 1024, 4)).toEqual({ dx: 0, dy: 300 - 4 - 320 });
+    expect(offLander({ left: 100, right: 200, top: 400, bottom: 430 }, lander, 1024, 4)).toEqual({ dx: 0, dy: 0 });
+  });
+  it('takes another way where the least would leave the screen, rise above the room or meet another label, and gives way where none is clear', () => {
+    // The lander at the screen's right edge: a label low over its right side goes to its left, not off the screen.
+    expect(offLander({ left: 900, right: 1000, top: 500, bottom: 530 }, { ...lander, left: 800, right: 1020 }, 1024, 4)).toEqual({ dx: 800 - 4 - 1000, dy: 0 });
+    // Above it would meet the lander's own name: beside it instead.
+    const name = { left: 430, right: 590, top: 262, bottom: 292 };
+    expect(offLander({ left: 460, right: 560, top: 300, bottom: 330 }, lander, 1024, 4, [name])).toEqual({ dx: 600 + 4 - 460, dy: 0 });
+    // Above would take it over the room's top: beside it.
+    expect(offLander({ left: 460, right: 560, top: 300, bottom: 330 }, lander, 1024, 290)).toEqual({ dx: 600 + 4 - 460, dy: 0 });
+    // Hemmed in on every side: it gives way.
+    expect(offLander({ left: 300, right: 700, top: 400, bottom: 430 }, lander, 750, 4, [name])).toBeNull();
+  });
+});
+
+describe('the labels round the lander', () => {
+  it('keep off the lander’s body, beside it or above it, or give way for the frame, while its own name keeps its place', async () => {
+    // The lander near the right edge, its box from 717 to 973 px across and 346 to 576 px down; its name above it.
+    const labels = (): SkyLabels => ({
+      sun: { x: 0.68, y: 0.6, visible: true },
+      earth: { x: 0, y: 0, visible: false },
+      stars: [],
+      lander: { x: 0.825, y: 0.43, visible: true },
+      landerBox: { left: 0.7, top: 0.45, right: 0.95, bottom: 0.75 },
+      marks: [{ text: 'Sun behind hills, 3 Jan', x: 0.8, y: 0.62, visible: true }],
+      pathNames: [
+        { body: 'sun', text: "Sun's path this month", x: 0.75, y: 0.66, visible: true },
+        { body: 'earth', text: "Earth's path this month", x: 0, y: 0, visible: false },
+      ],
+    });
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
+    const scene: StandScene = { field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series: northSeries, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky: noStars, lander: { azDeg: 30, distM: 16, powered: Uint8Array.from([1, 1, 1]) }, marks: [{ hour: 1, body: 'sun', text: 'Sun behind hills, 3 Jan' }] };
+    const rect = layout(sizes);
+    try {
+      render(createElement(StandCanvas, { scene, hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun 1.6° up, behind the hills', earthLabel: 'Earth 3.0° up', night: false, onFail: vi.fn() }));
+      const body = { left: 0.7 * 1024, top: 0.45 * 768, right: 0.95 * 1024, bottom: 0.75 * 768 };
+      const sun = document.querySelector<HTMLElement>('[data-sky="sun"]')!, name = document.querySelector<HTMLElement>('[data-path-name="sun"]')!;
+      const pointer = document.querySelector<HTMLElement>('[data-pointer="earth"]')!, chip = document.querySelector<HTMLElement>('[data-path-mark]')!;
+      const landerName = [...document.querySelectorAll<HTMLElement>('span')].find((n) => n.textContent === 'The lander, 16 m away')!;
+      await waitFor(() => expect(name.hidden).toBe(false));
+      // The lander's own name keeps its place over it.
+      expect([landerName.hidden, landerName.style.left, landerName.style.top]).toEqual([false, '82.5%', '43%']);
+      // The Sun's name, the path's name and the pointer to Earth show, none on the lander.
+      for (const n of [sun, name, pointer]) {
+        expect(n.hidden).toBe(false);
+        expect(near(n.getBoundingClientRect(), body)).toBe(false);
+      }
+      // The Sun's name went beside the lander rather than over its own name, and the pointer above both.
+      expect(sun.getBoundingClientRect().right).toBeLessThanOrEqual(body.left - 4);
+      expect(near(pointer.getBoundingClientRect(), landerName.getBoundingClientRect())).toBe(false);
+      // The day's chip has nowhere clear to go: beside the lander it would meet the Sun's name, above it the lander's.
+      expect(chip.hidden).toBe(true);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+});
+
+describe('the paths’ names', () => {
+  it('name the Sun’s path and Earth’s in their colours where the renderer puts them, give way to the bodies’ names, and the days give way to them', async () => {
+    let sunNamed = true;
+    const labels = (): SkyLabels => ({
+      sun: { x: 0.5, y: 0.45, visible: sunNamed },
+      earth: { x: 0, y: 0, visible: false },
+      stars: [],
+      lander: null,
+      marks: [{ text: 'Earth in view, 10 Jan', x: 0.3, y: 0.62, visible: true }],
+      pathNames: [
+        { body: 'sun', text: "Sun's path this month", x: 0.3, y: 0.55, visible: true },
+        // On the Sun's name.
+        { body: 'earth', text: "Earth's path this month", x: 0.52, y: 0.4, visible: true },
+      ],
+    });
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
+    const scene: StandScene = { field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series: northSeries, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky: noStars, marks: [{ hour: 1, body: 'earth', text: 'Earth in view, 10 Jan' }] };
+    const props = { scene, hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun 2.0° up', earthLabel: 'Earth 3.0° up', night: false, onFail: vi.fn() };
+    const rect = layout(sizes);
+    try {
+      const view = render(createElement(StandCanvas, props));
+      const names = () => [...document.querySelectorAll<HTMLElement>('[data-path-name]')];
+      await waitFor(() => expect(names()[0].hidden).toBe(false));
+      expect(names().map((n) => [n.dataset.pathName, n.textContent])).toEqual([
+        ['sun', "Sun's path this month"],
+        ['earth', "Earth's path this month"],
+      ]);
+      // In the bodies' colours.
+      expect(names()[0].className).toContain('text-[#f6b646]');
+      expect(names()[1].className).toContain('text-[#74adff]');
+      // Earth's gives way to the Sun's name; the day's chip gives way to the Sun's path's name.
+      expect(names()[1].hidden).toBe(true);
+      expect(document.querySelector<HTMLElement>('[data-path-mark]')!.hidden).toBe(true);
+      // The Sun's name gone, Earth's path's name comes back.
+      sunNamed = false;
+      await waitFor(() => expect(names()[1].hidden).toBe(false));
+      // Hidden with the words.
+      view.rerender(createElement(StandCanvas, { ...props, clean: true }));
+      await waitFor(() => expect(names().every((n) => n.hidden)).toBe(true));
+    } finally {
+      rect.mockRestore();
+    }
   });
 });

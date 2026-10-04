@@ -37,34 +37,71 @@ describe('the boulders near the eye', () => {
     }
   });
 
-  it('are lumpy rocks sunk a little into the ground, each with a sphere for its shadow that reaches its top', () => {
+  it('are rocks sunk a little into the ground, each with a sphere for its shadow that reaches its top as it lies, tilted, and is no wider than it', () => {
     const list = placeBoulders(7, null);
     const { group, spheres } = boulderMeshes(list, () => 10, 7);
     expect(group.children.length).toBe(list.length);
     expect(spheres.length).toBe(list.length);
     list.forEach((b, i) => {
-      const mesh = group.children[i];
+      const mesh = group.children[i] as THREE.Mesh;
       expect(mesh.position.x).toBeCloseTo(b.x, 6);
       expect(mesh.position.z).toBeCloseTo(b.z, 6);
-      // Its foot below the ground, its top about its radius above it.
+      // Its foot below the ground, its top about its radius above it, as it lies: turned and tilted.
       mesh.updateMatrixWorld(true);
-      const pos = (mesh as unknown as { geometry: { getAttribute: (n: string) => { count: number; getY: (i: number) => number } } }).geometry.getAttribute('position');
+      const pos = mesh.geometry.getAttribute('position');
       let lo = Infinity, hi = -Infinity;
       for (let k = 0; k < pos.count; k++) {
-        const y = pos.getY(k) * mesh.scale.y + mesh.position.y;
+        const y = new THREE.Vector3().fromBufferAttribute(pos, k).applyMatrix4(mesh.matrixWorld).y;
         lo = Math.min(lo, y);
         hi = Math.max(hi, y);
       }
       expect(lo).toBeLessThan(10);
       expect(hi - 10).toBeGreaterThan(0.75 * b.r);
       expect(hi - 10).toBeLessThan(1.45 * b.r);
-      // The shadow's sphere: where the rock is, reaching about as high.
+      // The shadow's sphere: where the rock is, its top at the rock's highest point.
       const s = spheres[i];
       expect(s.x).toBeCloseTo(b.x, 6);
       expect(s.z).toBeCloseTo(b.z, 6);
-      // Its top at the rock's highest corner.
       expect(s.y + s.w - 10).toBeCloseTo(hi - 10, 6);
+      // No wider than the rock's narrower side, and most of it: its shadow is the rock's, not a wider one or a thread.
+      mesh.geometry.computeBoundingBox();
+      const box = mesh.geometry.boundingBox!;
+      const half = [((box.max.x - box.min.x) / 2) * mesh.scale.x, ((box.max.z - box.min.z) / 2) * mesh.scale.z];
+      expect(s.w).toBeLessThanOrEqual(Math.min(...half) + 1e-9);
+      expect(s.w).toBeGreaterThanOrEqual(0.6 * Math.sqrt(half[0] * half[1]));
     });
+  });
+
+  it('keep their places and sizes, a few of them long, each a quarter to a third bedded in the dust', () => {
+    for (const seed of [7, siteSeed(-88.28, -64.31), siteSeed(-89.45, -136.9)]) {
+      const list = placeBoulders(seed, null);
+      const { group } = boulderMeshes(list, () => 10, seed);
+      let long = 0;
+      list.forEach((b, i) => {
+        const mesh = group.children[i] as THREE.Mesh;
+        expect([mesh.position.x, mesh.position.z]).toEqual([b.x, b.z]);
+        // As wide as its radius says, taking its length and width together: a long rock is as big, only longer.
+        mesh.geometry.computeBoundingBox();
+        const box = mesh.geometry.boundingBox!;
+        const lx = ((box.max.x - box.min.x) / 2) * mesh.scale.x, lz = ((box.max.z - box.min.z) / 2) * mesh.scale.z;
+        expect(Math.sqrt(lx * lz) / b.r).toBeCloseTo(1, 2);
+        if (Math.max(lx, lz) / Math.min(lx, lz) >= 1.3) long++;
+        // Partly buried: between a fifth and two fifths of its height under the ground.
+        mesh.updateMatrixWorld(true);
+        const pos = mesh.geometry.getAttribute('position');
+        let lo = Infinity, hi = -Infinity;
+        for (let k = 0; k < pos.count; k++) {
+          const y = new THREE.Vector3().fromBufferAttribute(pos, k).applyMatrix4(mesh.matrixWorld).y;
+          lo = Math.min(lo, y);
+          hi = Math.max(hi, y);
+        }
+        expect((10 - lo) / (hi - lo)).toBeGreaterThan(0.2);
+        expect((10 - lo) / (hi - lo)).toBeLessThan(0.4);
+      });
+      // A few long ones, not most.
+      expect(long).toBeGreaterThanOrEqual(1);
+      expect(long).toBeLessThanOrEqual(list.length / 2);
+    }
   });
 
   it('cast their shadows in the ground shader, every loop scaled so the compiler cannot unroll it', () => {
@@ -73,35 +110,32 @@ describe('the boulders near the eye', () => {
     expect(BOULDER_GLSL).toMatch(/for \(int i = 0; i < \d+ \* uOne; i\+\+\)/);
   });
 
-  it('are rounded rocks of uneven radius, worn smooth, not faceted blocks, and stay close to the shape their shadows are cast from', () => {
+  it('are blocky stones with rounded edges and flatter faces: neither faceted blocks nor smooth eggs', () => {
     for (const seed of [7, siteSeed(-88.28, -64.31)]) {
       const { group } = boulderMeshes(placeBoulders(seed, null), () => 0, seed);
       for (const mesh of group.children as THREE.Mesh[]) {
         expect((mesh.material as THREE.MeshStandardMaterial).flatShading).toBe(false);
         const pos = mesh.geometry.getAttribute('position'), nor = mesh.geometry.getAttribute('normal'), index = mesh.geometry.getIndex()!;
-        // Enough corners to look round, each one shared by every face round it, so each has one normal and no seam opens.
+        // Enough corners for the edges to round, each one shared by every face round it, so each has one normal and no seam opens.
         expect(pos.count).toBeGreaterThanOrEqual(250);
         expect(new Set(Array.from({ length: pos.count }, (_, k) => [pos.getX(k), pos.getY(k), pos.getZ(k)].map((v) => v.toFixed(4)).join())).size).toBe(pos.count);
-        // Smooth: the normals at the two ends of every edge within 25 degrees of each other, so no crease shows.
-        let worst = 0;
+        // Worn edges, not a faceted block's: the normals at the two ends of every edge within 50 degrees of each other,
+        // where a block's sharp edge turns them 90, and few edges (1 in 50) turning more than 20, the turn spread over
+        // the rounded edge. Flatter faces, not an egg's curve all over: a quarter of the edges or more lie on faces near
+        // flat, their ends' normals within 2 degrees of each other, where an egg has hardly any (2 in 100).
+        let worst = 0, sharp = 0, flat = 0;
         for (let k = 0; k < index.count; k += 3) {
           for (let j = 0; j < 3; j++) {
             const a = new THREE.Vector3().fromBufferAttribute(nor, index.getX(k + j)), b = new THREE.Vector3().fromBufferAttribute(nor, index.getX(k + ((j + 1) % 3)));
-            worst = Math.max(worst, a.angleTo(b));
+            const turn = THREE.MathUtils.radToDeg(a.angleTo(b));
+            worst = Math.max(worst, turn);
+            if (turn > 20) sharp++;
+            if (turn < 2) flat++;
           }
         }
-        expect(worst).toBeLessThan((25 * Math.PI) / 180);
-        // Uneven, not a smooth ellipsoid, yet within a fifth of its radius everywhere: the sphere its shadow is cast
-        // from stands for it.
-        let lo = Infinity, hi = 0;
-        for (let k = 0; k < pos.count; k++) {
-          const r = Math.hypot(pos.getX(k), pos.getY(k), pos.getZ(k));
-          lo = Math.min(lo, r);
-          hi = Math.max(hi, r);
-        }
-        expect(lo).toBeGreaterThanOrEqual(0.8);
-        expect(hi).toBeLessThanOrEqual(1.2);
-        expect(lo / hi).toBeLessThan(0.85);
+        expect(worst).toBeLessThan(50);
+        expect(sharp / index.count).toBeLessThan(0.02);
+        expect(flat / index.count).toBeGreaterThan(0.25);
       }
     }
   });

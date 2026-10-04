@@ -50,6 +50,15 @@ export interface StandScene {
 }
 
 type Spot = { x: number; y: number; visible: boolean };
+/** A path's name ("Sun's path this month"), at a place on its path, for a label. */
+export type PathName = Spot & { body: 'sun' | 'earth'; text: string };
+/** A box on the screen, its sides as fractions of the view's width (left, right) and height (top, bottom). */
+export interface ScreenBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
 /** How much brighter than its colour the lit power light shines: above white, so the bloom gives it a glow. */
 const LAMP_GLOW = 2.5;
 /**
@@ -69,6 +78,10 @@ export interface SkyLabels {
   shadow?: (Spot & { lengthM: number; levelM: number }) | null;
   /** The key moments' days on the paths, while the guides show. */
   marks?: (Spot & { text: string })[];
+  /** The Sun's path and Earth's named where they show, while the guides do. */
+  pathNames?: PathName[];
+  /** The box round the lander on the screen, which the other labels keep off; null while it is out of view. */
+  landerBox?: ScreenBox | null;
 }
 
 const DEG = Math.PI / 180;
@@ -424,31 +437,48 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   skyGroup.add(guides);
   const RG = RS * 0.98;
   /**
-   * A band 0.15 degrees tall along directions on the sky, as a mesh: WebGL draws lines a pixel thin. Along a
-   * path, `floor` is each hour's lowest open sky (degrees): the level horizon, or the skyline where it dips below
-   * level, as it can from a high point. Below it the path runs under the ground, not behind a hill, and draws
-   * nothing: an hour's piece whose two ends both lie there, and a triangle wholly there (where the path goes down
-   * through it), are left as points, so every hour keeps its six indices and a range of hours stays a range of
-   * indices.
+   * The faint bands, the level horizon and the rings stand 60 m round the eye and test depth: the lander 16 m
+   * away, the rocks and the near ground stand in front of them and hide them, as they hide whatever is behind
+   * them, while the far hills, much farther off, do not. They are kept 60 m out whatever the sky group's scale
+   * (in flight it is scaled up round the camera), so they keep their angular sizes there too.
+   */
+  const NEAR_M = 60;
+  const near = new THREE.Group();
+  guides.add(near);
+  /** Scales the sky group round the camera, the near guides kept at their own size inside it. */
+  const skyScale = (k: number) => {
+    skyGroup.scale.setScalar(k);
+    near.scale.setScalar(1 / k);
+  };
+  /**
+   * A band 0.15 degrees tall along directions on the sky, as a mesh: WebGL draws lines a pixel thin. A solid
+   * band stands on the sky, beyond the far skyline, which hides it where the hills do; a faint one stands 60 m
+   * round the eye. Along a path, `floor` is each hour's lowest open sky (degrees): the level horizon, or the
+   * skyline where it dips below level, as it can from a high point. Below it the path runs under the ground, not
+   * behind a hill, and draws nothing: an hour's piece whose two ends both lie there, and a triangle wholly there
+   * (where the path goes down through it), are left as points, so every hour keeps its six indices and a range of
+   * hours stays a range of indices.
    */
   const band = (dirs: Vec3[], colour: number, faint: boolean, opacity: number, floor?: number[]) => {
-    const n = dirs.length, pos = new Float32Array(n * 6), idx: number[] = [], half = RG * Math.tan(0.075 * DEG);
+    const r = faint ? NEAR_M : RG;
+    const n = dirs.length, pos = new Float32Array(n * 6), idx: number[] = [], half = r * Math.tan(0.075 * DEG);
     for (let i = 0; i < n; i++) {
-      const d = new THREE.Vector3(...dirs[i]).normalize(), up = new THREE.Vector3(0, 1, 0).addScaledVector(d, -d.y).normalize(), c = d.clone().multiplyScalar(RG);
+      const d = new THREE.Vector3(...dirs[i]).normalize(), up = new THREE.Vector3(0, 1, 0).addScaledVector(d, -d.y).normalize(), c = d.clone().multiplyScalar(r);
       pos.set([c.x + up.x * half, c.y + up.y * half, c.z + up.z * half, c.x - up.x * half, c.y - up.y * half, c.z - up.z * half], i * 6);
     }
     // Heights as sines: a corner k belongs to the hour k / 2.
     const low = floor?.map((f) => Math.sin(f * DEG));
-    const under = (k: number) => !!low && pos[k * 3 + 1] / RG < low[k >> 1];
+    const under = (k: number) => !!low && pos[k * 3 + 1] / r < low[k >> 1];
     for (let i = 0; i < n - 1; i++) {
       const a = i * 2, gone = !!low && dirs[i][1] < low[i] && dirs[i + 1][1] < low[i + 1];
       for (const t of [[a, a + 1, a + 2], [a + 2, a + 1, a + 3]]) idx.push(...(gone || t.every(under) ? [a, a, a] : t));
     }
     const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setIndex(idx);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity, depthWrite: false, depthTest: !faint, side: THREE.DoubleSide, toneMapped: false }));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
     mesh.frustumCulled = false;
     mesh.renderOrder = faint ? 1 : 2;
+    (faint ? near : guides).add(mesh);
     return mesh;
   };
   const along = (az: ArrayLike<number>, el: ArrayLike<number>) => Array.from({ length: scene.series.hours }, (_, h) => dirAzEl(az[h], el[h]));
@@ -457,20 +487,39 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const floorAlong = (az: ArrayLike<number>) => Array.from({ length: scene.series.hours }, (_, h) => Math.min(0, maskAt(az[h])));
   const sunFloor = floorAlong(scene.series.sunAz), earthFloor = floorAlong(scene.series.earthAz);
   const paths = [band(sunDirs, 0xf6b646, false, 0.9, sunFloor), band(sunDirs, 0xf6b646, true, 0.3, sunFloor), band(earthDirs, 0x74adff, false, 0.9, earthFloor), band(earthDirs, 0x74adff, true, 0.3, earthFloor)];
-  guides.add(...paths, band(Array.from({ length: 361 }, (_, k) => dirAzEl(k, 0)), 0xffffff, true, 0.18));
+  band(Array.from({ length: 361 }, (_, k) => dirAzEl(k, 0)), 0xffffff, true, 0.18);
   /**
    * Each path for one synodic month round the hour, centred on it where the period allows: 709 hours, the first
    * and the last 708 apart, under the 708.7 from one new Moon to the next. Over a longer period a path comes
    * round on itself a little higher or lower and reads as two lines. A period of a month or less is drawn whole.
    */
   const MONTH_H = 709;
+  /**
+   * The month's two ends meet at nearly the same azimuth, a little higher or lower: each path fades out over the
+   * first and the last day of the stretch drawn, so they read as neither a break nor a step. One alpha for each
+   * corner, shared by the four bands (whose colours stay their materials'), set again as the stretch moves.
+   */
+  const FADE_H = 24;
+  const fade = new THREE.BufferAttribute(new Float32Array(scene.series.hours * 8).fill(1), 4);
+  for (const p of paths) {
+    p.geometry.setAttribute('color', fade);
+    (p.material as THREE.MeshBasicMaterial).vertexColors = true;
+  }
   // The hours of the stretch drawn, first and last: a moment's chip shows only on it.
-  let drawnFrom = 0, drawnTo = scene.series.hours - 1;
+  let drawnFrom = 0, drawnTo = scene.series.hours - 1, fadedFrom = -1;
   const pathWindow = (t: number) => {
     const from = Math.min(Math.max(0, Math.round(t) - (MONTH_H - 1) / 2), Math.max(0, scene.series.hours - MONTH_H));
     for (const p of paths) p.geometry.setDrawRange(from * 6, (Math.min(MONTH_H, scene.series.hours) - 1) * 6);
     drawnFrom = from;
     drawnTo = from + Math.min(MONTH_H, scene.series.hours) - 1;
+    if (from === fadedFrom) return;
+    for (let h = 0; h < scene.series.hours; h++) {
+      const a = Math.min(1, Math.max(0, Math.min(h - drawnFrom, drawnTo - h) / FADE_H));
+      fade.setW(2 * h, a);
+      fade.setW(2 * h + 1, a);
+    }
+    fade.needsUpdate = true;
+    fadedFrom = from;
   };
   const ring = (colour: number, degrees: number) => {
     const s = new THREE.Sprite(
@@ -484,16 +533,15 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         }),
         color: colour,
         transparent: true,
-        depthTest: false,
         depthWrite: false,
         toneMapped: false,
         opacity: 0.85,
       }),
     );
-    s.scale.setScalar(2 * RG * Math.tan((degrees * DEG) / 2));
+    s.scale.setScalar(2 * NEAR_M * Math.tan((degrees * DEG) / 2));
     s.visible = false;
     s.renderOrder = 3;
-    guides.add(s);
+    near.add(s);
     return s;
   };
   const markers = { sun: ring(0xf6b646, 1.6), earth: ring(0x74adff, 2.8) };
@@ -644,9 +692,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     pathWindow(t);
     const hi = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
     markers.sun.visible = v.sunFraction === 0;
-    markers.sun.position.set(sd[0] * RG, sd[1] * RG, sd[2] * RG);
+    markers.sun.position.set(sd[0] * NEAR_M, sd[1] * NEAR_M, sd[2] * NEAR_M);
     markers.earth.visible = Number(scene.series.earthVisible[hi]) === 0;
-    markers.earth.position.set(ed[0] * RG, ed[1] * RG, ed[2] * RG);
+    markers.earth.position.set(ed[0] * NEAR_M, ed[1] * NEAR_M, ed[2] * NEAR_M);
     // The glare comes from the part of the disc the hills leave in view.
     (glare.material as THREE.SpriteMaterial).opacity = v.sunFraction;
     const when = startMs + t * 3600e3;
@@ -705,7 +753,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     camera.clearViewOffset();
     camera.far = flight ? 1e10 : 700000;
     skyGroup.position.set(0, eye, 0);
-    skyGroup.scale.setScalar(1);
+    skyScale(1);
     placeEarth();
     standing(true);
     measured(true);
@@ -741,7 +789,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     const alt = camera.position.distanceTo(moonC) - (R_MOON_M + siteH);
     // In space the sky stands beyond the far side of the Moon, at its own angular sizes.
     skyGroup.position.copy(camera.position);
-    skyGroup.scale.setScalar(flight ? Math.max(1, (camera.position.distanceTo(moonC) + 2 * R_MOON_M) / RS) : 1);
+    skyScale(flight ? Math.max(1, (camera.position.distanceTo(moonC) + 2 * R_MOON_M) / RS) : 1);
     placeEarth();
     standing(alt < STANDING_M);
     measured(!flight || alt < MEASURED_M);
@@ -868,7 +916,58 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       return { text: m.text, ...at, visible: at.visible && guides.visible && h >= drawnFrom && h <= drawnTo };
     });
     const k = skyGroup.scale.x;
-    return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow, marks };
+    const onScreen = landerOnScreen();
+    const pathNames = [
+      pathName('sun', "Sun's path this month", sunDirs, scene.series.sunEl, sunFloor, sunDir, onScreen),
+      pathName('earth', "Earth's path this month", earthDirs, scene.series.earthEl, earthFloor, earthDir, onScreen),
+    ];
+    return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow, marks, pathNames, landerBox: onScreen };
+  }
+  /** The box round the lander on the screen: the corners of its box in the world, projected; null while it is out of view. */
+  function landerOnScreen(): ScreenBox | null {
+    if (!lander) return null;
+    camera.getWorldDirection(fwd);
+    const b = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity }, c = new THREE.Vector3();
+    for (let i = 0; i < 8; i++) {
+      c.set(i & 1 ? landerBox.max.x : landerBox.min.x, i & 2 ? landerBox.max.y : landerBox.min.y, i & 4 ? landerBox.max.z : landerBox.min.z);
+      // A corner behind the camera has no place on the screen: the lander is well out of view.
+      if (tmp.copy(c).sub(camera.position).dot(fwd) <= camera.near) return null;
+      c.project(camera);
+      b.left = Math.min(b.left, (c.x + 1) / 2);
+      b.right = Math.max(b.right, (c.x + 1) / 2);
+      b.top = Math.min(b.top, (1 - c.y) / 2);
+      b.bottom = Math.max(b.bottom, (1 - c.y) / 2);
+    }
+    return b.right < 0 || b.left > 1 || b.bottom < 0 || b.top > 1 ? null : b;
+  }
+  /**
+   * A path's name, at an hour of it that shows: drawn (not under the ground) and clear of the day that fades at
+   * either end, in view, not behind the lander, and above the level horizon where it can be; as near the middle of
+   * the view as it can be while 10° or more from the body itself (whose own label names it), else as far from the
+   * body as it can be. None while the guides are hidden.
+   */
+  function pathName(body: PathName['body'], text: string, dirs: Vec3[], el: ArrayLike<number>, floor: number[], now: THREE.Vector3, box: ScreenBox | null): PathName {
+    let best = { x: 0, y: 0, visible: false }, score = Infinity;
+    if (!guides.visible) return { body, text, ...best };
+    camera.getWorldDirection(fwd);
+    const ends = drawnTo - drawnFrom > 4 * FADE_H ? FADE_H : 0, d = new THREE.Vector3();
+    for (let h = drawnFrom + ends; h <= drawnTo - ends; h++) {
+      if (Number(el[h]) < floor[h]) continue;
+      d.set(...dirs[h]);
+      if (d.dot(fwd) <= 0) continue;
+      const p = tmp.copy(d).multiplyScalar(RG * skyGroup.scale.x).add(skyGroup.position).project(camera);
+      const x = (p.x + 1) / 2, y = (1 - p.y) / 2;
+      // Room round it for the name, and not where the lander stands in front of the path.
+      if (x < 0.1 || x > 0.9 || y < 0.1 || y > 0.85) continue;
+      if (box && x > box.left && x < box.right && y > box.top && y < box.bottom) continue;
+      const away = d.angleTo(now) / DEG;
+      const s = (Number(el[h]) < 0 ? 10 : 0) + (away < 10 ? 5 + (10 - away) / 10 : Math.abs(x - 0.5));
+      if (s < score) {
+        score = s;
+        best = { x, y, visible: true };
+      }
+    }
+    return { body, text, ...best };
   }
 
   // Textures kept for the page's life (the globe's maps, Earth's) stay: a scene rebuilt as data arrives takes them.

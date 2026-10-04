@@ -226,6 +226,30 @@ export function liftClear(b: Rect, others: Rect[], minTop: number): number | nul
   return null;
 }
 
+/** Whether two boxes come within 4 px of each other. */
+const touches = (a: Rect, b: Rect) => a.right > b.left - 4 && a.left < b.right + 4 && a.bottom > b.top - 4 && a.top < b.bottom + 4;
+
+/**
+ * How far (pixels, + right and down) a label moves to keep 4 px clear of the lander's body on the screen (`lander`,
+ * the box round it): not at all while it is clear; else the least way that clears it, to the lander's left or right
+ * or above it, that keeps it on the `W`-wide screen, its top no higher than `minTop`, and 4 px clear of `others`
+ * (the labels it gives way to, the panels); null when no way does, and it gives way for the frame.
+ */
+export function offLander(b: Rect, lander: Rect, W: number, minTop: number, others: Rect[] = []): { dx: number; dy: number } | null {
+  if (!touches(b, lander)) return { dx: 0, dy: 0 };
+  const ways = [
+    { dx: lander.left - 4 - b.right, dy: 0 },
+    { dx: lander.right + 4 - b.left, dy: 0 },
+    { dx: 0, dy: lander.top - 4 - b.bottom },
+  ].sort((p, q) => Math.abs(p.dx) + Math.abs(p.dy) - Math.abs(q.dx) - Math.abs(q.dy));
+  return (
+    ways.find(({ dx, dy }) => {
+      const q = { left: b.left + dx, right: b.right + dx, top: b.top + dy, bottom: b.bottom + dy };
+      return q.left >= 4 && q.right <= W - 4 && q.top >= minTop && !others.some((o) => touches(q, o));
+    }) ?? null
+  );
+}
+
 /**
  * Which of the days on the paths show, in order (`chips`, their boxes where placed, null for one not shown):
  * each in its place unless it comes within 4 px of a label shown (`labels`) or of a chip shown before it, which
@@ -254,6 +278,11 @@ const BODIES = [
   ['lander', 'Lander', 'bg-[#f2f0ea] border-[#f2f0ea]'],
 ] as const;
 type Body = (typeof BODIES)[number][0];
+/** The paths named on the sky, each in its body's colour. */
+const PATHS = [
+  ['sun', 'text-[#f6b646]'],
+  ['earth', 'text-[#74adff]'],
+] as const;
 const TICKS = Array.from({ length: 72 }, (_, k) => -360 + k * 15);
 
 /**
@@ -275,8 +304,9 @@ const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] bord
  * is zoomed in (on a phone, a small note at the top right); the compass strip marks the Sun, Earth and the
  * lander at their bearings, hollow while below the horizon, or names them at its end when they lie beyond;
  * the bright stars carry their names at night and when the view looks up, each on whichever side keeps it
- * clear of the others; zoomed in on the lander, its solar panel, dish and power light carry theirs. The key
- * moments' days on the paths give way to all of these, and to each other.
+ * clear of the others; zoomed in on the lander, its solar panel, dish and power light carry theirs. The Sun's
+ * path and Earth's carry their names where they show, and the key moments' days on them give way to all of
+ * these, and to each other. No label sits on the lander's body but its own.
  */
 export function StandCanvas({
   scene,
@@ -335,8 +365,9 @@ export function StandCanvas({
   const keepRef = useRef(keepInView);
   const earthRef = useRef<HTMLSpanElement>(null);
   const starRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  // The key moments' days on the Sun's and Earth's paths, and the level horizon's name.
+  // The key moments' days on the Sun's and Earth's paths, the paths' own names, and the level horizon's name.
   const pathRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const nameRefs = useRef<Record<'sun' | 'earth', HTMLSpanElement | null>>({ sun: null, earth: null });
   const levelRef = useRef<HTMLSpanElement>(null);
   const facingRef = useRef<HTMLParagraphElement>(null);
   const facingPhoneRef = useRef<HTMLParagraphElement>(null);
@@ -445,29 +476,55 @@ export function StandCanvas({
     let raf = 0;
     // Labels never touch the words: a label whose box meets a panel (data-plate) is hidden.
     let plates: DOMRect[] = [];
-    const place = (node: HTMLElement | null, s: { x: number; y: number; visible: boolean } | null) => {
-      if (!node) return;
+    /** Places a label at its spot; returns how far it slid (pixels, + right), or null when it is hidden. */
+    const place = (node: HTMLElement | null, s: { x: number; y: number; visible: boolean } | null): number | null => {
+      if (!node) return null;
       if (!s || !s.visible) {
         node.hidden = true;
-        return;
+        return null;
       }
       node.style.left = `${s.x * 100}%`;
       node.style.top = `${s.y * 100}%`;
       node.hidden = false;
       let b = node.getBoundingClientRect();
+      if (b.width === 0) return 0;
       // Kept inside the screen: a label near an edge slides in rather than being cut off.
       const w = el.clientWidth || window.innerWidth;
       const shift = b.right > w - 4 ? b.right - (w - 4) : b.left < 4 ? b.left - 4 : 0;
-      if (b.width > 0 && shift !== 0) {
+      if (shift !== 0) {
         node.style.left = `calc(${s.x * 100}% - ${shift}px)`;
         b = node.getBoundingClientRect();
       }
       // Beside a panel: slid along clear of it when it only meets the panel's edge, else left out.
-      if (b.width > 0) {
-        const d = clearOf(b, plates, w);
-        if (d === null) node.hidden = true;
-        else if (d !== 0) node.style.left = `calc(${s.x * 100}% + ${d - shift}px)`;
+      const d = clearOf(b, plates, w);
+      if (d === null) {
+        node.hidden = true;
+        return null;
       }
+      if (d !== 0) node.style.left = `calc(${s.x * 100}% + ${d - shift}px)`;
+      return d - shift;
+    };
+    /** Puts a label at its spot, moved `dx` pixels right and `dy` down. */
+    const setAt = (node: HTMLElement, s: { x: number; y: number }, dx: number, dy: number) => {
+      node.style.left = dx ? `calc(${s.x * 100}% + ${dx}px)` : `${s.x * 100}%`;
+      node.style.top = dy ? `calc(${s.y * 100}% + ${dy}px)` : `${s.y * 100}%`;
+    };
+    /**
+     * Keeps a placed label (`dx` pixels along from its spot) off the lander's body (`body`, its box on the screen):
+     * moved beside it or above it, clear of `others` and the panels, or hidden for the frame where no way is clear.
+     * Returns how far it went down (pixels).
+     */
+    const keepOff = (node: HTMLElement | null, s: { x: number; y: number }, dx: number | null, body: Rect | null, others: Rect[] = []): number => {
+      if (!node || node.hidden || dx === null || !body) return 0;
+      const b = node.getBoundingClientRect();
+      if (b.width === 0) return 0;
+      const m = offLander(b, body, el.clientWidth || window.innerWidth, 4, [...others, ...plates]);
+      if (!m) {
+        node.hidden = true;
+        return 0;
+      }
+      if (m.dx !== 0 || m.dy !== 0) setAt(node, s, dx + m.dx, m.dy);
+      return m.dy;
     };
     const tick = (now: number) => {
       const step = (now - last) / 1000;
@@ -523,13 +580,20 @@ export function StandCanvas({
       r.setGuides?.(!cleanRef.current);
       r.render();
       if (!drawnRef.current || cleanRef.current) {
-        for (const n of [sunRef.current, earthRef.current, landerRef.current, shadowRef.current, levelRef.current, ...Object.values(partRefs.current), ...starRefs.current, ...pathRefs.current]) if (n) n.hidden = true;
+        for (const n of [sunRef.current, earthRef.current, landerRef.current, shadowRef.current, levelRef.current, ...Object.values(partRefs.current), ...starRefs.current, ...pathRefs.current, ...Object.values(nameRefs.current)]) if (n) n.hidden = true;
         raf = requestAnimationFrame(tick);
         return;
       }
       const l = r.labels();
-      place(sunRef.current, l.sun);
-      place(earthRef.current, l.earth);
+      // The lander's body on the screen: no label but its own sits on it.
+      const lb = l.landerBox, body = lb ? { left: lb.left * W, top: lb.top * H, right: lb.right * W, bottom: lb.bottom * H } : null;
+      const offBody = (node: HTMLElement | null) => {
+        if (!node || node.hidden || !body) return;
+        const b = node.getBoundingClientRect();
+        if (b.width > 0 && touches(b, body)) node.hidden = true;
+      };
+      const sunDx = place(sunRef.current, l.sun);
+      const earthDx = place(earthRef.current, l.earth);
       // Zoomed in on the lander, its parts carry their names (and its own name gives way to them).
       const close = v.fov < ZOOMED_FOV;
       place(landerRef.current, (close && l.parts?.panel.visible) || (H > W && !close) ? null : l.lander);
@@ -555,18 +619,20 @@ export function StandCanvas({
           node.dataset.side = side;
         } else node.hidden = true;
       }
-      // The Sun or Earth named over the lander (gone behind it) rises clear of the lander's own names, and
-      // gives way where that would take it into a panel.
+      // The Sun and Earth named off the lander's body: beside it or above it, or not at all for the frame. One named
+      // over the lander (gone behind it) rises clear of the lander's own names, and gives way where that would
+      // take it into a panel.
       const names = [landerRef.current, ...Object.values(partRefs.current).map((n) => n?.querySelector<HTMLElement>('[data-text]') ?? null)]
         .filter((n): n is HTMLElement => !!n && !n.closest('[hidden]'))
         .map((n) => n.getBoundingClientRect())
         .filter((b) => b.width > 0);
-      for (const [node, at] of [[sunRef.current, l.sun], [earthRef.current, l.earth]] as const) {
+      for (const [node, at, dx] of [[sunRef.current, l.sun, sunDx], [earthRef.current, l.earth, earthDx]] as const) {
+        const down = keepOff(node, at, dx, body);
         if (!node || node.hidden || names.length === 0) continue;
         const dy = liftClear(node.getBoundingClientRect(), names, 4);
         if (dy === null) node.hidden = true;
         else if (dy > 0) {
-          node.style.top = `calc(${at.y * 100}% - ${dy}px)`;
+          node.style.top = `calc(${at.y * 100}% + ${down - dy}px)`;
           const b = node.getBoundingClientRect();
           if (plates.some((q) => b.right > q.left - 4 && b.left < q.right + 4 && b.bottom > q.top - 4 && b.top < q.bottom + 4)) node.hidden = true;
         }
@@ -579,10 +645,12 @@ export function StandCanvas({
         const text = shadowWords(sh.lengthM, sh.levelM);
         if (shadowRef.current.textContent !== text) shadowRef.current.textContent = text;
       }
-      place(shadowRef.current, sh ?? null);
-      // The level horizon's name at the view's left.
+      const shadowDx = place(shadowRef.current, sh ?? null);
+      if (sh) keepOff(shadowRef.current, sh, shadowDx, body);
+      // The level horizon's name at the view's left, where it names the line: not moved off the lander, left out.
       const ly = levelY(shownPitch, v.fov);
       place(levelRef.current, { x: 0, y: ly, visible: ly > 0.08 && ly < 0.92 });
+      offBody(levelRef.current);
       // Star names at night, or when the view looks well up, where they would not crowd the day's sky; each
       // on the side of its star that keeps it clear of the names already placed.
       const nameShown = starNamesShown(l.stars, nightRef.current || v.pitch > 25);
@@ -603,6 +671,7 @@ export function StandCanvas({
         node.style.transform = SIDE[side];
         const b = node.getBoundingClientRect();
         if (b.width > 0 && plates.some((q) => b.right > q.left - 4 && b.left < q.right + 4 && b.bottom > q.top - 4 && b.top < q.bottom + 4)) node.hidden = true;
+        offBody(node);
       });
       const facing = v.pitch > 35 ? `Looking up, to the ${compassWord(v.yaw)}` : `Facing ${compassWord(v.yaw)}${slopeWord(v.yaw, slope.upAz, slope.grade)}${v.fov < ZOOMED_FOV ? ', zoomed in' : ''}`;
       for (const f of [facingRef.current, facingPhoneRef.current]) if (f && f.textContent !== facing) f.textContent = facing;
@@ -638,24 +707,46 @@ export function StandCanvas({
         node.style.top = `${p.y}px`;
         node.style.left = p.side === 'left' ? '8px' : '';
         node.style.right = p.side === 'right' ? '8px' : '';
-        // Clear of the labels on the sky, so a pointer never covers the lander's name or the Sun's.
-        const labels = [sunRef.current, earthRef.current, landerRef.current, shadowRef.current].filter((n): n is HTMLSpanElement => !!n && !n.hidden).map((n) => n.getBoundingClientRect());
-        const b = node.getBoundingClientRect();
-        if (b.height > 0) node.style.top = `${pointerClear(b, labels, freeTop + 24, freeBottom - 8)}px`;
+        // Clear of the labels on the sky and of the lander's body, so a pointer never covers the lander, its name or
+        // the Sun's: above or below what it meets, and again past the next; left out where it still covers the lander.
+        const labels: Rect[] = [sunRef.current, earthRef.current, landerRef.current, shadowRef.current].filter((n): n is HTMLSpanElement => !!n && !n.hidden).map((n) => n.getBoundingClientRect());
+        if (body) labels.push(body);
+        for (let k = 0; k < 3; k++) {
+          const b = node.getBoundingClientRect();
+          if (b.height === 0) break;
+          const y = pointerClear(b, labels, freeTop + 24, freeBottom - 8);
+          if (Math.abs(y - (b.top + b.bottom) / 2) < 0.5) break;
+          node.style.top = `${y}px`;
+        }
+        offBody(node);
       }
-      // The key moments' days where the paths pass them, placed last: for the frame a chip gives way to every
-      // label shown (the Sun's, Earth's, the lander's and its parts' names, your shadow's, the star names, the
-      // pointers and the level horizon's name) and to the chips before it, so none covers a name or crowds another.
+      // The paths' names where the renderer puts them, then the key moments' days where the paths pass them, placed
+      // last: for the frame each keeps off the lander's body, beside it or above it, and gives way to every label
+      // shown (the Sun's, Earth's, the lander's and its parts' names, your shadow's, the star names, the pointers
+      // and the level horizon's name) and to the names and chips before it, so none covers a name or crowds another.
       const shownLabels = [sunRef.current, earthRef.current, landerRef.current, shadowRef.current, levelRef.current, ...Object.values(partRefs.current), ...starRefs.current, ...Object.values(pointerRefs.current)]
         .filter((n): n is HTMLElement => !!n && !n.closest('[hidden]'))
         .map((n) => n.getBoundingClientRect())
         .filter((b) => b.width > 0);
-      const chips = (l.marks ?? []).map((m, k) => {
-        const node = pathRefs.current[k];
-        place(node, m);
+      const named = PATHS.map(([k]) => {
+        const node = nameRefs.current[k], n = l.pathNames?.find((p) => p.body === k) ?? null;
+        if (node && n && node.textContent !== n.text) node.textContent = n.text;
+        const dx = place(node, n);
+        if (n) keepOff(node, n, dx, body, shownLabels);
         return node && !node.hidden ? node.getBoundingClientRect() : null;
       });
-      chipsShown(chips, shownLabels).forEach((on, k) => {
+      const pathNamed = chipsShown(named, shownLabels);
+      pathNamed.forEach((on, k) => {
+        const node = nameRefs.current[PATHS[k][0]];
+        if (node && !on) node.hidden = true;
+      });
+      const taken = [...shownLabels, ...named.filter((b, k): b is DOMRect => !!b && pathNamed[k] && b.width > 0)];
+      const chips = (l.marks ?? []).map((m, k) => {
+        const node = pathRefs.current[k];
+        keepOff(node, m, place(node, m), body, taken);
+        return node && !node.hidden ? node.getBoundingClientRect() : null;
+      });
+      chipsShown(chips, taken).forEach((on, k) => {
         const node = pathRefs.current[k];
         if (node && !on) node.hidden = true;
       });
@@ -828,6 +919,18 @@ export function StandCanvas({
           >
             {m.text}
           </span>
+        ))}
+        {/* Each path's name hangs just under it, in its body's colour; the renderer says where and in what words. */}
+        {PATHS.map(([k, colour]) => (
+          <span
+            key={k}
+            ref={(node) => {
+              nameRefs.current[k] = node;
+            }}
+            hidden
+            data-path-name={k}
+            className={`${LABEL} -translate-x-1/2 translate-y-1/4 ${colour}`}
+          />
         ))}
         <span ref={levelRef} hidden className={`${LABEL} translate-x-3 -translate-y-1/2 text-[#c3bfb6]`}>
           Level horizon
