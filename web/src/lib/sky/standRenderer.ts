@@ -106,13 +106,14 @@ export function shadowOnGround(riseAt: (d: number) => number, sunElDeg: number, 
  */
 const nightFloor = (sunFraction: number, earthshine: number) => 0.35 * Math.max(0, 1 - Math.min(1, sunFraction + 2 * earthshine));
 /**
- * The measured ground's reach standing (125 km, the far skyline beyond it) and in flight (205 km, cut round at
- * 200 km where the globe takes over). Within 10 m of the ground at the site the view counts as standing: the
+ * The measured ground's reach standing (125 km, the far skyline beyond it) and in flight (205 km in the cap's own
+ * cells, then a ring of cells twice as wide out to 460 km, cut round at 455 km where the globe takes over); it
+ * draws below 1600 km over the site. Within 10 m of the ground at the site the view counts as standing: the
  * far skyline is the eye's own horizon, and from higher up the near crests drop below it and would bare it as a
  * band. From 500 m up the eye's night light fades out. From space the camera exposes for the sunlit Moon (a
  * fixed gain) and shows the brighter stars faintly.
  */
-const STAND_REACH_M = 125000, FLIGHT_REACH_M = 205000, STANDING_M = 10, ALOFT_M = 500, MEASURED_M = 450000, SPACE_GAIN = 1.8, SPACE_STARS = 0.7;
+const STAND_REACH_M = 125000, FLIGHT_REACH_M = 205000, RING_REACH_M = 460000, STANDING_M = 10, ALOFT_M = 500, MEASURED_M = 1600000, SPACE_GAIN = 1.8, SPACE_STARS = 0.7;
 /** How far a level's mesh reaches from the site, by its cell size; the coarsest to 125 km, or 205 km in flight. The shadows read the whole level. */
 const meshReachM = (cellM: number, coarsest: boolean, flight = false) => (coarsest ? (flight ? FLIGHT_REACH_M : STAND_REACH_M) : cellM <= 30 ? 5000 : cellM <= 200 ? 20500 : 125000);
 /** The value stored for a cell outside the measured ground when heights go to the GPU as half floats. */
@@ -277,6 +278,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         uEarth: { value: new THREE.Vector3(0, 1, 0) },
         uEarthshine: { value: 0 },
         uDetail: { value: detail && !fast ? 1 : 0 },
+        uFarDetail: { value: fast ? 0 : 1 },
         uSunPower: { value: 3.4 },
         uHole: { value: new THREE.Vector2(hole, hole) },
         uLanderOn: { value: 0 },
@@ -296,6 +298,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       polygonOffsetUnits: level * 4,
     });
   const ground: THREE.Mesh[] = [];
+  // The cap's own mesh, and in flight the coarser ring round it.
+  let cap: THREE.Mesh | null = null, capRing: THREE.Mesh | null = null;
   if (!hasGround) {
     // The sky and the globe alone, until the measured ground has loaded.
   } else if (levels.length === 0) {
@@ -316,6 +320,21 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       // The next, coarser level starts two of this level's cells inside its edge: an overlap, never a gap.
       hole = Math.max(0, reachM - 2 * l.cell);
     });
+    cap = ground[ground.length - 1];
+    if (flight) {
+      // From 900 km over the pole the view spans some 330 km each way: the cap goes on to 460 km in cells twice as
+      // wide (a quarter of the vertices), so the month's sweep is all measured ground, sharper than the globe's
+      // maps, whose rows bunch up at the pole.
+      const l = drawn[drawn.length - 1], cols = Math.floor((l.cols - 1) / 2) + 1, rows = Math.floor((l.rows - 1) / 2) + 1;
+      const heights = new Float32Array(cols * rows);
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) heights[r * cols + c] = l.heights[2 * r * l.cols + 2 * c];
+      const m = material(false, hole, drawn.length - 1);
+      m.polygonOffset = true;
+      m.polygonOffsetFactor += 1;
+      m.polygonOffsetUnits += 4;
+      capRing = groundMesh({ cols, rows, cell: 2 * l.cell, siteCol: l.siteCol / 2, siteRow: l.siteRow / 2, heights }, scene.field.lonDeg, RING_REACH_M, m).mesh;
+      ground.push(capRing);
+    }
   }
   ground.forEach((g) => root.add(g));
 
@@ -445,9 +464,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
    * round on itself a little higher or lower and reads as two lines. A period of a month or less is drawn whole.
    */
   const MONTH_H = 709;
+  // The hours of the stretch drawn, first and last: a moment's chip shows only on it.
+  let drawnFrom = 0, drawnTo = scene.series.hours - 1;
   const pathWindow = (t: number) => {
     const from = Math.min(Math.max(0, Math.round(t) - (MONTH_H - 1) / 2), Math.max(0, scene.series.hours - MONTH_H));
     for (const p of paths) p.geometry.setDrawRange(from * 6, (Math.min(MONTH_H, scene.series.hours) - 1) * 6);
+    drawnFrom = from;
+    drawnTo = from + Math.min(MONTH_H, scene.series.hours) - 1;
   };
   const ring = (colour: number, degrees: number) => {
     const s = new THREE.Sprite(
@@ -589,6 +612,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
    * is hidden the view is exposed like a long photograph, so Earthlight shows and the shapes do. That is the
    * eye's way of seeing: from above, the ground gets only the light that is there.
    */
+  // The light the sunlit dust round the eye scatters into the shadows: none once aloft, where the ground below is
+  // not all round the eye and the night side far off would glow with it.
+  let bounceNow = 0;
   function applyLight() {
     const { sunFraction, full, earthUp } = lightNow, eyeOnly = 1 - aloftNow;
     const earthshine = earthUp ? 0.25 * full * (1 + 3 * (1 - sunFraction) * eyeOnly) : 0;
@@ -597,6 +623,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       const u = (g.material as THREE.ShaderMaterial).uniforms;
       u.uEarthshine.value = earthshine;
       u.uNight.value = night;
+      u.uBounce.value = bounceNow * eyeOnly;
     }
     // Earth's blue light only while Earth is up; the neutral fill, faint by day, and at night enough for the
     // shapes to show when neither the Sun nor Earth lights them (the ground gets the same).
@@ -638,8 +665,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       u.uSun.value.set(...sd);
       u.uEarth.value.set(...ed);
       u.uSunUp.value = v.sunFraction;
-      u.uBounce.value = bounceShare(v.sunEl);
     }
+    bounceNow = bounceShare(v.sunEl);
     lightNow = { sunFraction: v.sunFraction, full, earthUp: v.earthEl > -0.5 };
     applyLight();
     // The lights for the lander and the boulders.
@@ -714,6 +741,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     placeEarth();
     standing(alt < STANDING_M);
     measured(!flight || alt < MEASURED_M);
+    // The globe's earthlit night glow fades out from twice the height the measured ground comes in at, down to it.
+    if (globe) (globe.material.uniforms.uGlow as THREE.IUniform<number>).value = flight ? Math.min(1, Math.max(0, (alt - MEASURED_M) / MEASURED_M)) : 1;
     spaceNow = flight ? Math.min(1, Math.max(0, (alt - 30e3) / (600e3 - 30e3))) : 0;
     const aloft = Math.min(1, Math.max(0, (alt - ALOFT_M) / (5000 - ALOFT_M)));
     if (aloft !== aloftNow) {
@@ -722,19 +751,25 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     }
     expose();
   }
+  let standingNow = true, measuredNow = true;
   /**
-   * The measured ground draws below 450 km over the site; higher, its 200 km look the same as the globe's at a
-   * pixel or two, and the globe shows the whole Moon, the pole too, with no seam round the measured patch.
+   * The measured ground draws below 1600 km over the site; higher, the globe shows the whole Moon, the pole too,
+   * with no seam round the measured patch.
    */
   function measured(on: boolean) {
-    for (const g of ground) g.visible = on;
+    measuredNow = on;
+    for (const g of ground) g.visible = on && !(g === capRing && standingNow);
     globe?.setCut(on && hasGround);
   }
-  /** Standing: the stand view's far skyline and the cap's mesh to 125 km; above, the mesh to 200 km and the globe beyond. */
+  /** Standing: the stand view's far skyline and the cap's mesh to 125 km; above, the cap and its ring to 455 km and the globe beyond. */
   function standing(on: boolean) {
+    standingNow = on;
     if (skyline) skyline.visible = on || !flight;
-    const coarse = ground[ground.length - 1];
-    if (coarse && flight) (coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value = on ? STAND_REACH_M : GLOBE.CUT_M;
+    if (cap && flight) (cap.material as THREE.ShaderMaterial).uniforms.uFarCut.value = on ? STAND_REACH_M : capRing ? 1e9 : GLOBE.CUT_M;
+    if (capRing) {
+      (capRing.material as THREE.ShaderMaterial).uniforms.uFarCut.value = GLOBE.CUT_M;
+      capRing.visible = !on && measuredNow;
+    }
   }
   standing(true);
   const probe = new THREE.Sphere(moonC, R_MOON_M - 12000), ray3 = new THREE.Ray(), hit3 = new THREE.Vector3();
@@ -828,7 +863,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(m.hour)));
       const d = m.body === 'sun' ? dirAzEl(scene.series.sunAz[h], scene.series.sunEl[h]) : dirAzEl(scene.series.earthAz[h], scene.series.earthEl[h]);
       const at = spot(skyWorld(new THREE.Vector3(d[0] * RG, d[1] * RG, d[2] * RG)), 0, false);
-      return { text: m.text, ...at, visible: at.visible && guides.visible };
+      return { text: m.text, ...at, visible: at.visible && guides.visible && h >= drawnFrom && h <= drawnTo };
     });
     const k = skyGroup.scale.x;
     return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow, marks };

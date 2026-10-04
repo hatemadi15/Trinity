@@ -18,7 +18,10 @@ describe('the ground shader', () => {
     expect(far).toMatch(/float farH\(vec2 p, float px\)/);
     for (const cell of ['3200.0', '800.0', '200.0']) expect(far).toContain(`smoothstep(1.5, 4.0, ${cell} / px)`);
     const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
-    // Faded in with the distance as the near detail fades out, bending only the shading normal.
+    // On every level (the cap and its context too, not only the finest, which alone has the near detail), unless
+    // the view is set to fast; faded in with the distance as the near detail fades out, bending only the shading normal.
+    expect(GROUND_FRAG).toMatch(/uniform float [^;]*uFarDetail/);
+    expect(main).toMatch(/if \(uFarDetail > 0\.5 && wFar > 0\.0\)/);
     expect(main).toMatch(/float wFar = smoothstep\([0-9.]+, [0-9.]+, dist\)/);
     expect(main).toMatch(/Nn = normalize\(Nn - vec3\(\(fx - f0\) \/ e, 0\.0, \(fz - f0\) \/ e\) \* wFar/);
   });

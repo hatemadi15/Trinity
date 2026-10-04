@@ -74,6 +74,6 @@ describe('the globe', () => {
     const data = t.image.data as Float32Array;
     expect(Array.from(data.slice(0, 4))).toEqual([-7, -7, -7, -7]);
     expect(t.wrapS).toBe(THREE.RepeatWrapping);
-    expect(GLOBE.CUT_M).toBe(200000);
+    expect(GLOBE.CUT_M).toBe(455000);
   });
 });

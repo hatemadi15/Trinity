@@ -21,7 +21,7 @@ void main() {
 export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
-uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uSunPower; uniform vec2 uHole;
+uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uFarDetail, uSunPower; uniform vec2 uHole;
 uniform float uLanderOn, uSunUp, uBounce, uNight, uFarCut; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
 ${SHADOW_GLSL}
 ${HIDE_GLSL}
@@ -217,9 +217,9 @@ void main() {
       }
     }
   }
-  // From afar, farH's craters on the measured ground, faded in as the near ones fade out (by 1600 m).
+  // From afar, farH's craters on every level of the measured ground, faded in as the near ones fade out (by 1600 m).
   float wFar = smoothstep(800.0, 2400.0, dist);
-  if (uDetail > 0.5 && wFar > 0.0) {
+  if (uFarDetail > 0.5 && wFar > 0.0) {
     float e = max(px, 1.0), f0 = farH(vWorld.xz, px), fx = farH(vWorld.xz + vec2(e, 0.0), px), fz = farH(vWorld.xz + vec2(0.0, e), px);
     Nn = normalize(Nn - vec3((fx - f0) / e, 0.0, (fz - f0) / e) * wFar * (1.0 - hide));
   }

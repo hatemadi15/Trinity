@@ -45,6 +45,11 @@ function levels() {
   const level = (n: number, cell: number, h: number) => ({ heights: new Float32Array(n * n).fill(h), width: n, height: n, pxM: cell, siteCol: (n - 1) / 2, siteRow: (n - 1) / 2 });
   return [level(481, 960, 100), level(512, 80, 100), level(1024, 20, 100)];
 }
+/** As levels(), with the arrival's cap: 961 cells of 960 m, reaching 460 km each way from the site. */
+function wideLevels() {
+  const [cap, context, window] = levels();
+  return [{ ...cap, heights: new Float32Array(961 * 961).fill(100), width: 961, height: 961, siteCol: 480, siteRow: 480 }, context, window];
+}
 
 describe('the stand scene', () => {
   it('puts the Sun, Earth and stars on the sky sphere, in the directions of the hour', () => {
@@ -601,6 +606,16 @@ describe('the guides', () => {
     expect(s.labels().marks).toEqual([expect.objectContaining({ text: '3 Jan', visible: false })]);
   });
 
+  it('shows a moment’s chip only while its hour lies on the stretch of path drawn', () => {
+    const s = buildScene(flat({ series: hourly(1000, (h) => (300 + (h * 360) / 708.73) % 360, () => 2, () => 70, () => 4), marks: [{ hour: 900, body: 'sun', text: 'late' }] }));
+    // Facing where the Sun stands at hour 900 both times.
+    s.setView((300 + (900 * 360) / 708.73) % 360, 2, 60, 16 / 9);
+    s.update(10); // the stretch drawn: hours 0 to 708
+    expect(s.labels().marks![0].visible).toBe(false);
+    s.update(800); // now round hour 800, up to the period's end
+    expect(s.labels().marks![0].visible).toBe(true);
+  });
+
   it('draws one synodic month of each path round the hour, so a period longer than a month never shows a path twice', () => {
     // 30 days: longer than the 708.7 hours from one new Moon to the next, after which the Sun's path comes round
     // again a little higher or lower and reads as two lines.
@@ -709,25 +724,27 @@ describe('the stand scene in flight', () => {
     expect(new THREE.Vector3().copy(s.parts.sun.position).normalize().angleTo(new THREE.Vector3(...dirAzEl(300, 2)))).toBeLessThan(1e-6);
   });
 
-  it('meshes the cap to 205 km with the globe, cut at 200 km in flight and at 125 km once standing, with the skyline ring only standing', () => {
+  it('meshes the cap to 205 km with the globe, the ring beyond it cut at 455 km in flight, and the cap at 125 km once standing, with the skyline only standing', () => {
     const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
-    const coarse = s.parts.ground[s.parts.ground.length - 1];
+    const coarse = s.parts.ground[2], ring = s.parts.ground[3];
     let reach = 0;
     const p = coarse.geometry.getAttribute('position');
     for (let i = 0; i < p.count; i++) reach = Math.max(reach, Math.hypot(p.getX(i), p.getZ(i)));
     expect(reach).toBeGreaterThan(200000);
+    const farCut = (m: THREE.Mesh) => (m.material as THREE.ShaderMaterial).uniforms.uFarCut.value;
     s.setPose(at([0, 90000, 0]), 1.6);
-    expect((coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value).toBe(200000);
+    expect(farCut(coarse)).toBeGreaterThan(1e8);
+    expect(farCut(ring)).toBe(455000);
     expect(s.parts.ring!.visible).toBe(false);
     s.setView(300, 2, 60, 1.6);
-    expect((coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value).toBe(125000);
+    expect(farCut(coarse)).toBe(125000);
     expect(s.parts.ring!.visible).toBe(true);
     // The skyline is the eye's own horizon: 60 m up, the near crests already drop below it, so it waits for the last metres.
     s.setPose(at([0, 60, 0]), 1.6);
-    expect((coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value).toBe(200000);
+    expect(farCut(coarse)).toBeGreaterThan(1e8);
     expect(s.parts.ring!.visible).toBe(false);
     s.setPose(at([0, 5, 0]), 1.6);
-    expect((coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value).toBe(125000);
+    expect(farCut(coarse)).toBe(125000);
     expect(s.parts.ring!.visible).toBe(true);
   });
 
@@ -777,15 +794,76 @@ describe('the stand scene in flight', () => {
     expect(u.uNight.value).toBeGreaterThan(0.3);
   });
 
-  it('draws the measured ground only below 450 km: higher, the globe shows the whole Moon, the pole too', () => {
+  it('draws the measured ground only below 1600 km: higher, the globe shows the whole Moon, the pole too', () => {
     const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
     const cut = (s.parts.globe!.material as THREE.ShaderMaterial).uniforms.uCut;
-    s.setPose(at([0, 9.0e5, 0]), 1.6);
+    s.setPose(at([0, 2.0e6, 0]), 1.6);
     expect(s.parts.ground.every((g) => !g.visible)).toBe(true);
     expect(cut.value).toBeGreaterThan(1);
-    s.setPose(at([0, 9.0e4, 0]), 1.6);
+    // Over the pole for the month's sweep, 900 km up: the measured ground, the globe only beyond 455 km.
+    s.setPose(at([0, 9.0e5, 0]), 1.6);
     expect(s.parts.ground.every((g) => g.visible)).toBe(true);
-    expect(cut.value).toBeCloseTo(Math.cos(200000 / R_MOON_M), 9);
+    expect(cut.value).toBeCloseTo(Math.cos(455000 / R_MOON_M), 9);
+  });
+
+  it('gives the shadows no bounce from the sunlit dust round the eye once aloft, so the night side far off stays black', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
+    s.update(0); // the Sun up at the site
+    s.setView(300, 2, 60, 1.6);
+    expect(u.uBounce.value).toBeGreaterThan(0);
+    s.setPose(at([0, 9.0e4, 0]), 1.6);
+    expect(u.uBounce.value).toBe(0);
+  });
+
+  it('turns the globe’s colour beside the measured ground into the ground’s own grey, so the cut leaves no step in brightness', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const g = (s.parts.globe!.material as THREE.ShaderMaterial);
+    expect(g.fragmentShader).toMatch(/mix\(vec3\(0\.17, 0\.164, 0\.156\)[^;]*uBlendM/);
+    s.setPose(at([0, 9.0e5, 0]), 1.6);
+    expect(g.uniforms.uBlendM.value).toBe(455000);
+    s.setPose(at([0, 9.0e6, 0]), 1.6);
+    expect(g.uniforms.uBlendM.value).toBeLessThan(0);
+  });
+
+  it('fades the globe’s earthlit night glow out as the measured ground comes in, so its edge leaves no ring on the night side', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const glow = (s.parts.globe!.material as THREE.ShaderMaterial).uniforms.uGlow;
+    s.setPose(at([0, 9.0e6, 0]), 1.6);
+    expect(glow.value).toBe(1);
+    s.setPose(at([0, 9.0e5, 0]), 1.6);
+    expect(glow.value).toBe(0);
+    s.setPose(at([0, 2.4e6, 0]), 1.6);
+    expect(glow.value).toBeGreaterThan(0);
+    expect(glow.value).toBeLessThan(1);
+  });
+
+  it('draws the far craters on every level of the measured ground, the near detail on the finest alone, and neither when the view is set to fast', () => {
+    const full = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const u = (m: THREE.Mesh) => (m.material as THREE.ShaderMaterial).uniforms;
+    expect(full.parts.ground.map((g) => u(g).uFarDetail.value)).toEqual([1, 1, 1, 1]);
+    expect(full.parts.ground.map((g) => u(g).uDetail.value)).toEqual([1, 0, 0, 0]);
+    const fast = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100), quality: 'fast' }));
+    expect(fast.parts.ground.map((g) => u(g).uFarDetail.value)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('meshes the cap out to 455 km in flight, the part beyond 205 km as a ring of cells twice as wide, so the pole view is all measured ground', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(wideLevels(), -64.31, 100) }));
+    expect(s.parts.ground).toHaveLength(4);
+    const ring = s.parts.ground[3], inner = s.parts.ground[2];
+    const p = ring.geometry.getAttribute('position');
+    let reach = 0;
+    for (let i = 0; i < p.count; i++) reach = Math.max(reach, Math.hypot(p.getX(i), p.getZ(i)));
+    expect(reach).toBeGreaterThan(455000);
+    expect(p.count).toBeLessThan(300000); // 1920 m cells: a quarter of the 960 m grid's
+    const farCut = (m: THREE.Mesh) => (m.material as THREE.ShaderMaterial).uniforms.uFarCut.value;
+    s.setPose(at([0, 9.0e5, 0]), 1.6);
+    expect(farCut(ring)).toBe(455000);
+    expect(farCut(inner)).toBeGreaterThan(1e8); // the ring carries on from its edge
+    // Standing: the inner cap to 125 km and the far skyline, as in the stand view; no ring.
+    s.setView(300, 2, 60, 1.6);
+    expect(farCut(inner)).toBe(125000);
+    expect(ring.visible).toBe(false);
   });
 
   it('hides a point behind the Moon from a camera in space, and shows one on the near side', () => {

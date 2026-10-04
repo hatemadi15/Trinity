@@ -10,10 +10,10 @@ export interface GlobeHeights { width: number; height: number; metres: Float32Ar
 
 /**
  * The globe's mesh (512 by 256 cells) and its shadow march: 28 samples from 2.5 km, growing 18 % a step, out
- * to about 220 km, the engine's rule over the globe's heights. The measured ground draws within 200 km of the
- * site, so the globe leaves that out.
+ * to about 220 km, the engine's rule over the globe's heights. The measured ground draws within 455 km of the
+ * site in flight, so the globe leaves that out.
  */
-export const GLOBE = { SEG_LON: 512, SEG_LAT: 256, STEPS: 28, T0_M: 2500, GROWTH: 1.18, CUT_M: 200000 } as const;
+export const GLOBE = { SEG_LON: 512, SEG_LAT: 256, STEPS: 28, T0_M: 2500, GROWTH: 1.18, CUT_M: 455000 } as const;
 
 /** A unit sphere in the Moon-fixed frame (x to 0° longitude, z north); u from 180° W, v from the south pole. */
 export function globeGeometry(segLon: number = GLOBE.SEG_LON, segLat: number = GLOBE.SEG_LAT): THREE.BufferGeometry {
@@ -103,7 +103,7 @@ void main() {
 export const GLOBE_FRAG = /* glsl */ `
 precision highp float;
 uniform sampler2D uColor, uNormal, uHeights;
-uniform float uColorOn, uNormalOn, uRadius, uAlbedoScale, uSunPower, uEarthshine, uCut;
+uniform float uColorOn, uNormalOn, uRadius, uAlbedoScale, uSunPower, uEarthshine, uGlow, uCut, uBlendM;
 uniform vec3 uSun, uSunMe, uEarthMe, uSiteMe; uniform mat3 uToWorld;
 varying vec3 vDir; varying vec2 vUv; varying vec3 vWorld;
 #include <logdepthbuf_pars_fragment>
@@ -137,9 +137,13 @@ void main() {
   float phase = exp(-0.82 * alpha), surge = 1.0 + 0.45 / (1.0 + tan(alpha * 0.5) / 0.055);
   float vis = clamp(m / max(2.0 * ${SUN_R}, fw) + 0.5, 0.0, 1.0);
   vec3 albedo = uColorOn > 0.5 ? texture2D(uColor, vUv).rgb * uAlbedoScale : vec3(0.17);
+  // Beside the measured ground (cut round at uBlendM, while it draws) the colour goes over to the ground's own grey
+  // in the 250 km beyond, so the cut leaves no step in brightness.
+  if (uBlendM > 0.0) albedo = mix(vec3(0.17, 0.164, 0.156), albedo, smoothstep(uBlendM, uBlendM + 250000.0, acos(clamp(dot(up, uSiteMe), -1.0, 1.0)) * uRadius));
   vec3 col = albedo * vec3(1.0, 0.99, 0.975) * uSunPower * (mu0 / (mu0 + mu)) * phase * surge * vis;
-  // Earthshine: the night side faintly lit by Earth, more as Earth is fuller.
-  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * max(dot(nMe, normalize(uEarthMe)), 0.0);
+  // Earthshine: the night side faintly lit by Earth, more as Earth is fuller; faded out (uGlow) as the measured
+  // ground comes in, whose night side is lit by Earth only where Earth is up at the site.
+  col += albedo * vec3(0.5, 0.62, 1.0) * uEarthshine * uGlow * max(dot(nMe, normalize(uEarthMe)), 0.0);
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -173,6 +177,8 @@ export function buildGlobe(o: { basis: Basis; siteHeightM: number; assets: Globe
       uAlbedoScale: { value: o.assets.albedoScale },
       uSunPower: { value: 3.4 },
       uEarthshine: { value: 0 },
+      uGlow: { value: 1 },
+      uBlendM: { value: -1 },
       uCut: { value: o.cutM > 0 ? Math.cos(o.cutM / R_MOON_M) : 2 },
       uSun: { value: new THREE.Vector3(1, 0, 0) },
       uSunMe: { value: new THREE.Vector3(1, 0, 0) },
@@ -219,6 +225,7 @@ export function buildGlobe(o: { basis: Basis; siteHeightM: number; assets: Globe
     },
     setCut(on) {
       material.uniforms.uCut.value = on && o.cutM > 0 ? Math.cos(o.cutM / R_MOON_M) : 2;
+      material.uniforms.uBlendM.value = on && o.cutM > 0 ? o.cutM : -1;
     },
     dispose() {
       mesh.geometry.dispose();
