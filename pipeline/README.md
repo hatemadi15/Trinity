@@ -17,6 +17,14 @@ Offline pipeline that converts NASA data into the static artifacts used by the w
     uv run python -m lunar_pipeline.cli horizons-fetch
     uv run python -m lunar_pipeline.cli horizons-compare
     uv run python -m lunar_pipeline.cli report --site shackleton_center_rim_high
+    uv run python -m lunar_pipeline.cli fetch --group globe
+    uv run python -m lunar_pipeline.cli globe
+    uv run python -m lunar_pipeline.cli sync-local --tiles
+
+`globe` resamples NASA's CGI Moon Kit (the colour map with its poles filled and LOLA's heights at 16 pixels a
+degree, 44 MB fetched into `data_raw/globe`) into `data_out/globe` for the home page's arrival: colour and
+normal maps at 1K and 4K, heights at 4 pixels a degree and `manifest.json`. `sync-local --tiles` copies the set
+into `web/public/data/globe`.
 
 ## Tests
 
