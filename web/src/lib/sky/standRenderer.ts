@@ -252,6 +252,24 @@ const radial = (stops: [number, string][]) =>
     g.fillRect(0, 0, 512, 512);
   });
 
+/**
+ * Textures three keeps for the page's life and hands to the materials itself (its table for physically based shading,
+ * the DFG LUT). Each renderer that uploads one listens to it, which would keep the renderer and its WebGL context
+ * after it has gone, so a renderer gives them back as it goes, with the cached maps; the next one uploads them again.
+ * Found through the renderer's own uniforms for each material, so before the materials are disposed.
+ */
+export function threesOwnTextures(root: THREE.Object3D, properties: { get(o: object): unknown }): THREE.Texture[] {
+  const found = new Set<THREE.Texture>();
+  root.traverse((o) => {
+    const m = (o as THREE.Mesh).material;
+    for (const mat of Array.isArray(m) ? m : m ? [m] : []) {
+      const table = (properties.get(mat) as { uniforms?: { dfgLUT?: { value?: unknown } } }).uniforms?.dfgLUT?.value;
+      if (table instanceof THREE.Texture) found.add(table);
+    }
+  });
+  return [...found];
+}
+
 /** How high the eye stands over the drawn ground: the mast's height (2 m by default), never under a person's 1.5 m. */
 export const eyeHeightM = (mastM: number) => Math.max(1.5, mastM);
 /** Where the eye is: over the drawn ground at the site, so the mesh never stands above it. */
@@ -1206,6 +1224,8 @@ export class StandRenderer {
   private composer: EffectComposer;
   private bloom: UnrealBloomPass;
   private output: OutputPass;
+  /** The light all round that the foil mirrors: a render target, which only its own dispose gives back. */
+  private around: THREE.WebGLRenderTarget;
   private built: ReturnType<typeof buildScene>;
   private size = { w: 1, h: 1 };
   private view = { yaw: 0, pitch: 0, fov: 60 };
@@ -1270,7 +1290,8 @@ export class StandRenderer {
     const envScene = new THREE.Scene();
     envScene.add(new THREE.Mesh(around, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.built.root.environment = pmrem.fromScene(envScene, 0).texture;
+    this.around = pmrem.fromScene(envScene, 0);
+    this.built.root.environment = this.around.texture;
     pmrem.dispose();
     around.dispose();
     // A shader that fails shows only on its first use; then the view gives way to the fallback.
@@ -1465,18 +1486,21 @@ export class StandRenderer {
   }
 
   /**
-   * Gives everything back: the scenes, the passes, the renderer, and the shared textures' GPU copies (kept for the
-   * page's life in the cache, they would otherwise hold this renderer's context after it has gone).
+   * Gives everything back: the scenes, the light all round, the passes, the renderer, and the GPU copies of the
+   * textures kept for the page's life (the cached maps, three's own table), which would otherwise hold this renderer
+   * and its context after it has gone.
    */
   dispose() {
     if (this.fence) (this.renderer.getContext() as WebGL2RenderingContext).deleteSync(this.fence);
-    this.built.root.environment?.dispose();
+    const threes = threesOwnTextures(this.built.root, this.renderer.properties);
+    this.around.dispose();
     this.built.dispose();
     this.next?.built.dispose();
     this.bloom.dispose();
     this.output.dispose();
     this.composer.dispose();
     releaseCachedTextures();
+    for (const t of threes) t.dispose();
     this.renderer.dispose();
   }
 }

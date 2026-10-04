@@ -8,7 +8,7 @@ import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS } from './boulders';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
-import { bounceShare, buildScene, lookUpTarget, shadowOnGround, toTextureHeights, type StandScene } from './standRenderer';
+import { bounceShare, buildScene, lookUpTarget, shadowOnGround, threesOwnTextures, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, meshHeightAt, terrainField } from './terrainField';
 
 const series = {
@@ -1180,5 +1180,21 @@ describe('the stand scene in flight', () => {
     s.setPose(at([0, 4.0e6, 0]), 1.6);
     expect(s.project([0, 0, 0], true).visible).toBe(true); // the site, below the camera
     expect(s.project([0, -2 * R_MOON_M, 0], true).visible).toBe(false); // the far side's pole, behind the Moon
+  });
+});
+
+describe('what a renderer that goes gives back', () => {
+  it('finds the textures three hands to the materials itself and keeps for the page (its shading table), once each', () => {
+    const table = new THREE.DataTexture(new Uint16Array(16 * 16 * 2), 16, 16), own = new THREE.Texture();
+    const metal = new THREE.MeshStandardMaterial(), foil = new THREE.MeshStandardMaterial({ map: own }), plain = new THREE.ShaderMaterial();
+    const root = new THREE.Scene();
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(), metal), new THREE.Mesh(new THREE.BoxGeometry(), [foil, plain]));
+    // The renderer's own uniforms for each material, as three keeps them: the table on the physically based ones.
+    const uniforms = new Map<object, unknown>([
+      [metal, { uniforms: { dfgLUT: { value: table } } }],
+      [foil, { uniforms: { dfgLUT: { value: table }, map: { value: own } } }],
+    ]);
+    const found = threesOwnTextures(root, { get: (o: object) => uniforms.get(o) ?? {} });
+    expect(found).toEqual([table]);
   });
 });
