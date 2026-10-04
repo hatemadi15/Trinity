@@ -747,6 +747,18 @@ describe('the guides', () => {
     expect(right.x).toBeGreaterThan(middle.x + 0.1);
   });
 
+  it('dots each path where the hills hide it, as the chart below dots the hidden Sun: the faint band in dashes, the solid band whole', () => {
+    const s = buildScene(flat({ series: hourly(100, (h) => (300 + h * 0.5) % 360, () => 2, (h) => 70 + h * 0.05, () => 4) }));
+    const on = (b: THREE.Mesh) => pieces(b).map((t) => t.length > 0);
+    const faintSun = on(band(s, SUN_BAND, true)), solidSun = on(band(s, SUN_BAND, false)), faintEarth = on(band(s, EARTH_BAND, true));
+    // The Sun's in dashes two hours long (about a degree), Earth's, slower, sixteen hours long.
+    expect(faintSun.slice(0, 8)).toEqual([true, true, false, false, true, true, false, false]);
+    expect(faintEarth.slice(0, 33)).toEqual(Array.from({ length: 33 }, (_, h) => Math.floor(h / 16) % 2 === 0));
+    expect(solidSun.slice(0, 8).every(Boolean)).toBe(true);
+    // The level horizon all round, whole.
+    expect(on(levelBand(s)).every(Boolean)).toBe(true);
+  });
+
   it('hides the level horizon alone when asked, as the arrival does, the paths still shown', () => {
     const s = buildScene(flat());
     s.setGuides(true, false);
@@ -849,14 +861,15 @@ describe('the guides', () => {
     const s = buildScene(flat({ series: hourly(48, (h) => (h * 7.5) % 360, sunEl, (h) => 70 + h / 2, earthEl) }));
     s.update(0);
     const [sun, sunFaint, earth, earthFaint] = pathBands(s);
-    for (const [b, el] of [[sun, sunEl], [sunFaint, sunEl], [earth, earthEl], [earthFaint, earthEl]] as const) {
+    for (const [b, el, dash] of [[sun, sunEl, 0], [sunFaint, sunEl, 2], [earth, earthEl, 0], [earthFaint, earthEl, 16]] as const) {
       const drawn = pieces(b);
       // No triangle drawn wholly below the level horizon, not even where the path goes down through it...
       expect(drawn.flat().filter((t) => t.every((v) => v.y < 0))).toHaveLength(0);
       drawn.forEach((tris, i) => {
-        // ... nothing of an hour's piece whose two ends both lie below it, and the whole of each piece above it.
+        // ... nothing of an hour's piece whose two ends both lie below it, and the whole of each piece above it (the
+        // faint bands' in their dashes).
         if (el(i) < 0 && el(i + 1) < 0) expect(tris).toHaveLength(0);
-        if (el(i) > 0 && el(i + 1) > 0) expect(tris).toHaveLength(2);
+        if (el(i) > 0 && el(i + 1) > 0) expect(tris).toHaveLength(inDash(dash, i) ? 2 : 0);
       });
     }
   });
@@ -868,10 +881,11 @@ describe('the guides', () => {
     const earthAz = (h: number) => 50 + 1.25 * h;
     const s = buildScene(flat({ mask, series: hourly(48, (h) => 300 + h / 10, () => 2, earthAz, () => -1) }));
     s.update(0);
-    for (const b of pathBands(s).slice(2)) {
+    for (const [b, dash] of [[pathBands(s)[2], 0], [pathBands(s)[3], 16]] as const) {
       pieces(b).forEach((tris, i) => {
-        // In the dip, where Earth shows, its path draws; on either side, under the ground, nothing.
-        if (earthAz(i) > 61 && earthAz(i + 1) < 99) expect(tris).toHaveLength(2);
+        // In the dip, where Earth shows, its path draws (the faint band in its dashes); on either side, under the
+        // ground, nothing.
+        if (earthAz(i) > 61 && earthAz(i + 1) < 99) expect(tris).toHaveLength(inDash(dash, i) ? 2 : 0);
         if (earthAz(i + 1) < 59 || earthAz(i) > 101) expect(tris).toHaveLength(0);
       });
     }
@@ -941,6 +955,8 @@ const drawsAfter = (a: Drawn, b: Drawn) => {
   const i = x.findIndex((v, k) => v !== y[k]);
   return i >= 0 && x[i] > y[i];
 };
+/** Whether an hour's piece of a band drawn in dashes `dash` hours long (0: whole) falls in a dash, not a gap. */
+const inDash = (dash: number, i: number) => dash === 0 || Math.floor(i / dash) % 2 === 0;
 /** Each hour's piece of a band, as its triangles that draw anything (those with an area), each as its three corners. */
 const pieces = (b: THREE.Mesh) => {
   const p = b.geometry.getAttribute('position'), index = b.geometry.getIndex()!;

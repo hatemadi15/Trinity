@@ -452,9 +452,11 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
    * is each hour's lowest open sky (degrees): the level horizon, or the skyline where it dips below level, as it
    * can from a high point. Below it the path runs under the ground, not behind a hill, and draws nothing: an
    * hour's piece whose two ends both lie there, and a triangle wholly there (where the path goes down through it),
-   * are left as points, so every hour keeps its six indices and a range of hours stays a range of indices.
+   * are left as points, so every hour keeps its six indices and a range of hours stays a range of indices. With
+   * `dash` (hours), the band is drawn in dashes that long with gaps as long, as the chart below dots a hidden Sun:
+   * the faint band, which alone shows where the hills hide a path.
    */
-  const band = (dirs: Vec3[], colour: number, faint: boolean, opacity: number, floor?: number[]) => {
+  const band = (dirs: Vec3[], colour: number, faint: boolean, opacity: number, floor?: number[], dash = 0) => {
     const n = dirs.length, pos = new Float32Array(n * 6), idx: number[] = [], half = RG * Math.tan(0.075 * DEG);
     for (let i = 0; i < n; i++) {
       const d = new THREE.Vector3(...dirs[i]).normalize(), up = new THREE.Vector3(0, 1, 0).addScaledVector(d, -d.y).normalize(), c = d.clone().multiplyScalar(RG);
@@ -464,7 +466,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     const low = floor?.map((f) => Math.sin(f * DEG));
     const under = (k: number) => !!low && pos[k * 3 + 1] / RG < low[k >> 1];
     for (let i = 0; i < n - 1; i++) {
-      const a = i * 2, gone = !!low && dirs[i][1] < low[i] && dirs[i + 1][1] < low[i + 1];
+      const a = i * 2, gone = (!!low && dirs[i][1] < low[i] && dirs[i + 1][1] < low[i + 1]) || (dash > 0 && Math.floor(i / dash) % 2 === 1);
       for (const t of [[a, a + 1, a + 2], [a + 2, a + 1, a + 3]]) idx.push(...(gone || t.every(under) ? [a, a, a] : t));
     }
     const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -480,7 +482,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // Each hour's lowest open sky along a path: below the level horizon only where the skyline dips under it.
   const floorAlong = (az: ArrayLike<number>) => Array.from({ length: scene.series.hours }, (_, h) => Math.min(0, maskAt(az[h])));
   const sunFloor = floorAlong(scene.series.sunAz), earthFloor = floorAlong(scene.series.earthAz);
-  const paths = [band(sunDirs, 0xf6b646, false, 0.9, sunFloor), band(sunDirs, 0xf6b646, true, 0.3, sunFloor), band(earthDirs, 0x74adff, false, 0.9, earthFloor), band(earthDirs, 0x74adff, true, 0.3, earthFloor)];
+  // Where the hills hide them the paths show dotted (the faint bands, in dashes about a degree long: two hours of the
+  // Sun's path, sixteen of Earth's slower one).
+  const paths = [band(sunDirs, 0xf6b646, false, 0.9, sunFloor), band(sunDirs, 0xf6b646, true, 0.3, sunFloor, 2), band(earthDirs, 0x74adff, false, 0.9, earthFloor), band(earthDirs, 0x74adff, true, 0.3, earthFloor, 16)];
   const levelBand = band(Array.from({ length: 361 }, (_, k) => dirAzEl(k, 0)), 0xffffff, true, 0.18);
   /**
    * Each path for one synodic month round the hour, centred on it where the period allows: 709 hours, the first
