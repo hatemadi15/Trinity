@@ -112,7 +112,8 @@ float farCraters(vec2 p, float cell) {
     float age = pow(fract(rnd.x * 21.7 + rnd.y * 4.3), 2.5);
     vec2 d = f - c; float r = length(d) / rad;
     if (r < 1.6) {
-      float bowl = r < 1.0 ? (r * r - 1.0) : 0.0;
+      // A bowl that meets the ground with no edge (no slope at its rim), so it never draws as a thin ring.
+      float bowl = r < 1.0 ? -(1.0 - r * r) * (1.0 - r * r) : 0.0;
       float rim = mix(0.05, 0.25, age) * exp(-pow((r - 1.0) * mix(1.6, 3.2, age), 2.0));
       rim *= 0.6 + 0.8 * vnoise(d / rad * 2.0 + rnd * 41.0);
       h += (bowl * mix(0.05, 0.14, age) + rim) * rad * cell;
@@ -210,7 +211,8 @@ void main() {
   vec3 vAlong = V - N0 * sv, sAlong = Ls - N0 * ss;
   float hide = hiddenShadowShare(ss / max(length(sAlong), 1.0e-5), sv / max(length(vAlong), 1.0e-5), dot(vAlong, sAlong) / max(length(vAlong) * length(sAlong), 1.0e-5));
   if (uDetail > 0.5) {
-    float w = 1.0 - smoothstep(250.0, 1600.0, dist);
+    // Near the eye only, and not seen from above (the flight's last metres), where they read as bubble wrap.
+    float w = (1.0 - smoothstep(250.0, 1600.0, dist)) * (1.0 - smoothstep(20.0, 120.0, cameraPosition.y - vWorld.y));
     if (w > 0.0) {
       float e = max(0.15, px); float h0 = detailH(vWorld.xz, px), hx = detailH(vWorld.xz + vec2(e, 0.0), px), hz = detailH(vWorld.xz + vec2(0.0, e), px);
       float b0, bx, bz, c0, cx, cz;

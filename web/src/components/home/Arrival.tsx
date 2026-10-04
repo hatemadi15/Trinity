@@ -3,14 +3,15 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type MouseEvent } from 'react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { BEAT_STOPS, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
+import { BEAT_STOPS, LAST, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
 import type { ArrivalWords } from '@/lib/viz/arrival';
 import type { StageProps } from './ArrivalCanvas';
 
 // three.js comes with the stage, after the page's words: nothing on this module's import path pulls it in.
 const LiveStage = dynamic(() => import('./ArrivalCanvas'), { ssr: false });
 /** The first screen and the four beats, a screen of scrolling each. */
-const BEATS = 5;
+/** Screens in the arrival, a beat each: the Moon, the pole's month, the cap, the ridge, standing, the month at the site, the answer. */
+const BEATS = BEAT_STOPS.length;
 const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/85 backdrop-blur-sm';
 const SENTENCE = 'display text-balance text-[28px] leading-[1.08] sm:text-[36px]';
 const still = (k: number, shape: 'wide' | 'tall') => `/arrival/beat-${k}-${shape}.jpg`;
@@ -39,7 +40,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
   const search = useSyncExternalStore(noSubscribe, () => window.location.search, () => '');
   const capture = useMemo(() => {
     const q = new URLSearchParams(search), at = q.get('arrival');
-    return at === null || !Number.isFinite(Number(at)) ? null : { at: Math.min(4, Math.max(0, Number(at))), bare: q.get('bare') === '1' };
+    return at === null || !Number.isFinite(Number(at)) ? null : { at: Math.min(LAST, Math.max(0, Number(at))), bare: q.get('bare') === '1' };
   }, [search]);
   useEffect(() => {
     if (capture) progress.current = capture.at;
@@ -82,7 +83,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
     const tick = (now: number) => {
       const p = playProgress(from + (now - t0) / 1000);
       goTo(scrollFromProgress(p));
-      if (p >= 4) {
+      if (p >= LAST) {
         // At the site: the answer takes the focus, as with Skip, so a screen reader reads it next.
         setPlaying(false);
         standing.current?.focus({ preventScroll: true });
@@ -176,7 +177,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             </div>
           </div>
         ))}
-        <div data-beat="4" className="flex h-[100svh] items-start pt-4 sm:pt-6">
+        <div data-beat={BEATS - 1} className="flex h-[100svh] items-start pt-4 sm:pt-6">
           {/* At the top left, as the stand view keeps its card, and narrower, so the lander stands clear of it as the
               camera comes down beside it. */}
           <div className="w-full px-4">

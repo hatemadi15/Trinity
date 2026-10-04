@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { R_MOON_M } from '@/lib/engine/constants';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
-import { flightKeys, moonCentre, polePoint, poseAt, type PathInput, type Pose } from './arrivalPath';
+import { aimAt, flightKeys, moonCentre, polePoint, poseAt, siteEndHour, siteTrack, type PathInput, type Pose } from './arrivalPath';
+import { HERO_HOUR, hero } from '@/lib/viz/arrival';
+import { keyMoments } from '@/lib/viz/stand';
+import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { BEAT_STOPS, hourAt, PLAY, playProgress, playSeconds, progressFromScroll, scrollFromProgress, STOPS, SWEEP } from './arrivalTiming';
 
 const level = (x: number, z: number) => -(x * x + z * z) / (2 * R_MOON_M);
@@ -82,7 +85,8 @@ describe('the flight', () => {
       expect(now.quaternion.every(Number.isFinite)).toBe(true);
       last = now;
     }
-    STOPS.forEach((p, k) => expect(new THREE.Vector3(...poseAt(keys, p, i).position).distanceTo(keys[k].position)).toBeLessThan(1e-3));
+    // Each flight key at its stop (the last stop, the month at the site's end, has the standing key's place).
+    keys.forEach((key, k) => expect(new THREE.Vector3(...poseAt(keys, STOPS[k], i).position).distanceTo(key.position)).toBeLessThan(1e-3));
   });
 
   it('opens with the Moon north up, as most pictures show it: the south pole at the bottom of the disc and Earth just beyond it', () => {
@@ -175,13 +179,63 @@ describe('the flight', () => {
     expect(hourAt(1.25, 10, true)).toBe(10);
   });
 
-  it('maps scroll to progress beat by beat, and plays fifteen seconds from the first screen to standing', () => {
+  it('maps scroll to progress beat by beat, and plays fifteen seconds from the first screen to standing, then six through the month at the site', () => {
     BEAT_STOPS.forEach((p, k) => expect(progressFromScroll(k)).toBeCloseTo(p, 9));
-    for (let s = 0; s <= 4; s += 0.1) expect(scrollFromProgress(progressFromScroll(s))).toBeCloseTo(s, 9);
-    expect(PLAY.reduce((a, b) => a + b, 0)).toBe(15);
+    for (let s = 0; s <= 5; s += 0.1) expect(scrollFromProgress(progressFromScroll(s))).toBeCloseTo(s, 9);
+    expect(PLAY.reduce((a, b) => a + b, 0)).toBe(21);
     expect(playProgress(0)).toBe(0);
     expect(playProgress(15)).toBe(4);
-    expect(playProgress(99)).toBe(4);
-    for (let p = 0; p <= 4; p += 0.25) expect(playProgress(playSeconds(p))).toBeCloseTo(p, 9);
+    expect(playProgress(21)).toBe(5);
+    expect(playProgress(99)).toBe(5);
+    for (let p = 0; p <= 5; p += 0.25) expect(playProgress(playSeconds(p))).toBeCloseTo(p, 9);
+  });
+
+  it('runs the month at the site after landing, from the landing hour to the last of the story, at an even pace; with reduced motion it cuts to the end', () => {
+    expect(hourAt(4, 10, false, 472)).toBe(10);
+    expect(hourAt(4.5, 10, false, 472)).toBeCloseTo(241, 6);
+    expect(hourAt(5, 10, false, 472)).toBe(472);
+    expect(hourAt(4.5, 10, true, 472)).toBe(10);
+    expect(hourAt(5, 10, true, 472)).toBe(472);
+  });
+
+  it('at the site the view follows the month: the Sun as it goes behind the hills, the lander as its battery runs out, Earth as it comes into view, then the Sun back beside the lander', () => {
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), at = (...kinds: string[]) => moments.find((m) => kinds.includes(m.kind))!.hour;
+    for (const aspect of [1.6, 390 / 844]) {
+      const tall = aspect < 1, lander = standLander(h.series, h.power, tall)!, open = { yaw: openingYaw(h.series, HERO_HOUR, tall, true), pitch: 2, fov: tall ? 80 : 60 };
+      const hide = at('sunset', 'sunset-power-off'), out = at('battery-out', 'sunset-power-off'), rise = at('earth-in'), back = at('sun-back', 'sun-power-back'), last = siteEndHour(moments, h.series.hours);
+      expect(last).toBe(back + 120);
+      const track = siteTrack({ series: h.series, moments, landerAzDeg: lander.azDeg, open, aspect, startHour: HERO_HOUR, endHour: last });
+      // It starts where the landing left the view, and ends at the last hour.
+      expect(track[0]).toEqual({ hour: HERO_HOUR, ...open });
+      expect(track.at(-1)!.hour).toBe(last);
+      const inView = (az: number, hour: number) => {
+        const a = aimAt(track, hour), half = (Math.atan(Math.tan((a.fov * Math.PI) / 360) * aspect) * 180) / Math.PI;
+        return Math.abs(((((az - a.yaw + 540) % 360) + 360) % 360) - 180) < half - 3;
+      };
+      expect(inView(h.series.sunAz[hide], hide)).toBe(true); // the Sun going behind the hills
+      // The lander as its battery runs out; on a phone, whose view is narrow, soon after.
+      expect(inView(lander.azDeg, tall ? out + 48 : out)).toBe(true);
+      expect(inView(h.series.earthAz[rise], rise)).toBe(true);
+      expect(inView(h.series.sunAz[back], back + 3)).toBe(true);
+      expect(inView(lander.azDeg, last)).toBe(true); // and at the end the lander, lit and running again
+      // It turns smoothly: never more than two and a half degrees an hour.
+      for (let t = HERO_HOUR; t < last; t += 1) {
+        const d = Math.abs(((((aimAt(track, t + 1).yaw - aimAt(track, t).yaw + 540) % 360) + 360) % 360) - 180);
+        expect(d).toBeLessThan(2.5);
+      }
+    }
+  });
+
+  it('stands at the eye through the month at the site, looking where the track says, and starts on the stand view’s opening', () => {
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), last = siteEndHour(moments, h.series.hours);
+    const track = siteTrack({ series: h.series, moments, landerAzDeg: 250, open: { yaw: 287.3, pitch: 2, fov: 60 }, aspect: 1.6, startHour: HERO_HOUR, endHour: last });
+    const i = { ...input(), track }, keys = flightKeys(i);
+    expect(poseAt(keys, 4, i).quaternion).toEqual(poseAt(keys, 4 + 1e-9, i).quaternion.map((x) => expect.closeTo(x, 6)));
+    const mid = poseAt(keys, 4.5, i);
+    expect(mid.position).toEqual([0, 2, 0]);
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(...mid.quaternion));
+    const a = aimAt(track, hourAt(4.5, track[0].hour, false, last));
+    expect(fwd.angleTo(new THREE.Vector3(...dirAzEl(a.yaw, a.pitch)))).toBeLessThan(1e-6);
+    expect(mid.fov).toBeCloseTo(a.fov, 9);
   });
 });

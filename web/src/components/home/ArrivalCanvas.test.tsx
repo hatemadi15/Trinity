@@ -3,7 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { siteLabel } from '@/lib/data/loaders';
 import type { StandScene } from '@/lib/sky/standRenderer';
-import { hero } from '@/lib/viz/arrival';
+import { siteEndHour } from '@/lib/sky/arrivalPath';
+import { HERO_HOUR, hero } from '@/lib/viz/arrival';
+import { dateLong } from '@/lib/viz/format';
+import { keyMoments } from '@/lib/viz/stand';
 import ArrivalCanvas, { type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
 
 const sky = { stars: { count: 0, j2000: new Float32Array(), vmag: new Float32Array(), bv: new Float32Array() }, moon: { startMs: 0, stepMs: 1, count: 2, quats: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0]) }, earthDayUrl: '', earthCloudsUrl: '' };
@@ -156,8 +159,8 @@ describe('the arrival’s live stage', () => {
     const { r } = stub();
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
     render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
-    // And that Earth is nearly four times as wide as the Moon: only far.
-    expect(await screen.findByText(/^Earth, 3\d\d,000 km away: nearly four times as wide as the Moon$/)).toBeTruthy();
+    // On which day, and that it looks small only because it is far.
+    expect(await screen.findByText(/^Earth, 3\d\d,000 km away on 1 January: it looks small only because it is far$/)).toBeTruthy();
   });
 
   it('points to the Sun from the edge of the view while it is out of sight, through the month, and names it where it shows', async () => {
@@ -245,6 +248,58 @@ describe('the arrival’s live stage', () => {
     await waitFor(() => expect(sunPath.hidden).toBe(false));
     expect(screen.getByText("Earth's path this month").hidden).toBe(false);
     expect(level.hidden).toBe(false);
+  });
+
+  it('runs the month at the site after landing: the hours move on, and the chip names each moment as it passes', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const progress = { current: 4 };
+    render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect(r.setTime).toHaveBeenCalledWith(HERO_HOUR));
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours), earth = moments.find((m) => m.kind === 'earth-in')!;
+    progress.current = 4 + (earth.hour + 6 - HERO_HOUR) / (end - HERO_HOUR);
+    await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBeCloseTo(earth.hour + 6, 6));
+    expect(screen.getByText(`${dateLong(h.startUtc, earth.hour + 6)} ${h.startUtc.slice(0, 4)}: ${earth.label}`)).toBeTruthy();
+    // At the end, the last hour of the story.
+    progress.current = 5;
+    await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBe(end));
+  });
+
+  it('says over the pole’s dark side that it is night there, across from the Sun, so it is not read as space', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const progress = { current: 1.25 };
+    render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    const night = await screen.findByText('Night here: the Sun is below the horizon');
+    await waitFor(() => expect(night.hidden).toBe(false));
+    // Across the view from the Sun's pointer.
+    const sun = document.querySelector('[data-sun-edge]') as HTMLElement;
+    await waitFor(() => expect(sun.hidden).toBe(false));
+    const dx = (parseFloat(sun.style.left) - 50) * (parseFloat(night.style.left) - 50), dy = (parseFloat(sun.style.top) - 50) * (parseFloat(night.style.top) - 50);
+    expect(dx + dy).toBeLessThan(0);
+    progress.current = 3;
+    await waitFor(() => expect(night.hidden).toBe(true));
+  });
+
+  it('keeps the last beat’s names off the lander', async () => {
+    const { r } = stub();
+    r.labels = vi.fn(() => ({ sun: { x: 0.8, y: 0.5, visible: true }, pathNames: [{ body: 'sun', text: "Sun's path this month", x: 0.5, y: 0.5, visible: true }], landerBox: { left: 0.45, top: 0.45, right: 0.55, bottom: 0.6 } })) as unknown as typeof r.labels;
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      // The view 1000 by 1000; a chip 120 by 24 at its left and top.
+      const el = this as HTMLElement, x = (parseFloat(el.style?.left ?? '0') || 0) * 10, y = (parseFloat(el.style?.top ?? '0') || 0) * 10;
+      const b = this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 1000, bottom: 1000 } : { left: x - 60, top: y - 12, right: x + 60, bottom: y + 12 };
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+      render(<ArrivalCanvas progress={{ current: 4 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const name = await screen.findByText("Sun's path this month");
+      await waitFor(() => expect(r.setPose).toHaveBeenCalled());
+      await new Promise((res) => setTimeout(res, 50));
+      expect(name.hidden).toBe(true);
+    } finally {
+      rect.mockRestore();
+    }
   });
 
   it('gives way to the stills when the Moon’s files do not load, and lets the renderer go when it leaves', async () => {

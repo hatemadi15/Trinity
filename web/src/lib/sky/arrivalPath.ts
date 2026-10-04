@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { R_MOON_M } from '../engine/constants';
-import { smoother, STOPS } from './arrivalTiming';
+import { SITE, smoother, STOPS } from './arrivalTiming';
 import { dirAzEl, meToWorld, type Basis, type Vec3 } from './frames';
 
 export * from './arrivalTiming';
@@ -11,6 +11,8 @@ const DEG = Math.PI / 180;
 export interface Pose { position: Vec3; quaternion: [number, number, number, number]; fov: number; shift: [number, number] }
 /** One stop of the flight: where the camera is, the point it looks at, the view's up, how wide and the lens shift. */
 export interface Key { position: THREE.Vector3; target: THREE.Vector3; up: THREE.Vector3; fov: number; shift: [number, number] }
+/** Where the eye looks at an hour of the month at the site: compass bearing and height (degrees) and how wide. */
+export interface Aim { hour: number; yaw: number; pitch: number; fov: number }
 /** What the flight is built from, in the stand view's world frame (x east, y up, z south, metres, origin on the site's ground). */
 export interface PathInput {
   basis: Basis;
@@ -26,6 +28,8 @@ export interface PathInput {
   groundAt: (x: number, z: number) => number;
   /** Width over height of the view. */
   aspect: number;
+  /** Where the eye looks through the month at the site, hour by hour (siteTrack); without it the flight ends standing. */
+  track?: Aim[];
 }
 
 /**
@@ -112,7 +116,74 @@ function standing(i: PathInput): Key {
   return { position: from, target: from.clone().add(V(dirAzEl(i.stand.yaw, i.stand.pitch)).multiplyScalar(1000)), up: new THREE.Vector3(0, 1, 0), fov: i.stand.fov, shift: i.aspect < 1 ? [0, FLIGHT.standTallShift] : [0, 0] };
 }
 
-/** The six keys at STOPS. */
+/** The signed turn from bearing a to bearing b, the short way round, in degrees. */
+const turn = (a: number, b: number) => ((((b - a + 540) % 360) + 360) % 360) - 180;
+
+/**
+ * The month at the site ends five days after the Sun comes back (or with the period): the lander lit and running
+ * again, the eye turned to it slowly enough to follow.
+ */
+export const siteEndHour = (moments: { kind: string; hour: number }[], hours: number) => {
+  const back = moments.find((m) => m.kind === 'sun-back' || m.kind === 'sun-power-back');
+  return Math.min(hours - 1, back ? back.hour + 120 : hours - 1);
+};
+
+/**
+ * Where the eye looks through the month at the site, told as the hero's month goes: from the landing view, the
+ * Sun as it skims the hills and slips behind one; the lander as its battery runs out; Earth as it comes into view;
+ * the Sun as it comes back; then the lander, lit and running again. On a wide screen the Sun stands right of the
+ * middle and shares the view with the lander when both matter; on a phone, whose view is narrow, each has the
+ * middle in turn.
+ */
+export function siteTrack(o: {
+  series: { hours: number; sunAz: ArrayLike<number>; earthAz: ArrayLike<number> };
+  moments: { kind: string; hour: number }[];
+  landerAzDeg: number;
+  open: { yaw: number; pitch: number; fov: number };
+  aspect: number;
+  startHour: number;
+  endHour: number;
+}): Aim[] {
+  const tall = o.aspect < 1, fov = tall ? 85 : 70, pitch = 3;
+  const at = (...kinds: string[]) => o.moments.find((m) => kinds.includes(m.kind) && m.hour > o.startHour)?.hour;
+  const az = (bearings: ArrayLike<number>, h: number) => Number(bearings[Math.min(o.series.hours - 1, Math.max(0, Math.round(h)))]);
+  const between = (a: number, b: number) => a + turn(a, b) / 2;
+  const aims: Aim[] = [{ hour: o.startHour, ...o.open }];
+  const add = (hour: number, yaw: number) => {
+    if (hour > aims[aims.length - 1].hour && hour < o.endHour) aims.push({ hour, yaw: ((yaw % 360) + 360) % 360, pitch, fov });
+  };
+  const hide = at('sunset', 'sunset-power-off'), out = at('battery-out', 'sunset-power-off'), rise = at('earth-in'), back = at('sun-back', 'sun-power-back');
+  if (hide !== undefined) {
+    const sun = az(o.series.sunAz, hide) - (tall ? 0 : 22);
+    add(hide - 10, sun);
+    add(hide + 2, sun);
+  }
+  if (out !== undefined) add(out + (tall ? 30 : 10), tall ? o.landerAzDeg : between(o.landerAzDeg, az(o.series.sunAz, hide ?? out)));
+  if (rise !== undefined) {
+    add(rise - 24, az(o.series.earthAz, rise) - (tall ? 0 : 8));
+    add(rise + 30, az(o.series.earthAz, rise + 30) - (tall ? 0 : 8));
+  }
+  if (back !== undefined) {
+    const sun = az(o.series.sunAz, back) - (tall ? 0 : 22);
+    add(back - 10, sun);
+    add(back + 6, sun);
+    add(o.endHour - 4, o.landerAzDeg + (tall ? 0 : 10));
+  }
+  const last = aims[aims.length - 1];
+  aims.push({ ...last, hour: o.endHour });
+  return aims;
+}
+
+/** The track's aim at an hour: eased from one aim to the next, the short way round. */
+export function aimAt(track: Aim[], hour: number): { yaw: number; pitch: number; fov: number } {
+  if (hour <= track[0].hour) return track[0];
+  let k = 0;
+  while (k < track.length - 2 && hour > track[k + 1].hour) k++;
+  const a = track[k], b = track[k + 1], f = smoother(Math.min(1, Math.max(0, (hour - a.hour) / Math.max(1e-9, b.hour - a.hour))));
+  return { yaw: (((a.yaw + turn(a.yaw, b.yaw) * f) % 360) + 360) % 360, pitch: a.pitch + (b.pitch - a.pitch) * f, fov: a.fov + (b.fov - a.fov) * f };
+}
+
+/** The six keys at STOPS (the month at the site follows the track from the last). */
 export function flightKeys(i: PathInput): Key[] {
   const side = capSide(i), pole = abovePole(i);
   return [wholeMoon(i), pole, { ...pole, position: pole.position.clone(), target: pole.target.clone(), up: pole.up.clone() }, overCap(i, side), overRidge(i, side), standing(i)];
@@ -144,11 +215,17 @@ function descend(a: Key, b: Key, f: number, i: PathInput): THREE.Vector3 {
 const aimOf = (k: Key) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(k.position, k.target, k.up));
 
 export function poseAt(keys: Key[], p: number, i: PathInput): Pose {
-  const q = Math.min(STOPS[STOPS.length - 1], Math.max(0, p));
+  // The month at the site: standing at the eye, looking where the track says at the hour (hourAt's even pace).
+  if (p > SITE.from && i.track && i.track.length > 1) {
+    const t = i.track, f = Math.min(1, (p - SITE.from) / (SITE.to - SITE.from)), a = aimAt(t, t[0].hour + (t[t.length - 1].hour - t[0].hour) * f);
+    const end = keys[keys.length - 1], from = end.position.clone(), q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(from, from.clone().add(V(dirAzEl(a.yaw, a.pitch))), new THREE.Vector3(0, 1, 0)));
+    return { position: [from.x, from.y, from.z], quaternion: [q.x, q.y, q.z, q.w], fov: a.fov, shift: [end.shift[0], end.shift[1]] };
+  }
+  const q = Math.min(SITE.from, Math.max(0, p));
   let k = 0;
-  while (k < STOPS.length - 2 && q > STOPS[k + 1]) k++;
+  while (k < keys.length - 2 && q > STOPS[k + 1]) k++;
   const a = keys[k], b = keys[k + 1], f = smoother((q - STOPS[k]) / (STOPS[k + 1] - STOPS[k]));
-  const position = k === STOPS.length - 2 ? descend(a, b, f, i) : orbit(a, b, f, i);
+  const position = k === keys.length - 2 ? descend(a, b, f, i) : orbit(a, b, f, i);
   const target = a.target.clone().lerp(b.target, f);
   // Where both stops share the up it is held (the horizon stays level on the way down). Elsewhere it is the up of
   // the two stops' aims turned part way, square to the line of sight, so the picture turns as one smooth turn:

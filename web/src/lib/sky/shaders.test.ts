@@ -31,6 +31,16 @@ describe('the ground shader', () => {
     expect(main).toMatch(/Nn = normalize\(Nn - vec3\(\(fx - f0\) \/ e, 0\.0, \(fz - f0\) \/ e\) \* wFar/);
   });
 
+  it('gives the far craters bowls that meet the ground with no edge, so they never draw as thin rings', () => {
+    const far = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float farCraters('), GROUND_FRAG.indexOf('float farH('));
+    expect(far).toContain('-(1.0 - r * r) * (1.0 - r * r)');
+  });
+
+  it('fades the near ground’s drawn craters and stones out when seen from above, where they read as bubble wrap', () => {
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toMatch(/1\.0 - smoothstep\(20\.0, 120\.0, cameraPosition\.y - vWorld\.y\)/);
+  });
+
   it('starts the shadow ray from the measured ground, not from the drawn craters', () => {
     expect(GROUND_FRAG).toContain('vec3 N0 = normalize(vNormal), Nn = N0;');
     expect(GROUND_FRAG).toContain('sunMargin(vWorld + N0 * 0.4, uSun)');

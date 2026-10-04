@@ -6,14 +6,14 @@ import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { contextFileFor, loadHeightmap, loadTerrainManifest, shadowLevels, windowFileFor, type Heightmap } from '@/lib/data/terrain';
 import type { Level } from '@/lib/engine/shadow';
-import { flightKeys, polePoint, poseAt, type Key, type PathInput } from '@/lib/sky/arrivalPath';
-import { hourAt, SWEEP } from '@/lib/sky/arrivalTiming';
+import { flightKeys, polePoint, poseAt, siteEndHour, siteTrack, type Key, type PathInput } from '@/lib/sky/arrivalPath';
+import { hourAt, SITE, SWEEP } from '@/lib/sky/arrivalTiming';
 import { dirAzEl, enuBasis, type Vec3 } from '@/lib/sky/frames';
 import { eyeAt, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
 import { HERO_HOUR, hero, type Hero } from '@/lib/viz/arrival';
 import { dateLong } from '@/lib/viz/format';
-import { skyLabel } from '@/lib/viz/stand';
+import { keyMoments, skyLabel } from '@/lib/viz/stand';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 
 /** The renderer as the arrival drives it; a stub in tests. */
@@ -85,12 +85,17 @@ export function arrivalScene(h: Hero, sky: SkyAssets, globe: GlobeAssets, levels
 
 /** The flight's input for a scene and a view's shape: the Sun and Earth at the arrival's hour. */
 export function pathInput(h: Hero, scene: StandScene, aspect: number): PathInput {
-  const s = h.series, t = HERO_HOUR, eye = eyeAt(scene), e = dirAzEl(s.earthAz[t], s.earthEl[t]), m = h.earthKm[t] * 1000;
+  const s = h.series, t = HERO_HOUR, eye = eyeAt(scene), e = dirAzEl(s.earthAz[t], s.earthEl[t]), m = h.earthKm[t] * 1000, tall = aspect < 1;
+  const stand = { yaw: openingYaw(s, t, tall, !!scene.lander), pitch: 2, fov: tall ? 80 : 60 };
+  // After landing the month runs on at the site: the eye follows its story (siteTrack).
+  const moments = keyMoments(s, h.power, h.startUtc), lander = standLander(s, h.power, tall);
+  const track = siteTrack({ series: s, moments, landerAzDeg: lander ? lander.azDeg : stand.yaw, open: stand, aspect, startHour: t, endHour: siteEndHour(moments, s.hours) });
   return {
     basis: enuBasis(h.site.lat, h.site.lon),
     siteHeightM: h.siteHeightM,
     eyeY: eye,
-    stand: { yaw: openingYaw(s, t, aspect < 1, !!scene.lander), pitch: 2, fov: aspect < 1 ? 80 : 60 },
+    stand,
+    track,
     sun: dirAzEl(s.sunAz[t], s.sunEl[t]),
     earth: [e[0] * m, eye + e[1] * m, e[2] * m],
     groundAt: (x, z) => meshHeightAt(scene.field, x, z),
@@ -98,7 +103,8 @@ export function pathInput(h: Hero, scene: StandScene, aspect: number): PathInput
   };
 }
 
-const CHIP = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[15px]';
+const CHIP_BOX = 'pointer-events-none absolute rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[15px]';
+const CHIP = `${CHIP_BOX} whitespace-nowrap`;
 /** A label over what it names, with a dot on the point; or beside it, to its right. */
 const LABEL = `${CHIP} -translate-x-1/2 -translate-y-[130%]`;
 const LABEL_RIGHT = `${CHIP} group translate-x-3 -translate-y-1/2 data-[side=left]:-translate-x-[calc(100%+12px)] data-[side=below]:-translate-x-1/2 data-[side=below]:translate-y-3`;
@@ -106,7 +112,7 @@ const LABEL_RIGHT = `${CHIP} group translate-x-3 -translate-y-1/2 data-[side=lef
  * Beside Earth, clear of its disc (at most about 60 px across). Either label beside its point turns to the left
  * where it would run off the view, and goes under the point where neither side has room.
  */
-const LABEL_BESIDE_EARTH = `${CHIP} translate-x-[36px] -translate-y-1/2 data-[side=left]:-translate-x-[calc(100%+36px)] data-[side=below]:-translate-x-1/2 data-[side=below]:translate-y-[22px]`;
+const LABEL_BESIDE_EARTH = `${CHIP_BOX} w-max max-w-[15rem] translate-x-[36px] -translate-y-1/2 data-[side=left]:-translate-x-[calc(100%+36px)] data-[side=below]:-translate-x-1/2 data-[side=below]:translate-y-[22px]`;
 const DOT = 'absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current';
 /** The dot of a label beside its point: on the label's left, or its right when the label turns. */
 const SIDE_DOT = `${DOT} -left-3 top-1/2 group-data-[side=left]:left-auto group-data-[side=left]:-right-3 group-data-[side=left]:translate-x-1/2 group-data-[side=below]:left-1/2 group-data-[side=below]:-top-3`;
@@ -121,6 +127,9 @@ const EDGE_IN_PX = 12;
  */
 export default function ArrivalCanvas({ progress, reduced, capture = false, onLive, onFail, createRenderer = newRenderer, loaders }: StageProps) {
   const h = useMemo(() => hero(), []);
+  // The month at the site's moments and its last hour, for the hours and the date's chip.
+  const moments = useMemo(() => keyMoments(h.series, h.power, h.startUtc), [h]);
+  const endHour = useMemo(() => siteEndHour(moments, h.series.hours), [moments, h]);
   const load = useMemo(() => loaders ?? browserArrivalLoaders(h.site.id), [loaders, h]);
   const canvas = useRef<HTMLCanvasElement>(null);
   const tags = useRef<Record<Tag, HTMLSpanElement | null>>({ earth: null, pole: null, site: null, sun: null });
@@ -132,6 +141,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
   // Once standing, the names of the lines, as the stand view gives them: each body's path and the level horizon.
   const pathNameRefs = useRef<Record<'sun' | 'earth', HTMLSpanElement | null>>({ sun: null, earth: null });
   const levelRef = useRef<HTMLSpanElement>(null);
+  // Over the pole, a name for the dark side.
+  const nightRef = useRef<HTMLSpanElement>(null);
   const [sky, setSky] = useState<SkyAssets | null>(null);
   const [globe, setGlobe] = useState<GlobeAssets | null>(null);
   const [levels, setLevels] = useState<Level[] | null>(null);
@@ -257,7 +268,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         keys = flightKeys(input);
         keyed = { scene: s, aspect };
       }
-      const p = progress.current, hour = hourAt(p, HERO_HOUR, reducedRef.current), pose = poseAt(keys, p, input!);
+      const p = progress.current, hour = hourAt(p, HERO_HOUR, reducedRef.current, endHour), pose = poseAt(keys, p, input!);
       // The pose first: the hour's light depends on how high the camera is.
       r.setPose(pose);
       r.setTime(hour);
@@ -307,7 +318,28 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       };
       const sunNow = seen(dirAzEl(h.series.sunAz[hi], h.series.sunEl[hi])), earthNow = seen(dirAzEl(h.series.earthAz[hi], h.series.earthEl[hi]));
       const lab = p > 0.85 ? r.labels() : null;
+      // Once standing, the lander's box on the screen counts as placed: no name sits on it.
+      if (p > 3.8 && lab?.landerBox) {
+        const view = el.getBoundingClientRect(), b = lab.landerBox;
+        placed.push(new DOMRect(view.left + b.left * view.width, view.top + b.top * view.height, (b.right - b.left) * view.width, (b.bottom - b.top) * view.height));
+      }
       show('sun', lab && sunNow.inView ? lab.sun : null);
+      // Over the pole, across the view from the Sun: the dark side is ground at night, not space.
+      const night = nightRef.current;
+      if (night) {
+        night.hidden = true;
+        const len = Math.hypot(sunNow.v.x, sunNow.v.y);
+        if (drawn && p > 0.85 && p < 1.6 && len > 1e-6) {
+          const ux = -sunNow.v.x / len, uy = sunNow.v.y / len, r0 = 0.28 * Math.min(W, H);
+          const x = Math.min(W - 140, Math.max(140, W * (0.5 + pose.shift[0]) + ux * r0)), y = Math.min(H - 40, Math.max(40, H * (0.5 - pose.shift[1]) + uy * r0));
+          night.style.left = `${(x / W) * 100}%`;
+          night.style.top = `${(y / H) * 100}%`;
+          night.hidden = false;
+          const b = night.getBoundingClientRect();
+          night.hidden = meets(b, words) || meets(b, placed);
+          if (!night.hidden) placed.push(b);
+        }
+      }
       // The lines' names once standing (the guides show only then), each giving way to the words and the labels placed.
       const named = (n: HTMLElement | null, at: { x: number; y: number; visible: boolean } | null | undefined) => {
         if (!n) return;
@@ -328,11 +360,14 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       point(earthEdgeRef.current, earthArrowRef.current, p > 3.8 && !earthNow.inView ? earthNow.v : null);
       const d = dateRef.current;
       if (d) {
-        d.hidden = !(p > SWEEP.from && p < SWEEP.to);
+        const atSite = p > SITE.from;
+        d.hidden = !((p > SWEEP.from && p < SWEEP.to) || atSite);
         if (!d.hidden) {
-          const day = dateLong(h.startUtc, Math.round(hour));
-          // The month runs by in a few seconds: the chip says so, so the light going round reads as time passing.
-          d.textContent = `${/\d{4}$/.test(day) ? day : `${day} ${h.startUtc.slice(0, 4)}`}: a month, sped up`;
+          const day = dateLong(h.startUtc, Math.round(hour)), dated = /\d{4}$/.test(day) ? day : `${day} ${h.startUtc.slice(0, 4)}`;
+          // The month runs by in a few seconds: the chip says so, so the light going round reads as time passing;
+          // at the site it names each moment for a day or so after it passes.
+          const recent = atSite ? [...moments].reverse().find((m) => m.hour <= hour && hour - m.hour < 30) : undefined;
+          d.textContent = `${dated}: ${recent ? recent.label : 'a month, sped up'}`;
         }
       }
       raf = requestAnimationFrame(tick);
@@ -346,7 +381,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       rRef.current = null;
       if (capture) delete hook.__arrival;
     };
-  }, [started, createRenderer, capture, h, progress]);
+  }, [started, createRenderer, capture, h, progress, moments, endHour]);
 
   return (
     <>
@@ -354,8 +389,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* Earth and the pole lie close together at the Moon's foot: their names stand beside them, to the right. */}
         {/* Earth is drawn small because it is far: the label says how far, and how big it is. */}
-        <span ref={(n) => { tags.current.earth = n; }} hidden className={`${LABEL_BESIDE_EARTH} w-max max-w-[16rem] whitespace-normal text-[#74adff]`}>
-          Earth, {(Math.round(h.earthKm[HERO_HOUR] / 1000) * 1000).toLocaleString('en-US')} km away: nearly four times as wide as the Moon
+        <span ref={(n) => { tags.current.earth = n; }} hidden className={`${LABEL_BESIDE_EARTH} text-[#74adff]`}>
+          Earth, {(Math.round(h.earthKm[HERO_HOUR] / 1000) * 1000).toLocaleString('en-US')} km away on {dateLong(h.startUtc, HERO_HOUR)}: it looks small only because it is far
         </span>
         <span ref={(n) => { tags.current.pole = n; }} hidden className={LABEL_RIGHT}>
           <i aria-hidden="true" className={SIDE_DOT} />
@@ -383,6 +418,9 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         </span>
         <span ref={levelRef} hidden className={`${CHIP} translate-x-3 -translate-y-1/2 text-[#c3bfb6]`}>
           Level horizon
+        </span>
+        <span ref={nightRef} hidden className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#c3bfb6]`}>
+          Night here: the Sun is below the horizon
         </span>
         <span ref={earthEdgeRef} hidden data-earth-edge="" className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#74adff]`}>
           {skyLabel('earth', h.series, HERO_HOUR)}

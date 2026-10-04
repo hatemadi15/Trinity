@@ -5,16 +5,15 @@ import { summarize, type Series } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerResult } from '../engine/power';
 import { exploreHref } from '../links';
 import { answerFor } from './answer';
-import { spanWords } from './format';
-import { standHeadline, standingLine } from './stand';
+import { dateLong, spanWords } from './format';
+import { keyMoments, standHeadline, standingLine } from './stand';
 
 /** The hour the arrival shows: 1 January 2027, 10:00 UTC (the Sun on the ridge), the hour section 5 names. */
 export const HERO_HOUR = 10;
 
-/** The three beats' sentences between the first screen and standing (spec section 5). */
-export const BEAT_SENTENCES: [string, string, string] = [
+/** The flight's first two sentences, over the pole's month and the cap (spec section 5, as amended in section 14). */
+export const BEAT_SENTENCES: [string, string] = [
   'At the south pole the Sun never climbs: it circles the horizon once a month.',
-  'One hill can hide the Sun for weeks.',
   'NASA has shortlisted this ridge for astronauts to land on.',
 ];
 
@@ -28,7 +27,11 @@ export function hero(doc: HomeDoc = HOME): Hero {
   return { site, series, power: powerBudget(series, DEFAULT_POWER), mask: heroMask(doc), siteHeightM: doc.hero.site_height_m, earthKm: doc.sky.earth_km, startUtc: doc.sky.start_utc, days: Math.round(doc.sky.hours / 24) };
 }
 
-export interface ArrivalWords { beats: [string, string, string]; siteLine: string; answer: string; better: string | null; exploreHref: string }
+/**
+ * The beats' sentences, a screen each, between the first screen and the answer: the pole's month, the cap, the
+ * landing, standing as the month at the site begins, and its middle (from the engine's key moments).
+ */
+export interface ArrivalWords { beats: string[]; siteLine: string; answer: string; better: string | null; exploreHref: string }
 
 /**
  * The arrival's words, worked out on the server so they are page text: the beats, then standing at the site
@@ -40,8 +43,17 @@ export function arrivalWords(doc: HomeDoc = HOME): ArrivalWords {
   const h = hero(doc), name = siteLabel(h.site), b = doc.battery;
   const best = b.best_hour !== null && b.best_hours !== null ? { hour: b.best_hour, poweredHours: b.best_hours, earthFraction: b.best_earth_fraction ?? 0 } : null;
   const answer = answerFor({ siteName: name, series: h.series, summary: summarize(h.series), power: h.power, startUtc: h.startUtc, days: h.days, loadW: DEFAULT_POWER.loadW, batteryWh: DEFAULT_POWER.batteryWh, best });
+  const moments = keyMoments(h.series, h.power, h.startUtc), landing = dateLong(h.startUtc, HERO_HOUR), month = landing.split(' ').slice(-1)[0];
+  const earthIn = moments.find((m) => m.kind === 'earth-in'), out = moments.find((m) => m.kind === 'battery-out' || m.kind === 'sunset-power-off');
   return {
-    beats: BEAT_SENTENCES,
+    beats: [
+      ...BEAT_SENTENCES,
+      `Land here on ${landing}: the Sun stands just above the hills.`,
+      `One hill can hide the Sun for weeks. Here is ${month} at this spot, sped up.`,
+      earthIn && out
+        ? `Earth comes into view on ${dateLong(h.startUtc, earthIn.hour)}, but the battery ran out on ${dateLong(h.startUtc, out.hour)}.`
+        : 'The month runs on: when the lander has power, and when it can see Earth.',
+    ],
     siteLine: standingLine(h.site, name, 'top'),
     answer: standHeadline(answer.title, name, h.series, h.power, h.startUtc, answer.contactHours, answer.poweredHours),
     better: answer.better && best ? `${answer.better.label}: power for ${spanWords(best.poweredHours)} in a row.` : null,

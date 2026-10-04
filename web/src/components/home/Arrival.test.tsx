@@ -59,8 +59,9 @@ describe('the arrival', () => {
     scrolled(2);
     expect(stage!.progress.current).toBeCloseTo(BEAT_STOPS[2], 6);
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
-    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 4 * window.innerHeight - 2 * window.innerHeight, behavior: 'instant' });
-    scrolled(4);
+    // Skip lands on the last screen, the answer after the month at the site.
+    expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 6 * window.innerHeight - 2 * window.innerHeight, behavior: 'instant' });
+    scrolled(6);
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
   });
 
@@ -84,7 +85,7 @@ describe('the arrival', () => {
     render(<Arrival words={words} Stage={Stage} />);
     scrolled(0);
     fireEvent.click(screen.getByRole('link', { name: 'Explore a landing site' }));
-    act(() => vi.advanceTimersByTime(16000));
+    act(() => vi.advanceTimersByTime(22000));
     expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: words.answer }));
   });
 
