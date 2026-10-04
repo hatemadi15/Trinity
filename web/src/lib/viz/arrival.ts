@@ -11,7 +11,7 @@ import { keyMoments, standHeadline, standingLine, unbrokenSpans } from './stand'
 /** The hour the arrival shows: 1 January 2027, 10:00 UTC (the Sun on the ridge), the hour section 5 names. */
 export const HERO_HOUR = 10;
 
-/** The flight's first two sentences, over the pole's month and the cap (spec section 5, as amended in section 14). */
+/** The flight's first two sentences, over the pole and the cap (spec section 5, as amended in section 14). */
 export const BEAT_SENTENCES: [string, string] = [
   'At the south pole the Sun never climbs: it circles the horizon once a month.',
   'NASA has shortlisted this ridge for astronauts to land on.',
@@ -28,8 +28,9 @@ export function hero(doc: HomeDoc = HOME): Hero {
 }
 
 /**
- * The beats' sentences, a screen each, between the first screen and the answer: the pole's month, the cap, the
- * landing, standing as the month at the site begins, and its middle (from the engine's key moments).
+ * The beats' sentences, a screen each, between the first screen and the answer: the pole, the cap, the landing
+ * (a solar lander, so the battery that runs out later is its own), standing as the month at the site begins, and
+ * its middle (from the engine's key moments).
  */
 export interface ArrivalWords { beats: string[]; siteLine: string; answer: string; better: string | null; exploreHref: string }
 
@@ -48,10 +49,10 @@ export function arrivalWords(doc: HomeDoc = HOME): ArrivalWords {
   return {
     beats: [
       ...BEAT_SENTENCES,
-      `Land here on ${landing}: the Sun stands just above the hills.`,
+      `Land a solar lander here on ${landing}: the Sun stands just above the hills.`,
       `One hill can hide the Sun for weeks. Here is ${month} at this spot, sped up.`,
       earthIn && out
-        ? `Earth comes into view on ${dateLong(h.startUtc, earthIn.hour)}, but the battery ran out on ${dateLong(h.startUtc, out.hour)}.`
+        ? `Earth comes into view on ${dateLong(h.startUtc, earthIn.hour)}, but the lander's battery ran out on ${dateLong(h.startUtc, out.hour)}.`
         : 'The month runs on: when the lander has power, and when it can see Earth.',
     ],
     siteLine: standingLine(h.site, name, 'top'),

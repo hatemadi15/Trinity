@@ -89,7 +89,7 @@ export default function Home() {
           <div className="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 pt-8 text-[15px] text-stage-ink-2">
             <p className="max-w-[62em]">Computed from NASA&apos;s elevation map of the Moon and NASA&apos;s positions of the Sun and Earth.</p>
             <Link href={siteLink} className={`${LINK} whitespace-nowrap text-stage-ink`}>
-              Explore {hero.name}
+              Open the full forecast
             </Link>
           </div>
         </figure>
@@ -129,8 +129,8 @@ export default function Home() {
                     <h3 className="display mt-2.5 text-[26px] font-semibold leading-tight">{p.title}</h3>
                     <p className="mt-1.5 max-w-[34em] text-ink-2">{p.body}</p>
                   </div>
-                  <Link href={p.href} aria-label={`Explore this site: ${p.title}`} className="btn btn-sm w-fit">
-                    Explore this site
+                  <Link href={p.href} aria-label={`Open the forecast: ${p.title}`} className="btn btn-sm w-fit">
+                    Open the forecast
                   </Link>
                 </li>
               ))}
@@ -188,7 +188,7 @@ export default function Home() {
               </p>
             </div>
             <Link href="/sites" className="btn btn-primary h-[52px] w-fit shrink-0 px-[22px] text-[17px]">
-              Explore a landing site
+              Choose a landing site
             </Link>
           </div>
         </section>

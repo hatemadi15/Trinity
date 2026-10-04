@@ -19,10 +19,11 @@ const noSubscribe = () => () => {};
 
 /**
  * The home page's arrival: the Moon from space, then four beats down to standing at the hero site, as the
- * page scrolls (a screen a beat) or as "Explore a landing site" plays it (fifteen seconds). The sentences are
+ * page scrolls (a screen a beat) or as "Fly to the south pole" plays it (21 seconds). The sentences are
  * page text in reading order; the pictures are a live stage, with stills beat by beat before it draws, when
  * it cannot, and as the first paint. Skip, while the arrival is part-way, lands on standing. With reduced
- * motion the flight holds on the beats and "Explore a landing site" lands at once.
+ * motion the flight holds on the beats and "Fly to the south pole" lands at once. Each action is named for where
+ * it goes: the flight, the site's full forecast, the list of sites.
  */
 export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Stage?: ComponentType<StageProps> }) {
   const reduced = useReducedMotion();
@@ -154,7 +155,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             </p>
             <div data-words="" className="mt-7 flex w-fit flex-wrap gap-3">
               <Link href="/sites" onClick={start} className="btn btn-primary h-[52px] px-[22px] text-[17px]">
-                Explore a landing site
+                Fly to the south pole
               </Link>
               <a href="#why" className="btn h-[52px] px-[22px] text-[17px]">
                 See how it works
@@ -188,7 +189,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
               {words.better && <p className="mt-2 text-base text-[#f6d48a]">{words.better}</p>}
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link href={words.exploreHref} className="btn btn-primary">
-                  Explore this site
+                  Open the full forecast
                 </Link>
                 <Link href="/sites" className="btn">
                   Choose a landing site

@@ -38,7 +38,7 @@ describe('the arrival', () => {
   it('reads in order without the pictures: the headline, the three beats, then the answer for the site and its two actions', () => {
     const { container } = render(<Arrival words={words} Stage={Stage} />);
     const text = plain(container.textContent ?? '');
-    const order = ['See when a Moon lander has sunlight and a signal.', ...words.beats, plain(words.siteLine), plain(words.answer), 'Explore this site', 'Choose a landing site'];
+    const order = ['See when a Moon lander has sunlight and a signal.', ...words.beats, plain(words.siteLine), plain(words.answer), 'Open the full forecast', 'Choose a landing site'];
     let at = -1;
     for (const part of order) {
       const k = text.indexOf(part, at + 1);
@@ -47,7 +47,7 @@ describe('the arrival', () => {
     }
     // The challenge's landers (NASA's CLPS), named in plain words on the first screen: who it is for.
     expect(screen.getByText("For planners of NASA's commercial Moon landers, educators and anyone curious.")).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Explore this site' }).getAttribute('href')).toBe(words.exploreHref);
+    expect(screen.getByRole('link', { name: 'Open the full forecast' }).getAttribute('href')).toBe(words.exploreHref);
     expect(screen.getByRole('link', { name: 'Choose a landing site' }).getAttribute('href')).toBe('/sites');
     // The headline keeps its spans of days and hours on one line with no-break spaces, as the stand view's does.
     expect(screen.getByRole('heading', { level: 2, name: words.answer })).toBeTruthy();
@@ -65,11 +65,11 @@ describe('the arrival', () => {
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
   });
 
-  it('plays the flight from Explore a landing site, and stops the moment the visitor scrolls', () => {
+  it('plays the flight from Fly to the south pole, and stops the moment the visitor scrolls', () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'setTimeout'] });
     render(<Arrival words={words} Stage={Stage} />);
     scrolled(0);
-    fireEvent.click(screen.getByRole('link', { name: 'Explore a landing site' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Fly to the south pole' }));
     act(() => vi.advanceTimersByTime(2000));
     const calls = (window.scrollTo as unknown as ReturnType<typeof vi.fn>).mock.calls.length;
     expect(calls).toBeGreaterThan(10);
@@ -77,14 +77,14 @@ describe('the arrival', () => {
     act(() => vi.advanceTimersByTime(5000));
     expect((window.scrollTo as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(calls);
     // Still a link without the script.
-    expect(screen.getByRole('link', { name: 'Explore a landing site' }).getAttribute('href')).toBe('/sites');
+    expect(screen.getByRole('link', { name: 'Fly to the south pole' }).getAttribute('href')).toBe('/sites');
   });
 
   it('hands the answer the focus when the flight it plays reaches the site, as Skip does', () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'setTimeout'] });
     render(<Arrival words={words} Stage={Stage} />);
     scrolled(0);
-    fireEvent.click(screen.getByRole('link', { name: 'Explore a landing site' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Fly to the south pole' }));
     act(() => vi.advanceTimersByTime(22000));
     expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: words.answer }));
   });
@@ -96,7 +96,7 @@ describe('the arrival', () => {
     scrolled(1.4);
     expect(stage!.progress.current).toBe(BEAT_STOPS[1]);
     expect(stage!.reduced).toBe(true);
-    fireEvent.click(screen.getByRole('link', { name: 'Explore a landing site' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Fly to the south pole' }));
     expect(window.scrollTo).toHaveBeenCalledTimes(1);
   });
 

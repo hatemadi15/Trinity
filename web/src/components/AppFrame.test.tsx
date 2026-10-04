@@ -16,7 +16,7 @@ describe('AppFrame', () => {
     expect(nav.className).toMatch(/\bmax-sm:grid\b.*\bmax-sm:grid-cols-2\b/); // two by two on a phone, none alone on a line
     const links = [...nav.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
     expect(links).toEqual([
-      ['Explore a site', '/sites'],
+      ['Choose a site', '/sites'],
       ['Compare sites', '/compare'],
       ['How it works', '/learn'],
       ['Accuracy', '/validate'],

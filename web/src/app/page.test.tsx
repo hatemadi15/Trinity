@@ -15,11 +15,12 @@ describe('home page', () => {
     render(<Home />);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(HEADLINE);
     const hero = screen.getByRole('region', { name: HEADLINE });
-    // The arrival's first screen and its last each hold one gold action: explore a landing site, then this one.
+    // The arrival's first screen and its last each hold one gold action, each named for where it goes: the flight
+    // down to the site, then the site's full forecast.
     const gold = hero.querySelectorAll('.btn-primary');
     expect([...gold].map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      ['Explore a landing site', '/sites'],
-      ['Explore this site', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
+      ['Fly to the south pole', '/sites'],
+      ['Open the full forecast', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
     ]);
     for (const beat of hero.querySelectorAll('[data-beat]')) expect(beat.querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
     expect(within(hero).getByText("For planners of NASA's commercial Moon landers, educators and anyone curious.")).toBeTruthy();
@@ -88,7 +89,7 @@ describe('home page', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     expect(band.textContent).toMatch(/NASA's elevation map of the Moon and NASA's positions of the Sun and Earth/);
-    const link = within(band).getByRole('link', { name: 'Explore de Gerlache Rim 2' });
+    const link = within(band).getByRole('link', { name: 'Open the full forecast' });
     expect(link.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2');
     // The band is a picture panel: its focus ring is the bright gold that shows on black.
     expect(band.hasAttribute('data-stage')).toBe(true);
@@ -131,8 +132,8 @@ describe('home page', () => {
     expect(within(places).getByText('Ended after one day')).toBeTruthy();
     expect(within(places).getByText('Worked all 14 days')).toBeTruthy();
     const links = within(places).getAllByRole('link');
-    expect(links.map((a) => a.getAttribute('aria-label'))).toEqual(['Explore this site: de Gerlache Rim 2', 'Explore this site: Athena lander, March 2025', 'Explore this site: Blue Ghost lander, March 2025']);
-    expect(links.map((a) => a.textContent)).toEqual(['Explore this site', 'Explore this site', 'Explore this site']);
+    expect(links.map((a) => a.getAttribute('aria-label'))).toEqual(['Open the forecast: de Gerlache Rim 2', 'Open the forecast: Athena lander, March 2025', 'Open the forecast: Blue Ghost lander, March 2025']);
+    expect(links.map((a) => a.textContent)).toEqual(['Open the forecast', 'Open the forecast', 'Open the forecast']);
     expect(links.map((a) => a.getAttribute('href'))).toEqual(['/explore?site=de_gerlache_rim_2', '/explore?site=im2_athena&start=2025-03-06T18:00', '/explore?site=blue_ghost_m1&start=2025-03-02T09:00']);
     for (const a of links) expect(a.className).toMatch(/(^| )btn( |$)/);
   });
@@ -156,10 +157,10 @@ describe('home page', () => {
     expect(within(proof).getByRole('link', { name: /See every check/ }).getAttribute('href')).toBe('/validate');
   });
 
-  it('ends with the same gold action as the top of the page', () => {
+  it('ends with a gold action to choose a landing site, named as the page it opens', () => {
     render(<Home />);
     const end = screen.getByRole('region', { name: 'Try it on a landing site' });
-    const cta = within(end).getByRole('link', { name: 'Explore a landing site' });
+    const cta = within(end).getByRole('link', { name: 'Choose a landing site' });
     expect(cta.getAttribute('href')).toBe('/sites');
     expect(cta.className).toMatch(/btn-primary/);
     // Three gold buttons on the page, never two on one screen: the first screen, the arrival's last, the end.
@@ -168,9 +169,11 @@ describe('home page', () => {
 
   it('underlines the links that stand alone, so they do not read as plain text', () => {
     render(<Home />);
-    for (const name of ['Explore de Gerlache Rim 2', /See every check/, 'How it works']) {
+    for (const name of [/See every check/, 'How it works']) {
       expect(within(screen.getByRole('main')).getByRole('link', { name }).className).toMatch(/(^| )underline( |$)/);
     }
+    const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
+    expect(within(band).getByRole('link', { name: 'Open the full forecast' }).className).toMatch(/(^| )underline( |$)/);
   });
 
   it('uses no faint grey text, so captions and table heads read on a projector', () => {
