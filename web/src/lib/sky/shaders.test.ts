@@ -12,14 +12,19 @@ describe('the ground shader', () => {
     expect((GROUND_FRAG.match(/smoothstep\(1\.5, 4\.0, /g) ?? []).length).toBeGreaterThanOrEqual(5);
   });
 
-  it('draws craters from 200 m to 3 km across on ground seen from afar, each size faded in by the pixels it spans, as shading only', () => {
-    // The measured cap's cells are 960 m: from tens of kilometres up it read as smooth wax without them.
-    const far = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float farH('), GROUND_FRAG.indexOf('void main()'));
+  it('draws craters from 200 m to about 1.5 km across on ground seen from afar, sparse and mostly worn, each size faded in by the pixels it spans, as shading only', () => {
+    // The measured cap's cells are 960 m, so it shows craters of a few kilometres itself: drawn ones stop below
+    // that. Fewer than the near ground's and mostly old and soft, so the ground does not read as bubble wrap.
+    const far = GROUND_FRAG.slice(GROUND_FRAG.indexOf('float farCraters('), GROUND_FRAG.indexOf('void main()'));
+    expect(far).toMatch(/float farCraters\(vec2 p, float cell\)/);
     expect(far).toMatch(/float farH\(vec2 p, float px\)/);
-    for (const cell of ['3200.0', '800.0', '200.0']) expect(far).toContain(`smoothstep(1.5, 4.0, ${cell} / px)`);
-    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    for (const cell of ['800.0', '200.0']) expect(far).toContain(`smoothstep(1.5, 4.0, ${cell} / px)`);
+    expect(far).not.toContain('3200.0');
+    const presence = Number(far.match(/> ([0-9.]+)\) continue;/)![1]);
+    expect(presence).toBeLessThanOrEqual(0.25);
     // On every level (the cap and its context too, not only the finest, which alone has the near detail), unless
     // the view is set to fast; faded in with the distance as the near detail fades out, bending only the shading normal.
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
     expect(GROUND_FRAG).toMatch(/uniform float [^;]*uFarDetail/);
     expect(main).toMatch(/if \(uFarDetail > 0\.5 && wFar > 0\.0\)/);
     expect(main).toMatch(/float wFar = smoothstep\([0-9.]+, [0-9.]+, dist\)/);

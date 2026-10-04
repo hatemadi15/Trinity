@@ -311,7 +311,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         d.hidden = !(p > SWEEP.from && p < SWEEP.to);
         if (!d.hidden) {
           const day = dateLong(h.startUtc, Math.round(hour));
-          d.textContent = /\d{4}$/.test(day) ? day : `${day} ${h.startUtc.slice(0, 4)}`;
+          // The month runs by in a few seconds: the chip says so, so the light going round reads as time passing.
+          d.textContent = `${/\d{4}$/.test(day) ? day : `${day} ${h.startUtc.slice(0, 4)}`}: a month, sped up`;
         }
       }
       raf = requestAnimationFrame(tick);
@@ -332,8 +333,9 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       <canvas ref={canvas} aria-hidden="true" className="absolute inset-0 h-full w-full" />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* Earth and the pole lie close together at the Moon's foot: their names stand beside them, to the right. */}
-        <span ref={(n) => { tags.current.earth = n; }} hidden className={`${LABEL_BESIDE_EARTH} text-[#74adff]`}>
-          Earth, {(Math.round(h.earthKm[HERO_HOUR] / 1000) * 1000).toLocaleString('en-US')} km away
+        {/* Earth is drawn small because it is far: the label says how far, and how big it is. */}
+        <span ref={(n) => { tags.current.earth = n; }} hidden className={`${LABEL_BESIDE_EARTH} w-max max-w-[16rem] whitespace-normal text-[#74adff]`}>
+          Earth, {(Math.round(h.earthKm[HERO_HOUR] / 1000) * 1000).toLocaleString('en-US')} km away: nearly four times as wide as the Moon
         </span>
         <span ref={(n) => { tags.current.pole = n; }} hidden className={LABEL_RIGHT}>
           <i aria-hidden="true" className={SIDE_DOT} />

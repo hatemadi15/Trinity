@@ -100,16 +100,34 @@ float detailRise(vec2 p, float h0, vec2 d, float px) {
   for (int i = 0; i < 12 * uOne; i++) { rise = max(rise, (bigH(p + d * t, px) - h0) / t); t *= 1.24; }
   return rise;
 }
-// Seen from afar (the flight over the cap, the far hills from the eye): craters from 200 m to 3 km across, drawn
-// too, for the measured cells (960 m on the cap) are too coarse to show them. Each size fades in once it spans a
-// few pixels, so nothing sparkles, and they only shade: the shadows still come from the measured ground.
+// The far ground's craters: fewer than the near ground's (about one cell in five holds one), mostly old and worn,
+// with low, soft rims, so from the air the ground reads as cratered rather than stamped.
+float farCraters(vec2 p, float cell) {
+  vec2 g = floor(p / cell), f = p / cell - g; float h = 0.0;
+  for (int j = -uOne; j <= uOne; j++) for (int i = -uOne; i <= uOne; i++) {
+    vec2 o = vec2(float(i), float(j)); vec2 rnd = hash2(g + o + 7.0);
+    if (fract(rnd.x * 7.13 + rnd.y * 3.31) > 0.2) continue;
+    vec2 c = o + rnd; float rad = mix(0.12, 0.45, pow(fract(rnd.x * 17.31 + rnd.y), 2.6));
+    // Age from worn (0) to fresh (1), most of them worn.
+    float age = pow(fract(rnd.x * 21.7 + rnd.y * 4.3), 2.5);
+    vec2 d = f - c; float r = length(d) / rad;
+    if (r < 1.6) {
+      float bowl = r < 1.0 ? (r * r - 1.0) : 0.0;
+      float rim = mix(0.05, 0.25, age) * exp(-pow((r - 1.0) * mix(1.6, 3.2, age), 2.0));
+      rim *= 0.6 + 0.8 * vnoise(d / rad * 2.0 + rnd * 41.0);
+      h += (bowl * mix(0.05, 0.14, age) + rim) * rad * cell;
+    }
+  }
+  return h;
+}
+// Seen from afar (the flight over the cap, the far hills from the eye): craters from 200 m to about 1.5 km across,
+// drawn too, below what the measured cells show (960 m on the cap). Each size fades in once it spans a few pixels,
+// so nothing sparkles, and they only shade: the shadows still come from the measured ground.
 float farH(vec2 p, float px) {
-  float h = 0.0, k = smoothstep(1.5, 4.0, 3200.0 / px);
-  if (k > 0.0) h += craters(p + 311.0, 3200.0) * 0.9 * k;
-  k = smoothstep(1.5, 4.0, 800.0 / px);
-  if (k > 0.0) h += craters(p + 577.0, 800.0) * 1.0 * k;
+  float h = 0.0, k = smoothstep(1.5, 4.0, 800.0 / px);
+  if (k > 0.0) h += farCraters(p + 577.0, 800.0) * k;
   k = smoothstep(1.5, 4.0, 200.0 / px);
-  if (k > 0.0) h += craters(p + 919.0, 200.0) * 1.0 * k;
+  if (k > 0.0) h += farCraters(p + 919.0, 200.0) * k;
   return h;
 }
 // A layer of stones' own shadows: cell by cell along the ray towards the Sun (the cells stones() lays that

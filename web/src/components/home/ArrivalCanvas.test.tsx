@@ -125,7 +125,7 @@ describe('the arrival’s live stage', () => {
     });
     try {
       render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
-      const earth = await screen.findByText(/^Earth, [\d,]+ km away$/);
+      const earth = await screen.findByText(/^Earth, [\d,]+ km away/);
       await waitFor(() => expect(r.setPose).toHaveBeenCalled());
       await new Promise((res) => setTimeout(res, 50));
       expect(earth.hidden).toBe(true);
@@ -156,7 +156,8 @@ describe('the arrival’s live stage', () => {
     const { r } = stub();
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
     render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
-    expect(await screen.findByText(/^Earth, 3\d\d,000 km away$/)).toBeTruthy();
+    // And that Earth is nearly four times as wide as the Moon: only far.
+    expect(await screen.findByText(/^Earth, 3\d\d,000 km away: nearly four times as wide as the Moon$/)).toBeTruthy();
   });
 
   it('points to the Sun from the edge of the view while it is out of sight, through the month, and names it where it shows', async () => {
@@ -173,8 +174,8 @@ describe('the arrival’s live stage', () => {
     // On the view's edge, inset so the chip stays whole.
     const x = parseFloat(edge.style.left), y = parseFloat(edge.style.top);
     expect(Math.min(x, 100 - x, y, 100 - y)).toBeLessThan(12);
-    // The month's date, with its year.
-    expect(screen.getByText(/^\d{1,2} January 2027$/)).toBeTruthy();
+    // The month's date, with its year, and that the month runs fast.
+    expect(screen.getByText(/^\d{1,2} January 2027: a month, sped up$/)).toBeTruthy();
     // In view (standing, the Sun to the right of the middle), the Sun's own label instead.
     sunSeen = true;
     progress.current = 4;
@@ -214,7 +215,7 @@ describe('the arrival’s live stage', () => {
     try {
       const progress = { current: 0 };
       render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
-      const earth = await screen.findByText(/^Earth, [\d,]+ km away$/);
+      const earth = await screen.findByText(/^Earth, [\d,]+ km away/);
       await waitFor(() => expect(earth.getAttribute('data-side')).toBe('left'));
       expect(earth.hidden).toBe(false);
       room = 'none';
