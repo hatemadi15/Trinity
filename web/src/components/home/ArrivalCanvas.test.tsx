@@ -6,7 +6,7 @@ import type { StandScene } from '@/lib/sky/standRenderer';
 import { siteEndHour } from '@/lib/sky/arrivalPath';
 import { HERO_HOUR, hero } from '@/lib/viz/arrival';
 import { dateLong } from '@/lib/viz/format';
-import { keyMoments } from '@/lib/viz/stand';
+import { keyMoments, skyLabel } from '@/lib/viz/stand';
 import ArrivalCanvas, { type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
 
 const sky = { stars: { count: 0, j2000: new Float32Array(), vmag: new Float32Array(), bv: new Float32Array() }, moon: { startMs: 0, stepMs: 1, count: 2, quats: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0]) }, earthDayUrl: '', earthCloudsUrl: '' };
@@ -300,6 +300,19 @@ describe('the arrival’s live stage', () => {
     } finally {
       rect.mockRestore();
     }
+  });
+
+  it('says where the Sun and Earth stand at the hour shown, through the month at the site', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours), hide = moments.find((m) => m.kind === 'sunset')!.hour;
+    const progress = { current: 4 + (hide - HERO_HOUR) / (end - HERO_HOUR) };
+    render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toBeCloseTo(hide, 6));
+    await waitFor(() => expect(screen.getByText(skyLabel('sun', h.series, hide))).toBeTruthy());
+    expect((document.querySelector('[data-earth-edge]') as HTMLElement).textContent).toContain(skyLabel('earth', h.series, hide));
+    progress.current = 5;
+    await waitFor(() => expect((document.querySelector('[data-earth-edge]') as HTMLElement).textContent).toContain(skyLabel('earth', h.series, end)));
   });
 
   it('gives way to the stills when the Moon’s files do not load, and lets the renderer go when it leaves', async () => {

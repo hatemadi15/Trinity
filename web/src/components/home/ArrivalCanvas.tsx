@@ -138,6 +138,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
   const edgeRef = useRef<HTMLSpanElement>(null), arrowRef = useRef<HTMLElement>(null);
   // Once standing, the pointer to Earth, wherever it is out of view.
   const earthEdgeRef = useRef<HTMLSpanElement>(null), earthArrowRef = useRef<HTMLElement>(null);
+  // The Sun's and Earth's words, for the hour shown (the month at the site moves it on).
+  const sunTextRef = useRef<HTMLSpanElement>(null), earthTextRef = useRef<HTMLSpanElement>(null);
   // Once standing, the names of the lines, as the stand view gives them: each body's path and the level horizon.
   const pathNameRefs = useRef<Record<'sun' | 'earth', HTMLSpanElement | null>>({ sun: null, earth: null });
   const levelRef = useRef<HTMLSpanElement>(null);
@@ -231,6 +233,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
           }),
       };
     }
+    // The hour the Sun's and Earth's words were last written for.
+    let wordsHour = HERO_HOUR;
     let keys: Key[] = [], input: PathInput | null = null, keyed: { scene: StandScene | null; aspect: number } = { scene: null, aspect: 0 };
     // The words on the screen (marked data-words), and the labels already placed this frame: a label that would
     // fall on either waits until they move apart (Earth's first, then the pole's, the site's and the Sun's).
@@ -317,6 +321,11 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         if (!chip.hidden) placed.push(b);
       };
       const sunNow = seen(dirAzEl(h.series.sunAz[hi], h.series.sunEl[hi])), earthNow = seen(dirAzEl(h.series.earthAz[hi], h.series.earthEl[hi]));
+      if (hi !== wordsHour) {
+        wordsHour = hi;
+        if (sunTextRef.current) sunTextRef.current.textContent = skyLabel('sun', h.series, hi);
+        if (earthTextRef.current) earthTextRef.current.textContent = skyLabel('earth', h.series, hi);
+      }
       const lab = p > 0.85 ? r.labels() : null;
       // Once standing, the lander's box on the screen counts as placed: no name sits on it.
       if (p > 3.8 && lab?.landerBox) {
@@ -402,7 +411,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         </span>
         <span ref={(n) => { tags.current.sun = n; }} hidden className={`${LABEL} text-[#f6b646]`}>
           <i aria-hidden="true" className={`${DOT} left-1/2 top-[130%]`} />
-          {skyLabel('sun', h.series, HERO_HOUR)}
+          <span ref={sunTextRef}>{skyLabel('sun', h.series, HERO_HOUR)}</span>
         </span>
         <span ref={edgeRef} hidden data-sun-edge="" className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#f6b646]`}>
           Sun
@@ -423,7 +432,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
           Night here: the Sun is below the horizon
         </span>
         <span ref={earthEdgeRef} hidden data-earth-edge="" className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#74adff]`}>
-          {skyLabel('earth', h.series, HERO_HOUR)}
+          <span ref={earthTextRef}>{skyLabel('earth', h.series, HERO_HOUR)}</span>
           <b ref={earthArrowRef} aria-hidden="true" className="ml-1.5 inline-block">
             →
           </b>
