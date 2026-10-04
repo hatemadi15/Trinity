@@ -220,7 +220,7 @@ describe('the flight', () => {
   });
 
   it('keeps the landing hour over the pole: the month runs once, in order, at the site after landing', () => {
-    for (const p of [0.5, 1, 1.25, 1.5, 2, 3, 4]) expect(hourAt(p, 10, false, 586)).toBe(10);
+    for (const p of [0.5, 1, 1.25, 1.5, 2, 3, 4]) expect(hourAt(p, 10, 586)).toBe(10);
   });
 
   it('maps scroll to progress beat by beat, and plays fifteen seconds from the first screen to standing, then six through the month at the site', () => {
@@ -234,12 +234,10 @@ describe('the flight', () => {
     for (let p = 0; p <= 5; p += 0.25) expect(playProgress(playSeconds(p))).toBeCloseTo(p, 9);
   });
 
-  it('runs the month at the site after landing, from the landing hour to the last of the story, at an even pace; with reduced motion it cuts to the end', () => {
-    expect(hourAt(4, 10, false, 472)).toBe(10);
-    expect(hourAt(4.5, 10, false, 472)).toBeCloseTo(241, 6);
-    expect(hourAt(5, 10, false, 472)).toBe(472);
-    expect(hourAt(4.5, 10, true, 472)).toBe(10);
-    expect(hourAt(5, 10, true, 472)).toBe(472);
+  it('runs the month at the site after landing, from the landing hour to the last of the story, at an even pace', () => {
+    expect(hourAt(4, 10, 472)).toBe(10);
+    expect(hourAt(4.5, 10, 472)).toBeCloseTo(241, 6);
+    expect(hourAt(5, 10, 472)).toBe(472);
   });
 
   it('at the site the camera keeps beside the lander all month, the lander in the foreground, while the Sun goes behind the hills, Earth comes into view and the Sun comes back', () => {
@@ -293,7 +291,7 @@ describe('the flight', () => {
     const { last, track, i } = heroTrack(1.6), keys = flightKeys(i);
     expect(poseAt(keys, 4, i).quaternion).toEqual(poseAt(keys, 4 + 1e-9, i).quaternion.map((x) => expect.closeTo(x, 6)));
     expect(poseAt(keys, 4, i).position).toEqual(poseAt(keys, 4 + 1e-9, i).position.map((x) => expect.closeTo(x, 4)));
-    const mid = poseAt(keys, 4.5, i), a = aimAt(track, hourAt(4.5, track[0].hour, false, last));
+    const mid = poseAt(keys, 4.5, i), a = aimAt(track, hourAt(4.5, track[0].hour, last));
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(...mid.quaternion));
     expect(fwd.angleTo(new THREE.Vector3(...dirAzEl(a.yaw, a.pitch)))).toBeLessThan(1e-6);
     expect(mid.fov).toBeCloseTo(a.fov, 9);

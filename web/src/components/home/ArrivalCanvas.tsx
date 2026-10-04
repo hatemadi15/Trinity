@@ -50,6 +50,7 @@ export function browserArrivalLoaders(siteId: string, base = dataBase()): Arriva
 export interface StageProps {
   /** The flight's progress, 0 (the Moon from space) to 4 (standing), read every frame. */
   progress: { current: number };
+  /** Reduced motion: the section stops the progress on the beats, each with its own hour; the stage draws what it is given. */
   reduced: boolean;
   /** For stills and the recorded walk: window.__arrival sets the progress and waits for a sharp frame. */
   capture?: boolean;
@@ -147,7 +148,7 @@ const EDGE_IN_PX = 12;
  * on the sky and the globe and swaps in the measured ground when it comes; labels name Earth and the pole from
  * space, the site on the way down and the Sun once standing; through the month at the site a line gives the date.
  */
-export default function ArrivalCanvas({ progress, reduced, capture = false, onLive, onFail, createRenderer = newRenderer, loaders }: StageProps) {
+export default function ArrivalCanvas({ progress, capture = false, onLive, onFail, createRenderer = newRenderer, loaders }: StageProps) {
   const h = useMemo(() => hero(), []);
   // The month at the site's moments and its last hour, for the hours and the date's bar; when Earth comes into view
   // and the Sun comes back, for which path is named.
@@ -175,11 +176,10 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
   const [sky, setSky] = useState<SkyAssets | null>(null);
   const [globe, setGlobe] = useState<GlobeAssets | null>(null);
   const [levels, setLevels] = useState<Level[] | null>(null);
-  const failRef = useRef(onFail), liveRef = useRef(onLive), reducedRef = useRef(reduced);
+  const failRef = useRef(onFail), liveRef = useRef(onLive);
   useEffect(() => {
     failRef.current = onFail;
     liveRef.current = onLive;
-    reducedRef.current = reduced;
   });
 
   useEffect(() => {
@@ -300,7 +300,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         keys = flightKeys(input);
         keyed = { scene: s, aspect };
       }
-      const p = progress.current, hour = hourAt(p, HERO_HOUR, reducedRef.current, endHour), pose = poseAt(keys, p, input!);
+      const p = progress.current, hour = hourAt(p, HERO_HOUR, endHour), pose = poseAt(keys, p, input!);
       // The pose first: the hour's light depends on how high the camera is.
       r.setPose(pose);
       r.setTime(hour);

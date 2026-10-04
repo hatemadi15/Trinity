@@ -450,6 +450,14 @@ describe('the arrival’s live stage', () => {
     }
   });
 
+  it('with reduced motion draws each beat at its own hour: the month’s middle at its middle beat, as its words say', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours);
+    render(<ArrivalCanvas progress={{ current: 4.5 }} reduced onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toBeCloseTo(HERO_HOUR + (end - HERO_HOUR) / 2, 6));
+  });
+
   it('says where the Sun and Earth stand at the hour shown, through the month at the site', async () => {
     const { r } = stub();
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };

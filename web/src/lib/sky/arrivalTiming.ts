@@ -25,11 +25,12 @@ export const smoother = (t: number) => t * t * t * (t * (t * 6 - 15) + 10);
 
 /**
  * The hour shown at progress `p`: the landing hour all the way down (the camera holds over the pole a moment, at
- * that hour), then the month at the site, once and in order.
+ * that hour), then the month at the site, once and in order. With reduced motion the progress stops on the beats,
+ * so each beat shows its own hour (the month's middle at its middle beat), as its words say, and no hours run.
  */
-export function hourAt(p: number, startHour: number, reduced = false, siteEndHour = startHour): number {
+export function hourAt(p: number, startHour: number, siteEndHour = startHour): number {
   if (p >= SITE.to) return siteEndHour;
-  if (p > SITE.from && !reduced) return startHour + ((siteEndHour - startHour) * (p - SITE.from)) / (SITE.to - SITE.from);
+  if (p > SITE.from) return startHour + ((siteEndHour - startHour) * (p - SITE.from)) / (SITE.to - SITE.from);
   return startHour;
 }
 
