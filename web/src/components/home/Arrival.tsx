@@ -187,9 +187,9 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
           </div>
         ))}
         <div data-beat={BEATS - 1} className="flex h-[100svh] items-start pt-4 sm:pt-6">
-          {/* At the top left, as the stand view keeps its card, and narrower, so the lander stands clear of it as the
-              camera comes down beside it. */}
-          <div className="w-full px-4">
+          {/* At the top left, in the beats' column (its left edge where theirs is), and narrower: the lander stands right
+              of it. */}
+          <div className="wrap w-full">
             <div data-words="" className={`${PLATE} max-w-[440px] p-5 sm:p-6`}>
               <p className="text-[15px] text-[#c6c5c0]">{words.siteLine}</p>
               <h2 ref={standing} tabIndex={-1} className="display mt-2 text-pretty text-[24px] leading-tight focus:outline-none sm:text-[30px]">

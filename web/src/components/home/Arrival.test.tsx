@@ -73,6 +73,9 @@ describe('the arrival', () => {
   it('keeps each beat’s words in a column that ends short of the middle on a wide screen, so the lander stands clear of it', () => {
     render(<Arrival words={words} Stage={Stage} />);
     for (const plate of document.querySelectorAll<HTMLElement>('[data-plate]')) expect(plate.className).toMatch(/sm:max-w-\[min\(600px,46vw\)\]/);
+    // The answer's card in the same column, its left edge where the beats' cards have theirs.
+    const answer = screen.getByRole('heading', { level: 2, name: words.answer }).closest('[data-words]')!.parentElement!;
+    expect(answer.className).toMatch(/(^| )wrap( |$)/);
   });
 
   it('follows the scroll: each screen is its beat’s stop, and Skip shows only between the first screen and the last', () => {
