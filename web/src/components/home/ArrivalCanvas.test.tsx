@@ -15,6 +15,7 @@ function stub() {
     setTime: vi.fn(),
     setPose: vi.fn(),
     setScene: vi.fn((s: StandScene) => scenes.push(s)),
+    setGuides: vi.fn(),
     resize: vi.fn(),
     render: vi.fn(),
     project: vi.fn(() => ({ x: 0.5, y: 0.5, visible: true })),
@@ -73,6 +74,16 @@ describe('the arrival’s live stage', () => {
     Object.defineProperty(canvas, 'clientWidth', { value: 390, configurable: true });
     Object.defineProperty(canvas, 'clientHeight', { value: 844, configurable: true });
     await waitFor(() => expect((r.setPose as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0].fov).not.toBe(before));
+  });
+
+  it('shows the month’s paths only once standing: in flight their faint bands would cross the Moon', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const progress = { current: 2 };
+    render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect(r.setGuides).toHaveBeenCalledWith(false));
+    progress.current = 4;
+    await waitFor(() => expect((r.setGuides as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBe(true));
   });
 
   it('gives way to the stills when the Moon’s files do not load, and lets the renderer go when it leaves', async () => {

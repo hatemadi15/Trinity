@@ -16,7 +16,7 @@ import { skyLabel } from '@/lib/viz/stand';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 
 /** The renderer as the arrival drives it; a stub in tests. */
-export type ArrivalRenderer = Pick<StandRenderer, 'setTime' | 'setPose' | 'setScene' | 'resize' | 'render' | 'project' | 'labels' | 'dispose'> & {
+export type ArrivalRenderer = Pick<StandRenderer, 'setTime' | 'setPose' | 'setScene' | 'setGuides' | 'resize' | 'render' | 'project' | 'labels' | 'dispose'> & {
   ready?: Promise<void>;
   onLost?: (why: string) => void;
   onSharp?: () => void;
@@ -219,6 +219,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       // The pose first: the hour's light depends on how high the camera is.
       r.setPose(poseAt(keys, p, input!));
       r.setTime(hour);
+      // The month's paths only once standing: in flight their faint bands would cross the Moon.
+      r.setGuides(p > 3.8);
       r.render();
       if (drawn && !live) {
         live = true;

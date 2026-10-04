@@ -563,6 +563,45 @@ describe('the stand scene', () => {
   });
 });
 
+describe('the guides', () => {
+  it('draws the Sun’s and Earth’s paths through the period’s hours, faint through the hills and solid over them, and the level horizon all round', () => {
+    const s = buildScene(flat());
+    const bands = s.parts.guides.children.filter((c): c is THREE.Mesh => c instanceof THREE.Mesh);
+    expect(bands).toHaveLength(5); // the Sun solid and faint, Earth solid and faint, the level line
+    const faint = bands.filter((b) => !(b.material as THREE.MeshBasicMaterial).depthTest);
+    expect(faint).toHaveLength(3);
+    // The Sun's band passes through the hour's direction: the middle of its first pair of corners.
+    const p = bands[0].geometry.getAttribute('position');
+    const mid = new THREE.Vector3((p.getX(0) + p.getX(1)) / 2, (p.getY(0) + p.getY(1)) / 2, (p.getZ(0) + p.getZ(1)) / 2);
+    expect(elevationDeg(mid)).toBeCloseTo(2, 2);
+    expect(p.count).toBe(2 * series.hours);
+  });
+
+  it('rings a Sun the hills hide, where it sits, and none while any of it shows', () => {
+    const s = buildScene(flat());
+    s.update(2); // none of the Sun in view
+    expect(s.parts.markers.sun.visible).toBe(true);
+    expect(elevationDeg(s.parts.markers.sun.position)).toBeCloseTo(-1, 1);
+    s.update(0);
+    expect(s.parts.markers.sun.visible).toBe(false);
+  });
+
+  it('hides the guides with the words', () => {
+    const s = buildScene(flat());
+    s.setGuides(false);
+    expect(s.parts.guides.visible).toBe(false);
+  });
+
+  it('marks the key moments’ days on the paths, for labels', () => {
+    const s = buildScene(flat({ marks: [{ hour: 1, body: 'sun', text: '3 Jan' }] }));
+    s.update(0);
+    s.setView(300, 2, 60, 16 / 9);
+    expect(s.labels().marks).toEqual([expect.objectContaining({ text: '3 Jan', visible: true })]);
+    s.setGuides(false);
+    expect(s.labels().marks).toEqual([expect.objectContaining({ text: '3 Jan', visible: false })]);
+  });
+});
+
 const globe: GlobeAssets = { color: { low: 'c1.jpg', high: 'c4.jpg' }, normal: { low: 'n1.jpg', high: 'n4.jpg' }, heights: { width: 4, height: 2, metres: new Float32Array(8) }, albedoScale: 0.8, credit: '' };
 /** A camera at `position` looking along `look` (straight down by default). */
 const at = (position: Vec3, look: Vec3 = [0, -1, 0]) => {

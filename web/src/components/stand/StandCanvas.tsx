@@ -5,7 +5,7 @@ import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
 import { shadowWords, starLabel } from '@/lib/viz/stand';
 
-export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void };
+export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean) => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget { yaw: number; pitch: number; fov: number }
 
@@ -43,6 +43,14 @@ export function slopeWord(yawDeg: number, upAzDeg: number, grade: number): strin
   if (grade < Math.tan((5 * Math.PI) / 180)) return '';
   const rel = Math.abs(((((yawDeg - upAzDeg + 540) % 360) + 360) % 360) - 180);
   return rel <= 45 ? ', uphill' : rel >= 135 ? ', downhill' : '';
+}
+
+/**
+ * Where the level horizon crosses the middle of the view, as a share of its height down from the top: the
+ * middle when the view looks level, lower as it looks up. The "Level horizon" name sits there, at the left.
+ */
+export function levelY(pitchDeg: number, fovDeg: number): number {
+  return 0.5 + Math.tan((pitchDeg * Math.PI) / 180) / (2 * Math.tan((fovDeg * Math.PI) / 360));
 }
 
 /**
@@ -310,6 +318,9 @@ export function StandCanvas({
   const keepRef = useRef(keepInView);
   const earthRef = useRef<HTMLSpanElement>(null);
   const starRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  // The key moments' days on the Sun's and Earth's paths, and the level horizon's name.
+  const pathRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const levelRef = useRef<HTMLSpanElement>(null);
   const facingRef = useRef<HTMLParagraphElement>(null);
   const facingPhoneRef = useRef<HTMLParagraphElement>(null);
   const markRefs = useRef<Partial<Record<Body, HTMLElement | null>>>({});
@@ -489,10 +500,13 @@ export function StandCanvas({
         fitOffset.current = (fitted - pitch) * settled;
         pitch += fitOffset.current;
       }
-      r.setView(v.yaw, Math.max(-35, Math.min(89, pitch)), v.fov);
+      const shownPitch = Math.max(-35, Math.min(89, pitch));
+      r.setView(v.yaw, shownPitch, v.fov);
+      // The month's paths, the level horizon and the rings on hidden bodies go with the words.
+      r.setGuides?.(!cleanRef.current);
       r.render();
       if (!drawnRef.current || cleanRef.current) {
-        for (const n of [sunRef.current, earthRef.current, landerRef.current, shadowRef.current, ...Object.values(partRefs.current), ...starRefs.current]) if (n) n.hidden = true;
+        for (const n of [sunRef.current, earthRef.current, landerRef.current, shadowRef.current, levelRef.current, ...Object.values(partRefs.current), ...starRefs.current, ...pathRefs.current]) if (n) n.hidden = true;
         raf = requestAnimationFrame(tick);
         return;
       }
@@ -549,6 +563,10 @@ export function StandCanvas({
         if (shadowRef.current.textContent !== text) shadowRef.current.textContent = text;
       }
       place(shadowRef.current, sh ?? null);
+      // The key moments' days where the paths pass them, and the level horizon's name at the view's left.
+      (l.marks ?? []).forEach((m, k) => place(pathRefs.current[k], m));
+      const ly = levelY(shownPitch, v.fov);
+      place(levelRef.current, { x: 0, y: ly, visible: ly > 0.08 && ly < 0.92 });
       // Star names at night, or when the view looks well up, where they would not crowd the day's sky; each
       // on the side of its star that keeps it clear of the names already placed.
       const nameShown = starNamesShown(l.stars, nightRef.current || v.pitch > 25);
@@ -766,6 +784,22 @@ export function StandCanvas({
             {`The lander, ${Math.round(scene.lander.distM)} m away`}
           </span>
         )}
+        {(scene.marks ?? []).map((m, k) => (
+          <span
+            key={`${m.body}-${m.hour}`}
+            ref={(node) => {
+              pathRefs.current[k] = node;
+            }}
+            hidden
+            data-path-mark=""
+            className={`${LABEL} -translate-x-1/2 -translate-y-[140%] ${m.body === 'sun' ? 'text-[#f6d48a]' : 'text-[#a9c8ff]'}`}
+          >
+            {m.text}
+          </span>
+        ))}
+        <span ref={levelRef} hidden className={`${LABEL} translate-x-3 -translate-y-1/2 text-[#c3bfb6]`}>
+          Level horizon
+        </span>
         <span ref={shadowRef} hidden className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-pre-line rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-center text-[14px] leading-snug text-[#e4e1da]">
           Your shadow
         </span>

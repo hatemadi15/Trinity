@@ -45,6 +45,8 @@ export interface StandScene {
   earthKm?: ArrayLike<number>;
   /** False for the sky and the globe alone, before the ground has loaded: no ground, skyline, rocks or lander. */
   ground?: boolean;
+  /** The key moments' days, marked on the Sun's or Earth's path at their hours. */
+  marks?: { hour: number; body: 'sun' | 'earth'; text: string }[];
 }
 
 type Spot = { x: number; y: number; visible: boolean };
@@ -65,6 +67,8 @@ export interface SkyLabels {
    * what it would be on level ground, in metres.
    */
   shadow?: (Spot & { lengthM: number; levelM: number }) | null;
+  /** The key moments' days on the paths, while the guides show. */
+  marks?: (Spot & { text: string })[];
 }
 
 const DEG = Math.PI / 180;
@@ -392,6 +396,62 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   earth.matrixAutoUpdate = false;
   skyGroup.add(earth);
 
+  // The guides (hidden with the words): the month's paths of the Sun and Earth, solid where they clear the
+  // skyline and faint where the hills hide them; the level horizon all round, faint; and a ring where a hidden
+  // Sun or Earth sits, on the hill that hides it.
+  const guides = new THREE.Group();
+  skyGroup.add(guides);
+  const RG = RS * 0.98;
+  /** A band 0.15 degrees tall along directions on the sky, as a mesh: WebGL draws lines a pixel thin. */
+  const band = (dirs: Vec3[], colour: number, faint: boolean, opacity: number) => {
+    const n = dirs.length, pos = new Float32Array(n * 6), idx: number[] = [], half = RG * Math.tan(0.075 * DEG);
+    for (let i = 0; i < n; i++) {
+      const d = new THREE.Vector3(...dirs[i]).normalize(), up = new THREE.Vector3(0, 1, 0).addScaledVector(d, -d.y).normalize(), c = d.clone().multiplyScalar(RG);
+      pos.set([c.x + up.x * half, c.y + up.y * half, c.z + up.z * half, c.x - up.x * half, c.y - up.y * half, c.z - up.z * half], i * 6);
+      if (i < n - 1) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 2, i * 2 + 1, i * 2 + 3);
+    }
+    const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setIndex(idx);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity, depthWrite: false, depthTest: !faint, side: THREE.DoubleSide, toneMapped: false }));
+    mesh.frustumCulled = false;
+    mesh.renderOrder = faint ? 1 : 2;
+    return mesh;
+  };
+  const along = (az: ArrayLike<number>, el: ArrayLike<number>) => Array.from({ length: scene.series.hours }, (_, h) => dirAzEl(az[h], el[h]));
+  const sunDirs = along(scene.series.sunAz, scene.series.sunEl), earthDirs = along(scene.series.earthAz, scene.series.earthEl);
+  guides.add(
+    band(sunDirs, 0xf6b646, false, 0.9),
+    band(sunDirs, 0xf6b646, true, 0.3),
+    band(earthDirs, 0x74adff, false, 0.9),
+    band(earthDirs, 0x74adff, true, 0.3),
+    band(Array.from({ length: 361 }, (_, k) => dirAzEl(k, 0)), 0xffffff, true, 0.18),
+  );
+  const ring = (colour: number, degrees: number) => {
+    const s = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: canvasTexture((g) => {
+          g.strokeStyle = '#fff';
+          g.lineWidth = 36;
+          g.beginPath();
+          g.arc(256, 256, 200, 0, 2 * Math.PI);
+          g.stroke();
+        }),
+        color: colour,
+        transparent: true,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false,
+        opacity: 0.85,
+      }),
+    );
+    s.scale.setScalar(2 * RG * Math.tan((degrees * DEG) / 2));
+    s.visible = false;
+    s.renderOrder = 3;
+    guides.add(s);
+    return s;
+  };
+  const markers = { sun: ring(0xf6b646, 1.6), earth: ring(0x74adff, 2.8) };
+
   // The whole Moon round the measured ground, for views from above.
   const globe = scene.globe ? buildGlobe({ basis, siteHeightM: siteH, assets: scene.globe, halfFloat: opts.halfFloat ?? false, cutM: hasGround ? GLOBE.CUT_M : 0 }) : null;
   if (globe) root.add(globe.mesh);
@@ -526,6 +586,12 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     sunDir.set(...sd);
     sun.position.set(sd[0] * RS, sd[1] * RS, sd[2] * RS);
     glare.position.copy(sun.position);
+    // A ring where a hidden Sun or Earth sits, on the hill that hides it.
+    const hi = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
+    markers.sun.visible = v.sunFraction === 0;
+    markers.sun.position.set(sd[0] * RG, sd[1] * RG, sd[2] * RG);
+    markers.earth.visible = Number(scene.series.earthVisible[hi]) === 0;
+    markers.earth.position.set(ed[0] * RG, ed[1] * RG, ed[2] * RG);
     // The glare comes from the part of the disc the hills leave in view.
     (glare.material as THREE.SpriteMaterial).opacity = v.sunFraction;
     const when = startMs + t * 3600e3;
@@ -733,8 +799,15 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       const shownEl = Math.abs(sunElNow) < 9.95 ? Math.round(sunElNow * 10) / 10 : Math.round(sunElNow);
       shadow = { ...at, lengthM: shadowLen, levelM: Math.min(500, 1.8 / Math.tan(Math.max(0.2, shownEl) * DEG)) };
     }
+    // The key moments' days on the paths, where the guides show.
+    const marks = (scene.marks ?? []).map((m) => {
+      const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(m.hour)));
+      const d = m.body === 'sun' ? dirAzEl(scene.series.sunAz[h], scene.series.sunEl[h]) : dirAzEl(scene.series.earthAz[h], scene.series.earthEl[h]);
+      const at = spot(skyWorld(new THREE.Vector3(d[0] * RG, d[1] * RG, d[2] * RG)), 0, false);
+      return { text: m.text, ...at, visible: at.visible && guides.visible };
+    });
     const k = skyGroup.scale.x;
-    return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow };
+    return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow, marks };
   }
 
   // Textures kept for the page's life (the globe's maps, Earth's) stay: a scene rebuilt as data arrives takes them.
@@ -754,7 +827,12 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     });
   };
 
-  return { root, camera, update, setView, setPose, project, labels, exposure, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
+  /** Shows or hides the guides: hidden with the words, and in flight (the faint bands would cross the Moon). */
+  const setGuides = (on: boolean) => {
+    guides.visible = on;
+  };
+
+  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
 /** A texture drawn on a canvas of the given size (repeating), or none outside a browser. */
@@ -970,6 +1048,8 @@ export class StandRenderer {
   /** A scene built beside the one on the screen (the ground arriving), which replaces it once compiled. */
   private next: { built: ReturnType<typeof buildScene>; compiled: boolean } | null = null;
   private generation = 0;
+  /** Whether the guides show (hidden with the words, and in flight). */
+  private guides = true;
 
   constructor(canvas: HTMLCanvasElement, scene: StandScene) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -1063,6 +1143,7 @@ export class StandRenderer {
     this.renderPass.scene = this.built.root;
     this.renderPass.camera = this.built.camera;
     this.built.starMaterial.uniforms.uPx.value = this.drawnRatio;
+    this.built.setGuides(this.guides);
     this.built.update(this.hour);
     this.apply();
     this.generation++;
@@ -1128,7 +1209,7 @@ export class StandRenderer {
     const maps = `${earthMaps} ${g ? `${g.uColor.value?.uuid ?? ''} ${g.uNormal.value?.uuid ?? ''}` : ''}`;
     const v = this.view, p = this.pose;
     const where = p ? `${p.position.map((x) => x.toFixed(2)).join(',')} ${p.quaternion.map((x) => x.toFixed(6)).join(',')} ${p.fov.toFixed(3)} ${p.shift.join(',')}` : `${v.yaw.toFixed(3)} ${v.pitch.toFixed(3)} ${v.fov.toFixed(3)}`;
-    const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation}`;
+    const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation} ${this.guides}`;
     const busy = this.busy(now);
     const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.sharpRatio, busy });
     if (mode === 'idle') {
@@ -1165,6 +1246,12 @@ export class StandRenderer {
   /** A world point on the screen; with `moon`, hidden where the Moon stands between it and the camera. */
   project(world: Vec3, moon = false) {
     return this.built.project(world, moon);
+  }
+
+  /** Shows or hides the month's paths, the level horizon and the rings on hidden bodies. */
+  setGuides(on: boolean) {
+    this.guides = on;
+    this.built.setGuides(on);
   }
 
   dispose() {

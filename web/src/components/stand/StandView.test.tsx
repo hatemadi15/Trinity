@@ -58,8 +58,37 @@ async function open(search: string, createRenderer: () => RendererLike = stub) {
 afterEach(() => cleanup());
 
 describe('StandView', () => {
+  it('marks the key moments’ days on the Sun’s and Earth’s paths, names the level horizon, and hides both with the words', async () => {
+    window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const store = createExploreStore(fileLoaders());
+    const setGuides = vi.fn();
+    let scene: StandScene | null = null;
+    render(
+      <StandView
+        store={store}
+        createRenderer={(_canvas, sc) => {
+          scene = sc;
+          return { ...stub(), setGuides, labels: () => ({ ...everywhere, marks: (sc.marks ?? []).map((m, k) => ({ text: m.text, x: 0.25 + 0.15 * k, y: 0.3, visible: true })) }) };
+        }}
+      />,
+    );
+    await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])').length).toBeGreaterThan(0), { timeout: 20_000 });
+    // The Sun goes behind the hills on 3 January and is back on the 20th; Earth comes into view on the 10th.
+    const marks = (scene! as StandScene).marks!;
+    expect(marks.filter((m) => m.body === 'sun').map((m) => m.text)).toEqual(['3 Jan', '20 Jan']);
+    expect(marks.filter((m) => m.body === 'earth').map((m) => m.text)).toEqual(['10 Jan']);
+    expect([...document.querySelectorAll('[data-path-mark]')].map((n) => n.textContent)).toEqual(marks.map((m) => m.text));
+    expect(screen.getByText('Level horizon')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the words' }));
+    await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(false));
+    await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])')).toHaveLength(0));
+    expect(screen.getByText('Level horizon').closest('[hidden]')).not.toBeNull();
+  }, 30_000);
+
   it('opens on the site, period and hour of the address, with a short answer over the view: the headline, one line on the lander, what to watch', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    // The lander stands once the ground has loaded, a moment after the words: on a busy machine, later.
+    await screen.findByRole('button', { name: 'Face the lander' }, { timeout: 20_000 });
     const st = store.getState();
     expect(st.cursorHour).toBe(10);
     // The headline says how long the night lasts, and keeps the site's name on one line.

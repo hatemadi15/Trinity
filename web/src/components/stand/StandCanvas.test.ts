@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, liftClear, partSide, pointerClear, pointerWords, slopeWord, starNamesShown } from './StandCanvas';
+import { clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, partSide, pointerClear, pointerWords, slopeWord, starNamesShown } from './StandCanvas';
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -220,5 +220,15 @@ describe('a body named over the lander', () => {
     expect(liftClear(box, [{ left: 210, right: 260, top: 300, bottom: 320 }], 400)).toBe(0);
     // Lifted, its top may not rise above the room's top.
     expect(liftClear(box, names, 270)).toBeNull();
+  });
+});
+
+describe('the level horizon', () => {
+  it('stands across the middle of a level view, and lower as the view looks up', () => {
+    expect(levelY(0, 60)).toBeCloseTo(0.5, 9);
+    expect(levelY(10, 60)).toBeGreaterThan(0.5);
+    expect(levelY(-10, 60)).toBeLessThan(0.5);
+    // At 30° up in a 60° view the level horizon is on the bottom edge.
+    expect(levelY(30, 60)).toBeCloseTo(1, 9);
   });
 });
