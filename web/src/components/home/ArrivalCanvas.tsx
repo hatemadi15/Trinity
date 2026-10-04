@@ -118,7 +118,7 @@ const LABEL_BESIDE_EARTH = `${CHIP_BOX} w-max max-w-[15rem] translate-x-[36px] -
 const DOT = 'absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current';
 /** The dot of a label beside its point: on the label's left, or its right when the label turns. */
 const SIDE_DOT = `${DOT} -left-3 top-1/2 group-data-[side=left]:left-auto group-data-[side=left]:-right-3 group-data-[side=left]:translate-x-1/2 group-data-[side=below]:left-1/2 group-data-[side=below]:-top-3`;
-type Tag = 'earth' | 'pole' | 'site' | 'sun';
+type Tag = 'earth' | 'pole' | 'site' | 'sun' | 'earthHere';
 /** Once landed (the guides show then too): the date's bar and the month's lines. */
 const LANDED = 3.8;
 /** What lights the ground at the site at an hour, in words: the Sun, Earth alone (which is why the ground turns blue), or nothing. */
@@ -138,23 +138,27 @@ const EDGE_IN_PX = 12;
  */
 export default function ArrivalCanvas({ progress, reduced, capture = false, onLive, onFail, createRenderer = newRenderer, loaders }: StageProps) {
   const h = useMemo(() => hero(), []);
-  // The month at the site's moments and its last hour, for the hours and the date's chip.
+  // The month at the site's moments and its last hour, for the hours and the date's bar; when Earth comes into view
+  // and the Sun comes back, for which path is named.
   const moments = useMemo(() => keyMoments(h.series, h.power, h.startUtc), [h]);
   const endHour = useMemo(() => siteEndHour(moments, h.series.hours), [moments, h]);
+  const story = useMemo(() => {
+    const at = (...kinds: string[]) => moments.find((m) => kinds.includes(m.kind))?.hour ?? Infinity;
+    return { rise: at('earth-in'), back: at('sun-back', 'sun-power-back') };
+  }, [moments]);
   const load = useMemo(() => loaders ?? browserArrivalLoaders(h.site.id), [loaders, h]);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const tags = useRef<Record<Tag, HTMLSpanElement | null>>({ earth: null, pole: null, site: null, sun: null });
+  const tags = useRef<Record<Tag, HTMLSpanElement | null>>({ earth: null, pole: null, site: null, sun: null, earthHere: null });
   // The date's bar: the date and what lights the ground, and the hour's mark on the month, the part gone filled.
   const barRef = useRef<HTMLDivElement>(null), dateRef = useRef<HTMLParagraphElement>(null), markRef = useRef<HTMLElement>(null), fillRef = useRef<HTMLSpanElement>(null);
   // The pointer to the Sun from the view's edge while it is out of sight, and its arrow.
   const edgeRef = useRef<HTMLSpanElement>(null), arrowRef = useRef<HTMLElement>(null);
   // Once standing, the pointer to Earth, wherever it is out of view.
   const earthEdgeRef = useRef<HTMLSpanElement>(null), earthArrowRef = useRef<HTMLElement>(null);
-  // The Sun's and Earth's words, for the hour shown (the month at the site moves it on).
-  const sunTextRef = useRef<HTMLSpanElement>(null), earthTextRef = useRef<HTMLSpanElement>(null);
-  // Once standing, the names of the lines, as the stand view gives them: each body's path and the level horizon.
+  // The Sun's and Earth's words, for the hour shown (the month at the site moves it on): on their labels and pointers.
+  const sunTextRef = useRef<HTMLSpanElement>(null), earthTextRef = useRef<HTMLSpanElement>(null), earthHereTextRef = useRef<HTMLSpanElement>(null);
+  // Once landed, each body's path named over its line while it is the story.
   const pathNameRefs = useRef<Record<'sun' | 'earth', HTMLSpanElement | null>>({ sun: null, earth: null });
-  const levelRef = useRef<HTMLSpanElement>(null);
   // Over the pole, a name for the dark side.
   const nightRef = useRef<HTMLSpanElement>(null);
   const [sky, setSky] = useState<SkyAssets | null>(null);
@@ -289,7 +293,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       r.setPose(pose);
       r.setTime(hour);
       // The month's paths only once standing: in flight their faint bands would cross the Moon.
-      r.setGuides(p > LANDED);
+      // The paths and the rings without the level horizon: the story is told without it.
+      r.setGuides(p > LANDED, false);
       r.render();
       if (sharp && r.resting) settle();
       if (drawn && !live) {
@@ -367,14 +372,17 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         wordsHour = hi;
         if (sunTextRef.current) sunTextRef.current.textContent = skyLabel('sun', h.series, hi);
         if (earthTextRef.current) earthTextRef.current.textContent = skyLabel('earth', h.series, hi);
+        if (earthHereTextRef.current) earthHereTextRef.current.textContent = skyLabel('earth', h.series, hi);
       }
-      const lab = p > 0.85 ? r.labels() : null;
+      // The paths' names hang over their lines, each kept off the other's path.
+      const lab = p > 0.85 ? r.labels({ above: true }) : null;
       // Once standing, the lander's box on the screen counts as placed: no name sits on it.
       if (p > 3.8 && lab?.landerBox) {
         const view = el.getBoundingClientRect(), b = lab.landerBox;
         placed.push(new DOMRect(view.left + b.left * view.width, view.top + b.top * view.height, (b.right - b.left) * view.width, (b.bottom - b.top) * view.height));
       }
       show('sun', lab && sunNow.inView ? lab.sun : null);
+      show('earthHere', p > LANDED && lab?.earth && earthNow.inView ? lab.earth : null);
       // Over the pole, across the view from the Sun: the dark side is ground at night, not space.
       const night = nightRef.current;
       if (night) {
@@ -391,10 +399,11 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
           if (!night.hidden) placed.push(b);
         }
       }
-      // The lines' names once standing (the guides show only then), each giving way to the words and the labels placed.
-      const named = (n: HTMLElement | null, at: { x: number; y: number; visible: boolean } | null | undefined) => {
+      // The paths' names once landed (the guides show only then), each while its body is the story: the Sun's until
+      // Earth comes into view, then Earth's until the Sun comes back. Each gives way to the words and the labels placed.
+      const named = (n: HTMLElement | null, at: { x: number; y: number; visible: boolean } | null | undefined, story: boolean) => {
         if (!n) return;
-        n.hidden = !(drawn && p > 3.8 && at && at.visible);
+        n.hidden = !(drawn && p > LANDED && story && at && at.visible);
         if (n.hidden || !at) return;
         n.style.left = `${at.x * 100}%`;
         n.style.top = `${at.y * 100}%`;
@@ -402,11 +411,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         n.hidden = meets(b, words) || meets(b, placed);
         if (!n.hidden) placed.push(b);
       };
-      for (const body of ['sun', 'earth'] as const) named(pathNameRefs.current[body], lab?.pathNames?.find((pn) => pn.body === body));
-      // The level horizon at the view's left edge: where the level line straight ahead crosses the view.
-      const ahead = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(...pose.quaternion));
-      const level = r.project([pose.position[0] + ahead.x * 1e5, pose.position[1], pose.position[2] + ahead.z * 1e5]);
-      named(levelRef.current, p > 3.8 && level.visible ? { x: 0, y: level.y, visible: level.y > 0.08 && level.y < 0.92 } : null);
+      named(pathNameRefs.current.sun, lab?.pathNames?.find((pn) => pn.body === 'sun'), hour < story.rise);
+      named(pathNameRefs.current.earth, lab?.pathNames?.find((pn) => pn.body === 'earth'), hour >= story.rise - 24 && hour < story.back);
       point(edgeRef.current, arrowRef.current, p > 0.85 && !sunNow.inView ? sunNow.v : null);
       point(earthEdgeRef.current, earthArrowRef.current, p > 3.8 && !earthNow.inView ? earthNow.v : null);
       raf = requestAnimationFrame(tick);
@@ -420,7 +426,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       rRef.current = null;
       if (capture) delete hook.__arrival;
     };
-  }, [started, createRenderer, capture, h, progress, moments, endHour]);
+  }, [started, createRenderer, capture, h, progress, moments, endHour, story]);
 
   return (
     <>
@@ -449,14 +455,16 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
             →
           </b>
         </span>
-        <span ref={(n) => { pathNameRefs.current.sun = n; }} hidden data-path-name="" className={`${CHIP} -translate-x-1/2 translate-y-2 text-[#f6d48a]`}>
+        {/* Each path's name hangs over its line, in its body's colour. */}
+        <span ref={(n) => { pathNameRefs.current.sun = n; }} hidden data-path-name="" className={`${CHIP} -translate-x-1/2 -translate-y-[calc(100%+8px)] text-[#f6d48a]`}>
           Sun&apos;s path this month
         </span>
-        <span ref={(n) => { pathNameRefs.current.earth = n; }} hidden data-path-name="" className={`${CHIP} -translate-x-1/2 translate-y-2 text-[#a9c8ff]`}>
+        <span ref={(n) => { pathNameRefs.current.earth = n; }} hidden data-path-name="" className={`${CHIP} -translate-x-1/2 -translate-y-[calc(100%+8px)] text-[#a9c8ff]`}>
           Earth&apos;s path this month
         </span>
-        <span ref={levelRef} hidden className={`${CHIP} translate-x-3 -translate-y-1/2 text-[#c3bfb6]`}>
-          Level horizon
+        <span ref={(n) => { tags.current.earthHere = n; }} hidden data-earth-here="" className={`${LABEL} text-[#74adff]`}>
+          <i aria-hidden="true" className={`${DOT} left-1/2 top-[130%]`} />
+          <span ref={earthHereTextRef}>{skyLabel('earth', h.series, HERO_HOUR)}</span>
         </span>
         <span ref={nightRef} hidden className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#c3bfb6]`}>
           Night here: the Sun is below the horizon

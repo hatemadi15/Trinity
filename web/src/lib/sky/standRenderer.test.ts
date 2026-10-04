@@ -711,6 +711,32 @@ describe('the guides', () => {
     expect(s.labels().pathNames!.map((n) => n.visible)).toEqual([false, false]);
   });
 
+  it('names the paths above their lines when asked, as the arrival shows them: Earth’s over the top of its loop, the Sun’s away from Earth’s loop', () => {
+    // Earth loops 14 degrees round 70, from 5 below level to 7 above; the Sun skims the horizon once round.
+    const sunAz = (h: number) => (300 + (h * 360) / 708.73) % 360, sunEl = (h: number) => 1.5 + Math.sin((2 * Math.PI * h) / 120);
+    const earthAz = (h: number) => 70 + 7 * Math.sin((2 * Math.PI * h) / 655), earthEl = (h: number) => 1 + 6 * Math.cos((2 * Math.PI * h) / 680);
+    const s = buildScene(flat({ series: hourly(1000, sunAz, sunEl, earthAz, earthEl) }));
+    s.update(340); // Earth at the foot of its loop, the Sun at 113 degrees
+    s.setView(70, 3, 60, 16 / 9);
+    const [sun, earth] = s.labels({ above: true }).pathNames!;
+    // Earth's at the loop's top, so none of the loop runs through the name over it.
+    expect(earth.visible).toBe(true);
+    expect(earthEl(hourOnPath(s, earth, earthAz, earthEl, 1000))).toBeGreaterThan(5.5);
+    // The Sun's 12 degrees or more round from any of Earth's loop, so it is never read as naming the loop.
+    expect(sun.visible).toBe(true);
+    const az = sunAz(hourOnPath(s, sun, sunAz, sunEl, 1000));
+    expect(az < 63 - 12 || az > 77 + 12).toBe(true);
+  });
+
+  it('hides the level horizon alone when asked, as the arrival does, the paths still shown', () => {
+    const s = buildScene(flat());
+    s.setGuides(true, false);
+    expect(levelBand(s).visible).toBe(false);
+    expect(pathBands(s).every((b) => b.visible)).toBe(true);
+    s.setGuides(true);
+    expect(levelBand(s).visible).toBe(true);
+  });
+
   it('names a path on a stretch of it the lander does not hide', () => {
     // The lander due north, 16 m away; the Sun's path passes behind it, 2 degrees up, the Sun itself far round.
     const sunAz = (h: number) => (100 + (h * 360) / 708.73) % 360;
@@ -960,6 +986,14 @@ describe('the stand scene in flight', () => {
     s.setPose(at([0, 5, 0]), 1.6);
     expect(farCut(coarse)).toBe(125000);
     expect(s.parts.ring!.visible).toBe(true);
+  });
+
+  it('casts no one’s shadow in flight: the arrival’s camera is not a person standing at the site', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    for (const g of s.parts.ground) expect(((g as THREE.Mesh).material as THREE.ShaderMaterial).uniforms.uViewer.value.x).toBeGreaterThan(1e6);
+    // Standing in the stand view, your own shadow at your feet.
+    const stand = buildScene(flat({ field: terrainField(levels(), -64.31, 100) }));
+    for (const g of stand.parts.ground) expect(((g as THREE.Mesh).material as THREE.ShaderMaterial).uniforms.uViewer.value.x).toBe(0);
   });
 
   it('draws the sky and the globe alone before the ground has loaded: no ground, skyline, rocks or lander', () => {

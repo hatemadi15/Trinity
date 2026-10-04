@@ -52,6 +52,8 @@ export interface StandScene {
 type Spot = { x: number; y: number; visible: boolean };
 /** A path's name ("Sun's path this month"), at a place on its path, for a label. */
 export type PathName = Spot & { body: 'sun' | 'earth'; text: string };
+/** How the labels are asked for: `above`, each path's name hangs over its line (the arrival), so it keeps off the other path. */
+export interface LabelOptions { above?: boolean }
 /** A box on the screen, its sides as fractions of the view's width (left, right) and height (top, bottom). */
 export interface ScreenBox {
   left: number;
@@ -475,7 +477,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const floorAlong = (az: ArrayLike<number>) => Array.from({ length: scene.series.hours }, (_, h) => Math.min(0, maskAt(az[h])));
   const sunFloor = floorAlong(scene.series.sunAz), earthFloor = floorAlong(scene.series.earthAz);
   const paths = [band(sunDirs, 0xf6b646, false, 0.9, sunFloor), band(sunDirs, 0xf6b646, true, 0.3, sunFloor), band(earthDirs, 0x74adff, false, 0.9, earthFloor), band(earthDirs, 0x74adff, true, 0.3, earthFloor)];
-  band(Array.from({ length: 361 }, (_, k) => dirAzEl(k, 0)), 0xffffff, true, 0.18);
+  const levelBand = band(Array.from({ length: 361 }, (_, k) => dirAzEl(k, 0)), 0xffffff, true, 0.18);
   /**
    * Each path for one synodic month round the hour, centred on it where the period allows: 709 hours, the first
    * and the last 708 apart, under the 708.7 from one new Moon to the next. Over a longer period a path comes
@@ -552,6 +554,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // not Earth's blue, which comes only with Earth).
   const fillLight = new THREE.AmbientLight(0xc4c6ca, 0);
   root.add(sunLight, sunLight.target, skyLight, earthLight, fillLight);
+  // In flight (the home page's arrival) the camera is no one standing at the site: no person's shadow at its feet.
+  if (flight) for (const g of ground) (g.material as THREE.ShaderMaterial).uniforms.uViewer.value.set(1e9, 0, 1e9);
   if (lander) {
     const lx = lander.group.position.x, lz = lander.group.position.z, ly = meshHeightAt(scene.field, lx, lz);
     lander.group.position.y = ly;
@@ -850,7 +854,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     if (!free.visible) return seen;
     return { x: free.x, y: Math.min(free.y, spot(top, 0, false).y), visible: true };
   }
-  function labels(): SkyLabels {
+  function labels(o: LabelOptions = {}): SkyLabels {
     // The brightest stars by name, where they stand above the skyline.
     const stars = (scene.sky.names ?? []).map(({ index, name }) => {
       const local = new THREE.Vector3(starPos[index * 3], starPos[index * 3 + 1], starPos[index * 3 + 2]), w = skyWorld(local);
@@ -907,8 +911,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     const k = skyGroup.scale.x;
     const onScreen = landerOnScreen();
     const pathNames = [
-      pathName('sun', "Sun's path this month", sunDirs, scene.series.sunEl, sunFloor, sunDir, onScreen),
-      pathName('earth', "Earth's path this month", earthDirs, scene.series.earthEl, earthFloor, earthDir, onScreen),
+      pathName('sun', "Sun's path this month", sunDirs, scene.series.sunEl, sunFloor, sunDir, onScreen, o.above ? { dirs: earthDirs, el: scene.series.earthEl, floor: earthFloor } : null),
+      pathName('earth', "Earth's path this month", earthDirs, scene.series.earthEl, earthFloor, earthDir, onScreen, o.above ? { dirs: sunDirs, el: scene.series.sunEl, floor: sunFloor } : null),
     ];
     return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow, marks, pathNames, landerBox: onScreen };
   }
@@ -933,13 +937,19 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
    * A path's name, at an hour of it that shows: drawn (not under the ground) and clear of the day that fades at
    * either end, in view, not behind the lander, and above the level horizon where it can be; as near the middle of
    * the view as it can be while 10° or more from the body itself (whose own label names it), else as far from the
-   * body as it can be. None while the guides are hidden.
+   * body as it can be. None while the guides are hidden. With `other` (the arrival, which hangs each name over its
+   * line) it keeps 12° or more round from the other path where that shows, so no name is read as the other's,
+   * and a loop (Earth's) is named at its highest point, so none of it runs through the name over it.
    */
-  function pathName(body: PathName['body'], text: string, dirs: Vec3[], el: ArrayLike<number>, floor: number[], now: THREE.Vector3, box: ScreenBox | null): PathName {
+  function pathName(body: PathName['body'], text: string, dirs: Vec3[], el: ArrayLike<number>, floor: number[], now: THREE.Vector3, box: ScreenBox | null, other: { dirs: Vec3[]; el: ArrayLike<number>; floor: number[] } | null = null): PathName {
     let best = { x: 0, y: 0, visible: false }, score = Infinity;
     if (!guides.visible) return { body, text, ...best };
     camera.getWorldDirection(fwd);
     const ends = drawnTo - drawnFrom > 4 * FADE_H ? FADE_H : 0, d = new THREE.Vector3();
+    const bearing = (x: number, z: number) => Math.atan2(x, -z) / DEG;
+    // Where the other path shows, every third hour of the stretch drawn.
+    const otherAz: number[] = [];
+    if (other) for (let h = drawnFrom; h <= drawnTo; h += 3) if (Number(other.el[h]) >= other.floor[h]) otherAz.push(bearing(other.dirs[h][0], other.dirs[h][2]));
     for (let h = drawnFrom + ends; h <= drawnTo - ends; h++) {
       if (Number(el[h]) < floor[h]) continue;
       d.set(...dirs[h]);
@@ -949,8 +959,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       // Room round it for the name, and not where the lander stands in front of the path.
       if (x < 0.1 || x > 0.9 || y < 0.1 || y > 0.85) continue;
       if (box && x > box.left && x < box.right && y > box.top && y < box.bottom) continue;
-      const away = d.angleTo(now) / DEG;
-      const s = (Number(el[h]) < 0 ? 10 : 0) + (away < 10 ? 5 + (10 - away) / 10 : Math.abs(x - 0.5));
+      const away = d.angleTo(now) / DEG, near = away < 10 ? 5 + (10 - away) / 10 : 0;
+      let s = (Number(el[h]) < 0 ? 10 : 0) + (near || Math.abs(x - 0.5));
+      if (other) {
+        const az = bearing(d.x, d.z), gap = otherAz.reduce((g, a) => Math.min(g, Math.abs(((a - az + 540) % 360) - 180)), 180);
+        if (gap < 12) s += 4;
+        if (body === 'earth') s = (Number(el[h]) < 0 ? 10 : 0) + near + y;
+      }
       if (s < score) {
         score = s;
         best = { x, y, visible: true };
@@ -976,9 +991,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     });
   };
 
-  /** Shows or hides the guides: hidden with the words, and in flight (the faint bands would cross the Moon). */
-  const setGuides = (on: boolean) => {
+  /**
+   * Shows or hides the guides: hidden with the words, and in flight (the faint bands would cross the Moon). The
+   * level horizon can be left out on its own: the arrival tells its story without it.
+   */
+  const setGuides = (on: boolean, level = true) => {
     guides.visible = on;
+    levelBand.visible = level;
   };
 
   return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
@@ -1219,6 +1238,7 @@ export class StandRenderer {
   private generation = 0;
   /** Whether the guides show (hidden with the words, and in flight). */
   private guides = true;
+  private level = true;
 
   constructor(canvas: HTMLCanvasElement, scene: StandScene) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -1312,7 +1332,7 @@ export class StandRenderer {
     this.renderPass.scene = this.built.root;
     this.renderPass.camera = this.built.camera;
     this.built.starMaterial.uniforms.uPx.value = this.drawnRatio;
-    this.built.setGuides(this.guides);
+    this.built.setGuides(this.guides, this.level);
     this.built.update(this.hour);
     this.apply();
     this.generation++;
@@ -1413,8 +1433,8 @@ export class StandRenderer {
     this.draw();
   }
 
-  labels(): SkyLabels {
-    return this.built.labels();
+  labels(o?: LabelOptions): SkyLabels {
+    return this.built.labels(o);
   }
 
   /** Whether the frame on the screen is the sharp one for what it shows: the view has rested and that frame is done. */
@@ -1427,10 +1447,11 @@ export class StandRenderer {
     return this.built.project(world, moon);
   }
 
-  /** Shows or hides the month's paths, the level horizon and the rings on hidden bodies. */
-  setGuides(on: boolean) {
+  /** Shows or hides the month's paths, the level horizon (or leaves it out alone) and the rings on hidden bodies. */
+  setGuides(on: boolean, level = true) {
     this.guides = on;
-    this.built.setGuides(on);
+    this.level = level;
+    this.built.setGuides(on, level);
   }
 
   dispose() {

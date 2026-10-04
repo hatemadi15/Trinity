@@ -88,7 +88,7 @@ describe('the arrival’s live stage', () => {
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
     const progress = { current: 2 };
     render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
-    await waitFor(() => expect(r.setGuides).toHaveBeenCalledWith(false));
+    await waitFor(() => expect(r.setGuides).toHaveBeenCalledWith(false, false));
     progress.current = 4;
     await waitFor(() => expect((r.setGuides as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBe(true));
   });
@@ -228,7 +228,7 @@ describe('the arrival’s live stage', () => {
     }
   });
 
-  it('names the lines once standing, as the stand view does: each body’s path and the level horizon', async () => {
+  it('names each path once landed, over its line, while it is the story: the Sun’s until Earth comes into view, then Earth’s until the Sun comes back; no level horizon', async () => {
     const { r } = stub();
     r.labels = vi.fn(() => ({
       sun: { x: 0.8, y: 0.5, visible: true },
@@ -238,16 +238,41 @@ describe('the arrival’s live stage', () => {
       ],
     })) as unknown as typeof r.labels;
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours);
+    const at = (hour: number) => 4 + (hour - HERO_HOUR) / (end - HERO_HOUR);
+    const rise = moments.find((m) => m.kind === 'earth-in')!.hour, back = moments.find((m) => m.kind === 'sun-back' || m.kind === 'sun-power-back')!.hour;
     const progress = { current: 2 };
     render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
-    const sunPath = await screen.findByText("Sun's path this month"), level = await screen.findByText('Level horizon');
+    const sunPath = await screen.findByText("Sun's path this month"), earthPath = screen.getByText("Earth's path this month");
     await waitFor(() => expect(r.setPose).toHaveBeenCalled());
     expect(sunPath.hidden).toBe(true); // not in flight
-    expect(level.hidden).toBe(true);
     progress.current = 4;
     await waitFor(() => expect(sunPath.hidden).toBe(false));
-    expect(screen.getByText("Earth's path this month").hidden).toBe(false);
-    expect(level.hidden).toBe(false);
+    expect(earthPath.hidden).toBe(true);
+    // Each name over its line, kept off the other path; the guides without the level horizon.
+    expect(r.labels).toHaveBeenLastCalledWith({ above: true });
+    expect(r.setGuides).toHaveBeenLastCalledWith(true, false);
+    expect(screen.queryByText('Level horizon')).toBeNull();
+    progress.current = at(rise + 40);
+    await waitFor(() => expect(earthPath.hidden).toBe(false));
+    expect(sunPath.hidden).toBe(true);
+    progress.current = at(back + 40);
+    await waitFor(() => expect(earthPath.hidden).toBe(true));
+    expect(sunPath.hidden).toBe(true);
+  });
+
+  it('once landed names Earth where it shows, with how high it stands, as it names the Sun', async () => {
+    const { r } = stub();
+    r.labels = vi.fn(() => ({ sun: { x: 0.8, y: 0.5, visible: false }, earth: { x: 0.6, y: 0.4, visible: true } })) as unknown as typeof r.labels;
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours);
+    const hour = moments.find((m) => m.kind === 'earth-in')!.hour + 60;
+    render(<ArrivalCanvas progress={{ current: 4 + (hour - HERO_HOUR) / (end - HERO_HOUR) }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect(document.querySelector('[data-earth-here]')).not.toBeNull());
+    const here = document.querySelector('[data-earth-here]') as HTMLElement;
+    await waitFor(() => expect(here.hidden).toBe(false));
+    expect(here.textContent).toBe(skyLabel('earth', h.series, hour));
+    expect(here.style.left).toBe('60%');
   });
 
   it('runs the month at the site on a date bar: the date, what lights the ground, each moment as it passes, and where the hour stands in the month', async () => {
