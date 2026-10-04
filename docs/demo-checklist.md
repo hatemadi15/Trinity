@@ -22,7 +22,7 @@
 ## Ten minutes before the pitch
 
 - [ ] Plug into the projector; check 1080p output and that the text is readable from the back of the room.
-- [ ] Reload `/?demo=1`; confirm the home page, then "Explore this site" on de Gerlache Rim 2 opens Explore with the answer, the shadow map and the 3D terrain.
+- [ ] Reload `/?demo=1`; confirm the home page's arrival draws (the Moon from space, not its still: scroll a little and it moves), "Explore a landing site" plays it to standing in about 15 s, then "Explore this site" on de Gerlache Rim 2 opens Explore with the answer, the shadow map and the 3D terrain.
 - [ ] Ask one rehearsed question in "Ask in plain words" and confirm "rehearsed answer" appears under the reply.
 - [ ] Period from 1 January 2027 for 30 days; Lander on the small ready-made one (4 m² panel, 200 W, 2 kWh battery); Compare emptied.
 - [ ] Phone on silent; second laptop on the same page, lid open.
