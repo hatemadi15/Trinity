@@ -4,9 +4,9 @@ Setup before walking up: laptop on `http://localhost:3000/?demo=1` (offline buil
 
 ## 0:00 — Hook (30 s)
 
-In March 2025 two landers reached the Moon four days apart. Blue Ghost, on a flat plain in Mare Crisium, worked for fourteen days and switched off a few hours after sunset, as planned. Athena, near a mountain close to the south pole, was dead within a day: it came to rest on its side in a crater with the Sun low on the horizon, and its batteries never charged. Same Moon, same month. The difference was light and line of sight to Earth.
+[Home page at the top. Click "Explore a landing site" as you begin.] In March 2025 two landers reached the Moon four days apart. Blue Ghost, on a flat plain in Mare Crisium, worked for fourteen days and switched off a few hours after sunset, as planned. Athena, near a mountain close to the south pole, was dead within a day: it came to rest on its side in a crater with the Sun low on the horizon, and its batteries never charged. Same Moon, same month. The difference was light and line of sight to Earth.
 
-[Home page on screen: the headline "See when a Moon lander has sunlight and a signal." and the January forecast band, the Sun's line drawing itself from left to right.]
+[On screen: the headline "See when a Moon lander has sunlight and a signal." over the whole Moon, Earth just beyond its south pole; then the arrival plays for 15 seconds: over the pole from 900 km while the Sun goes once round in a month, the polar cap, the ridge, and standing beside a lander at de Gerlache Rim 2 with the answer "Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power". It holds there to the end of the hook.]
 
 ## 0:30 — Problem (30 s)
 
@@ -14,7 +14,7 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 ## 1:00 — Live demo (2:00)
 
-[Scroll to "Start from a real place"; click "Explore this site" on de Gerlache Rim 2.] This ridge is one of the nine regions NASA shortlisted for the first crewed Artemis landing. The page opens on the answer, in one sentence: a small solar lander landing on 1 January has power for 3 days 4 hours, then night. [Point at the chart "Why: the 30 days, hour by hour".] Here is why: the gold line is the Sun, skimming the hills; on 3 January it drops behind them and stays there for more than two weeks, and the battery runs out. [Press Play on the time bar.] The shadow map is computed from NASA's elevation data for each hour, with north up: watch the ridge go dark.
+[Click "Explore this site" under the arrival's answer.] This ridge is one of the nine regions NASA shortlisted for the first crewed Artemis landing. The page opens on the answer, in one sentence: a small solar lander landing on 1 January has power for 3 days 4 hours, then night. [Point at the chart "Why: the 30 days, hour by hour".] Here is why: the gold line is the Sun, skimming the hills; on 3 January it drops behind them and stays there for more than two weeks, and the battery runs out. [Press Play on the time bar.] The shadow map is computed from NASA's elevation data for each hour, with north up: watch the ridge go dark.
 
 [Click "Stand at the site".] And this is the same hour standing on the ridge: NASA's ground out to 125 kilometres, the shadows worked out from those heights, a small white Sun low in a black sky, and a lander beside you for scale. The card says what the forecast said: power for three days, no radio contact, then sixteen days without power. Earth is below the horizon; the pointer at the edge of the screen says by how much. [Press Play.] Watch the shadows sweep across the ground and the Sun drop behind the hills on 3 January; the battery runs out the next day. [Click the flag "Earth in view, 10 Jan".] Earth comes over the hills on 10 January, but by then the lander has no power to call it. [Click "Back to the forecast".]
 
@@ -32,7 +32,7 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 ## 3:45 — Impact and next (35 s)
 
-Planners get a first answer in a minute and a brief they can hand to engineering. Students and the public get the same pages in plain words, and How it works gives teachers the science behind them, with sums a class can check. Anyone can replay real missions from the home page. Next: NAC imagery per site, arriving at a site from orbit, relay passes, and a public API for the tables.
+Planners get a first answer in a minute and a brief they can hand to engineering. Students and the public get the same pages in plain words, and How it works gives teachers the science behind them, with sums a class can check. Anyone can replay real missions from the home page. Next: NAC imagery per site, the arrival from orbit for every site, relay passes, and a public API for the tables.
 
 ## 4:20 — Data and team (20 s)
 
@@ -47,6 +47,7 @@ When is the Sun up, and can Earth hear you? Earthrise answers in a minute, shows
 - The assistant does not answer: the page falls back to rehearsed answers on its own; say "rehearsed answer" and continue.
 - The 3D view is black: stay on the Shadow map tab; it shows the same light from above.
 - The stand view is slow or black: add `?quality=fast` to its address, or skip it and stay on Explore's shadow map.
+- The arrival stutters: press Skip to land on the answer, or reload `/?demo=1&quality=fast`. If its live view cannot draw, the page shows its stills on its own.
 - Page does not load: switch to the backup laptop (same URL), or play the recorded demo from the second tab and narrate over it.
 - JPL re-check fails (no internet): the page says so and keeps the stored comparison; the point stands.
 
