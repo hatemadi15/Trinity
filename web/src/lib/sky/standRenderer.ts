@@ -106,7 +106,7 @@ const nightFloor = (sunFraction: number, earthshine: number) => 0.35 * Math.max(
  * 200 km where the globe takes over); below 500 m over the site the view counts as standing. From space the
  * camera exposes for the sunlit Moon (a fixed gain) and shows the brighter stars faintly.
  */
-const STAND_REACH_M = 125000, FLIGHT_REACH_M = 205000, STANDING_M = 500, SPACE_GAIN = 1.8, SPACE_STARS = 0.7;
+const STAND_REACH_M = 125000, FLIGHT_REACH_M = 205000, STANDING_M = 500, MEASURED_M = 450000, SPACE_GAIN = 1.8, SPACE_STARS = 0.7;
 /** How far a level's mesh reaches from the site, by its cell size; the coarsest to 125 km, or 205 km in flight. The shadows read the whole level. */
 const meshReachM = (cellM: number, coarsest: boolean, flight = false) => (coarsest ? (flight ? FLIGHT_REACH_M : STAND_REACH_M) : cellM <= 30 ? 5000 : cellM <= 200 ? 20500 : 125000);
 /** The value stored for a cell outside the measured ground when heights go to the GPU as half floats. */
@@ -498,6 +498,28 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   }
   /** A place in the sky group (round the camera) in the world frame. */
   const skyWorld = (local: THREE.Vector3) => local.clone().multiplyScalar(skyGroup.scale.x).add(skyGroup.position);
+  // The hour's light, kept so a change of height can set it again; and how far the camera has risen from the
+  // eye (0 standing, 1 from 5 km up).
+  let lightNow = { sunFraction: 1, full: 0, earthUp: false }, aloftNow = 0;
+  /**
+   * Earthlight on the ground, and at night the light that stands for eyes adapting to the dark: when the Sun
+   * is hidden the view is exposed like a long photograph, so Earthlight shows and the shapes do. That is the
+   * eye's way of seeing: from above, the ground gets only the light that is there.
+   */
+  function applyLight() {
+    const { sunFraction, full, earthUp } = lightNow, eyeOnly = 1 - aloftNow;
+    const earthshine = earthUp ? 0.25 * full * (1 + 3 * (1 - sunFraction) * eyeOnly) : 0;
+    const night = nightFloor(sunFraction, earthshine) * eyeOnly;
+    for (const g of ground) {
+      const u = (g.material as THREE.ShaderMaterial).uniforms;
+      u.uEarthshine.value = earthshine;
+      u.uNight.value = night;
+    }
+    // Earth's blue light only while Earth is up; the neutral fill, faint by day, and at night enough for the
+    // shapes to show when neither the Sun nor Earth lights them (the ground gets the same).
+    earthLight.intensity = 0.5 * earthshine;
+    fillLight.intensity = 0.03 + night;
+  }
   function update(t: number) {
     const v = sampleSeries(scene.series, t);
     const sd = dirAzEl(v.sunAz, v.sunEl), ed = dirAzEl(v.earthAz, v.earthEl);
@@ -521,26 +543,20 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     earthMat.uniforms.uSun.value.set(...sd);
     const full = earthLitFraction(sd as Vec3, ed as Vec3);
     globe?.setLight(sd, ed, full);
-    // Earthlight on the ground; when the Sun is hidden the view is exposed like a long photograph, so it shows.
-    const earthshine = v.earthEl > -0.5 ? 0.25 * full * (1 + 3 * (1 - v.sunFraction)) : 0;
     for (const g of ground) {
       const u = (g.material as THREE.ShaderMaterial).uniforms;
       u.uSun.value.set(...sd);
       u.uEarth.value.set(...ed);
-      u.uEarthshine.value = earthshine;
       u.uSunUp.value = v.sunFraction;
       u.uBounce.value = bounceShare(v.sunEl);
-      u.uNight.value = nightFloor(v.sunFraction, earthshine);
     }
+    lightNow = { sunFraction: v.sunFraction, full, earthUp: v.earthEl > -0.5 };
+    applyLight();
     // The lights for the lander and the boulders.
     sunLight.position.copy(sunLight.target.position).addScaledVector(sunDir, 50);
     sunLight.intensity = 3.2 * v.sunFraction;
     // The dust lights the shaded sides only faintly at a Sun this low: they stand nearly in silhouette.
     skyLight.intensity = 0.08 * v.sunFraction;
-    // Earth's blue light only while Earth is up; the neutral fill, faint by day, and at night enough for the
-    // shapes to show when neither the Sun nor Earth lights them (the ground gets the same).
-    earthLight.intensity = 0.5 * earthshine;
-    fillLight.intensity = 0.03 + nightFloor(v.sunFraction, earthshine);
     if (lander) {
       const h = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
       // Lit green with power; off, a dark bead that still shows where the light is.
@@ -571,7 +587,12 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     skyGroup.scale.setScalar(1);
     placeEarth();
     standing(true);
+    measured(true);
     spaceNow = 0;
+    if (aloftNow !== 0) {
+      aloftNow = 0;
+      applyLight();
+    }
     pitchNow = pitchDeg;
     expose();
     camera.fov = fovDeg;
@@ -602,8 +623,22 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     skyGroup.scale.setScalar(flight ? Math.max(1, (camera.position.distanceTo(moonC) + 2 * R_MOON_M) / RS) : 1);
     placeEarth();
     standing(alt < STANDING_M);
+    measured(!flight || alt < MEASURED_M);
     spaceNow = flight ? Math.min(1, Math.max(0, (alt - 30e3) / (600e3 - 30e3))) : 0;
+    const aloft = Math.min(1, Math.max(0, (alt - STANDING_M) / (5000 - STANDING_M)));
+    if (aloft !== aloftNow) {
+      aloftNow = aloft;
+      applyLight();
+    }
     expose();
+  }
+  /**
+   * The measured ground draws below 450 km over the site; higher, its 200 km look the same as the globe's at a
+   * pixel or two, and the globe shows the whole Moon, the pole too, with no seam round the measured patch.
+   */
+  function measured(on: boolean) {
+    for (const g of ground) g.visible = on;
+    globe?.setCut(on && hasGround);
   }
   /** Standing: the stand view's far skyline and the cap's mesh to 125 km; above, the mesh to 200 km and the globe beyond. */
   function standing(on: boolean) {

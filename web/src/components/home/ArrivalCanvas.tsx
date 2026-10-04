@@ -216,8 +216,9 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
         keyed = { scene: s, aspect };
       }
       const p = progress.current, hour = hourAt(p, HERO_HOUR, reducedRef.current);
-      r.setTime(hour);
+      // The pose first: the hour's light depends on how high the camera is.
       r.setPose(poseAt(keys, p, input!));
+      r.setTime(hour);
       r.render();
       if (drawn && !live) {
         live = true;

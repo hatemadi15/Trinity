@@ -641,6 +641,32 @@ describe('the stand scene in flight', () => {
     expect(s.exposure()).toBeCloseTo(eye, 9);
   });
 
+  it('keeps the night’s long-exposure light for the eye: from above, the ground has only the light that is there', () => {
+    // Neither the Sun nor Earth in view at the site at hour 2: the eye's night light is on.
+    const dark = { ...series, earthEl: Float64Array.from([-3, -3, -3]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100), series: dark }));
+    const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
+    s.update(2);
+    s.setView(300, 2, 60, 1.6);
+    expect(u.uNight.value).toBeGreaterThan(0.3);
+    s.setPose(at([0, 90000, 0]), 1.6);
+    s.update(2);
+    expect(u.uNight.value).toBe(0);
+    s.setView(300, 2, 60, 1.6);
+    expect(u.uNight.value).toBeGreaterThan(0.3);
+  });
+
+  it('draws the measured ground only below 450 km: higher, the globe shows the whole Moon, the pole too', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const cut = (s.parts.globe!.material as THREE.ShaderMaterial).uniforms.uCut;
+    s.setPose(at([0, 9.0e5, 0]), 1.6);
+    expect(s.parts.ground.every((g) => !g.visible)).toBe(true);
+    expect(cut.value).toBeGreaterThan(1);
+    s.setPose(at([0, 9.0e4, 0]), 1.6);
+    expect(s.parts.ground.every((g) => g.visible)).toBe(true);
+    expect(cut.value).toBeCloseTo(Math.cos(200000 / R_MOON_M), 9);
+  });
+
   it('hides a point behind the Moon from a camera in space, and shows one on the near side', () => {
     const s = buildScene(flat({ globe, siteHeightM: 0 }));
     s.setPose(at([0, 4.0e6, 0]), 1.6);

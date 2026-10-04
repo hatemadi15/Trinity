@@ -148,6 +148,8 @@ export interface Globe {
   material: THREE.ShaderMaterial;
   /** The Sun's and Earth's directions in the world frame, and Earth's lit share for its light on the night side. */
   setLight(sunWorld: Vec3, earthWorld: Vec3, earthLit: number): void;
+  /** Whether the measured ground draws round the site, and the globe leaves its patch out. */
+  setCut(on: boolean): void;
   dispose(): void;
 }
 
@@ -214,6 +216,9 @@ export function buildGlobe(o: { basis: Basis; siteHeightM: number; assets: Globe
       material.uniforms.uSunMe.value.copy(v.set(...sunWorld).applyMatrix3(back)).normalize();
       material.uniforms.uEarthMe.value.copy(v.set(...earthWorld).applyMatrix3(back)).normalize();
       material.uniforms.uEarthshine.value = 0.03 * earthLit;
+    },
+    setCut(on) {
+      material.uniforms.uCut.value = on && o.cutM > 0 ? Math.cos(o.cutM / R_MOON_M) : 2;
     },
     dispose() {
       mesh.geometry.dispose();
