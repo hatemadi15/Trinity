@@ -29,9 +29,8 @@ export function hero(doc: HomeDoc = HOME): Hero {
 
 /**
  * The beats' sentences, a screen each, between the first screen and the answer: the pole, the cap, the landing
- * (a small uncrewed solar lander: the battery that runs out later is its own, and no one is stranded with it), standing
- * as the month at the site begins, and
- * its middle (from the engine's key moments).
+ * (a small uncrewed solar lander: the battery that runs out later is its own, and no one is stranded with it),
+ * standing as the month at the site begins, and its middle (from the engine's key moments).
  */
 export interface ArrivalWords { beats: string[]; siteLine: string; answer: string; better: string | null; exploreHref: string }
 
