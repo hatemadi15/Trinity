@@ -78,6 +78,24 @@ describe('the arrival', () => {
     expect(answer.className).toMatch(/(^| )wrap( |$)/);
   });
 
+  it('measures a screen by its stage’s height, not the window’s, which grows as a phone’s address bar hides', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    const section = document.querySelector('[data-arrival]') as HTMLElement;
+    // Seven screens of 700 px (100svh) in a window now 800 px tall: two screens in is beat 2, and Skip lands on the last.
+    vi.spyOn(section, 'offsetHeight', 'get').mockReturnValue(7 * 700);
+    vi.spyOn(section, 'getBoundingClientRect').mockReturnValue({ top: -2 * 700 } as DOMRect);
+    const was = window.innerHeight;
+    Object.defineProperty(window, 'innerHeight', { value: 800, configurable: true });
+    try {
+      fireEvent.scroll(window);
+      expect(stage!.progress.current).toBeCloseTo(BEAT_STOPS[2], 6);
+      fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
+      expect(window.scrollTo).toHaveBeenLastCalledWith({ top: window.scrollY - 2 * 700 + 6 * 700, behavior: 'instant' });
+    } finally {
+      Object.defineProperty(window, 'innerHeight', { value: was, configurable: true });
+    }
+  });
+
   it('follows the scroll: each screen is its beat’s stop, and Skip shows only between the first screen and the last', () => {
     render(<Arrival words={words} Stage={Stage} />);
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();

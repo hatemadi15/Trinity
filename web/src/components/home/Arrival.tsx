@@ -19,6 +19,17 @@ const still = (k: number, shape: 'wide' | 'tall') => `/arrival/beat-${k}-${shape
  * FADE_PX above FADE_TOP_PX from the top, gone there, so they never pass over it.
  */
 const FADE_TOP_PX = 72, FADE_PX = 64;
+/**
+ * A screen of the arrival: its stage's height (100svh, the small viewport), not the window's, which grows by the
+ * address bar's height once a phone's bar hides.
+ */
+const screenOf = (el: HTMLElement | null) => (el ? el.offsetHeight / BEATS : 0) || window.innerHeight || 1;
+/** Screens scrolled past the arrival's top, 0 to the last. */
+const screensIn = (el: HTMLElement | null) => (el ? Math.min(BEATS - 1, Math.max(0, -el.getBoundingClientRect().top / screenOf(el))) : 0);
+/** Scrolls the page to `s` screens into the arrival. */
+function scrollInto(el: HTMLElement | null, s: number) {
+  if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top + s * screenOf(el), behavior: 'instant' });
+}
 /** The page's address does not change under the section, so there is nothing to subscribe to. */
 const noSubscribe = () => () => {};
 
@@ -51,16 +62,8 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
     if (capture) progress.current = capture.at;
   }, [capture]);
 
-  /** Screens scrolled past the arrival's top, 0 to 4. */
-  const screens = () => {
-    const el = section.current;
-    return el ? Math.min(BEATS - 1, Math.max(0, -el.getBoundingClientRect().top / (window.innerHeight || 1))) : 0;
-  };
-  /** Scrolls the page to `s` screens into the arrival. */
-  const goTo = (s: number) => {
-    const el = section.current;
-    if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top + s * window.innerHeight, behavior: 'instant' });
-  };
+  const screens = () => screensIn(section.current);
+  const goTo = (s: number) => scrollInto(section.current, s);
 
   useEffect(() => {
     if (capture) return;
