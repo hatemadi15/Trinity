@@ -161,7 +161,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
   const canvas = useRef<HTMLCanvasElement>(null);
   const tags = useRef<Record<Tag, HTMLSpanElement | null>>({ earth: null, pole: null, site: null, sun: null, earthHere: null });
   // The date's bar: the date and what lights the ground, and the hour's mark on the month, the part gone filled.
-  const barRef = useRef<HTMLDivElement>(null), dateRef = useRef<HTMLParagraphElement>(null), markRef = useRef<HTMLElement>(null), fillRef = useRef<HTMLSpanElement>(null);
+  const barRef = useRef<HTMLDivElement>(null), dateRef = useRef<HTMLParagraphElement>(null), stateRef = useRef<HTMLParagraphElement>(null), markRef = useRef<HTMLElement>(null), fillRef = useRef<HTMLSpanElement>(null);
   // The pointer to the Sun from the view's edge while it is out of sight, and its arrow.
   const edgeRef = useRef<HTMLSpanElement>(null), arrowRef = useRef<HTMLElement>(null);
   // Once standing, the pointer to Earth, wherever it is out of view.
@@ -321,14 +321,17 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       placed.length = 0;
       // Once landed the date's bar, first, so the labels keep off it: the date, a moment for a day or so after it
       // passes, else what lights the ground; the hour's mark on the month. It gives way only to the words.
-      const bar = barRef.current, d = dateRef.current;
-      if (bar && d) {
+      const bar = barRef.current, d = dateRef.current, st = stateRef.current;
+      if (bar && d && st) {
         bar.hidden = !(drawn && p > LANDED);
         if (!bar.hidden) {
           const k = Math.min(h.series.hours - 1, Math.max(0, Math.round(hour)));
           const day = dateLong(h.startUtc, k), dated = /\d{4}$/.test(day) ? day : `${day} ${h.startUtc.slice(0, 4)}`;
           const recent = [...moments].reverse().find((m) => m.hour <= hour && hour - m.hour < 30);
-          d.textContent = `${dated}: ${recent ? recent.label : lightWords(h.series, k)}`;
+          // The date on one line and what happens on the next, each one line, so the bar never changes height.
+          const what = recent ? recent.label : lightWords(h.series, k);
+          d.textContent = dated;
+          st.textContent = what.charAt(0).toUpperCase() + what.slice(1);
           const at = `${(hour / (h.series.hours - 1)) * 100}%`;
           if (markRef.current) markRef.current.style.left = at;
           if (fillRef.current) fillRef.current.style.width = at;
@@ -512,7 +515,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
           </b>
         </span>
         <div ref={barRef} hidden data-date-bar="" className="absolute left-1/2 top-4 w-[min(400px,calc(100%-32px))] -translate-x-1/2 rounded-[6px] border border-white/15 bg-black/75 px-3 pb-1.5 pt-1.5">
-          <p ref={dateRef} className="text-[16px] leading-snug text-[#f6d48a]" />
+          <p ref={dateRef} data-date="" className="truncate text-[16px] leading-snug text-[#f6d48a]" />
+          <p ref={stateRef} data-state="" className="truncate text-[15px] leading-snug text-[#e9e6df]" />
           <div className="relative mx-1.5 mt-2.5 h-[3px] rounded-full bg-white/25">
             <span ref={fillRef} className="absolute inset-y-0 left-0 rounded-full bg-white/70" />
             {moments.map((m) => (
@@ -520,7 +524,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
             ))}
             <b ref={markRef} data-mark="" className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-black bg-[#f6d48a]" />
           </div>
-          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] text-[#c6c5c0]">
+          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[14px] text-[#c6c5c0]">
             {TICK_KEY.map(([colour, text]) => (
               <span key={text} className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <i aria-hidden="true" className="inline-block h-3 w-[3px] rounded-full" style={{ background: colour }} />

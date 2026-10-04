@@ -178,7 +178,7 @@ describe('the arrival’s live stage', () => {
     const x = parseFloat(edge.style.left), y = parseFloat(edge.style.top);
     expect(Math.min(x, 100 - x, y, 100 - y)).toBeLessThan(12);
     // Over the pole the hour holds (the month runs once, at the site after landing): no date's chip yet.
-    expect(screen.queryByText(/January 2027:/)).toBeNull();
+    expect((document.querySelector('[data-date-bar]') as HTMLElement).hidden).toBe(true);
     // In view (standing, the Sun to the right of the middle), the Sun's own label instead.
     sunSeen = true;
     progress.current = 4;
@@ -360,22 +360,28 @@ describe('the arrival’s live stage', () => {
     const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours), year = h.startUtc.slice(0, 4);
     const at = (hour: number) => 4 + (hour - HERO_HOUR) / (end - HERO_HOUR);
     const bar = document.querySelector('[data-date-bar]') as HTMLElement, mark = bar.querySelector('[data-mark]') as HTMLElement;
+    // The date on one line and what happens on the next, each on one line, so the bar never changes height.
+    const date = bar.querySelector('[data-date]') as HTMLElement, state = bar.querySelector('[data-state]') as HTMLElement;
+    expect(date.className).toMatch(/(^| )truncate( |$)/);
+    expect(state.className).toMatch(/(^| )truncate( |$)/);
     // Landed: the date and what lights the ground, the month with its moments marked, and what the marks' colours say.
     await waitFor(() => expect(bar.hidden).toBe(false));
-    expect(within(bar).getByText(`${dateLong(h.startUtc, HERO_HOUR)} ${year}: in sunlight`)).toBeTruthy();
+    expect(date.textContent).toBe(`${dateLong(h.startUtc, HERO_HOUR)} ${year}`);
+    expect(state.textContent).toBe('In sunlight');
     expect(bar.querySelectorAll('[data-tick]')).toHaveLength(moments.length);
     for (const key of ['The Sun hides or comes back', 'The battery runs out', 'Earth comes into view']) expect(within(bar).getByText(key)).toBeTruthy();
     // Each moment named for a day or so after it passes, the mark at its hour in the month.
     const earth = moments.find((m) => m.kind === 'earth-in')!;
     progress.current = at(earth.hour + 6);
-    await waitFor(() => expect(bar.textContent).toContain(`${dateLong(h.startUtc, earth.hour + 6)} ${year}: ${earth.label}`));
+    await waitFor(() => expect(date.textContent).toBe(`${dateLong(h.startUtc, earth.hour + 6)} ${year}`));
+    expect(state.textContent).toBe(earth.label);
     expect(parseFloat(mark.style.left)).toBeCloseTo(((earth.hour + 6) / (h.series.hours - 1)) * 100, 0);
     // Then what lights the ground: Earth alone, which is why it looks blue; or nothing at all. Either way the picture
     // is brightened, and says so: the ground would look near black.
     progress.current = at(earth.hour + 60);
-    await waitFor(() => expect(bar.textContent).toContain(': lit only by Earthlight (picture brightened)'));
+    await waitFor(() => expect(state.textContent).toBe('Lit only by Earthlight (picture brightened)'));
     progress.current = at(moments.find((m) => m.kind === 'battery-out')!.hour + 60);
-    await waitFor(() => expect(bar.textContent).toContain(': in the dark (picture brightened)'));
+    await waitFor(() => expect(state.textContent).toBe('In the dark (picture brightened)'));
     // At the end, the last hour of the story; before landing, no bar.
     progress.current = 5;
     await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBe(end));
