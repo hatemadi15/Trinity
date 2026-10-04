@@ -234,3 +234,75 @@ From reads 10 to 12, not built in part A:
 - Finer models: a lander that is more than a box, your shadow lying on the ground rather than standing like a figure, rocks as solid stones, and near craters that read as more than ink (both, reads 11 and 12).
 - Earth's rise over the month and the lack of twilight explained where they happen, not only under "Look up" (teacher, read 12).
 - The battery's level in the view, as on the forecast page (judge, reads 11 and 12).
+
+## 14. Amendment: Part B as built (5 October 2026)
+
+Part B was built on `feat/immersive-b` through seven blind reads and six fix passes. This section records what was built where it differs from section 5, and the reads. Every change below has its ruling, with what it costs if wrong, in the plan's ledger (`docs/superpowers/plans/2026-10-04-immersive-b-arrival.ledger.md`).
+
+### 14.1 Where it differs from section 5
+
+- **Seven screens, not four beats.** The arrival is a section seven screens tall. Each screen is a stop of the flight, with one sentence:
+  1. **The whole Moon**, north up, Earth just beyond its south pole, with the headline, a paragraph and the audience line ("For planners of NASA's commercial Moon landers, educators and anyone curious.").
+  2. **The pole** from 900 km: "At the south pole the Sun never climbs: it circles the horizon once a month." The camera rests there. An early build ran the month's hours over the pole; read 4 found the dates out of order, so the month now runs once, at the site.
+  3. **The cap** from 90 km, lit from the side: "NASA has shortlisted this ridge for astronauts to land on." The site's name goes before the pole's, so on a phone "this ridge" is marked.
+  4. **The ridge** from 2 km, looking past the site at the Sun just over the hills: "Land a small uncrewed solar lander here on 1 January: the Sun stands just above the hills."
+  5. **Landing beside the lander**: "One hill can hide the Sun for weeks. Here is January at this spot, sped up."
+  6. **The month at the site half run**: "Earth comes into view on 10 January, but the lander's battery ran out on 4 January."
+  7. **Its end**: Explore's answer for the site, the better landing day, "Open the full forecast" and "Choose a landing site".
+- **The month at the site.** After landing, the hours run from the landing hour to five days after the Sun comes back, at an even pace, once and in order. The Sun slips behind a hill (3 January), the battery runs out (4 January), Earth comes into view (10 January) and the Sun comes back (20 January).
+- **The camera beside the lander.** It stands a few metres up behind the lander and circles it as the story turns. On a wide screen the lander stands right of the words' column, whole, at every hour; the beats' cards are at most 46 per cent of the width. On a phone it stands under the Sun or Earth, above the words at the bottom. Read 4 found the lander missing from the descent, and read 5 found the cards over it.
+- **The date bar.** Once landed, a bar at the top gives the date on one line and, on the next, a moment's name for a day after it passes, or what lights the ground ("In sunlight", "Lit only by Earthlight (picture brightened)", "In the dark (picture brightened)"). The month runs under it, the four moments ticked in their bodies' colours with a key. The beats' cards fade as they reach the top, so they never pass over it.
+- **Power coming back.** The forecast counts energy only. Wherever the power comes back, on the stand view's state line too, it says "if the lander survives" the stretch without power (reads 6 and 7).
+- **Labels.**
+  - The Sun and Earth are named where they show. Out of view, once landed, they are pointed to from the left or right edge, at their height, the arrows along the horizon: a pointer up into the sky read as the Sun climbing.
+  - The paths are dotted where the hills hide them, as the forecast chart dots the hidden Sun. Each is named over its own line, away from the other path, while it is the story: the Sun's until Earth comes into view, Earth's until the Sun comes back. On a phone, no path is named.
+  - The level horizon is left out of the arrival; the stand view keeps it.
+- **The actions, named for where they go.** "Fly to the south pole" plays the arrival in 21 seconds, 15 to landing and 6 through the month. "Open the full forecast" opens Explore for the site; "Choose a landing site", and "Choose a site" in the menu, open the list. Section 5 named all three "Explore…", which neither reader of read 4 could tell apart.
+- **The ground.** From the reads:
+  - no seam where the eye comes round square to the Sun, and no hairline where your shadow's reach ends;
+  - craters with no thin rings, of every age, rims not perfect circles;
+  - rocks as broken blocks;
+  - no person's shadow in flight, as the arrival's camera is no one standing there.
+- **Drawing.** The lander is drawn with the solid things. The guides blend in the same pass, before it, so it covers them. Drawn in three.js's transparent pass, the lander went missing once the flight had passed over the cap; the cause inside three.js or the driver was not found.
+- **Stills.** One for each of the seven screens, wide and tall, from the production build.
+- **The machine.** The development laptop (8 GB) ran short of memory and disk during the reads. The test browser's graphics process failed to compile the ground shader after many page loads. A fresh browser compiles it; the reads' frames were taken with the browser restarted between phases.
+
+### 14.2 The blind reads
+
+Each round, two fresh readers judged still screenshots: a hackathon judge and a secondary-school science teacher. The frames were a walk down the arrival at quarter screens, each screen on a phone, the first loads, the rest of the home page and the stand view at eight hours. Scores are in the order purpose, next step, look, room and readability, then immersion after the semicolon. The gate is as in 13.2: purpose, next step and look at 4 or more, room at 3 or more, and immersion at 4, for both readers.
+
+| Read | Judge | Teacher | Fails on |
+|---|---|---|---|
+| 1 | 5, 4, 3, 4; 3 | 5, 4, 4, 4; 3 | look, immersion |
+| 2 | 5, 4, 4, 4; 3 | 5, 4, 4, 3; 3 | immersion |
+| 3 | 5, 4, 4, 4; 3 | 5, 4, 4, 3; 3 | immersion |
+| 4 | 5, 4, 4, 4; 3 | 4, 4, 3, 4; 3 | look, immersion |
+| 5 | 5, 4, 4, 4; 3 | 5, 4, 4, 4; 4 | the judge's immersion |
+| 6 | 5, 4, 4, 4; 4 | 5, 4, 4, 4; 4 | none |
+| 7 | 5, 4, 4, 4; 3 | 4, 4, 4, 4; 4 | the judge's immersion |
+
+Immersion stood at 3 for both readers through the first four reads, through passes that each answered what both had named: the north-up Moon, pointers to the Sun and Earth, the measured cap at the pole, craters, named paths, and the month at the site. The teacher moved to 4 in read 5, once the camera landed beside the lander and a date bar ran over the month. The judge moved to 4 in read 6, once the lander stood clear of the words at every hour. Read 6 met the whole gate. Read 7 followed a bounded pass on what both readers of read 6 had named: the Sun in the picture over the ridge, pointers along the horizon, and the night's name kept whole on a phone. Its judge gave immersion 3, for the night ground and the rocks, and its teacher gave 4.
+
+**Ruling.** Part B closes after read 7, as part A closed after read 12. Read 6 met the whole gate, and read 7 fell one score short from one reader, within the reads' own scatter: read 6's judge gave the same arrival a 4. Two things both readers of reads 6 and 7 named were fixed after read 7 without a further read, as clear and small changes:
+- The stand view's power-back line now carries the survival condition.
+- The date bar keeps one height.
+
+The rest moves to part C (14.3). Cost if wrong: part B ships one score short of its gate in its last read.
+
+### 14.3 Asks carried to part C
+
+From reads 5 to 7, not built in part B:
+
+- Say on the home page how the site answers the challenge, a browser of landing sites and dates, with more than two landers (judge, reads 5 to 7).
+- The descent's middle (the cap from 900 to 90 km) reads soft and smeary, and half of the screen is black there (both, reads 5 and 6). A crater layer a few kilometres across would add a fourth far layer to the ground shader, whose compile already ran short of memory on the development laptop.
+- Rocks still read as boxes, the lander as plain (both, reads 6 and 7).
+- The stand view: crowded for a first look and for a projector; the lander out of frame at most hours; "if it survives" at one hour and "has power again" at another; the level horizon through the hill at night (both, reads 6 and 7).
+- The date bar: the 3 and 4 January marks nearly on top of each other, and no mark for Earth setting (teacher, read 6).
+- The phone's last screen: the answer's card covers the date bar and the sky (teacher, read 6).
+- Say that the forecast's lander is an example, not a planned mission (teacher, read 6).
+- The teacher's route ("Teaching this? How it works…") nearer the top, and the cause (the Moon's small tilt, a month-long day) said on the home page (teacher, reads 5 to 7).
+- The ground at night: a flat grey plane in the dark, then blue in Earthlight with no word on the colour (both, read 7).
+- A sharper patch round the site seen from the cap, where the measured window meets the coarser ground (judge, reads 1 and 7).
+- One name for each event across the chart, the story, the stand view's flags and the scene's labels ("sets", "hides", "behind the hills") (teacher, read 7).
+- Earth's loop explained where it first shows (teacher, read 7).
+- Labels joined to their marks and sized for a projector (teacher, read 7).
