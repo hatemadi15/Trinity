@@ -29,10 +29,24 @@ describe('when the stand view draws', () => {
     expect(p.next('b', 2 * REST_MS + 16)).toBe('sharp');
   });
 
-  it('skips the sharp frame when the moving frames were already full sharpness', () => {
+  it('skips the sharp frame when the moving frames were already full sharpness, but still says the view has come to rest', () => {
     const p = new FramePacer();
     p.next('a', 0, { fullWhileMoving: true });
-    expect(p.next('a', REST_MS, { fullWhileMoving: true })).toBe('idle');
+    // Nothing to draw: the frame on the screen is already the sharp one, and a still or a screenshot can take it.
+    expect(p.next('a', REST_MS, { fullWhileMoving: true })).toBe('rest');
+    expect(p.next('a', REST_MS + 16, { fullWhileMoving: true })).toBe('idle');
+  });
+
+  it('knows when the view is at rest: not while it moves, from its rest on, and not again until it has rested after a change', () => {
+    const p = new FramePacer();
+    p.next('a', 0);
+    expect(p.atRest).toBe(false);
+    p.next('a', REST_MS);
+    expect(p.atRest).toBe(true);
+    p.next('b', REST_MS + 16);
+    expect(p.atRest).toBe(false);
+    p.next('b', 2 * REST_MS + 16, { fullWhileMoving: true });
+    expect(p.atRest).toBe(true);
   });
 
   it('queues no frame while the graphics chip is still drawing the last one, then draws the newest view', () => {

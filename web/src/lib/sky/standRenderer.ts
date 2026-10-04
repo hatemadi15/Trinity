@@ -107,10 +107,12 @@ export function shadowOnGround(riseAt: (d: number) => number, sunElDeg: number, 
 const nightFloor = (sunFraction: number, earthshine: number) => 0.35 * Math.max(0, 1 - Math.min(1, sunFraction + 2 * earthshine));
 /**
  * The measured ground's reach standing (125 km, the far skyline beyond it) and in flight (205 km, cut round at
- * 200 km where the globe takes over); below 500 m over the site the view counts as standing. From space the
- * camera exposes for the sunlit Moon (a fixed gain) and shows the brighter stars faintly.
+ * 200 km where the globe takes over). Within 10 m of the ground at the site the view counts as standing: the
+ * far skyline is the eye's own horizon, and from higher up the near crests drop below it and would bare it as a
+ * band. From 500 m up the eye's night light fades out. From space the camera exposes for the sunlit Moon (a
+ * fixed gain) and shows the brighter stars faintly.
  */
-const STAND_REACH_M = 125000, FLIGHT_REACH_M = 205000, STANDING_M = 500, MEASURED_M = 450000, SPACE_GAIN = 1.8, SPACE_STARS = 0.7;
+const STAND_REACH_M = 125000, FLIGHT_REACH_M = 205000, STANDING_M = 10, ALOFT_M = 500, MEASURED_M = 450000, SPACE_GAIN = 1.8, SPACE_STARS = 0.7;
 /** How far a level's mesh reaches from the site, by its cell size; the coarsest to 125 km, or 205 km in flight. The shadows read the whole level. */
 const meshReachM = (cellM: number, coarsest: boolean, flight = false) => (coarsest ? (flight ? FLIGHT_REACH_M : STAND_REACH_M) : cellM <= 30 ? 5000 : cellM <= 200 ? 20500 : 125000);
 /** The value stored for a cell outside the measured ground when heights go to the GPU as half floats. */
@@ -691,7 +693,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     standing(alt < STANDING_M);
     measured(!flight || alt < MEASURED_M);
     spaceNow = flight ? Math.min(1, Math.max(0, (alt - 30e3) / (600e3 - 30e3))) : 0;
-    const aloft = Math.min(1, Math.max(0, (alt - STANDING_M) / (5000 - STANDING_M)));
+    const aloft = Math.min(1, Math.max(0, (alt - ALOFT_M) / (5000 - ALOFT_M)));
     if (aloft !== aloftNow) {
       aloftNow = aloft;
       applyLight();
@@ -1216,6 +1218,11 @@ export class StandRenderer {
       if (busy) this.waits++;
       return;
     }
+    if (mode === 'rest') {
+      // The view has come to rest and the frame on the screen, drawn at full sharpness while it moved, is done.
+      this.onSharp?.();
+      return;
+    }
     if (mode === 'sharp') {
       // The view has come to rest: one frame at full sharpness, which stays on the screen.
       this.drawAt(this.sharpRatio);
@@ -1241,6 +1248,11 @@ export class StandRenderer {
 
   labels(): SkyLabels {
     return this.built.labels();
+  }
+
+  /** Whether the frame on the screen is the sharp one for what it shows: the view has rested and that frame is done. */
+  get resting(): boolean {
+    return this.pacer.atRest && this.sharpSince === null;
   }
 
   /** A world point on the screen; with `moon`, hidden where the Moon stands between it and the camera. */

@@ -16,7 +16,7 @@ import { skyLabel } from '@/lib/viz/stand';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 
 /** The renderer as the arrival drives it; a stub in tests. */
-export type ArrivalRenderer = Pick<StandRenderer, 'setTime' | 'setPose' | 'setScene' | 'setGuides' | 'resize' | 'render' | 'project' | 'labels' | 'dispose'> & {
+export type ArrivalRenderer = Pick<StandRenderer, 'setTime' | 'setPose' | 'setScene' | 'setGuides' | 'resize' | 'render' | 'project' | 'labels' | 'dispose' | 'resting'> & {
   ready?: Promise<void>;
   onLost?: (why: string) => void;
   onSharp?: () => void;
@@ -178,12 +178,15 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       fail('The graphics context was lost');
     };
     el.addEventListener('webglcontextlost', lost);
-    // Stills and the recorded walk: the page sets the flight's progress and waits for a sharp frame.
+    // Stills and the recorded walk: the page sets the flight's progress and waits for a sharp frame: the next
+    // frame drawn that rests where it was asked, or the renderer's sharp frame once it comes to rest there.
     let sharp: (() => void) | null = null;
-    r.onSharp = () => {
-      sharp?.();
+    const settle = () => {
+      const s = sharp;
       sharp = null;
+      s?.();
     };
+    r.onSharp = settle;
     const hook = window as unknown as { __arrival?: { setProgress: (p: number) => void; sharp: () => Promise<void> } };
     if (capture) {
       hook.__arrival = {
@@ -197,6 +200,9 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       };
     }
     let keys: Key[] = [], input: PathInput | null = null, keyed: { scene: StandScene | null; aspect: number } = { scene: null, aspect: 0 };
+    // The words on the screen (marked data-words): a label that would fall on them waits until they move on.
+    let words: DOMRect[] = [];
+    const onWords = (b: DOMRect) => words.some((w) => b.left < w.right && b.right > w.left && b.top < w.bottom && b.bottom > w.top);
     const show = (k: Tag, at: { x: number; y: number; visible: boolean } | null) => {
       const n = tags.current[k];
       if (!n) return;
@@ -204,6 +210,7 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       if (!n.hidden && at) {
         n.style.left = `${at.x * 100}%`;
         n.style.top = `${at.y * 100}%`;
+        if (onWords(n.getBoundingClientRect())) n.hidden = true;
       }
     };
     const tick = () => {
@@ -222,10 +229,12 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       // The month's paths only once standing: in flight their faint bands would cross the Moon.
       r.setGuides(p > 3.8);
       r.render();
+      if (sharp && r.resting) settle();
       if (drawn && !live) {
         live = true;
         liveRef.current();
       }
+      words = [...document.querySelectorAll('[data-words]')].map((w) => w.getBoundingClientRect()).filter((b) => b.width > 0 && b.height > 0);
       show('earth', p < 0.85 ? r.project(input!.earth, true) : null);
       show('pole', p < 2.6 ? r.project(polePoint(input!), true) : null);
       show('site', p > 1.6 && p < 3.8 ? r.project([0, input!.groundAt(0, 0), 0], true) : null);

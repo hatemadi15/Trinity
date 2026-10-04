@@ -33,9 +33,11 @@ export interface PathInput {
  * with Earth beyond its south pole; the pole from 900 km; the cap from 90 km up, 150 km back, lit from the
  * side; the ridge from 2 km up, 5 km back; then the eye. Metres and degrees.
  */
-export const FLIGHT = { wholeDist: 9.0e6, wholeTilt: 14, poleAlt: 9.0e5, poleFov: 40, capBack: 1.5e5, capAlt: 9.0e4, capFov: 50, ridgeBack: 5000, ridgeClear: 2000, ridgeFov: 45, wideShift: 0.17, tallShift: -0.14 } as const;
+export const FLIGHT = { wholeDist: 9.0e6, wholeTilt: 14, poleAlt: 9.0e5, poleFov: 40, capBack: 1.5e5, capAlt: 9.0e4, capFov: 50, ridgeBack: 5000, ridgeClear: 2000, ridgeFov: 45, wideShift: 0.17, tallShift: -0.22 } as const;
 
 const V = (v: Vec3) => new THREE.Vector3(v[0], v[1], v[2]);
+/** On a wide screen what a beat is about stands right of the middle, clear of the words at the left; on a phone, in the middle. */
+const aside = (i: PathInput): [number, number] => (i.aspect >= 1 ? [FLIGHT.wideShift, 0] : [0, 0]);
 const tallFov = (fov: number, aspect: number) => (aspect >= 1 ? fov : Math.min(80, (2 * Math.atan(Math.tan((fov * DEG) / 2) / Math.max(aspect, 0.45))) / DEG));
 
 export const moonCentre = (siteHeightM: number) => new THREE.Vector3(0, -(R_MOON_M + siteHeightM), 0);
@@ -65,13 +67,17 @@ function wholeMoon(i: PathInput): Key {
   const up = toE.clone().addScaledVector(look, -toE.dot(look)).normalize(); // Earth towards the top
   const tall = i.aspect < 1;
   const fov = Math.max((span / DEG) * 1.25, tall ? (2 * Math.atan(Math.tan(rho * 1.2) / i.aspect)) / DEG : 0);
-  return { position: from, target: from.clone().addScaledVector(look, FLIGHT.wholeDist), up, fov, shift: tall ? [0, FLIGHT.tallShift] : [FLIGHT.wideShift, 0] };
+  // On a wide screen the Moon sits right of the middle, clear of the words, as far as the view's width allows:
+  // in a view barely wider than tall the shift gives way, so the whole disc stays in view.
+  const half = (Math.tan(rho) * 1.04) / (i.aspect * Math.tan((fov * DEG) / 2));
+  const wide = Math.max(0, Math.min(FLIGHT.wideShift, (0.96 - half) / 2));
+  return { position: from, target: from.clone().addScaledVector(look, FLIGHT.wholeDist), up, fov, shift: tall ? [0, FLIGHT.tallShift] : [wide, 0] };
 }
 
 /** Straight down on the south pole, the near side (Earth's way) at the top. */
 function abovePole(i: PathInput): Key {
   const C = moonCentre(i.siteHeightM), south = southOf(i), toEarth = V(i.earth).sub(C).normalize();
-  return { position: C.clone().addScaledVector(south, R_MOON_M + FLIGHT.poleAlt), target: V(polePoint(i)), up: toEarth.addScaledVector(south, -toEarth.dot(south)).normalize(), fov: tallFov(FLIGHT.poleFov, i.aspect), shift: [0, 0] };
+  return { position: C.clone().addScaledVector(south, R_MOON_M + FLIGHT.poleAlt), target: V(polePoint(i)), up: toEarth.addScaledVector(south, -toEarth.dot(south)).normalize(), fov: tallFov(FLIGHT.poleFov, i.aspect), shift: aside(i) };
 }
 
 /** Square to the Sun along the ground, on the side away from the pole: the camera looks past the site at it. */
@@ -84,13 +90,13 @@ function capSide(i: PathInput): THREE.Vector3 {
 
 function overCap(i: PathInput, side: THREE.Vector3): Key {
   const from = side.clone().multiplyScalar(FLIGHT.capBack).setY(FLIGHT.capAlt);
-  return { position: from, target: V(polePoint(i)).lerp(new THREE.Vector3(0, i.groundAt(0, 0), 0), 0.5), up: new THREE.Vector3(0, 1, 0), fov: tallFov(FLIGHT.capFov, i.aspect), shift: [0, 0] };
+  return { position: from, target: V(polePoint(i)).lerp(new THREE.Vector3(0, i.groundAt(0, 0), 0), 0.5), up: new THREE.Vector3(0, 1, 0), fov: tallFov(FLIGHT.capFov, i.aspect), shift: aside(i) };
 }
 
 function overRidge(i: PathInput, side: THREE.Vector3): Key {
   const from = side.clone().multiplyScalar(FLIGHT.ridgeBack);
   from.y = i.groundAt(from.x, from.z) + FLIGHT.ridgeClear;
-  return { position: from, target: new THREE.Vector3(0, i.groundAt(0, 0), 0), up: new THREE.Vector3(0, 1, 0), fov: tallFov(FLIGHT.ridgeFov, i.aspect), shift: [0, 0] };
+  return { position: from, target: new THREE.Vector3(0, i.groundAt(0, 0), 0), up: new THREE.Vector3(0, 1, 0), fov: tallFov(FLIGHT.ridgeFov, i.aspect), shift: aside(i) };
 }
 
 function standing(i: PathInput): Key {

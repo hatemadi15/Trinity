@@ -42,8 +42,9 @@ describe('the flight', () => {
   it('looks straight down on the pole for the month’s sweep, 900 km up', () => {
     const i = input(), keys = flightKeys(i);
     for (const p of [1, 1.25, 1.5]) {
+      // Aimed straight at it; the picture stands aside by the shift that keeps it clear of the words.
       const pose = poseAt(keys, p, i), s = viewOf(pose, i.aspect)(polePoint(i));
-      expect(Math.hypot(s.x, s.y)).toBeLessThan(0.02);
+      expect(Math.hypot(s.x - 2 * pose.shift[0], s.y - 2 * pose.shift[1])).toBeLessThan(0.02);
       expect(new THREE.Vector3(...pose.position).distanceTo(moonCentre(i.siteHeightM)) - R_MOON_M).toBeCloseTo(9.0e5, -3);
     }
   });
@@ -61,7 +62,7 @@ describe('the flight', () => {
   it('comes down over the ridge, 2 km above the ground, the site in the middle, and ends on the stand view’s opening', () => {
     const i = input(), keys = flightKeys(i);
     const ridge = poseAt(keys, 3, i), s = viewOf(ridge, i.aspect)([0, 0, 0]);
-    expect(Math.hypot(s.x, s.y)).toBeLessThan(0.1);
+    expect(Math.hypot(s.x - 2 * ridge.shift[0], s.y - 2 * ridge.shift[1])).toBeLessThan(0.1);
     expect(ridge.position[1] - i.groundAt(ridge.position[0], ridge.position[2])).toBeCloseTo(2000, 0);
     const end = poseAt(keys, 4, i);
     expect(end.position).toEqual([0, 2, 0]);
@@ -108,6 +109,36 @@ describe('the flight', () => {
     const see = viewOf(p, i.aspect), C = moonCentre(i.siteHeightM);
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(new THREE.Quaternion(...p.quaternion));
     for (const k of [-1, 1]) expect(inView(see(C.clone().addScaledVector(right, k * R_MOON_M)), 1)).toBe(true);
+  });
+
+  it('keeps what each beat is about right of the middle on a wide screen, clear of the words at the left, and not aside on a phone', () => {
+    const site: Vec3 = [0, 0, 0];
+    for (const [p, subject] of [[1, 'pole'], [1.25, 'pole'], [2, 'site'], [3, 'site']] as const) {
+      for (const aspect of [1.6, 390 / 844]) {
+        const i = input(aspect), at = subject === 'pole' ? polePoint(i) : site, pose = poseAt(flightKeys(i), p, i), s = viewOf(pose, aspect)(at);
+        expect(inView(s)).toBe(true);
+        if (aspect > 1) expect(s.x).toBeGreaterThan(0.25);
+        else expect(pose.shift[0]).toBe(0);
+      }
+    }
+  });
+
+  it('on a phone opens with the Moon low in the view and Earth over its pole, so the words above it stay clear', () => {
+    const i = input(390 / 844), keys = flightKeys(i), p = poseAt(keys, 0, i), see = viewOf(p, i.aspect);
+    const C = moonCentre(i.siteHeightM), up = new THREE.Vector3(0, 1, 0).applyQuaternion(new THREE.Quaternion(...p.quaternion));
+    expect(see(C.clone().addScaledVector(up, R_MOON_M)).y).toBeLessThan(0); // its top below the middle
+    expect(inView(see(i.earth), 1)).toBe(true);
+  });
+
+  it('keeps the whole Moon in a view barely wider than tall: the shift for the words gives way first', () => {
+    for (const aspect of [1, 1.03, 1.2, 1.6, 2.4]) {
+      const i = input(aspect), keys = flightKeys(i), p = poseAt(keys, 0, i);
+      const see = viewOf(p, i.aspect), C = moonCentre(i.siteHeightM);
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(new THREE.Quaternion(...p.quaternion));
+      for (const k of [-1, 1]) expect(inView(see(C.clone().addScaledVector(right, k * R_MOON_M)), 0.97)).toBe(true);
+      // Still to the right of the middle, clear of the words, where there is room.
+      if (aspect >= 1.6) expect(see(C).x).toBeGreaterThan(0.25);
+    }
   });
 
   it('sweeps one synodic month while it holds over the pole, and none with reduced motion', () => {

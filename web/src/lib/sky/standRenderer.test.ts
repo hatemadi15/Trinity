@@ -647,6 +647,13 @@ describe('the stand scene in flight', () => {
     s.setView(300, 2, 60, 1.6);
     expect((coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value).toBe(125000);
     expect(s.parts.ring!.visible).toBe(true);
+    // The skyline is the eye's own horizon: 60 m up, the near crests already drop below it, so it waits for the last metres.
+    s.setPose(at([0, 60, 0]), 1.6);
+    expect((coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value).toBe(200000);
+    expect(s.parts.ring!.visible).toBe(false);
+    s.setPose(at([0, 5, 0]), 1.6);
+    expect((coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value).toBe(125000);
+    expect(s.parts.ring!.visible).toBe(true);
   });
 
   it('draws the sky and the globe alone before the ground has loaded: no ground, skyline, rocks or lander', () => {

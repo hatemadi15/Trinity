@@ -77,6 +77,15 @@ describe('the arrival', () => {
     expect(screen.getByRole('link', { name: 'Explore a landing site' }).getAttribute('href')).toBe('/sites');
   });
 
+  it('hands the answer the focus when the flight it plays reaches the site, as Skip does', () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'setTimeout'] });
+    render(<Arrival words={words} Stage={Stage} />);
+    scrolled(0);
+    fireEvent.click(screen.getByRole('link', { name: 'Explore a landing site' }));
+    act(() => vi.advanceTimersByTime(16000));
+    expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: words.answer }));
+  });
+
   it('with reduced motion lands at once and holds the flight on the beats', () => {
     // jsdom has no matchMedia: this one says the system asks for reduced motion.
     window.matchMedia = vi.fn(() => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;

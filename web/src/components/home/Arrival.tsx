@@ -82,8 +82,11 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
     const tick = (now: number) => {
       const p = playProgress(from + (now - t0) / 1000);
       goTo(scrollFromProgress(p));
-      if (p >= 4) setPlaying(false);
-      else raf = requestAnimationFrame(tick);
+      if (p >= 4) {
+        // At the site: the answer takes the focus, as with Skip, so a screen reader reads it next.
+        setPlaying(false);
+        standing.current?.focus({ preventScroll: true });
+      } else raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     const stop = () => setPlaying(false);
@@ -140,15 +143,16 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
       )}
       <div className="relative z-10 -mt-[100svh]" hidden={bare}>
         <div data-beat="0" className="flex h-[100svh] flex-col justify-between pb-8 pt-8 sm:pt-12">
-          <div className="wrap w-full">
-            <h1 id="h-hero" className="display max-w-[760px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[72px]">
+          {/* On a phone the words stand over the Moon: a shade behind them keeps them easy to read. */}
+          <div className="wrap w-full max-sm:bg-linear-to-b max-sm:from-black/85 max-sm:from-60% max-sm:to-transparent max-sm:pb-16">
+            <h1 id="h-hero" data-words="" className="display max-w-[760px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[72px]">
               See when a Moon lander has sunlight and a signal.
             </h1>
-            <p className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
+            <p data-words="" className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
               At the Moon&apos;s south pole the Sun and Earth never climb high. They skim the horizon, and one hill can hide them for weeks. Pick a landing site and a date:
               Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and how long a solar lander keeps power there.
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div data-words="" className="mt-7 flex w-fit flex-wrap gap-3">
               <Link href="/sites" onClick={start} className="btn btn-primary h-[52px] px-[22px] text-[17px]">
                 Explore a landing site
               </Link>
@@ -156,20 +160,23 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
                 See how it works
               </a>
             </div>
-            <p className="mt-3 text-base text-[#c6c5c0]">For mission planners, educators and anyone curious.</p>
+            <p data-words="" className="mt-3 w-fit text-base text-[#c6c5c0]">For mission planners, educators and anyone curious.</p>
           </div>
-          <p className="wrap w-full text-[15px] text-[#c6c5c0]">Scroll to fly down to the Moon&apos;s south pole.</p>
+          <div className="wrap w-full">
+            <p data-words="" className="w-fit text-[15px] text-[#c6c5c0]">Scroll to fly down to the Moon&apos;s south pole.</p>
+          </div>
         </div>
         {words.beats.map((text, k) => (
           <div key={text} data-beat={k + 1} className="flex h-[100svh] items-end pb-24 sm:items-center sm:pb-0">
             <div className="wrap w-full">
-              <p className={`${PLATE} ${SENTENCE} max-w-[600px] p-5 sm:p-6`}>{text}</p>
+              <p data-words="" className={`${PLATE} ${SENTENCE} max-w-[600px] p-5 sm:p-6`}>{text}</p>
             </div>
           </div>
         ))}
-        <div data-beat="4" className="flex h-[100svh] items-end pb-12 sm:items-center sm:pb-0">
-          <div className="wrap w-full">
-            <div className={`${PLATE} max-w-[600px] p-5 sm:p-6`}>
+        <div data-beat="4" className="flex h-[100svh] items-start pt-4 sm:items-center sm:pt-0">
+          {/* Where the stand view keeps its card (at the top on a phone), so the lander stands clear of it, as there. */}
+          <div className="w-full px-4">
+            <div data-words="" className={`${PLATE} max-w-[560px] p-5 sm:p-6`}>
               <p className="text-[15px] text-[#c6c5c0]">{words.siteLine}</p>
               <h2 ref={standing} tabIndex={-1} className="display mt-2 text-pretty text-[24px] leading-tight focus:outline-none sm:text-[30px]">
                 {words.answer}

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { StandScene } from '@/lib/sky/standRenderer';
 import ArrivalCanvas, { type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
@@ -22,6 +22,8 @@ function stub() {
     labels: vi.fn(() => ({ sun: { x: 0.5, y: 0.5, visible: true } })),
     dispose: vi.fn(),
     ready: Promise.resolve(),
+    resting: false,
+    onSharp: undefined as (() => void) | undefined,
   };
   return { r: r as unknown as ArrivalRenderer & typeof r, scenes };
 }
@@ -84,6 +86,53 @@ describe('the arrival’s live stage', () => {
     await waitFor(() => expect(r.setGuides).toHaveBeenCalledWith(false));
     progress.current = 4;
     await waitFor(() => expect((r.setGuides as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBe(true));
+  });
+
+  it('tells a capture when the frame at the asked progress is sharp: at once if it already rests there, else when it comes to rest', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const progress = { current: 0 };
+    render(<ArrivalCanvas progress={progress} reduced={false} capture onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    const hook = () => (window as unknown as { __arrival: { setProgress: (p: number) => void; sharp: () => Promise<void> } }).__arrival;
+    await waitFor(() => expect(hook()).toBeDefined());
+    await waitFor(() => expect(r.setPose).toHaveBeenCalled());
+    // Moving to a new progress: the answer waits for the renderer's sharp frame there.
+    hook().setProgress(2);
+    let done = false;
+    void hook().sharp().then(() => (done = true));
+    await new Promise((res) => setTimeout(res, 50));
+    expect(done).toBe(false);
+    r.onSharp!();
+    await waitFor(() => expect(done).toBe(true));
+    // Asked again at the same progress, with the view at rest there: the next frame answers.
+    r.resting = true;
+    hook().setProgress(2);
+    await expect(Promise.race([hook().sharp().then(() => 'sharp'), new Promise((res) => setTimeout(() => res('still waiting'), 1000))])).resolves.toBe('sharp');
+  });
+
+  it('hides a label where it would fall on the words, and shows it again once they have moved on', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const words = document.createElement('p');
+    words.setAttribute('data-words', '');
+    document.body.appendChild(words);
+    let wordsAt = { left: 0, top: 0, right: 400, bottom: 400 };
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const b = this.hasAttribute('data-words') ? wordsAt : { left: 100, top: 100, right: 160, bottom: 124 };
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const earth = await screen.findByText('Earth');
+      await waitFor(() => expect(r.setPose).toHaveBeenCalled());
+      await new Promise((res) => setTimeout(res, 50));
+      expect(earth.hidden).toBe(true);
+      wordsAt = { left: 0, top: -400, right: 400, bottom: -10 }; // scrolled past
+      await waitFor(() => expect(earth.hidden).toBe(false));
+    } finally {
+      rect.mockRestore();
+      words.remove();
+    }
   });
 
   it('gives way to the stills when the Moon’s files do not load, and lets the renderer go when it leaves', async () => {
