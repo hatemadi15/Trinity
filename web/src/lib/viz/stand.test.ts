@@ -88,8 +88,8 @@ describe('the stand view’s words', () => {
     const powered = Uint8Array.from([...new Array(76).fill(1), ...new Array(390).fill(0), ...new Array(254).fill(1)]);
     const p = { powered, firstBrownoutHour: 76 } as unknown as PowerResult;
     expect(landerState(p, '2027-01-01T00:00:00', 10)).toEqual({ on: true, text: 'The lander has power.' });
-    expect(landerState(p, '2027-01-01T00:00:00', 100)).toEqual({ on: false, text: 'The lander is off: its battery ran out on 4 January. Power comes back on 20 January.' });
-    expect(landerState(p, '2027-01-01T00:00:00', 500)).toEqual({ on: true, text: 'The lander has power again since 20 January.' });
+    expect(landerState(p, '2027-01-01T00:00:00', 100)).toEqual({ on: false, text: 'The lander is off: its battery ran out on 4 January. Power comes back on 20 January, if the lander survives 16 days 6 hours without power.' });
+    expect(landerState(p, '2027-01-01T00:00:00', 500)).toEqual({ on: true, text: 'The lander has power again since 20 January, if it survived 16 days 6 hours without power.' });
     const never = { powered: Uint8Array.from([1, 1, 0, 0]), firstBrownoutHour: 2 } as unknown as PowerResult;
     expect(landerState(never, '2027-01-01T00:00:00', 3).text).toBe('The lander is off: its battery ran out on 1 January. Power does not come back in this period.');
   });
@@ -138,9 +138,9 @@ describe('the stand view’s words', () => {
   it('dates the power cut the hour is in, when the period holds more than one', () => {
     const powered = Uint8Array.from([...new Array(48).fill(1), ...new Array(48).fill(0), ...new Array(96).fill(1), ...new Array(48).fill(0), ...new Array(48).fill(1)]);
     const p = { powered, firstBrownoutHour: 48 } as unknown as PowerResult;
-    expect(landerState(p, '2027-01-01T00:00:00', 150).text).toBe('The lander has power again since 5 January.');
-    expect(landerState(p, '2027-01-01T00:00:00', 200)).toEqual({ on: false, text: 'The lander is off: its battery ran out on 9 January. Power comes back on 11 January.' });
-    expect(landerState(p, '2027-01-01T00:00:00', 260).text).toBe('The lander has power again since 11 January.');
+    expect(landerState(p, '2027-01-01T00:00:00', 150).text).toBe('The lander has power again since 5 January, if it survived 2 days without power.');
+    expect(landerState(p, '2027-01-01T00:00:00', 200)).toEqual({ on: false, text: 'The lander is off: its battery ran out on 9 January. Power comes back on 11 January, if the lander survives 2 days without power.' });
+    expect(landerState(p, '2027-01-01T00:00:00', 260).text).toBe('The lander has power again since 11 January, if it survived 2 days without power.');
   });
 });
 
@@ -166,8 +166,8 @@ describe('the lander’s power and radio in one sentence', () => {
     expect(statusLine(s, p, start, 30)).toEqual({ on: true, tone: 'power', text: 'The lander has power, but Earth is behind the hills, so it cannot radio home.' });
   });
   it('says since when the lander has had power again after a power cut', () => {
-    expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'The lander has power again since 20 January, and can radio Earth.' });
-    expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'The lander has power again since 20 January, but Earth is below the horizon, so it cannot radio home.' });
+    expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'The lander has power again since 20 January, if it survived 16 days 6 hours without power, and can radio Earth.' });
+    expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'The lander has power again since 20 January, if it survived 16 days 6 hours without power, but Earth is below the horizon, so it cannot radio home.' });
   });
   it('does not promise radio contact while the lander is off, even with Earth in view', () => {
     expect(statusLine(s, p, start, 100)).toEqual({ on: false, tone: 'off', text: 'The lander is off: its battery ran out on 4 January. Earth is in view, but the radio has no power.' });

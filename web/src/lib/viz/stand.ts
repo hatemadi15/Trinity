@@ -523,19 +523,25 @@ export function betterLabel(dayLong: string, poweredHours: number, radioHours: n
 }
 
 /**
- * The words for the hour's own stretch with or without power. With power: "The lander has power", or "The
- * lander has power again since 20 January" after a cut. Without: "The lander is off: its battery ran out on
- * 4 January." and when the power comes back, if it does in the period (`returns`).
+ * The words for the hour's own stretch with or without power. With power: "The lander has power", or after a cut
+ * "The lander has power again since 20 January, if it survived 15 days 12 hours without power". Without: "The
+ * lander is off: its battery ran out on 4 January." and when the power comes back, if it does in the period
+ * (`returns`), with the same condition. The forecast counts energy only: surviving the cold without power is the
+ * hard part, and no line says the lander simply restarts.
  */
 function stretchWords(p: PowerResult, startUtc: string, hour: number): { on: true; has: string; again: boolean } | { on: false; off: string; back: string; returns: boolean } {
   const from = stretchStart(p.powered, hour);
-  if (p.powered[hour] === 1) return { on: true, has: from === 0 ? 'The lander has power' : `The lander has power again since ${dateLong(startUtc, from)}`, again: from > 0 };
+  if (p.powered[hour] === 1) {
+    if (from === 0) return { on: true, has: 'The lander has power', again: false };
+    const off = from - stretchStart(p.powered, from - 1);
+    return { on: true, has: `The lander has power again since ${dateLong(startUtc, from)}, if it survived ${spanWords(off)} without power`, again: true };
+  }
   const end = stretchEnd(p.powered, hour);
   const returns = end < p.powered.length;
   return {
     on: false,
     off: `The lander is off: its battery ran out on ${dateLong(startUtc, from)}.`,
-    back: returns ? `Power comes back on ${dateLong(startUtc, end)}.` : 'Power does not come back in this period.',
+    back: returns ? `Power comes back on ${dateLong(startUtc, end)}, if the lander survives ${spanWords(end - from)} without power.` : 'Power does not come back in this period.',
     returns,
   };
 }
