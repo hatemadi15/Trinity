@@ -14,7 +14,7 @@ import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
 import { HERO_HOUR, hero, type Hero } from '@/lib/viz/arrival';
 import { dateLong } from '@/lib/viz/format';
 import { keyMoments, skyLabel } from '@/lib/viz/stand';
-import { openingYaw, standLander } from '@/lib/viz/standOpening';
+import { standLander } from '@/lib/viz/standOpening';
 
 /** The renderer as the arrival drives it; a stub in tests. */
 export type ArrivalRenderer = Pick<StandRenderer, 'setTime' | 'setPose' | 'setScene' | 'setGuides' | 'resize' | 'render' | 'project' | 'labels' | 'dispose' | 'resting'> & {
@@ -83,23 +83,25 @@ export function arrivalScene(h: Hero, sky: SkyAssets, globe: GlobeAssets, levels
   };
 }
 
-/** The flight's input for a scene and a view's shape: the Sun and Earth at the arrival's hour. */
+/**
+ * The flight's input for a scene and a view's shape: the Sun and Earth at the arrival's hour, and the lander the
+ * flight lands beside (where the stand view puts it; its place stands even before the ground comes to draw it).
+ */
 export function pathInput(h: Hero, scene: StandScene, aspect: number): PathInput {
-  const s = h.series, t = HERO_HOUR, eye = eyeAt(scene), e = dirAzEl(s.earthAz[t], s.earthEl[t]), m = h.earthKm[t] * 1000, tall = aspect < 1;
-  const stand = { yaw: openingYaw(s, t, tall, !!scene.lander), pitch: 2, fov: tall ? 80 : 60 };
-  // After landing the month runs on at the site: the eye follows its story (siteTrack).
-  const moments = keyMoments(s, h.power, h.startUtc), lander = standLander(s, h.power, tall);
-  const track = siteTrack({ series: s, moments, landerAzDeg: lander ? lander.azDeg : stand.yaw, open: stand, aspect, startHour: t, endHour: siteEndHour(moments, s.hours) });
+  const s = h.series, t = HERO_HOUR, eye = eyeAt(scene), e = dirAzEl(s.earthAz[t], s.earthEl[t]), m = h.earthKm[t] * 1000;
+  const lander = scene.lander ?? standLander(s, h.power, aspect < 1), a = lander.azDeg * (Math.PI / 180);
+  // After landing the month runs on at the site, the camera beside the lander following its story (siteTrack).
+  const moments = keyMoments(s, h.power, h.startUtc);
+  const track = siteTrack({ series: s, moments, aspect, startHour: t, endHour: siteEndHour(moments, s.hours) });
   return {
     basis: enuBasis(h.site.lat, h.site.lon),
     siteHeightM: h.siteHeightM,
-    eyeY: eye,
-    stand,
     track,
     sun: dirAzEl(s.sunAz[t], s.sunEl[t]),
     earth: [e[0] * m, eye + e[1] * m, e[2] * m],
     groundAt: (x, z) => meshHeightAt(scene.field, x, z),
     aspect,
+    lander: { x: lander.distM * Math.sin(a), z: -lander.distM * Math.cos(a) },
   };
 }
 

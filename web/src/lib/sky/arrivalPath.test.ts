@@ -2,18 +2,34 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { R_MOON_M } from '@/lib/engine/constants';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
-import { aimAt, flightKeys, moonCentre, polePoint, poseAt, siteEndHour, siteTrack, type PathInput, type Pose } from './arrivalPath';
+import { aimAt, BESIDE, flightKeys, moonCentre, polePoint, poseAt, siteEndHour, siteTrack, type PathInput, type Pose } from './arrivalPath';
 import { HERO_HOUR, hero } from '@/lib/viz/arrival';
 import { keyMoments } from '@/lib/viz/stand';
-import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { BEAT_STOPS, hourAt, PLAY, playProgress, playSeconds, progressFromScroll, scrollFromProgress, STOPS } from './arrivalTiming';
 
 const level = (x: number, z: number) => -(x * x + z * z) / (2 * R_MOON_M);
 const e = dirAzEl(71.09, -5.95), km = 393550e3;
+/** The lander 16 m from the site, 40 degrees left of the Sun at the period's start (20 on a phone), as standLander puts it. */
+const landerAt = (aspect: number) => {
+  const a = ((aspect < 1 ? 307.4 : 287.4) * Math.PI) / 180;
+  return { x: 16 * Math.sin(a), z: -16 * Math.cos(a) };
+};
 const input = (aspect = 1.6, groundAt = level): PathInput => ({
-  basis: enuBasis(-88.28, -64.31), siteHeightM: 190.33, eyeY: 2, stand: { yaw: 287.3, pitch: 2, fov: aspect < 1 ? 80 : 60 },
-  sun: dirAzEl(322.33, 2.37), earth: [e[0] * km, 2 + e[1] * km, e[2] * km], groundAt, aspect,
+  basis: enuBasis(-88.28, -64.31), siteHeightM: 190.33, sun: dirAzEl(322.33, 2.37), earth: [e[0] * km, 2 + e[1] * km, e[2] * km], groundAt, aspect, lander: landerAt(aspect),
 });
+/** The lander's middle and top (1.6 m and 3.4 m over the ground under it). */
+const landerParts = (i: PathInput) => {
+  const g = i.groundAt(i.lander.x, i.lander.z);
+  return { mid: new THREE.Vector3(i.lander.x, g + 1.6, i.lander.z), top: new THREE.Vector3(i.lander.x, g + 3.4, i.lander.z) };
+};
+/** A direction's point far out from a pose's camera. */
+const far = (pose: Pose, d: Vec3) => new THREE.Vector3(...pose.position).addScaledVector(new THREE.Vector3(...d), 1e5);
+/** The hero month's track for a view's shape, and the flight's input with it. */
+const heroTrack = (aspect: number) => {
+  const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), last = siteEndHour(moments, h.series.hours);
+  const track = siteTrack({ series: h.series, moments, aspect, startHour: HERO_HOUR, endHour: last });
+  return { h, moments, last, track, i: { ...input(aspect), sun: dirAzEl(h.series.sunAz[HERO_HOUR], h.series.sunEl[HERO_HOUR]), track } as PathInput };
+};
 /** Where a world point falls in a pose's view: x and y from -1 to 1 across it, and whether it is in front. */
 function viewOf(p: Pose, aspect: number) {
   const c = new THREE.PerspectiveCamera(p.fov, aspect, 1, 1e10);
@@ -42,7 +58,7 @@ describe('the flight', () => {
     expect(inView(see(pole))).toBe(true);
   });
 
-  it('looks straight down on the pole for the month’s sweep, 900 km up', () => {
+  it('holds straight over the pole, 900 km up, while its words are read', () => {
     const i = input(), keys = flightKeys(i);
     for (const p of [1, 1.25, 1.5]) {
       // Aimed straight at it; the picture stands aside by the shift that keeps it clear of the words.
@@ -62,16 +78,29 @@ describe('the flight', () => {
     expect(pose.position[1]).toBeCloseTo(9.0e4, -3);
   });
 
-  it('comes down over the ridge, 2 km above the ground, the site in the middle, and ends on the stand view’s opening', () => {
+  it('comes down over the ridge, 2 km above the ground, the site in the middle, and lands beside the lander: it stands in the foreground under the Sun', () => {
     const i = input(), keys = flightKeys(i);
     const ridge = poseAt(keys, 3, i), s = viewOf(ridge, i.aspect)([0, 0, 0]);
     expect(Math.hypot(s.x - 2 * ridge.shift[0], s.y - 2 * ridge.shift[1])).toBeLessThan(0.1);
     expect(ridge.position[1] - i.groundAt(ridge.position[0], ridge.position[2])).toBeCloseTo(2000, 0);
-    const end = poseAt(keys, 4, i);
-    expect(end.position).toEqual([0, 2, 0]);
-    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(...end.quaternion));
-    expect(fwd.angleTo(new THREE.Vector3(...dirAzEl(287.3, 2)))).toBeLessThan(1e-6);
-    expect(end.fov).toBe(60);
+    for (const aspect of [1.6, 390 / 844]) {
+      const j = input(aspect), end = poseAt(flightKeys(j), 4, j), see = viewOf(end, aspect), { mid, top } = landerParts(j);
+      const cam = new THREE.Vector3(...end.position), lander = see(mid), sun = see(far(end, j.sun));
+      // A few metres up, a dozen or so from the lander, its middle in the lower half of the view.
+      expect(cam.distanceTo(mid)).toBeLessThan(20);
+      expect(cam.y - j.groundAt(cam.x, cam.z)).toBeGreaterThan(1.5);
+      expect(inView(lander)).toBe(true);
+      expect(lander.y).toBeLessThan(-0.1);
+      // The Sun in view, over the lander's top: the lander covers none of the sky the story is told in.
+      expect(inView(sun)).toBe(true);
+      expect(sun.y).toBeGreaterThan(see(top).y);
+      expect(end.fov).toBe(aspect < 1 ? BESIDE.tall.fov : BESIDE.wide.fov);
+      // On a wide screen right of the middle, clear of the words at the left, the Sun further right.
+      if (aspect > 1) {
+        expect(lander.x).toBeGreaterThan(0.1);
+        expect(sun.x).toBeGreaterThan(lander.x + 0.2);
+      }
+    }
   });
 
   it('moves smoothly both ways: the ground never rushes past (each step a small share of the height), and the stops are the keys', () => {
@@ -99,14 +128,14 @@ describe('the flight', () => {
     }
   });
 
-  it('on a phone ends with the picture moved down, so the Sun shows under the answer’s card at the top', () => {
-    // A phone opens 15 degrees left of the Sun (standOpening), not 35 as on a wide screen.
-    const i = { ...input(390 / 844), stand: { yaw: 322.33 - 15, pitch: 2, fov: 80 } }, pose = poseAt(flightKeys(i), 4, i), see = viewOf(pose, i.aspect);
-    const sun = see(new THREE.Vector3(0, i.eyeY, 0).addScaledVector(new THREE.Vector3(...i.sun), 1e5));
-    expect(inView(sun)).toBe(true);
-    expect(sun.y).toBeLessThan(-0.1);
-    // On a wide screen the card stands at the left, and the frame is the stand view's own.
-    expect(poseAt(flightKeys(input()), 4, input()).shift).toEqual([0, 0]);
+  it('ends with the lander clear of the answer’s card: low in the view on a phone (the card at the top), below the card on a wide screen', () => {
+    for (const aspect of [1.6, 390 / 844]) {
+      const { i } = heroTrack(aspect), end = poseAt(flightKeys(i), 5, i), see = viewOf(end, aspect), { mid, top } = landerParts(i);
+      expect(inView(see(mid))).toBe(true);
+      // The card reaches about half way down: the lander's top stands under it.
+      expect(see(top).y).toBeLessThan(aspect < 1 ? -0.2 : -0.05);
+      expect(end.shift).toEqual([0, 0]);
+    }
   });
 
   it('pitches from over the pole down onto the cap without rolling the picture over', () => {
@@ -195,44 +224,60 @@ describe('the flight', () => {
     expect(hourAt(5, 10, true, 472)).toBe(472);
   });
 
-  it('at the site the view follows the month: the Sun as it goes behind the hills, the lander as its battery runs out, Earth as it comes into view, then the Sun back beside the lander', () => {
-    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), at = (...kinds: string[]) => moments.find((m) => kinds.includes(m.kind))!.hour;
+  it('at the site the camera keeps beside the lander all month, the lander in the foreground, while the Sun goes behind the hills, Earth comes into view and the Sun comes back', () => {
     for (const aspect of [1.6, 390 / 844]) {
-      const tall = aspect < 1, lander = standLander(h.series, h.power, tall)!, open = { yaw: openingYaw(h.series, HERO_HOUR, tall, true), pitch: 2, fov: tall ? 80 : 60 };
-      const hide = at('sunset', 'sunset-power-off'), out = at('battery-out', 'sunset-power-off'), rise = at('earth-in'), back = at('sun-back', 'sun-power-back'), last = siteEndHour(moments, h.series.hours);
+      const { h, moments, last, track, i } = heroTrack(aspect), keys = flightKeys(i), at = (...kinds: string[]) => moments.find((m) => kinds.includes(m.kind))!.hour;
+      const hide = at('sunset', 'sunset-power-off'), rise = at('earth-in'), back = at('sun-back', 'sun-power-back');
       expect(last).toBe(back + 120);
-      const track = siteTrack({ series: h.series, moments, landerAzDeg: lander.azDeg, open, aspect, startHour: HERO_HOUR, endHour: last });
-      // It starts where the landing left the view, and ends at the last hour.
-      expect(track[0]).toEqual({ hour: HERO_HOUR, ...open });
+      expect(track[0].hour).toBe(HERO_HOUR);
       expect(track.at(-1)!.hour).toBe(last);
-      const inView = (az: number, hour: number) => {
-        const a = aimAt(track, hour), half = (Math.atan(Math.tan((a.fov * Math.PI) / 360) * aspect) * 180) / Math.PI;
-        return Math.abs(((((az - a.yaw + 540) % 360) + 360) % 360) - 180) < half - 3;
+      const { mid, top } = landerParts(i);
+      const poseAtHour = (t: number) => poseAt(keys, 4 + (t - HERO_HOUR) / (last - HERO_HOUR), i);
+      const body = (t: number, which: 'sun' | 'earth') => {
+        const p = poseAtHour(t), k = Math.round(t), see = viewOf(p, aspect);
+        const d = which === 'sun' ? dirAzEl(h.series.sunAz[k], h.series.sunEl[k]) : dirAzEl(h.series.earthAz[k], h.series.earthEl[k]);
+        return { at: see(far(p, d)), top: see(top) };
       };
-      expect(inView(h.series.sunAz[hide], hide)).toBe(true); // the Sun going behind the hills
-      // The lander as its battery runs out; on a phone, whose view is narrow, soon after.
-      expect(inView(lander.azDeg, tall ? out + 48 : out)).toBe(true);
-      expect(inView(h.series.earthAz[rise], rise)).toBe(true);
-      expect(inView(h.series.sunAz[back], back + 3)).toBe(true);
-      expect(inView(lander.azDeg, last)).toBe(true); // and at the end the lander, lit and running again
-      // It turns smoothly: never more than two and a half degrees an hour.
-      for (let t = HERO_HOUR; t < last; t += 1) {
-        const d = Math.abs(((((aimAt(track, t + 1).yaw - aimAt(track, t).yaw + 540) % 360) + 360) % 360) - 180);
-        expect(d).toBeLessThan(2.5);
+      // The Sun as it goes behind the hills, Earth as it comes into view, the Sun as it comes back: each in view and
+      // over the lander's top.
+      for (const [t, which] of [[hide, 'sun'], [rise + 6, 'earth'], [back + 3, 'sun']] as const) {
+        const b = body(t, which);
+        expect(inView(b.at), `${which} at ${t}`).toBe(true);
+        expect(b.at.y).toBeGreaterThan(b.top.y);
       }
+      let before: Pose | null = null;
+      for (let t = HERO_HOUR; t <= last; t += 1) {
+        const p = poseAtHour(t), see = viewOf(p, aspect), cam = new THREE.Vector3(...p.position), m = see(mid);
+        // The lander always in view, in the lower half, a dozen or so metres off; the camera never in the ground.
+        expect(inView(m), `lander at ${t}`).toBe(true);
+        expect(m.y).toBeLessThan(0);
+        expect(cam.distanceTo(mid)).toBeLessThan(20);
+        expect(cam.y - i.groundAt(cam.x, cam.z)).toBeGreaterThan(1.5);
+        // Smooth: never more than two and a half degrees or a metre an hour.
+        if (before) {
+          expect(new THREE.Quaternion(...before.quaternion).angleTo(new THREE.Quaternion(...p.quaternion))).toBeLessThan((2.5 * Math.PI) / 180);
+          expect(new THREE.Vector3(...before.position).distanceTo(cam)).toBeLessThan(1);
+        }
+        before = p;
+      }
+      // On a wide screen, while the words stand at the left (the screens of the month's start and middle), the lander
+      // stands right of the middle.
+      if (aspect > 1) for (const t of [HERO_HOUR, hourAt(4.5, HERO_HOUR, false, last)]) expect(viewOf(poseAtHour(t), aspect)(mid).x).toBeGreaterThan(0.1);
     }
   });
 
-  it('stands at the eye through the month at the site, looking where the track says, and starts on the stand view’s opening', () => {
-    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), last = siteEndHour(moments, h.series.hours);
-    const track = siteTrack({ series: h.series, moments, landerAzDeg: 250, open: { yaw: 287.3, pitch: 2, fov: 60 }, aspect: 1.6, startHour: HERO_HOUR, endHour: last });
-    const i = { ...input(), track }, keys = flightKeys(i);
+  it('through the month looks where the track says, the lander where the aim puts it, and starts where the landing left the view', () => {
+    const { last, track, i } = heroTrack(1.6), keys = flightKeys(i);
     expect(poseAt(keys, 4, i).quaternion).toEqual(poseAt(keys, 4 + 1e-9, i).quaternion.map((x) => expect.closeTo(x, 6)));
-    const mid = poseAt(keys, 4.5, i);
-    expect(mid.position).toEqual([0, 2, 0]);
+    expect(poseAt(keys, 4, i).position).toEqual(poseAt(keys, 4 + 1e-9, i).position.map((x) => expect.closeTo(x, 4)));
+    const mid = poseAt(keys, 4.5, i), a = aimAt(track, hourAt(4.5, track[0].hour, false, last));
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(new THREE.Quaternion(...mid.quaternion));
-    const a = aimAt(track, hourAt(4.5, track[0].hour, false, last));
     expect(fwd.angleTo(new THREE.Vector3(...dirAzEl(a.yaw, a.pitch)))).toBeLessThan(1e-6);
     expect(mid.fov).toBeCloseTo(a.fov, 9);
+    // The lander's middle at the aim's bearing from the camera, plus its place right of the middle, and below level.
+    const to = landerParts(i).mid.sub(new THREE.Vector3(...mid.position));
+    const bearing = ((Math.atan2(to.x, -to.z) * 180) / Math.PI + 360) % 360;
+    expect(Math.abs(((((bearing - (a.yaw + a.right) + 540) % 360) + 360) % 360) - 180)).toBeLessThan(1e-6);
+    expect(to.y).toBeLessThan(0);
   });
 });

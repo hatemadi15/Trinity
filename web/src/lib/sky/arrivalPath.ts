@@ -11,15 +11,15 @@ const DEG = Math.PI / 180;
 export interface Pose { position: Vec3; quaternion: [number, number, number, number]; fov: number; shift: [number, number] }
 /** One stop of the flight: where the camera is, the point it looks at, the view's up, how wide and the lens shift. */
 export interface Key { position: THREE.Vector3; target: THREE.Vector3; up: THREE.Vector3; fov: number; shift: [number, number] }
-/** Where the eye looks at an hour of the month at the site: compass bearing and height (degrees) and how wide. */
-export interface Aim { hour: number; yaw: number; pitch: number; fov: number }
+/**
+ * Where the camera looks at an hour of the month at the site: compass bearing and height (degrees), how wide, and
+ * how far right of the view's middle the lander stands (degrees; the camera stands back from it so that it does).
+ */
+export interface Aim { hour: number; yaw: number; pitch: number; fov: number; right: number }
 /** What the flight is built from, in the stand view's world frame (x east, y up, z south, metres, origin on the site's ground). */
 export interface PathInput {
   basis: Basis;
   siteHeightM: number;
-  /** The eye's height at the end of the flight (world y) and the stand view's opening look. */
-  eyeY: number;
-  stand: { yaw: number; pitch: number; fov: number };
   /** Unit vector to the Sun at the arrival's hour. */
   sun: Vec3;
   /** Earth's place at the arrival's hour (world metres). */
@@ -28,7 +28,9 @@ export interface PathInput {
   groundAt: (x: number, z: number) => number;
   /** Width over height of the view. */
   aspect: number;
-  /** Where the eye looks through the month at the site, hour by hour (siteTrack); without it the flight ends standing. */
+  /** Where the lander stands (world metres; the ground under its middle): the flight lands beside it. */
+  lander: { x: number; z: number };
+  /** Where the camera looks through the month at the site, hour by hour (siteTrack); without it the flight ends on landing. */
   track?: Aim[];
 }
 
@@ -37,7 +39,27 @@ export interface PathInput {
  * with Earth beyond its south pole; the pole from 900 km; the cap from 90 km up, 150 km back, lit from the
  * side; the ridge from 2 km up, 5 km back; then the eye. Metres and degrees.
  */
-export const FLIGHT = { wholeDist: 9.0e6, wholeTilt: 14, poleAlt: 9.0e5, poleFov: 40, capBack: 1.5e5, capAlt: 9.0e4, capFov: 50, ridgeBack: 5000, ridgeClear: 2000, ridgeFov: 45, wideShift: 0.17, tallShift: -0.22, standTallShift: -0.1 } as const;
+export const FLIGHT = { wholeDist: 9.0e6, wholeTilt: 14, poleAlt: 9.0e5, poleFov: 40, capBack: 1.5e5, capAlt: 9.0e4, capFov: 50, ridgeBack: 5000, ridgeClear: 2000, ridgeFov: 45, wideShift: 0.17, tallShift: -0.22 } as const;
+
+/**
+ * The shot beside the lander, from landing to the end of the month at the site, by the view's shape: where the
+ * lander's middle stands (degrees right of the view's middle and below level, metres away: the camera stands a few
+ * metres up behind it), the camera's pitch and the view's height (degrees), and how far right of the middle the
+ * Sun and Earth stand when the story is about them. On a wide screen the lander stands right of the middle, clear
+ * of the words at the left, the Sun or Earth further right; at the end it moves left, under the answer's card,
+ * the Sun at the right edge lighting its side. On a phone, whose view is narrow, the lander stands under the Sun or
+ * Earth, above the words at the bottom; at the end the view tips up, so it stands under the answer's card at the
+ * top, the Sun beyond the right edge lighting it from the side.
+ */
+export const BESIDE = {
+  wide: { right: 12, below: 10, dist: 14, pitch: 2, fov: 60, sun: 35, earth: 22, end: { right: -20, sun: 40, pitch: 2 } },
+  tall: { right: -4, below: 8, dist: 16, pitch: -2, fov: 80, sun: 10, earth: 8, end: { right: -4, sun: 70, pitch: 14 } },
+} as const;
+/** The lander's middle over the ground under it (it is 3.4 m tall), metres. */
+const LANDER_MID_M = 1.6;
+/** The least the camera keeps over the ground beside the lander, metres. */
+const BESIDE_CLEAR_M = 2;
+const shot = (i: { aspect: number }) => (i.aspect < 1 ? BESIDE.tall : BESIDE.wide);
 
 const V = (v: Vec3) => new THREE.Vector3(v[0], v[1], v[2]);
 /** On a wide screen what a beat is about stands right of the middle, clear of the words at the left; on a phone, in the middle. */
@@ -110,10 +132,28 @@ function overRidge(i: PathInput, side: THREE.Vector3): Key {
   return { position: from, target: new THREE.Vector3(0, i.groundAt(0, 0), 0), up: new THREE.Vector3(0, 1, 0), fov: tallFov(FLIGHT.ridgeFov, i.aspect), shift: aside(i) };
 }
 
-/** The stand view's opening; on a phone the picture moves down, so the Sun and the lander show under the answer's card at the top. */
+/**
+ * The camera beside the lander for an aim: back from the lander's middle along the bearing that puts it `right` of
+ * the view's middle and `below` level, a few metres up, never closer to the ground than BESIDE_CLEAR_M.
+ */
+function besideAt(i: PathInput, a: { yaw: number; pitch: number; right: number }): { position: THREE.Vector3; look: THREE.Vector3 } {
+  const b = shot(i), mid = new THREE.Vector3(i.lander.x, i.groundAt(i.lander.x, i.lander.z) + LANDER_MID_M, i.lander.z);
+  const position = mid.addScaledVector(V(dirAzEl(a.yaw + a.right, -b.below)), -b.dist);
+  position.y = Math.max(position.y, i.groundAt(position.x, position.z) + BESIDE_CLEAR_M);
+  return { position, look: V(dirAzEl(a.yaw, a.pitch)) };
+}
+
+/** The first aim of the month at the site: the track's, or the Sun at the arrival's hour where the story starts. */
+function firstAim(i: PathInput): Aim {
+  if (i.track && i.track.length > 0) return i.track[0];
+  const b = shot(i), az = (Math.atan2(i.sun[0], -i.sun[2]) / DEG + 360) % 360;
+  return { hour: 0, yaw: (az - b.sun + 360) % 360, pitch: b.pitch, fov: b.fov, right: b.right };
+}
+
+/** Landed: beside the lander, the Sun beyond it, where the month at the site starts. */
 function standing(i: PathInput): Key {
-  const from = new THREE.Vector3(0, i.eyeY, 0);
-  return { position: from, target: from.clone().add(V(dirAzEl(i.stand.yaw, i.stand.pitch)).multiplyScalar(1000)), up: new THREE.Vector3(0, 1, 0), fov: i.stand.fov, shift: i.aspect < 1 ? [0, FLIGHT.standTallShift] : [0, 0] };
+  const a = firstAim(i), { position, look } = besideAt(i, a);
+  return { position, target: position.clone().addScaledVector(look, 1000), up: new THREE.Vector3(0, 1, 0), fov: a.fov, shift: [0, 0] };
 }
 
 /** The signed turn from bearing a to bearing b, the short way round, in degrees. */
@@ -129,58 +169,52 @@ export const siteEndHour = (moments: { kind: string; hour: number }[], hours: nu
 };
 
 /**
- * Where the eye looks through the month at the site, told as the hero's month goes: from the landing view, the
- * Sun as it skims the hills and slips behind one; the lander as its battery runs out; Earth as it comes into view;
- * the Sun as it comes back; then the lander, lit and running again. On a wide screen the Sun stands right of the
- * middle and shares the view with the lander when both matter; on a phone, whose view is narrow, each has the
- * middle in turn.
+ * Where the camera looks through the month at the site, told as the hero's month goes, the lander always in the
+ * foreground (BESIDE): the Sun as it skims the hills and slips behind one (the lander's light goes out soon after,
+ * in view); Earth as it comes into view; the Sun as it comes back; and at the end the lander, lit from the side
+ * and running again. The camera stands back from the lander along each aim, so it circles the lander as the aim
+ * turns.
  */
 export function siteTrack(o: {
   series: { hours: number; sunAz: ArrayLike<number>; earthAz: ArrayLike<number> };
   moments: { kind: string; hour: number }[];
-  landerAzDeg: number;
-  open: { yaw: number; pitch: number; fov: number };
   aspect: number;
   startHour: number;
   endHour: number;
 }): Aim[] {
-  const tall = o.aspect < 1, fov = tall ? 85 : 70, pitch = 3;
+  const b = shot(o);
   const at = (...kinds: string[]) => o.moments.find((m) => kinds.includes(m.kind) && m.hour > o.startHour)?.hour;
   const az = (bearings: ArrayLike<number>, h: number) => Number(bearings[Math.min(o.series.hours - 1, Math.max(0, Math.round(h)))]);
-  const between = (a: number, b: number) => a + turn(a, b) / 2;
-  const aims: Aim[] = [{ hour: o.startHour, ...o.open }];
+  const aim = (hour: number, yaw: number, pitch: number = b.pitch, right: number = b.right): Aim => ({ hour, yaw: ((yaw % 360) + 360) % 360, pitch, fov: b.fov, right });
+  const aims: Aim[] = [aim(o.startHour, az(o.series.sunAz, o.startHour) - b.sun)];
   const add = (hour: number, yaw: number) => {
-    if (hour > aims[aims.length - 1].hour && hour < o.endHour) aims.push({ hour, yaw: ((yaw % 360) + 360) % 360, pitch, fov });
+    if (hour > aims[aims.length - 1].hour && hour < o.endHour) aims.push(aim(hour, yaw));
   };
-  const hide = at('sunset', 'sunset-power-off'), out = at('battery-out', 'sunset-power-off'), rise = at('earth-in'), back = at('sun-back', 'sun-power-back');
+  const hide = at('sunset', 'sunset-power-off'), rise = at('earth-in'), back = at('sun-back', 'sun-power-back');
   if (hide !== undefined) {
-    const sun = az(o.series.sunAz, hide) - (tall ? 0 : 22);
-    add(hide - 10, sun);
-    add(hide + 2, sun);
+    add(hide - 10, az(o.series.sunAz, hide) - b.sun);
+    add(hide + 2, az(o.series.sunAz, hide) - b.sun);
   }
-  if (out !== undefined) add(out + (tall ? 30 : 10), tall ? o.landerAzDeg : between(o.landerAzDeg, az(o.series.sunAz, hide ?? out)));
   if (rise !== undefined) {
-    add(rise - 24, az(o.series.earthAz, rise) - (tall ? 0 : 8));
-    add(rise + 30, az(o.series.earthAz, rise + 30) - (tall ? 0 : 8));
+    add(rise - 24, az(o.series.earthAz, rise) - b.earth);
+    add(rise + 30, az(o.series.earthAz, rise + 30) - b.earth);
   }
   if (back !== undefined) {
-    const sun = az(o.series.sunAz, back) - (tall ? 0 : 22);
-    add(back - 10, sun);
-    add(back + 6, sun);
-    add(o.endHour - 4, o.landerAzDeg + (tall ? 0 : 10));
+    add(back - 10, az(o.series.sunAz, back) - b.sun);
+    add(back + 6, az(o.series.sunAz, back) - b.sun);
   }
-  const last = aims[aims.length - 1];
-  aims.push({ ...last, hour: o.endHour });
+  aims.push(aim(o.endHour, az(o.series.sunAz, o.endHour) - b.end.sun, b.end.pitch, b.end.right));
   return aims;
 }
 
 /** The track's aim at an hour: eased from one aim to the next, the short way round. */
-export function aimAt(track: Aim[], hour: number): { yaw: number; pitch: number; fov: number } {
+export function aimAt(track: Aim[], hour: number): Omit<Aim, 'hour'> {
   if (hour <= track[0].hour) return track[0];
   let k = 0;
   while (k < track.length - 2 && hour > track[k + 1].hour) k++;
   const a = track[k], b = track[k + 1], f = smoother(Math.min(1, Math.max(0, (hour - a.hour) / Math.max(1e-9, b.hour - a.hour))));
-  return { yaw: (((a.yaw + turn(a.yaw, b.yaw) * f) % 360) + 360) % 360, pitch: a.pitch + (b.pitch - a.pitch) * f, fov: a.fov + (b.fov - a.fov) * f };
+  const mix = (u: number, v: number) => u + (v - u) * f;
+  return { yaw: (((a.yaw + turn(a.yaw, b.yaw) * f) % 360) + 360) % 360, pitch: mix(a.pitch, b.pitch), fov: mix(a.fov, b.fov), right: mix(a.right, b.right) };
 }
 
 /** The six keys at STOPS (the month at the site follows the track from the last). */
@@ -215,11 +249,11 @@ function descend(a: Key, b: Key, f: number, i: PathInput): THREE.Vector3 {
 const aimOf = (k: Key) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(k.position, k.target, k.up));
 
 export function poseAt(keys: Key[], p: number, i: PathInput): Pose {
-  // The month at the site: standing at the eye, looking where the track says at the hour (hourAt's even pace).
+  // The month at the site: beside the lander, looking where the track says at the hour (hourAt's even pace).
   if (p > SITE.from && i.track && i.track.length > 1) {
     const t = i.track, f = Math.min(1, (p - SITE.from) / (SITE.to - SITE.from)), a = aimAt(t, t[0].hour + (t[t.length - 1].hour - t[0].hour) * f);
-    const end = keys[keys.length - 1], from = end.position.clone(), q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(from, from.clone().add(V(dirAzEl(a.yaw, a.pitch))), new THREE.Vector3(0, 1, 0)));
-    return { position: [from.x, from.y, from.z], quaternion: [q.x, q.y, q.z, q.w], fov: a.fov, shift: [end.shift[0], end.shift[1]] };
+    const { position: from, look } = besideAt(i, a), q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(from, from.clone().add(look), new THREE.Vector3(0, 1, 0)));
+    return { position: [from.x, from.y, from.z], quaternion: [q.x, q.y, q.z, q.w], fov: a.fov, shift: [0, 0] };
   }
   const q = Math.min(SITE.from, Math.max(0, p));
   let k = 0;

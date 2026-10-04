@@ -9,7 +9,7 @@ import type { StandScene } from '../sky/standRenderer';
  * view opens 35° left of the Sun, so the Sun stands near the view's right edge and the lander just right of
  * the answer's panel, and the ground before you is lit from the side, not from behind; on a tall screen 15°
  * left of the Sun, so the lander stands near the middle, 5° left of it, and the Sun towards the right edge.
- * The stand view and the home page's arrival, which ends on that view, both place it so.
+ * The stand view places it so, and the home page's arrival lands beside it there.
  */
 export const LANDER_DIST_M = 16;
 const LANDER_FACE_LEFT_DEG = 75;
