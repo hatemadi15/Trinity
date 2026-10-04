@@ -41,6 +41,7 @@ describe('the arrival', () => {
     expect(betterLabel('20 January', r.best!.poweredHours, r.best!.poweredHours * r.best!.earthFraction)).toMatch(/^Try 20 January instead: power for 12 days 15 hours, /);
     expect(w.siteLine).toMatch(/^Standing at de Gerlache Rim 2, near the Moon's south pole\./);
     expect(w.exploreHref).toBe(`/explore?site=${site.id}&start=2027-01-01&days=30`);
-    expect(w.beats).toEqual(['At the south pole the Sun never climbs: it circles the horizon once a month.', 'One hill can hide it for weeks.', 'This ridge was shortlisted for astronauts.']);
+    // Each beat reads on its own (the caption before it has scrolled away), and says who shortlisted the ridge.
+    expect(w.beats).toEqual(['At the south pole the Sun never climbs: it circles the horizon once a month.', 'One hill can hide the Sun for weeks.', 'NASA has shortlisted this ridge for astronauts to land on.']);
   });
 });

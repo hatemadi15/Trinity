@@ -14,8 +14,8 @@ export const HERO_HOUR = 10;
 /** The three beats' sentences between the first screen and standing (spec section 5). */
 export const BEAT_SENTENCES: [string, string, string] = [
   'At the south pole the Sun never climbs: it circles the horizon once a month.',
-  'One hill can hide it for weeks.',
-  'This ridge was shortlisted for astronauts.',
+  'One hill can hide the Sun for weeks.',
+  'NASA has shortlisted this ridge for astronauts to land on.',
 ];
 
 export interface Hero { site: Site; series: Series; power: PowerResult; mask: Float64Array; siteHeightM: number; earthKm: number[]; startUtc: string; days: number }
