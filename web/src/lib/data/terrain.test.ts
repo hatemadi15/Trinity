@@ -110,6 +110,13 @@ describe('shadowLevels', () => {
     expect(levels[1].siteRow).toBeCloseTo(px.row - (Math.round(px.row) - CAP_SITE_HALF_PX), 9);
   });
 
+  it('crops the cap wider on request: the arrival flies over 200 km of it, whose shadows need the hills beyond', () => {
+    const cap = grid('cap', 1000, 960, 499.5, 499.5, 7);
+    const levels = shadowLevels({ lat: -89.5, lon: 0 }, null, null, cap, 480);
+    expect(levels[0].width).toBe(961);
+    expect(levels[0].pxM).toBe(960);
+  });
+
   it('leaves out what is missing: no context for an 80 m window, no cap when it failed to load', () => {
     const window = grid('window', 64, 80, 31.5, 31.5);
     expect(shadowLevels({ lat: -85, lon: 0 }, window, null, null).map((l) => l.pxM)).toEqual([80]);

@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import type { Series } from '@/lib/engine/metrics';
 import type { SkyAssets } from '@/lib/data/sky';
+import type { GlobeAssets } from '@/lib/data/globe';
+import { R_MOON_M } from '@/lib/engine/constants';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS } from './boulders';
-import { dirAzEl } from './frames';
+import { dirAzEl, enuBasis, type Vec3 } from './frames';
 import { bounceShare, buildScene, lookUpTarget, shadowOnGround, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, meshHeightAt, terrainField } from './terrainField';
 
@@ -310,7 +312,8 @@ describe('the stand scene', () => {
 
   it('draws the Sun as a hard disc with only a small glow and no starburst: there is no air to scatter its light', () => {
     const s = buildScene(flat());
-    const sprites = s.root.children.filter((o) => (o as THREE.Sprite).isSprite);
+    // The Sun's disc and its glare travel with the sky, round the camera.
+    const sprites = s.parts.sky.children.filter((o) => (o as THREE.Sprite).isSprite);
     expect(sprites).toHaveLength(2);
     // A faint glare four diameters out, no wider.
     expect(s.parts.glare.scale.x / s.parts.sun.scale.x).toBeLessThanOrEqual(7.5);
@@ -557,5 +560,91 @@ describe('the stand scene', () => {
     const s = buildScene(flat({ mastM: 0 }));
     expect(s.camera.position.y - meshHeightAt(flatField(-64.31), 0, 0)).toBeCloseTo(1.5, 6);
     expect(buildScene(flat({ mastM: 6 })).camera.position.y).toBeCloseTo(6, 6);
+  });
+});
+
+const globe: GlobeAssets = { color: { low: 'c1.jpg', high: 'c4.jpg' }, normal: { low: 'n1.jpg', high: 'n4.jpg' }, heights: { width: 4, height: 2, metres: new Float32Array(8) }, albedoScale: 0.8, credit: '' };
+/** A camera at `position` looking along `look` (straight down by default). */
+const at = (position: Vec3, look: Vec3 = [0, -1, 0]) => {
+  const m = new THREE.Matrix4().lookAt(new THREE.Vector3(...position), new THREE.Vector3(...position).add(new THREE.Vector3(...look)), new THREE.Vector3(0, 0, -1));
+  const q = new THREE.Quaternion().setFromRotationMatrix(m);
+  return { position, quaternion: [q.x, q.y, q.z, q.w] as [number, number, number, number], fov: 50, shift: [0, 0] as [number, number] };
+};
+
+describe('the stand scene in flight', () => {
+  it('puts the globe round the site: the Moon’s centre its radius and the site’s height below the site', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 190.33 }));
+    const m = s.parts.globe!.matrix;
+    expect(new THREE.Vector3(0, 0, 0).applyMatrix4(m).y).toBeCloseTo(-(R_MOON_M + 190.33), 3);
+    const b = enuBasis(-88.28, -64.31);
+    expect(new THREE.Vector3(...b.up).multiplyScalar(R_MOON_M + 190.33).applyMatrix4(m).length()).toBeLessThan(1);
+  });
+
+  it('carries the sky with the camera and sees Earth where it is from there, the Sun where it always is', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 190.33, earthKm: [384400, 384400, 384400] }));
+    s.update(0);
+    s.setPose(at([3.0e6, 1.0e6, 0]), 1.6);
+    expect(s.parts.sky.position.x).toBeCloseTo(3.0e6, 3);
+    // Earth sits in the sky group, which sits on the camera: its place in the group is its direction from the camera.
+    const seen = new THREE.Vector3().setFromMatrixPosition(s.parts.earth.matrix).normalize();
+    const truth = new THREE.Vector3(...dirAzEl(70, 4)).multiplyScalar(384400e3).add(new THREE.Vector3(0, 2, 0)).sub(new THREE.Vector3(3.0e6, 1.0e6, 0)).normalize();
+    expect(seen.angleTo(truth)).toBeLessThan(1e-6);
+    // 1,300 km of the camera's offset lies square to Earth's direction: a fifth of a degree of parallax.
+    expect(seen.angleTo(new THREE.Vector3(...dirAzEl(70, 4)))).toBeGreaterThan(0.003);
+    // The Sun does not move with the camera.
+    expect(new THREE.Vector3().copy(s.parts.sun.position).normalize().angleTo(new THREE.Vector3(...dirAzEl(300, 2)))).toBeLessThan(1e-6);
+  });
+
+  it('meshes the cap to 205 km with the globe, cut at 200 km in flight and at 125 km once standing, with the skyline ring only standing', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const coarse = s.parts.ground[s.parts.ground.length - 1];
+    let reach = 0;
+    const p = coarse.geometry.getAttribute('position');
+    for (let i = 0; i < p.count; i++) reach = Math.max(reach, Math.hypot(p.getX(i), p.getZ(i)));
+    expect(reach).toBeGreaterThan(200000);
+    s.setPose(at([0, 90000, 0]), 1.6);
+    expect((coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value).toBe(200000);
+    expect(s.parts.ring!.visible).toBe(false);
+    s.setView(300, 2, 60, 1.6);
+    expect((coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value).toBe(125000);
+    expect(s.parts.ring!.visible).toBe(true);
+  });
+
+  it('draws the sky and the globe alone before the ground has loaded: no ground, skyline, rocks or lander', () => {
+    const s = buildScene(flat({ globe, ground: false, lander: { azDeg: 90, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    expect(s.parts.ground).toHaveLength(0);
+    expect(s.parts.ring).toBeNull();
+    expect(s.parts.lander).toBeNull();
+    expect(s.parts.boulders.children).toHaveLength(0);
+    expect(s.parts.globe).not.toBeNull();
+  });
+
+  it('keeps the stand view as it was: setView brings the camera back to the eye and the sky to its own size', () => {
+    const s = buildScene(flat());
+    s.setPose(at([0, 5000, 0]), 1.6);
+    s.setView(300, 2, 46, 16 / 9);
+    expect([s.camera.position.x, s.camera.position.z]).toEqual([0, 0]);
+    expect(s.camera.position.y).toBeCloseTo(2, 6);
+    expect(s.parts.sky.position.y).toBeCloseTo(2, 6);
+    expect(s.parts.sky.scale.x).toBe(1);
+    expect(s.parts.globe).toBeNull();
+  });
+
+  it('exposes for the sunlit Moon from space, and as the stand view does at the eye', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 0 }));
+    s.update(0);
+    s.setView(120, 2, 60, 1.6);
+    const eye = s.exposure();
+    s.setPose(at([0, 7.0e6, 0]), 1.6);
+    expect(s.exposure()).toBeCloseTo(1.8, 6);
+    s.setView(120, 2, 60, 1.6);
+    expect(s.exposure()).toBeCloseTo(eye, 9);
+  });
+
+  it('hides a point behind the Moon from a camera in space, and shows one on the near side', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 0 }));
+    s.setPose(at([0, 4.0e6, 0]), 1.6);
+    expect(s.project([0, 0, 0], true).visible).toBe(true); // the site, below the camera
+    expect(s.project([0, -2 * R_MOON_M, 0], true).visible).toBe(false); // the far side's pole, behind the Moon
   });
 });

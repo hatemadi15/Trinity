@@ -3,15 +3,19 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import type { GlobeAssets } from '../data/globe';
 import type { SkyAssets } from '../data/sky';
 import { R_MOON_M } from '../engine/constants';
 import type { Series } from '../engine/metrics';
+import type { Pose } from './arrivalPath';
 import { earthAxes, earthLitFraction } from './earth';
 import { dirAzEl, enuBasis, meToWorld, type Vec3 } from './frames';
+import { buildGlobe, GLOBE } from './globe';
 import { moonMatrixAt } from './moonOrientation';
 import { EARTH_FRAG, EARTH_VERT, GROUND_FRAG, GROUND_VERT, STAR_FRAG, STAR_VERT } from './shaders';
 import { FramePacer } from './framePacer';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
+import { cachedTexture } from './textureCache';
 import { placeStars, starColour, starGain, starSize } from './stars';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS, boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
@@ -33,6 +37,14 @@ export interface StandScene {
    * points (default the first hour's Earth).
    */
   lander?: { azDeg: number; distM: number; powered: ArrayLike<number>; faceAzDeg?: number; earthAzDeg?: number; earthElDeg?: number };
+  /** The whole Moon round the measured ground, for views from above (the home page's arrival); none in the stand view. */
+  globe?: GlobeAssets;
+  /** The site's ground above the Moon's reference sphere (m): the globe's centre lies the Moon's radius and this below the site. */
+  siteHeightM?: number;
+  /** Earth's distance (km) hour by hour, for its direction from a camera away from the site; 384,400 km when absent. */
+  earthKm?: ArrayLike<number>;
+  /** False for the sky and the globe alone, before the ground has loaded: no ground, skyline, rocks or lander. */
+  ground?: boolean;
 }
 
 type Spot = { x: number; y: number; visible: boolean };
@@ -89,8 +101,14 @@ export function shadowOnGround(riseAt: (d: number) => number, sunElDeg: number, 
  * to 0.35, none while either does (the sunlit share counts once, Earth's light twice).
  */
 const nightFloor = (sunFraction: number, earthshine: number) => 0.35 * Math.max(0, 1 - Math.min(1, sunFraction + 2 * earthshine));
-/** How far a level's mesh reaches from the site, by its cell size; the coarsest always to 125 km. The shadows read the whole level. */
-const meshReachM = (cellM: number, coarsest: boolean) => (coarsest ? 125000 : cellM <= 30 ? 5000 : cellM <= 200 ? 20500 : 125000);
+/**
+ * The measured ground's reach standing (125 km, the far skyline beyond it) and in flight (205 km, cut round at
+ * 200 km where the globe takes over); below 500 m over the site the view counts as standing. From space the
+ * camera exposes for the sunlit Moon (a fixed gain) and shows the brighter stars faintly.
+ */
+const STAND_REACH_M = 125000, FLIGHT_REACH_M = 205000, STANDING_M = 500, SPACE_GAIN = 1.8, SPACE_STARS = 0.7;
+/** How far a level's mesh reaches from the site, by its cell size; the coarsest to 125 km, or 205 km in flight. The shadows read the whole level. */
+const meshReachM = (cellM: number, coarsest: boolean, flight = false) => (coarsest ? (flight ? FLIGHT_REACH_M : STAND_REACH_M) : cellM <= 30 ? 5000 : cellM <= 200 ? 20500 : 125000);
 /** The value stored for a cell outside the measured ground when heights go to the GPU as half floats. */
 const HALF_OUTSIDE = -65000;
 
@@ -225,7 +243,10 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const basis = enuBasis(scene.site.lat, scene.site.lon);
   const levels = scene.field.levels;
   const eye = eyeAt(scene);
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.3, 700000);
+  // Views from above (the home page's arrival): the globe round the measured ground, the camera anywhere.
+  const hasGround = scene.ground !== false, flight = !!scene.globe, siteH = scene.siteHeightM ?? 0;
+  const moonC = new THREE.Vector3(0, -(R_MOON_M + siteH), 0);
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.3, flight ? 1e10 : 700000);
   camera.position.set(0, eye, 0);
 
   // The measured ground: up to three levels as height textures (for the shadows) and meshes (to see).
@@ -260,6 +281,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         uRockCount: { value: 0 },
         uBounce: { value: 0.015 },
         uNight: { value: 0 },
+        uFarCut: { value: 1e9 },
       },
       vertexShader: GROUND_VERT,
       fragmentShader: GROUND_FRAG,
@@ -268,7 +290,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       polygonOffsetUnits: level * 4,
     });
   const ground: THREE.Mesh[] = [];
-  if (levels.length === 0) {
+  if (!hasGround) {
+    // The sky and the globe alone, until the measured ground has loaded.
+  } else if (levels.length === 0) {
     // No terrain: flat ground on the curved Moon.
     const geo = new THREE.RingGeometry(0.01, 150000, 256, 128).rotateX(-Math.PI / 2);
     const p = geo.getAttribute('position');
@@ -281,7 +305,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     let hole = 0;
     const drawn = levels.slice(0, 3);
     drawn.forEach((l, i) => {
-      const { mesh, reachM } = groundMesh(l, scene.field.lonDeg, meshReachM(l.cell, i === drawn.length - 1), material(i === 0, hole, i));
+      const { mesh, reachM } = groundMesh(l, scene.field.lonDeg, meshReachM(l.cell, i === drawn.length - 1, flight), material(i === 0, hole, i));
       ground.push(mesh);
       // The next, coarser level starts two of this level's cells inside its edge: an overlap, never a gap.
       hole = Math.max(0, reachM - 2 * l.cell);
@@ -305,7 +329,15 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   ringGeo.setAttribute('position', new THREE.BufferAttribute(ringPos, 3));
   ringGeo.setAttribute('color', new THREE.BufferAttribute(ringCol, 3));
   ringGeo.setIndex(ringIdx);
-  root.add(new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+  const skyline = hasGround ? new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })) : null;
+  if (skyline) root.add(skyline);
+  else ringGeo.dispose();
+
+  // The sky travels with the camera: the stars, the Sun and Earth sit in one group round it (at the eye in the
+  // stand view), at their true angular sizes.
+  const skyGroup = new THREE.Group();
+  skyGroup.position.set(0, eye, 0);
+  root.add(skyGroup);
 
   // The stars: the catalogue in its colours, placed for the hour.
   const st = scene.sky.stars;
@@ -322,7 +354,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const starMat = new THREE.ShaderMaterial({ uniforms: { uGain: { value: 1 }, uPx: { value: 1 } }, vertexShader: STAR_VERT, fragmentShader: STAR_FRAG, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
   const stars = new THREE.Points(starGeo, starMat);
   stars.frustumCulled = false;
-  root.add(stars);
+  skyGroup.add(stars);
   // The Southern Cross: two faint lines between its four stars.
   const crossIdx = crossStars(scene.sky.names);
   const crossPos = new Float32Array(12);
@@ -334,7 +366,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     : null;
   if (cross) {
     cross.frustumCulled = false;
-    root.add(cross);
+    skyGroup.add(cross);
   }
 
   // The Sun: white, small and hard, with only a small glow close round the disc: with no air there is no
@@ -345,29 +377,28 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   sun.scale.setScalar(SUN_D / 0.92);
   // A faint lens glare round it, so it reads as the Sun with no label; its bright core stays at the disc.
   glare.scale.setScalar(SUN_D * 8);
-  root.add(sun, glare);
+  skyGroup.add(sun, glare);
 
   // Earth: NASA's Blue Marble and clouds, 1.9° wide, lit by the Sun and turned for the hour.
   const earthMat = new THREE.ShaderMaterial({ uniforms: { uDay: { value: null }, uClouds: { value: null }, uSun: { value: new THREE.Vector3(1, 0, 0) }, uMaps: { value: 0 } }, vertexShader: EARTH_VERT, fragmentShader: EARTH_FRAG });
   if (typeof document !== 'undefined') {
-    const loader = new THREE.TextureLoader();
-    let loaded = 0;
-    const done = () => { if (++loaded === 2) earthMat.uniforms.uMaps.value = 1; };
-    const day = loader.load(scene.sky.earthDayUrl, done);
-    day.colorSpace = THREE.SRGBColorSpace;
-    day.anisotropy = 4;
-    const clouds = loader.load(scene.sky.earthCloudsUrl, done);
-    clouds.anisotropy = 4;
-    earthMat.uniforms.uDay.value = day;
-    earthMat.uniforms.uClouds.value = clouds;
+    // Kept for the page's life, so a scene rebuilt as the ground arrives shows Earth's face at once.
+    const day = cachedTexture(scene.sky.earthDayUrl, true), clouds = cachedTexture(scene.sky.earthCloudsUrl, false);
+    earthMat.uniforms.uDay.value = day.texture;
+    earthMat.uniforms.uClouds.value = clouds.texture;
+    void Promise.all([day.ready, clouds.ready]).then(() => { earthMat.uniforms.uMaps.value = 1; }, () => {});
   }
   const earth = new THREE.Mesh(new THREE.SphereGeometry(EARTH_R, 96, 48), earthMat);
   earth.matrixAutoUpdate = false;
-  root.add(earth);
+  skyGroup.add(earth);
+
+  // The whole Moon round the measured ground, for views from above.
+  const globe = scene.globe ? buildGlobe({ basis, siteHeightM: siteH, assets: scene.globe, halfFloat: opts.halfFloat ?? false, cutM: hasGround ? GLOBE.CUT_M : 0 }) : null;
+  if (globe) root.add(globe.mesh);
 
   // A lander beside the site, for scale: gold foil body, solar panel, legs, an antenna and a light that shows its power.
   const ls = scene.lander;
-  const lander = ls
+  const lander = ls && hasGround
     ? buildLander(ls.azDeg, ls.distM, ls.faceAzDeg ?? (scene.series.sunAz[0] - 70 + 360) % 360, ls.earthAzDeg ?? scene.series.earthAz[0], ls.earthElDeg ?? scene.series.earthEl[0])
     : null;
   const landerBox = new THREE.Box3();
@@ -396,11 +427,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
 
   // Boulders round the eye, kept clear of the lander, with their shadows on the ground.
   const seed = siteSeed(scene.site.lat, scene.site.lon);
-  const rocks = boulderMeshes(placeBoulders(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => meshHeightAt(scene.field, x, z), seed);
+  const rocks = hasGround
+    ? boulderMeshes(placeBoulders(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => meshHeightAt(scene.field, x, z), seed)
+    : { group: new THREE.Group(), spheres: [] as THREE.Vector4[] };
   root.add(rocks.group);
   // Pebbles: the near ground's grit, shapes the low Sun catches.
-  const pebbles = pebbleMesh(placePebbles(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => meshHeightAt(scene.field, x, z), seed);
-  root.add(pebbles);
+  const pebbles = hasGround ? pebbleMesh(placePebbles(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => meshHeightAt(scene.field, x, z), seed) : null;
+  if (pebbles) root.add(pebbles);
   for (const g of ground) {
     const u = (g.material as THREE.ShaderMaterial).uniforms;
     rocks.spheres.forEach((v, i) => (u.uRocks.value as THREE.Vector4[])[i].copy(v));
@@ -411,6 +444,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // A camera's exposure: by day it is set for the sunlit ground, so only the brightest stars show, and they
   // come out as the view looks up, away from the dazzling ground.
   let sunNow = 0, sunElNow = 0, pitchNow = 0;
+  // How far the camera is into space: 0 below 30 km over the site, 1 from 600 km.
+  let spaceNow = 0;
   // Your shadow's length along the ground, kept until the Sun moves.
   let shadowKey = '', shadowLen = 0;
   const viewDir = new THREE.Vector3(0, 0, -1);
@@ -421,7 +456,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const expose = () => {
     // By day, none: a camera set for the sunlit ground does not catch them (as the captions say).
     const day = 1.6 - 1.6 * sunNow;
-    starMat.uniforms.uGain.value = day + (1.6 - day) * skyward();
+    const ground = day + (1.6 - day) * skyward();
+    // From space the brighter stars show faintly round the sunlit Moon.
+    starMat.uniforms.uGain.value = ground + (SPACE_STARS - ground) * spaceNow;
   };
   // How much the regolith in the middle of the view sends back towards the eye, as the ground shader lights
   // it (phase and opposition surge), for the angle between the ways to the eye and to the Sun.
@@ -430,9 +467,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
    * The camera's exposure against its setting (1): looking down-Sun at sunlit ground, which shines back
    * towards the Sun several times as brightly as it does across the light, it stops down, as a camera on
    * automatic would, to about a third at most; not towards the Sun, not while the sky fills the view, and not
-   * at night.
+   * at night. From space it exposes for the sunlit Moon instead, a fixed gain, as it climbs away.
    */
   function exposure(): number {
+    const stand = standExposure();
+    return stand + (SPACE_GAIN - stand) * spaceNow;
+  }
+  function standExposure(): number {
     if (sunNow <= 0) return 1;
     const alpha = Math.acos(Math.min(1, Math.max(-1, -viewDir.dot(sunDir))));
     const g = Math.min(1, Math.max(0.35, Math.pow(regolithBack((120 * Math.PI) / 180) / regolithBack(alpha), 0.6)));
@@ -445,11 +486,23 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     return Math.min(ground, inFrame ? 1 - 0.4 * Math.min(1, sunNow) * (1 - off) : 1);
   }
   const sunDir = new THREE.Vector3(), earthPos = new THREE.Vector3();
+  // Earth from wherever the camera is: its direction from the site at the hour and its distance say where it is.
+  const eyeW = new THREE.Vector3(0, eye, 0), earthDir = new THREE.Vector3(), earthLocal = new THREE.Vector3();
+  let earthDistM = 384400e3;
+  let axes: { x: Vec3; y: Vec3; z: Vec3 } = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+  function placeEarth() {
+    earthLocal.copy(eyeW).addScaledVector(earthDir, earthDistM).sub(camera.position).normalize().multiplyScalar(RS);
+    earth.matrix.makeBasis(new THREE.Vector3(...axes.x), new THREE.Vector3(...axes.y), new THREE.Vector3(...axes.z)).setPosition(earthLocal);
+    earth.matrixWorldNeedsUpdate = true;
+    earthPos.copy(earthLocal).multiplyScalar(skyGroup.scale.x).add(skyGroup.position);
+  }
+  /** A place in the sky group (round the camera) in the world frame. */
+  const skyWorld = (local: THREE.Vector3) => local.clone().multiplyScalar(skyGroup.scale.x).add(skyGroup.position);
   function update(t: number) {
     const v = sampleSeries(scene.series, t);
     const sd = dirAzEl(v.sunAz, v.sunEl), ed = dirAzEl(v.earthAz, v.earthEl);
     sunDir.set(...sd);
-    sun.position.set(sd[0] * RS, sd[1] * RS + eye, sd[2] * RS);
+    sun.position.set(sd[0] * RS, sd[1] * RS, sd[2] * RS);
     glare.position.copy(sun.position);
     // The glare comes from the part of the disc the hills leave in view.
     (glare.material as THREE.SpriteMaterial).opacity = v.sunFraction;
@@ -461,12 +514,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       crossIdx.forEach((k, j) => crossPos.set(starPos.subarray(k * 3, k * 3 + 3), j * 3));
       cross.geometry.getAttribute('position').needsUpdate = true;
     }
-    const ax = earthAxes(m, basis, when);
-    earthPos.set(ed[0] * RS, ed[1] * RS + eye, ed[2] * RS);
-    earth.matrix.makeBasis(new THREE.Vector3(...ax.x), new THREE.Vector3(...ax.y), new THREE.Vector3(...ax.z)).setPosition(earthPos);
-    earth.matrixWorldNeedsUpdate = true;
+    axes = earthAxes(m, basis, when);
+    earthDir.set(...ed);
+    earthDistM = 1000 * Number(scene.earthKm?.[Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)))] ?? 384400);
+    placeEarth();
     earthMat.uniforms.uSun.value.set(...sd);
     const full = earthLitFraction(sd as Vec3, ed as Vec3);
+    globe?.setLight(sd, ed, full);
     // Earthlight on the ground; when the Sun is hidden the view is exposed like a long photograph, so it shows.
     const earthshine = v.earthEl > -0.5 ? 0.25 * full * (1 + 3 * (1 - v.sunFraction)) : 0;
     for (const g of ground) {
@@ -508,7 +562,16 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     ray.set(camera.position, tmp.copy(world).sub(camera.position).normalize());
     return ray.intersectBox(landerBox, hit) !== null && hit.distanceTo(camera.position) < world.distanceTo(camera.position);
   };
+  /** The stand view: the camera at the eye, turned to a yaw and pitch, the sky round it at its own size. */
   function setView(yawDeg: number, pitchDeg: number, fovDeg: number, aspect: number) {
+    camera.position.set(0, eye, 0);
+    camera.clearViewOffset();
+    camera.far = flight ? 1e10 : 700000;
+    skyGroup.position.set(0, eye, 0);
+    skyGroup.scale.setScalar(1);
+    placeEarth();
+    standing(true);
+    spaceNow = 0;
     pitchNow = pitchDeg;
     expose();
     camera.fov = fovDeg;
@@ -518,6 +581,45 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     viewDir.set(d[0], d[1], d[2]).normalize();
     camera.lookAt(d[0], eye + d[1], d[2]);
     camera.updateMatrixWorld();
+  }
+  /** A view from anywhere (the home page's arrival): the camera at the pose, the sky round it, the far skyline only when standing. */
+  function setPose(pose: Pose, aspect: number) {
+    camera.position.set(...pose.position);
+    camera.quaternion.set(...pose.quaternion);
+    camera.fov = pose.fov;
+    camera.aspect = aspect;
+    camera.far = flight ? 1e10 : 700000;
+    const [sx, sy] = pose.shift;
+    if (sx || sy) camera.setViewOffset(1000 * aspect, 1000, -sx * 1000 * aspect, sy * 1000, 1000 * aspect, 1000);
+    else camera.clearViewOffset();
+    camera.updateProjectionMatrix();
+    camera.updateMatrixWorld();
+    camera.getWorldDirection(viewDir);
+    pitchNow = Math.asin(Math.max(-1, Math.min(1, viewDir.y))) / DEG;
+    const alt = camera.position.distanceTo(moonC) - (R_MOON_M + siteH);
+    // In space the sky stands beyond the far side of the Moon, at its own angular sizes.
+    skyGroup.position.copy(camera.position);
+    skyGroup.scale.setScalar(flight ? Math.max(1, (camera.position.distanceTo(moonC) + 2 * R_MOON_M) / RS) : 1);
+    placeEarth();
+    standing(alt < STANDING_M);
+    spaceNow = flight ? Math.min(1, Math.max(0, (alt - 30e3) / (600e3 - 30e3))) : 0;
+    expose();
+  }
+  /** Standing: the stand view's far skyline and the cap's mesh to 125 km; above, the mesh to 200 km and the globe beyond. */
+  function standing(on: boolean) {
+    if (skyline) skyline.visible = on || !flight;
+    const coarse = ground[ground.length - 1];
+    if (coarse && flight) (coarse.material as THREE.ShaderMaterial).uniforms.uFarCut.value = on ? STAND_REACH_M : GLOBE.CUT_M;
+  }
+  standing(true);
+  const probe = new THREE.Sphere(moonC, R_MOON_M - 12000), ray3 = new THREE.Ray(), hit3 = new THREE.Vector3();
+  /** A world point on the screen; with `moon`, hidden where the Moon stands between it and the camera. */
+  function project(world: Vec3, moon = false): Spot {
+    const w = new THREE.Vector3(...world), s = spot(w, 0, false);
+    if (!moon || !s.visible) return s;
+    ray3.set(camera.position, w.clone().sub(camera.position).normalize());
+    const at = ray3.intersectSphere(probe, hit3);
+    return at && at.distanceTo(camera.position) < w.distanceTo(camera.position) - 1 ? { ...s, visible: false } : s;
   }
   /** A world point on the screen; `radius` lifts the spot above a body's disc (metres at the body); `occlude` false for a point on the lander itself. */
   function spot(world: THREE.Vector3, radius = 0, occlude = true): Spot {
@@ -552,8 +654,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   function labels(): SkyLabels {
     // The brightest stars by name, where they stand above the skyline.
     const stars = (scene.sky.names ?? []).map(({ index, name }) => {
-      const w = new THREE.Vector3(starPos[index * 3], starPos[index * 3 + 1], starPos[index * 3 + 2]);
-      const d = w.clone().normalize();
+      const local = new THREE.Vector3(starPos[index * 3], starPos[index * 3 + 1], starPos[index * 3 + 2]), w = skyWorld(local);
+      const d = local.clone().normalize();
       const az = ((Math.atan2(d.x, -d.z) / DEG) % 360 + 360) % 360, el = Math.asin(d.y) / DEG;
       const s = spot(w);
       return { name, ...s, visible: s.visible && el > maskAt(az) };
@@ -565,7 +667,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       mid.multiplyScalar(0.25);
       const d = mid.clone().normalize();
       const az = ((Math.atan2(d.x, -d.z) / DEG) % 360 + 360) % 360, el = Math.asin(d.y) / DEG;
-      const s = spot(mid);
+      const s = spot(skyWorld(mid));
       stars.push({ name: 'Southern Cross', ...s, y: s.y + 0.03, visible: s.visible && el > maskAt(az) });
     }
     // The lander's name over its top (high enough that the ray to it clears the lander itself), and its parts.
@@ -596,23 +698,28 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       const shownEl = Math.abs(sunElNow) < 9.95 ? Math.round(sunElNow * 10) / 10 : Math.round(sunElNow);
       shadow = { ...at, lengthM: shadowLen, levelM: Math.min(500, 1.8 / Math.tan(Math.max(0.2, shownEl) * DEG)) };
     }
-    return { sun: bodySpot(sun.position, SUN_D * 3), earth: bodySpot(earthPos, EARTH_R * 1.25), stars, lander: landerSpot, parts, shadow };
+    const k = skyGroup.scale.x;
+    return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow };
   }
 
+  // Textures kept for the page's life (the globe's maps, Earth's) stay: a scene rebuilt as data arrives takes them.
+  const release = (t: unknown) => {
+    if (t instanceof THREE.Texture && !t.userData.shared) t.dispose();
+  };
   const dispose = () => {
     root.traverse((o) => {
       const mesh = o as THREE.Mesh;
       mesh.geometry?.dispose();
       const mats = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
       for (const mat of mats) {
-        for (const value of Object.values(mat as unknown as Record<string, unknown>)) if (value instanceof THREE.Texture) value.dispose();
-        if (mat instanceof THREE.ShaderMaterial) for (const u of Object.values(mat.uniforms)) if (u.value instanceof THREE.Texture) u.value.dispose();
+        for (const value of Object.values(mat as unknown as Record<string, unknown>)) release(value);
+        if (mat instanceof THREE.ShaderMaterial) for (const u of Object.values(mat.uniforms)) release(u.value);
         mat.dispose();
       }
     });
   };
 
-  return { root, camera, update, setView, labels, exposure, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, boulders: rocks.group, pebbles } };
+  return { root, camera, update, setView, setPose, project, labels, exposure, dispose, starMaterial: starMat, parts: { ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
 /** A texture drawn on a canvas of the given size (repeating), or none outside a browser. */
@@ -819,6 +926,15 @@ export class StandRenderer {
   private compiled = false;
   /** Told when the view can no longer draw: a shader failed to compile or link on its first use. */
   onLost?: (why: string) => void;
+  /** Told once a frame drawn at full sharpness is on the screen: stills and the recorded walk wait for it. */
+  onSharp?: () => void;
+  /** A view from anywhere (the home page's arrival), in place of the stand view's yaw and pitch. */
+  private pose: Pose | null = null;
+  private renderPass: RenderPass;
+  private half: boolean;
+  /** A scene built beside the one on the screen (the ground arriving), which replaces it once compiled. */
+  private next: { built: ReturnType<typeof buildScene>; compiled: boolean } | null = null;
+  private generation = 0;
 
   constructor(canvas: HTMLCanvasElement, scene: StandScene) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -829,7 +945,8 @@ export class StandRenderer {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = EXPOSURE;
     // Heights go to the GPU as float32 where it can filter them, else as half floats.
-    this.built = buildScene(scene, { halfFloat: !this.renderer.extensions.has('OES_texture_float_linear') });
+    this.half = !this.renderer.extensions.has('OES_texture_float_linear');
+    this.built = buildScene(scene, { halfFloat: this.half });
     // The lander's foil and metal mirror what is round them: the black sky above, the grey dust below.
     const around = new THREE.SphereGeometry(1, 32, 16), pos = around.getAttribute('position'), tint = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {
@@ -852,7 +969,8 @@ export class StandRenderer {
     this.built.starMaterial.uniforms.uPx.value = this.pixelRatio;
     // Four samples per pixel in the composer's own target: smooth edges on Earth and the skyline.
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
-    this.composer.addPass(new RenderPass(this.built.root, this.built.camera));
+    this.renderPass = new RenderPass(this.built.root, this.built.camera);
+    this.composer.addPass(this.renderPass);
     // A tight bloom: the Sun's disc glows a little, the sky round it stays black.
     this.bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.22, 0.15, 0.985);
     this.composer.addPass(this.bloom);
@@ -865,8 +983,56 @@ export class StandRenderer {
   }
 
   setView(yawDeg: number, pitchDeg: number, fovDeg: number) {
+    this.pose = null;
     this.view = { yaw: yawDeg, pitch: pitchDeg, fov: fovDeg };
     this.built.setView(yawDeg, pitchDeg, fovDeg, this.size.w / this.size.h);
+  }
+
+  /** A view from anywhere: the camera at the pose (the home page's arrival). */
+  setPose(pose: Pose) {
+    this.pose = pose;
+    this.built.setPose(pose, this.size.w / this.size.h);
+  }
+
+  /**
+   * A new scene for the view (the measured ground arriving): built and compiled beside the one on the screen,
+   * which it replaces at the first frame after, so the view never waits on a compiling shader.
+   */
+  setScene(scene: StandScene) {
+    const built = buildScene(scene, { halfFloat: this.half });
+    const next = { built, compiled: false };
+    this.next?.built.dispose();
+    this.next = next;
+    this.renderer.compileAsync(built.root, built.camera).then(
+      () => {
+        next.compiled = true;
+      },
+      () => this.onLost?.('A shader of the view did not compile'),
+    );
+  }
+
+  /** Puts a compiled new scene on the screen, at the same hour and view, keeping the environment the foil mirrors. */
+  private swap() {
+    const next = this.next;
+    if (!next?.compiled) return;
+    const old = this.built;
+    this.built = next.built;
+    this.next = null;
+    this.built.root.environment = old.root.environment;
+    old.root.environment = null;
+    old.dispose();
+    this.renderPass.scene = this.built.root;
+    this.renderPass.camera = this.built.camera;
+    this.built.starMaterial.uniforms.uPx.value = this.drawnRatio;
+    this.built.update(this.hour);
+    this.apply();
+    this.generation++;
+  }
+
+  /** The pose, or else the stand view's yaw and pitch, for the canvas's shape. */
+  private apply() {
+    if (this.pose) this.built.setPose(this.pose, this.size.w / this.size.h);
+    else this.built.setView(this.view.yaw, this.view.pitch, this.view.fov, this.size.w / this.size.h);
   }
 
   resize(w: number, h: number) {
@@ -883,7 +1049,7 @@ export class StandRenderer {
     this.composer.setPixelRatio(ratio);
     this.composer.setSize(this.size.w, this.size.h);
     this.bloom.setSize(this.size.w, this.size.h);
-    this.setView(this.view.yaw, this.view.pitch, this.view.fov);
+    this.apply();
   }
 
   /** Whether the chip is still drawing the last frame; once a still frame is done, how long it took sets the next one's pixels. */
@@ -898,6 +1064,7 @@ export class StandRenderer {
       const took = now - this.sharpSince;
       if (took > 900) this.sharpRatio = Math.max(this.pixelRatio, this.sharpRatio * Math.sqrt(600 / took));
       this.sharpSince = null;
+      this.onSharp?.();
     }
     return false;
   }
@@ -914,10 +1081,15 @@ export class StandRenderer {
 
   render() {
     if (!this.compiled) return;
+    this.swap();
     const now = performance.now();
-    const maps = (this.built.parts.earth.material as THREE.ShaderMaterial).uniforms.uMaps.value;
-    const v = this.view;
-    const key = `${v.yaw.toFixed(3)} ${v.pitch.toFixed(3)} ${v.fov.toFixed(3)} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps}`;
+    // A map arriving (Earth's, the globe's larger ones) draws the view again, as a turn does.
+    const earthMaps = (this.built.parts.earth.material as THREE.ShaderMaterial).uniforms.uMaps.value;
+    const g = (this.built.parts.globe?.material as THREE.ShaderMaterial | undefined)?.uniforms;
+    const maps = `${earthMaps} ${g ? `${g.uColor.value?.uuid ?? ''} ${g.uNormal.value?.uuid ?? ''}` : ''}`;
+    const v = this.view, p = this.pose;
+    const where = p ? `${p.position.map((x) => x.toFixed(2)).join(',')} ${p.quaternion.map((x) => x.toFixed(6)).join(',')} ${p.fov.toFixed(3)} ${p.shift.join(',')}` : `${v.yaw.toFixed(3)} ${v.pitch.toFixed(3)} ${v.fov.toFixed(3)}`;
+    const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation}`;
     const busy = this.busy(now);
     const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.sharpRatio, busy });
     if (mode === 'idle') {
@@ -951,10 +1123,17 @@ export class StandRenderer {
     return this.built.labels();
   }
 
+  /** A world point on the screen; with `moon`, hidden where the Moon stands between it and the camera. */
+  project(world: Vec3, moon = false) {
+    return this.built.project(world, moon);
+  }
+
   dispose() {
     if (this.fence) (this.renderer.getContext() as WebGL2RenderingContext).deleteSync(this.fence);
     this.built.root.environment?.dispose();
     this.built.dispose();
+    this.next?.built.dispose();
+    this.bloom.dispose();
     this.composer.dispose();
     this.renderer.dispose();
   }
