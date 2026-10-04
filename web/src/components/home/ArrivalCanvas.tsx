@@ -7,7 +7,7 @@ import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { contextFileFor, loadHeightmap, loadTerrainManifest, shadowLevels, windowFileFor, type Heightmap } from '@/lib/data/terrain';
 import type { Level } from '@/lib/engine/shadow';
 import { flightKeys, polePoint, poseAt, siteEndHour, siteTrack, type Key, type PathInput } from '@/lib/sky/arrivalPath';
-import { hourAt, SITE } from '@/lib/sky/arrivalTiming';
+import { hourAt } from '@/lib/sky/arrivalTiming';
 import { dirAzEl, enuBasis, type Vec3 } from '@/lib/sky/frames';
 import { eyeAt, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
@@ -119,6 +119,15 @@ const DOT = 'absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full
 /** The dot of a label beside its point: on the label's left, or its right when the label turns. */
 const SIDE_DOT = `${DOT} -left-3 top-1/2 group-data-[side=left]:left-auto group-data-[side=left]:-right-3 group-data-[side=left]:translate-x-1/2 group-data-[side=below]:left-1/2 group-data-[side=below]:-top-3`;
 type Tag = 'earth' | 'pole' | 'site' | 'sun';
+/** Once landed (the guides show then too): the date's bar and the month's lines. */
+const LANDED = 3.8;
+/** What lights the ground at the site at an hour, in words: the Sun, Earth alone (which is why the ground turns blue), or nothing. */
+export function lightWords(series: Pick<Hero['series'], 'sunFraction' | 'earthVisible'>, hour: number): string {
+  if (series.sunFraction[hour] > 0) return 'in sunlight';
+  return series.earthVisible[hour] === 1 ? 'lit only by Earthlight' : 'in the dark';
+}
+/** A moment's mark on the date's bar, in its body's colour: the Sun's amber, Earth's blue, else white (the battery). */
+const tickColour = (kind: string) => (kind.startsWith('earth') ? '#74adff' : kind.startsWith('sun') ? '#f6b646' : '#e5e3dc');
 /** How far a pointer to a body out of view stands in from the view's edge, beyond half its own size, in pixels. */
 const EDGE_IN_PX = 12;
 
@@ -135,7 +144,8 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
   const load = useMemo(() => loaders ?? browserArrivalLoaders(h.site.id), [loaders, h]);
   const canvas = useRef<HTMLCanvasElement>(null);
   const tags = useRef<Record<Tag, HTMLSpanElement | null>>({ earth: null, pole: null, site: null, sun: null });
-  const dateRef = useRef<HTMLParagraphElement>(null);
+  // The date's bar: the date and what lights the ground, and the hour's mark on the month, the part gone filled.
+  const barRef = useRef<HTMLDivElement>(null), dateRef = useRef<HTMLParagraphElement>(null), markRef = useRef<HTMLElement>(null), fillRef = useRef<HTMLSpanElement>(null);
   // The pointer to the Sun from the view's edge while it is out of sight, and its arrow.
   const edgeRef = useRef<HTMLSpanElement>(null), arrowRef = useRef<HTMLElement>(null);
   // Once standing, the pointer to Earth, wherever it is out of view.
@@ -279,15 +289,37 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       r.setPose(pose);
       r.setTime(hour);
       // The month's paths only once standing: in flight their faint bands would cross the Moon.
-      r.setGuides(p > 3.8);
+      r.setGuides(p > LANDED);
       r.render();
       if (sharp && r.resting) settle();
       if (drawn && !live) {
         live = true;
         liveRef.current();
       }
-      words = [...document.querySelectorAll('[data-words]')].map((w) => w.getBoundingClientRect()).filter((b) => b.width > 0 && b.height > 0);
+      // Words faded near the top (a beat's, scrolling away) no longer count: they are gone from over the date's bar.
+      words = [...document.querySelectorAll<HTMLElement>('[data-words]')]
+        .filter((w) => Number(w.style.opacity || 1) >= 0.25)
+        .map((w) => w.getBoundingClientRect())
+        .filter((b) => b.width > 0 && b.height > 0);
       placed.length = 0;
+      // Once landed the date's bar, first, so the labels keep off it: the date, a moment for a day or so after it
+      // passes, else what lights the ground; the hour's mark on the month. It gives way only to the words.
+      const bar = barRef.current, d = dateRef.current;
+      if (bar && d) {
+        bar.hidden = !(drawn && p > LANDED);
+        if (!bar.hidden) {
+          const k = Math.min(h.series.hours - 1, Math.max(0, Math.round(hour)));
+          const day = dateLong(h.startUtc, k), dated = /\d{4}$/.test(day) ? day : `${day} ${h.startUtc.slice(0, 4)}`;
+          const recent = [...moments].reverse().find((m) => m.hour <= hour && hour - m.hour < 30);
+          d.textContent = `${dated}: ${recent ? recent.label : lightWords(h.series, k)}`;
+          const at = `${(hour / (h.series.hours - 1)) * 100}%`;
+          if (markRef.current) markRef.current.style.left = at;
+          if (fillRef.current) fillRef.current.style.width = at;
+          const b = bar.getBoundingClientRect();
+          if (meets(b, words)) bar.hidden = true;
+          else placed.push(b);
+        }
+      }
       show('earth', p < 0.85 ? r.project(input!.earth, true) : null);
       show('pole', p < 2.6 ? r.project(polePoint(input!), true) : null);
       show('site', p > 1.6 && p < 3.8 ? r.project([0, input!.groundAt(0, 0), 0], true) : null);
@@ -369,17 +401,6 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
       named(levelRef.current, p > 3.8 && level.visible ? { x: 0, y: level.y, visible: level.y > 0.08 && level.y < 0.92 } : null);
       point(edgeRef.current, arrowRef.current, p > 0.85 && !sunNow.inView ? sunNow.v : null);
       point(earthEdgeRef.current, earthArrowRef.current, p > 3.8 && !earthNow.inView ? earthNow.v : null);
-      const d = dateRef.current;
-      if (d) {
-        d.hidden = p <= SITE.from;
-        if (!d.hidden) {
-          const day = dateLong(h.startUtc, Math.round(hour)), dated = /\d{4}$/.test(day) ? day : `${day} ${h.startUtc.slice(0, 4)}`;
-          // The month runs by in a few seconds: the chip says so, so the light going round reads as time passing,
-          // and it names each moment for a day or so after it passes.
-          const recent = [...moments].reverse().find((m) => m.hour <= hour && hour - m.hour < 30);
-          d.textContent = `${dated}: ${recent ? recent.label : 'a month, sped up'}`;
-        }
-      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -438,7 +459,20 @@ export default function ArrivalCanvas({ progress, reduced, capture = false, onLi
             →
           </b>
         </span>
-        <p ref={dateRef} hidden className="absolute left-1/2 top-6 -translate-x-1/2 rounded-[5px] border border-white/15 bg-black/75 px-3 py-1 text-[16px] text-[#f6d48a]" />
+        <div ref={barRef} hidden data-date-bar="" className="absolute left-1/2 top-4 w-[min(400px,calc(100%-32px))] -translate-x-1/2 rounded-[6px] border border-white/15 bg-black/75 px-3 pb-1.5 pt-1.5">
+          <p ref={dateRef} className="text-[16px] leading-snug text-[#f6d48a]" />
+          <div className="relative mx-1.5 mt-2.5 h-[3px] rounded-full bg-white/25">
+            <span ref={fillRef} className="absolute inset-y-0 left-0 rounded-full bg-white/70" />
+            {moments.map((m) => (
+              <i key={m.kind} data-tick="" className="absolute top-1/2 h-3 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${(m.hour / (h.series.hours - 1)) * 100}%`, background: tickColour(m.kind) }} />
+            ))}
+            <b ref={markRef} data-mark="" className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-black bg-[#f6d48a]" />
+          </div>
+          <p className="mt-1.5 flex justify-between text-[14px] text-[#c6c5c0]">
+            <span>{dateLong(h.startUtc, 0)}</span>
+            <span>{dateLong(h.startUtc, h.series.hours - 1)}</span>
+          </p>
+        </div>
       </div>
     </>
   );

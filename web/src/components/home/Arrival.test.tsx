@@ -53,6 +53,23 @@ describe('the arrival', () => {
     expect(screen.getByRole('heading', { level: 2, name: words.answer })).toBeTruthy();
   });
 
+  it('fades each beat’s words as they near the top, so they never pass over the date’s bar there; the first screen and the answer stay', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    const plates = [...document.querySelectorAll<HTMLElement>('[data-plate]')];
+    expect(plates).toHaveLength(words.beats.length);
+    vi.spyOn(plates[0], 'getBoundingClientRect').mockReturnValue({ top: 400 } as DOMRect);
+    vi.spyOn(plates[1], 'getBoundingClientRect').mockReturnValue({ top: 104 } as DOMRect);
+    vi.spyOn(plates[2], 'getBoundingClientRect').mockReturnValue({ top: 40 } as DOMRect);
+    scrolled(1.5);
+    expect(plates[0].style.opacity).toBe('1');
+    expect(Number(plates[1].style.opacity)).toBeGreaterThan(0.2);
+    expect(Number(plates[1].style.opacity)).toBeLessThan(0.8);
+    expect(plates[2].style.opacity).toBe('0');
+    // The headline and the answer rest at the top: they are not beats' plates.
+    expect(screen.getByRole('heading', { level: 1 }).closest('[data-plate]')).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: words.answer }).closest('[data-plate]')).toBeNull();
+  });
+
   it('follows the scroll: each screen is its beat’s stop, and Skip shows only between the first screen and the last', () => {
     render(<Arrival words={words} Stage={Stage} />);
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();

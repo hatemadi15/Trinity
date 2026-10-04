@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { siteLabel } from '@/lib/data/loaders';
 import type { StandScene } from '@/lib/sky/standRenderer';
@@ -250,19 +250,36 @@ describe('the arrival’s live stage', () => {
     expect(level.hidden).toBe(false);
   });
 
-  it('runs the month at the site after landing: the hours move on, and the chip names each moment as it passes', async () => {
+  it('runs the month at the site on a date bar: the date, what lights the ground, each moment as it passes, and where the hour stands in the month', async () => {
     const { r } = stub();
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
     const progress = { current: 4 };
     render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
     await waitFor(() => expect(r.setTime).toHaveBeenCalledWith(HERO_HOUR));
-    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours), earth = moments.find((m) => m.kind === 'earth-in')!;
-    progress.current = 4 + (earth.hour + 6 - HERO_HOUR) / (end - HERO_HOUR);
-    await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBeCloseTo(earth.hour + 6, 6));
-    expect(screen.getByText(`${dateLong(h.startUtc, earth.hour + 6)} ${h.startUtc.slice(0, 4)}: ${earth.label}`)).toBeTruthy();
-    // At the end, the last hour of the story.
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours), year = h.startUtc.slice(0, 4);
+    const at = (hour: number) => 4 + (hour - HERO_HOUR) / (end - HERO_HOUR);
+    const bar = document.querySelector('[data-date-bar]') as HTMLElement, mark = bar.querySelector('[data-mark]') as HTMLElement;
+    // Landed: the date and what lights the ground, the month from its first day to its last with its moments marked.
+    await waitFor(() => expect(bar.hidden).toBe(false));
+    expect(within(bar).getByText(`${dateLong(h.startUtc, HERO_HOUR)} ${year}: in sunlight`)).toBeTruthy();
+    expect(within(bar).getByText(dateLong(h.startUtc, 0))).toBeTruthy();
+    expect(within(bar).getByText(dateLong(h.startUtc, h.series.hours - 1))).toBeTruthy();
+    expect(bar.querySelectorAll('[data-tick]')).toHaveLength(moments.length);
+    // Each moment named for a day or so after it passes, the mark at its hour in the month.
+    const earth = moments.find((m) => m.kind === 'earth-in')!;
+    progress.current = at(earth.hour + 6);
+    await waitFor(() => expect(bar.textContent).toContain(`${dateLong(h.startUtc, earth.hour + 6)} ${year}: ${earth.label}`));
+    expect(parseFloat(mark.style.left)).toBeCloseTo(((earth.hour + 6) / (h.series.hours - 1)) * 100, 0);
+    // Then what lights the ground: Earth alone, which is why it looks blue; or nothing at all.
+    progress.current = at(earth.hour + 60);
+    await waitFor(() => expect(bar.textContent).toContain(': lit only by Earthlight'));
+    progress.current = at(moments.find((m) => m.kind === 'battery-out')!.hour + 60);
+    await waitFor(() => expect(bar.textContent).toContain(': in the dark'));
+    // At the end, the last hour of the story; before landing, no bar.
     progress.current = 5;
     await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBe(end));
+    progress.current = 3;
+    await waitFor(() => expect(bar.hidden).toBe(true));
   });
 
   it('says over the pole’s dark side that it is night there, across from the Sun, so it is not read as space', async () => {

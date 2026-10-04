@@ -14,6 +14,11 @@ const BEATS = BEAT_STOPS.length;
 const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/85 backdrop-blur-sm';
 const SENTENCE = 'display text-balance text-[28px] leading-[1.08] sm:text-[36px]';
 const still = (k: number, shape: 'wide' | 'tall') => `/arrival/beat-${k}-${shape}.jpg`;
+/**
+ * A beat's words fade as they scroll up to the top, where the stage's date bar stands once landed: whole until
+ * FADE_PX above FADE_TOP_PX from the top, gone there, so they never pass over it.
+ */
+const FADE_TOP_PX = 72, FADE_PX = 64;
 /** The page's address does not change under the section, so there is nothing to subscribe to. */
 const noSubscribe = () => () => {};
 
@@ -61,6 +66,9 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
     if (capture) return;
     const onScroll = () => {
       const s = screens();
+      for (const plate of section.current?.querySelectorAll<HTMLElement>('[data-plate]') ?? []) {
+        plate.style.opacity = String(Math.min(1, Math.max(0, (plate.getBoundingClientRect().top - FADE_TOP_PX) / FADE_PX)));
+      }
       progress.current = reduced ? BEAT_STOPS[Math.round(s)] : progressFromScroll(s);
       setBeat(Math.round(s));
       setMoving(s > 0.05 && s < BEATS - 1.05);
@@ -173,7 +181,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
         {words.beats.map((text, k) => (
           <div key={text} data-beat={k + 1} className="flex h-[100svh] items-end pb-24 sm:items-center sm:pb-0">
             <div className="wrap w-full">
-              <p data-words="" className={`${PLATE} ${SENTENCE} max-w-[600px] p-5 sm:p-6`}>{text}</p>
+              <p data-words="" data-plate="" className={`${PLATE} ${SENTENCE} max-w-[600px] p-5 sm:p-6`}>{text}</p>
             </div>
           </div>
         ))}
