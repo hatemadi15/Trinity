@@ -80,11 +80,17 @@ describe('the flight', () => {
     expect(pose.position[1]).toBeCloseTo(9.0e4, -3);
   });
 
-  it('comes down over the ridge, 2 km above the ground, the site in the middle, and lands beside the lander: it stands in the foreground under the Sun', () => {
-    const i = input(), keys = flightKeys(i);
-    const ridge = poseAt(keys, 3, i), s = viewOf(ridge, i.aspect)([0, 0, 0]);
-    expect(Math.hypot(s.x - 2 * ridge.shift[0], s.y - 2 * ridge.shift[1])).toBeLessThan(0.1);
-    expect(ridge.position[1] - i.groundAt(ridge.position[0], ridge.position[2])).toBeCloseTo(2000, 0);
+  it('comes down over the ridge, 2 km above the ground, looking past the site at the Sun just over the hills, and lands beside the lander: it stands in the foreground under the Sun', () => {
+    // Over the ridge the words say the Sun stands just above the hills: the Sun is in the picture, the site below it.
+    for (const aspect of [1.6, 390 / 844]) {
+      const j = input(aspect), ridge = poseAt(flightKeys(j), 3, j), see = viewOf(ridge, aspect), site = see([0, 0, 0]), sun = see(far(ridge, j.sun));
+      expect(ridge.position[1] - j.groundAt(ridge.position[0], ridge.position[2])).toBeCloseTo(2000, 0);
+      expect(inView(site), `site ${aspect}`).toBe(true);
+      expect(inView(sun), `Sun ${aspect}`).toBe(true);
+      expect(sun.y).toBeGreaterThan(site.y + 0.2);
+      // On a wide screen both right of the words' column.
+      if (aspect > 1) expect(Math.min(site.x, sun.x)).toBeGreaterThan(0.1);
+    }
     for (const aspect of [1.6, 390 / 844]) {
       const j = input(aspect), end = poseAt(flightKeys(j), 4, j), see = viewOf(end, aspect), { mid, top } = landerParts(j);
       const cam = new THREE.Vector3(...end.position), lander = see(mid), sun = see(far(end, j.sun));
@@ -128,6 +134,15 @@ describe('the flight', () => {
       expect(pole.y).toBeLessThan(C.y);
       expect(E.y).toBeLessThan(pole.y);
       expect(Math.abs(pole.x - C.x)).toBeLessThan(0.05);
+    }
+  });
+
+  it('keeps the lander right of the words’ column on a wide screen through the last of the descent too, as it first comes into view', () => {
+    const { i } = heroTrack(1.6), keys = flightKeys(i), { mid } = landerParts(i);
+    for (let p = 3.5; p <= 4.0001; p += 0.02) {
+      const pose = poseAt(keys, p, i), see = viewOf(pose, 1.6), m = see(mid);
+      if (!inView(m, 1)) continue;
+      expect(see(leftEdge(pose, mid)).x, `left edge at ${p.toFixed(2)}`).toBeGreaterThan(0.02);
     }
   });
 

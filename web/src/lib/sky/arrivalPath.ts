@@ -37,9 +37,11 @@ export interface PathInput {
 /**
  * The flight's numbers, set by eye at the visual check within the tests' rules: the whole Moon from 9,000 km
  * with Earth beyond its south pole; the pole from 900 km; the cap from 90 km up, 150 km back, lit from the
- * side; the ridge from 2 km up, 5 km back; then the eye. Metres and degrees.
+ * side; the ridge from 2 km up, 5 km back on the side away from the Sun, looking past the site at a point
+ * ridgeAhead beyond it, the Sun just over the hills ridgeSun degrees right of the middle on a wide screen; then
+ * beside the lander. Metres and degrees.
  */
-export const FLIGHT = { wholeDist: 9.0e6, wholeTilt: 14, poleAlt: 9.0e5, poleFov: 40, capBack: 1.5e5, capAlt: 9.0e4, capFov: 50, ridgeBack: 5000, ridgeClear: 2000, ridgeFov: 45, wideShift: 0.17, tallShift: -0.22 } as const;
+export const FLIGHT = { wholeDist: 9.0e6, wholeTilt: 14, poleAlt: 9.0e5, poleFov: 40, capBack: 1.5e5, capAlt: 9.0e4, capFov: 50, ridgeBack: 5000, ridgeClear: 2000, ridgeAhead: 10000, ridgeSun: 10, ridgeFov: 45, wideShift: 0.17, tallShift: -0.22 } as const;
 
 /**
  * The shot beside the lander, from landing to the end of the month at the site, by the view's shape: where the
@@ -52,7 +54,7 @@ export const FLIGHT = { wholeDist: 9.0e6, wholeTilt: 14, poleAlt: 9.0e5, poleFov
  * the top, the Sun beyond the right edge lighting it from the side.
  */
 export const BESIDE = {
-  wide: { right: 10, below: 13, dist: 14, pitch: 2, fov: 60, sun: 34, earth: 26, end: { right: 10, sun: 34, pitch: 2 } },
+  wide: { right: 12, below: 13, dist: 14, pitch: 2, fov: 60, sun: 34, earth: 26, end: { right: 12, sun: 34, pitch: 2 } },
   tall: { right: -4, below: 8, dist: 16, pitch: -2, fov: 80, sun: 10, earth: 8, end: { right: -4, sun: 70, pitch: 14 } },
 } as const;
 /** The lander's middle over the ground under it (it is 3.4 m tall), metres. */
@@ -126,10 +128,18 @@ function overCap(i: PathInput, side: THREE.Vector3): Key {
   return { position: from, target: V(polePoint(i)).lerp(new THREE.Vector3(0, i.groundAt(0, 0), 0), 0.5), up: new THREE.Vector3(0, 1, 0), fov: tallFov(FLIGHT.capFov, i.aspect), shift: aside(i) };
 }
 
-function overRidge(i: PathInput, side: THREE.Vector3): Key {
-  const from = side.clone().multiplyScalar(FLIGHT.ridgeBack);
+/**
+ * Over the ridge, on the side away from the Sun: the camera looks past the site towards the Sun, so the words'
+ * "the Sun stands just above the hills" is in the picture, the site below it; and it comes down from here behind the
+ * lander, as the view beside it looks, so the lander comes into view right of the words.
+ */
+function overRidge(i: PathInput): Key {
+  const sunAz = (Math.atan2(i.sun[0], -i.sun[2]) / DEG + 360) % 360, toward = V(dirAzEl(sunAz - (i.aspect >= 1 ? FLIGHT.ridgeSun : 0), 0));
+  const from = toward.clone().multiplyScalar(-FLIGHT.ridgeBack);
   from.y = i.groundAt(from.x, from.z) + FLIGHT.ridgeClear;
-  return { position: from, target: new THREE.Vector3(0, i.groundAt(0, 0), 0), up: new THREE.Vector3(0, 1, 0), fov: tallFov(FLIGHT.ridgeFov, i.aspect), shift: aside(i) };
+  const target = toward.clone().multiplyScalar(FLIGHT.ridgeAhead);
+  target.y = i.groundAt(0, 0);
+  return { position: from, target, up: new THREE.Vector3(0, 1, 0), fov: tallFov(FLIGHT.ridgeFov, i.aspect), shift: aside(i) };
 }
 
 /**
@@ -220,7 +230,7 @@ export function aimAt(track: Aim[], hour: number): Omit<Aim, 'hour'> {
 /** The six keys at STOPS (the month at the site follows the track from the last). */
 export function flightKeys(i: PathInput): Key[] {
   const side = capSide(i), pole = abovePole(i);
-  return [wholeMoon(i), pole, { ...pole, position: pole.position.clone(), target: pole.target.clone(), up: pole.up.clone() }, overCap(i, side), overRidge(i, side), standing(i)];
+  return [wholeMoon(i), pole, { ...pole, position: pole.position.clone(), target: pole.target.clone(), up: pole.up.clone() }, overCap(i, side), overRidge(i), standing(i)];
 }
 
 /**
