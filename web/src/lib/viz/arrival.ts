@@ -1,0 +1,48 @@
+import catalogue from '../data/catalogue.json';
+import { HOME, heroMask, heroSeries, type HomeDoc } from '../data/home';
+import { siteLabel, type Site } from '../data/loaders';
+import { summarize, type Series } from '../engine/metrics';
+import { DEFAULT_POWER, powerBudget, type PowerResult } from '../engine/power';
+import { exploreHref } from '../links';
+import { answerFor } from './answer';
+import { spanWords } from './format';
+import { standHeadline, standingLine } from './stand';
+
+/** The hour the arrival shows: 1 January 2027, 10:00 UTC (the Sun on the ridge), the hour section 5 names. */
+export const HERO_HOUR = 10;
+
+/** The three beats' sentences between the first screen and standing (spec section 5). */
+export const BEAT_SENTENCES: [string, string, string] = [
+  'At the south pole the Sun never climbs: it circles the horizon once a month.',
+  'One hill can hide it for weeks.',
+  'This ridge was shortlisted for astronauts.',
+];
+
+export interface Hero { site: Site; series: Series; power: PowerResult; mask: Float64Array; siteHeightM: number; earthKm: number[]; startUtc: string; days: number }
+
+/** The home page's site and month, as the arrival draws it: the pipeline's figures, the engine's power. */
+export function hero(doc: HomeDoc = HOME): Hero {
+  const site = (catalogue.sites as unknown as Site[]).find((s) => s.id === doc.hero.site_id);
+  if (!site) throw new Error(`the catalogue has no ${doc.hero.site_id}`);
+  const series = heroSeries(doc);
+  return { site, series, power: powerBudget(series, DEFAULT_POWER), mask: heroMask(doc), siteHeightM: doc.hero.site_height_m, earthKm: doc.sky.earth_km, startUtc: doc.sky.start_utc, days: Math.round(doc.sky.hours / 24) };
+}
+
+export interface ArrivalWords { beats: [string, string, string]; siteLine: string; answer: string; better: string | null; exploreHref: string }
+
+/**
+ * The arrival's words, worked out on the server so they are page text: the beats, then standing at the site
+ * with Explore's answer as the stand view words it, the better landing day, and Explore's address.
+ */
+export function arrivalWords(doc: HomeDoc = HOME): ArrivalWords {
+  const h = hero(doc), name = siteLabel(h.site), b = doc.battery;
+  const best = b.best_hour !== null && b.best_hours !== null ? { hour: b.best_hour, poweredHours: b.best_hours, earthFraction: b.best_earth_fraction ?? 0 } : null;
+  const answer = answerFor({ siteName: name, series: h.series, summary: summarize(h.series), power: h.power, startUtc: h.startUtc, days: h.days, loadW: DEFAULT_POWER.loadW, batteryWh: DEFAULT_POWER.batteryWh, best });
+  return {
+    beats: BEAT_SENTENCES,
+    siteLine: standingLine(h.site, name, 'top'),
+    answer: standHeadline(answer.title, name, h.series, h.power, h.startUtc, answer.contactHours, answer.poweredHours),
+    better: answer.better && best ? `${answer.better.label}: power for ${spanWords(best.poweredHours)} in a row.` : null,
+    exploreHref: exploreHref(h.site.id, h.startUtc, h.days),
+  };
+}

@@ -1,9 +1,12 @@
+import { AU_KM } from '../engine/constants';
+import { diskFraction, sunRadiusDeg, type Series } from '../engine/metrics';
 import doc from './home.json';
 
 /** Written by `uv run python -m lunar_pipeline.cli home-assets` (pipeline/lunar_pipeline/home_assets.py). */
 export interface HomeDoc {
   generated_utc: string;
-  hero: { site_id: string; name: string; image: string; frame_utc: string; window_km: number; sun_bearing_deg: number; lit_fraction: number };
+  /** The hero site and its picture; `site_height_m` is its ground above the Moon's reference sphere (m), from its skyline's file. */
+  hero: { site_id: string; name: string; image: string; frame_utc: string; window_km: number; sun_bearing_deg: number; lit_fraction: number; site_height_m: number };
   sky: {
     start_utc: string;
     hours: number;
@@ -18,7 +21,13 @@ export interface HomeDoc {
     earth_visible: number[];
     earth_pct: number;
     night: { sunset_hour: number; sunrise_hour: number; hours: number } | null;
+    /** The Sun's distance from the Moon's centre (AU), hour by hour, as the engine's sunAu. */
+    sun_au: number[];
+    /** Earth's distance from the site (km), hour by hour, as its directions are from the site. */
+    earth_km: number[];
   };
+  /** The hero site's skyline: the hills' height (degrees, to 0.01°) in each direction from `az0` (north), clockwise, `step` degrees apart. */
+  mask: { az0: number; step: number; el: number[] };
   pair: { site_sun_pct: number; rim_site_id: string; rim_sun_pct: number; distance_km: number };
   facts: {
     horizons_worst_el_deg: number;
@@ -37,10 +46,31 @@ export interface HomeDoc {
     now_hours: number;
     best_hour: number | null;
     best_hours: number | null;
+    /** The share of the best landing's hours with power that have Earth in view. */
+    best_earth_fraction: number | null;
   };
 }
 
 export const HOME = doc as HomeDoc;
+
+/**
+ * The hero month as the engine's hourly series, from the pipeline's figures (angles to 0.01°): the arrival's
+ * standing view draws it. Whether any of the Sun shows is the pipeline's flag, as it is for Earth: rounded to
+ * 0.01°, the angles alone would leave a sliver of the Sun in the hour it goes behind the hills. How much of its
+ * disc shows over the hills is the engine's own rule.
+ */
+export function heroSeries(doc: HomeDoc = HOME): Series {
+  const s = doc.sky, n = s.hours;
+  const f64 = (a: number[]) => Float64Array.from(a.slice(0, n));
+  const sunFraction = new Float64Array(n);
+  for (let h = 0; h < n; h++) sunFraction[h] = s.lit[h] === 1 ? diskFraction(s.sun_el[h] - s.hill_el[h], sunRadiusDeg(s.sun_au[h] * AU_KM)) : 0;
+  return { i0: 0, hours: n, sunAz: f64(s.sun_az), sunEl: f64(s.sun_el), earthAz: f64(s.earth_az), earthEl: f64(s.earth_el), sunFraction, earthVisible: Uint8Array.from(s.earth_visible.slice(0, n)), sunAu: f64(s.sun_au) };
+}
+
+/** The hero site's skyline, 720 directions from north, clockwise. */
+export function heroMask(doc: HomeDoc = HOME): Float64Array {
+  return Float64Array.from(doc.mask.el);
+}
 
 /** A tiny angle with five decimals: 2.7e-5 reads "0.00003°". */
 export function degreesText(deg: number): string {

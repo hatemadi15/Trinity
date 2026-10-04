@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { loadEphemeris, type EphemerisHeader } from '../engine/ephemeris';
 import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
 import { createExploreStore } from '../store/explore';
-import { degreesText, HOME, PLACES, thousandsText } from './home';
+import { degreesText, HOME, heroMask, heroSeries, PLACES, thousandsText } from './home';
 import type { Site } from './loaders';
 
 const validation = (name: string) => JSON.parse(fs.readFileSync(path.resolve(process.cwd(), '../data/validation', name), 'utf8'));
@@ -57,6 +57,14 @@ describe('home facts', () => {
     expect(HOME.sky.sun_el.length).toBe(720);
     expect(HOME.sky.night).toEqual({ sunset_hour: 67, sunrise_hour: 466, hours: 399 });
     expect(HOME.pair.rim_sun_pct).toBe(100);
+  });
+
+  it('turns the hero month into the engine’s hourly series: a fraction of the Sun’s disc wherever the pipeline says sunlit', () => {
+    const s = heroSeries();
+    expect(s.hours).toBe(720);
+    for (let h = 0; h < s.hours; h++) expect(s.sunFraction[h] > 0).toBe(HOME.sky.lit[h] === 1);
+    expect(s.sunAu[0]).toBeCloseTo(0.983, 2); // January: the Sun is nearest
+    expect(heroMask()).toHaveLength(720);
   });
 
   it('lists the places in the order of the page: the ridge in the picture first, then the two landers on their dates', () => {
