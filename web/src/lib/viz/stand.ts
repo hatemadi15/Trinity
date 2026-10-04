@@ -457,8 +457,8 @@ export function statusLine(s: Series, p: PowerResult | null, startUtc: string, h
  * count of the days without power that adds up with the power (nightHeadline); and the radio's verdict goes
  * straight after the power (radioHeadline): "Landing on 1 January: power for 3 days 4 hours, no radio
  * contact, then 16 days without power". Every span of days and hours keeps to one line, with no-break spaces
- * inside it, so "3 days 4 hours" never breaks after "days"; the rest may wrap. That is the headline's alone:
- * spanWords keeps plain spaces for every other caller. Every other title keeps its words but the site's name.
+ * inside it, so "3 days 4 hours" never breaks after "days"; the rest may wrap. The better day's link and the
+ * arrival's line do the same (unbrokenSpans); spanWords keeps plain spaces for every other caller. Every other title keeps its words but the site's name.
  * `poweredHours` is the answer's hours with power from the landing, and `contactHours` those of them with
  * Earth in view.
  */
@@ -514,11 +514,12 @@ export function radioHeadline(title: string, contactHours: number, poweredHours:
  * arrival give that landing the same "12 days 15 hours", so no page gives one landing two lengths. `dayLong` is
  * the day as dateLong writes it; the hours are those with power from that day, and those of them with Earth in
  * view, which the page passes as a share of the hours with power: both read as the whole hours they were
- * counted in.
+ * counted in. Each span keeps to one line, with no-break spaces inside it, as the headline's do, so "hours"
+ * never wraps onto a line of its own; the rest may wrap.
  */
 export function betterLabel(dayLong: string, poweredHours: number, radioHours: number): string {
   const radio = Math.round(radioHours) <= 0 ? 'no radio contact' : `radio for ${spanWords(radioHours)}`;
-  return `Try ${dayLong} instead: power for ${spanWords(poweredHours)}, ${radio}`;
+  return unbrokenSpans(`Try ${dayLong} instead: power for ${spanWords(poweredHours)}, ${radio}`);
 }
 
 /**
@@ -584,6 +585,6 @@ function offWords(s: Series, p: PowerResult, startUtc: string, back: number): st
 const SPAN = /\b\d+ (?:days?|hours?)(?: \d+ hours?)?\b/g;
 
 /** The text with no-break spaces inside each span of days and hours, so that none breaks across two lines. */
-function unbrokenSpans(text: string): string {
+export function unbrokenSpans(text: string): string {
   return text.replace(SPAN, (span) => span.replace(/ /g, '\u00a0'));
 }

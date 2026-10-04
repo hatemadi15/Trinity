@@ -193,7 +193,9 @@ function whyHidden(el: ArrayLike<number>, hill: ArrayLike<number>, run: Run, who
  * shrink to bare dates, and the height lines and the second hidden stretch would lose their words. So on a narrow
  * chart the words are placed again, for its own width. The row's name and each hidden stretch's words go to a band
  * above the chart, each stretch's words over a bracket that spans it; on the chart, each sunset and sunrise keeps
- * its words and its date, on one line or on two, and the height lines keep theirs. Where each word goes is worked
+ * its words and its date, on one line or on two, by its own marker and nearer it than any other, in the markers'
+ * order from left to right (or, where there is no room beside its marker, over or under it on a stem), and the
+ * height lines keep theirs. Where each word goes is worked
  * out from its width in the page's typeface before the page is laid out, at a few chart widths, and each set of
  * places is shown from its width up to the next: everything stands at a share of the width or at an edge and keeps
  * its size, so words that fit at one width fit at any wider one.
@@ -324,13 +326,58 @@ export interface NarrowWord {
   kind: 'event' | 'scale';
   lines: string[];
   size: number;
-  /** Its near edge 12 px from its mark at `at` % of the width, on the mark's right (`after`) or its left; or at an edge of the chart. */
-  place: { after: boolean; at: number } | { edge: 'left' | 'right' };
+  /**
+   * Its near edge 12 px from its mark at `at` % of the width, on the mark's right (`after`) or its left; over or
+   * under its mark at `at` %, its left edge `from` px from the mark, tied to it by its stem; or at an edge of the chart.
+   */
+  place: { after: boolean; at: number } | { over: boolean; at: number; from: number } | { edge: 'left' | 'right' };
   top: number;
   box: Box;
+  /** A tied word's stem, from its mark's dot to the words: across at `at` % of the width, down from `y0` to `y1` px. */
+  stem?: { at: number; y0: number; y1: number };
   priority: number;
 }
 type Spot = { word: NarrowWord; cost: number };
+
+/** The room a placed word takes on a chart `width` px wide: its box, and a tied word's stem, 2 px wide. */
+const roomOf = (w: NarrowWord, width: number): Box[] => (w.stem ? [w.box, { x0: (w.stem.at / 100) * width - 1, x1: (w.stem.at / 100) * width + 1, y0: w.stem.y0, y1: w.stem.y1 }] : [w.box]);
+
+/** How near a sunset's or sunrise's words may come to any mark but their own, in px: twice as far as they stand from their own. */
+const CLEAR = 24;
+
+/**
+ * A sunset's or sunrise's own mark on a chart `width` px wide, as drawn (`x` and `y` in px, `pct` in percent of the
+ * width), and how far its words may reach across (`from`, `to`): to CLEAR short of the mark before it and of the one
+ * after it, or halfway to one nearer than twice that, and inside the chart. Marks without words of their own within
+ * CLEAR of it stand with it, as where the Sun flickers in and out at the skyline before it goes: the words may reach
+ * past those (never over them). So they stand nearer their own mark than any other named one; plotWords keeps them
+ * in their marks' order besides, none over or under another's.
+ */
+function markOf(row: NarrowRow, e: NarrowRow['events'][number], width: number) {
+  const markAt = (at: number) => row.dots.reduce((a, d) => (Math.abs(d.pct - at) < Math.abs(a.pct - at) ? d : a));
+  const own = markAt(e.at), named = new Set(row.events.map((v) => markAt(v.at)));
+  const x = (own.pct / 100) * width;
+  let from = 2, to = width - 2;
+  for (const d of row.dots) {
+    const dx = (d.pct / 100) * width, off = Math.abs(dx - x);
+    if (d === own || (off < CLEAR && !named.has(d))) continue;
+    if (dx < x) from = Math.max(from, off >= 2 * CLEAR ? dx + CLEAR : (dx + x) / 2);
+    if (dx > x) to = Math.min(to, off >= 2 * CLEAR ? dx - CLEAR : (dx + x) / 2);
+  }
+  return { pct: own.pct, x, y: own.y, from, to };
+}
+
+/** How far apart, in px, two sunsets' or sunrises' words stand at the least, so that they never run on as one. */
+const APART = 8;
+
+/**
+ * Whether two sunsets' or sunrises' words read in their marks' order, from left to right: the earlier one's wholly
+ * before the later one's and APART from it, so neither stands over or under the other.
+ */
+function inOrder(a: NarrowWord, b: NarrowWord): boolean {
+  if (!('at' in a.place) || !('at' in b.place)) return true;
+  return a.place.at < b.place.at ? a.box.x1 + APART <= b.box.x0 : b.box.x1 + APART <= a.box.x0;
+}
 
 /** How much of the body's line a box would hide, from 0 to 3: where the body shows counts three times, as that line is the data. */
 function hidesLine(row: NarrowRow, width: number, b: Box): number {
@@ -355,15 +402,27 @@ const EVENT_FORMS = [
   { size: 14, two: true, short: true, cost: 9 },
 ] as const;
 
+/** How far above or below its mark a sunset's or sunrise's words may stand beside it, in px: farther off, it takes a stem. */
+const BESIDE = 16;
+/** A stem's shortest length in px, from just outside its mark's dot (7 px from its middle) to the words. */
+const STEM = 6;
 /**
- * The places a sunset's or sunrise's words may take on a chart `width` px wide, the cheapest first: in any of its
- * forms, inside its hidden stretch or outside it, 12 px from its mark, at any height on the plot. Best is one line
- * at 16 px, inside the stretch, just under the body's line as on the wide chart; each step away from that costs,
- * and so does hiding the body's line.
+ * What standing on a stem costs: as much as the dearest of an event's full forms beside its mark (two lines at 14 px,
+ * outside its stretch), so its words take a stem where they have no room beside it; and, its forms counting a
+ * quarter of what they do beside it, less than leaving out the body's name beside it.
+ */
+const TIED = 6;
+
+/**
+ * The places a sunset's or sunrise's words may take on a chart `width` px wide, the cheapest first, in any of its
+ * forms and always within its mark's reach (markOf): beside its mark, 12 px from it inside its hidden stretch or
+ * outside it, level with it or not far above or below it; or, where there is no room beside it, over or under it,
+ * across it, on a stem to it. Best is one line at 16 px, inside the stretch, just under the body's line as on the wide
+ * chart; each step away from that costs, and so does hiding the body's line.
  */
 function eventSpots(row: NarrowRow, e: NarrowRow['events'][number], width: number): Spot[] {
   const spots: Spot[] = [];
-  const x = (e.at / 100) * width;
+  const x = (e.at / 100) * width, mark = markOf(row, e, width);
   for (const form of EVENT_FORMS) {
     // "Sun sets" without its name: "Sets".
     const words = form.short ? `${e.kind === 'set' ? 'Sets' : 'Rises'}` : e.words;
@@ -371,15 +430,31 @@ function eventSpots(row: NarrowRow, e: NarrowRow['events'][number], width: numbe
     const w = Math.max(...lines.map((l) => wordWidth(l, form.size)));
     const h = (form.size + 8) * lines.length;
     const under = Math.min(e.lineY + 14, row.bottom - h);
+    const word = (place: NarrowWord['place'], box: Box, stem?: NarrowWord['stem']): NarrowWord => ({ key: e.key, kind: 'event', lines, size: form.size, place, top: box.y0, box, stem, priority: e.long ? 2 : 3 });
     for (const inside of [true, false]) {
       // A sunset's hidden stretch lies after its mark, a sunrise's before it.
       const after = (e.kind === 'set') === inside;
       const x0 = after ? x + 12 : x - 12 - w;
-      if (x0 < 2 || x0 + w > width - 2) continue;
+      if (x0 < mark.from || x0 + w > mark.to) continue;
       for (let top = under - Math.floor((under - row.top) / 6) * 6; top + h <= row.bottom; top += 6) {
         const box = { x0, x1: x0 + w, y0: top, y1: top + h };
-        const word: NarrowWord = { key: e.key, kind: 'event', lines, size: form.size, place: { after, at: e.at }, top, box, priority: e.long ? 2 : 3 };
-        spots.push({ word, cost: form.cost + (inside ? 0 : 1) + Math.abs(top - under) / 10 + 3 * hidesLine(row, width, box) });
+        if (Math.max(top - mark.y, 0, mark.y - box.y1) > BESIDE) continue;
+        spots.push({ word: word({ after, at: e.at }, box), cost: form.cost + (inside ? 0 : 1) + Math.abs(top - under) / 10 + 3 * hidesLine(row, width, box) });
+      }
+    }
+    // Over or under its mark, the mark 8 px or more inside the words' ends: centred on it as near as its reach allows,
+    // or as far to either side; from the shortest stem out to the top or the bottom of the plot.
+    const lo = Math.max(mark.from, mark.x + 8 - w), hi = Math.min(mark.to - w, mark.x - 8);
+    if (lo > hi) continue;
+    const tops: [boolean, number][] = [];
+    for (let top = mark.y - 7 - STEM - h; top >= row.top; top -= 6) tops.push([true, top]);
+    for (let top = mark.y + 7 + STEM; top + h <= row.bottom; top += 6) tops.push([false, top]);
+    for (const x0 of new Set([Math.min(Math.max(mark.x - w / 2, lo), hi), lo, hi])) {
+      for (const [over, top] of tops) {
+        const box = { x0, x1: x0 + w, y0: top, y1: top + h };
+        const stem = over ? { at: mark.pct, y0: box.y1, y1: mark.y - 7 } : { at: mark.pct, y0: mark.y + 7, y1: box.y0 };
+        const cost = TIED + form.cost / 4 + (stem.y1 - stem.y0 - STEM) / 10 + Math.abs(x0 + w / 2 - mark.x) / 20 + 3 * hidesLine(row, width, box);
+        spots.push({ word: word({ over, at: mark.pct, from: x0 - mark.x }, box, stem), cost });
       }
     }
   }
@@ -404,7 +479,8 @@ function scaleSpots(row: NarrowRow, s: NarrowRow['scale'][number], width: number
 
 /**
  * The words on a narrow chart `width` px wide: each sunset and sunrise, then the 0° line, then the other height
- * lines, at the cheapest places where no two meet and none covers a mark or enters a reserved strip. Leaving a word
+ * lines, at the cheapest places where no two meet (a stem as well as its words), none covers a mark or enters a
+ * reserved strip, and the sunsets' and sunrises' words read in their marks' order (inOrder). Leaving a word
  * out costs more than any place: an event's most (the longest stretch's above all), then the 0° line's, then each
  * height's, and every height's at once as much again. The search tries the cheapest places first, so its first
  * answer is already a good one; looking for a better one stops after 20,000 places tried.
@@ -437,12 +513,13 @@ function plotWords(row: NarrowRow, width: number, inset: number): NarrowWord[] {
       if (cost + s.cost >= bestCost) break;
       // The places tried count only once there is an answer to keep.
       if (bestCost < Infinity && --steps <= 0) return;
-      if (boxes.some((b) => meets(b, s.word.box))) continue;
+      const room = roomOf(s.word, width);
+      if (room.some((r) => boxes.some((b) => meets(b, r))) || chosen.some((c) => c && !inOrder(c, s.word))) continue;
       chosen.push(s.word);
-      boxes.push(s.word.box);
+      boxes.push(...room);
       walk(i + 1, cost + s.cost);
       chosen.pop();
-      boxes.pop();
+      boxes.length -= room.length;
     }
     chosen.push(null);
     walk(i + 1, cost + items[i].none);
@@ -577,13 +654,27 @@ function Band({ band, shown, color, after }: { band: NarrowBand; shown: string; 
   );
 }
 
-/** A word placed on a narrow chart: a sunset's or sunrise's in the body's colour, its lines towards its mark; or a height line's at an edge. */
+/**
+ * A word placed on a narrow chart: a sunset's or sunrise's in the body's colour, its lines towards its mark, or
+ * centred over or under it on a stem in that colour; or a height line's at an edge.
+ */
 function NarrowLabel({ word, color, after }: { word: NarrowWord; color: string; after: string }) {
   if ('edge' in word.place) {
     return (
       <Label priority={word.priority} plate className={`absolute ${word.place.edge === 'left' ? AT_LEFT : AT_RIGHT}`} style={{ top: word.top }}>
         {word.lines[0]}
       </Label>
+    );
+  }
+  if ('over' in word.place) {
+    const { at, from } = word.place, { y0, y1 } = word.stem!;
+    return (
+      <>
+        <span data-stem="" aria-hidden="true" className={`absolute w-0.5 -translate-x-1/2 ${after}`} style={{ left: `${at}%`, top: y0, height: y1 - y0, background: color }} />
+        <Label size={word.size} priority={word.priority} plate className={`absolute text-center font-semibold ${after}`} style={{ top: word.top, color, left: `calc(${at}% ${from < 0 ? '-' : '+'} ${Math.abs(from)}px)` }}>
+          <Lines lines={word.lines} />
+        </Label>
+      </>
     );
   }
   const { after: right, at } = word.place;

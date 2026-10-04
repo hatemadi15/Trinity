@@ -38,7 +38,9 @@ describe('the arrival', () => {
     // give this landing the same length, so the page never gives one landing two.
     expect(plain(w.better ?? '')).toBe('Land on 20 January instead: power for 12 days 15 hours in a row.');
     expect(plain(w.better ?? '')).toContain(`power for ${spanWords(HOME.battery.best_hours!)} in a row`);
-    expect(betterLabel('20 January', r.best!.poweredHours, r.best!.poweredHours * r.best!.earthFraction)).toMatch(/^Try 20 January instead: power for 12 days 15 hours, /);
+    expect(plain(betterLabel('20 January', r.best!.poweredHours, r.best!.poweredHours * r.best!.earthFraction))).toMatch(/^Try 20 January instead: power for 12 days 15 hours, /);
+    // Its spans on one line each, as on the stand view's link.
+    expect(w.better).toContain('12 days 15 hours');
     expect(w.siteLine).toMatch(/^Standing at de Gerlache Rim 2, near the Moon's south pole\./);
     expect(w.exploreHref).toBe(`/explore?site=${site.id}&start=2027-01-01&days=30`);
     // Each beat reads on its own (the caption before it has scrolled away), and says who shortlisted the ridge;

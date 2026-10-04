@@ -115,27 +115,81 @@ describe('the boulders near the eye', () => {
       const { group } = boulderMeshes(placeBoulders(seed, null), () => 0, seed);
       for (const mesh of group.children as THREE.Mesh[]) {
         expect((mesh.material as THREE.MeshStandardMaterial).flatShading).toBe(false);
-        const pos = mesh.geometry.getAttribute('position'), nor = mesh.geometry.getAttribute('normal'), index = mesh.geometry.getIndex()!;
+        const pos = mesh.geometry.getAttribute('position'), nor = shapeNormals(mesh), index = mesh.geometry.getIndex()!;
         // Enough corners for the edges to round, each one shared by every face round it, so each has one normal and no seam opens.
         expect(pos.count).toBeGreaterThanOrEqual(250);
         expect(new Set(Array.from({ length: pos.count }, (_, k) => [pos.getX(k), pos.getY(k), pos.getZ(k)].map((v) => v.toFixed(4)).join())).size).toBe(pos.count);
-        // Worn edges, not a faceted block's: the normals at the two ends of every edge within 50 degrees of each other,
-        // where a block's sharp edge turns them 90, and few edges (1 in 50) turning more than 20, the turn spread over
-        // the rounded edge. Flatter faces, not an egg's curve all over: a quarter of the edges or more lie on faces near
-        // flat, their ends' normals within 2 degrees of each other, where an egg has hardly any (2 in 100).
-        let worst = 0, sharp = 0, flat = 0;
-        for (let k = 0; k < index.count; k += 3) {
-          for (let j = 0; j < 3; j++) {
-            const a = new THREE.Vector3().fromBufferAttribute(nor, index.getX(k + j)), b = new THREE.Vector3().fromBufferAttribute(nor, index.getX(k + ((j + 1) % 3)));
-            const turn = THREE.MathUtils.radToDeg(a.angleTo(b));
-            worst = Math.max(worst, turn);
-            if (turn > 20) sharp++;
-            if (turn < 2) flat++;
-          }
-        }
-        expect(worst).toBeLessThan(50);
-        expect(sharp / index.count).toBeLessThan(0.02);
-        expect(flat / index.count).toBeGreaterThan(0.25);
+        // The shape, without the small bumps on it. Worn edges, not a faceted block's: the normals at the two ends of
+        // every edge within 50 degrees of each other, where a block's sharp edge turns them 90, and few edges (1 in 30)
+        // turning more than 20, the turn spread over the rounded edge (a few sharper edges are among them). Flatter
+        // faces, not an egg's curve all over: a quarter of the edges or more lie on faces near flat, their ends' normals
+        // within 2 degrees of each other, where an egg has hardly any (2 in 100).
+        const turns = edgeTurns(nor, index);
+        expect(Math.max(...turns)).toBeLessThan(50);
+        expect(turns.filter((t) => t > 20).length / turns.length).toBeLessThan(1 / 30);
+        expect(turns.filter((t) => t < 2).length / turns.length).toBeGreaterThan(0.25);
+      }
+    }
+  });
+
+  it('have a few sharper edges as well as worn ones: one face of each, broken off later, meets the rest more sharply', () => {
+    for (const seed of [7, siteSeed(-88.28, -64.31)]) {
+      const { group } = boulderMeshes(placeBoulders(seed, null), () => 0, seed);
+      // Over a site's rocks, 1 edge in 150 or more turns the normals more than 20 degrees from one end to the other: about
+      // twice as many as when every edge is worn round, as on the broken blocks before (1 in 250 to 1 in 350).
+      const share = (group.children as THREE.Mesh[]).map((mesh) => {
+        const turns = edgeTurns(shapeNormals(mesh), mesh.geometry.getIndex()!);
+        return turns.filter((t) => t > 20).length / turns.length;
+      });
+      expect(share.reduce((a, b) => a + b, 0) / share.length).toBeGreaterThan(1 / 150);
+    }
+  });
+
+  it('are lighter and darker in patches across each rock, as rock is, not one flat grey', () => {
+    for (const seed of [7, siteSeed(-88.28, -64.31)]) {
+      const { group } = boulderMeshes(placeBoulders(seed, null), () => 0, seed);
+      for (const mesh of group.children as THREE.Mesh[]) {
+        // A colour at each corner, which the material's grey is multiplied by.
+        expect((mesh.material as THREE.MeshStandardMaterial).vertexColors).toBe(true);
+        const colour = mesh.geometry.getAttribute('color'), index = mesh.geometry.getIndex()!;
+        expect(colour.count).toBe(mesh.geometry.getAttribute('position').count);
+        const tone = Array.from({ length: colour.count }, (_, k) => 0.2126 * colour.getX(k) + 0.7152 * colour.getY(k) + 0.0722 * colour.getZ(k));
+        const sorted = [...tone].sort((a, b) => a - b), at = (q: number) => sorted[Math.floor(q * (sorted.length - 1))];
+        const mid = at(0.5), mean = tone.reduce((a, b) => a + b, 0) / tone.length;
+        // Its grey as before on the whole, with a tenth of it or more a tenth darker or lighter than the middle, and no
+        // spot nearly black or white.
+        expect(mean).toBeCloseTo(1, 6);
+        expect(at(0.1)).toBeLessThan(0.9 * mid);
+        expect(at(0.9)).toBeGreaterThan(1.1 * mid);
+        expect(sorted[0]).toBeGreaterThan(0.5 * mid);
+        expect(sorted[sorted.length - 1]).toBeLessThan(1.6 * mid);
+        // In patches, not a speckle: the two ends of an edge differ by a small part of that spread.
+        let step = 0;
+        for (let k = 0; k < index.count; k++) step += Math.abs(tone[index.getX(k)] - tone[index.getX(k - (k % 3) + ((k + 1) % 3))]);
+        expect(step / index.count).toBeLessThan(0.25 * (at(0.9) - at(0.1)));
+      }
+    }
+  });
+
+  it('have small bumps the light catches, smaller than the rock, while their shape stays: the normals they are lit with tilt a few degrees off the shape’s, this way and that', () => {
+    for (const seed of [7, siteSeed(-88.28, -64.31)]) {
+      const { group } = boulderMeshes(placeBoulders(seed, null), () => 0, seed);
+      for (const mesh of group.children as THREE.Mesh[]) {
+        const drawn = mesh.geometry.getAttribute('normal'), shape = shapeNormals(mesh), index = mesh.geometry.getIndex()!;
+        const off = Array.from({ length: drawn.count }, (_, k) => new THREE.Vector3().fromBufferAttribute(drawn, k).sub(new THREE.Vector3().fromBufferAttribute(shape, k)));
+        const tilt = off.map((_, k) => THREE.MathUtils.radToDeg(new THREE.Vector3().fromBufferAttribute(drawn, k).angleTo(new THREE.Vector3().fromBufferAttribute(shape, k))));
+        const sorted = [...tilt].sort((a, b) => a - b);
+        // A few degrees on the whole, and bumps, not a change of shape: under 25 degrees at the most tilted corners.
+        expect(tilt.reduce((a, b) => a + b, 0) / tilt.length).toBeGreaterThan(2);
+        expect(tilt.reduce((a, b) => a + b, 0) / tilt.length).toBeLessThan(8);
+        expect(sorted[Math.floor(0.99 * (sorted.length - 1))]).toBeLessThan(25);
+        // This way and that across the rock, so smaller than it: the tilts all but cancel out over the whole of it ...
+        const size = off.reduce((a, v) => a + v.length(), 0);
+        expect(off.reduce((a, v) => a.add(v), new THREE.Vector3()).length()).toBeLessThan(0.1 * size);
+        // ... and each spread over several corners, a bump the light can catch, not a speckle from corner to corner.
+        let step = 0;
+        for (let k = 0; k < index.count; k++) step += off[index.getX(k)].distanceTo(off[index.getX(k - (k % 3) + ((k + 1) % 3))]);
+        expect(step / index.count).toBeLessThan(0.6 * (size / off.length));
       }
     }
   });
@@ -157,3 +211,20 @@ describe('the boulders near the eye', () => {
     expect(mesh.count).toBe(list.length);
   });
 });
+
+/** A rock's shape as its corners give it, without the bumps it is lit with: the normals worked out again from them. */
+function shapeNormals(mesh: THREE.Mesh): THREE.BufferAttribute {
+  const shape = mesh.geometry.clone();
+  shape.computeVertexNormals();
+  return shape.getAttribute('normal') as THREE.BufferAttribute;
+}
+
+/** How far the normals turn along each edge of every triangle, from one end to the other, in degrees. */
+function edgeTurns(nor: THREE.BufferAttribute, index: THREE.BufferAttribute): number[] {
+  const turns: number[] = [];
+  for (let k = 0; k < index.count; k++) {
+    const a = new THREE.Vector3().fromBufferAttribute(nor, index.getX(k)), b = new THREE.Vector3().fromBufferAttribute(nor, index.getX(k - (k % 3) + ((k + 1) % 3)));
+    turns.push(THREE.MathUtils.radToDeg(a.angleTo(b)));
+  }
+  return turns;
+}

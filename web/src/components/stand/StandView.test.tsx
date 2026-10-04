@@ -128,7 +128,9 @@ describe('StandView', () => {
     // The better landing day, one click away, and the way back.
     // It says why, as a comparison: the power and the radio from that landing, to the hour, as the headline gives
     // its spans and the home page's forecast gives this landing ("12 days 15 hours", never "13 days").
-    const better = screen.getByRole('link', { name: /^Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours$/ });
+    const better = screen.getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, radio for 3\sdays\s5\shours$/ });
+    // Each span on one line, as the headline's (no-break spaces), so "hours" never wraps onto a line of its own.
+    expect(better.textContent).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours');
     expect(better.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
     expect(screen.getByRole('link', { name: 'Back to the forecast' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     // The rest waits under "More": the radio story, the whys and how we know.

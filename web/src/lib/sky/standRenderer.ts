@@ -436,49 +436,37 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const guides = new THREE.Group();
   skyGroup.add(guides);
   const RG = RS * 0.98;
-  /**
-   * The faint bands, the level horizon and the rings stand 60 m round the eye and test depth: the lander 16 m
-   * away, the rocks and the near ground stand in front of them and hide them, as they hide whatever is behind
-   * them, while the far hills, much farther off, do not. They are kept 60 m out whatever the sky group's scale
-   * (in flight it is scaled up round the camera), so they keep their angular sizes there too.
-   */
-  const NEAR_M = 60;
-  const near = new THREE.Group();
-  guides.add(near);
-  /** Scales the sky group round the camera, the near guides kept at their own size inside it. */
-  const skyScale = (k: number) => {
-    skyGroup.scale.setScalar(k);
-    near.scale.setScalar(1 / k);
-  };
+  /** Scales the sky group round the camera: in flight it stands beyond the far side of the Moon, the guides with it. */
+  const skyScale = (k: number) => skyGroup.scale.setScalar(k);
   /**
    * A band 0.15 degrees tall along directions on the sky, as a mesh: WebGL draws lines a pixel thin. A solid
-   * band stands on the sky, beyond the far skyline, which hides it where the hills do; a faint one stands 60 m
-   * round the eye. Along a path, `floor` is each hour's lowest open sky (degrees): the level horizon, or the
-   * skyline where it dips below level, as it can from a high point. Below it the path runs under the ground, not
-   * behind a hill, and draws nothing: an hour's piece whose two ends both lie there, and a triangle wholly there
-   * (where the path goes down through it), are left as points, so every hour keeps its six indices and a range of
-   * hours stays a range of indices.
+   * band tests depth, so the far skyline hides it where the hills do. A faint one, like the level horizon and the
+   * rings, does not: it shows through the slope a few metres uphill and the far hills alike, so the labels that
+   * name it always point at a line; the lander, drawn after the guides (ORDER), covers them. Along a path, `floor`
+   * is each hour's lowest open sky (degrees): the level horizon, or the skyline where it dips below level, as it
+   * can from a high point. Below it the path runs under the ground, not behind a hill, and draws nothing: an
+   * hour's piece whose two ends both lie there, and a triangle wholly there (where the path goes down through it),
+   * are left as points, so every hour keeps its six indices and a range of hours stays a range of indices.
    */
   const band = (dirs: Vec3[], colour: number, faint: boolean, opacity: number, floor?: number[]) => {
-    const r = faint ? NEAR_M : RG;
-    const n = dirs.length, pos = new Float32Array(n * 6), idx: number[] = [], half = r * Math.tan(0.075 * DEG);
+    const n = dirs.length, pos = new Float32Array(n * 6), idx: number[] = [], half = RG * Math.tan(0.075 * DEG);
     for (let i = 0; i < n; i++) {
-      const d = new THREE.Vector3(...dirs[i]).normalize(), up = new THREE.Vector3(0, 1, 0).addScaledVector(d, -d.y).normalize(), c = d.clone().multiplyScalar(r);
+      const d = new THREE.Vector3(...dirs[i]).normalize(), up = new THREE.Vector3(0, 1, 0).addScaledVector(d, -d.y).normalize(), c = d.clone().multiplyScalar(RG);
       pos.set([c.x + up.x * half, c.y + up.y * half, c.z + up.z * half, c.x - up.x * half, c.y - up.y * half, c.z - up.z * half], i * 6);
     }
     // Heights as sines: a corner k belongs to the hour k / 2.
     const low = floor?.map((f) => Math.sin(f * DEG));
-    const under = (k: number) => !!low && pos[k * 3 + 1] / r < low[k >> 1];
+    const under = (k: number) => !!low && pos[k * 3 + 1] / RG < low[k >> 1];
     for (let i = 0; i < n - 1; i++) {
       const a = i * 2, gone = !!low && dirs[i][1] < low[i] && dirs[i + 1][1] < low[i + 1];
       for (const t of [[a, a + 1, a + 2], [a + 2, a + 1, a + 3]]) idx.push(...(gone || t.every(under) ? [a, a, a] : t));
     }
     const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setIndex(idx);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity, depthWrite: false, depthTest: !faint, side: THREE.DoubleSide, toneMapped: false }));
     mesh.frustumCulled = false;
-    mesh.renderOrder = faint ? 1 : 2;
-    (faint ? near : guides).add(mesh);
+    mesh.renderOrder = faint ? ORDER.FAINT : ORDER.SOLID;
+    guides.add(mesh);
     return mesh;
   };
   const along = (az: ArrayLike<number>, el: ArrayLike<number>) => Array.from({ length: scene.series.hours }, (_, h) => dirAzEl(az[h], el[h]));
@@ -533,15 +521,16 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
         }),
         color: colour,
         transparent: true,
+        depthTest: false,
         depthWrite: false,
         toneMapped: false,
         opacity: 0.85,
       }),
     );
-    s.scale.setScalar(2 * NEAR_M * Math.tan((degrees * DEG) / 2));
+    s.scale.setScalar(2 * RG * Math.tan((degrees * DEG) / 2));
     s.visible = false;
-    s.renderOrder = 3;
-    near.add(s);
+    s.renderOrder = ORDER.RINGS;
+    guides.add(s);
     return s;
   };
   const markers = { sun: ring(0xf6b646, 1.6), earth: ring(0x74adff, 2.8) };
@@ -692,9 +681,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     pathWindow(t);
     const hi = Math.min(scene.series.hours - 1, Math.max(0, Math.round(t)));
     markers.sun.visible = v.sunFraction === 0;
-    markers.sun.position.set(sd[0] * NEAR_M, sd[1] * NEAR_M, sd[2] * NEAR_M);
+    markers.sun.position.set(sd[0] * RG, sd[1] * RG, sd[2] * RG);
     markers.earth.visible = Number(scene.series.earthVisible[hi]) === 0;
-    markers.earth.position.set(ed[0] * NEAR_M, ed[1] * NEAR_M, ed[2] * NEAR_M);
+    markers.earth.position.set(ed[0] * RG, ed[1] * RG, ed[2] * RG);
     // The glare comes from the part of the disc the hills leave in view.
     (glare.material as THREE.SpriteMaterial).opacity = v.sunFraction;
     const when = startMs + t * 3600e3;
@@ -1055,6 +1044,13 @@ const cellsTexture = () =>
   });
 
 /**
+ * The order the guides draw in, after everything solid (three.js draws the transparent things last, by this
+ * order): the faint bands, then the solid ones, then the rings on hidden bodies; and after them all the lander, so
+ * that it covers them where it stands in front of them.
+ */
+const ORDER = { FAINT: 1, SOLID: 2, RINGS: 3, LANDER: 4 } as const;
+
+/**
  * A small solar lander, drawn for scale (not measured), from the numbers its shadow is cast from (LANDER):
  * an eight-sided gold foil body with the engine's bell beneath, four splayed legs on the diagonals with pads
  * and struts, a deck with instrument boxes, a camera and a white radiator, an upright solar panel facing the
@@ -1153,6 +1149,19 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
   const lampPos = new THREE.Vector3(Math.cos(phi) * (apothem + 0.06), L.body.y0 + bodyH * 0.72, Math.sin(phi) * (apothem + 0.06));
   const lamp = new THREE.MeshBasicMaterial({ color: 0x46c98b });
   add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), lamp), lampPos.x, lampPos.y, lampPos.z);
+  // Drawn after the guides (ORDER), so it covers the paths, the level horizon and the rings that show through the
+  // ground behind it: with the transparent things, which three.js draws last, but solid (opacity 1), and tested and
+  // written in depth as before, so the hills still hide it and its parts hide each other as they did.
+  group.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    m.renderOrder = ORDER.LANDER;
+    for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
+      mat.transparent = true;
+      // Each face once, as a solid thing is drawn: two-sided transparent things are drawn back faces first.
+      mat.forceSinglePass = true;
+    }
+  });
   return { group, lamp, panel, dish, lampPos };
 }
 

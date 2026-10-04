@@ -2,7 +2,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { HOME } from '@/lib/data/home';
-import { narrowLayout, narrowRowOf, SkyRow, SkyRowKey, wordWidth } from './SkyRow';
+import { narrowLayout, narrowRowOf, SkyRow, SkyRowKey, wordWidth, type Box } from './SkyRow';
 
 const hours = 720;
 const START = '2027-01-01T00:00:00';
@@ -64,6 +64,39 @@ const desktopWords = (container: HTMLElement) =>
 const sky = HOME.sky;
 const sunRow = { el: sky.sun_el, hill: sky.hill_el, visible: sky.lit, startUtc: sky.start_utc, body: 'sun', title: 'Sunlight', pxPerDeg: 6.5, ticks: false, fitHills: true } as const;
 const earthRow = { el: sky.earth_el, hill: sky.earth_hill_el, visible: sky.earth_visible, startUtc: sky.start_utc, body: 'earth', title: 'Contact with Earth', pxPerDeg: 6.5 } as const;
+/** Hidden for 14 % of the month, from 7 to 12 January: its two markers close together on a narrow chart. */
+const short14 = Array.from({ length: hours }, (_, h) => (h >= 165 && h < 266 ? 0 : 1));
+const short14Row = { el, hill: hillsFor(short14), visible: short14, startUtc: START, body: 'sun', height: 110, ticks: false } as const;
+/** Hidden for a quarter of the month, then flickering out and in again for 2 hours as it comes back: markers with no words of their own, beside the sunrise's. */
+const flicker = Array.from({ length: hours }, (_, h) => ((h >= 300 && h < 480) || (h >= 482 && h < 484) ? 0 : 1));
+/** Two long nights 6 hours apart: a sunrise's marker and a sunset's almost on top of each other. */
+const blip = Array.from({ length: hours }, (_, h) => ((h >= 100 && h < 380) || (h >= 386 && h < 700) ? 0 : 1));
+/** Rows whose words a narrow chart places for its own width, and the widths with their side gutters they are placed for. */
+const narrowRows = [
+  sunRow,
+  earthRow,
+  { el, hill, visible: lit, startUtc: START, body: 'sun' },
+  { el, hill: hillsFor(Array.from({ length: hours }, (_, h) => (h >= 100 && h < 424 ? 0 : 1))), visible: Array.from({ length: hours }, (_, h) => (h >= 100 && h < 424 ? 0 : 1)), startUtc: START, body: 'earth', height: 90, ticks: false },
+  short14Row,
+  { el, hill: hillsFor(flicker), visible: flicker, startUtc: START, body: 'sun', height: 110, ticks: false },
+] as const;
+const blipRow = { el, hill: hillsFor(blip), visible: blip, startUtc: START, body: 'sun', height: 110, ticks: false } as const;
+const narrowWidths = [[220, 16], [280, 16], [360, 16], [390, 16], [640, 32]] as const;
+/**
+ * A sunset's or sunrise's own marker on a narrow chart `width` px wide, where it is (px), and how far its words may
+ * reach across: 24 px short of the markers either side of it (twice the 12 px they stand from their own), or halfway
+ * to one nearer than 48 px. Markers with no words of their own within 24 px of it stand with it, and its words may
+ * reach past them.
+ */
+function markerOf(row: ReturnType<typeof narrowRowOf>, key: string, width: number) {
+  const nearest = (at: number) => row.dots.reduce((a, d, i) => (Math.abs(d.pct - at) < Math.abs(row.dots[a].pct - at) ? i : a), 0);
+  const e = row.events.find((v) => v.key === key)!, k = nearest(e.at), named = new Set(row.events.map((v) => nearest(v.at)));
+  const xs = row.dots.map((d) => (d.pct / 100) * width);
+  const bound = xs.filter((x, i) => i !== k && (named.has(i) || Math.abs(x - xs[k]) >= 24));
+  const toward = (x: number) => (Math.abs(x - xs[k]) >= 48 ? x - Math.sign(x - xs[k]) * 24 : (x + xs[k]) / 2);
+  const before = bound.filter((x) => x < xs[k]).map(toward), after = bound.filter((x) => x > xs[k]).map(toward);
+  return { e, pct: row.dots[k].pct, x: xs[k], y: row.dots[k].y, from: before.length ? Math.max(...before) : 0, to: after.length ? Math.min(...after) : width };
+}
 
 describe('SkyRow', () => {
   it('describes the night in words and labels sunset and sunrise with their dates', () => {
@@ -397,17 +430,10 @@ describe('SkyRow on a narrow chart', () => {
   });
 
   it('keeps every word at 14 px or more, inside the chart and clear of every other word and of the markers, at each width it is worked out for', () => {
-    const rows = [
-      sunRow,
-      earthRow,
-      { el, hill, visible: lit, startUtc: START, body: 'sun' },
-      { el, hill: hillsFor(Array.from({ length: hours }, (_, h) => (h >= 100 && h < 424 ? 0 : 1))), visible: Array.from({ length: hours }, (_, h) => (h >= 100 && h < 424 ? 0 : 1)), startUtc: START, body: 'earth', height: 90, ticks: false },
-      { el, hill: hillsFor(Array.from({ length: hours }, (_, h) => (h >= 165 && h < 266 ? 0 : 1))), visible: Array.from({ length: hours }, (_, h) => (h >= 165 && h < 266 ? 0 : 1)), startUtc: START, body: 'sun', height: 110, ticks: false },
-    ] as const;
     const meet = (a: { x0: number; x1: number; y0: number; y1: number }, b: typeof a) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
-    for (const props of rows) {
+    for (const props of narrowRows) {
       const row = narrowRowOf(props);
-      for (const [width, inset] of [[220, 16], [280, 16], [360, 16], [390, 16], [640, 32]]) {
+      for (const [width, inset] of narrowWidths) {
         const { band, words } = narrowLayout(row, width, inset);
         const where = `${props.body} row at ${width} px`;
         // Each sunset and sunrise names its event and its date ("Earth rises 10 Jan", at the least "Rises 10 Jan"), and
@@ -437,6 +463,76 @@ describe('SkyRow on a narrow chart', () => {
         });
       }
     }
+  });
+
+  it('puts each sunset’s and sunrise’s words by its own marker, in time order from left to right and never over or under another’s: beside it, or on a stem over or under it where there is no room beside it', () => {
+    const meet = (a: Box, b: Box) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    // Where two named markers stand almost together, the words of one may find no room by it at all: then they are
+    // left out rather than put by the other.
+    for (const props of [...narrowRows, blipRow]) {
+      const row = narrowRowOf(props);
+      for (const [width, inset] of narrowWidths) {
+        const { words } = narrowLayout(row, width, inset);
+        const events = words
+          .filter((w) => w.kind === 'event')
+          .map((w) => ({ w, m: markerOf(row, w.key, width) }))
+          .sort((a, b) => a.m.x - b.m.x);
+        events.forEach(({ w, m }, i) => {
+          const name = `${props.body} row at ${width} px: ${w.lines.join(' ')}`;
+          // Nearer its own marker than any other: 24 px or more short of every other one, or halfway to one nearer than
+          // 48 px. And read left to right in their markers' order, each wholly before the next and 8 px or more from
+          // it, so none stands over or under another's and no two run on as one.
+          expect(w.box.x0, name).toBeGreaterThanOrEqual(m.from);
+          expect(w.box.x1, name).toBeLessThanOrEqual(m.to);
+          if (i + 1 < events.length) expect(w.box.x1 + 8, name).toBeLessThanOrEqual(events[i + 1].w.box.x0);
+          if (!w.stem) {
+            // Beside it: 12 px from it on one side, level with it or within 16 px above or below it.
+            const at = (m.e.at / 100) * width;
+            expect(Math.min(Math.abs(w.box.x0 - (at + 12)), Math.abs(w.box.x1 - (at - 12))), name).toBeLessThan(0.01);
+            expect(Math.max(w.box.y0 - m.y, 0, m.y - w.box.y1), name).toBeLessThanOrEqual(16);
+            return;
+          }
+          // Or over or under it, across it, on a stem from the marker to the words that crosses no other word or marker.
+          expect(w.stem.at, name).toBe(m.pct);
+          expect(w.box.x0, name).toBeLessThanOrEqual(m.x - 8);
+          expect(w.box.x1, name).toBeGreaterThanOrEqual(m.x + 8);
+          expect([w.stem.y0, w.stem.y1], name).toEqual(w.box.y1 <= m.y ? [w.box.y1, m.y - 7] : [m.y + 7, w.box.y0]);
+          expect(w.stem.y1 - w.stem.y0, name).toBeGreaterThanOrEqual(6);
+          const stem = { x0: m.x - 1, x1: m.x + 1, y0: w.stem.y0, y1: w.stem.y1 };
+          for (const other of words) if (other !== w) expect(meet(stem, other.box), `${name} and ${other.lines.join(' ')}`).toBe(false);
+          for (const d of row.dots) if (d.pct !== m.pct) expect(meet(stem, { x0: (d.pct / 100) * width - 7, x1: (d.pct / 100) * width + 7, y0: d.y - 7, y1: d.y + 7 }), `${name} and a marker`).toBe(false);
+        });
+      }
+    }
+  });
+
+  it("reads the home page's markers in time order on a phone, each name by its own marker: the sunset's before the sunrise's, never over it", () => {
+    for (const [props, said] of [[sunRow, ['Sun sets 3 Jan', 'Sun rises 20 Jan']], [earthRow, ['Earth rises 10 Jan', 'Earth sets 23 Jan']]] as const) {
+      const row = narrowRowOf(props);
+      const events = narrowLayout(row, 390, 16).words.filter((w) => w.kind === 'event').sort((a, b) => a.box.x0 - b.box.x0);
+      // Left to right as their markers stand, the first wholly before the second, so neither is read as the other's.
+      expect(events.map((w) => w.lines.join(' '))).toEqual(said);
+      expect(events[0].box.x1).toBeLessThanOrEqual(events[1].box.x0);
+      // Each 12 px from its own marker, or across it on a stem, and 24 px or more from the other one.
+      const [a, b] = events.map((w) => markerOf(row, w.key, 390));
+      const gap = (box: Box, x: number) => Math.max(box.x0 - x, 0, x - box.x1);
+      expect(gap(events[0].box, a.x)).toBeLessThanOrEqual(12.5);
+      expect(gap(events[1].box, b.x)).toBeLessThanOrEqual(12.5);
+      expect(gap(events[0].box, b.x)).toBeGreaterThanOrEqual(24);
+      expect(gap(events[1].box, a.x)).toBeGreaterThanOrEqual(24);
+    }
+  });
+
+  it('draws the stem that ties a word to its marker where there is no room beside it, in the body’s colour, and none on a wide screen', () => {
+    const { container } = render(<SkyRow {...short14Row} caption="c" />);
+    const stems = [...container.querySelectorAll<HTMLElement>('[data-stem]')];
+    // On a 220 px chart the Sun's markers on 7 and 12 January stand 31 px apart: the sunset's words have no room beside
+    // their marker, so they stand over it, on a stem down to it.
+    const shown = stems.filter((s) => shownAt(s, 220, 220));
+    expect(shown.map((s) => s.style.left)).toEqual([`${(165 / 720) * 100}%`]);
+    expect(shown[0].getAttribute('style')).toContain('var(--stage-sun)');
+    expect(wordsAt(container, 220).some((w) => /sets 7 Jan$/i.test(w))).toBe(true);
+    expect(stems.filter((s) => shownAt(s, 1216, 1440))).toEqual([]);
   });
 
   it("works out a word's width a little over IBM Plex Sans's own, as a browser measured it", () => {

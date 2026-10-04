@@ -30,10 +30,17 @@ const LONG = { SHARE: 0.3, MIN: 1.35, MAX: 1.75 } as const;
  * A boulder's shape: a ball divided finely (detail 20, 4412 corners) so its worn edges shade smoothly, pushed out
  * to the surface of a broken block: three pairs of faces, each turned up to TURN radians from square, and BREAKS to
  * BREAKS + 2 planes across its corners and edges, BREAK to BREAK + 0.15 out, where pieces broke away; the planes
- * blended with a power from POWER to POWER + 1.5 (the higher, the sharper the edges), and the whole made uneven by
- * up to ROUGH of its size.
+ * blended with a power from POWER to POWER + 1.5 (the higher, the sharper the edges), one face more sharply, at FRESH
+ * times that, and the whole made uneven by up to ROUGH of its size.
  */
-const ROCK = { DETAIL: 20, TURN: 0.25, BREAKS: 3, BREAK: 0.8, POWER: 5, ROUGH: 0.015 } as const;
+const ROCK = { DETAIL: 20, TURN: 0.25, BREAKS: 3, BREAK: 0.8, POWER: 5, FRESH: 1.5, ROUGH: 0.015 } as const;
+/**
+ * A boulder's surface, so that it reads as rock: its grey lighter and darker in patches, most of it within about a
+ * sixth either way (PATCH, in three octaves from patches about a third of the rock across), with a finer grain
+ * (GRAIN, about a sixth across); and small bumps (BUMP, its corners pushed out or in by up to that share of its
+ * size, about a sixth of it across), which tilt the normals it is lit with by about 5 degrees this way and that.
+ */
+const SURFACE = { PATCH: 0.5, PATCH_F: 1.4, GRAIN: 0.12, GRAIN_F: 6, BUMP: 0.035, BUMP_F: 3 } as const;
 
 /** A small seeded random number generator (mulberry32): the same seed gives the same numbers. */
 function seeded(seed: number): () => number {
@@ -45,6 +52,41 @@ function seeded(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/**
+ * Smooth noise in space, from -1 to 1 and the same for a seed: a random value at each corner of a grid one unit
+ * apart, blended smoothly in between.
+ */
+function noise(seed: number): (x: number, y: number, z: number) => number {
+  const at = (i: number, j: number, k: number) => {
+    let h = (Math.imul(i, 0x8da6b343) ^ Math.imul(j, 0xd8163841) ^ Math.imul(k, 0xcb1ab31f) ^ seed) >>> 0;
+    h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+    h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+    return ((h ^ (h >>> 16)) >>> 0) / 2147483648 - 1;
+  };
+  const ease = (t: number) => t * t * (3 - 2 * t), mix = (a: number, b: number, t: number) => a + (b - a) * t;
+  // A side of the cell, at the height k: its four corners blended across (u) and along (v).
+  const side = (i: number, j: number, k: number, u: number, v: number) => mix(mix(at(i, j, k), at(i + 1, j, k), u), mix(at(i, j + 1, k), at(i + 1, j + 1, k), u), v);
+  return (x, y, z) => {
+    const i = Math.floor(x), j = Math.floor(y), k = Math.floor(z), u = ease(x - i), v = ease(y - j);
+    return mix(side(i, j, k, u, v), side(i, j, k + 1, u, v), ease(z - k));
+  };
+}
+
+/** Octaves of noise, each twice as fine and half as strong as the last, from -1 to 1. */
+function octaves(n: (x: number, y: number, z: number) => number, x: number, y: number, z: number, count: number): number {
+  let sum = 0, weight = 1, total = 0;
+  for (let o = 0; o < count; o++) {
+    sum += weight * n(x, y, z);
+    total += weight;
+    weight /= 2;
+    // Each octave off the last one's grid, so their corners do not line up.
+    x = 2 * x + 17.3;
+    y = 2 * y + 5.1;
+    z = 2 * z + 11.7;
+  }
+  return sum / total;
 }
 
 /** A site's seed for placeBoulders, from where it is. */
@@ -125,14 +167,33 @@ function rockShape(next: () => number): THREE.BufferGeometry {
   // A little unevenness over it all: four gentle waves.
   const waves = Array.from({ length: 4 }, () => ({ u: anyWay(), f: 3 + 2 * next(), p: 2 * Math.PI * next() }));
   const pos = geo.getAttribute('position'), u = new THREE.Vector3();
+  // A fresh face: of the faces above the ground (all but the bottom, the fourth), the one that is the nearest plane
+  // in the most directions broke off last and is the least worn, so its edges are sharper where it meets the rest.
+  const covers = planes.map(() => 0);
   for (let i = 0; i < pos.count; i++) {
     u.fromBufferAttribute(pos, i).normalize();
-    // Where the planes, blended, meet this direction: the faces turned towards it count, the nearest the most.
+    let nearest = -1, most = 0;
+    for (let k = 0; k < planes.length; k++) {
+      const reach = u.dot(planes[k].n) / planes[k].d;
+      if (reach > most) {
+        nearest = k;
+        most = reach;
+      }
+    }
+    if (nearest >= 0) covers[nearest]++;
+  }
+  const fresh = [0, 1, 2, 4, 5].reduce((a, k) => (covers[k] > covers[a] ? k : a));
+  const sharp = ROCK.FRESH * power;
+  for (let i = 0; i < pos.count; i++) {
+    u.fromBufferAttribute(pos, i).normalize();
+    // Where the planes, blended, meet this direction: the faces turned towards it count, the nearest the most; the
+    // fresh face blended with the rest at the higher power.
     let sum = 0;
-    for (const { n, d } of planes) sum += Math.max(0, u.dot(n) / d) ** power;
+    for (let k = 0; k < planes.length; k++) if (k !== fresh) sum += Math.max(0, u.dot(planes[k].n) / planes[k].d) ** power;
+    const all = sum ** (sharp / power) + Math.max(0, u.dot(planes[fresh].n) / planes[fresh].d) ** sharp;
     let bump = 0;
     for (const w of waves) bump += Math.sin(w.f * u.dot(w.u) + w.p);
-    const r = sum ** (-1 / power) * (1 + (ROCK.ROUGH * bump) / waves.length);
+    const r = all ** (-1 / sharp) * (1 + (ROCK.ROUGH * bump) / waves.length);
     pos.setXYZ(i, u.x * r, u.y * r, u.z * r);
   }
   // Fitted to its box: its size, its proportions and how deep it lies are set where it is placed.
@@ -145,23 +206,53 @@ function rockShape(next: () => number): THREE.BufferGeometry {
 }
 
 /**
- * The boulders' meshes: blocky stones with rounded edges (rockShape), lit with smooth normals, in the dust's grey a
- * shade lighter or darker rock by rock; as wide as their radius (about one in three long, as big but up to 1.75
- * times as long as it is wide), a little flattened and tilted, each sunk a quarter to a third of its height
- * into the ground at `groundY(x, z)` so it never floats; and for each a sphere (centre and radius, in a Vector4)
- * that stands for it in the ground shader's shadows: over its middle, its top at the rock's highest point as it lies,
- * three quarters of its radius wide, so no wider than the rock's narrower side.
+ * Gives a rock's shape its surface (SURFACE), from a seed of its own: a colour at each corner, by which the
+ * material's grey is multiplied, lighter and darker in patches; and normals with small bumps on them, taken from a
+ * copy of the shape with each corner pushed out or in along its normal, so the light catches the bumps while the
+ * shape itself, its outline and its shadow's sphere, stays as it is.
+ */
+function rockSurface(geo: THREE.BufferGeometry, seed: number) {
+  const pos = geo.getAttribute('position'), nor = geo.getAttribute('normal');
+  const patches = noise(seed), grain = noise(seed ^ 0x5bd1e995), relief = noise(seed ^ 0x27d4eb2f);
+  const { PATCH, PATCH_F, GRAIN, GRAIN_F, BUMP, BUMP_F } = SURFACE;
+  const colour = new Float32Array(pos.count * 3);
+  const bumped = geo.clone(), moved = bumped.getAttribute('position');
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    colour.fill(1 + PATCH * octaves(patches, PATCH_F * x, PATCH_F * y, PATCH_F * z, 3) + GRAIN * grain(GRAIN_F * x, GRAIN_F * y, GRAIN_F * z), 3 * i, 3 * i + 3);
+    const h = BUMP * relief(BUMP_F * x, BUMP_F * y, BUMP_F * z);
+    moved.setXYZ(i, x + nor.getX(i) * h, y + nor.getY(i) * h, z + nor.getZ(i) * h);
+  }
+  // Its grey as before on the whole, the patches lighter and darker about it.
+  const mean = colour.reduce((a, c) => a + c, 0) / colour.length;
+  for (let i = 0; i < colour.length; i++) colour[i] /= mean;
+  bumped.computeVertexNormals();
+  geo.setAttribute('color', new THREE.BufferAttribute(colour, 3));
+  geo.setAttribute('normal', bumped.getAttribute('normal'));
+}
+
+/**
+ * The boulders' meshes: blocky stones with rounded edges and one sharper face (rockShape), with a rock's surface
+ * (rockSurface: patches lighter and darker, small bumps), in the dust's grey a shade lighter or darker rock by rock;
+ * as wide as their radius (about one in three long, as big but up to 1.75 times as long as it is wide), a little
+ * flattened and tilted, each sunk a quarter to a third of its height into the ground at `groundY(x, z)` so it never
+ * floats; and for each a sphere (centre and radius, in a Vector4) that stands for it in the ground shader's shadows:
+ * over its middle, its top at the rock's highest point as it lies, three quarters of its radius wide, so no wider
+ * than the rock's narrower side.
  */
 export function boulderMeshes(list: Boulder[], groundY: (x: number, z: number) => number, seed: number): { group: THREE.Group; spheres: THREE.Vector4[] } {
   const next = seeded(seed ^ 0x9e3779b9);
+  // Each rock's surface from a stream of its own, so the shapes, sizes and places drawn from `next` stay as they were.
+  const surfaces = seeded(seed ^ 0x51633e2d);
   const group = new THREE.Group();
   const spheres: THREE.Vector4[] = [];
   const v = new THREE.Vector3();
   for (const b of list) {
     const geo = rockShape(next);
+    rockSurface(geo, Math.floor(surfaces() * 4294967296));
     const pos = geo.getAttribute('position');
     const shade = 0.9 + 0.2 * next();
-    const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(0x8b8781).multiplyScalar(shade), roughness: 1, metalness: 0 });
+    const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(0x8b8781).multiplyScalar(shade), roughness: 1, metalness: 0, vertexColors: true });
     const mesh = new THREE.Mesh(geo, material);
     // Its length over its width, its area kept.
     const long = next() < LONG.SHARE ? LONG.MIN + (LONG.MAX - LONG.MIN) * next() : 0.9 + 0.2 * next();

@@ -615,18 +615,18 @@ describe('the guides', () => {
     }
   });
 
-  it('draws the faint bands, the level horizon and the rings 60 m round the eye, testing depth: the lander, the rocks and the near ground hide them, the far hills do not', () => {
+  it('draws the faint bands, the level horizon and the rings through the near ground and the hills alike, at their own angular sizes, and the lander after them, so it covers them', () => {
     const s = buildScene(flat({ lander: { azDeg: 300, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
     s.update(2); // the Sun hidden: its ring shows
     s.setView(300, 2, 60, 16 / 9);
     s.root.updateMatrixWorld(true);
     const eye = s.camera.position;
     const world = (b: THREE.Mesh, k: number) => new THREE.Vector3().fromBufferAttribute(b.geometry.getAttribute('position'), k).applyMatrix4(b.matrixWorld);
+    // Not tested against the depth of what is drawn before them: the slope a few metres uphill hides them no more than
+    // the far hills do, so the labels that name them always point at them.
     for (const b of [band(s, SUN_BAND, true), band(s, EARTH_BAND, true), levelBand(s)]) {
-      expect(basic(b).depthTest).toBe(true);
-      const n = b.geometry.getAttribute('position').count;
-      for (const k of [0, 1, n - 2, n - 1]) expect(world(b, k).distanceTo(eye)).toBeCloseTo(60, 1);
-      // Still 0.15 degrees tall.
+      expect(basic(b).depthTest).toBe(false);
+      // 0.15 degrees tall.
       expect(THREE.MathUtils.radToDeg(world(b, 0).sub(eye).angleTo(world(b, 1).sub(eye)))).toBeCloseTo(0.15, 4);
     }
     // The solid bands stay on the sky, beyond the far skyline (200 km), which hides them where the hills do.
@@ -634,13 +634,25 @@ describe('the guides', () => {
       expect(basic(b).depthTest).toBe(true);
       expect(world(b, 0).distanceTo(eye)).toBeGreaterThan(250000);
     }
-    // The rings, 60 m out too, at their own angular sizes.
+    // The rings, at their own angular sizes.
     expect(s.parts.markers.sun.visible).toBe(true);
     for (const [ring, deg] of [[s.parts.markers.sun, 1.6], [s.parts.markers.earth, 2.8]] as const) {
-      expect((ring.material as THREE.SpriteMaterial).depthTest).toBe(true);
-      expect(new THREE.Vector3().setFromMatrixPosition(ring.matrixWorld).distanceTo(eye)).toBeCloseTo(60, 6);
+      expect((ring.material as THREE.SpriteMaterial).depthTest).toBe(false);
+      const away = new THREE.Vector3().setFromMatrixPosition(ring.matrixWorld).distanceTo(eye);
       const size = new THREE.Vector3().setFromMatrixScale(ring.matrixWorld).x;
-      expect(THREE.MathUtils.radToDeg(2 * Math.atan(size / 2 / 60))).toBeCloseTo(deg, 6);
+      expect(THREE.MathUtils.radToDeg(2 * Math.atan(size / 2 / away))).toBeCloseTo(deg, 6);
+    }
+    // The lander draws after every guide, so it covers them where it stands in front of them; solid, and tested against
+    // the depth of the ground drawn before it, so the hills still hide it as they hide the rest.
+    const lander = drawn(s.parts.lander!);
+    expect(lander.length).toBeGreaterThan(20);
+    for (const part of lander) {
+      expect([part.material.opacity, part.material.depthTest, part.material.depthWrite]).toEqual([1, true, true]);
+      for (const guide of drawn(s.parts.guides)) expect(drawsAfter(part, guide)).toBe(true);
+      for (const ground of [...s.parts.ground, s.parts.ring!].flatMap(drawn)) {
+        expect(ground.material.depthWrite).toBe(true);
+        expect(drawsAfter(part, ground)).toBe(true);
+      }
     }
   });
 
@@ -852,6 +864,38 @@ const hourOnPath = (s: Built, at: { x: number; y: number }, az: (h: number) => n
   }
   return -1;
 };
+/**
+ * What three.js draws for each mesh and sprite in an object, one for each of its materials, with what sorts it: the
+ * renderOrder of the group round it (the nearest THREE.Group above it), its own, and its material.
+ */
+type Drawn = { object: THREE.Object3D; material: THREE.Material; group: number };
+const drawn = (o: THREE.Object3D): Drawn[] => {
+  const out: Drawn[] = [];
+  o.traverse((x) => {
+    if (!(x as THREE.Mesh).isMesh && !(x as THREE.Sprite).isSprite) return;
+    let group = 0;
+    for (let p = x.parent; p; p = p.parent) {
+      if ((p as THREE.Group).isGroup) {
+        group = p.renderOrder;
+        break;
+      }
+    }
+    const m = (x as THREE.Mesh).material;
+    for (const material of Array.isArray(m) ? m : [m]) out.push({ object: x, material, group });
+  });
+  return out;
+};
+/**
+ * Whether three.js draws `a` after `b`, as its render lists sort them: everything solid first, then everything
+ * transparent; within each, by the renderOrder of the group round it, then by its own. (Only then by distance, which
+ * this leaves out: two that tie on those count as neither after the other.)
+ */
+const drawsAfter = (a: Drawn, b: Drawn) => {
+  const key = (d: Drawn) => [d.material.transparent ? 1 : 0, d.group, d.object.renderOrder];
+  const [x, y] = [key(a), key(b)];
+  const i = x.findIndex((v, k) => v !== y[k]);
+  return i >= 0 && x[i] > y[i];
+};
 /** Each hour's piece of a band, as its triangles that draw anything (those with an area), each as its three corners. */
 const pieces = (b: THREE.Mesh) => {
   const p = b.geometry.getAttribute('position'), index = b.geometry.getIndex()!;
@@ -1037,7 +1081,7 @@ describe('the stand scene in flight', () => {
     expect(ring.visible).toBe(false);
   });
 
-  it('keeps the faint bands, the level horizon and the rings 60 m round the eye at the arrival’s end too, where the sky is scaled up round the camera', () => {
+  it('draws the faint bands, the level horizon and the rings through the ground at the arrival’s end too, at their own angular sizes where the sky is scaled up round the camera, and the lander after them', () => {
     const s = buildScene(flat({ globe, siteHeightM: 100, lander: { azDeg: 300, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
     s.update(2);
     // Standing at the eye, looking north.
@@ -1046,15 +1090,20 @@ describe('the stand scene in flight', () => {
     expect(s.parts.sky.scale.x).toBeGreaterThan(10);
     s.root.updateMatrixWorld(true);
     const eye = s.camera.position;
+    const world = (b: THREE.Mesh, k: number) => new THREE.Vector3().fromBufferAttribute(b.geometry.getAttribute('position'), k).applyMatrix4(b.matrixWorld);
     for (const b of [band(s, SUN_BAND, true), band(s, EARTH_BAND, true), levelBand(s)]) {
-      expect(new THREE.Vector3().fromBufferAttribute(b.geometry.getAttribute('position'), 0).applyMatrix4(b.matrixWorld).distanceTo(eye)).toBeCloseTo(60, 1);
+      expect(basic(b).depthTest).toBe(false);
+      expect(THREE.MathUtils.radToDeg(world(b, 0).sub(eye).angleTo(world(b, 1).sub(eye)))).toBeCloseTo(0.15, 4);
     }
-    expect(new THREE.Vector3().setFromMatrixPosition(s.parts.markers.sun.matrixWorld).distanceTo(eye)).toBeCloseTo(60, 6);
+    expect((s.parts.markers.sun.material as THREE.SpriteMaterial).depthTest).toBe(false);
+    const away = new THREE.Vector3().setFromMatrixPosition(s.parts.markers.sun.matrixWorld).distanceTo(eye);
     const size = new THREE.Vector3().setFromMatrixScale(s.parts.markers.sun.matrixWorld).x;
-    expect(THREE.MathUtils.radToDeg(2 * Math.atan(size / 2 / 60))).toBeCloseTo(1.6, 6);
+    expect(THREE.MathUtils.radToDeg(2 * Math.atan(size / 2 / away))).toBeCloseTo(1.6, 6);
     // The solid bands stay with the sky, far beyond the measured ground.
     const solid = band(s, SUN_BAND, false);
-    expect(new THREE.Vector3().fromBufferAttribute(solid.geometry.getAttribute('position'), 0).applyMatrix4(solid.matrixWorld).distanceTo(eye)).toBeGreaterThan(1e6);
+    expect(world(solid, 0).distanceTo(eye)).toBeGreaterThan(1e6);
+    // The lander covers them here as in the stand view.
+    for (const part of drawn(s.parts.lander!)) for (const guide of drawn(s.parts.guides)) expect(drawsAfter(part, guide)).toBe(true);
   });
 
   it('hides a point behind the Moon from a camera in space, and shows one on the near side', () => {
