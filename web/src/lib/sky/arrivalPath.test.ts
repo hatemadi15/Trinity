@@ -22,6 +22,8 @@ const landerParts = (i: PathInput) => {
   const g = i.groundAt(i.lander.x, i.lander.z);
   return { mid: new THREE.Vector3(i.lander.x, g + 1.6, i.lander.z), top: new THREE.Vector3(i.lander.x, g + 3.4, i.lander.z) };
 };
+/** The lander's left edge seen from a pose: its middle moved half its width (1.9 m) to the camera's left. */
+const leftEdge = (pose: Pose, mid: THREE.Vector3) => mid.clone().addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(new THREE.Quaternion(...pose.quaternion)).setY(0).normalize(), -1.9);
 /** A direction's point far out from a pose's camera. */
 const far = (pose: Pose, d: Vec3) => new THREE.Vector3(...pose.position).addScaledVector(new THREE.Vector3(...d), 1e5);
 /** The hero month's track for a view's shape, and the flight's input with it. */
@@ -95,12 +97,11 @@ describe('the flight', () => {
       expect(inView(sun)).toBe(true);
       expect(sun.y).toBeGreaterThan(see(top).y);
       expect(end.fov).toBe(aspect < 1 ? BESIDE.tall.fov : BESIDE.wide.fov);
-      // On a wide screen low at the left, under the words, the Sun at the far right lighting its side: not a dark box
-      // against the Sun.
+      // On a wide screen right of the words' column at the left (it ends just short of the middle), whole, so no
+      // card scrolling by covers it; the Sun further right.
       if (aspect > 1) {
-        expect(see(top).y).toBeLessThan(-0.2);
-        expect(lander.x).toBeLessThan(0);
-        expect(sun.x).toBeGreaterThan(lander.x + 1);
+        expect(see(leftEdge(end, mid)).x).toBeGreaterThan(0.02);
+        expect(sun.x).toBeGreaterThan(lander.x + 0.4);
       }
     }
   });
@@ -262,9 +263,14 @@ describe('the flight', () => {
         }
         before = p;
       }
-      // On a wide screen, while the words stand at the left (the screens of the month's start and middle), the lander
-      // stands under them, in the lower part of the view.
-      if (aspect > 1) for (const t of [HERO_HOUR, hourAt(4.5, HERO_HOUR, false, last)]) expect(viewOf(poseAtHour(t), aspect)(top).y).toBeLessThan(-0.2);
+      // On a wide screen the lander stands right of the words' column all month, whole: the cards scroll by at the
+      // left at any hour, the answer's card at the end too.
+      if (aspect > 1) {
+        for (let t = HERO_HOUR; t <= last; t += 6) {
+          const p = poseAtHour(t);
+          expect(viewOf(p, aspect)(leftEdge(p, mid)).x, `left edge at ${t}`).toBeGreaterThan(0.02);
+        }
+      }
     }
   });
 

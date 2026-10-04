@@ -181,7 +181,8 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
         {words.beats.map((text, k) => (
           <div key={text} data-beat={k + 1} className="flex h-[100svh] items-end pb-24 sm:items-center sm:pb-0">
             <div className="wrap w-full">
-              <p data-words="" data-plate="" className={`${PLATE} ${SENTENCE} max-w-[600px] p-5 sm:p-6`}>{text}</p>
+              {/* On a wide screen the column ends just short of the middle: the lander stands right of it. */}
+              <p data-words="" data-plate="" className={`${PLATE} ${SENTENCE} max-w-[600px] p-5 sm:max-w-[min(600px,46vw)] sm:p-6`}>{text}</p>
             </div>
           </div>
         ))}
