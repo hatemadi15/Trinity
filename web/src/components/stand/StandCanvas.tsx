@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { crossStars, type StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
-import { shadowWords, starLabel } from '@/lib/viz/stand';
+import { EARTH_LOOP, shadowWords, starLabel } from '@/lib/viz/stand';
 
 export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean) => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
@@ -94,9 +94,23 @@ export function pointerClear(box: Rect, labels: Rect[], lo: number, hi: number):
   return above - h / 2 >= lo ? above : Math.min(hi, hit.bottom + 6 + h / 2);
 }
 
-/** A pointer's words: the label's, "behind the hills" as "hidden" ("below the horizon" stays: below what?). */
+/** A path's name as the view shows it: Earth's with why it loops, on a second line (teacher, part B read 7). */
+export function pathNameText(body: 'sun' | 'earth', text: string): string {
+  return body === 'earth' ? `${text}\n${EARTH_LOOP}` : text;
+}
+
+/** A pointer's words on a phone: the body and how high it stands, short ("Earth 4.4° up", "Earth 1.2° below"). */
+export function pointerShort(label: string): string {
+  return label
+    .replace(/^(\w+) behind a hill, (.+) above the horizon$/, '$1 $2 up')
+    .replace(/^(\w+) behind a hill, on the horizon$/, '$1 on the horizon')
+    .replace(/^(\w+), /, '$1 ')
+    .replace(/ below the horizon$/, ' below');
+}
+
+/** A pointer's words: the label's, "above the horizon" behind a hill as "up" ("below the horizon" stays: below what?). */
 export function pointerWords(label: string): string {
-  return label.replace(', behind the hills', ', hidden');
+  return label.replace(/ behind a hill, (.+) above the horizon$/, ' behind a hill, $1 up');
 }
 
 /** The Southern Cross's four stars, named only while the cross's own name is not shown. */
@@ -730,7 +744,8 @@ export function StandCanvas({
         .filter((b) => b.width > 0);
       const named = PATHS.map(([k]) => {
         const node = nameRefs.current[k], n = l.pathNames?.find((p) => p.body === k) ?? null;
-        if (node && n && node.textContent !== n.text) node.textContent = n.text;
+        const text = n ? pathNameText(k, n.text) : '';
+        if (node && n && node.textContent !== text) node.textContent = text;
         const dx = place(node, n);
         if (n) keepOff(node, n, dx, body, shownLabels);
         return node && !node.hidden ? node.getBoundingClientRect() : null;
@@ -880,9 +895,9 @@ export function StandCanvas({
               <path d="M0 5 8 0v10z" />
             </svg>
             <i className={`h-2 w-2 shrink-0 rounded-full ${colour}`} />
-            {/* On a phone the name alone, so the pointer does not lie across the narrow view. */}
+            {/* On a phone the Sun's name alone, and Earth's with its angle (13.3), so the pointer stays short. */}
             <span className="max-md:hidden">{k === 'sun' ? pointerWords(sunLabel) : k === 'earth' ? pointerWords(earthLabel) : name}</span>
-            <span className="md:hidden">{name}</span>
+            <span className="md:hidden">{k === 'earth' ? pointerShort(earthLabel) : name}</span>
           </span>
         ))}
       </div>
@@ -929,7 +944,7 @@ export function StandCanvas({
             }}
             hidden
             data-path-name={k}
-            className={`${LABEL} -translate-x-1/2 translate-y-1/4 ${colour}`}
+            className={`${LABEL.replace('whitespace-nowrap', 'whitespace-pre')} -translate-x-1/2 translate-y-1/4 ${colour}`}
           />
         ))}
         <span ref={levelRef} hidden className={`${LABEL} translate-x-3 -translate-y-1/2 text-[#c3bfb6]`}>

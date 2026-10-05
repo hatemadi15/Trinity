@@ -63,7 +63,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
     <AppFrame>
       <main className="wrap flex flex-col gap-6 pb-12 pt-8">
         <div>
-          <h1 className="display text-[34px] leading-tight sm:text-[40px]">Compare sites</h1>
+          <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">Compare sites</h1>
           <p className="mt-2 max-w-[46em] text-lg text-ink-2">Up to four landing sites side by side, for the same days and the same lander, landing on the first day.</p>
         </div>
         <section aria-label="What this comparison is for" className="flex flex-wrap items-end gap-4">

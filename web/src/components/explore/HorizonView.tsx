@@ -21,7 +21,7 @@ const COMPASS: [number, string][] = [
 
 /**
  * The view all round the site: the hills in grey, the Sun's and Earth's paths over the period (solid
- * while in view, dotted while hidden), and where both are at the hour of the time bar. North is on the
+ * while in view, dotted while set), and where both are at the hour of the time bar. North is on the
  * left and again on the right. The caption says which way the Sun goes and how much the heights are
  * stretched for the picture's real size.
  */
@@ -109,7 +109,7 @@ export function HorizonView({ mask, series, cursor, lat, startUtc }: { mask: Arr
         </li>
         <li className="flex items-center gap-2">
           <DottedSwatch />
-          dotted while hidden
+          dotted while set
         </li>
         <li className="flex items-center gap-2">
           <HillSwatch />

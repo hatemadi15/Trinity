@@ -15,7 +15,7 @@ const PANELS: [PanelModel, string][] = [
   ['full_tracking', 'Follows the Sun in two axes'],
 ];
 
-const dark = (power: Pick<PowerConfig, 'batteryWh' | 'loadW'>) => `${spanWords(batteryHours({ ...DEFAULT_POWER, ...power }))} in the dark`;
+const dark = (power: Pick<PowerConfig, 'batteryWh' | 'loadW'>) => `${spanWords(batteryHours({ ...DEFAULT_POWER, ...power }))} at night`;
 
 function Choice({ name, checked, onChange, title, note }: { name: string; checked: boolean; onChange: () => void; title: string; note: string }) {
   return (
@@ -95,7 +95,7 @@ export function LanderDialog({
 
       {/* How the power is worked out holds for the ready-made landers too, so it shows whichever is chosen. */}
       <p className="mt-4 max-w-[52em] text-[15px] text-ink-2">
-        The panel makes its share of full sunlight (1361 W on each square metre at Earth&apos;s distance), reduced by the part of the Sun the hills hide and by the angle of the panel. The battery fills when the panel makes
+        The panel makes its share of full sunlight (1361 W on each square metre at Earth&apos;s distance), reduced by the part of the Sun behind a hill and by the angle of the panel. The battery fills when the panel makes
         more than the lander uses and empties when it makes less.
       </p>
 

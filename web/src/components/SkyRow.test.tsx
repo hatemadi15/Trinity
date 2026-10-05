@@ -103,7 +103,7 @@ describe('SkyRow', () => {
     const { container } = render(<SkyRow el={el} hill={hill} visible={lit} az={az} startUtc={START} body="sun" caption="The Sun at de Gerlache Rim 2, January 2027" />);
     const picture = screen.getByRole('img');
     expect(picture.getAttribute('aria-label')).toMatch(/The Sun at de Gerlache Rim 2, January 2027/);
-    expect(picture.getAttribute('aria-label')).toMatch(/hidden from 3 Jan to 20 Jan, 16 days 15 hours/);
+    expect(picture.getAttribute('aria-label')).toMatch(/is set from 3 Jan to 20 Jan, 16 days 15 hours/);
     expect(container.textContent).toMatch(/Night for 16 days 15 hours: the hills stand higher than the Sun/);
     expect(container.textContent).toMatch(/Sun sets 3 Jan/);
     expect(container.textContent).toMatch(/Sun rises 20 Jan/);
@@ -298,24 +298,16 @@ describe('SkyRow', () => {
     expect(second.container.textContent).toMatch(/Sun sets 3 Jan/);
   });
 
-  it('draws the line once and then shows the words when asked to reveal, and stays still otherwise', () => {
-    const still = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" />);
-    expect(still.container.querySelector('.reveal-line')).toBeNull();
-    expect(still.container.querySelector('.reveal-after')).toBeNull();
-    still.unmount();
-    const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" reveal />);
-    expect(container.querySelector('svg.reveal-line polyline')).toBeTruthy();
-    const after = [...container.querySelectorAll('.reveal-after')].map((n) => n.textContent);
-    expect(after.some((t) => /Night for/.test(t ?? ''))).toBe(true);
-    expect(after.some((t) => /Sun sets/.test(t ?? ''))).toBe(true);
-    // The scale and the dates are part of the still picture.
-    expect(after.some((t) => /horizon|0°|1 Jan/.test(t ?? ''))).toBe(false);
+  it('draws the line and its words at once: nothing plays by itself (spec 6)', () => {
+    const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" />);
+    expect(container.querySelector('.reveal-line, .reveal-after')).toBeNull();
+    expect(container.textContent).toMatch(/Sun sets/);
   });
 
   it('reports a stretch that began before the window instead of calling the body visible', () => {
     const visible = Array.from({ length: hours }, (_, h) => (h < 240 ? 0 : 1));
     const { container } = render(<SkyRow el={el} hill={hillsFor(visible)} visible={visible} startUtc={START} body="sun" caption="c" />);
-    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/The Sun is hidden from the start until 11 Jan, 10 days\./);
+    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/The Sun is set from the start until 11 Jan, 10 days\./);
     expect(container.textContent).toMatch(/Sun rises 11 Jan/);
     expect(container.textContent).not.toMatch(/Sun sets/);
   });
@@ -323,13 +315,13 @@ describe('SkyRow', () => {
   it('reports a stretch that outlasts the window, and a body that never shows', () => {
     const late = Array.from({ length: hours }, (_, h) => (h < 480 ? 1 : 0));
     const first = render(<SkyRow el={el} hill={hillsFor(late)} visible={late} startUtc={START} body="sun" caption="c" />);
-    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/The Sun is hidden from 21 Jan to the end, 10 days\./);
+    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/The Sun is set from 21 Jan to the end, 10 days\./);
     expect(first.container.textContent).toMatch(/Sun sets 21 Jan/);
     expect(first.container.textContent).not.toMatch(/Sun rises/);
     first.unmount();
     const never = Array.from({ length: hours }, () => 0);
     const second = render(<SkyRow el={el} hill={hillsFor(never)} visible={never} startUtc={START} body="sun" caption="c" />);
-    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/The Sun is hidden the whole time\./);
+    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/The Sun stays set the whole time\./);
     expect(second.container.textContent).toMatch(/Night for 30 days/);
   });
 
@@ -342,7 +334,7 @@ describe('SkyRow', () => {
 
   it('speaks of contact, not night, for Earth', () => {
     const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="earth" caption="Earth at the site" />);
-    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/Earth is hidden from 3 Jan to 20 Jan/);
+    expect(screen.getByRole('img').getAttribute('aria-label')).toMatch(/Earth is set from 3 Jan to 20 Jan/);
     expect(container.textContent).toMatch(/No contact for 16 days 15 hours: the hills stand higher than Earth/);
     expect(container.textContent).toMatch(/Earth sets 3 Jan/);
     expect(container.textContent).not.toMatch(/Night/);
@@ -547,20 +539,20 @@ describe('SkyRow on a narrow chart', () => {
 describe('SkyRowKey', () => {
   it('names the three marks of a Sun row', () => {
     render(<SkyRowKey body="sun" />);
-    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['height of the Sun', 'Sun hidden', "hills in the Sun's direction at that time"]);
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['height of the Sun', 'the Sun while set', "hills in the Sun's direction at that time"]);
   });
 
   it('speaks of Earth for an Earth row and explains the compass row when there is one', () => {
     const { container } = render(<SkyRowKey body="earth" compass />);
     const items = screen.getAllByRole('listitem').map((li) => li.textContent);
-    expect(items.slice(0, 3)).toEqual(['height of Earth', 'Earth hidden', "hills in Earth's direction at that time"]);
+    expect(items.slice(0, 3)).toEqual(['height of Earth', 'Earth while set', "hills in Earth's direction at that time"]);
     expect(items[3]).toBe('Top row: the direction Earth is in on that date.');
     expect(container.innerHTML).toContain('var(--stage-earth)');
   });
 
   it('covers a Sun row and an Earth row together', () => {
     const { container } = render(<SkyRowKey body="both" />);
-    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while hidden', 'the hills in its direction at that time']);
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while set', 'the hills in its direction at that time']);
     expect(container.innerHTML).toContain('var(--stage-sun)');
     expect(container.innerHTML).toContain('var(--stage-earth)');
   });

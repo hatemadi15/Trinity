@@ -53,8 +53,8 @@ describe('TimeChart', () => {
   it('draws the Sun, Earth and the battery as three named rows with their story in words', () => {
     show();
     const [sun, earth, battery] = screen.getAllByRole('img');
-    expect(sun.getAttribute('aria-label')).toMatch(/^The Sun over the 30 days from 1 January\. The Sun is hidden from 3 Jan to 20 Jan, 16 days 15 hours\.$/);
-    expect(earth.getAttribute('aria-label')).toMatch(/^Earth over the 30 days from 1 January\. Earth is hidden from /);
+    expect(sun.getAttribute('aria-label')).toMatch(/^The Sun over the 30 days from 1 January\. The Sun is set from 3 Jan to 20 Jan, 16 days 15 hours\.$/);
+    expect(earth.getAttribute('aria-label')).toMatch(/^Earth over the 30 days from 1 January\. Earth is set from /);
     expect(battery.getAttribute('aria-label')).toBe('The battery first runs out on 4 January and the lander is off for 16 days 6 hours of these 30 days.');
     expect(screen.getByText('The Sun')).toBeTruthy();
     expect(screen.getByText('Earth')).toBeTruthy();
@@ -67,7 +67,7 @@ describe('TimeChart', () => {
     expect(within(key).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       "the Sun's height",
       "Earth's height",
-      'dotted while hidden',
+      'dotted while set',
       'the hills in its direction at that time',
       'battery charge',
     ]);
@@ -94,7 +94,7 @@ describe('TimeChart', () => {
   it("draws the dotted sample of the key in the Sun's and Earth's colours, as the chart draws them", () => {
     show();
     const key = screen.getByRole('list', { name: 'Key' });
-    const dotted = [...key.querySelectorAll('li')].find((li) => li.textContent?.includes('dotted while hidden'))!;
+    const dotted = [...key.querySelectorAll('li')].find((li) => li.textContent?.includes('dotted while set'))!;
     const strokes = [...dotted.querySelectorAll('line')].map((l) => l.getAttribute('stroke'));
     expect(strokes).toEqual(['var(--stage-sun)', 'var(--stage-earth)']);
   });

@@ -26,10 +26,10 @@ const series: Series = {
 const power = powerBudget(series, CFG);
 const START = '2027-01-01T00:00:00';
 
-/** The colours of the stand view's dark theme, where the bar carries the dates, from globals.css. */
+/** The colours of the stand view's dark theme, where the bar carries the dates, from globals.css (its block sits in `@media screen`). */
 const DARK: Record<string, string> = (() => {
   const css = fs.readFileSync(path.resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
-  for (const [, selectors, body] of css.matchAll(/^([^\s@/{}][^{}]*)\{([^{}]*)\n\}/gm)) {
+  for (const [, selectors, body] of css.matchAll(/^[ \t]*([^\s@/{}*][^{}]*)\{([^{}]*)\n[ \t]*\}/gm)) {
     if (!selectors.split(',').some((s) => s.trim() === '.theme-dark')) continue;
     return Object.fromEntries([...body.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
   }
@@ -181,7 +181,7 @@ describe('TimeBar', () => {
   it('says the date and hour in UTC and what is happening then', () => {
     show(6);
     expect(screen.getByTestId('when').textContent).toBe('1 Jan 2027, 06:00 UTC');
-    expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth behind the hills, battery 100 %');
+    expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth behind a hill, battery 100 %');
   });
 
   it("lines its track up under the chart's plot: the chart's grid, inset by the chart panel's edge", () => {
@@ -209,7 +209,7 @@ describe('TimeBar', () => {
   it('shows the hour under the pointer on the chart while the handle stays put', () => {
     show(6, { hoverHour: 40 });
     expect(screen.getByTestId('when').textContent).toBe('2 Jan 2027, 16:00 UTC');
-    expect(screen.getByTestId('status').textContent).toBe('Sun behind the hills, Earth in view but the lander is off, battery empty');
+    expect(screen.getByTestId('status').textContent).toBe('Sun behind a hill, Earth in view but the lander is off, battery empty');
     expect((screen.getByRole('slider', { name: 'Time' }) as HTMLInputElement).value).toBe('6');
   });
 
@@ -219,7 +219,7 @@ describe('TimeBar', () => {
     expect(slider.min).toBe('0');
     expect(slider.max).toBe('71');
     expect(slider.step).toBe('1');
-    expect(slider.getAttribute('aria-valuetext')).toBe('1 Jan 2027, 10:00 UTC: Sun up, Earth behind the hills, battery 100 %');
+    expect(slider.getAttribute('aria-valuetext')).toBe('1 Jan 2027, 10:00 UTC: Sun up, Earth behind a hill, battery 100 %');
     fireEvent.change(slider, { target: { value: '30' } });
     expect(onCursor).toHaveBeenLastCalledWith(30);
   });
@@ -311,7 +311,7 @@ describe('TimeBar', () => {
     expect(container.querySelector('[data-part="key-earth"]')).toBeNull();
     expect(screen.queryByText('Earth in view')).toBeNull();
     expect(container.querySelector('[data-part="key-no-sun"]')).toBeNull();
-    expect(screen.queryByText('in shadow')).toBeNull();
+    expect(screen.queryByText('night')).toBeNull();
     expect(container.querySelectorAll('[data-swatch]')).toHaveLength(1);
     // The box of the strip keeps its height: nothing under the strip but the slider's own room.
     expect(stripBox(container).getAttribute('class')).toBe('relative h-8');
@@ -321,7 +321,7 @@ describe('TimeBar', () => {
     expect(offOnly.container.querySelector('[data-part="off"]')).not.toBeNull();
     expect(offOnly.container.querySelector('[data-part="earth"]')).toBeNull();
     expect(screen.queryByText('Earth in view')).toBeNull();
-    expect(screen.queryByText('in shadow')).toBeNull();
+    expect(screen.queryByText('night')).toBeNull();
     expect(offOnly.container.querySelectorAll('[data-swatch]')).toHaveLength(2);
     expect(stripBox(offOnly.container).getAttribute('class')).toBe('relative h-8');
   });
@@ -584,14 +584,14 @@ describe('TimeBar', () => {
     expect(heightPx(stripBox(none.container))).toBe(47);
   });
 
-  it("names the strip's grey, the hours the site is in shadow, right after the yellow of its sunlight when the dates are shown", () => {
-    // The second day leaves the strip grey there, with the Sun 5° up all the while: the hills hide it. So the key
-    // says where the site is, in sunlight or in shadow, not whether the Sun is up.
+  it("names the strip's grey, the night, right after the yellow of its sunlight when the dates are shown", () => {
+    // The second day leaves the strip grey there, with the Sun 5° up all the while, set behind the hills. So the key
+    // names the site in sunlight and the night, not whether the Sun is up.
     expect(series.sunEl[30]).toBe(5);
     expect(series.sunFraction[30]).toBe(0);
     const { container } = show(6, { dates: true });
     const key = container.querySelector<HTMLElement>('[data-part="key-no-sun"]')!;
-    expect(key.textContent).toBe('in shadow');
+    expect(key.textContent).toBe('night');
     expect(container.querySelector('[data-part="key"]')!.textContent).toBe('in sunlight');
     for (const k of container.querySelectorAll('[data-part^="key"]')) expect(k.textContent).not.toMatch(/Sun up|no Sun/);
     // The swatch is the strip's own grey: its background, where no yellow is drawn.
@@ -615,14 +615,14 @@ describe('TimeBar', () => {
     const { container, unmount } = showPeriod(30, { dates: true }, { sunFraction: new Float64Array(720).fill(0.2) });
     expect(container.querySelectorAll('[data-part="lit"]')).toHaveLength(1);
     expect(container.querySelector('[data-part="key-no-sun"]')).toBeNull();
-    expect(screen.queryByText('in shadow')).toBeNull();
+    expect(screen.queryByText('night')).toBeNull();
     unmount();
     // One hour without it is grey on the strip, and named.
     const sunFraction = new Float64Array(720).fill(1);
     sunFraction[300] = 0;
     const one = showPeriod(30, { dates: true }, { sunFraction });
     expect(one.container.querySelectorAll('[data-part="lit"]')).toHaveLength(2);
-    expect(screen.getByText('in shadow')).toBeTruthy();
+    expect(screen.getByText('night')).toBeTruthy();
   });
 
   it('leaves "radio contact" out of the key when the lander loses power before Earth comes into view: the bar draws no solid green, only the hatched radio after the night', () => {
@@ -631,7 +631,7 @@ describe('TimeBar', () => {
     expect(contactRunsOf(container, 720)).toEqual([{ from: 456, to: 552, hatched: true }]);
     expect(container.querySelector('[data-part="contact-run"]:not([data-if-survives])')).toBeNull();
     // So the key names no solid green for a reader to go looking for: the hatched entry comes right after Earth's.
-    expect(keyWords(container)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio, if it survives the night']);
+    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if it survives the night']);
     expect(container.querySelector('[data-part="key-contact"]')).toBeNull();
     expect(screen.queryByText('radio contact')).toBeNull();
     expect(container.querySelector('[data-part="key-if-survives"]')!.previousElementSibling).toBe(container.querySelector('[data-part="key-earth"]'));
@@ -645,7 +645,7 @@ describe('TimeBar', () => {
     const early = Uint8Array.from({ length: 720 }, (_, h) => (h >= 24 && h < 100 ? 1 : 0));
     const { container, unmount } = showPeriod(30, { dates: true, powered, ifSurvivesFrom: 456 }, { sunFraction, earthVisible: early });
     expect(contactRunsOf(container, 720)).toEqual([{ from: 24, to: 76, hatched: false }]);
-    expect(keyWords(container)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact']);
+    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
     expect(screen.queryByText('radio, if it survives the night')).toBeNull();
     unmount();
     // With Earth in view again from the 20th to the 23rd, both kinds of green are drawn, and both named, the solid first.
@@ -655,7 +655,7 @@ describe('TimeBar', () => {
       { from: 24, to: 76, hatched: false },
       { from: 456, to: 552, hatched: true },
     ]);
-    expect(keyWords(both.container)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
+    expect(keyWords(both.container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
   });
 
   it('leaves "lander off" out of the key when no hour is without power', () => {
@@ -664,16 +664,16 @@ describe('TimeBar', () => {
     const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
     const { container } = showPeriod(30, { dates: true, powered: new Uint8Array(720).fill(1), ifSurvivesFrom: null }, { sunFraction, earthVisible });
     expect(container.querySelector('[data-part="off"]')).toBeNull();
-    expect(keyWords(container)).toEqual(['in sunlight', 'in shadow', 'Earth in view', 'radio contact']);
+    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'Earth in view', 'radio contact']);
     expect(screen.queryByText('lander off')).toBeNull();
   });
 
   it('leaves "in sunlight" out of the key when no hour has any of the Sun: there is no yellow to name', () => {
-    // A period all in shadow: the strip is grey from end to end, and the key names the grey alone.
+    // A period all night: the strip is grey from end to end, and the key names the grey alone.
     const dark = new Float64Array(720);
     const { container, unmount } = showPeriod(30, { dates: true }, { sunFraction: dark });
     expect(container.querySelector('[data-part="lit"]')).toBeNull();
-    expect(keyWords(container)).toEqual(['in shadow']);
+    expect(keyWords(container)).toEqual(['night']);
     expect(screen.queryByText('in sunlight')).toBeNull();
     unmount();
     // Explore's key names the yellow alone, so for such a period it has no entry at all.
@@ -686,7 +686,7 @@ describe('TimeBar', () => {
     // The night, the hours the battery runs out in it, and Earth on the second day while the lander has power: every key is needed.
     const { container } = show(6, { dates: true, powered: power.powered });
     const keys = [...container.querySelectorAll<HTMLElement>('[data-part^="key"]')];
-    expect(keys.map((k) => k.textContent)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact']);
+    expect(keys.map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
     // One group, not the line of words itself, so no key strays to the far side of a new line.
     const group = keys[0].parentElement!;
     for (const k of keys) expect(k.parentElement).toBe(group);
@@ -709,11 +709,10 @@ describe('TimeBar', () => {
   it('slims the bar when compact on a medium screen and up: the keys join the line of the date and hour, at its right end, and stay under the date on a phone', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, clockNote: ' (Earth time)' });
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact']);
-    // In the date's own line of words, after the date and its note, and after the Key button that stands for them on a phone.
+    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
+    // In the date's own line of words, after the date and its note.
     expect(group.parentElement).toBe(screen.getByTestId('when').closest('p'));
-    expect(group.previousElementSibling).toBe(screen.getByRole('button', { name: 'Key' }));
-    expect(group.previousElementSibling!.previousElementSibling).toBe(screen.getByTestId('clock-note').parentElement);
+    expect(group.previousElementSibling).toBe(screen.getByTestId('clock-note').parentElement);
     // On a phone a line of their own under the date, as before; from md up as wide as they are, so they sit beside
     // the date when they fit (else on the next line, at the right all the same), pushed to the right end.
     for (const c of ['basis-full', 'md:basis-auto', 'md:ml-auto', 'sm:justify-end', 'flex-wrap', 'items-baseline']) expect(group.classList.contains(c)).toBe(true);
@@ -728,99 +727,41 @@ describe('TimeBar', () => {
   it('keeps the bar low when compact: no sentence beside the date at any width, as the page says it in its own words, and smaller keys on a phone', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true });
     expect(screen.queryByTestId('status')).toBeNull();
-    expect(screen.queryByText('Sun up, Earth behind the hills, battery 100 %')).toBeNull();
+    expect(screen.queryByText('Sun up, Earth behind a hill, battery 100 %')).toBeNull();
     expect(screen.getByTestId('when').textContent).toBe('1 Jan 2027, 06:00 UTC');
     // The slider still reads the hour in words.
-    expect(screen.getByRole('slider', { name: 'Time' }).getAttribute('aria-valuetext')).toBe('1 Jan 2027, 06:00 UTC: Sun up, Earth behind the hills, battery 100 %');
+    expect(screen.getByRole('slider', { name: 'Time' }).getAttribute('aria-valuetext')).toBe('1 Jan 2027, 06:00 UTC: Sun up, Earth behind a hill, battery 100 %');
     // Smaller on a phone, but no smaller than the 14 px every word in the bar keeps to.
     const group = container.querySelector('[data-part="key-off"]')!.parentElement!;
     expect(group.className).toContain('max-sm:[&>span]:text-[14px]');
     cleanup();
     // Without compact the sentence shows at every width.
     show(6, { dates: true });
-    expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth behind the hills, battery 100 %');
+    expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth behind a hill, battery 100 %');
     expect(screen.getByTestId('status').className).not.toMatch(/hidden/);
   });
 
-  it('on a phone when compact, puts the key behind a Key button, shut at first: a real button 40 px tall that says whether it is open', () => {
+  it('on a phone when compact, names the keys under the date, with no Key button to open (13.3)', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, ifSurvivesFrom: 30, clockNote: ' (Earth time)' });
-    const key = screen.getByRole('button', { name: 'Key' });
-    expect((key as HTMLButtonElement).type).toBe('button');
-    expect(key.getAttribute('aria-expanded')).toBe('false');
-    // The bar's plain button, 40 px tall rather than Play's 48, its word at the 15 px of the bar's other words, with an
-    // edge that stands out on the stand view's dark bar, like the flags'.
-    expect(key.classList.contains('btn')).toBe(true);
-    expect(classPx(key, 'h')).toBe(40);
-    for (const c of ['text-[15px]', 'border-ink-3']) expect(key.classList.contains(c)).toBe(true);
-    // On a phone only: from sm up the keys have room, and show as before.
-    expect(key.classList.contains('sm:hidden')).toBe(true);
-    // It names the keys it opens, all six of them, and on a phone they stay shut until it is pressed.
+    expect(screen.queryByRole('button', { name: 'Key' })).toBeNull();
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    expect(group.id).not.toBe('');
-    expect(key.getAttribute('aria-controls')).toBe(group.id);
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
-    expect(group.classList.contains('max-sm:hidden')).toBe(true);
-    expect(group.className).not.toMatch(/(^| )(sm:|md:)?hidden( |$)/);
-  });
-
-  it('opens the key on a phone with the Key button, showing the keys as they were, and shuts it again', () => {
-    const { container } = show(6, { dates: true, powered: power.powered, compact: true, ifSurvivesFrom: 30 });
-    const key = screen.getByRole('button', { name: 'Key' });
-    const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    const shut = [...group.classList];
-    fireEvent.click(key);
-    expect(key.getAttribute('aria-expanded')).toBe('true');
-    // As they were: a line of their own under the date, wrapping, at 14 px with shorter swatches.
-    expect([...group.classList, 'max-sm:hidden'].sort()).toEqual(shut.sort());
+    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
+    // Named on a phone too, under the date, at 14 px with shorter swatches.
+    expect(group.className).not.toMatch(/max-sm:hidden/);
     for (const c of ['flex', 'basis-full', 'flex-wrap', 'items-baseline', 'max-sm:gap-x-2', 'max-sm:[&>span]:text-[14px]', 'max-sm:[&_i]:w-4']) expect(group.classList.contains(c)).toBe(true);
-    // Open, the button looks on: the lighter ground of a chosen flag.
-    expect(key.classList.contains('bg-surface-2')).toBe(true);
-    fireEvent.click(key);
-    expect(key.getAttribute('aria-expanded')).toBe('false');
-    expect(group.classList.contains('max-sm:hidden')).toBe(true);
-    expect(key.classList.contains('bg-surface-2')).toBe(false);
   });
 
-  it('on a phone when compact, keeps to the same rule behind the Key button: the keys it opens name only what the bar draws', () => {
-    // The stand view's period, where the only radio drawn is hatched: no "radio contact" behind the button either.
-    showStandPeriod({ compact: true });
-    const key = screen.getByRole('button', { name: 'Key' });
-    fireEvent.click(key);
-    const group = document.getElementById(key.getAttribute('aria-controls')!)!;
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio, if it survives the night']);
+  it('on a phone when compact, names only what the bar draws', () => {
+    // The stand view's period, where the only radio drawn is hatched: no "radio contact".
+    const { container } = showStandPeriod({ compact: true });
+    const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
+    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if it survives the night']);
     cleanup();
-    // A lander that keeps its power all through: no "lander off" behind the button.
+    // A lander that keeps its power all through: no "lander off".
     const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
-    showPeriod(30, { dates: true, powered: new Uint8Array(720).fill(1), compact: true }, { earthVisible });
-    const open = screen.getByRole('button', { name: 'Key' });
-    fireEvent.click(open);
-    const keys = document.getElementById(open.getAttribute('aria-controls')!)!;
+    const second = showPeriod(30, { dates: true, powered: new Uint8Array(720).fill(1), compact: true }, { earthVisible });
+    const keys = second.container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
     expect([...keys.children].map((k) => k.textContent)).toEqual(['in sunlight', 'Earth in view', 'radio contact']);
-  });
-
-  it('on a phone when compact, keeps the Key button on the line of the date and hour, at its right end, the date breaking only after its comma', () => {
-    show(6, { dates: true, powered: power.powered, compact: true, clockNote: ' (Earth time)' });
-    const key = screen.getByRole('button', { name: 'Key' });
-    const when = screen.getByTestId('when');
-    const pair = screen.getByTestId('clock-note').parentElement!;
-    // Right after the date and its note, in the same line of words, pushed to the right end.
-    expect(key.parentElement).toBe(when.closest('p'));
-    expect(key.previousElementSibling).toBe(pair);
-    for (const c of ['ml-auto', 'shrink-0']) expect(key.classList.contains(c)).toBe(true);
-    // On a phone the date takes the room the button leaves rather than send it to a line of its own, which would
-    // make the bar taller, and the two are centred on each other.
-    for (const c of ['max-sm:flex-1', 'max-sm:min-w-0']) expect(pair.classList.contains(c)).toBe(true);
-    expect(when.closest('p')!.classList.contains('max-sm:items-center')).toBe(true);
-    // Short of room it breaks after the comma, never inside "1 Jan 2027" or "06:00 UTC".
-    expect(when.textContent).toBe('1 Jan 2027, 06:00 UTC');
-    expect([...when.children].map((c) => [c.textContent, c.classList.contains('whitespace-nowrap')])).toEqual([
-      ['1 Jan 2027,', true],
-      ['06:00 UTC', true],
-    ]);
-    cleanup();
-    // Without a note the date itself takes the room.
-    show(6, { dates: true, powered: power.powered, compact: true });
-    for (const c of ['max-sm:flex-1', 'max-sm:min-w-0']) expect(screen.getByTestId('when').classList.contains(c)).toBe(true);
   });
 
   it('has no Key button without compact or when bare: the keys stay in sight, or are not there at all', () => {
@@ -956,7 +897,7 @@ describe('TimeBar', () => {
     const { onCursor } = show(10, { dates: true, powered: power.powered, compact: true, bare: true });
     const slider = screen.getByRole('slider', { name: 'Time' }) as HTMLInputElement;
     // The slider still reads the hour in words, though the bar writes none of them.
-    expect(slider.getAttribute('aria-valuetext')).toBe('1 Jan 2027, 10:00 UTC: Sun up, Earth behind the hills, battery 100 %');
+    expect(slider.getAttribute('aria-valuetext')).toBe('1 Jan 2027, 10:00 UTC: Sun up, Earth behind a hill, battery 100 %');
     fireEvent.change(slider, { target: { value: '30' } });
     expect(onCursor).toHaveBeenLastCalledWith(30);
     fireEvent.keyDown(slider, { key: 'PageUp' });
@@ -1009,10 +950,11 @@ describe('TimeBar', () => {
     expect(chosen.getAttribute('aria-current')).toBe('true');
     for (const c of ['border-sun', 'bg-surface-2', 'hover:border-sun-hover', 'focus-visible:border-sun-hover']) expect(chosen.classList.contains(c)).toBe(true);
     expect(chosen.className).not.toMatch(/(^| )(hover:|focus-visible:)?border-ink(-3)?( |$)/);
-    // On the stand view's dark bar: an edge at rest that stands out from the bar and the flag's own ground (the
-    // strong line it had gave 2.4 to 1), and under the pointer a fill lighter than both grounds and a brighter edge.
+    // On the stand view's dark bar: an edge at rest that stands out from the bar and the flag's own ground, brighter
+    // than the controls' strong line (3:1 on the near-black page since part C), and under the pointer a fill lighter
+    // than both grounds and a brighter edge.
     for (const ground of ['--page', '--surface']) expect(contrast(DARK['--ink-3'], DARK[ground])).toBeGreaterThanOrEqual(3);
-    expect(contrast(DARK['--line-strong'], DARK['--page'])).toBeLessThan(3);
+    expect(contrast(DARK['--ink-3'], DARK['--page'])).toBeGreaterThan(contrast(DARK['--line-strong'], DARK['--page']));
     expect(luminance(DARK['--line'])).toBeGreaterThan(luminance(DARK['--surface-2']));
     expect(luminance(DARK['--surface-2'])).toBeGreaterThan(luminance(DARK['--surface']));
     expect(luminance(DARK['--ink'])).toBeGreaterThan(luminance(DARK['--ink-3']));

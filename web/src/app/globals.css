@@ -2,11 +2,12 @@
 
 
 /*
- * Light is the default theme; data-theme="dark" on <html> swaps the values (set before paint by the
- * inline script in layout.tsx). The palette is the Moon's own three tones: shadow black (the stage),
- * regolith grey (the page) and sunlit white (panels). Colour is kept for the Sun and Earth, and green
- * and red for the power verdict. Picture panels ("stages": charts, shadow map, 3D, relief maps) keep
- * the same colours in both themes; the sky above an airless world is true black.
+ * Dark is the default theme (spec 6); data-theme="light" on <html> swaps the values (set before paint by
+ * the inline script in layout.tsx), and the light theme stays for print and classrooms. The palette is the
+ * Moon's own three tones: shadow black (the stage), regolith grey (the light page) and sunlit white
+ * (panels). Colour is kept for the Sun and Earth, and green and red for the power verdict. Picture panels
+ * ("stages": charts, shadow map, 3D, relief maps) keep the same colours in both themes; the sky above an
+ * airless world is true black.
  */
 :root {
   --page: #dedcd6;
@@ -43,32 +44,38 @@
   color-scheme: light;
 }
 
-/* The same values inside .theme-dark in either theme: the stand view's black sky keeps its time bar dark. */
-:root[data-theme="dark"],
-.theme-dark {
-  /* A grey one step above the black stage, so picture panels keep their outline. */
-  --page: #222220;
-  --surface: #2c2c2a;
-  --surface-2: #383835;
-  --line: #444441;
-  --line-strong: #5e5d57;
-  --stage-edge: #5a5a54;
-  --ink: #f3f2ee;
-  --ink-2: #c6c5c0;
-  --ink-3: #9c9b96;
-  --sun: #f5b63a;
-  --sun-ink: #f5b63a;
-  --sun-hover: #ffc65c;
-  --earth: #6aa9ff;
-  --earth-ink: #8dbdff;
-  --good: #46c98b;
-  --good-bg: rgba(70, 201, 139, 0.1);
-  --good-line: rgba(70, 201, 139, 0.4);
-  --bad: #ff7d72;
-  --bad-bg: rgba(255, 125, 114, 0.09);
-  --bad-line: rgba(255, 125, 114, 0.4);
-  --warn: #f5b63a;
-  color-scheme: dark;
+/*
+ * The same values inside .theme-dark in either theme: the stand view's black sky keeps its time bar dark.
+ * On screen only: printed, every page takes the light theme's values, as paper is white (final review).
+ */
+@media screen {
+  :root[data-theme="dark"],
+  .theme-dark {
+    /* Near-black, one step above the stages' true black; plates one step above the page, with a hairline edge. */
+    --page: #07080a;
+    --surface: #0f1013;
+    --surface-2: #17181c;
+    --line: #2a2b30;
+    --line-strong: #6b6c71;
+    --stage-edge: #48494e;
+    --ink: #f3f2ee;
+    --ink-2: #c6c5c0;
+    /* Secondary text a step brighter than before, for a classroom's projector (13.3): 8:1 on the plates. */
+    --ink-3: #aeada8;
+    --sun: #f5b63a;
+    --sun-ink: #f5b63a;
+    --sun-hover: #ffc65c;
+    --earth: #6aa9ff;
+    --earth-ink: #8dbdff;
+    --good: #46c98b;
+    --good-bg: rgba(70, 201, 139, 0.1);
+    --good-line: rgba(70, 201, 139, 0.4);
+    --bad: #ff7d72;
+    --bad-bg: rgba(255, 125, 114, 0.09);
+    --bad-line: rgba(255, 125, 114, 0.4);
+    --warn: #f5b63a;
+    color-scheme: dark;
+  }
 }
 
 @theme inline {
@@ -224,13 +231,6 @@ html {
     line-height: 1;
     letter-spacing: 0;
   }
-  /* The one motion that plays by itself: on the home page the Sun's line is drawn once from left to right, then its labels appear. */
-  .reveal-line {
-    animation: reveal-wipe 2.6s cubic-bezier(0.3, 0.1, 0.2, 1) 0.35s both;
-  }
-  .reveal-after {
-    animation: reveal-show 0.5s ease 2.7s both;
-  }
   /*
    * Centres a chart label on a point; a label too wide for the room there stays inside the picture. Auto
    * margins centre while there is room and fall to the flex start when there is not, and the flex start
@@ -277,22 +277,9 @@ html {
     border: 3px solid var(--ink);
     background: var(--surface);
   }
-}
-
-@keyframes reveal-wipe {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-@keyframes reveal-show {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
+  /* The stars behind the header band (spec 6): the dark theme's only. */
+  :root:not([data-theme="dark"]) .star-band {
+    display: none;
   }
 }
 
@@ -334,6 +321,7 @@ html {
   .no-print {
     display: none !important;
   }
+  .star-band { display: none !important; }
   @page {
     size: A4 portrait;
     margin: 12mm;

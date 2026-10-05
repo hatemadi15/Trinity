@@ -5,7 +5,25 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
-import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, offLander, partSide, pointerClear, pointerWords, slopeWord, StandCanvas, starNamesShown, type RendererLike } from './StandCanvas';
+import { EARTH_LOOP } from '@/lib/viz/stand';
+import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, offLander, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, type RendererLike } from './StandCanvas';
+
+describe('the pointers on a phone', () => {
+  it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
+    expect(pointerShort('Earth 4.4° up')).toBe('Earth 4.4° up');
+    expect(pointerShort('Earth behind a hill, 4.4° above the horizon')).toBe('Earth 4.4° up');
+    expect(pointerShort('Earth, 1.2° below the horizon')).toBe('Earth 1.2° below');
+    expect(pointerShort('Earth behind a hill, on the horizon')).toBe('Earth on the horizon');
+    expect(pointerShort('Earth, just below the horizon')).toBe('Earth just below');
+  });
+});
+
+describe('the paths’ names', () => {
+  it('names Earth’s path with why it loops, on a second line, and the Sun’s path as it is', () => {
+    expect(pathNameText('earth', "Earth's path this month")).toBe(`Earth's path this month\n${EARTH_LOOP}`);
+    expect(pathNameText('sun', "Sun's path this month")).toBe("Sun's path this month");
+  });
+});
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -203,7 +221,7 @@ describe('the words on a pointer', () => {
   it('keep the height and drop what the arrow already says', () => {
     // "Below what?": the horizon stays.
     expect(pointerWords('Earth, 5.7° below the horizon')).toBe('Earth, 5.7° below the horizon');
-    expect(pointerWords('Sun 1.5° up, behind the hills')).toBe('Sun 1.5° up, hidden');
+    expect(pointerWords('Sun behind a hill, 1.5° above the horizon')).toBe('Sun behind a hill, 1.5° up');
     expect(pointerWords('Sun 2.5° up')).toBe('Sun 2.5° up');
     expect(pointerWords('Earth, on the horizon')).toBe('Earth, on the horizon');
   });
@@ -449,7 +467,8 @@ describe('the paths’ names', () => {
       await waitFor(() => expect(names()[0].hidden).toBe(false));
       expect(names().map((n) => [n.dataset.pathName, n.textContent])).toEqual([
         ['sun', "Sun's path this month"],
-        ['earth', "Earth's path this month"],
+        // Earth's with why it loops, on a second line.
+        ['earth', `Earth's path this month\n${EARTH_LOOP}`],
       ]);
       // In the bodies' colours.
       expect(names()[0].className).toContain('text-[#f6b646]');

@@ -9,10 +9,14 @@ export default function LearnPage() {
     <AppFrame>
       <main className="pb-16">
         <div className="wrap pt-10">
-          <h1 className="display text-[44px] leading-tight sm:text-[56px]">How it works</h1>
+          <h1 data-band-end="" className="display text-[44px] leading-tight sm:text-[56px]">How it works</h1>
           <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">
-            Earthrise works out, hour by hour, where the Sun and Earth are as seen from one spot on the Moon, whether the hills hide them, and what that means for a
+            Earthrise works out, hour by hour, where the Sun and Earth are as seen from one spot on the Moon, whether they have set behind the hills, and what that means for a
             solar lander and its radio. Everything comes from NASA data: the shape of the ground, and where the Sun and Earth are at every hour.
+          </p>
+          <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">
+            Showing it to a class? On a projector, zoom the page to 150 % (Ctrl and +, or ⌘ and + on a Mac): the words, the charts and the views all grow, and nothing runs off
+            the side.
           </p>
         </div>
         <WhySection teaching={false} />

@@ -35,11 +35,11 @@ export const SCIENCE: StoryStep[] = [
   },
   {
     title: 'Why Earth rises and sets so slowly',
-    body: 'The Moon always turns the same face to Earth, so from the Moon Earth hangs almost still in the sky. A slow monthly wobble, called libration, moves it a few degrees up and down and from side to side. Near the pole that is enough to lift Earth over the hills, or hide it behind them, for days at a time.',
+    body: 'The Moon always turns the same face to Earth, so from the Moon Earth hangs almost still in the sky. A slow monthly wobble, called libration, moves it a few degrees up and down and from side to side. Near the pole that is enough to make Earth rise over the hills, or set behind them, for days at a time.',
   },
   {
     title: 'How to read the grey in the charts',
-    body: "The grey under the Sun's line is not a picture of one mountain. Hour by hour it shows how high the hills stand in the direction the Sun is in at that hour, so its shape changes as the Sun goes round. When the gold line runs under the grey, the hills hide the Sun.",
+    body: "The grey under the Sun's line is not a picture of one mountain. Hour by hour it shows how high the hills stand in the direction the Sun is in at that hour, so its shape changes as the Sun goes round. When the gold line runs under the grey, the Sun has set behind the hills.",
   },
   {
     title: 'The battery sum',

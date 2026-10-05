@@ -34,7 +34,7 @@ describe('HorizonView', () => {
   it('has a key, and a height scale: the horizon at 0° and the top whole degree', () => {
     render(<HorizonView mask={new Float64Array(720)} series={series} cursor={10} lat={-88.28} />);
     const key = screen.getByRole('list', { name: 'Key' });
-    expect([...key.querySelectorAll('li')].map((li) => li.textContent)).toEqual(["the Sun's path", "Earth's path", 'dotted while hidden', 'the hills all round', "the Sun and Earth at the time bar's hour"]);
+    expect([...key.querySelectorAll('li')].map((li) => li.textContent)).toEqual(["the Sun's path", "Earth's path", 'dotted while set', 'the hills all round', "the Sun and Earth at the time bar's hour"]);
     // Earth at 4° is the highest thing drawn: the picture reaches 5°, and its top whole degree is 4°.
     expect(screen.getByText('horizon (0°)')).toBeTruthy();
     expect(screen.getByText('4°')).toBeTruthy();

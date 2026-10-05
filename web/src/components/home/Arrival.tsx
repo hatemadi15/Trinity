@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type MouseEvent } from 'react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { BEAT_STOPS, LAST, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
+import { BEAT_STOPS, LANDED, LAST, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
 import type { ArrivalWords } from '@/lib/viz/arrival';
 import type { StageProps } from './ArrivalCanvas';
 
@@ -11,14 +11,17 @@ import type { StageProps } from './ArrivalCanvas';
 const LiveStage = dynamic(() => import('./ArrivalCanvas'), { ssr: false });
 /** Screens in the arrival, a beat each: the Moon, the pole, the cap, the ridge, standing, the month at the site, the answer. */
 const BEATS = BEAT_STOPS.length;
-const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/85 backdrop-blur-sm';
+const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/92';
 const SENTENCE = 'display text-balance text-[28px] leading-[1.08] sm:text-[36px]';
 const still = (k: number, shape: 'wide' | 'tall') => `/arrival/beat-${k}-${shape}.jpg`;
 /**
- * A beat's words fade as they scroll up to the top, where the stage's date bar stands once landed: whole until
- * FADE_PX above FADE_TOP_PX from the top, gone there, so they never pass over it.
+ * A beat's words fade as they scroll up: whole until `over` px above `gone` px from the top, gone there. Before
+ * landing they fade at the top. Once landed the stage's date bar stands at the top (16 px down, about 140 px tall):
+ * they are gone at its foot, so the bar never gives way to them (both readers, part C read 1).
  */
-const FADE_TOP_PX = 72, FADE_PX = 64;
+const FADE = { before: { gone: 72, over: 64 }, landed: { gone: 160, over: 96 } } as const;
+/** Whether a beat's screen comes once landed, with the date bar at its top: standing, and the month at the site. */
+const landedAt = (beat: number) => BEAT_STOPS[beat] > LANDED;
 /**
  * A screen of the arrival: its stage's height (100svh, the small viewport), not the window's, which grows by the
  * address bar's height once a phone's bar hides.
@@ -73,7 +76,11 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
     const onScroll = () => {
       const s = screens();
       for (const plate of section.current?.querySelectorAll<HTMLElement>('[data-plate]') ?? []) {
-        plate.style.opacity = String(Math.min(1, Math.max(0, (plate.getBoundingClientRect().top - FADE_TOP_PX) / FADE_PX)));
+        const beat = plate.closest<HTMLElement>('[data-beat]'), top = plate.getBoundingClientRect().top;
+        const f = landedAt(Number(beat?.dataset.beat)) ? FADE.landed : FADE.before;
+        // Whole where it rests at its beat's stop: on a short window that is nearer the top than `over` allows.
+        const rest = beat ? top - beat.getBoundingClientRect().top : Infinity;
+        plate.style.opacity = String(Math.min(1, Math.max(0, (top - f.gone) / Math.max(1, Math.min(f.over, rest - f.gone)))));
       }
       progress.current = reduced ? BEAT_STOPS[Math.round(s)] : progressFromScroll(s);
       setBeat(Math.round(s));
@@ -167,14 +174,18 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
       )}
       <div className="relative z-10 -mt-[100svh]" hidden={bare}>
         <div data-beat="0" className="flex h-[100svh] flex-col justify-between pb-8 pt-8 sm:pt-12">
-          {/* On a phone the words stand over the Moon: a shade behind them keeps them easy to read. */}
-          <div className="wrap w-full max-sm:bg-linear-to-b max-sm:from-black/85 max-sm:from-60% max-sm:to-transparent max-sm:pb-16">
+          {/* On a phone the words stand over the Moon: a dark plate behind them, edge to edge, keeps them easy to read. */}
+          <div className="wrap w-full max-sm:border-b max-sm:border-white/15 max-sm:bg-[#060607]/92 max-sm:pb-6">
             <h1 id="h-hero" data-words="" className="display max-w-[760px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[72px]">
               See when a Moon lander has sunlight and a signal.
             </h1>
+            {/* On a phone the first sentence waits for a wider screen, so the words leave the Moon in view under them. */}
             <p data-words="" className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
-              At the Moon&apos;s south pole the Sun and Earth never climb high. They skim the horizon, and one hill can hide them for weeks. Pick a landing site and a date:
-              Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and how long a solar lander keeps power there.
+              <span className="max-sm:hidden">At the Moon&apos;s south pole the Sun and Earth skim the horizon, and one hill can keep them set for weeks. </span>
+              <span>
+                Earthrise is a browser of landing sites and dates: pick a place and a day from 2024 to 2036, and see its hours of sunlight and of radio contact with Earth, and
+                how long a lander keeps power, for three ready-made landers or your own.
+              </span>
             </p>
             <div data-words="" className="mt-7 flex w-fit flex-wrap gap-3">
               <Link href="/sites" onClick={start} className="btn btn-primary h-[52px] px-[22px] text-[17px]">
@@ -185,23 +196,31 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
               </a>
             </div>
             <p data-words="" className="mt-3 w-fit text-base text-[#c6c5c0]">
-              For planners of NASA&apos;s commercial Moon landers, educators and anyone curious.
+              For planners of NASA&apos;s commercial Moon landers, teachers (start with{' '}
+              <Link href="/learn" className="font-semibold text-[#f2f0ea] underline underline-offset-4">
+                How it works
+              </Link>
+              ) and anyone curious.
             </p>
             {/* With the opening words, so it shows on the first screen and leaves with them, never over the Moon. */}
-            <p data-words="" className="mt-5 w-fit text-[15px] text-[#c6c5c0]">
+            <p data-words="" className="mt-5 w-fit text-[15px] text-[#c6c5c0] max-sm:hidden">
               Scroll to fly down to the Moon&apos;s south pole <span aria-hidden="true">↓</span>
             </p>
           </div>
         </div>
+        {/* Once landed the date bar stands at the top: on a wide screen the words are centred in the room under it, so
+            on a short window (a laptop at 150 %) they rest clear of it and whole. On a phone they stand at the foot. */}
         {words.beats.map((text, k) => (
-          <div key={text} data-beat={k + 1} className="flex h-[100svh] items-end pb-24 sm:items-center sm:pb-0">
+          <div key={text} data-beat={k + 1} className={`flex h-[100svh] items-end pb-24 sm:pb-0 ${landedAt(k + 1) ? 'sm:items-center-safe sm:pt-[176px]' : 'sm:items-center'}`}>
             <div className="wrap w-full">
               {/* On a wide screen the column ends just short of the middle: the lander stands right of it. */}
               <p data-words="" data-plate="" className={`${PLATE} ${SENTENCE} max-w-[600px] p-5 sm:max-w-[min(600px,46vw)] sm:p-6`}>{text}</p>
             </div>
           </div>
         ))}
-        <div data-beat={BEATS - 1} className="flex h-[100svh] items-start pt-4 sm:pt-6">
+        {/* Under the date bar (16 px from the top, about 140 px tall): the beats' column is centred with the page, so
+            its card reaches under the centred bar at every width, and the date and the sky stay in view. */}
+        <div data-beat={BEATS - 1} className="flex h-[100svh] items-start pt-[168px]">
           {/* At the top left, in the beats' column (its left edge where theirs is), and narrower: the lander stands right
               of it. */}
           <div className="wrap w-full">

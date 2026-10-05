@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 const css = fs.readFileSync(path.resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
 
-/** Custom properties declared in the first top-level block whose selector list names `selector`. */
+/** Custom properties declared in the first block whose selector list names `selector`, at the top level or in an at-rule. */
 function block(selector: string): Record<string, string> {
-  for (const [, selectors, body] of css.matchAll(/^([^\s@/{}][^{}]*)\{([^{}]*)\n\}/gm)) {
+  for (const [, selectors, body] of css.matchAll(/^[ \t]*([^\s@/{}*][^{}]*)\{([^{}]*)\n[ \t]*\}/gm)) {
     if (!selectors.split(',').some((s) => s.trim() === selector)) continue;
     const out: Record<string, string> = {};
     for (const m of body.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)) out[m[1]] = m[2].trim();
@@ -44,9 +44,12 @@ describe('theme tokens', () => {
     for (const t of FIXED) expect(light[t], t).toBeTruthy();
   });
 
-  it('matches the approved values for the page, ink, the stage and the two identity colours', () => {
+  it('matches the approved values: the light page, the near-black dark page and its plates, ink, the stage and the two identity colours', () => {
     expect(light['--page']).toBe('#dedcd6');
-    expect(dark['--page']).toBe('#222220');
+    expect(dark['--page']).toBe('#07080a');
+    expect(dark['--surface']).toBe('#0f1013');
+    expect(dark['--surface-2']).toBe('#17181c');
+    expect(dark['--ink-3']).toBe('#aeada8');
     expect(light['--surface']).toBe('#ffffff');
     expect(light['--ink']).toBe('#000000');
     expect(dark['--ink']).toBe('#f3f2ee');
@@ -60,12 +63,20 @@ describe('theme tokens', () => {
     expect(css).toMatch(/\.theme-dark \{[^}]*color-scheme: dark;/);
   });
 
-  it('keeps the stage darker than the dark page and gives it an edge that shows on both, so a picture panel never melts into the page', () => {
-    expect(contrast(dark['--page'], light['--stage'])).toBeGreaterThanOrEqual(1.3);
+  it('makes the dark page near-black but not the stage’s true black, and gives a picture panel an edge that shows on both (spec 6)', () => {
+    expect(luminance(dark['--page'])).toBeLessThan(0.005);
+    expect(dark['--page']).not.toBe(light['--stage']);
     expect(contrast(dark['--stage-edge'], dark['--page'])).toBeGreaterThanOrEqual(2);
     expect(contrast(dark['--stage-edge'], light['--stage'])).toBeGreaterThanOrEqual(2);
     expect(contrast(light['--stage-edge'], light['--stage'])).toBeGreaterThanOrEqual(1.5);
     expect(css).toMatch(/\.stage \{[^}]*border: 1px solid var\(--stage-edge\)/);
+  });
+
+  it('draws plates with a hairline that shows, and gives controls an edge of 3:1 on the dark page', () => {
+    expect(contrast(dark['--line'], dark['--surface'])).toBeGreaterThanOrEqual(1.3);
+    expect(contrast(light['--line'], light['--surface'])).toBeGreaterThanOrEqual(1.3);
+    expect(contrast(dark['--line-strong'], dark['--surface'])).toBeGreaterThanOrEqual(3);
+    expect(contrast(dark['--line-strong'], dark['--page'])).toBeGreaterThanOrEqual(3);
   });
 
   it('draws the focus ring in the bright gold on a picture panel, where the dark gold of the light theme would vanish', () => {
@@ -74,14 +85,17 @@ describe('theme tokens', () => {
     expect(css).toMatch(/\.stage :focus-visible,\s*\[data-stage\] :focus-visible \{[^}]*outline-color: var\(--stage-sun\)/);
   });
 
-  it('meets AA contrast for text in both themes and on the stage', () => {
+  it('gives body text 7:1 and secondary text 4.5:1 on the page and its plates, in both themes (spec 6)', () => {
     for (const [name, t] of [['light', light], ['dark', dark]] as const) {
-      const pairs: [string, string][] = [
-        ['--ink', '--page'], ['--ink', '--surface'], ['--ink-2', '--surface'], ['--ink-2', '--page'], ['--ink-3', '--surface'], ['--ink-3', '--page'],
+      for (const bg of ['--page', '--surface', '--surface-2']) {
+        for (const fg of ['--ink', '--ink-2']) expect(contrast(t[fg], t[bg]), `${name} ${fg} on ${bg}`).toBeGreaterThanOrEqual(7);
+        expect(contrast(t['--ink-3'], t[bg]), `${name} --ink-3 on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      }
+      const coloured: [string, string][] = [
         ['--sun-ink', '--surface'], ['--earth-ink', '--surface'], ['--good', '--surface'], ['--bad', '--surface'], ['--warn', '--surface'],
         ['--sun-ink', '--page'], ['--earth-ink', '--page'], ['--good', '--page'], ['--bad', '--page'],
       ];
-      for (const [fg, bg] of pairs) expect(contrast(t[fg], t[bg]), `${name} ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      for (const [fg, bg] of coloured) expect(contrast(t[fg], t[bg]), `${name} ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
       expect(contrast(light['--sun-on'], t['--sun']), `${name} text on the Sun fill`).toBeGreaterThanOrEqual(4.5);
     }
     expect(contrast(light['--stage-ink'], light['--stage'])).toBeGreaterThanOrEqual(7);
@@ -99,9 +113,21 @@ describe('globals.css layering', () => {
   it('declares the shared classes inside @layer components, so a Tailwind utility can still override them', () => {
     expect(css).not.toMatch(/@utility glass/);
     const joined = (css.match(/@layer components \{([\s\S]*?)\n\}/g) ?? []).join('\n');
-    for (const cls of ['.wrap', '.btn', '.btn-primary', '.btn-ink', '.btn-sm', '.field', '.panel', '.stage', '.display', '.reveal-line', '.reveal-after']) {
+    for (const cls of ['.wrap', '.btn', '.btn-primary', '.btn-ink', '.btn-sm', '.field', '.panel', '.stage', '.display']) {
       expect(joined, cls).toMatch(new RegExp(`\\${cls} \\{`));
     }
+  });
+
+  it('prints every page in the light theme, whatever the theme on screen: paper is white (final review)', () => {
+    // The dark values hold on screen only, so a page printed from the dark theme (the default) takes the light
+    // theme's dark ink, not pale grey on white.
+    expect(css).toMatch(/@media screen \{\s*:root\[data-theme="dark"\],\s*\.theme-dark \{/);
+    expect(css.match(/:root\[data-theme="dark"\],\s*\.theme-dark \{/g)).toHaveLength(1);
+  });
+
+  it('shows the stars behind the header band in the dark theme only, and never prints them', () => {
+    expect(css).toMatch(/:root:not\(\[data-theme="dark"\]\) \.star-band \{\s*display: none;/);
+    expect(css).toMatch(/@media print \{[\s\S]*\.star-band \{ display: none !important; \}/);
   });
 
   it('gives buttons and fields the minimum sizes of the spec', () => {
@@ -129,10 +155,8 @@ describe('globals.css layering', () => {
     expect(css).toMatch(/\.display \{[^}]*letter-spacing: 0;/);
   });
 
-  it('declares the one page-load motion and switches every animation off under reduced motion', () => {
-    expect(css).toMatch(/\.reveal-line \{[^}]*animation: reveal-wipe/);
-    expect(css).toMatch(/\.reveal-after \{[^}]*animation: reveal-show/);
-    expect(css).toMatch(/@keyframes reveal-wipe/);
+  it('declares no motion of its own, and switches every transition off under reduced motion', () => {
+    expect(css).not.toMatch(/@keyframes|\.reveal-/);
     expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\* \{[^}]*animation: none !important/);
   });
 });

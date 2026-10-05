@@ -114,10 +114,10 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     const where = below ? 'below the horizon' : 'behind the hills';
     const dark =
       sunset === 0
-        ? `The period starts in the dark: the Sun stays ${where} until ${dateLong(startUtc, sunrise)}.`
+        ? `The period starts at night: the Sun is set ${where} until it rises on ${dateLong(startUtc, sunrise)}.`
         : sunrise >= hours
-          ? `The Sun sets on ${dateLong(startUtc, sunset)} and stays ${where} for the rest of the period.`
-          : `The Sun sets on ${dateLong(startUtc, sunset)} and stays ${where} for ${spanWords(sunrise - sunset)}.`;
+          ? `The Sun sets ${where} on ${dateLong(startUtc, sunset)}, and the night lasts the rest of the period.`
+          : `The Sun sets ${where} on ${dateLong(startUtc, sunset)}, and the night lasts ${spanWords(sunrise - sunset)}.`;
     const covered = first - sunset;
     // A low Sun in the last sunlit hours can give less than the lander uses, so the night may start on a battery that is no longer full.
     const full = sunset === 0 || power.energyWh[sunset - 1] >= batteryWh - 1e-6;

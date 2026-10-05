@@ -4,6 +4,14 @@ import { describe, expect, it } from 'vitest';
 import LearnPage from './page';
 
 describe('How it works', () => {
+  it('tells a teacher how to show it on a projector, right under the title', () => {
+    render(<LearnPage />);
+    const note = screen.getByText(/^Showing it to a class\?/);
+    expect(note.textContent).toBe('Showing it to a class? On a projector, zoom the page to 150 % (Ctrl and +, or ⌘ and + on a Mac): the words, the charts and the views all grow, and nothing runs off the side.');
+    expect(screen.getByRole('heading', { level: 1 }).compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.body.textContent).toMatch(/whether they have set behind the hills/);
+  });
+
   it('opens with the home page\'s three drawings and what each says', () => {
     render(<LearnPage />);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('How it works');

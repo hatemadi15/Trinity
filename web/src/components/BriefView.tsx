@@ -164,7 +164,7 @@ export function BriefView({
             </span>
           ))}
         </div>
-        <p className="text-[14px] text-ink-2">Gold: the Sun&apos;s height; blue: Earth&apos;s; dotted while hidden; grey: the hills in that direction. Time runs left to right.</p>
+        <p className="text-[14px] text-ink-2">Gold: the Sun&apos;s height; blue: Earth&apos;s; dotted while set; grey: the hills in that direction. Time runs left to right.</p>
       </section>
       <section className="flex flex-col gap-1 text-[15px]">
         <h2 className="display text-[18px] font-semibold">The lander</h2>

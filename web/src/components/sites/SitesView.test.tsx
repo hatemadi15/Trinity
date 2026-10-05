@@ -26,13 +26,12 @@ describe('SitesView', () => {
     await ready();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Choose a landing site');
     expect(screen.getByText(/19 places on the Moon/).textContent).toBe('19 places on the Moon, most of them near the south pole. Pick one to see its forecast.');
-    // Each measure is explained on a line of its own, the order of the rows too.
-    const term = (name: string) => screen.getByText(name, { selector: 'dt' }).nextElementSibling!.textContent;
-    expect(term('Each row')).toBe(
-      "a lander that lands on the site's best day in the 30 days from 1 January 2027, named under the site, and the 30 days after that day. Explore and Compare land on the first day of the period, so their figures can differ.",
+    // What the figures count from, the lander and the order, in plain sentences rather than a list of terms (both
+    // readers, part C read 1: the figures differ from Explore's, and this says why).
+    expect(screen.getByText(/^Each site's figures are for landing on its best day/).textContent).toBe(
+      "Each site's figures are for landing on its best day of the 30 days from 1 January 2027, the day under its name, and the 30 days after it, for one lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery. Explore and Compare start on the first day, so their figures can differ. In each group, the longest time with power comes first.",
     );
-    expect(term('The lander')).toBe('4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.');
-    expect(term('Order')).toBe('in each group, longest time with power first; places that never see Earth come last, under their own heading.');
+    expect(document.querySelector('main dl')).toBeNull();
     expect(screen.getByText(/three real missions, for the same days as the rest of the list/)).toBeTruthy();
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       'Shortlisted by NASA for a crewed Artemis landing',
@@ -139,7 +138,7 @@ describe('SitesView', () => {
     expect(store.getState().days).toBe(14);
     await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(19), { timeout: 20_000 });
     await waitFor(() => expect(rowOf('de Gerlache Rim 2').getAttribute('href')).toMatch(/days=14/));
-    expect(screen.getByText('Each row', { selector: 'dt' }).nextElementSibling!.textContent).toMatch(/in the 14 days from 1 January 2027, named under the site, and the 14 days after that day/);
+    expect(screen.getByText(/^Each site's figures/).textContent).toMatch(/best day of the 14 days from 1 January 2027, the day under its name, and the 14 days after it/);
   });
 
   it('shows the rows before the figures arrive', async () => {

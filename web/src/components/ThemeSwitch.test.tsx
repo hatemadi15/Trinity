@@ -12,6 +12,8 @@ afterEach(() => {
 
 describe('ThemeSwitch', () => {
   it('shows which theme is on and switches the page', () => {
+    // A visitor who chose light before: dark is the default now (spec 6), so the page is light only by their choice.
+    window.localStorage.setItem(THEME_KEY, 'light');
     document.documentElement.setAttribute('data-theme', 'light');
     render(<ThemeSwitch />);
     const group = screen.getByRole('group', { name: 'Theme' });

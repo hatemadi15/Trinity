@@ -19,10 +19,10 @@ import { dateLong } from '@/lib/viz/format';
 import { betterLabel, keyMoments, landerCaption, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
-// The plates blur what is behind them, so no thin line of the sky shows through the words.
-const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/90 backdrop-blur-sm';
+// The plates are near opaque, so no thin line of the sky shows through the words, and nothing is blurred.
+const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/92';
 // Hover lightens a button a little; the keyboard's focus gets a ring, so neither reads as a button left on.
-const LOOK = 'min-h-10 rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f6d48a]';
+const LOOK = 'min-h-10 whitespace-nowrap rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f6d48a]';
 /** The dot by the lander's line: green only with radio contact (as on the time bar), amber with power alone, red when off. */
 const TONE = { radio: 'bg-[#8ddcaa]', power: 'bg-[#f6c86a]', off: 'bg-[#ff9180]' } as const;
 const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): RendererLike => new StandRenderer(canvas, scene);
@@ -33,16 +33,16 @@ const LANDER_FOOT_M = 2.1;
 
 /**
  * The key moments' days on the paths, each named as its flag on the time bar names it, short, so a chip says
- * what happens where it sits: on the Sun's path where it leaves the view, "Sun behind hills, 3 Jan" when a hill
- * hides a Sun still up, else "Sunset, 3 Jan", and where it comes back, "Sun back, 20 Jan"; on Earth's where it
- * comes into view, "Earth in view, 10 Jan". The power's part of a joined moment stays on its flag: the path is
- * the Sun's.
+ * what happens where it sits: on the Sun's path where it sets, below the horizon or behind the hills, "Sunset,
+ * 3 Jan", and where it rises, "Sunrise, 20 Jan"; on Earth's where it rises, "Earth rises, 10 Jan". The power's
+ * part of a joined moment stays on its flag: the path is the Sun's.
  */
 export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
   return moments.flatMap((m): NonNullable<StandScene['marks']> => {
-    if (m.kind === 'earth-in') return [{ hour: m.hour, body: 'earth', text: `Earth in view, ${m.day}` }];
-    if (m.kind === 'sun-back' || m.kind === 'sun-power-back') return [{ hour: m.hour, body: 'sun', text: `Sun back, ${m.day}` }];
-    if (m.kind === 'sunset' || m.kind === 'sunset-power-off') return [{ hour: m.hour, body: 'sun', text: `${m.label.startsWith('Sunset') ? 'Sunset' : 'Sun behind hills'}, ${m.day}` }];
+    if (m.kind === 'earth-out') return [{ hour: m.hour, body: 'earth', text: `Earth sets, ${m.day}` }];
+    if (m.kind === 'earth-in') return [{ hour: m.hour, body: 'earth', text: `Earth rises, ${m.day}` }];
+    if (m.kind === 'sun-back' || m.kind === 'sun-power-back') return [{ hour: m.hour, body: 'sun', text: `Sunrise, ${m.day}` }];
+    if (m.kind === 'sunset' || m.kind === 'sunset-power-off') return [{ hour: m.hour, body: 'sun', text: `Sunset, ${m.day}` }];
     return [];
   });
 }
@@ -53,7 +53,7 @@ export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
  * how long the night lasts), one line on the lander's power, its battery's level and its radio, what to watch
  * next, the better landing day and the way back; "Why this happens" gives where the site lies, why the light
  * and the sky look as they do (the pole first), the radio story and how we know, one reason at a time or all
- * as one list. On a phone the card folds to the headline until "More". A key moment, chosen from its flag or
+ * as one list. On a phone the card folds to the headline, the lander's line and the better day until "More". A key moment, chosen from its flag or
  * passed as the time moves on, gets a line over the view on why; the moments stay as dots when the words are
  * hidden. A lander stands beside the site for scale. Without WebGL 2 it shows the horizon chart with the same
  * words.
@@ -84,7 +84,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const [more, setMore] = useState(false);
   const [page, setPage] = useState(0);
   const [allReasons, setAllReasons] = useState(false);
-  // On a phone the card folds to the headline until "More", so the view keeps most of the screen.
+  // On a phone the card folds to the headline, the lander's line and the better day until "More" (13.3), so the view keeps most of the screen.
   const [cardOpen, setCardOpen] = useState(false);
   // ?quality=fast for weaker graphics: a lower pixel ratio, no drawn detail, coarser shadow steps.
   const [quality] = useState<'full' | 'fast'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('quality') === 'fast' ? 'fast' : 'full'));
@@ -258,7 +258,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const m = moments.find((x) => x.label === f.label && x.hour === f.hour);
     if (!m) return;
     if (m.kind === 'battery-out' || m.kind === 'power-back') faceLander();
-    else if (m.kind === 'earth-in') face(series.earthAz[m.hour], series.earthEl[m.hour], 16);
+    else if (m.kind === 'earth-in' || m.kind === 'earth-out') face(series.earthAz[m.hour], series.earthEl[m.hour], 16);
     else face(series.sunAz[m.hour], series.sunEl[m.hour] - 2, 46);
     setCaption(momentCaption(m.kind, series, m.hour, site.lat) || null);
   };
@@ -348,21 +348,21 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             <button type="button" className="flex min-h-10 items-center self-start text-[15px] underline underline-offset-4 md:hidden" aria-expanded={cardOpen} onClick={() => setCardOpen((o) => !o)}>
               {cardOpen ? 'Less' : 'More'}
             </button>
-            <p className={`flex items-baseline gap-2 text-[15px] md:text-base ${cardOpen ? '' : 'max-md:hidden'}`}>
+            <p className="flex items-baseline gap-2 text-[15px] md:text-base">
               <i aria-hidden="true" data-tone={lander.tone} className={`h-3 w-3 shrink-0 translate-y-px rounded-full ${TONE[lander.tone]}`} />
               <span>{lander.text}</span>
             </p>
             <p className={`text-[14px] text-[#f6d48a] md:text-[15px] ${cardOpen ? '' : 'max-md:hidden'}`}>{watchNext(series, power, s.startUtc, hour)}</p>
             {better && (
               // The better day, on a row of its own, so the links below never move.
-              <div className={cardOpen ? '' : 'max-md:hidden'}>
+              <div>
                 <a
                   href={better.href}
                   onClick={(e) => {
                     e.preventDefault();
                     land(better.startUtc, better.href);
                   }}
-                  className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
+                  className={`${LOOK.replace('whitespace-nowrap ', '')} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
                 >
                   {better.label}
                 </a>
@@ -372,7 +372,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               {/* Named for what it holds whether open or not, so the way back beside it stays put. */}
               <button
                 type="button"
-                className="flex min-h-10 items-center gap-1.5 text-[15px] underline underline-offset-4"
+                className="flex min-h-10 items-center gap-1.5 whitespace-nowrap text-[15px] underline underline-offset-4"
                 aria-expanded={more}
                 onClick={() => {
                   setMore((m) => !m);
@@ -384,7 +384,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   {more ? '▴' : '▾'}
                 </span>
               </button>
-              <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center text-[15px] underline underline-offset-4">
+              <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
                 Back to the forecast
               </Link>
             </div>

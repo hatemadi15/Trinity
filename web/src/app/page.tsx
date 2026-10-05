@@ -75,13 +75,13 @@ export default function Home() {
             <SkyRowKey body="both" className="mt-2.5 text-stage-ink-2" />
           </figcaption>
           <div className="mt-2">
-            <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} ticks={false} fitHills reveal />
-            <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} reveal />
+            <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} ticks={false} fitHills />
+            <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} />
           </div>
           {/* What the forecast means for a lander: the promise of the headline, in one sentence. */}
           <p className="wrap pt-4 text-[17px] font-medium text-stage-ink">
-            A small lander ({battery.lander.area_m2} m² of solar panels, {battery.lander.battery_wh / 1000} kWh battery) landing on {dateLong(sky.start_utc, 0)} keeps power for{' '}
-            {spanWords(battery.now_hours)}
+            An example lander, not a planned mission: {battery.lander.area_m2} m² of solar panels and a {battery.lander.battery_wh / 1000} kWh battery. Landing on{' '}
+            {dateLong(sky.start_utc, 0)}, it keeps power for {spanWords(battery.now_hours)}
             {battery.best_hour !== null && battery.best_hours !== null && battery.best_hours > battery.now_hours
               ? `; landing on ${dateLong(sky.start_utc, battery.best_hour)}, for ${spanWords(battery.best_hours)}.`
               : '.'}

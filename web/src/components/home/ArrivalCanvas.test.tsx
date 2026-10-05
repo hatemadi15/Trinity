@@ -6,8 +6,8 @@ import type { StandScene } from '@/lib/sky/standRenderer';
 import { siteEndHour } from '@/lib/sky/arrivalPath';
 import { HERO_HOUR, hero } from '@/lib/viz/arrival';
 import { dateLong } from '@/lib/viz/format';
-import { keyMoments, skyLabel } from '@/lib/viz/stand';
-import ArrivalCanvas, { type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
+import { EARTH_LOOP, keyMoments, skyLabel } from '@/lib/viz/stand';
+import ArrivalCanvas, { laneOf, type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
 
 const sky = { stars: { count: 0, j2000: new Float32Array(), vmag: new Float32Array(), bv: new Float32Array() }, moon: { startMs: 0, stepMs: 1, count: 2, quats: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0]) }, earthDayUrl: '', earthCloudsUrl: '' };
 const globe = { color: { low: 'a', high: 'b' }, normal: { low: 'c', high: 'd' }, heights: { width: 4, height: 2, metres: new Float32Array(8) }, albedoScale: 1, credit: '' };
@@ -78,11 +78,13 @@ describe('the arrival’s live stage', () => {
     render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
     await waitFor(() => expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(3));
     await new Promise((res) => setTimeout(res, 120));
-    // Many frames at rest: the hour once, the pose once, the labels once.
-    expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(5);
+    // Many frames at rest: the hour once, the pose once, and the labels once, then again only four times a second
+    // (for words that move without a scroll), however slowly the frames come.
+    const frames = (r.render as ReturnType<typeof vi.fn>).mock.calls.length;
+    expect(frames).toBeGreaterThan(5);
     expect(r.setTime).toHaveBeenCalledTimes(1);
     expect(r.setPose).toHaveBeenCalledTimes(1);
-    expect(r.labels).toHaveBeenCalledTimes(1);
+    expect((r.labels as ReturnType<typeof vi.fn>).mock.calls.length).toBeLessThan(frames / 2);
     // A move: once more each.
     progress.current = 2.5;
     await waitFor(() => expect(r.setPose).toHaveBeenCalledTimes(2));
@@ -206,7 +208,7 @@ describe('the arrival’s live stage', () => {
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
     render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
     // On which day, and that it looks small only because it is far.
-    expect(await screen.findByText(/^Earth, 3\d\d,000 km away on 1 January: it looks small only because it is far$/)).toBeTruthy();
+    expect(await screen.findByText(/^Earth, 3\d\d,000 km away on 1 January 2027: it looks small only because it is far$/)).toBeTruthy();
   });
 
   it('points to the Sun from the edge of the view while it is out of sight, through the month, and names it where it shows', async () => {
@@ -415,7 +417,7 @@ describe('the arrival’s live stage', () => {
     expect(date.textContent).toBe(`${dateLong(h.startUtc, HERO_HOUR)} ${year}`);
     expect(state.textContent).toBe('In sunlight');
     expect(bar.querySelectorAll('[data-tick]')).toHaveLength(moments.length);
-    for (const key of ['The Sun hides or comes back', 'The battery runs out', 'Earth comes into view']) expect(within(bar).getByText(key)).toBeTruthy();
+    for (const key of ['Sunset or sunrise', 'The battery runs out', 'Earth rises or sets']) expect(within(bar).getByText(key)).toBeTruthy();
     // Each moment named for a day or so after it passes, the mark at its hour in the month.
     const earth = moments.find((m) => m.kind === 'earth-in')!;
     progress.current = at(earth.hour + 6);
@@ -425,9 +427,9 @@ describe('the arrival’s live stage', () => {
     // Then what lights the ground: Earth alone, which is why it looks blue; or nothing at all. Either way the picture
     // is brightened, and says so: the ground would look near black.
     progress.current = at(earth.hour + 60);
-    await waitFor(() => expect(state.textContent).toBe('Lit only by Earthlight (picture brightened)'));
+    await waitFor(() => expect(state.textContent).toBe('Night, lit only by Earthlight (picture brightened)'));
     progress.current = at(moments.find((m) => m.kind === 'battery-out')!.hour + 60);
-    await waitFor(() => expect(state.textContent).toBe('In the dark (picture brightened)'));
+    await waitFor(() => expect(state.textContent).toBe('Night (picture brightened)'));
     // At the end, the last hour of the story; before landing, no bar.
     progress.current = 5;
     await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBe(end));
@@ -502,6 +504,59 @@ describe('the arrival’s live stage', () => {
     const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours);
     render(<ArrivalCanvas progress={{ current: 4.5 }} reduced onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
     await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toBeCloseTo(HERO_HOUR + (end - HERO_HOUR) / 2, 6));
+  });
+
+  it('marks the month’s moments in lanes, the Sun’s over the line, the battery’s across it, Earth’s under it, with Earth setting marked too', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    render(<ArrivalCanvas progress={{ current: 4.5 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    const bar = await waitFor(() => {
+      const b = document.querySelector('[data-date-bar]') as HTMLElement;
+      expect(b.hidden).toBe(false);
+      return b;
+    });
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc);
+    const lanes = [...bar.querySelectorAll('[data-tick]')].map((t) => t.getAttribute('data-lane'));
+    expect(lanes).toEqual(moments.map((m) => laneOf(m.kind)));
+    // Sunset 3 Jan, the battery 4 Jan, Earth rises 10 Jan, sunrise 20 Jan, Earth sets 23 Jan: each in its lane.
+    expect(moments.map((m) => m.kind)).toContain('earth-out');
+    expect(lanes.slice(0, 3)).toEqual(['sun', 'power', 'earth']);
+    const sun = bar.querySelector('[data-lane="sun"]')!.className, power = bar.querySelector('[data-lane="power"]')!.className;
+    const earthMark = bar.querySelector('[data-lane="earth"]')!.className;
+    // The battery's mark 6 px tall across the line, the Sun's and Earth's 10 px tall from 5 px off it, all 4 px wide:
+    // a 2 px gap between lanes, so the 3 and 4 January marks read as two (both readers, part C read 1).
+    expect(power).toMatch(/\bh-1\.5\b/);
+    expect(sun).toMatch(/bottom-\[calc\(50%\+5px\)\]/);
+    expect(sun).toMatch(/\bh-2\.5\b/);
+    expect(earthMark).toMatch(/top-\[calc\(50%\+5px\)\]/);
+    for (const t of bar.querySelectorAll('[data-tick]')) expect(t.className).toMatch(/\bw-1\b/);
+    expect(bar.textContent).toContain('Sunset or sunrise');
+    expect(bar.textContent).toContain('The battery runs out');
+    expect(bar.textContent).toContain('Earth rises or sets');
+    expect(bar.querySelector('p:last-of-type')!.className).toMatch(/\btext-\[15px\]/);
+  });
+
+  it('joins each label to its mark with a short line, and names Earth’s loop where its path first shows', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    render(<ArrivalCanvas progress={{ current: 4.5 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect(document.querySelectorAll('[data-path-name]')).toHaveLength(2));
+    const dots = [...document.querySelectorAll('i[class*="top-[130%]"]')];
+    expect(dots.length).toBeGreaterThanOrEqual(3);
+    for (const dot of dots) expect(dot.nextElementSibling?.getAttribute('data-stem')).toBe('');
+    const names = [...document.querySelectorAll('[data-path-name]')];
+    for (const n of names) expect(n.querySelector('[data-stem]')).toBeTruthy();
+    expect(names[1].textContent).toContain(EARTH_LOOP);
+  });
+
+  it('puts each kind of moment in its lane', () => {
+    expect(laneOf('sunset')).toBe('sun');
+    expect(laneOf('sunset-power-off')).toBe('sun');
+    expect(laneOf('sun-power-back')).toBe('sun');
+    expect(laneOf('battery-out')).toBe('power');
+    expect(laneOf('power-back')).toBe('power');
+    expect(laneOf('earth-in')).toBe('earth');
+    expect(laneOf('earth-out')).toBe('earth');
   });
 
   it('says where the Sun and Earth stand at the hour shown, through the month at the site', async () => {

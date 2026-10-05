@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { useElementWidth } from '@/lib/hooks/useElementWidth';
@@ -139,7 +139,7 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number)
  * The key names the track's yellow "in sunlight": the hours with any part of the Sun in view from the site,
  * not all those with the Sun up, as a Sun up behind the hills leaves the strip grey. Where no chart is above
  * it (the stand view), `dates` writes the dates under the track, draws the hours Earth is in view as a blue
- * band and names the strip's grey, the hours the site is in shadow, "in shadow"; `powered` (1 for each hour
+ * band and names the strip's grey, the hours with none of the Sun in view, "night"; `powered` (1 for each hour
  * with power, 0 without) draws the hours the lander is off as a red band right under the sunlight, with
  * "lander off" in the key. The blue band sits under the red one, and under the blue, on a row of its own,
  * the hours with both power and Earth in view, when the lander can radio home, are a green band ("radio
@@ -154,12 +154,11 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number)
  *
  * The key names only what the bar draws for the period shown, so no reader goes looking for a band that is
  * not there: each entry comes only with at least one hour of its own band, in its usual place among the
- * others. "in sunlight" needs an hour with some of the Sun, "in shadow" one with none of it, "lander off" one
+ * others. "in sunlight" needs an hour with some of the Sun, "night" one with none of it, "lander off" one
  * without power, "Earth in view" one with Earth in view, "radio contact" one of solid green and "radio, if it
  * survives the night" one of hatched green. So where the battery runs out before Earth comes into view, all
  * the radio contact comes after the night and the key names only the hatched band; and on Explore, whose key
- * names the yellow alone, a period with no sunlight has no key at all. The phone's key, behind the Key
- * button, keeps to the same rule.
+ * names the yellow alone, a period with no sunlight has no key at all. The phone's keys keep to the same rule.
  *
  * With the dates, `moments` puts a flag right above the track at each of the period's key moments, such as
  * "Sunset 3 Jan": a click on one moves the handle to its hour, then tells the page (`onMoment`). A flag
@@ -181,8 +180,7 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number)
  *
  * `compact` keeps the bar low for the stand view: no sentence beside the date (the page says it in its own
  * words), and with the dates the keys join the date's line from a medium screen up, where they fit. On a
- * phone the keys wait behind a Key button at the end of the date's line, shut at first, and open as they
- * were, a little smaller; Play keeps its word, and the bar drops the chart panel's inset to make room for
+ * phone the keys stand under the date, a little smaller (13.3: named without a Key button); Play keeps its word, and the bar drops the chart panel's inset to make room for
  * it. `clockNote` puts a few words after the date and hour on a medium screen and up.
  *
  * `bare` is for the stand view's clean view, for a classroom: the picture with as little as possible over
@@ -218,7 +216,7 @@ export function TimeBar({
   powered?: Uint8Array | null;
   /**
    * No sentence beside the date at any width (the page says it in its own words), and with `dates` the keys on
-   * the date's line from md up where they fit, so the bar stays low. On a phone: the keys behind a Key button,
+   * the date's line from md up where they fit, so the bar stays low. On a phone: the keys under the date, smaller,
    * Play with its word, no chart-panel inset, and the flags as dots under a chip that names the chosen moment,
    * or the next one.
    */
@@ -248,9 +246,6 @@ export function TimeBar({
   const hours = series.hours;
   const last = Math.max(0, hours - 1);
   const [playing, setPlaying] = useState(false);
-  // On a phone when compact, the keys stay shut until the Key button opens them.
-  const [keyOpen, setKeyOpen] = useState(false);
-  const keysId = useId();
   const reduced = useReducedMotion();
   const cursorRef = useRef(cursor);
   // What the dates bring, unless the bar is bare: Earth's band and the radio band, the grey's name and the dates row.
@@ -301,9 +296,8 @@ export function TimeBar({
   const chipShift = chip ? (shifts[flags.indexOf(chip)] ?? 0) : 0;
   // Drawn back by its dot's share of the track, so it stays inside the track with its dot under it.
   const chipShare = chipShift ? Math.min(1, Math.max(0, chipAt + chipShift / trackPx)) : chipAt;
-  // The keys beyond the Sun's; on a phone when compact they wait behind a Key button.
+  // The keys beyond the Sun's: named on a phone too, compact at 14 px with shorter swatches (13.3: no Key button).
   const keys = !bare && (sunless || off.length > 0 || earth.length > 0);
-  const keyed = compact && keys;
 
   useEffect(() => {
     cursorRef.current = cursor;
@@ -322,21 +316,10 @@ export function TimeBar({
   const shown = Math.min(last, hoverHour ?? cursor);
   const move = (to: number) => onCursor(Math.max(0, Math.min(last, to)));
   const whenText = dateTimeUtc(startUtc, shown);
-  // With the Key button beside it on a phone, the date takes the room the button leaves rather than send it to a
-  // line of its own, which would make the bar taller; short of room, it breaks after its comma, never inside the
-  // date or the hour. The class names that change with it are written out whole: Tailwind finds no class written
-  // right before a `${`, so `a b${c}` would leave `b` without its rule.
-  const comma = keyed ? whenText.indexOf(', ') : -1;
   const noted = !!clockNote && !bare;
   const when = (
-    <span data-testid="when" className={keyed && !noted ? 'text-[17px] font-semibold max-sm:min-w-0 max-sm:flex-1' : 'text-[17px] font-semibold'}>
-      {comma < 0 ? (
-        whenText
-      ) : (
-        <>
-          <span className="whitespace-nowrap">{whenText.slice(0, comma + 1)}</span> <span className="whitespace-nowrap">{whenText.slice(comma + 2)}</span>
-        </>
-      )}
+    <span data-testid="when" className="text-[17px] font-semibold">
+      {whenText}
     </span>
   );
   // The track's yellow is the site in sunlight, not progress: a key says so, when any yellow is drawn. Not "Sun
@@ -370,11 +353,10 @@ export function TimeBar({
             </svg>
             <span className={compact ? undefined : 'max-sm:sr-only'}>{playing ? 'Pause' : 'Play'}</span>
           </button>
-          {/* With the Key button on a phone, the date and the button are centred on each other in the one line. */}
-          <p className={keyed ? 'flex flex-wrap items-baseline gap-x-3 leading-snug max-sm:items-center' : 'flex flex-wrap items-baseline gap-x-3 leading-snug'}>
+          <p className="flex flex-wrap items-baseline gap-x-3 leading-snug">
             {noted ? (
               // The note follows the date and hour in the same run of words, never on a line of its own.
-              <span className={keyed ? 'md:whitespace-nowrap max-sm:min-w-0 max-sm:flex-1' : 'md:whitespace-nowrap'}>
+              <span className="md:whitespace-nowrap">
                 {when}
                 <span data-testid="clock-note" className="text-[15px] text-ink-2 max-md:hidden">
                   {clockNote}
@@ -382,20 +364,6 @@ export function TimeBar({
               </span>
             ) : (
               when
-            )}
-            {keyed && (
-              // On a phone the keys would take four lines under the date: they wait behind this button at the end of
-              // the date's line, shut at first. The bar's plain button, 40 px tall, with an edge that stands out on the
-              // dark bar like the flags'; open, it takes a chosen flag's lighter ground. From sm up the keys have room.
-              <button
-                type="button"
-                aria-expanded={keyOpen}
-                aria-controls={keysId}
-                onClick={() => setKeyOpen((o) => !o)}
-                className={`btn ml-auto h-10 shrink-0 border-ink-3 px-3 text-[15px] sm:hidden ${keyOpen ? 'bg-surface-2' : 'bg-transparent'}`}
-              >
-                Key
-              </button>
             )}
             {/* Compact, the page says it in its own words; the slider still reads it. Bare, the date and hour are all. */}
             {!compact && !bare && (
@@ -411,18 +379,16 @@ export function TimeBar({
               // bar keeps one height while the words change. Compact, there is no sentence: from md up they
               // take only their own width, so they join the date's line where they fit, at its right end (else
               // they go to the next line whole, at the right all the same), and the bar is a line lower. On a
-              // phone they are shut behind the Key button until it opens them, under the date as before, at 14 px
-              // with shorter swatches.
+              // phone, compact, they stand under the date at 14 px with shorter swatches.
               <span
-                id={keyed ? keysId : undefined}
-                className={`${dates ? 'flex basis-full flex-wrap items-baseline gap-x-3 sm:justify-end' : 'flex flex-wrap items-baseline gap-x-3 sm:ml-auto'} ${compact ? ['max-sm:gap-x-2 max-sm:[&>span]:text-[14px] max-sm:[&_i]:w-4', dates && 'md:ml-auto md:basis-auto', !keyOpen && 'max-sm:hidden'].filter(Boolean).join(' ') : ''}`}
+                className={`${dates ? 'flex basis-full flex-wrap items-baseline gap-x-3 sm:justify-end' : 'flex flex-wrap items-baseline gap-x-3 sm:ml-auto'} ${compact ? ['max-sm:gap-x-2 max-sm:[&>span]:text-[14px] max-sm:[&_i]:w-4', dates && 'md:ml-auto md:basis-auto'].filter(Boolean).join(' ') : ''}`}
               >
                 {sunlit && sunKey}
                 {sunless && (
                   <span data-part="key-no-sun" className="flex items-center gap-2 text-[15px] text-ink-2">
                     {/* The strip's own grey, where no yellow is drawn, with an edge light enough to see on the dark bar. */}
                     <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border border-ink-3 bg-surface-2" />
-                    in shadow
+                    night
                   </span>
                 )}
                 {off.length > 0 && (
