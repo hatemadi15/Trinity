@@ -312,8 +312,8 @@ const APOLLO = "Apollo's cameras used short exposures for the bright ground, too
  * one face towards it. After Look up ("up"): that with no air the sky is black even by day, and that away from
  * the glare the stars show, as in the view, which like a camera set for the sunlit ground shows none by day
  * until it looks up; from a southern site, first which way the view turned, towards the Southern Cross. When
- * night falls with Earth in view ("earthlight"): that only Earthlight lights the ground, brightened like a long
- * exposure. At an hour with neither the Sun nor Earth in view ("dark"): that neither lights the ground, that
+ * night falls with Earth in view ("earthlight"): that Earthlight lights the ground and tints it blue, brightened like
+ * a long exposure (both readers of part B read 7 found the blue unexplained). At an hour with neither the Sun nor Earth in view ("dark"): that neither lights the ground, that
  * the view is brightened like a long exposure, and that with no air there is no twilight; that higher ground
  * farther off may still catch the Sun is left to whyLines. After Face the lander ("lander"): landerCaption's
  * line for a view of the panel's face.
@@ -326,7 +326,7 @@ export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander' | 'da
   }
   if (kind === 'lander') return landerCaption(lat, false);
   if (kind === 'dark') return 'Neither the Sun nor Earth lights this ground: the view is brightened like a long exposure. No air, no twilight.';
-  return 'Lit only by Earthlight: sunlight bounced off Earth, brightened here like a long exposure.';
+  return 'Earthlight, sunlight bounced off Earth, lights this ground and tints it blue; brightened like a long exposure.';
 }
 
 /**
@@ -429,28 +429,34 @@ export function landerState(p: PowerResult | null, startUtc: string, hour: numbe
 }
 
 /**
- * The lander's power and its radio contact for the hour in one line: whether it has power, and since when
- * after a cut (the dates of the hour's own stretch, as in landerState), and whether Earth is in view for its
- * radio, or where Earth is when it is not. While it has power and the battery's size is given (`batteryWh`,
- * more than nothing), the line says how full the battery is after the hour, as the forecast page does, a whole
- * percentage that keeps its sign on its line (pct0): "The lander has power (battery 100 %), but Earth has set
- * below the horizon, so it cannot radio home." While the lander is off the line says when its battery ran out,
- * "The lander is off: its battery ran out on 4 January.", and stops there when the power comes back in the
- * period, as the line on what to watch next (watchNext) says when; with Earth in view it adds "Earth is in
- * view, but the radio has no power.", and when the power does not come back, "Power does not come back in
- * this period." `on` is whether it has power; true until that is worked out. `tone` is for the page's dot:
- * "radio" with power and Earth in view, "power" with power alone or while the power is being worked out,
- * and "off" without power.
+ * The stand view's status line for the hour (spec 16.2), short, for the one line at the top: the lander's power and
+ * its radio. With power from the landing: "Power on, battery 87 %." (the battery's level after the hour, as the
+ * forecast page gives it, a whole percentage that keeps its sign on its line), or "Power on." without a battery size;
+ * after a power cut, the date of the hour's own stretch and the condition, as the forecast counts energy only: "Power
+ * on again since 20 January, if the lander survived 16 days 6 hours without power; battery 40 %.". Then the radio:
+ * "Radio contact: Earth is in view.", "No radio: Earth is below the horizon." or "No radio: Earth is behind a hill."
+ * Without power: "Power off: the battery ran out on 4 January.", then "Earth is in view, but the radio has no
+ * power." with Earth in view, and "Power does not come back in this period." when it does not; when it does, the
+ * flags on the time bar say when. `on` is whether it has power; true until that is worked out. `tone` is for the
+ * page's dot: "radio" with power and Earth in view, "power" with power alone or while the power is being worked
+ * out, and "off" without power.
  */
 export function statusLine(s: Series, p: PowerResult | null, startUtc: string, hour: number, batteryWh?: number): { on: boolean; tone: 'radio' | 'power' | 'off'; text: string } {
   if (!p) return { on: true, tone: 'power', text: WORKING };
-  const w = stretchWords(p, startUtc, hour);
   const seen = s.earthVisible[hour] === 1;
-  if (!w.on) return { on: false, tone: 'off', text: `${w.off}${seen ? ' Earth is in view, but the radio has no power.' : ''}${w.returns ? '' : ` ${w.back}`}` };
+  const from = stretchStart(p.powered, hour);
+  if (p.powered[hour] !== 1) {
+    const back = stretchEnd(p.powered, hour) < p.powered.length;
+    return { on: false, tone: 'off', text: `Power off: the battery ran out on ${dateLong(startUtc, from)}.${seen ? ' Earth is in view, but the radio has no power.' : ''}${back ? '' : ' Power does not come back in this period.'}` };
+  }
   // Without a battery there is no level to give.
-  const has = batteryWh !== undefined && batteryWh > 0 ? `${w.has} (battery ${pct0(p.energyWh[hour] / batteryWh)})` : w.has;
-  if (seen) return { on: true, tone: 'radio', text: `${has}${w.again ? ',' : ''} and can radio Earth.` };
-  return { on: true, tone: 'power', text: `${has}, but Earth has set ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind the hills'}, so it cannot radio home.` };
+  const level = batteryWh !== undefined && batteryWh > 0 ? `battery ${pct0(p.energyWh[hour] / batteryWh)}` : '';
+  const power =
+    from === 0
+      ? `Power on${level ? `, ${level}` : ''}.`
+      : `Power on again since ${dateLong(startUtc, from)}, if the lander survived ${spanWords(from - stretchStart(p.powered, from - 1))} without power${level ? `; ${level}` : ''}.`;
+  const radio = seen ? 'Radio contact: Earth is in view.' : `No radio: Earth is ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind a hill'}.`;
+  return { on: true, tone: seen ? 'radio' : 'power', text: `${power} ${radio}` };
 }
 
 /**
@@ -528,24 +534,22 @@ export function betterLabel(dayLong: string, poweredHours: number, radioHours: n
 /**
  * The words for the hour's own stretch with or without power. With power: "The lander has power", or after a cut
  * "The lander has power again since 20 January, if it survived 15 days 12 hours without power". Without: "The
- * lander is off: its battery ran out on 4 January." and when the power comes back, if it does in the period
- * (`returns`), with the same condition. The forecast counts energy only: surviving the cold without power is the
- * hard part, and no line says the lander simply restarts.
+ * lander is off: its battery ran out on 4 January." and when the power comes back, if it does in the period, with
+ * the same condition. The forecast counts energy only: surviving the cold without power is the hard part, and no
+ * line says the lander simply restarts.
  */
-function stretchWords(p: PowerResult, startUtc: string, hour: number): { on: true; has: string; again: boolean } | { on: false; off: string; back: string; returns: boolean } {
+function stretchWords(p: PowerResult, startUtc: string, hour: number): { on: true; has: string } | { on: false; off: string; back: string } {
   const from = stretchStart(p.powered, hour);
   if (p.powered[hour] === 1) {
-    if (from === 0) return { on: true, has: 'The lander has power', again: false };
+    if (from === 0) return { on: true, has: 'The lander has power' };
     const off = from - stretchStart(p.powered, from - 1);
-    return { on: true, has: `The lander has power again since ${dateLong(startUtc, from)}, if it survived ${spanWords(off)} without power`, again: true };
+    return { on: true, has: `The lander has power again since ${dateLong(startUtc, from)}, if it survived ${spanWords(off)} without power` };
   }
   const end = stretchEnd(p.powered, hour);
-  const returns = end < p.powered.length;
   return {
     on: false,
     off: `The lander is off: its battery ran out on ${dateLong(startUtc, from)}.`,
-    back: returns ? `Power comes back on ${dateLong(startUtc, end)}, if the lander survives ${spanWords(end - from)} without power.` : 'Power does not come back in this period.',
-    returns,
+    back: end < p.powered.length ? `Power comes back on ${dateLong(startUtc, end)}, if the lander survives ${spanWords(end - from)} without power.` : 'Power does not come back in this period.',
   };
 }
 

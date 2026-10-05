@@ -122,7 +122,7 @@ describe('StandView', () => {
     // One line joins the lander's power, its battery's level and its radio; then what to watch next.
     expect(screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
     const status = screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text));
-    expect(status.textContent).toMatch(/^The lander has power \(battery 100\u00a0%\), but Earth has set (below the horizon|behind the hills), so it cannot radio home\.$/);
+    expect(status.textContent).toMatch(/^Power on, battery 100\u00a0%\. No radio: Earth is (below the horizon|behind a hill)\.$/);
     // Its dot is amber, power without radio: green is kept for radio contact, as on the time bar.
     expect(status.parentElement!.querySelector('[data-tone]')!.getAttribute('data-tone')).toBe('power');
     expect(screen.getByText(watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10))).toBeTruthy();
@@ -409,14 +409,14 @@ describe('StandView', () => {
     const st = store.getState();
     expect(landerState(st.power, st.startUtc, 219).on).toBe(false);
     expect(st.series!.earthVisible[219]).toBe(1);
-    expect(screen.getByText(/^The lander is off: its battery ran out on 4 January\. Earth is in view, but the radio has no power\.$/)).toBeTruthy();
+    expect(screen.getByText(/^Power off: the battery ran out on 4 January\. Earth is in view, but the radio has no power\.$/)).toBeTruthy();
   });
 
   // The judge of reads 11 and 12 asked for the battery's level in the view, as on the forecast page.
   it('gives the battery’s level in the lander’s line while it has power', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // Found as Testing Library reads it; on the page the percentage keeps its sign on its line.
-    expect(screen.getByText(/\(battery 100 %\)/).textContent).toMatch(/^The lander has power \(battery 100\u00a0%\)/);
+    expect(screen.getByText(/^Power on, battery 100 %\./).textContent).toMatch(/^Power on, battery 100\u00a0%\./);
   });
 
   it('hides the words, the buttons, the labels and the compass for a clean view, keeping a bare time bar with the moments as dots, and brings them back', async () => {

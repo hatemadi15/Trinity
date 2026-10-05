@@ -161,29 +161,30 @@ describe('the lander’s power and radio in one sentence', () => {
   const start = '2027-01-01T00:00:00';
 
   it('says the lander can radio Earth while it has power and Earth is in view', () => {
-    expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'radio', text: 'The lander has power and can radio Earth.' });
+    expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'radio', text: 'Power on. Radio contact: Earth is in view.' });
   });
   it('says why the lander cannot radio home while Earth is out of view', () => {
-    expect(statusLine(s, p, start, 20)).toEqual({ on: true, tone: 'power', text: 'The lander has power, but Earth has set below the horizon, so it cannot radio home.' });
-    expect(statusLine(s, p, start, 30)).toEqual({ on: true, tone: 'power', text: 'The lander has power, but Earth has set behind the hills, so it cannot radio home.' });
+    expect(statusLine(s, p, start, 20)).toEqual({ on: true, tone: 'power', text: 'Power on. No radio: Earth is below the horizon.' });
+    // Hidden while above the horizon: "behind a hill", one name for it (15.1).
+    expect(statusLine(s, p, start, 30)).toEqual({ on: true, tone: 'power', text: 'Power on. No radio: Earth is behind a hill.' });
   });
-  it('says since when the lander has had power again after a power cut', () => {
-    expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'The lander has power again since 20 January, if it survived 16 days 6 hours without power, and can radio Earth.' });
-    expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'The lander has power again since 20 January, if it survived 16 days 6 hours without power, but Earth has set below the horizon, so it cannot radio home.' });
+  it('says since when the lander has had power again after a power cut, and only if it survived', () => {
+    expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'Power on again since 20 January, if the lander survived 16 days 6 hours without power. Radio contact: Earth is in view.' });
+    expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'Power on again since 20 January, if the lander survived 16 days 6 hours without power. No radio: Earth is below the horizon.' });
   });
   it('does not promise radio contact while the lander is off, even with Earth in view', () => {
-    expect(statusLine(s, p, start, 100)).toEqual({ on: false, tone: 'off', text: 'The lander is off: its battery ran out on 4 January. Earth is in view, but the radio has no power.' });
+    expect(statusLine(s, p, start, 100)).toEqual({ on: false, tone: 'off', text: 'Power off: the battery ran out on 4 January. Earth is in view, but the radio has no power.' });
   });
-  // The line on what to watch next says when the power comes back; this one says so only when it never does.
+  // The flags on the time bar say when the power comes back; this line says so only when it never does.
   it('stops at the battery running out when the power comes back in the period, and says so when it never does', () => {
-    expect(statusLine(s, p, start, 200)).toEqual({ on: false, tone: 'off', text: 'The lander is off: its battery ran out on 4 January.' });
+    expect(statusLine(s, p, start, 200)).toEqual({ on: false, tone: 'off', text: 'Power off: the battery ran out on 4 January.' });
     const never = { powered: Uint8Array.from([1, 1, 0, 0]), firstBrownoutHour: 2 } as unknown as PowerResult;
-    expect(statusLine(series({ sunEl: [1, 1, 1, 1] }), never, start, 3)).toEqual({ on: false, tone: 'off', text: 'The lander is off: its battery ran out on 1 January. Power does not come back in this period.' });
+    expect(statusLine(series({ sunEl: [1, 1, 1, 1] }), never, start, 3)).toEqual({ on: false, tone: 'off', text: 'Power off: the battery ran out on 1 January. Power does not come back in this period.' });
     // With Earth in view too, both: the radio has no power, and the power does not come back.
     expect(statusLine(series({ sunEl: [1, 1, 1, 1], earthEl: [4, 4, 4, 4], earthVisible: [1, 1, 1, 1] }), never, start, 3)).toEqual({
       on: false,
       tone: 'off',
-      text: 'The lander is off: its battery ran out on 1 January. Earth is in view, but the radio has no power. Power does not come back in this period.',
+      text: 'Power off: the battery ran out on 1 January. Earth is in view, but the radio has no power. Power does not come back in this period.',
     });
   });
   it('says the power is being worked out until it is known', () => {
@@ -833,8 +834,8 @@ describe('the line over the view', () => {
     // Nothing that blames eyes for Apollo's photos.
     expect(why).not.toMatch(/dazzled|eyes/);
   });
-  it('says what lights the ground when night falls with Earth in view', () => {
-    expect(viewCaption('earthlight', -88.28)).toBe('Lit only by Earthlight: sunlight bounced off Earth, brightened here like a long exposure.');
+  it('says what lights the ground when night falls with Earth in view, and why it is blue', () => {
+    expect(viewCaption('earthlight', -88.28)).toBe('Earthlight, sunlight bounced off Earth, lights this ground and tints it blue; brightened like a long exposure.');
     expect(viewCaption('earthlight', 18.56)).toBe(viewCaption('earthlight', -88.28));
   });
   // A Sun just gone reads as dusk unless something says there is no twilight, and a brightened view must not
@@ -898,18 +899,22 @@ describe('captions of two lines, the whys where they happen, and the battery’s
   // its line, as pct0 writes it.
   it('gives the battery’s level while the lander has power', () => {
     const p = power(); // a walk that runs from full to empty over the test series
-    expect(statusLine(series(), p, START, 0, 2000).text).toMatch(/\(battery 100\u00a0%\)/);
+    expect(statusLine(series(), p, START, 0, 2000).text).toMatch(/^Power on, battery 100\u00a0%\./);
   });
-  it('sets the level beside the power in each sentence, and gives none while the lander is off or without the battery’s size', () => {
+  it('sets the level after the power, and gives none while the lander is off or without the battery’s size', () => {
     const s = series({ sunEl: [1, 1, 1, 1, 1] });
-    expect(statusLine(s, power(), START, 1, 2000)).toEqual({ on: true, tone: 'power', text: 'The lander has power (battery 75\u00a0%), but Earth has set behind the hills, so it cannot radio home.' });
+    expect(statusLine(s, power(), START, 1, 2000)).toEqual({ on: true, tone: 'power', text: 'Power on, battery 75\u00a0%. No radio: Earth is behind a hill.' });
     const seen = series({ sunEl: [1, 1, 1, 1, 1], earthEl: [4, 4, 4, 4, 4], earthVisible: [1, 1, 1, 1, 1] });
-    expect(statusLine(seen, power(), START, 3, 2000)).toEqual({ on: true, tone: 'radio', text: 'The lander has power (battery 25\u00a0%) and can radio Earth.' });
+    expect(statusLine(seen, power(), START, 3, 2000)).toEqual({ on: true, tone: 'radio', text: 'Power on, battery 25\u00a0%. Radio contact: Earth is in view.' });
     // Off: when the battery ran out, as before.
-    expect(statusLine(s, power(), START, 4, 2000).text).toBe('The lander is off: its battery ran out on 1 January. Power does not come back in this period.');
-    // Without the battery's size, or with none, the words of before.
-    expect(statusLine(s, power(), START, 1).text).toBe('The lander has power, but Earth has set behind the hills, so it cannot radio home.');
-    expect(statusLine(s, power(), START, 1, 0).text).toBe('The lander has power, but Earth has set behind the hills, so it cannot radio home.');
+    expect(statusLine(s, power(), START, 4, 2000).text).toBe('Power off: the battery ran out on 1 January. Power does not come back in this period.');
+    // Without the battery's size, or with none, no level.
+    expect(statusLine(s, power(), START, 1).text).toBe('Power on. No radio: Earth is behind a hill.');
+    expect(statusLine(s, power(), START, 1, 0).text).toBe('Power on. No radio: Earth is behind a hill.');
+  });
+  it('gives the level after a power cut beside the condition', () => {
+    const back = { powered: Uint8Array.from([1, 0, 0, 1]), energyWh: Float64Array.from([2000, 0, 0, 800]), firstBrownoutHour: 1 } as unknown as PowerResult;
+    expect(statusLine(series({ sunEl: [1, 1, 1, 1] }), back, START, 3, 2000).text).toBe('Power on again since 1 January, if the lander survived 2 hours without power; battery 40\u00a0%. No radio: Earth is behind a hill.');
   });
 });
 
@@ -1072,12 +1077,12 @@ describe('the stand view’s words on real data', () => {
     // on 3 January.
     expect(watchNext(s, p, start, 219)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power with it, if the lander survives 16 days without power at night, colder than −170 °C.');
     expect(radioNext(s, p, start)).toBe('The first day the lander has both power and a view of Earth is 20 January.');
-    expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'power', text: 'The lander has power, but Earth has set below the horizon, so it cannot radio home.' });
+    expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'power', text: 'Power on. No radio: Earth is below the horizon.' });
     // With the battery's size, as the page gives it: still full at hour 10, with the Sun up.
-    expect(statusLine(s, p, start, 10, DEFAULT_POWER.batteryWh).text).toBe('The lander has power (battery 100\u00a0%), but Earth has set below the horizon, so it cannot radio home.');
-    expect(statusLine(s, p, start, 219)).toEqual({ on: false, tone: 'off', text: 'The lander is off: its battery ran out on 4 January. Earth is in view, but the radio has no power.' });
-    // Off with Earth out of view: the line on what to watch next says when the power comes back.
-    expect(statusLine(s, p, start, 200)).toEqual({ on: false, tone: 'off', text: 'The lander is off: its battery ran out on 4 January.' });
+    expect(statusLine(s, p, start, 10, DEFAULT_POWER.batteryWh).text).toBe('Power on, battery 100\u00a0%. No radio: Earth is below the horizon.');
+    expect(statusLine(s, p, start, 219)).toEqual({ on: false, tone: 'off', text: 'Power off: the battery ran out on 4 January. Earth is in view, but the radio has no power.' });
+    // Off with Earth out of view: the flags say when the power comes back.
+    expect(statusLine(s, p, start, 200)).toEqual({ on: false, tone: 'off', text: 'Power off: the battery ran out on 4 January.' });
     expect(skyLabel('sun', s, 10)).toBe('Sun 2.4° up');
   });
 });
