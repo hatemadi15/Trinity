@@ -100,7 +100,7 @@ export function pointerClear(box: Rect, labels: Rect[], lo: number, hi: number):
  * A body's name with the body under it: the name's box grown `below` pixels down, over the disc and its glare, which
  * a pointer keeps clear of as it does of the name (both readers of read D1 found Earth's pointer on the Sun's disc).
  */
-export const withBody = (r: Rect, below = 40): Rect => ({ ...r, bottom: r.bottom + below });
+export const withBody = (r: Rect, below = 40): Rect => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom + below });
 
 /** A path's name as the view shows it: Earth's with why it loops, on a second line (teacher, part B read 7). */
 export function pathNameText(body: 'sun' | 'earth', text: string): string {

@@ -565,6 +565,8 @@ describe('a pointer beside a body', () => {
   it('keeps clear of the body under a name, not only of the name', () => {
     const sun = { left: 800, top: 260, right: 1000, bottom: 290 };
     expect(withBody(sun)).toEqual({ left: 800, top: 260, right: 1000, bottom: 330 });
+    // As the page gives it: a DOMRect, whose sides are getters a spread does not copy.
+    expect(withBody(new DOMRect(800, 260, 200, 30))).toEqual({ left: 800, top: 260, right: 1000, bottom: 330 });
     // A pointer just under the name, over the disc: clear of the name alone, it meets the name with the body under it.
     const pointer = { left: 860, top: 300, right: 1016, bottom: 326 };
     expect(pointerClear(pointer, [sun], 40, 700)).toBeCloseTo(313, 6);
