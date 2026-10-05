@@ -448,7 +448,7 @@ Two other ways were weighed and set aside:
     - without power and with Earth in view: "Earth is in view, but the radio has no power.";
     - while the power is worked out: "Working out the lander's power…".
   - The dot keeps its colours: green with power and Earth in view, amber with power alone, red without power.
-  - The status line is two lines at most on a wide screen in every state.
+  - The status line takes two lines at most at 1440 px wide, in every state.
 - **More** ("More ▾", "Less ▴", with `aria-expanded`) opens today's card under the status, at the left. The card holds:
   - the line on where you stand;
   - the headline;
