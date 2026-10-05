@@ -142,6 +142,16 @@ const STRIP_W = 300, PX_PER_DEG = STRIP_W / 120;
 const STRIP_FADE = 'linear-gradient(to right, transparent, #000 16%, #000 84%, transparent)';
 /** Narrower than this (degrees up and down) the view is zoomed in: the compass says so, and the lander's parts are named. */
 const ZOOMED_FOV = 45;
+
+/**
+ * Whether the view is zoomed in on the lander, so its parts carry their names: narrower than ZOOMED_FOV, with the
+ * lander (at `landerAzDeg`) within 10° of the view's middle. A view zoomed in on Earth at night, the lander standing
+ * beside it, names the lander alone (16.2).
+ */
+export function zoomedOnLander(fovDeg: number, yawDeg: number, landerAzDeg: number | undefined): boolean {
+  if (landerAzDeg === undefined || fovDeg >= ZOOMED_FOV) return false;
+  return Math.abs(((((landerAzDeg - yawDeg + 540) % 360) + 360) % 360) - 180) < 10;
+}
 const POINT = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 /**
@@ -643,7 +653,7 @@ export function StandCanvas({
       const sunDx = place(sunRef.current, l.sun);
       const earthDx = place(earthRef.current, l.earth);
       // Zoomed in on the lander, its parts carry their names (and its own name gives way to them).
-      const close = v.fov < ZOOMED_FOV;
+      const close = zoomedOnLander(v.fov, v.yaw, scene.lander?.azDeg);
       place(landerRef.current, (close && l.parts?.panel.visible) || (H > W && !close) ? null : l.lander);
       // The power light says whether it is lit.
       const lampNode = lampTextRef.current, hr0 = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));

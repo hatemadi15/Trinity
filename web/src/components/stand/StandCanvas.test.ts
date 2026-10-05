@@ -6,7 +6,7 @@ import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
 import { EARTH_LOOP, starLabel } from '@/lib/viz/stand';
-import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, fitPitch, horizonLift, inflate, labelSides, letterFade, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, type RendererLike } from './StandCanvas';
+import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, fitPitch, horizonLift, inflate, labelSides, letterFade, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, zoomedOnLander, type RendererLike } from './StandCanvas';
 
 describe('the pointers on a phone', () => {
   it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
@@ -553,6 +553,40 @@ describe('the guides', () => {
     render(createElement(StandCanvas, props(true, r)));
     const phone = [...document.querySelectorAll<HTMLElement>('p')].find((p) => p.textContent?.startsWith('Facing') && p.classList.contains('md:hidden'))!;
     expect(phone.hasAttribute('data-plate')).toBe(true);
+  });
+});
+
+describe('naming the lander’s parts', () => {
+  it('names them only when the view is zoomed in on the lander, within 10° of its middle, not when it is zoomed in on Earth beside it', () => {
+    expect(zoomedOnLander(36, 0, 0)).toBe(true);
+    expect(zoomedOnLander(36, 0, 9)).toBe(true);
+    expect(zoomedOnLander(36, 0, 18)).toBe(false);
+    expect(zoomedOnLander(60, 0, 0)).toBe(false);
+    // Across north.
+    expect(zoomedOnLander(36, 355, 3)).toBe(true);
+    expect(zoomedOnLander(36, 0, undefined)).toBe(false);
+  });
+
+  it('opening at night on Earth, narrower, names the lander beside it, not its parts', async () => {
+    const r: RendererLike = {
+      setTime: vi.fn(),
+      setView: vi.fn(),
+      resize: vi.fn(),
+      render: vi.fn(),
+      labels: () => ({ sun: { x: 0, y: 0, visible: false }, earth: { x: 0.6, y: 0.3, visible: true }, stars: [], lander: { x: 0.2, y: 0.4, visible: true }, parts: { panel: { x: 0.2, y: 0.45, visible: true }, dish: { x: 0.22, y: 0.5, visible: true }, lamp: { x: 0.18, y: 0.6, visible: true } } }),
+      dispose: vi.fn(),
+    };
+    const scene = (azDeg: number): StandScene => ({ field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series: northSeries, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky: noStars, lander: { azDeg, distM: 16, powered: Uint8Array.from([0, 0, 0]) } });
+    const props = { hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun, 0.5° below the horizon', earthLabel: 'Earth, on the horizon', night: true, onFail: vi.fn(), startFov: 36 };
+    const view = render(createElement(StandCanvas, { ...props, scene: scene(342) }));
+    const landerName = () => [...document.querySelectorAll<HTMLElement>('span')].find((n) => n.textContent === 'The lander, 16 m away')!;
+    const part = (name: string) => [...document.querySelectorAll<HTMLElement>('[data-text]')].find((n) => n.textContent?.startsWith(name))!.parentElement!;
+    await waitFor(() => expect(landerName().hidden).toBe(false));
+    for (const name of ['Solar panel', 'Radio dish', 'Power light']) expect(part(name).hidden).toBe(true);
+    view.unmount();
+    // Facing it, zoomed in: its parts carry their names.
+    render(createElement(StandCanvas, { ...props, scene: scene(2) }));
+    await waitFor(() => expect(part('Solar panel').hidden).toBe(false));
   });
 });
 
