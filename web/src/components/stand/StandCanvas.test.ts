@@ -11,9 +11,9 @@ import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, hor
 describe('the pointers on a phone', () => {
   it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
     expect(pointerShort('Earth 4.4° up')).toBe('Earth 4.4° up');
-    expect(pointerShort('Earth 4.4° up, set behind the hills')).toBe('Earth 4.4° up');
+    expect(pointerShort('Earth behind a hill, 4.4° above the horizon')).toBe('Earth 4.4° up');
     expect(pointerShort('Earth, 1.2° below the horizon')).toBe('Earth 1.2° below');
-    expect(pointerShort('Earth, on the horizon, set behind the hills')).toBe('Earth on the horizon');
+    expect(pointerShort('Earth behind a hill, on the horizon')).toBe('Earth on the horizon');
     expect(pointerShort('Earth, just below the horizon')).toBe('Earth just below');
   });
 });
@@ -221,7 +221,7 @@ describe('the words on a pointer', () => {
   it('keep the height and drop what the arrow already says', () => {
     // "Below what?": the horizon stays.
     expect(pointerWords('Earth, 5.7° below the horizon')).toBe('Earth, 5.7° below the horizon');
-    expect(pointerWords('Sun 1.5° up, set behind the hills')).toBe('Sun 1.5° up, set');
+    expect(pointerWords('Sun behind a hill, 1.5° above the horizon')).toBe('Sun behind a hill, 1.5° up');
     expect(pointerWords('Sun 2.5° up')).toBe('Sun 2.5° up');
     expect(pointerWords('Earth, on the horizon')).toBe('Earth, on the horizon');
   });

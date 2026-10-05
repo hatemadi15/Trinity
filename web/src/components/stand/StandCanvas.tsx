@@ -94,7 +94,6 @@ export function pointerClear(box: Rect, labels: Rect[], lo: number, hi: number):
   return above - h / 2 >= lo ? above : Math.min(hi, hit.bottom + 6 + h / 2);
 }
 
-/** A pointer's words: the label's, "set behind the hills" as "set" ("below the horizon" stays: below what?). */
 /** A path's name as the view shows it: Earth's with why it loops, on a second line (teacher, part B read 7). */
 export function pathNameText(body: 'sun' | 'earth', text: string): string {
   return body === 'earth' ? `${text}\n${EARTH_LOOP}` : text;
@@ -102,11 +101,16 @@ export function pathNameText(body: 'sun' | 'earth', text: string): string {
 
 /** A pointer's words on a phone: the body and how high it stands, short ("Earth 4.4° up", "Earth 1.2° below"). */
 export function pointerShort(label: string): string {
-  return label.replace(/, set behind the hills$/, '').replace(/^(\w+), /, '$1 ').replace(/ below the horizon$/, ' below');
+  return label
+    .replace(/^(\w+) behind a hill, (.+) above the horizon$/, '$1 $2 up')
+    .replace(/^(\w+) behind a hill, on the horizon$/, '$1 on the horizon')
+    .replace(/^(\w+), /, '$1 ')
+    .replace(/ below the horizon$/, ' below');
 }
 
+/** A pointer's words: the label's, "above the horizon" behind a hill as "up" ("below the horizon" stays: below what?). */
 export function pointerWords(label: string): string {
-  return label.replace(', set behind the hills', ', set');
+  return label.replace(/ behind a hill, (.+) above the horizon$/, ' behind a hill, $1 up');
 }
 
 /** The Southern Cross's four stars, named only while the cross's own name is not shown. */

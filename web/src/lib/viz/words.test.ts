@@ -14,7 +14,7 @@ import { answerFor } from './answer';
 import { arrivalWords, hero } from './arrival';
 import { heightWords } from './shadowmap';
 import { statusSentence } from './status';
-import { keyMoments, liveSentence, momentCaption, poleLine, skyLabel, statusLine, viewCaption, watchNext, whyLines, type MomentKind } from './stand';
+import { EARTH_LOOP, keyMoments, liveSentence, momentCaption, poleLine, skyLabel, statusLine, viewCaption, watchNext, whyLines, type MomentKind } from './stand';
 
 /** Other names for an event or stretch that already has one (the plan's vocabulary): each event is named one way. */
 const OTHER_NAMES: [RegExp, string][] = [
@@ -67,6 +67,32 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
       unmount();
     }
     for (const [topic, text] of Object.entries(EXPLANATIONS)) check(`glossary ${topic}`, text);
+  });
+
+  it('never says a body is up and set at once: hidden by a hill it is "behind a hill", so many degrees above the horizon (read C1)', () => {
+    const upAndSet = (t: string) => /\bup\b/.test(t) && /\bset\b/.test(t);
+    for (let hour = 0; hour < s.hours; hour += 3) {
+      for (const body of ['sun', 'earth'] as const) {
+        const label = skyLabel(body, s, hour);
+        expect(upAndSet(label), label).toBe(false);
+        expect(upAndSet(pointerWords(label)), pointerWords(label)).toBe(false);
+      }
+      for (const line of whyLines(h.site.lat, s, hour)) expect(/has set\b.*\babove the horizon/.test(line), line).toBe(false);
+    }
+    for (const name of ['Sun', 'Earth'] as const) {
+      expect(heightWords(name, 1.4, 'yes')).toBe(`${name} behind a hill, 1.4° above the horizon`);
+      expect(heightWords(name, 1.4, 'partly')).toBe(`${name} partly behind a hill, 1.4° above the horizon`);
+    }
+  });
+
+  it('says the Moon wobbles, not rocks: on the Moon "rocks" reads as stones (read C1)', () => {
+    expect(EARTH_LOOP).toBe('a loop: the Moon wobbles a little each month');
+    const h2 = hero(), m = keyMoments(h2.series, h2.power, h2.startUtc);
+    for (const k of ['earth-in', 'earth-out'] as const) {
+      const at = m.find((x) => x.kind === k)!.hour;
+      expect(momentCaption(k, h2.series, at, h2.site.lat)).not.toMatch(/\brock/);
+    }
+    expect(viewCaption('earth', -88.28)).not.toMatch(/\brock/);
   });
 
   it('words the arrival and the forecast’s answer the same way', () => {

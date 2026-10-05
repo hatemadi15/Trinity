@@ -49,7 +49,7 @@ export function arrivalWords(doc: HomeDoc = HOME): ArrivalWords {
   return {
     beats: [
       ...BEAT_SENTENCES,
-      `Land a small uncrewed solar lander here on ${landing}, as an example: the Sun stands just above the hills.`,
+      `Land a small uncrewed solar lander here on ${landing} ${h.startUtc.slice(0, 4)}, as an example: the Sun stands just above the hills.`,
       `One hill can keep the Sun set for weeks. Here is ${month} at this spot, sped up.`,
       earthIn && out
         ? `Earth rises on ${dateLong(h.startUtc, earthIn.hour)}, but the lander's battery ran out on ${dateLong(h.startUtc, out.hour)}.`

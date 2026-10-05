@@ -56,11 +56,11 @@ describe('the stand view’s words', () => {
   it('labels the Sun and Earth by what they are doing', () => {
     const s = series({ sunEl: [2.4, 1.0, -0.5, 1.6], sunFraction: [1, 0, 0, 1], earthEl: [4.2, 1.2, -3, 1.2], earthVisible: [1, 0, 0, 1] });
     expect(skyLabel('sun', s, 0)).toBe('Sun 2.4° up');
-    expect(skyLabel('sun', s, 1)).toBe('Sun 1.0° up, set behind the hills');
+    expect(skyLabel('sun', s, 1)).toBe('Sun behind a hill, 1.0° above the horizon');
     expect(skyLabel('sun', s, 2)).toBe('Sun, 0.5° below the horizon');
     expect(skyLabel('sun', s, 3)).toBe('Sun 1.6° up');
     expect(skyLabel('earth', s, 0)).toBe('Earth 4.2° up');
-    expect(skyLabel('earth', s, 1)).toBe('Earth 1.2° up, set behind the hills');
+    expect(skyLabel('earth', s, 1)).toBe('Earth behind a hill, 1.2° above the horizon');
     expect(skyLabel('earth', s, 2)).toBe('Earth, 3.0° below the horizon');
     expect(skyLabel('earth', s, 3)).toBe('Earth 1.2° up');
   });
@@ -68,16 +68,16 @@ describe('the stand view’s words', () => {
   it('gives the height of a body out of view: how far below the horizon, or how high behind the hills', () => {
     const s = series({ sunEl: [0.4, -12.36], sunFraction: [0, 0], earthEl: [-1.2, 0.4], earthVisible: [0, 0] });
     expect(skyLabel('earth', s, 0)).toBe('Earth, 1.2° below the horizon');
-    expect(skyLabel('sun', s, 0)).toBe('Sun 0.4° up, set behind the hills');
+    expect(skyLabel('sun', s, 0)).toBe('Sun behind a hill, 0.4° above the horizon');
     expect(skyLabel('sun', s, 1)).toBe('Sun, 12° below the horizon');
-    expect(skyLabel('earth', s, 1)).toBe('Earth 0.4° up, set behind the hills');
+    expect(skyLabel('earth', s, 1)).toBe('Earth behind a hill, 0.4° above the horizon');
   });
   it('never gives a body out of view a height of 0.0°: within a twentieth of a degree of level it is on the horizon, or just below it', () => {
     const s = series({ sunEl: [0.02, -0.03], sunFraction: [0, 0], earthEl: [-0.03, 0], earthVisible: [0, 0] });
-    expect(skyLabel('sun', s, 0)).toBe('Sun, on the horizon, set behind the hills');
+    expect(skyLabel('sun', s, 0)).toBe('Sun behind a hill, on the horizon');
     expect(skyLabel('sun', s, 1)).toBe('Sun, just below the horizon');
     expect(skyLabel('earth', s, 0)).toBe('Earth, just below the horizon');
-    expect(skyLabel('earth', s, 1)).toBe('Earth, on the horizon, set behind the hills');
+    expect(skyLabel('earth', s, 1)).toBe('Earth behind a hill, on the horizon');
   });
   // Near a pole the Sun and Earth stay within a few degrees of the horizon, where a whole degree says too little.
   it('gives a height under 10° to a tenth of a degree, and whole degrees from 10°', () => {
@@ -116,7 +116,8 @@ describe('the stand view’s words', () => {
     const mask = readJson<{ elevation_deg: number[] }>('data', 'masks', 'de_gerlache_rim_2.json').elevation_deg;
     const s = hourlySeries(site, mask, eph, utcToEt('2027-03-01T00:00:00'), 30 * 24);
     const hours = [...new Array(s.hours).keys()];
-    const where = (text: string) => (text.includes('below the horizon') ? 'below' : text.includes('behind the hills') ? 'hidden' : 'seen');
+    // Hidden: the ground panel's "set behind the hills", the label's "behind a hill".
+    const where = (text: string) => (text.includes('below the horizon') ? 'below' : /behind (the hills|a hill)/.test(text) ? 'hidden' : 'seen');
     const differ = hours.filter((h) => {
       const w = groundWords(s, h);
       const sun = w.siteState === 'at night' ? 'below' : w.siteState === 'in shadow' ? 'hidden' : 'seen';
@@ -202,13 +203,13 @@ describe('the lander’s power and radio in one sentence', () => {
 describe('why the view looks as it does', () => {
   const pole = "Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon, so behind a low hill it can stay set for days.";
   const earthMoves =
-    "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon rocks a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.";
+    "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon wobbles a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.";
   // Why the sky is black by day, that its stars are there, why Apollo's photos show none (the cameras'
   // short exposures), that dazzled eyes see few too, and that looking up, away from the ground, brings more
   // out: the caption after Look up says the first three, in the same words for the cameras.
   const black =
     "With no air to scatter sunlight, the sky stays black by day, and the stars are still there. Apollo's cameras used short exposures for the bright ground, too short to catch the stars. Eyes dazzled by the bright ground also see few; once it is out of view, you see them.";
-  const hidden = 'The Sun has set behind the hills but is still above the horizon: higher ground farther off still catches its light.';
+  const hidden = 'The Sun is still above the horizon, but behind a hill: higher ground farther off still catches its light.';
   const justBelow = 'The Sun is just below the horizon here, but higher ground farther off still catches its light.';
   // Why a Sun just below the horizon, or behind a hill, leaves the site dark at once.
   const noTwilight = 'With no air there is no twilight: once the Sun has set, it is night.';
@@ -708,7 +709,7 @@ describe('the caption for a key moment', () => {
     const h = hero();
     const out = keyMoments(h.series, h.power, h.startUtc).find((m) => m.kind === 'earth-out');
     expect(out).toEqual({ kind: 'earth-out', label: 'Earth sets', hour: 543, day: '23 Jan' });
-    expect(momentCaption('earth-out', h.series, 543, h.site.lat)).toMatch(/^Earth sets (behind the hills|below the horizon): the Moon's slight rocking lowers it\. No radio until it rises again\.$/);
+    expect(momentCaption('earth-out', h.series, 543, h.site.lat)).toMatch(/^Earth sets (behind the hills|below the horizon): the Moon's slight wobble lowers it\. No radio until it rises again\.$/);
     expect(momentCaption('earth-out', h.series, 543, h.site.lat).length).toBeLessThanOrEqual(112);
   });
 
@@ -787,7 +788,7 @@ describe('the caption for a key moment', () => {
     expect(momentCaption('battery-out', series({ sunEl: [1], sunFraction: [0.4], earthEl: [4], earthVisible: [1] }), 0)).toBe('The battery runs out: the Sun is up, but too low for the panel to keep the lander going.');
   });
   it('says why Earth rises', () => {
-    expect(momentCaption('earth-in', both, 0)).toBe("Earth rises over the hills: the Moon's slight rocking lifts it into view for about two weeks a month.");
+    expect(momentCaption('earth-in', both, 0)).toBe("Earth rises over the hills: the Moon's slight wobble lifts it into view for about two weeks a month.");
   });
   it('says the Sun rises, and that with Earth in view too a working lander could radio home', () => {
     expect(momentCaption('sun-back', sun, 0)).toBe('Sunrise over the hills.');
@@ -812,7 +813,7 @@ describe('the caption for a key moment', () => {
 
 describe('the line over the view', () => {
   it('says why Earth barely moves, after Face Earth, and near a pole why it still rises and sets', () => {
-    const near = "Earth barely moves in the Moon's sky; only the Moon's slight rocking makes it rise or set.";
+    const near = "Earth barely moves in the Moon's sky; only the Moon's slight wobble makes it rise or set.";
     const far = "Earth barely moves in the Moon's sky: the Moon keeps one face towards it.";
     expect(viewCaption('earth', -88.28)).toBe(near);
     expect(viewCaption('earth', 85)).toBe(near);
@@ -890,7 +891,7 @@ describe('captions of two lines, the whys where they happen, and the battery’s
   // A reader asked for the lack of twilight and Earth's rise to be explained where they happen, not only under More.
   it('says why where it happens: no twilight when the Sun goes, Earth rising by the Moon’s rocking', () => {
     expect(momentCaption('sunset', hidden(), 0, -88.3)).toMatch(/No air, so no twilight\.$/);
-    expect(momentCaption('earth-in', hidden(), 0, -88.3)).toMatch(/rocking lifts it into view/);
+    expect(momentCaption('earth-in', hidden(), 0, -88.3)).toMatch(/wobble lifts it into view/);
   });
 
   // A reader asked for the battery's level in the view, as on the forecast page; a percentage keeps its sign on
@@ -1030,9 +1031,9 @@ describe('the stand view’s words on real data', () => {
     expect(moments.map((m) => momentCaption(m.kind, s, m.hour, site.lat))).toEqual([
       'Sunset behind the hills: near the pole the Sun never climbs more than a few degrees. No air, so no twilight.',
       'The battery runs out at night. With no Sun or Earth in sight, the view is brightened like a long exposure.',
-      "Earth rises over the hills: the Moon's slight rocking lifts it into view for about two weeks a month.",
+      "Earth rises over the hills: the Moon's slight wobble lifts it into view for about two weeks a month.",
       'Sunrise, and with it the power, if the lander survived the cold. Earth is in view: it could radio home.',
-      "Earth sets behind the hills: the Moon's slight rocking lowers it. No radio until it rises again.",
+      "Earth sets behind the hills: the Moon's slight wobble lowers it. No radio until it rises again.",
     ]);
     // In the dark between, neither the Sun nor Earth in view: at hour 200 the Sun is 0.3° below the horizon,
     // and never 2° below it in this period, so the card's lines on why always say that higher ground farther
@@ -1043,7 +1044,7 @@ describe('the stand view’s words on real data', () => {
     expect(Math.min(...s.sunEl)).toBeGreaterThan(-2);
     expect(whyLines(site.lat, s, 200)).toEqual([
       poleLine(site.lat),
-      "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon rocks a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.",
+      "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon wobbles a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.",
       'The Sun is just below the horizon here, but higher ground farther off still catches its light.',
       'With no air there is no twilight: once the Sun has set, it is night.',
       'North and south still work here: the pole itself is 52 km to the south.',
@@ -1053,12 +1054,12 @@ describe('the stand view’s words on real data', () => {
     // The view opens on the landing: the Sun in view 2.46° up, Earth 5.7° below the horizon, out of view.
     expect(skyLabel('sun', s, 0)).toBe('Sun 2.5° up');
     expect(skyLabel('earth', s, 0)).toBe('Earth, 5.7° below the horizon');
-    // The battery runs out at hour 76 with the Sun 1.5° up, set behind the hills, and Earth below the horizon:
+    // The battery runs out at hour 76 with the Sun behind a hill, 1.5° above the horizon, and Earth below the horizon:
     // the ground the view shows about the lander is lit by neither. The caption says "at night" and nothing
     // that would deny the Sun's label: the Sun is up.
     expect(moments[1].hour).toBe(76);
     expect(s.earthVisible[76]).toBe(0);
-    expect(skyLabel('sun', s, 76)).toBe('Sun 1.5° up, set behind the hills');
+    expect(skyLabel('sun', s, 76)).toBe('Sun behind a hill, 1.5° above the horizon');
     expect(momentCaption('battery-out', s, 76, site.lat)).toBe('The battery runs out at night. With no Sun or Earth in sight, the view is brightened like a long exposure.');
     // At hour 219 Earth has come into view 0.24° below level, over a skyline lower still: on the horizon.
     expect(s.earthVisible[219]).toBe(1);

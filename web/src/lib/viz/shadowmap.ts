@@ -66,8 +66,10 @@ export type Hidden = 'no' | 'partly' | 'yes';
 /** "Sun 2.4° up", "Sun 2.4° up, behind the hills", or "Earth below the horizon": tenths below 10°, as everywhere. */
 export function heightWords(name: 'Sun' | 'Earth', elDeg: number, hidden: Hidden = 'no'): string {
   if (elDeg < 0) return `${name} below the horizon`;
-  const up = `${name} ${degrees(elDeg)} up`;
-  return hidden === 'yes' ? `${up}, set behind the hills` : hidden === 'partly' ? `${up}, partly set behind the hills` : up;
+  // Hidden by a hill while above the horizon: never "up" and "set" at once (both readers, part C read 1).
+  if (hidden === 'yes') return `${name} behind a hill, ${degrees(elDeg)} above the horizon`;
+  if (hidden === 'partly') return `${name} partly behind a hill, ${degrees(elDeg)} above the horizon`;
+  return `${name} ${degrees(elDeg)} up`;
 }
 
 /**

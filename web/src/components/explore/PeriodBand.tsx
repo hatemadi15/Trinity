@@ -42,7 +42,7 @@ export function PeriodBand({
   const [open, setOpen] = useState(false);
   const fieldsId = useId();
   return (
-    <section aria-label="What this forecast is for" data-band-end="" className="flex min-w-0 flex-wrap items-end gap-4">
+    <section aria-label="What this forecast is for" className="flex min-w-0 flex-wrap items-end gap-4">
       {/* On a phone the four fields fold into this one line, so the answer is on the first screen (spec 6). */}
       <p className="flex w-full flex-wrap items-baseline gap-x-2 text-base text-ink-2 sm:hidden">
         <span>{periodLine(label, startUtc, days, power)}:</span>

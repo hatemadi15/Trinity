@@ -251,18 +251,13 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
       <main className="wrap pb-16 pt-10">
         <h1 data-band-end="" className="display text-[40px] leading-tight">Choose a landing site</h1>
         <p className="mt-3 max-w-[46em] text-lg text-ink-2">{catalogue.length} places on the Moon, most of them near the south pole. Pick one to see its forecast.</p>
-        {/* What a row counts from, the lander, the order: the figures of a row differ from Explore's first day, and this says why. */}
-        <dl className="mt-3 grid max-w-[52em] grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-[15px] text-ink-2">
-          <dt className="font-semibold text-ink">Each row</dt>
-          <dd>
-            a lander that lands on the site&apos;s best day in the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, named under the site, and the {s.days} days after that day.
-            Explore and Compare land on the first day of the period, so their figures can differ.
-          </dd>
-          <dt className="font-semibold text-ink">The lander</dt>
-          <dd>{landerLine(s.params.power)}.</dd>
-          <dt className="font-semibold text-ink">Order</dt>
-          <dd>in each group, longest time with power first; places that never see Earth come last, under their own heading.</dd>
-        </dl>
+        {/* What a row counts from, the lander, the order, in plain sentences: the figures of a row differ from Explore's
+            first day, and this says why (both readers, part C read 1). */}
+        <p className="mt-3 max-w-[52em] text-[15px] text-ink-2">
+          Each site&apos;s figures are for landing on its best day of the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, the day under its name, and the{' '}
+          {s.days} days after it, for one lander: {landerLine(s.params.power)}. Explore and Compare start on the first day, so their figures can differ. In each group, the
+          longest time with power comes first.
+        </p>
         <div className="mt-6 flex flex-wrap items-end gap-4">
           <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
         </div>

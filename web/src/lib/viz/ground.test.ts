@@ -40,9 +40,9 @@ describe('groundWords', () => {
   });
 
   it('says why it is night at the site when the Sun is up: it has set behind the hills', () => {
-    expect(groundWords(series([{ f: 0, el: 1.6, az: 250 }]), 0).sun).toBe('It is night at the site: the Sun is 1.6° above the horizon but has set behind the hills to the west.');
+    expect(groundWords(series([{ f: 0, el: 1.6, az: 250 }]), 0).sun).toBe('It is night at the site: the Sun is 1.6° above the horizon, but behind a hill to the west.');
     // Within a twentieth of a degree of level it is on the horizon, as in sunlight: never "0.0° above".
-    expect(groundWords(series([{ f: 0, el: 0.02, az: 250 }]), 0).sun).toBe('It is night at the site: the Sun is on the horizon but has set behind the hills to the west.');
+    expect(groundWords(series([{ f: 0, el: 0.02, az: 250 }]), 0).sun).toBe('It is night at the site: the Sun is on the horizon, but behind a hill to the west.');
   });
 
   it('calls it night when the Sun is below the horizon', () => {

@@ -84,10 +84,11 @@ export function VerdictPanel({
             </Link>
           </div>
         ))}
-      {/* The way to stand at the site: a plain link, never a second gold action. */}
+      {/* The way to stand at the site: the plain button, so the app's best view reads as a way in, never a second gold
+          action (both readers, part C read 1). */}
       {standLink && (
-        <p className="mt-1">
-          <Link href={standLink} className="inline-flex min-h-[40px] items-center font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+        <p className="mt-2">
+          <Link href={standLink} className="btn btn-sm">
             Stand at the site
           </Link>
         </p>

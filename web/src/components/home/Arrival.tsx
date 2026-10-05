@@ -15,10 +15,11 @@ const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/92';
 const SENTENCE = 'display text-balance text-[28px] leading-[1.08] sm:text-[36px]';
 const still = (k: number, shape: 'wide' | 'tall') => `/arrival/beat-${k}-${shape}.jpg`;
 /**
- * A beat's words fade as they scroll up to the top, where the stage's date bar stands once landed: whole until
- * FADE_PX above FADE_TOP_PX from the top, gone there, so they never pass over it.
+ * A beat's words fade as they scroll up to the stage's date bar, which stands at the top once landed (16 px down,
+ * about 140 px tall): whole until FADE_PX above FADE_TOP_PX from the top, gone at the bar's foot, so the bar never
+ * gives way to them (both readers, part C read 1).
  */
-const FADE_TOP_PX = 72, FADE_PX = 64;
+const FADE_TOP_PX = 160, FADE_PX = 96;
 /**
  * A screen of the arrival: its stage's height (100svh, the small viewport), not the window's, which grows by the
  * address bar's height once a phone's bar hides.
@@ -172,10 +173,13 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             <h1 id="h-hero" data-words="" className="display max-w-[760px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[72px]">
               See when a Moon lander has sunlight and a signal.
             </h1>
+            {/* On a phone the first sentence waits for a wider screen, so the words leave the Moon in view under them. */}
             <p data-words="" className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
-              At the Moon&apos;s south pole the Sun and Earth skim the horizon, and one hill can keep them set for weeks. Earthrise is a browser of landing sites and dates: pick a
-              place and a day from 2024 to 2036, and see its hours of sunlight and of radio contact with Earth, and how long a lander keeps power, for three ready-made landers
-              or your own.
+              <span className="max-sm:hidden">At the Moon&apos;s south pole the Sun and Earth skim the horizon, and one hill can keep them set for weeks. </span>
+              <span>
+                Earthrise is a browser of landing sites and dates: pick a place and a day from 2024 to 2036, and see its hours of sunlight and of radio contact with Earth, and
+                how long a lander keeps power, for three ready-made landers or your own.
+              </span>
             </p>
             <div data-words="" className="mt-7 flex w-fit flex-wrap gap-3">
               <Link href="/sites" onClick={start} className="btn btn-primary h-[52px] px-[22px] text-[17px]">
@@ -193,7 +197,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
               ) and anyone curious.
             </p>
             {/* With the opening words, so it shows on the first screen and leaves with them, never over the Moon. */}
-            <p data-words="" className="mt-5 w-fit text-[15px] text-[#c6c5c0]">
+            <p data-words="" className="mt-5 w-fit text-[15px] text-[#c6c5c0] max-sm:hidden">
               Scroll to fly down to the Moon&apos;s south pole <span aria-hidden="true">↓</span>
             </p>
           </div>

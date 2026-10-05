@@ -53,13 +53,14 @@ describe('the arrival', () => {
     expect(screen.getByRole('heading', { level: 2, name: words.answer })).toBeTruthy();
   });
 
-  it('fades each beat’s words as they near the top, so they never pass over the date’s bar there; the first screen and the answer stay', () => {
+  it('fades each beat’s words as they near the date’s bar, gone by its foot, so the bar never gives way to them; the first screen and the answer stay', () => {
     render(<Arrival words={words} Stage={Stage} />);
     const plates = [...document.querySelectorAll<HTMLElement>('[data-plate]')];
     expect(plates).toHaveLength(words.beats.length);
+    // The bar runs from 16 px to about 160 px: a plate is whole from 256 px, gone at 160 (both readers, part C read 1).
     vi.spyOn(plates[0], 'getBoundingClientRect').mockReturnValue({ top: 400 } as DOMRect);
-    vi.spyOn(plates[1], 'getBoundingClientRect').mockReturnValue({ top: 104 } as DOMRect);
-    vi.spyOn(plates[2], 'getBoundingClientRect').mockReturnValue({ top: 40 } as DOMRect);
+    vi.spyOn(plates[1], 'getBoundingClientRect').mockReturnValue({ top: 208 } as DOMRect);
+    vi.spyOn(plates[2], 'getBoundingClientRect').mockReturnValue({ top: 150 } as DOMRect);
     scrolled(1.5);
     expect(plates[0].style.opacity).toBe('1');
     expect(Number(plates[1].style.opacity)).toBeGreaterThan(0.2);
@@ -102,6 +103,13 @@ describe('the arrival', () => {
     // The beats' column is centred with the page, so its card always reaches under the centred date bar.
     expect(last.className).toMatch(/\bpt-\[168px\]/);
     expect(last.className).not.toMatch(/:pt-/);
+  });
+
+  it('keeps the phone’s first screen short, so the Moon shows under the words: the first sentence and the scroll hint wait for a wider screen (both readers, part C read 1)', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    expect(screen.getByText(/one hill can keep them set for weeks\./).className).toMatch(/\bmax-sm:hidden\b/);
+    expect(screen.getByText(/^Earthrise is a browser of landing sites and dates/).className).not.toMatch(/\bmax-sm:hidden\b/);
+    expect(screen.getByText(/^Scroll to fly down/).className).toMatch(/\bmax-sm:hidden\b/);
   });
 
   it('follows the scroll: each screen is its beat’s stop, and Skip shows only between the first screen and the last', () => {

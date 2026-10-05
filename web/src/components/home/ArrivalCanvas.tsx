@@ -150,8 +150,11 @@ export function laneOf(kind: MomentKind): 'sun' | 'power' | 'earth' {
   return kind.startsWith('earth') ? 'earth' : kind.startsWith('sun') ? 'sun' : 'power';
 }
 const LANE_COLOUR = { sun: '#f6b646', power: '#e5e3dc', earth: '#74adff' } as const;
-/** Where a lane's mark sits against the 3 px line: two marks a few hours apart in two lanes never cover each other. */
-const LANE_PLACE = { sun: 'bottom-[calc(50%+3px)] h-2', power: 'top-1/2 h-3 -translate-y-1/2', earth: 'top-[calc(50%+3px)] h-2' } as const;
+/**
+ * Where a lane's mark sits against the 3 px line: the battery's 6 px tall across it, the Sun's and Earth's 10 px tall
+ * from 5 px off it, a 2 px gap between lanes, so two marks a few hours apart in two lanes read as two.
+ */
+const LANE_PLACE = { sun: 'bottom-[calc(50%+5px)] h-2.5', power: 'top-1/2 h-1.5 -translate-y-1/2', earth: 'top-[calc(50%+5px)] h-2.5' } as const;
 const DEG = Math.PI / 180;
 /** How far a pointer to a body out of view stands in from the view's edge, beyond half its own size, in pixels. */
 const EDGE_IN_PX = 12;
@@ -519,7 +522,7 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
         {/* Earth and the pole lie close together at the Moon's foot: their names stand beside them, to the right. */}
         {/* Earth is drawn small because it is far: the label says how far, and how big it is. */}
         <span ref={(n) => { tags.current.earth = n; }} hidden className={`${LABEL_BESIDE_EARTH} text-[#74adff]`}>
-          Earth, {(Math.round(h.earthKm[HERO_HOUR] / 1000) * 1000).toLocaleString('en-US')} km away on {dateLong(h.startUtc, HERO_HOUR)}: it looks small only because it is far
+          Earth, {(Math.round(h.earthKm[HERO_HOUR] / 1000) * 1000).toLocaleString('en-US')} km away on {dateLong(h.startUtc, HERO_HOUR)} {h.startUtc.slice(0, 4)}: it looks small only because it is far
         </span>
         <span ref={(n) => { tags.current.pole = n; }} hidden className={LABEL_RIGHT}>
           <i aria-hidden="true" className={SIDE_DOT} />
@@ -569,14 +572,14 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
         <div ref={barRef} hidden data-date-bar="" className="absolute left-1/2 top-4 w-[min(400px,calc(100%-32px))] -translate-x-1/2 rounded-[6px] border border-white/15 bg-black/75 px-3 pb-1.5 pt-1.5">
           <p ref={dateRef} data-date="" className="truncate text-[16px] leading-snug text-[#f6d48a]" />
           <p ref={stateRef} data-state="" className="truncate text-[15px] leading-snug text-[#e9e6df]" />
-          <div className="relative mx-1.5 mt-3.5 h-[3px] rounded-full bg-white/25">
+          <div className="relative mx-1.5 mt-5 h-[3px] rounded-full bg-white/25">
             <span ref={fillRef} className="absolute inset-y-0 left-0 rounded-full bg-white/70" />
             {moments.map((m) => (
-              <i key={m.kind} data-tick="" data-lane={laneOf(m.kind)} className={`absolute w-[3px] -translate-x-1/2 rounded-full ${LANE_PLACE[laneOf(m.kind)]}`} style={{ left: `${(m.hour / (h.series.hours - 1)) * 100}%`, background: LANE_COLOUR[laneOf(m.kind)] }} />
+              <i key={m.kind} data-tick="" data-lane={laneOf(m.kind)} className={`absolute w-1 -translate-x-1/2 rounded-full ${LANE_PLACE[laneOf(m.kind)]}`} style={{ left: `${(m.hour / (h.series.hours - 1)) * 100}%`, background: LANE_COLOUR[laneOf(m.kind)] }} />
             ))}
             <b ref={markRef} data-mark="" className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-black bg-[#f6d48a]" />
           </div>
-          <p className="mt-3.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[15px] text-[#c6c5c0]">
+          <p className="mt-5 flex flex-wrap gap-x-3 gap-y-0.5 text-[15px] text-[#c6c5c0]">
             {TICK_KEY.map(([colour, text]) => (
               <span key={text} className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <i aria-hidden="true" className="inline-block h-3 w-[3px] rounded-full" style={{ background: colour }} />

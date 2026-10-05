@@ -131,16 +131,15 @@ describe('VerdictPanel', () => {
     expect(gold.closest('section')!.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days/);
   });
 
-  it('offers to stand at the site in a plain link after the nearby line, never a second gold action', () => {
+  it('offers to stand at the site as an outlined button after the nearby line, never a second gold action (both readers, part C read 1)', () => {
     show(night, null, summit, stand);
     const link = screen.getByRole('link', { name: 'Stand at the site' });
     expect(link.getAttribute('href')).toBe(stand);
-    expect(link.className).toMatch(/\bunderline\b/);
-    expect(link.className).not.toMatch(/\bbtn\b/);
+    // The app's best view reads as a way in, not a footnote: the plain button, 44 px tall; the gold stays the better day's.
+    expect(link.className).toMatch(/\bbtn\b/);
+    expect(link.className).toMatch(/\bbtn-sm\b/);
+    expect(link.className).not.toMatch(/\bbtn-primary\b/);
     expect(document.querySelectorAll('.btn-primary')).toHaveLength(1);
-    // Easy to hit, like the 12-month search: 40 px tall, on a box that takes a height.
-    expect(link.className).toMatch(/\bmin-h-\[40px\]/);
-    expect(link.className).toMatch(/\binline-flex\b/);
     // Under the answer: after the better place nearby, before the 12-month search at the foot.
     const nearby = screen.getByRole('link', { name: 'Explore de Gerlache rim summit' });
     expect(nearby.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

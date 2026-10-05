@@ -33,11 +33,21 @@ describe('the band of stars behind the header', () => {
 
   it('draws bright stars larger and more opaque, the faint ones first so the bright sit on top, and fades the lowest third', () => {
     const list = bandStars(catalogue([[250, -15, 0.5, 0.6], [260, -15, 5.5, 0.6], [255, -1, 0.5, 0.6]]), 1440, 300);
-    expect(list.map((s) => Math.round(s.r * 100) / 100)).toEqual([1.09, 3.19, 3.19]);
+    expect(list.map((s) => Math.round(s.r * 100) / 100)).toEqual([0.8, 1.6, 1.6]);
     const [faint, bright, low] = list;
     expect(bright.alpha).toBeGreaterThan(faint.alpha);
-    expect(faint.alpha).toBeCloseTo(0.16, 3);
+    expect(faint.alpha).toBeCloseTo(0.14, 3);
     expect(low.alpha).toBeLessThan(bright.alpha / 3);
+  });
+
+  it('keeps every star small, faint and pale, so none reads as a stray dot under the header (both readers, part C read 1)', () => {
+    const list = bandStars(catalogue([[255, -12, -0.7, 1.8], [250, -20, 1, 1.2], [260, -8, 6, -0.3]]), 1440, 300);
+    for (const s of list) {
+      expect(s.r).toBeLessThanOrEqual(1.6);
+      expect(s.alpha).toBeLessThanOrEqual(0.55);
+      // Halfway to white: no channel under half.
+      for (const c of s.rgb) expect(c).toBeGreaterThanOrEqual(128);
+    }
   });
 
   it('colours each star by its B−V, blue-white to orange', () => {

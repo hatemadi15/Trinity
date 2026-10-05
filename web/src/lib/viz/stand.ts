@@ -24,7 +24,7 @@ export function standQuery(search: string | URLSearchParams): ExploreQuery & { h
  * the horizon, set behind the hills" or "just below the horizon", never 0.0°.
  */
 /** Why Earth's path makes a loop, on the path's name where it first shows (teacher, part B read 7). */
-export const EARTH_LOOP = 'a loop: the Moon rocks a little each month';
+export const EARTH_LOOP = 'a loop: the Moon wobbles a little each month';
 
 export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string {
   const name = body === 'sun' ? 'Sun' : 'Earth';
@@ -32,7 +32,9 @@ export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string
   const shows = body === 'sun' ? s.sunFraction[hour] > 0 : s.earthVisible[hour] === 1;
   if (shows) return el >= 0.05 ? `${name} ${degrees(el)} up` : `${name}, on the horizon`;
   if (el < 0) return el > -0.05 ? `${name}, just below the horizon` : `${name}, ${degrees(-el)} below the horizon`;
-  return el >= 0.05 ? `${name} ${degrees(el)} up, set behind the hills` : `${name}, on the horizon, set behind the hills`;
+  // Hidden by a hill while above the horizon: "behind a hill", and how far above the horizon, never "up" and "set" at
+  // once (both readers, part C read 1).
+  return el >= 0.05 ? `${name} behind a hill, ${degrees(el)} above the horizon` : `${name} behind a hill, on the horizon`;
 }
 
 /**
@@ -283,9 +285,9 @@ export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: n
           ? 'The battery runs out at night. Only Earthlight lights the ground here, brightened like a long exposure.'
           : 'The battery runs out at night. With no Sun or Earth in sight, the view is brightened like a long exposure.';
     case 'earth-in':
-      return "Earth rises over the hills: the Moon's slight rocking lifts it into view for about two weeks a month.";
+      return "Earth rises over the hills: the Moon's slight wobble lifts it into view for about two weeks a month.";
     case 'earth-out':
-      return `Earth sets ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind the hills'}: the Moon's slight rocking lowers it. No radio until it rises again.`;
+      return `Earth sets ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind the hills'}: the Moon's slight wobble lowers it. No radio until it rises again.`;
     case 'sun-back':
       return `Sunrise over the hills.${earth ? ' With Earth in view, a working lander could radio home.' : ''}`;
     case 'sun-power-back':
@@ -317,7 +319,7 @@ const APOLLO = "Apollo's cameras used short exposures for the bright ground, too
  * line for a view of the panel's face.
  */
 export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander' | 'dark', lat: number): string {
-  if (kind === 'earth') return poleLine(lat) === null ? "Earth barely moves in the Moon's sky: the Moon keeps one face towards it." : "Earth barely moves in the Moon's sky; only the Moon's slight rocking makes it rise or set.";
+  if (kind === 'earth') return poleLine(lat) === null ? "Earth barely moves in the Moon's sky: the Moon keeps one face towards it." : "Earth barely moves in the Moon's sky; only the Moon's slight wobble makes it rise or set.";
   if (kind === 'up') {
     const why = 'With no air the sky is black even by day; away from the glare, the stars show.';
     return lat > 0 ? why : `Towards the Southern Cross. ${why}`;
@@ -391,7 +393,7 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
   const lines: string[] = [];
   const pole = poleLine(lat);
   if (pole) {
-    lines.push(pole, "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon rocks a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.");
+    lines.push(pole, "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon wobbles a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.");
   }
   const el = s.sunEl[hour];
   const earth = s.earthVisible[hour] === 1;
@@ -399,7 +401,7 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
   if (lit) {
     lines.push(`With no air to scatter sunlight, the sky stays black by day, and the stars are still there. ${APOLLO} Eyes dazzled by the bright ground also see few; once it is out of view, you see them.`);
   } else {
-    if (el >= 0) lines.push('The Sun has set behind the hills but is still above the horizon: higher ground farther off still catches its light.');
+    if (el >= 0) lines.push('The Sun is still above the horizon, but behind a hill: higher ground farther off still catches its light.');
     else if (el > -2) lines.push('The Sun is just below the horizon here, but higher ground farther off still catches its light.');
     lines.push(NO_TWILIGHT);
     if (earth) lines.push('At night only Earth lights the ground: sunlight bounced off Earth. The view is brightened, as a long-exposure photo would be, so the ground shows, and that light is why it looks blue.');

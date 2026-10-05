@@ -208,7 +208,7 @@ describe('the arrival’s live stage', () => {
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
     render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
     // On which day, and that it looks small only because it is far.
-    expect(await screen.findByText(/^Earth, 3\d\d,000 km away on 1 January: it looks small only because it is far$/)).toBeTruthy();
+    expect(await screen.findByText(/^Earth, 3\d\d,000 km away on 1 January 2027: it looks small only because it is far$/)).toBeTruthy();
   });
 
   it('points to the Sun from the edge of the view while it is out of sight, through the month, and names it where it shows', async () => {
@@ -522,7 +522,14 @@ describe('the arrival’s live stage', () => {
     expect(moments.map((m) => m.kind)).toContain('earth-out');
     expect(lanes.slice(0, 3)).toEqual(['sun', 'power', 'earth']);
     const sun = bar.querySelector('[data-lane="sun"]')!.className, power = bar.querySelector('[data-lane="power"]')!.className;
-    expect(sun).not.toBe(power);
+    const earthMark = bar.querySelector('[data-lane="earth"]')!.className;
+    // The battery's mark 6 px tall across the line, the Sun's and Earth's 10 px tall from 5 px off it, all 4 px wide:
+    // a 2 px gap between lanes, so the 3 and 4 January marks read as two (both readers, part C read 1).
+    expect(power).toMatch(/\bh-1\.5\b/);
+    expect(sun).toMatch(/bottom-\[calc\(50%\+5px\)\]/);
+    expect(sun).toMatch(/\bh-2\.5\b/);
+    expect(earthMark).toMatch(/top-\[calc\(50%\+5px\)\]/);
+    for (const t of bar.querySelectorAll('[data-tick]')) expect(t.className).toMatch(/\bw-1\b/);
     expect(bar.textContent).toContain('Sunset or sunrise');
     expect(bar.textContent).toContain('The battery runs out');
     expect(bar.textContent).toContain('Earth rises or sets');

@@ -46,7 +46,7 @@ export function groundWords(series: Series, hour: number): { sun: string; earth:
   } else {
     // Night, as with the Sun below the horizon; the map's short words keep "in shadow", as they name a place.
     // Within a twentieth of a degree of level it is on the horizon, as in sunlight, never "0.0° above" it.
-    sun = `It is night at the site: the Sun is ${el < 0.05 ? 'on the horizon' : `${degrees(el)} above the horizon`} but has set behind the hills to the ${toward}.`;
+    sun = `It is night at the site: the Sun is ${el < 0.05 ? 'on the horizon' : `${degrees(el)} above the horizon`}, but behind a hill to the ${toward}.`;
     siteState = 'in shadow';
     sunHidden = 'yes';
   }

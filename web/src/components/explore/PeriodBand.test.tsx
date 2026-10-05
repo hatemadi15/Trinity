@@ -86,9 +86,9 @@ describe('PeriodBand', () => {
     expect(screen.getByText('de Gerlache Rim 2, 14 days from 5 March 2027, custom lander:')).toBeTruthy();
   });
 
-  it('marks the band as the end of the header band, so the stars behind the header stop under it', () => {
+  it('leaves the stars behind the header alone: on a phone the band is a line of words, which no star may sit behind (part C read 1)', () => {
     render(<PeriodBand site={site} startUtc="2027-01-01T00:00:00" days={30} onWindow={() => {}} power={DEFAULT_POWER} onLander={() => {}} />);
-    expect(screen.getByRole('region', { name: 'What this forecast is for' }).hasAttribute('data-band-end')).toBe(true);
+    expect(screen.getByRole('region', { name: 'What this forecast is for' }).hasAttribute('data-band-end')).toBe(false);
   });
 
   it('words the folded line from the preset’s size', () => {
