@@ -501,3 +501,62 @@ Two other ways were weighed and set aside:
 - The stand view's frames at 1440 × 900 and 390 × 844, by day and at night, Guides off and on, pass the measurements of 15.1: no sideways scroll, no text under 13 px, no text under 4.5:1.
 - The phone's scene band (from the status's foot to the buttons' top) is at least 55 % of the screen's height.
 - A blind read of the stand view and the arrival, by the same two readers' roles, passes the gate of 13.2: purpose, next step and look at 4 or more, room and readability at 3 or more, immersion at 4.
+
+### 16.6 D1 as built: where it differs from 16.2 to 16.4
+
+D1 was built on `feat/immersive-d`. Its ledger is beside its plan, at `docs/superpowers/plans/2026-10-05-immersive-d1-stand-view.ledger.md`, with every ruling and what it costs if wrong. Where the build differs from 16.2 to 16.4, from the checks on the production build and from the blind read's bounded pass (16.7):
+
+- **The status line.**
+  - On a phone it takes two lines by day. At night its power-off sentence takes three, as in the approved mockup; 16.2 said two at most.
+  - Its lines are balanced, so no word stands alone on the second. More follows the last line, and the dot leads the first.
+  - After a power cut it gives the stretch without power to the hour, as the old state line did: "Power on again since 20 January, if the lander survived 16 days 6 hours without power; battery 40 %."
+  - On a phone the site's name is on the facing chip under the status ("de Gerlache Rim 2, facing north-west"), as the status leaves it out.
+- **Words.**
+  - The row reads "Turn to: Sun, Earth, Lander", since both readers took "Face" for a noun.
+  - What to watch next starts "Press Play or a moment on the time bar:", since neither reader took the moments for "flags".
+- **The plates and the sky's names are opaque.** No path or level line shows through them. 15.1's plates were 92 %.
+- **The opening.**
+  - At night on Earth it is 44° high (56° on a tall screen), so Earth and the lander's feet both fit. Part A's 36° (50°) cut the lander off.
+  - Looking down for the lander's feet stops where what the view opens on (Earth at night, else the Sun) would come within 100 px of the status line, room for its name over it.
+- **The lander.**
+  - Its parts carry their names only when the view is zoomed in on it, with it within 10° of the view's middle; the night opening is zoomed in on Earth beside it.
+  - Its own name is never hidden by the lander: standing up a slope from you, the label was tested against the lander's own box.
+- **Labels.**
+  - Each body's own room is its label grown 120 px to either side and 24 px above and below. With 24 px all round, "Earth sets, 23 Jan" still stood 26 px beside a rising Earth.
+  - A pointer keeps off the body under a name, not only the name: on a phone, Earth's pointer had covered the Sun.
+- **Compass letters** show whole while 12 px or more inside the strip's ends, else not at all, with a 150 ms fade as they cross. 16.3's fade over 40 px left a faint "N" that neither reader could read.
+- **At night under a thin crescent Earth** (under a quarter of its disc lit), the caption says "A thin crescent Earth gives this ground little light; brightened like a long exposure.", where the ground looks grey rather than blue.
+- **The arrival's labels move clear of the beats' cards** rather than pass under them:
+  - the night's name and the pointers move above or below a card;
+  - the pole's name takes another side;
+  - the rest give way while a card covers them.
+
+  Under the cards (16.4) they showed through as ghost text, half hidden. The answer's last card keeps no plate mark, so labels give way to it, as before.
+- **The Sun's path at night** is unchanged: Guides is off when the view opens, and with Guides on the path is the month's, as its name says.
+
+### 16.7 D1: the blind read
+
+Two fresh readers, a hackathon judge and a secondary-school science teacher, judged 31 still screenshots:
+- the arrival at quarter screens, wide and on a phone;
+- the stand view as it opens at six hours of the hero month;
+- the stand view with More, Guides and Lander pressed;
+- the stand view on a phone.
+
+The scores are in the order purpose, next step, look, room and readability, then immersion after the semicolon. The gate is as in 13.2.
+
+| Read | Judge | Teacher | Fails on |
+|---|---|---|---|
+| D1 | 5, 4, 4, 3, 4; 4 | 5, 4, 4, 4, 4; 4 | none |
+
+**Ruling.** Read D1 met the whole gate for both readers. As parts B and C did after a passing read, one bounded pass followed, without a further read. It took what both readers named that was clear, small and in D1's scope: the changes of 16.6 marked as words, the opaque plates, the night opening, the pointers, the compass letters, the thin crescent, the phone's site name and the arrival's labels.
+
+Both readers' other shared asks:
+- **To the user, with D2:** bring the next step out of More, the judge's one change: the site, a way to change site or date, the better day and Compare, always in view.
+- **To a words pass over every page:** "above the horizon" at night, where the hills look like the horizon. "Above the horizon" is the one name part C set across the shadow map, Explore and the stand view.
+- **To D2:** the smeared descent, the square patch round the site and the box rock.
+- **To the deferred list:**
+  - Skip on a phone's card;
+  - the slider on the first moment's dot;
+  - unnamed paths in some views.
+
+Cost if wrong: D1 ships with its next step one tap away, under More.
