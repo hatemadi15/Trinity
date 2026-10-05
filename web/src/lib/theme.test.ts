@@ -11,19 +11,25 @@ afterEach(() => {
 });
 
 describe('resolveTheme', () => {
-  it('prefers the URL, then the visit, then the stored choice, then light', () => {
-    expect(DEFAULT_THEME).toBe('light');
-    expect(resolveTheme('', null, null)).toBe('light');
+  it('prefers the URL, then the visit, then the stored choice, then dark (spec 6: dark by default)', () => {
+    expect(DEFAULT_THEME).toBe('dark');
+    expect(resolveTheme('', null, null)).toBe('dark');
     expect(resolveTheme('', null, 'dark')).toBe('dark');
     expect(resolveTheme('', 'light', 'dark')).toBe('light');
     expect(resolveTheme('?theme=dark', 'light', 'light')).toBe('dark');
   });
 
+  it('keeps a returning visitor’s light theme: a stored choice or the address wins over the new default', () => {
+    expect(resolveTheme('', null, 'light')).toBe('light');
+    expect(resolveTheme('?theme=light', null, null)).toBe('light');
+    expect(resolveTheme('', 'light', null)).toBe('light');
+  });
+
   it('ignores anything that is not light or dark', () => {
     expect(parseTheme('banana')).toBeNull();
     expect(parseTheme(null)).toBeNull();
-    expect(resolveTheme('?theme=banana', 'purple', 'DARK')).toBe('light');
-    expect(resolveTheme('?theme=banana', null, 'dark')).toBe('dark');
+    expect(resolveTheme('?theme=banana', 'purple', 'DARK')).toBe('dark');
+    expect(resolveTheme('?theme=banana', null, 'light')).toBe('light');
   });
 });
 
@@ -60,7 +66,7 @@ describe('THEME_SCRIPT', () => {
       throw new Error('blocked');
     });
     run();
-    expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
   });
 });
 

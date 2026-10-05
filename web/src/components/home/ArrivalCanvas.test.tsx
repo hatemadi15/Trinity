@@ -78,11 +78,13 @@ describe('the arrival’s live stage', () => {
     render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
     await waitFor(() => expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(3));
     await new Promise((res) => setTimeout(res, 120));
-    // Many frames at rest: the hour once, the pose once, the labels once.
-    expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(5);
+    // Many frames at rest: the hour once, the pose once, and the labels once, then again only four times a second
+    // (for words that move without a scroll), however slowly the frames come.
+    const frames = (r.render as ReturnType<typeof vi.fn>).mock.calls.length;
+    expect(frames).toBeGreaterThan(5);
     expect(r.setTime).toHaveBeenCalledTimes(1);
     expect(r.setPose).toHaveBeenCalledTimes(1);
-    expect(r.labels).toHaveBeenCalledTimes(1);
+    expect((r.labels as ReturnType<typeof vi.fn>).mock.calls.length).toBeLessThan(frames / 2);
     // A move: once more each.
     progress.current = 2.5;
     await waitFor(() => expect(r.setPose).toHaveBeenCalledTimes(2));

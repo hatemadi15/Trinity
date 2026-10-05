@@ -4,13 +4,13 @@ export type Theme = 'light' | 'dark';
 export const THEME_KEY = 'earthrise.theme';
 /** A theme asked for in the URL (`?theme=dark`) lasts for the visit, so reloads and hard navigations keep it. */
 export const THEME_VISIT_KEY = 'earthrise.theme.visit';
-export const DEFAULT_THEME: Theme = 'light';
+export const DEFAULT_THEME: Theme = 'dark';
 
 export function parseTheme(x: unknown): Theme | null {
   return x === 'light' || x === 'dark' ? x : null;
 }
 
-/** URL, then the visit, then the stored choice, then light. The system preference is not followed (spec 4.1). */
+/** URL, then the visit, then the stored choice, then dark (spec 6). The system preference is not followed (spec 4.1). */
 export function resolveTheme(search: string, visit: string | null, stored: string | null): Theme {
   const q = parseTheme(new URLSearchParams(search.startsWith('?') ? search.slice(1) : search).get('theme'));
   return q ?? parseTheme(visit) ?? parseTheme(stored) ?? DEFAULT_THEME;

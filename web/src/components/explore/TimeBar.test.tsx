@@ -1009,10 +1009,11 @@ describe('TimeBar', () => {
     expect(chosen.getAttribute('aria-current')).toBe('true');
     for (const c of ['border-sun', 'bg-surface-2', 'hover:border-sun-hover', 'focus-visible:border-sun-hover']) expect(chosen.classList.contains(c)).toBe(true);
     expect(chosen.className).not.toMatch(/(^| )(hover:|focus-visible:)?border-ink(-3)?( |$)/);
-    // On the stand view's dark bar: an edge at rest that stands out from the bar and the flag's own ground (the
-    // strong line it had gave 2.4 to 1), and under the pointer a fill lighter than both grounds and a brighter edge.
+    // On the stand view's dark bar: an edge at rest that stands out from the bar and the flag's own ground, brighter
+    // than the controls' strong line (3:1 on the near-black page since part C), and under the pointer a fill lighter
+    // than both grounds and a brighter edge.
     for (const ground of ['--page', '--surface']) expect(contrast(DARK['--ink-3'], DARK[ground])).toBeGreaterThanOrEqual(3);
-    expect(contrast(DARK['--line-strong'], DARK['--page'])).toBeLessThan(3);
+    expect(contrast(DARK['--ink-3'], DARK['--page'])).toBeGreaterThan(contrast(DARK['--line-strong'], DARK['--page']));
     expect(luminance(DARK['--line'])).toBeGreaterThan(luminance(DARK['--surface-2']));
     expect(luminance(DARK['--surface-2'])).toBeGreaterThan(luminance(DARK['--surface']));
     expect(luminance(DARK['--ink'])).toBeGreaterThan(luminance(DARK['--ink-3']));

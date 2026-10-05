@@ -44,9 +44,12 @@ describe('theme tokens', () => {
     for (const t of FIXED) expect(light[t], t).toBeTruthy();
   });
 
-  it('matches the approved values for the page, ink, the stage and the two identity colours', () => {
+  it('matches the approved values: the light page, the near-black dark page and its plates, ink, the stage and the two identity colours', () => {
     expect(light['--page']).toBe('#dedcd6');
-    expect(dark['--page']).toBe('#222220');
+    expect(dark['--page']).toBe('#07080a');
+    expect(dark['--surface']).toBe('#0f1013');
+    expect(dark['--surface-2']).toBe('#17181c');
+    expect(dark['--ink-3']).toBe('#aeada8');
     expect(light['--surface']).toBe('#ffffff');
     expect(light['--ink']).toBe('#000000');
     expect(dark['--ink']).toBe('#f3f2ee');
@@ -60,12 +63,20 @@ describe('theme tokens', () => {
     expect(css).toMatch(/\.theme-dark \{[^}]*color-scheme: dark;/);
   });
 
-  it('keeps the stage darker than the dark page and gives it an edge that shows on both, so a picture panel never melts into the page', () => {
-    expect(contrast(dark['--page'], light['--stage'])).toBeGreaterThanOrEqual(1.3);
+  it('makes the dark page near-black but not the stage’s true black, and gives a picture panel an edge that shows on both (spec 6)', () => {
+    expect(luminance(dark['--page'])).toBeLessThan(0.005);
+    expect(dark['--page']).not.toBe(light['--stage']);
     expect(contrast(dark['--stage-edge'], dark['--page'])).toBeGreaterThanOrEqual(2);
     expect(contrast(dark['--stage-edge'], light['--stage'])).toBeGreaterThanOrEqual(2);
     expect(contrast(light['--stage-edge'], light['--stage'])).toBeGreaterThanOrEqual(1.5);
     expect(css).toMatch(/\.stage \{[^}]*border: 1px solid var\(--stage-edge\)/);
+  });
+
+  it('draws plates with a hairline that shows, and gives controls an edge of 3:1 on the dark page', () => {
+    expect(contrast(dark['--line'], dark['--surface'])).toBeGreaterThanOrEqual(1.3);
+    expect(contrast(light['--line'], light['--surface'])).toBeGreaterThanOrEqual(1.3);
+    expect(contrast(dark['--line-strong'], dark['--surface'])).toBeGreaterThanOrEqual(3);
+    expect(contrast(dark['--line-strong'], dark['--page'])).toBeGreaterThanOrEqual(3);
   });
 
   it('draws the focus ring in the bright gold on a picture panel, where the dark gold of the light theme would vanish', () => {
@@ -74,14 +85,17 @@ describe('theme tokens', () => {
     expect(css).toMatch(/\.stage :focus-visible,\s*\[data-stage\] :focus-visible \{[^}]*outline-color: var\(--stage-sun\)/);
   });
 
-  it('meets AA contrast for text in both themes and on the stage', () => {
+  it('gives body text 7:1 and secondary text 4.5:1 on the page and its plates, in both themes (spec 6)', () => {
     for (const [name, t] of [['light', light], ['dark', dark]] as const) {
-      const pairs: [string, string][] = [
-        ['--ink', '--page'], ['--ink', '--surface'], ['--ink-2', '--surface'], ['--ink-2', '--page'], ['--ink-3', '--surface'], ['--ink-3', '--page'],
+      for (const bg of ['--page', '--surface', '--surface-2']) {
+        for (const fg of ['--ink', '--ink-2']) expect(contrast(t[fg], t[bg]), `${name} ${fg} on ${bg}`).toBeGreaterThanOrEqual(7);
+        expect(contrast(t['--ink-3'], t[bg]), `${name} --ink-3 on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      }
+      const coloured: [string, string][] = [
         ['--sun-ink', '--surface'], ['--earth-ink', '--surface'], ['--good', '--surface'], ['--bad', '--surface'], ['--warn', '--surface'],
         ['--sun-ink', '--page'], ['--earth-ink', '--page'], ['--good', '--page'], ['--bad', '--page'],
       ];
-      for (const [fg, bg] of pairs) expect(contrast(t[fg], t[bg]), `${name} ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+      for (const [fg, bg] of coloured) expect(contrast(t[fg], t[bg]), `${name} ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
       expect(contrast(light['--sun-on'], t['--sun']), `${name} text on the Sun fill`).toBeGreaterThanOrEqual(4.5);
     }
     expect(contrast(light['--stage-ink'], light['--stage'])).toBeGreaterThanOrEqual(7);

@@ -2,11 +2,12 @@
 
 
 /*
- * Light is the default theme; data-theme="dark" on <html> swaps the values (set before paint by the
- * inline script in layout.tsx). The palette is the Moon's own three tones: shadow black (the stage),
- * regolith grey (the page) and sunlit white (panels). Colour is kept for the Sun and Earth, and green
- * and red for the power verdict. Picture panels ("stages": charts, shadow map, 3D, relief maps) keep
- * the same colours in both themes; the sky above an airless world is true black.
+ * Dark is the default theme (spec 6); data-theme="light" on <html> swaps the values (set before paint by
+ * the inline script in layout.tsx), and the light theme stays for print and classrooms. The palette is the
+ * Moon's own three tones: shadow black (the stage), regolith grey (the light page) and sunlit white
+ * (panels). Colour is kept for the Sun and Earth, and green and red for the power verdict. Picture panels
+ * ("stages": charts, shadow map, 3D, relief maps) keep the same colours in both themes; the sky above an
+ * airless world is true black.
  */
 :root {
   --page: #dedcd6;
@@ -46,16 +47,17 @@
 /* The same values inside .theme-dark in either theme: the stand view's black sky keeps its time bar dark. */
 :root[data-theme="dark"],
 .theme-dark {
-  /* A grey one step above the black stage, so picture panels keep their outline. */
-  --page: #222220;
-  --surface: #2c2c2a;
-  --surface-2: #383835;
-  --line: #444441;
-  --line-strong: #5e5d57;
-  --stage-edge: #5a5a54;
+  /* Near-black, one step above the stages' true black; plates one step above the page, with a hairline edge. */
+  --page: #07080a;
+  --surface: #0f1013;
+  --surface-2: #17181c;
+  --line: #2a2b30;
+  --line-strong: #6b6c71;
+  --stage-edge: #48494e;
   --ink: #f3f2ee;
   --ink-2: #c6c5c0;
-  --ink-3: #9c9b96;
+  /* Secondary text a step brighter than before, for a classroom's projector (13.3): 8:1 on the plates. */
+  --ink-3: #aeada8;
   --sun: #f5b63a;
   --sun-ink: #f5b63a;
   --sun-hover: #ffc65c;
