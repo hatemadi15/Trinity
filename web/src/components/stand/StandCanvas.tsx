@@ -36,11 +36,11 @@ export function fitPitch(height: number, fovDeg: number, freeBottom: number, elD
 
 /**
  * The lowest pitch the opening view may take while keeping what it opens on (`elDeg` up: the Sun, or Earth at night)
- * at least 60 px below `freeTop`, the foot of the words above (16.3): the lander's feet are kept in sight only as
- * far as that, so a view that opens on Earth never tilts it up under the status line.
+ * at least 100 px below `freeTop`, the foot of the words above, room for its name over it (16.3): the lander's feet
+ * are kept in sight only as far as that, so a view that opens on Earth never tilts it up under the status line.
  */
 export function subjectFloor(height: number, fovDeg: number, freeTop: number, elDeg: number): number {
-  const t = ((height / 2 - (freeTop + 60)) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
+  const t = ((height / 2 - (freeTop + 100)) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
   return elDeg - (Math.atan(t) * 180) / Math.PI;
 }
 

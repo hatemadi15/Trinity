@@ -557,12 +557,12 @@ describe('the guides', () => {
 });
 
 describe('the opening view’s subject', () => {
-  it('keeps what the view opens on 60 px under the words while it looks down for the lander’s feet', () => {
-    // A 900 px view 36° tall, the words' foot at 89 px: Earth 6° up may sit no higher than 149 px.
+  it('keeps what the view opens on 100 px under the words, room for its name over it, while it looks down for the lander’s feet', () => {
+    // A 900 px view 36° tall, the words' foot at 89 px: Earth 6° up may sit no higher than 189 px.
     const floor = subjectFloor(900, 36, 89, 6);
     const y = (p: number) => 450 - (Math.tan(((6 - p) * Math.PI) / 180) / Math.tan((18 * Math.PI) / 180)) * 450;
-    expect(y(floor)).toBeCloseTo(149, 6);
-    expect(y(floor - 1)).toBeLessThan(149);
+    expect(y(floor)).toBeCloseTo(189, 6);
+    expect(y(floor - 1)).toBeLessThan(189);
   });
 
   it('looks down for the lander’s feet no further than keeps Earth in sight', async () => {
