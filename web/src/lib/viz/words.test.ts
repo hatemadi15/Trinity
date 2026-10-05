@@ -40,7 +40,7 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
   });
 
   it('words the captions, the live line, what to watch next and the lander’s state with the same names, at every hour of the month', () => {
-    const kinds: MomentKind[] = ['sunset', 'sun-back', 'battery-out', 'power-back', 'earth-in', 'sunset-power-off', 'sun-power-back'];
+    const kinds: MomentKind[] = ['sunset', 'sun-back', 'battery-out', 'power-back', 'earth-in', 'earth-out', 'sunset-power-off', 'sun-power-back'];
     for (const m of moments) check(`caption ${m.kind}`, momentCaption(m.kind, s, m.hour, h.site.lat));
     for (const k of kinds) for (const lat of [-88.28, -30]) for (const hour of [67, 76, 219, 466]) check(`caption ${k} at ${hour}, ${lat}°`, momentCaption(k, s, hour, lat));
     for (let hour = 0; hour < s.hours; hour += 6) {

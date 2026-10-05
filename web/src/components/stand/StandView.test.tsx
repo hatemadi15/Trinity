@@ -77,7 +77,7 @@ describe('StandView', () => {
     // chip names what happens there, as its flag on the time bar does.
     const marks = (scene! as StandScene).marks!;
     expect(marks.filter((m) => m.body === 'sun').map((m) => m.text)).toEqual(['Sunset, 3 Jan', 'Sunrise, 20 Jan']);
-    expect(marks.filter((m) => m.body === 'earth').map((m) => m.text)).toEqual(['Earth rises, 10 Jan']);
+    expect(marks.filter((m) => m.body === 'earth').map((m) => m.text)).toEqual(['Earth rises, 10 Jan', 'Earth sets, 23 Jan']);
     expect([...document.querySelectorAll('[data-path-mark]')].map((n) => n.textContent)).toEqual(marks.map((m) => m.text));
     expect(screen.getByText('Level horizon')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Hide the words' }));

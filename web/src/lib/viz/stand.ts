@@ -177,7 +177,7 @@ export function radioNext(s: Series, p: PowerResult, startUtc: string): string |
  * moments, the Sun setting with the power ("sunset-power-off") and the Sun rising with it ("sun-power-back",
  * labelled "Sunrise" like the Sun's alone, as the power needs the lander to have survived the night).
  */
-export type MomentKind = 'sunset' | 'sun-back' | 'battery-out' | 'power-back' | 'earth-in' | 'sunset-power-off' | 'sun-power-back';
+export type MomentKind = 'sunset' | 'sun-back' | 'battery-out' | 'power-back' | 'earth-in' | 'earth-out' | 'sunset-power-off' | 'sun-power-back';
 
 /** A key moment: its kind, the words on its flag, its hour from the period start, and its day ("3 Jan"). */
 export interface Moment {
@@ -197,6 +197,7 @@ const LABELS: Record<Exclude<MomentKind, 'sunset' | 'sunset-power-off'>, string>
   'battery-out': 'Battery runs out',
   'power-back': 'Power back',
   'earth-in': 'Earth rises',
+  'earth-out': 'Earth sets',
   'sun-power-back': 'Sunrise',
 };
 
@@ -222,6 +223,7 @@ export function keyMoments(s: Series, p: PowerResult | null, startUtc: string): 
     if (p && p.powered[h - 1] === 1 && p.powered[h] === 0) mark('battery-out', h);
     if (p && p.powered[h - 1] === 0 && p.powered[h] === 1 && found.has('battery-out')) mark('power-back', h);
     if (s.earthVisible[h - 1] === 0 && s.earthVisible[h] === 1) mark('earth-in', h);
+    if (s.earthVisible[h - 1] === 1 && s.earthVisible[h] === 0) mark('earth-out', h);
   }
   // A power cut before the Sun goes on the same day did not come with it, so the two stay apart.
   const join = (sun: MomentKind, power: MomentKind, kind: MomentKind) => {
@@ -279,6 +281,8 @@ export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: n
           : 'The battery runs out at night. With no Sun or Earth in sight, the view is brightened like a long exposure.';
     case 'earth-in':
       return "Earth rises over the hills: the Moon's slight rocking lifts it into view for about two weeks a month.";
+    case 'earth-out':
+      return `Earth sets ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind the hills'}: the Moon's slight rocking lowers it. No radio until it rises again.`;
     case 'sun-back':
       return `Sunrise over the hills.${earth ? ' With Earth in view, a working lander could radio home.' : ''}`;
     case 'sun-power-back':

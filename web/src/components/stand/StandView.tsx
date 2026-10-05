@@ -39,6 +39,7 @@ const LANDER_FOOT_M = 2.1;
  */
 export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
   return moments.flatMap((m): NonNullable<StandScene['marks']> => {
+    if (m.kind === 'earth-out') return [{ hour: m.hour, body: 'earth', text: `Earth sets, ${m.day}` }];
     if (m.kind === 'earth-in') return [{ hour: m.hour, body: 'earth', text: `Earth rises, ${m.day}` }];
     if (m.kind === 'sun-back' || m.kind === 'sun-power-back') return [{ hour: m.hour, body: 'sun', text: `Sunrise, ${m.day}` }];
     if (m.kind === 'sunset' || m.kind === 'sunset-power-off') return [{ hour: m.hour, body: 'sun', text: `Sunset, ${m.day}` }];

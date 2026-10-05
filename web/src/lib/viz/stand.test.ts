@@ -6,6 +6,7 @@ import { readJson } from '@/lib/engine/__tests__/helpers';
 import { standHref } from '@/lib/links';
 import { eph, sites } from '@/test/file-loaders';
 import { answerFor } from './answer';
+import { hero } from './arrival';
 import { spanWords } from './format';
 import { groundWords } from './ground';
 import {
@@ -639,6 +640,7 @@ describe('what to watch for', () => {
       { kind: 'battery-out', label: 'Battery runs out', hour: 100, day: '5 Jan' },
       { kind: 'earth-in', label: 'Earth rises', hour: 200, day: '9 Jan' },
       { kind: 'sun-power-back', label: 'Sunrise', hour: 466, day: '20 Jan' },
+      { kind: 'earth-out', label: 'Earth sets', hour: 500, day: '21 Jan' },
     ]);
   });
 
@@ -656,6 +658,7 @@ describe('what to watch for', () => {
       { kind: 'sunset-power-off', label: 'Sunset and power off', hour: 76, day: '4 Jan' },
       { kind: 'earth-in', label: 'Earth rises', hour: 200, day: '9 Jan' },
       { kind: 'sun-power-back', label: 'Sunrise', hour: 466, day: '20 Jan' },
+      { kind: 'earth-out', label: 'Earth sets', hour: 500, day: '21 Jan' },
     ]);
   });
 
@@ -678,6 +681,7 @@ describe('what to watch for', () => {
       { kind: 'earth-in', label: 'Earth rises', hour: 200, day: '9 Jan' },
       { kind: 'sun-back', label: 'Sunrise', hour: 466, day: '20 Jan' },
       { kind: 'power-back', label: 'Power back', hour: 490, day: '21 Jan' },
+      { kind: 'earth-out', label: 'Earth sets', hour: 500, day: '21 Jan' },
     ]);
     // Too little sunlight: the battery runs out at 73, three hours before the Sun leaves the view the same
     // day. The Sun going did not cut the power, so the two stay apart.
@@ -690,7 +694,7 @@ describe('what to watch for', () => {
 
   it('has a caption for every kind of key moment', () => {
     const moments = [p, sameDay, late].flatMap((pw) => keyMoments(e, pw, start));
-    expect(new Set(moments.map((m) => m.kind))).toEqual(new Set(['sunset', 'battery-out', 'earth-in', 'sun-power-back', 'sunset-power-off', 'sun-back', 'power-back']));
+    expect(new Set(moments.map((m) => m.kind))).toEqual(new Set(['sunset', 'battery-out', 'earth-in', 'earth-out', 'sun-power-back', 'sunset-power-off', 'sun-back', 'power-back']));
     expect(moments.filter((m) => momentCaption(m.kind, e, m.hour) === '')).toEqual([]);
   });
 
@@ -700,6 +704,14 @@ describe('what to watch for', () => {
 });
 
 describe('the caption for a key moment', () => {
+  it('marks Earth setting too, the first time Earth leaves the view after the landing: the hero month’s 23 January', () => {
+    const h = hero();
+    const out = keyMoments(h.series, h.power, h.startUtc).find((m) => m.kind === 'earth-out');
+    expect(out).toEqual({ kind: 'earth-out', label: 'Earth sets', hour: 543, day: '23 Jan' });
+    expect(momentCaption('earth-out', h.series, 543, h.site.lat)).toMatch(/^Earth sets (behind the hills|below the horizon): the Moon's slight rocking lowers it\. No radio until it rises again\.$/);
+    expect(momentCaption('earth-out', h.series, 543, h.site.lat).length).toBeLessThanOrEqual(112);
+  });
+
   // The Sun sets at hour 1: behind the hills, or below the horizon.
   const behind = series({ sunEl: [1, 0.4], sunFraction: [1, 0] });
   const below = series({ sunEl: [0.2, -0.3], sunFraction: [1, 0] });
@@ -1013,13 +1025,14 @@ describe('the stand view’s words on real data', () => {
     // with the Sun, if the lander survived the night, so that flag claims only the Sun. The Sun is still 1.7°
     // up as it sets behind the hills on 3 January: a sunset all the same.
     const moments = keyMoments(s, p, start);
-    expect(moments.map((m) => `${m.label}, ${m.day}`)).toEqual(['Sunset, 3 Jan', 'Battery runs out, 4 Jan', 'Earth rises, 10 Jan', 'Sunrise, 20 Jan']);
-    expect(moments.map((m) => m.kind)).toEqual(['sunset', 'battery-out', 'earth-in', 'sun-power-back']);
+    expect(moments.map((m) => `${m.label}, ${m.day}`)).toEqual(['Sunset, 3 Jan', 'Battery runs out, 4 Jan', 'Earth rises, 10 Jan', 'Sunrise, 20 Jan', 'Earth sets, 23 Jan']);
+    expect(moments.map((m) => m.kind)).toEqual(['sunset', 'battery-out', 'earth-in', 'sun-power-back', 'earth-out']);
     expect(moments.map((m) => momentCaption(m.kind, s, m.hour, site.lat))).toEqual([
       'Sunset behind the hills: near the pole the Sun never climbs more than a few degrees. No air, so no twilight.',
       'The battery runs out at night. With no Sun or Earth in sight, the view is brightened like a long exposure.',
       "Earth rises over the hills: the Moon's slight rocking lifts it into view for about two weeks a month.",
       'Sunrise, and with it the power, if the lander survived the cold. Earth is in view: it could radio home.',
+      "Earth sets behind the hills: the Moon's slight rocking lowers it. No radio until it rises again.",
     ]);
     // In the dark between, neither the Sun nor Earth in view: at hour 200 the Sun is 0.3° below the horizon,
     // and never 2° below it in this period, so the card's lines on why always say that higher ground farther

@@ -7,7 +7,7 @@ import { siteEndHour } from '@/lib/sky/arrivalPath';
 import { HERO_HOUR, hero } from '@/lib/viz/arrival';
 import { dateLong } from '@/lib/viz/format';
 import { keyMoments, skyLabel } from '@/lib/viz/stand';
-import ArrivalCanvas, { type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
+import ArrivalCanvas, { laneOf, type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
 
 const sky = { stars: { count: 0, j2000: new Float32Array(), vmag: new Float32Array(), bv: new Float32Array() }, moon: { startMs: 0, stepMs: 1, count: 2, quats: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0]) }, earthDayUrl: '', earthCloudsUrl: '' };
 const globe = { color: { low: 'a', high: 'b' }, normal: { low: 'c', high: 'd' }, heights: { width: 4, height: 2, metres: new Float32Array(8) }, albedoScale: 1, credit: '' };
@@ -417,7 +417,7 @@ describe('the arrival’s live stage', () => {
     expect(date.textContent).toBe(`${dateLong(h.startUtc, HERO_HOUR)} ${year}`);
     expect(state.textContent).toBe('In sunlight');
     expect(bar.querySelectorAll('[data-tick]')).toHaveLength(moments.length);
-    for (const key of ['Sunset or sunrise', 'The battery runs out', 'Earth rises']) expect(within(bar).getByText(key)).toBeTruthy();
+    for (const key of ['Sunset or sunrise', 'The battery runs out', 'Earth rises or sets']) expect(within(bar).getByText(key)).toBeTruthy();
     // Each moment named for a day or so after it passes, the mark at its hour in the month.
     const earth = moments.find((m) => m.kind === 'earth-in')!;
     progress.current = at(earth.hour + 6);
@@ -504,6 +504,39 @@ describe('the arrival’s live stage', () => {
     const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc), end = siteEndHour(moments, h.series.hours);
     render(<ArrivalCanvas progress={{ current: 4.5 }} reduced onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
     await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0]).toBeCloseTo(HERO_HOUR + (end - HERO_HOUR) / 2, 6));
+  });
+
+  it('marks the month’s moments in lanes, the Sun’s over the line, the battery’s across it, Earth’s under it, with Earth setting marked too', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    render(<ArrivalCanvas progress={{ current: 4.5 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    const bar = await waitFor(() => {
+      const b = document.querySelector('[data-date-bar]') as HTMLElement;
+      expect(b.hidden).toBe(false);
+      return b;
+    });
+    const h = hero(), moments = keyMoments(h.series, h.power, h.startUtc);
+    const lanes = [...bar.querySelectorAll('[data-tick]')].map((t) => t.getAttribute('data-lane'));
+    expect(lanes).toEqual(moments.map((m) => laneOf(m.kind)));
+    // Sunset 3 Jan, the battery 4 Jan, Earth rises 10 Jan, sunrise 20 Jan, Earth sets 23 Jan: each in its lane.
+    expect(moments.map((m) => m.kind)).toContain('earth-out');
+    expect(lanes.slice(0, 3)).toEqual(['sun', 'power', 'earth']);
+    const sun = bar.querySelector('[data-lane="sun"]')!.className, power = bar.querySelector('[data-lane="power"]')!.className;
+    expect(sun).not.toBe(power);
+    expect(bar.textContent).toContain('Sunset or sunrise');
+    expect(bar.textContent).toContain('The battery runs out');
+    expect(bar.textContent).toContain('Earth rises or sets');
+    expect(bar.querySelector('p:last-of-type')!.className).toMatch(/\btext-\[15px\]/);
+  });
+
+  it('puts each kind of moment in its lane', () => {
+    expect(laneOf('sunset')).toBe('sun');
+    expect(laneOf('sunset-power-off')).toBe('sun');
+    expect(laneOf('sun-power-back')).toBe('sun');
+    expect(laneOf('battery-out')).toBe('power');
+    expect(laneOf('power-back')).toBe('power');
+    expect(laneOf('earth-in')).toBe('earth');
+    expect(laneOf('earth-out')).toBe('earth');
   });
 
   it('says where the Sun and Earth stand at the hour shown, through the month at the site', async () => {

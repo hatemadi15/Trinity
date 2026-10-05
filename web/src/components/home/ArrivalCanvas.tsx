@@ -13,7 +13,7 @@ import { eyeAt, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
 import { HERO_HOUR, hero, type Hero } from '@/lib/viz/arrival';
 import { dateLong } from '@/lib/viz/format';
-import { keyMoments, skyLabel } from '@/lib/viz/stand';
+import { keyMoments, skyLabel, type MomentKind } from '@/lib/viz/stand';
 import { standLander } from '@/lib/viz/standOpening';
 
 /** The renderer as the arrival drives it; a stub in tests. */
@@ -133,14 +133,19 @@ export function lightWords(series: Pick<Hero['series'], 'sunFraction' | 'earthVi
   if (series.sunFraction[hour] > 0) return 'in sunlight';
   return series.earthVisible[hour] === 1 ? 'night, lit only by Earthlight (picture brightened)' : 'night (picture brightened)';
 }
-/** The date bar's key: what each colour of mark stands for. */
+/** The date bar's key: what each colour of mark stands for, in the order of its lanes. */
 const TICK_KEY = [
   ['#f6b646', 'Sunset or sunrise'],
   ['#e5e3dc', 'The battery runs out'],
-  ['#74adff', 'Earth rises'],
+  ['#74adff', 'Earth rises or sets'],
 ] as const;
-/** A moment's mark on the date's bar, in its body's colour: the Sun's amber, Earth's blue, else white (the battery). */
-const tickColour = (kind: string) => (kind.startsWith('earth') ? '#74adff' : kind.startsWith('sun') ? '#f6b646' : '#e5e3dc');
+/** The lane of a moment's mark on the date bar: the Sun's over the line, Earth's under it, the battery's across it. */
+export function laneOf(kind: MomentKind): 'sun' | 'power' | 'earth' {
+  return kind.startsWith('earth') ? 'earth' : kind.startsWith('sun') ? 'sun' : 'power';
+}
+const LANE_COLOUR = { sun: '#f6b646', power: '#e5e3dc', earth: '#74adff' } as const;
+/** Where a lane's mark sits against the 3 px line: two marks a few hours apart in two lanes never cover each other. */
+const LANE_PLACE = { sun: 'bottom-[calc(50%+3px)] h-2', power: 'top-1/2 h-3 -translate-y-1/2', earth: 'top-[calc(50%+3px)] h-2' } as const;
 const DEG = Math.PI / 180;
 /** How far a pointer to a body out of view stands in from the view's edge, beyond half its own size, in pixels. */
 const EDGE_IN_PX = 12;
@@ -551,14 +556,14 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
         <div ref={barRef} hidden data-date-bar="" className="absolute left-1/2 top-4 w-[min(400px,calc(100%-32px))] -translate-x-1/2 rounded-[6px] border border-white/15 bg-black/75 px-3 pb-1.5 pt-1.5">
           <p ref={dateRef} data-date="" className="truncate text-[16px] leading-snug text-[#f6d48a]" />
           <p ref={stateRef} data-state="" className="truncate text-[15px] leading-snug text-[#e9e6df]" />
-          <div className="relative mx-1.5 mt-2.5 h-[3px] rounded-full bg-white/25">
+          <div className="relative mx-1.5 mt-3.5 h-[3px] rounded-full bg-white/25">
             <span ref={fillRef} className="absolute inset-y-0 left-0 rounded-full bg-white/70" />
             {moments.map((m) => (
-              <i key={m.kind} data-tick="" className="absolute top-1/2 h-3 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${(m.hour / (h.series.hours - 1)) * 100}%`, background: tickColour(m.kind) }} />
+              <i key={m.kind} data-tick="" data-lane={laneOf(m.kind)} className={`absolute w-[3px] -translate-x-1/2 rounded-full ${LANE_PLACE[laneOf(m.kind)]}`} style={{ left: `${(m.hour / (h.series.hours - 1)) * 100}%`, background: LANE_COLOUR[laneOf(m.kind)] }} />
             ))}
             <b ref={markRef} data-mark="" className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-black bg-[#f6d48a]" />
           </div>
-          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-[14px] text-[#c6c5c0]">
+          <p className="mt-3.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[15px] text-[#c6c5c0]">
             {TICK_KEY.map(([colour, text]) => (
               <span key={text} className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <i aria-hidden="true" className="inline-block h-3 w-[3px] rounded-full" style={{ background: colour }} />
