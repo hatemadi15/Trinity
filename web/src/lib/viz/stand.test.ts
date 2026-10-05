@@ -343,7 +343,7 @@ describe('the headline’s night', () => {
       'Landing at Alpha Ridge on 25 December: power for 3 days 4 hours, then 16 days without power',
     );
     // The line on what to watch next counts the same stretch the same way.
-    expect(watchNext(s, p, start, 100)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power with it, if the lander survives 16 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, p, start, 100)).toBe('Press Play or a moment on the time bar: the Sun rises on 20 January, and the power with it, if the lander survives 16 days without power at night, colder than −170 °C.');
   });
   it('counts a stretch of a day or less without power as a day, and says "1 day"', () => {
     // 10 hours without power, overnight: 2 January 16:00 to 3 January 02:00.
@@ -535,35 +535,35 @@ describe('what to watch for', () => {
   const start = '2027-01-01T00:00:00';
   // The key moments are flags on the time bar under the card: the line says they can be pressed.
   it('names the next thing that happens, and its day, and what follows within three days', () => {
-    expect(watchNext(s, p, start, 10)).toBe('Press Play or a flag below: the Sun sets behind the hills on 4 January, and the battery runs out on 5 January.');
-    expect(watchNext(s, p, start, 80)).toBe('Press Play or a flag below: the battery runs out on 5 January.');
+    expect(watchNext(s, p, start, 10)).toBe('Press Play or a moment on the time bar: the Sun sets behind the hills on 4 January, and the battery runs out on 5 January.');
+    expect(watchNext(s, p, start, 80)).toBe('Press Play or a moment on the time bar: the battery runs out on 5 January.');
     // No power from 5 January to 20 January: 15 days.
-    expect(watchNext(s, p, start, 467)).toBe('Press Play or a flag below: the power comes back on 20 January, if the lander survives 15 days without power at night, colder than −170 °C.');
-    expect(watchNext(s, null, start, 200)).toBe('Press Play or a flag below: the Sun rises on 20 January.');
+    expect(watchNext(s, p, start, 467)).toBe('Press Play or a moment on the time bar: the power comes back on 20 January, if the lander survives 15 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, null, start, 200)).toBe('Press Play or a moment on the time bar: the Sun rises on 20 January.');
   });
   it('says the day once when the second thing happens the same day', () => {
     // The Sun comes back at 466 and the power at 470, both on 20 January.
-    expect(watchNext(s, p, start, 200)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power with it, if the lander survives 15 days without power at night, colder than −170 °C.');
-    expect(watchNext(s, p, start, 300)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power with it, if the lander survives 15 days without power at night, colder than −170 °C.');
-    expect(watchNext(s, sameDay, start, 10)).toBe('Press Play or a flag below: the Sun sets behind the hills on 4 January, and the battery runs out the same day.');
+    expect(watchNext(s, p, start, 200)).toBe('Press Play or a moment on the time bar: the Sun rises on 20 January, and the power with it, if the lander survives 15 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, p, start, 300)).toBe('Press Play or a moment on the time bar: the Sun rises on 20 January, and the power with it, if the lander survives 15 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, sameDay, start, 10)).toBe('Press Play or a moment on the time bar: the Sun sets behind the hills on 4 January, and the battery runs out the same day.');
   });
   it('counts the Sun back with the first part of its disc, as the time bar draws it, so it comes back before the power', () => {
     // Three hours without power from the landing: at least a day.
     const dawn = series({ sunEl: [-0.5, -0.2, 0.1, 0.3], sunFraction: [0, 0, 0.3, 1] });
     const off = { powered: Uint8Array.from([0, 0, 0, 1]) } as unknown as PowerResult;
-    expect(watchNext(dawn, off, start, 0)).toBe('Press Play or a flag below: the Sun rises on 1 January, and the power with it, if the lander survives 1 day without power at night, colder than −170 °C.');
+    expect(watchNext(dawn, off, start, 0)).toBe('Press Play or a moment on the time bar: the Sun rises on 1 January, and the power with it, if the lander survives 1 day without power at night, colder than −170 °C.');
     // In the same hour, the Sun comes first: the power comes back because of it.
     const same = { powered: Uint8Array.from([0, 0, 1, 1]) } as unknown as PowerResult;
-    expect(watchNext(dawn, same, start, 0)).toBe('Press Play or a flag below: the Sun rises on 1 January, and the power with it, if the lander survives 1 day without power at night, colder than −170 °C.');
+    expect(watchNext(dawn, same, start, 0)).toBe('Press Play or a moment on the time bar: the Sun rises on 1 January, and the power with it, if the lander survives 1 day without power at night, colder than −170 °C.');
   });
   // "At night", not "a night": night is the one name for the hours without the Sun, whether it set below the
   // horizon or behind the hills, as the time bar's key ("night") and its flag ("Sunset") have it.
   it('says the power comes back only if the lander survives so many days without power at night and that cold, never "a night", and nothing of the kind when it does not come back', () => {
     // The Sun comes back on 20 January and the power on 21 January, 16 days after it ran out: the condition
     // ends the sentence.
-    expect(watchNext(s, late, start, 200)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power comes back on 21 January, if the lander survives 16 days without power at night, colder than −170 °C.');
-    expect(watchNext(s, late, start, 470)).toBe('Press Play or a flag below: the power comes back on 21 January, if the lander survives 16 days without power at night, colder than −170 °C.');
-    expect(watchNext(s, late, start, 10)).toBe('Press Play or a flag below: the Sun sets behind the hills on 4 January, and the battery runs out on 5 January.');
+    expect(watchNext(s, late, start, 200)).toBe('Press Play or a moment on the time bar: the Sun rises on 20 January, and the power comes back on 21 January, if the lander survives 16 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, late, start, 470)).toBe('Press Play or a moment on the time bar: the power comes back on 21 January, if the lander survives 16 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, late, start, 10)).toBe('Press Play or a moment on the time bar: the Sun sets behind the hills on 4 January, and the battery runs out on 5 January.');
     // The Sun set behind the hills for the whole stretch without power, still up: night all the same, never "a night".
     const hidden = series({ sunEl: Array.from({ length: hours }, () => 0.8), sunFraction: Array.from({ length: hours }, (_, h) => (lit(h) ? 1 : 0)) });
     for (const h of [10, 80, 200, 467]) expect(watchNext(hidden, late, start, h)).not.toMatch(/\ba night\b/);
@@ -573,21 +573,21 @@ describe('what to watch for', () => {
     // with a stronger Sun at 60, on 3 January.
     const weak = series({ sunEl: Array.from({ length: 96 }, () => 1), sunFraction: Array.from({ length: 96 }, (_, h) => (h >= 20 && h < 60 ? 0.05 : 1)) });
     const dim = { powered: Uint8Array.from({ length: 96 }, (_, h) => (h < 30 || h >= 60 ? 1 : 0)) } as unknown as PowerResult;
-    expect(watchNext(weak, dim, start, 40)).toBe('Press Play or a flag below: the power comes back on 3 January, if the lander survives 1 day without power.');
+    expect(watchNext(weak, dim, start, 40)).toBe('Press Play or a moment on the time bar: the power comes back on 3 January, if the lander survives 1 day without power.');
   });
   it('keeps the condition with the power when the Sun goes after it, so it does not read as a condition on the Sun', () => {
     // The Sun is up from hour 1 to 4; the power comes back at 3, and the Sun sets behind the hills at 5.
     const brief = series({ sunEl: [1, 1, 1, 1, 1, 1, 1, 1], sunFraction: [0, 1, 1, 1, 1, 0, 0, 0] });
     const back = { powered: Uint8Array.from([0, 0, 0, 1, 1, 1, 0, 0]) } as unknown as PowerResult;
-    expect(watchNext(brief, back, start, 1)).toBe('Press Play or a flag below: the power comes back on 1 January, if the lander survives 1 day without power at night, colder than −170 °C, and the Sun sets behind the hills the same day.');
+    expect(watchNext(brief, back, start, 1)).toBe('Press Play or a moment on the time bar: the power comes back on 1 January, if the lander survives 1 day without power at night, colder than −170 °C, and the Sun sets behind the hills the same day.');
   });
 
   it('says the Sun sets below the horizon when it goes down, and sets behind the hills while it is still up', () => {
     const night = series({ sunEl: [1, 1, -0.4, -0.4], sunFraction: [1, 1, 0, 0] });
-    expect(watchNext(night, null, start, 0)).toBe('Press Play or a flag below: the Sun sets below the horizon on 1 January.');
+    expect(watchNext(night, null, start, 0)).toBe('Press Play or a moment on the time bar: the Sun sets below the horizon on 1 January.');
     // A Sun still above the level horizon sets behind the hills.
     const hills = series({ sunEl: [1, 1, 0.4, 0.4], sunFraction: [1, 1, 0, 0] });
-    expect(watchNext(hills, null, start, 0)).toBe('Press Play or a flag below: the Sun sets behind the hills on 1 January.');
+    expect(watchNext(hills, null, start, 0)).toBe('Press Play or a moment on the time bar: the Sun sets behind the hills on 1 January.');
   });
   // In short parts a student can take one at a time: where you stand, then what each thing drawn comes from.
   it('says where you stand, near which pole, and what is measured and what is drawn, at the top of the card, and under More only the latitude and the site’s own note', () => {
@@ -1072,10 +1072,10 @@ describe('the stand view’s words on real data', () => {
     // The pole is as far off as the site's own note says.
     expect(site.blurb).toContain('52 km from the pole');
     expect(whyLines(site.lat, s, 10)).toContain('North and south still work here: the pole itself is 52 km to the south.');
-    expect(watchNext(s, p, start, 10)).toBe('Press Play or a flag below: the Sun sets behind the hills on 3 January, and the battery runs out on 4 January.');
+    expect(watchNext(s, p, start, 10)).toBe('Press Play or a moment on the time bar: the Sun sets behind the hills on 3 January, and the battery runs out on 4 January.');
     // No power from 4 January to 20 January, as the headline counts it, at night: the Sun set behind the hills
     // on 3 January.
-    expect(watchNext(s, p, start, 219)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power with it, if the lander survives 16 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, p, start, 219)).toBe('Press Play or a moment on the time bar: the Sun rises on 20 January, and the power with it, if the lander survives 16 days without power at night, colder than −170 °C.');
     expect(radioNext(s, p, start)).toBe('The first day the lander has both power and a view of Earth is 20 January.');
     expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'power', text: 'Power on. No radio: Earth is below the horizon.' });
     // With the battery's size, as the page gives it: still full at hour 10, with the Sun up.

@@ -126,8 +126,9 @@ export function liveSentence(s: Series, hour: number, powered?: boolean): string
 /**
  * One line on what to watch next: the first change after the hour, of the Sun (any part of its disc in
  * view, as the time bar draws it) or of the lander's power, with its day; and the other kind's next change
- * when it follows within three days. It starts "Press Play or a flag below:", as the key moments are flags
- * on the time bar under the card: "Press Play or a flag below: the Sun sets behind the hills on 3 January,
+ * when it follows within three days. It starts "Press Play or a moment on the time bar:", as the key moments are
+ * buttons there, dots on a phone, which neither reader of read D1 took for "flags": "Press Play or a moment on the
+ * time bar: the Sun sets behind the hills on 3 January,
  * and the battery runs out on 4 January." A Sun that leaves the view while still above the level horizon
  * "sets behind the hills"; below it, it "sets below the horizon". On the same day the day is said once: "...:
  * the Sun rises on 20 January, and the power with it, if the lander survives 16 days without power at night,
@@ -151,7 +152,7 @@ export function watchNext(s: Series, p: PowerResult | null, startUtc: string, ho
   };
   // Kept next to the power coming back, so that it never reads as a condition on the Sun.
   const ifSurvives = (c: Change) => (p && c.kind === 'power' && c.back ? `, if the lander survives ${offWords(s, p, startUtc, c.h)}` : '');
-  const lead = 'Press Play or a flag below:';
+  const lead = 'Press Play or a moment on the time bar:';
   const first = next(hour);
   if (!first) return 'Press Play to watch the light move across the ground.';
   const day = dateLong(startUtc, first.h);
