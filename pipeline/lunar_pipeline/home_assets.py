@@ -17,7 +17,7 @@ import numpy as np
 
 from . import config
 from .ephemeris import load_table
-from .geometry import azel_from_body_vectors, ps_south_xy_m
+from .geometry import azel_from_body_vectors, ps_south_xy_m, site_vector_km
 from .horizon import mask_at_azimuth
 from .illumination import disk_fraction, hourly_series, sun_radius_deg
 from .landing import best_landing, powered_from
@@ -71,6 +71,10 @@ def sky_series(site: Site, mask: np.ndarray, table: np.ndarray, header: dict, st
         "earth_hill_el": r2(earth_hill),
         "earth_visible": [int(v) for v in earth_visible],
         "earth_pct": round(100.0 * float(earth_visible.mean()), 1),
+        # The Sun's distance (AU) and Earth's (km), for the arrival's light and for Earth seen from space: the
+        # Sun's from the Moon's centre, as the engine's sunAu; Earth's from the site, as are its directions.
+        "sun_au": [round(float(v), 5) for v in np.linalg.norm(rows[:, 0, :], axis=1) / config.AU_KM],
+        "earth_km": [round(float(v)) for v in np.linalg.norm(rows[:, 1, :] - site_vector_km(site.lat, site.lon, 0.0), axis=1)],
     }
 
 
@@ -84,7 +88,14 @@ def battery_facts(series: dict, cfg: PowerConfig, hours: int) -> dict:
         "now_hours": powered_from(power_series(series, cfg), cfg, 0, hours),
         "best_hour": best["hour"] if best else None,
         "best_hours": best["powered_hours"] if best else None,
+        "best_earth_fraction": round(float(best["earth_fraction"]), 4) if best else None,
     }
+
+
+def mask_block(elevation_deg) -> dict:
+    """The site's skyline for the arrival's standing view: directions from north, clockwise, to 0.01 degrees."""
+    el = [round(float(v), 2) for v in elevation_deg]
+    return {"az0": 0.0, "step": 360.0 / len(el), "el": el}
 
 
 def night(lit) -> dict | None:
@@ -215,6 +226,7 @@ def write_all(web_dir: Path = config.REPO_ROOT / "web") -> list[Path]:
     relief_path = write_jpeg(web_dir / "public" / "maps" / "south-pole-relief.jpg", relief_image(grids["L1"]))
     val = config.DATA_DIR / "validation"
     read = lambda name: json.loads((val / name).read_text(encoding="utf-8"))
+    mask_doc = json.loads((config.DATA_DIR / "masks" / f"{site.id}.json").read_text(encoding="utf-8"))
     doc = {
         "generated_utc": datetime.now(UTC).isoformat(timespec="seconds"),
         "hero": {
@@ -223,8 +235,10 @@ def write_all(web_dir: Path = config.REPO_ROOT / "web") -> list[Path]:
             "image": "/hero/de-gerlache-rim-2.jpg",
             "frame_utc": (_utc(HERO_START) + timedelta(hours=HERO_FRAME_HOUR)).strftime("%Y-%m-%dT%H:%M:%S"),
             **meta,
+            "site_height_m": round(float(mask_doc["site_height_m"]), 2),
         },
         "sky": {"start_utc": HERO_START, "hours": HERO_HOURS, **sky, "night": night(sky["lit"])},
+        "mask": mask_block(mask_doc["elevation_deg"]),
         "pair": {
             "site_sun_pct": sky["sunlit_pct"],
             "rim_site_id": rim.id,

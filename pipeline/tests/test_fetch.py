@@ -66,9 +66,10 @@ def test_manifest_lists_required_files():
         "de440s.bsp", "ldem_875s_20m.img", "ldem_875s_20m.lbl", "ldem_80s_80m.img",
         "ldem_60s_240m.img", "avgvisib_85s_060m_201608.img", "avgvisib_85s_060m_201608_earth.img",
         "lpsr_85s_060m_201608.img", "heasarc_bsc5p.tdat.gz", "land_shallow_topo_2048.jpg", "cloud_combined_2048.jpg",
+        "lroc_color_poles_4k.tif", "ldem_16_uint.tif",
     ]:
         assert required in names
-    assert {a.group for a in assets()} == {"kernels", "lola", "illumination", "textures", "sky"}
+    assert {a.group for a in assets()} == {"kernels", "lola", "illumination", "textures", "sky", "globe"}
 
 
 def test_lola_and_illumination_come_from_the_lola_data_node():

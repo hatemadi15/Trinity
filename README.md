@@ -10,12 +10,16 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
 
 ## A tour of the pages
 
-- **Home** (`/`): what the tool answers, in one real month. The forecast band shows the Sun and
-  Earth over de Gerlache Rim 2 in January 2027 and what that means for a small lander. Three
-  drawings explain why the south pole is hard (the Sun never climbs, the hills decide, Earth sets
-  too). "Start from a real place" pairs a computed shadow picture of the ridge with three places to
-  open: the ridge, and the Athena and Blue Ghost landers of March 2025, which open Explore at the
-  first whole hour after each one landed. The page ends with the three checks against NASA.
+- **Home** (`/`): what the tool answers, in one real month. It opens with the arrival, by scrolling
+  or in 21 seconds with "Fly to the south pole": the whole Moon with Earth beyond its south pole,
+  the pole from 900 km, the polar cap and the ridge, then landing beside a lander at de Gerlache
+  Rim 2 and its January sped up (the Sun slips behind a hill, the battery runs out, Earth comes into
+  view too late, the Sun comes back), with the answer for the site. The forecast band
+  shows the Sun and Earth over de Gerlache Rim 2 in January 2027 and what that means for a small
+  lander. Three drawings explain why the south pole is hard (the Sun never climbs, the hills decide,
+  Earth sets too). "Start from a real place" pairs a computed shadow picture of the ridge with three
+  places to open: the ridge, and the Athena and Blue Ghost landers of March 2025, which open Explore
+  at the first whole hour after each one landed. The page ends with the three checks against NASA.
 - **Choose a landing site** (`/sites`): the 19 places in the catalogue (the nine Artemis III
   candidate regions, the landing spots of three commercial landers, and high points and crater
   floors), sorted by how long a lander keeps power from its best landing day in the chosen period,

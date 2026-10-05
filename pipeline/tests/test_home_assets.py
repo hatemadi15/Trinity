@@ -29,6 +29,9 @@ def test_sky_series_carries_earth_against_the_hills_in_its_direction():
     assert sky["earth_pct"] == pytest.approx(33.3, abs=0.05)
     assert len(sky["earth_az"]) == 3
     assert sky["lit"] == [1, 1, 1]
+    # The Sun's distance in AU and Earth's in km, hour by hour, for the arrival's light and Earth's place.
+    assert sky["sun_au"] == pytest.approx([1.496e8 / 149_597_870.7] * 3, abs=1e-5)
+    assert sky["earth_km"] == [384400, 384400, 384400]
 
 
 def test_battery_facts_give_the_time_with_power_now_and_on_the_best_day():
@@ -40,9 +43,16 @@ def test_battery_facts_give_the_time_with_power_now_and_on_the_best_day():
     n = sun.size
     series = {"sun_az": np.zeros(n), "sun_el": np.full(n, 5.0), "sun_fraction": sun, "sun_au": np.ones(n), "earth_visible": np.zeros(n, dtype=bool)}
     # Landing at hour 0: ten dark hours on the battery, twenty sunlit, then the battery runs out ten hours into the next night.
-    assert home_assets.battery_facts(series, cfg, n) == {"lander": config_dict(cfg), "now_hours": 40, "best_hour": 10, "best_hours": 30}
+    assert home_assets.battery_facts(series, cfg, n) == {"lander": config_dict(cfg), "now_hours": 40, "best_hour": 10, "best_hours": 30, "best_earth_fraction": 0.0}
     dark = dict(series, sun_fraction=np.zeros(n))
-    assert home_assets.battery_facts(dark, cfg, n) == {"lander": config_dict(cfg), "now_hours": 10, "best_hour": None, "best_hours": None}
+    assert home_assets.battery_facts(dark, cfg, n) == {"lander": config_dict(cfg), "now_hours": 10, "best_hour": None, "best_hours": None, "best_earth_fraction": None}
+
+
+def test_mask_block_gives_the_skyline_by_direction_to_a_hundredth_of_a_degree():
+    from lunar_pipeline.home_assets import mask_block
+
+    block = mask_block([1.234567] * 720)
+    assert block["az0"] == 0.0 and block["step"] == 0.5 and len(block["el"]) == 720 and block["el"][0] == 1.23
 
 
 def test_night_finds_the_longest_unlit_run_and_the_sunrise_after_it():

@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import type { Series } from '@/lib/engine/metrics';
 import type { SkyAssets } from '@/lib/data/sky';
+import type { GlobeAssets } from '@/lib/data/globe';
+import { R_MOON_M } from '@/lib/engine/constants';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS } from './boulders';
-import { dirAzEl } from './frames';
-import { bounceShare, buildScene, lookUpTarget, shadowOnGround, toTextureHeights, type StandScene } from './standRenderer';
+import { dirAzEl, enuBasis, type Vec3 } from './frames';
+import { bounceShare, buildScene, lookUpTarget, shadowOnGround, threesOwnTextures, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, meshHeightAt, terrainField } from './terrainField';
 
 const series = {
@@ -42,6 +44,11 @@ const elevationDeg = (v: THREE.Vector3) => THREE.MathUtils.radToDeg(Math.asin(v.
 function levels() {
   const level = (n: number, cell: number, h: number) => ({ heights: new Float32Array(n * n).fill(h), width: n, height: n, pxM: cell, siteCol: (n - 1) / 2, siteRow: (n - 1) / 2 });
   return [level(481, 960, 100), level(512, 80, 100), level(1024, 20, 100)];
+}
+/** As levels(), with the arrival's cap: 961 cells of 960 m, reaching 460 km each way from the site. */
+function wideLevels() {
+  const [cap, context, window] = levels();
+  return [{ ...cap, heights: new Float32Array(961 * 961).fill(100), width: 961, height: 961, siteCol: 480, siteRow: 480 }, context, window];
 }
 
 describe('the stand scene', () => {
@@ -294,6 +301,40 @@ describe('the stand scene', () => {
     expect(lookUpTarget(sky, scene.site.lat, scene.site.lon, Date.parse(scene.startUtc + 'Z'))).toBeNull();
   });
 
+  it('gives the box round the lander on the screen, for the labels to keep off its body, and none when it is out of view', () => {
+    const s = buildScene(flat({ lander: { azDeg: 0, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(0);
+    s.setView(0, 0, 60, 16 / 9);
+    const l = s.labels(), box = l.landerBox!;
+    expect(box).toBeTruthy();
+    // Every corner of every part of the lander lies in it, and it is no wider than the lander's legs and panel.
+    s.root.updateMatrixWorld(true);
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    s.parts.lander!.traverse((o) => {
+      const p = (o as THREE.Mesh).isMesh ? (o as THREE.Mesh).geometry.getAttribute('position') : null;
+      for (let k = 0; p && k < p.count; k++) {
+        const q = new THREE.Vector3().fromBufferAttribute(p, k).applyMatrix4(o.matrixWorld).project(s.camera);
+        left = Math.min(left, (q.x + 1) / 2);
+        right = Math.max(right, (q.x + 1) / 2);
+        top = Math.min(top, (1 - q.y) / 2);
+        bottom = Math.max(bottom, (1 - q.y) / 2);
+      }
+    });
+    expect(box.left).toBeLessThanOrEqual(left);
+    expect(box.right).toBeGreaterThanOrEqual(right);
+    expect(box.top).toBeLessThanOrEqual(top);
+    expect(box.bottom).toBeGreaterThanOrEqual(bottom);
+    expect(box.right - box.left).toBeLessThan(1.6 * (right - left));
+    expect(box.bottom - box.top).toBeLessThan(1.3 * (bottom - top));
+    // Its name sits over the box, its parts in it.
+    expect(l.lander!.y).toBeLessThanOrEqual(box.top);
+    for (const p of Object.values(l.parts!)) expect(p.x > box.left && p.x < box.right && p.y > box.top && p.y < box.bottom).toBe(true);
+    // Behind the camera, or no lander: none.
+    s.setView(180, 0, 60, 16 / 9);
+    expect(s.labels().landerBox).toBeNull();
+    expect(buildScene(flat()).labels().landerBox).toBeNull();
+  });
+
   it('gives the screen positions of the lander’s panel, dish and power light, for their names when the view is close', () => {
     const s = buildScene(flat({ lander: { azDeg: 0, distM: 12, powered: Uint8Array.from([1, 1, 1]) } }));
     s.update(0);
@@ -310,7 +351,8 @@ describe('the stand scene', () => {
 
   it('draws the Sun as a hard disc with only a small glow and no starburst: there is no air to scatter its light', () => {
     const s = buildScene(flat());
-    const sprites = s.root.children.filter((o) => (o as THREE.Sprite).isSprite);
+    // The Sun's disc and its glare travel with the sky, round the camera.
+    const sprites = s.parts.sky.children.filter((o) => (o as THREE.Sprite).isSprite);
     expect(sprites).toHaveLength(2);
     // A faint glare four diameters out, no wider.
     expect(s.parts.glare.scale.x / s.parts.sun.scale.x).toBeLessThanOrEqual(7.5);
@@ -557,5 +599,602 @@ describe('the stand scene', () => {
     const s = buildScene(flat({ mastM: 0 }));
     expect(s.camera.position.y - meshHeightAt(flatField(-64.31), 0, 0)).toBeCloseTo(1.5, 6);
     expect(buildScene(flat({ mastM: 6 })).camera.position.y).toBeCloseTo(6, 6);
+  });
+});
+
+describe('the guides', () => {
+  it('draws the Sun’s and Earth’s paths through the period’s hours, faint through the hills and solid over them, and the level horizon all round', () => {
+    const s = buildScene(flat());
+    expect(guideBands(s)).toHaveLength(5); // the Sun solid and faint, Earth solid and faint, the level line
+    // The Sun's bands pass through the hour's direction: the middle of their first pair of corners.
+    for (const b of [band(s, SUN_BAND, false), band(s, SUN_BAND, true)]) {
+      const p = b.geometry.getAttribute('position');
+      const mid = new THREE.Vector3((p.getX(0) + p.getX(1)) / 2, (p.getY(0) + p.getY(1)) / 2, (p.getZ(0) + p.getZ(1)) / 2);
+      expect(elevationDeg(mid)).toBeCloseTo(2, 2);
+      expect(p.count).toBe(2 * series.hours);
+    }
+  });
+
+  it('draws the faint bands, the level horizon and the rings through the near ground and the hills alike, at their own angular sizes, and the lander after them, so it covers them', () => {
+    const s = buildScene(flat({ lander: { azDeg: 300, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(2); // the Sun hidden: its ring shows
+    s.setView(300, 2, 60, 16 / 9);
+    s.root.updateMatrixWorld(true);
+    const eye = s.camera.position;
+    const world = (b: THREE.Mesh, k: number) => new THREE.Vector3().fromBufferAttribute(b.geometry.getAttribute('position'), k).applyMatrix4(b.matrixWorld);
+    // Not tested against the depth of what is drawn before them: the slope a few metres uphill hides them no more than
+    // the far hills do, so the labels that name them always point at them.
+    for (const b of [band(s, SUN_BAND, true), band(s, EARTH_BAND, true), levelBand(s)]) {
+      expect(basic(b).depthTest).toBe(false);
+      // 0.15 degrees tall.
+      expect(THREE.MathUtils.radToDeg(world(b, 0).sub(eye).angleTo(world(b, 1).sub(eye)))).toBeCloseTo(0.15, 4);
+    }
+    // The solid bands stay on the sky, beyond the far skyline (200 km), which hides them where the hills do.
+    for (const b of [band(s, SUN_BAND, false), band(s, EARTH_BAND, false)]) {
+      expect(basic(b).depthTest).toBe(true);
+      expect(world(b, 0).distanceTo(eye)).toBeGreaterThan(250000);
+    }
+    // The rings, at their own angular sizes.
+    expect(s.parts.markers.sun.visible).toBe(true);
+    for (const [ring, deg] of [[s.parts.markers.sun, 1.6], [s.parts.markers.earth, 2.8]] as const) {
+      expect((ring.material as THREE.SpriteMaterial).depthTest).toBe(false);
+      const away = new THREE.Vector3().setFromMatrixPosition(ring.matrixWorld).distanceTo(eye);
+      const size = new THREE.Vector3().setFromMatrixScale(ring.matrixWorld).x;
+      expect(THREE.MathUtils.radToDeg(2 * Math.atan(size / 2 / away))).toBeCloseTo(deg, 6);
+    }
+    // The lander draws after every guide, so it covers them where it stands in front of them; solid, and tested against
+    // the depth of the ground drawn before it, so the hills still hide it as they hide the rest.
+    const lander = drawn(s.parts.lander!);
+    expect(lander.length).toBeGreaterThan(20);
+    // Every part of it drawn with the solid things, the guides as well (blended over what is drawn before them, by the
+    // same sum as three.js's normal blending): a lander drawn in three.js's transparent pass went missing from the
+    // arrival's view after the flight had passed over the cap.
+    for (const part of lander) expect(part.material.transparent).toBe(false);
+    for (const guide of drawn(s.parts.guides)) {
+      expect(guide.material.transparent).toBe(false);
+      expect(guide.material.blending).toBe(THREE.CustomBlending);
+    }
+    for (const part of lander) {
+      expect([part.material.opacity, part.material.depthTest, part.material.depthWrite]).toEqual([1, true, true]);
+      for (const guide of drawn(s.parts.guides)) expect(drawsAfter(part, guide)).toBe(true);
+      for (const ground of [...s.parts.ground, s.parts.ring!].flatMap(drawn)) {
+        expect(ground.material.depthWrite).toBe(true);
+        expect(drawsAfter(part, ground)).toBe(true);
+      }
+    }
+  });
+
+  it('rings a Sun the hills hide, where it sits, and none while any of it shows', () => {
+    const s = buildScene(flat());
+    s.update(2); // none of the Sun in view
+    expect(s.parts.markers.sun.visible).toBe(true);
+    expect(elevationDeg(s.parts.markers.sun.position)).toBeCloseTo(-1, 1);
+    s.update(0);
+    expect(s.parts.markers.sun.visible).toBe(false);
+  });
+
+  it('hides the guides with the words', () => {
+    const s = buildScene(flat());
+    s.setGuides(false);
+    expect(s.parts.guides.visible).toBe(false);
+  });
+
+  it('marks the key moments’ days on the paths, for labels', () => {
+    const s = buildScene(flat({ marks: [{ hour: 1, body: 'sun', text: '3 Jan' }] }));
+    s.update(0);
+    s.setView(300, 2, 60, 16 / 9);
+    expect(s.labels().marks).toEqual([expect.objectContaining({ text: '3 Jan', visible: true })]);
+    s.setGuides(false);
+    expect(s.labels().marks).toEqual([expect.objectContaining({ text: '3 Jan', visible: false })]);
+  });
+
+  it('names each path on a stretch of it that shows: in view, clear of the fading ends, above the level horizon and away from its body, and only with the guides', () => {
+    // The Sun goes once round in the month, 2 degrees above and below the level horizon by turns; Earth loops round
+    // 70 degrees, 4 degrees up.
+    const sunAz = (h: number) => (300 + (h * 360) / 708.73) % 360, sunEl = (h: number) => 2 * Math.sin((2 * Math.PI * h) / 120);
+    const earthAz = (h: number) => 70 + 7 * Math.sin((2 * Math.PI * h) / 655), earthEl = (h: number) => 4 + 6 * Math.cos((2 * Math.PI * h) / 680);
+    const s = buildScene(flat({ series: hourly(1000, sunAz, sunEl, earthAz, earthEl) }));
+    s.update(10); // the month drawn: hours 0 to 708
+    s.setView(300, 2, 60, 16 / 9);
+    const [sun, earth] = s.labels().pathNames!;
+    expect([sun.text, earth.text]).toEqual(["Sun's path this month", "Earth's path this month"]);
+    expect(sun.body).toBe('sun');
+    expect(sun.visible).toBe(true);
+    // On the Sun's path, in the month drawn but clear of the day fading at either end, above the level horizon, and
+    // 10 degrees or more from the Sun itself, whose own label names it.
+    const h = hourOnPath(s, sun, sunAz, sunEl, 1000);
+    expect(h).toBeGreaterThanOrEqual(24);
+    expect(h).toBeLessThanOrEqual(708 - 24);
+    expect(sunEl(h)).toBeGreaterThan(0);
+    expect(THREE.MathUtils.radToDeg(new THREE.Vector3(...dirAzEl(sunAz(h), sunEl(h))).angleTo(new THREE.Vector3(...dirAzEl(sunAz(10), sunEl(10)))))).toBeGreaterThanOrEqual(10);
+    expect(Math.abs(sun.x - 0.5)).toBeLessThan(0.4);
+    // Earth's loop is behind the camera: no name; facing it, its name on it.
+    expect(earth.visible).toBe(false);
+    s.setView(70, 4, 60, 16 / 9);
+    const e = s.labels().pathNames![1];
+    expect(e.visible).toBe(true);
+    expect(earthEl(hourOnPath(s, e, earthAz, earthEl, 1000))).toBeGreaterThan(0);
+    // Hidden with the words.
+    s.setGuides(false);
+    expect(s.labels().pathNames!.map((n) => n.visible)).toEqual([false, false]);
+  });
+
+  it('names the paths above their lines when asked, as the arrival shows them: Earth’s over the top of its loop, the Sun’s away from Earth’s loop', () => {
+    // Earth loops 14 degrees round 70, from 5 below level to 7 above; the Sun skims the horizon once round.
+    const sunAz = (h: number) => (300 + (h * 360) / 708.73) % 360, sunEl = (h: number) => 1.5 + Math.sin((2 * Math.PI * h) / 120);
+    const earthAz = (h: number) => 70 + 7 * Math.sin((2 * Math.PI * h) / 655), earthEl = (h: number) => 1 + 6 * Math.cos((2 * Math.PI * h) / 680);
+    const s = buildScene(flat({ series: hourly(1000, sunAz, sunEl, earthAz, earthEl) }));
+    s.update(340); // Earth at the foot of its loop, the Sun at 113 degrees
+    s.setView(70, 3, 60, 16 / 9);
+    const [sun, earth] = s.labels({ above: true }).pathNames!;
+    // Earth's at the loop's top, so none of the loop runs through the name over it.
+    expect(earth.visible).toBe(true);
+    expect(earthEl(hourOnPath(s, earth, earthAz, earthEl, 1000))).toBeGreaterThan(5.5);
+    // The Sun's 12 degrees or more round from any of Earth's loop, so it is never read as naming the loop.
+    expect(sun.visible).toBe(true);
+    const az = sunAz(hourOnPath(s, sun, sunAz, sunEl, 1000));
+    expect(az < 63 - 12 || az > 77 + 12).toBe(true);
+  });
+
+  it('gathers the paths’ names towards the middle it is given, as the arrival asks for the side its words leave free', () => {
+    const sunAz = (h: number) => (300 + (h * 360) / 708.73) % 360;
+    const s = buildScene(flat({ series: hourly(1000, sunAz, () => 2, () => 70, () => 4) }));
+    s.update(10);
+    s.setView(300, 2, 60, 16 / 9);
+    const middle = s.labels({ above: true }).pathNames![0], right = s.labels({ above: true, middle: 0.72 }).pathNames![0];
+    expect(right.visible).toBe(true);
+    expect(Math.abs(right.x - 0.72)).toBeLessThan(0.05);
+    expect(right.x).toBeGreaterThan(middle.x + 0.1);
+  });
+
+  it('dots each path where the hills hide it, as the chart below dots the hidden Sun: the faint band in dashes, the solid band whole', () => {
+    const s = buildScene(flat({ series: hourly(100, (h) => (300 + h * 0.5) % 360, () => 2, (h) => 70 + h * 0.05, () => 4) }));
+    const on = (b: THREE.Mesh) => pieces(b).map((t) => t.length > 0);
+    const faintSun = on(band(s, SUN_BAND, true)), solidSun = on(band(s, SUN_BAND, false)), faintEarth = on(band(s, EARTH_BAND, true));
+    // The Sun's in dashes two hours long (about a degree), Earth's, slower, sixteen hours long.
+    expect(faintSun.slice(0, 8)).toEqual([true, true, false, false, true, true, false, false]);
+    expect(faintEarth.slice(0, 33)).toEqual(Array.from({ length: 33 }, (_, h) => Math.floor(h / 16) % 2 === 0));
+    expect(solidSun.slice(0, 8).every(Boolean)).toBe(true);
+    // The level horizon all round, whole.
+    expect(on(levelBand(s)).every(Boolean)).toBe(true);
+  });
+
+  it('hides the level horizon alone when asked, as the arrival does, the paths still shown', () => {
+    const s = buildScene(flat());
+    s.setGuides(true, false);
+    expect(levelBand(s).visible).toBe(false);
+    expect(pathBands(s).every((b) => b.visible)).toBe(true);
+    s.setGuides(true);
+    expect(levelBand(s).visible).toBe(true);
+  });
+
+  it('names a path on a stretch of it the lander does not hide', () => {
+    // The lander due north, 16 m away; the Sun's path passes behind it, 2 degrees up, the Sun itself far round.
+    const sunAz = (h: number) => (100 + (h * 360) / 708.73) % 360;
+    const s = buildScene(flat({ lander: { azDeg: 0, distM: 16, powered: new Uint8Array(1000).fill(1) }, series: hourly(1000, sunAz, () => 2, () => 70, () => 4) }));
+    s.update(10);
+    s.setView(0, 2, 60, 16 / 9);
+    const l = s.labels(), box = l.landerBox!, sun = l.pathNames![0];
+    expect(sun.visible).toBe(true);
+    expect(hourOnPath(s, sun, sunAz, () => 2, 1000)).toBeGreaterThanOrEqual(0);
+    expect(sun.x < box.left || sun.x > box.right || sun.y < box.top || sun.y > box.bottom).toBe(true);
+    // Still as near the middle of the view as that allows.
+    expect(Math.min(Math.abs(sun.x - box.left), Math.abs(sun.x - box.right))).toBeLessThan(0.01);
+  });
+
+  it('names a path below the level horizon where all of it in view is, as through a dip in the skyline', () => {
+    // From a high point the skyline lies 3 degrees below level all round, and the Sun circles a degree below level.
+    const mask = { az0: 0, step: 0.5, el: new Array(720).fill(-3) };
+    const sunAz = (h: number) => (300 + (h * 360) / 708.73) % 360;
+    const s = buildScene(flat({ mask, series: hourly(800, sunAz, () => -1, () => 70, () => 4) }));
+    s.update(10);
+    s.setView(300, 0, 60, 16 / 9);
+    const sun = s.labels().pathNames![0];
+    expect(sun.visible).toBe(true);
+    expect(hourOnPath(s, sun, sunAz, () => -1, 800)).toBeGreaterThanOrEqual(24);
+  });
+
+  it('shows a moment’s chip only while its hour lies on the stretch of path drawn', () => {
+    const s = buildScene(flat({ series: hourly(1000, (h) => (300 + (h * 360) / 708.73) % 360, () => 2, () => 70, () => 4), marks: [{ hour: 900, body: 'sun', text: 'late' }] }));
+    // Facing where the Sun stands at hour 900 both times.
+    s.setView((300 + (900 * 360) / 708.73) % 360, 2, 60, 16 / 9);
+    s.update(10); // the stretch drawn: hours 0 to 708
+    expect(s.labels().marks![0].visible).toBe(false);
+    s.update(800); // now round hour 800, up to the period's end
+    expect(s.labels().marks![0].visible).toBe(true);
+  });
+
+  it('draws one synodic month of each path round the hour, so a period longer than a month never shows a path twice', () => {
+    // 30 days: longer than the 708.7 hours from one new Moon to the next, after which the Sun's path comes round
+    // again a little higher or lower and reads as two lines.
+    const s = buildScene(flat({ series: hourly(720, (h) => (300 + (h * 360) / 708.73) % 360, (h) => 2 - h / 700, (h) => 70 + h / 100, (h) => 4 + Math.sin(h / 50)) }));
+    for (const t of [2, 360.4, 717.6]) {
+      s.update(t);
+      for (const b of pathBands(s)) {
+        // The hours at the two ends of the pieces drawn, six indices an hour: a whole month, never more, round the hour.
+        const first = b.geometry.drawRange.start / 6, last = first + b.geometry.drawRange.count / 6;
+        expect(last - first).toBeLessThan(708.73);
+        expect(last - first).toBeGreaterThanOrEqual(708);
+        expect(first).toBeLessThanOrEqual(t);
+        expect(last).toBeGreaterThanOrEqual(t);
+      }
+    }
+    // A period of a month or less draws whole; the level horizon goes all round whatever the hour.
+    const short = buildScene(flat());
+    short.update(1);
+    for (const b of pathBands(short)) expect(b.geometry.drawRange).toEqual({ start: 0, count: 6 * (series.hours - 1) });
+    const level = levelBand(s);
+    expect(level.geometry.drawRange.count).toBeGreaterThanOrEqual(level.geometry.getIndex()!.count);
+  });
+
+  it('fades each path out over the first and last day of the month drawn, as the month follows the hour, so its two ends meeting read as no break or step', () => {
+    const s = buildScene(flat({ series: hourly(1000, (h) => (300 + (h * 360) / 708.73) % 360, () => 2, (h) => 70 + Math.sin(h / 50), () => 4) }));
+    const alpha = (b: THREE.Mesh, h: number) => {
+      const c = b.geometry.getAttribute('color');
+      return [c.getW(2 * h), c.getW(2 * h + 1)];
+    };
+    // Round hour 10 the month drawn is hours 0 to 708; round hour 800, hours 291 to 999.
+    for (const [t, first, last] of [[10, 0, 708], [800, 291, 999]]) {
+      s.update(t);
+      for (const b of pathBands(s)) {
+        expect(b.geometry.drawRange.start / 6).toBe(first);
+        expect(basic(b).vertexColors).toBe(true);
+        expect(alpha(b, first)).toEqual([0, 0]);
+        expect(alpha(b, last)).toEqual([0, 0]);
+        expect(alpha(b, first + 12)[0]).toBeCloseTo(0.5, 6);
+        expect(alpha(b, last - 6)[1]).toBeCloseTo(0.25, 6);
+        expect(alpha(b, first + 24)).toEqual([1, 1]);
+        expect(alpha(b, (first + last) / 2)).toEqual([1, 1]);
+        // White corners: the band keeps its own colour.
+        const c = b.geometry.getAttribute('color');
+        expect([c.getX(2 * first + 2), c.getY(2 * first + 2), c.getZ(2 * first + 2)]).toEqual([1, 1, 1]);
+      }
+    }
+    // The colours and opacities stay: the Sun's amber and Earth's blue, solid and faint.
+    expect(pathBands(s).map((b) => [basic(b).color.getHex(), basic(b).opacity])).toEqual([[SUN_BAND, 0.9], [SUN_BAND, 0.3], [EARTH_BAND, 0.9], [EARTH_BAND, 0.3]]);
+  });
+
+  it('draws nothing of a path below the level horizon, where it would run under the ground, and all of it above', () => {
+    // The Sun circles once in two days, dipping 3 degrees below the level horizon and coming back; Earth stays 4
+    // degrees up for a day, then lies just under the horizon, where its band's upper edge would peek over it.
+    const sunEl = (h: number) => 3 * Math.cos((2 * Math.PI * (h + 0.87)) / 48), earthEl = (h: number) => (h < 24 ? 4 : -0.05);
+    const s = buildScene(flat({ series: hourly(48, (h) => (h * 7.5) % 360, sunEl, (h) => 70 + h / 2, earthEl) }));
+    s.update(0);
+    const [sun, sunFaint, earth, earthFaint] = pathBands(s);
+    for (const [b, el, dash] of [[sun, sunEl, 0], [sunFaint, sunEl, 2], [earth, earthEl, 0], [earthFaint, earthEl, 16]] as const) {
+      const drawn = pieces(b);
+      // No triangle drawn wholly below the level horizon, not even where the path goes down through it...
+      expect(drawn.flat().filter((t) => t.every((v) => v.y < 0))).toHaveLength(0);
+      drawn.forEach((tris, i) => {
+        // ... nothing of an hour's piece whose two ends both lie below it, and the whole of each piece above it (the
+        // faint bands' in their dashes).
+        if (el(i) < 0 && el(i + 1) < 0) expect(tris).toHaveLength(0);
+        if (el(i) > 0 && el(i + 1) > 0) expect(tris).toHaveLength(inDash(dash, i) ? 2 : 0);
+      });
+    }
+  });
+
+  it('keeps a path where it shows below the level horizon, through a dip in the skyline: there it is in the sky, not under the ground', () => {
+    // From a high point the skyline can dip below level: here 2 degrees deep from 60 to 100 degrees round. Earth
+    // lies 1 degree below level, from 50 to 110 degrees round.
+    const mask = { az0: 0, step: 0.5, el: Array.from({ length: 720 }, (_, k) => (k * 0.5 >= 60 && k * 0.5 <= 100 ? -2 : 0)) };
+    const earthAz = (h: number) => 50 + 1.25 * h;
+    const s = buildScene(flat({ mask, series: hourly(48, (h) => 300 + h / 10, () => 2, earthAz, () => -1) }));
+    s.update(0);
+    for (const [b, dash] of [[pathBands(s)[2], 0], [pathBands(s)[3], 16]] as const) {
+      pieces(b).forEach((tris, i) => {
+        // In the dip, where Earth shows, its path draws (the faint band in its dashes); on either side, under the
+        // ground, nothing.
+        if (earthAz(i) > 61 && earthAz(i + 1) < 99) expect(tris).toHaveLength(inDash(dash, i) ? 2 : 0);
+        if (earthAz(i + 1) < 59 || earthAz(i) > 101) expect(tris).toHaveLength(0);
+      });
+    }
+  });
+});
+
+/** A series of `hours` hours with the Sun and Earth along the given azimuths and heights, both in view all the while. */
+function hourly(hours: number, sunAz: (h: number) => number, sunEl: (h: number) => number, earthAz: (h: number) => number, earthEl: (h: number) => number): Series {
+  const of = (f: (h: number) => number) => Float64Array.from({ length: hours }, (_, h) => f(h));
+  return { i0: 0, hours, sunAz: of(sunAz), sunEl: of(sunEl), earthAz: of(earthAz), earthEl: of(earthEl), sunFraction: of(() => 1), earthVisible: new Uint8Array(hours).fill(1), sunAu: of(() => 1) } as Series;
+}
+type Built = ReturnType<typeof buildScene>;
+const basic = (m: THREE.Mesh) => m.material as THREE.MeshBasicMaterial;
+/** The guides' bands, wherever they hang in the guides' group. */
+const guideBands = (s: Built) => {
+  const out: THREE.Mesh[] = [];
+  s.parts.guides.traverse((o) => {
+    if (o instanceof THREE.Mesh) out.push(o);
+  });
+  return out;
+};
+/** The Sun's band and Earth's, by their colours. */
+const SUN_BAND = 0xf6b646, EARTH_BAND = 0x74adff;
+/** A path's band: solid (over the hills) or faint (through them). */
+const band = (s: Built, colour: number, faint: boolean) => guideBands(s).find((b) => basic(b).color.getHex() === colour && (basic(b).opacity < 0.5) === faint)!;
+/** The guides' four path bands, in order: the Sun's solid and faint, Earth's solid and faint. */
+const pathBands = (s: Built) => [band(s, SUN_BAND, false), band(s, SUN_BAND, true), band(s, EARTH_BAND, false), band(s, EARTH_BAND, true)];
+/** The level horizon's band, white all round. */
+const levelBand = (s: Built) => guideBands(s).find((b) => basic(b).color.getHex() === 0xffffff)!;
+/** The hour of a path whose place on the screen a label marks, or -1 when it marks none. */
+const hourOnPath = (s: Built, at: { x: number; y: number }, az: (h: number) => number, el: (h: number) => number, hours: number) => {
+  for (let h = 0; h < hours; h++) {
+    const p = new THREE.Vector3(...dirAzEl(az(h), el(h))).multiplyScalar(1000).add(s.camera.position).project(s.camera);
+    if (Math.abs((p.x + 1) / 2 - at.x) < 1e-6 && Math.abs((1 - p.y) / 2 - at.y) < 1e-6) return h;
+  }
+  return -1;
+};
+/**
+ * What three.js draws for each mesh and sprite in an object, one for each of its materials, with what sorts it: the
+ * renderOrder of the group round it (the nearest THREE.Group above it), its own, and its material.
+ */
+type Drawn = { object: THREE.Object3D; material: THREE.Material; group: number };
+const drawn = (o: THREE.Object3D): Drawn[] => {
+  const out: Drawn[] = [];
+  o.traverse((x) => {
+    if (!(x as THREE.Mesh).isMesh && !(x as THREE.Sprite).isSprite) return;
+    let group = 0;
+    for (let p = x.parent; p; p = p.parent) {
+      if ((p as THREE.Group).isGroup) {
+        group = p.renderOrder;
+        break;
+      }
+    }
+    const m = (x as THREE.Mesh).material;
+    for (const material of Array.isArray(m) ? m : [m]) out.push({ object: x, material, group });
+  });
+  return out;
+};
+/**
+ * Whether three.js draws `a` after `b`, as its render lists sort them: everything solid first, then everything
+ * transparent; within each, by the renderOrder of the group round it, then by its own. (Only then by distance, which
+ * this leaves out: two that tie on those count as neither after the other.)
+ */
+const drawsAfter = (a: Drawn, b: Drawn) => {
+  const key = (d: Drawn) => [d.material.transparent ? 1 : 0, d.group, d.object.renderOrder];
+  const [x, y] = [key(a), key(b)];
+  const i = x.findIndex((v, k) => v !== y[k]);
+  return i >= 0 && x[i] > y[i];
+};
+/** Whether an hour's piece of a band drawn in dashes `dash` hours long (0: whole) falls in a dash, not a gap. */
+const inDash = (dash: number, i: number) => dash === 0 || Math.floor(i / dash) % 2 === 0;
+/** Each hour's piece of a band, as its triangles that draw anything (those with an area), each as its three corners. */
+const pieces = (b: THREE.Mesh) => {
+  const p = b.geometry.getAttribute('position'), index = b.geometry.getIndex()!;
+  return Array.from({ length: index.count / 6 }, (_, i) =>
+    [0, 3]
+      .map((o) => [0, 1, 2].map((j) => new THREE.Vector3().fromBufferAttribute(p, index.getX(6 * i + o + j))))
+      .filter((t) => new THREE.Triangle(t[0], t[1], t[2]).getArea() > 0),
+  );
+};
+
+const globe: GlobeAssets = { color: { low: 'c1.jpg', high: 'c4.jpg' }, normal: { low: 'n1.jpg', high: 'n4.jpg' }, heights: { width: 4, height: 2, metres: new Float32Array(8) }, albedoScale: 0.8, credit: '' };
+/** A camera at `position` looking along `look` (straight down by default). */
+const at = (position: Vec3, look: Vec3 = [0, -1, 0]) => {
+  const m = new THREE.Matrix4().lookAt(new THREE.Vector3(...position), new THREE.Vector3(...position).add(new THREE.Vector3(...look)), new THREE.Vector3(0, 0, -1));
+  const q = new THREE.Quaternion().setFromRotationMatrix(m);
+  return { position, quaternion: [q.x, q.y, q.z, q.w] as [number, number, number, number], fov: 50, shift: [0, 0] as [number, number] };
+};
+
+describe('the stand scene in flight', () => {
+  it('puts the globe round the site: the Moon’s centre its radius and the site’s height below the site', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 190.33 }));
+    const m = s.parts.globe!.matrix;
+    expect(new THREE.Vector3(0, 0, 0).applyMatrix4(m).y).toBeCloseTo(-(R_MOON_M + 190.33), 3);
+    const b = enuBasis(-88.28, -64.31);
+    expect(new THREE.Vector3(...b.up).multiplyScalar(R_MOON_M + 190.33).applyMatrix4(m).length()).toBeLessThan(1);
+  });
+
+  it('carries the sky with the camera and sees Earth where it is from there, the Sun where it always is', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 190.33, earthKm: [384400, 384400, 384400] }));
+    s.update(0);
+    s.setPose(at([3.0e6, 1.0e6, 0]), 1.6);
+    expect(s.parts.sky.position.x).toBeCloseTo(3.0e6, 3);
+    // Earth sits in the sky group, which sits on the camera: its place in the group is its direction from the camera.
+    const seen = new THREE.Vector3().setFromMatrixPosition(s.parts.earth.matrix).normalize();
+    const truth = new THREE.Vector3(...dirAzEl(70, 4)).multiplyScalar(384400e3).add(new THREE.Vector3(0, 2, 0)).sub(new THREE.Vector3(3.0e6, 1.0e6, 0)).normalize();
+    expect(seen.angleTo(truth)).toBeLessThan(1e-6);
+    // 1,300 km of the camera's offset lies square to Earth's direction: a fifth of a degree of parallax.
+    expect(seen.angleTo(new THREE.Vector3(...dirAzEl(70, 4)))).toBeGreaterThan(0.003);
+    // The Sun does not move with the camera.
+    expect(new THREE.Vector3().copy(s.parts.sun.position).normalize().angleTo(new THREE.Vector3(...dirAzEl(300, 2)))).toBeLessThan(1e-6);
+  });
+
+  it('meshes the cap to 205 km with the globe, the ring beyond it cut at 455 km in flight, and the cap at 125 km once standing, with the skyline only standing', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const coarse = s.parts.ground[2], ring = s.parts.ground[3];
+    let reach = 0;
+    const p = coarse.geometry.getAttribute('position');
+    for (let i = 0; i < p.count; i++) reach = Math.max(reach, Math.hypot(p.getX(i), p.getZ(i)));
+    expect(reach).toBeGreaterThan(200000);
+    const farCut = (m: THREE.Mesh) => (m.material as THREE.ShaderMaterial).uniforms.uFarCut.value;
+    s.setPose(at([0, 90000, 0]), 1.6);
+    expect(farCut(coarse)).toBeGreaterThan(1e8);
+    expect(farCut(ring)).toBe(455000);
+    expect(s.parts.ring!.visible).toBe(false);
+    s.setView(300, 2, 60, 1.6);
+    expect(farCut(coarse)).toBe(125000);
+    expect(s.parts.ring!.visible).toBe(true);
+    // The skyline is the eye's own horizon: 60 m up, the near crests already drop below it, so it waits for the last metres.
+    s.setPose(at([0, 60, 0]), 1.6);
+    expect(farCut(coarse)).toBeGreaterThan(1e8);
+    expect(s.parts.ring!.visible).toBe(false);
+    s.setPose(at([0, 5, 0]), 1.6);
+    expect(farCut(coarse)).toBe(125000);
+    expect(s.parts.ring!.visible).toBe(true);
+  });
+
+  it('casts no one’s shadow in flight: the arrival’s camera is not a person standing at the site', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    for (const g of s.parts.ground) expect(((g as THREE.Mesh).material as THREE.ShaderMaterial).uniforms.uViewer.value.x).toBeGreaterThan(1e6);
+    // Standing in the stand view, your own shadow at your feet.
+    const stand = buildScene(flat({ field: terrainField(levels(), -64.31, 100) }));
+    for (const g of stand.parts.ground) expect(((g as THREE.Mesh).material as THREE.ShaderMaterial).uniforms.uViewer.value.x).toBe(0);
+  });
+
+  it('draws the sky and the globe alone before the ground has loaded: no ground, skyline, rocks or lander', () => {
+    const s = buildScene(flat({ globe, ground: false, lander: { azDeg: 90, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    expect(s.parts.ground).toHaveLength(0);
+    expect(s.parts.ring).toBeNull();
+    expect(s.parts.lander).toBeNull();
+    expect(s.parts.boulders.children).toHaveLength(0);
+    expect(s.parts.globe).not.toBeNull();
+  });
+
+  it('keeps the stand view as it was: setView brings the camera back to the eye and the sky to its own size', () => {
+    const s = buildScene(flat());
+    s.setPose(at([0, 5000, 0]), 1.6);
+    s.setView(300, 2, 46, 16 / 9);
+    expect([s.camera.position.x, s.camera.position.z]).toEqual([0, 0]);
+    expect(s.camera.position.y).toBeCloseTo(2, 6);
+    expect(s.parts.sky.position.y).toBeCloseTo(2, 6);
+    expect(s.parts.sky.scale.x).toBe(1);
+    expect(s.parts.globe).toBeNull();
+  });
+
+  it('exposes for the sunlit Moon from space, and as the stand view does at the eye', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 0 }));
+    s.update(0);
+    s.setView(120, 2, 60, 1.6);
+    const eye = s.exposure();
+    s.setPose(at([0, 7.0e6, 0]), 1.6);
+    expect(s.exposure()).toBeCloseTo(1.8, 6);
+    s.setView(120, 2, 60, 1.6);
+    expect(s.exposure()).toBeCloseTo(eye, 9);
+  });
+
+  it('keeps the night’s long-exposure light for the eye: from above, the ground has only the light that is there', () => {
+    // Neither the Sun nor Earth in view at the site at hour 2: the eye's night light is on.
+    const dark = { ...series, earthEl: Float64Array.from([-3, -3, -3]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100), series: dark }));
+    const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
+    s.update(2);
+    s.setView(300, 2, 60, 1.6);
+    expect(u.uNight.value).toBeGreaterThan(0.3);
+    s.setPose(at([0, 90000, 0]), 1.6);
+    s.update(2);
+    expect(u.uNight.value).toBe(0);
+    s.setView(300, 2, 60, 1.6);
+    expect(u.uNight.value).toBeGreaterThan(0.3);
+  });
+
+  it('draws the measured ground only below 1600 km: higher, the globe shows the whole Moon, the pole too', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const cut = (s.parts.globe!.material as THREE.ShaderMaterial).uniforms.uCut;
+    s.setPose(at([0, 2.0e6, 0]), 1.6);
+    expect(s.parts.ground.every((g) => !g.visible)).toBe(true);
+    expect(cut.value).toBeGreaterThan(1);
+    // Over the pole for the month's sweep, 900 km up: the measured ground, the globe only beyond 455 km.
+    s.setPose(at([0, 9.0e5, 0]), 1.6);
+    expect(s.parts.ground.every((g) => g.visible)).toBe(true);
+    expect(cut.value).toBeCloseTo(Math.cos(455000 / R_MOON_M), 9);
+  });
+
+  it('gives the shadows no bounce from the sunlit dust round the eye once aloft, so the night side far off stays black', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const u = (s.parts.ground[0].material as THREE.ShaderMaterial).uniforms;
+    s.update(0); // the Sun up at the site
+    s.setView(300, 2, 60, 1.6);
+    expect(u.uBounce.value).toBeGreaterThan(0);
+    s.setPose(at([0, 9.0e4, 0]), 1.6);
+    expect(u.uBounce.value).toBe(0);
+  });
+
+  it('turns the globe’s colour beside the measured ground into the ground’s own grey, so the cut leaves no step in brightness', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const g = (s.parts.globe!.material as THREE.ShaderMaterial);
+    expect(g.fragmentShader).toMatch(/mix\(vec3\(0\.17, 0\.164, 0\.156\)[^;]*uBlendM/);
+    s.setPose(at([0, 9.0e5, 0]), 1.6);
+    expect(g.uniforms.uBlendM.value).toBe(455000);
+    s.setPose(at([0, 9.0e6, 0]), 1.6);
+    expect(g.uniforms.uBlendM.value).toBeLessThan(0);
+  });
+
+  it('lights the night side faintly by Earth from the air, the measured ground and the globe alike, so it reads as ground and their join shows no ring', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100), series: hourly(3, () => 300, () => -5, () => 70, () => -6) }));
+    const ground = (s.parts.ground[2].material as THREE.ShaderMaterial).uniforms, sphere = (s.parts.globe!.material as THREE.ShaderMaterial).uniforms;
+    s.update(0); // the Sun and Earth both below the site's horizon
+    s.setView(300, 2, 60, 1.6);
+    expect(ground.uEarthshine.value).toBe(0); // standing: Earth is down here
+    s.setPose(at([0, 9.0e5, 0]), 1.6);
+    // From the air each slope takes Earth's light as it faces Earth; the globe the same, by the same rule.
+    expect(ground.uEarthshine.value).toBeGreaterThan(0);
+    expect(sphere.uEarthshine.value).toBeCloseTo(ground.uEarthshine.value, 9);
+    expect((s.parts.globe!.material as THREE.ShaderMaterial).fragmentShader).toContain('uEarthshine * 0.9 * mue / (mue + mu)');
+  });
+
+  it('draws the far craters on every level of the measured ground, the near detail on the finest alone, and neither when the view is set to fast', () => {
+    const full = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100) }));
+    const u = (m: THREE.Mesh) => (m.material as THREE.ShaderMaterial).uniforms;
+    expect(full.parts.ground.map((g) => u(g).uFarDetail.value)).toEqual([1, 1, 1, 1]);
+    expect(full.parts.ground.map((g) => u(g).uDetail.value)).toEqual([1, 0, 0, 0]);
+    const fast = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(levels(), -64.31, 100), quality: 'fast' }));
+    expect(fast.parts.ground.map((g) => u(g).uFarDetail.value)).toEqual([0, 0, 0, 0]);
+  });
+
+  it('meshes the cap out to 455 km in flight, the part beyond 205 km as a ring of cells twice as wide, so the pole view is all measured ground', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, field: terrainField(wideLevels(), -64.31, 100) }));
+    expect(s.parts.ground).toHaveLength(4);
+    const ring = s.parts.ground[3], inner = s.parts.ground[2];
+    const p = ring.geometry.getAttribute('position');
+    let reach = 0;
+    for (let i = 0; i < p.count; i++) reach = Math.max(reach, Math.hypot(p.getX(i), p.getZ(i)));
+    expect(reach).toBeGreaterThan(455000);
+    expect(p.count).toBeLessThan(300000); // 1920 m cells: a quarter of the 960 m grid's
+    const farCut = (m: THREE.Mesh) => (m.material as THREE.ShaderMaterial).uniforms.uFarCut.value;
+    s.setPose(at([0, 9.0e5, 0]), 1.6);
+    expect(farCut(ring)).toBe(455000);
+    expect(farCut(inner)).toBeGreaterThan(1e8); // the ring carries on from its edge
+    // Standing: the inner cap to 125 km and the far skyline, as in the stand view; no ring.
+    s.setView(300, 2, 60, 1.6);
+    expect(farCut(inner)).toBe(125000);
+    expect(ring.visible).toBe(false);
+  });
+
+  it('draws the faint bands, the level horizon and the rings through the ground at the arrival’s end too, at their own angular sizes where the sky is scaled up round the camera, and the lander after them', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 100, lander: { azDeg: 300, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(2);
+    // Standing at the eye, looking north.
+    const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(new THREE.Vector3(0, 2, 0), new THREE.Vector3(0, 2, -1), new THREE.Vector3(0, 1, 0)));
+    s.setPose({ position: [0, 2, 0], quaternion: [q.x, q.y, q.z, q.w], fov: 60, shift: [0, 0] }, 1.6);
+    expect(s.parts.sky.scale.x).toBeGreaterThan(10);
+    s.root.updateMatrixWorld(true);
+    const eye = s.camera.position;
+    const world = (b: THREE.Mesh, k: number) => new THREE.Vector3().fromBufferAttribute(b.geometry.getAttribute('position'), k).applyMatrix4(b.matrixWorld);
+    for (const b of [band(s, SUN_BAND, true), band(s, EARTH_BAND, true), levelBand(s)]) {
+      expect(basic(b).depthTest).toBe(false);
+      expect(THREE.MathUtils.radToDeg(world(b, 0).sub(eye).angleTo(world(b, 1).sub(eye)))).toBeCloseTo(0.15, 4);
+    }
+    expect((s.parts.markers.sun.material as THREE.SpriteMaterial).depthTest).toBe(false);
+    const away = new THREE.Vector3().setFromMatrixPosition(s.parts.markers.sun.matrixWorld).distanceTo(eye);
+    const size = new THREE.Vector3().setFromMatrixScale(s.parts.markers.sun.matrixWorld).x;
+    expect(THREE.MathUtils.radToDeg(2 * Math.atan(size / 2 / away))).toBeCloseTo(1.6, 6);
+    // The solid bands stay with the sky, far beyond the measured ground.
+    const solid = band(s, SUN_BAND, false);
+    expect(world(solid, 0).distanceTo(eye)).toBeGreaterThan(1e6);
+    // The lander covers them here as in the stand view.
+    for (const part of drawn(s.parts.lander!)) for (const guide of drawn(s.parts.guides)) expect(drawsAfter(part, guide)).toBe(true);
+  });
+
+  it('hides a point behind the Moon from a camera in space, and shows one on the near side', () => {
+    const s = buildScene(flat({ globe, siteHeightM: 0 }));
+    s.setPose(at([0, 4.0e6, 0]), 1.6);
+    expect(s.project([0, 0, 0], true).visible).toBe(true); // the site, below the camera
+    expect(s.project([0, -2 * R_MOON_M, 0], true).visible).toBe(false); // the far side's pole, behind the Moon
+  });
+});
+
+describe('what a renderer that goes gives back', () => {
+  it('finds the textures three hands to the materials itself and keeps for the page (its shading table), once each', () => {
+    const table = new THREE.DataTexture(new Uint16Array(16 * 16 * 2), 16, 16), own = new THREE.Texture();
+    const metal = new THREE.MeshStandardMaterial(), foil = new THREE.MeshStandardMaterial({ map: own }), plain = new THREE.ShaderMaterial();
+    const root = new THREE.Scene();
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(), metal), new THREE.Mesh(new THREE.BoxGeometry(), [foil, plain]));
+    // The renderer's own uniforms for each material, as three keeps them: the table on the physically based ones.
+    const uniforms = new Map<object, unknown>([
+      [metal, { uniforms: { dfgLUT: { value: table } } }],
+      [foil, { uniforms: { dfgLUT: { value: table }, map: { value: own } } }],
+    ]);
+    const found = threesOwnTextures(root, { get: (o: object) => uniforms.get(o) ?? {} });
+    expect(found).toEqual([table]);
   });
 });

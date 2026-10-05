@@ -1,12 +1,57 @@
 import { BOULDER_GLSL } from './boulders';
 import { LANDER_GLSL } from './landerShape';
-import { HIDE_GLSL, SHADOW, SHADOW_GLSL } from './shadowRule';
+import { HIDE_GLSL, hiddenShadowShare, SHADOW, SHADOW_GLSL } from './shadowRule';
 
 /*
  * The stand view's shaders, from the approved mockup: the ground (regolith light, the engine's shadows,
  * metre-scale craters and rocks drawn near the eye, with their own long shadows, and the lander's shadow),
  * Earth (NASA's Blue Marble, lit by the true Sun) and the stars.
  */
+
+/**
+ * The drawn craters' look by age, each pair from worn (age 0) to fresh (age 1), in the crater's radii: how deep its
+ * bowl is from the rim's crest (DEPTH: a twentieth to a fifth of its width, as on the Moon), how high its rim stands
+ * over the plain round it (RIM), over how much of the radius either side of the crest bowl and rim are rounded into
+ * each other (CREST), and how far the rim wanders in and out round the crater, all told (WANDER). A crater's age is a
+ * random number to the power AGE_POWER, so most craters are worn and only a few fresh: about one in nine is older
+ * than 0.7. Its ejecta reaches OUT radii from its middle, and there the crater has fallen to nothing.
+ */
+export const CRATER = { DEPTH: [0.1, 0.42], RIM: [0.015, 0.075], CREST: [0.45, 0.12], WANDER: [0.3, 0.12], AGE_POWER: 3, OUT: 1.8 } as const;
+
+/** A number for the shaders, to three places. */
+const f3 = (x: number) => x.toFixed(3);
+
+/**
+ * A crater's relief, in its radii, at r radii from its middle (the ground shader's craterShape): a bowl `depth` deep
+ * from the rim's crest, a rim `rim` high over the plain, the two rounded into each other over `crest` radii either side
+ * of the crest, and outside it the ejecta thinning to nothing, with no slope left, at CRATER.OUT radii. Its height and
+ * its slope run on smoothly everywhere: no crater ends in an edge, which would draw as a thin ring.
+ */
+export function craterShape(r: number, depth: number, rim: number, crest: number): number {
+  const x = Math.min(1, Math.max(0, (r - 1) / (CRATER.OUT - 1))), apron = rim * (1 - x * x) ** 2;
+  const t = Math.min(1, Math.max(0, (r - 1 + crest) / (2 * crest))), w = t * t * (3 - 2 * t);
+  return (rim + depth * (r * r - 1)) * (1 - w) + apron * w;
+}
+
+/** A crater's look at an age, 0 worn to 1 fresh (CRATER), as the ground shader draws it before its own variations. */
+export function craterLook(age: number): { depth: number; rim: number; crest: number; wander: number } {
+  const at = ([worn, fresh]: readonly [number, number]) => worn + (fresh - worn) * age;
+  return { depth: at(CRATER.DEPTH), rim: at(CRATER.RIM), crest: at(CRATER.CREST), wander: at(CRATER.WANDER) };
+}
+
+/**
+ * Where the eye comes round from looking down-Sun to looking across it, the share of the drawn bumps' shadows they
+ * hide from it (hiddenShadowShare) fades out: from the cosine HIDE_FADE (60 degrees round, along the ground) to none
+ * at 0 (square to the Sun's way). That share is not small there, and would otherwise drop to nothing at once along a
+ * straight line through the ground under the eye: the near ground smooth on one side of it and pitted on the other.
+ */
+export const HIDE_FADE = 0.5;
+
+/** The share of the drawn bumps' shadows hidden from the eye, as the ground shader takes it (see HIDE_FADE). */
+export function hiddenShare(tanSun: number, tanDip: number, cosPlan: number): number {
+  const x = Math.min(1, Math.max(0, cosPlan / HIDE_FADE));
+  return hiddenShadowShare(tanSun, tanDip, cosPlan) * x * x * (3 - 2 * x);
+}
 
 export const GROUND_VERT = /* glsl */ `
 varying vec3 vWorld; varying vec3 vNormal;
@@ -21,8 +66,8 @@ void main() {
 export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
-uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uSunPower; uniform vec2 uHole;
-uniform float uLanderOn, uSunUp, uBounce, uNight; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
+uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uFarDetail, uSunPower; uniform vec2 uHole;
+uniform float uLanderOn, uSunUp, uBounce, uNight, uFarCut; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
 ${SHADOW_GLSL}
 ${HIDE_GLSL}
 ${BOULDER_GLSL}
@@ -34,35 +79,54 @@ vec2 hash2(vec2 p) { p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183
 float hash1(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash1(i), hash1(i + vec2(1, 0)), u.x), mix(hash1(i + vec2(0, 1)), hash1(i + vec2(1, 1)), u.x), u.y); }
-// Bowl-shaped craters with raised rims, scattered irregularly like a cratered plain (drawn, not measured):
-// about four cells in ten hold one, many small and few large, each with its own, shallow, depth.
-float craters(vec2 p, float cell) {
+// Two random numbers for a cell, from its place, without sines: they stay random for the large cell numbers far
+// over the cap, where a sine's precision gives out and its values start to repeat in rows.
+vec2 cellHash(vec2 p) {
+  vec3 q = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+  q += dot(q, q.yzx + 33.33);
+  return fract((q.xx + q.yz) * q.zy);
+}
+// A crater's relief, in its radii, at r radii from its middle (craterShape in shaders.ts): a bowl depth deep from the
+// rim's crest, a rim rim high over the plain round it, the two rounded into each other over crest radii either side
+// of the crest, and outside it the rim's ejecta thinning to nothing, with no slope left, at ${f3(CRATER.OUT)} radii.
+// Nowhere an edge, so no crater draws as a thin ring.
+float craterShape(float r, float depth, float rim, float crest) {
+  float x = clamp((r - 1.0) / ${f3(CRATER.OUT - 1)}, 0.0, 1.0), apron = rim * (1.0 - x * x) * (1.0 - x * x);
+  return mix(rim + depth * (r * r - 1.0), apron, smoothstep(1.0 - crest, 1.0 + crest, r));
+}
+// Craters scattered irregularly over a plain (drawn, not measured), in cells cell metres wide: about presence of
+// the cells hold one, many small and few large, of every age (CRATER): most worn, shallow and soft, a few fresh,
+// deep and sharp. Each rim wanders in and out round its crater and stands higher in some places than others, so no
+// crater is a perfect circle and their shadows have ragged edges. seed tells the layers apart.
+float craterField(vec2 p, float cell, float presence, float seed) {
   vec2 g = floor(p / cell), f = p / cell - g; float h = 0.0;
   for (int j = -uOne; j <= uOne; j++) for (int i = -uOne; i <= uOne; i++) {
-    vec2 o = vec2(float(i), float(j)); vec2 rnd = hash2(g + o);
-    if (fract(rnd.x * 7.13 + rnd.y * 3.31) > 0.4) continue;
-    vec2 c = o + rnd; float rad = mix(0.1, 0.45, pow(fract(rnd.x * 17.31 + rnd.y), 2.2));
-    float depth = mix(0.08, 0.16, fract(rnd.y * 5.77 + rnd.x));
-    // Each crater a little out of round, with its own rim: old ones soft and low, young ones sharp.
-    vec2 d = f - c; float ang = 6.2832 * fract(rnd.x * 3.7 + rnd.y * 9.1);
-    vec2 dr = vec2(d.x * cos(ang) + d.y * sin(ang), (-d.x * sin(ang) + d.y * cos(ang)) * mix(1.0, 1.35, fract(rnd.y * 13.3)));
-    float r = length(dr) / rad, age = fract(rnd.x * 21.7 + rnd.y * 4.3);
-    if (r < 1.8) {
-      float bowl = r < 1.0 ? (r * r - 1.0) : 0.0; float rim = mix(0.12, 0.38, age) * exp(-pow((r - 1.0) * mix(2.0, 4.0, age), 2.0));
-      // Rims are uneven, higher in some places than others, so their shadows have ragged edges.
-      rim *= 0.55 + 0.9 * vnoise(dr / rad * 2.5 + rnd * 37.0);
-      h += (bowl * depth * mix(0.6, 1.0, age) + rim) * rad * cell;
-    }
+    vec2 o = vec2(float(i), float(j)); vec2 rnd = cellHash(g + o + seed);
+    if (fract(rnd.x * 7.13 + rnd.y * 3.31) > presence) continue;
+    float rad = mix(0.1, 0.45, pow(fract(rnd.x * 17.31 + rnd.y), 2.2));
+    vec2 d = f - o - rnd; float dl = length(d);
+    // Out of its reach, however far its rim wanders out.
+    if (dl > rad * ${f3(CRATER.OUT * (1 + CRATER.WANDER[0] / 2))}) continue;
+    float age = pow(fract(rnd.x * 21.7 + rnd.y * 4.3), ${CRATER.AGE_POWER.toFixed(1)});
+    float wander = vnoise(d / max(dl, 1.0e-5) * 1.5 + rnd * 37.0);
+    float r = dl / (rad * (1.0 + mix(${f3(CRATER.WANDER[0])}, ${f3(CRATER.WANDER[1])}, age) * (wander - 0.5)));
+    float rim = mix(${f3(CRATER.RIM[0])}, ${f3(CRATER.RIM[1])}, age);
+    rim *= 0.6 + 0.8 * wander;
+    float depth = mix(${f3(CRATER.DEPTH[0])}, ${f3(CRATER.DEPTH[1])}, age) * (0.8 + 0.4 * fract(rnd.y * 5.77 + rnd.x));
+    h += craterShape(r, depth, rim, mix(${f3(CRATER.CREST[0])}, ${f3(CRATER.CREST[1])}, age)) * rad * cell;
   }
   return h;
 }
+// The near ground's craters: more than half the cells hold one, most of them worn and faint.
+float craters(vec2 p, float cell) { return craterField(p, cell, 0.55, 0.0); }
 // Stones, each a lumpy low dome a little brighter than the dust, in two layers: rocks (about one cell in six
 // of 1.5 m holds one 0.1 to 0.6 m across, few of them large) and pebbles (two cells in five of 0.6 m hold one
-// 3 to 14 cm across). r0 and r1 are the smallest and largest radius in metres; seed tells the layers apart.
+// 3 to 14 cm across). r0 and r1 are the smallest and largest radius in metres; seed tells the layers apart. Each
+// stands a quarter of a cell or more in from its cell's edges, so none is cut off straight along one.
 float stones(vec2 p, float cell, float seed, float presence, float r0, float r1, out float bright) {
   vec2 g = floor(p / cell), f = p / cell - g; vec2 rnd = hash2(g + seed); bright = 0.0;
   if (fract(rnd.x * 11.7 + rnd.y * 2.3) > presence) return 0.0;
-  vec2 v = f - (0.2 + 0.6 * rnd);
+  vec2 v = f - (0.25 + 0.5 * rnd);
   // Lumpy: the outline swells and dents with the direction from the stone's centre.
   float lump = 1.0 + 0.35 * (vnoise(normalize(v + 1.0e-5) * 1.7 + rnd * 23.0) - 0.5);
   float rad = mix(r0, r1, rnd.y * rnd.y) * lump; float r = length(v) * cell / rad;
@@ -76,9 +140,9 @@ float grain(vec2 p, float px) {
 }
 // The big craters alone: from more than 9 m off, only they rise high enough to shade a point.
 float bigH(vec2 p, float px) {
-  float h = craters(p, 46.0) * 0.4 * smoothstep(1.5, 4.0, 46.0 / px);
+  float h = craters(p, 46.0) * 0.6 * smoothstep(1.5, 4.0, 46.0 / px);
   float k = smoothstep(1.5, 4.0, 11.0 / px);
-  if (k > 0.0) h += craters(p + 17.0, 11.0) * 0.6 * k;
+  if (k > 0.0) h += craters(p + 17.0, 11.0) * 0.7 * k;
   return h;
 }
 // Each size fades out as it shrinks towards a pixel (px: metres of ground per pixel), so nothing sparkles;
@@ -100,28 +164,44 @@ float detailRise(vec2 p, float h0, vec2 d, float px) {
   for (int i = 0; i < 12 * uOne; i++) { rise = max(rise, (bigH(p + d * t, px) - h0) / t); t *= 1.24; }
   return rise;
 }
+// The far ground's craters: fewer than the near ground's (a quarter of the cells hold one), so from the air the
+// ground reads as cratered rather than stamped, or as bubble wrap.
+float farCraters(vec2 p, float cell) { return craterField(p, cell, 0.25, 7.0); }
+// Seen from afar (the flight over the cap, the far hills from the eye): craters from about 20 m to about 1.5 km
+// across, drawn too, below what the measured cells show (960 m on the cap). Each size fades in once it spans a few
+// pixels, so nothing sparkles, and they only shade: the shadows still come from the measured ground.
+float farH(vec2 p, float px) {
+  float h = 0.0, k = smoothstep(1.5, 4.0, 800.0 / px);
+  if (k > 0.0) h += farCraters(p + 577.0, 800.0) * k;
+  k = smoothstep(1.5, 4.0, 200.0 / px);
+  if (k > 0.0) h += farCraters(p + 919.0, 200.0) * k;
+  k = smoothstep(1.5, 4.0, 50.0 / px);
+  if (k > 0.0) h += farCraters(p + 1307.0, 50.0) * k;
+  return h;
+}
 // A layer of stones' own shadows: cell by cell along the ray towards the Sun (the cells stones() lays that
-// layer out in), out to reach metres, each stone a low dome on the drawn ground. Returns the least angle by
-// which the ray clears one (negative through it); grow (0 to 1) fades the stones in as they grow larger than
-// a pixel.
+// layer out in), each stone a low dome on the drawn ground, its shadow faded out between 0.6 and 1 times reach
+// metres along the ray. The march goes on a cell and a half beyond that, so every stone whose shadow still shows
+// is reached: none stops along the edge of a cell that drops out of the march. Returns the least angle by which
+// the ray clears one (negative through it); grow (0 to 1) fades the stones in as they grow larger than a pixel.
 float rockMargin(vec2 p, float h0, vec2 d, float tanEff, float px, float grow, float cell, float seed, float presence, float r0, float r1, float reach) {
   float res = 1.0;
   if (grow <= 0.0) return res;
   vec2 g = floor(p / cell), st = sign(d), inv = 1.0 / max(abs(d), vec2(1.0e-5));
   vec2 next = ((g + max(st, 0.0)) * cell - p) * st * inv, delta = cell * inv;
-  for (int i = 0; i < 10 * uOne; i++) {
+  for (int i = 0; i < 14 * uOne; i++) {
     vec2 rnd = hash2(g + seed);
     if (fract(rnd.x * 11.7 + rnd.y * 2.3) <= presence) {
       float rad = mix(r0, r1, rnd.y * rnd.y);
-      vec2 v = (g + 0.2 + 0.6 * rnd) * cell - p;
+      vec2 v = (g + 0.25 + 0.5 * rnd) * cell - p;
       float tc = dot(v, d), e = abs(v.x * d.y - v.y * d.x);
       if (tc > 0.05 && e < rad + 0.5) {
         float top = detailH(p + v, px) + 0.8 * rad * grow * sqrt(max(0.0, 1.0 - e * e / (rad * rad)));
-        res = min(res, max(h0 + tc * tanEff - top, e - rad) / tc);
+        res = min(res, mix(max(h0 + tc * tanEff - top, e - rad) / tc, 1.0, smoothstep(0.6 * reach, reach, tc)));
       }
     }
     if (next.x < next.y) { g.x += st.x; next.x += delta.x; } else { g.y += st.y; next.y += delta.y; }
-    if (min(next.x, next.y) > reach) break;
+    if (min(next.x, next.y) > reach + 1.5 * cell) break;
   }
   return res;
 }
@@ -153,12 +233,16 @@ float viewerClearance(vec3 p, vec3 L) {
 }
 // A shadow's margin (radians by which the Sun's centre clears what would hide it) as light: spread over the
 // Sun's disc, or over the margin's change across one pixel where that is wider, so far edges never stair-step.
-float soft(float m) { return clamp(m / max(${(2 * SHADOW.SUN_RADIUS_RAD).toFixed(5)}, fwidth(m)) + 0.5, 0.0, 1.0); }
+// The margin is first held within about ten widths of the Sun either way, which keeps every edge as it was: where
+// it jumps from one clear value to another (as where your own shadow's reach ends, on the line square to the Sun
+// under your feet), its change across the pixel would otherwise half darken a line one pixel wide.
+float soft(float m) { m = clamp(m, -0.05, 0.05); return clamp(m / max(${(2 * SHADOW.SUN_RADIUS_RAD).toFixed(5)}, fwidth(m)) + 0.5, 0.0, 1.0); }
 void main() {
   #include <logdepthbuf_fragment>
   float px = max(length(fwidth(vWorld.xz)), 1.0e-3); // metres of ground per pixel, taken before any branch or discard
   vec2 m = toMap(vWorld.xz);
   if (abs(m.x) < uHole.x && abs(m.y) < uHole.y) discard; // a finer level draws here
+  if (dot(m, m) > uFarCut * uFarCut) discard; // beyond this the globe, or the far skyline, draws
   vec3 N0 = normalize(vNormal), Nn = N0;
   vec3 Ls = normalize(uSun), V = normalize(cameraPosition - vWorld);
   float dist = length(vWorld - cameraPosition);
@@ -174,12 +258,16 @@ void main() {
   }
   float albedoVar = 1.0;
   // Looking down-Sun the drawn bumps would hide their own shadows and the sides they turn from the Sun, as
-  // real ones do: over the measured ground's surface, how much of each is out of the eye's sight.
+  // real ones do: over the measured ground's surface, how much of each is out of the eye's sight (hiddenShare),
+  // fading to none as the eye comes round square to the Sun, where the share would otherwise drop to nothing at
+  // once along a straight line through the ground under the eye.
   float sv = dot(V, N0), ss = dot(Ls, N0);
   vec3 vAlong = V - N0 * sv, sAlong = Ls - N0 * ss;
-  float hide = hiddenShadowShare(ss / max(length(sAlong), 1.0e-5), sv / max(length(vAlong), 1.0e-5), dot(vAlong, sAlong) / max(length(vAlong) * length(sAlong), 1.0e-5));
+  float cosPlan = dot(vAlong, sAlong) / max(length(vAlong) * length(sAlong), 1.0e-5);
+  float hide = hiddenShadowShare(ss / max(length(sAlong), 1.0e-5), sv / max(length(vAlong), 1.0e-5), cosPlan) * smoothstep(0.0, ${HIDE_FADE.toFixed(2)}, cosPlan);
   if (uDetail > 0.5) {
-    float w = 1.0 - smoothstep(250.0, 1600.0, dist);
+    // Near the eye only, and not seen from above (the flight's last metres), where they read as bubble wrap.
+    float w = (1.0 - smoothstep(250.0, 1600.0, dist)) * (1.0 - smoothstep(20.0, 120.0, cameraPosition.y - vWorld.y));
     if (w > 0.0) {
       float e = max(0.15, px); float h0 = detailH(vWorld.xz, px), hx = detailH(vWorld.xz + vec2(e, 0.0), px), hz = detailH(vWorld.xz + vec2(0.0, e), px);
       float b0, bx, bz, c0, cx, cz;
@@ -203,6 +291,12 @@ void main() {
         wDetail = w;
       }
     }
+  }
+  // From afar, farH's craters on every level of the measured ground, faded in as the near ones fade out (by 1600 m).
+  float wFar = smoothstep(800.0, 2400.0, dist);
+  if (uFarDetail > 0.5 && wFar > 0.0) {
+    float e = max(px, 1.0), f0 = farH(vWorld.xz, px), fx = farH(vWorld.xz + vec2(e, 0.0), px), fz = farH(vWorld.xz + vec2(0.0, e), px);
+    Nn = normalize(Nn - vec3((fx - f0) / e, 0.0, (fz - f0) / e) * wFar * (1.0 - hide));
   }
   albedoVar += 0.1 * (vnoise(vWorld.xz * 0.004) - 0.5);
   float mu0 = max(dot(Nn, Ls), 0.0), mu = max(dot(Nn, V), 0.03);

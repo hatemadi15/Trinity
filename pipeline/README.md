@@ -17,6 +17,18 @@ Offline pipeline that converts NASA data into the static artifacts used by the w
     uv run python -m lunar_pipeline.cli horizons-fetch
     uv run python -m lunar_pipeline.cli horizons-compare
     uv run python -m lunar_pipeline.cli report --site shackleton_center_rim_high
+    uv run python -m lunar_pipeline.cli fetch --group globe
+    uv run python -m lunar_pipeline.cli globe
+    uv run python -m lunar_pipeline.cli sync-local --tiles
+
+`fetch --group globe` downloads two files of NASA's CGI Moon Kit (Scientific Visualization Studio,
+https://svs.gsfc.nasa.gov/4720) into `data_raw/globe`, 44 MB in all: `lroc_color_poles_4k.tif` (the LROC WAC
+colour map with its poles filled, 4096 × 2048) and `ldem_16_uint.tif` (LOLA's heights at 16 pixels a degree).
+`globe` resamples them into `data_out/globe` for the home page's arrival, about 5.3 MB: colour and normal maps
+at 1K and 4K, heights at 4 pixels a degree (`moon_heights_1440.u16` and its `.json`) and `manifest.json` (the
+files, their layout, the albedo scale that matches the south cap to the stand view's ground, and the credit).
+`sync-local --tiles` copies the set into `web/public/data/globe`, and `publish-r2` uploads it with the rest of
+`web/public/data`.
 
 ## Tests
 
