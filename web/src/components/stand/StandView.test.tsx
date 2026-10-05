@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { earthLitFraction } from '@/lib/sky/earth';
+import { dirAzEl } from '@/lib/sky/frames';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
@@ -637,6 +639,20 @@ describe('StandView', () => {
       Object.defineProperty(window, 'innerWidth', { value: was.w, configurable: true });
       Object.defineProperty(window, 'innerHeight', { value: was.h, configurable: true });
     }
+  });
+
+  it('says Earthlight tints the ground blue only while Earth is lit enough to, and a thin crescent gives little light', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=219');
+    const s = store.getState().series!;
+    const lit = (h: number) => earthLitFraction(dirAzEl(s.sunAz[h], s.sunEl[h]), dirAzEl(s.earthAz[h], s.earthEl[h]));
+    // 10 January, Earth well lit; 20 January before sunrise, a thin crescent: both at night with Earth in view.
+    expect([s.sunFraction[219], s.earthVisible[219], s.sunFraction[460], s.earthVisible[460]]).toEqual([0, 1, 0, 1]);
+    expect(lit(219)).toBeGreaterThanOrEqual(0.25);
+    expect(lit(460)).toBeLessThan(0.25);
+    expect(screen.getByText(viewCaption('earthlight', -88.28))).toBeTruthy();
+    act(() => store.getState().setCursor(460));
+    await waitFor(() => expect(screen.getByText(viewCaption('faint', -88.28))).toBeTruthy());
+    expect(screen.queryByText(viewCaption('earthlight', -88.28))).toBeNull();
   });
 
   it('opens a night with Earth up on Earth, narrower, so it shows large', async () => {

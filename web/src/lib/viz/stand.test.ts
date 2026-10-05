@@ -838,6 +838,11 @@ describe('the line over the view', () => {
     expect(viewCaption('earthlight', -88.28)).toBe('Earthlight, sunlight bounced off Earth, lights this ground and tints it blue; brightened like a long exposure.');
     expect(viewCaption('earthlight', 18.56)).toBe(viewCaption('earthlight', -88.28));
   });
+  // Both readers of read D1 found grey ground under "tints it blue" when Earth was a thin crescent.
+  it('says a thin crescent Earth gives the ground little light, in two lines at most', () => {
+    expect(viewCaption('faint', -88.28)).toBe('A thin crescent Earth gives this ground little light; brightened like a long exposure.');
+    expect(viewCaption('faint', -88.28).length).toBeLessThanOrEqual(112);
+  });
   // A Sun just gone reads as dusk unless something says there is no twilight, and a brightened view must not
   // pass for what eyes would see. Far peaks still in sunlight over the dark site are left to the lines on why.
   it('says neither the Sun nor Earth lights the ground, that the view is brightened like a long exposure, and that there is no twilight', () => {

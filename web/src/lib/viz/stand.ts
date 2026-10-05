@@ -314,12 +314,13 @@ const APOLLO = "Apollo's cameras used short exposures for the bright ground, too
  * the glare the stars show, as in the view, which like a camera set for the sunlit ground shows none by day
  * until it looks up; from a southern site, first which way the view turned, towards the Southern Cross. When
  * night falls with Earth in view ("earthlight"): that Earthlight lights the ground and tints it blue, brightened like
- * a long exposure (both readers of part B read 7 found the blue unexplained). At an hour with neither the Sun nor Earth in view ("dark"): that neither lights the ground, that
- * the view is brightened like a long exposure, and that with no air there is no twilight; that higher ground
- * farther off may still catch the Sun is left to whyLines. After Face the lander ("lander"): landerCaption's
- * line for a view of the panel's face.
+ * a long exposure (both readers of part B read 7 found the blue unexplained); with Earth a thin crescent ("faint"),
+ * that it gives the ground little light, as the ground then looks grey (both readers of read D1). At an hour with
+ * neither the Sun nor Earth in view ("dark"): that neither lights the ground, that the view is brightened like a long
+ * exposure, and that with no air there is no twilight; that higher ground farther off may still catch the Sun is left
+ * to whyLines. After Face the lander ("lander"): landerCaption's line for a view of the panel's face.
  */
-export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander' | 'dark', lat: number): string {
+export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'faint' | 'lander' | 'dark', lat: number): string {
   if (kind === 'earth') return poleLine(lat) === null ? "Earth barely moves in the Moon's sky: the Moon keeps one face towards it." : "Earth barely moves in the Moon's sky; only the Moon's slight wobble makes it rise or set.";
   if (kind === 'up') {
     const why = 'With no air the sky is black even by day; away from the glare, the stars show.';
@@ -327,6 +328,7 @@ export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'lander' | 'da
   }
   if (kind === 'lander') return landerCaption(lat, false);
   if (kind === 'dark') return 'Neither the Sun nor Earth lights this ground: the view is brightened like a long exposure. No air, no twilight.';
+  if (kind === 'faint') return 'A thin crescent Earth gives this ground little light; brightened like a long exposure.';
   return 'Earthlight, sunlight bounced off Earth, lights this ground and tints it blue; brightened like a long exposure.';
 }
 

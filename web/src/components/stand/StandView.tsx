@@ -9,6 +9,8 @@ import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { shadowLevels } from '@/lib/data/terrain';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { exploreHref, standHref } from '@/lib/links';
+import { earthLitFraction } from '@/lib/sky/earth';
+import { dirAzEl } from '@/lib/sky/frames';
 import { LANDER } from '@/lib/sky/landerShape';
 import { eyeAt, lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
@@ -28,6 +30,11 @@ const PRESSED = 'aria-pressed:border-[#f2f0ea] aria-pressed:bg-[#f2f0ea] aria-pr
 /** The dot by the lander's line: green only with radio contact (as on the time bar), amber with power alone, red when off. */
 const TONE = { radio: 'bg-[#8ddcaa]', power: 'bg-[#f6c86a]', off: 'bg-[#ff9180]' } as const;
 const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): RendererLike => new StandRenderer(canvas, scene);
+/**
+ * Under this share of Earth's disc lit, its light on the ground is faint and the ground looks grey: the caption says a
+ * thin crescent gives little light rather than that it tints the ground blue (both readers of read D1).
+ */
+const FAINT_EARTH = 0.25;
 /** A tall screen: the lander stands nearer the middle and the view opens wider (lib/viz/standOpening). */
 const tall = () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
 /** How far out from the lander's middle the near edge of its nearest foot can stand, metres: the opening keeps it in sight. */
@@ -293,7 +300,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   };
   const crossNamed = !!scene && scene.sky.names?.some((n) => n.name === 'Acrux');
   // The line over the view, two lines at most: why a key moment happens, why Earth sits where it does, what
-  // looking up shows, or, at night, where the light comes from: Earth's, or, with neither the Sun nor Earth in
+  // looking up shows, or, at night, where the light comes from: Earth's (faint from a thin crescent), or, with neither the Sun nor Earth in
   // view, none (why farther hills can still be lit is left to "Why this happens").
   const overView =
     caption ??
@@ -301,7 +308,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       ? viewCaption('up', crossNamed ? site.lat : Math.abs(site.lat))
       : series.sunFraction[hour] === 0
         ? series.earthVisible[hour] === 1
-          ? viewCaption('earthlight', site.lat)
+          ? viewCaption(earthLitFraction(dirAzEl(series.sunAz[hour], series.sunEl[hour]), dirAzEl(series.earthAz[hour], series.earthEl[hour])) < FAINT_EARTH ? 'faint' : 'earthlight', site.lat)
           : viewCaption('dark', site.lat)
         : null);
 
