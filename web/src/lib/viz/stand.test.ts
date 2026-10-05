@@ -55,11 +55,11 @@ describe('the stand view’s words', () => {
   it('labels the Sun and Earth by what they are doing', () => {
     const s = series({ sunEl: [2.4, 1.0, -0.5, 1.6], sunFraction: [1, 0, 0, 1], earthEl: [4.2, 1.2, -3, 1.2], earthVisible: [1, 0, 0, 1] });
     expect(skyLabel('sun', s, 0)).toBe('Sun 2.4° up');
-    expect(skyLabel('sun', s, 1)).toBe('Sun 1.0° up, behind the hills');
+    expect(skyLabel('sun', s, 1)).toBe('Sun 1.0° up, set behind the hills');
     expect(skyLabel('sun', s, 2)).toBe('Sun, 0.5° below the horizon');
     expect(skyLabel('sun', s, 3)).toBe('Sun 1.6° up');
     expect(skyLabel('earth', s, 0)).toBe('Earth 4.2° up');
-    expect(skyLabel('earth', s, 1)).toBe('Earth 1.2° up, behind the hills');
+    expect(skyLabel('earth', s, 1)).toBe('Earth 1.2° up, set behind the hills');
     expect(skyLabel('earth', s, 2)).toBe('Earth, 3.0° below the horizon');
     expect(skyLabel('earth', s, 3)).toBe('Earth 1.2° up');
   });
@@ -67,16 +67,16 @@ describe('the stand view’s words', () => {
   it('gives the height of a body out of view: how far below the horizon, or how high behind the hills', () => {
     const s = series({ sunEl: [0.4, -12.36], sunFraction: [0, 0], earthEl: [-1.2, 0.4], earthVisible: [0, 0] });
     expect(skyLabel('earth', s, 0)).toBe('Earth, 1.2° below the horizon');
-    expect(skyLabel('sun', s, 0)).toBe('Sun 0.4° up, behind the hills');
+    expect(skyLabel('sun', s, 0)).toBe('Sun 0.4° up, set behind the hills');
     expect(skyLabel('sun', s, 1)).toBe('Sun, 12° below the horizon');
-    expect(skyLabel('earth', s, 1)).toBe('Earth 0.4° up, behind the hills');
+    expect(skyLabel('earth', s, 1)).toBe('Earth 0.4° up, set behind the hills');
   });
   it('never gives a body out of view a height of 0.0°: within a twentieth of a degree of level it is on the horizon, or just below it', () => {
     const s = series({ sunEl: [0.02, -0.03], sunFraction: [0, 0], earthEl: [-0.03, 0], earthVisible: [0, 0] });
-    expect(skyLabel('sun', s, 0)).toBe('Sun, on the horizon, behind the hills');
+    expect(skyLabel('sun', s, 0)).toBe('Sun, on the horizon, set behind the hills');
     expect(skyLabel('sun', s, 1)).toBe('Sun, just below the horizon');
     expect(skyLabel('earth', s, 0)).toBe('Earth, just below the horizon');
-    expect(skyLabel('earth', s, 1)).toBe('Earth, on the horizon, behind the hills');
+    expect(skyLabel('earth', s, 1)).toBe('Earth, on the horizon, set behind the hills');
   });
   // Near a pole the Sun and Earth stay within a few degrees of the horizon, where a whole degree says too little.
   it('gives a height under 10° to a tenth of a degree, and whole degrees from 10°', () => {
@@ -99,8 +99,8 @@ describe('the stand view’s words', () => {
   });
   it('does not promise radio contact while the lander has no power', () => {
     const s = series({ sunEl: [-0.5], sunFraction: [0], earthEl: [4.2], earthVisible: [1] });
-    expect(liveSentence(s, 0, true)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is in view, 4.2° above the horizon to the east: radio contact is possible.');
-    expect(liveSentence(s, 0, false)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is in view, 4.2° above the horizon to the east, but the lander has no power for its radio.');
+    expect(liveSentence(s, 0, true)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is in view 4.2° above the horizon to the east: radio contact is possible.');
+    expect(liveSentence(s, 0, false)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is in view 4.2° above the horizon to the east, but the lander has no power for its radio.');
   });
 
   // From a high point the skyline dips below level, so the Sun and Earth can show while just below the
@@ -162,12 +162,12 @@ describe('the lander’s power and radio in one sentence', () => {
     expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'radio', text: 'The lander has power and can radio Earth.' });
   });
   it('says why the lander cannot radio home while Earth is out of view', () => {
-    expect(statusLine(s, p, start, 20)).toEqual({ on: true, tone: 'power', text: 'The lander has power, but Earth is below the horizon, so it cannot radio home.' });
-    expect(statusLine(s, p, start, 30)).toEqual({ on: true, tone: 'power', text: 'The lander has power, but Earth is behind the hills, so it cannot radio home.' });
+    expect(statusLine(s, p, start, 20)).toEqual({ on: true, tone: 'power', text: 'The lander has power, but Earth has set below the horizon, so it cannot radio home.' });
+    expect(statusLine(s, p, start, 30)).toEqual({ on: true, tone: 'power', text: 'The lander has power, but Earth has set behind the hills, so it cannot radio home.' });
   });
   it('says since when the lander has had power again after a power cut', () => {
     expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'The lander has power again since 20 January, if it survived 16 days 6 hours without power, and can radio Earth.' });
-    expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'The lander has power again since 20 January, if it survived 16 days 6 hours without power, but Earth is below the horizon, so it cannot radio home.' });
+    expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'The lander has power again since 20 January, if it survived 16 days 6 hours without power, but Earth has set below the horizon, so it cannot radio home.' });
   });
   it('does not promise radio contact while the lander is off, even with Earth in view', () => {
     expect(statusLine(s, p, start, 100)).toEqual({ on: false, tone: 'off', text: 'The lander is off: its battery ran out on 4 January. Earth is in view, but the radio has no power.' });
@@ -199,7 +199,7 @@ describe('the lander’s power and radio in one sentence', () => {
 });
 
 describe('why the view looks as it does', () => {
-  const pole = "Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon, so a low hill can hide it for days.";
+  const pole = "Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon, so behind a low hill it can stay set for days.";
   const earthMoves =
     "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon rocks a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.";
   // Why the sky is black by day, that its stars are there, why Apollo's photos show none (the cameras'
@@ -207,10 +207,10 @@ describe('why the view looks as it does', () => {
   // out: the caption after Look up says the first three, in the same words for the cameras.
   const black =
     "With no air to scatter sunlight, the sky stays black by day, and the stars are still there. Apollo's cameras used short exposures for the bright ground, too short to catch the stars. Eyes dazzled by the bright ground also see few; once it is out of view, you see them.";
-  const hidden = 'The Sun is still up, hidden behind the hills: higher ground farther off still catches its light.';
+  const hidden = 'The Sun has set behind the hills but is still above the horizon: higher ground farther off still catches its light.';
   const justBelow = 'The Sun is just below the horizon here, but higher ground farther off still catches its light.';
   // Why a Sun just below the horizon, or behind a hill, leaves the site dark at once.
-  const noTwilight = 'With no air there is no twilight: once the Sun is hidden, it is dark.';
+  const noTwilight = 'With no air there is no twilight: once the Sun has set, it is night.';
   const earthLight = 'At night only Earth lights the ground: sunlight bounced off Earth. The view is brightened, as a long-exposure photo would be, so the ground shows, and that light is why it looks blue.';
   const earthSize = 'Earth looks about 2° wide from here, nearly four times as wide as the full Moon looks from Earth.';
   const south = 'North and south still work here: the pole itself is 52 km to the south.';
@@ -240,7 +240,7 @@ describe('why the view looks as it does', () => {
     const hiddenEarth = series({ sunEl: [2.4], sunFraction: [1], earthEl: [2], earthVisible: [0] });
     expect(whyLines(-88.28, hiddenEarth, 0)).toEqual([pole, earthMoves, black, south, radio]);
   });
-  it('says the Sun is still up when the hills hide it, and that with no twilight the site is dark all the same', () => {
+  it('says the Sun is still above the horizon when it sets behind the hills, and that with no twilight it is night all the same', () => {
     const shade = series({ sunEl: [1.2], sunFraction: [0], earthEl: [-3], earthVisible: [0] });
     expect(whyLines(-88.28, shade, 0)).toEqual([pole, earthMoves, hidden, noTwilight, south, cold, radio]);
   });
@@ -340,7 +340,7 @@ describe('the headline’s night', () => {
       'Landing at Alpha Ridge on 25 December: power for 3 days 4 hours, then 16 days without power',
     );
     // The line on what to watch next counts the same stretch the same way.
-    expect(watchNext(s, p, start, 100)).toBe('Press Play or a flag below: the Sun comes back on 20 January, and the power with it, if the lander survives 16 days without power in the dark, colder than −170 °C.');
+    expect(watchNext(s, p, start, 100)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power with it, if the lander survives 16 days without power at night, colder than −170 °C.');
   });
   it('counts a stretch of a day or less without power as a day, and says "1 day"', () => {
     // 10 hours without power, overnight: 2 January 16:00 to 3 January 02:00.
@@ -532,38 +532,38 @@ describe('what to watch for', () => {
   const start = '2027-01-01T00:00:00';
   // The key moments are flags on the time bar under the card: the line says they can be pressed.
   it('names the next thing that happens, and its day, and what follows within three days', () => {
-    expect(watchNext(s, p, start, 10)).toBe('Press Play or a flag below: the Sun goes behind the hills on 4 January, and the battery runs out on 5 January.');
+    expect(watchNext(s, p, start, 10)).toBe('Press Play or a flag below: the Sun sets behind the hills on 4 January, and the battery runs out on 5 January.');
     expect(watchNext(s, p, start, 80)).toBe('Press Play or a flag below: the battery runs out on 5 January.');
     // No power from 5 January to 20 January: 15 days.
-    expect(watchNext(s, p, start, 467)).toBe('Press Play or a flag below: the power comes back on 20 January, if the lander survives 15 days without power in the dark, colder than −170 °C.');
-    expect(watchNext(s, null, start, 200)).toBe('Press Play or a flag below: the Sun comes back on 20 January.');
+    expect(watchNext(s, p, start, 467)).toBe('Press Play or a flag below: the power comes back on 20 January, if the lander survives 15 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, null, start, 200)).toBe('Press Play or a flag below: the Sun rises on 20 January.');
   });
   it('says the day once when the second thing happens the same day', () => {
     // The Sun comes back at 466 and the power at 470, both on 20 January.
-    expect(watchNext(s, p, start, 200)).toBe('Press Play or a flag below: the Sun comes back on 20 January, and the power with it, if the lander survives 15 days without power in the dark, colder than −170 °C.');
-    expect(watchNext(s, p, start, 300)).toBe('Press Play or a flag below: the Sun comes back on 20 January, and the power with it, if the lander survives 15 days without power in the dark, colder than −170 °C.');
-    expect(watchNext(s, sameDay, start, 10)).toBe('Press Play or a flag below: the Sun goes behind the hills on 4 January, and the battery runs out the same day.');
+    expect(watchNext(s, p, start, 200)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power with it, if the lander survives 15 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, p, start, 300)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power with it, if the lander survives 15 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, sameDay, start, 10)).toBe('Press Play or a flag below: the Sun sets behind the hills on 4 January, and the battery runs out the same day.');
   });
   it('counts the Sun back with the first part of its disc, as the time bar draws it, so it comes back before the power', () => {
     // Three hours without power from the landing: at least a day.
     const dawn = series({ sunEl: [-0.5, -0.2, 0.1, 0.3], sunFraction: [0, 0, 0.3, 1] });
     const off = { powered: Uint8Array.from([0, 0, 0, 1]) } as unknown as PowerResult;
-    expect(watchNext(dawn, off, start, 0)).toBe('Press Play or a flag below: the Sun comes back on 1 January, and the power with it, if the lander survives 1 day without power in the dark, colder than −170 °C.');
+    expect(watchNext(dawn, off, start, 0)).toBe('Press Play or a flag below: the Sun rises on 1 January, and the power with it, if the lander survives 1 day without power at night, colder than −170 °C.');
     // In the same hour, the Sun comes first: the power comes back because of it.
     const same = { powered: Uint8Array.from([0, 0, 1, 1]) } as unknown as PowerResult;
-    expect(watchNext(dawn, same, start, 0)).toBe('Press Play or a flag below: the Sun comes back on 1 January, and the power with it, if the lander survives 1 day without power in the dark, colder than −170 °C.');
+    expect(watchNext(dawn, same, start, 0)).toBe('Press Play or a flag below: the Sun rises on 1 January, and the power with it, if the lander survives 1 day without power at night, colder than −170 °C.');
   });
-  // "In the dark", not "a night": the Sun may only be behind the hills, as the flag on the time bar says, and
-  // the time bar's key calls those hours "in shadow". Two readers asked which it was.
-  it('says the power comes back only if the lander survives so many days without power in the dark and that cold, never "a night", and nothing of the kind when it does not come back', () => {
+  // "At night", not "a night": night is the one name for the hours without the Sun, whether it set below the
+  // horizon or behind the hills, as the time bar's key ("night") and its flag ("Sunset") have it.
+  it('says the power comes back only if the lander survives so many days without power at night and that cold, never "a night", and nothing of the kind when it does not come back', () => {
     // The Sun comes back on 20 January and the power on 21 January, 16 days after it ran out: the condition
     // ends the sentence.
-    expect(watchNext(s, late, start, 200)).toBe('Press Play or a flag below: the Sun comes back on 20 January, and the power comes back on 21 January, if the lander survives 16 days without power in the dark, colder than −170 °C.');
-    expect(watchNext(s, late, start, 470)).toBe('Press Play or a flag below: the power comes back on 21 January, if the lander survives 16 days without power in the dark, colder than −170 °C.');
-    expect(watchNext(s, late, start, 10)).toBe('Press Play or a flag below: the Sun goes behind the hills on 4 January, and the battery runs out on 5 January.');
-    // The hills hide the Sun for the whole stretch without power, the Sun still up: nothing says night.
+    expect(watchNext(s, late, start, 200)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power comes back on 21 January, if the lander survives 16 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, late, start, 470)).toBe('Press Play or a flag below: the power comes back on 21 January, if the lander survives 16 days without power at night, colder than −170 °C.');
+    expect(watchNext(s, late, start, 10)).toBe('Press Play or a flag below: the Sun sets behind the hills on 4 January, and the battery runs out on 5 January.');
+    // The Sun set behind the hills for the whole stretch without power, still up: night all the same, never "a night".
     const hidden = series({ sunEl: Array.from({ length: hours }, () => 0.8), sunFraction: Array.from({ length: hours }, (_, h) => (lit(h) ? 1 : 0)) });
-    for (const h of [10, 80, 200, 467]) expect(watchNext(hidden, late, start, h)).not.toMatch(/night/);
+    for (const h of [10, 80, 200, 467]) expect(watchNext(hidden, late, start, h)).not.toMatch(/\ba night\b/);
   });
   it('says how long the lander is without power, and nothing of the dark, when the battery ran down with the Sun still up', () => {
     // Too little sunlight from hour 20; the battery runs out at 30, on 2 January, and the power comes back
@@ -573,18 +573,18 @@ describe('what to watch for', () => {
     expect(watchNext(weak, dim, start, 40)).toBe('Press Play or a flag below: the power comes back on 3 January, if the lander survives 1 day without power.');
   });
   it('keeps the condition with the power when the Sun goes after it, so it does not read as a condition on the Sun', () => {
-    // The Sun is up from hour 1 to 4; the power comes back at 3, and the Sun goes behind the hills at 5.
+    // The Sun is up from hour 1 to 4; the power comes back at 3, and the Sun sets behind the hills at 5.
     const brief = series({ sunEl: [1, 1, 1, 1, 1, 1, 1, 1], sunFraction: [0, 1, 1, 1, 1, 0, 0, 0] });
     const back = { powered: Uint8Array.from([0, 0, 0, 1, 1, 1, 0, 0]) } as unknown as PowerResult;
-    expect(watchNext(brief, back, start, 1)).toBe('Press Play or a flag below: the power comes back on 1 January, if the lander survives 1 day without power in the dark, colder than −170 °C, and the Sun goes behind the hills the same day.');
+    expect(watchNext(brief, back, start, 1)).toBe('Press Play or a flag below: the power comes back on 1 January, if the lander survives 1 day without power at night, colder than −170 °C, and the Sun sets behind the hills the same day.');
   });
 
-  it('says the Sun sets below the horizon when it goes down, and goes behind the hills while it is still up', () => {
+  it('says the Sun sets below the horizon when it goes down, and sets behind the hills while it is still up', () => {
     const night = series({ sunEl: [1, 1, -0.4, -0.4], sunFraction: [1, 1, 0, 0] });
     expect(watchNext(night, null, start, 0)).toBe('Press Play or a flag below: the Sun sets below the horizon on 1 January.');
-    // A Sun still above the level horizon has not set: the hills hide it.
+    // A Sun still above the level horizon sets behind the hills.
     const hills = series({ sunEl: [1, 1, 0.4, 0.4], sunFraction: [1, 1, 0, 0] });
-    expect(watchNext(hills, null, start, 0)).toBe('Press Play or a flag below: the Sun goes behind the hills on 1 January.');
+    expect(watchNext(hills, null, start, 0)).toBe('Press Play or a flag below: the Sun sets behind the hills on 1 January.');
   });
   // In short parts a student can take one at a time: where you stand, then what each thing drawn comes from.
   it('says where you stand, near which pole, and what is measured and what is drawn, at the top of the card, and under More only the latitude and the site’s own note', () => {
@@ -614,8 +614,8 @@ describe('what to watch for', () => {
   });
 
   it('says why the Sun stays low near a pole, and nothing elsewhere', () => {
-    expect(poleLine(-88.28)).toBe("Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon, so a low hill can hide it for days.");
-    expect(poleLine(80)).toBe("Near the Moon's north pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon, so a low hill can hide it for days.");
+    expect(poleLine(-88.28)).toBe("Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon, so behind a low hill it can stay set for days.");
+    expect(poleLine(80)).toBe("Near the Moon's north pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon, so behind a low hill it can stay set for days.");
     expect(poleLine(-80)).toBe(poleLine(-88.28));
     expect(poleLine(79.9)).toBeNull();
     expect(poleLine(18.56)).toBeNull();
@@ -632,51 +632,51 @@ describe('what to watch for', () => {
 
   it('lists the key moments of the period, in order, each once, each with its kind', () => {
     // The Sun leaves the view on 4 January and the battery runs out on 5 January: two moments. The Sun is
-    // still 1° up as the hills hide it, so it has not set. The Sun comes back at 466 and the power at 470,
-    // both on 20 January: one moment, at the Sun's hour.
+    // still 1° up as it sets behind the hills: a sunset all the same. The Sun rises at 466 and the power comes
+    // back at 470, both on 20 January: one moment, at the Sun's hour.
     expect(keyMoments(e, p, start)).toEqual([
-      { kind: 'sunset', label: 'Sun behind the hills', hour: 76, day: '4 Jan' },
+      { kind: 'sunset', label: 'Sunset', hour: 76, day: '4 Jan' },
       { kind: 'battery-out', label: 'Battery runs out', hour: 100, day: '5 Jan' },
-      { kind: 'earth-in', label: 'Earth in view', hour: 200, day: '9 Jan' },
-      { kind: 'sun-power-back', label: 'Sun back', hour: 466, day: '20 Jan' },
+      { kind: 'earth-in', label: 'Earth rises', hour: 200, day: '9 Jan' },
+      { kind: 'sun-power-back', label: 'Sunrise', hour: 466, day: '20 Jan' },
     ]);
   });
 
   // The power comes back only if the lander lived through the night, which the forecast does not work out:
   // the flag claims only the Sun, and its kind (and so its caption) still knows the power comes with it.
-  it('labels the Sun and the power coming back together after a power cut "Sun back", keeping its kind', () => {
+  it('labels the Sun and the power coming back together after a power cut "Sunrise", keeping its kind', () => {
     const back = keyMoments(e, p, start).find((m) => m.hour === 466)!;
-    expect(back).toEqual({ kind: 'sun-power-back', label: 'Sun back', hour: 466, day: '20 Jan' });
+    expect(back).toEqual({ kind: 'sun-power-back', label: 'Sunrise', hour: 466, day: '20 Jan' });
     expect(back.label).not.toMatch(/power/);
-    expect(momentCaption(back.kind, e, back.hour)).toMatch(/^The Sun is back, and with it the power, if the lander survived the cold\./);
+    expect(momentCaption(back.kind, e, back.hour)).toMatch(/^Sunrise, and with it the power, if the lander survived the cold\./);
   });
 
   it('makes one moment of the Sun leaving the view and the battery running out on the same day', () => {
     expect(keyMoments(e, sameDay, start)).toEqual([
-      { kind: 'sunset-power-off', label: 'Sun behind the hills, power off', hour: 76, day: '4 Jan' },
-      { kind: 'earth-in', label: 'Earth in view', hour: 200, day: '9 Jan' },
-      { kind: 'sun-power-back', label: 'Sun back', hour: 466, day: '20 Jan' },
+      { kind: 'sunset-power-off', label: 'Sunset and power off', hour: 76, day: '4 Jan' },
+      { kind: 'earth-in', label: 'Earth rises', hour: 200, day: '9 Jan' },
+      { kind: 'sun-power-back', label: 'Sunrise', hour: 466, day: '20 Jan' },
     ]);
   });
 
-  it('calls it a sunset only when the Sun goes below the level horizon, and "Sun behind the hills" while it is still up', () => {
+  it('calls it a sunset whether the Sun goes below the level horizon or behind the hills while it is still up', () => {
     // At the hour the Sun leaves the view: below the level horizon, on it, or above it.
     const at = (el: number, powered: number[]) => keyMoments(series({ sunEl: [1, el], sunFraction: [1, 0] }), { powered: Uint8Array.from(powered) } as unknown as PowerResult, start);
     expect(at(-0.1, [1, 1])).toEqual([{ kind: 'sunset', label: 'Sunset', hour: 1, day: '1 Jan' }]);
-    expect(at(0, [1, 1])).toEqual([{ kind: 'sunset', label: 'Sun behind the hills', hour: 1, day: '1 Jan' }]);
-    expect(at(0.4, [1, 1])).toEqual([{ kind: 'sunset', label: 'Sun behind the hills', hour: 1, day: '1 Jan' }]);
+    expect(at(0, [1, 1])).toEqual([{ kind: 'sunset', label: 'Sunset', hour: 1, day: '1 Jan' }]);
+    expect(at(0.4, [1, 1])).toEqual([{ kind: 'sunset', label: 'Sunset', hour: 1, day: '1 Jan' }]);
     // And so when the power goes with it.
     expect(at(-0.1, [1, 0])).toEqual([{ kind: 'sunset-power-off', label: 'Sunset and power off', hour: 1, day: '1 Jan' }]);
-    expect(at(0.4, [1, 0])).toEqual([{ kind: 'sunset-power-off', label: 'Sun behind the hills, power off', hour: 1, day: '1 Jan' }]);
+    expect(at(0.4, [1, 0])).toEqual([{ kind: 'sunset-power-off', label: 'Sunset and power off', hour: 1, day: '1 Jan' }]);
   });
 
   it('keeps the Sun and the power apart on different days, and when the power goes before the Sun', () => {
     // The power comes back at 490, on 21 January, the day after the Sun.
     expect(keyMoments(e, late, start)).toEqual([
-      { kind: 'sunset', label: 'Sun behind the hills', hour: 76, day: '4 Jan' },
+      { kind: 'sunset', label: 'Sunset', hour: 76, day: '4 Jan' },
       { kind: 'battery-out', label: 'Battery runs out', hour: 100, day: '5 Jan' },
-      { kind: 'earth-in', label: 'Earth in view', hour: 200, day: '9 Jan' },
-      { kind: 'sun-back', label: 'Sun back', hour: 466, day: '20 Jan' },
+      { kind: 'earth-in', label: 'Earth rises', hour: 200, day: '9 Jan' },
+      { kind: 'sun-back', label: 'Sunrise', hour: 466, day: '20 Jan' },
       { kind: 'power-back', label: 'Power back', hour: 490, day: '21 Jan' },
     ]);
     // Too little sunlight: the battery runs out at 73, three hours before the Sun leaves the view the same
@@ -684,7 +684,7 @@ describe('what to watch for', () => {
     const low = { powered: Uint8Array.from({ length: hours }, (_, h) => (h < 73 || h >= 490 ? 1 : 0)) } as unknown as PowerResult;
     expect(keyMoments(e, low, start).slice(0, 2)).toEqual([
       { kind: 'battery-out', label: 'Battery runs out', hour: 73, day: '4 Jan' },
-      { kind: 'sunset', label: 'Sun behind the hills', hour: 76, day: '4 Jan' },
+      { kind: 'sunset', label: 'Sunset', hour: 76, day: '4 Jan' },
     ]);
   });
 
@@ -714,14 +714,14 @@ describe('the caption for a key moment', () => {
   const earthlight = ' Only Earthlight lights the ground here, brightened like a long exposure.';
   const brightened = ' With no Sun or Earth in sight, the view is brightened like a long exposure.';
 
-  it('says a hill hides the Sun, or that it sinks below the horizon, that this close to the pole it never climbs high, and that there is no twilight', () => {
-    expect(momentCaption('sunset', behind, 1)).toBe(`A hill hides the Sun: this close to the pole it never climbs more than a few degrees.${noTwilight}`);
-    expect(momentCaption('sunset', below, 1)).toBe(`The Sun sinks below the horizon: this close to the pole it never climbs high.${noTwilight}`);
+  it('says the Sun sets behind the hills, or that it sinks below the horizon, that near the pole it never climbs high, and that there is no twilight', () => {
+    expect(momentCaption('sunset', behind, 1)).toBe(`Sunset behind the hills: near the pole the Sun never climbs more than a few degrees.${noTwilight}`);
+    expect(momentCaption('sunset', below, 1)).toBe(`Sunset: the Sun sinks below the horizon; near the pole it never climbs high.${noTwilight}`);
   });
   it('leaves the pole out at a site far from it, when given the site’s latitude', () => {
-    expect(momentCaption('sunset', below, 1, 18.56)).toBe(`The Sun sinks below the horizon.${noTwilight}`);
-    expect(momentCaption('sunset', behind, 1, 18.56)).toBe(`The Sun has not set: a hill hides it.${noTwilight}`);
-    expect(momentCaption('sunset', behind, 1, -88.28)).toBe(`A hill hides the Sun: this close to the pole it never climbs more than a few degrees.${noTwilight}`);
+    expect(momentCaption('sunset', below, 1, 18.56)).toBe(`Sunset: the Sun sinks below the horizon.${noTwilight}`);
+    expect(momentCaption('sunset', behind, 1, 18.56)).toBe(`Sunset behind the hills: the Sun is still above the horizon.${noTwilight}`);
+    expect(momentCaption('sunset', behind, 1, -88.28)).toBe(`Sunset behind the hills: near the pole the Sun never climbs more than a few degrees.${noTwilight}`);
   });
   // Two readers took the sentence on higher ground farther off, still in sunlight, for a claim the view did not
   // show: when the battery runs out the view is turned to the lander, with no such ground in sight. The line in
@@ -737,10 +737,10 @@ describe('the caption for a key moment', () => {
     expect(viewCaption('dark', -88.28)).not.toMatch(/farther off|catches the Sun/);
     expect(whyLines(-88.28, series({ sunEl: [-1.9], sunFraction: [0] }), 0)).toContain('The Sun is just below the horizon here, but higher ground farther off still catches its light.');
   });
-  it('says the lander’s power goes with the Sun, hidden by a hill or below the horizon, and that there is no twilight', () => {
-    expect(momentCaption('sunset-power-off', behind, 1)).toBe(`A hill hides the Sun, and the lander's power goes with it.${noTwilight}`);
-    expect(momentCaption('sunset-power-off', below, 1)).toBe(`The Sun sinks below the horizon, and the lander's power goes with it.${noTwilight}`);
-    expect(momentCaption('sunset-power-off', series({ sunEl: [0.2, -2.5], sunFraction: [1, 0] }), 1)).toBe(`The Sun sinks below the horizon, and the lander's power goes with it.${noTwilight}`);
+  it('says the lander’s power goes with the Sun, set behind the hills or below the horizon, and that there is no twilight', () => {
+    expect(momentCaption('sunset-power-off', behind, 1)).toBe(`Sunset behind the hills, and the lander's power goes with it.${noTwilight}`);
+    expect(momentCaption('sunset-power-off', below, 1)).toBe(`Sunset below the horizon, and the lander's power goes with it.${noTwilight}`);
+    expect(momentCaption('sunset-power-off', series({ sunEl: [0.2, -2.5], sunFraction: [1, 0] }), 1)).toBe(`Sunset below the horizon, and the lander's power goes with it.${noTwilight}`);
   });
   // A teacher found five lines too long for students: every caption over the view keeps to three sentences.
   it('keeps every caption for a key moment to three sentences at most, near a pole and far from it', () => {
@@ -750,21 +750,21 @@ describe('the caption for a key moment', () => {
     const cases = [behind, below, earthUp, series({ sunEl: [0.2, -2.5], sunFraction: [1, 0] }), series({ sunEl: [1, 1], sunFraction: [1, 0.4] })];
     const kinds: MomentKind[] = ['sunset', 'sunset-power-off', 'battery-out', 'earth-in', 'sun-back', 'sun-power-back', 'power-back'];
     for (const s of cases) for (const kind of kinds) for (const lat of [undefined, -88.28, 18.56]) expect(sentences(momentCaption(kind, s, 1, lat))).toBeLessThanOrEqual(3);
-    // The Sun gone, and the battery out in the dark with what lights the ground: two sentences each.
+    // The Sun gone, and the battery out at night with what lights the ground: two sentences each.
     for (const s of [behind, earthUp]) for (const kind of ['sunset', 'battery-out'] as const) expect(sentences(momentCaption(kind, s, 1))).toBe(2);
   });
   // When the battery runs out the view turns to the lander, and still shows the ground about it with the Sun
-  // gone: two readers asked what lights it. "In the dark", as the line on what to watch next says it: the Sun
-  // may still be up behind the hills, as its label says then.
-  it('says why the battery runs out: in the dark, or with the Sun up but too low for the panel; and in the dark, what lights the ground', () => {
-    expect(momentCaption('battery-out', series({ sunEl: [1], sunFraction: [0] }), 0)).toBe(`The battery runs out in the dark.${brightened}`);
-    expect(momentCaption('battery-out', series({ sunEl: [-1], sunFraction: [0] }), 0)).toBe(`The battery runs out in the dark.${brightened}`);
-    expect(momentCaption('battery-out', series({ sunEl: [-5], sunFraction: [0] }), 0)).toBe(`The battery runs out in the dark.${brightened}`);
+  // gone: two readers asked what lights it. "At night", as the line on what to watch next says it: the Sun
+  // may still be up, set behind the hills, as its label says then.
+  it('says why the battery runs out: at night, or with the Sun up but too low for the panel; and at night, what lights the ground', () => {
+    expect(momentCaption('battery-out', series({ sunEl: [1], sunFraction: [0] }), 0)).toBe(`The battery runs out at night.${brightened}`);
+    expect(momentCaption('battery-out', series({ sunEl: [-1], sunFraction: [0] }), 0)).toBe(`The battery runs out at night.${brightened}`);
+    expect(momentCaption('battery-out', series({ sunEl: [-5], sunFraction: [0] }), 0)).toBe(`The battery runs out at night.${brightened}`);
     // With Earth in view, its light alone.
-    expect(momentCaption('battery-out', series({ sunEl: [1], sunFraction: [0], earthEl: [4], earthVisible: [1] }), 0)).toBe(`The battery runs out in the dark.${earthlight}`);
-    expect(momentCaption('battery-out', series({ sunEl: [-5], sunFraction: [0], earthEl: [4], earthVisible: [1] }), 0)).toBe(`The battery runs out in the dark.${earthlight}`);
+    expect(momentCaption('battery-out', series({ sunEl: [1], sunFraction: [0], earthEl: [4], earthVisible: [1] }), 0)).toBe(`The battery runs out at night.${earthlight}`);
+    expect(momentCaption('battery-out', series({ sunEl: [-5], sunFraction: [0], earthEl: [4], earthVisible: [1] }), 0)).toBe(`The battery runs out at night.${earthlight}`);
     // Earth above the level horizon but behind the hills is not in view: it lights nothing here.
-    expect(momentCaption('battery-out', series({ sunEl: [1], sunFraction: [0], earthEl: [2], earthVisible: [0] }), 0)).toBe(`The battery runs out in the dark.${brightened}`);
+    expect(momentCaption('battery-out', series({ sunEl: [1], sunFraction: [0], earthEl: [2], earthVisible: [0] }), 0)).toBe(`The battery runs out at night.${brightened}`);
     // Nothing says the Sun is not up: behind the hills it is.
     expect(brightened).not.toMatch(/\bup\b/);
     // As the line over the view at night says it, with Earth in view and with neither in view: a view brightened
@@ -774,17 +774,17 @@ describe('the caption for a key moment', () => {
     expect(momentCaption('battery-out', series({ sunEl: [1], sunFraction: [0.4] }), 0)).toBe('The battery runs out: the Sun is up, but too low for the panel to keep the lander going.');
     expect(momentCaption('battery-out', series({ sunEl: [1], sunFraction: [0.4], earthEl: [4], earthVisible: [1] }), 0)).toBe('The battery runs out: the Sun is up, but too low for the panel to keep the lander going.');
   });
-  it('says why Earth comes into view', () => {
+  it('says why Earth rises', () => {
     expect(momentCaption('earth-in', both, 0)).toBe("Earth rises over the hills: the Moon's slight rocking lifts it into view for about two weeks a month.");
   });
-  it('says the Sun is back, and that with Earth in view too a working lander could radio home', () => {
-    expect(momentCaption('sun-back', sun, 0)).toBe('The Sun is back over the hills.');
-    expect(momentCaption('sun-back', both, 0)).toBe('The Sun is back over the hills. With Earth in view, a working lander could radio home.');
+  it('says the Sun rises, and that with Earth in view too a working lander could radio home', () => {
+    expect(momentCaption('sun-back', sun, 0)).toBe('Sunrise over the hills.');
+    expect(momentCaption('sun-back', both, 0)).toBe('Sunrise over the hills. With Earth in view, a working lander could radio home.');
   });
-  // The flag says only "Sun back": the power needs the lander to have lived through the cold of the night.
-  it('says the Sun is back, and the power with it if the lander survived the cold, and that with Earth in view it could radio home', () => {
-    expect(momentCaption('sun-power-back', sun, 0)).toBe('The Sun is back, and with it the power, if the lander survived the cold.');
-    expect(momentCaption('sun-power-back', both, 0)).toBe('The Sun is back, and with it the power, if the lander survived the cold. Earth is in view: it could radio home.');
+  // The flag says only "Sunrise": the power needs the lander to have lived through the cold of the night.
+  it('says the Sun rises, and the power with it if the lander survived the cold, and that with Earth in view it could radio home', () => {
+    expect(momentCaption('sun-power-back', sun, 0)).toBe('Sunrise, and with it the power, if the lander survived the cold.');
+    expect(momentCaption('sun-power-back', both, 0)).toBe('Sunrise, and with it the power, if the lander survived the cold. Earth is in view: it could radio home.');
   });
   it('says the panel makes enough power again', () => {
     expect(momentCaption('power-back', sun, 0)).toBe('The panel makes enough power again.');
@@ -800,7 +800,7 @@ describe('the caption for a key moment', () => {
 
 describe('the line over the view', () => {
   it('says why Earth barely moves, after Face Earth, and near a pole why it still rises and sets', () => {
-    const near = "Earth barely moves in the Moon's sky; only the Moon's slight rocking lifts it over the horizon or hides it.";
+    const near = "Earth barely moves in the Moon's sky; only the Moon's slight rocking makes it rise or set.";
     const far = "Earth barely moves in the Moon's sky: the Moon keeps one face towards it.";
     expect(viewCaption('earth', -88.28)).toBe(near);
     expect(viewCaption('earth', 85)).toBe(near);
@@ -889,14 +889,14 @@ describe('captions of two lines, the whys where they happen, and the battery’s
   });
   it('sets the level beside the power in each sentence, and gives none while the lander is off or without the battery’s size', () => {
     const s = series({ sunEl: [1, 1, 1, 1, 1] });
-    expect(statusLine(s, power(), START, 1, 2000)).toEqual({ on: true, tone: 'power', text: 'The lander has power (battery 75\u00a0%), but Earth is behind the hills, so it cannot radio home.' });
+    expect(statusLine(s, power(), START, 1, 2000)).toEqual({ on: true, tone: 'power', text: 'The lander has power (battery 75\u00a0%), but Earth has set behind the hills, so it cannot radio home.' });
     const seen = series({ sunEl: [1, 1, 1, 1, 1], earthEl: [4, 4, 4, 4, 4], earthVisible: [1, 1, 1, 1, 1] });
     expect(statusLine(seen, power(), START, 3, 2000)).toEqual({ on: true, tone: 'radio', text: 'The lander has power (battery 25\u00a0%) and can radio Earth.' });
     // Off: when the battery ran out, as before.
     expect(statusLine(s, power(), START, 4, 2000).text).toBe('The lander is off: its battery ran out on 1 January. Power does not come back in this period.');
     // Without the battery's size, or with none, the words of before.
-    expect(statusLine(s, power(), START, 1).text).toBe('The lander has power, but Earth is behind the hills, so it cannot radio home.');
-    expect(statusLine(s, power(), START, 1, 0).text).toBe('The lander has power, but Earth is behind the hills, so it cannot radio home.');
+    expect(statusLine(s, power(), START, 1).text).toBe('The lander has power, but Earth has set behind the hills, so it cannot radio home.');
+    expect(statusLine(s, power(), START, 1, 0).text).toBe('The lander has power, but Earth has set behind the hills, so it cannot radio home.');
   });
 });
 
@@ -1011,15 +1011,15 @@ describe('the stand view’s words on real data', () => {
     expect(standingLine(site, 'de Gerlache Rim 2', 'more')).toBe('de Gerlache Rim 2 lies at 88.3° S. A ridge on a crater rim, 52 km from the pole.');
     // The battery runs out the day after the Sun leaves the view, so the two stay apart; the power comes back
     // with the Sun, if the lander survived the night, so that flag claims only the Sun. The Sun is still 1.7°
-    // up as the hills hide it on 3 January: it has not set.
+    // up as it sets behind the hills on 3 January: a sunset all the same.
     const moments = keyMoments(s, p, start);
-    expect(moments.map((m) => `${m.label}, ${m.day}`)).toEqual(['Sun behind the hills, 3 Jan', 'Battery runs out, 4 Jan', 'Earth in view, 10 Jan', 'Sun back, 20 Jan']);
+    expect(moments.map((m) => `${m.label}, ${m.day}`)).toEqual(['Sunset, 3 Jan', 'Battery runs out, 4 Jan', 'Earth rises, 10 Jan', 'Sunrise, 20 Jan']);
     expect(moments.map((m) => m.kind)).toEqual(['sunset', 'battery-out', 'earth-in', 'sun-power-back']);
     expect(moments.map((m) => momentCaption(m.kind, s, m.hour, site.lat))).toEqual([
-      'A hill hides the Sun: this close to the pole it never climbs more than a few degrees. No air, so no twilight.',
-      'The battery runs out in the dark. With no Sun or Earth in sight, the view is brightened like a long exposure.',
+      'Sunset behind the hills: near the pole the Sun never climbs more than a few degrees. No air, so no twilight.',
+      'The battery runs out at night. With no Sun or Earth in sight, the view is brightened like a long exposure.',
       "Earth rises over the hills: the Moon's slight rocking lifts it into view for about two weeks a month.",
-      'The Sun is back, and with it the power, if the lander survived the cold. Earth is in view: it could radio home.',
+      'Sunrise, and with it the power, if the lander survived the cold. Earth is in view: it could radio home.',
     ]);
     // In the dark between, neither the Sun nor Earth in view: at hour 200 the Sun is 0.3° below the horizon,
     // and never 2° below it in this period, so the card's lines on why always say that higher ground farther
@@ -1032,7 +1032,7 @@ describe('the stand view’s words on real data', () => {
       poleLine(site.lat),
       "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon rocks a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.",
       'The Sun is just below the horizon here, but higher ground farther off still catches its light.',
-      'With no air there is no twilight: once the Sun is hidden, it is dark.',
+      'With no air there is no twilight: once the Sun has set, it is night.',
       'North and south still work here: the pole itself is 52 km to the south.',
       'The night here is colder than −170 °C. Most landers are not built to survive it, which is why the forecast says "if".',
       "The radio forecast is for a link straight to Earth; a relay satellite, as China's Chang'e 4 used, would change it.",
@@ -1040,27 +1040,27 @@ describe('the stand view’s words on real data', () => {
     // The view opens on the landing: the Sun in view 2.46° up, Earth 5.7° below the horizon, out of view.
     expect(skyLabel('sun', s, 0)).toBe('Sun 2.5° up');
     expect(skyLabel('earth', s, 0)).toBe('Earth, 5.7° below the horizon');
-    // The battery runs out at hour 76 with the Sun 1.5° up behind the hills, and Earth below the horizon: the
-    // ground the view shows about the lander is lit by neither. The caption says "in the dark" and nothing
+    // The battery runs out at hour 76 with the Sun 1.5° up, set behind the hills, and Earth below the horizon:
+    // the ground the view shows about the lander is lit by neither. The caption says "at night" and nothing
     // that would deny the Sun's label: the Sun is up.
     expect(moments[1].hour).toBe(76);
     expect(s.earthVisible[76]).toBe(0);
-    expect(skyLabel('sun', s, 76)).toBe('Sun 1.5° up, behind the hills');
-    expect(momentCaption('battery-out', s, 76, site.lat)).toBe('The battery runs out in the dark. With no Sun or Earth in sight, the view is brightened like a long exposure.');
+    expect(skyLabel('sun', s, 76)).toBe('Sun 1.5° up, set behind the hills');
+    expect(momentCaption('battery-out', s, 76, site.lat)).toBe('The battery runs out at night. With no Sun or Earth in sight, the view is brightened like a long exposure.');
     // At hour 219 Earth has come into view 0.24° below level, over a skyline lower still: on the horizon.
     expect(s.earthVisible[219]).toBe(1);
     expect(skyLabel('earth', s, 219)).toBe('Earth, on the horizon');
     // The pole is as far off as the site's own note says.
     expect(site.blurb).toContain('52 km from the pole');
     expect(whyLines(site.lat, s, 10)).toContain('North and south still work here: the pole itself is 52 km to the south.');
-    expect(watchNext(s, p, start, 10)).toBe('Press Play or a flag below: the Sun goes behind the hills on 3 January, and the battery runs out on 4 January.');
-    // No power from 4 January to 20 January, as the headline counts it, in the dark: the flag on 3 January
-    // says the Sun goes behind the hills, not that night falls.
-    expect(watchNext(s, p, start, 219)).toBe('Press Play or a flag below: the Sun comes back on 20 January, and the power with it, if the lander survives 16 days without power in the dark, colder than −170 °C.');
+    expect(watchNext(s, p, start, 10)).toBe('Press Play or a flag below: the Sun sets behind the hills on 3 January, and the battery runs out on 4 January.');
+    // No power from 4 January to 20 January, as the headline counts it, at night: the Sun set behind the hills
+    // on 3 January.
+    expect(watchNext(s, p, start, 219)).toBe('Press Play or a flag below: the Sun rises on 20 January, and the power with it, if the lander survives 16 days without power at night, colder than −170 °C.');
     expect(radioNext(s, p, start)).toBe('The first day the lander has both power and a view of Earth is 20 January.');
-    expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'power', text: 'The lander has power, but Earth is below the horizon, so it cannot radio home.' });
+    expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'power', text: 'The lander has power, but Earth has set below the horizon, so it cannot radio home.' });
     // With the battery's size, as the page gives it: still full at hour 10, with the Sun up.
-    expect(statusLine(s, p, start, 10, DEFAULT_POWER.batteryWh).text).toBe('The lander has power (battery 100\u00a0%), but Earth is below the horizon, so it cannot radio home.');
+    expect(statusLine(s, p, start, 10, DEFAULT_POWER.batteryWh).text).toBe('The lander has power (battery 100\u00a0%), but Earth has set below the horizon, so it cannot radio home.');
     expect(statusLine(s, p, start, 219)).toEqual({ on: false, tone: 'off', text: 'The lander is off: its battery ran out on 4 January. Earth is in view, but the radio has no power.' });
     // Off with Earth out of view: the line on what to watch next says when the power comes back.
     expect(statusLine(s, p, start, 200)).toEqual({ on: false, tone: 'off', text: 'The lander is off: its battery ran out on 4 January.' });

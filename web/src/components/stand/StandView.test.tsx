@@ -73,11 +73,11 @@ describe('StandView', () => {
       />,
     );
     await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])').length).toBeGreaterThan(0), { timeout: 20_000 });
-    // The Sun goes behind the hills on 3 January and is back on the 20th; Earth comes into view on the 10th. Each
+    // The Sun sets behind the hills on 3 January and rises on the 20th; Earth rises on the 10th. Each
     // chip names what happens there, as its flag on the time bar does.
     const marks = (scene! as StandScene).marks!;
-    expect(marks.filter((m) => m.body === 'sun').map((m) => m.text)).toEqual(['Sun behind hills, 3 Jan', 'Sun back, 20 Jan']);
-    expect(marks.filter((m) => m.body === 'earth').map((m) => m.text)).toEqual(['Earth in view, 10 Jan']);
+    expect(marks.filter((m) => m.body === 'sun').map((m) => m.text)).toEqual(['Sunset, 3 Jan', 'Sunrise, 20 Jan']);
+    expect(marks.filter((m) => m.body === 'earth').map((m) => m.text)).toEqual(['Earth rises, 10 Jan']);
     expect([...document.querySelectorAll('[data-path-mark]')].map((n) => n.textContent)).toEqual(marks.map((m) => m.text));
     expect(screen.getByText('Level horizon')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Hide the words' }));
@@ -86,19 +86,20 @@ describe('StandView', () => {
     expect(screen.getByText('Level horizon').closest('[hidden]')).not.toBeNull();
   }, 30_000);
 
-  it('names each day on the paths as its flag names it, short: where the Sun leaves and comes back, and where Earth comes into view', () => {
+  it('names each day on the paths as its flag names it, short: where the Sun sets and rises, and where Earth rises', () => {
     const at = (kind: MomentKind, label: string, hour: number, day: string) => ({ kind, label, hour, day });
     expect(
-      pathMarks([at('sunset', 'Sun behind the hills', 67, '3 Jan'), at('battery-out', 'Battery runs out', 76, '4 Jan'), at('earth-in', 'Earth in view', 219, '10 Jan'), at('sun-power-back', 'Sun back', 466, '20 Jan')]),
+      pathMarks([at('sunset', 'Sunset', 67, '3 Jan'), at('battery-out', 'Battery runs out', 76, '4 Jan'), at('earth-in', 'Earth rises', 219, '10 Jan'), at('sun-power-back', 'Sunrise', 466, '20 Jan')]),
     ).toEqual([
-      { hour: 67, body: 'sun', text: 'Sun behind hills, 3 Jan' },
-      { hour: 219, body: 'earth', text: 'Earth in view, 10 Jan' },
-      { hour: 466, body: 'sun', text: 'Sun back, 20 Jan' },
+      { hour: 67, body: 'sun', text: 'Sunset, 3 Jan' },
+      { hour: 219, body: 'earth', text: 'Earth rises, 10 Jan' },
+      { hour: 466, body: 'sun', text: 'Sunrise, 20 Jan' },
     ]);
-    // A Sun below the level horizon sets. The power's part of a joined moment stays on its flag: the path is the Sun's.
-    const sets = pathMarks([at('sunset-power-off', 'Sunset and power off', 5, '2 Mar'), at('sun-back', 'Sun back', 300, '15 Mar'), at('power-back', 'Power back', 301, '15 Mar')]);
-    expect(sets.map((m) => m.text)).toEqual(['Sunset, 2 Mar', 'Sun back, 15 Mar']);
-    expect(pathMarks([at('sunset-power-off', 'Sun behind the hills, power off', 5, '2 Mar')]).map((m) => m.text)).toEqual(['Sun behind hills, 2 Mar']);
+    // A Sun below the level horizon sets, and so does one behind the hills. The power's part of a joined moment stays
+    // on its flag: the path is the Sun's.
+    const sets = pathMarks([at('sunset-power-off', 'Sunset and power off', 5, '2 Mar'), at('sun-back', 'Sunrise', 300, '15 Mar'), at('power-back', 'Power back', 301, '15 Mar')]);
+    expect(sets.map((m) => m.text)).toEqual(['Sunset, 2 Mar', 'Sunrise, 15 Mar']);
+    expect(pathMarks([at('sunset-power-off', 'Sunset and power off', 5, '2 Mar')]).map((m) => m.text)).toEqual(['Sunset, 2 Mar']);
   });
 
   it('opens on the site, period and hour of the address, with a short answer over the view: the headline, one line on the lander, what to watch', async () => {
@@ -121,7 +122,7 @@ describe('StandView', () => {
     // One line joins the lander's power, its battery's level and its radio; then what to watch next.
     expect(screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
     const status = screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text));
-    expect(status.textContent).toMatch(/^The lander has power \(battery 100\u00a0%\), but Earth is (below the horizon|behind the hills), so it cannot radio home\.$/);
+    expect(status.textContent).toMatch(/^The lander has power \(battery 100\u00a0%\), but Earth has set (below the horizon|behind the hills), so it cannot radio home\.$/);
     // Its dot is amber, power without radio: green is kept for radio contact, as on the time bar.
     expect(status.parentElement!.querySelector('[data-tone]')!.getAttribute('data-tone')).toBe('power');
     expect(screen.getByText(watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10))).toBeTruthy();

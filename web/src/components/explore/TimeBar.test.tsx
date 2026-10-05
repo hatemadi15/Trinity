@@ -311,7 +311,7 @@ describe('TimeBar', () => {
     expect(container.querySelector('[data-part="key-earth"]')).toBeNull();
     expect(screen.queryByText('Earth in view')).toBeNull();
     expect(container.querySelector('[data-part="key-no-sun"]')).toBeNull();
-    expect(screen.queryByText('in shadow')).toBeNull();
+    expect(screen.queryByText('night')).toBeNull();
     expect(container.querySelectorAll('[data-swatch]')).toHaveLength(1);
     // The box of the strip keeps its height: nothing under the strip but the slider's own room.
     expect(stripBox(container).getAttribute('class')).toBe('relative h-8');
@@ -321,7 +321,7 @@ describe('TimeBar', () => {
     expect(offOnly.container.querySelector('[data-part="off"]')).not.toBeNull();
     expect(offOnly.container.querySelector('[data-part="earth"]')).toBeNull();
     expect(screen.queryByText('Earth in view')).toBeNull();
-    expect(screen.queryByText('in shadow')).toBeNull();
+    expect(screen.queryByText('night')).toBeNull();
     expect(offOnly.container.querySelectorAll('[data-swatch]')).toHaveLength(2);
     expect(stripBox(offOnly.container).getAttribute('class')).toBe('relative h-8');
   });
@@ -584,14 +584,14 @@ describe('TimeBar', () => {
     expect(heightPx(stripBox(none.container))).toBe(47);
   });
 
-  it("names the strip's grey, the hours the site is in shadow, right after the yellow of its sunlight when the dates are shown", () => {
-    // The second day leaves the strip grey there, with the Sun 5° up all the while: the hills hide it. So the key
-    // says where the site is, in sunlight or in shadow, not whether the Sun is up.
+  it("names the strip's grey, the night, right after the yellow of its sunlight when the dates are shown", () => {
+    // The second day leaves the strip grey there, with the Sun 5° up all the while, set behind the hills. So the key
+    // names the site in sunlight and the night, not whether the Sun is up.
     expect(series.sunEl[30]).toBe(5);
     expect(series.sunFraction[30]).toBe(0);
     const { container } = show(6, { dates: true });
     const key = container.querySelector<HTMLElement>('[data-part="key-no-sun"]')!;
-    expect(key.textContent).toBe('in shadow');
+    expect(key.textContent).toBe('night');
     expect(container.querySelector('[data-part="key"]')!.textContent).toBe('in sunlight');
     for (const k of container.querySelectorAll('[data-part^="key"]')) expect(k.textContent).not.toMatch(/Sun up|no Sun/);
     // The swatch is the strip's own grey: its background, where no yellow is drawn.
@@ -615,14 +615,14 @@ describe('TimeBar', () => {
     const { container, unmount } = showPeriod(30, { dates: true }, { sunFraction: new Float64Array(720).fill(0.2) });
     expect(container.querySelectorAll('[data-part="lit"]')).toHaveLength(1);
     expect(container.querySelector('[data-part="key-no-sun"]')).toBeNull();
-    expect(screen.queryByText('in shadow')).toBeNull();
+    expect(screen.queryByText('night')).toBeNull();
     unmount();
     // One hour without it is grey on the strip, and named.
     const sunFraction = new Float64Array(720).fill(1);
     sunFraction[300] = 0;
     const one = showPeriod(30, { dates: true }, { sunFraction });
     expect(one.container.querySelectorAll('[data-part="lit"]')).toHaveLength(2);
-    expect(screen.getByText('in shadow')).toBeTruthy();
+    expect(screen.getByText('night')).toBeTruthy();
   });
 
   it('leaves "radio contact" out of the key when the lander loses power before Earth comes into view: the bar draws no solid green, only the hatched radio after the night', () => {
@@ -631,7 +631,7 @@ describe('TimeBar', () => {
     expect(contactRunsOf(container, 720)).toEqual([{ from: 456, to: 552, hatched: true }]);
     expect(container.querySelector('[data-part="contact-run"]:not([data-if-survives])')).toBeNull();
     // So the key names no solid green for a reader to go looking for: the hatched entry comes right after Earth's.
-    expect(keyWords(container)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio, if it survives the night']);
+    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if it survives the night']);
     expect(container.querySelector('[data-part="key-contact"]')).toBeNull();
     expect(screen.queryByText('radio contact')).toBeNull();
     expect(container.querySelector('[data-part="key-if-survives"]')!.previousElementSibling).toBe(container.querySelector('[data-part="key-earth"]'));
@@ -645,7 +645,7 @@ describe('TimeBar', () => {
     const early = Uint8Array.from({ length: 720 }, (_, h) => (h >= 24 && h < 100 ? 1 : 0));
     const { container, unmount } = showPeriod(30, { dates: true, powered, ifSurvivesFrom: 456 }, { sunFraction, earthVisible: early });
     expect(contactRunsOf(container, 720)).toEqual([{ from: 24, to: 76, hatched: false }]);
-    expect(keyWords(container)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact']);
+    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
     expect(screen.queryByText('radio, if it survives the night')).toBeNull();
     unmount();
     // With Earth in view again from the 20th to the 23rd, both kinds of green are drawn, and both named, the solid first.
@@ -655,7 +655,7 @@ describe('TimeBar', () => {
       { from: 24, to: 76, hatched: false },
       { from: 456, to: 552, hatched: true },
     ]);
-    expect(keyWords(both.container)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
+    expect(keyWords(both.container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
   });
 
   it('leaves "lander off" out of the key when no hour is without power', () => {
@@ -664,16 +664,16 @@ describe('TimeBar', () => {
     const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
     const { container } = showPeriod(30, { dates: true, powered: new Uint8Array(720).fill(1), ifSurvivesFrom: null }, { sunFraction, earthVisible });
     expect(container.querySelector('[data-part="off"]')).toBeNull();
-    expect(keyWords(container)).toEqual(['in sunlight', 'in shadow', 'Earth in view', 'radio contact']);
+    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'Earth in view', 'radio contact']);
     expect(screen.queryByText('lander off')).toBeNull();
   });
 
   it('leaves "in sunlight" out of the key when no hour has any of the Sun: there is no yellow to name', () => {
-    // A period all in shadow: the strip is grey from end to end, and the key names the grey alone.
+    // A period all night: the strip is grey from end to end, and the key names the grey alone.
     const dark = new Float64Array(720);
     const { container, unmount } = showPeriod(30, { dates: true }, { sunFraction: dark });
     expect(container.querySelector('[data-part="lit"]')).toBeNull();
-    expect(keyWords(container)).toEqual(['in shadow']);
+    expect(keyWords(container)).toEqual(['night']);
     expect(screen.queryByText('in sunlight')).toBeNull();
     unmount();
     // Explore's key names the yellow alone, so for such a period it has no entry at all.
@@ -686,7 +686,7 @@ describe('TimeBar', () => {
     // The night, the hours the battery runs out in it, and Earth on the second day while the lander has power: every key is needed.
     const { container } = show(6, { dates: true, powered: power.powered });
     const keys = [...container.querySelectorAll<HTMLElement>('[data-part^="key"]')];
-    expect(keys.map((k) => k.textContent)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact']);
+    expect(keys.map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
     // One group, not the line of words itself, so no key strays to the far side of a new line.
     const group = keys[0].parentElement!;
     for (const k of keys) expect(k.parentElement).toBe(group);
@@ -709,7 +709,7 @@ describe('TimeBar', () => {
   it('slims the bar when compact on a medium screen and up: the keys join the line of the date and hour, at its right end, and stay under the date on a phone', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, clockNote: ' (Earth time)' });
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact']);
+    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
     // In the date's own line of words, after the date and its note, and after the Key button that stands for them on a phone.
     expect(group.parentElement).toBe(screen.getByTestId('when').closest('p'));
     expect(group.previousElementSibling).toBe(screen.getByRole('button', { name: 'Key' }));
@@ -758,7 +758,7 @@ describe('TimeBar', () => {
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
     expect(group.id).not.toBe('');
     expect(key.getAttribute('aria-controls')).toBe(group.id);
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
+    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
     expect(group.classList.contains('max-sm:hidden')).toBe(true);
     expect(group.className).not.toMatch(/(^| )(sm:|md:)?hidden( |$)/);
   });
@@ -787,7 +787,7 @@ describe('TimeBar', () => {
     const key = screen.getByRole('button', { name: 'Key' });
     fireEvent.click(key);
     const group = document.getElementById(key.getAttribute('aria-controls')!)!;
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'in shadow', 'lander off', 'Earth in view', 'radio, if it survives the night']);
+    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if it survives the night']);
     cleanup();
     // A lander that keeps its power all through: no "lander off" behind the button.
     const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));

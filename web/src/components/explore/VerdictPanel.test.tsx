@@ -10,7 +10,7 @@ const night: Answer = {
   title: 'Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night',
   sentences: [
     'No radio contact: Earth is out of view for all 3 days 4 hours with power.',
-    'The Sun sets on 3 January and stays behind the hills for 16 days 15 hours.',
+    'The Sun sets behind the hills on 3 January, and the night lasts 16 days 15 hours.',
     'As the Sun set, the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power comes back on 20 January.',
   ],
   better: { hour: 466, startUtc: '2027-01-20T10:00:00', label: 'Land on 20 January instead', note: 'From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.' },
@@ -39,7 +39,7 @@ describe('VerdictPanel', () => {
     // A site's number stays with its name ("Rim 2" never breaks across lines), and a phone gets a size that wraps calmly.
     expect(h1.textContent).toBe('Landing at de Gerlache Rim\u00a02 on 1 January: power for 3 days 4 hours, then night');
     expect(h1.className).toMatch(/(^| )text-\[24px\]/);
-    expect(screen.getByText(/The Sun sets on 3 January/)).toBeTruthy();
+    expect(screen.getByText(/The Sun sets behind the hills on 3 January/)).toBeTruthy();
     expect(screen.getByText(/covers only the first 9 hours of the night/)).toBeTruthy();
     expect(screen.getByRole('region', { name: 'The answer' }).getAttribute('data-tone')).toBe('bad');
   });
@@ -49,7 +49,7 @@ describe('VerdictPanel', () => {
     const lead = screen.getByText('No radio contact: Earth is out of view for all 3 days 4 hours with power.');
     expect(lead.tagName).toBe('P');
     expect(lead.className).toMatch(/\bfont-medium\b/);
-    expect(screen.getByText(/^The Sun sets on 3 January .* power comes back on 20 January\.$/).tagName).toBe('P');
+    expect(screen.getByText(/^The Sun sets behind the hills on 3 January, .* power comes back on 20 January\.$/).tagName).toBe('P');
   });
 
   it('makes the better landing date the one gold button, with what it gives', () => {

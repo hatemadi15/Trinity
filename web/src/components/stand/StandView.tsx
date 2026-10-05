@@ -33,16 +33,15 @@ const LANDER_FOOT_M = 2.1;
 
 /**
  * The key moments' days on the paths, each named as its flag on the time bar names it, short, so a chip says
- * what happens where it sits: on the Sun's path where it leaves the view, "Sun behind hills, 3 Jan" when a hill
- * hides a Sun still up, else "Sunset, 3 Jan", and where it comes back, "Sun back, 20 Jan"; on Earth's where it
- * comes into view, "Earth in view, 10 Jan". The power's part of a joined moment stays on its flag: the path is
- * the Sun's.
+ * what happens where it sits: on the Sun's path where it sets, below the horizon or behind the hills, "Sunset,
+ * 3 Jan", and where it rises, "Sunrise, 20 Jan"; on Earth's where it rises, "Earth rises, 10 Jan". The power's
+ * part of a joined moment stays on its flag: the path is the Sun's.
  */
 export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
   return moments.flatMap((m): NonNullable<StandScene['marks']> => {
-    if (m.kind === 'earth-in') return [{ hour: m.hour, body: 'earth', text: `Earth in view, ${m.day}` }];
-    if (m.kind === 'sun-back' || m.kind === 'sun-power-back') return [{ hour: m.hour, body: 'sun', text: `Sun back, ${m.day}` }];
-    if (m.kind === 'sunset' || m.kind === 'sunset-power-off') return [{ hour: m.hour, body: 'sun', text: `${m.label.startsWith('Sunset') ? 'Sunset' : 'Sun behind hills'}, ${m.day}` }];
+    if (m.kind === 'earth-in') return [{ hour: m.hour, body: 'earth', text: `Earth rises, ${m.day}` }];
+    if (m.kind === 'sun-back' || m.kind === 'sun-power-back') return [{ hour: m.hour, body: 'sun', text: `Sunrise, ${m.day}` }];
+    if (m.kind === 'sunset' || m.kind === 'sunset-power-off') return [{ hour: m.hour, body: 'sun', text: `Sunset, ${m.day}` }];
     return [];
   });
 }

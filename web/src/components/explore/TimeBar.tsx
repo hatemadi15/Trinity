@@ -139,7 +139,7 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number)
  * The key names the track's yellow "in sunlight": the hours with any part of the Sun in view from the site,
  * not all those with the Sun up, as a Sun up behind the hills leaves the strip grey. Where no chart is above
  * it (the stand view), `dates` writes the dates under the track, draws the hours Earth is in view as a blue
- * band and names the strip's grey, the hours the site is in shadow, "in shadow"; `powered` (1 for each hour
+ * band and names the strip's grey, the hours with none of the Sun in view, "night"; `powered` (1 for each hour
  * with power, 0 without) draws the hours the lander is off as a red band right under the sunlight, with
  * "lander off" in the key. The blue band sits under the red one, and under the blue, on a row of its own,
  * the hours with both power and Earth in view, when the lander can radio home, are a green band ("radio
@@ -154,7 +154,7 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number)
  *
  * The key names only what the bar draws for the period shown, so no reader goes looking for a band that is
  * not there: each entry comes only with at least one hour of its own band, in its usual place among the
- * others. "in sunlight" needs an hour with some of the Sun, "in shadow" one with none of it, "lander off" one
+ * others. "in sunlight" needs an hour with some of the Sun, "night" one with none of it, "lander off" one
  * without power, "Earth in view" one with Earth in view, "radio contact" one of solid green and "radio, if it
  * survives the night" one of hatched green. So where the battery runs out before Earth comes into view, all
  * the radio contact comes after the night and the key names only the hatched band; and on Explore, whose key
@@ -422,7 +422,7 @@ export function TimeBar({
                   <span data-part="key-no-sun" className="flex items-center gap-2 text-[15px] text-ink-2">
                     {/* The strip's own grey, where no yellow is drawn, with an edge light enough to see on the dark bar. */}
                     <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border border-ink-3 bg-surface-2" />
-                    in shadow
+                    night
                   </span>
                 )}
                 {off.length > 0 && (

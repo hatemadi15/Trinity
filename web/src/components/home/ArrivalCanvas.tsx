@@ -125,19 +125,19 @@ type Tag = 'earth' | 'pole' | 'site' | 'sun' | 'earthHere';
 /** Once landed (the guides show then too): the date's bar and the month's lines. */
 const LANDED = 3.8;
 /**
- * What lights the ground at the site at an hour, in words: the Sun, Earth alone (which is why the ground turns blue),
- * or nothing. Without the Sun the picture is brightened, as the stand view says, and the words say so: the ground
- * would look near black.
+ * What lights the ground at the site at an hour, in words: the Sun, or at night Earth alone (which is why the ground
+ * turns blue) or nothing. At night the picture is brightened, as the stand view says, and the words say so: the
+ * ground would look near black.
  */
 export function lightWords(series: Pick<Hero['series'], 'sunFraction' | 'earthVisible'>, hour: number): string {
   if (series.sunFraction[hour] > 0) return 'in sunlight';
-  return series.earthVisible[hour] === 1 ? 'lit only by Earthlight (picture brightened)' : 'in the dark (picture brightened)';
+  return series.earthVisible[hour] === 1 ? 'night, lit only by Earthlight (picture brightened)' : 'night (picture brightened)';
 }
 /** The date bar's key: what each colour of mark stands for. */
 const TICK_KEY = [
-  ['#f6b646', 'The Sun hides or comes back'],
+  ['#f6b646', 'Sunset or sunrise'],
   ['#e5e3dc', 'The battery runs out'],
-  ['#74adff', 'Earth comes into view'],
+  ['#74adff', 'Earth rises'],
 ] as const;
 /** A moment's mark on the date's bar, in its body's colour: the Sun's amber, Earth's blue, else white (the battery). */
 const tickColour = (kind: string) => (kind.startsWith('earth') ? '#74adff' : kind.startsWith('sun') ? '#f6b646' : '#e5e3dc');

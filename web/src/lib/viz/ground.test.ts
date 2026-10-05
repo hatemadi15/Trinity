@@ -39,10 +39,10 @@ describe('groundWords', () => {
     expect(groundWords(series([{ f: 1, el: 12.36, az: 268 }]), 0).sun).toBe('The site is in sunlight: the Sun is 12° above the horizon, to the west.');
   });
 
-  it('says why the site is dark when the Sun is up: it is behind the hills', () => {
-    expect(groundWords(series([{ f: 0, el: 1.6, az: 250 }]), 0).sun).toBe('The site is in shadow: the Sun is 1.6° above the horizon but behind the hills to the west.');
+  it('says why it is night at the site when the Sun is up: it has set behind the hills', () => {
+    expect(groundWords(series([{ f: 0, el: 1.6, az: 250 }]), 0).sun).toBe('It is night at the site: the Sun is 1.6° above the horizon but has set behind the hills to the west.');
     // Within a twentieth of a degree of level it is on the horizon, as in sunlight: never "0.0° above".
-    expect(groundWords(series([{ f: 0, el: 0.02, az: 250 }]), 0).sun).toBe('The site is in shadow: the Sun is on the horizon but behind the hills to the west.');
+    expect(groundWords(series([{ f: 0, el: 0.02, az: 250 }]), 0).sun).toBe('It is night at the site: the Sun is on the horizon but has set behind the hills to the west.');
   });
 
   it('calls it night when the Sun is below the horizon', () => {
@@ -59,25 +59,25 @@ describe('groundWords', () => {
     expect(w({ f: 1, el: 2, az: 0, earth: { el: 3, az: 0, seen: true } }).earthHidden).toBe('no');
   });
 
-  it('says whether the Sun is rising or setting behind the hills when part of it shows', () => {
+  it('says whether the Sun is rising over the hills or setting behind them when part of it shows', () => {
     const setting = series([
       { f: 1, el: 2, az: 280 },
       { f: 0.4, el: 2, az: 279 },
       { f: 0, el: 2, az: 278 },
     ]);
-    expect(groundWords(setting, 1).sun).toBe('The site is partly in sunlight: the Sun is setting behind the hills to the west.');
+    expect(groundWords(setting, 1).sun).toBe('The site is partly in sunlight: the Sun sets behind the hills to the west.');
     const rising = series([
       { f: 0, el: 2, az: 100 },
       { f: 0.4, el: 2, az: 99 },
       { f: 1, el: 2, az: 98 },
     ]);
-    expect(groundWords(rising, 1).sun).toBe('The site is partly in sunlight: the Sun is rising behind the hills to the east.');
+    expect(groundWords(rising, 1).sun).toBe('The site is partly in sunlight: the Sun rises over the hills to the east.');
   });
 
   it('says whether Earth can be reached by radio, and if not, why', () => {
-    expect(groundWords(series([{ f: 1, el: 2, az: 0, earth: { el: 4.2, az: 72, seen: true } }]), 0).earth).toBe('Earth is in view, 4.2° above the horizon to the east: radio contact is possible.');
+    expect(groundWords(series([{ f: 1, el: 2, az: 0, earth: { el: 4.2, az: 72, seen: true } }]), 0).earth).toBe('Earth is in view 4.2° above the horizon to the east: radio contact is possible.');
     expect(groundWords(series([{ f: 1, el: 2, az: 0, earth: { el: -1, az: 72, seen: false } }]), 0).earth).toBe('Earth is below the horizon: no radio contact.');
-    expect(groundWords(series([{ f: 1, el: 2, az: 0, earth: { el: 3, az: 72, seen: false } }]), 0).earth).toBe('Earth is behind the hills to the east: no radio contact.');
+    expect(groundWords(series([{ f: 1, el: 2, az: 0, earth: { el: 3, az: 72, seen: false } }]), 0).earth).toBe('Earth has set behind the hills to the east: no radio contact.');
   });
 
   it('says "on the horizon" for a Sun or Earth that shows from a high site while at or just below level, never a negative height above it', () => {

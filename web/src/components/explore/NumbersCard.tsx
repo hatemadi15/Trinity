@@ -67,9 +67,9 @@ export function NumbersCard({
         : 'from NASA elevation data, worked out ahead of time';
   const rows: [string, string, string][] = [
     ['Sunlight', pct(summary.illumFraction), 'share of the hours with any part of the Sun above the hills'],
-    ['Longest night', spanShort(summary.longestDarkH), 'the longest stretch with the Sun behind the hills'],
+    ['Longest night', spanShort(summary.longestDarkH), 'the longest stretch with the Sun set'],
     ['Contact with Earth', pct(summary.earthVisFraction), 'share of the hours with Earth in view for a direct radio link'],
-    ['Longest time without Earth', spanShort(summary.longestEarthGapH), 'the longest stretch with Earth behind the hills'],
+    ['Longest time without Earth', spanShort(summary.longestEarthGapH), 'the longest stretch with Earth set'],
     ['Sunlight and Earth together', pct(summary.jointFraction), 'share of the hours with both'],
     ['Time with power from the start', withPower >= summary.hours ? `all ${days} days` : spanShort(withPower), 'until the battery first runs out'],
     ['Time without power', spanShort(power.brownoutHours), 'hours the lander is off in the period'],

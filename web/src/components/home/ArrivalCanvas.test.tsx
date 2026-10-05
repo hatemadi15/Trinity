@@ -417,7 +417,7 @@ describe('the arrival’s live stage', () => {
     expect(date.textContent).toBe(`${dateLong(h.startUtc, HERO_HOUR)} ${year}`);
     expect(state.textContent).toBe('In sunlight');
     expect(bar.querySelectorAll('[data-tick]')).toHaveLength(moments.length);
-    for (const key of ['The Sun hides or comes back', 'The battery runs out', 'Earth comes into view']) expect(within(bar).getByText(key)).toBeTruthy();
+    for (const key of ['Sunset or sunrise', 'The battery runs out', 'Earth rises']) expect(within(bar).getByText(key)).toBeTruthy();
     // Each moment named for a day or so after it passes, the mark at its hour in the month.
     const earth = moments.find((m) => m.kind === 'earth-in')!;
     progress.current = at(earth.hour + 6);
@@ -427,9 +427,9 @@ describe('the arrival’s live stage', () => {
     // Then what lights the ground: Earth alone, which is why it looks blue; or nothing at all. Either way the picture
     // is brightened, and says so: the ground would look near black.
     progress.current = at(earth.hour + 60);
-    await waitFor(() => expect(state.textContent).toBe('Lit only by Earthlight (picture brightened)'));
+    await waitFor(() => expect(state.textContent).toBe('Night, lit only by Earthlight (picture brightened)'));
     progress.current = at(moments.find((m) => m.kind === 'battery-out')!.hour + 60);
-    await waitFor(() => expect(state.textContent).toBe('In the dark (picture brightened)'));
+    await waitFor(() => expect(state.textContent).toBe('Night (picture brightened)'));
     // At the end, the last hour of the story; before landing, no bar.
     progress.current = 5;
     await waitFor(() => expect((r.setTime as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0]).toBe(end));
