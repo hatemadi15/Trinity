@@ -338,6 +338,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           // What the opening view faces stays in sight while it looks down for the lander's feet: Earth at night, else the Sun when up.
           keepSubject={openOnEarth ? series.earthEl[opening] : series.sunFraction[opening] > 0 ? series.sunEl[opening] : null}
           startFov={openOnEarth ? (tall() ? 56 : 44) : undefined}
+          place={name}
         />
       )}
       {failed && s.mask && (

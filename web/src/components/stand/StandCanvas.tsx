@@ -96,6 +96,12 @@ export function pointerClear(box: Rect, labels: Rect[], lo: number, hi: number):
   return above - h / 2 >= lo ? above : Math.min(hi, hit.bottom + 6 + h / 2);
 }
 
+/**
+ * A body's name with the body under it: the name's box grown `below` pixels down, over the disc and its glare, which
+ * a pointer keeps clear of as it does of the name (both readers of read D1 found Earth's pointer on the Sun's disc).
+ */
+export const withBody = (r: Rect, below = 40): Rect => ({ ...r, bottom: r.bottom + below });
+
 /** A path's name as the view shows it: Earth's with why it loops, on a second line (teacher, part B read 7). */
 export function pathNameText(body: 'sun' | 'earth', text: string): string {
   return body === 'earth' ? `${text}\n${EARTH_LOOP}` : text;
@@ -148,7 +154,7 @@ export function clearOfOwn(boxes: (Rect | null)[], owners: ('sun' | 'earth' | un
   });
 }
 
-/** The compass strip: 120° of the horizon across 300 px, ticks every 15°, the eight points named; its ticks fade at the ends, and each letter fades whole (letterFade). */
+/** The compass strip: 120° of the horizon across 300 px, ticks every 15°, the eight points named; its ticks fade at the ends, and each letter shows whole or not at all (letterShown). */
 const STRIP_W = 300, PX_PER_DEG = STRIP_W / 120;
 const STRIP_FADE = 'linear-gradient(to right, transparent, #000 16%, #000 84%, transparent)';
 /** Narrower than this (degrees up and down) the view is zoomed in: the compass says so, and the lander's parts are named. */
@@ -166,12 +172,12 @@ export function zoomedOnLander(fovDeg: number, yawDeg: number, landerAzDeg: numb
 const POINT = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 /**
- * How whole a compass letter shows (16.3), its middle `x` pixels along the strip and `halfWidth` half its width:
- * fully from 40 px in from either end, fading to nothing as its near edge reaches the end, so no letter is cut ("N"
- * read for "NW").
+ * Whether a compass letter shows (16.3), its middle `x` pixels along the strip and `halfWidth` half its width: whole
+ * while its near edge stays 12 px or more inside either end, else not at all, so no letter is cut ("N" read for "NW")
+ * and none is left faint (both readers of read D1); it fades in and out over 150 ms as it crosses.
  */
-export function letterFade(x: number, halfWidth: number, stripW = STRIP_W): number {
-  return Math.max(0, Math.min(1, Math.min(x - halfWidth, stripW - x - halfWidth) / 40));
+export function letterShown(x: number, halfWidth: number, stripW = STRIP_W): boolean {
+  return Math.min(x - halfWidth, stripW - x - halfWidth) >= 12;
 }
 
 /**
@@ -348,8 +354,8 @@ const TICKS = Array.from({ length: 72 }, (_, k) => -360 + k * 15);
 export const easeStep = (dt: number): number => 1 - Math.exp(-5 * Math.min(0.5, Math.max(0, dt)));
 
 const lerpAngle = (a: number, b: number, f: number) => (a + ((((b - a + 540) % 360) - 180) * f) + 360) % 360;
-// Near opaque, so no path line shows through a name (16.3).
-const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black/90 px-2 py-1 text-[15px]';
+// Opaque, so no path line shows through a name (16.3; both readers of read D1).
+const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black px-2 py-1 text-[15px]';
 
 /**
  * The sky from the site, full window. Drag, the wheel and the arrow keys look around; `look` turns the
@@ -384,6 +390,7 @@ export function StandCanvas({
   keepSubject = null,
   startFov,
   onExplore,
+  place,
 }: {
   scene: StandScene;
   hour: number;
@@ -413,6 +420,8 @@ export function StandCanvas({
   startFov?: number;
   /** Called the first time the view is turned by hand (a drag, a key, the wheel or a pinch). */
   onExplore?: () => void;
+  /** The site's name: on a phone, whose status line leaves it out, the facing chip names it (read D1). */
+  place?: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
@@ -448,6 +457,7 @@ export function StandCanvas({
   // A tall screen opens wider (80° up and down), so the Sun and the lander both fit across it.
   const view = useRef({ yaw: startYaw, pitch: reducedMotion ? 2 : 34, fov: startFov ?? (typeof window !== 'undefined' && window.innerHeight > window.innerWidth ? 80 : 60) });
   const exploreRef = useRef(onExplore);
+  const placeRef = useRef(place);
   const goal = useRef<LookTarget | null>(null);
   const intro = useRef<{ start: number } | null>(reducedMotion ? null : { start: 0 });
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null);
@@ -484,6 +494,9 @@ export function StandCanvas({
   useEffect(() => {
     exploreRef.current = onExplore;
   }, [onExplore]);
+  useEffect(() => {
+    placeRef.current = place;
+  }, [place]);
   useEffect(() => {
     failRef.current = onFail;
   }, [onFail]);
@@ -752,13 +765,15 @@ export function StandCanvas({
         offBody(node);
       });
       const facing = v.pitch > 35 ? `Looking up, to the ${compassWord(v.yaw)}` : `Facing ${compassWord(v.yaw)}${slopeWord(v.yaw, slope.upAz, slope.grade)}${v.fov < ZOOMED_FOV ? ', zoomed in' : ''}`;
-      for (const f of [facingRef.current, facingPhoneRef.current]) if (f && f.textContent !== facing) f.textContent = facing;
-      // The ticks and the letters ride together; each letter fades whole near the strip's ends.
+      // On a phone with the site's name before it, as its status line leaves the name out.
+      const phoneFacing = placeRef.current ? `${placeRef.current}, ${facing.charAt(0).toLowerCase()}${facing.slice(1)}` : facing;
+      for (const [f, text] of [[facingRef.current, facing], [facingPhoneRef.current, phoneFacing]] as const) if (f && f.textContent !== text) f.textContent = text;
+      // The ticks and the letters ride together; each letter shows whole or not at all near the strip's ends.
       const shift = STRIP_W / 2 - (v.yaw + 360) * PX_PER_DEG;
       for (const t of [trackRef.current, lettersRef.current]) if (t) t.style.transform = `translateX(${shift}px)`;
       for (const n of letterRefs.current) {
         if (!n) continue;
-        const o = String(letterFade(Number(n.dataset.at) + shift, n.offsetWidth / 2));
+        const o = letterShown(Number(n.dataset.at) + shift, n.offsetWidth / 2) ? '1' : '0';
         if (n.style.opacity !== o) n.style.opacity = o;
       }
       // The Sun, Earth and the lander on the compass strip: filled while in view, hollow while hidden.
@@ -794,7 +809,11 @@ export function StandCanvas({
         node.style.right = p.side === 'right' ? '8px' : '';
         // Clear of the labels on the sky and of the lander's body, so a pointer never covers the lander, its name or
         // the Sun's: above or below what it meets, and again past the next; left out where it still covers the lander.
-        const labels: Rect[] = [sunRef.current, earthRef.current, landerRef.current, shadowRef.current].filter((n): n is HTMLSpanElement => !!n && !n.hidden).map((n) => n.getBoundingClientRect());
+        const shown = (n: HTMLSpanElement | null): n is HTMLSpanElement => !!n && !n.hidden;
+        const labels: Rect[] = [
+          ...[sunRef.current, earthRef.current].filter(shown).map((n) => withBody(n.getBoundingClientRect())),
+          ...[landerRef.current, shadowRef.current].filter(shown).map((n) => n.getBoundingClientRect()),
+        ];
         if (body) labels.push(body);
         for (let k = 0; k < 3; k++) {
           const b = node.getBoundingClientRect();
@@ -933,7 +952,7 @@ export function StandCanvas({
       <div aria-hidden="true" hidden={clean} style={{ width: STRIP_W }} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 text-[#f2f0ea] max-md:hidden">
       <div data-plate="" className="relative overflow-hidden rounded-[6px] border border-white/15 bg-black/70">
         <div className="relative h-8">
-          {/* The ticks fade at the strip's ends; the letters fade whole (letterFade), so none is cut. */}
+          {/* The ticks fade at the strip's ends; the letters show whole or not at all (letterShown), so none is cut or faint. */}
           <div className="absolute inset-0" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
             <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>
               {TICKS.filter((d) => (((d % 360) + 360) % 360) % 45 !== 0).map((d) => (
@@ -950,8 +969,8 @@ export function StandCanvas({
                 ref={(node) => {
                   letterRefs.current[k] = node;
                 }}
-                className="absolute top-1 -translate-x-1/2 text-[14px] font-semibold"
-                style={{ left: (d + 360) * PX_PER_DEG, opacity: letterFade(STRIP_W / 2 + (d - startYaw) * PX_PER_DEG, 6) }}
+                className="absolute top-1 -translate-x-1/2 text-[14px] font-semibold transition-opacity duration-150 motion-reduce:transition-none"
+                style={{ left: (d + 360) * PX_PER_DEG, opacity: letterShown(STRIP_W / 2 + (d - startYaw) * PX_PER_DEG, 6) ? 1 : 0 }}
               >
                 {POINT[(((d % 360) + 360) % 360) / 45]}
               </span>
@@ -985,7 +1004,7 @@ export function StandCanvas({
               pointerRefs.current[k] = node;
             }}
             hidden
-            className="group absolute flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-[5px] border border-white/15 bg-black/90 px-2 py-0.5 text-[14px] text-[#f2f0ea] data-[side=right]:flex-row-reverse"
+            className="group absolute flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-[5px] border border-white/15 bg-black px-2 py-0.5 text-[14px] text-[#f2f0ea] data-[side=right]:flex-row-reverse"
           >
             <svg width="8" height="10" viewBox="0 0 8 10" className="shrink-0 fill-current group-data-[side=right]:rotate-180">
               <path d="M0 5 8 0v10z" />
@@ -1006,7 +1025,7 @@ export function StandCanvas({
         hidden={clean}
         className="pointer-events-none fixed right-4 top-[calc(var(--top-h,220px)+8px)] rounded-[6px] border border-white/15 bg-black/70 px-2 py-0.5 text-[14px] text-[#f2f0ea] md:hidden"
       >
-        {`Facing ${compassWord(startYaw)}`}
+        {place ? `${place}, facing ${compassWord(startYaw)}` : `Facing ${compassWord(startYaw)}`}
       </p>
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
         <span ref={sunRef} hidden data-sky="sun" className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#f6b646]`}>
@@ -1048,7 +1067,7 @@ export function StandCanvas({
         <span ref={levelRef} hidden className={`${LABEL} translate-x-3 -translate-y-1/2 text-[#c3bfb6]`}>
           Level horizon
         </span>
-        <span ref={shadowRef} hidden className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-pre-line rounded-[5px] border border-white/15 bg-black/90 px-2 py-1 text-center text-[14px] leading-snug text-[#e4e1da]">
+        <span ref={shadowRef} hidden className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-pre-line rounded-[5px] border border-white/15 bg-black px-2 py-1 text-center text-[14px] leading-snug text-[#e4e1da]">
           Your shadow
         </span>
         {scene.lander &&
@@ -1064,7 +1083,7 @@ export function StandCanvas({
               className="group pointer-events-none absolute flex items-center data-[side=above]:flex-col-reverse data-[side=below]:flex-col data-[side=left]:flex-row-reverse"
             >
               <i className="block shrink-0 bg-white/70 group-data-[side=above]:h-5 group-data-[side=above]:w-px group-data-[side=below]:h-5 group-data-[side=below]:w-px group-data-[side=left]:h-px group-data-[side=left]:w-[26px] group-data-[side=right]:h-px group-data-[side=right]:w-[26px]" />
-              <span data-text="" ref={k === 'lamp' ? lampTextRef : undefined} className="whitespace-nowrap rounded-[5px] border border-white/15 bg-black/90 px-2 py-1 text-[14px] text-[#e4e1da]">
+              <span data-text="" ref={k === 'lamp' ? lampTextRef : undefined} className="whitespace-nowrap rounded-[5px] border border-white/15 bg-black px-2 py-1 text-[14px] text-[#e4e1da]">
                 {name}
               </span>
             </span>

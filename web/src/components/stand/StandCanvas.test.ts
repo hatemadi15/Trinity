@@ -6,7 +6,7 @@ import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
 import { EARTH_LOOP, starLabel } from '@/lib/viz/stand';
-import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, fitPitch, horizonLift, inflate, labelSides, letterFade, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, subjectFloor, zoomedOnLander, type RendererLike } from './StandCanvas';
+import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, fitPitch, horizonLift, inflate, labelSides, letterShown, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, subjectFloor, withBody, zoomedOnLander, type RendererLike } from './StandCanvas';
 
 describe('the pointers on a phone', () => {
   it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
@@ -542,17 +542,33 @@ describe('the guides', () => {
     await waitFor(() => expect(name.hidden).toBe(true));
   });
 
-  it('sets the names on plates near opaque, so no path line shows through them', () => {
+  it('sets the names on opaque plates, so no path line shows through them (both readers of read D1)', () => {
     const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
     render(createElement(StandCanvas, props(true, r)));
-    for (const sel of ['[data-sky="sun"]', '[data-sky="earth"]', '[data-path-mark]', '[data-path-name="sun"]', '[data-pointer="earth"]']) expect(document.querySelector(sel)!.className).toContain('bg-black/90');
+    for (const sel of ['[data-sky="sun"]', '[data-sky="earth"]', '[data-path-mark]', '[data-path-name="sun"]', '[data-pointer="earth"]']) expect(document.querySelector(sel)!.classList.contains('bg-black')).toBe(true);
   });
 
-  it('counts the phone’s facing chip as a panel, so the labels keep off it', () => {
+  it('counts the phone’s facing chip as a panel, so the labels keep off it, and names the site on it', async () => {
     const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
-    render(createElement(StandCanvas, props(true, r)));
-    const phone = [...document.querySelectorAll<HTMLElement>('p')].find((p) => p.textContent?.startsWith('Facing') && p.classList.contains('md:hidden'))!;
-    expect(phone.hasAttribute('data-plate')).toBe(true);
+    render(createElement(StandCanvas, { ...props(true, r), place: 'de Gerlache Rim 2' }));
+    const phone = [...document.querySelectorAll<HTMLElement>('p')].find((p) => p.classList.contains('md:hidden') && p.hasAttribute('data-plate'))!;
+    expect(phone).toBeTruthy();
+    // On a phone the status line leaves the site's name out: the chip says where you stand (both readers of read D1).
+    await waitFor(() => expect(phone.textContent).toBe('de Gerlache Rim 2, facing north'));
+    // The strip on a wide screen keeps its own words.
+    expect([...document.querySelectorAll<HTMLElement>('p')].some((p) => p.textContent === 'Facing north')).toBe(true);
+  });
+});
+
+describe('a pointer beside a body', () => {
+  // Both readers of read D1 found Earth's pointer on the Sun's disc, under the Sun's name.
+  it('keeps clear of the body under a name, not only of the name', () => {
+    const sun = { left: 800, top: 260, right: 1000, bottom: 290 };
+    expect(withBody(sun)).toEqual({ left: 800, top: 260, right: 1000, bottom: 330 });
+    // A pointer just under the name, over the disc: clear of the name alone, it meets the name with the body under it.
+    const pointer = { left: 860, top: 300, right: 1016, bottom: 326 };
+    expect(pointerClear(pointer, [sun], 40, 700)).toBeCloseTo(313, 6);
+    expect(pointerClear(pointer, [withBody(sun)], 40, 700)).toBeCloseTo(260 - 6 - 13, 6);
   });
 });
 
@@ -631,14 +647,15 @@ describe('a day or a path’s name beside its own body', () => {
 });
 
 describe('the compass letters', () => {
-  it('fade whole: shown from 40 px in from either end of the strip, gone before any part of a letter reaches the end', () => {
-    expect(letterFade(150, 6)).toBe(1);
-    expect(letterFade(46, 6)).toBe(1);
-    expect(letterFade(26, 6)).toBeCloseTo(0.5, 9);
-    expect(letterFade(6, 6)).toBe(0);
-    expect(letterFade(2, 6)).toBe(0);
-    expect(letterFade(300 - 26, 6)).toBeCloseTo(0.5, 9);
-    expect(letterFade(400, 6)).toBe(0);
+  // Both readers of read D1 found a letter faded part way ("N" at the strip's left end) too faint to read.
+  it('show whole or not at all: whole while 12 px or more inside either end of the strip, else gone', () => {
+    expect(letterShown(150, 6)).toBe(true);
+    expect(letterShown(18, 6)).toBe(true);
+    expect(letterShown(17, 6)).toBe(false);
+    expect(letterShown(2, 6)).toBe(false);
+    expect(letterShown(300 - 18, 6)).toBe(true);
+    expect(letterShown(300 - 17, 6)).toBe(false);
+    expect(letterShown(400, 6)).toBe(false);
   });
 
   it('sets each letter’s opacity as the view turns: facing north, N whole in the middle and E and W gone', async () => {

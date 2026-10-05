@@ -181,7 +181,10 @@ describe('StandView', () => {
     expect(screen.queryByRole('group', { name: 'Key moments' })).toBeNull();
     for (const m of keyMoments(st.series!, st.power, st.startUtc)) expect(screen.getByRole('button', { name: `${m.label}, ${m.day}` })).toBeTruthy();
     // The view opens 35 degrees left of the Sun, the Sun near its right edge: on the compass strip and the phone's note.
-    expect(screen.getAllByText(`Facing ${compassWord((st.series!.sunAz[10] - 35 + 360) % 360)}`).length).toBe(2);
+    const facing = compassWord((st.series!.sunAz[10] - 35 + 360) % 360);
+    expect(screen.getByText(`Facing ${facing}`)).toBeTruthy();
+    // On a phone the site's name goes with it, as the status line there leaves it out.
+    expect(screen.getByText(`de Gerlache Rim 2, facing ${facing}`)).toBeTruthy();
     // The compass strip names the eight points along the horizon.
     await waitFor(() => expect(screen.getAllByText('N').length).toBeGreaterThan(0));
     for (const point of ['NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']) expect(screen.getAllByText(point).length).toBeGreaterThan(0);
@@ -487,7 +490,8 @@ describe('StandView', () => {
     await new Promise((done) => setTimeout(done, 700));
     expect(near()).toBe(true);
     // Zoomed in on it, the compass says so, and its parts carry their names.
-    expect(screen.getAllByText(/^Facing [a-z-]+, zoomed in$/).length).toBe(2);
+    expect(screen.getByText(/^Facing [a-z-]+, zoomed in$/)).toBeTruthy();
+    expect(screen.getByText(/^de Gerlache Rim 2, facing [a-z-]+, zoomed in$/)).toBeTruthy();
     for (const part of ['Solar panel', 'Radio dish', 'Power light: on']) expect(screen.getByText(part).hidden).toBe(false);
   });
 
