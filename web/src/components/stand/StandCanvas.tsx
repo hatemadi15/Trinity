@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { crossStars, type StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
-import { shadowWords, starLabel } from '@/lib/viz/stand';
+import { EARTH_LOOP, shadowWords, starLabel } from '@/lib/viz/stand';
 
 export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean) => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
@@ -95,6 +95,11 @@ export function pointerClear(box: Rect, labels: Rect[], lo: number, hi: number):
 }
 
 /** A pointer's words: the label's, "set behind the hills" as "set" ("below the horizon" stays: below what?). */
+/** A path's name as the view shows it: Earth's with why it loops, on a second line (teacher, part B read 7). */
+export function pathNameText(body: 'sun' | 'earth', text: string): string {
+  return body === 'earth' ? `${text}\n${EARTH_LOOP}` : text;
+}
+
 export function pointerWords(label: string): string {
   return label.replace(', set behind the hills', ', set');
 }
@@ -730,7 +735,8 @@ export function StandCanvas({
         .filter((b) => b.width > 0);
       const named = PATHS.map(([k]) => {
         const node = nameRefs.current[k], n = l.pathNames?.find((p) => p.body === k) ?? null;
-        if (node && n && node.textContent !== n.text) node.textContent = n.text;
+        const text = n ? pathNameText(k, n.text) : '';
+        if (node && n && node.textContent !== text) node.textContent = text;
         const dx = place(node, n);
         if (n) keepOff(node, n, dx, body, shownLabels);
         return node && !node.hidden ? node.getBoundingClientRect() : null;
@@ -929,7 +935,7 @@ export function StandCanvas({
             }}
             hidden
             data-path-name={k}
-            className={`${LABEL} -translate-x-1/2 translate-y-1/4 ${colour}`}
+            className={`${LABEL.replace('whitespace-nowrap', 'whitespace-pre')} -translate-x-1/2 translate-y-1/4 ${colour}`}
           />
         ))}
         <span ref={levelRef} hidden className={`${LABEL} translate-x-3 -translate-y-1/2 text-[#c3bfb6]`}>

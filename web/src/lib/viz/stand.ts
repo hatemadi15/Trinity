@@ -23,6 +23,9 @@ export function standQuery(search: string | URLSearchParams): ExploreQuery & { h
  * than below it or a negative height up. Within a twentieth of a degree of level a body out of view is "on
  * the horizon, set behind the hills" or "just below the horizon", never 0.0°.
  */
+/** Why Earth's path makes a loop, on the path's name where it first shows (teacher, part B read 7). */
+export const EARTH_LOOP = 'a loop: the Moon rocks a little each month';
+
 export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string {
   const name = body === 'sun' ? 'Sun' : 'Earth';
   const el = body === 'sun' ? s.sunEl[hour] : s.earthEl[hour];

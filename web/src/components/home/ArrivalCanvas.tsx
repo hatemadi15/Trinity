@@ -13,7 +13,7 @@ import { eyeAt, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
 import { HERO_HOUR, hero, type Hero } from '@/lib/viz/arrival';
 import { dateLong } from '@/lib/viz/format';
-import { keyMoments, skyLabel, type MomentKind } from '@/lib/viz/stand';
+import { EARTH_LOOP, keyMoments, skyLabel, type MomentKind } from '@/lib/viz/stand';
 import { standLander } from '@/lib/viz/standOpening';
 
 /** The renderer as the arrival drives it; a stub in tests. */
@@ -121,6 +121,12 @@ const LABEL_BESIDE_EARTH = `${CHIP_BOX} w-max max-w-[15rem] translate-x-[36px] -
 const DOT = 'absolute h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-current';
 /** The dot of a label beside its point: on the label's left, or its right when the label turns. */
 const SIDE_DOT = `${DOT} -left-3 top-1/2 group-data-[side=left]:left-auto group-data-[side=left]:-right-3 group-data-[side=left]:translate-x-1/2 group-data-[side=below]:left-1/2 group-data-[side=below]:-top-3 group-data-[side=up]:top-full`;
+/** The line from a label to its dot below it: the 30 % of the label's height between them. */
+const STEM = 'absolute left-1/2 top-full h-[30%] w-px -translate-x-1/2 bg-current opacity-60';
+/** The line from a path's name down to its path, 8 px. */
+const STEM_DOWN = 'absolute left-1/2 top-full h-2 w-px -translate-x-1/2 bg-current opacity-60';
+/** The line from a label beside its point to the dot, either side; above or below the point the dot is close enough alone. */
+const SIDE_STEM = 'absolute right-full top-1/2 h-px w-[9px] -translate-y-1/2 bg-current opacity-60 group-data-[side=left]:left-full group-data-[side=left]:right-auto group-data-[side=below]:hidden group-data-[side=up]:hidden';
 type Tag = 'earth' | 'pole' | 'site' | 'sun' | 'earthHere';
 /** Once landed (the guides show then too): the date's bar and the month's lines. */
 const LANDED = 3.8;
@@ -517,14 +523,17 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
         </span>
         <span ref={(n) => { tags.current.pole = n; }} hidden className={LABEL_RIGHT}>
           <i aria-hidden="true" className={SIDE_DOT} />
+          <i aria-hidden="true" data-stem="" className={SIDE_STEM} />
           The Moon&apos;s south pole
         </span>
         <span ref={(n) => { tags.current.site = n; }} hidden className={`${LABEL} text-[#f6d48a]`}>
           <i aria-hidden="true" className={`${DOT} left-1/2 top-[130%]`} />
+          <i aria-hidden="true" data-stem="" className={STEM} />
           {siteLabel(h.site)}
         </span>
         <span ref={(n) => { tags.current.sun = n; }} hidden className={`${LABEL} text-[#f6b646]`}>
           <i aria-hidden="true" className={`${DOT} left-1/2 top-[130%]`} />
+          <i aria-hidden="true" data-stem="" className={STEM} />
           <span ref={sunTextRef}>{skyLabel('sun', h.series, HERO_HOUR)}</span>
         </span>
         <span ref={edgeRef} hidden data-sun-edge="" className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#f6b646]`}>
@@ -536,12 +545,16 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
         {/* Each path's name hangs over its line, in its body's colour. */}
         <span ref={(n) => { pathNameRefs.current.sun = n; }} hidden data-path-name="" className={`${CHIP} -translate-x-1/2 -translate-y-[calc(100%+8px)] text-[#f6d48a]`}>
           Sun&apos;s path this month
+          <i aria-hidden="true" data-stem="" className={STEM_DOWN} />
         </span>
         <span ref={(n) => { pathNameRefs.current.earth = n; }} hidden data-path-name="" className={`${CHIP} -translate-x-1/2 -translate-y-[calc(100%+8px)] text-[#a9c8ff]`}>
           Earth&apos;s path this month
+          <span className="block text-[14px] text-[#c6c5c0]">{EARTH_LOOP}</span>
+          <i aria-hidden="true" data-stem="" className={STEM_DOWN} />
         </span>
         <span ref={(n) => { tags.current.earthHere = n; }} hidden data-earth-here="" className={`${LABEL} text-[#74adff]`}>
           <i aria-hidden="true" className={`${DOT} left-1/2 top-[130%]`} />
+          <i aria-hidden="true" data-stem="" className={STEM} />
           <span ref={earthHereTextRef}>{skyLabel('earth', h.series, HERO_HOUR)}</span>
         </span>
         <span ref={nightRef} hidden className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#c3bfb6]`}>

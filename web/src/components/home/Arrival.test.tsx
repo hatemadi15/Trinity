@@ -96,6 +96,13 @@ describe('the arrival', () => {
     }
   });
 
+  it('starts the answer’s card under the date bar where the two would meet, so the date and the sky stay in view (teacher, read 6)', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    const last = document.querySelector(`[data-beat="${BEAT_STOPS.length - 1}"]`)!;
+    expect(last.className).toMatch(/\bpt-\[168px\]/);
+    expect(last.className).toMatch(/\bmin-\[1400px\]:pt-6\b/);
+  });
+
   it('follows the scroll: each screen is its beat’s stop, and Skip shows only between the first screen and the last', () => {
     render(<Arrival words={words} Stage={Stage} />);
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();

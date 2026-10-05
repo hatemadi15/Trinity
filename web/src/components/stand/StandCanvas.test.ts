@@ -5,7 +5,15 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
-import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, offLander, partSide, pointerClear, pointerWords, slopeWord, StandCanvas, starNamesShown, type RendererLike } from './StandCanvas';
+import { EARTH_LOOP } from '@/lib/viz/stand';
+import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, offLander, partSide, pathNameText, pointerClear, pointerWords, slopeWord, StandCanvas, starNamesShown, type RendererLike } from './StandCanvas';
+
+describe('the paths’ names', () => {
+  it('names Earth’s path with why it loops, on a second line, and the Sun’s path as it is', () => {
+    expect(pathNameText('earth', "Earth's path this month")).toBe(`Earth's path this month\n${EARTH_LOOP}`);
+    expect(pathNameText('sun', "Sun's path this month")).toBe("Sun's path this month");
+  });
+});
 
 describe('the view on a tall screen', () => {
   it('rests higher on a tall screen so the horizon sits a little above the middle of the band free of words and buttons, the lander and the ground below it', () => {
@@ -449,7 +457,8 @@ describe('the paths’ names', () => {
       await waitFor(() => expect(names()[0].hidden).toBe(false));
       expect(names().map((n) => [n.dataset.pathName, n.textContent])).toEqual([
         ['sun', "Sun's path this month"],
-        ['earth', "Earth's path this month"],
+        // Earth's with why it loops, on a second line.
+        ['earth', `Earth's path this month\n${EARTH_LOOP}`],
       ]);
       // In the bodies' colours.
       expect(names()[0].className).toContain('text-[#f6b646]');

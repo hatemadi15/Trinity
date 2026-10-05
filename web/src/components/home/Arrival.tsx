@@ -206,7 +206,9 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             </div>
           </div>
         ))}
-        <div data-beat={BEATS - 1} className="flex h-[100svh] items-start pt-4 sm:pt-6">
+        {/* Under the date bar (16 px from the top, about 140 px tall) wherever the two would meet, as on a phone; from
+            1400 px wide the bar stands clear of the card's column, and the card starts at the top. */}
+        <div data-beat={BEATS - 1} className="flex h-[100svh] items-start pt-[168px] min-[1400px]:pt-6">
           {/* At the top left, in the beats' column (its left edge where theirs is), and narrower: the lander stands right
               of it. */}
           <div className="wrap w-full">

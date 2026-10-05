@@ -6,7 +6,7 @@ import type { StandScene } from '@/lib/sky/standRenderer';
 import { siteEndHour } from '@/lib/sky/arrivalPath';
 import { HERO_HOUR, hero } from '@/lib/viz/arrival';
 import { dateLong } from '@/lib/viz/format';
-import { keyMoments, skyLabel } from '@/lib/viz/stand';
+import { EARTH_LOOP, keyMoments, skyLabel } from '@/lib/viz/stand';
 import ArrivalCanvas, { laneOf, type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
 
 const sky = { stars: { count: 0, j2000: new Float32Array(), vmag: new Float32Array(), bv: new Float32Array() }, moon: { startMs: 0, stepMs: 1, count: 2, quats: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0]) }, earthDayUrl: '', earthCloudsUrl: '' };
@@ -527,6 +527,19 @@ describe('the arrival’s live stage', () => {
     expect(bar.textContent).toContain('The battery runs out');
     expect(bar.textContent).toContain('Earth rises or sets');
     expect(bar.querySelector('p:last-of-type')!.className).toMatch(/\btext-\[15px\]/);
+  });
+
+  it('joins each label to its mark with a short line, and names Earth’s loop where its path first shows', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    render(<ArrivalCanvas progress={{ current: 4.5 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+    await waitFor(() => expect(document.querySelectorAll('[data-path-name]')).toHaveLength(2));
+    const dots = [...document.querySelectorAll('i[class*="top-[130%]"]')];
+    expect(dots.length).toBeGreaterThanOrEqual(3);
+    for (const dot of dots) expect(dot.nextElementSibling?.getAttribute('data-stem')).toBe('');
+    const names = [...document.querySelectorAll('[data-path-name]')];
+    for (const n of names) expect(n.querySelector('[data-stem]')).toBeTruthy();
+    expect(names[1].textContent).toContain(EARTH_LOOP);
   });
 
   it('puts each kind of moment in its lane', () => {
