@@ -129,13 +129,14 @@ const STEM_DOWN = 'absolute left-1/2 top-full h-2 w-px -translate-x-1/2 bg-curre
 const SIDE_STEM = 'absolute right-full top-1/2 h-px w-[9px] -translate-y-1/2 bg-current opacity-60 group-data-[side=left]:left-full group-data-[side=left]:right-auto group-data-[side=below]:hidden group-data-[side=up]:hidden';
 type Tag = 'earth' | 'pole' | 'site' | 'sun' | 'earthHere';
 /**
- * What lights the ground at the site at an hour, in words: the Sun, or at night Earth alone (which is why the ground
- * turns blue) or nothing. At night the picture is brightened, as the stand view says, and the words say so: the
- * ground would look near black.
+ * What lights the ground at the site at an hour, in words: the Sun, or at night Earth alone or nothing. In Earthlight
+ * the ground looks blue, and the words say so, so the blue reads as the light and not as the ground's own colour
+ * (16.3). At night the picture is brightened, as the stand view says, and the words say so: the ground would look
+ * near black.
  */
 export function lightWords(series: Pick<Hero['series'], 'sunFraction' | 'earthVisible'>, hour: number): string {
   if (series.sunFraction[hour] > 0) return 'in sunlight';
-  return series.earthVisible[hour] === 1 ? 'night, lit only by Earthlight (picture brightened)' : 'night (picture brightened)';
+  return series.earthVisible[hour] === 1 ? 'night, in blue Earthlight (picture brightened)' : 'night (picture brightened)';
 }
 /** The date bar's key: what each colour of mark stands for, in the order of its lanes. */
 const TICK_KEY = [
@@ -156,6 +157,33 @@ const LANE_PLACE = { sun: 'bottom-[calc(50%+5px)] h-2.5', power: 'top-1/2 h-1.5 
 const DEG = Math.PI / 180;
 /** How far a pointer to a body out of view stands in from the view's edge, beyond half its own size, in pixels. */
 const EDGE_IN_PX = 12;
+/** How far a label keeps from a beat's plate, and a label moved off one from the view's top and foot, in pixels. */
+const PLATE_GAP_PX = 6, VIEW_IN_PX = 8;
+type Box = { left: number; top: number; right: number; bottom: number };
+/** Whether a box keeps that gap from every plate, beyond at least one of the plate's sides (less a hair, for rounding). */
+const apart = (b: Box, plates: Box[]) => plates.every((w) => Math.max(w.left - b.right, b.left - w.right, w.top - b.bottom, b.top - w.bottom) >= PLATE_GAP_PX - 1e-6);
+/**
+ * How far to move a label down the view (up where negative), in pixels, so it keeps 6 px clear of every beat's plate
+ * rather than sit under one: none where it already does. Else the shorter of the moves above a plate it meets (its
+ * foot 6 px over the plate's top) and below it (its top 6 px under the plate's foot), of those that leave it clear of
+ * every plate and 8 px inside the view; null where none does, and the label hides.
+ */
+export function clearOfPlates(box: Box, plates: Box[], viewTop: number, viewBottom: number): number | null {
+  if (apart(box, plates)) return 0;
+  let best: number | null = null;
+  for (const w of plates) {
+    if (apart(box, [w])) continue;
+    for (const dy of [w.top - PLATE_GAP_PX - box.bottom, w.bottom + PLATE_GAP_PX - box.top]) {
+      // Built from the box's edges: a DOMRect's are not its own properties, so spreading it would lose them.
+      const moved = { left: box.left, right: box.right, top: box.top + dy, bottom: box.bottom + dy };
+      const fits = moved.top >= viewTop + VIEW_IN_PX && moved.bottom <= viewBottom - VIEW_IN_PX && apart(moved, plates);
+      if (fits && (best === null || Math.abs(dy) < Math.abs(best))) best = dy;
+    }
+  }
+  return best;
+}
+/** The sides a label beside its point takes, in turn: right of it (no side set), left, below and above. */
+const SIDES: (string | null)[] = [null, 'left', 'below', 'up'];
 
 /**
  * The arrival's live stage: the Moon from space down to the stand view, by the flight's progress. It starts
@@ -277,9 +305,16 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
     // The hour the Sun's and Earth's words were last written for.
     let wordsHour = HERO_HOUR;
     let keys: Key[] = [], input: PathInput | null = null, keyed: { scene: StandScene | null; aspect: number } = { scene: null, aspect: 0 };
-    // The words on the screen (marked data-words), and the labels already placed this frame: a label that would
-    // fall on either waits until they move apart (Earth's first, then the pole's, the site's and the Sun's).
+    // The words on the screen (marked data-words), and the labels already placed this frame. A label under one of the
+    // beats' sentences, whose plates (data-plate, `plates`) scroll over the view, would show half covered or through
+    // the plate, so none stays there. The night's name and the pointers to the Sun and Earth move up or down clear of
+    // the plates (`clearOfPlates`), and the pole's name turns to another side: none blinks off as a plate goes by (part
+    // C read 1), and each hides only where it has no room. The other labels hide while they meet any words, as the
+    // date's bar does. Words with no plate (the first screen's headline over the Moon, `bare`) would show through a
+    // label, so the labels that move give way to those too.
     let words: DOMRect[] = [];
+    let bare: DOMRect[] = [];
+    let plates: DOMRect[] = [];
     const placed: DOMRect[] = [];
     const meets = (b: DOMRect, rects: DOMRect[]) => rects.some((w) => b.left < w.right && b.right > w.left && b.top < w.bottom && b.bottom > w.top);
     const show = (k: Tag, at: { x: number; y: number; visible: boolean } | null) => {
@@ -300,10 +335,38 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
             if (n.getBoundingClientRect().left < view.left + 4) n.setAttribute('data-side', 'below');
           } else if (n.getBoundingClientRect().bottom > view.bottom - 4) n.setAttribute('data-side', 'up');
         }
-        const b = n.getBoundingClientRect();
-        if (meets(b, words) || meets(b, placed)) n.hidden = true;
+        let b = n.getBoundingClientRect();
+        // The pole's name turns where a beat's plate would cover it, to the first of its other sides in turn that is
+        // clear of the plates, the words with no plate and the labels placed, and inside the view; it hides where none is.
+        if (k === 'pole' && !apart(b, plates)) {
+          const view = el.getBoundingClientRect(), from = SIDES.indexOf(n.getAttribute('data-side'));
+          let turned = false;
+          for (let i = 1; i < SIDES.length && !turned; i++) {
+            const side = SIDES[(from + i) % SIDES.length];
+            if (side) n.setAttribute('data-side', side);
+            else n.removeAttribute('data-side');
+            b = n.getBoundingClientRect();
+            turned = apart(b, plates) && !meets(b, bare) && !meets(b, placed) && b.left >= view.left + 4 && b.right <= view.right - 4 && b.top >= view.top + 4 && b.bottom <= view.bottom - 4;
+          }
+          if (!turned) {
+            n.hidden = true;
+            return;
+          }
+        }
+        if (meets(b, k === 'pole' ? bare : words) || meets(b, placed)) n.hidden = true;
         else placed.push(b);
       }
+    };
+    /**
+     * Moves a chip up or down clear of the beats' plates (`clearOfPlates`), its left as it was: its box there, or null
+     * where neither way has room.
+     */
+    const offPlates = (n: HTMLElement): DOMRect | null => {
+      const b = n.getBoundingClientRect(), view = el.getBoundingClientRect(), dy = clearOfPlates(b, plates, view.top, view.bottom);
+      if (dy === null) return null;
+      if (dy === 0) return b;
+      n.style.top = `${parseFloat(n.style.top) + (dy / view.height) * 100}%`;
+      return n.getBoundingClientRect();
     };
     // What was set last, so a frame where nothing has changed sets nothing: the hour's sky (thousands of stars placed
     // again), the pose, and the labels' pass over the page's boxes. The renderer draws only what changed. At rest the
@@ -349,10 +412,11 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
       labelledAt = now;
       const pose = posed;
       // Words faded near the top (a beat's, scrolling away) no longer count: they are gone from over the date's bar.
-      words = [...document.querySelectorAll<HTMLElement>('[data-words]')]
-        .filter((w) => Number(w.style.opacity || 1) >= 0.25)
-        .map((w) => w.getBoundingClientRect())
-        .filter((b) => b.width > 0 && b.height > 0);
+      const shownWords = [...document.querySelectorAll<HTMLElement>('[data-words]')].filter((w) => Number(w.style.opacity || 1) >= 0.25);
+      const boxOf = (w: HTMLElement) => w.getBoundingClientRect();
+      words = shownWords.map(boxOf).filter((b) => b.width > 0 && b.height > 0);
+      bare = shownWords.filter((w) => !w.hasAttribute('data-plate')).map(boxOf).filter((b) => b.width > 0 && b.height > 0);
+      plates = shownWords.filter((w) => w.hasAttribute('data-plate')).map(boxOf).filter((b) => b.width > 0 && b.height > 0);
       placed.length = 0;
       // Once landed the date's bar, first, so the labels keep off it: the date, a moment for a day or so after it
       // passes, else what lights the ground; the hour's mark on the month. It gives way only to the words.
@@ -404,7 +468,8 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
        * A pointer chip on the view's edge towards a direction out of view, kept far enough in to stay whole. In flight
        * it stands where the line from the point the camera looks at, out towards the body, meets the edge. Once landed
        * (`elDeg`, the body's height) it stands on the left or right edge, the way round the body is, at the body's
-       * height, its arrow along the horizon: a Sun or Earth behind you is never pointed to up in the sky.
+       * height, its arrow along the horizon: a Sun or Earth behind you is never pointed to up in the sky. A beat's
+       * plate in its way moves it up or down, clear.
        */
       const point = (chip: HTMLElement | null, arrow: HTMLElement | null, v: THREE.Vector3 | null, elDeg?: number) => {
         if (!chip) return;
@@ -428,9 +493,9 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
           chip.style.top = `${((ay + uy * t) / H) * 100}%`;
           if (arrow) arrow.style.transform = `rotate(${Math.atan2(uy, ux)}rad)`;
         }
-        const b = chip.getBoundingClientRect();
-        chip.hidden = meets(b, words) || meets(b, placed);
-        if (!chip.hidden) placed.push(b);
+        const b = offPlates(chip);
+        chip.hidden = !b || meets(b, bare) || meets(b, placed);
+        if (b && !chip.hidden) placed.push(b);
       };
       const sunNow = seen(dirAzEl(h.series.sunAz[hi], h.series.sunEl[hi])), earthNow = seen(dirAzEl(h.series.earthAz[hi], h.series.earthEl[hi]));
       if (hi !== wordsHour) {
@@ -461,13 +526,15 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
           const x = Math.min(W - hw, Math.max(hw, W * (0.5 + pose.shift[0]) + ux * r0)), y = Math.min(H - 40, Math.max(40, H * (0.5 - pose.shift[1]) + uy * r0));
           night.style.left = `${(x / W) * 100}%`;
           night.style.top = `${(y / H) * 100}%`;
-          const b = night.getBoundingClientRect();
-          night.hidden = meets(b, words) || meets(b, placed);
-          if (!night.hidden) placed.push(b);
+          // Moved up or down clear of a beat's plate, rather than half under it.
+          const b = offPlates(night);
+          night.hidden = !b || meets(b, bare) || meets(b, placed);
+          if (b && !night.hidden) placed.push(b);
         }
       }
       // The paths' names once landed (the guides show only then), each while its body is the story: the Sun's until
-      // Earth comes into view, then Earth's until the Sun comes back. Each gives way to the words and the labels placed.
+      // Earth comes into view, then Earth's until the Sun comes back. Each gives way to the words, a beat's plate
+      // included, and the labels placed.
       const named = (n: HTMLElement | null, at: { x: number; y: number; visible: boolean } | null | undefined, story: boolean) => {
         if (!n) return;
         n.hidden = !(drawn && p > LANDED && story && at && at.visible);
@@ -559,7 +626,7 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
           <span ref={earthHereTextRef}>{skyLabel('earth', h.series, HERO_HOUR)}</span>
         </span>
         <span ref={nightRef} hidden className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#c3bfb6]`}>
-          Night here: the Sun is below the horizon
+          Ground at night: the Sun is below the horizon
         </span>
         <span ref={earthEdgeRef} hidden data-earth-edge="" className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#74adff]`}>
           <span ref={earthTextRef}>{skyLabel('earth', h.series, HERO_HOUR)}</span>

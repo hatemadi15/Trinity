@@ -186,6 +186,34 @@ describe('the stand scene', () => {
     expect(outside).toBeLessThan(SHADOW.OUTSIDE_BELOW_M);
   });
 
+  it('names the lander over its top whenever it is in view, however it is turned and wherever it stands round you', () => {
+    // The lander stands where the view opens (16.3), turned by the landing hour's Sun: every turn, on either side.
+    const hidden: string[] = [];
+    for (let face = 0; face < 360; face += 15)
+      for (const at of [0, 25, 335]) {
+        const s = buildScene(flat({ lander: { azDeg: at, distM: 16, powered: Uint8Array.from([1, 1, 1]), faceAzDeg: face } }));
+        s.update(0);
+        s.setView(0, 2, 60, 16 / 9);
+        const l = s.labels();
+        if (l.landerBox && !l.lander!.visible) hidden.push(`turned ${face}°, at ${at}°`);
+      }
+    expect(hidden).toEqual([]);
+  });
+
+  it('names the lander over its top when it stands up a slope from you, as on a hillside', () => {
+    // A cone 40 % steep round the site: the lander, 16 m out, stands about 6 m higher than your feet.
+    const n = 1024, cell = 20, mid = (n - 1) / 2;
+    const heights = new Float32Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) heights[r * n + c] = 100 + 0.4 * cell * Math.hypot(c - mid, r - mid);
+    const level = { heights, width: n, height: n, pxM: cell, siteCol: mid, siteRow: mid };
+    const s = buildScene(flat({ field: terrainField([level], -64.31, 100), lander: { azDeg: 0, distM: 16, powered: Uint8Array.from([1, 1, 1]), faceAzDeg: 45 } }));
+    s.update(0);
+    s.setView(0, 10, 60, 16 / 9);
+    const l = s.labels();
+    expect(l.landerBox).not.toBeNull();
+    expect(l.lander!.visible).toBe(true);
+  });
+
   it('stands a lander on the ground beside the site for scale, its light on while it has power', () => {
     const powered = Uint8Array.from([1, 1, 0]);
     const field = terrainField(levels(), -64.31, 90);
@@ -615,7 +643,7 @@ describe('the guides', () => {
     }
   });
 
-  it('draws the faint bands, the level horizon and the rings through the near ground and the hills alike, at their own angular sizes, and the lander after them, so it covers them', () => {
+  it('draws the faint bands and the rings through the near ground and the hills alike, the level horizon only where it clears them, at their own angular sizes, and the lander after them, so it covers them', () => {
     const s = buildScene(flat({ lander: { azDeg: 300, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
     s.update(2); // the Sun hidden: its ring shows
     s.setView(300, 2, 60, 16 / 9);
@@ -624,11 +652,14 @@ describe('the guides', () => {
     const world = (b: THREE.Mesh, k: number) => new THREE.Vector3().fromBufferAttribute(b.geometry.getAttribute('position'), k).applyMatrix4(b.matrixWorld);
     // Not tested against the depth of what is drawn before them: the slope a few metres uphill hides them no more than
     // the far hills do, so the labels that name them always point at them.
-    for (const b of [band(s, SUN_BAND, true), band(s, EARTH_BAND, true), levelBand(s)]) {
+    for (const b of [band(s, SUN_BAND, true), band(s, EARTH_BAND, true)]) {
       expect(basic(b).depthTest).toBe(false);
       // 0.15 degrees tall.
       expect(THREE.MathUtils.radToDeg(world(b, 0).sub(eye).angleTo(world(b, 1).sub(eye)))).toBeCloseTo(0.15, 4);
     }
+    // The level horizon is tested against what is drawn before it: the hills hide it, as both readers asked (16.3).
+    expect(basic(levelBand(s)).depthTest).toBe(true);
+    expect(THREE.MathUtils.radToDeg(world(levelBand(s), 0).sub(eye).angleTo(world(levelBand(s), 1).sub(eye)))).toBeCloseTo(0.15, 4);
     // The solid bands stay on the sky, beyond the far skyline (200 km), which hides them where the hills do.
     for (const b of [band(s, SUN_BAND, false), band(s, EARTH_BAND, false)]) {
       expect(basic(b).depthTest).toBe(true);
@@ -650,13 +681,13 @@ describe('the guides', () => {
     // same sum as three.js's normal blending): a lander drawn in three.js's transparent pass went missing from the
     // arrival's view after the flight had passed over the cap.
     for (const part of lander) expect(part.material.transparent).toBe(false);
-    for (const guide of drawn(s.parts.guides)) {
+    for (const guide of [...drawn(s.parts.guides), ...drawn(s.parts.rings)]) {
       expect(guide.material.transparent).toBe(false);
       expect(guide.material.blending).toBe(THREE.CustomBlending);
     }
     for (const part of lander) {
       expect([part.material.opacity, part.material.depthTest, part.material.depthWrite]).toEqual([1, true, true]);
-      for (const guide of drawn(s.parts.guides)) expect(drawsAfter(part, guide)).toBe(true);
+      for (const guide of [...drawn(s.parts.guides), ...drawn(s.parts.rings)]) expect(drawsAfter(part, guide)).toBe(true);
       for (const ground of [...s.parts.ground, s.parts.ring!].flatMap(drawn)) {
         expect(ground.material.depthWrite).toBe(true);
         expect(drawsAfter(part, ground)).toBe(true);
@@ -677,6 +708,57 @@ describe('the guides', () => {
     const s = buildScene(flat());
     s.setGuides(false);
     expect(s.parts.guides.visible).toBe(false);
+  });
+
+  it('keeps the rings on hidden bodies with the labels, apart from the guides, and with them by default as the arrival has them', () => {
+    const s = buildScene(flat());
+    s.update(2); // none of the Sun in view: its ring shows
+    s.setGuides(false, true, true);
+    expect(s.parts.guides.visible).toBe(false);
+    expect(s.parts.rings.visible).toBe(true);
+    expect(s.parts.markers.sun.visible).toBe(true);
+    expect(s.parts.markers.sun.parent).toBe(s.parts.rings);
+    s.setGuides(true, true, false);
+    expect(s.parts.guides.visible).toBe(true);
+    expect(s.parts.rings.visible).toBe(false);
+    s.setGuides(false);
+    expect(s.parts.rings.visible).toBe(false);
+    s.setGuides(true, false);
+    expect(s.parts.rings.visible).toBe(true);
+  });
+
+  it('names the level horizon at the left-most stretch of it in view that clears the hills, 3 degrees or more long, and nowhere when none does', () => {
+    // A hill 2 degrees high from 240 to 290 degrees round; elsewhere the skyline lies half a degree below level.
+    const el = Array.from({ length: 720 }, (_, k) => (k / 2 >= 240 && k / 2 < 290 ? 2 : -0.5));
+    const s = buildScene(flat({ mask: { az0: 0, step: 0.5, el } }));
+    s.update(0);
+    s.setView(300, 2, 60, 16 / 9); // the view from about 254 to 346 degrees round
+    const at = s.labels().level!;
+    expect(at.visible).toBe(true);
+    // At the hill's right foot, 290 degrees, within half a degree (the scan's step, and the mask's nearest sample).
+    const foot = (az: number) => {
+      const p = new THREE.Vector3(...dirAzEl(az, 0)).multiplyScalar(1000).add(s.camera.position).project(s.camera);
+      return { x: (p.x + 1) / 2, y: (1 - p.y) / 2 };
+    };
+    expect(at.x).toBeGreaterThanOrEqual(foot(289.5).x);
+    expect(at.x).toBeLessThanOrEqual(foot(290.5).x);
+    expect(at.y).toBeCloseTo(foot(290).y, 2);
+    // A crater: the skyline above level all round, so no stretch of the line shows.
+    const deep = buildScene(flat({ mask: { az0: 0, step: 0.5, el: new Array(720).fill(1) } }));
+    deep.update(0);
+    deep.setView(300, 2, 60, 16 / 9);
+    expect(deep.labels().level ?? null).toBeNull();
+    // A stretch shorter than 3 degrees is no place for a name: an open notch 2 degrees wide in the hill.
+    const notch = Array.from({ length: 720 }, (_, k) => (k / 2 >= 300 && k / 2 < 302 ? -0.5 : 2));
+    const n = buildScene(flat({ mask: { az0: 0, step: 0.5, el: notch } }));
+    n.update(0);
+    n.setView(300, 2, 60, 16 / 9);
+    expect(n.labels().level ?? null).toBeNull();
+    // None with the guides hidden, or with the level horizon left out.
+    s.setGuides(false);
+    expect(s.labels().level ?? null).toBeNull();
+    s.setGuides(true, false);
+    expect(s.labels().level ?? null).toBeNull();
   });
 
   it('marks the key moments’ days on the paths, for labels', () => {
@@ -1150,7 +1232,7 @@ describe('the stand scene in flight', () => {
     expect(ring.visible).toBe(false);
   });
 
-  it('draws the faint bands, the level horizon and the rings through the ground at the arrival’s end too, at their own angular sizes where the sky is scaled up round the camera, and the lander after them', () => {
+  it('draws the faint bands and the rings through the ground at the arrival’s end too, the level horizon only where it clears the hills, at their own angular sizes where the sky is scaled up round the camera, and the lander after them', () => {
     const s = buildScene(flat({ globe, siteHeightM: 100, lander: { azDeg: 300, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
     s.update(2);
     // Standing at the eye, looking north.
@@ -1160,10 +1242,13 @@ describe('the stand scene in flight', () => {
     s.root.updateMatrixWorld(true);
     const eye = s.camera.position;
     const world = (b: THREE.Mesh, k: number) => new THREE.Vector3().fromBufferAttribute(b.geometry.getAttribute('position'), k).applyMatrix4(b.matrixWorld);
-    for (const b of [band(s, SUN_BAND, true), band(s, EARTH_BAND, true), levelBand(s)]) {
+    for (const b of [band(s, SUN_BAND, true), band(s, EARTH_BAND, true)]) {
       expect(basic(b).depthTest).toBe(false);
       expect(THREE.MathUtils.radToDeg(world(b, 0).sub(eye).angleTo(world(b, 1).sub(eye)))).toBeCloseTo(0.15, 4);
     }
+    // The level horizon is tested against what is drawn before it here too, the hills hiding it (16.3).
+    expect(basic(levelBand(s)).depthTest).toBe(true);
+    expect(THREE.MathUtils.radToDeg(world(levelBand(s), 0).sub(eye).angleTo(world(levelBand(s), 1).sub(eye)))).toBeCloseTo(0.15, 4);
     expect((s.parts.markers.sun.material as THREE.SpriteMaterial).depthTest).toBe(false);
     const away = new THREE.Vector3().setFromMatrixPosition(s.parts.markers.sun.matrixWorld).distanceTo(eye);
     const size = new THREE.Vector3().setFromMatrixScale(s.parts.markers.sun.matrixWorld).x;
@@ -1172,7 +1257,7 @@ describe('the stand scene in flight', () => {
     const solid = band(s, SUN_BAND, false);
     expect(world(solid, 0).distanceTo(eye)).toBeGreaterThan(1e6);
     // The lander covers them here as in the stand view.
-    for (const part of drawn(s.parts.lander!)) for (const guide of drawn(s.parts.guides)) expect(drawsAfter(part, guide)).toBe(true);
+    for (const part of drawn(s.parts.lander!)) for (const guide of [...drawn(s.parts.guides), ...drawn(s.parts.rings)]) expect(drawsAfter(part, guide)).toBe(true);
   });
 
   it('hides a point behind the Moon from a camera in space, and shows one on the near side', () => {

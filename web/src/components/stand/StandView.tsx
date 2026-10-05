@@ -9,6 +9,8 @@ import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { shadowLevels } from '@/lib/data/terrain';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { exploreHref, standHref } from '@/lib/links';
+import { earthLitFraction } from '@/lib/sky/earth';
+import { dirAzEl } from '@/lib/sky/frames';
 import { LANDER } from '@/lib/sky/landerShape';
 import { eyeAt, lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
@@ -19,13 +21,21 @@ import { dateLong } from '@/lib/viz/format';
 import { betterLabel, keyMoments, landerCaption, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
-// The plates are near opaque, so no thin line of the sky shows through the words, and nothing is blurred.
-const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/92';
+// The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
+// nothing is blurred.
+const PLATE = 'rounded-lg border border-white/15 bg-[#060607]';
 // Hover lightens a button a little; the keyboard's focus gets a ring, so neither reads as a button left on.
 const LOOK = 'min-h-10 whitespace-nowrap rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f6d48a]';
+/** A toggle pressed: light, as the mockup has it; its words never change with its state (aria-pressed says it). */
+const PRESSED = 'aria-pressed:border-[#f2f0ea] aria-pressed:bg-[#f2f0ea] aria-pressed:text-[#07080a] aria-pressed:hover:bg-[#f2f0ea]';
 /** The dot by the lander's line: green only with radio contact (as on the time bar), amber with power alone, red when off. */
 const TONE = { radio: 'bg-[#8ddcaa]', power: 'bg-[#f6c86a]', off: 'bg-[#ff9180]' } as const;
 const defaultRenderer = (canvas: HTMLCanvasElement, scene: StandScene): RendererLike => new StandRenderer(canvas, scene);
+/**
+ * Under this share of Earth's disc lit, its light on the ground is faint and the ground looks grey: the caption says a
+ * thin crescent gives little light rather than that it tints the ground blue (both readers of read D1).
+ */
+const FAINT_EARTH = 0.25;
 /** A tall screen: the lander stands nearer the middle and the view opens wider (lib/viz/standOpening). */
 const tall = () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
 /** How far out from the lander's middle the near edge of its nearest foot can stand, metres: the opening keeps it in sight. */
@@ -49,14 +59,15 @@ export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
 
 /**
  * Stand on the Moon: the full-window view from the landing site for the site, period and hour of the
- * address (Explore's address plus `hour`). Over the view, one card that keeps its shape: the headline (with
- * how long the night lasts), one line on the lander's power, its battery's level and its radio, what to watch
- * next, the better landing day and the way back; "Why this happens" gives where the site lies, why the light
- * and the sky look as they do (the pole first), the radio story and how we know, one reason at a time or all
- * as one list. On a phone the card folds to the headline, the lander's line and the better day until "More". A key moment, chosen from its flag or
- * passed as the time moves on, gets a line over the view on why; the moments stay as dots when the words are
- * hidden. A lander stands beside the site for scale. Without WebGL 2 it shows the horizon chart with the same
- * words.
+ * address (Explore's address plus `hour`). Over the view (16.2), one line on the lander's power and radio with
+ * More, which opens today's card: where you stand, the headline (the page's heading at all times, with how long
+ * the night lasts), what to watch next, the better landing day, "Why this happens" (where the site lies, why the
+ * light and the sky look as they do, the pole first, the radio story and how we know, one reason at a time or all
+ * as one list) and the way back. One row of buttons faces the Sun, Earth or the lander, looks up, shows the guides
+ * and hides the words; on a phone it sits above the time bar, and "Hide the words" waits in the card. A key moment,
+ * chosen from its flag or passed as the time moves on, gets a line over the view on why; the moments stay as dots
+ * when the words are hidden. A lander stands beside the site for scale, placed by the hour the view opens on.
+ * Without WebGL 2 it shows the horizon chart with the same words.
  */
 export function StandView({ store = exploreStore, createRenderer = defaultRenderer }: { store?: StoreApi<ExploreState>; createRenderer?: (canvas: HTMLCanvasElement, scene: StandScene) => RendererLike }) {
   const s = useStore(store);
@@ -70,6 +81,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const [look, setLook] = useState<LookTarget | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [wordsHidden, setWordsHidden] = useState(false);
+  // The guides (16.2): off when the view opens; the month's paths, their days, the level horizon, the star names at
+  // night and your shadow.
+  const [guides, setGuides] = useState(false);
   // A key moment chosen from its flag on the time bar, or passed as the time moves on (onCursor): a line over
   // the view says why, for 12 seconds or until the view is turned another way.
   const [caption, setCaption] = useState<string | null>(null);
@@ -84,7 +98,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const [more, setMore] = useState(false);
   const [page, setPage] = useState(0);
   const [allReasons, setAllReasons] = useState(false);
-  // On a phone the card folds to the headline, the lander's line and the better day until "More" (13.3), so the view keeps most of the screen.
+  // Today's card under the status line, on every screen (16.2): the headline, what to watch, the better day, the
+  // reasons and the ways on.
   const [cardOpen, setCardOpen] = useState(false);
   // ?quality=fast for weaker graphics: a lower pixel ratio, no drawn detail, coarser shadow steps.
   const [quality] = useState<'full' | 'fast'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('quality') === 'fast' ? 'fast' : 'full'));
@@ -115,8 +130,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const levels = s.site.polar ? shadowLevels(s.site, s.heightmap, s.contextHeightmap, s.capHeightmap) : [];
     const siteHeightM = s.heightmap?.meta.site_height_m ?? s.maskMeta?.siteHeightM ?? 0;
     const field = levels.length ? terrainField(levels, s.site.lon, siteHeightM) : flatField(s.site.lon);
-    // Where it landed: placed by the period's first hour, not the hour the view opens on.
-    const lander = s.power ? standLander(s.series, s.power, tall()) : undefined;
+    // Where it landed, placed by the hour the view opens on, so the opening view holds it (16.3).
+    const lander = s.power ? standLander(s.series, s.power, tall(), openHour) : undefined;
     // The key moments' days on the paths: the Sun's leaving and coming back on its path, Earth coming into view on Earth's.
     const marks = pathMarks(keyMoments(s.series, s.power, s.startUtc));
     return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander, marks };
@@ -155,6 +170,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const barRef = useRef<HTMLDivElement>(null);
   const lookRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const main = mainRef.current;
     if (!main || typeof ResizeObserver === 'undefined') return;
@@ -162,9 +178,11 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       main.style.setProperty('--bar-h', `${barRef.current?.offsetHeight ?? 0}px`);
       main.style.setProperty('--look-h', `${lookRef.current?.offsetHeight ?? 0}px`);
       main.style.setProperty('--top-h', `${(topRef.current?.offsetHeight ?? 0) + 16}px`);
+      // The status line's own height, which the card under it takes off the room it may fill.
+      main.style.setProperty('--status-h', `${statusRef.current?.offsetHeight ?? 0}px`);
     };
     const ro = new ResizeObserver(measure);
-    for (const el of [barRef.current, lookRef.current, topRef.current]) if (el) ro.observe(el);
+    for (const el of [barRef.current, lookRef.current, topRef.current, statusRef.current]) if (el) ro.observe(el);
     measure();
     return () => ro.disconnect();
   }, [s.status, wordsHidden, failed, scene, more, cardOpen]);
@@ -219,6 +237,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     setCaption(null);
     setMore(false);
     setPage(0);
+    setCardOpen(false);
     window.history.replaceState(null, '', href);
   };
   // The note describes the view from the site: shown with it, not while the ground loads or in the fallback.
@@ -263,7 +282,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     setCaption(momentCaption(m.kind, series, m.hour, site.lat) || null);
   };
   const opening = openHour === null ? hour : Math.min(series.hours - 1, Math.max(0, openHour));
-  // At night with Earth up the view opens on Earth, narrower, so Earth (four times the Sun's width) shows large.
+  // At night with Earth up the view opens on Earth, narrower, so Earth (four times the Sun's width) shows large: 44°
+  // high (56° on a tall screen), so Earth and the lander's feet both fit between the status line and the time bar
+  // (both readers of read D1 found the lander cut off at 36°).
   const openOnEarth = series.sunFraction[opening] === 0 && series.earthVisible[opening] === 1;
   // After the first power cut, what needs power again holds only if the lander lives through the night.
   let ifSurvivesFrom: number | null = null;
@@ -285,7 +306,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   };
   const crossNamed = !!scene && scene.sky.names?.some((n) => n.name === 'Acrux');
   // The line over the view, two lines at most: why a key moment happens, why Earth sits where it does, what
-  // looking up shows, or, at night, where the light comes from: Earth's, or, with neither the Sun nor Earth in
+  // looking up shows, or, at night, where the light comes from: Earth's (faint from a thin crescent), or, with neither the Sun nor Earth in
   // view, none (why farther hills can still be lit is left to "Why this happens").
   const overView =
     caption ??
@@ -293,7 +314,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       ? viewCaption('up', crossNamed ? site.lat : Math.abs(site.lat))
       : series.sunFraction[hour] === 0
         ? series.earthVisible[hour] === 1
-          ? viewCaption('earthlight', site.lat)
+          ? viewCaption(earthLitFraction(dirAzEl(series.sunAz[hour], series.sunEl[hour]), dirAzEl(series.earthAz[hour], series.earthEl[hour])) < FAINT_EARTH ? 'faint' : 'earthlight', site.lat)
           : viewCaption('dark', site.lat)
         : null);
 
@@ -315,8 +336,12 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           onFail={onFail}
           onReady={onReady}
           clean={wordsHidden}
+          guides={guides}
           keepInView={feet}
-          startFov={openOnEarth ? (tall() ? 50 : 36) : undefined}
+          // What the opening view faces stays in sight while it looks down for the lander's feet: Earth at night, else the Sun when up.
+          keepSubject={openOnEarth ? series.earthEl[opening] : series.sunFraction[opening] > 0 ? series.sunEl[opening] : null}
+          startFov={openOnEarth ? (tall() ? 56 : 44) : undefined}
+          place={name}
         />
       )}
       {failed && s.mask && (
@@ -335,154 +360,178 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         </button>
       )}
       {!wordsHidden && (
-        <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start justify-between gap-3 md:flex-row">
-          <section
-            ref={topRef}
-            data-plate=""
-            aria-label="The answer for this site"
-            className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin] md:max-h-[calc(100dvh-var(--bar-h,185px)-32px)] md:gap-2.5 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-40px)]`}
-          >
-            {/* The same card whatever the view does, so nothing jumps; on a phone it folds to the headline. */}
-            <p className={`text-[14px] text-[#c3bfb6] md:text-[15px] ${cardOpen ? '' : 'max-md:hidden'}`}>{standingLine(site, oneLine, 'top', flat)}</p>
-            <h1 className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px]">{title}</h1>
-            <button type="button" className="flex min-h-10 items-center self-start text-[15px] underline underline-offset-4 md:hidden" aria-expanded={cardOpen} onClick={() => setCardOpen((o) => !o)}>
-              {cardOpen ? 'Less' : 'More'}
-            </button>
-            <p className="flex items-baseline gap-2 text-[15px] md:text-base">
-              <i aria-hidden="true" data-tone={lander.tone} className={`h-3 w-3 shrink-0 translate-y-px rounded-full ${TONE[lander.tone]}`} />
-              <span>{lander.text}</span>
-            </p>
-            <p className={`text-[14px] text-[#f6d48a] md:text-[15px] ${cardOpen ? '' : 'max-md:hidden'}`}>{watchNext(series, power, s.startUtc, hour)}</p>
-            {better && (
-              // The better day, on a row of its own, so the links below never move.
-              <div>
-                <a
-                  href={better.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    land(better.startUtc, better.href);
-                  }}
-                  className={`${LOOK.replace('whitespace-nowrap ', '')} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
-                >
-                  {better.label}
-                </a>
-              </div>
-            )}
-            <div className={`flex flex-wrap items-center gap-x-5 gap-y-1 ${cardOpen ? '' : 'max-md:hidden'}`}>
-              {/* Named for what it holds whether open or not, so the way back beside it stays put. */}
-              <button
-                type="button"
-                className="flex min-h-10 items-center gap-1.5 whitespace-nowrap text-[15px] underline underline-offset-4"
-                aria-expanded={more}
-                onClick={() => {
-                  setMore((m) => !m);
-                  setPage(0);
-                }}
-              >
-                Why this happens
+        // Side by side from 1280 px wide; narrower, the row sits above the time bar and the status line has the top (the
+        // final review found the row over the status line and its More from 768 px to about 1070 px).
+        <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start gap-3 xl:flex-row xl:justify-between">
+          {/* One line on the lander's power and radio, with More for today's card (16.2). */}
+          <section ref={topRef} aria-label="The answer for this site" className="pointer-events-none grid w-full min-w-0 justify-items-start gap-2 xl:flex-1">
+            {/* The page's heading at all times, for screen readers; the card shows it when it is open. */}
+            {/* Tighter on a phone, so its longest state (four lines) leaves the scene 55 % of the screen (16.5). */}
+            <h1 className="sr-only">{title}</h1>
+            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] items-start gap-3 px-3.5 py-1 md:w-fit md:px-4 md:py-1.5`}>
+              <i aria-hidden="true" data-tone={lander.tone} className={`mt-[11px] h-3 w-3 shrink-0 self-start rounded-full md:mt-[13px] ${TONE[lander.tone]}`} />
+              <p className="min-w-0 flex-1 text-balance py-1.5 text-[15px] leading-snug md:py-2 md:text-base">
+                <span className="text-[#c3bfb6] max-md:hidden">{oneLine}. </span>
+                {lander.text}
+              </p>
+              <button type="button" aria-expanded={cardOpen} className="flex min-h-10 shrink-0 items-center gap-1.5 self-end whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setCardOpen((o) => !o)}>
+                {cardOpen ? 'Less' : 'More'}
                 <span aria-hidden="true" className="no-underline">
-                  {more ? '▴' : '▾'}
+                  {cardOpen ? '▴' : '▾'}
                 </span>
               </button>
-              <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
-                Back to the forecast
-              </Link>
             </div>
-            {more && reasons.length > 0 && (
-              <div className="grid gap-2 border-t border-white/10 pt-3 text-[15px] text-[#e4e1da]">
-                {allReasons ? (
-                  // All the reasons as one list, in the same order.
-                  <ul className="grid gap-2">
-                    {reasons.map((r) => (
-                      <li key={r.text}>
-                        {r.title && <p className="font-semibold text-[#f2f0ea]">{r.title}</p>}
-                        <p>{r.text}</p>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div data-reason="" aria-live="polite">
-                    {reasons[shownPage].title && <p className="font-semibold text-[#f2f0ea]">{reasons[shownPage].title}</p>}
-                    <p>{reasons[shownPage].text}</p>
+            {cardOpen && (
+              <div
+                id="stand-card"
+                data-plate=""
+                className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin] md:gap-2.5 md:p-5 xl:max-h-[calc(100dvh-var(--bar-h,185px)-var(--status-h,64px)-56px)] max-xl:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-var(--status-h,72px)-56px)]`}
+              >
+                <p className="text-[14px] text-[#c3bfb6] md:text-[15px]">{standingLine(site, oneLine, 'top', flat)}</p>
+                {/* The headline as the eye reads it; the heading above says it for screen readers. */}
+                <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px]">
+                  {title}
+                </p>
+                <p className="text-[14px] text-[#f6d48a] md:text-[15px]">{watchNext(series, power, s.startUtc, hour)}</p>
+                {better && (
+                  // The better day, on a row of its own, so the links below never move.
+                  <div>
+                    <a
+                      href={better.href}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        land(better.startUtc, better.href);
+                      }}
+                      className={`${LOOK.replace('whitespace-nowrap ', '')} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
+                    >
+                      {better.label}
+                    </a>
                   </div>
                 )}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                  {!allReasons && (
-                    <>
-                      <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4 disabled:no-underline disabled:opacity-40" disabled={shownPage === 0} onClick={() => setPage(shownPage - 1)}>
-                        Previous reason
-                      </button>
-                      <span className="text-[14px] text-[#c3bfb6]">
-                        {shownPage + 1} of {reasons.length}
-                      </span>
-                      <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4 disabled:no-underline disabled:opacity-40" disabled={shownPage === reasons.length - 1} onClick={() => setPage(shownPage + 1)}>
-                        Next reason
-                      </button>
-                    </>
-                  )}
-                  {/* Beside the pager, the way between the page and the list. Its words say what it does, so it
-                      carries no pressed state: a toggle's words must not change with its state. */}
-                  <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4" onClick={() => setAllReasons((all) => !all)}>
-                    {allReasons ? 'One at a time' : 'Show all reasons'}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+                  {/* Named for what it holds whether open or not, so the way back beside it stays put. */}
+                  <button
+                    type="button"
+                    className="flex min-h-10 items-center gap-1.5 whitespace-nowrap text-[15px] underline underline-offset-4"
+                    aria-expanded={more}
+                    onClick={() => {
+                      setMore((m) => !m);
+                      setPage(0);
+                    }}
+                  >
+                    Why this happens
+                    <span aria-hidden="true" className="no-underline">
+                      {more ? '▴' : '▾'}
+                    </span>
+                  </button>
+                  <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
+                    Back to the forecast
+                  </Link>
+                  {/* On a phone the row above the time bar has no room for it: it waits here. */}
+                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => setWordsHidden(true)}>
+                    Hide the words
                   </button>
                 </div>
+                {more && reasons.length > 0 && (
+                  <div className="grid gap-2 border-t border-white/10 pt-3 text-[15px] text-[#e4e1da]">
+                    {allReasons ? (
+                      // All the reasons as one list, in the same order.
+                      <ul className="grid gap-2">
+                        {reasons.map((r) => (
+                          <li key={r.text}>
+                            {r.title && <p className="font-semibold text-[#f2f0ea]">{r.title}</p>}
+                            <p>{r.text}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div data-reason="" aria-live="polite">
+                        {reasons[shownPage].title && <p className="font-semibold text-[#f2f0ea]">{reasons[shownPage].title}</p>}
+                        <p>{reasons[shownPage].text}</p>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                      {!allReasons && (
+                        <>
+                          <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4 disabled:no-underline disabled:opacity-40" disabled={shownPage === 0} onClick={() => setPage(shownPage - 1)}>
+                            Previous reason
+                          </button>
+                          <span className="text-[14px] text-[#c3bfb6]">
+                            {shownPage + 1} of {reasons.length}
+                          </span>
+                          <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4 disabled:no-underline disabled:opacity-40" disabled={shownPage === reasons.length - 1} onClick={() => setPage(shownPage + 1)}>
+                            Next reason
+                          </button>
+                        </>
+                      )}
+                      {/* Beside the pager, the way between the page and the list. Its words say what it does, so it
+                          carries no pressed state: a toggle's words must not change with its state. */}
+                      <button type="button" className="flex min-h-10 items-center text-[15px] underline underline-offset-4" onClick={() => setAllReasons((all) => !all)}>
+                        {allReasons ? 'One at a time' : 'Show all reasons'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <p className="text-[14px] text-[#c3bfb6]">Drag to look around; pinch or scroll to zoom.</p>
               </div>
             )}
           </section>
           {!failed && (
-            <div className="pointer-events-none flex w-full flex-col gap-1.5 md:w-auto md:max-w-[380px] md:items-end lg:max-w-none">
-              {/* One slim row of buttons: at the top right on a wide screen, just above the time bar on a phone. */}
-              <div
-                ref={lookRef}
-                data-plate=""
-                role="group"
-                aria-label="Look towards"
-                className={`${PLATE} pointer-events-auto flex flex-wrap items-center gap-1.5 p-1.5 lg:flex-nowrap max-md:fixed max-md:inset-x-0 max-md:bottom-[var(--bar-h,211px)] max-md:flex-nowrap max-md:justify-between max-md:gap-1 max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:bg-[#1e1e1e] max-md:px-3 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
+            // One compact row: at the top right from 1280 px wide, just above the time bar below that; on a phone "Hide
+            // the words" waits in the card.
+            <div
+              ref={lookRef}
+              data-plate=""
+              role="group"
+              aria-label="Look towards"
+              className={`${PLATE} pointer-events-auto flex shrink-0 items-center gap-1.5 p-1.5 max-xl:fixed max-xl:inset-x-0 max-xl:bottom-[var(--bar-h,211px)] max-xl:justify-between max-xl:gap-1 max-xl:rounded-none max-xl:border-x-0 max-xl:border-b-0 max-xl:bg-[#1e1e1e] max-xl:px-3 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
+            >
+              <span className="pl-1 pr-0.5 text-[14px] text-[#c3bfb6] md:text-[15px]">Turn to</span>
+              <button type="button" aria-label="Face the Sun" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
+                Sun
+              </button>
+              <button
+                type="button"
+                aria-label="Face Earth"
+                className={LOOK}
+                onClick={() => {
+                  face(series.earthAz[hour], series.earthEl[hour], 16);
+                  setCaption(viewCaption('earth', site.lat));
+                }}
               >
-                <span className="pl-1 text-[14px] text-[#c3bfb6] md:hidden">Face</span>
-                <button type="button" aria-label="Face the Sun" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
-                  <Short short="Sun" long="Face the Sun" />
-                </button>
+                Earth
+              </button>
+              {scene?.lander && (
                 <button
                   type="button"
-                  aria-label="Face Earth"
+                  aria-label="Face the lander"
                   className={LOOK}
                   onClick={() => {
-                    face(series.earthAz[hour], series.earthEl[hour], 16);
-                    setCaption(viewCaption('earth', site.lat));
+                    faceLander();
+                    setCaption(landerCaption(site.lat, panelBackSeen));
                   }}
                 >
-                  <Short short="Earth" long="Face Earth" />
+                  Lander
                 </button>
-                {scene?.lander && (
-                  <button
-                    type="button"
-                    aria-label="Face the lander"
-                    className={LOOK}
-                    onClick={() => {
-                      faceLander();
-                      setCaption(landerCaption(site.lat, panelBackSeen));
-                    }}
-                  >
-                    <Short short="Lander" long="Face the lander" />
-                  </button>
-                )}
-                {/* On a phone the "Face" buttons end here: what follows is not a way to face. */}
-                <i aria-hidden="true" className="h-7 w-px shrink-0 bg-white/25 md:hidden" />
-                {lookingUp ? (
-                  <button type="button" aria-label="Look ahead" className={`${LOOK} md:min-w-[7.25rem]`} onClick={() => face(series.sunAz[hour], 0.5, 60)}>
-                    <Short short="Ahead" long="Look ahead" />
-                  </button>
-                ) : (
-                  <button type="button" aria-label="Look up" className={`${LOOK} md:min-w-[7.25rem]`} onClick={lookUp}>
-                    <Short short="Look up" long="Look up" />
-                  </button>
-                )}
-                <button type="button" aria-label="Hide the words" className={LOOK} onClick={() => setWordsHidden(true)}>
-                  <Short short="Hide words" long="Hide the words" />
+              )}
+              {/* The "Turn to" buttons end here: what follows is not a way to turn. */}
+              <i aria-hidden="true" className="h-7 w-px shrink-0 bg-white/25" />
+              {lookingUp ? (
+                <button type="button" aria-label="Look ahead" className={LOOK} onClick={() => face(series.sunAz[hour], 0.5, 60)}>
+                  <Short short="Ahead" long="Look ahead" />
                 </button>
-              </div>
-              <p className="pr-1 text-right text-[14px] text-[#c3bfb6] [text-shadow:0_0_4px_#000] max-md:hidden">Drag to look around; pinch or scroll to zoom.</p>
+              ) : (
+                <button type="button" aria-label="Look up" className={LOOK} onClick={lookUp}>
+                  Look up
+                </button>
+              )}
+              <button type="button" aria-pressed={guides} className={`${LOOK} ${PRESSED}`} onClick={() => setGuides((g) => !g)}>
+                Guides
+              </button>
+              {/* Its words are its name, as speech input needs (WCAG 2.5.3). */}
+              <button type="button" className={`${LOOK} max-md:hidden`} onClick={() => setWordsHidden(true)}>
+                Hide the words
+              </button>
             </div>
           )}
         </div>
@@ -491,7 +540,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         // Why a key moment happens, or what looking up shows: above the compass (on a phone, above the buttons).
         <p
           data-plate=""
-          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+80px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]`}
+          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+80px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+80px)] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]`}
         >
           {overView}
         </p>

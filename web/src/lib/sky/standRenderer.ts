@@ -88,6 +88,8 @@ export interface SkyLabels {
   pathNames?: PathName[];
   /** The box round the lander on the screen, which the other labels keep off; null while it is out of view. */
   landerBox?: ScreenBox | null;
+  /** Where the level horizon's name goes: the left end of the first stretch of the line in view that clears the hills, 3° or more long; null when none does, or while the guides or the line are hidden. */
+  level?: Spot | null;
 }
 
 const DEG = Math.PI / 180;
@@ -455,8 +457,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   skyGroup.add(earth);
 
   // The guides (hidden with the words): the month's paths of the Sun and Earth, solid where they clear the
-  // skyline, faint where the hills hide them and not at all where they run under the ground; the level horizon
-  // all round, faint; and a ring where a hidden Sun or Earth sits, on the hill that hides it.
+  // skyline, faint where the hills hide them and not at all where they run under the ground; the level horizon,
+  // faint, where it clears the hills; and a ring where a hidden Sun or Earth sits, on the hill that hides it.
   const guides = new THREE.Group();
   skyGroup.add(guides);
   const RG = RS * 0.98;
@@ -464,17 +466,18 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const skyScale = (k: number) => skyGroup.scale.setScalar(k);
   /**
    * A band 0.15 degrees tall along directions on the sky, as a mesh: WebGL draws lines a pixel thin. A solid
-   * band tests depth, so the far skyline hides it where the hills do. A faint one, like the level horizon and the
-   * rings, does not: it shows through the slope a few metres uphill and the far hills alike, so the labels that
-   * name it always point at a line; the lander, drawn after the guides (ORDER), covers them. Along a path, `floor`
+   * band tests depth, so the far skyline hides it where the hills do. A faint one, like the rings, does not: it
+   * shows through the slope a few metres uphill and the far hills alike, so the labels that name it always point
+   * at a line; the lander, drawn after the guides (ORDER), covers them. Along a path, `floor`
    * is each hour's lowest open sky (degrees): the level horizon, or the skyline where it dips below level, as it
    * can from a high point. Below it the path runs under the ground, not behind a hill, and draws nothing: an
    * hour's piece whose two ends both lie there, and a triangle wholly there (where the path goes down through it),
    * are left as points, so every hour keeps its six indices and a range of hours stays a range of indices. With
    * `dash` (hours), the band is drawn in dashes that long with gaps as long, as the chart below dots a hidden Sun:
-   * the faint band, which alone shows where the hills hide a path.
+   * the faint band, which alone shows where the hills hide a path. `depth`, true by default for a solid band only,
+   * tests a band against what is drawn before it: the level horizon is faint but tested, so the hills hide it (16.3).
    */
-  const band = (dirs: Vec3[], colour: number, faint: boolean, opacity: number, floor?: number[], dash = 0) => {
+  const band = (dirs: Vec3[], colour: number, faint: boolean, opacity: number, floor?: number[], dash = 0, depth = !faint) => {
     const n = dirs.length, pos = new Float32Array(n * 6), idx: number[] = [], half = RG * Math.tan(0.075 * DEG);
     for (let i = 0; i < n; i++) {
       const d = new THREE.Vector3(...dirs[i]).normalize(), up = new THREE.Vector3(0, 1, 0).addScaledVector(d, -d.y).normalize(), c = d.clone().multiplyScalar(RG);
@@ -489,7 +492,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     }
     const geo = new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setIndex(idx);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour, ...BLENDED, opacity, depthWrite: false, depthTest: !faint, side: THREE.DoubleSide, toneMapped: false }));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: colour, ...BLENDED, opacity, depthWrite: false, depthTest: depth, side: THREE.DoubleSide, toneMapped: false }));
     mesh.frustumCulled = false;
     mesh.renderOrder = faint ? ORDER.FAINT : ORDER.SOLID;
     guides.add(mesh);
@@ -503,7 +506,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // Where the hills hide them the paths show dotted (the faint bands, in dashes about a degree long: two hours of the
   // Sun's path, sixteen of Earth's slower one).
   const paths = [band(sunDirs, 0xf6b646, false, 0.9, sunFloor), band(sunDirs, 0xf6b646, true, 0.3, sunFloor, 2), band(earthDirs, 0x74adff, false, 0.9, earthFloor), band(earthDirs, 0x74adff, true, 0.3, earthFloor, 16)];
-  const levelBand = band(Array.from({ length: 361 }, (_, k) => dirAzEl(k, 0)), 0xffffff, true, 0.18);
+  const levelBand = band(Array.from({ length: 361 }, (_, k) => dirAzEl(k, 0)), 0xffffff, true, 0.18, undefined, 0, true);
   /**
    * Each path for one synodic month round the hour, centred on it where the period allows: 709 hours, the first
    * and the last 708 apart, under the 708.7 from one new Moon to the next. Over a longer period a path comes
@@ -537,6 +540,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     fade.needsUpdate = true;
     fadedFrom = from;
   };
+  // The rings on hidden bodies go with the labels that name those bodies, not with the guides (16.2).
+  const rings = new THREE.Group();
+  skyGroup.add(rings);
   const ring = (colour: number, degrees: number) => {
     const s = new THREE.Sprite(
       new THREE.SpriteMaterial({
@@ -558,7 +564,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     s.scale.setScalar(2 * RG * Math.tan((degrees * DEG) / 2));
     s.visible = false;
     s.renderOrder = ORDER.RINGS;
-    guides.add(s);
+    rings.add(s);
     return s;
   };
   const markers = { sun: ring(0xf6b646, 1.6), earth: ring(0x74adff, 2.8) };
@@ -899,9 +905,10 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       const s = spot(skyWorld(mid));
       stars.push({ name: 'Southern Cross', ...s, y: s.y + 0.03, visible: s.visible && el > maskAt(az) });
     }
-    // The lander's name over its top (high enough that the ray to it clears the lander itself), and its parts.
+    // The lander's name over its top, and its parts. Its own name is never hidden by the lander: standing up a slope
+    // from you, the ray to its top passes through the box round it (16.2 names it wherever it shows).
     const top = landerTop();
-    const landerSpot = top ? spot(top) : null;
+    const landerSpot = top ? spot(top, 0, false) : null;
     const on = (local: THREE.Vector3) => spot(local.clone().applyMatrix4(lander!.group.matrixWorld), 0, false);
     const parts = lander
       ? {
@@ -940,7 +947,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       pathName('sun', "Sun's path this month", sunDirs, scene.series.sunEl, sunFloor, sunDir, onScreen, o.above ? { dirs: earthDirs, el: scene.series.earthEl, floor: earthFloor } : null, o.middle),
       pathName('earth', "Earth's path this month", earthDirs, scene.series.earthEl, earthFloor, earthDir, onScreen, o.above ? { dirs: sunDirs, el: scene.series.sunEl, floor: sunFloor } : null, o.middle),
     ];
-    return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow, marks, pathNames, landerBox: onScreen };
+    return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow, marks, pathNames, landerBox: onScreen, level: levelSpot() };
   }
   /** The box round the lander on the screen: the corners of its box in the world, projected; null while it is out of view. */
   function landerOnScreen(): ScreenBox | null {
@@ -958,6 +965,31 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       b.bottom = Math.max(b.bottom, (1 - c.y) / 2);
     }
     return b.right < 0 || b.left > 1 || b.bottom < 0 || b.top > 1 ? null : b;
+  }
+  /**
+   * Where the level horizon's name goes (16.3): scanning the view from its left edge, in half degrees, the left end of
+   * the first stretch of the line 3° or more long where the skyline lies below level, so the name always points at a
+   * line in the open; null where no such stretch is in view, or while the guides or the line are hidden.
+   */
+  function levelSpot(): Spot | null {
+    if (!guides.visible || !levelBand.visible) return null;
+    camera.getWorldDirection(fwd);
+    const yaw = Math.atan2(fwd.x, -fwd.z) / DEG, half = Math.atan(Math.tan((camera.fov * DEG) / 2) * camera.aspect) / DEG;
+    let start: number | null = null;
+    for (let a = -half + 1; a <= half - 1; a += 0.5) {
+      const az = (((yaw + a) % 360) + 360) % 360;
+      if (maskAt(az) >= 0) {
+        start = null;
+        continue;
+      }
+      if (start === null) start = a;
+      if (a - start >= 3) {
+        const d = dirAzEl((((yaw + start) % 360) + 360) % 360, 0);
+        const s = spot(skyWorld(new THREE.Vector3(d[0] * RG, d[1] * RG, d[2] * RG)), 0, false);
+        return s.visible ? s : null;
+      }
+    }
+    return null;
   }
   /**
    * A path's name, at an hour of it that shows: drawn (not under the ground) and clear of the day that fades at
@@ -1018,15 +1050,17 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   };
 
   /**
-   * Shows or hides the guides: hidden with the words, and in flight (the faint bands would cross the Moon). The
-   * level horizon can be left out on its own: the arrival tells its story without it.
+   * Shows or hides the guides (the month's paths and the level horizon), the level horizon alone (the arrival tells
+   * its story without it), and the rings on hidden bodies, which go with the guides unless told apart: the stand view
+   * shows them with its labels (16.2), the arrival with its guides.
    */
-  const setGuides = (on: boolean, level = true) => {
+  const setGuides = (on: boolean, level = true, ringsOn = on) => {
     guides.visible = on;
     levelBand.visible = level;
+    rings.visible = ringsOn;
   };
 
-  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
+  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
 /** A texture drawn on a canvas of the given size (repeating), or none outside a browser. */
@@ -1201,8 +1235,8 @@ function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg
   const lampPos = new THREE.Vector3(Math.cos(phi) * (apothem + 0.06), L.body.y0 + bodyH * 0.72, Math.sin(phi) * (apothem + 0.06));
   const lamp = new THREE.MeshBasicMaterial({ color: 0x46c98b });
   add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), lamp), lampPos.x, lampPos.y, lampPos.z);
-  // Drawn after the guides (ORDER), so it covers the paths, the level horizon and the rings that show through the
-  // ground behind it; solid, and tested and written in depth, so the hills still hide it and its parts hide each other.
+  // Drawn after the guides (ORDER), so it covers the paths and the rings that show through the ground behind it, and
+  // the level horizon; solid, and tested and written in depth, so the hills still hide it and its parts hide each other.
   group.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) o.renderOrder = ORDER.LANDER;
   });
@@ -1268,6 +1302,7 @@ export class StandRenderer {
   /** Whether the guides show (hidden with the words, and in flight). */
   private guides = true;
   private level = true;
+  private rings = true;
 
   constructor(canvas: HTMLCanvasElement, scene: StandScene) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -1363,7 +1398,7 @@ export class StandRenderer {
     this.renderPass.scene = this.built.root;
     this.renderPass.camera = this.built.camera;
     this.built.starMaterial.uniforms.uPx.value = this.drawnRatio;
-    this.built.setGuides(this.guides, this.level);
+    this.built.setGuides(this.guides, this.level, this.rings);
     this.built.update(this.hour);
     this.apply();
     this.generation++;
@@ -1429,7 +1464,7 @@ export class StandRenderer {
     const maps = `${earthMaps} ${g ? `${g.uColor.value?.uuid ?? ''} ${g.uNormal.value?.uuid ?? ''}` : ''}`;
     const v = this.view, p = this.pose;
     const where = p ? `${p.position.map((x) => x.toFixed(2)).join(',')} ${p.quaternion.map((x) => x.toFixed(6)).join(',')} ${p.fov.toFixed(3)} ${p.shift.join(',')}` : `${v.yaw.toFixed(3)} ${v.pitch.toFixed(3)} ${v.fov.toFixed(3)}`;
-    const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation} ${this.guides}`;
+    const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation} ${this.guides} ${this.level} ${this.rings}`;
     const busy = this.busy(now);
     const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.sharpRatio, busy });
     if (mode === 'idle') {
@@ -1478,11 +1513,12 @@ export class StandRenderer {
     return this.built.project(world, moon);
   }
 
-  /** Shows or hides the month's paths, the level horizon (or leaves it out alone) and the rings on hidden bodies. */
-  setGuides(on: boolean, level = true) {
+  /** Shows or hides the month's paths and the level horizon (or the line alone), and the rings on hidden bodies. */
+  setGuides(on: boolean, level = true, rings = on) {
     this.guides = on;
     this.level = level;
-    this.built.setGuides(on, level);
+    this.rings = rings;
+    this.built.setGuides(on, level, rings);
   }
 
   /**

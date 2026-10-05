@@ -415,3 +415,152 @@ From part C's read C1 (both readers):
   - The light theme's diagrams stay black boxes.
   - The site list's map labels tangle near the pole.
   - The home chart still needs its paragraph to be read.
+
+## 16. Amendment: Part D, the scenes (5 October 2026)
+
+Part D takes the asks of 15.3. The user approved its first half, D1, from a mockup laid over the production build (`part-d-mockup-wide.jpg` and `part-d-mockup-phone.jpg`, 5 October 2026: "yes go ahead").
+
+### 16.1 Two halves
+
+- **D1, now: the stand view gives the Moon the screen.** This is the one change both readers of read C1 asked for, and the label fixes that go with it. It is mostly page work, built on `feat/immersive-d`.
+- **D2, later, as its own plan:**
+  - rocks as stones;
+  - a finer lander;
+  - the descent's middle (900 to 90 km) sharper, with no square patch round the site;
+  - the night ground, today a flat grey plane in the dark.
+
+  These are graphics work, and the ground shader's compile already runs short of memory on the development laptop.
+
+Two other ways were weighed and set aside:
+- Words that fade by themselves after a few idle seconds: motion nobody asked for, and screenshots would vary.
+- Two modes, a forecast and a photo: one more thing for a first-time visitor to learn.
+
+### 16.2 D1: the words over the view
+
+- **A one-line status** replaces the card at the top left. It holds the lander's dot, then its power and radio for the hour, then "More".
+  - On a wide screen the site's name comes first, in the secondary grey: "de Gerlache Rim 2. Power on, battery 100 %. No radio: Earth is below the horizon."
+  - On a phone the name waits under More, and the line wraps to two lines at most.
+  - The words, one name for each state:
+    - with power: "Power on, battery 87 %.", or "Power on." without a battery size;
+    - after a power cut: "Power on again since 20 January, if the lander survived 16 days without power; battery 40 %.";
+    - without power: "Power off: the battery ran out on 4 January.", and "Power does not come back in this period." when it does not;
+    - with power, the radio follows: "Radio contact: Earth is in view.", "No radio: Earth is below the horizon." or "No radio: Earth is behind a hill.";
+    - without power and with Earth in view: "Earth is in view, but the radio has no power.";
+    - while the power is worked out: "Working out the lander's power…".
+  - The dot keeps its colours: green with power and Earth in view, amber with power alone, red without power.
+  - The status line takes two lines at most at 1440 px wide, in every state.
+- **More** ("More ▾", "Less ▴", with `aria-expanded`) opens today's card under the status, at the left. The card holds:
+  - the line on where you stand;
+  - the headline;
+  - what to watch next;
+  - the better landing day (the screen's one gold action);
+  - "Why this happens" and "Back to the forecast";
+  - the help line ("Drag to look around; pinch or scroll to zoom.");
+  - on a phone, "Hide the words".
+
+  The headline stays the page's level-one heading at all times, for screen readers, and shows in the card when it is open.
+- **The buttons**, one compact row.
+  - On a wide screen it sits at the top right: "Face" in grey, then "Sun", "Earth", "Lander" (named "Face the Sun", "Face Earth", "Face the lander" for screen readers), a divider, "Look up" (or "Look ahead"), "Guides" and "Hide words".
+  - On a phone the row sits just above the time bar, with the same buttons but "Hide words", which moves under More.
+- **Guides** is a toggle (`aria-pressed`), off when the view opens. It shows and hides:
+  - the month's paths of the Sun and Earth, with their names;
+  - the key moments' days on the paths;
+  - the level horizon and its name;
+  - the star names;
+  - your shadow's length.
+- **What shows without Guides:**
+  - the Sun, Earth and the lander, named where they show (and the lander's parts when the view is zoomed in on it), with pointers at the edges for what is out of view;
+  - the ring where a hidden Sun or Earth sits on the hill that hides it, as it goes with that body's label;
+  - the compass strip, the caption line and the time bar.
+- **Star names** show with Guides at night, and whenever the view looks well up (pitch over 25°), as "Look up" is about the stars and its caption names the Southern Cross.
+- **Hide words** still leaves only a bare time bar; "Show the words" brings back the view as it was, Guides included.
+
+### 16.3 D1: the scene's labels and framing
+
+- **The opening keeps the lander in frame.** The lander still stands 16 m away, but it is placed by the hour the view opens on, not the period's first hour, so the opening view holds both the lander and what the view faces.
+  - It stands 40° left of the Sun (20° on a tall screen), as before, when the view opens by day or in the dark. When it opens at night on Earth, it stands 22° left of Earth (10° on a tall screen), as that view is narrower.
+  - Its solar panel and dish still face the Sun and Earth of the landing hour, as a lander that landed then would.
+  - The home page's arrival lands beside it at the landing hour, so nothing changes there.
+- **The level horizon hides behind the hills.** It is drawn only where it clears the skyline. Its name sits at the left-most stretch of the line in view at least 3° long, and is left out when none shows. Both readers of part B's reads 6 and 7 found the line through the hill at night.
+- **Earth's labels do not pile up.**
+  - With Guides on, a path's name and the days on it keep 24 px clear of their own body's label, so "Earth sets, 23 Jan" never stands beside a rising Earth.
+  - The labels' plates are near opaque, so no path line shows through a name.
+- **The compass letters fade whole.** Each of the eight points fades as one piece, from fully shown 40 px in from either end of the strip to gone before any part of it reaches the end, so no letter is cut ("N" for "NW"). The ticks keep the strip's fading edge.
+- **The facing chip on a phone** counts as a panel, so the labels keep off it.
+- **Earthlight says why the ground is blue.** The caption at night with Earth in view reads "Earthlight, sunlight bounced off Earth, lights this ground and tints it blue; brightened like a long exposure." In the arrival's date bar the state reads "Night, in blue Earthlight (picture brightened)".
+- **Framing.** The horizon rests where it does today, 55 % down the room above the time bar on a wide screen and 40 % down the band between the status and the buttons on a tall one. The shorter status gives that band more room, so on a phone the scene grows from about a third of the screen to about 60 %.
+
+### 16.4 D1: the arrival's labels
+
+- Labels no longer switch off where they meet the beats' words. The words' plates pass over them, so a label never vanishes for one quarter-screen and comes back at the next ("Night here" in frames 04 to 06 of read C1, the pole's name at 07). Labels still give way to each other and to the date bar.
+- "Night here: the Sun is below the horizon" becomes "Ground at night: the Sun is below the horizon", so the black it floats over reads as ground (part B read 7: "pointing at nothing").
+
+### 16.5 D1: done when
+
+- Every rule above has a test that failed first.
+- The stand view's frames at 1440 × 900 and 390 × 844, by day and at night, Guides off and on, pass the measurements of 15.1: no sideways scroll, no text under 13 px, no text under 4.5:1.
+- The phone's scene band (from the status's foot to the buttons' top) is at least 55 % of the screen's height.
+- A blind read of the stand view and the arrival, by the same two readers' roles, passes the gate of 13.2: purpose, next step and look at 4 or more, room and readability at 3 or more, immersion at 4.
+
+### 16.6 D1 as built: where it differs from 16.2 to 16.4
+
+D1 was built on `feat/immersive-d`. Its ledger is beside its plan, at `docs/superpowers/plans/2026-10-05-immersive-d1-stand-view.ledger.md`, with every ruling and what it costs if wrong. Where the build differs from 16.2 to 16.4, from the checks on the production build and from the blind read's bounded pass (16.7):
+
+- **The status line.**
+  - On a phone it takes two lines by day. At night its power-off sentence takes three, as in the approved mockup; 16.2 said two at most.
+  - Its lines are balanced, so no word stands alone on the second. More follows the last line, and the dot leads the first.
+  - After a power cut it is short: "Power on again since 20 January, if the lander survived the night; battery 40 %." ("without power" when the battery ran down with the Sun up). The headline and the flags give the stretch's length. The final review found the long form five lines tall on a phone.
+  - On a phone the site's name is on the facing chip under the status ("de Gerlache Rim 2, facing north-west"), as the status leaves it out.
+  - On a phone the status plate sits tighter, so its longest state (four lines at 390 px) leaves the scene 55 % of the screen. At 360 × 800 that state takes five lines and leaves 50 %, a size outside 15.1's measurements.
+- **The measurements** (16.5) were taken on the final build at 1440 × 900, 1024 × 768, 960 × 600, 820 × 1180, 390 × 844 and 360 × 800, the stand view at hours 10, 219, 500 and 600 and with More open: no sideways scroll, no text under 13 px or 4.5:1, More always reachable, and the card never under the row. The phone's scene band is 60 % by day, 58 % at night and 55 % after the power comes back.
+- **The row** sits at the top right from 1280 px wide, and above the time bar below that, as on a phone. The final review found it over the status line and its More from 768 px to about 1070 px. Today's card takes the status line's measured height off the room it may fill.
+- **Words.**
+  - The row reads "Turn to: Sun, Earth, Lander", since both readers took "Face" for a noun.
+  - Its hide button reads "Hide the words", its accessible name, as speech input needs (WCAG 2.5.3).
+  - What to watch next starts "Press Play or a moment on the time bar:", since neither reader took the moments for "flags".
+- **The plates, the sky's names, the facing chip and the compass strip are opaque.** No path or level line shows through them. 15.1's plates were 92 %.
+- **The opening.**
+  - At night on Earth it is 44° high (56° on a tall screen), so Earth and the lander's feet both fit. Part A's 36° (50°) cut the lander off.
+  - Looking down for the lander's feet stops where what the view opens on (Earth at night, else the Sun) would come within 100 px of the status line, room for its name over it.
+- **The lander.**
+  - Its parts carry their names only when the view is zoomed in on it, with it within 10° of the view's middle; the night opening is zoomed in on Earth beside it.
+  - Its own name is never hidden by the lander: standing up a slope from you, the label was tested against the lander's own box.
+- **Labels.**
+  - The days on a body's path keep its label's room: the label grown 120 px to either side and 24 px above and below. With 24 px all round, "Earth sets, 23 Jan" still stood 26 px beside a rising Earth. The path's own name keeps 24 px all round; with 120 px it was lost whenever the view faced its body (the final review).
+  - A pointer keeps off the body under a name, not only the name: on a phone, Earth's pointer had covered the Sun.
+- **Compass letters** show whole while 12 px or more inside the strip's ends, else not at all, with a 150 ms fade as they cross. 16.3's fade over 40 px left a faint "N" that neither reader could read.
+- **At night under a thin crescent Earth** (under a quarter of its disc lit), the caption says "A thin crescent Earth gives this ground little light; brightened like a long exposure.", where the ground looks grey rather than blue.
+- **The arrival's labels move clear of the beats' cards** rather than pass under them:
+  - the night's name and the pointers move above or below a card;
+  - the pole's name takes another side;
+  - the rest give way while a card covers them.
+
+  Under the cards (16.4) they showed through as ghost text, half hidden. The answer's last card keeps no plate mark, so labels give way to it, as before.
+- **The Sun's path at night** is unchanged: Guides is off when the view opens, and with Guides on the path is the month's, as its name says.
+
+### 16.7 D1: the blind read
+
+Two fresh readers, a hackathon judge and a secondary-school science teacher, judged 31 still screenshots:
+- the arrival at quarter screens, wide and on a phone;
+- the stand view as it opens at six hours of the hero month;
+- the stand view with More, Guides and Lander pressed;
+- the stand view on a phone.
+
+The scores are in the order purpose, next step, look, room and readability, then immersion after the semicolon. The gate is as in 13.2.
+
+| Read | Judge | Teacher | Fails on |
+|---|---|---|---|
+| D1 | 5, 4, 4, 3, 4; 4 | 5, 4, 4, 4, 4; 4 | none |
+
+**Ruling.** Read D1 met the whole gate for both readers. As parts B and C did after a passing read, one bounded pass followed, without a further read. It took what both readers named that was clear, small and in D1's scope: the changes of 16.6 marked as words, the opaque plates, the night opening, the pointers, the compass letters, the thin crescent, the phone's site name and the arrival's labels.
+
+Both readers' other shared asks:
+- **To the user, with D2:** bring the next step out of More, the judge's one change: the site, a way to change site or date, the better day and Compare, always in view.
+- **To a words pass over every page:** "above the horizon" at night, where the hills look like the horizon. "Above the horizon" is the one name part C set across the shadow map, Explore and the stand view.
+- **To D2:** the smeared descent, the square patch round the site and the box rock.
+- **To the deferred list:**
+  - Skip on a phone's card;
+  - the slider on the first moment's dot;
+  - unnamed paths in some views.
+
+Cost if wrong: D1 ships with its next step one tap away, under More.

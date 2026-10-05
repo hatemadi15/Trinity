@@ -5,7 +5,7 @@ import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
 import { EARTH_LOOP, shadowWords, starLabel } from '@/lib/viz/stand';
 
-export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean) => void };
+export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget { yaw: number; pitch: number; fov: number }
 
@@ -35,6 +35,16 @@ export function fitPitch(height: number, fovDeg: number, freeBottom: number, elD
 }
 
 /**
+ * The lowest pitch the opening view may take while keeping what it opens on (`elDeg` up: the Sun, or Earth at night)
+ * at least 100 px below `freeTop`, the foot of the words above, room for its name over it (16.3): the lander's feet
+ * are kept in sight only as far as that, so a view that opens on Earth never tilts it up under the status line.
+ */
+export function subjectFloor(height: number, fovDeg: number, freeTop: number, elDeg: number): number {
+  const t = ((height / 2 - (freeTop + 100)) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
+  return elDeg - (Math.atan(t) * 180) / Math.PI;
+}
+
+/**
  * ", uphill" or ", downhill" when the view faces within 45° of up or down the slope you stand on (uphill
  * towards `upAzDeg`, `grade` its rise per metre), when it is steeper than 5°; else nothing. A tilted skyline
  * then reads as the slope it is, not as a tilted head.
@@ -43,14 +53,6 @@ export function slopeWord(yawDeg: number, upAzDeg: number, grade: number): strin
   if (grade < Math.tan((5 * Math.PI) / 180)) return '';
   const rel = Math.abs(((((yawDeg - upAzDeg + 540) % 360) + 360) % 360) - 180);
   return rel <= 45 ? ', uphill' : rel >= 135 ? ', downhill' : '';
-}
-
-/**
- * Where the level horizon crosses the middle of the view, as a share of its height down from the top: the
- * middle when the view looks level, lower as it looks up. The "Level horizon" name sits there, at the left.
- */
-export function levelY(pitchDeg: number, fovDeg: number): number {
-  return 0.5 + Math.tan((pitchDeg * Math.PI) / 180) / (2 * Math.tan((fovDeg * Math.PI) / 360));
 }
 
 /**
@@ -94,6 +96,12 @@ export function pointerClear(box: Rect, labels: Rect[], lo: number, hi: number):
   return above - h / 2 >= lo ? above : Math.min(hi, hit.bottom + 6 + h / 2);
 }
 
+/**
+ * A body's name with the body under it: the name's box grown `below` pixels down, over the disc and its glare, which
+ * a pointer keeps clear of as it does of the name (both readers of read D1 found Earth's pointer on the Sun's disc).
+ */
+export const withBody = (r: Rect, below = 40): Rect => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom + below });
+
 /** A path's name as the view shows it: Earth's with why it loops, on a second line (teacher, part B read 7). */
 export function pathNameText(body: 'sun' | 'earth', text: string): string {
   return body === 'earth' ? `${text}\n${EARTH_LOOP}` : text;
@@ -124,12 +132,53 @@ export function starNamesShown(stars: { name: string; visible: boolean }[], name
   return stars.map((s) => named && s.visible && !(cross && CROSS.has(s.name)));
 }
 
-/** The compass strip: 120° of the horizon across 300 px, ticks every 15°, the eight points named; its ends fade, so no letter is cut in half. */
+/** Whether the bright stars carry their names: with the guides at night, and whenever the view looks well up (16.2). */
+export const starsNamed = (guides: boolean, night: boolean, pitchDeg: number): boolean => (guides && night) || pitchDeg > 25;
+
+type PartSide = 'above' | 'below' | 'left' | 'right';
+type Rect = { left: number; top: number; right: number; bottom: number };
+
+/**
+ * How far a day on a path, or a path's name, keeps from its own body's label (16.3), in pixels to either side and
+ * above or below: beside it, on the same line, it reads as about the hour shown, as "Earth sets, 23 Jan" beside a
+ * rising Earth did in part C's read.
+ */
+export const OWN_CLEAR = { x: 120, y: 24 } as const;
+/** A box grown by `mx` pixels to either side and `my` above and below (`mx` by default). */
+export const inflate = (b: Rect, mx: number, my = mx): Rect => ({ left: b.left - mx, top: b.top - my, right: b.right + mx, bottom: b.bottom + my });
+/** The boxes of days or paths' names, each left out (null) where it meets its own body's zone (that body's label grown by OWN_CLEAR). */
+export function clearOfOwn(boxes: (Rect | null)[], owners: ('sun' | 'earth' | undefined)[], zones: Partial<Record<'sun' | 'earth', Rect>>): (Rect | null)[] {
+  return boxes.map((b, k) => {
+    const owner = owners[k], z = owner ? zones[owner] : undefined;
+    return b && z && b.right > z.left && b.left < z.right && b.bottom > z.top && b.top < z.bottom ? null : b;
+  });
+}
+
+/** The compass strip: 120° of the horizon across 300 px, ticks every 15°, the eight points named; its ticks fade at the ends, and each letter shows whole or not at all (letterShown). */
 const STRIP_W = 300, PX_PER_DEG = STRIP_W / 120;
 const STRIP_FADE = 'linear-gradient(to right, transparent, #000 16%, #000 84%, transparent)';
 /** Narrower than this (degrees up and down) the view is zoomed in: the compass says so, and the lander's parts are named. */
 const ZOOMED_FOV = 45;
+
+/**
+ * Whether the view is zoomed in on the lander, so its parts carry their names: narrower than ZOOMED_FOV, with the
+ * lander (at `landerAzDeg`) within 10° of the view's middle. A view zoomed in on Earth at night, the lander standing
+ * beside it, names the lander alone (16.2).
+ */
+export function zoomedOnLander(fovDeg: number, yawDeg: number, landerAzDeg: number | undefined): boolean {
+  if (landerAzDeg === undefined || fovDeg >= ZOOMED_FOV) return false;
+  return Math.abs(((((landerAzDeg - yawDeg + 540) % 360) + 360) % 360) - 180) < 10;
+}
 const POINT = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+
+/**
+ * Whether a compass letter shows (16.3), its middle `x` pixels along the strip and `halfWidth` half its width: whole
+ * while its near edge stays 12 px or more inside either end, else not at all, so no letter is cut ("N" read for "NW")
+ * and none is left faint (both readers of read D1); it fades in and out over 150 ms as it crosses.
+ */
+export function letterShown(x: number, halfWidth: number, stripW = STRIP_W): boolean {
+  return Math.min(x - halfWidth, stripW - x - halfWidth) >= 12;
+}
 
 /**
  * Where a body's mark goes on the compass strip, for the way the view faces: pixels from the strip's left
@@ -171,8 +220,6 @@ export function labelSides(spots: { x: number; y: number; w: number; h: number; 
 }
 const SIDE = { right: 'translate(8px, -50%)', left: 'translate(calc(-100% - 8px), -50%)' } as const;
 
-type PartSide = 'above' | 'below' | 'left' | 'right';
-type Rect = { left: number; top: number; right: number; bottom: number };
 /** A lander part's name hangs off the part on a leader line: 26 px long to one side, 20 px above or below. */
 const LEADER_X = 26, LEADER_Y = 20;
 /** Where the name and its line sit for each side: the line's free end on the part. */
@@ -307,7 +354,8 @@ const TICKS = Array.from({ length: 72 }, (_, k) => -360 + k * 15);
 export const easeStep = (dt: number): number => 1 - Math.exp(-5 * Math.min(0.5, Math.max(0, dt)));
 
 const lerpAngle = (a: number, b: number, f: number) => (a + ((((b - a + 540) % 360) - 180) * f) + 360) % 360;
-const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[15px]';
+// Opaque, so no path line shows through a name (16.3; both readers of read D1).
+const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black px-2 py-1 text-[15px]';
 
 /**
  * The sky from the site, full window. Drag, the wheel and the arrow keys look around; `look` turns the
@@ -320,7 +368,9 @@ const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] bord
  * the bright stars carry their names at night and when the view looks up, each on whichever side keeps it
  * clear of the others; zoomed in on the lander, its solar panel, dish and power light carry theirs. The Sun's
  * path and Earth's carry their names where they show, and the key moments' days on them give way to all of
- * these, and to each other. No label sits on the lander's body but its own.
+ * these, and to each other. No label sits on the lander's body but its own. With `guides` off, only the Sun,
+ * Earth and the lander are named (and its parts when zoomed in), with the pointers; the paths, their days and
+ * names, the level horizon, the star names at night and your shadow come with the guides (16.2).
  */
 export function StandCanvas({
   scene,
@@ -335,9 +385,12 @@ export function StandCanvas({
   onFail,
   onReady,
   clean = false,
+  guides = true,
   keepInView = null,
+  keepSubject = null,
   startFov,
   onExplore,
+  place,
 }: {
   scene: StandScene;
   hour: number;
@@ -354,21 +407,28 @@ export function StandCanvas({
   onReady?: () => void;
   /** The clean view: no label and no compass over the picture. */
   clean?: boolean;
+  /** The guides (16.2): the month's paths, their days and names, the level horizon, the star names at night and your shadow. */
+  guides?: boolean;
   /**
    * What the opening view keeps in sight above the time bar while it is in view across the screen: the
    * lander's feet, `el` degrees below level, towards `az`.
    */
   keepInView?: { el: number; az: number } | null;
+  /** How high (degrees) what the opening view faces stands, the Sun or Earth: looking down for the lander's feet never tilts it under the words (subjectFloor). */
+  keepSubject?: number | null;
   /** How wide the view opens (degrees, top to bottom); else 60, or 80 on a tall screen. */
   startFov?: number;
   /** Called the first time the view is turned by hand (a drag, a key, the wheel or a pinch). */
   onExplore?: () => void;
+  /** The site's name: on a phone, whose status line leaves it out, the facing chip names it (read D1). */
+  place?: string;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
   const landerRef = useRef<HTMLSpanElement>(null);
   const shadowRef = useRef<HTMLSpanElement>(null);
   const cleanRef = useRef(clean);
+  const guidesRef = useRef(guides);
   const reducedRef = useRef(reducedMotion);
   const partRefs = useRef<Record<'panel' | 'dish' | 'lamp', HTMLSpanElement | null>>({ panel: null, dish: null, lamp: null });
   const lampTextRef = useRef<HTMLSpanElement>(null);
@@ -377,6 +437,7 @@ export function StandCanvas({
   const openingRef = useRef(true);
   const fitOffset = useRef(0);
   const keepRef = useRef(keepInView);
+  const subjectRef = useRef(keepSubject);
   const earthRef = useRef<HTMLSpanElement>(null);
   const starRefs = useRef<(HTMLSpanElement | null)[]>([]);
   // The key moments' days on the Sun's and Earth's paths, the paths' own names, and the level horizon's name.
@@ -388,11 +449,15 @@ export function StandCanvas({
   const markRefs = useRef<Partial<Record<Body, HTMLElement | null>>>({});
   const pointerRefs = useRef<Partial<Record<Body, HTMLElement | null>>>({});
   const trackRef = useRef<HTMLDivElement>(null);
+  // The compass letters, which ride with the ticks and fade whole near the strip's ends.
+  const lettersRef = useRef<HTMLDivElement>(null);
+  const letterRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const hourRef = useRef(hour);
   const nightRef = useRef(night);
   // A tall screen opens wider (80° up and down), so the Sun and the lander both fit across it.
   const view = useRef({ yaw: startYaw, pitch: reducedMotion ? 2 : 34, fov: startFov ?? (typeof window !== 'undefined' && window.innerHeight > window.innerWidth ? 80 : 60) });
   const exploreRef = useRef(onExplore);
+  const placeRef = useRef(place);
   const goal = useRef<LookTarget | null>(null);
   const intro = useRef<{ start: number } | null>(reducedMotion ? null : { start: 0 });
   const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null);
@@ -415,14 +480,23 @@ export function StandCanvas({
     cleanRef.current = clean;
   }, [clean]);
   useEffect(() => {
+    guidesRef.current = guides;
+  }, [guides]);
+  useEffect(() => {
     reducedRef.current = reducedMotion;
   }, [reducedMotion]);
   useEffect(() => {
     keepRef.current = keepInView;
   }, [keepInView]);
   useEffect(() => {
+    subjectRef.current = keepSubject;
+  }, [keepSubject]);
+  useEffect(() => {
     exploreRef.current = onExplore;
   }, [onExplore]);
+  useEffect(() => {
+    placeRef.current = place;
+  }, [place]);
   useEffect(() => {
     failRef.current = onFail;
   }, [onFail]);
@@ -584,14 +658,16 @@ export function StandCanvas({
       const keepRel = keep ? Math.abs(((((keep.az - v.yaw + 540) % 360) + 360) % 360) - 180) : 180;
       const halfW = (Math.atan(Math.tan((v.fov * Math.PI) / 360) * (W / H)) * 180) / Math.PI;
       if (openingRef.current && keep && keepRel < halfW) {
-        const fitted = fitPitch(H, v.fov, freeBottom, keep.el, pitch);
+        // No lower than keeps what the view opens on in sight under the words, and never higher than it was.
+        const subject = subjectRef.current;
+        const fitted = subject === null || subject === undefined ? fitPitch(H, v.fov, freeBottom, keep.el, pitch) : Math.min(pitch, Math.max(fitPitch(H, v.fov, freeBottom, keep.el, pitch), subjectFloor(H, v.fov, freeTop, subject)));
         fitOffset.current = (fitted - pitch) * settled;
         pitch += fitOffset.current;
       }
       const shownPitch = Math.max(-35, Math.min(89, pitch));
       r.setView(v.yaw, shownPitch, v.fov);
-      // The month's paths, the level horizon and the rings on hidden bodies go with the words.
-      r.setGuides?.(!cleanRef.current);
+      // The month's paths and the level horizon go with the guides; the rings on hidden bodies with the words.
+      r.setGuides?.(guidesRef.current && !cleanRef.current, true, !cleanRef.current);
       r.render();
       if (!drawnRef.current || cleanRef.current) {
         for (const n of [sunRef.current, earthRef.current, landerRef.current, shadowRef.current, levelRef.current, ...Object.values(partRefs.current), ...starRefs.current, ...pathRefs.current, ...Object.values(nameRefs.current)]) if (n) n.hidden = true;
@@ -599,6 +675,7 @@ export function StandCanvas({
         return;
       }
       const l = r.labels();
+      const guide = guidesRef.current;
       // The lander's body on the screen: no label but its own sits on it.
       const lb = l.landerBox, body = lb ? { left: lb.left * W, top: lb.top * H, right: lb.right * W, bottom: lb.bottom * H } : null;
       const offBody = (node: HTMLElement | null) => {
@@ -609,7 +686,7 @@ export function StandCanvas({
       const sunDx = place(sunRef.current, l.sun);
       const earthDx = place(earthRef.current, l.earth);
       // Zoomed in on the lander, its parts carry their names (and its own name gives way to them).
-      const close = v.fov < ZOOMED_FOV;
+      const close = zoomedOnLander(v.fov, v.yaw, scene.lander?.azDeg);
       place(landerRef.current, (close && l.parts?.panel.visible) || (H > W && !close) ? null : l.lander);
       // The power light says whether it is lit.
       const lampNode = lampTextRef.current, hr0 = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));
@@ -651,8 +728,8 @@ export function StandCanvas({
           if (plates.some((q) => b.right > q.left - 4 && b.left < q.right + 4 && b.bottom > q.top - 4 && b.top < q.bottom + 4)) node.hidden = true;
         }
       }
-      // Your own shadow, long across the ground while the Sun is low.
-      const sh = l.shadow;
+      // Your own shadow, with the guides: long across the ground while the Sun is low.
+      const sh = guide ? l.shadow : null;
       if (shadowRef.current && sh) {
         // With the height it is worked out for, so the Sun's height can be checked from it, and on a slope what
         // it would be on level ground.
@@ -661,13 +738,13 @@ export function StandCanvas({
       }
       const shadowDx = place(shadowRef.current, sh ?? null);
       if (sh) keepOff(shadowRef.current, sh, shadowDx, body);
-      // The level horizon's name at the view's left, where it names the line: not moved off the lander, left out.
-      const ly = levelY(shownPitch, v.fov);
-      place(levelRef.current, { x: 0, y: ly, visible: ly > 0.08 && ly < 0.92 });
+      // The level horizon's name, with the guides, where the renderer finds the line clear of the hills (16.3): not
+      // moved off the lander, left out.
+      place(levelRef.current, guide && l.level ? l.level : null);
       offBody(levelRef.current);
-      // Star names at night, or when the view looks well up, where they would not crowd the day's sky; each
-      // on the side of its star that keeps it clear of the names already placed.
-      const nameShown = starNamesShown(l.stars, nightRef.current || v.pitch > 25);
+      // Star names with the guides at night, or when the view looks well up, where they would not crowd the day's sky;
+      // each on the side of its star that keeps it clear of the names already placed.
+      const nameShown = starNamesShown(l.stars, starsNamed(guide, nightRef.current, v.pitch));
       l.stars.forEach((st, k) => place(starRefs.current[k], { ...st, visible: nameShown[k] }));
       const boxes = l.stars.map((st, k) => {
         const node = starRefs.current[k];
@@ -688,8 +765,17 @@ export function StandCanvas({
         offBody(node);
       });
       const facing = v.pitch > 35 ? `Looking up, to the ${compassWord(v.yaw)}` : `Facing ${compassWord(v.yaw)}${slopeWord(v.yaw, slope.upAz, slope.grade)}${v.fov < ZOOMED_FOV ? ', zoomed in' : ''}`;
-      for (const f of [facingRef.current, facingPhoneRef.current]) if (f && f.textContent !== facing) f.textContent = facing;
-      if (trackRef.current) trackRef.current.style.transform = `translateX(${STRIP_W / 2 - (v.yaw + 360) * PX_PER_DEG}px)`;
+      // On a phone with the site's name before it, as its status line leaves the name out.
+      const phoneFacing = placeRef.current ? `${placeRef.current}, ${facing.charAt(0).toLowerCase()}${facing.slice(1)}` : facing;
+      for (const [f, text] of [[facingRef.current, facing], [facingPhoneRef.current, phoneFacing]] as const) if (f && f.textContent !== text) f.textContent = text;
+      // The ticks and the letters ride together; each letter shows whole or not at all near the strip's ends.
+      const shift = STRIP_W / 2 - (v.yaw + 360) * PX_PER_DEG;
+      for (const t of [trackRef.current, lettersRef.current]) if (t) t.style.transform = `translateX(${shift}px)`;
+      for (const n of letterRefs.current) {
+        if (!n) continue;
+        const o = letterShown(Number(n.dataset.at) + shift, n.offsetWidth / 2) ? '1' : '0';
+        if (n.style.opacity !== o) n.style.opacity = o;
+      }
       // The Sun, Earth and the lander on the compass strip: filled while in view, hollow while hidden.
       const hr = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));
       const where: [Body, number, boolean][] = [
@@ -723,7 +809,11 @@ export function StandCanvas({
         node.style.right = p.side === 'right' ? '8px' : '';
         // Clear of the labels on the sky and of the lander's body, so a pointer never covers the lander, its name or
         // the Sun's: above or below what it meets, and again past the next; left out where it still covers the lander.
-        const labels: Rect[] = [sunRef.current, earthRef.current, landerRef.current, shadowRef.current].filter((n): n is HTMLSpanElement => !!n && !n.hidden).map((n) => n.getBoundingClientRect());
+        const shown = (n: HTMLSpanElement | null): n is HTMLSpanElement => !!n && !n.hidden;
+        const labels: Rect[] = [
+          ...[sunRef.current, earthRef.current].filter(shown).map((n) => withBody(n.getBoundingClientRect())),
+          ...[landerRef.current, shadowRef.current].filter(shown).map((n) => n.getBoundingClientRect()),
+        ];
         if (body) labels.push(body);
         for (let k = 0; k < 3; k++) {
           const b = node.getBoundingClientRect();
@@ -742,26 +832,42 @@ export function StandCanvas({
         .filter((n): n is HTMLElement => !!n && !n.closest('[hidden]'))
         .map((n) => n.getBoundingClientRect())
         .filter((b) => b.width > 0);
+      // Each body's own room: its label grown by OWN_CLEAR, which the days on its path keep clear of (16.3), and 24 px
+      // round it for its path's name, which would else be lost whenever the view faces the body (the final review).
+      const zones: Partial<Record<'sun' | 'earth', Rect>> = {}, nameZones: Partial<Record<'sun' | 'earth', Rect>> = {};
+      for (const [k, node] of [['sun', sunRef.current], ['earth', earthRef.current]] as const) {
+        if (!node || node.hidden) continue;
+        const b = node.getBoundingClientRect();
+        if (b.width === 0) continue;
+        zones[k] = inflate(b, OWN_CLEAR.x, OWN_CLEAR.y);
+        nameZones[k] = inflate(b, OWN_CLEAR.y);
+      }
       const named = PATHS.map(([k]) => {
-        const node = nameRefs.current[k], n = l.pathNames?.find((p) => p.body === k) ?? null;
+        const node = nameRefs.current[k], n = guide ? (l.pathNames?.find((p) => p.body === k) ?? null) : null;
         const text = n ? pathNameText(k, n.text) : '';
         if (node && n && node.textContent !== text) node.textContent = text;
         const dx = place(node, n);
         if (n) keepOff(node, n, dx, body, shownLabels);
         return node && !node.hidden ? node.getBoundingClientRect() : null;
       });
-      const pathNamed = chipsShown(named, shownLabels);
+      const pathNamed = chipsShown(clearOfOwn(named, PATHS.map(([k]) => k), nameZones), shownLabels);
       pathNamed.forEach((on, k) => {
         const node = nameRefs.current[PATHS[k][0]];
         if (node && !on) node.hidden = true;
       });
       const taken = [...shownLabels, ...named.filter((b, k): b is DOMRect => !!b && pathNamed[k] && b.width > 0)];
-      const chips = (l.marks ?? []).map((m, k) => {
-        const node = pathRefs.current[k];
+      // The days with the guides only; a day the renderer has no place for stays hidden.
+      const marks = guide ? (l.marks ?? []) : [];
+      const chips = pathRefs.current.map((node, k) => {
+        const m = marks[k];
+        if (!m) {
+          if (node) node.hidden = true;
+          return null;
+        }
         keepOff(node, m, place(node, m), body, taken);
         return node && !node.hidden ? node.getBoundingClientRect() : null;
       });
-      chipsShown(chips, taken).forEach((on, k) => {
+      chipsShown(clearOfOwn(chips, pathRefs.current.map((_, k) => scene.marks?.[k]?.body), zones), taken).forEach((on, k) => {
         const node = pathRefs.current[k];
         if (node && !on) node.hidden = true;
       });
@@ -846,20 +952,32 @@ export function StandCanvas({
           turn(k[0], k[1], k[2]);
         }}
       />
-      <div aria-hidden="true" hidden={clean} style={{ width: STRIP_W }} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 text-[#f2f0ea] max-md:hidden">
-      <div data-plate="" className="relative overflow-hidden rounded-[6px] border border-white/15 bg-black/70">
-        <div className="relative h-8" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
-          <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>
-            {TICKS.map((d) => {
-              const az = ((d % 360) + 360) % 360;
-              return az % 45 === 0 ? (
-                <span key={d} className="absolute top-1 -translate-x-1/2 text-[14px] font-semibold" style={{ left: (d + 360) * PX_PER_DEG }}>
-                  {POINT[az / 45]}
-                </span>
-              ) : (
+      <div aria-hidden="true" hidden={clean} style={{ width: STRIP_W }} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 text-[#f2f0ea] max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+14px)] max-md:hidden">
+      <div data-plate="" className="relative overflow-hidden rounded-[6px] border border-white/15 bg-black">
+        <div className="relative h-8">
+          {/* The ticks fade at the strip's ends; the letters show whole or not at all (letterShown), so none is cut or faint. */}
+          <div className="absolute inset-0" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
+            <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>
+              {TICKS.filter((d) => (((d % 360) + 360) % 360) % 45 !== 0).map((d) => (
                 <i key={d} className="absolute bottom-1 h-2 w-px bg-white/45" style={{ left: (d + 360) * PX_PER_DEG }} />
-              );
-            })}
+              ))}
+            </div>
+          </div>
+          <div ref={lettersRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>
+            {TICKS.filter((d) => (((d % 360) + 360) % 360) % 45 === 0).map((d, k) => (
+              <span
+                key={d}
+                data-point=""
+                data-at={(d + 360) * PX_PER_DEG}
+                ref={(node) => {
+                  letterRefs.current[k] = node;
+                }}
+                className="absolute top-1 -translate-x-1/2 text-[14px] font-semibold transition-opacity duration-150 motion-reduce:transition-none"
+                style={{ left: (d + 360) * PX_PER_DEG, opacity: letterShown(STRIP_W / 2 + (d - startYaw) * PX_PER_DEG, 6) ? 1 : 0 }}
+              >
+                {POINT[(((d % 360) + 360) % 360) / 45]}
+              </span>
+            ))}
           </div>
         </div>
         <i className="absolute left-1/2 top-0 h-8 w-0.5 -translate-x-1/2 bg-white" />
@@ -889,7 +1007,7 @@ export function StandCanvas({
               pointerRefs.current[k] = node;
             }}
             hidden
-            className="group absolute flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-0.5 text-[14px] text-[#f2f0ea] data-[side=right]:flex-row-reverse"
+            className="group absolute flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap rounded-[5px] border border-white/15 bg-black px-2 py-0.5 text-[14px] text-[#f2f0ea] data-[side=right]:flex-row-reverse"
           >
             <svg width="8" height="10" viewBox="0 0 8 10" className="shrink-0 fill-current group-data-[side=right]:rotate-180">
               <path d="M0 5 8 0v10z" />
@@ -902,13 +1020,15 @@ export function StandCanvas({
         ))}
       </div>
       {/* On a phone, with no room for the strip: which way the view faces, small, at the top right of the view. */}
+      {/* A panel, so the labels keep off it (part B's reads found Earth's label on it). */}
       <p
         ref={facingPhoneRef}
+        data-plate=""
         aria-hidden="true"
         hidden={clean}
-        className="pointer-events-none fixed right-4 top-[calc(var(--top-h,220px)+8px)] rounded-[6px] border border-white/15 bg-black/70 px-2 py-0.5 text-[14px] text-[#f2f0ea] md:hidden"
+        className="pointer-events-none fixed right-4 top-[calc(var(--top-h,220px)+8px)] rounded-[6px] border border-white/15 bg-black px-2 py-0.5 text-[14px] text-[#f2f0ea] md:hidden"
       >
-        {`Facing ${compassWord(startYaw)}`}
+        {place ? `${place}, facing ${compassWord(startYaw)}` : `Facing ${compassWord(startYaw)}`}
       </p>
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 overflow-hidden">
         <span ref={sunRef} hidden data-sky="sun" className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#f6b646]`}>
@@ -950,7 +1070,7 @@ export function StandCanvas({
         <span ref={levelRef} hidden className={`${LABEL} translate-x-3 -translate-y-1/2 text-[#c3bfb6]`}>
           Level horizon
         </span>
-        <span ref={shadowRef} hidden className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-pre-line rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-center text-[14px] leading-snug text-[#e4e1da]">
+        <span ref={shadowRef} hidden className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 whitespace-pre-line rounded-[5px] border border-white/15 bg-black px-2 py-1 text-center text-[14px] leading-snug text-[#e4e1da]">
           Your shadow
         </span>
         {scene.lander &&
@@ -966,7 +1086,7 @@ export function StandCanvas({
               className="group pointer-events-none absolute flex items-center data-[side=above]:flex-col-reverse data-[side=below]:flex-col data-[side=left]:flex-row-reverse"
             >
               <i className="block shrink-0 bg-white/70 group-data-[side=above]:h-5 group-data-[side=above]:w-px group-data-[side=below]:h-5 group-data-[side=below]:w-px group-data-[side=left]:h-px group-data-[side=left]:w-[26px] group-data-[side=right]:h-px group-data-[side=right]:w-[26px]" />
-              <span data-text="" ref={k === 'lamp' ? lampTextRef : undefined} className="whitespace-nowrap rounded-[5px] border border-white/15 bg-black/75 px-2 py-1 text-[14px] text-[#e4e1da]">
+              <span data-text="" ref={k === 'lamp' ? lampTextRef : undefined} className="whitespace-nowrap rounded-[5px] border border-white/15 bg-black px-2 py-1 text-[14px] text-[#e4e1da]">
                 {name}
               </span>
             </span>
