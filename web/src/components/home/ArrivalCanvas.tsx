@@ -129,13 +129,14 @@ const STEM_DOWN = 'absolute left-1/2 top-full h-2 w-px -translate-x-1/2 bg-curre
 const SIDE_STEM = 'absolute right-full top-1/2 h-px w-[9px] -translate-y-1/2 bg-current opacity-60 group-data-[side=left]:left-full group-data-[side=left]:right-auto group-data-[side=below]:hidden group-data-[side=up]:hidden';
 type Tag = 'earth' | 'pole' | 'site' | 'sun' | 'earthHere';
 /**
- * What lights the ground at the site at an hour, in words: the Sun, or at night Earth alone (which is why the ground
- * turns blue) or nothing. At night the picture is brightened, as the stand view says, and the words say so: the
- * ground would look near black.
+ * What lights the ground at the site at an hour, in words: the Sun, or at night Earth alone or nothing. In Earthlight
+ * the ground looks blue, and the words say so, so the blue reads as the light and not as the ground's own colour
+ * (16.3). At night the picture is brightened, as the stand view says, and the words say so: the ground would look
+ * near black.
  */
 export function lightWords(series: Pick<Hero['series'], 'sunFraction' | 'earthVisible'>, hour: number): string {
   if (series.sunFraction[hour] > 0) return 'in sunlight';
-  return series.earthVisible[hour] === 1 ? 'night, lit only by Earthlight (picture brightened)' : 'night (picture brightened)';
+  return series.earthVisible[hour] === 1 ? 'night, in blue Earthlight (picture brightened)' : 'night (picture brightened)';
 }
 /** The date bar's key: what each colour of mark stands for, in the order of its lanes. */
 const TICK_KEY = [
@@ -277,9 +278,12 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
     // The hour the Sun's and Earth's words were last written for.
     let wordsHour = HERO_HOUR;
     let keys: Key[] = [], input: PathInput | null = null, keyed: { scene: StandScene | null; aspect: number } = { scene: null, aspect: 0 };
-    // The words on the screen (marked data-words), and the labels already placed this frame: a label that would
-    // fall on either waits until they move apart (Earth's first, then the pole's, the site's and the Sun's).
+    // The words on the screen (marked data-words), and the labels already placed this frame. Words on a plate (the
+    // beats' sentences, data-plate) pass over the labels, which stay where they are under them: a label never switches
+    // off for a quarter screen as a plate goes by (part C read 1). Words with no plate (the first screen's headline over
+    // the Moon) would show through a label, so the labels give way to those (`bare`); the date's bar to all of them.
     let words: DOMRect[] = [];
+    let bare: DOMRect[] = [];
     const placed: DOMRect[] = [];
     const meets = (b: DOMRect, rects: DOMRect[]) => rects.some((w) => b.left < w.right && b.right > w.left && b.top < w.bottom && b.bottom > w.top);
     const show = (k: Tag, at: { x: number; y: number; visible: boolean } | null) => {
@@ -301,7 +305,7 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
           } else if (n.getBoundingClientRect().bottom > view.bottom - 4) n.setAttribute('data-side', 'up');
         }
         const b = n.getBoundingClientRect();
-        if (meets(b, words) || meets(b, placed)) n.hidden = true;
+        if (meets(b, bare) || meets(b, placed)) n.hidden = true;
         else placed.push(b);
       }
     };
@@ -349,10 +353,10 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
       labelledAt = now;
       const pose = posed;
       // Words faded near the top (a beat's, scrolling away) no longer count: they are gone from over the date's bar.
-      words = [...document.querySelectorAll<HTMLElement>('[data-words]')]
-        .filter((w) => Number(w.style.opacity || 1) >= 0.25)
-        .map((w) => w.getBoundingClientRect())
-        .filter((b) => b.width > 0 && b.height > 0);
+      const shownWords = [...document.querySelectorAll<HTMLElement>('[data-words]')].filter((w) => Number(w.style.opacity || 1) >= 0.25);
+      const boxOf = (w: HTMLElement) => w.getBoundingClientRect();
+      words = shownWords.map(boxOf).filter((b) => b.width > 0 && b.height > 0);
+      bare = shownWords.filter((w) => !w.hasAttribute('data-plate')).map(boxOf).filter((b) => b.width > 0 && b.height > 0);
       placed.length = 0;
       // Once landed the date's bar, first, so the labels keep off it: the date, a moment for a day or so after it
       // passes, else what lights the ground; the hour's mark on the month. It gives way only to the words.
@@ -429,7 +433,7 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
           if (arrow) arrow.style.transform = `rotate(${Math.atan2(uy, ux)}rad)`;
         }
         const b = chip.getBoundingClientRect();
-        chip.hidden = meets(b, words) || meets(b, placed);
+        chip.hidden = meets(b, bare) || meets(b, placed);
         if (!chip.hidden) placed.push(b);
       };
       const sunNow = seen(dirAzEl(h.series.sunAz[hi], h.series.sunEl[hi])), earthNow = seen(dirAzEl(h.series.earthAz[hi], h.series.earthEl[hi]));
@@ -462,12 +466,13 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
           night.style.left = `${(x / W) * 100}%`;
           night.style.top = `${(y / H) * 100}%`;
           const b = night.getBoundingClientRect();
-          night.hidden = meets(b, words) || meets(b, placed);
+          night.hidden = meets(b, bare) || meets(b, placed);
           if (!night.hidden) placed.push(b);
         }
       }
       // The paths' names once landed (the guides show only then), each while its body is the story: the Sun's until
-      // Earth comes into view, then Earth's until the Sun comes back. Each gives way to the words and the labels placed.
+      // Earth comes into view, then Earth's until the Sun comes back. Each gives way to the words with no plate and
+      // the labels placed.
       const named = (n: HTMLElement | null, at: { x: number; y: number; visible: boolean } | null | undefined, story: boolean) => {
         if (!n) return;
         n.hidden = !(drawn && p > LANDED && story && at && at.visible);
@@ -481,7 +486,7 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
           n.style.left = `calc(${at.x * 100}% - ${over}px)`;
           b = n.getBoundingClientRect();
         }
-        n.hidden = meets(b, words) || meets(b, placed);
+        n.hidden = meets(b, bare) || meets(b, placed);
         if (!n.hidden) placed.push(b);
       };
       // A phone's narrow view has no room for them beside the bodies' own names: none there.
@@ -559,7 +564,7 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
           <span ref={earthHereTextRef}>{skyLabel('earth', h.series, HERO_HOUR)}</span>
         </span>
         <span ref={nightRef} hidden className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#c3bfb6]`}>
-          Night here: the Sun is below the horizon
+          Ground at night: the Sun is below the horizon
         </span>
         <span ref={earthEdgeRef} hidden data-earth-edge="" className={`${CHIP} -translate-x-1/2 -translate-y-1/2 text-[#74adff]`}>
           <span ref={earthTextRef}>{skyLabel('earth', h.series, HERO_HOUR)}</span>

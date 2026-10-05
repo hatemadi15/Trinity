@@ -427,7 +427,7 @@ describe('the arrival’s live stage', () => {
     // Then what lights the ground: Earth alone, which is why it looks blue; or nothing at all. Either way the picture
     // is brightened, and says so: the ground would look near black.
     progress.current = at(earth.hour + 60);
-    await waitFor(() => expect(state.textContent).toBe('Night, lit only by Earthlight (picture brightened)'));
+    await waitFor(() => expect(state.textContent).toBe('Night, in blue Earthlight (picture brightened)'));
     progress.current = at(moments.find((m) => m.kind === 'battery-out')!.hour + 60);
     await waitFor(() => expect(state.textContent).toBe('Night (picture brightened)'));
     // At the end, the last hour of the story; before landing, no bar.
@@ -437,12 +437,12 @@ describe('the arrival’s live stage', () => {
     await waitFor(() => expect(bar.hidden).toBe(true));
   });
 
-  it('says over the pole’s dark side that it is night there, across from the Sun, so it is not read as space', async () => {
+  it('says over the pole’s dark side that it is ground at night, across from the Sun, so it is not read as space', async () => {
     const { r } = stub();
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
     const progress = { current: 1.25 };
     render(<ArrivalCanvas progress={progress} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
-    const night = await screen.findByText('Night here: the Sun is below the horizon');
+    const night = await screen.findByText('Ground at night: the Sun is below the horizon');
     await waitFor(() => expect(night.hidden).toBe(false));
     // Across the view from the Sun's pointer.
     const sun = document.querySelector('[data-sun-edge]') as HTMLElement;
@@ -458,13 +458,13 @@ describe('the arrival’s live stage', () => {
     Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
     Object.defineProperty(window, 'innerHeight', { value: 844, configurable: true });
     const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
-      return this.textContent?.startsWith('Night here') ? 300 : 0;
+      return this.textContent?.startsWith('Ground at night') ? 300 : 0;
     });
     try {
       const { r } = stub();
       const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
       render(<ArrivalCanvas progress={{ current: 1.25 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
-      const night = await screen.findByText('Night here: the Sun is below the horizon');
+      const night = await screen.findByText('Ground at night: the Sun is below the horizon');
       await waitFor(() => expect(night.hidden).toBe(false));
       // Its middle at least half its width and 8 px in from either edge of the 390 px view.
       const x = (parseFloat(night.style.left) / 100) * 390;
@@ -474,6 +474,37 @@ describe('the arrival’s live stage', () => {
       width.mockRestore();
       Object.defineProperty(window, 'innerWidth', { value: was.w, configurable: true });
       Object.defineProperty(window, 'innerHeight', { value: was.h, configurable: true });
+    }
+  });
+
+  it('keeps a label in place under a beat’s plate as the page scrolls, and gives way to words with no plate (part C read 1)', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    // A beat's sentence on its plate, over the night's name.
+    const words = document.createElement('p');
+    words.setAttribute('data-words', '');
+    words.setAttribute('data-plate', '');
+    words.textContent = 'At the south pole the Sun never climbs.';
+    document.body.appendChild(words);
+    const NIGHT = { left: 400, top: 400, right: 700, bottom: 430 };
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const el = this as HTMLElement;
+      const b = el === words || el.textContent?.startsWith('Ground at night') ? NIGHT : this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 1000, bottom: 1000 } : { left: 0, top: 0, right: 0, bottom: 0 };
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      render(<ArrivalCanvas progress={{ current: 1.25 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const night = await screen.findByText('Ground at night: the Sun is below the horizon');
+      // Under the plate it stays, whole, as the plate passes over it.
+      await waitFor(() => expect(night.hidden).toBe(false));
+      await new Promise((res) => setTimeout(res, 300));
+      expect(night.hidden).toBe(false);
+      // The same words without a plate would show through it: it gives way.
+      words.removeAttribute('data-plate');
+      await waitFor(() => expect(night.hidden).toBe(true));
+    } finally {
+      rect.mockRestore();
+      words.remove();
     }
   });
 
