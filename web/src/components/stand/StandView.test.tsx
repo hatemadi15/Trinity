@@ -553,7 +553,8 @@ describe('StandView', () => {
     const shown = () => [screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text)).closest('p')!, better.parentElement!];
     for (const el of folded()) expect(el.className).toMatch(/\bmax-md:hidden\b/);
     for (const el of shown()) expect(el.className).not.toMatch(/\bmax-md:hidden\b/);
-    // Button words on one line.
+    // Button words on one line; the better day is a sentence, and wraps inside the card.
+    expect(better.className).not.toMatch(/\bwhitespace-nowrap\b/);
     expect(screen.getByRole('button', { name: /Why this happens/ }).className).toMatch(/\bwhitespace-nowrap\b/);
     expect(screen.getByRole('link', { name: 'Back to the forecast' }).className).toMatch(/\bwhitespace-nowrap\b/);
     // The headline stays.

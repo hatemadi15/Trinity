@@ -362,7 +362,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     e.preventDefault();
                     land(better.startUtc, better.href);
                   }}
-                  className={`${LOOK} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
+                  className={`${LOOK.replace('whitespace-nowrap ', '')} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
                 >
                   {better.label}
                 </a>
