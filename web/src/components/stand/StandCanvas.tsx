@@ -100,6 +100,11 @@ export function pathNameText(body: 'sun' | 'earth', text: string): string {
   return body === 'earth' ? `${text}\n${EARTH_LOOP}` : text;
 }
 
+/** A pointer's words on a phone: the body and how high it stands, short ("Earth 4.4° up", "Earth 1.2° below"). */
+export function pointerShort(label: string): string {
+  return label.replace(/, set behind the hills$/, '').replace(/^(\w+), /, '$1 ').replace(/ below the horizon$/, ' below');
+}
+
 export function pointerWords(label: string): string {
   return label.replace(', set behind the hills', ', set');
 }
@@ -886,9 +891,9 @@ export function StandCanvas({
               <path d="M0 5 8 0v10z" />
             </svg>
             <i className={`h-2 w-2 shrink-0 rounded-full ${colour}`} />
-            {/* On a phone the name alone, so the pointer does not lie across the narrow view. */}
+            {/* On a phone the Sun's name alone, and Earth's with its angle (13.3), so the pointer stays short. */}
             <span className="max-md:hidden">{k === 'sun' ? pointerWords(sunLabel) : k === 'earth' ? pointerWords(earthLabel) : name}</span>
-            <span className="md:hidden">{name}</span>
+            <span className="md:hidden">{k === 'earth' ? pointerShort(earthLabel) : name}</span>
           </span>
         ))}
       </div>

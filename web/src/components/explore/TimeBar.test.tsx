@@ -710,10 +710,9 @@ describe('TimeBar', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, clockNote: ' (Earth time)' });
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
     expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
-    // In the date's own line of words, after the date and its note, and after the Key button that stands for them on a phone.
+    // In the date's own line of words, after the date and its note.
     expect(group.parentElement).toBe(screen.getByTestId('when').closest('p'));
-    expect(group.previousElementSibling).toBe(screen.getByRole('button', { name: 'Key' }));
-    expect(group.previousElementSibling!.previousElementSibling).toBe(screen.getByTestId('clock-note').parentElement);
+    expect(group.previousElementSibling).toBe(screen.getByTestId('clock-note').parentElement);
     // On a phone a line of their own under the date, as before; from md up as wide as they are, so they sit beside
     // the date when they fit (else on the next line, at the right all the same), pushed to the right end.
     for (const c of ['basis-full', 'md:basis-auto', 'md:ml-auto', 'sm:justify-end', 'flex-wrap', 'items-baseline']) expect(group.classList.contains(c)).toBe(true);
@@ -742,85 +741,27 @@ describe('TimeBar', () => {
     expect(screen.getByTestId('status').className).not.toMatch(/hidden/);
   });
 
-  it('on a phone when compact, puts the key behind a Key button, shut at first: a real button 40 px tall that says whether it is open', () => {
+  it('on a phone when compact, names the keys under the date, with no Key button to open (13.3)', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, ifSurvivesFrom: 30, clockNote: ' (Earth time)' });
-    const key = screen.getByRole('button', { name: 'Key' });
-    expect((key as HTMLButtonElement).type).toBe('button');
-    expect(key.getAttribute('aria-expanded')).toBe('false');
-    // The bar's plain button, 40 px tall rather than Play's 48, its word at the 15 px of the bar's other words, with an
-    // edge that stands out on the stand view's dark bar, like the flags'.
-    expect(key.classList.contains('btn')).toBe(true);
-    expect(classPx(key, 'h')).toBe(40);
-    for (const c of ['text-[15px]', 'border-ink-3']) expect(key.classList.contains(c)).toBe(true);
-    // On a phone only: from sm up the keys have room, and show as before.
-    expect(key.classList.contains('sm:hidden')).toBe(true);
-    // It names the keys it opens, all six of them, and on a phone they stay shut until it is pressed.
+    expect(screen.queryByRole('button', { name: 'Key' })).toBeNull();
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    expect(group.id).not.toBe('');
-    expect(key.getAttribute('aria-controls')).toBe(group.id);
     expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
-    expect(group.classList.contains('max-sm:hidden')).toBe(true);
-    expect(group.className).not.toMatch(/(^| )(sm:|md:)?hidden( |$)/);
-  });
-
-  it('opens the key on a phone with the Key button, showing the keys as they were, and shuts it again', () => {
-    const { container } = show(6, { dates: true, powered: power.powered, compact: true, ifSurvivesFrom: 30 });
-    const key = screen.getByRole('button', { name: 'Key' });
-    const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    const shut = [...group.classList];
-    fireEvent.click(key);
-    expect(key.getAttribute('aria-expanded')).toBe('true');
-    // As they were: a line of their own under the date, wrapping, at 14 px with shorter swatches.
-    expect([...group.classList, 'max-sm:hidden'].sort()).toEqual(shut.sort());
+    // Named on a phone too, under the date, at 14 px with shorter swatches.
+    expect(group.className).not.toMatch(/max-sm:hidden/);
     for (const c of ['flex', 'basis-full', 'flex-wrap', 'items-baseline', 'max-sm:gap-x-2', 'max-sm:[&>span]:text-[14px]', 'max-sm:[&_i]:w-4']) expect(group.classList.contains(c)).toBe(true);
-    // Open, the button looks on: the lighter ground of a chosen flag.
-    expect(key.classList.contains('bg-surface-2')).toBe(true);
-    fireEvent.click(key);
-    expect(key.getAttribute('aria-expanded')).toBe('false');
-    expect(group.classList.contains('max-sm:hidden')).toBe(true);
-    expect(key.classList.contains('bg-surface-2')).toBe(false);
   });
 
-  it('on a phone when compact, keeps to the same rule behind the Key button: the keys it opens name only what the bar draws', () => {
-    // The stand view's period, where the only radio drawn is hatched: no "radio contact" behind the button either.
-    showStandPeriod({ compact: true });
-    const key = screen.getByRole('button', { name: 'Key' });
-    fireEvent.click(key);
-    const group = document.getElementById(key.getAttribute('aria-controls')!)!;
+  it('on a phone when compact, names only what the bar draws', () => {
+    // The stand view's period, where the only radio drawn is hatched: no "radio contact".
+    const { container } = showStandPeriod({ compact: true });
+    const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
     expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if it survives the night']);
     cleanup();
-    // A lander that keeps its power all through: no "lander off" behind the button.
+    // A lander that keeps its power all through: no "lander off".
     const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
-    showPeriod(30, { dates: true, powered: new Uint8Array(720).fill(1), compact: true }, { earthVisible });
-    const open = screen.getByRole('button', { name: 'Key' });
-    fireEvent.click(open);
-    const keys = document.getElementById(open.getAttribute('aria-controls')!)!;
+    const second = showPeriod(30, { dates: true, powered: new Uint8Array(720).fill(1), compact: true }, { earthVisible });
+    const keys = second.container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
     expect([...keys.children].map((k) => k.textContent)).toEqual(['in sunlight', 'Earth in view', 'radio contact']);
-  });
-
-  it('on a phone when compact, keeps the Key button on the line of the date and hour, at its right end, the date breaking only after its comma', () => {
-    show(6, { dates: true, powered: power.powered, compact: true, clockNote: ' (Earth time)' });
-    const key = screen.getByRole('button', { name: 'Key' });
-    const when = screen.getByTestId('when');
-    const pair = screen.getByTestId('clock-note').parentElement!;
-    // Right after the date and its note, in the same line of words, pushed to the right end.
-    expect(key.parentElement).toBe(when.closest('p'));
-    expect(key.previousElementSibling).toBe(pair);
-    for (const c of ['ml-auto', 'shrink-0']) expect(key.classList.contains(c)).toBe(true);
-    // On a phone the date takes the room the button leaves rather than send it to a line of its own, which would
-    // make the bar taller, and the two are centred on each other.
-    for (const c of ['max-sm:flex-1', 'max-sm:min-w-0']) expect(pair.classList.contains(c)).toBe(true);
-    expect(when.closest('p')!.classList.contains('max-sm:items-center')).toBe(true);
-    // Short of room it breaks after the comma, never inside "1 Jan 2027" or "06:00 UTC".
-    expect(when.textContent).toBe('1 Jan 2027, 06:00 UTC');
-    expect([...when.children].map((c) => [c.textContent, c.classList.contains('whitespace-nowrap')])).toEqual([
-      ['1 Jan 2027,', true],
-      ['06:00 UTC', true],
-    ]);
-    cleanup();
-    // Without a note the date itself takes the room.
-    show(6, { dates: true, powered: power.powered, compact: true });
-    for (const c of ['max-sm:flex-1', 'max-sm:min-w-0']) expect(screen.getByTestId('when').classList.contains(c)).toBe(true);
   });
 
   it('has no Key button without compact or when bare: the keys stay in sight, or are not there at all', () => {

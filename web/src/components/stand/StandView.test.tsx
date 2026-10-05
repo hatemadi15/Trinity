@@ -539,20 +539,23 @@ describe('StandView', () => {
     expect(landerCaption(-88.28, true)).toMatch(/^Its panel stands upright for a Sun this low/);
   });
 
-  it('folds a phone\u2019s card to the headline, so the view keeps most of the screen, with More for the rest', async () => {
+  it('folds a phone\u2019s card to the headline, the lander\u2019s line and the better day, with More for the rest (13.3)', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const st = store.getState();
     const better = await screen.findByRole('link', { name: /^Try 20 January instead/ });
     // Hidden on a phone until More: the site's line (what is measured and what is added, as on a wide screen),
-    // the lander's line, what to watch, the better day and the links.
+    // what to watch and the links. The lander's line and the better day stay (both readers, part A read 12).
     const folded = () => [
       screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole\. /),
-      screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text)).closest('p')!,
       screen.getByText(watchNext(st.series!, st.power, st.startUtc, 10)),
-      better.parentElement!,
       screen.getByRole('link', { name: 'Back to the forecast' }).parentElement!,
     ];
+    const shown = () => [screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text)).closest('p')!, better.parentElement!];
     for (const el of folded()) expect(el.className).toMatch(/\bmax-md:hidden\b/);
+    for (const el of shown()) expect(el.className).not.toMatch(/\bmax-md:hidden\b/);
+    // Button words on one line.
+    expect(screen.getByRole('button', { name: /Why this happens/ }).className).toMatch(/\bwhitespace-nowrap\b/);
+    expect(screen.getByRole('link', { name: 'Back to the forecast' }).className).toMatch(/\bwhitespace-nowrap\b/);
     // The headline stays.
     expect(screen.getByRole('heading', { level: 1 }).className).not.toMatch(/\bmax-md:hidden\b/);
     const more = screen.getByRole('button', { name: 'More' });

@@ -6,7 +6,17 @@ import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
 import { EARTH_LOOP } from '@/lib/viz/stand';
-import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, offLander, partSide, pathNameText, pointerClear, pointerWords, slopeWord, StandCanvas, starNamesShown, type RendererLike } from './StandCanvas';
+import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, offLander, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, type RendererLike } from './StandCanvas';
+
+describe('the pointers on a phone', () => {
+  it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
+    expect(pointerShort('Earth 4.4° up')).toBe('Earth 4.4° up');
+    expect(pointerShort('Earth 4.4° up, set behind the hills')).toBe('Earth 4.4° up');
+    expect(pointerShort('Earth, 1.2° below the horizon')).toBe('Earth 1.2° below');
+    expect(pointerShort('Earth, on the horizon, set behind the hills')).toBe('Earth on the horizon');
+    expect(pointerShort('Earth, just below the horizon')).toBe('Earth just below');
+  });
+});
 
 describe('the paths’ names', () => {
   it('names Earth’s path with why it loops, on a second line, and the Sun’s path as it is', () => {
