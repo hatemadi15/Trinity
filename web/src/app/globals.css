@@ -272,6 +272,10 @@ html {
     border: 3px solid var(--ink);
     background: var(--surface);
   }
+  /* The stars behind the header band (spec 6): the dark theme's only. */
+  :root:not([data-theme="dark"]) .star-band {
+    display: none;
+  }
 }
 
 /*
@@ -312,6 +316,7 @@ html {
   .no-print {
     display: none !important;
   }
+  .star-band { display: none !important; }
   @page {
     size: A4 portrait;
     margin: 12mm;

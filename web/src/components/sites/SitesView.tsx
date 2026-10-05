@@ -249,7 +249,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
   return (
     <AppFrame>
       <main className="wrap pb-16 pt-10">
-        <h1 className="display text-[40px] leading-tight">Choose a landing site</h1>
+        <h1 data-band-end="" className="display text-[40px] leading-tight">Choose a landing site</h1>
         <p className="mt-3 max-w-[46em] text-lg text-ink-2">{catalogue.length} places on the Moon, most of them near the south pole. Pick one to see its forecast.</p>
         {/* What a row counts from, the lander, the order: the figures of a row differ from Explore's first day, and this says why. */}
         <dl className="mt-3 grid max-w-[52em] grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-[15px] text-ink-2">

@@ -40,7 +40,8 @@ describe('ValidateView', () => {
     render(<ValidateView />);
     await waitFor(() => expect(screen.getByRole('region', { name: TITLES[0] })).toBeTruthy());
     await new Promise((r) => setTimeout(r, 400));
-    expect(fetchMock.mock.calls.length).toBe(4); // three tables and the test badge, once each
+    // Three tables and the test badge, once each; the header's band of stars fetches its catalogue besides.
+    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('/validation/')).length).toBe(4);
     expect(screen.getByRole('main').textContent).toMatch(/714 automated tests in the app and 114 in the data pipeline/);
   });
 

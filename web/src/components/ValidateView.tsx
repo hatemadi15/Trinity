@@ -165,7 +165,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
     <AppFrame>
       <main className="wrap flex flex-col gap-6 pb-14 pt-8">
         <div>
-          <h1 className="display text-[44px] leading-tight sm:text-[56px]">Accuracy</h1>
+          <h1 data-band-end="" className="display text-[44px] leading-tight sm:text-[56px]">Accuracy</h1>
           <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">Each step of the forecast is checked against an independent NASA source. The smaller the gap, the better.</p>
           {badge && (
             <p className="mt-2 text-[15px] text-ink-2">

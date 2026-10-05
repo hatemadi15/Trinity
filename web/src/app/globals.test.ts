@@ -118,6 +118,11 @@ describe('globals.css layering', () => {
     }
   });
 
+  it('shows the stars behind the header band in the dark theme only, and never prints them', () => {
+    expect(css).toMatch(/:root:not\(\[data-theme="dark"\]\) \.star-band \{\s*display: none;/);
+    expect(css).toMatch(/@media print \{[\s\S]*\.star-band \{ display: none !important; \}/);
+  });
+
   it('gives buttons and fields the minimum sizes of the spec', () => {
     expect(css).toMatch(/\.btn \{[^}]*height: 48px/);
     expect(css).toMatch(/\.btn-sm \{[^}]*height: 44px/);

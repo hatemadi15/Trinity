@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 import { DemoModeGate } from './DemoModeGate';
+import { StarBand } from './StarBand';
 import { ThemeSwitch } from './ThemeSwitch';
 
 /** The four sections in plain words. "Choose a site" opens the site list, as its heading says. */
@@ -13,12 +14,15 @@ export const NAV = [
 
 /**
  * Header, page, footer. The header is 68 px tall and scrolls with the page; only Explore's time bar is
- * pinned. Under 1024 px the sections move to a second row, so the page never scrolls sideways.
+ * pinned. Under 1024 px the sections move to a second row, so the page never scrolls sideways. Faint stars
+ * from the catalogue run behind the header and the page's title (StarBand), in the dark theme; the header,
+ * the page and the footer are positioned so they paint over them.
  */
 export function AppFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-line bg-page">
+    <div className="relative flex min-h-screen flex-col">
+      <StarBand />
+      <header className="relative border-b border-line">
         <div className="wrap flex flex-wrap items-center gap-x-9 gap-y-2 py-3 lg:h-[68px] lg:flex-nowrap lg:py-0">
           <Link href="/" className="flex items-center gap-2.5 font-display text-[21px] font-bold tracking-tight text-ink">
             <BrandMark />
@@ -38,8 +42,8 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <div className="flex-1">{children}</div>
-      <footer className="border-t border-line">
+      <div className="relative flex-1">{children}</div>
+      <footer className="relative border-t border-line">
         <div className="wrap flex flex-wrap justify-between gap-x-8 gap-y-2 py-7 text-[15px] text-ink-2">
           <p>
             Made by team Astroy/Ed for NASA Space Apps 2026, challenge “CLPS Lunar Mission Browser” (CLPS: NASA&apos;s Commercial Lunar Payload Services). Not an official NASA product.

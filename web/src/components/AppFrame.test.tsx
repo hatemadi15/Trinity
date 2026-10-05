@@ -32,6 +32,17 @@ describe('AppFrame', () => {
     expect(screen.getByText('hello')).toBeTruthy();
   });
 
+  it('puts faint stars behind the header, first in the frame so the header and the page paint over them', () => {
+    const { container } = render(<AppFrame>page</AppFrame>);
+    const frame = container.firstElementChild as HTMLElement;
+    const band = frame.firstElementChild as HTMLElement;
+    expect(band.tagName).toBe('CANVAS');
+    expect(band.getAttribute('aria-hidden')).toBe('true');
+    expect(frame.className).toMatch(/\brelative\b/);
+    expect(frame.querySelector('header')!.className).toMatch(/\brelative\b/);
+    expect(frame.querySelector('header')!.className).not.toMatch(/\bbg-page\b/);
+  });
+
   it('keeps instrument names out of the header', () => {
     render(
       <AppFrame>
