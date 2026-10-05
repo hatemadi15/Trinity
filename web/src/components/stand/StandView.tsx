@@ -19,8 +19,8 @@ import { dateLong } from '@/lib/viz/format';
 import { betterLabel, keyMoments, landerCaption, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
-// The plates blur what is behind them, so no thin line of the sky shows through the words.
-const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/90 backdrop-blur-sm';
+// The plates are near opaque, so no thin line of the sky shows through the words, and nothing is blurred.
+const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/92';
 // Hover lightens a button a little; the keyboard's focus gets a ring, so neither reads as a button left on.
 const LOOK = 'min-h-10 rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f6d48a]';
 /** The dot by the lander's line: green only with radio contact (as on the time bar), amber with power alone, red when off. */

@@ -11,7 +11,7 @@ import type { StageProps } from './ArrivalCanvas';
 const LiveStage = dynamic(() => import('./ArrivalCanvas'), { ssr: false });
 /** Screens in the arrival, a beat each: the Moon, the pole, the cap, the ridge, standing, the month at the site, the answer. */
 const BEATS = BEAT_STOPS.length;
-const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/85 backdrop-blur-sm';
+const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/92';
 const SENTENCE = 'display text-balance text-[28px] leading-[1.08] sm:text-[36px]';
 const still = (k: number, shape: 'wide' | 'tall') => `/arrival/beat-${k}-${shape}.jpg`;
 /**
@@ -167,8 +167,8 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
       )}
       <div className="relative z-10 -mt-[100svh]" hidden={bare}>
         <div data-beat="0" className="flex h-[100svh] flex-col justify-between pb-8 pt-8 sm:pt-12">
-          {/* On a phone the words stand over the Moon: a shade behind them keeps them easy to read. */}
-          <div className="wrap w-full max-sm:bg-linear-to-b max-sm:from-black/85 max-sm:from-60% max-sm:to-transparent max-sm:pb-16">
+          {/* On a phone the words stand over the Moon: a dark plate behind them, edge to edge, keeps them easy to read. */}
+          <div className="wrap w-full max-sm:border-b max-sm:border-white/15 max-sm:bg-[#060607]/92 max-sm:pb-6">
             <h1 id="h-hero" data-words="" className="display max-w-[760px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[72px]">
               See when a Moon lander has sunlight and a signal.
             </h1>
