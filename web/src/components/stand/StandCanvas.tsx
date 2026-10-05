@@ -832,12 +832,15 @@ export function StandCanvas({
         .filter((n): n is HTMLElement => !!n && !n.closest('[hidden]'))
         .map((n) => n.getBoundingClientRect())
         .filter((b) => b.width > 0);
-      // Each body's own room: its label grown by OWN_CLEAR, which its path's name and days keep clear of (16.3).
-      const zones: Partial<Record<'sun' | 'earth', Rect>> = {};
+      // Each body's own room: its label grown by OWN_CLEAR, which the days on its path keep clear of (16.3), and 24 px
+      // round it for its path's name, which would else be lost whenever the view faces the body (the final review).
+      const zones: Partial<Record<'sun' | 'earth', Rect>> = {}, nameZones: Partial<Record<'sun' | 'earth', Rect>> = {};
       for (const [k, node] of [['sun', sunRef.current], ['earth', earthRef.current]] as const) {
         if (!node || node.hidden) continue;
         const b = node.getBoundingClientRect();
-        if (b.width > 0) zones[k] = inflate(b, OWN_CLEAR.x, OWN_CLEAR.y);
+        if (b.width === 0) continue;
+        zones[k] = inflate(b, OWN_CLEAR.x, OWN_CLEAR.y);
+        nameZones[k] = inflate(b, OWN_CLEAR.y);
       }
       const named = PATHS.map(([k]) => {
         const node = nameRefs.current[k], n = guide ? (l.pathNames?.find((p) => p.body === k) ?? null) : null;
@@ -847,7 +850,7 @@ export function StandCanvas({
         if (n) keepOff(node, n, dx, body, shownLabels);
         return node && !node.hidden ? node.getBoundingClientRect() : null;
       });
-      const pathNamed = chipsShown(clearOfOwn(named, PATHS.map(([k]) => k), zones), shownLabels);
+      const pathNamed = chipsShown(clearOfOwn(named, PATHS.map(([k]) => k), nameZones), shownLabels);
       pathNamed.forEach((on, k) => {
         const node = nameRefs.current[PATHS[k][0]];
         if (node && !on) node.hidden = true;
@@ -949,8 +952,8 @@ export function StandCanvas({
           turn(k[0], k[1], k[2]);
         }}
       />
-      <div aria-hidden="true" hidden={clean} style={{ width: STRIP_W }} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 text-[#f2f0ea] max-md:hidden">
-      <div data-plate="" className="relative overflow-hidden rounded-[6px] border border-white/15 bg-black/70">
+      <div aria-hidden="true" hidden={clean} style={{ width: STRIP_W }} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 text-[#f2f0ea] max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+14px)] max-md:hidden">
+      <div data-plate="" className="relative overflow-hidden rounded-[6px] border border-white/15 bg-black">
         <div className="relative h-8">
           {/* The ticks fade at the strip's ends; the letters show whole or not at all (letterShown), so none is cut or faint. */}
           <div className="absolute inset-0" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
@@ -1023,7 +1026,7 @@ export function StandCanvas({
         data-plate=""
         aria-hidden="true"
         hidden={clean}
-        className="pointer-events-none fixed right-4 top-[calc(var(--top-h,220px)+8px)] rounded-[6px] border border-white/15 bg-black/70 px-2 py-0.5 text-[14px] text-[#f2f0ea] md:hidden"
+        className="pointer-events-none fixed right-4 top-[calc(var(--top-h,220px)+8px)] rounded-[6px] border border-white/15 bg-black px-2 py-0.5 text-[14px] text-[#f2f0ea] md:hidden"
       >
         {place ? `${place}, facing ${compassWord(startYaw)}` : `Facing ${compassWord(startYaw)}`}
       </p>

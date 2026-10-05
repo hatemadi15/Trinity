@@ -435,8 +435,10 @@ export function landerState(p: PowerResult | null, startUtc: string, hour: numbe
  * The stand view's status line for the hour (spec 16.2), short, for the one line at the top: the lander's power and
  * its radio. With power from the landing: "Power on, battery 87 %." (the battery's level after the hour, as the
  * forecast page gives it, a whole percentage that keeps its sign on its line), or "Power on." without a battery size;
- * after a power cut, the date of the hour's own stretch and the condition, as the forecast counts energy only: "Power
- * on again since 20 January, if the lander survived 16 days 6 hours without power; battery 40 %.". Then the radio:
+ * after a power cut, the date of the hour's own stretch and the condition, as the forecast counts energy only, short so
+ * the line keeps to a phone's room (the headline and the flags give the stretch's length): "Power on again since 20
+ * January, if the lander survived the night; battery 40 %.", or "if the lander survived without power" when the
+ * battery ran down with the Sun still up (as offWords tells the two apart). Then the radio:
  * "Radio contact: Earth is in view.", "No radio: Earth is below the horizon." or "No radio: Earth is behind a hill."
  * Without power: "Power off: the battery ran out on 4 January.", then "Earth is in view, but the radio has no
  * power." with Earth in view, and "Power does not come back in this period." when it does not; when it does, the
@@ -457,7 +459,7 @@ export function statusLine(s: Series, p: PowerResult | null, startUtc: string, h
   const power =
     from === 0
       ? `Power on${level ? `, ${level}` : ''}.`
-      : `Power on again since ${dateLong(startUtc, from)}, if the lander survived ${spanWords(from - stretchStart(p.powered, from - 1))} without power${level ? `; ${level}` : ''}.`;
+      : `Power on again since ${dateLong(startUtc, from)}, if the lander survived ${s.sunFraction[stretchStart(p.powered, from - 1)] === 0 ? 'the night' : 'without power'}${level ? `; ${level}` : ''}.`;
   const radio = seen ? 'Radio contact: Earth is in view.' : `No radio: Earth is ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind a hill'}.`;
   return { on: true, tone: seen ? 'radio' : 'power', text: `${power} ${radio}` };
 }

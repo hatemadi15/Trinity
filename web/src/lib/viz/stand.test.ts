@@ -169,8 +169,8 @@ describe('the lander’s power and radio in one sentence', () => {
     expect(statusLine(s, p, start, 30)).toEqual({ on: true, tone: 'power', text: 'Power on. No radio: Earth is behind a hill.' });
   });
   it('says since when the lander has had power again after a power cut, and only if it survived', () => {
-    expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'Power on again since 20 January, if the lander survived 16 days 6 hours without power. Radio contact: Earth is in view.' });
-    expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'Power on again since 20 January, if the lander survived 16 days 6 hours without power. No radio: Earth is below the horizon.' });
+    expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'Power on again since 20 January, if the lander survived the night. Radio contact: Earth is in view.' });
+    expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'Power on again since 20 January, if the lander survived the night. No radio: Earth is below the horizon.' });
   });
   it('does not promise radio contact while the lander is off, even with Earth in view', () => {
     expect(statusLine(s, p, start, 100)).toEqual({ on: false, tone: 'off', text: 'Power off: the battery ran out on 4 January. Earth is in view, but the radio has no power.' });
@@ -919,7 +919,11 @@ describe('captions of two lines, the whys where they happen, and the battery’s
   });
   it('gives the level after a power cut beside the condition', () => {
     const back = { powered: Uint8Array.from([1, 0, 0, 1]), energyWh: Float64Array.from([2000, 0, 0, 800]), firstBrownoutHour: 1 } as unknown as PowerResult;
-    expect(statusLine(series({ sunEl: [1, 1, 1, 1] }), back, START, 3, 2000).text).toBe('Power on again since 1 January, if the lander survived 2 hours without power; battery 40\u00a0%. No radio: Earth is behind a hill.');
+    expect(statusLine(series({ sunEl: [1, 1, 1, 1] }), back, START, 3, 2000).text).toBe('Power on again since 1 January, if the lander survived the night; battery 40\u00a0%. No radio: Earth is behind a hill.');
+    // A battery run down by day, the Sun still up: no night to survive, only the time without power. Short either way,
+    // so the line stays within a phone's room (the final review found the long form five lines tall there).
+    const day = series({ sunEl: [1, 1, 1, 1], sunFraction: [1, 1, 1, 1] });
+    expect(statusLine(day, back, START, 3, 2000).text).toBe('Power on again since 1 January, if the lander survived without power; battery 40\u00a0%. No radio: Earth is behind a hill.');
   });
 });
 

@@ -170,6 +170,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const barRef = useRef<HTMLDivElement>(null);
   const lookRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const main = mainRef.current;
     if (!main || typeof ResizeObserver === 'undefined') return;
@@ -177,9 +178,11 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       main.style.setProperty('--bar-h', `${barRef.current?.offsetHeight ?? 0}px`);
       main.style.setProperty('--look-h', `${lookRef.current?.offsetHeight ?? 0}px`);
       main.style.setProperty('--top-h', `${(topRef.current?.offsetHeight ?? 0) + 16}px`);
+      // The status line's own height, which the card under it takes off the room it may fill.
+      main.style.setProperty('--status-h', `${statusRef.current?.offsetHeight ?? 0}px`);
     };
     const ro = new ResizeObserver(measure);
-    for (const el of [barRef.current, lookRef.current, topRef.current]) if (el) ro.observe(el);
+    for (const el of [barRef.current, lookRef.current, topRef.current, statusRef.current]) if (el) ro.observe(el);
     measure();
     return () => ro.disconnect();
   }, [s.status, wordsHidden, failed, scene, more, cardOpen]);
@@ -357,12 +360,14 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         </button>
       )}
       {!wordsHidden && (
-        <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start gap-3 md:flex-row md:justify-between">
+        // Side by side from 1280 px wide; narrower, the row sits above the time bar and the status line has the top (the
+        // final review found the row over the status line and its More from 768 px to about 1070 px).
+        <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start gap-3 xl:flex-row xl:justify-between">
           {/* One line on the lander's power and radio, with More for today's card (16.2). */}
-          <section ref={topRef} aria-label="The answer for this site" className="pointer-events-none grid w-full min-w-0 justify-items-start gap-2 md:flex-1">
+          <section ref={topRef} aria-label="The answer for this site" className="pointer-events-none grid w-full min-w-0 justify-items-start gap-2 xl:flex-1">
             {/* The page's heading at all times, for screen readers; the card shows it when it is open. */}
             <h1 className="sr-only">{title}</h1>
-            <div data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] items-start gap-3 px-3.5 py-1.5 md:w-fit md:px-4`}>
+            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] items-start gap-3 px-3.5 py-1.5 md:w-fit md:px-4`}>
               <i aria-hidden="true" data-tone={lander.tone} className={`mt-[13px] h-3 w-3 shrink-0 self-start rounded-full ${TONE[lander.tone]}`} />
               <p className="min-w-0 flex-1 text-balance py-2 text-[15px] leading-snug md:text-base">
                 <span className="text-[#c3bfb6] max-md:hidden">{oneLine}. </span>
@@ -379,7 +384,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               <div
                 id="stand-card"
                 data-plate=""
-                className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin] md:max-h-[calc(100dvh-var(--bar-h,185px)-120px)] md:gap-2.5 md:p-5 max-md:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-140px)]`}
+                className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin] md:gap-2.5 md:p-5 xl:max-h-[calc(100dvh-var(--bar-h,185px)-var(--status-h,64px)-56px)] max-xl:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-var(--status-h,72px)-56px)]`}
               >
                 <p className="text-[14px] text-[#c3bfb6] md:text-[15px]">{standingLine(site, oneLine, 'top', flat)}</p>
                 {/* The headline as the eye reads it; the heading above says it for screen readers. */}
@@ -471,14 +476,14 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             )}
           </section>
           {!failed && (
-            // One compact row: at the top right on a wide screen, just above the time bar on a phone, where "Hide the
-            // words" waits in the card.
+            // One compact row: at the top right from 1280 px wide, just above the time bar below that; on a phone "Hide
+            // the words" waits in the card.
             <div
               ref={lookRef}
               data-plate=""
               role="group"
               aria-label="Look towards"
-              className={`${PLATE} pointer-events-auto flex shrink-0 items-center gap-1.5 p-1.5 max-md:fixed max-md:inset-x-0 max-md:bottom-[var(--bar-h,211px)] max-md:justify-between max-md:gap-1 max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:bg-[#1e1e1e] max-md:px-3 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
+              className={`${PLATE} pointer-events-auto flex shrink-0 items-center gap-1.5 p-1.5 max-xl:fixed max-xl:inset-x-0 max-xl:bottom-[var(--bar-h,211px)] max-xl:justify-between max-xl:gap-1 max-xl:rounded-none max-xl:border-x-0 max-xl:border-b-0 max-xl:bg-[#1e1e1e] max-xl:px-3 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
             >
               <span className="pl-1 pr-0.5 text-[14px] text-[#c3bfb6] md:text-[15px]">Turn to</span>
               <button type="button" aria-label="Face the Sun" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
@@ -522,8 +527,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               <button type="button" aria-pressed={guides} className={`${LOOK} ${PRESSED}`} onClick={() => setGuides((g) => !g)}>
                 Guides
               </button>
-              <button type="button" aria-label="Hide the words" className={`${LOOK} max-md:hidden`} onClick={() => setWordsHidden(true)}>
-                Hide words
+              {/* Its words are its name, as speech input needs (WCAG 2.5.3). */}
+              <button type="button" className={`${LOOK} max-md:hidden`} onClick={() => setWordsHidden(true)}>
+                Hide the words
               </button>
             </div>
           )}
@@ -533,7 +539,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         // Why a key moment happens, or what looking up shows: above the compass (on a phone, above the buttons).
         <p
           data-plate=""
-          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+80px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]`}
+          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+80px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+80px)] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]`}
         >
           {overView}
         </p>

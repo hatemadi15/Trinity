@@ -143,7 +143,8 @@ describe('StandView', () => {
     expect(document.body.textContent).toContain('de Gerlache Rim 2');
     // One row of buttons.
     const row = screen.getByRole('group', { name: 'Look towards' });
-    expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Sun', 'Earth', 'Lander', 'Look up', 'Guides', 'Hide words']);
+    // The hide button's visible words are its name, as speech input needs (WCAG 2.5.3).
+    expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Sun', 'Earth', 'Lander', 'Look up', 'Guides', 'Hide the words']);
     // Read as a verb, not a noun (both readers of read D1).
     expect(within(row).getByText('Turn to')).toBeTruthy();
     for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Guides', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
@@ -595,6 +596,20 @@ describe('StandView', () => {
     expect(landerCaption(-88.28, true)).toMatch(/^Its panel stands upright for a Sun this low/);
   });
 
+  // The final review found the row over the status line and its More from 768 to about 1070 px wide.
+  it('puts the row at the top right only from 1280 px wide, above the time bar below that, and sizes the card by the status line it sits under', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const row = screen.getByRole('group', { name: 'Look towards' });
+    expect(row.className).toMatch(/\bmax-xl:fixed\b/);
+    expect(row.parentElement!.className).toMatch(/\bxl:flex-row\b/);
+    expect(row.parentElement!.className).not.toMatch(/\bmd:flex-row\b/);
+    openCard();
+    expect(document.getElementById('stand-card')!.className).toContain('var(--status-h');
+    // The caption keeps above the row and the compass wherever the row sits above the time bar.
+    act(() => fireEvent.click(screen.getByRole('button', { name: 'Look up' })));
+    expect(screen.getByText(viewCaption('up', 88.28)).className).toContain('max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+80px)]');
+  });
+
   it('keeps the status line whole: the dot by its first line, More after its last, its lines even, on an opaque plate', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=219');
     const st = store.getState();
@@ -612,7 +627,7 @@ describe('StandView', () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     expect(screen.getByText(/^de\sGerlache\sRim\s2\.$/).classList.contains('max-md:hidden')).toBe(true);
     expect(screen.getByRole('button', { name: 'Hide the words' }).classList.contains('max-md:hidden')).toBe(true);
-    expect(screen.getByRole('group', { name: 'Look towards' }).className).toMatch(/\bmax-md:fixed\b/);
+    expect(screen.getByRole('group', { name: 'Look towards' }).className).toMatch(/\bmax-xl:fixed\b/);
     openCard();
     const inCard = screen.getAllByRole('button', { name: 'Hide the words' }).find((b) => b.classList.contains('md:hidden'))!;
     expect(inCard).toBeTruthy();

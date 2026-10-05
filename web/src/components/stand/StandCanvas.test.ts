@@ -553,10 +553,47 @@ describe('the guides', () => {
     render(createElement(StandCanvas, { ...props(true, r), place: 'de Gerlache Rim 2' }));
     const phone = [...document.querySelectorAll<HTMLElement>('p')].find((p) => p.classList.contains('md:hidden') && p.hasAttribute('data-plate'))!;
     expect(phone).toBeTruthy();
+    // Opaque, as every plate over the view is, so no path line shows through it (frame 31 of read D1).
+    expect(phone.classList.contains('bg-black')).toBe(true);
+    const strip = document.querySelector<HTMLElement>('[data-plate].overflow-hidden')!;
+    expect(strip.classList.contains('bg-black')).toBe(true);
+    // Below 1280 px the row sits above the time bar, and the strip above the row.
+    expect(strip.parentElement!.className).toContain('max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+14px)]');
     // On a phone the status line leaves the site's name out: the chip says where you stand (both readers of read D1).
     await waitFor(() => expect(phone.textContent).toBe('de Gerlache Rim 2, facing north'));
     // The strip on a wide screen keeps its own words.
     expect([...document.querySelectorAll<HTMLElement>('p')].some((p) => p.textContent === 'Facing north')).toBe(true);
+  });
+});
+
+describe('a path’s name beside its own body', () => {
+  // The 120 px room round a body's name is for the days on its path; its path's name keeps only 24 px, else it is lost
+  // whenever the view faces the body (the final review).
+  it('stays shown 60 px beside its own body’s name, where a day would give way', async () => {
+    // Earth's name 180 px wide, its foot at 307 px, centred at 512 px: 422 to 602 across.
+    const labels = (): SkyLabels => ({
+      sun: { x: 0, y: 0, visible: false },
+      earth: { x: 0.5, y: 0.4, visible: true },
+      stars: [],
+      lander: null,
+      pathNames: [
+        { body: 'sun', text: "Sun's path this month", x: 0, y: 0, visible: false },
+        // 170 px wide, its left edge 60 px right of Earth's name, hanging just under its spot.
+        { body: 'earth', text: "Earth's path this month", x: (602 + 60 + 85) / 1024, y: 0.4, visible: true },
+      ],
+    });
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
+    const scene: StandScene = { field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series: northSeries, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky: noStars };
+    const rect = layout(sizes);
+    try {
+      render(createElement(StandCanvas, { scene, hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun 2.0° up', earthLabel: 'Earth 3.0° up', night: true, onFail: vi.fn() }));
+      const name = document.querySelector<HTMLElement>('[data-path-name="earth"]')!;
+      await waitFor(() => expect(r.render).toHaveBeenCalled());
+      await new Promise((done) => setTimeout(done, 100));
+      expect(name.hidden).toBe(false);
+    } finally {
+      rect.mockRestore();
+    }
   });
 });
 
