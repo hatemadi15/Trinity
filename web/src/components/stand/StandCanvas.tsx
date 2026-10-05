@@ -133,12 +133,13 @@ type PartSide = 'above' | 'below' | 'left' | 'right';
 type Rect = { left: number; top: number; right: number; bottom: number };
 
 /**
- * How far a day on a path, or a path's name, keeps from its own body's label (16.3): beside it, it reads as about the
- * hour shown, as "Earth sets, 23 Jan" beside a rising Earth did in part C's read.
+ * How far a day on a path, or a path's name, keeps from its own body's label (16.3), in pixels to either side and
+ * above or below: beside it, on the same line, it reads as about the hour shown, as "Earth sets, 23 Jan" beside a
+ * rising Earth did in part C's read.
  */
-export const OWN_CLEAR = 24;
-/** A box grown by `m` pixels on every side. */
-export const inflate = (b: Rect, m: number): Rect => ({ left: b.left - m, top: b.top - m, right: b.right + m, bottom: b.bottom + m });
+export const OWN_CLEAR = { x: 120, y: 24 } as const;
+/** A box grown by `mx` pixels to either side and `my` above and below (`mx` by default). */
+export const inflate = (b: Rect, mx: number, my = mx): Rect => ({ left: b.left - mx, top: b.top - my, right: b.right + mx, bottom: b.bottom + my });
 /** The boxes of days or paths' names, each left out (null) where it meets its own body's zone (that body's label grown by OWN_CLEAR). */
 export function clearOfOwn(boxes: (Rect | null)[], owners: ('sun' | 'earth' | undefined)[], zones: Partial<Record<'sun' | 'earth', Rect>>): (Rect | null)[] {
   return boxes.map((b, k) => {
@@ -817,7 +818,7 @@ export function StandCanvas({
       for (const [k, node] of [['sun', sunRef.current], ['earth', earthRef.current]] as const) {
         if (!node || node.hidden) continue;
         const b = node.getBoundingClientRect();
-        if (b.width > 0) zones[k] = inflate(b, OWN_CLEAR);
+        if (b.width > 0) zones[k] = inflate(b, OWN_CLEAR.x, OWN_CLEAR.y);
       }
       const named = PATHS.map(([k]) => {
         const node = nameRefs.current[k], n = guide ? (l.pathNames?.find((p) => p.body === k) ?? null) : null;

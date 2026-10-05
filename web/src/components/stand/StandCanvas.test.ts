@@ -617,13 +617,16 @@ describe('naming the lander’s parts', () => {
 });
 
 describe('a day or a path’s name beside its own body', () => {
-  it('gives way within 24 px of its own body’s label, never for the other body’s', () => {
-    expect(OWN_CLEAR).toBe(24);
+  it('gives way within 120 px beside its own body’s label and 24 px above or below it, never for the other body’s', () => {
+    expect(OWN_CLEAR).toEqual({ x: 120, y: 24 });
     const earth = { left: 500, top: 300, right: 660, bottom: 328 };
     expect(inflate(earth, 24)).toEqual({ left: 476, top: 276, right: 684, bottom: 352 });
-    const zones = { earth: inflate(earth, OWN_CLEAR) };
-    const near = { left: 670, top: 300, right: 820, bottom: 328 }, far = { left: 690, top: 300, right: 840, bottom: 328 };
-    expect(clearOfOwn([near, far, near, null], ['earth', 'earth', 'sun', 'earth'], zones)).toEqual([null, far, near, null]);
+    expect(inflate(earth, 120, 24)).toEqual({ left: 380, top: 276, right: 780, bottom: 352 });
+    const zones = { earth: inflate(earth, OWN_CLEAR.x, OWN_CLEAR.y) };
+    // 26 px to the right, as "Earth sets, 23 Jan" stood beside a rising Earth: it gives way. 130 px away it stays, and so
+    // does one 30 px below.
+    const beside = { left: 686, top: 300, right: 836, bottom: 328 }, far = { left: 790, top: 300, right: 940, bottom: 328 }, under = { left: 520, top: 358, right: 670, bottom: 386 };
+    expect(clearOfOwn([beside, far, under, beside, null], ['earth', 'earth', 'earth', 'sun', 'earth'], zones)).toEqual([null, far, under, beside, null]);
   });
 });
 
