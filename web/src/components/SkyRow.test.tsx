@@ -298,18 +298,10 @@ describe('SkyRow', () => {
     expect(second.container.textContent).toMatch(/Sun sets 3 Jan/);
   });
 
-  it('draws the line once and then shows the words when asked to reveal, and stays still otherwise', () => {
-    const still = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" />);
-    expect(still.container.querySelector('.reveal-line')).toBeNull();
-    expect(still.container.querySelector('.reveal-after')).toBeNull();
-    still.unmount();
-    const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" reveal />);
-    expect(container.querySelector('svg.reveal-line polyline')).toBeTruthy();
-    const after = [...container.querySelectorAll('.reveal-after')].map((n) => n.textContent);
-    expect(after.some((t) => /Night for/.test(t ?? ''))).toBe(true);
-    expect(after.some((t) => /Sun sets/.test(t ?? ''))).toBe(true);
-    // The scale and the dates are part of the still picture.
-    expect(after.some((t) => /horizon|0°|1 Jan/.test(t ?? ''))).toBe(false);
+  it('draws the line and its words at once: nothing plays by itself (spec 6)', () => {
+    const { container } = render(<SkyRow el={el} hill={hill} visible={lit} startUtc={START} body="sun" caption="c" />);
+    expect(container.querySelector('.reveal-line, .reveal-after')).toBeNull();
+    expect(container.textContent).toMatch(/Sun sets/);
   });
 
   it('reports a stretch that began before the window instead of calling the body visible', () => {

@@ -631,7 +631,7 @@ export function narrowLayout(row: NarrowRow, width: number, inset: number): { ba
 }
 
 /** The band over a narrow chart, shown only at the widths it was placed for (`shown`). */
-function Band({ band, shown, color, after }: { band: NarrowBand; shown: string; color: string; after: string }) {
+function Band({ band, shown, color }: { band: NarrowBand; shown: string; color: string }) {
   return (
     <LabelGuard aria-hidden="true" className={`relative w-full overflow-hidden ${shown}`} style={{ height: band.height, background: 'var(--stage)' }}>
       {band.title && (
@@ -640,7 +640,7 @@ function Band({ band, shown, color, after }: { band: NarrowBand; shown: string; 
         </Label>
       )}
       {band.names.map((n) => (
-        <Centred key={n.key} at={n.middle} className={after} style={{ top: n.top }}>
+        <Centred key={n.key} at={n.middle} style={{ top: n.top }}>
           <Label size={n.size} priority={n.long ? 1 : 3} className="text-center font-semibold text-stage-ink">
             <Lines lines={n.lines} />
           </Label>
@@ -648,7 +648,7 @@ function Band({ band, shown, color, after }: { band: NarrowBand; shown: string; 
       ))}
       {/* Each stretch's bracket reaches down to the chart, from its first hour to its last. */}
       {band.brackets.map((b) => (
-        <span key={b.key} data-bracket="" aria-hidden="true" className={`absolute bottom-0 h-[7px] border-x-2 border-t-2 ${after}`} style={{ left: `${b.fromPct}%`, right: `${100 - b.toPct}%`, borderColor: color, opacity: 0.75 }} />
+        <span key={b.key} data-bracket="" aria-hidden="true" className={`absolute bottom-0 h-[7px] border-x-2 border-t-2`} style={{ left: `${b.fromPct}%`, right: `${100 - b.toPct}%`, borderColor: color, opacity: 0.75 }} />
       ))}
     </LabelGuard>
   );
@@ -658,7 +658,7 @@ function Band({ band, shown, color, after }: { band: NarrowBand; shown: string; 
  * A word placed on a narrow chart: a sunset's or sunrise's in the body's colour, its lines towards its mark, or
  * centred over or under it on a stem in that colour; or a height line's at an edge.
  */
-function NarrowLabel({ word, color, after }: { word: NarrowWord; color: string; after: string }) {
+function NarrowLabel({ word, color }: { word: NarrowWord; color: string }) {
   if ('edge' in word.place) {
     return (
       <Label priority={word.priority} plate className={`absolute ${word.place.edge === 'left' ? AT_LEFT : AT_RIGHT}`} style={{ top: word.top }}>
@@ -670,8 +670,8 @@ function NarrowLabel({ word, color, after }: { word: NarrowWord; color: string; 
     const { at, from } = word.place, { y0, y1 } = word.stem!;
     return (
       <>
-        <span data-stem="" aria-hidden="true" className={`absolute w-0.5 -translate-x-1/2 ${after}`} style={{ left: `${at}%`, top: y0, height: y1 - y0, background: color }} />
-        <Label size={word.size} priority={word.priority} plate className={`absolute text-center font-semibold ${after}`} style={{ top: word.top, color, left: `calc(${at}% ${from < 0 ? '-' : '+'} ${Math.abs(from)}px)` }}>
+        <span data-stem="" aria-hidden="true" className={`absolute w-0.5 -translate-x-1/2`} style={{ left: `${at}%`, top: y0, height: y1 - y0, background: color }} />
+        <Label size={word.size} priority={word.priority} plate className={`absolute text-center font-semibold`} style={{ top: word.top, color, left: `calc(${at}% ${from < 0 ? '-' : '+'} ${Math.abs(from)}px)` }}>
           <Lines lines={word.lines} />
         </Label>
       </>
@@ -683,7 +683,7 @@ function NarrowLabel({ word, color, after }: { word: NarrowWord; color: string; 
       size={word.size}
       priority={word.priority}
       plate
-      className={`absolute font-semibold ${right ? '' : 'text-right'} ${after}`}
+      className={`absolute font-semibold ${right ? '' : 'text-right'}`}
       style={{ top: word.top, color, ...(right ? { left: `calc(${at}% + 12px)` } : { right: `calc(${100 - at}% + 12px)` }) }}
     >
       <Lines lines={word.lines} />
@@ -694,8 +694,7 @@ function NarrowLabel({ word, color, after }: { word: NarrowWord; color: string; 
 /**
  * One row of the time chart as a static picture: the body's height (solid while visible, dotted while
  * hidden) against the hills in its direction. With `az` the compass direction of the body runs along
- * the top; `ticks` writes the days along the bottom; `reveal` draws the line once from left to right
- * when the page opens and then shows the words about it. `fitHills` makes room for the whole of the
+ * the top; `ticks` writes the days along the bottom. `fitHills` makes room for the whole of the
  * hills instead of letting tall ones run off the top; `title` names the row in its top left corner.
  * `pxPerDeg` makes the row as tall as its range needs at that many pixels a degree, so rows drawn
  * together share one height scale. On a narrow chart the words are placed for its width (narrowLayout):
@@ -711,12 +710,11 @@ export function SkyRow({
   caption,
   height = 200,
   ticks = true,
-  reveal = false,
   fitHills = false,
   title,
   pxPerDeg,
   scaleStep,
-}: RowProps & { caption: string; reveal?: boolean }) {
+}: RowProps & { caption: string }) {
   const id = useId();
   const hours = el.length;
   const { top, range, rowHeight, total, g } = rowFrame({ el, hill, visible, az, startUtc, body, height, ticks, fitHills, pxPerDeg });
@@ -725,7 +723,6 @@ export function SkyRow({
   const who = body === 'sun' ? 'the Sun' : 'Earth';
   const subject = body === 'sun' ? 'The Sun' : 'Earth';
   const gap = body === 'sun' ? 'Night' : 'No contact';
-  const after = reveal ? 'reveal-after' : '';
   /** Centre of an hour, in percent of the width. */
   const pct = (hour: number) => ((hour + 0.5) / hours) * 100;
   // The words of a narrow chart at each width they are placed for: worked out once, and kept between renders.
@@ -811,7 +808,7 @@ export function SkyRow({
 
   return (
     <div className="@container w-full">
-      {narrow.map((f) => f.band && <Band key={f.width} band={f.band} shown={f.shown} color={color} after={after} />)}
+      {narrow.map((f) => f.band && <Band key={f.width} band={f.band} shown={f.shown} color={color} />)}
       <LabelGuard role="img" aria-label={`${caption}. ${said}`} className="@container relative w-full overflow-hidden text-stage-ink-2" style={{ height: total, background: 'var(--stage)' }}>
         <svg viewBox={`0 0 ${W} ${total}`} preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 h-full w-full">
           {g.clipped && (
@@ -834,8 +831,8 @@ export function SkyRow({
             <path d={g.hillEdge} fill="none" stroke="var(--hill-edge)" strokeWidth={1.4} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           </g>
         </svg>
-        {/* The body's line is its own layer, so that it can be drawn from left to right when the page opens. */}
-        <svg viewBox={`0 0 ${W} ${total}`} preserveAspectRatio="none" aria-hidden="true" className={`absolute inset-0 h-full w-full ${reveal ? 'reveal-line' : ''}`}>
+        {/* The body's line is its own layer, over the hills. */}
+        <svg viewBox={`0 0 ${W} ${total}`} preserveAspectRatio="none" aria-hidden="true" className={`absolute inset-0 h-full w-full`}>
           {g.runs.map((r, i) => (
             <polyline key={i} points={r.points} fill="none" stroke={color} strokeWidth={r.visible ? 3.4 : 2.6} strokeDasharray={r.visible ? undefined : '2.5 6'} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
           ))}
@@ -871,7 +868,7 @@ export function SkyRow({
             key={e.hour}
             data-event={e.kind}
             aria-hidden="true"
-            className={`absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-stage ${after}`}
+            className={`absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-stage`}
             style={{ left: `${(e.hour / hours) * 100}%`, top: g.y((el[e.hour - 1] + el[e.hour]) / 2), background: color }}
           />
         ))}
@@ -879,7 +876,7 @@ export function SkyRow({
         {placed.map((p) => (
           <span key={p.run.from} className={`contents ${WIDE}`}>
             {p.words && (
-              <Centred at={p.middle} className={`${after} ${p.long ? '' : '@max-[900px]:hidden'}`} style={{ top: top + 34 }}>
+              <Centred at={p.middle} className={p.long ? '' : '@max-[900px]:hidden'} style={{ top: top + 34 }}>
                 <Label size={17} priority={p.long ? 1 : 3} plate className="font-semibold text-stage-ink">
                   {gap} for {spanWords(p.run.to - p.run.from)}
                   {p.long && `: ${reason}`}
@@ -887,12 +884,12 @@ export function SkyRow({
               </Centred>
             )}
             {p.set && (
-              <Label priority={p.long ? 2 : 3} plate className={`absolute font-semibold ${after}`} style={{ top: under(p.run.from), color, ...(p.set === 'inside' ? { left: `calc(${p.fromPct}% + 12px)` } : { right: `calc(${100 - p.fromPct}% + 12px)` }) }}>
+              <Label priority={p.long ? 2 : 3} plate className={`absolute font-semibold`} style={{ top: under(p.run.from), color, ...(p.set === 'inside' ? { left: `calc(${p.fromPct}% + 12px)` } : { right: `calc(${100 - p.fromPct}% + 12px)` }) }}>
                 {name} sets {dayMonth(startUtc, p.run.from)}
               </Label>
             )}
             {p.rise && (
-              <Label priority={p.long ? 2 : 3} plate className={`absolute font-semibold ${after}`} style={{ top: under(p.run.to), color, ...(p.rise === 'inside' ? { right: `calc(${100 - p.toPct}% + 12px)` } : { left: `calc(${p.toPct}% + 12px)` }) }}>
+              <Label priority={p.long ? 2 : 3} plate className={`absolute font-semibold`} style={{ top: under(p.run.to), color, ...(p.rise === 'inside' ? { right: `calc(${100 - p.toPct}% + 12px)` } : { left: `calc(${p.toPct}% + 12px)` }) }}>
                 {name} rises {dayMonth(startUtc, p.run.to)}
               </Label>
             )}
@@ -903,7 +900,7 @@ export function SkyRow({
         {narrow.map((f) => (
           <span key={f.width} className={`contents ${f.shown}`}>
             {f.words.map((w) => (
-              <NarrowLabel key={w.key} word={w} color={color} after={after} />
+              <NarrowLabel key={w.key} word={w} color={color} />
             ))}
           </span>
         ))}

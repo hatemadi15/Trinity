@@ -113,7 +113,7 @@ describe('globals.css layering', () => {
   it('declares the shared classes inside @layer components, so a Tailwind utility can still override them', () => {
     expect(css).not.toMatch(/@utility glass/);
     const joined = (css.match(/@layer components \{([\s\S]*?)\n\}/g) ?? []).join('\n');
-    for (const cls of ['.wrap', '.btn', '.btn-primary', '.btn-ink', '.btn-sm', '.field', '.panel', '.stage', '.display', '.reveal-line', '.reveal-after']) {
+    for (const cls of ['.wrap', '.btn', '.btn-primary', '.btn-ink', '.btn-sm', '.field', '.panel', '.stage', '.display']) {
       expect(joined, cls).toMatch(new RegExp(`\\${cls} \\{`));
     }
   });
@@ -143,10 +143,8 @@ describe('globals.css layering', () => {
     expect(css).toMatch(/\.display \{[^}]*letter-spacing: 0;/);
   });
 
-  it('declares the one page-load motion and switches every animation off under reduced motion', () => {
-    expect(css).toMatch(/\.reveal-line \{[^}]*animation: reveal-wipe/);
-    expect(css).toMatch(/\.reveal-after \{[^}]*animation: reveal-show/);
-    expect(css).toMatch(/@keyframes reveal-wipe/);
+  it('declares no motion of its own, and switches every transition off under reduced motion', () => {
+    expect(css).not.toMatch(/@keyframes|\.reveal-/);
     expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\* \{[^}]*animation: none !important/);
   });
 });

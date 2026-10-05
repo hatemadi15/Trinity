@@ -226,13 +226,6 @@ html {
     line-height: 1;
     letter-spacing: 0;
   }
-  /* The one motion that plays by itself: on the home page the Sun's line is drawn once from left to right, then its labels appear. */
-  .reveal-line {
-    animation: reveal-wipe 2.6s cubic-bezier(0.3, 0.1, 0.2, 1) 0.35s both;
-  }
-  .reveal-after {
-    animation: reveal-show 0.5s ease 2.7s both;
-  }
   /*
    * Centres a chart label on a point; a label too wide for the room there stays inside the picture. Auto
    * margins centre while there is room and fall to the flex start when there is not, and the flex start
@@ -278,23 +271,6 @@ html {
     border-radius: 7px;
     border: 3px solid var(--ink);
     background: var(--surface);
-  }
-}
-
-@keyframes reveal-wipe {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-@keyframes reveal-show {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 

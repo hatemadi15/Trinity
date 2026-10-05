@@ -35,4 +35,10 @@ describe('the space look (spec 6)', () => {
     // The stand view's star names and its hint keep a black halo for legibility over the sky: an outline, not a glow.
     for (const [file, text] of all) expect(text, file).not.toMatch(/\bshadow-(?:sm|md|lg|xl|2xl|inner|\[)|drop-shadow|box-shadow|text-shadow:(?!0_0_4px_#000\])/);
   });
+
+  it('plays nothing by itself outside the arrival: no keyframes, no animation classes (spec 6)', () => {
+    for (const [file, text] of all) {
+      expect(text, file).not.toMatch(/@keyframes|\banimate-[a-z]|\breveal-(?:line|after)\b/);
+    }
+  });
 });

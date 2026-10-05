@@ -54,8 +54,8 @@ describe('home page', () => {
     expect(sun.querySelector('mask')).toBeNull();
     // One time scale only: the compass row belongs to Explore.
     expect(band.textContent).not.toMatch(/Direction of the Sun|north|south-/);
-    expect(sun.querySelector('.reveal-line')).toBeTruthy();
-    expect(earth.querySelector('.reveal-line')).toBeTruthy();
+    expect(sun.querySelector('.reveal-line')).toBeNull();
+    expect(earth.querySelector('.reveal-line')).toBeNull();
   });
 
   it('says under the forecast what the battery does there, and the better landing day', () => {

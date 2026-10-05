@@ -75,8 +75,8 @@ export default function Home() {
             <SkyRowKey body="both" className="mt-2.5 text-stage-ink-2" />
           </figcaption>
           <div className="mt-2">
-            <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} ticks={false} fitHills reveal />
-            <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} reveal />
+            <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} ticks={false} fitHills />
+            <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} />
           </div>
           {/* What the forecast means for a lander: the promise of the headline, in one sentence. */}
           <p className="wrap pt-4 text-[17px] font-medium text-stage-ink">
