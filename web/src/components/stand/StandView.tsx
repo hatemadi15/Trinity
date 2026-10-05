@@ -21,8 +21,9 @@ import { dateLong } from '@/lib/viz/format';
 import { betterLabel, keyMoments, landerCaption, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
-// The plates are near opaque, so no thin line of the sky shows through the words, and nothing is blurred.
-const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/92';
+// The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
+// nothing is blurred.
+const PLATE = 'rounded-lg border border-white/15 bg-[#060607]';
 // Hover lightens a button a little; the keyboard's focus gets a ring, so neither reads as a button left on.
 const LOOK = 'min-h-10 whitespace-nowrap rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f6d48a]';
 /** A toggle pressed: light, as the mockup has it; its words never change with its state (aria-pressed says it). */
@@ -278,7 +279,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     setCaption(momentCaption(m.kind, series, m.hour, site.lat) || null);
   };
   const opening = openHour === null ? hour : Math.min(series.hours - 1, Math.max(0, openHour));
-  // At night with Earth up the view opens on Earth, narrower, so Earth (four times the Sun's width) shows large.
+  // At night with Earth up the view opens on Earth, narrower, so Earth (four times the Sun's width) shows large: 44°
+  // high (56° on a tall screen), so Earth and the lander's feet both fit between the status line and the time bar
+  // (both readers of read D1 found the lander cut off at 36°).
   const openOnEarth = series.sunFraction[opening] === 0 && series.earthVisible[opening] === 1;
   // After the first power cut, what needs power again holds only if the lander lives through the night.
   let ifSurvivesFrom: number | null = null;
@@ -334,7 +337,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           keepInView={feet}
           // What the opening view faces stays in sight while it looks down for the lander's feet: Earth at night, else the Sun when up.
           keepSubject={openOnEarth ? series.earthEl[opening] : series.sunFraction[opening] > 0 ? series.sunEl[opening] : null}
-          startFov={openOnEarth ? (tall() ? 50 : 36) : undefined}
+          startFov={openOnEarth ? (tall() ? 56 : 44) : undefined}
         />
       )}
       {failed && s.mask && (
@@ -359,12 +362,12 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             {/* The page's heading at all times, for screen readers; the card shows it when it is open. */}
             <h1 className="sr-only">{title}</h1>
             <div data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] items-start gap-3 px-3.5 py-1.5 md:w-fit md:px-4`}>
-              <i aria-hidden="true" data-tone={lander.tone} className={`mt-[13px] h-3 w-3 shrink-0 rounded-full ${TONE[lander.tone]}`} />
-              <p className="min-w-0 flex-1 py-2 text-[15px] leading-snug md:text-base">
+              <i aria-hidden="true" data-tone={lander.tone} className={`mt-[13px] h-3 w-3 shrink-0 self-start rounded-full ${TONE[lander.tone]}`} />
+              <p className="min-w-0 flex-1 text-balance py-2 text-[15px] leading-snug md:text-base">
                 <span className="text-[#c3bfb6] max-md:hidden">{oneLine}. </span>
                 {lander.text}
               </p>
-              <button type="button" aria-expanded={cardOpen} className="flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setCardOpen((o) => !o)}>
+              <button type="button" aria-expanded={cardOpen} className="flex min-h-10 shrink-0 items-center gap-1.5 self-end whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setCardOpen((o) => !o)}>
                 {cardOpen ? 'Less' : 'More'}
                 <span aria-hidden="true" className="no-underline">
                   {cardOpen ? '▴' : '▾'}
@@ -476,7 +479,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               aria-label="Look towards"
               className={`${PLATE} pointer-events-auto flex shrink-0 items-center gap-1.5 p-1.5 max-md:fixed max-md:inset-x-0 max-md:bottom-[var(--bar-h,211px)] max-md:justify-between max-md:gap-1 max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:bg-[#1e1e1e] max-md:px-3 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
             >
-              <span className="pl-1 pr-0.5 text-[14px] text-[#c3bfb6] md:text-[15px]">Face</span>
+              <span className="pl-1 pr-0.5 text-[14px] text-[#c3bfb6] md:text-[15px]">Turn to</span>
               <button type="button" aria-label="Face the Sun" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
                 Sun
               </button>
@@ -504,7 +507,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   Lander
                 </button>
               )}
-              {/* The "Face" buttons end here: what follows is not a way to face. */}
+              {/* The "Turn to" buttons end here: what follows is not a way to turn. */}
               <i aria-hidden="true" className="h-7 w-px shrink-0 bg-white/25" />
               {lookingUp ? (
                 <button type="button" aria-label="Look ahead" className={LOOK} onClick={() => face(series.sunAz[hour], 0.5, 60)}>

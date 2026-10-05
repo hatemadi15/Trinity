@@ -44,12 +44,12 @@ describe('where the lander stands and where the view opens', () => {
   });
 
   it('keeps the lander in the opening view at every hour, on a wide screen and a tall one', () => {
-    // Half the view's width in degrees, for its height in degrees and its shape (the page's: 60° or 80°, 36° or 50° on Earth at night).
+    // Half the view's width in degrees, for its height in degrees and its shape (the page's: 60° or 80°, 44° or 56° on Earth at night).
     const half = (fov: number, aspect: number) => (Math.atan(Math.tan((fov * Math.PI) / 360) * aspect) * 180) / Math.PI;
     for (let h = 0; h < 12; h++)
       for (const tall of [false, true]) {
         const onEarth = series.sunFraction[h] === 0 && series.earthVisible[h] === 1;
-        const fov = onEarth ? (tall ? 50 : 36) : tall ? 80 : 60;
+        const fov = onEarth ? (tall ? 56 : 44) : tall ? 80 : 60;
         const rel = Math.abs(((standLander(series, power, tall, h).azDeg - openingYaw(series, h, tall, true) + 540) % 360) - 180);
         // With 5° to spare for the lander's own width.
         expect(rel, `hour ${h}, ${tall ? 'tall' : 'wide'}`).toBeLessThan(half(fov, tall ? 390 / 844 : 16 / 10) - 5);

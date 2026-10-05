@@ -144,7 +144,8 @@ describe('StandView', () => {
     // One row of buttons.
     const row = screen.getByRole('group', { name: 'Look towards' });
     expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Sun', 'Earth', 'Lander', 'Look up', 'Guides', 'Hide words']);
-    expect(within(row).getByText('Face')).toBeTruthy();
+    // Read as a verb, not a noun (both readers of read D1).
+    expect(within(row).getByText('Turn to')).toBeTruthy();
     for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Guides', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
     // Today's card waits under More: where you stand, what to watch, the better day, the ways on and the help.
     expect(screen.queryByText(watchNext(st.series!, st.power, st.startUtc, 10))).toBeNull();
@@ -590,6 +591,19 @@ describe('StandView', () => {
     expect(landerCaption(-88.28, true)).toMatch(/^Its panel stands upright for a Sun this low/);
   });
 
+  it('keeps the status line whole: the dot by its first line, More after its last, its lines even, on an opaque plate', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=219');
+    const st = store.getState();
+    const line = screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 219, st.params.power.batteryWh).text));
+    const plate = line.closest<HTMLElement>('[data-plate]')!;
+    // Opaque, so no guide line shows through it (both readers of read D1).
+    expect(plate.classList.contains('bg-[#060607]')).toBe(true);
+    // Two even lines, not a lone word on the second; More follows the last line, the dot leads the first.
+    expect(line.classList.contains('text-balance')).toBe(true);
+    expect(screen.getByRole('button', { name: 'More' }).classList.contains('self-end')).toBe(true);
+    expect(plate.querySelector('[data-tone]')!.classList.contains('self-start')).toBe(true);
+  });
+
   it('on a phone keeps the site’s name and the row’s "Hide words" for a wider screen, puts the row above the time bar, and "Hide the words" in the card', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     expect(screen.getByText(/^de\sGerlache\sRim\s2\.$/).classList.contains('max-md:hidden')).toBe(true);
@@ -659,7 +673,8 @@ describe('StandView', () => {
     const r = stub();
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=219', () => r);
     await waitFor(() => expect(r.setView).toHaveBeenCalled());
-    expect(r.setView.mock.calls[0][2]).toBe(36);
+    // 44° high: Earth and the lander's feet both fit under the status line and over the time bar (read D1).
+    expect(r.setView.mock.calls[0][2]).toBe(44);
   });
 
   it('says, facing the lander, that it is the back of its panel the view sees', async () => {
