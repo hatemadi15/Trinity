@@ -509,12 +509,16 @@ D1 was built on `feat/immersive-d`. Its ledger is beside its plan, at `docs/supe
 - **The status line.**
   - On a phone it takes two lines by day. At night its power-off sentence takes three, as in the approved mockup; 16.2 said two at most.
   - Its lines are balanced, so no word stands alone on the second. More follows the last line, and the dot leads the first.
-  - After a power cut it gives the stretch without power to the hour, as the old state line did: "Power on again since 20 January, if the lander survived 16 days 6 hours without power; battery 40 %."
+  - After a power cut it is short: "Power on again since 20 January, if the lander survived the night; battery 40 %." ("without power" when the battery ran down with the Sun up). The headline and the flags give the stretch's length. The final review found the long form five lines tall on a phone.
   - On a phone the site's name is on the facing chip under the status ("de Gerlache Rim 2, facing north-west"), as the status leaves it out.
+  - On a phone the status plate sits tighter, so its longest state (four lines at 390 px) leaves the scene 55 % of the screen. At 360 × 800 that state takes five lines and leaves 50 %, a size outside 15.1's measurements.
+- **The measurements** (16.5) were taken on the final build at 1440 × 900, 1024 × 768, 960 × 600, 820 × 1180, 390 × 844 and 360 × 800, the stand view at hours 10, 219, 500 and 600 and with More open: no sideways scroll, no text under 13 px or 4.5:1, More always reachable, and the card never under the row. The phone's scene band is 60 % by day, 58 % at night and 55 % after the power comes back.
+- **The row** sits at the top right from 1280 px wide, and above the time bar below that, as on a phone. The final review found it over the status line and its More from 768 px to about 1070 px. Today's card takes the status line's measured height off the room it may fill.
 - **Words.**
   - The row reads "Turn to: Sun, Earth, Lander", since both readers took "Face" for a noun.
+  - Its hide button reads "Hide the words", its accessible name, as speech input needs (WCAG 2.5.3).
   - What to watch next starts "Press Play or a moment on the time bar:", since neither reader took the moments for "flags".
-- **The plates and the sky's names are opaque.** No path or level line shows through them. 15.1's plates were 92 %.
+- **The plates, the sky's names, the facing chip and the compass strip are opaque.** No path or level line shows through them. 15.1's plates were 92 %.
 - **The opening.**
   - At night on Earth it is 44° high (56° on a tall screen), so Earth and the lander's feet both fit. Part A's 36° (50°) cut the lander off.
   - Looking down for the lander's feet stops where what the view opens on (Earth at night, else the Sun) would come within 100 px of the status line, room for its name over it.
@@ -522,7 +526,7 @@ D1 was built on `feat/immersive-d`. Its ledger is beside its plan, at `docs/supe
   - Its parts carry their names only when the view is zoomed in on it, with it within 10° of the view's middle; the night opening is zoomed in on Earth beside it.
   - Its own name is never hidden by the lander: standing up a slope from you, the label was tested against the lander's own box.
 - **Labels.**
-  - Each body's own room is its label grown 120 px to either side and 24 px above and below. With 24 px all round, "Earth sets, 23 Jan" still stood 26 px beside a rising Earth.
+  - The days on a body's path keep its label's room: the label grown 120 px to either side and 24 px above and below. With 24 px all round, "Earth sets, 23 Jan" still stood 26 px beside a rising Earth. The path's own name keeps 24 px all round; with 120 px it was lost whenever the view faced its body (the final review).
   - A pointer keeps off the body under a name, not only the name: on a phone, Earth's pointer had covered the Sun.
 - **Compass letters** show whole while 12 px or more inside the strip's ends, else not at all, with a 150 ms fade as they cross. 16.3's fade over 40 px left a faint "N" that neither reader could read.
 - **At night under a thin crescent Earth** (under a quarter of its disc lit), the caption says "A thin crescent Earth gives this ground little light; brightened like a long exposure.", where the ground looks grey rather than blue.
