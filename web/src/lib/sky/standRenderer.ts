@@ -905,9 +905,10 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       const s = spot(skyWorld(mid));
       stars.push({ name: 'Southern Cross', ...s, y: s.y + 0.03, visible: s.visible && el > maskAt(az) });
     }
-    // The lander's name over its top (high enough that the ray to it clears the lander itself), and its parts.
+    // The lander's name over its top, and its parts. Its own name is never hidden by the lander: standing up a slope
+    // from you, the ray to its top passes through the box round it (16.2 names it wherever it shows).
     const top = landerTop();
-    const landerSpot = top ? spot(top) : null;
+    const landerSpot = top ? spot(top, 0, false) : null;
     const on = (local: THREE.Vector3) => spot(local.clone().applyMatrix4(lander!.group.matrixWorld), 0, false);
     const parts = lander
       ? {

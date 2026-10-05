@@ -186,6 +186,34 @@ describe('the stand scene', () => {
     expect(outside).toBeLessThan(SHADOW.OUTSIDE_BELOW_M);
   });
 
+  it('names the lander over its top whenever it is in view, however it is turned and wherever it stands round you', () => {
+    // The lander stands where the view opens (16.3), turned by the landing hour's Sun: every turn, on either side.
+    const hidden: string[] = [];
+    for (let face = 0; face < 360; face += 15)
+      for (const at of [0, 25, 335]) {
+        const s = buildScene(flat({ lander: { azDeg: at, distM: 16, powered: Uint8Array.from([1, 1, 1]), faceAzDeg: face } }));
+        s.update(0);
+        s.setView(0, 2, 60, 16 / 9);
+        const l = s.labels();
+        if (l.landerBox && !l.lander!.visible) hidden.push(`turned ${face}°, at ${at}°`);
+      }
+    expect(hidden).toEqual([]);
+  });
+
+  it('names the lander over its top when it stands up a slope from you, as on a hillside', () => {
+    // A cone 40 % steep round the site: the lander, 16 m out, stands about 6 m higher than your feet.
+    const n = 1024, cell = 20, mid = (n - 1) / 2;
+    const heights = new Float32Array(n * n);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) heights[r * n + c] = 100 + 0.4 * cell * Math.hypot(c - mid, r - mid);
+    const level = { heights, width: n, height: n, pxM: cell, siteCol: mid, siteRow: mid };
+    const s = buildScene(flat({ field: terrainField([level], -64.31, 100), lander: { azDeg: 0, distM: 16, powered: Uint8Array.from([1, 1, 1]), faceAzDeg: 45 } }));
+    s.update(0);
+    s.setView(0, 10, 60, 16 / 9);
+    const l = s.labels();
+    expect(l.landerBox).not.toBeNull();
+    expect(l.lander!.visible).toBe(true);
+  });
+
   it('stands a lander on the ground beside the site for scale, its light on while it has power', () => {
     const powered = Uint8Array.from([1, 1, 0]);
     const field = terrainField(levels(), -64.31, 90);
