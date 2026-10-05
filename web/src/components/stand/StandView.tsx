@@ -366,10 +366,11 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           {/* One line on the lander's power and radio, with More for today's card (16.2). */}
           <section ref={topRef} aria-label="The answer for this site" className="pointer-events-none grid w-full min-w-0 justify-items-start gap-2 xl:flex-1">
             {/* The page's heading at all times, for screen readers; the card shows it when it is open. */}
+            {/* Tighter on a phone, so its longest state (four lines) leaves the scene 55 % of the screen (16.5). */}
             <h1 className="sr-only">{title}</h1>
-            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] items-start gap-3 px-3.5 py-1.5 md:w-fit md:px-4`}>
-              <i aria-hidden="true" data-tone={lander.tone} className={`mt-[13px] h-3 w-3 shrink-0 self-start rounded-full ${TONE[lander.tone]}`} />
-              <p className="min-w-0 flex-1 text-balance py-2 text-[15px] leading-snug md:text-base">
+            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] items-start gap-3 px-3.5 py-1 md:w-fit md:px-4 md:py-1.5`}>
+              <i aria-hidden="true" data-tone={lander.tone} className={`mt-[11px] h-3 w-3 shrink-0 self-start rounded-full md:mt-[13px] ${TONE[lander.tone]}`} />
+              <p className="min-w-0 flex-1 text-balance py-1.5 text-[15px] leading-snug md:py-2 md:text-base">
                 <span className="text-[#c3bfb6] max-md:hidden">{oneLine}. </span>
                 {lander.text}
               </p>
