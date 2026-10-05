@@ -306,3 +306,110 @@ From reads 5 to 7, not built in part B:
 - One name for each event across the chart, the story, the stand view's flags and the scene's labels ("sets", "hides", "behind the hills") (teacher, read 7).
 - Earth's loop explained where it first shows (teacher, read 7).
 - Labels joined to their marks and sized for a projector (teacher, read 7).
+
+## 15. Amendment: Part C as built (5 October 2026)
+
+Part C was built on `feat/immersive-c`. It covers section 6 and the page-level asks of 13.3 and 14.3. Its ledger is beside its plan, at `docs/superpowers/plans/2026-10-05-immersive-c-space-look.ledger.md`, with every ruling and what it costs if wrong. The asks about the 3D scenes go to their own plan, part D (15.3).
+
+### 15.1 Where it differs from section 6
+
+- **The palette.** The dark theme is the default; a stored choice or `?theme=` still wins, so a visitor who chose light keeps it.
+  - The page is near-black (`#07080a`) and the stages true black.
+  - Plates are one step above the page (`#0f1013`, `#17181c`), with a hairline edge (`#2a2b30`).
+  - Controls' edges are 3:1 on the page (`#6b6c71`), and a picture panel's edge is 2:1 on both the page and the stage (`#48494e`).
+  - Body text is at least 7:1 on the page and its plates in both themes, and secondary text 4.5:1. Secondary grey is a step brighter than before (`#aeada8`, 8:1), for a classroom's projector.
+- **The stars behind the header band.**
+  - **What:** a 2D canvas first in the app frame draws the stand view's catalogue, the low sky over the south pole. The Moon's axis is within 1.6° of the ecliptic's, so the band is the ecliptic from the horizon up, centred on Scorpius and Sagittarius (longitude 255°), 16 px to the degree.
+  - **Where:** from the top of the page to just past the element marked `data-band-end` (each page's title), stopping 4 px short of the running text under it. The band fades out over its lowest third. On the home page and on Explore it is the header alone: on a phone Explore's period band is a line of words.
+  - **How faint:** each star is 0.8 to 1.6 px across, 0.14 to 0.55 opaque and halfway to white. After read C1 found the brightest stars read as stray orange dots, none stands out.
+  - **When:** in the dark theme only, never printed. Without the catalogue or a 2D canvas, the page is as before.
+- **Plates.**
+  - The arrival's and the stand view's plates are near opaque (92 %), with no blur. The phone's shade behind the opening words is a plate, edge to edge.
+  - A source test keeps blur, gradients and glows out of the pages. It allows three things: the compass strip's fading mask, the radio band's stripes, and the black halo on the stand view's star names.
+- **Motion.** The home chart's line no longer draws itself on load: the arrival is the one motion that plays by itself. The stand view's opening turn stays, as it answers the visitor's click.
+- **Explore on a phone.** The period band folds into "de Gerlache Rim 2, 30 days from 1 January 2027, small lander: change", with the year and the lander's size. "change" opens the fields, and "done" folds them.
+- **The home page.**
+  - The first screen says "Earthrise is a browser of landing sites and dates: pick a place and a day from 2024 to 2036 … for three ready-made landers or your own".
+  - The audience line sends teachers to How it works.
+  - The forecast's lander is "an example lander, not a planned mission".
+  - The first fact gives the cause: the Moon's 1.5° tilt and its month-long day. The teachers' line stands above the three facts.
+  - The first screen and the landing beat give the year ("1 January 2027").
+  - On a phone the first sentence and the scroll hint wait for a wider screen, so the Moon shows under the words.
+- **One name for each event**, in the chart, the arrival, the stand view, Explore's answer, its time bar, the shadow map, the lander dialog and the glossary:
+  - **Sunset** and **sunrise**. A body hidden while still above the horizon is "behind a hill": "Sun behind a hill, 1.4° above the horizon". Read C1 found "1.4° up, set behind the hills" said up and set at once.
+  - **Night** for the stretch without the Sun.
+  - **Earth rises** and **Earth sets**.
+  - "In shadow" stays for a place on the shadow map.
+  - A test reads every hour of the hero month for any other name.
+- **The date bar.**
+  - Earth setting is a key moment, "Earth sets", with its flag, its mark on Earth's path and its caption.
+  - The bar draws the Sun's moments over its line, the battery's across it and Earth's under it, so moments hours apart never cover each other.
+  - The lanes stand 2 px apart: the battery's marks are 6 px tall across the line, the Sun's and Earth's 10 px tall from 5 px off it, all 4 px wide.
+  - Its key reads "Sunset or sunrise", "The battery runs out", "Earth rises or sets", at 15 px.
+  - The beats' plates fade out by the bar's foot, so the bar stays.
+- **Labels and the last screen.**
+  - Each label with a dot has a short line to its mark, and a path's name has one to its path.
+  - Earth's path is named "a loop: the Moon wobbles a little each month" on a second line, in the arrival and in the stand view. Read C1 found "rocks" read as stones.
+  - The answer's card starts under the date bar at every width: the beats' column is centred, so its card always reached under the centred bar.
+- **The stand view on a phone.**
+  - Folded, the card keeps the headline, the lander's line and the better day.
+  - Earth's pointer keeps its angle ("Earth 5.9° below").
+  - The time bar names its keys under the date, with no Key button.
+  - The card's buttons keep their words on one line.
+- **Explore and the site list.** "Stand at the site" is the plain button under the answer; the gold stays the better day's. The site list says what its figures count from, the lander and the order in one paragraph, not a list of terms.
+- **The classroom.** How it works says how to show the app on a projector: zoom the page to 150 %. There is no separate mode: the pages reflow at 960 px, and the 3D labels grow with the page.
+- **The measurements.** Every page was checked in both themes at 1440 × 900, at 390 × 844 and at 960 × 600 (150 % zoom): no sideways scroll, no text under 13 px, and no text under 4.5:1 against its ground. Two controls stay under 40 px:
+  - the time slider, 32 px, a track the width of the bar;
+  - the stand view's flags on a wide screen, 20 px chips spaced along the bar (on a phone they are 40 px dots).
+
+### 15.2 The blind reads
+
+Two fresh readers, a hackathon judge and a secondary-school science teacher, judged 52 still screenshots in the dark theme by default:
+- the arrival, a quarter screen at a time;
+- every page;
+- the stand view at five hours;
+- each screen on a phone;
+- Explore and How it works in the light theme.
+
+The scores are in the order purpose, next step, look, room and readability, then immersion after the semicolon. The gate is as in 13.2.
+
+| Read | Judge | Teacher | Fails on |
+|---|---|---|---|
+| C1 | 5, 4, 4, 3, 4; 4 | 5, 4, 4, 3, 4; 4 | none |
+
+**Ruling.** Read C1 met the whole gate for both readers. As part B did after its passing read 6, one bounded pass followed, without a further read. It took what both readers named that was cheap, clear and on the pages, several of them part C's own changes:
+- the up-and-set label;
+- "the Moon rocks";
+- the band's orange star;
+- the phone's plate over the Moon;
+- the date bar's marks, and the bar giving way to the plates;
+- the year;
+- "Stand at the site" as a link;
+- the site list's terms.
+
+The rest goes to part D (15.3) or to the deferred list. Cost if wrong: part C ships with the stand view as crowded as both readers found it.
+
+### 15.3 Asks carried to part D, the scenes
+
+From the reads of parts B and C, about the 3D scenes rather than the pages:
+
+- The descent's middle (the cap from 900 to 90 km) reads soft and smeary, with half of the screen black. A sharper patch round the site shows from the cap, where the measured window meets the coarser ground (both, part B reads 1 and 5 to 7).
+- Rocks read as boxes, and the lander as plain (both, part B reads 6 and 7).
+- The stand view:
+  - crowded for a first look and for a projector;
+  - the lander out of frame at most hours;
+  - the level horizon through the hill at night;
+  - the "Facing …" chip meeting Earth's label on a phone (part B reads 6 and 7; seen again in part C's checks).
+- The ground at night: a flat grey plane in the dark, then blue in Earthlight with no word on the colour (both, part B read 7).
+
+From part C's read C1 (both readers):
+
+- The stand view: give the Moon the screen, which both readers named as their one change. Fold the card to a one-line status (the date, the power, the radio) with More. Label only the Sun, Earth and the lander by default. Put the paths, the level horizon and the star names behind one "Show guides" button. On a phone the scene is a strip a third of the screen tall.
+- Labels in the scenes: they blink as the page scrolls ("Night here", the pole); Earth's labels pile up round its small disc, with its path through them; "Earth sets, 23 Jan" stands beside a rising Earth; the compass letters are cut at its ends.
+- The Sun's path drawn solid above the hills in view while it is night: the hill that hides the Sun is out of view.
+- Elsewhere on the pages, for a later pass:
+  - Compare opens empty.
+  - On a phone, Explore's sticky time bar covers the better day's button.
+  - The light theme's diagrams stay black boxes.
+  - The site list's map labels tangle near the pole.
+  - The home chart still needs its paragraph to be read.
