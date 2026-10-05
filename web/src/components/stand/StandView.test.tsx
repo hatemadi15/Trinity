@@ -81,7 +81,7 @@ describe('StandView', () => {
     expect([...document.querySelectorAll('[data-path-mark]')].map((n) => n.textContent)).toEqual(marks.map((m) => m.text));
     expect(screen.getByText('Level horizon')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Hide the words' }));
-    await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(false));
+    await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(false, true, false));
     await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])')).toHaveLength(0));
     expect(screen.getByText('Level horizon').closest('[hidden]')).not.toBeNull();
   }, 30_000);
