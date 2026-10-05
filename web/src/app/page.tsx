@@ -80,8 +80,8 @@ export default function Home() {
           </div>
           {/* What the forecast means for a lander: the promise of the headline, in one sentence. */}
           <p className="wrap pt-4 text-[17px] font-medium text-stage-ink">
-            A small lander ({battery.lander.area_m2} m² of solar panels, {battery.lander.battery_wh / 1000} kWh battery) landing on {dateLong(sky.start_utc, 0)} keeps power for{' '}
-            {spanWords(battery.now_hours)}
+            An example lander, not a planned mission: {battery.lander.area_m2} m² of solar panels and a {battery.lander.battery_wh / 1000} kWh battery. Landing on{' '}
+            {dateLong(sky.start_utc, 0)}, it keeps power for {spanWords(battery.now_hours)}
             {battery.best_hour !== null && battery.best_hours !== null && battery.best_hours > battery.now_hours
               ? `; landing on ${dateLong(sky.start_utc, battery.best_hour)}, for ${spanWords(battery.best_hours)}.`
               : '.'}

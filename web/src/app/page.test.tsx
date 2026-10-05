@@ -23,9 +23,13 @@ describe('home page', () => {
       ['Open the full forecast', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
     ]);
     for (const beat of hero.querySelectorAll('[data-beat]')) expect(beat.querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
-    expect(within(hero).getByText("For planners of NASA's commercial Moon landers, educators and anyone curious.")).toBeTruthy();
-    // The promise in the words of the answer it leads to.
-    expect(hero.textContent).toMatch(/how long a solar lander keeps power there\./);
+    // The challenge in plain words on the first screen: a browser of landing sites and dates, for more than two landers.
+    expect(hero.textContent).toMatch(/Earthrise is a browser of landing sites and dates: pick a place and a day from 2024 to 2036/);
+    expect(hero.textContent).toMatch(/for three ready-made landers or your own\./);
+    // Who it is for, with the teachers' way in on the same line.
+    const audience = within(hero).getByText(/^For planners of NASA's commercial Moon landers, teachers/);
+    expect(audience.textContent).toBe("For planners of NASA's commercial Moon landers, teachers (start with How it works) and anyone curious.");
+    expect(within(audience).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
     expect(hero.textContent).not.toMatch(/survives the night/);
   });
 
@@ -62,13 +66,18 @@ describe('home page', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     expect(band.textContent).toContain(
-      'A small lander (4 m² of solar panels, 2 kWh battery) landing on 1 January keeps power for 3 days 4 hours; landing on 20 January, for 12 days 15 hours.',
+      'An example lander, not a planned mission: 4 m² of solar panels and a 2 kWh battery. Landing on 1 January, it keeps power for 3 days 4 hours; landing on 20 January, for 12 days 15 hours.',
     );
   });
 
-  it('sends a teacher to the science behind the three facts', () => {
+  it('sends a teacher to the science at the top of the three facts, and gives the cause: the Moon’s small tilt and its month-long day', () => {
     render(<Home />);
-    expect(screen.getByText(/^Teaching this\?/).textContent).toBe('Teaching this? How it works gives the science behind these three facts, with sums a class can check.');
+    const why = document.getElementById('why')!;
+    const teach = within(why).getByText(/^Teaching this\?/);
+    expect(teach.textContent).toBe('Teaching this? How it works gives the science behind these three facts, with sums a class can check.');
+    // Before the three facts, not after them.
+    expect(teach.compareDocumentPosition(within(why).getByText('The Sun never climbs')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(why.textContent).toMatch(/The Moon’s axis is tilted only 1\.5°, and the Moon turns once a month: a day there lasts a month/);
   });
 
   it("keeps the forecast's explanation to a readable line length", () => {
@@ -169,8 +178,9 @@ describe('home page', () => {
 
   it('underlines the links that stand alone, so they do not read as plain text', () => {
     render(<Home />);
+    // How it works is linked twice: from the first screen's audience line and from the three facts.
     for (const name of [/See every check/, 'How it works']) {
-      expect(within(screen.getByRole('main')).getByRole('link', { name }).className).toMatch(/(^| )underline( |$)/);
+      for (const link of within(screen.getByRole('main')).getAllByRole('link', { name })) expect(link.className).toMatch(/(^| )underline( |$)/);
     }
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     expect(within(band).getByRole('link', { name: 'Open the full forecast' }).className).toMatch(/(^| )underline( |$)/);

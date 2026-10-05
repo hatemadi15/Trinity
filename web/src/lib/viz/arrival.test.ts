@@ -48,9 +48,9 @@ describe('the arrival', () => {
     expect(w.beats.map(plain)).toEqual([
       'At the south pole the Sun never climbs: it circles the horizon once a month.',
       'NASA has shortlisted this ridge for astronauts to land on.',
-      'Land a small uncrewed solar lander here on 1 January: the Sun stands just above the hills.',
-      'One hill can hide the Sun for weeks. Here is January at this spot, sped up.',
-      "Earth comes into view on 10 January, but the lander's battery ran out on 4 January.",
+      'Land a small uncrewed solar lander here on 1 January, as an example: the Sun stands just above the hills.',
+      'One hill can keep the Sun set for weeks. Here is January at this spot, sped up.',
+      "Earth rises on 10 January, but the lander's battery ran out on 4 January.",
     ]);
   });
 });

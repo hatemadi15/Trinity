@@ -173,8 +173,9 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
               See when a Moon lander has sunlight and a signal.
             </h1>
             <p data-words="" className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
-              At the Moon&apos;s south pole the Sun and Earth never climb high. They skim the horizon, and one hill can hide them for weeks. Pick a landing site and a date:
-              Earthrise shows the hours of sunlight, the hours of radio contact with Earth, and how long a solar lander keeps power there.
+              At the Moon&apos;s south pole the Sun and Earth skim the horizon, and one hill can keep them set for weeks. Earthrise is a browser of landing sites and dates: pick a
+              place and a day from 2024 to 2036, and see its hours of sunlight and of radio contact with Earth, and how long a lander keeps power, for three ready-made landers
+              or your own.
             </p>
             <div data-words="" className="mt-7 flex w-fit flex-wrap gap-3">
               <Link href="/sites" onClick={start} className="btn btn-primary h-[52px] px-[22px] text-[17px]">
@@ -185,7 +186,11 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
               </a>
             </div>
             <p data-words="" className="mt-3 w-fit text-base text-[#c6c5c0]">
-              For planners of NASA&apos;s commercial Moon landers, educators and anyone curious.
+              For planners of NASA&apos;s commercial Moon landers, teachers (start with{' '}
+              <Link href="/learn" className="font-semibold text-[#f2f0ea] underline underline-offset-4">
+                How it works
+              </Link>
+              ) and anyone curious.
             </p>
             {/* With the opening words, so it shows on the first screen and leaves with them, never over the Moon. */}
             <p data-words="" className="mt-5 w-fit text-[15px] text-[#c6c5c0]">
