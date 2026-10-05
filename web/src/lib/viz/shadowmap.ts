@@ -67,7 +67,7 @@ export type Hidden = 'no' | 'partly' | 'yes';
 export function heightWords(name: 'Sun' | 'Earth', elDeg: number, hidden: Hidden = 'no'): string {
   if (elDeg < 0) return `${name} below the horizon`;
   const up = `${name} ${degrees(elDeg)} up`;
-  return hidden === 'yes' ? `${up}, behind the hills` : hidden === 'partly' ? `${up}, partly behind the hills` : up;
+  return hidden === 'yes' ? `${up}, set behind the hills` : hidden === 'partly' ? `${up}, partly set behind the hills` : up;
 }
 
 /**

@@ -181,7 +181,7 @@ describe('TimeBar', () => {
   it('says the date and hour in UTC and what is happening then', () => {
     show(6);
     expect(screen.getByTestId('when').textContent).toBe('1 Jan 2027, 06:00 UTC');
-    expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth behind the hills, battery 100 %');
+    expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth set behind the hills, battery 100 %');
   });
 
   it("lines its track up under the chart's plot: the chart's grid, inset by the chart panel's edge", () => {
@@ -209,7 +209,7 @@ describe('TimeBar', () => {
   it('shows the hour under the pointer on the chart while the handle stays put', () => {
     show(6, { hoverHour: 40 });
     expect(screen.getByTestId('when').textContent).toBe('2 Jan 2027, 16:00 UTC');
-    expect(screen.getByTestId('status').textContent).toBe('Sun behind the hills, Earth in view but the lander is off, battery empty');
+    expect(screen.getByTestId('status').textContent).toBe('Sun set behind the hills, Earth in view but the lander is off, battery empty');
     expect((screen.getByRole('slider', { name: 'Time' }) as HTMLInputElement).value).toBe('6');
   });
 
@@ -219,7 +219,7 @@ describe('TimeBar', () => {
     expect(slider.min).toBe('0');
     expect(slider.max).toBe('71');
     expect(slider.step).toBe('1');
-    expect(slider.getAttribute('aria-valuetext')).toBe('1 Jan 2027, 10:00 UTC: Sun up, Earth behind the hills, battery 100 %');
+    expect(slider.getAttribute('aria-valuetext')).toBe('1 Jan 2027, 10:00 UTC: Sun up, Earth set behind the hills, battery 100 %');
     fireEvent.change(slider, { target: { value: '30' } });
     expect(onCursor).toHaveBeenLastCalledWith(30);
   });
@@ -728,17 +728,17 @@ describe('TimeBar', () => {
   it('keeps the bar low when compact: no sentence beside the date at any width, as the page says it in its own words, and smaller keys on a phone', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true });
     expect(screen.queryByTestId('status')).toBeNull();
-    expect(screen.queryByText('Sun up, Earth behind the hills, battery 100 %')).toBeNull();
+    expect(screen.queryByText('Sun up, Earth set behind the hills, battery 100 %')).toBeNull();
     expect(screen.getByTestId('when').textContent).toBe('1 Jan 2027, 06:00 UTC');
     // The slider still reads the hour in words.
-    expect(screen.getByRole('slider', { name: 'Time' }).getAttribute('aria-valuetext')).toBe('1 Jan 2027, 06:00 UTC: Sun up, Earth behind the hills, battery 100 %');
+    expect(screen.getByRole('slider', { name: 'Time' }).getAttribute('aria-valuetext')).toBe('1 Jan 2027, 06:00 UTC: Sun up, Earth set behind the hills, battery 100 %');
     // Smaller on a phone, but no smaller than the 14 px every word in the bar keeps to.
     const group = container.querySelector('[data-part="key-off"]')!.parentElement!;
     expect(group.className).toContain('max-sm:[&>span]:text-[14px]');
     cleanup();
     // Without compact the sentence shows at every width.
     show(6, { dates: true });
-    expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth behind the hills, battery 100 %');
+    expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth set behind the hills, battery 100 %');
     expect(screen.getByTestId('status').className).not.toMatch(/hidden/);
   });
 
@@ -956,7 +956,7 @@ describe('TimeBar', () => {
     const { onCursor } = show(10, { dates: true, powered: power.powered, compact: true, bare: true });
     const slider = screen.getByRole('slider', { name: 'Time' }) as HTMLInputElement;
     // The slider still reads the hour in words, though the bar writes none of them.
-    expect(slider.getAttribute('aria-valuetext')).toBe('1 Jan 2027, 10:00 UTC: Sun up, Earth behind the hills, battery 100 %');
+    expect(slider.getAttribute('aria-valuetext')).toBe('1 Jan 2027, 10:00 UTC: Sun up, Earth set behind the hills, battery 100 %');
     fireEvent.change(slider, { target: { value: '30' } });
     expect(onCursor).toHaveBeenLastCalledWith(30);
     fireEvent.keyDown(slider, { key: 'PageUp' });

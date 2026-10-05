@@ -53,8 +53,8 @@ describe('TimeChart', () => {
   it('draws the Sun, Earth and the battery as three named rows with their story in words', () => {
     show();
     const [sun, earth, battery] = screen.getAllByRole('img');
-    expect(sun.getAttribute('aria-label')).toMatch(/^The Sun over the 30 days from 1 January\. The Sun is hidden from 3 Jan to 20 Jan, 16 days 15 hours\.$/);
-    expect(earth.getAttribute('aria-label')).toMatch(/^Earth over the 30 days from 1 January\. Earth is hidden from /);
+    expect(sun.getAttribute('aria-label')).toMatch(/^The Sun over the 30 days from 1 January\. The Sun is set from 3 Jan to 20 Jan, 16 days 15 hours\.$/);
+    expect(earth.getAttribute('aria-label')).toMatch(/^Earth over the 30 days from 1 January\. Earth is set from /);
     expect(battery.getAttribute('aria-label')).toBe('The battery first runs out on 4 January and the lander is off for 16 days 6 hours of these 30 days.');
     expect(screen.getByText('The Sun')).toBeTruthy();
     expect(screen.getByText('Earth')).toBeTruthy();

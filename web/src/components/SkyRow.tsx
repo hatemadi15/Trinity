@@ -737,10 +737,10 @@ export function SkyRow({
   const fromStart = dark?.from === 0;
   const toEnd = dark ? dark.to >= hours : false;
   let said = `${subject} stays in view.`;
-  if (dark && fromStart && toEnd) said = `${subject} is hidden the whole time.`;
-  else if (dark && fromStart) said = `${subject} is hidden from the start until ${dayMonth(startUtc, dark.to)}, ${span}.`;
-  else if (dark && toEnd) said = `${subject} is hidden from ${dayMonth(startUtc, dark.from)} to the end, ${span}.`;
-  else if (dark) said = `${subject} is hidden from ${dayMonth(startUtc, dark.from)} to ${dayMonth(startUtc, dark.to)}, ${span}.`;
+  if (dark && fromStart && toEnd) said = `${subject} stays set the whole time.`;
+  else if (dark && fromStart) said = `${subject} is set from the start until ${dayMonth(startUtc, dark.to)}, ${span}.`;
+  else if (dark && toEnd) said = `${subject} is set from ${dayMonth(startUtc, dark.from)} to the end, ${span}.`;
+  else if (dark) said = `${subject} is set from ${dayMonth(startUtc, dark.from)} to ${dayMonth(startUtc, dark.to)}, ${span}.`;
   const reason = dark ? whyHidden(el, hill, dark, who) : '';
 
   // Words for every hidden stretch, the longest first: the others get a short sentence and their dates

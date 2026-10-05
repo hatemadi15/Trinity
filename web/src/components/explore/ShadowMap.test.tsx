@@ -97,8 +97,8 @@ describe('ShadowMap', () => {
 
   it("says on the arrows' words when the hills hide them, and on the site's name whether it is lit", () => {
     show({ sunEl: 2.4, sunHidden: 'yes', earthEl: 3, earthHidden: 'yes', siteState: 'in shadow' });
-    expect(screen.getByText('Sun 2.4° up, behind the hills')).toBeTruthy();
-    expect(screen.getByText('Earth 3.0° up, behind the hills')).toBeTruthy();
+    expect(screen.getByText('Sun 2.4° up, set behind the hills')).toBeTruthy();
+    expect(screen.getByText('Earth 3.0° up, set behind the hills')).toBeTruthy();
     expect(screen.getByText('de Gerlache Rim 2, in shadow')).toBeTruthy();
   });
 

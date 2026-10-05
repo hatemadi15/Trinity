@@ -15,7 +15,7 @@ const PANELS: [PanelModel, string][] = [
   ['full_tracking', 'Follows the Sun in two axes'],
 ];
 
-const dark = (power: Pick<PowerConfig, 'batteryWh' | 'loadW'>) => `${spanWords(batteryHours({ ...DEFAULT_POWER, ...power }))} in the dark`;
+const dark = (power: Pick<PowerConfig, 'batteryWh' | 'loadW'>) => `${spanWords(batteryHours({ ...DEFAULT_POWER, ...power }))} at night`;
 
 function Choice({ name, checked, onChange, title, note }: { name: string; checked: boolean; onChange: () => void; title: string; note: string }) {
   return (

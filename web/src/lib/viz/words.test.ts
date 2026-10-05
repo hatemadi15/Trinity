@@ -1,13 +1,19 @@
 // @vitest-environment jsdom
+import { render } from '@testing-library/react';
+import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
 import { lightWords } from '@/components/home/ArrivalCanvas';
 import { pathMarks } from '@/components/stand/StandView';
 import { pointerWords } from '@/components/stand/StandCanvas';
+import { SkyRow } from '@/components/SkyRow';
+import { EXPLANATIONS } from '@/lib/ai/explanations';
 import { summarize } from '@/lib/engine/metrics';
 import { DEFAULT_POWER } from '@/lib/engine/power';
 import { HOME } from '@/lib/data/home';
 import { answerFor } from './answer';
 import { arrivalWords, hero } from './arrival';
+import { heightWords } from './shadowmap';
+import { statusSentence } from './status';
 import { keyMoments, liveSentence, momentCaption, poleLine, skyLabel, statusLine, viewCaption, watchNext, whyLines, type MomentKind } from './stand';
 
 /** Other names for an event or stretch that already has one (the plan's vocabulary): each event is named one way. */
@@ -49,6 +55,18 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
     }
     for (const kind of ['earth', 'up', 'earthlight', 'lander', 'dark'] as const) check(`view ${kind}`, viewCaption(kind, -88.28));
     check('pole', poleLine(-88.28) ?? '');
+  });
+
+  it('words Explore’s time bar, the shadow map, the chart’s spoken summary and the glossary the same way', () => {
+    for (let hour = 0; hour < s.hours; hour += 3) check(`time bar ${hour}`, statusSentence(s, p, hour, DEFAULT_POWER.batteryWh));
+    for (const name of ['Sun', 'Earth'] as const) for (const hidden of ['no', 'yes', 'partly'] as const) check(`map ${name} ${hidden}`, heightWords(name, 1.4, hidden));
+    const { sky } = HOME;
+    for (const [body, el, hill, visible] of [['sun', sky.sun_el, sky.hill_el, sky.lit], ['earth', sky.earth_el, sky.earth_hill_el, sky.earth_visible]] as const) {
+      const { container, unmount } = render(createElement(SkyRow, { el, hill, visible, startUtc: sky.start_utc, body, caption: 'c' }));
+      check(`chart ${body}`, container.textContent ?? '');
+      unmount();
+    }
+    for (const [topic, text] of Object.entries(EXPLANATIONS)) check(`glossary ${topic}`, text);
   });
 
   it('words the arrival and the forecast’s answer the same way', () => {

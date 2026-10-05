@@ -38,8 +38,8 @@ describe('home page', () => {
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     const sun = within(band).getByRole('img', { name: /^The Sun at de Gerlache Rim 2, January 2027/ });
     const earth = within(band).getByRole('img', { name: /^Earth from de Gerlache Rim 2, January 2027/ });
-    expect(sun.getAttribute('aria-label')).toMatch(/hidden from 3 Jan to 20 Jan, 16 days 15 hours/);
-    expect(earth.getAttribute('aria-label')).toMatch(/Earth is hidden from the start until 10 Jan, 9 days 3 hours/);
+    expect(sun.getAttribute('aria-label')).toMatch(/is set from 3 Jan to 20 Jan, 16 days 15 hours/);
+    expect(earth.getAttribute('aria-label')).toMatch(/Earth is set from the start until 10 Jan, 9 days 3 hours/);
     expect(sun.textContent).toMatch(/^Sunlight/);
     expect(earth.textContent).toMatch(/^Contact with Earth/);
     expect(sun.textContent).toMatch(/Night for 16 days 15 hours: the hills stand higher than the Sun/);

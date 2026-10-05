@@ -42,8 +42,8 @@ describe('heightWords', () => {
   });
 
   it('says so when the hills hide a body that is above the horizon', () => {
-    expect(heightWords('Sun', 2.4, 'yes')).toBe('Sun 2.4° up, behind the hills');
-    expect(heightWords('Sun', 2.4, 'partly')).toBe('Sun 2.4° up, partly behind the hills');
+    expect(heightWords('Sun', 2.4, 'yes')).toBe('Sun 2.4° up, set behind the hills');
+    expect(heightWords('Sun', 2.4, 'partly')).toBe('Sun 2.4° up, partly set behind the hills');
     expect(heightWords('Earth', -1.5, 'yes')).toBe('Earth below the horizon');
   });
 });
