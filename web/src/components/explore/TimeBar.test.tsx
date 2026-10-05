@@ -26,10 +26,10 @@ const series: Series = {
 const power = powerBudget(series, CFG);
 const START = '2027-01-01T00:00:00';
 
-/** The colours of the stand view's dark theme, where the bar carries the dates, from globals.css. */
+/** The colours of the stand view's dark theme, where the bar carries the dates, from globals.css (its block sits in `@media screen`). */
 const DARK: Record<string, string> = (() => {
   const css = fs.readFileSync(path.resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
-  for (const [, selectors, body] of css.matchAll(/^([^\s@/{}][^{}]*)\{([^{}]*)\n\}/gm)) {
+  for (const [, selectors, body] of css.matchAll(/^[ \t]*([^\s@/{}*][^{}]*)\{([^{}]*)\n[ \t]*\}/gm)) {
     if (!selectors.split(',').some((s) => s.trim() === '.theme-dark')) continue;
     return Object.fromEntries([...body.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
   }

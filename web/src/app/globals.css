@@ -44,33 +44,38 @@
   color-scheme: light;
 }
 
-/* The same values inside .theme-dark in either theme: the stand view's black sky keeps its time bar dark. */
-:root[data-theme="dark"],
-.theme-dark {
-  /* Near-black, one step above the stages' true black; plates one step above the page, with a hairline edge. */
-  --page: #07080a;
-  --surface: #0f1013;
-  --surface-2: #17181c;
-  --line: #2a2b30;
-  --line-strong: #6b6c71;
-  --stage-edge: #48494e;
-  --ink: #f3f2ee;
-  --ink-2: #c6c5c0;
-  /* Secondary text a step brighter than before, for a classroom's projector (13.3): 8:1 on the plates. */
-  --ink-3: #aeada8;
-  --sun: #f5b63a;
-  --sun-ink: #f5b63a;
-  --sun-hover: #ffc65c;
-  --earth: #6aa9ff;
-  --earth-ink: #8dbdff;
-  --good: #46c98b;
-  --good-bg: rgba(70, 201, 139, 0.1);
-  --good-line: rgba(70, 201, 139, 0.4);
-  --bad: #ff7d72;
-  --bad-bg: rgba(255, 125, 114, 0.09);
-  --bad-line: rgba(255, 125, 114, 0.4);
-  --warn: #f5b63a;
-  color-scheme: dark;
+/*
+ * The same values inside .theme-dark in either theme: the stand view's black sky keeps its time bar dark.
+ * On screen only: printed, every page takes the light theme's values, as paper is white (final review).
+ */
+@media screen {
+  :root[data-theme="dark"],
+  .theme-dark {
+    /* Near-black, one step above the stages' true black; plates one step above the page, with a hairline edge. */
+    --page: #07080a;
+    --surface: #0f1013;
+    --surface-2: #17181c;
+    --line: #2a2b30;
+    --line-strong: #6b6c71;
+    --stage-edge: #48494e;
+    --ink: #f3f2ee;
+    --ink-2: #c6c5c0;
+    /* Secondary text a step brighter than before, for a classroom's projector (13.3): 8:1 on the plates. */
+    --ink-3: #aeada8;
+    --sun: #f5b63a;
+    --sun-ink: #f5b63a;
+    --sun-hover: #ffc65c;
+    --earth: #6aa9ff;
+    --earth-ink: #8dbdff;
+    --good: #46c98b;
+    --good-bg: rgba(70, 201, 139, 0.1);
+    --good-line: rgba(70, 201, 139, 0.4);
+    --bad: #ff7d72;
+    --bad-bg: rgba(255, 125, 114, 0.09);
+    --bad-line: rgba(255, 125, 114, 0.4);
+    --warn: #f5b63a;
+    color-scheme: dark;
+  }
 }
 
 @theme inline {

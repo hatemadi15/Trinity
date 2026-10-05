@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 const css = fs.readFileSync(path.resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
 
-/** Custom properties declared in the first top-level block whose selector list names `selector`. */
+/** Custom properties declared in the first block whose selector list names `selector`, at the top level or in an at-rule. */
 function block(selector: string): Record<string, string> {
-  for (const [, selectors, body] of css.matchAll(/^([^\s@/{}][^{}]*)\{([^{}]*)\n\}/gm)) {
+  for (const [, selectors, body] of css.matchAll(/^[ \t]*([^\s@/{}*][^{}]*)\{([^{}]*)\n[ \t]*\}/gm)) {
     if (!selectors.split(',').some((s) => s.trim() === selector)) continue;
     const out: Record<string, string> = {};
     for (const m of body.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)) out[m[1]] = m[2].trim();
@@ -116,6 +116,13 @@ describe('globals.css layering', () => {
     for (const cls of ['.wrap', '.btn', '.btn-primary', '.btn-ink', '.btn-sm', '.field', '.panel', '.stage', '.display']) {
       expect(joined, cls).toMatch(new RegExp(`\\${cls} \\{`));
     }
+  });
+
+  it('prints every page in the light theme, whatever the theme on screen: paper is white (final review)', () => {
+    // The dark values hold on screen only, so a page printed from the dark theme (the default) takes the light
+    // theme's dark ink, not pale grey on white.
+    expect(css).toMatch(/@media screen \{\s*:root\[data-theme="dark"\],\s*\.theme-dark \{/);
+    expect(css.match(/:root\[data-theme="dark"\],\s*\.theme-dark \{/g)).toHaveLength(1);
   });
 
   it('shows the stars behind the header band in the dark theme only, and never prints them', () => {

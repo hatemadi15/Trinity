@@ -318,6 +318,7 @@ Part C was built on `feat/immersive-c`. It covers section 6 and the page-level a
   - Plates are one step above the page (`#0f1013`, `#17181c`), with a hairline edge (`#2a2b30`).
   - Controls' edges are 3:1 on the page (`#6b6c71`), and a picture panel's edge is 2:1 on both the page and the stage (`#48494e`).
   - Body text is at least 7:1 on the page and its plates in both themes, and secondary text 4.5:1. Secondary grey is a step brighter than before (`#aeada8`, 8:1), for a classroom's projector.
+  - The dark values hold on screen only: printed, every page takes the light theme's ink on white, whatever the theme on screen. With dark the default, How it works printed from it had pale grey text on white.
 - **The stars behind the header band.**
   - **What:** a 2D canvas first in the app frame draws the stand view's catalogue, the low sky over the south pole. The Moon's axis is within 1.6° of the ecliptic's, so the band is the ecliptic from the horizon up, centred on Scorpius and Sagittarius (longitude 255°), 16 px to the degree.
   - **Where:** from the top of the page to just past the element marked `data-band-end` (each page's title), stopping 4 px short of the running text under it. The band fades out over its lowest third. On the home page and on Explore it is the header alone: on a phone Explore's period band is a line of words.
@@ -359,7 +360,7 @@ Part C was built on `feat/immersive-c`. It covers section 6 and the page-level a
   - The card's buttons keep their words on one line.
 - **Explore and the site list.** "Stand at the site" is the plain button under the answer; the gold stays the better day's. The site list says what its figures count from, the lander and the order in one paragraph, not a list of terms.
 - **The classroom.** How it works says how to show the app on a projector: zoom the page to 150 %. There is no separate mode: the pages reflow at 960 px, and the 3D labels grow with the page.
-- **The measurements.** Every page was checked in both themes at 1440 × 900, at 390 × 844 and at 960 × 600 (150 % zoom): no sideways scroll, no text under 13 px, and no text under 4.5:1 against its ground. Two controls stay under 40 px:
+- **The measurements.** Every page was checked in both themes at 1440 × 900, at 390 × 844 and at 960 × 600 (150 % zoom), on the final build: no sideways scroll, no text under 13 px, and no text under 4.5:1 against its ground. Text part way through a fade is left out of the count. Two controls stay under 40 px:
   - the time slider, 32 px, a track the width of the bar;
   - the stand view's flags on a wide screen, 20 px chips spaced along the bar (on a phone they are 40 px dots).
 
