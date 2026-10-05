@@ -6,7 +6,7 @@ import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
 import { EARTH_LOOP, starLabel } from '@/lib/viz/stand';
-import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, fitPitch, horizonLift, inflate, labelSides, letterFade, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, zoomedOnLander, type RendererLike } from './StandCanvas';
+import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, fitPitch, horizonLift, inflate, labelSides, letterFade, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, subjectFloor, zoomedOnLander, type RendererLike } from './StandCanvas';
 
 describe('the pointers on a phone', () => {
   it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
@@ -553,6 +553,32 @@ describe('the guides', () => {
     render(createElement(StandCanvas, props(true, r)));
     const phone = [...document.querySelectorAll<HTMLElement>('p')].find((p) => p.textContent?.startsWith('Facing') && p.classList.contains('md:hidden'))!;
     expect(phone.hasAttribute('data-plate')).toBe(true);
+  });
+});
+
+describe('the opening view’s subject', () => {
+  it('keeps what the view opens on 60 px under the words while it looks down for the lander’s feet', () => {
+    // A 900 px view 36° tall, the words' foot at 89 px: Earth 6° up may sit no higher than 149 px.
+    const floor = subjectFloor(900, 36, 89, 6);
+    const y = (p: number) => 450 - (Math.tan(((6 - p) * Math.PI) / 180) / Math.tan((18 * Math.PI) / 180)) * 450;
+    expect(y(floor)).toBeCloseTo(149, 6);
+    expect(y(floor - 1)).toBeLessThan(149);
+  });
+
+  it('looks down for the lander’s feet no further than keeps Earth in sight', async () => {
+    const run = async (keepSubject: number | null) => {
+      const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels: () => ({ sun: { x: 0, y: 0, visible: false }, earth: { x: 0.5, y: 0.3, visible: true }, stars: [], lander: null }), dispose: vi.fn() };
+      const scene: StandScene = { field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series: northSeries, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky: noStars };
+      const view = render(createElement(StandCanvas, { scene, hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun, 0.5° below the horizon', earthLabel: 'Earth 12° up', night: true, onFail: vi.fn(), startFov: 36, keepInView: { el: -25, az: 0 }, keepSubject }));
+      await waitFor(() => expect((r.setView as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(2));
+      const pitch = (r.setView as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1] as number;
+      view.unmount();
+      return pitch;
+    };
+    // jsdom's 1024 x 768 view, no words on it: Earth 12° up stays 60 px under the top.
+    const kept = await run(12), free = await run(null);
+    expect(kept).toBeCloseTo(subjectFloor(768, 36, 0, 12), 3);
+    expect(kept).toBeGreaterThan(free + 2);
   });
 });
 

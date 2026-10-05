@@ -35,6 +35,16 @@ export function fitPitch(height: number, fovDeg: number, freeBottom: number, elD
 }
 
 /**
+ * The lowest pitch the opening view may take while keeping what it opens on (`elDeg` up: the Sun, or Earth at night)
+ * at least 60 px below `freeTop`, the foot of the words above (16.3): the lander's feet are kept in sight only as
+ * far as that, so a view that opens on Earth never tilts it up under the status line.
+ */
+export function subjectFloor(height: number, fovDeg: number, freeTop: number, elDeg: number): number {
+  const t = ((height / 2 - (freeTop + 60)) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
+  return elDeg - (Math.atan(t) * 180) / Math.PI;
+}
+
+/**
  * ", uphill" or ", downhill" when the view faces within 45° of up or down the slope you stand on (uphill
  * towards `upAzDeg`, `grade` its rise per metre), when it is steeper than 5°; else nothing. A tilted skyline
  * then reads as the slope it is, not as a tilted head.
@@ -370,6 +380,7 @@ export function StandCanvas({
   clean = false,
   guides = true,
   keepInView = null,
+  keepSubject = null,
   startFov,
   onExplore,
 }: {
@@ -395,6 +406,8 @@ export function StandCanvas({
    * lander's feet, `el` degrees below level, towards `az`.
    */
   keepInView?: { el: number; az: number } | null;
+  /** How high (degrees) what the opening view faces stands, the Sun or Earth: looking down for the lander's feet never tilts it under the words (subjectFloor). */
+  keepSubject?: number | null;
   /** How wide the view opens (degrees, top to bottom); else 60, or 80 on a tall screen. */
   startFov?: number;
   /** Called the first time the view is turned by hand (a drag, a key, the wheel or a pinch). */
@@ -414,6 +427,7 @@ export function StandCanvas({
   const openingRef = useRef(true);
   const fitOffset = useRef(0);
   const keepRef = useRef(keepInView);
+  const subjectRef = useRef(keepSubject);
   const earthRef = useRef<HTMLSpanElement>(null);
   const starRefs = useRef<(HTMLSpanElement | null)[]>([]);
   // The key moments' days on the Sun's and Earth's paths, the paths' own names, and the level horizon's name.
@@ -463,6 +477,9 @@ export function StandCanvas({
   useEffect(() => {
     keepRef.current = keepInView;
   }, [keepInView]);
+  useEffect(() => {
+    subjectRef.current = keepSubject;
+  }, [keepSubject]);
   useEffect(() => {
     exploreRef.current = onExplore;
   }, [onExplore]);
@@ -627,7 +644,9 @@ export function StandCanvas({
       const keepRel = keep ? Math.abs(((((keep.az - v.yaw + 540) % 360) + 360) % 360) - 180) : 180;
       const halfW = (Math.atan(Math.tan((v.fov * Math.PI) / 360) * (W / H)) * 180) / Math.PI;
       if (openingRef.current && keep && keepRel < halfW) {
-        const fitted = fitPitch(H, v.fov, freeBottom, keep.el, pitch);
+        // No lower than keeps what the view opens on in sight under the words, and never higher than it was.
+        const subject = subjectRef.current;
+        const fitted = subject === null || subject === undefined ? fitPitch(H, v.fov, freeBottom, keep.el, pitch) : Math.min(pitch, Math.max(fitPitch(H, v.fov, freeBottom, keep.el, pitch), subjectFloor(H, v.fov, freeTop, subject)));
         fitOffset.current = (fitted - pitch) * settled;
         pitch += fitOffset.current;
       }
