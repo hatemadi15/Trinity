@@ -500,6 +500,21 @@ describe('StandView', () => {
     expect(screen.getByText(momentCaption(m.kind, st.series!, m.hour, -88.28))).toBeTruthy();
   });
 
+  it('turns to Earth, narrower, from the flag where Earth sets, as from the one where it rises', async () => {
+    const r = stub();
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(r.setView).toHaveBeenCalled());
+    const st = store.getState();
+    const m = keyMoments(st.series!, st.power, st.startUtc).find((x) => x.kind === 'earth-out')!;
+    const off = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+    // Earth sets 16° from the Sun: a view turned to the Sun, wide, would show it small at the side.
+    expect(off(st.series!.sunAz[m.hour], st.series!.earthAz[m.hour])).toBeGreaterThan(10);
+    fireEvent.click(screen.getByRole('button', { name: `${m.label}, ${m.day}` }));
+    await waitFor(() => expect(off(r.setView.mock.calls.at(-1)![0], st.series!.earthAz[m.hour])).toBeLessThan(1), { timeout: 4000 });
+    expect(r.setView.mock.calls.at(-1)![2]).toBeCloseTo(16, 0);
+    expect(screen.getByText(momentCaption(m.kind, st.series!, m.hour, -88.28))).toBeTruthy();
+  });
+
   // A key moment the time moves past (Play, the slider, a key) says why, as its flag does, but leaves the view
   // where the visitor turned it.
   it('says why when the time moves forward across a key moment, by the slider’s arrow key too, without turning the view', async () => {

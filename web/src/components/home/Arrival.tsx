@@ -3,7 +3,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type MouseEvent } from 'react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { BEAT_STOPS, LAST, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
+import { BEAT_STOPS, LANDED, LAST, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
 import type { ArrivalWords } from '@/lib/viz/arrival';
 import type { StageProps } from './ArrivalCanvas';
 
@@ -15,11 +15,13 @@ const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/92';
 const SENTENCE = 'display text-balance text-[28px] leading-[1.08] sm:text-[36px]';
 const still = (k: number, shape: 'wide' | 'tall') => `/arrival/beat-${k}-${shape}.jpg`;
 /**
- * A beat's words fade as they scroll up to the stage's date bar, which stands at the top once landed (16 px down,
- * about 140 px tall): whole until FADE_PX above FADE_TOP_PX from the top, gone at the bar's foot, so the bar never
- * gives way to them (both readers, part C read 1).
+ * A beat's words fade as they scroll up: whole until `over` px above `gone` px from the top, gone there. Before
+ * landing they fade at the top. Once landed the stage's date bar stands at the top (16 px down, about 140 px tall):
+ * they are gone at its foot, so the bar never gives way to them (both readers, part C read 1).
  */
-const FADE_TOP_PX = 160, FADE_PX = 96;
+const FADE = { before: { gone: 72, over: 64 }, landed: { gone: 160, over: 96 } } as const;
+/** Whether a beat's screen comes once landed, with the date bar at its top: standing, and the month at the site. */
+const landedAt = (beat: number) => BEAT_STOPS[beat] > LANDED;
 /**
  * A screen of the arrival: its stage's height (100svh, the small viewport), not the window's, which grows by the
  * address bar's height once a phone's bar hides.
@@ -74,7 +76,11 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
     const onScroll = () => {
       const s = screens();
       for (const plate of section.current?.querySelectorAll<HTMLElement>('[data-plate]') ?? []) {
-        plate.style.opacity = String(Math.min(1, Math.max(0, (plate.getBoundingClientRect().top - FADE_TOP_PX) / FADE_PX)));
+        const beat = plate.closest<HTMLElement>('[data-beat]'), top = plate.getBoundingClientRect().top;
+        const f = landedAt(Number(beat?.dataset.beat)) ? FADE.landed : FADE.before;
+        // Whole where it rests at its beat's stop: on a short window that is nearer the top than `over` allows.
+        const rest = beat ? top - beat.getBoundingClientRect().top : Infinity;
+        plate.style.opacity = String(Math.min(1, Math.max(0, (top - f.gone) / Math.max(1, Math.min(f.over, rest - f.gone)))));
       }
       progress.current = reduced ? BEAT_STOPS[Math.round(s)] : progressFromScroll(s);
       setBeat(Math.round(s));
@@ -202,8 +208,10 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             </p>
           </div>
         </div>
+        {/* Once landed the date bar stands at the top: on a wide screen the words are centred in the room under it, so
+            on a short window (a laptop at 150 %) they rest clear of it and whole. On a phone they stand at the foot. */}
         {words.beats.map((text, k) => (
-          <div key={text} data-beat={k + 1} className="flex h-[100svh] items-end pb-24 sm:items-center sm:pb-0">
+          <div key={text} data-beat={k + 1} className={`flex h-[100svh] items-end pb-24 sm:pb-0 ${landedAt(k + 1) ? 'sm:items-center-safe sm:pt-[176px]' : 'sm:items-center'}`}>
             <div className="wrap w-full">
               {/* On a wide screen the column ends just short of the middle: the lander stands right of it. */}
               <p data-words="" data-plate="" className={`${PLATE} ${SENTENCE} max-w-[600px] p-5 sm:max-w-[min(600px,46vw)] sm:p-6`}>{text}</p>

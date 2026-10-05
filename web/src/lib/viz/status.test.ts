@@ -28,22 +28,22 @@ describe('statusSentence', () => {
   const p = powerBudget(s, CFG);
 
   it('says where the Sun and Earth are and how full the battery is', () => {
-    expect(statusSentence(s, p, 0, CFG.batteryWh)).toBe('Sun up, Earth set behind the hills, battery 100 %');
-    expect(statusSentence(s, p, 2, CFG.batteryWh)).toBe('Sun setting, Earth set behind the hills, battery 100 %');
-    expect(statusSentence(s, p, 5, CFG.batteryWh)).toBe('Sun set behind the hills, Earth in view, battery 70 %');
+    expect(statusSentence(s, p, 0, CFG.batteryWh)).toBe('Sun up, Earth behind a hill, battery 100 %');
+    expect(statusSentence(s, p, 2, CFG.batteryWh)).toBe('Sun setting, Earth behind a hill, battery 100 %');
+    expect(statusSentence(s, p, 5, CFG.batteryWh)).toBe('Sun behind a hill, Earth in view, battery 70 %');
     expect(statusSentence(s, p, 17, CFG.batteryWh)).toMatch(/^Sun rising, Earth in view/);
   });
 
   it('says when the lander is off', () => {
     expect(p.powered[13]).toBe(0);
-    expect(statusSentence(s, p, 13, CFG.batteryWh)).toBe('Sun set behind the hills, Earth set behind the hills, lander off, battery empty');
+    expect(statusSentence(s, p, 13, CFG.batteryWh)).toBe('Sun behind a hill, Earth behind a hill, lander off, battery empty');
     const contact = series(sun, new Array<number>(sun.length).fill(1));
-    expect(statusSentence(contact, powerBudget(contact, CFG), 13, CFG.batteryWh)).toBe('Sun set behind the hills, Earth in view but the lander is off, battery empty');
+    expect(statusSentence(contact, powerBudget(contact, CFG), 13, CFG.batteryWh)).toBe('Sun behind a hill, Earth in view but the lander is off, battery empty');
   });
 
   it('leaves the battery out before the power budget is known, and for a lander without one', () => {
-    expect(statusSentence(s, null, 0, CFG.batteryWh)).toBe('Sun up, Earth set behind the hills');
-    expect(statusSentence(s, powerBudget(s, { ...CFG, batteryWh: 0 }), 0, 0)).toBe('Sun up, Earth set behind the hills, no battery');
+    expect(statusSentence(s, null, 0, CFG.batteryWh)).toBe('Sun up, Earth behind a hill');
+    expect(statusSentence(s, powerBudget(s, { ...CFG, batteryWh: 0 }), 0, 0)).toBe('Sun up, Earth behind a hill, no battery');
   });
 
   it('says below the horizon, not behind the hills, when the body is under it', () => {
@@ -53,6 +53,6 @@ describe('statusSentence', () => {
 
   it('calls a Sun that is partly hidden at a standstill what it is', () => {
     const flat = series([0.4, 0.4, 0.4], [1, 1, 1]);
-    expect(statusSentence(flat, null, 1, 0)).toBe('Sun partly set behind the hills, Earth in view');
+    expect(statusSentence(flat, null, 1, 0)).toBe('Sun partly behind a hill, Earth in view');
   });
 });

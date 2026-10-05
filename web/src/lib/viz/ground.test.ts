@@ -66,6 +66,14 @@ describe('groundWords', () => {
       { f: 0, el: 2, az: 278 },
     ]);
     expect(groundWords(setting, 1).sun).toBe('The site is partly in sunlight: the Sun sets behind the hills to the west.');
+    // Part of the Sun shows for hours on end, neither rising nor setting: "partly behind a hill", as on the map's
+    // arrows and Explore's time bar (final review).
+    const steady = series([
+      { f: 0.4, el: 2, az: 180 },
+      { f: 0.4, el: 2, az: 179 },
+      { f: 0.4, el: 2, az: 178 },
+    ]);
+    expect(groundWords(steady, 1).sun).toBe('The site is partly in sunlight: the Sun is partly behind a hill to the south.');
     const rising = series([
       { f: 0, el: 2, az: 100 },
       { f: 0.4, el: 2, az: 99 },

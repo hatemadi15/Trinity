@@ -104,7 +104,7 @@ export function TimeChart({
         </li>
         <li className="flex items-center gap-2">
           <DottedSwatch />
-          dotted while hidden
+          dotted while set
         </li>
         <li className="flex items-center gap-2">
           <HillSwatch />

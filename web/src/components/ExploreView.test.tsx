@@ -126,7 +126,7 @@ describe('ExploreView', () => {
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Time' }), { key: 'ArrowRight' });
     expect(store.getState().cursorHour).toBe(67);
     // Hour 67 is when the Sun goes behind the hills on 3 January.
-    await waitFor(() => expect(bar.textContent).toMatch(/Sun set behind the hills/));
+    await waitFor(() => expect(bar.textContent).toMatch(/Sun behind a hill/));
     expect(bar.textContent).not.toBe(before);
   });
 

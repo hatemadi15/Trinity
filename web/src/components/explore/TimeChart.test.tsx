@@ -67,7 +67,7 @@ describe('TimeChart', () => {
     expect(within(key).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       "the Sun's height",
       "Earth's height",
-      'dotted while hidden',
+      'dotted while set',
       'the hills in its direction at that time',
       'battery charge',
     ]);
@@ -94,7 +94,7 @@ describe('TimeChart', () => {
   it("draws the dotted sample of the key in the Sun's and Earth's colours, as the chart draws them", () => {
     show();
     const key = screen.getByRole('list', { name: 'Key' });
-    const dotted = [...key.querySelectorAll('li')].find((li) => li.textContent?.includes('dotted while hidden'))!;
+    const dotted = [...key.querySelectorAll('li')].find((li) => li.textContent?.includes('dotted while set'))!;
     const strokes = [...dotted.querySelectorAll('line')].map((l) => l.getAttribute('stroke'));
     expect(strokes).toEqual(['var(--stage-sun)', 'var(--stage-earth)']);
   });

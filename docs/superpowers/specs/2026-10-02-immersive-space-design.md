@@ -335,18 +335,19 @@ Part C was built on `feat/immersive-c`. It covers section 6 and the page-level a
   - The first fact gives the cause: the Moon's 1.5° tilt and its month-long day. The teachers' line stands above the three facts.
   - The first screen and the landing beat give the year ("1 January 2027").
   - On a phone the first sentence and the scroll hint wait for a wider screen, so the Moon shows under the words.
-- **One name for each event**, in the chart, the arrival, the stand view, Explore's answer, its time bar, the shadow map, the lander dialog and the glossary:
-  - **Sunset** and **sunrise**. A body hidden while still above the horizon is "behind a hill": "Sun behind a hill, 1.4° above the horizon". Read C1 found "1.4° up, set behind the hills" said up and set at once.
+- **One name for each event**, in the charts and their keys, the arrival, the stand view, Explore's answer, its time bar, the shadow map, the lander dialog, the glossary and How it works:
+  - **Sunset** and **sunrise**. A body hidden while still above the horizon is "behind a hill", or "partly behind a hill": "Sun behind a hill, 1.4° above the horizon" on a label, "Sun behind a hill" on Explore's time bar. Read C1 found "1.4° up, set behind the hills" said up and set at once. A sentence about the moment says the body "sets behind the hills", and the charts' keys say their lines are "dotted while set".
   - **Night** for the stretch without the Sun.
   - **Earth rises** and **Earth sets**.
   - "In shadow" stays for a place on the shadow map.
-  - A test reads every hour of the hero month for any other name.
+  - A test reads every hour of the hero month, the charts' keys, the lander dialog and How it works for any other name.
 - **The date bar.**
   - Earth setting is a key moment, "Earth sets", with its flag, its mark on Earth's path and its caption.
   - The bar draws the Sun's moments over its line, the battery's across it and Earth's under it, so moments hours apart never cover each other.
   - The lanes stand 2 px apart: the battery's marks are 6 px tall across the line, the Sun's and Earth's 10 px tall from 5 px off it, all 4 px wide.
   - Its key reads "Sunset or sunrise", "The battery runs out", "Earth rises or sets", at 15 px.
-  - The beats' plates fade out by the bar's foot, so the bar stays.
+  - The beats' plates fade out by the bar's foot, so the bar stays. On a wide screen the words of the beats after landing are centred in the room under the bar, and each is whole at its own stop, on a short window too (a laptop at 150 %). Before landing they fade only at the top.
+  - The "Earth sets" flag turns the view to Earth, as "Earth rises" does.
 - **Labels and the last screen.**
   - Each label with a dot has a short line to its mark, and a path's name has one to its path.
   - Earth's path is named "a loop: the Moon wobbles a little each month" on a second line, in the arrival and in the stand view. Read C1 found "rocks" read as stones.

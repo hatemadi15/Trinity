@@ -539,20 +539,20 @@ describe('SkyRow on a narrow chart', () => {
 describe('SkyRowKey', () => {
   it('names the three marks of a Sun row', () => {
     render(<SkyRowKey body="sun" />);
-    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['height of the Sun', 'Sun hidden', "hills in the Sun's direction at that time"]);
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['height of the Sun', 'the Sun while set', "hills in the Sun's direction at that time"]);
   });
 
   it('speaks of Earth for an Earth row and explains the compass row when there is one', () => {
     const { container } = render(<SkyRowKey body="earth" compass />);
     const items = screen.getAllByRole('listitem').map((li) => li.textContent);
-    expect(items.slice(0, 3)).toEqual(['height of Earth', 'Earth hidden', "hills in Earth's direction at that time"]);
+    expect(items.slice(0, 3)).toEqual(['height of Earth', 'Earth while set', "hills in Earth's direction at that time"]);
     expect(items[3]).toBe('Top row: the direction Earth is in on that date.');
     expect(container.innerHTML).toContain('var(--stage-earth)');
   });
 
   it('covers a Sun row and an Earth row together', () => {
     const { container } = render(<SkyRowKey body="both" />);
-    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while hidden', 'the hills in its direction at that time']);
+    expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while set', 'the hills in its direction at that time']);
     expect(container.innerHTML).toContain('var(--stage-sun)');
     expect(container.innerHTML).toContain('var(--stage-earth)');
   });

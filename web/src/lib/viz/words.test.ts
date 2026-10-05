@@ -5,8 +5,13 @@ import { describe, expect, it } from 'vitest';
 import { lightWords } from '@/components/home/ArrivalCanvas';
 import { pathMarks } from '@/components/stand/StandView';
 import { pointerWords } from '@/components/stand/StandCanvas';
-import { SkyRow } from '@/components/SkyRow';
+import { HorizonView } from '@/components/explore/HorizonView';
+import { LanderDialog } from '@/components/explore/LanderDialog';
+import { TimeChart } from '@/components/explore/TimeChart';
+import { SkyRow, SkyRowKey } from '@/components/SkyRow';
 import { EXPLANATIONS } from '@/lib/ai/explanations';
+import { SCIENCE, STORY_STEPS } from '@/lib/learn/story';
+import { DEFAULT_PARAMS } from '@/lib/store/explore';
 import { summarize } from '@/lib/engine/metrics';
 import { DEFAULT_POWER } from '@/lib/engine/power';
 import { HOME } from '@/lib/data/home';
@@ -27,6 +32,13 @@ const OTHER_NAMES: [RegExp, string][] = [
 
 function check(where: string, text: string) {
   for (const [re, use] of OTHER_NAMES) expect(re.test(text), `${where}: "${text}" (say "${use}")`).toBe(false);
+}
+
+/** The words on a rendered piece, a space between its pieces: textContent runs list items together, past \b. */
+function textOf(root: HTMLElement): string {
+  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), parts: string[] = [];
+  while (walk.nextNode()) parts.push(walk.currentNode.textContent ?? '');
+  return parts.join(' ');
 }
 
 describe('one name for each event (spec 13.3, 14.3)', () => {
@@ -63,10 +75,35 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
     const { sky } = HOME;
     for (const [body, el, hill, visible] of [['sun', sky.sun_el, sky.hill_el, sky.lit], ['earth', sky.earth_el, sky.earth_hill_el, sky.earth_visible]] as const) {
       const { container, unmount } = render(createElement(SkyRow, { el, hill, visible, startUtc: sky.start_utc, body, caption: 'c' }));
-      check(`chart ${body}`, container.textContent ?? '');
+      check(`chart ${body}`, textOf(container));
       unmount();
     }
     for (const [topic, text] of Object.entries(EXPLANATIONS)) check(`glossary ${topic}`, text);
+  });
+
+  it('words the charts’ keys, the lander dialog and How it works the same way (final review)', () => {
+    const none = () => {};
+    const shown: [string, ReturnType<typeof createElement>][] = [
+      ['home chart key', createElement(SkyRowKey, { body: 'both' })],
+      ['Sun chart key', createElement(SkyRowKey, { body: 'sun', compass: true })],
+      ['Earth chart key', createElement(SkyRowKey, { body: 'earth' })],
+      ['Explore chart', createElement(TimeChart, { series: s, mask: new Float64Array(720), power: p, batteryWh: DEFAULT_POWER.batteryWh, startUtc: start, days: h.days, cursor: 30, hoverHour: null, onCursor: none, onHover: none })],
+      ['view all round', createElement(HorizonView, { mask: new Float64Array(720), series: s, cursor: 30, lat: h.site.lat, startUtc: start })],
+      ['lander dialog', createElement(LanderDialog, { params: DEFAULT_PARAMS, onPower: none, onParams: none, busy: false, onClose: none })],
+    ];
+    for (const [where, el] of shown) {
+      const { container, unmount } = render(el);
+      check(where, textOf(container));
+      unmount();
+    }
+    for (const step of [...STORY_STEPS, ...SCIENCE]) check(`How it works: ${step.title}`, `${step.title}. ${step.body}`);
+  });
+
+  it('says a Sun partly behind a hill one way, on Explore’s time bar as on the shadow map (final review)', () => {
+    // Half the Sun shows for hours on end, neither rising nor setting.
+    const half = { ...s, sunFraction: new Float64Array(s.hours).fill(0.5) };
+    expect(statusSentence(half, p, 10, DEFAULT_POWER.batteryWh)).toMatch(/^Sun partly behind a hill\b/);
+    expect(heightWords('Sun', 1.4, 'partly')).toMatch(/^Sun partly behind a hill\b/);
   });
 
   it('never says a body is up and set at once: hidden by a hill it is "behind a hill", so many degrees above the horizon (read C1)', () => {

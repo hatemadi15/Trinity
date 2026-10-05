@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { hydrateRoot } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BEAT_STOPS } from '@/lib/sky/arrivalTiming';
+import { BEAT_STOPS, LANDED } from '@/lib/sky/arrivalTiming';
 import { arrivalWords } from '@/lib/viz/arrival';
 import { Arrival } from './Arrival';
 import type { StageProps } from './ArrivalCanvas';
@@ -53,22 +53,81 @@ describe('the arrival', () => {
     expect(screen.getByRole('heading', { level: 2, name: words.answer })).toBeTruthy();
   });
 
-  it('fades each beat’s words as they near the date’s bar, gone by its foot, so the bar never gives way to them; the first screen and the answer stay', () => {
+  /** The beats' plates, each with its beat's screen, before landing and once landed (the date bar shows then). */
+  const platesOf = () => {
+    const all = [...document.querySelectorAll<HTMLElement>('[data-plate]')].map((plate) => {
+      const beat = plate.closest<HTMLElement>('[data-beat]')!;
+      return { plate, beat, landed: BEAT_STOPS[Number(beat.dataset.beat)] > LANDED };
+    });
+    expect(all).toHaveLength(words.beats.length);
+    return { before: all.filter((p) => !p.landed), landed: all.filter((p) => p.landed) };
+  };
+  /** A plate `top` px from the window's top, its beat's screen `beatTop` px (0 at the beat's stop). */
+  const placed = ({ plate, beat }: { plate: HTMLElement; beat: HTMLElement }, top: number, beatTop: number) => {
+    vi.spyOn(plate, 'getBoundingClientRect').mockReturnValue({ top } as DOMRect);
+    vi.spyOn(beat, 'getBoundingClientRect').mockReturnValue({ top: beatTop } as DOMRect);
+  };
+
+  it('fades the words of the beats under the date bar as they near it, gone by its foot, so the bar never gives way to them; the first screen and the answer stay', () => {
     render(<Arrival words={words} Stage={Stage} />);
-    const plates = [...document.querySelectorAll<HTMLElement>('[data-plate]')];
-    expect(plates).toHaveLength(words.beats.length);
-    // The bar runs from 16 px to about 160 px: a plate is whole from 256 px, gone at 160 (both readers, part C read 1).
-    vi.spyOn(plates[0], 'getBoundingClientRect').mockReturnValue({ top: 400 } as DOMRect);
-    vi.spyOn(plates[1], 'getBoundingClientRect').mockReturnValue({ top: 208 } as DOMRect);
-    vi.spyOn(plates[2], 'getBoundingClientRect').mockReturnValue({ top: 150 } as DOMRect);
-    scrolled(1.5);
-    expect(plates[0].style.opacity).toBe('1');
-    expect(Number(plates[1].style.opacity)).toBeGreaterThan(0.2);
-    expect(Number(plates[1].style.opacity)).toBeLessThan(0.8);
-    expect(plates[2].style.opacity).toBe('0');
+    const { landed } = platesOf();
+    // Standing, and the month at the site.
+    expect(landed).toHaveLength(2);
+    // The bar runs from 16 px to about 160 px: on a tall window a plate is whole from 256 px, gone at 160 (both
+    // readers, part C read 1).
+    placed(landed[0], 400, 0);
+    placed(landed[1], 208, -192);
+    scrolled(4.5);
+    expect(landed[0].plate.style.opacity).toBe('1');
+    expect(Number(landed[1].plate.style.opacity)).toBeCloseTo(0.5, 2);
+    placed(landed[1], 160, -240);
+    scrolled(4.6);
+    expect(landed[1].plate.style.opacity).toBe('0');
     // The headline and the answer rest at the top: they are not beats' plates.
     expect(screen.getByRole('heading', { level: 1 }).closest('[data-plate]')).toBeNull();
     expect(screen.getByRole('heading', { level: 2, name: words.answer }).closest('[data-plate]')).toBeNull();
+  });
+
+  it('keeps each beat’s words whole at its own stop on a short window, as on a laptop at 150 % (960 × 530), and fades them from there', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    const { landed } = platesOf();
+    // At its stop the plate rests 200 px down, just under the bar: whole there, not part gone.
+    placed(landed[0], 200, 0);
+    scrolled(4);
+    expect(landed[0].plate.style.opacity).toBe('1');
+    // Then it fades over what is left above it, gone at the bar's foot.
+    placed(landed[0], 180, -20);
+    scrolled(4.04);
+    expect(Number(landed[0].plate.style.opacity)).toBeCloseTo(0.5, 2);
+    placed(landed[0], 160, -40);
+    scrolled(4.08);
+    expect(landed[0].plate.style.opacity).toBe('0');
+  });
+
+  it('fades the words of the beats before landing only at the top, where no bar stands yet', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    const { before } = platesOf();
+    // The pole, the cap and the landing.
+    expect(before).toHaveLength(3);
+    // Whole from 136 px, gone at 72.
+    placed(before[0], 400, 0);
+    placed(before[1], 104, -296);
+    placed(before[2], 72, -328);
+    scrolled(2);
+    expect(before[0].plate.style.opacity).toBe('1');
+    expect(Number(before[1].plate.style.opacity)).toBeCloseTo(0.5, 2);
+    expect(before[2].plate.style.opacity).toBe('0');
+  });
+
+  it('centres the words of the beats under the date bar in the room under it on a wide screen, and at the foot on a phone', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    const { before, landed } = platesOf();
+    for (const { beat } of landed) {
+      expect(beat.className).toMatch(/(^| )sm:pt-\[176px\]( |$)/);
+      expect(beat.className).toMatch(/(^| )sm:items-center-safe( |$)/);
+      expect(beat.className).toMatch(/(^| )items-end pb-24( |$)/);
+    }
+    for (const { beat } of before) expect(beat.className).toMatch(/(^| )sm:items-center( |$)/);
   });
 
   it('keeps each beat’s words in a column that ends short of the middle on a wide screen, so the lander stands clear of it', () => {

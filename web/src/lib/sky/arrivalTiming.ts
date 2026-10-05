@@ -15,6 +15,8 @@ export const LAST = 5;
  * month at the site half run, its end.
  */
 export const BEAT_STOPS = [0, 1.25, 2, 3, 4, 4.5, 5] as const;
+/** Once landed (the guides show then too): the date's bar and the month's lines, from just before standing. */
+export const LANDED = 3.8;
 /** After landing the hours run on at the site, at an even pace, to the end of the story (`siteEndHour`). */
 export const SITE = { from: 4, to: 5 } as const;
 /** Seconds of play from stop to stop: fifteen to standing, the video's first fifteen seconds, then six through the month. */

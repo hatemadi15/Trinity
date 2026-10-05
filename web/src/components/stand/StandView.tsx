@@ -258,7 +258,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const m = moments.find((x) => x.label === f.label && x.hour === f.hour);
     if (!m) return;
     if (m.kind === 'battery-out' || m.kind === 'power-back') faceLander();
-    else if (m.kind === 'earth-in') face(series.earthAz[m.hour], series.earthEl[m.hour], 16);
+    else if (m.kind === 'earth-in' || m.kind === 'earth-out') face(series.earthAz[m.hour], series.earthEl[m.hour], 16);
     else face(series.sunAz[m.hour], series.sunEl[m.hour] - 2, 46);
     setCaption(momentCaption(m.kind, series, m.hour, site.lat) || null);
   };

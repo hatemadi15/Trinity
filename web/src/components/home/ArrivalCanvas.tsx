@@ -7,7 +7,7 @@ import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { contextFileFor, loadHeightmap, loadTerrainManifest, shadowLevels, windowFileFor, type Heightmap } from '@/lib/data/terrain';
 import type { Level } from '@/lib/engine/shadow';
 import { flightKeys, polePoint, poseAt, siteEndHour, siteTrack, type Key, type PathInput } from '@/lib/sky/arrivalPath';
-import { hourAt } from '@/lib/sky/arrivalTiming';
+import { hourAt, LANDED } from '@/lib/sky/arrivalTiming';
 import { dirAzEl, enuBasis, type Vec3 } from '@/lib/sky/frames';
 import { eyeAt, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
@@ -128,8 +128,6 @@ const STEM_DOWN = 'absolute left-1/2 top-full h-2 w-px -translate-x-1/2 bg-curre
 /** The line from a label beside its point to the dot, either side; above or below the point the dot is close enough alone. */
 const SIDE_STEM = 'absolute right-full top-1/2 h-px w-[9px] -translate-y-1/2 bg-current opacity-60 group-data-[side=left]:left-full group-data-[side=left]:right-auto group-data-[side=below]:hidden group-data-[side=up]:hidden';
 type Tag = 'earth' | 'pole' | 'site' | 'sun' | 'earthHere';
-/** Once landed (the guides show then too): the date's bar and the month's lines. */
-const LANDED = 3.8;
 /**
  * What lights the ground at the site at an hour, in words: the Sun, or at night Earth alone (which is why the ground
  * turns blue) or nothing. At night the picture is brightened, as the stand view says, and the words say so: the

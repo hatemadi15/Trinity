@@ -91,7 +91,7 @@ describe('home page', () => {
     expect(band.textContent).toMatch(
       /A ridge NASA shortlisted for astronauts\. Read it from left to right, one day at a time\. Heights are angles above the horizon: 5° is about the width of three fingers held at arm's length\. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day\./,
     );
-    expect(within(band).getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while hidden', 'the hills in its direction at that time']);
+    expect(within(band).getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while set', 'the hills in its direction at that time']);
   });
 
   it('says under the forecast where the numbers come from, and links to the site', () => {

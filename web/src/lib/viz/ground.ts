@@ -36,7 +36,7 @@ export function groundWords(series: Series, hour: number): { sun: string; earth:
     const before = hour > 0 ? series.sunFraction[hour - 1] : f;
     const after = hour + 1 < series.hours ? series.sunFraction[hour + 1] : f;
     // In the words of the flags and the captions: the Sun rises over the hills, or sets behind them.
-    const moving = after > before ? 'the Sun rises over the hills' : after < before ? 'the Sun sets behind the hills' : 'part of the Sun has set behind the hills';
+    const moving = after > before ? 'the Sun rises over the hills' : after < before ? 'the Sun sets behind the hills' : 'the Sun is partly behind a hill';
     sun = `The site is partly in sunlight: ${moving} to the ${toward}.`;
     siteState = 'partly in sunlight';
     sunHidden = 'partly';

@@ -99,7 +99,7 @@ export function SkyRowKey({ body, compass = false, className = '' }: { body: 'su
               <line x1={2} y1={7.5} x2={24} y2={7.5} stroke="var(--stage-earth)" strokeWidth={2.2} strokeDasharray="2 6" strokeLinecap="round" />
             </svg>
           </Chip>
-          dotted while hidden
+          dotted while set
         </li>
         <li className={item}>
           <Chip>{HILL_SAMPLE}</Chip>
@@ -123,7 +123,7 @@ export function SkyRowKey({ body, compass = false, className = '' }: { body: 'su
         <Chip>
           <LineSample color={color} dotted />
         </Chip>
-        {name} hidden
+        {who} while set
       </li>
       <li className={item}>
         <Chip>{HILL_SAMPLE}</Chip>
