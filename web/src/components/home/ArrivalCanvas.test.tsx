@@ -7,7 +7,7 @@ import { siteEndHour } from '@/lib/sky/arrivalPath';
 import { HERO_HOUR, hero } from '@/lib/viz/arrival';
 import { dateLong } from '@/lib/viz/format';
 import { EARTH_LOOP, keyMoments, skyLabel } from '@/lib/viz/stand';
-import ArrivalCanvas, { laneOf, type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
+import ArrivalCanvas, { clearOfPlates, laneOf, type ArrivalLoaders, type ArrivalRenderer } from './ArrivalCanvas';
 
 const sky = { stars: { count: 0, j2000: new Float32Array(), vmag: new Float32Array(), bv: new Float32Array() }, moon: { startMs: 0, stepMs: 1, count: 2, quats: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0]) }, earthDayUrl: '', earthCloudsUrl: '' };
 const globe = { color: { low: 'a', high: 'b' }, normal: { low: 'c', high: 'd' }, heights: { width: 4, height: 2, metres: new Float32Array(8) }, albedoScale: 1, credit: '' };
@@ -477,31 +477,151 @@ describe('the arrival’s live stage', () => {
     }
   });
 
-  it('keeps a label in place under a beat’s plate as the page scrolls, and gives way to words with no plate (part C read 1)', async () => {
+  it('moves the night’s name clear of a beat’s plate rather than under it, and gives way to words with no plate', async () => {
     const { r } = stub();
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
-    // A beat's sentence on its plate, over the night's name.
+    // A beat's sentence on its plate, out of view until the page scrolls it up over the night's name.
     const words = document.createElement('p');
     words.setAttribute('data-words', '');
     words.setAttribute('data-plate', '');
     words.textContent = 'At the south pole the Sun never climbs.';
     document.body.appendChild(words);
-    const NIGHT = { left: 400, top: 400, right: 700, bottom: 430 };
+    let plate = { left: 0, top: 0, right: 0, bottom: 0 };
     const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
-      const el = this as HTMLElement;
-      const b = el === words || el.textContent?.startsWith('Ground at night') ? NIGHT : this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 1000, bottom: 1000 } : { left: 0, top: 0, right: 0, bottom: 0 };
+      // The view 1000 by 1000; the night's name 300 by 30 round its place, wherever it is put.
+      const el = this as HTMLElement, x = parseFloat(el.style?.left ?? '') * 10, y = parseFloat(el.style?.top ?? '') * 10;
+      const b =
+        el === words ? plate
+        : this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 1000, bottom: 1000 }
+        : el.textContent?.startsWith('Ground at night') ? { left: x - 150, top: y - 15, right: x + 150, bottom: y + 15 }
+        : { left: 0, top: 0, right: 0, bottom: 0 };
       return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
     });
     try {
       render(<ArrivalCanvas progress={{ current: 1.25 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
       const night = await screen.findByText('Ground at night: the Sun is below the horizon');
-      // Under the plate it stays, whole, as the plate passes over it.
       await waitFor(() => expect(night.hidden).toBe(false));
-      await new Promise((res) => setTimeout(res, 300));
+      const left = night.style.left, x = parseFloat(left) * 10, y = parseFloat(night.style.top) * 10;
+      // The plate comes up over its lower half: the name moves up or down, 6 px clear of it, and stays whole and shown.
+      plate = { left: x - 250, top: y, right: x + 250, bottom: y + 160 };
+      await waitFor(() => {
+        const at = parseFloat(night.style.top) * 10;
+        expect(Math.max(plate.top - (at + 15), at - 15 - plate.bottom)).toBeGreaterThanOrEqual(6 - 1e-6);
+      });
       expect(night.hidden).toBe(false);
+      expect(night.style.left).toBe(left);
       // The same words without a plate would show through it: it gives way.
       words.removeAttribute('data-plate');
       await waitFor(() => expect(night.hidden).toBe(true));
+    } finally {
+      rect.mockRestore();
+      words.remove();
+    }
+  });
+
+  it('moves the pointer to the Sun up or down clear of a beat’s plate rather than under it, as on a phone', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const words = document.createElement('p');
+    words.setAttribute('data-words', '');
+    words.setAttribute('data-plate', '');
+    document.body.appendChild(words);
+    let plate = { left: 0, top: 0, right: 0, bottom: 0 };
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      // The view 1000 by 1000; the pointer 80 by 24 round its place, wherever it is put.
+      const el = this as HTMLElement, x = parseFloat(el.style?.left ?? '') * 10, y = parseFloat(el.style?.top ?? '') * 10;
+      const b =
+        el === words ? plate
+        : this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 1000, bottom: 1000 }
+        : el.hasAttribute('data-sun-edge') ? { left: x - 40, top: y - 12, right: x + 40, bottom: y + 12 }
+        : { left: 0, top: 0, right: 0, bottom: 0 };
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      render(<ArrivalCanvas progress={{ current: 1.25 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      await waitFor(() => expect(document.querySelector('[data-sun-edge]')).not.toBeNull());
+      const edge = document.querySelector('[data-sun-edge]') as HTMLElement;
+      await waitFor(() => expect(edge.hidden).toBe(false));
+      const left = edge.style.left, y = parseFloat(edge.style.top) * 10;
+      // A plate across the view comes over it: it moves up or down, 6 px clear of it, and stays shown where it was across.
+      plate = { left: 0, top: y - 4, right: 1000, bottom: y + 80 };
+      await waitFor(() => {
+        const at = parseFloat(edge.style.top) * 10;
+        expect(Math.max(plate.top - (at + 12), at - 12 - plate.bottom)).toBeGreaterThanOrEqual(6 - 1e-6);
+      });
+      expect(edge.hidden).toBe(false);
+      expect(edge.style.left).toBe(left);
+    } finally {
+      rect.mockRestore();
+      words.remove();
+    }
+  });
+
+  it('turns the pole’s name to another side where a beat’s plate would cover it, and hides it only where no side has room', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const words = document.createElement('p');
+    words.setAttribute('data-words', '');
+    words.setAttribute('data-plate', '');
+    document.body.appendChild(words);
+    // The view 1000 by 1000 and the pole at its middle: its name 200 by 24, right of the point or on the side it turns to.
+    const sides = {
+      right: { left: 512, top: 488, right: 712, bottom: 512 },
+      left: { left: 288, top: 488, right: 488, bottom: 512 },
+      below: { left: 400, top: 512, right: 600, bottom: 536 },
+      up: { left: 512, top: 476, right: 712, bottom: 500 },
+    };
+    let plate = { left: 520, top: 300, right: 900, bottom: 700 }; // over its right side
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const b =
+        this === words ? plate
+        : this.tagName === 'CANVAS' ? { left: 0, top: 0, right: 1000, bottom: 1000 }
+        : this.textContent === "The Moon's south pole" ? sides[(this.getAttribute('data-side') ?? 'right') as keyof typeof sides]
+        : { left: 0, top: 0, right: 0, bottom: 0 };
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      render(<ArrivalCanvas progress={{ current: 1.25 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const pole = await screen.findByText("The Moon's south pole");
+      // Its right side under the plate: it turns to the left of the point.
+      await waitFor(() => expect(pole.getAttribute('data-side')).toBe('left'));
+      expect(pole.hidden).toBe(false);
+      // The plate over both sides: under the point.
+      plate = { left: 200, top: 300, right: 800, bottom: 500 };
+      await waitFor(() => expect(pole.getAttribute('data-side')).toBe('below'));
+      expect(pole.hidden).toBe(false);
+      // No side clear of the plate: it hides, and comes back on the right once the plate has gone by.
+      plate = { left: 0, top: 0, right: 1000, bottom: 1000 };
+      await waitFor(() => expect(pole.hidden).toBe(true));
+      plate = { left: 0, top: -400, right: 1000, bottom: -10 };
+      await waitFor(() => expect(pole.hidden).toBe(false));
+      expect(pole.hasAttribute('data-side')).toBe(false);
+    } finally {
+      rect.mockRestore();
+      words.remove();
+    }
+  });
+
+  it('hides Earth’s name from space while a beat’s plate passes over it, as the labels that do not move do', async () => {
+    const { r } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
+    const words = document.createElement('p');
+    words.setAttribute('data-words', '');
+    words.setAttribute('data-plate', '');
+    document.body.appendChild(words);
+    let wordsAt = { left: 0, top: 0, right: 400, bottom: 400 };
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const b = this.hasAttribute('data-words') ? wordsAt : { left: 100, top: 100, right: 160, bottom: 124 };
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
+      const earth = await screen.findByText(/^Earth, [\d,]+ km away/);
+      await waitFor(() => expect(r.setPose).toHaveBeenCalled());
+      await new Promise((res) => setTimeout(res, 50));
+      expect(earth.hidden).toBe(true);
+      wordsAt = { left: 0, top: -400, right: 400, bottom: -10 }; // scrolled past
+      await waitFor(() => expect(earth.hidden).toBe(false));
     } finally {
       rect.mockRestore();
       words.remove();
@@ -620,5 +740,36 @@ describe('the arrival’s live stage', () => {
     await waitFor(() => expect(r.setPose).toHaveBeenCalled());
     unmount();
     expect(r.dispose).toHaveBeenCalled();
+  });
+});
+
+describe('a label moved clear of the beats’ plates', () => {
+  // In a view 1000 px tall, a label 200 by 30.
+  const label = { left: 100, top: 500, right: 300, bottom: 530 };
+
+  it('stays where it already keeps 6 px clear of every plate', () => {
+    expect(clearOfPlates(label, [], 0, 1000)).toBe(0);
+    // 6 px under it, and 6 px to its right.
+    expect(clearOfPlates(label, [{ left: 0, top: 536, right: 600, bottom: 700 }, { left: 306, top: 0, right: 600, bottom: 1000 }], 0, 1000)).toBe(0);
+  });
+
+  it('moves above a plate it meets, its foot 6 px over the plate’s top, where that is the shorter move', () => {
+    expect(clearOfPlates(label, [{ left: 0, top: 520, right: 600, bottom: 700 }], 0, 1000)).toBe(-16);
+    // 5 px off a plate is too close: up 1 px.
+    expect(clearOfPlates(label, [{ left: 0, top: 535, right: 600, bottom: 700 }], 0, 1000)).toBe(-1);
+  });
+
+  it('moves below the plate, its top 6 px under the plate’s foot, where there is no room above', () => {
+    // Above the plate its top would be 4 px from the view's top, inside the 8 px it keeps.
+    expect(clearOfPlates({ left: 100, top: 20, right: 300, bottom: 50 }, [{ left: 0, top: 40, right: 600, bottom: 200 }], 0, 1000)).toBe(186);
+  });
+
+  it('has no move where neither way has room inside the view', () => {
+    expect(clearOfPlates(label, [{ left: 0, top: 30, right: 600, bottom: 970 }], 0, 1000)).toBeNull();
+  });
+
+  it('takes the other way where the shorter move would meet a second plate', () => {
+    // Above the first plate it would meet the plate over it, 10 px up; below, it is clear of both.
+    expect(clearOfPlates(label, [{ left: 0, top: 520, right: 600, bottom: 700 }, { left: 0, top: 300, right: 600, bottom: 490 }], 0, 1000)).toBe(206);
   });
 });
