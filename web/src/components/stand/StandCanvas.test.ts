@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
-import { EARTH_LOOP } from '@/lib/viz/stand';
-import { chipsShown, clearOf, compassMark, easeStep, edgePointers, fitPitch, horizonLift, labelSides, levelY, liftClear, offLander, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, type RendererLike } from './StandCanvas';
+import { EARTH_LOOP, starLabel } from '@/lib/viz/stand';
+import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, fitPitch, horizonLift, inflate, labelSides, letterFade, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, type RendererLike } from './StandCanvas';
 
 describe('the pointers on a phone', () => {
   it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
@@ -247,16 +247,6 @@ describe('a body named over the lander', () => {
   });
 });
 
-describe('the level horizon', () => {
-  it('stands across the middle of a level view, and lower as the view looks up', () => {
-    expect(levelY(0, 60)).toBeCloseTo(0.5, 9);
-    expect(levelY(10, 60)).toBeGreaterThan(0.5);
-    expect(levelY(-10, 60)).toBeLessThan(0.5);
-    // At 30° up in a 60° view the level horizon is on the bottom edge.
-    expect(levelY(30, 60)).toBeCloseTo(1, 9);
-  });
-});
-
 describe('the days on the paths', () => {
   type Box = { left: number; top: number; right: number; bottom: number };
   const at = (left: number, top: number, right: number, bottom: number): Box => ({ left, top, right, bottom });
@@ -293,6 +283,7 @@ describe('the days on the paths', () => {
       earth: { x: 0.57, y: 0.43, visible: earthNamed },
       stars: [],
       lander: null,
+      level: { x: 0.012, y: 0.57, visible: true },
       marks: CHIPS.map(([text], k) => ({ text, x: 0.1 + 0.1 * k, y: 0.3, visible: true })),
     });
     const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
@@ -485,5 +476,115 @@ describe('the paths’ names', () => {
     } finally {
       rect.mockRestore();
     }
+  });
+});
+
+describe('the guides', () => {
+  const props = (guides: boolean, r: RendererLike) => {
+    const scene: StandScene = { field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series: northSeries, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky: { ...noStars, names: [{ index: 0, name: 'Sirius' }] }, lander: { azDeg: 30, distM: 16, powered: Uint8Array.from([1, 1, 1]) }, marks: [{ hour: 1, body: 'sun', text: 'Sunset, 3 Jan' }] };
+    return { scene, hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun 2.0° up', earthLabel: 'Earth 3.0° up', night: true, onFail: vi.fn(), guides };
+  };
+  const labels = (): SkyLabels => ({
+    sun: { x: 0.5, y: 0.45, visible: true },
+    earth: { x: 0.7, y: 0.4, visible: true },
+    stars: [{ name: 'Sirius', x: 0.3, y: 0.2, visible: true }],
+    lander: { x: 0.2, y: 0.6, visible: true },
+    shadow: { x: 0.5, y: 0.8, visible: true, lengthM: 40, levelM: 40 },
+    level: { x: 0.1, y: 0.5, visible: true },
+    marks: [{ text: 'Sunset, 3 Jan', x: 0.3, y: 0.3, visible: true }],
+    pathNames: [
+      { body: 'sun', text: "Sun's path this month", x: 0.4, y: 0.55, visible: true },
+      { body: 'earth', text: "Earth's path this month", x: 0, y: 0, visible: false },
+    ],
+  });
+  const shown = (el: Element | null | undefined) => !!el && !(el as HTMLElement).hidden;
+  const guideLabels = () => [
+    document.querySelector('[data-path-mark]'),
+    document.querySelector('[data-path-name="sun"]'),
+    [...document.querySelectorAll('span')].find((n) => n.textContent === 'Level horizon'),
+    [...document.querySelectorAll('span')].find((n) => n.textContent === starLabel('Sirius')),
+    [...document.querySelectorAll('span')].find((n) => n.textContent?.startsWith('Your shadow')),
+  ];
+
+  it('without the guides, leaves out the days on the paths, their names, the level horizon’s name, the star names at night and your shadow, and keeps the Sun, Earth, the lander and the rings', async () => {
+    const setGuides = vi.fn();
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn(), setGuides };
+    const view = render(createElement(StandCanvas, props(false, r)));
+    await waitFor(() => expect(shown(document.querySelector('[data-sky="sun"]'))).toBe(true));
+    expect(setGuides).toHaveBeenLastCalledWith(false, true, true);
+    expect(shown(document.querySelector('[data-sky="earth"]'))).toBe(true);
+    expect(shown([...document.querySelectorAll('span')].find((n) => n.textContent === 'The lander, 16 m away'))).toBe(true);
+    for (const el of guideLabels()) expect(shown(el)).toBe(false);
+    view.rerender(createElement(StandCanvas, props(true, r)));
+    await waitFor(() => expect(shown(document.querySelector('[data-path-mark]'))).toBe(true));
+    expect(setGuides).toHaveBeenLastCalledWith(true, true, true);
+    for (const el of guideLabels()) expect(shown(el)).toBe(true);
+    // Hidden with the words, the rings too.
+    view.rerender(createElement(StandCanvas, { ...props(true, r), clean: true }));
+    await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(false, true, false));
+  });
+
+  it('names the bright stars with the guides at night, and whenever the view looks well up', () => {
+    expect(starsNamed(true, true, 2)).toBe(true);
+    expect(starsNamed(false, true, 2)).toBe(false);
+    expect(starsNamed(true, false, 2)).toBe(false);
+    expect(starsNamed(false, false, 30)).toBe(true);
+  });
+
+  it('puts the level horizon’s name where the renderer finds the line clear of the hills, and leaves it out where it finds none', async () => {
+    let level: SkyLabels['level'] = { x: 0.31, y: 0.52, visible: true };
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels: () => ({ ...labels(), level }), dispose: vi.fn() };
+    render(createElement(StandCanvas, props(true, r)));
+    const name = [...document.querySelectorAll<HTMLElement>('span')].find((n) => n.textContent === 'Level horizon')!;
+    await waitFor(() => expect(name.hidden).toBe(false));
+    expect([name.style.left, name.style.top]).toEqual(['31%', '52%']);
+    level = null;
+    await waitFor(() => expect(name.hidden).toBe(true));
+  });
+
+  it('sets the names on plates near opaque, so no path line shows through them', () => {
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
+    render(createElement(StandCanvas, props(true, r)));
+    for (const sel of ['[data-sky="sun"]', '[data-sky="earth"]', '[data-path-mark]', '[data-path-name="sun"]', '[data-pointer="earth"]']) expect(document.querySelector(sel)!.className).toContain('bg-black/90');
+  });
+
+  it('counts the phone’s facing chip as a panel, so the labels keep off it', () => {
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
+    render(createElement(StandCanvas, props(true, r)));
+    const phone = [...document.querySelectorAll<HTMLElement>('p')].find((p) => p.textContent?.startsWith('Facing') && p.classList.contains('md:hidden'))!;
+    expect(phone.hasAttribute('data-plate')).toBe(true);
+  });
+});
+
+describe('a day or a path’s name beside its own body', () => {
+  it('gives way within 24 px of its own body’s label, never for the other body’s', () => {
+    expect(OWN_CLEAR).toBe(24);
+    const earth = { left: 500, top: 300, right: 660, bottom: 328 };
+    expect(inflate(earth, 24)).toEqual({ left: 476, top: 276, right: 684, bottom: 352 });
+    const zones = { earth: inflate(earth, OWN_CLEAR) };
+    const near = { left: 670, top: 300, right: 820, bottom: 328 }, far = { left: 690, top: 300, right: 840, bottom: 328 };
+    expect(clearOfOwn([near, far, near, null], ['earth', 'earth', 'sun', 'earth'], zones)).toEqual([null, far, near, null]);
+  });
+});
+
+describe('the compass letters', () => {
+  it('fade whole: shown from 40 px in from either end of the strip, gone before any part of a letter reaches the end', () => {
+    expect(letterFade(150, 6)).toBe(1);
+    expect(letterFade(46, 6)).toBe(1);
+    expect(letterFade(26, 6)).toBeCloseTo(0.5, 9);
+    expect(letterFade(6, 6)).toBe(0);
+    expect(letterFade(2, 6)).toBe(0);
+    expect(letterFade(300 - 26, 6)).toBeCloseTo(0.5, 9);
+    expect(letterFade(400, 6)).toBe(0);
+  });
+
+  it('sets each letter’s opacity as the view turns: facing north, N whole in the middle and E and W gone', async () => {
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels: () => ({ sun: { x: 0.5, y: 0.45, visible: true }, earth: { x: 0, y: 0, visible: false }, stars: [], lander: null }), dispose: vi.fn() };
+    const scene: StandScene = { field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series: northSeries, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky: noStars };
+    render(createElement(StandCanvas, { scene, hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun 2.0° up', earthLabel: 'Earth 3.0° up', night: false, onFail: vi.fn() }));
+    const letters = () => [...document.querySelectorAll<HTMLElement>('[data-point]')];
+    await waitFor(() => expect(r.render).toHaveBeenCalled());
+    await waitFor(() => expect(letters().some((n) => n.textContent === 'N' && n.style.opacity === '1')).toBe(true));
+    for (const n of letters().filter((n) => n.textContent === 'E' || n.textContent === 'W')) expect(n.style.opacity).toBe('0');
   });
 });
