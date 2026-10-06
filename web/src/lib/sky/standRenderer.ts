@@ -454,7 +454,12 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // blue, which comes only with Earth), from the sky above and next to none from the ground below (NIGHT.SKY), so the
   // rocks' and the lander's tops are lighter than their sides, as the ground is lit (17.5).
   const fillLight = new THREE.HemisphereLight(0xc4c6ca, 0x060607, 0);
-  root.add(sunLight, sunLight.target, skyLight, earthLight, fillLight);
+  // A faint key light at night, from 50° up and 90° round from the Sun's place, a third of the fill's share of the sky
+  // (NIGHT.KEY against NIGHT.SKY): under the hemisphere alone every side of a stone took the same light and a near one
+  // read as a loaf; the key gives the stones' facets and the lander's edges a lit side and a shaded one (18.4). Off
+  // by day, when the Sun does that. The measured ground takes no light from it: its shader lights itself.
+  const keyLight = new THREE.DirectionalLight(0xc4c6ca, 0);
+  root.add(sunLight, sunLight.target, skyLight, earthLight, fillLight, keyLight, keyLight.target);
   // In flight (the home page's arrival) the camera is no one standing at the site: no person's shadow at its feet.
   if (flight) for (const g of ground) (g.material as THREE.ShaderMaterial).uniforms.uViewer.value.set(1e9, 0, 1e9);
   if (lander) {
@@ -576,11 +581,15 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     earthLight.intensity = 0.5 * earthshine;
     // NIGHT.SKY times as strong as the flat fill was: a top faces all of the sky, an upright side half of it.
     fillLight.intensity = 0.03 + NIGHT.SKY * night;
+    keyLight.intensity = NIGHT.KEY * night;
   }
   function update(t: number) {
     const v = sampleSeries(scene.series, t);
     const sd = dirAzEl(v.sunAz, v.sunEl), ed = dirAzEl(v.earthAz, v.earthEl);
     sunDir.set(...sd);
+    // The night's key light stands 90° round from the Sun's azimuth, 50° up, aimed at the site (18.4).
+    const kd = dirAzEl(v.sunAz + 90, 50);
+    keyLight.position.set(kd[0] * 100, kd[1] * 100, kd[2] * 100);
     sun.position.set(sd[0] * RS, sd[1] * RS, sd[2] * RS);
     glare.position.copy(sun.position);
     // The month of each path round the hour; a ring where a hidden Sun or Earth sits, on the hill that hides it.
@@ -940,7 +949,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     rings.visible = ringsOn;
   };
 
-  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
+  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, keyLight, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
 /**
@@ -959,6 +968,13 @@ const BLENDED = { transparent: false, blending: THREE.CustomBlending, blendSrc: 
 
 /** The camera's exposure setting, before it stops down for bright ground (see the scene's exposure). */
 const EXPOSURE = 1.05;
+/** "Brighter picture" (18.3): one stop more, for projectors and bright rooms. */
+const BRIGHT_GAIN = 2;
+
+/** The tone mapping's exposure for a frame: the camera's setting, doubled for a brighter picture, times the scene's own stopping down. */
+export function toneExposure(bright: boolean, sceneExposure: number): number {
+  return EXPOSURE * (bright ? BRIGHT_GAIN : 1) * sceneExposure;
+}
 
 /**
  * The WebGL side: the renderer, bloom for the Sun, and its pacing. No frame is queued while the graphics
@@ -1017,6 +1033,14 @@ export class StandRenderer {
   private guides = true;
   private level = true;
   private rings = true;
+  /** "Brighter picture" (18.3): the exposure doubled for projectors and bright rooms. */
+  private bright = false;
+
+  /** A brighter picture for projectors and bright rooms: twice the exposure (18.3), or back to the camera's setting. */
+  setBright(on: boolean) {
+    this.bright = on;
+    this.renderer.toneMappingExposure = toneExposure(on, 1);
+  }
 
   constructor(canvas: HTMLCanvasElement, scene: StandScene) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -1025,7 +1049,7 @@ export class StandRenderer {
     this.pixelRatio = this.sharpRatio = this.drawnRatio = scene.quality === 'fast' ? 0.75 : Math.min(window.devicePixelRatio || 1, 1.5);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = EXPOSURE;
+    this.renderer.toneMappingExposure = toneExposure(this.bright, 1);
     // Heights go to the GPU as float32 where it can filter them, else as half floats.
     this.half = !this.renderer.extensions.has('OES_texture_float_linear');
     this.built = buildScene(scene, { halfFloat: this.half });
@@ -1160,8 +1184,9 @@ export class StandRenderer {
 
   /** Draws the frame and sets a fence after it. */
   private draw() {
-    // The camera stops down looking down-Sun at the sunlit ground (the output pass reads this exposure).
-    this.renderer.toneMappingExposure = EXPOSURE * this.built.exposure();
+    // The camera stops down looking down-Sun at the sunlit ground (the output pass reads this exposure); a brighter
+    // picture doubles it.
+    this.renderer.toneMappingExposure = toneExposure(this.bright, this.built.exposure());
     this.composer.render();
     const gl = this.renderer.getContext() as WebGL2RenderingContext;
     this.fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);

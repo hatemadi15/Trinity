@@ -62,7 +62,7 @@ export function hiddenShare(tanSun: number, tanDip: number, cosPlan: number): nu
  * SKY is the hemisphere light over the rocks and the lander at night, in units of the old flat fill: a top gets SKY
  * times it, an upright side half, an underside next to none.
  */
-export const NIGHT = { POWER: 4, BOWL: 6, NEAR_M: 1.5, FAR_M: 3.5, SEEN: [0.3, 1.6], GAIN: 1.09, SKY: 1.6 } as const;
+export const NIGHT = { POWER: 4, BOWL: 6, NEAR_M: 1.5, FAR_M: 3.5, SEEN: [0.3, 1.6], GAIN: 1.09, SKY: 1.6, KEY: 0.55 } as const;
 
 export const GROUND_VERT = /* glsl */ `
 varying vec3 vWorld; varying vec3 vNormal;

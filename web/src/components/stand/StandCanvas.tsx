@@ -5,7 +5,7 @@ import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
 import { EARTH_LOOP, shadowWords, starLabel } from '@/lib/viz/stand';
 
-export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void };
+export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void; setBright?: (on: boolean) => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget {
   yaw: number;
