@@ -5,6 +5,18 @@ import { hiddenShadowShare, SHADOW_GLSL } from './shadowRule';
 
 describe('the ground shader', () => {
 
+  it('marches the next level at its own mesh\u2019s steps, and starts the flight level\u2019s ray on its own heights (the final review)', () => {
+    // In step: the next level's samples run from its first step at the same growth, not at the finer mesh's steps.
+    expect(SHADOW_GLSL).toContain('tb = tB;');
+    expect(SHADOW_GLSL).toContain('heightAt(p.xz + dir * tb, 1)');
+    expect(SHADOW_GLSL).toContain('tb *= uGrowth;');
+    // The flight level's mesh, at every other cell, can miss its 240 m heights by tens of metres: the ray starts on them.
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toContain('vec3 ray0 = vWorld + N0 * 0.4;');
+    expect(main).toContain('if (uPixel > 0.5) ray0.y = heightAt(vWorld.xz, 0) + 0.4 * N0.y;');
+    expect(main).toContain('sunMargins(ray0, uSun, edge > 0.0)');
+  });
+
   it('lights the night ground by the sky it sees: slopes by how much they face up, bowls darker than their rims, in one bounded loop', () => {
     const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
     expect(main).toContain('float skySeen = 1.0;');
@@ -125,7 +137,8 @@ describe('the ground shader', () => {
 
   it('starts the shadow ray from the measured ground, not from the drawn craters', () => {
     expect(GROUND_FRAG).toContain('vec3 N0 = normalize(vNormal), Nn = N0;');
-    expect(GROUND_FRAG).toContain('sunMargins(vWorld + N0 * 0.4, uSun, edge > 0.0)');
+    expect(GROUND_FRAG).toContain('vec3 ray0 = vWorld + N0 * 0.4;');
+    expect(GROUND_FRAG).toContain('sunMargins(ray0, uSun, edge > 0.0)');
   });
 
   it('keeps every star below the bloom threshold, so only the Sun blooms', () => {

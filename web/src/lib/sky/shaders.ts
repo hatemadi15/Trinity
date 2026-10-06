@@ -271,8 +271,12 @@ void main() {
   float skySeen = 1.0; // at night, how much more or less of the sky a point sees than open level ground (bowls less, rims more)
   bool facing = dot(N0, Ls) > 0.0;
   if (facing) {
-    // The shadows fade the same way: the next level's from its own ground, mixed in over the ring.
-    vec2 mt = sunMargins(vWorld + N0 * 0.4, uSun, edge > 0.0);
+    // The shadows fade the same way: the next level's from its own ground, mixed in over the ring. The ray starts on
+    // the mesh's own ground: for the flight level, drawn at every other cell, on its 240 m heights, which its mesh can
+    // miss by tens of metres at a crater's rim.
+    vec3 ray0 = vWorld + N0 * 0.4;
+    if (uPixel > 0.5) ray0.y = heightAt(vWorld.xz, 0) + 0.4 * N0.y;
+    vec2 mt = sunMargins(ray0, uSun, edge > 0.0);
     mTerrain = mix(mt.x, mt.y, edge);
     if (uLanderOn > 0.5) mLander = landerClearance(toLander(vWorld + N0 * 0.05 - uLanderCenter), toLander(Ls));
     mViewer = viewerClearance(vWorld + N0 * 0.05, Ls);

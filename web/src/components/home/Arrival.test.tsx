@@ -171,6 +171,16 @@ describe('the arrival', () => {
     expect(screen.getByText(/^Scroll to fly down/).className).toMatch(/\bmax-sm:hidden\b/);
   });
 
+  it('on a phone keeps Skip under the date bar once landed, and at the top right before (the final review)', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    scrolled(2);
+    expect(screen.getByRole('button', { name: 'Skip' }).className).toMatch(/\bmax-sm:top-4\b/);
+    scrolled(4);
+    const skip = screen.getByRole('button', { name: 'Skip' });
+    expect(skip.className).toContain('max-sm:top-[88px]');
+    expect(skip.className).not.toMatch(/\bmax-sm:top-4\b/);
+  });
+
   it('follows the scroll: each screen is its beat’s stop, and Skip shows only between the first screen and the last', () => {
     render(<Arrival words={words} Stage={Stage} />);
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();

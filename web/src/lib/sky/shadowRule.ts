@@ -80,14 +80,16 @@ vec3 slopeNormal(sampler2D t, vec3 L, vec2 S, vec2 m, float k) {
 vec2 sunMargins(vec3 p, vec3 sun, bool both) {
   float horiz = length(sun.xz); float elSun = atan(sun.y, horiz); vec2 dir = sun.xz / horiz;
   float maxA = -10.0, maxB = -10.0; float t = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz, 0));
-  float yB = p.y, tB = 1.0e9;
-  if (both) { yB = heightAt(p.xz, 1) + (p.y - heightAt(p.xz, 0)); tB = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz, 1)); }
+  float yB = p.y, tB = 1.0e9, tb = 1.0e9;
+  if (both) { yB = heightAt(p.xz, 1) + (p.y - heightAt(p.xz, 0)); tB = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz, 1)); tb = tB; }
   for (int i = 0; i < ${SHADOW.STEPS} * uOne; i++) {
     if (i >= uSteps) break;
     vec2 q = p.xz + dir * t;
     float h = heightAt(q, 0); if (h < ${SHADOW.OUTSIDE_BELOW_M.toFixed(1)}) break;
     maxA = max(maxA, (h - p.y - ${SHADOW.TOL_M}) / t);
-    if (t >= tB) maxB = max(maxB, (heightAt(q, 1) - yB - ${SHADOW.TOL_M}) / t);
+    // The next level's samples at its own mesh's steps (from its first step on, at the same growth), so the margin
+    // at the cut is the one that mesh works out for itself.
+    if (t >= tB) { maxB = max(maxB, (heightAt(p.xz + dir * tb, 1) - yB - ${SHADOW.TOL_M}) / tb); tb *= uGrowth; }
     t *= uGrowth; if (t > ${SHADOW.MAX_M.toFixed(1)}) break;
   }
   return vec2(elSun - atan(maxA), elSun - atan(maxB));

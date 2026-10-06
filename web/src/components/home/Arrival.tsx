@@ -168,7 +168,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
         )}
       </div>
       {(moving || playing) && !capture && (
-        <button type="button" onClick={land} className="btn fixed bottom-6 right-6 z-20 border-white/30 bg-black/70 max-sm:bottom-auto max-sm:top-4">
+        <button type="button" onClick={land} className={`btn fixed bottom-6 right-6 z-20 border-white/30 bg-black/70 max-sm:bottom-auto ${landedAt(beat) ? 'max-sm:top-[88px]' : 'max-sm:top-4'}`}>
           Skip
         </button>
       )}
