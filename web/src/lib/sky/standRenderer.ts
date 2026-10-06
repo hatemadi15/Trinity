@@ -18,7 +18,7 @@ import { FramePacer } from './framePacer';
 import { cachedTexture, releaseCachedTextures } from './textureCache';
 import { placeStars, starColour, starGain, starSize } from './stars';
 import { LANDER } from './landerShape';
-import { buildLander } from './landerMesh';
+import { buildLander, landerDust } from './landerMesh';
 import { buildGround, STAND_REACH_M } from './groundLevels';
 import { boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
 import { heightAt, meshHeightAt, type TerrainField } from './terrainField';
@@ -626,6 +626,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       // Lit green with power; off, a dark bead that still shows where the light is.
       if (Number(scene.lander!.powered[h]) === 1) lander.lamp.color.setHex(0x46c98b).multiplyScalar(LAMP_GLOW);
       else lander.lamp.color.setHex(0x2b2e2c);
+      // The sunlit dust below fills its shaded sides by day (LANDER_LIGHT.DUST); at night the dust is not lit.
+      lander.dust.value = landerDust(v.sunFraction);
     }
     sunNow = v.sunFraction;
     sunElNow = v.sunEl;
@@ -930,7 +932,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     rings.visible = ringsOn;
   };
 
-  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
+  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
 /**

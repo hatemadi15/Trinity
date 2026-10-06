@@ -6,6 +6,7 @@ import type { GlobeAssets } from '@/lib/data/globe';
 import { R_MOON_M } from '@/lib/engine/constants';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { NIGHT } from './shaders';
+import { LANDER_LIGHT } from './landerMesh';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS } from './boulders';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
@@ -62,9 +63,13 @@ describe('the stand scene', () => {
     expect(fill).toBeInstanceOf(THREE.HemisphereLight);
     expect(fill.groundColor.getHex()).toBe(0x060607);
     expect(fill.intensity).toBeCloseTo(0.03 + NIGHT.SKY * 0.35, 6);
+    // The sunlit dust's fill in the lander's shade: none at night, three times the rest of the view by day.
+    expect(s.parts.landerDust!.value).toBe(1);
     const day = buildScene(flat({ lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
     day.update(0);
     expect((day.parts.landerFill as THREE.HemisphereLight).intensity).toBeCloseTo(0.03, 6);
+    expect(day.parts.landerDust!.value).toBe(LANDER_LIGHT.DUST);
+    expect(buildScene(flat()).parts.landerDust).toBeNull();
   });
   it('puts the Sun, Earth and stars on the sky sphere, in the directions of the hour', () => {
     const s = buildScene(flat());
