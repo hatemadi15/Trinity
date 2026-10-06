@@ -16,24 +16,46 @@ export interface Boulder {
 /** How many, how far out (metres), how big (radius, metres), and the most the ground shader takes. */
 export const BOULDERS = { COUNT: 14, NEAR_M: 6, FAR_M: 45, R_MIN: 0.15, R_MAX: 0.6, MAX: 16 } as const;
 
-/** Height over radius: the boulders are a little flattened, as rocks that have settled. */
-const FLAT = 0.7;
-/**
- * How far the middle of a boulder sits above the ground, in its half-heights, from the least to the most: the rest
- * is sunk, a third to a quarter of its height bedded in the dust.
- */
-const LIFT = { MIN: 0.32, MAX: 0.5 } as const;
 /** The share of the boulders that are long, and how long: their length over their width. */
 const LONG = { SHARE: 0.3, MIN: 1.35, MAX: 1.75 } as const;
+/** A boulder's kind: an angular block, a rounded lump or a low slab. */
+export type RockKind = 'block' | 'lump' | 'slab';
 /**
- * A boulder's shape: a block broken from bedrock, bounded by flat fracture faces that meet in sharp edges. Its planes:
- * three pairs of faces, each turned up to TURN radians from square, 0.8 to 1 out from the middle; BREAKS to BREAKS + 2
- * planes across its corners and edges, BREAK to BREAK + 0.15 out, where pieces broke away; and FLAKES planes facing
- * anywhere, FLAKE to FLAKE + 0.12 out, where smaller flakes came off (three in four of them). A plane within APART
- * radians of one before it is left out, so no two faces meet nearly flat. Each face is cut into small triangles, DIVIDE
- * along each side of the triangles it fans into from its middle: enough corners for its patches and bumps (SURFACE).
+ * Each kind of boulder: its share of them; how many fracture planes cut it (`planes`, from the fewest to the most) and
+ * how far out from its middle they lie (`dist`, in its own size); how far its edges and corners are rounded off (`edge`:
+ * where two or three faces meet, the surface turns over about that much of its size, while each face stays flat away
+ * from its edges); how much its whole surface swells and dents (`noise`, a share of its size, in slow swells about one
+ * across it), so no edge runs straight and no face is a true plane; its height over its radius (`flat`); and how far its
+ * middle sits above the ground (`lift`, in its half-heights, from the least to the most), so a third (0.33) to a half
+ * (0) of its height is bedded in the dust.
  */
-const ROCK = { TURN: 0.35, BREAKS: 3, BREAK: 0.8, FLAKES: 4, FLAKE: 0.84, APART: 0.26, DIVIDE: 10 } as const;
+export const KINDS: Record<RockKind, { share: number; planes: [number, number]; dist: [number, number]; edge: number; noise: number; flat: number; lift: [number, number] }> = {
+  block: { share: 0.5, planes: [11, 14], dist: [0.62, 1], edge: 0.035, noise: 0.035, flat: 0.75, lift: [0.15, 0.33] },
+  lump: { share: 0.3, planes: [9, 11], dist: [0.8, 1], edge: 0.12, noise: 0.06, flat: 0.7, lift: [0.05, 0.25] },
+  slab: { share: 0.2, planes: [9, 12], dist: [0.7, 1], edge: 0.05, noise: 0.03, flat: 0.42, lift: [0.2, 0.33] },
+};
+/** The kind for a random number from 0 to 1, by the kinds' shares. */
+function kindOf(u: number): RockKind {
+  const names = Object.keys(KINDS) as RockKind[];
+  for (const name of names) {
+    if (u < KINDS[name].share) return name;
+    u -= KINDS[name].share;
+  }
+  return names[names.length - 1];
+}
+/**
+ * How a rock's planes are drawn (rockPlanes): each the best of CANDIDATES directions at random, the one farthest from
+ * the planes so far, so they spread all round it; none within APART radians of another's direction (no two faces meet
+ * nearly flat) nor within ANTI radians of another's opposite (no two faces parallel, as a box's are); and every direction
+ * within acos(COVER) of some plane's, else a plane is added facing it, so the rock is closed all round and has no long
+ * spike (a plane added so lies far from every other's direction, but may lie near one's opposite). Each face is cut
+ * into small triangles, DIVIDE along each side of the triangles it fans into from its middle: enough corners for the
+ * rounding, the swells, the patches and the bumps. NOISE_F is how fine the swells are, per radius: about one swell
+ * across the rock.
+ */
+export const ROCK = { CANDIDATES: 2, APART: 0.42, ANTI: 0.36, COVER: 0.5, DIVIDE: 10, NOISE_F: 1.3 } as const;
+/** A rock's grey over the dust's, from the least to the most: fresh rock, a shade lighter than the dust round it. */
+const SHADE = [1.0, 1.15] as const;
 /** How near, in a rock's own size, two of its corners are taken to be one, or a corner to lie on a plane. */
 const EPS = 1e-6;
 /**
@@ -213,49 +235,99 @@ function facets({ corners, faces }: Solid, n: number): THREE.BufferGeometry {
 }
 
 /**
- * A rock's shape, fitted to the box from -1 to 1 on each axis: a block broken from bedrock, its faces flat fracture
- * planes meeting in sharp edges and corners (ROCK): three pairs of faces off square and at their own distances, a few
- * planes across its corners and edges where pieces broke away, and a few smaller flakes. Its numbers come from `next`
- * in the order they always have, so each rock's size, turn, tilt, bedding and shade, drawn after them, stay as they were.
+ * 48 directions spread evenly over the sphere (a Fibonacci lattice): a rock is closed all round when each of them lies
+ * within acos(COVER) of one of its planes' directions.
  */
-function rockShape(next: () => number): THREE.BufferGeometry {
+const ALL_ROUND = Array.from({ length: 48 }, (_, i) => {
+  const z = 1 - (2 * i + 1) / 48, s = Math.sqrt(1 - z * z), t = i * Math.PI * (3 - Math.sqrt(5));
+  return new THREE.Vector3(s * Math.cos(t), z, s * Math.sin(t));
+});
+
+/**
+ * The planes a rock is cut by, before its solid is made (ROCK): its kind's number of them, each facing a direction at
+ * random (the best of a few, so they spread all round it, none near another's direction or its opposite) and lying its
+ * kind's distance out; then one facing each direction of ALL_ROUND that no plane yet faces within acos(COVER), marked
+ * `closing`, so the rock is closed all round.
+ */
+export function rockPlanes(next: () => number, kind: RockKind): { n: THREE.Vector3; d: number; closing: boolean }[] {
+  const { planes: range, dist } = KINDS[kind];
   // A direction at random, evenly over the sphere.
   const anyWay = () => {
     const z = 2 * next() - 1, t = 2 * Math.PI * next(), s = Math.sqrt(1 - z * z);
     return new THREE.Vector3(s * Math.cos(t), z, s * Math.sin(t));
   };
-  const planes: Plane[] = [];
-  // A plane nearly as one before it (within APART) would meet it nearly flat: it is left out.
-  const cut = (n: THREE.Vector3, d: number) => {
-    if (planes.every((p) => p.n.dot(n) < Math.cos(ROCK.APART))) planes.push({ n, d });
-  };
-  for (const axis of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const) {
-    // A face, turned from square towards a direction at random.
-    const n = new THREE.Vector3(...axis), side = anyWay(), turn = ROCK.TURN * next();
-    side.addScaledVector(n, -side.dot(n)).normalize();
-    cut(n.multiplyScalar(Math.cos(turn)).addScaledVector(side, Math.sin(turn)), 0.8 + 0.2 * next());
+  const planes: { n: THREE.Vector3; d: number; closing: boolean }[] = [];
+  const count = range[0] + Math.floor((range[1] - range[0] + 1) * next());
+  const cosApart = Math.cos(ROCK.APART), cosAnti = Math.cos(ROCK.ANTI);
+  const distance = () => dist[0] + (dist[1] - dist[0]) * next();
+  // At most 30 tries: the more planes there are, the rarer a direction clear of them all.
+  for (let tries = 0; planes.length < count && tries < 30; tries++) {
+    // The best of a few directions: the farthest from the planes so far, not nearly as one nor opposite to one.
+    let best: THREE.Vector3 | null = null, gap = -2;
+    for (let c = 0; c < ROCK.CANDIDATES; c++) {
+      const n = anyWay();
+      let nearest = -1, ok = true;
+      for (const p of planes) {
+        const dot = p.n.dot(n);
+        if (dot > cosApart || dot < -cosAnti) ok = false;
+        nearest = Math.max(nearest, dot);
+      }
+      if (ok && -nearest > gap) {
+        best = n;
+        gap = -nearest;
+      }
+    }
+    if (best) planes.push({ n: best, d: distance(), closing: false });
   }
-  // The breaks: across a corner (three faces) or an edge (two) at random, off square to it.
-  const breaks = ROCK.BREAKS + Math.floor(3 * next());
-  for (let k = 0; k < breaks; k++) {
-    const across = new THREE.Vector3(next() < 0.5 ? -1 : 1, next() < 0.5 ? -1 : 1, next() < 0.5 ? -1 : 1);
-    if (next() < 0.5) across.setComponent(Math.floor(3 * next()), 0);
-    const n = across.normalize().addScaledVector(anyWay(), 0.3).normalize();
-    cut(n, ROCK.BREAK + 0.15 * next());
+  // Closed all round: a direction no plane faces within acos(COVER) gets a plane of its own.
+  for (const u of ALL_ROUND) if (planes.every((p) => p.n.dot(u) < ROCK.COVER)) planes.push({ n: u.clone(), d: distance(), closing: true });
+  return planes;
+}
+
+/**
+ * A rock's shape, fitted to the box from -1 to 1 on each axis: a stone, not a box. Its kind's planes cut it (rockPlanes),
+ * so its outline is irregular from every side; its edges and corners are rounded off (the kind's `edge`: each corner of
+ * the cut solid moved in along its own direction from the middle onto the surface where the planes' smooth maximum,
+ * k ln sum exp((n.x - d) / k), is nought, which is the solid itself in a face's middle and rounded where faces meet);
+ * then its whole surface swells and dents in slow noise (by up to the kind's `noise`, about one swell across it:
+ * NOISE_F), so no edge runs straight. Both move each corner along its own direction by its place alone, so a corner two
+ * faces share stays shared and no crack opens. Its numbers come from `next`: its planes first, then its swells.
+ */
+export function rockShape(next: () => number, kind: RockKind): THREE.BufferGeometry {
+  const planes = rockPlanes(next, kind), { edge: k, noise: swells } = KINDS[kind];
+  const geo = facets(solidOf(planes), ROCK.DIVIDE);
+  const swell = noise(Math.floor(next() * 4294967296)), pos = geo.getAttribute('position'), v = new THREE.Vector3(), f = ROCK.NOISE_F;
+  const along = planes.map(() => 0);
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    let t = v.length();
+    v.divideScalar(t);
+    // Newton's way in, six steps, from the cut solid's corner (where the smooth maximum is nought or more) to where it
+    // is nought.
+    planes.forEach((p, j) => (along[j] = p.n.dot(v)));
+    for (let it = 0; it < 6; it++) {
+      let top = -Infinity;
+      for (let j = 0; j < planes.length; j++) top = Math.max(top, (t * along[j] - planes[j].d) / k);
+      let sum = 0, slope = 0;
+      for (let j = 0; j < planes.length; j++) {
+        const w = Math.exp((t * along[j] - planes[j].d) / k - top);
+        sum += w;
+        slope += w * along[j];
+      }
+      t -= (k * (top + Math.log(sum))) / (slope / sum);
+    }
+    // The swells: two octaves of the noise over its direction, the noise's grid set off from the rock's middle.
+    t *= 1 + swells * octaves(swell, f * v.x + 3.1, f * v.y + 7.7, f * v.z + 1.3, 2);
+    pos.setXYZ(i, v.x * t, v.y * t, v.z * t);
   }
-  // The flakes: how deep this rock's go, then each one's way, depth and whether it came off at all.
-  const deep = next();
-  for (let k = 0; k < ROCK.FLAKES; k++) {
-    const n = anyWay(), d = ROCK.FLAKE + 0.06 * deep + 0.06 * next();
-    if (next() < 0.75) cut(n, d);
-  }
-  const solid = solidOf(planes);
-  // Fitted to its box: its size, its proportions and how deep it lies are set where it is placed.
-  const box = new THREE.Box3().setFromPoints(solid.corners), mid = box.getCenter(new THREE.Vector3()), half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
-  for (const x of solid.corners) x.sub(mid).divide(half);
-  const geo = facets(solid, ROCK.DIVIDE);
+  // Fitted to its box: its size, its proportions and how deep it lies are set where it is placed. The box it was fitted
+  // from is kept with the shape (userData.fittedFrom), so a corner can be taken back to where its planes cut it.
+  geo.computeBoundingBox();
+  const box = geo.boundingBox!.clone(), mid = box.getCenter(new THREE.Vector3()), half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+  for (let i = 0; i < pos.count; i++) pos.setXYZ(i, (pos.getX(i) - mid.x) / half.x, (pos.getY(i) - mid.y) / half.y, (pos.getZ(i) - mid.z) / half.z);
   geo.computeBoundingBox();
   geo.computeVertexNormals();
+  geo.userData.fittedFrom = box;
   return geo;
 }
 
@@ -300,13 +372,14 @@ function rockSurface(geo: THREE.BufferGeometry, seed: number) {
 }
 
 /**
- * The boulders' meshes: angular broken blocks, flat faces meeting in sharp edges (rockShape), with a rock's surface
- * (rockSurface: patches lighter and darker, small bumps), in the dust's grey a shade lighter or darker rock by rock;
- * as wide as their radius (about one in three long, as big but up to 1.75 times as long as it is wide), a little
- * flattened and tilted, each sunk a quarter to a third of its height into the ground at `groundY(x, z)` so it never
- * floats; and for each a sphere (centre and radius, in a Vector4) that stands for it in the ground shader's shadows:
- * over its middle, its top at the rock's highest point as it lies, three quarters of its radius wide, so no wider
- * than the rock's narrower side.
+ * The boulders' meshes: stones of three kinds (KINDS: angular blocks, rounded lumps and low slabs, each rock's kind
+ * drawn by their shares), irregular from every side, their edges rounded a little and never running straight
+ * (rockShape), with a rock's surface (rockSurface: patches lighter and darker, small bumps), fresh rock a shade lighter
+ * than the dust (SHADE), each mesh named `rock-<kind>`; as wide as their radius (about one in three long, as big but up
+ * to 1.75 times as long as it is wide), flattened by their kind and tilted, each bedded a third to a half of its height
+ * into the ground at `groundY(x, z)` so it never floats; and for each a sphere (centre and radius, in a Vector4) that
+ * stands for it in the ground shader's shadows: over its middle, its top at the rock's highest point as it lies, three
+ * quarters of its radius wide, so no wider than the rock's narrower side.
  */
 export function boulderMeshes(list: Boulder[], groundY: (x: number, z: number) => number, seed: number): { group: THREE.Group; spheres: THREE.Vector4[] } {
   const next = seeded(seed ^ 0x9e3779b9);
@@ -316,18 +389,21 @@ export function boulderMeshes(list: Boulder[], groundY: (x: number, z: number) =
   const spheres: THREE.Vector4[] = [];
   const v = new THREE.Vector3();
   for (const b of list) {
-    const geo = rockShape(next);
+    // Its kind first, then its shape.
+    const kind = kindOf(next()), { flat, lift } = KINDS[kind];
+    const geo = rockShape(next, kind);
     rockSurface(geo, Math.floor(surfaces() * 4294967296));
     const pos = geo.getAttribute('position');
-    const shade = 0.9 + 0.2 * next();
+    const shade = SHADE[0] + (SHADE[1] - SHADE[0]) * next();
     const material = new THREE.MeshStandardMaterial({ color: new THREE.Color(0x8b8781).multiplyScalar(shade), roughness: 1, metalness: 0, vertexColors: true });
     const mesh = new THREE.Mesh(geo, material);
+    mesh.name = `rock-${kind}`;
     // Its length over its width, its area kept.
     const long = next() < LONG.SHARE ? LONG.MIN + (LONG.MAX - LONG.MIN) * next() : 0.9 + 0.2 * next();
-    const hh = FLAT * b.r * (0.85 + 0.3 * next()), g = groundY(b.x, b.z);
+    const hh = flat * b.r * (0.85 + 0.3 * next()), g = groundY(b.x, b.z);
     mesh.scale.set(b.r * Math.sqrt(long), hh, b.r / Math.sqrt(long));
     mesh.rotation.set((next() - 0.5) * 0.25, next() * 2 * Math.PI, (next() - 0.5) * 0.25);
-    mesh.position.set(b.x, g + (LIFT.MIN + (LIFT.MAX - LIFT.MIN) * next()) * hh, b.z);
+    mesh.position.set(b.x, g + (lift[0] + (lift[1] - lift[0]) * next()) * hh, b.z);
     group.add(mesh);
     // A sphere whose top meets the rock's highest point, turned and tilted as it lies; its centre over the rock's.
     mesh.updateMatrix();
