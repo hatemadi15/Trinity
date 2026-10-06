@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { useElementWidth } from '@/lib/hooks/useElementWidth';
@@ -34,7 +34,8 @@ function dateMarks(hours: number): { hour: number; narrow: string }[] {
 
 /**
  * Diagonal stripes of the radio band's green at 45°, the ground between them clear: radio contact that comes
- * only if the lander lives through the night. The class is written out whole so that Tailwind generates it.
+ * only if the lander lives through the cold of the night. The class is written out whole so that Tailwind
+ * generates it.
  */
 const HATCH = 'bg-[repeating-linear-gradient(45deg,var(--good)_0_2px,transparent_2px_4px)]';
 
@@ -42,13 +43,14 @@ const HATCH = 'bg-[repeating-linear-gradient(45deg,var(--good)_0_2px,transparent
 type KeyMoment = { label: string; hour: number };
 
 /**
- * Where a flag runs along a track `trackPx` wide, in px. Its width is a guess from its words that errs wide:
- * 14 px type takes about 7.75 px a letter, and the padding and edge 14 px more. It starts at its hour or, when
- * it would run past the right end of the track, ends there (`flipped`).
+ * Where a flag runs along a track `trackPx` wide, in px. Its width is `widthPx`, as the browser draws it, when
+ * measured; else a guess from its words that errs wide: 14 px type takes about 7.75 px a letter, and the
+ * padding and edge 14 px more. It starts at its hour or, when it would run past the right end of the track,
+ * ends there (`flipped`).
  */
-function flagSpan(m: KeyMoment, hours: number, trackPx: number): { from: number; to: number; flipped: boolean } {
+function flagSpan(m: KeyMoment, hours: number, trackPx: number, widthPx?: number): { from: number; to: number; flipped: boolean } {
   const at = hours > 0 ? (m.hour / hours) * trackPx : 0;
-  const width = m.label.length * 7.75 + 14;
+  const width = widthPx && widthPx > 0 ? widthPx : m.label.length * 7.75 + 14;
   return at + width > trackPx ? { from: at - width, to: at, flipped: true } : { from: at, to: at + width, flipped: false };
 }
 
@@ -87,16 +89,15 @@ export function dotShifts(moments: KeyMoment[], hours: number, trackPx: number):
 }
 
 /**
- * The row of each flag over the track, 0 right above it or 1 above that, for moments in order of time. A
- * flag takes the first row when it clears the flag placed last there. When it does not and its stem would
- * come down behind that flag's words, that flag goes up instead, if its own stem then stays clear of the new
- * one and it clears the second row: as the stem of a flag in the second row comes down past the first, each
- * stem stays in sight. Else the new flag takes the row where it covers less of the words of the flag placed
- * last there, the second on a tie, as there is no third row. A flag that ends at its hour, near the right
+ * The greedy rows of part A, 0 or 1, for flags already placed along the track (`spans`, in order of time), which
+ * `momentRows` falls back to beyond nine flags. A flag takes the first row when it clears the flag placed last
+ * there. When it does not and its stem would come down behind that flag's words, that flag goes up instead, if
+ * its own stem then stays clear of the new one and it clears the second row: as the stem of a flag in the second
+ * row comes down past the first, each stem stays in sight. Else the new flag takes the row where it covers less
+ * of the words of the flag placed last there, the second on a tie. A flag that ends at its hour, near the right
  * end, counts where it really runs, its stem on its right edge.
  */
-export function momentRows(moments: KeyMoment[], hours: number, trackPx: number): number[] {
-  const spans = moments.map((m) => flagSpan(m, hours, trackPx));
+function greedyRows(spans: { from: number; to: number; flipped: boolean }[]): number[] {
   // How far two flags run over each other, in px: 0 when they clear each other, or when either is none (-1).
   const over = (a: number, b: number) => (a < 0 || b < 0 ? 0 : Math.max(0, Math.min(spans[a].to, spans[b].to) - Math.max(spans[a].from, spans[b].from)));
   // Whether the stem of flag a, at its hour, would come down behind the words of flag b.
@@ -128,6 +129,71 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number)
   return rows;
 }
 
+/** The rows the flags may take: right above the track, 22 px above that, and 22 px above that (18.3). */
+export const FLAG_ROWS = 3;
+/**
+ * By the row: how far a flag's foot sits up the box over the track (a flag 20 px tall, 2 px under it); how long
+ * its stem runs, from 1 px up into its bottom edge down to the strip 9 px down the box under it; and, by the
+ * highest row a flag takes, how tall the box is. The class names are written out whole so that Tailwind
+ * generates them.
+ */
+const ROW_BOTTOM = ['bottom-[2px]', 'bottom-[24px]', 'bottom-[46px]'];
+const ROW_STEM = ['h-[12px]', 'h-[34px]', 'h-[56px]'];
+const ROW_BOX = ['h-[22px]', 'h-[44px]', 'h-[66px]'];
+/** Beyond this many flags the search (3^n layouts) gives way to the greedy rows. */
+const SEARCH_MAX = 9;
+/** A stem down behind another flag's words counts as this many px of flags over each other. */
+const BEHIND_PX = 60;
+
+/**
+ * The row of each flag over the track, 0 right above it, 1 above that and 2 above that, for moments in order of
+ * time, by their measured widths when given (`widths`, px; else a guess from their letters). Of every way of giving
+ * the flags rows, the one with no flag over another in its row and no stem down behind another flag's words (a
+ * flag's stem comes down past the rows under it), and of those the fewest rows, then the lowest, a later flag going
+ * up before an earlier one on a tie. With no clean way in three rows, the one with the fewest faults, a stem behind
+ * words counting as 60 px of overlap. A flag that ends at its hour counts where it really runs, its stem on its
+ * right edge. Beyond nine flags the greedy rows of part A take over, so the search never runs long.
+ */
+export function momentRows(moments: KeyMoment[], hours: number, trackPx: number, widths?: number[]): number[] {
+  const spans = moments.map((m, i) => flagSpan(m, hours, trackPx, widths?.[i]));
+  const n = spans.length;
+  if (n === 0) return [];
+  if (n > SEARCH_MAX) return greedyRows(spans);
+  const stemAt = (k: number) => (spans[k].flipped ? spans[k].to : spans[k].from);
+  const over = (a: number, b: number) => Math.max(0, Math.min(spans[a].to, spans[b].to) - Math.max(spans[a].from, spans[b].from));
+  const behind = (a: number, b: number) => spans[b].from < stemAt(a) && stemAt(a) < spans[b].to;
+  let best: number[] = [];
+  let bestCost = Infinity;
+  const rows = new Array<number>(n).fill(0);
+  const total = Math.pow(FLAG_ROWS, n);
+  for (let code = 0; code < total; code++) {
+    let c = code;
+    for (let i = 0; i < n; i++) {
+      rows[i] = c % FLAG_ROWS;
+      c = Math.floor(c / FLAG_ROWS);
+    }
+    let fault = 0;
+    let top = 0;
+    let low = 0;
+    for (let a = 0; a < n; a++) {
+      top = Math.max(top, rows[a]);
+      // Earlier flags weigh more, so on a tie the later one goes up.
+      low += rows[a] * (n - a);
+      for (let b = 0; b < n; b++) {
+        if (a === b) continue;
+        if (rows[a] === rows[b] && a < b) fault += over(a, b);
+        if (rows[a] > rows[b] && behind(a, b)) fault += BEHIND_PX;
+      }
+    }
+    const cost = (fault > 0 ? 1e6 + fault * 1e3 : 0) + top * 1e3 + low;
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = rows.slice();
+    }
+  }
+  return best;
+}
+
 /**
  * The time bar, pinned to the bottom of the window: Play, the date and hour with one sentence about
  * that hour, and a slider whose track is the sunlight of the period. It uses the chart's grid, inset by
@@ -147,28 +213,31 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number)
  * 2 px under the one above. Explore leaves all of these to its chart.
  *
  * Once the battery has run out in the night, what the lander does after the power comes back holds only if
- * it survives that night, which the forecast does not work out: from `ifSurvivesFrom` on, the radio band is
- * hatched in its green rather than solid, and the key names it "radio, if it survives the night", after
- * "radio contact" when some of the band is still solid, the hatching named so that the words never read as
- * a fragment.
+ * it survives the cold of that night, which the forecast does not work out (it counts energy only): from
+ * `ifSurvivesFrom` on, the radio band is hatched in its green rather than solid, and the key names it "radio,
+ * if the lander survives the cold" (18.2), after "radio contact" when some of the band is still solid, the
+ * hatching named so that the words never read as a fragment.
  *
  * The key names only what the bar draws for the period shown, so no reader goes looking for a band that is
  * not there: each entry comes only with at least one hour of its own band, in its usual place among the
  * others. "in sunlight" needs an hour with some of the Sun, "night" one with none of it, "lander off" one
- * without power, "Earth in view" one with Earth in view, "radio contact" one of solid green and "radio, if it
- * survives the night" one of hatched green. So where the battery runs out before Earth comes into view, all
- * the radio contact comes after the night and the key names only the hatched band; and on Explore, whose key
- * names the yellow alone, a period with no sunlight has no key at all. The phone's keys keep to the same rule.
+ * without power, "Earth in view" one with Earth in view, "radio contact" one of solid green and "radio, if the
+ * lander survives the cold" one of hatched green. So where the battery runs out before Earth comes into view,
+ * all the radio contact comes after the night and the key names only the hatched band; and on Explore, whose
+ * key names the yellow alone, a period with no sunlight has no key at all. The phone's keys keep to the same
+ * rule.
  *
  * With the dates, `moments` puts a flag right above the track at each of the period's key moments, such as
  * "Sunset 3 Jan": a click on one moves the handle to its hour, then tells the page (`onMoment`). A flag
  * looks like the button it is: a pointer, an edge that stands out on the dark bar, and a lighter fill with a
  * brighter edge under the pointer or the keyboard's focus. It starts at its hour, where a 1 px stem in its
  * edge colour runs from its left edge down to the strip; one whose words would run past the right end of the
- * track ends at its hour instead, the stem on its right edge. Of two flags that would meet, one goes up to a
- * second row (`momentRows`), the most there is: the one whose stem then comes down in sight, so each flag
- * leads the eye to its own hour even when two stand a few pixels apart. The flag of the moment the handle is
- * on shows as chosen, with a gold edge.
+ * track ends at its hour instead, the stem on its right edge. Flags that would meet go up, into up to three
+ * rows (`momentRows`, 18.3), laid out by their widths as the browser draws them, measured once they are drawn
+ * and again when their words, the track's width or the page's fonts change: the layout with no two flags over
+ * each other in a row and no stem down behind another flag's words, so each flag leads the eye to its own hour
+ * even when two stand a few pixels apart, and of those the one with the fewest rows. The flag of the moment
+ * the handle is on shows as chosen, with a gold edge.
  *
  * With `compact`, on a phone each flag is a dot instead, 12 px, on the top edge of the strip, its words kept
  * for screen readers, at the foot of a target 40 px tall and 24 px wide that reaches up to the row above but
@@ -231,10 +300,10 @@ export function TimeBar({
   /** Told which moment it was, once a click on its flag or dot has moved the handle there. */
   onMoment?: (m: KeyMoment) => void;
   /**
-   * The hour from which the bar's marks that need power hold only if the lander survives the night: the first
-   * hour with power again after the first power cut, or null when it never needs to. From that hour on the
-   * radio band is hatched rather than solid, and named "radio, if it survives the night" in the key; only with
-   * `dates`.
+   * The hour from which the bar's marks that need power hold only if the lander survives the cold of the night:
+   * the first hour with power again after the first power cut, or null when it never needs to. From that hour on
+   * the radio band is hatched rather than solid, and named "radio, if the lander survives the cold" in the key;
+   * only with `dates`.
    */
   ifSurvivesFrom?: number | null;
   /**
@@ -254,8 +323,8 @@ export function TimeBar({
   const lit = litRuns(series.sunFraction);
   const earth = rich ? runsWhere(hours, (h) => series.earthVisible[h] === 1) : [];
   const contact = rich && powered ? runsWhere(hours, (h) => powered[h] === 1 && series.earthVisible[h] === 1) : [];
-  // From `ifSurvivesFrom` on the contact holds only if the lander survives the night: those hours are hatched,
-  // and a stretch that runs across that hour is split there.
+  // From `ifSurvivesFrom` on the contact holds only if the lander survives the cold of the night: those hours are
+  // hatched, and a stretch that runs across that hour is split there.
   const survives = ifSurvivesFrom ?? Infinity;
   const contactRuns = contact.flatMap((r) =>
     r.to <= survives
@@ -283,10 +352,35 @@ export function TimeBar({
   // are drawn (1000 px until then).
   const flags = dates && moments ? moments : [];
   const { ref: flagsRef, width: trackPx } = useElementWidth<HTMLDivElement>(1000);
-  const rows = momentRows(flags, hours, trackPx);
-  const flipped = flags.map((m) => !bare && flagSpan(m, hours, trackPx).flipped);
   // Dots rather than flags: on a phone when compact, and at every width when bare.
   const dots = compact || bare;
+  // The flags' widths as the browser draws them (0 before the first paint and in jsdom, where the guess from the
+  // letters holds), measured again when the words, the track or the fonts change (18.3). Bare, the moments are dots
+  // at every width, with no words to measure. Compact, as on the stand view, they are flags with their words from
+  // sm up, so they are measured all the same; on a phone the measure is a dot's target, and no row is drawn there.
+  const flagRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [widths, setWidths] = useState<number[]>([]);
+  const [fontsReady, setFontsReady] = useState(false);
+  const count = flags.length;
+  const labelsKey = flags.map((m) => m.label).join('\n');
+  useEffect(() => {
+    let live = true;
+    void document.fonts?.ready.then(() => {
+      if (live) setFontsReady(true);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  useLayoutEffect(() => {
+    if (bare) return;
+    const w = Array.from({ length: count }, (_, i) => flagRefs.current[i]?.offsetWidth ?? 0);
+    setWidths((old) => (old.length === w.length && old.every((x, i) => x === w[i]) ? old : w));
+  }, [bare, count, labelsKey, trackPx, fontsReady]);
+  const rows = momentRows(flags, hours, trackPx, widths);
+  // The highest row a flag takes, for the height of the box over the track.
+  const top = Math.max(0, ...rows);
+  const flipped = flags.map((m, i) => !bare && flagSpan(m, hours, trackPx, widths[i]).flipped);
   const shifts = dots ? dotShifts(flags, hours, trackPx) : [];
   // Over the dots a chip names the moment the handle is on or, while it is on none, the next one after it.
   const chosenMoment = flags.find((m) => cursor === m.hour);
@@ -414,7 +508,7 @@ export function TimeBar({
                   <span data-part="key-if-survives" className="flex items-center gap-2 text-[15px] text-ink-2">
                     {/* The band's own stripes, in a line as thick as the band. */}
                     <i data-swatch="" aria-hidden="true" className={`block h-2.5 w-6 rounded-full border-y-2 border-transparent bg-clip-padding ${HATCH}`} />
-                    radio, if it survives the night
+                    radio, if the lander survives the cold
                   </span>
                 )}
               </span>
@@ -424,18 +518,18 @@ export function TimeBar({
           </p>
           <div data-part="track" className="col-start-2 max-sm:col-span-2 max-sm:col-start-1">
             {flags.length > 0 && (
-              // Right above the strip and on its hours, in rows of 22 px (a flag 20 px tall, 2 px under it), the
-              // first row nearest the strip; each flag's stem runs down to the strip in sight (`momentRows`). As
-              // dots (on a phone when compact, and when bare) the row is 27 px: with the grid's 4 px gap above it and
-              // the slider's 9 px over the strip under it, room for a target 40 px tall that stays clear of Play and
-              // the date above and of the strip below, and for the chip over the dots. The row is lifted over the
-              // slider there, so the targets win those 9 px.
+              // Right above the strip and on its hours, in up to three rows of 22 px (a flag 20 px tall, 2 px under
+              // it), the first row nearest the strip, the box as tall as the rows the flags take; each flag's stem
+              // runs down to the strip in sight (`momentRows`). As dots (on a phone when compact, and when bare) the
+              // row is 27 px: with the grid's 4 px gap above it and the slider's 9 px over the strip under it, room
+              // for a target 40 px tall that stays clear of Play and the date above and of the strip below, and for
+              // the chip over the dots. The row is lifted over the slider there, so the targets win those 9 px.
               <div
                 ref={flagsRef}
                 data-part="moments"
                 role="group"
                 aria-label="Jump to a moment"
-                className={`relative ${bare ? 'z-[1] h-[27px]' : `${rows.includes(1) ? 'h-[44px]' : 'h-[22px]'}${compact ? ' max-sm:z-[1] max-sm:h-[27px]' : ''}`}`}
+                className={`relative ${bare ? 'z-[1] h-[27px]' : `${ROW_BOX[top]}${compact ? ' max-sm:z-[1] max-sm:h-[27px]' : ''}`}`}
               >
                 {flags.map((m, i) => {
                   const left = `${(m.hour / hours) * 100}%`;
@@ -455,6 +549,9 @@ export function TimeBar({
                   return (
                     <button
                       key={`${m.hour} ${m.label}`}
+                      ref={(node) => {
+                        flagRefs.current[i] = node;
+                      }}
                       type="button"
                       data-part="moment"
                       data-row={bare ? undefined : rows[i]}
@@ -467,7 +564,7 @@ export function TimeBar({
                       className={
                         bare
                           ? 'absolute -bottom-[9px] ml-[var(--dot-x)] h-10 w-6 cursor-pointer rounded-full hover:bg-line focus-visible:bg-line'
-                          : `absolute flex h-5 cursor-pointer items-center whitespace-nowrap rounded border ${chosen ? 'border-sun bg-surface-2 hover:border-sun-hover focus-visible:border-sun-hover' : 'border-ink-3 bg-surface hover:border-ink focus-visible:border-ink'} px-1.5 text-[14px] leading-none text-ink hover:z-10 hover:bg-line focus-visible:z-10 focus-visible:bg-line ${rows[i] === 1 ? 'bottom-[24px]' : 'bottom-[2px]'} ${flipped[i] ? 'rounded-br-none' : 'rounded-bl-none'}${compact ? ' max-sm:-bottom-[9px] max-sm:ml-[var(--dot-x)] max-sm:h-10 max-sm:w-6 max-sm:rounded-full max-sm:border-0 max-sm:bg-transparent max-sm:p-0' : ''}`
+                          : `absolute flex h-5 cursor-pointer items-center whitespace-nowrap rounded border ${chosen ? 'border-sun bg-surface-2 hover:border-sun-hover focus-visible:border-sun-hover' : 'border-ink-3 bg-surface hover:border-ink focus-visible:border-ink'} px-1.5 text-[14px] leading-none text-ink hover:z-10 hover:bg-line focus-visible:z-10 focus-visible:bg-line ${ROW_BOTTOM[rows[i]]} ${flipped[i] ? 'rounded-br-none' : 'rounded-bl-none'}${compact ? ' max-sm:-bottom-[9px] max-sm:ml-[var(--dot-x)] max-sm:h-10 max-sm:w-6 max-sm:rounded-full max-sm:border-0 max-sm:bg-transparent max-sm:p-0' : ''}`
                       }
                       style={{ left, ...(flipped[i] ? { transform: 'translateX(-100%)' } : {}), ...dotX } as CSSProperties}
                     >
@@ -475,12 +572,13 @@ export function TimeBar({
                       {/* The stem: 1 px of the flag's own edge colour, whatever that is, from 1 px up into its bottom edge
                           down to the strip at its hour, on its left edge or, for a flag that ends at its hour, its
                           right: 2 px under a flag of the first row and 9 px down the box under the row, 22 px more from
-                          the second. It takes no taps from the slider under it. A dot has none. */}
+                          the second and 44 px more from the third. It takes no taps from the slider under it. A dot has
+                          none. */}
                       {!bare && (
                         <i
                           data-part="moment-stem"
                           aria-hidden="true"
-                          className={`pointer-events-none absolute top-full w-0 border-l border-inherit ${rows[i] === 1 ? 'h-[34px]' : 'h-[12px]'} ${flipped[i] ? '-right-px' : '-left-px'}${compact ? ' max-sm:hidden' : ''}`}
+                          className={`pointer-events-none absolute top-full w-0 border-l border-inherit ${ROW_STEM[rows[i]]} ${flipped[i] ? '-right-px' : '-left-px'}${compact ? ' max-sm:hidden' : ''}`}
                         />
                       )}
                       {dots && <i data-part="moment-dot" aria-hidden="true" className={`absolute bottom-0 left-1/2 size-3 -translate-x-1/2 rounded-full ${chosen ? 'bg-sun' : 'bg-ink'} ${bare ? 'block' : 'hidden max-sm:block'}`} />}

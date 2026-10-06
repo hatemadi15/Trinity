@@ -526,7 +526,7 @@ describe('TimeBar', () => {
     // so they do not read as a fragment. No hour of the green is solid here, so "radio contact" is not named, and
     // the hatched entry comes right after Earth's.
     const key = container.querySelector<HTMLElement>('[data-part="key-if-survives"]')!;
-    expect(key.textContent).toBe('radio, if it survives the night');
+    expect(key.textContent).toBe('radio, if the lander survives the cold');
     expect(key.previousElementSibling).toBe(container.querySelector('[data-part="key-earth"]'));
     expect(container.querySelector('[data-part="key-contact"]')).toBeNull();
     for (const c of ['flex', 'items-center', 'gap-2', 'text-[15px]', 'text-ink-2']) expect(key.classList.contains(c)).toBe(true);
@@ -556,7 +556,7 @@ describe('TimeBar', () => {
     const after = showPeriod(30, { dates: true, powered, ifSurvivesFrom: 300 }, { earthVisible });
     expect(after.container.querySelector('[data-if-survives]')).toBeNull();
     expect(after.container.querySelector('[data-part="key-if-survives"]')).toBeNull();
-    expect(screen.queryByText('radio, if it survives the night')).toBeNull();
+    expect(screen.queryByText('radio, if the lander survives the cold')).toBeNull();
     expect(after.container.innerHTML).toBe(before);
     after.unmount();
     // Without the hour, all is as before.
@@ -631,7 +631,7 @@ describe('TimeBar', () => {
     expect(contactRunsOf(container, 720)).toEqual([{ from: 456, to: 552, hatched: true }]);
     expect(container.querySelector('[data-part="contact-run"]:not([data-if-survives])')).toBeNull();
     // So the key names no solid green for a reader to go looking for: the hatched entry comes right after Earth's.
-    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if it survives the night']);
+    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if the lander survives the cold']);
     expect(container.querySelector('[data-part="key-contact"]')).toBeNull();
     expect(screen.queryByText('radio contact')).toBeNull();
     expect(container.querySelector('[data-part="key-if-survives"]')!.previousElementSibling).toBe(container.querySelector('[data-part="key-earth"]'));
@@ -646,7 +646,7 @@ describe('TimeBar', () => {
     const { container, unmount } = showPeriod(30, { dates: true, powered, ifSurvivesFrom: 456 }, { sunFraction, earthVisible: early });
     expect(contactRunsOf(container, 720)).toEqual([{ from: 24, to: 76, hatched: false }]);
     expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
-    expect(screen.queryByText('radio, if it survives the night')).toBeNull();
+    expect(screen.queryByText('radio, if the lander survives the cold')).toBeNull();
     unmount();
     // With Earth in view again from the 20th to the 23rd, both kinds of green are drawn, and both named, the solid first.
     const twice = Uint8Array.from({ length: 720 }, (_, h) => ((h >= 24 && h < 100) || (h >= 456 && h < 552) ? 1 : 0));
@@ -655,7 +655,7 @@ describe('TimeBar', () => {
       { from: 24, to: 76, hatched: false },
       { from: 456, to: 552, hatched: true },
     ]);
-    expect(keyWords(both.container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
+    expect(keyWords(both.container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if the lander survives the cold']);
   });
 
   it('leaves "lander off" out of the key when no hour is without power', () => {
@@ -745,7 +745,7 @@ describe('TimeBar', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, ifSurvivesFrom: 30, clockNote: ' (Earth time)' });
     expect(screen.queryByRole('button', { name: 'Key' })).toBeNull();
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if it survives the night']);
+    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if the lander survives the cold']);
     // Named on a phone too, under the date, at 14 px with shorter swatches.
     expect(group.className).not.toMatch(/max-sm:hidden/);
     for (const c of ['flex', 'basis-full', 'flex-wrap', 'items-baseline', 'max-sm:gap-x-2', 'max-sm:[&>span]:text-[14px]', 'max-sm:[&_i]:w-4']) expect(group.classList.contains(c)).toBe(true);
@@ -755,7 +755,7 @@ describe('TimeBar', () => {
     // The stand view's period, where the only radio drawn is hatched: no "radio contact".
     const { container } = showStandPeriod({ compact: true });
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if it survives the night']);
+    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if the lander survives the cold']);
     cleanup();
     // A lander that keeps its power all through: no "lander off".
     const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
@@ -1056,15 +1056,17 @@ describe('TimeBar', () => {
   it('puts one of two flags that would meet in a second row, choosing the one whose stem then comes down in sight', () => {
     // On the 1000 px a track has without a layout (jsdom), "Battery runs out 4 Jan" starts on the words of "Sunset 3 Jan":
     // lifted, its stem would come down behind them, so "Sunset 3 Jan" goes up instead, its stem just left of the other.
+    const rows = momentRows(MOMENTS, 720, 1000);
+    expect(rows[0]).toBeGreaterThan(rows[1]);
     const { container } = showPeriod(30, { dates: true, moments: MOMENTS });
     const flags = flagsOf(container);
-    expect(flags.map((f) => f.dataset.row)).toEqual(['1', '0', '0', '0']);
-    // Two rows of 22 px, each flag 20 px tall with 2 px under it; the first row right above the strip.
-    expect(container.querySelector('[data-part="moments"]')!.classList.contains('h-[44px]')).toBe(true);
-    expect(flags[0].classList.contains('bottom-[24px]')).toBe(true);
-    expect(flags[1].classList.contains('bottom-[2px]')).toBe(true);
-    // Every stem reaches the strip: 12 px from the first row, 22 px more from the second.
-    expect(stemsOf(container).map(heightPx)).toEqual([34, 12, 12, 12]);
+    expect(flags.map((f) => Number(f.dataset.row))).toEqual(rows);
+    // Rows of 22 px, each flag 20 px tall with 2 px under it; the first row right above the strip.
+    const top = Math.max(...rows);
+    expect(container.querySelector('[data-part="moments"]')!.classList.contains(['h-[22px]', 'h-[44px]', 'h-[66px]'][top])).toBe(true);
+    flags.forEach((f, i) => expect(f.classList.contains(['bottom-[2px]', 'bottom-[24px]', 'bottom-[46px]'][rows[i]])).toBe(true));
+    // Every stem reaches the strip: 12 px from the first row, 22 px more from each row above it.
+    expect(stemsOf(container).map(heightPx)).toEqual(rows.map((r) => [12, 34, 56][r]));
     // The upper flag's stem, at hour 50, comes down left of the lower flag, which starts at hour 76.
     expect(parseFloat(flags[0].style.left)).toBeLessThan(parseFloat(flags[1].style.left));
     cleanup();
@@ -1072,6 +1074,69 @@ describe('TimeBar', () => {
     const one = showPeriod(30, { dates: true, moments: [MOMENTS[0], MOMENTS[2], MOMENTS[3]] });
     expect(flagsOf(one.container).map((f) => f.dataset.row)).toEqual(['0', '0', '0']);
     expect(one.container.querySelector('[data-part="moments"]')!.classList.contains('h-[22px]')).toBe(true);
+  });
+
+  it('draws a third row 22 px above the second when the rows need it, each stem down to the strip', () => {
+    const stand = [
+      { label: 'Sunset, 3 Jan', hour: 50 },
+      { label: 'Battery runs out, 4 Jan', hour: 76 },
+      { label: 'Earth rises, 5 Jan', hour: 100 },
+      { label: 'Sunrise, 6 Jan', hour: 124 },
+      { label: 'Earth sets, 7 Jan', hour: 148 },
+    ];
+    const rows = momentRows(stand, 720, 1000);
+    // Five flags in five days: two rows are not enough.
+    expect(Math.max(...rows)).toBe(2);
+    const { container } = showPeriod(30, { dates: true, moments: stand });
+    const flags = flagsOf(container);
+    expect(flags.map((f) => Number(f.dataset.row))).toEqual(rows);
+    expect(container.querySelector('[data-part="moments"]')!.classList.contains('h-[66px]')).toBe(true);
+    flags.forEach((f, i) => expect(f.classList.contains(['bottom-[2px]', 'bottom-[24px]', 'bottom-[46px]'][rows[i]])).toBe(true));
+    expect(stemsOf(container).map(heightPx)).toEqual(rows.map((r) => [12, 34, 56][r]));
+  });
+
+  it('lays the flags out by their widths as the browser draws them, measured once they are drawn and again once the page’s fonts are in (18.3)', async () => {
+    // The stand view's five moments on a 538 px track, a 768 px screen (read D2-2, frame 27). Until the page's fonts
+    // are in, the browser draws the words a fifth wider, in a fallback font.
+    const stand = [
+      { label: 'Sunset, 3 Jan', hour: 50 },
+      { label: 'Battery runs out, 4 Jan', hour: 76 },
+      { label: 'Earth rises, 10 Jan', hour: 216 },
+      { label: 'Sunrise, 20 Jan', hour: 456 },
+      { label: 'Earth sets, 23 Jan', hour: 528 },
+    ];
+    const drawn = [95, 155, 125, 100, 120];
+    const fallback = drawn.map((w) => Math.round(w * 1.2));
+    // Neither the fallback font's widths nor the guess from their letters lay them out clean.
+    expect(momentRows(stand, 720, 538, drawn)).toEqual([2, 1, 0, 1, 0]);
+    expect(momentRows(stand, 720, 538, fallback)).not.toEqual([2, 1, 0, 1, 0]);
+    expect(momentRows(stand, 720, 538)).not.toEqual([2, 1, 0, 1, 0]);
+    // Compact too, as the stand view always is: from sm up its moments are flags with their words, dots only on a phone.
+    for (const extra of [{}, { compact: true }]) {
+      let widths = fallback;
+      let fontsIn: () => void = () => {};
+      Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: new Promise<void>((done) => (fontsIn = () => done())) } });
+      const offsetWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
+        const k = stand.findIndex((m) => m.label === this.textContent);
+        return this.dataset.part === 'moment' && k >= 0 ? widths[k] : 0;
+      });
+      try {
+        const track = measuredTrack();
+        const { container, unmount } = showPeriod(30, { dates: true, moments: stand, ...extra });
+        act(() => track(538));
+        const rowsDrawn = () => flagsOf(container).map((f) => Number(f.dataset.row));
+        expect(rowsDrawn()).toEqual(momentRows(stand, 720, 538, fallback));
+        // The fonts come in and the flags are measured again: now they lay out clean, in three rows.
+        widths = drawn;
+        await act(async () => fontsIn());
+        expect(rowsDrawn()).toEqual([2, 1, 0, 1, 0]);
+        expect(container.querySelector('[data-part="moments"]')!.classList.contains('h-[66px]')).toBe(true);
+        unmount();
+      } finally {
+        offsetWidth.mockRestore();
+        Reflect.deleteProperty(document, 'fonts');
+      }
+    }
   });
 
   it('ends a flag at its hour when its words would run past the right end of the track, the stem on its right edge', () => {
@@ -1287,76 +1352,75 @@ describe('TimeBar', () => {
   });
 });
 
+/** The faults of a layout: px of flags over each other in a row, and stems down behind another flag's words. */
+function faults(moments: { label: string; hour: number }[], hours: number, trackPx: number, rows: number[], widths?: number[]) {
+  const span = (i: number) => {
+    const at = (moments[i].hour / hours) * trackPx, w = widths?.[i] || moments[i].label.length * 7.75 + 14;
+    return at + w > trackPx ? { from: at - w, to: at, stem: at } : { from: at, to: at + w, stem: at };
+  };
+  let over = 0, behind = 0;
+  for (let a = 0; a < moments.length; a++)
+    for (let b = 0; b < moments.length; b++) {
+      if (a === b) continue;
+      const sa = span(a), sb = span(b);
+      if (rows[a] === rows[b] && a < b) over += Math.max(0, Math.min(sa.to, sb.to) - Math.max(sa.from, sb.from));
+      if (rows[a] > rows[b] && sb.from < sa.stem && sa.stem < sb.to) behind++;
+    }
+  return { over, behind };
+}
+
 describe('momentRows', () => {
   it('keeps moments far apart in the first row', () => {
     expect(momentRows([MOMENTS[0], MOMENTS[2], MOMENTS[3]], 720, 1000)).toEqual([0, 0, 0]);
   });
 
-  it('lifts the first of two moments a day apart on a 30-day track 1000 px wide, as the second one’s stem would come down behind it: 33 px apart, and "Sunset 3 Jan" is about 107 px wide', () => {
-    // "Battery runs out 4 Jan" starts at 100 px, on the words of "Sunset 3 Jan" (67 to 174 px); "Sunset 3 Jan", lifted,
-    // brings its stem down at 67 px, clear of the other.
-    expect(
-      momentRows(
-        [
-          { label: 'Sunset 3 Jan', hour: 48 },
-          { label: 'Battery runs out 4 Jan', hour: 72 },
-        ],
-        720,
-        1000,
-      ),
-    ).toEqual([1, 0]);
+  it('lifts the first of two moments a day apart, as the second one’s stem would come down behind it', () => {
+    expect(momentRows([{ label: 'Sunset 3 Jan', hour: 48 }, { label: 'Battery runs out 4 Jan', hour: 72 }], 720, 1000)).toEqual([1, 0]);
   });
 
-  it('puts a third close one in the second row all the same when the first row’s flag cannot go up, and goes back to the first row once that is clear', () => {
-    // "Earth in view 5 Jan" starts on "Battery runs out 4 Jan", which cannot go up: it would meet "Sunset 3 Jan" there.
-    expect(
-      momentRows(
-        [
-          { label: 'Sunset 3 Jan', hour: 48 },
-          { label: 'Battery runs out 4 Jan', hour: 72 },
-          { label: 'Earth in view 5 Jan', hour: 96 },
-          { label: 'Power back 9 Jan', hour: 200 },
-        ],
-        720,
-        1000,
-      ),
-    ).toEqual([1, 0, 1, 0]);
-  });
-
-  it('keeps a flag in the first row, over the end of the one before it, when going up would cover more of the words there', () => {
-    // On a 538 px track (a 768 px screen), "Sun and power back, 20 Jan" ends at its hour, 341 px, so it runs back to
-    // 125 px: up, it would cover all of "Earth in view, 10 Jan" (161 to 338 px); down, the last 124 px of
-    // "Battery runs out, 4 Jan" (57 to 249 px). Four flags this long cannot all stay clear in two rows.
+  it('lays the stand view’s five moments out clean on a 538 px track by their measured widths, in three rows (read D2-2, frame 27)', () => {
+    // A 768 px screen; the widths as the browser measures them at 14 px.
     const stand = [
       { label: 'Sunset, 3 Jan', hour: 50 },
       { label: 'Battery runs out, 4 Jan', hour: 76 },
-      { label: 'Earth in view, 10 Jan', hour: 216 },
-      { label: 'Sun and power back, 20 Jan', hour: 456 },
+      { label: 'Earth rises, 10 Jan', hour: 216 },
+      { label: 'Sunrise, 20 Jan', hour: 456 },
+      { label: 'Earth sets, 23 Jan', hour: 528 },
     ];
-    expect(momentRows(stand, 720, 538)).toEqual([1, 0, 1, 0]);
-    // With room for all four, the first goes up so the second's stem stays in sight, and the rest keep to the first row.
-    expect(momentRows(stand, 720, 1050)).toEqual([1, 0, 0, 0]);
+    const widths = [95, 155, 125, 100, 120];
+    const rows = momentRows(stand, 720, 538, widths);
+    expect(faults(stand, 720, 538, rows, widths)).toEqual({ over: 0, behind: 0 });
+    expect(Math.max(...rows)).toBe(2);
+    // With a wide track two rows do.
+    const wide = momentRows(stand, 720, 1050, widths);
+    expect(faults(stand, 720, 1050, wide, widths)).toEqual({ over: 0, behind: 0 });
+    expect(Math.max(...wide)).toBeLessThanOrEqual(1);
   });
 
-  it('lifts the later of two all the same when each would come down behind the other: a flag ending at its hour reaches back over the one before', () => {
-    // "Earth in view 25 Jan" runs from 800 to 969 px; "Sun and power back, 29 Jan" ends at its hour, 950 px, so it runs
-    // back to 735 px, over the other's stem, and its own stem at 950 px is on the other's words.
-    expect(
-      momentRows(
-        [
-          { label: 'Earth in view 25 Jan', hour: 576 },
-          { label: 'Sun and power back, 29 Jan', hour: 684 },
-        ],
-        720,
-        1000,
-      ),
-    ).toEqual([0, 1]);
+  it('takes the fewest rows that are clean, and the lowest of those', () => {
+    const rows = momentRows(MOMENTS, 720, 1000);
+    expect(faults(MOMENTS, 720, 1000, rows)).toEqual({ over: 0, behind: 0 });
+    expect(Math.max(...rows)).toBe(1);
+  });
+
+  it('with no clean layout in three rows, takes the one with the fewest faults, a stem behind words counting as 60 px', () => {
+    // Six moments in a week on a 538 px track: nothing is clean; the layout still has every flag in a row and no exception.
+    const crowd = [0, 24, 48, 72, 96, 120].map((hour, k) => ({ label: `Moment ${k}, ${k + 1} Jan`, hour }));
+    const rows = momentRows(crowd, 720, 538);
+    expect(rows).toHaveLength(6);
+    for (const r of rows) expect([0, 1, 2]).toContain(r);
+    const f = faults(crowd, 720, 538, rows);
+    expect(f.over + 60 * f.behind).toBeGreaterThan(0);
+  });
+
+  it('prefers the later of two flags up on a tie: a flag ending at its hour reaches back over the one before', () => {
+    expect(momentRows([{ label: 'Earth in view 25 Jan', hour: 576 }, { label: 'Sun and power back, 29 Jan', hour: 684 }], 720, 1000)).toEqual([0, 1]);
   });
 
   it('takes a flag at the very end as ending at its hour: it reaches back over one just before it, and clears one further back', () => {
     // Run to the right, "Sun back 30 Jan" at the last hour would start at 999 px, past the end of "Earth in view 25 Jan" at 988 px.
-    // Ending at its hour it starts at 869 px, on those words, so one of the two goes up: itself, as its stem, on its
-    // right edge at 999 px, comes down past the end of the other.
+    // Ending at its hour it starts at 869 px, on those words, so one of the two goes up; either stem then comes down clear
+    // of the other's words (its own, on its right edge at 999 px, past their end), and on that tie the later one goes up.
     expect(
       momentRows(
         [
@@ -1382,6 +1446,11 @@ describe('momentRows', () => {
 
   it('has no rows for no moments', () => {
     expect(momentRows([], 720, 1000)).toEqual([]);
+  });
+
+  it('falls back to the greedy rows beyond nine flags, so the search never runs long', () => {
+    const many = Array.from({ length: 12 }, (_, k) => ({ label: `M${k}`, hour: k * 60 }));
+    expect(momentRows(many, 720, 2000)).toHaveLength(12);
   });
 });
 
