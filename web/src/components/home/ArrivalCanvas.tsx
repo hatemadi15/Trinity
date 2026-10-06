@@ -587,9 +587,9 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
       <canvas ref={canvas} aria-hidden="true" className="absolute inset-0 h-full w-full" />
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* Earth and the pole lie close together at the Moon's foot: their names stand beside them, to the right. */}
-        {/* Earth is drawn small because it is far: the label says how far, and how big it is. */}
+        {/* Earth is drawn small because it is far: the label says how far, in plain words (18.2). */}
         <span ref={(n) => { tags.current.earth = n; }} hidden className={`${LABEL_BESIDE_EARTH} text-[#74adff]`}>
-          Earth, {(Math.round(h.earthKm[HERO_HOUR] / 1000) * 1000).toLocaleString('en-US')} km away on {dateLong(h.startUtc, HERO_HOUR)} {h.startUtc.slice(0, 4)}: it looks small only because it is far
+          Earth, {(Math.round(h.earthKm[HERO_HOUR] / 1000) * 1000).toLocaleString('en-US')} km away on {dateLong(h.startUtc, HERO_HOUR)} {h.startUtc.slice(0, 4)}: small because it is far
         </span>
         <span ref={(n) => { tags.current.pole = n; }} hidden className={LABEL_RIGHT}>
           <i aria-hidden="true" className={SIDE_DOT} />
