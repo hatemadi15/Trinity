@@ -78,4 +78,9 @@ describe('the measured ground', () => {
       expect(g.meshes.slice(0, n - 1).map((m) => u(m).uNextStep.value)).toEqual(flight ? [2, 1, 2] : [2, 2]);
     }
   });
+
+  it('blends the ring\u2019s shadows into the next level\u2019s on every mesh when it is built, standing', () => {
+    const g = buildGround(terrainField(levels(), 0, 100), { fast: false, flight: true, halfFloat: false, viewerY: 2 });
+    expect(g.meshes.map((m) => u(m).uRingShadows.value)).toEqual([1, 1, 1, 1]);
+  });
 });

@@ -654,6 +654,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     placeEarth();
     standing(true);
     measured(true);
+    ringShadows(true);
     spaceNow = 0;
     if (aloftNow !== 0) {
       aloftNow = 0;
@@ -690,6 +691,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     placeEarth();
     standing(alt < STANDING_M);
     measured(!flight || alt < MEASURED_M);
+    ringShadows(alt < 5000);
     spaceNow = flight ? Math.min(1, Math.max(0, (alt - 30e3) / (600e3 - 30e3))) : 0;
     const aloft = Math.min(1, Math.max(0, (alt - ALOFT_M) / (5000 - ALOFT_M)));
     if (aloft !== aloftNow) {
@@ -698,7 +700,13 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     }
     expose();
   }
-  let standingNow = true, measuredNow = true;
+  let standingNow = true, measuredNow = true, ringNow = true;
+  /** The rings' second shadow march, the next level's, within 5 km of the ground only: from the air the rings cover much of the view. */
+  function ringShadows(on: boolean) {
+    if (on === ringNow) return;
+    ringNow = on;
+    for (const g of ground) (g.material as THREE.ShaderMaterial).uniforms.uRingShadows.value = on ? 1 : 0;
+  }
   /**
    * The measured ground draws below 1600 km over the site; higher, the globe shows the whole Moon, the pole too,
    * with no seam round the measured patch.

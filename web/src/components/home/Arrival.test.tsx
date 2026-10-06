@@ -177,7 +177,7 @@ describe('the arrival', () => {
     expect(screen.getByRole('button', { name: 'Skip' }).className).toMatch(/\bmax-sm:top-4\b/);
     scrolled(4);
     const skip = screen.getByRole('button', { name: 'Skip' });
-    expect(skip.className).toContain('max-sm:top-[88px]');
+    expect(skip.className).toContain('max-sm:top-[160px]');
     expect(skip.className).not.toMatch(/\bmax-sm:top-4\b/);
   });
 

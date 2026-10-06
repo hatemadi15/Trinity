@@ -158,6 +158,7 @@ export function buildGround(field: TerrainField, o: GroundOptions): { meshes: TH
         uBounce: { value: 0.015 },
         uNight: { value: 0 },
         uFarCut: { value: 1e9 },
+        uRingShadows: { value: 1 },
       },
       vertexShader: GROUND_VERT,
       fragmentShader: GROUND_FRAG,

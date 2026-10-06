@@ -78,7 +78,7 @@ export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
 uniform vec3 uSun, uEarth, uEdge; uniform float uEarthshine, uDetail, uFarDetail, uSunPower, uHoleR, uNextStep;
-uniform float uLanderOn, uSunUp, uBounce, uNight, uFarCut, uPixel; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
+uniform float uLanderOn, uSunUp, uBounce, uNight, uFarCut, uPixel, uRingShadows; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
 ${SHADOW_GLSL}
 ${HIDE_GLSL}
 ${BOULDER_GLSL}
@@ -276,8 +276,11 @@ void main() {
     // miss by tens of metres at a crater's rim.
     vec3 ray0 = vWorld + N0 * 0.4;
     if (uPixel > 0.5) ray0.y = heightAt(vWorld.xz, 0) + 0.4 * N0.y;
-    vec2 mt = sunMargins(ray0, uSun, edge > 0.0);
-    mTerrain = mix(mt.x, mt.y, edge);
+    // Only near the ground (uRingShadows): from the air the rings cover much of the view, and the second march made
+    // the flight stutter; there the handoff at a cut is a pixel or two.
+    bool both = edge > 0.0 && uRingShadows > 0.5;
+    vec2 mt = sunMargins(ray0, uSun, both);
+    mTerrain = mix(mt.x, mt.y, both ? edge : 0.0);
     if (uLanderOn > 0.5) mLander = landerClearance(toLander(vWorld + N0 * 0.05 - uLanderCenter), toLander(Ls));
     mViewer = viewerClearance(vWorld + N0 * 0.05, Ls);
     if (length(vWorld.xz) < 140.0) mBoulders = rocksClearance(vWorld + N0 * 0.05, Ls);

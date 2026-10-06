@@ -55,6 +55,17 @@ function wideLevels() {
 
 describe('the stand scene', () => {
 
+  it('marches the rings\u2019 second shadows only within 5 km of the ground: in flight above that the ground keeps its own shadows at the cuts', () => {
+    const s = buildScene(flat({ field: terrainField(levels(), 0, 100) }));
+    const ring = () => s.parts.ground.map((g) => (g.material as THREE.ShaderMaterial).uniforms.uRingShadows.value);
+    s.setView(0, 0, 60, 16 / 9);
+    expect(ring()).toEqual([1, 1, 1]);
+    s.setPose({ position: [0, 100e3, 0], quaternion: [0, 0, 0, 1], fov: 60, shift: [0, 0] }, 16 / 9);
+    expect(ring()).toEqual([0, 0, 0]);
+    s.setPose({ position: [0, 2e3, 0], quaternion: [0, 0, 0, 1], fov: 60, shift: [0, 0] }, 16 / 9);
+    expect(ring()).toEqual([1, 1, 1]);
+  });
+
   it('lights the rocks and the lander at night from the sky above, tops lighter than sides, and only faintly by day', () => {
     const night = { ...series, sunEl: Float64Array.from([-3, -3, -3]), sunFraction: Float64Array.from([0, 0, 0]), earthEl: Float64Array.from([-6, -6, -6]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
     const s = buildScene(flat({ series: night, lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
