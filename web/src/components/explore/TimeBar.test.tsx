@@ -111,7 +111,9 @@ const contactRunsOf = (container: HTMLElement, hours: number) =>
     return { from, to: from + Math.round((parseFloat(r.style.width) / 100) * hours), hatched: r.hasAttribute('data-if-survives') };
   });
 /** The words of the key's entries, in order. */
-const keyWords = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('[data-part^="key"]')].map((k) => k.textContent);
+/** A key entry's words as a wide screen shows them (the hatched entry has a shorter copy for a phone, 18.3). */
+const wordsOf = (k: Element) => k.querySelector('[data-wide]')?.textContent ?? k.textContent;
+const keyWords = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('[data-part^="key"]')].map(wordsOf);
 /**
  * A length in px from a class such as `max-sm:h-[27px]` or `max-sm:h-10` (a Tailwind step of 4 px): `prop` is
  * the utility (h, w, size), `prefix` the variant before it ('' for none, 'max-sm:' on a phone).
@@ -526,7 +528,13 @@ describe('TimeBar', () => {
     // so they do not read as a fragment. No hour of the green is solid here, so "radio contact" is not named, and
     // the hatched entry comes right after Earth's.
     const key = container.querySelector<HTMLElement>('[data-part="key-if-survives"]')!;
-    expect(key.textContent).toBe('radio, if the lander survives the cold');
+    expect(wordsOf(key)).toBe('radio, if the lander survives the cold');
+    // On a phone, where the key sits in the bar's second column (about 240 px at 390 px), the words would wrap onto a
+    // second line and take 20 px from the scene (18.3): a shorter copy shows there, the same meaning.
+    expect(key.querySelector('[data-wide]')!.className).toBe('max-sm:hidden');
+    const phone = key.querySelector<HTMLElement>('[data-phone]')!;
+    expect(phone.textContent).toBe('radio if the lander survives');
+    expect(phone.className).toBe('sm:hidden');
     expect(key.previousElementSibling).toBe(container.querySelector('[data-part="key-earth"]'));
     expect(container.querySelector('[data-part="key-contact"]')).toBeNull();
     for (const c of ['flex', 'items-center', 'gap-2', 'text-[15px]', 'text-ink-2']) expect(key.classList.contains(c)).toBe(true);
@@ -745,7 +753,7 @@ describe('TimeBar', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, ifSurvivesFrom: 30, clockNote: ' (Earth time)' });
     expect(screen.queryByRole('button', { name: 'Key' })).toBeNull();
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if the lander survives the cold']);
+    expect([...group.children].map(wordsOf)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if the lander survives the cold']);
     // Named on a phone too, under the date, at 14 px with shorter swatches.
     expect(group.className).not.toMatch(/max-sm:hidden/);
     for (const c of ['flex', 'basis-full', 'flex-wrap', 'items-baseline', 'max-sm:gap-x-2', 'max-sm:[&>span]:text-[14px]', 'max-sm:[&_i]:w-4']) expect(group.classList.contains(c)).toBe(true);
@@ -755,7 +763,7 @@ describe('TimeBar', () => {
     // The stand view's period, where the only radio drawn is hatched: no "radio contact".
     const { container } = showStandPeriod({ compact: true });
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if the lander survives the cold']);
+    expect([...group.children].map(wordsOf)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if the lander survives the cold']);
     cleanup();
     // A lander that keeps its power all through: no "lander off".
     const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));

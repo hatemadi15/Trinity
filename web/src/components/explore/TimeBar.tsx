@@ -508,7 +508,15 @@ export function TimeBar({
                   <span data-part="key-if-survives" className="flex items-center gap-2 text-[15px] text-ink-2">
                     {/* The band's own stripes, in a line as thick as the band. */}
                     <i data-swatch="" aria-hidden="true" className={`block h-2.5 w-6 rounded-full border-y-2 border-transparent bg-clip-padding ${HATCH}`} />
-                    radio, if the lander survives the cold
+                    {/* On a phone the key sits in the bar's second column (about 240 px at 390 px): the full words would wrap
+                        and take a line from the scene (18.3), so a shorter copy shows there (display: none keeps the other
+                        out of the accessibility tree). */}
+                    <span data-wide="" className="max-sm:hidden">
+                      radio, if the lander survives the cold
+                    </span>
+                    <span data-phone="" className="sm:hidden">
+                      radio if the lander survives
+                    </span>
                   </span>
                 )}
               </span>
