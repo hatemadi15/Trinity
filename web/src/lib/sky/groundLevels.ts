@@ -20,6 +20,18 @@ export const STAND_REACH_M = 125000;
 const FLIGHT_REACH_M = 205000, RING_REACH_M = 460000;
 /** How far a level's mesh reaches from the site, by its cell size; the coarsest to 125 km, or 205 km in flight. The shadows read the whole level. */
 const meshReachM = (cellM: number, coarsest: boolean, flight = false) => (coarsest ? (flight ? FLIGHT_REACH_M : STAND_REACH_M) : cellM <= 30 ? 5000 : cellM <= 200 ? 20500 : 125000);
+/**
+ * A mesh's round edge (17.2): its own ground to `ringIn`, the next level's light and shadows fully from `ringOut`, cut
+ * round at `cut`, two cells inside its nearest side; the next level's round hole opens at `ringOut`, so the two overlap
+ * by a cell. The ring inside the cut is a quarter of the reach.
+ */
+export function edgeOf(reachM: number, cellM: number): { ringIn: number; ringOut: number; cut: number } {
+  const cut = reachM - 2 * cellM;
+  return { ringIn: 0.75 * cut, ringOut: cut - cellM, cut };
+}
+/** A mesh with no edge to fade into: the last level and the cap's ring (their far edge is uFarCut's); never cut, never faded. */
+const NO_EDGE = new THREE.Vector3(1e9, 2e9, 3e9);
+
 /** The value stored for a cell outside the measured ground when heights go to the GPU as half floats. */
 const HALF_OUTSIDE = -65000;
 
@@ -115,7 +127,7 @@ export function buildGround(field: TerrainField, o: GroundOptions): { meshes: TH
    * the coarser meshes under it. `pixel`: its light from per-pixel slopes of its own heights (the flight level, whose
    * mesh at every other cell would soften the relief).
    */
-  const material = (detail: boolean, hole: number, order: number, slots: FieldLevel[], pixel = false) =>
+  const material = (detail: boolean, holeR: number, order: number, slots: FieldLevel[], pixel = false) =>
     new THREE.ShaderMaterial({
       uniforms: {
         uH0: { value: texOf(slots[0]) }, uH1: { value: texOf(slots[1]) }, uH2: { value: texOf(slots[2]) },
@@ -134,7 +146,9 @@ export function buildGround(field: TerrainField, o: GroundOptions): { meshes: TH
         uDetail: { value: detail && !fast ? 1 : 0 },
         uFarDetail: { value: fast ? 0 : 1 },
         uSunPower: { value: 3.4 },
-        uHole: { value: new THREE.Vector2(hole, hole) },
+        uHoleR: { value: holeR },
+        uEdge: { value: NO_EDGE.clone() },
+        uNextStep: { value: 2 },
         uLanderOn: { value: 0 },
         uLanderCenter: { value: new THREE.Vector3() },
         uLanderCS: { value: new THREE.Vector2(1, 0) },
@@ -177,15 +191,23 @@ export function buildGround(field: TerrainField, o: GroundOptions): { meshes: TH
     const flightLevel = flight ? field.flight : undefined;
     const list = flightLevel ? [...drawn.slice(0, -1), flightLevel, drawn[drawn.length - 1]] : drawn;
     const slotsOf = (k: number) => [...new Set([list[k], list[k + 1], list[list.length - 1]].filter((l): l is FieldLevel => !!l))];
-    let hole = 0;
+    let holeR = 0;
     list.forEach((l, k) => {
-      const isFlight = l === flightLevel;
-      const { mesh, reachM } = isFlight
-        ? groundMesh(half(l), field.lonDeg, STAND_REACH_M, material(false, hole, k, slotsOf(k), true))
-        : groundMesh(l, field.lonDeg, meshReachM(l.cell, k === list.length - 1, flight), material(k === 0, hole, k, slotsOf(k)));
+      const isFlight = l === flightLevel, last = k === list.length - 1, meshCell = isFlight ? 2 * l.cell : l.cell;
+      const mat = isFlight ? material(false, holeR, k, slotsOf(k), true) : material(k === 0, holeR, k, slotsOf(k));
+      const { mesh, reachM } = isFlight ? groundMesh(half(l), field.lonDeg, STAND_REACH_M, mat) : groundMesh(l, field.lonDeg, meshReachM(l.cell, last, flight), mat);
       ground.push(mesh);
-      // The next, coarser level starts two of this mesh's cells inside its edge: an overlap, never a gap.
-      hole = Math.max(0, reachM - 2 * (isFlight ? 2 * l.cell : l.cell));
+      if (last) {
+        // The cap's ring, in flight, starts two of the cap's cells inside its edge: an overlap, never a gap.
+        holeR = Math.max(0, reachM - 2 * meshCell);
+      } else {
+        // Its edge: round, and faded into the next level over the ring inside it; the next level's hole opens a cell
+        // inside the cut. The next level's slope is taken as its mesh softens it, per pixel for the flight level.
+        const e = edgeOf(reachM, meshCell);
+        (mat.uniforms.uEdge.value as THREE.Vector3).set(e.ringIn, e.ringOut, e.cut);
+        mat.uniforms.uNextStep.value = list[k + 1] === flightLevel ? 1 : 2;
+        holeR = e.ringOut;
+      }
     });
     cap = ground[ground.length - 1];
     if (flight) {
@@ -193,7 +215,7 @@ export function buildGround(field: TerrainField, o: GroundOptions): { meshes: TH
       // wide (a quarter of the vertices), so the month's sweep is all measured ground, sharper than the globe's
       // maps, whose rows bunch up at the pole.
       const l = drawn[drawn.length - 1];
-      capRing = groundMesh(half(l), field.lonDeg, RING_REACH_M, material(false, hole, list.length, [l])).mesh;
+      capRing = groundMesh(half(l), field.lonDeg, RING_REACH_M, material(false, holeR, list.length, [l])).mesh;
       ground.push(capRing);
     }
   }

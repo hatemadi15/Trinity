@@ -66,7 +66,7 @@ void main() {
 export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
-uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uFarDetail, uSunPower; uniform vec2 uHole;
+uniform vec3 uSun, uEarth, uEdge; uniform float uEarthshine, uDetail, uFarDetail, uSunPower, uHoleR, uNextStep;
 uniform float uLanderOn, uSunUp, uBounce, uNight, uFarCut, uPixel; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
 ${SHADOW_GLSL}
 ${HIDE_GLSL}
@@ -241,11 +241,16 @@ void main() {
   #include <logdepthbuf_fragment>
   float px = max(length(fwidth(vWorld.xz)), 1.0e-3); // metres of ground per pixel, taken before any branch or discard
   vec2 m = toMap(vWorld.xz);
-  if (abs(m.x) < uHole.x && abs(m.y) < uHole.y) discard; // a finer level draws here
+  // Round: a finer level draws inside the hole, the next level beyond the cut (groundLevels.ts edgeOf).
+  float rr = length(m);
+  if (rr < uHoleR || rr > uEdge.z) discard;
   if (dot(m, m) > uFarCut * uFarCut) discard; // beyond this the globe, or the far skyline, draws
   vec3 N0 = normalize(vNormal), Nn = N0;
   // The flight level's light from its own heights, per pixel: its mesh, at every other cell, would soften the relief.
   if (uPixel > 0.5) N0 = slopeNormal(uH0, uL0, uS0, m, 1.0);
+  // Over the ring inside the cut the light fades into the next level's, slope by slope, so no edge shows from the air.
+  float edge = smoothstep(uEdge.x, uEdge.y, rr);
+  if (edge > 0.0) N0 = normalize(mix(N0, slopeNormal(uH1, uL1, uS1, m, uNextStep), edge));
   Nn = N0;
   vec3 Ls = normalize(uSun), V = normalize(cameraPosition - vWorld);
   float dist = length(vWorld - cameraPosition);
@@ -254,7 +259,9 @@ void main() {
   float mTerrain = -1.0, mLander = 1.0, mViewer = 1.0, mBoulders = 1.0, mDetail = 1.0, wDetail = 0.0;
   bool facing = dot(N0, Ls) > 0.0;
   if (facing) {
-    mTerrain = sunMargin(vWorld + N0 * 0.4, uSun);
+    // The shadows fade the same way: the next level's from its own ground, mixed in over the ring.
+    vec2 mt = sunMargins(vWorld + N0 * 0.4, uSun, edge > 0.0);
+    mTerrain = mix(mt.x, mt.y, edge);
     if (uLanderOn > 0.5) mLander = landerClearance(toLander(vWorld + N0 * 0.05 - uLanderCenter), toLander(Ls));
     mViewer = viewerClearance(vWorld + N0 * 0.05, Ls);
     if (length(vWorld.xz) < 140.0) mBoulders = rocksClearance(vWorld + N0 * 0.05, Ls);

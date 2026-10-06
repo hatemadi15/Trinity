@@ -90,7 +90,7 @@ describe('the stand scene', () => {
       for (let i = 0; i < p.count; i++) r = Math.max(r, Math.hypot(p.getX(i), p.getZ(i)));
       return r / Math.SQRT2; // the half width of the square, in any orientation within a cell
     });
-    const holes = s.parts.ground.map((g) => ((g.material as THREE.ShaderMaterial).uniforms.uHole.value as THREE.Vector2).x);
+    const holes = s.parts.ground.map((g) => (g.material as THREE.ShaderMaterial).uniforms.uHoleR.value as number);
     expect(holes[0]).toBe(0);
     for (let i = 1; i < 3; i++) {
       expect(holes[i]).toBeGreaterThan(0);

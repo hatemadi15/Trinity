@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
-import { buildGround } from './groundLevels';
+import { buildGround, edgeOf } from './groundLevels';
 import { flatField, terrainField } from './terrainField';
 
 /** Three square levels of constant height, coarse to fine, as `shadowLevels` returns them. */
@@ -56,5 +56,26 @@ describe('the measured ground', () => {
     expect(Math.hypot(p.getX(1) - p.getX(0), p.getZ(1) - p.getZ(0))).toBeCloseTo(480, 3);
     // Standing (the stand view), the flight level is never drawn.
     expect(buildGround(field, { fast: false, flight: false, halfFloat: false, viewerY: 2 }).meshes).toHaveLength(3);
+  });
+
+  it('cuts every level round two cells inside its nearest side, fading over the ring inside the cut into the next level, whose round hole opens a cell inside the cut', () => {
+    expect(edgeOf(5000, 20)).toEqual({ ringIn: 3720, ringOut: 4940, cut: 4960 });
+    const field = terrainField(levels(), 0, 100, flightLevel());
+    for (const flight of [false, true]) {
+      const g = buildGround(field, { fast: false, flight, halfFloat: false, viewerY: 2 });
+      const n = flight ? 4 : 3;
+      expect(u(g.meshes[0]).uHoleR.value).toBe(0);
+      for (let k = 0; k < n - 1; k++) {
+        const e = u(g.meshes[k]).uEdge.value as THREE.Vector3;
+        expect(e.x).toBeLessThan(e.y);
+        expect(e.y).toBeLessThan(e.z);
+        expect(u(g.meshes[k + 1]).uHoleR.value).toBeCloseTo(e.y, 6);
+      }
+      // The cap has nothing beyond it to fade into (its far edge is uFarCut's), nor has its ring.
+      expect((u(g.meshes[n - 1]).uEdge.value as THREE.Vector3).x).toBeGreaterThan(1e8);
+      if (flight) expect((u(g.meshes[4]).uEdge.value as THREE.Vector3).x).toBeGreaterThan(1e8);
+      // The next level's slope: across 2 cells where its mesh softens it, across 1 for the flight level's per-pixel light.
+      expect(g.meshes.slice(0, n - 1).map((m) => u(m).uNextStep.value)).toEqual(flight ? [2, 1, 2] : [2, 2]);
+    }
   });
 });

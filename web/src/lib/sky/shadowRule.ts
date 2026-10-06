@@ -73,19 +73,25 @@ vec3 slopeNormal(sampler2D t, vec3 L, vec2 S, vec2 m, float k) {
   vec2 g = vec2(gx * uCS.x - gy * uCS.y, -(gx * uCS.y + gy * uCS.x));
   return normalize(vec3(-g.x, 1.0, -g.y));
 }
-// The angle (radians) by which the Sun's centre clears the steepest rise of the ground towards it.
-float sunMargin(vec3 p, vec3 sun) {
+// The angles (radians) by which the Sun's centre clears the steepest rise of the ground towards it: over the mesh's
+// own slots (x) and, with both, over the next level's on (y), from the next level's own ground under the point, as its
+// mesh would see it. A level's edge fades its shadows into the next level's (groundLevels.ts edgeOf). One march for
+// both, so the loop is written once: wherever slot 0 holds a point, the coarser slots do too.
+vec2 sunMargins(vec3 p, vec3 sun, bool both) {
   float horiz = length(sun.xz); float elSun = atan(sun.y, horiz); vec2 dir = sun.xz / horiz;
-  float maxTan = -10.0; float t = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz, 0));
+  float maxA = -10.0, maxB = -10.0; float t = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz, 0));
+  float yB = p.y, tB = 1.0e9;
+  if (both) { yB = heightAt(p.xz, 1) + (p.y - heightAt(p.xz, 0)); tB = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz, 1)); }
   for (int i = 0; i < ${SHADOW.STEPS} * uOne; i++) {
     if (i >= uSteps) break;
-    float h = heightAt(p.xz + dir * t, 0); if (h < ${SHADOW.OUTSIDE_BELOW_M.toFixed(1)}) break;
-    maxTan = max(maxTan, (h - p.y - ${SHADOW.TOL_M}) / t);
+    vec2 q = p.xz + dir * t;
+    float h = heightAt(q, 0); if (h < ${SHADOW.OUTSIDE_BELOW_M.toFixed(1)}) break;
+    maxA = max(maxA, (h - p.y - ${SHADOW.TOL_M}) / t);
+    if (t >= tB) maxB = max(maxB, (heightAt(q, 1) - yB - ${SHADOW.TOL_M}) / t);
     t *= uGrowth; if (t > ${SHADOW.MAX_M.toFixed(1)}) break;
   }
-  return elSun - atan(maxTan);
+  return vec2(elSun - atan(maxA), elSun - atan(maxB));
 }
-float sunFraction(vec3 p, vec3 sun) { return clamp(sunMargin(p, sun) / (2.0 * ${SHADOW.SUN_RADIUS_RAD}) + 0.5, 0.0, 1.0); }
 `;
 
 /** How much wider than tall the drawn bumps (craters and stones) are taken to be, for hiddenShadowShare. */

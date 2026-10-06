@@ -5,6 +5,19 @@ import { hiddenShadowShare, SHADOW_GLSL } from './shadowRule';
 
 describe('the ground shader', () => {
 
+  it('cuts each level round and fades its edge into the next level’s light and shadows, the two shadows in one march', () => {
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toMatch(/if \(rr < uHoleR \|\| rr > uEdge\.z\) discard;/);
+    expect(main).toContain('float edge = smoothstep(uEdge.x, uEdge.y, rr);');
+    expect(main).toContain('if (edge > 0.0) N0 = normalize(mix(N0, slopeNormal(uH1, uL1, uS1, m, uNextStep), edge));');
+    expect(main.match(/sunMargins\(/g)).toHaveLength(1);
+    expect(main).toContain('mTerrain = mix(mt.x, mt.y, edge);');
+    expect(GROUND_FRAG).not.toMatch(/uHole\b/);
+    expect(SHADOW_GLSL).toMatch(/vec2 sunMargins\(vec3 p, vec3 sun, bool both\)/);
+    expect(SHADOW_GLSL).not.toMatch(/float sunMargin\(|float sunFraction\(/);
+    expect(SHADOW_GLSL.match(/for \(int /g)).toHaveLength(1);
+  });
+
   it('reads heights from a slot on, each mesh from its own, and takes the flight level’s light from per-pixel slopes of its heights', () => {
     expect(SHADOW_GLSL).toMatch(/float heightAt\(vec2 xz, int from\)/);
     expect(SHADOW_GLSL).toMatch(/float cellAt\(vec2 xz, int from\)/);
@@ -98,7 +111,7 @@ describe('the ground shader', () => {
 
   it('starts the shadow ray from the measured ground, not from the drawn craters', () => {
     expect(GROUND_FRAG).toContain('vec3 N0 = normalize(vNormal), Nn = N0;');
-    expect(GROUND_FRAG).toContain('sunMargin(vWorld + N0 * 0.4, uSun)');
+    expect(GROUND_FRAG).toContain('sunMargins(vWorld + N0 * 0.4, uSun, edge > 0.0)');
   });
 
   it('keeps every star below the bloom threshold, so only the Sun blooms', () => {
