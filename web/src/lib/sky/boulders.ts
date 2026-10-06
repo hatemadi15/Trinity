@@ -30,8 +30,9 @@ export type RockKind = 'block' | 'lump' | 'slab';
  * (0) of its height is bedded in the dust.
  */
 export const KINDS: Record<RockKind, { share: number; planes: [number, number]; dist: [number, number]; edge: number; noise: number; flat: number; lift: [number, number] }> = {
-  block: { share: 0.5, planes: [11, 14], dist: [0.62, 1], edge: 0.035, noise: 0.035, flat: 0.75, lift: [0.15, 0.33] },
-  lump: { share: 0.3, planes: [9, 11], dist: [0.8, 1], edge: 0.12, noise: 0.06, flat: 0.7, lift: [0.05, 0.25] },
+  block: { share: 0.65, planes: [11, 14], dist: [0.62, 1], edge: 0.035, noise: 0.035, flat: 0.75, lift: [0.15, 0.33] },
+  // Few and only a little rounded: read D2 took the rounder lumps of the prototype (share 0.3, edge 0.12) for pillows.
+  lump: { share: 0.15, planes: [9, 11], dist: [0.8, 1], edge: 0.07, noise: 0.06, flat: 0.7, lift: [0.05, 0.25] },
   slab: { share: 0.2, planes: [9, 12], dist: [0.7, 1], edge: 0.05, noise: 0.03, flat: 0.42, lift: [0.2, 0.33] },
 };
 /** The kind for a random number from 0 to 1, by the kinds' shares. */

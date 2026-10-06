@@ -176,6 +176,9 @@ describe('the arrival', () => {
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
     scrolled(2);
     expect(stage!.progress.current).toBeCloseTo(BEAT_STOPS[2], 6);
+    // On a phone Skip sits at the top right, clear of the beats' cards at the foot of the screen (read D2: 13, 17).
+    expect(screen.getByRole('button', { name: 'Skip' }).className).toMatch(/\bmax-sm:top-4\b/);
+    expect(screen.getByRole('button', { name: 'Skip' }).className).toMatch(/\bmax-sm:bottom-auto\b/);
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
     // Skip lands on the last screen, the answer after the month at the site.
     expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 6 * window.innerHeight - 2 * window.innerHeight, behavior: 'instant' });

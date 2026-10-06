@@ -63,6 +63,22 @@ const openCard = () => fireEvent.click(screen.getByRole('button', { name: 'More'
 afterEach(() => cleanup());
 
 describe('StandView', () => {
+
+  it('keeps the answer in view from 768 px: the headline on the status plate under its line and above the next step, the card leaving it to the plate', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const title = asRead(screen.getByRole('heading', { level: 1 }).textContent!);
+    const more = screen.getByRole('button', { name: 'More' });
+    const plate = more.closest('[data-plate]') as HTMLElement;
+    const shown = within(plate).getByText(title, { selector: 'p' });
+    expect(shown.className).toMatch(/\bmax-md:hidden\b/);
+    // Under the status line (after More), above the next step.
+    expect(more.compareDocumentPosition(shown) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(shown.compareDocumentPosition(screen.getByRole('group', { name: 'Next step' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // On a phone today's card keeps the headline; from 768 px it leaves it to the plate.
+    openCard();
+    const card = document.getElementById('stand-card')!;
+    expect(within(card).getByText(title, { selector: 'p' }).className).toMatch(/\bmd:hidden\b/);
+  });
   it('opens with the guides off, shows the days on the paths and the level horizon on "Guides", and hides them with the words', async () => {
     window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const store = createExploreStore(fileLoaders());

@@ -397,6 +397,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               </div>
               {/* The next step, always in view from 768 px (17.1); on a phone it waits in today's card. It starts under
                   the status's words (the plate's 16 px, the dot's 12 and the gap's 12), as the mockup has it. */}
+              {/* The answer, in view from 768 px (read D2: the better day had nothing to compare against under More); a phone's card keeps it. */}
+              <p aria-hidden="true" className="display text-pretty px-4 pb-1 pl-10 text-[16px] font-semibold leading-snug max-md:hidden">
+                {title}
+              </p>
               <div role="group" aria-label="Next step" className="flex flex-wrap items-center gap-x-5 gap-y-1 pb-2.5 pl-10 pr-4 pt-0.5 max-md:hidden">
                 {better ? (
                   <a
@@ -435,7 +439,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               >
                 <p className="text-[14px] text-[#c3bfb6] md:text-[15px]">{standingLine(site, oneLine, 'top', flat)}</p>
                 {/* The headline as the eye reads it; the heading above says it for screen readers. */}
-                <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px]">
+                <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px] md:hidden">
                   {title}
                 </p>
                 <p className="text-[14px] text-[#f6d48a] md:text-[15px]">{watchNext(series, power, s.startUtc, hour)}</p>
