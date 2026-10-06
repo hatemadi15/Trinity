@@ -12,14 +12,18 @@ import { earthAxes, earthLitFraction } from './earth';
 import { dirAzEl, enuBasis, meToWorld, type Vec3 } from './frames';
 import { buildGlobe, GLOBE } from './globe';
 import { moonMatrixAt } from './moonOrientation';
-import { EARTH_FRAG, EARTH_VERT, GROUND_FRAG, GROUND_VERT, STAR_FRAG, STAR_VERT } from './shaders';
+import { EARTH_FRAG, EARTH_VERT, STAR_FRAG, STAR_VERT } from './shaders';
 import { FramePacer } from './framePacer';
-import { SHADOW, SHADOW_FAST } from './shadowRule';
+
 import { cachedTexture, releaseCachedTextures } from './textureCache';
 import { placeStars, starColour, starGain, starSize } from './stars';
-import { LANDER, LEG_ENDS } from './landerShape';
-import { BOULDERS, boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
-import { heightAt, meshHeightAt, worldOf, type FieldLevel, type TerrainField } from './terrainField';
+import { LANDER } from './landerShape';
+import { buildLander } from './landerMesh';
+import { buildGround, STAND_REACH_M } from './groundLevels';
+import { boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
+import { heightAt, meshHeightAt, type TerrainField } from './terrainField';
+
+export { toTextureHeights } from './groundLevels';
 
 /** Everything the stand view draws for one site and period. `fast`: a lower pixel ratio, no drawn detail, coarser shadow steps. */
 export interface StandScene {
@@ -126,19 +130,14 @@ export function shadowOnGround(riseAt: (d: number) => number, sunElDeg: number, 
  * to 0.35, none while either does (the sunlit share counts once, Earth's light twice).
  */
 const nightFloor = (sunFraction: number, earthshine: number) => 0.35 * Math.max(0, 1 - Math.min(1, sunFraction + 2 * earthshine));
+
 /**
- * The measured ground's reach standing (125 km, the far skyline beyond it) and in flight (205 km in the cap's own
- * cells, then a ring of cells twice as wide out to 460 km, cut round at 455 km where the globe takes over); it
- * draws below 1600 km over the site. Within 10 m of the ground at the site the view counts as standing: the
- * far skyline is the eye's own horizon, and from higher up the near crests drop below it and would bare it as a
- * band. From 500 m up the eye's night light fades out. From space the camera exposes for the sunlit Moon (a
- * fixed gain) and shows the brighter stars faintly.
+ * Within 10 m of the ground at the site the view counts as standing: the far skyline is the eye's own horizon, and
+ * from higher up the near crests drop below it and would bare it as a band. The measured ground draws below 1600 km
+ * over the site, the globe beyond (groundLevels.ts has the ground's reach). From 500 m up the eye's night light fades
+ * out. From space the camera exposes for the sunlit Moon (a fixed gain) and shows the brighter stars faintly.
  */
-const STAND_REACH_M = 125000, FLIGHT_REACH_M = 205000, RING_REACH_M = 460000, STANDING_M = 10, ALOFT_M = 500, MEASURED_M = 1600000, SPACE_GAIN = 1.8, SPACE_STARS = 0.7;
-/** How far a level's mesh reaches from the site, by its cell size; the coarsest to 125 km, or 205 km in flight. The shadows read the whole level. */
-const meshReachM = (cellM: number, coarsest: boolean, flight = false) => (coarsest ? (flight ? FLIGHT_REACH_M : STAND_REACH_M) : cellM <= 30 ? 5000 : cellM <= 200 ? 20500 : 125000);
-/** The value stored for a cell outside the measured ground when heights go to the GPU as half floats. */
-const HALF_OUTSIDE = -65000;
+const STANDING_M = 10, ALOFT_M = 500, MEASURED_M = 1600000, SPACE_GAIN = 1.8, SPACE_STARS = 0.7;
 
 /** The Southern Cross's four stars (long bar Acrux to Gacrux, short bar Mimosa to Imai), when all are named. */
 export function crossStars(names: { index: number; name: string }[] | undefined): [number, number, number, number] | null {
@@ -174,64 +173,6 @@ function sampleSeries(s: Series, t: number) {
   const i = Math.min(s.hours - 1, Math.max(0, Math.floor(t))), j = Math.min(s.hours - 1, i + 1), f = Math.min(1, Math.max(0, t - i));
   const mix = (a: ArrayLike<number>) => a[i] + (a[j] - a[i]) * f;
   return { sunAz: lerpAngle(s.sunAz[i], s.sunAz[j], f), sunEl: mix(s.sunEl), earthAz: lerpAngle(s.earthAz[i], s.earthAz[j], f), earthEl: mix(s.earthEl), sunFraction: mix(s.sunFraction) };
-}
-
-/** Heights for a GPU texture: float32 as they are, or half floats with cells outside the ground kept finite. */
-export function toTextureHeights(heights: Float32Array, half: boolean): Float32Array | Uint16Array {
-  if (!half) return heights;
-  const out = new Uint16Array(heights.length);
-  for (let i = 0; i < heights.length; i++) out[i] = THREE.DataUtils.toHalfFloat(heights[i] < SHADOW.OUTSIDE_BELOW_M ? HALF_OUTSIDE : heights[i]);
-  return out;
-}
-
-function heightTexture(l: FieldLevel | undefined, half: boolean): THREE.DataTexture {
-  const t = l
-    ? new THREE.DataTexture(toTextureHeights(l.heights, half), l.cols, l.rows, THREE.RedFormat, half ? THREE.HalfFloatType : THREE.FloatType)
-    : new THREE.DataTexture(new Float32Array([0]), 1, 1, THREE.RedFormat, THREE.FloatType);
-  t.minFilter = t.magFilter = THREE.LinearFilter;
-  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
-  t.needsUpdate = true;
-  return t;
-}
-
-/** A level's mesh around the site, out to `halfM` (or the level's edge); returns the mesh and how far it reaches on its nearest side. */
-function groundMesh(l: FieldLevel, lonDeg: number, halfM: number, material: THREE.ShaderMaterial): { mesh: THREE.Mesh; reachM: number } {
-  const sc = Math.round(l.siteCol), sr = Math.round(l.siteRow), n = Math.floor(halfM / l.cell);
-  const c0 = Math.max(3, sc - n), c1 = Math.min(l.cols - 4, sc + n), r0 = Math.max(3, sr - n), r1 = Math.min(l.rows - 4, sr + n);
-  const cols = c1 - c0 + 1, rows = r1 - r0 + 1;
-  const pos = new Float32Array(cols * rows * 3), nor = new Float32Array(cols * rows * 3);
-  const h = (r: number, c: number) => l.heights[r * l.cols + c];
-  for (let r = r0; r <= r1; r++) {
-    for (let c = c0; c <= c1; c++) {
-      const k = (r - r0) * cols + (c - c0), mx = (c - l.siteCol) * l.cell, my = -(r - l.siteRow) * l.cell, w = worldOf(lonDeg, mx, my);
-      pos[k * 3] = w.x;
-      pos[k * 3 + 1] = h(r, c);
-      pos[k * 3 + 2] = w.z;
-      // Slopes over three cells each way: the grids' single-row seams do not ripple or streak the light.
-      const gx = (h(r, c + 3) + h(r, c + 2) + h(r, c + 1) - h(r, c - 1) - h(r, c - 2) - h(r, c - 3)) / (12 * l.cell);
-      const gy = (h(r - 3, c) + h(r - 2, c) + h(r - 1, c) - h(r + 1, c) - h(r + 2, c) - h(r + 3, c)) / (12 * l.cell);
-      const g = worldOf(lonDeg, -gx, -gy), len = Math.hypot(g.x, 1, g.z);
-      nor[k * 3] = g.x / len;
-      nor[k * 3 + 1] = 1 / len;
-      nor[k * 3 + 2] = g.z / len;
-    }
-  }
-  const idx = new Uint32Array((rows - 1) * (cols - 1) * 6);
-  let m = 0;
-  for (let r = 0; r < rows - 1; r++) {
-    for (let c = 0; c < cols - 1; c++) {
-      const a = r * cols + c, b = a + 1, d = a + cols, e = d + 1;
-      idx[m++] = a; idx[m++] = d; idx[m++] = b; idx[m++] = b; idx[m++] = d; idx[m++] = e;
-    }
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-  geo.setIndex(new THREE.BufferAttribute(idx, 1));
-  const mesh = new THREE.Mesh(geo, material);
-  mesh.frustumCulled = false;
-  const reachM = Math.min(l.siteCol - c0, c1 - l.siteCol, l.siteRow - r0, r1 - l.siteRow) * l.cell;
-  return { mesh, reachM };
 }
 
 /** A texture drawn on a 512-pixel canvas, or none outside a browser. */
@@ -287,7 +228,6 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   root.background = new THREE.Color(0x000000);
   const fast = scene.quality === 'fast';
   const basis = enuBasis(scene.site.lat, scene.site.lon);
-  const levels = scene.field.levels;
   const eye = eyeAt(scene);
   // Views from above (the home page's arrival): the globe round the measured ground, the camera anywhere.
   const hasGround = scene.ground !== false, flight = !!scene.globe, siteH = scene.siteHeightM ?? 0;
@@ -295,86 +235,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const camera = new THREE.PerspectiveCamera(60, 1, 0.3, flight ? 1e10 : 700000);
   camera.position.set(0, eye, 0);
 
-  // The measured ground: up to three levels as height textures (for the shadows) and meshes (to see).
-  const tex = [0, 1, 2].map((i) => heightTexture(levels[i], opts.halfFloat ?? false));
-  const lv = (i: number) => new THREE.Vector3(levels[i]?.siteCol ?? 0, levels[i]?.siteRow ?? 0, levels[i]?.cell ?? 1);
-  const sz = (i: number) => new THREE.Vector2(levels[i]?.cols ?? 1, levels[i]?.rows ?? 1);
-  const c = Math.cos(scene.field.lonDeg * DEG), s = Math.sin(scene.field.lonDeg * DEG);
-  const material = (detail: boolean, hole: number, level: number) =>
-    new THREE.ShaderMaterial({
-      uniforms: {
-        uH0: { value: tex[0] }, uH1: { value: tex[1] }, uH2: { value: tex[2] },
-        uL0: { value: lv(0) }, uL1: { value: lv(1) }, uL2: { value: lv(2) },
-        uS0: { value: sz(0) }, uS1: { value: sz(1) }, uS2: { value: sz(2) },
-        uCS: { value: new THREE.Vector2(c, s) },
-        uLevels: { value: Math.min(3, levels.length) },
-        uMinLevel: { value: level },
-        uSteps: { value: fast ? SHADOW_FAST.STEPS : SHADOW.STEPS },
-        uOne: { value: 1 },
-        uViewer: { value: new THREE.Vector3(0, meshHeightAt(scene.field, 0, 0), 0) },
-        uGrowth: { value: fast ? SHADOW_FAST.GROWTH : SHADOW.GROWTH },
-        uSun: { value: new THREE.Vector3(1, 0, 0) },
-        uEarth: { value: new THREE.Vector3(0, 1, 0) },
-        uEarthshine: { value: 0 },
-        uDetail: { value: detail && !fast ? 1 : 0 },
-        uFarDetail: { value: fast ? 0 : 1 },
-        uSunPower: { value: 3.4 },
-        uHole: { value: new THREE.Vector2(hole, hole) },
-        uLanderOn: { value: 0 },
-        uLanderCenter: { value: new THREE.Vector3() },
-        uLanderCS: { value: new THREE.Vector2(1, 0) },
-        uSunUp: { value: 0 },
-        uRocks: { value: Array.from({ length: BOULDERS.MAX }, () => new THREE.Vector4()) },
-        uRockCount: { value: 0 },
-        uBounce: { value: 0.015 },
-        uNight: { value: 0 },
-        uFarCut: { value: 1e9 },
-      },
-      vertexShader: GROUND_VERT,
-      fragmentShader: GROUND_FRAG,
-      polygonOffset: level > 0,
-      polygonOffsetFactor: level,
-      polygonOffsetUnits: level * 4,
-    });
-  const ground: THREE.Mesh[] = [];
-  // The cap's own mesh, and in flight the coarser ring round it.
-  let cap: THREE.Mesh | null = null, capRing: THREE.Mesh | null = null;
-  if (!hasGround) {
-    // The sky and the globe alone, until the measured ground has loaded.
-  } else if (levels.length === 0) {
-    // No terrain: flat ground on the curved Moon.
-    const geo = new THREE.RingGeometry(0.01, 150000, 256, 128).rotateX(-Math.PI / 2);
-    const p = geo.getAttribute('position');
-    for (let i = 0; i < p.count; i++) p.setY(i, -(p.getX(i) ** 2 + p.getZ(i) ** 2) / (2 * R_MOON_M));
-    geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, material(true, 0, 0));
-    mesh.frustumCulled = false;
-    ground.push(mesh);
-  } else {
-    let hole = 0;
-    const drawn = levels.slice(0, 3);
-    drawn.forEach((l, i) => {
-      const { mesh, reachM } = groundMesh(l, scene.field.lonDeg, meshReachM(l.cell, i === drawn.length - 1, flight), material(i === 0, hole, i));
-      ground.push(mesh);
-      // The next, coarser level starts two of this level's cells inside its edge: an overlap, never a gap.
-      hole = Math.max(0, reachM - 2 * l.cell);
-    });
-    cap = ground[ground.length - 1];
-    if (flight) {
-      // From 900 km over the pole the view spans some 330 km each way: the cap goes on to 460 km in cells twice as
-      // wide (a quarter of the vertices), so the month's sweep is all measured ground, sharper than the globe's
-      // maps, whose rows bunch up at the pole.
-      const l = drawn[drawn.length - 1], cols = Math.floor((l.cols - 1) / 2) + 1, rows = Math.floor((l.rows - 1) / 2) + 1;
-      const heights = new Float32Array(cols * rows);
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) heights[r * cols + c] = l.heights[2 * r * l.cols + 2 * c];
-      const m = material(false, hole, drawn.length - 1);
-      m.polygonOffset = true;
-      m.polygonOffsetFactor += 1;
-      m.polygonOffsetUnits += 4;
-      capRing = groundMesh({ cols, rows, cell: 2 * l.cell, siteCol: l.siteCol / 2, siteRow: l.siteRow / 2, heights }, scene.field.lonDeg, RING_REACH_M, m).mesh;
-      ground.push(capRing);
-    }
-  }
+  // The measured ground: up to three levels as height textures (for the shadows) and meshes (to see), and in flight the
+  // cap's coarser ring beyond them (groundLevels.ts). None until the ground has loaded: the sky and the globe alone.
+  const { meshes: ground, cap, capRing } = hasGround ? buildGround(scene.field, { fast, flight, halfFloat: opts.halfFloat ?? false, viewerY: meshHeightAt(scene.field, 0, 0) }) : { meshes: [] as THREE.Mesh[], cap: null, capRing: null };
   ground.forEach((g) => root.add(g));
 
   // The skyline beyond the measured ground: the site's horizon as a dark ring.
@@ -578,6 +441,11 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const lander = ls && hasGround
     ? buildLander(ls.azDeg, ls.distM, ls.faceAzDeg ?? (scene.series.sunAz[0] - 70 + 360) % 360, ls.earthAzDeg ?? scene.series.earthAz[0], ls.earthElDeg ?? scene.series.earthEl[0])
     : null;
+  // Drawn after the guides (ORDER), so it covers the paths and the rings that show through the ground behind it, and
+  // the level horizon; solid, and tested and written in depth, so the hills still hide it and its parts hide each other.
+  lander?.group.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) o.renderOrder = ORDER.LANDER;
+  });
   const landerBox = new THREE.Box3();
   // The Sun; the sunlit dust's light from below, which fills the lander's shaded sides (as in the Apollo
   // photographs); and Earth's faint blue light.
@@ -1063,65 +931,6 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
-/** A texture drawn on a canvas of the given size (repeating), or none outside a browser. */
-function surface(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void, colour = true): THREE.CanvasTexture | null {
-  if (typeof document === 'undefined') return null;
-  const cv = document.createElement('canvas');
-  cv.width = w;
-  cv.height = h;
-  const g = cv.getContext('2d');
-  if (!g) return null;
-  draw(g);
-  const t = new THREE.CanvasTexture(cv);
-  if (colour) t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  return t;
-}
-
-/** Crinkled gold foil: a bright amber base with light and dark creases. */
-const foilTexture = () =>
-  surface(256, 256, (g) => {
-    g.fillStyle = '#d9ab4a';
-    g.fillRect(0, 0, 256, 256);
-    let seed = 7;
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (let k = 0; k < 140; k++) {
-      g.strokeStyle = rnd() > 0.5 ? `rgba(255,226,150,${0.25 + 0.3 * rnd()})` : `rgba(90,60,10,${0.2 + 0.3 * rnd()})`;
-      g.lineWidth = 1 + 3 * rnd();
-      g.beginPath();
-      const x = rnd() * 256, y = rnd() * 256;
-      g.moveTo(x, y);
-      g.lineTo(x + (rnd() - 0.5) * 90, y + (rnd() - 0.5) * 90);
-      g.stroke();
-    }
-  });
-
-/** The back of the solar panel: a plain pale sheet in a thin frame with one spar, so it never reads as cells. */
-const panelBackTexture = () =>
-  surface(256, 192, (g) => {
-    g.fillStyle = '#9fa1a6';
-    g.fillRect(0, 0, 256, 192);
-    g.fillStyle = '#6c6e73';
-    g.fillRect(0, 0, 256, 5);
-    g.fillRect(0, 187, 256, 5);
-    g.fillRect(0, 0, 5, 192);
-    g.fillRect(251, 0, 5, 192);
-    g.fillRect(126, 0, 4, 192);
-  });
-
-/** Solar cells: dark blue squares between thin silver lines; the back of the panel is a grey frame. */
-const cellsTexture = () =>
-  surface(256, 192, (g) => {
-    g.fillStyle = '#c9ccd2';
-    g.fillRect(0, 0, 256, 192);
-    for (let r = 0; r < 6; r++) for (let c = 0; c < 8; c++) {
-      g.fillStyle = (r + c) % 3 === 0 ? '#16264a' : '#1b2d57';
-      g.fillRect(4 + c * 31.5, 4 + r * 31, 28.5, 28);
-      g.fillStyle = 'rgba(200,210,230,0.25)';
-      g.fillRect(4 + c * 31.5, 4 + r * 31 + 13.5, 28.5, 1);
-    }
-  });
-
 /**
  * The order the guides draw in, after the ground (all of them with the solid things, by this order): the faint bands,
  * then the solid ones, then the rings on hidden bodies; and after them all the lander, so that it covers them where it
@@ -1135,113 +944,6 @@ const ORDER = { FAINT: 1, SOLID: 2, RINGS: 3, LANDER: 4 } as const;
  * over the cap (the finest ground's depth came out in front of it there, though not for a solid lander drawn last).
  */
 const BLENDED = { transparent: false, blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor } as const;
-
-/**
- * A small solar lander, drawn for scale (not measured), from the numbers its shadow is cast from (LANDER):
- * an eight-sided gold foil body with the engine's bell beneath, four splayed legs on the diagonals with pads
- * and struts, a deck with instrument boxes, a camera and a white radiator, an upright solar panel facing the
- * Sun the view opens on, an antenna dish pointing at Earth, and a lamp whose colour shows its power. It
- * stands `distM` from the eye towards `azDeg`, turned so that its +x face looks towards `faceAzDeg`; its
- * local origin is the ground under its centre.
- */
-function buildLander(azDeg: number, distM: number, faceAzDeg: number, earthAzDeg: number, earthElDeg: number) {
-  const group = new THREE.Group();
-  const a = azDeg * DEG;
-  group.position.set(distM * Math.sin(a), 0, -distM * Math.cos(a));
-  // Its +x face towards faceAzDeg: three's turn about y by θ points local +x at azimuth 90° − θ.
-  group.rotation.y = (90 - faceAzDeg) * DEG;
-  const foilMap = foilTexture();
-  if (foilMap) {
-    // Each of the eight faces shows half the crinkled sheet, not an eighth of it stretched.
-    foilMap.wrapS = foilMap.wrapT = THREE.RepeatWrapping;
-    foilMap.repeat.set(4, 1);
-  }
-  // Foil is shiny: it mirrors the black sky and the grey dust, and catches the Sun in bright creases.
-  // Rough enough that a facet catching a low Sun shows a soft sheen rather than a bright line, which two
-  // readers took for the power light.
-  const foil = new THREE.MeshStandardMaterial({ name: 'foil', color: foilMap ? 0xffffff : 0xd4a640, map: foilMap, metalness: 0.75, roughness: 0.55 });
-  // The pads are matte, so the feet do not sparkle.
-  const pad = new THREE.MeshStandardMaterial({ name: 'pad', color: 0x8d8d88, metalness: 0.15, roughness: 0.85 });
-  const metal = new THREE.MeshStandardMaterial({ color: 0xa3a39e, metalness: 0.6, roughness: 0.45 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x2c2c2e, metalness: 0.5, roughness: 0.55, side: THREE.DoubleSide });
-  const white = new THREE.MeshStandardMaterial({ color: 0xc9c7c2, metalness: 0.05, roughness: 0.8 });
-  const cellMap = cellsTexture(), backMap = panelBackTexture();
-  const cells = new THREE.MeshStandardMaterial({ color: cellMap ? 0xffffff : 0x1d2b4f, map: cellMap, metalness: 0.35, roughness: 0.28 });
-  const panelBack = new THREE.MeshStandardMaterial({ color: backMap ? 0xffffff : 0xb9bcc2, map: backMap, metalness: 0.2, roughness: 0.6 });
-  const add = (m: THREE.Mesh, x: number, y: number, z: number) => {
-    m.position.set(x, y, z);
-    group.add(m);
-    return m;
-  };
-  /** A round rod from p to q. */
-  const rod = (p: Vec3, q: Vec3, r: number, mat: THREE.Material) => {
-    const P = new THREE.Vector3(...p), Q = new THREE.Vector3(...q);
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, P.distanceTo(Q), 8), mat);
-    m.position.copy(P).add(Q).multiplyScalar(0.5);
-    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), P.clone().sub(Q).normalize());
-    group.add(m);
-    return m;
-  };
-  const L = LANDER;
-  // The body: eight-sided (its flat faces towards ±x, ±z and the diagonals), gold foil, a dark base.
-  const bodyH = L.body.y1 - L.body.y0;
-  add(new THREE.Mesh(new THREE.CylinderGeometry(L.body.r, L.body.r, bodyH, 8, 1, false, Math.PI / 8), [foil, metal, dark]), 0, L.body.y0 + bodyH / 2, 0);
-  add(new THREE.Mesh(new THREE.CylinderGeometry(L.deck.r, L.deck.r, L.deck.y1 - L.deck.y0, 8, 1, false, Math.PI / 8), metal), 0, (L.deck.y0 + L.deck.y1) / 2, 0);
-  const apothem = L.body.r * Math.cos(Math.PI / 8);
-  // A white radiator on the -z face, and a dark band of thrusters round the top of the body.
-  add(new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.72, 0.03), white), 0, L.body.y0 + bodyH * 0.48, -apothem - 0.016);
-  for (let k = 0; k < 4; k++) {
-    const t = (k * 90 + 45) * DEG;
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.12), dark), Math.sin(t) * (apothem + 0.05), L.body.y1 - 0.12, Math.cos(t) * (apothem + 0.05));
-  }
-  // The engine's bell under the body.
-  const bell = add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, L.bell.r, L.bell.y1 - L.bell.y0, 20, 1, true), dark), 0, (L.bell.y0 + L.bell.y1) / 2, 0);
-  bell.name = 'bell';
-  // Legs on the diagonals with round pads, and a strut from each leg back to the body.
-  for (const { top, foot } of LEG_ENDS) {
-    rod(top, foot, L.legs.r, metal);
-    const knee: Vec3 = [top[0] + (foot[0] - top[0]) * 0.5, top[1] + (foot[1] - top[1]) * 0.5, top[2] + (foot[2] - top[2]) * 0.5];
-    rod(knee, [top[0] * 0.55, L.body.y0 + 0.05, top[2] * 0.55], 0.022, metal);
-    add(new THREE.Mesh(new THREE.CylinderGeometry(L.legs.padR * 0.85, L.legs.padR, L.legs.padH, 18), pad), foot[0], L.legs.padH / 2, foot[2]);
-  }
-  // Instruments on the deck: a white box and a dark one, and a camera on a short mast.
-  L.boxes.forEach((b, i) => add(new THREE.Mesh(new THREE.BoxGeometry(...b.size), i === 0 ? white : dark), ...b.c));
-  rod([L.camera.x, L.deck.y1, L.camera.z], [L.camera.x, L.camera.y1, L.camera.z], L.camera.r, metal);
-  add(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.11, 0.13), dark), L.camera.x, L.camera.y1 + 0.05, L.camera.z);
-  // The solar panel faces the opening Sun: local +z looks 90° right of local +x (faceAzDeg + 90), the Sun is
-  // 70° left of local +x, so the panel turns 20° towards +x; its cells are on that +z side.
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(...L.panel.size), [metal, metal, metal, metal, cells, panelBack]);
-  panel.position.set(...L.panel.c);
-  panel.rotation.y = L.panel.yawDeg * DEG;
-  group.add(panel);
-  rod([0, L.deck.y1, 0], [0, L.panel.c[1], 0], L.panel.mastR, metal);
-  // The antenna: a mast, and a shallow dish with its feed, pointing at Earth.
-  rod([L.antenna.x, L.deck.y1, L.antenna.z], [L.antenna.x, L.antenna.y1, L.antenna.z], L.antenna.r, metal);
-  const bowl = Array.from({ length: 9 }, (_, k) => new THREE.Vector2(0.01 + (k / 8) * L.antenna.dishR, 0.11 * (k / 8) ** 2));
-  const dishMat = new THREE.MeshStandardMaterial({ color: 0xe9e8e4, metalness: 0.1, roughness: 0.55, side: THREE.DoubleSide });
-  const dish = new THREE.Group();
-  dish.add(new THREE.Mesh(new THREE.LatheGeometry(bowl, 28), dishMat));
-  const feed = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 6), metal);
-  feed.position.y = 0.11;
-  dish.add(feed);
-  dish.position.set(L.antenna.x, L.antenna.y1 + 0.08, L.antenna.z);
-  const e = dirAzEl(earthAzDeg, Math.max(0, earthElDeg));
-  const toEarth = new THREE.Vector3(e[0], e[1], e[2]).applyAxisAngle(new THREE.Vector3(0, 1, 0), -group.rotation.y);
-  dish.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), toEarth);
-  group.add(dish);
-  // The power light, on the face that looks most nearly at the eye (the faces are 45 degrees apart; a
-  // direction phi from +x towards +z looks at azimuth faceAzDeg + phi), so its name never points through the body.
-  const phi = Math.round((((azDeg + 180 - faceAzDeg) % 360) + 360) % 360 / 45) * 45 * DEG;
-  const lampPos = new THREE.Vector3(Math.cos(phi) * (apothem + 0.06), L.body.y0 + bodyH * 0.72, Math.sin(phi) * (apothem + 0.06));
-  const lamp = new THREE.MeshBasicMaterial({ color: 0x46c98b });
-  add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 10), lamp), lampPos.x, lampPos.y, lampPos.z);
-  // Drawn after the guides (ORDER), so it covers the paths and the rings that show through the ground behind it, and
-  // the level horizon; solid, and tested and written in depth, so the hills still hide it and its parts hide each other.
-  group.traverse((o) => {
-    if ((o as THREE.Mesh).isMesh) o.renderOrder = ORDER.LANDER;
-  });
-  return { group, lamp, panel, dish, lampPos };
-}
 
 /** The camera's exposure setting, before it stops down for bright ground (see the scene's exposure). */
 const EXPOSURE = 1.05;
