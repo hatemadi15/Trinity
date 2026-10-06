@@ -658,3 +658,58 @@ From the reads of D2, for a later part:
 - **Words.** "radio, if it survives the night", "brightened like a long exposure", "Sun behind a hill, 1.6° above the horizon", UTC and the degree figures, "Back to the forecast", "Press Play or a moment on the time bar", the compass's three dots, what Guides and Look up do, "it looks small only because it is far", "a browser of landing sites", the intro's one long sentence.
 - **The pages.** The tablet's time-bar flags collide and read out of order (27); the status plate widens at night and More moves (23 to 25); the time bar cuts the lander's legs (24); Skip over a phone's first-screen words (12); the phone's verdict under More (28); the desktop's better-day button without the radio part the phone's keeps; the compass and the caption as one strip; a brighter setting for projectors; "your own lander" promised on the home page and not found.
 
+
+## 18. Amendment: Part D3, the words, the pages and the scene (6 October 2026)
+
+D3 takes the asks of 17.9, which the two blind readers of part D2 named. The user said "go for D3" on 6 October 2026, after D2's report; a mockup of the page changes went to the user with this section, as D1's and D2's did.
+
+### 18.1 Three groups
+
+- **The words**, across the stand view, the arrival and the time bar: the puzzling phrases explained where they appear, or dropped, and one plain name for each thing.
+- **The pages**: the verdict on every screen, with the radio on the desktop's button and the better day on a phone's first screen; a status plate that keeps its width; the caption, the compass and its dots' names in one plate; the tablet's flags in order; the lander's feet clear of the time bar; Skip clear of a phone's first words; a brighter picture for projectors; the visitor's own lander reached from the stand view.
+- **The scene**: the arrival's frame rate back to the D1 build's, a key light at night so the stones keep their facets, the daytime ground's blotches toned down, and the far hills in the opening frame.
+
+Weighed and set aside, with the reason:
+
+- A darker night with the brightening as a switch (the judge of read D2-2) against a brighter picture for projectors (the teacher): the night keeps the brightness 16.3 set, so the stones and the lander show, and the one control added is "Brighter picture" for projectors and bright rooms.
+- A shorter fly-down and its black half (the judge): part B's reads settled the fly-down's length and its opening in black space.
+- The lander's shadow as a seam: no still of D2's reads shows it, and the shadow is drawn as 16.4 set it; it waits for a still that shows it.
+
+### 18.2 The words
+
+- **"radio, if it survives the night"** (the time bar's key) becomes **"radio, if the lander survives the cold"**: the forecast counts energy only, and the cold is what the lander must live through.
+- **"brightened like a long exposure"** goes from every line. The lines read "the picture is brightened so you can see it": the caption at an hour with neither the Sun nor Earth up, "Neither the Sun nor Earth lights this ground; the picture is brightened so you can see it. No air, no twilight."; with Earth up, "Earthlight, sunlight bounced off Earth, lights this ground and tints it blue; the picture is brightened so you can see it."; with a thin crescent Earth, "A thin crescent Earth gives this ground little light; the picture is brightened so you can see it."; and the battery's flag at night, "The battery runs out at night. Only Earthlight lights the ground here; the picture is brightened so you can see it." and "The battery runs out at night. With no Sun or Earth in sight, the picture is brightened so you can see it." The arrival's date bar keeps "night (picture brightened)".
+- **"Sun behind a hill, 1.6° above the horizon"** becomes **"Sun behind a hill to the north-west, 1.6° up"**: the hill is named by its direction, as the ground panel names it, and "up" replaces "above the horizon", which at night reads as the skyline (both readers of read D2). On the horizon behind a hill: "Sun behind a hill to the north-west, on the horizon". The pointers keep "below the horizon" for a body under the level horizon, and a phone's short pointer keeps "Sun 1.6° up". The same words on the forecast page's ground panel.
+- **The degree figures** keep their degrees, and the card's line on the pole says what a few degrees look like: "near the pole the Sun never climbs more than a few degrees (two degrees is about a thumb's width at arm's length)".
+- **"Back to the forecast"** (a phone's card) becomes **"Open the full forecast"**: the forecast page is where the visitor goes, not where they came from when the arrival brought them.
+- **"Press Play or a moment on the time bar:"** becomes **"Press Play, or a flag on the time bar, to watch:"**, and on a phone, where the moments are dots, **"Press Play, or a dot on the time bar, to watch:"**.
+- **"Guides"** becomes **"Paths"**: the button shows the month's paths of the Sun and Earth with their days, the level horizon, the star names and your shadow; "Paths" names what a visitor sees first. "Look up" stays.
+- **The compass's dots** are named where they sit (18.3): "Sun", "Earth", "lander", each by its dot.
+- **"it looks small only because it is far"** (the arrival's Earth label) becomes **"small because it is far"**: "Earth, 394,000 km away on 1 January 2027: small because it is far".
+- **"a browser of landing sites and dates"** (the arrival's first screen) becomes **"a forecast for landing sites and dates"**, and the intro's one long sentence becomes three: "Earthrise is a forecast for landing sites and dates. Pick a place and a day from 2024 to 2036. See its hours of sunlight and of radio contact with Earth, and how long a lander keeps power, for three ready-made landers or your own."
+- **"this ridge"** in the arrival's words at the site names it: "de Gerlache Rim 2, this ridge".
+
+### 18.3 The pages
+
+- **The verdict on every screen.** From 768 px the gold button in the row under the status line carries the radio as today's card's does: "Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours" (17.1 gave the row the power alone). The headline above it stays as 16.2 set it. On a phone the better day sits on the first screen: one gold chip under the status plate, "Try 20 Jan instead: power for 12 days 15 hours ›", a link to that landing, 14 px type, 32 px tall, 6 px under the plate; today's card keeps its long form and the headline. The scene band of 16.5 is measured from the chip's foot and stays at least 55 % of the screen.
+- **The status plate keeps its width.** From 768 px the plate takes its full width (the width beside the row from 1280 px, 860 px at most) at every hour, so More stays where it is as the night's words come and go; on a phone it is full width already.
+- **One plate at the foot of the view.** From 768 px the caption (why a key moment happens, what looking up shows) sits in the compass's plate, above the compass, and under "Facing north, downhill" a line names the dots: a gold dot "Sun", a blue dot "Earth", a white dot "lander", 14 px. The plate is 460 px wide at most and the compass stays 300 px wide in its middle. On a phone, which has no compass, the caption keeps its own plate above the buttons.
+- **The tablet's flags.** The time bar lays its flags out by their measured widths, not a guess from their letters, in up to three rows: the layout with no two flags over each other in a row and no stem down behind another flag's words, and of those the one with the fewest rows; the second row 22 px above the first, the third 22 px above that, each stem down to the track. When no layout in three rows is clean, the one with the fewest crossings. "Sunrise, 20 Jan" keeps its name at 768 px (read D2's frame 27 showed it as "20 Jan").
+- **The lander's feet clear of the time bar.** The night opening on Earth of 16.3 keeps the lander's feet above the time bar and the row of buttons at every screen shape: the pitch is set from the view's height less the bar's and the row's, measured, not from a fixed 44° or 56°.
+- **Skip** on a phone shows from the second screen on, never over the first screen's words.
+- **Brighter picture.** A toggle in today's card (`aria-pressed`), "Brighter picture", doubles the camera's exposure for projectors and bright rooms, and is kept for the visit (session storage). Its words never change with its state.
+- **"Your own lander."** "Change lander" joins the next step's links from 768 px, and a phone's card, and opens the forecast page's lander dialog in place: the lander chosen there changes the stand view's verdict without leaving the scene.
+
+### 18.4 The scene
+
+- **The frame rate.** The arrival's scroll keeps the D1 build's frame times on the laptop's Intel UHD 620, the 95th-percentile frame under 50 ms from quarter screen 2 to 8: the fix is the measured one among the flight level drawn at every fourth cell, its shadow march starting later, and whatever profiling finds.
+- **A key light at night.** A faint directional light from 50° up and 90° round from the Sun's last azimuth lights the rocks and the lander at night beside the hemisphere's light, about a third of its strength, so the stones' facets show and none reads as a loaf; by day it is off.
+- **The daytime ground's blotches.** The drawn patches of lighter and darker dust near the eye, about 5 m across, are halved in strength, so the ground reads as dust with stones on it, not noise.
+- **The far hills in the opening frame.** The opening yaw turns up to 30° towards the skyline's highest point within that span, so a hill stands in the opening frame beside the lander where the terrain has one; the lander keeps its place against the Sun or Earth as 16.3 set it.
+
+### 18.5 D3: done when
+
+- Every rule above has a test that failed first.
+- The stand view's frames at the sizes of 17.7 pass the measurements of 15.1; the phone's scene band stays at least 55 %.
+- The arrival's frame times on the development laptop: the 95th-percentile frame under 50 ms through the descent.
+- A blind read of the arrival and the stand view by the same two readers' roles passes the gate of 13.2.
