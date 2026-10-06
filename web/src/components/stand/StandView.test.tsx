@@ -259,7 +259,7 @@ describe('StandView', () => {
   it('keeps the links where they are when the reasons open: the better day on its own row, the why and the way back on the next', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     openCard();
-    const better = await screen.findByRole('link', { name: /^Try 20 January instead/ });
+    const better = await within(document.getElementById('stand-card')!).findByRole('link', { name: /^Try 20 January instead/ });
     expect(better.parentElement!.querySelectorAll('a, button').length).toBe(1);
     const why = screen.getByRole('button', { name: /^Why this happens/ });
     const back = screen.getByRole('link', { name: 'Back to the forecast' });
@@ -384,7 +384,7 @@ describe('StandView', () => {
     act(() => store.getState().setPower({ batteryWh: store.getState().params.power.batteryWh * 3 }));
     const battery = store.getState().params.power.batteryWh;
     openCard();
-    const better = await screen.findByRole('link', { name: /^Try \d+ January instead/ });
+    const better = await within(document.getElementById('stand-card')!).findByRole('link', { name: /^Try \d+ January instead/ });
     const start = new URL(better.getAttribute('href')!, 'http://x').searchParams.get('start')!;
     fireEvent.click(better);
     // The same page, the new period: the lander is the visitor's still, and the view opens again from its first hour.
@@ -632,7 +632,7 @@ describe('StandView', () => {
     const inCard = screen.getAllByRole('button', { name: 'Hide the words' }).find((b) => b.classList.contains('md:hidden'))!;
     expect(inCard).toBeTruthy();
     // Button words on one line; the better day is a sentence, and wraps inside the card.
-    expect(screen.getByRole('link', { name: /^Try 20 January instead/ }).className).not.toMatch(/\bwhitespace-nowrap\b/);
+    expect(within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead/ }).className).not.toMatch(/\bwhitespace-nowrap\b/);
     expect(screen.getByRole('button', { name: /Why this happens/ }).className).toMatch(/\bwhitespace-nowrap\b/);
     expect(screen.getByRole('link', { name: 'Back to the forecast' }).className).toMatch(/\bwhitespace-nowrap\b/);
     // The card scrolls inside itself rather than run under the buttons and the time bar.
@@ -650,8 +650,47 @@ describe('StandView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Face the Sun' }));
     expect(screen.getByText(/^Standing at de\sGerlache/)).toBeTruthy();
     expect(screen.getByText(watch)).toBeTruthy();
-    expect(screen.getByRole('link', { name: /^Try 20 January instead/ })).toBeTruthy();
+    expect(within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead/ })).toBeTruthy();
     expect(screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
+  });
+
+  it('keeps the next step in view from 768 px: the better day in gold, then Change site, Change date and Compare sites, and the card leaves its own gold and way back to that row', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const row = screen.getByRole('group', { name: 'Next step' });
+    // A phone keeps the row in today's card, under More: the scene keeps its 55 % (17.1).
+    expect(row.className).toMatch(/\bmax-md:hidden\b/);
+    // Inside the status's plate, under its line.
+    expect(row.closest('[data-plate]')).toBe(screen.getByRole('button', { name: 'More' }).closest('[data-plate]'));
+    const gold = within(row).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours$/ });
+    expect(gold.className).toContain('text-[#f6d48a]');
+    expect(gold.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
+    expect(within(row).getByRole('link', { name: 'Change site' }).getAttribute('href')).toBe('/sites');
+    expect(within(row).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    expect(within(row).getByRole('button', { name: 'Compare sites' }).className).not.toContain('text-[#f6d48a]');
+    // One gold action on the screen: from 768 px the card's own better day and way back are hidden.
+    openCard();
+    const card = document.getElementById('stand-card')!;
+    expect(within(card).getByRole('link', { name: /radio for/ }).closest('div')!.className).toMatch(/\bmd:hidden\b/);
+    expect(within(card).getByRole('link', { name: 'Back to the forecast' }).className).toMatch(/\bmd:hidden\b/);
+  });
+
+  it('makes Compare sites the gold action when no landing day is better, and adds the site to the comparison on the way there', async () => {
+    // From 20 January, the better day of the January period, no later landing is better. If the answer still
+    // names one, take a site and period the file's tests already use without a better day, and ledger a Ruling.
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-20&days=30&hour=10');
+    const row = screen.getByRole('group', { name: 'Next step' });
+    expect(within(row).queryByRole('link', { name: /^Try / })).toBeNull();
+    const compare = within(row).getByRole('button', { name: 'Compare sites' });
+    expect(compare.className).toContain('text-[#f6d48a]');
+    fireEvent.click(compare);
+    await waitFor(() => expect(store.getState().compareIds).toContain('de_gerlache_rim_2'), { timeout: 10_000 });
+  });
+
+  it('lands on the better day in place from the row too', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    fireEvent.click(within(screen.getByRole('group', { name: 'Next step' })).getByRole('link', { name: /^Try 20 January instead/ }));
+    await waitFor(() => expect(store.getState().startUtc).toMatch(/^2027-01-20/), { timeout: 10_000 });
+    expect(window.location.search).toMatch(/start=2027-01-20/);
   });
 
   it('opens a tall screen with the lander near the middle and the Sun towards the right edge', async () => {
