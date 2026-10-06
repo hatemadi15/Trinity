@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { HorizonView } from '@/components/explore/HorizonView';
+import { LanderDialog } from '@/components/explore/LanderDialog';
 import { TimeBar } from '@/components/explore/TimeBar';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
@@ -18,8 +19,8 @@ import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
 import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
-import { dateLong } from '@/lib/viz/format';
-import { betterLabel, keyMoments, landerCaption, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
+import { dateLong, dayMonth } from '@/lib/viz/format';
+import { betterChip, betterLabel, keyMoments, landerCaption, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
@@ -41,6 +42,23 @@ const FAINT_EARTH = 0.25;
 const tall = () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth;
 /** How far out from the lander's middle the near edge of its nearest foot can stand, metres: the opening keeps it in sight. */
 const LANDER_FOOT_M = 2.1;
+/** The session's key for "Brighter picture" (18.3): kept for the visit, not across visits. */
+const BRIGHT_KEY = 'earthrise-bright';
+
+/** Whether the visitor asked for a brighter picture earlier in the visit; false wherever storage is missing or blocked. */
+function readBright(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.sessionStorage.getItem(BRIGHT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Half the view's width in degrees for a vertical field of view, from the window's shape (16:10 before there is a window). */
+function halfWidthDeg(fovDeg: number): number {
+  const aspect = typeof window !== 'undefined' && window.innerHeight > 0 ? window.innerWidth / window.innerHeight : 16 / 10;
+  return (Math.atan(Math.tan((fovDeg * Math.PI) / 360) * aspect) * 180) / Math.PI;
+}
 
 /**
  * The key moments' days on the paths, each named as its flag on the time bar names it, short, so a chip says
@@ -106,6 +124,18 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // Today's card under the status line, on every screen (16.2): the headline, what to watch, the better day, the
   // reasons and the ways on.
   const [cardOpen, setCardOpen] = useState(false);
+  // "Change lander" (18.3): the forecast page's lander dialog, opened in place; the focus comes back to the button.
+  const [landerOpen, setLanderOpen] = useState(false);
+  const landerRef = useRef<HTMLButtonElement>(null);
+  // "Brighter picture" (18.3): twice the exposure, for projectors and bright rooms, kept for the visit.
+  const [bright, setBright] = useState(() => readBright());
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(BRIGHT_KEY, bright ? '1' : '0');
+    } catch {
+      // A private window or blocked storage: the setting holds for this page.
+    }
+  }, [bright]);
   // ?quality=fast for weaker graphics: a lower pixel ratio, no drawn detail, coarser shadow steps.
   const [quality] = useState<'full' | 'fast'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('quality') === 'fast' ? 'fast' : 'full'));
 
@@ -222,13 +252,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const flat = !!scene && scene.field.levels.length === 0;
   // With the battery's level while it has power, as the forecast page gives it.
   const lander = statusLine(series, power, s.startUtc, hour, s.params.power.batteryWh);
-  // The better landing day opens its own view, from its first hour; the button says why it is better: in today's
-  // card the power and the radio, in the row under the status line the power alone (17.1).
+  // The better landing day opens its own view, from its first hour; the button says why it is better: the power and
+  // the radio, in today's card and in the row under the status line alike (18.3); a phone's chip gives the power alone.
   const better =
     answer.better && s.best
       ? {
           label: betterLabel(dateLong(s.startUtc, answer.better.hour), s.best.poweredHours, s.best.poweredHours * s.best.earthFraction),
-          short: betterLabel(dateLong(s.startUtc, answer.better.hour), s.best.poweredHours, s.best.poweredHours * s.best.earthFraction, true),
+          chip: betterChip(dayMonth(s.startUtc, answer.better.hour), s.best.poweredHours),
           startUtc: answer.better.startUtc,
           href: `${standHref(site.id, answer.better.startUtc, s.days, 0)}${quality === 'fast' ? '&quality=fast' : ''}`,
         }
@@ -268,7 +298,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const eye = eyeAt(scene);
     setLookingUp(false);
     setCaption(null);
-    setLook({ yaw: l.azDeg, pitch: (Math.atan2(ground + 1.7 - eye, l.distM) * 180) / Math.PI, fov: 36 });
+    // The view fits the lander's feet above the bar, as the opening does (18.3).
+    setLook({ yaw: l.azDeg, pitch: (Math.atan2(ground + 1.7 - eye, l.distM) * 180) / Math.PI, fov: 36, fit: true });
   };
   // Whether the view sees the back of the lander's panel: its cells face the Sun the lander was turned to.
   const cellsAz = scene?.lander?.faceAzDeg !== undefined ? scene.lander.faceAzDeg + 90 - LANDER.panel.yawDeg : null;
@@ -285,6 +316,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const shownPage = Math.min(page, reasons.length - 1);
   // The key moments, as flags on the time bar: each moves the time there, turns the view to what it is about
   // (the lander for its power, Earth for Earth, else the Sun) and says why.
+  const watch = watchNext(series, power, s.startUtc, hour);
   const moments = keyMoments(series, power, s.startUtc).map((m) => ({ label: `${m.label}, ${m.day}`, hour: m.hour, kind: m.kind }));
   const onMoment = (f: { label: string; hour: number }) => {
     const m = moments.find((x) => x.label === f.label && x.hour === f.hour);
@@ -340,7 +372,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           scene={scene}
           hour={hour}
           look={look}
-          startYaw={openingYaw(series, opening, tall(), !!scene.lander)}
+          // Turned up to 30° towards the skyline's highest point, the Sun and the lander kept in frame (18.4).
+          startYaw={openingYaw(series, opening, tall(), !!scene.lander, scene.mask, halfWidthDeg(openOnEarth ? (tall() ? 56 : 44) : tall() ? 80 : 60))}
           reducedMotion={reducedMotion}
           createRenderer={createRenderer}
           sunLabel={skyLabel('sun', series, hour)}
@@ -355,6 +388,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           keepSubject={openOnEarth ? series.earthEl[opening] : series.sunFraction[opening] > 0 ? series.sunEl[opening] : null}
           startFov={openOnEarth ? (tall() ? 56 : 44) : undefined}
           place={name}
+          docked={!!overView}
+          bright={bright}
         />
       )}
       {failed && s.mask && (
@@ -381,7 +416,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             {/* The page's heading at all times, for screen readers; the card shows it when it is open. */}
             {/* Tighter on a phone, so its longest state (four lines) leaves the scene 55 % of the screen (16.5). */}
             <h1 className="sr-only">{title}</h1>
-            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] flex-col md:w-fit`}>
+            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] flex-col`}>
               <div className="flex items-start gap-3 px-3.5 py-1 md:px-4 md:py-1.5">
                 <i aria-hidden="true" data-tone={lander.tone} className={`mt-[11px] h-3 w-3 shrink-0 self-start rounded-full md:mt-[13px] ${TONE[lander.tone]}`} />
                 <p className="min-w-0 flex-1 text-balance py-1.5 text-[15px] leading-snug md:py-2 md:text-base">
@@ -411,7 +446,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     }}
                     className={`${LOOK.replace('whitespace-nowrap ', '')} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
                   >
-                    {better.short}
+                    {better.label}
                   </a>
                 ) : (
                   <button type="button" onClick={compare} className={`${LOOK} border-[#f6d48a]/55 text-[#f6d48a]`}>
@@ -424,6 +459,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
                   Change date
                 </Link>
+                {/* The forecast page's lander dialog, in place (18.3): "your own lander" from here too. */}
+                <button type="button" ref={landerRef} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setLanderOpen(true)}>
+                  Change lander
+                </button>
                 {better && (
                   <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
                     Compare sites
@@ -431,6 +470,22 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 )}
               </div>
             </div>
+            {better && (
+              // A phone's first screen keeps the better day in sight (18.3): one gold chip under the plate, a link to that
+              // landing, 32 px tall at 14 px so the scene keeps 55 % of the screen; from 768 px the row's gold button has it.
+              <a
+                data-chip=""
+                href={better.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  land(better.startUtc, better.href);
+                }}
+                className={`${PLATE} pointer-events-auto inline-flex h-8 items-center gap-1 border-[#f6d48a]/55 px-2.5 text-[14px] text-[#f6d48a] md:hidden`}
+              >
+                {better.chip}
+                <span aria-hidden="true">›</span>
+              </a>
+            )}
             {cardOpen && (
               <div
                 id="stand-card"
@@ -442,7 +497,18 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px] md:hidden">
                   {title}
                 </p>
-                <p className="text-[14px] text-[#f6d48a] md:text-[15px]">{watchNext(series, power, s.startUtc, hour)}</p>
+                {/* The lead names the flags, or the dots a phone has (18.2): the line twice, one shown per width, so a screen
+                    reader meets only the shown one (display: none keeps the other out of the accessibility tree). */}
+                <p className="text-[14px] text-[#f6d48a] md:text-[15px]">
+                  {watch.startsWith(WATCH_LEAD) ? (
+                    <>
+                      <span className="sm:hidden">{`${WATCH_LEAD_DOTS}${watch.slice(WATCH_LEAD.length)}`}</span>
+                      <span className="max-sm:hidden">{watch}</span>
+                    </>
+                  ) : (
+                    watch
+                  )}
+                </p>
                 {better && (
                   // The better day, on a row of its own, so the links below never move. From 768 px the row under
                   // the status line holds it, so the screen keeps one gold action (17.1).
@@ -477,11 +543,19 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   </button>
                   {/* From 768 px "Change date" in the row under the status line goes there instead. */}
                   <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
-                    Back to the forecast
+                    Open the full forecast
                   </Link>
                   {/* On a phone the row above the time bar has no room for it: it waits here. */}
                   <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => setWordsHidden(true)}>
                     Hide the words
+                  </button>
+                  {/* On a phone the row under the status line is not shown: Change lander waits here (18.3). */}
+                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => setLanderOpen(true)}>
+                    Change lander
+                  </button>
+                  {/* Twice the exposure for projectors and bright rooms (18.3); its words never change with its state. */}
+                  <button type="button" aria-pressed={bright} className={`${LOOK} ${PRESSED}`} onClick={() => setBright((b) => !b)}>
+                    Brighter picture
                   </button>
                 </div>
                 {more && reasons.length > 0 && (
@@ -577,8 +651,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   Look up
                 </button>
               )}
+              {/* "Paths" (18.2): the month's paths of the Sun and Earth with their days, the level horizon, the star names, your shadow. */}
               <button type="button" aria-pressed={guides} className={`${LOOK} ${PRESSED}`} onClick={() => setGuides((g) => !g)}>
-                Guides
+                Paths
               </button>
               {/* Its words are its name, as speech input needs (WCAG 2.5.3). */}
               <button type="button" className={`${LOOK} max-md:hidden`} onClick={() => setWordsHidden(true)}>
@@ -589,10 +664,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         </div>
       )}
       {overView && !failed && !wordsHidden && (
-        // Why a key moment happens, or what looking up shows: above the compass (on a phone, above the buttons).
+        // Why a key moment happens, or what looking up shows: docked on the compass plate from 768 px, one plate at the
+        // foot of the view (18.3; its foot 14 px plus the plate's 79 px, StandCanvas's STRIP_H, over the bar); on a phone,
+        // which has no compass, its own plate above the buttons.
         <p
           data-plate=""
-          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+80px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+80px)] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]`}
+          data-caption=""
+          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+93px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] md:rounded-b-none md:border-b-0 max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+93px)] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]`}
         >
           {overView}
         </p>
@@ -602,6 +680,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
         <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={onCursor} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} ifSurvivesFrom={ifSurvivesFrom} clockNote=" (Earth time)" />
       </div>
+      {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
     </main>
   );
 }

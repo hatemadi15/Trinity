@@ -6,7 +6,8 @@ import { dirAzEl } from '@/lib/sky/frames';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
-import { keyMoments, landerCaption, landerState, momentCaption, skyLabel, starLabel, statusLine, viewCaption, watchNext, type MomentKind } from '@/lib/viz/stand';
+import { keyMoments, landerCaption, landerState, momentCaption, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, type MomentKind } from '@/lib/viz/stand';
+import { openingYaw } from '@/lib/viz/standOpening';
 import { fileLoaders, terrainFileLoaders, terrainPresent } from '@/test/file-loaders';
 import type { StandScene } from '@/lib/sky/standRenderer';
 import { pathMarks, StandView } from './StandView';
@@ -79,7 +80,7 @@ describe('StandView', () => {
     const card = document.getElementById('stand-card')!;
     expect(within(card).getByText(title, { selector: 'p' }).className).toMatch(/\bmd:hidden\b/);
   });
-  it('opens with the guides off, shows the days on the paths and the level horizon on "Guides", and hides them with the words', async () => {
+  it('opens with the guides off, shows the days on the paths and the level horizon on "Paths", and hides them with the words', async () => {
     window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const store = createExploreStore(fileLoaders());
     const setGuides = vi.fn();
@@ -93,14 +94,14 @@ describe('StandView', () => {
         }}
       />,
     );
-    const guides = await screen.findByRole('button', { name: 'Guides' }, { timeout: 20_000 });
+    const guides = await screen.findByRole('button', { name: 'Paths' }, { timeout: 20_000 });
     // Off when the view opens: the renderer leaves out the paths and the level horizon, and keeps the rings.
     expect(guides.getAttribute('aria-pressed')).toBe('false');
     await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(false, true, true));
     expect(document.querySelectorAll('[data-path-mark]:not([hidden])')).toHaveLength(0);
     expect(screen.getByText('Level horizon').closest('[hidden]')).not.toBeNull();
     fireEvent.click(guides);
-    expect(screen.getByRole('button', { name: 'Guides' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Paths' }).getAttribute('aria-pressed')).toBe('true');
     await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(true, true, true));
     await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])').length).toBeGreaterThan(0));
     // The Sun sets behind the hills on 3 January and rises on the 20th; Earth rises on the 10th and sets on the 23rd.
@@ -116,7 +117,7 @@ describe('StandView', () => {
     await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])')).toHaveLength(0));
     fireEvent.click(screen.getByRole('button', { name: 'Show the words' }));
     await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(true, true, true));
-    expect(screen.getByRole('button', { name: 'Guides' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Paths' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button', { name: 'Less' })).toBeTruthy();
   }, 30_000);
 
@@ -160,13 +161,13 @@ describe('StandView', () => {
     // One row of buttons.
     const row = screen.getByRole('group', { name: 'Look towards' });
     // The hide button's visible words are its name, as speech input needs (WCAG 2.5.3).
-    expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Sun', 'Earth', 'Lander', 'Look up', 'Guides', 'Hide the words']);
+    expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Sun', 'Earth', 'Lander', 'Look up', 'Paths', 'Hide the words']);
     // Read as a verb, not a noun (both readers of read D1).
     expect(within(row).getByText('Turn to')).toBeTruthy();
-    for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Guides', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
+    for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Paths', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
     // Today's card waits under More: where you stand, what to watch, the better day, the ways on and the help.
     expect(screen.queryByText(watchNext(st.series!, st.power, st.startUtc, 10))).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Back to the forecast' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Open the full forecast' })).toBeNull();
     const more = screen.getByRole('button', { name: 'More' });
     expect(more.getAttribute('aria-expanded')).toBe('false');
     openCard();
@@ -177,11 +178,12 @@ describe('StandView', () => {
     expect(screen.getByText(watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10))).toBeTruthy();
     // The better landing day says why, as a comparison: the power and the radio from that landing, to the hour, as
     // the headline gives its spans and the home page's forecast gives this landing ("12 days 15 hours").
-    const better = screen.getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, radio for 3\sdays\s5\shours$/ });
+    // In the card (the row under the status line carries the same words from 768 px, 18.3).
+    const better = within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, radio for 3\sdays\s5\shours$/ });
     // Each span on one line, as the headline's (no-break spaces), so "hours" never wraps onto a line of its own.
     expect(better.textContent).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours');
     expect(better.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
-    expect(screen.getByRole('link', { name: 'Back to the forecast' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    expect(screen.getByRole('link', { name: 'Open the full forecast' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     expect(screen.getByText('Drag to look around; pinch or scroll to zoom.')).toBeTruthy();
     // The reasons wait under "Why this happens".
     expect(screen.queryByText(/^Near the Moon's south pole the Sun never climbs high/)).toBeNull();
@@ -278,13 +280,13 @@ describe('StandView', () => {
     const better = await within(document.getElementById('stand-card')!).findByRole('link', { name: /^Try 20 January instead/ });
     expect(better.parentElement!.querySelectorAll('a, button').length).toBe(1);
     const why = screen.getByRole('button', { name: /^Why this happens/ });
-    const back = screen.getByRole('link', { name: 'Back to the forecast' });
+    const back = screen.getByRole('link', { name: 'Open the full forecast' });
     const row = why.parentElement!;
     expect(back.parentElement).toBe(row);
     fireEvent.click(why);
     const after = screen.getByRole('button', { name: /^Why this happens/ });
     expect(after.parentElement).toBe(row);
-    expect([...row.children].indexOf(after)).toBeLessThan([...row.children].indexOf(screen.getByRole('link', { name: 'Back to the forecast' })));
+    expect([...row.children].indexOf(after)).toBeLessThan([...row.children].indexOf(screen.getByRole('link', { name: 'Open the full forecast' })));
   });
 
   it('labels the Sun and Earth as Explore does, and follows the time', async () => {
@@ -621,9 +623,20 @@ describe('StandView', () => {
     expect(row.parentElement!.className).not.toMatch(/\bmd:flex-row\b/);
     openCard();
     expect(document.getElementById('stand-card')!.className).toContain('var(--status-h');
-    // The caption keeps above the row and the compass wherever the row sits above the time bar.
+    // The caption docks on the compass plate (18.3), which sits above the row wherever the row sits above the time bar.
     act(() => fireEvent.click(screen.getByRole('button', { name: 'Look up' })));
-    expect(screen.getByText(viewCaption('up', 88.28)).className).toContain('max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+80px)]');
+    expect(screen.getByText(viewCaption('up', 88.28)).className).toContain('max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+93px)]');
+  });
+
+  it('docks the caption on the compass plate from 768 px, one plate at the foot of the view, and keeps its own plate on a phone (18.3)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    fireEvent.click(screen.getByRole('button', { name: 'Face Earth' }));
+    const cap = screen.getByText(viewCaption('earth', -88.28)).closest<HTMLElement>('[data-caption]')!;
+    expect(cap).toBeTruthy();
+    // Its foot where the compass plate's top is: 14 px over the bar, then the plate's 79 px (STRIP_H).
+    for (const c of ['md:rounded-b-none', 'md:border-b-0', 'bottom-[calc(var(--bar-h,129px)+93px)]', 'max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+93px)]', 'max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]', 'w-[min(460px,calc(100vw-32px))]']) expect(cap.className).toContain(c);
+    // The compass plate knows a caption sits on it.
+    expect(document.querySelector('[data-strip]')!.classList.contains('border-t-0')).toBe(true);
   });
 
   it('keeps the status line whole: the dot by its first line, More after its last, its lines even, on an opaque plate', async () => {
@@ -650,7 +663,7 @@ describe('StandView', () => {
     // Button words on one line; the better day is a sentence, and wraps inside the card.
     expect(within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead/ }).className).not.toMatch(/\bwhitespace-nowrap\b/);
     expect(screen.getByRole('button', { name: /Why this happens/ }).className).toMatch(/\bwhitespace-nowrap\b/);
-    expect(screen.getByRole('link', { name: 'Back to the forecast' }).className).toMatch(/\bwhitespace-nowrap\b/);
+    expect(screen.getByRole('link', { name: 'Open the full forecast' }).className).toMatch(/\bwhitespace-nowrap\b/);
     // The card scrolls inside itself rather than run under the buttons and the time bar.
     expect(document.getElementById('stand-card')!.className).toMatch(/\boverflow-y-auto\b/);
     fireEvent.click(inCard);
@@ -670,24 +683,150 @@ describe('StandView', () => {
     expect(screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
   });
 
-  it('keeps the next step in view from 768 px: the better day in gold, then Change site, Change date and Compare sites, and the card leaves its own gold and way back to that row', async () => {
+  it('keeps the next step in view from 768 px: the better day in gold with its radio, then Change site, Change date, Change lander and Compare sites, and the card leaves its own gold and way on to that row', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const row = screen.getByRole('group', { name: 'Next step' });
     // A phone keeps the row in today's card, under More: the scene keeps its 55 % (17.1).
     expect(row.className).toMatch(/\bmax-md:hidden\b/);
     // Inside the status's plate, under its line.
     expect(row.closest('[data-plate]')).toBe(screen.getByRole('button', { name: 'More' }).closest('[data-plate]'));
-    const gold = within(row).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours$/ });
+    // The radio as today's card gives it (18.3): the desktop and the card say the same.
+    const gold = within(row).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, (radio for \d+\sdays\s\d+\shours|no radio contact)$/ });
     expect(gold.className).toContain('text-[#f6d48a]');
     expect(gold.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
     expect(within(row).getByRole('link', { name: 'Change site' }).getAttribute('href')).toBe('/sites');
     expect(within(row).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    expect(within(row).getByRole('button', { name: 'Change lander' })).toBeTruthy();
     expect(within(row).getByRole('button', { name: 'Compare sites' }).className).not.toContain('text-[#f6d48a]');
-    // One gold action on the screen: from 768 px the card's own better day and way back are hidden.
+    // One gold action on the screen: from 768 px the card's own better day and way on are hidden.
     openCard();
     const card = document.getElementById('stand-card')!;
     expect(within(card).getByRole('link', { name: /radio for/ }).closest('div')!.className).toMatch(/\bmd:hidden\b/);
-    expect(within(card).getByRole('link', { name: 'Back to the forecast' }).className).toMatch(/\bmd:hidden\b/);
+    expect(within(card).getByRole('link', { name: 'Open the full forecast' }).className).toMatch(/\bmd:hidden\b/);
+    expect(within(card).getByRole('button', { name: 'Change lander' }).className).toMatch(/\bmd:hidden\b/);
+  });
+
+  it('keeps the status plate at its full width whatever the words, so More stays put as the night comes (18.3)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const plate = screen.getByRole('button', { name: 'More' }).closest('[data-plate]')!;
+    expect(plate.className).toMatch(/\bw-full\b/);
+    expect(plate.className).toContain('max-w-[860px]');
+    expect(plate.className).not.toContain('md:w-fit');
+  });
+
+  it('on a phone puts the better day on the first screen as one gold chip under the plate, a link to that landing (18.3)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const chip = document.querySelector<HTMLAnchorElement>('a[data-chip]')!;
+    expect(chip).toBeTruthy();
+    expect(asRead(chip.textContent!)).toMatch(/^Try 20 Jan instead: power for 12 days 15 hours›$/);
+    for (const c of ['md:hidden', 'h-8', 'text-[14px]', 'text-[#f6d48a]']) expect(chip.className).toContain(c);
+    expect(chip.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20(T\d\d:\d\d)?&days=30&hour=0$/);
+    // Inside the answer's section, so the view's measured top (--top-h) takes it in.
+    expect(chip.closest('section[aria-label="The answer for this site"]')).toBeTruthy();
+    // It lands on the better day in place, as the row's link does.
+    fireEvent.click(chip);
+    await waitFor(() => expect(window.location.search).toMatch(/start=2027-01-20/), { timeout: 10_000 });
+  });
+
+  it('shows no chip when no landing day is better', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-20&days=30&hour=10');
+    expect(document.querySelector('a[data-chip]')).toBeNull();
+  });
+
+  it('leads what to watch with Play and a flag, or a dot on a phone, said once to a screen reader (18.2)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    openCard();
+    const wide = screen.getByText(/^Press Play, or a flag on the time bar, to watch: the Sun sets/);
+    const phone = screen.getByText(/^Press Play, or a dot on the time bar, to watch: the Sun sets/);
+    // The same line twice, one shown per width; neither is hidden from a screen reader by hand: display: none does it.
+    expect(wide.className).toBe('max-sm:hidden');
+    expect(phone.className).toBe('sm:hidden');
+    expect(wide.getAttribute('aria-hidden')).toBeNull();
+    expect(phone.getAttribute('aria-hidden')).toBeNull();
+    expect(wide.parentElement).toBe(phone.parentElement);
+    expect(asRead(phone.textContent!)).toBe(asRead(wide.textContent!).replace(WATCH_LEAD, WATCH_LEAD_DOTS));
+  });
+
+  it('opens the lander dialog in place from Change lander, the verdict follows the lander chosen there, and the focus comes back (18.3)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const before = screen.getByRole('heading', { level: 1 }).textContent;
+    const button = within(screen.getByRole('group', { name: 'Next step' })).getByRole('button', { name: 'Change lander' });
+    fireEvent.click(button);
+    const dialog = await screen.findByRole('dialog', { name: 'The lander' });
+    const other = within(within(dialog).getByRole('radiogroup', { name: 'Lander' })).getAllByRole('radio').find((r) => !(r as HTMLInputElement).checked)!;
+    fireEvent.click(other);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).not.toBe(before), { timeout: 20_000 });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('brightens the picture for projectors from today’s card, keeps it for the visit, and never throws without storage (18.3)', async () => {
+    window.sessionStorage.removeItem('earthrise-bright');
+    const setBright = vi.fn();
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => ({ ...stub(), setBright }));
+    await waitFor(() => expect(setBright).toHaveBeenLastCalledWith(false));
+    openCard();
+    const b = screen.getByRole('button', { name: 'Brighter picture' });
+    expect(b.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(b);
+    expect(b.getAttribute('aria-pressed')).toBe('true');
+    // A toggle's words never change with its state.
+    expect(b.textContent).toBe('Brighter picture');
+    await waitFor(() => expect(setBright).toHaveBeenLastCalledWith(true));
+    expect(window.sessionStorage.getItem('earthrise-bright')).toBe('1');
+    cleanup();
+    // Kept for the visit.
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => ({ ...stub(), setBright }));
+    openCard();
+    expect(screen.getByRole('button', { name: 'Brighter picture' }).getAttribute('aria-pressed')).toBe('true');
+    await waitFor(() => expect(setBright).toHaveBeenLastCalledWith(true));
+    window.sessionStorage.removeItem('earthrise-bright');
+    cleanup();
+    // Storage blocked (a private window): the toggle still works for the page.
+    Object.defineProperty(window, 'sessionStorage', {
+      get() {
+        throw new Error('blocked');
+      },
+      configurable: true,
+    });
+    try {
+      await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+      openCard();
+      const again = screen.getByRole('button', { name: 'Brighter picture' });
+      expect(again.getAttribute('aria-pressed')).toBe('false');
+      fireEvent.click(again);
+      expect(again.getAttribute('aria-pressed')).toBe('true');
+    } finally {
+      Reflect.deleteProperty(window, 'sessionStorage');
+    }
+  });
+
+  it('turns the opening up to 30° towards the skyline’s highest point, the Sun and the lander kept in frame (18.4)', async () => {
+    // First, with the site's own skyline, a daytime hour of the period at which the turn is not zero.
+    const first = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const st = first.store.getState();
+    const mask = { az0: 0, step: 360 / st.mask!.length, el: st.mask! };
+    const halfW = (Math.atan(Math.tan((60 * Math.PI) / 360) * (window.innerWidth / window.innerHeight)) * 180) / Math.PI;
+    const turns = (h: number) => Math.abs(((openingYaw(st.series!, h, false, true, mask, halfW) - openingYaw(st.series!, h, false, true) + 540) % 360) - 180);
+    let hour = -1;
+    for (let h = 0; h < st.series!.hours && hour < 0; h++) if (st.series!.sunFraction[h] > 0 && turns(h) > 0.5) hour = h;
+    expect(hour).toBeGreaterThanOrEqual(0);
+    cleanup();
+    // The view opens turned by that much: the stand view hands the skyline and the view's half-width to openingYaw.
+    const r = stub();
+    const { store } = await open(`?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=${hour}`, () => r);
+    await waitFor(() => expect(r.setView).toHaveBeenCalled());
+    const s = store.getState();
+    expect(r.setView.mock.calls[0][0]).toBeCloseTo(openingYaw(s.series!, hour, false, true, mask, halfW), 3);
+    expect(turns(hour)).toBeGreaterThan(0.5);
+  });
+
+  it('keeps the lander’s feet in sight after Turn to Lander: the look asks the view to fit them', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    // The lander stands once the ground has loaded, a moment after the words.
+    fireEvent.click(await screen.findByRole('button', { name: 'Face the lander' }, { timeout: 20_000 }));
+    await waitFor(() => expect(document.querySelector('canvas')!.getAttribute('data-fit')).toBe('1'));
   });
 
   it('makes Compare sites the gold action when no landing day is better, and adds the site to the comparison on the way there', async () => {
@@ -761,7 +900,7 @@ describe('StandView', () => {
   it('marks the radio contact after the night as only if the lander survives it, and says the clock is Earth’s', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The battery runs out on 4 January; the contact from 20 January needs the lander to live through the night.
-    await waitFor(() => expect(screen.getByText('radio, if it survives the night')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('radio, if the lander survives the cold')).toBeTruthy());
     expect(screen.getByText(/\(Earth time\)/)).toBeTruthy();
   });
 
@@ -770,7 +909,7 @@ describe('StandView', () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
     await waitFor(() => expect(r.render).toHaveBeenCalled());
     expect(screen.getByText(/^Your shadow/).hidden).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Guides' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Paths' }));
     // With the height it is worked out for, so a reader can check the Sun's height from it.
     await waitFor(() => expect(screen.getByText('Your shadow, about 52 m long (you are 1.8 m tall)').hidden).toBe(false));
   });

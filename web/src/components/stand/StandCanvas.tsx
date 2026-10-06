@@ -408,6 +408,7 @@ export function StandCanvas({
   onExplore,
   place,
   docked = false,
+  bright = false,
 }: {
   scene: StandScene;
   hour: number;
@@ -441,6 +442,8 @@ export function StandCanvas({
   place?: string;
   /** A caption's plate sits on the compass plate (18.3): the plate is square and open at the top, so the two read as one. */
   docked?: boolean;
+  /** "Brighter picture" (18.3): the renderer doubles its exposure for projectors and bright rooms. */
+  bright?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
@@ -457,6 +460,13 @@ export function StandCanvas({
   const fitOffset = useRef(0);
   // A look that keeps the lander's feet in sight as the opening does (LookTarget.fit), until the view is turned by hand.
   const fitRef = useRef(false);
+  // The renderer, for settings that change while it lives: the brighter picture (18.3).
+  const rendererRef = useRef<RendererLike | null>(null);
+  const brightRef = useRef(bright);
+  useEffect(() => {
+    brightRef.current = bright;
+    rendererRef.current?.setBright?.(bright);
+  }, [bright]);
   const keepRef = useRef(keepInView);
   const subjectRef = useRef(keepSubject);
   const earthRef = useRef<HTMLSpanElement>(null);
@@ -564,6 +574,8 @@ export function StandCanvas({
       if (live) failRef.current(why);
     };
     r.onLost = fail;
+    rendererRef.current = r;
+    r.setBright?.(brightRef.current);
     void Promise.resolve(r.ready).then(
       () => {
         if (!live) return;
@@ -906,6 +918,7 @@ export function StandCanvas({
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', size);
       el.removeEventListener('webglcontextlost', lost);
+      if (rendererRef.current === r) rendererRef.current = null;
       r.dispose();
     };
   }, [scene, createRenderer]);
