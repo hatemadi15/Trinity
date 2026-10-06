@@ -4,6 +4,10 @@ import { CRATER, craterLook, craterShape, GROUND_FRAG, HIDE_FADE, hiddenShare, N
 import { hiddenShadowShare, SHADOW_GLSL } from './shadowRule';
 
 describe('the ground shader', () => {
+  it('halves the drawn patches of lighter and darker dust near the eye, about 5 m across, so the ground reads as dust with stones on it, not noise (spec 18.4)', () => {
+    expect(GROUND_FRAG).toContain('0.06 * (vnoise(vWorld.xz * 0.21) - 0.5)');
+    expect(GROUND_FRAG).not.toContain('0.12 * (vnoise(vWorld.xz * 0.21) - 0.5)');
+  });
 
   it('marches the next level\u2019s shadows on a ring only near the ground: from the air the rings cover much of the view, and the second march made the flight stutter', () => {
     expect(GROUND_FRAG).toMatch(/uniform float [^;]*uRingShadows/);
