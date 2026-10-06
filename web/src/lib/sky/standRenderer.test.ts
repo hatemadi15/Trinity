@@ -5,6 +5,8 @@ import type { SkyAssets } from '@/lib/data/sky';
 import type { GlobeAssets } from '@/lib/data/globe';
 import { R_MOON_M } from '@/lib/engine/constants';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
+import { NIGHT } from './shaders';
+import { LANDER_LIGHT } from './landerMesh';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS } from './boulders';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
@@ -52,6 +54,34 @@ function wideLevels() {
 }
 
 describe('the stand scene', () => {
+
+  it('marches the rings\u2019 second shadows only within 5 km of the ground: in flight above that the ground keeps its own shadows at the cuts', () => {
+    const s = buildScene(flat({ field: terrainField(levels(), 0, 100) }));
+    const ring = () => s.parts.ground.map((g) => (g.material as THREE.ShaderMaterial).uniforms.uRingShadows.value);
+    s.setView(0, 0, 60, 16 / 9);
+    expect(ring()).toEqual([1, 1, 1]);
+    s.setPose({ position: [0, 100e3, 0], quaternion: [0, 0, 0, 1], fov: 60, shift: [0, 0] }, 16 / 9);
+    expect(ring()).toEqual([0, 0, 0]);
+    s.setPose({ position: [0, 2e3, 0], quaternion: [0, 0, 0, 1], fov: 60, shift: [0, 0] }, 16 / 9);
+    expect(ring()).toEqual([1, 1, 1]);
+  });
+
+  it('lights the rocks and the lander at night from the sky above, tops lighter than sides, and only faintly by day', () => {
+    const night = { ...series, sunEl: Float64Array.from([-3, -3, -3]), sunFraction: Float64Array.from([0, 0, 0]), earthEl: Float64Array.from([-6, -6, -6]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
+    const s = buildScene(flat({ series: night, lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(0);
+    const fill = s.parts.landerFill as THREE.HemisphereLight;
+    expect(fill).toBeInstanceOf(THREE.HemisphereLight);
+    expect(fill.groundColor.getHex()).toBe(0x060607);
+    expect(fill.intensity).toBeCloseTo(0.03 + NIGHT.SKY * 0.35, 6);
+    // The sunlit dust's fill in the lander's shade: none at night, three times the rest of the view by day.
+    expect(s.parts.landerDust!.value).toBe(1);
+    const day = buildScene(flat({ lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    day.update(0);
+    expect((day.parts.landerFill as THREE.HemisphereLight).intensity).toBeCloseTo(0.03, 6);
+    expect(day.parts.landerDust!.value).toBe(LANDER_LIGHT.DUST);
+    expect(buildScene(flat()).parts.landerDust).toBeNull();
+  });
   it('puts the Sun, Earth and stars on the sky sphere, in the directions of the hour', () => {
     const s = buildScene(flat());
     s.update(0);
@@ -90,7 +120,7 @@ describe('the stand scene', () => {
       for (let i = 0; i < p.count; i++) r = Math.max(r, Math.hypot(p.getX(i), p.getZ(i)));
       return r / Math.SQRT2; // the half width of the square, in any orientation within a cell
     });
-    const holes = s.parts.ground.map((g) => ((g.material as THREE.ShaderMaterial).uniforms.uHole.value as THREE.Vector2).x);
+    const holes = s.parts.ground.map((g) => (g.material as THREE.ShaderMaterial).uniforms.uHoleR.value as number);
     expect(holes[0]).toBe(0);
     for (let i = 1; i < 3; i++) {
       expect(holes[i]).toBeGreaterThan(0);
@@ -171,11 +201,6 @@ describe('the stand scene', () => {
     const a = aside.labels();
     expect(a.sun.visible).toBe(true);
     expect(a.sun.y).toBeGreaterThan(l.sun.y);
-  });
-
-  it('traces each mesh’s shadows in its own level or coarser ones, so the coarse ground never meets the fine heights it does not show', () => {
-    const s = buildScene(flat({ field: terrainField(levels(), 0, 100) }));
-    expect(s.parts.ground.map((g) => (g.material as THREE.ShaderMaterial).uniforms.uMinLevel.value)).toEqual([0, 1, 2]);
   });
 
   it('stores heights outside every level as a finite value below the shadow rule’s cut-off, in half floats too', () => {

@@ -7,6 +7,7 @@ import { TimeBar } from '@/components/explore/TimeBar';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { shadowLevels } from '@/lib/data/terrain';
+import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { exploreHref, standHref } from '@/lib/links';
 import { earthLitFraction } from '@/lib/sky/earth';
@@ -14,7 +15,7 @@ import { dirAzEl } from '@/lib/sky/frames';
 import { LANDER } from '@/lib/sky/landerShape';
 import { eyeAt, lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
-import { exploreStore, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong } from '@/lib/viz/format';
@@ -63,15 +64,19 @@ export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
  * More, which opens today's card: where you stand, the headline (the page's heading at all times, with how long
  * the night lasts), what to watch next, the better landing day, "Why this happens" (where the site lies, why the
  * light and the sky look as they do, the pole first, the radio story and how we know, one reason at a time or all
- * as one list) and the way back. One row of buttons faces the Sun, Earth or the lander, looks up, shows the guides
- * and hides the words; on a phone it sits above the time bar, and "Hide the words" waits in the card. A key moment,
- * chosen from its flag or passed as the time moves on, gets a line over the view on why; the moments stay as dots
- * when the words are hidden. A lander stands beside the site for scale, placed by the hour the view opens on.
- * Without WebGL 2 it shows the horizon chart with the same words.
+ * as one list) and the way back. From 768 px wide a second row under that line keeps the next step in view (17.1):
+ * the better landing day in gold (else "Compare sites"), "Change site", "Change date" and "Compare sites", and the
+ * card leaves out its better day and way back. One row of buttons faces the Sun, Earth or the lander, looks up,
+ * shows the guides and hides the words; on a phone it sits above the time bar, and "Hide the words" waits in the
+ * card. A key moment, chosen from its flag or passed as the time moves on, gets a line over the view on why; the
+ * moments stay as dots when the words are hidden. A lander stands beside the site for scale, placed by the hour the
+ * view opens on. Without WebGL 2 it shows the horizon chart with the same words.
  */
 export function StandView({ store = exploreStore, createRenderer = defaultRenderer }: { store?: StoreApi<ExploreState>; createRenderer?: (canvas: HTMLCanvasElement, scene: StandScene) => RendererLike }) {
   const s = useStore(store);
   const reducedMotion = useReducedMotion();
+  // A plain change of page without a router (tests, static previews), as Explore's.
+  const go = useNavigate();
   const [sky, setSky] = useState<SkyAssets | null>(null);
   // The hour the view opened on, once the ground has loaded: it places the lander in the first view.
   const [openHour, setOpenHour] = useState<number | null>(null);
@@ -217,11 +222,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const flat = !!scene && scene.field.levels.length === 0;
   // With the battery's level while it has power, as the forecast page gives it.
   const lander = statusLine(series, power, s.startUtc, hour, s.params.power.batteryWh);
-  // The better landing day opens its own view, from its first hour; the button says why it is better.
+  // The better landing day opens its own view, from its first hour; the button says why it is better: in today's
+  // card the power and the radio, in the row under the status line the power alone (17.1).
   const better =
     answer.better && s.best
       ? {
           label: betterLabel(dateLong(s.startUtc, answer.better.hour), s.best.poweredHours, s.best.poweredHours * s.best.earthFraction),
+          short: betterLabel(dateLong(s.startUtc, answer.better.hour), s.best.poweredHours, s.best.poweredHours * s.best.earthFraction, true),
           startUtc: answer.better.startUtc,
           href: `${standHref(site.id, answer.better.startUtc, s.days, 0)}${quality === 'fast' ? '&quality=fast' : ''}`,
         }
@@ -239,6 +246,12 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     setPage(0);
     setCardOpen(false);
     window.history.replaceState(null, '', href);
+  };
+  // "Compare sites" adds this site to the comparison first, as Explore's does (17.1), then opens it.
+  const compare = () => {
+    const st = store.getState();
+    if (!st.compareIds.includes(site.id) && st.compareIds.length < COMPARE_MAX) void st.addToCompare(site.id).then(() => go('/compare'));
+    else go('/compare');
   };
   // The note describes the view from the site: shown with it, not while the ground loads or in the fallback.
   const note = scene && !failed ? measuredNote(scene.field.levels.map((l) => l.cell), scene.sky.stars.count) : null;
@@ -368,18 +381,55 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
             {/* The page's heading at all times, for screen readers; the card shows it when it is open. */}
             {/* Tighter on a phone, so its longest state (four lines) leaves the scene 55 % of the screen (16.5). */}
             <h1 className="sr-only">{title}</h1>
-            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] items-start gap-3 px-3.5 py-1 md:w-fit md:px-4 md:py-1.5`}>
-              <i aria-hidden="true" data-tone={lander.tone} className={`mt-[11px] h-3 w-3 shrink-0 self-start rounded-full md:mt-[13px] ${TONE[lander.tone]}`} />
-              <p className="min-w-0 flex-1 text-balance py-1.5 text-[15px] leading-snug md:py-2 md:text-base">
-                <span className="text-[#c3bfb6] max-md:hidden">{oneLine}. </span>
-                {lander.text}
+            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] flex-col md:w-fit`}>
+              <div className="flex items-start gap-3 px-3.5 py-1 md:px-4 md:py-1.5">
+                <i aria-hidden="true" data-tone={lander.tone} className={`mt-[11px] h-3 w-3 shrink-0 self-start rounded-full md:mt-[13px] ${TONE[lander.tone]}`} />
+                <p className="min-w-0 flex-1 text-balance py-1.5 text-[15px] leading-snug md:py-2 md:text-base">
+                  <span className="text-[#c3bfb6] max-md:hidden">{oneLine}. </span>
+                  {lander.text}
+                </p>
+                <button type="button" aria-expanded={cardOpen} className="flex min-h-10 shrink-0 items-center gap-1.5 self-end whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setCardOpen((o) => !o)}>
+                  {cardOpen ? 'Less' : 'More'}
+                  <span aria-hidden="true" className="no-underline">
+                    {cardOpen ? '▴' : '▾'}
+                  </span>
+                </button>
+              </div>
+              {/* The next step, always in view from 768 px (17.1); on a phone it waits in today's card. It starts under
+                  the status's words (the plate's 16 px, the dot's 12 and the gap's 12), as the mockup has it. */}
+              {/* The answer, in view from 768 px (read D2: the better day had nothing to compare against under More); a phone's card keeps it. */}
+              <p aria-hidden="true" className="display text-pretty px-4 pb-1 pl-10 text-[16px] font-semibold leading-snug max-md:hidden">
+                {title}
               </p>
-              <button type="button" aria-expanded={cardOpen} className="flex min-h-10 shrink-0 items-center gap-1.5 self-end whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setCardOpen((o) => !o)}>
-                {cardOpen ? 'Less' : 'More'}
-                <span aria-hidden="true" className="no-underline">
-                  {cardOpen ? '▴' : '▾'}
-                </span>
-              </button>
+              <div role="group" aria-label="Next step" className="flex flex-wrap items-center gap-x-5 gap-y-1 pb-2.5 pl-10 pr-4 pt-0.5 max-md:hidden">
+                {better ? (
+                  <a
+                    href={better.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      land(better.startUtc, better.href);
+                    }}
+                    className={`${LOOK.replace('whitespace-nowrap ', '')} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
+                  >
+                    {better.short}
+                  </a>
+                ) : (
+                  <button type="button" onClick={compare} className={`${LOOK} border-[#f6d48a]/55 text-[#f6d48a]`}>
+                    Compare sites
+                  </button>
+                )}
+                <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
+                  Change site
+                </Link>
+                <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
+                  Change date
+                </Link>
+                {better && (
+                  <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
+                    Compare sites
+                  </button>
+                )}
+              </div>
             </div>
             {cardOpen && (
               <div
@@ -389,13 +439,14 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               >
                 <p className="text-[14px] text-[#c3bfb6] md:text-[15px]">{standingLine(site, oneLine, 'top', flat)}</p>
                 {/* The headline as the eye reads it; the heading above says it for screen readers. */}
-                <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px]">
+                <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px] md:hidden">
                   {title}
                 </p>
                 <p className="text-[14px] text-[#f6d48a] md:text-[15px]">{watchNext(series, power, s.startUtc, hour)}</p>
                 {better && (
-                  // The better day, on a row of its own, so the links below never move.
-                  <div>
+                  // The better day, on a row of its own, so the links below never move. From 768 px the row under
+                  // the status line holds it, so the screen keeps one gold action (17.1).
+                  <div className="md:hidden">
                     <a
                       href={better.href}
                       onClick={(e) => {
@@ -424,7 +475,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                       {more ? '▴' : '▾'}
                     </span>
                   </button>
-                  <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
+                  {/* From 768 px "Change date" in the row under the status line goes there instead. */}
+                  <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
                     Back to the forecast
                   </Link>
                   {/* On a phone the row above the time bar has no room for it: it waits here. */}

@@ -3,8 +3,11 @@ import type { Level } from '../engine/shadow';
 
 /** One height level in the site's frame: metres above the site's ground, with the Moon's curvature dropped. */
 export interface FieldLevel { cols: number; rows: number; cell: number; siteCol: number; siteRow: number; heights: Float32Array }
-/** The ground around the site, finest level first; `lonDeg` turns the polar grid into the site's compass. */
-export interface TerrainField { levels: FieldLevel[]; lonDeg: number }
+/**
+ * The ground around the site, finest level first; `lonDeg` turns the polar grid into the site's compass. `flight`: a
+ * finer far level for views from above (the arrival), drawn but never read for a height.
+ */
+export interface TerrainField { levels: FieldLevel[]; lonDeg: number; flight?: FieldLevel }
 
 const DEG = Math.PI / 180;
 const OUTSIDE = -1e6;
@@ -21,9 +24,9 @@ export function worldOf(lonDeg: number, mx: number, my: number): { x: number; z:
   return { x: mx * c - my * s, z: -(mx * s + my * c) };
 }
 
-/** The shadow levels (coarse to fine, as `shadowLevels` returns them) as site-frame heights, finest first. */
-export function terrainField(levels: Level[], lonDeg: number, siteHeightM: number): TerrainField {
-  const out = levels.map((l): FieldLevel => {
+/** The shadow levels (coarse to fine, as `shadowLevels` returns them) as site-frame heights, finest first; `flight` converted alike, kept apart. */
+export function terrainField(levels: Level[], lonDeg: number, siteHeightM: number, flight: Level | null = null): TerrainField {
+  const toField = (l: Level): FieldLevel => {
     const heights = new Float32Array(l.width * l.height);
     for (let r = 0; r < l.height; r++) {
       for (let c = 0; c < l.width; c++) {
@@ -32,8 +35,10 @@ export function terrainField(levels: Level[], lonDeg: number, siteHeightM: numbe
       }
     }
     return { cols: l.width, rows: l.height, cell: l.pxM, siteCol: l.siteCol, siteRow: l.siteRow, heights };
-  });
-  return { levels: out.reverse(), lonDeg };
+  };
+  const out: TerrainField = { levels: levels.map(toField).reverse(), lonDeg };
+  if (flight) out.flight = toField(flight);
+  return out;
 }
 
 /** Flat ground on the curved Moon, for a site without terrain. */

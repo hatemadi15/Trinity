@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BOULDER_GLSL, BOULDERS, boulderMeshes, PEBBLES, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
+import { BOULDER_GLSL, BOULDERS, boulderMeshes, KINDS, PEBBLES, pebbleMesh, placeBoulders, placePebbles, ROCK, type RockKind, rockPlanes, rockShape, siteSeed } from './boulders';
 
 describe('the boulders near the eye', () => {
   const lander = { x: 16 * Math.sin(Math.PI / 4), z: -16 * Math.cos(Math.PI / 4) };
@@ -37,7 +37,7 @@ describe('the boulders near the eye', () => {
     }
   });
 
-  it('are rocks sunk a little into the ground, each with a sphere for its shadow that reaches its top as it lies, tilted, and is no wider than it', () => {
+  it('are rocks bedded in the ground, each with a sphere for its shadow that reaches its top as it lies, tilted, and is no wider than it', () => {
     const list = placeBoulders(7, null);
     const { group, spheres } = boulderMeshes(list, () => 10, 7);
     expect(group.children.length).toBe(list.length);
@@ -46,7 +46,8 @@ describe('the boulders near the eye', () => {
       const mesh = group.children[i] as THREE.Mesh;
       expect(mesh.position.x).toBeCloseTo(b.x, 6);
       expect(mesh.position.z).toBeCloseTo(b.z, 6);
-      // Its foot below the ground, its top about its radius above it, as it lies: turned and tilted.
+      // Its foot below the ground, and a half to two thirds of its height above it as it is bedded (a slab's top lower
+      // than a block's), give or take its tilt: as it lies, turned and tilted.
       mesh.updateMatrixWorld(true);
       const pos = mesh.geometry.getAttribute('position');
       let lo = Infinity, hi = -Infinity;
@@ -56,8 +57,8 @@ describe('the boulders near the eye', () => {
         hi = Math.max(hi, y);
       }
       expect(lo).toBeLessThan(10);
-      expect(hi - 10).toBeGreaterThan(0.75 * b.r);
-      expect(hi - 10).toBeLessThan(1.45 * b.r);
+      expect((hi - 10) / (2 * mesh.scale.y)).toBeGreaterThan(0.45);
+      expect((hi - 10) / (2 * mesh.scale.y)).toBeLessThan(0.85);
       // The shadow's sphere: where the rock is, its top at the rock's highest point.
       const s = spheres[i];
       expect(s.x).toBeCloseTo(b.x, 6);
@@ -72,7 +73,7 @@ describe('the boulders near the eye', () => {
     });
   });
 
-  it('keep their places and sizes, a few of them long, each a quarter to a third bedded in the dust', () => {
+  it('keep their places and sizes, a few of them long, each a third to a half bedded in the dust', () => {
     for (const seed of [7, siteSeed(-88.28, -64.31), siteSeed(-89.45, -136.9)]) {
       const list = placeBoulders(seed, null);
       const { group } = boulderMeshes(list, () => 10, seed);
@@ -86,17 +87,17 @@ describe('the boulders near the eye', () => {
         const lx = ((box.max.x - box.min.x) / 2) * mesh.scale.x, lz = ((box.max.z - box.min.z) / 2) * mesh.scale.z;
         expect(Math.sqrt(lx * lz) / b.r).toBeCloseTo(1, 2);
         if (Math.max(lx, lz) / Math.min(lx, lz) >= 1.3) long++;
-        // Partly buried: between a fifth and two fifths of its height under the ground.
-        mesh.updateMatrixWorld(true);
+        // Bedded: between a third and a half of its height under the ground, along its own height (its tilt lifts one end
+        // of a long low slab out of the dust as it sinks the other).
         const pos = mesh.geometry.getAttribute('position');
         let lo = Infinity, hi = -Infinity;
         for (let k = 0; k < pos.count; k++) {
-          const y = new THREE.Vector3().fromBufferAttribute(pos, k).applyMatrix4(mesh.matrixWorld).y;
+          const y = mesh.position.y + mesh.scale.y * pos.getY(k);
           lo = Math.min(lo, y);
           hi = Math.max(hi, y);
         }
-        expect((10 - lo) / (hi - lo)).toBeGreaterThan(0.2);
-        expect((10 - lo) / (hi - lo)).toBeLessThan(0.4);
+        expect((10 - lo) / (hi - lo)).toBeGreaterThanOrEqual(1 / 3 - 1e-6);
+        expect((10 - lo) / (hi - lo)).toBeLessThanOrEqual(1 / 2 + 1e-6);
       });
       // A few long ones, not most.
       expect(long).toBeGreaterThanOrEqual(1);
@@ -110,28 +111,35 @@ describe('the boulders near the eye', () => {
     expect(BOULDER_GLSL).toMatch(/for \(int i = 0; i < \d+ \* uOne; i\+\+\)/);
   });
 
-  it('are angular blocks, as broken rock is: flat fracture faces that meet in sharp edges, closed with no crack, not smooth pillows', () => {
+  it('are stones, as broken rock is: faces nearly flat but for low swells, meeting in edges rounded a little, closed with no crack, not smooth pillows', () => {
     for (const seed of [7, siteSeed(-88.28, -64.31)]) {
       const { group } = boulderMeshes(placeBoulders(seed, null), () => 0, seed);
       for (const mesh of group.children as THREE.Mesh[]) {
-        const tris = triangles(mesh), nor = shapeNormals(mesh);
-        // Flat faces: the light does not bend across a face. At every corner of every triangle the shape's normal (without
-        // the small bumps) is the triangle's own, where a pillow's turns from corner to corner.
-        let bend = 0;
-        for (const t of tris) if (t.area > 0) for (const k of t.at) bend = Math.max(bend, degrees(new THREE.Vector3().fromBufferAttribute(nor, k).angleTo(t.normal)));
-        expect(bend).toBeLessThan(0.5);
+        const tris = triangles(mesh), face = faceOf(mesh), facing = faceDirections(tris, face), sides = edgeTriangles(mesh, tris);
         // Closed: each edge of every triangle is the edge of exactly one other, corner for corner, so no crack opens.
-        const sides = edgeNormals(mesh, tris);
-        expect([...sides.values()].filter((normals) => normals.length !== 2)).toEqual([]);
-        // Sharp edges: across an edge the light either does not turn at all (within a face) or turns at once by 10
-        // degrees or more (where two faces meet), never by the few degrees from one triangle to the next of a rounded edge.
-        const turns = [...sides.values()].map(([a, b]) => degrees(a.angleTo(b)));
-        const creases = turns.filter((t) => t > 0.5);
-        expect(creases.length).toBeGreaterThan(0);
-        expect(Math.min(...creases)).toBeGreaterThanOrEqual(10);
-        // A handful of faces: the block's own and the planes where pieces broke away.
-        expect(faceCount(tris)).toBeGreaterThanOrEqual(7);
-        expect(faceCount(tris)).toBeLessThanOrEqual(20);
+        expect(sides.filter((along) => along.length !== 2)).toEqual([]);
+        const within: number[] = [], across: number[] = [];
+        for (const [a, b] of sides) if (a.area > 0 && b.area > 0) (face[a.at[0]] === face[b.at[0]] ? within : across).push(degrees(a.normal.angleTo(b.normal)));
+        // Faces that swell, in low ripples: from one triangle to the next across a face the light turns, most often by a
+        // degree or two (a flat face's does not turn at all, a pillow's by several degrees) ...
+        within.sort((x, y) => x - y);
+        expect(within[Math.floor(within.length / 2)]).toBeGreaterThan(0.3);
+        expect(within[Math.floor(within.length / 2)]).toBeLessThan(3);
+        // ... so they stay nearly flat: more than half of the rock's surface faces within 15 degrees of its face's way.
+        let flat = 0, total = 0;
+        for (const t of tris) {
+          total += t.area;
+          if (t.area > 0 && degrees(t.normal.angleTo(facing.get(face[t.at[0]])!)) <= 15) flat += t.area;
+        }
+        expect(flat / total).toBeGreaterThan(0.5);
+        // Edges rounded a little: each face bends over where it meets the next, more than its swells turn it (by 5 degrees
+        // or more from one triangle to the next), and the edges still read as edges, the light turning across one of them
+        // by 10 degrees or more at once.
+        expect(Math.max(...within)).toBeGreaterThanOrEqual(5);
+        expect(Math.max(...across)).toBeGreaterThanOrEqual(10);
+        // A handful of faces: the planes it was cut by.
+        expect(facing.size).toBeGreaterThanOrEqual(7);
+        expect(facing.size).toBeLessThanOrEqual(20);
       }
     }
   });
@@ -139,42 +147,51 @@ describe('the boulders near the eye', () => {
   it('are irregular, each its own: faces meeting at many angles, not a box or a die, and not all alike', () => {
     for (const seed of [7, siteSeed(-88.28, -64.31)]) {
       const { group } = boulderMeshes(placeBoulders(seed, null), () => 0, seed);
-      const meshes = group.children as THREE.Mesh[];
+      const meshes = group.children as THREE.Mesh[], faces: number[] = [];
       for (const mesh of meshes) {
-        const tris = triangles(mesh);
-        // The angles at its edges spread over 25 degrees or more, where a box's are all 90.
-        const creases = [...edgeNormals(mesh, tris).values()].map(([a, b]) => degrees(a.angleTo(b))).filter((t) => t > 0.5);
-        expect(Math.max(...creases) - Math.min(...creases)).toBeGreaterThan(25);
+        const tris = triangles(mesh), face = faceOf(mesh), facing = faceDirections(tris, face);
+        // The angles between faces that meet spread over 25 degrees or more, where a box's are all 90: each face's way
+        // taken over the whole of it, as its swells and rounded edges turn it from one triangle to the next.
+        const angles: number[] = [];
+        for (const [a, b] of edgeTriangles(mesh, tris)) {
+          const f = facing.get(face[a.at[0]]), g = b && facing.get(face[b.at[0]]);
+          if (f && g && f !== g) angles.push(degrees(f.angleTo(g)));
+        }
+        expect(Math.max(...angles) - Math.min(...angles)).toBeGreaterThan(25);
+        faces.push(facing.size);
       }
       // Not one shape copied: the rocks of a site have different numbers of faces.
-      expect(new Set(meshes.map((m) => faceCount(triangles(m)))).size).toBeGreaterThan(2);
+      expect(new Set(faces).size).toBeGreaterThan(2);
     }
   });
 
-  it('keep each rock where it lies: as big and as long, turned, tilted and bedded as before, as light or dark; only its shape is new', () => {
-    // Each rock's height of its middle, its turn and tilt, its scale and its shade, as they were before its edges were made sharp.
-    const before = [
-      [0.07526, 0.113354, 5.777775, -0.058873, 0.22971, 0.165779, 0.225563, 0.266943],
-      [0.056052, -0.071714, 0.849908, -0.106653, 0.190575, 0.118951, 0.118356, 0.260469],
-      [0.063543, -0.124987, 4.264582, 0.012831, 0.27915, 0.191618, 0.289318, 0.248074],
-      [0.06664, -0.047244, 5.732535, 0.101368, 0.183984, 0.140356, 0.184278, 0.268702],
-      [0.039947, 0.049648, 3.079195, -0.117199, 0.197815, 0.109622, 0.121405, 0.240885],
-      [0.154211, -0.114488, 4.997079, -0.018358, 0.433059, 0.335129, 0.431225, 0.24274],
-      [0.044899, 0.05191, 0.771323, -0.117642, 0.150794, 0.109267, 0.158892, 0.25156],
-      [0.094141, -0.026669, 0.089281, -0.012273, 0.412036, 0.253085, 0.301017, 0.256455],
-      [0.038093, 0.015261, 0.935795, 0.075957, 0.152204, 0.089955, 0.147834, 0.274473],
-      [0.039891, -0.115108, 4.788767, -0.021157, 0.197634, 0.11105, 0.113865, 0.235328],
-      [0.045918, -0.104076, 6.230247, 0.124574, 0.179576, 0.100502, 0.125814, 0.280516],
-      [0.050249, 0.094453, 3.522184, -0.042936, 0.158566, 0.108753, 0.17537, 0.257221],
-      [0.122569, -0.021997, 5.272562, 0.016645, 0.415315, 0.314354, 0.400686, 0.245775],
-      [0.134405, -0.110625, 1.972306, 0.081889, 0.499618, 0.324872, 0.461219, 0.265238],
+  it('keep each rock as it lies from build to build: its kind, how high its middle sits, its turn and tilt, its size and its shade', () => {
+    // Each rock's kind, the height of its middle, its turn and tilt, its scale and its shade, as the stones were first
+    // drawn (the D2 prototype's, with read D2's fewer lumps, to the last digit).
+    const drawn: [RockKind, ...number[]][] = [
+      ['block', 0.063975, -0.107809, 4.870569, -0.022508, 0.235359, 0.19525, 0.220149, 0.295134],
+      ['slab', 0.014554, -0.074451, 4.086895, 0.109555, 0.148619, 0.063916, 0.151769, 0.271744],
+      ['block', 0.067596, 0.096764, 0.217209, -0.080342, 0.271417, 0.230904, 0.297561, 0.277266],
+      ['block', 0.026036, 0.009743, 3.245743, -0.006622, 0.229112, 0.155117, 0.147981, 0.278263],
+      ['block', 0.025586, -0.070705, 4.455637, 0.097559, 0.14853, 0.128662, 0.16169, 0.275312],
+      ['slab', 0.040562, 0.06427, 5.571474, 0.034712, 0.443858, 0.170044, 0.420734, 0.280196],
+      ['block', 0.031544, 0.118721, 6.016757, 0.112776, 0.152373, 0.099424, 0.157246, 0.2607],
+      ['lump', 0.045937, -0.025825, 1.967708, 0.100101, 0.352425, 0.26299, 0.351932, 0.269902],
+      ['block', 0.018818, 0.09546, 4.131426, -0.099923, 0.143495, 0.120262, 0.156806, 0.293019],
+      ['lump', 0.008486, 0.017576, 5.515444, 0.026799, 0.146614, 0.115379, 0.153489, 0.269847],
+      ['slab', 0.012938, 0.033261, 0.381115, 0.017065, 0.193914, 0.063855, 0.116512, 0.289475],
+      ['lump', 0.026704, -0.035001, 5.606189, -0.081956, 0.198074, 0.131096, 0.140391, 0.26549],
+      ['block', 0.099653, 0.09316, 5.435899, 0.009382, 0.396077, 0.302066, 0.420147, 0.276646],
+      ['slab', 0.061267, 0.110415, 2.665737, -0.03429, 0.472729, 0.204849, 0.487454, 0.285521],
     ];
     const seed = siteSeed(-88.28, -64.31);
     const { group } = boulderMeshes(placeBoulders(seed, lander), () => 0, seed);
-    expect(group.children.length).toBe(before.length);
+    expect(group.children.length).toBe(drawn.length);
     (group.children as THREE.Mesh[]).forEach((m, i) => {
+      const [kind, ...was] = drawn[i];
+      expect(m.name).toBe(`rock-${kind}`);
       const now = [m.position.y, m.rotation.x, m.rotation.y, m.rotation.z, m.scale.x, m.scale.y, m.scale.z, (m.material as THREE.MeshStandardMaterial).color.r];
-      now.forEach((v, k) => expect(v).toBeCloseTo(before[i][k], 5));
+      now.forEach((v, k) => expect(v).toBeCloseTo(was[k], 5));
     });
   });
 
@@ -225,9 +242,11 @@ describe('the boulders near the eye', () => {
         expect(mean).toBeGreaterThan(2);
         expect(mean).toBeLessThan(8);
         expect(sorted[Math.floor(0.99 * (sorted.length - 1))]).toBeLessThan(25);
-        // This way and that across the rock, so smaller than it: the tilts all but cancel out over the whole of it ...
+        // This way and that across the rock, so smaller than it: the tilts all but cancel out over the whole of it, to
+        // under 0.15 of their size (on its swelling faces and rounded edges, corners pushed out or in along normals that
+        // turn with the surface cancel a little less well than on flat faces) ...
         const size = off.reduce((a, v, k) => a + v.length() * share[k], 0);
-        expect(off.reduce((a, v, k) => a.addScaledVector(v, share[k]), new THREE.Vector3()).length()).toBeLessThan(0.1 * size);
+        expect(off.reduce((a, v, k) => a.addScaledVector(v, share[k]), new THREE.Vector3()).length()).toBeLessThan(0.15 * size);
         // ... and each spread over several corners, a bump the light can catch, not a speckle from corner to corner.
         let step = 0;
         for (let k = 0; k < index.count; k++) step += off[index.getX(k)].distanceTo(off[index.getX(k - (k % 3) + ((k + 1) % 3))]);
@@ -251,6 +270,101 @@ describe('the boulders near the eye', () => {
     expect(list.filter((p) => p.r > 0.06).length).toBeLessThan(list.length / 5);
     const mesh = pebbleMesh(list, () => 0, 7);
     expect(mesh.count).toBe(list.length);
+  });
+});
+
+describe('stones, not boxes', () => {
+
+  it('keeps the stones angular: the rounded kind is few and its edges only a little rounded (read D2 saw pillows)', () => {
+    expect(KINDS.lump.share).toBeLessThanOrEqual(0.15);
+    expect(KINDS.lump.edge).toBeLessThanOrEqual(0.07);
+    expect(KINDS.block.share + KINDS.lump.share + KINDS.slab.share).toBeCloseTo(1, 9);
+  });
+  const seeded = (seed: number) => {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  it('cuts each rock by 9 to 14 planes in random directions, no two within 24° and no pair within 20.6° of opposite, then closes it', () => {
+    for (const kind of ['block', 'lump', 'slab'] as const) {
+      for (let seed = 1; seed <= 40; seed++) {
+        const planes = rockPlanes(seeded(seed * 7919), kind);
+        const main = planes.filter((p) => !p.closing);
+        expect(main.length).toBeGreaterThanOrEqual(KINDS[kind].planes[0]);
+        expect(main.length).toBeLessThanOrEqual(KINDS[kind].planes[1]);
+        for (let i = 0; i < main.length; i++)
+          for (let j = i + 1; j < main.length; j++) {
+            const a = main[i].n.angleTo(main[j].n);
+            expect(a).toBeGreaterThanOrEqual(ROCK.APART - 1e-9);
+            expect(Math.PI - a).toBeGreaterThanOrEqual(ROCK.ANTI - 1e-9);
+          }
+        // Closed all round: every direction lies within 60° of some plane's normal.
+        for (let k = 0; k < 48; k++) {
+          const y = 1 - (2 * k + 1) / 48, r = Math.sqrt(1 - y * y), t = k * 2.399963;
+          const dir = new THREE.Vector3(r * Math.cos(t), y, r * Math.sin(t));
+          expect(Math.max(...planes.map((p) => p.n.dot(dir)))).toBeGreaterThanOrEqual(ROCK.COVER - 1e-9);
+        }
+      }
+    }
+  });
+
+  it('rounds the edges inward and swells the faces by no more than the kind’s noise, with every corner finite', () => {
+    for (const kind of ['block', 'lump', 'slab'] as const) {
+      for (let seed = 1; seed <= 12; seed++) {
+        const next = seeded(seed * 104729);
+        const planes = rockPlanes(seeded(seed * 104729), kind);
+        const geo = rockShape(next, kind);
+        const pos = geo.getAttribute('position'), nor = geo.getAttribute('normal');
+        // The box the shape was fitted from, to take each corner back to where its planes cut it.
+        const box = geo.userData.fittedFrom as THREE.Box3, mid = box.getCenter(new THREE.Vector3()), half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+        const v = new THREE.Vector3();
+        for (let i = 0; i < pos.count; i++) {
+          v.fromBufferAttribute(pos, i);
+          expect(Number.isFinite(v.x + v.y + v.z)).toBe(true);
+          expect(Number.isFinite(nor.getX(i) + nor.getY(i) + nor.getZ(i))).toBe(true);
+          // Within the planes, the box fit undone, but for the swell (noise, in the rock's size).
+          v.multiply(half).add(mid);
+          expect(Math.max(...planes.map((p) => p.n.dot(v) - p.d)) / Math.max(1e-6, v.length())).toBeLessThanOrEqual(KINDS[kind].noise * 1.5 + 0.02);
+        }
+      }
+    }
+  });
+
+  it('beds each stone a third to a half of its height into the ground, a shade lighter than the dust, named by its kind', () => {
+    const list = placeBoulders(12345, null);
+    const { group } = boulderMeshes(list, () => 0, 12345);
+    expect(group.children.length).toBe(list.length);
+    for (const m of group.children as THREE.Mesh[]) {
+      const kind = m.name.replace('rock-', '') as RockKind;
+      expect(KINDS[kind]).toBeDefined();
+      const hh = m.scale.y, bedded = (0 - (m.position.y - hh)) / (2 * hh);
+      expect(bedded).toBeGreaterThanOrEqual((1 - KINDS[kind].lift[1]) / 2 - 1e-6);
+      expect(bedded).toBeLessThanOrEqual((1 - KINDS[kind].lift[0]) / 2 + 1e-6);
+      // A shade lighter than the dust's grey, 1 to 1.15 times it, in the linear light three keeps colours in (0x8b is
+      // about 0.26 there, not 0x8b / 255).
+      const c = (m.material as THREE.MeshStandardMaterial).color, dust = new THREE.Color(0x8b8781).r;
+      expect(c.r).toBeGreaterThanOrEqual(dust - 1e-6);
+      expect(c.r).toBeLessThanOrEqual(dust * 1.15 + 1e-6);
+    }
+  });
+
+  it('mixes the kinds by their shares over many seeds', () => {
+    const counts = { block: 0, lump: 0, slab: 0 };
+    let total = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const list = placeBoulders(seed, null);
+      for (const m of boulderMeshes(list, () => 0, seed).group.children) {
+        counts[m.name.replace('rock-', '') as RockKind]++;
+        total++;
+      }
+    }
+    for (const kind of ['block', 'lump', 'slab'] as const) expect(Math.abs(counts[kind] / total - KINDS[kind].share)).toBeLessThan(0.08);
   });
 });
 
@@ -297,31 +411,41 @@ function triangles(mesh: THREE.Mesh): Triangle[] {
   return out;
 }
 
-/**
- * Each edge of a rock's triangles, by the places of its two ends, with the normals of the triangles along it (a
- * sliver's left out of the normals, its edge still counted by a zero normal).
- */
-function edgeNormals(mesh: THREE.Mesh, tris: Triangle[]): Map<string, THREE.Vector3[]> {
+/** Each edge of a rock's triangles, by the places of its two ends: the triangles along it (two, if no crack opens). */
+function edgeTriangles(mesh: THREE.Mesh, tris: Triangle[]): Triangle[][] {
   const pos = mesh.geometry.getAttribute('position');
   const place = (i: number) => [pos.getX(i), pos.getY(i), pos.getZ(i)].map((v) => v.toFixed(6)).join();
-  const sides = new Map<string, THREE.Vector3[]>();
+  const sides = new Map<string, Triangle[]>();
   for (const t of tris) {
     for (let e = 0; e < 3; e++) {
       const key = [place(t.at[e]), place(t.at[(e + 1) % 3])].sort().join('|');
-      sides.set(key, [...(sides.get(key) ?? []), t.normal]);
+      sides.set(key, [...(sides.get(key) ?? []), t]);
     }
   }
-  // Only the edges between two true triangles count for how the light turns; every edge counts for the crack.
-  for (const [key, normals] of sides) {
-    const real = normals.find((n) => n.lengthSq() > 0);
-    if (normals.length === 2 && real && normals.some((n) => n.lengthSq() === 0)) sides.set(key, [real, real]);
-  }
-  return sides;
+  return [...sides.values()];
 }
 
-/** How many flat faces a rock has: its triangles' normals, those within a degree of each other counted as one. */
-function faceCount(tris: Triangle[]): number {
-  const faces: THREE.Vector3[] = [];
-  for (const t of tris) if (t.area > 0 && !faces.some((n) => n.angleTo(t.normal) < Math.PI / 180)) faces.push(t.normal);
-  return faces.length;
+/**
+ * The face each corner of a rock's mesh lies on: a face has corners of its own, joined to each other by its triangles
+ * and to no other face's, so the corners a triangle joins are one face.
+ */
+function faceOf(mesh: THREE.Mesh): number[] {
+  const index = mesh.geometry.getIndex()!, face = Array.from({ length: mesh.geometry.getAttribute('position').count }, (_, i) => i);
+  const root = (i: number) => {
+    while (face[i] !== i) i = face[i] = face[face[i]];
+    return i;
+  };
+  for (let k = 0; k < index.count; k += 3) {
+    face[root(index.getX(k))] = root(index.getX(k + 1));
+    face[root(index.getX(k + 1))] = root(index.getX(k + 2));
+  }
+  return face.map((_, i) => root(i));
+}
+
+/** Each face's way: the mean of its triangles' normals, each counted by its area (a face of slivers alone has none). */
+function faceDirections(tris: Triangle[], face: number[]): Map<number, THREE.Vector3> {
+  const out = new Map<number, THREE.Vector3>();
+  for (const t of tris) if (t.area > 0) out.set(face[t.at[0]], (out.get(face[t.at[0]]) ?? new THREE.Vector3()).addScaledVector(t.normal, t.area));
+  for (const n of out.values()) n.normalize();
+  return out;
 }

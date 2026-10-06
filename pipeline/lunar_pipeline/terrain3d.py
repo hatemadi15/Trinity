@@ -31,6 +31,8 @@ DEEP_SOUTH_LAT_DEG = -87.55  # south of this the 20 m grid covers the site (same
 WINDOW_PX = {"L0": 1024, "L1": 512}  # 20.48 km at 20 m; 40.96 km at 80 m
 CAP_FACTOR = 4  # ldem_60s_240m block-averaged 4x -> 1940 x 1940 cells of 960 m
 CONTEXT_PX = 512  # 40.96 km at 80 m around a 20 m window: hills beyond the window still cast their shadows into it
+FLIGHT_PX = 1024  # 245.76 km at 240 m round the arrival's site: from 900 to 90 km up the measured ground stays sharp
+FLIGHT_SITES = ("de_gerlache_rim_2",)  # the home page's arrival (home_assets.HERO_SITE)
 ENCODING = "zlib(uint16 little-endian, row-major); height_m = min_m + dn * scale_m_per_unit"
 PROJECTION = (
     "south polar stereographic, x = rho sin(lon), y = rho cos(lon), rho = 2R tan((90-|lat|)/2)"
@@ -182,6 +184,38 @@ def write_site_context(site: Site, grids: dict[str, LolaGrid], out_dir: Path) ->
     return _write_raster(out_dir / f"{site.id}.context.u16", heights, meta)
 
 
+def write_site_flight(site: Site, grids: dict[str, LolaGrid], out_dir: Path) -> Path:
+    """The 240 m flight level centred on a site, at the grid's full resolution (the cap takes it by 4).
+
+    The home page's arrival flies over it from 900 to 90 km up, where the 960 m cap reads soft.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    grid = grids["L2"]
+    col, row = grid.pixel_from_latlon(site.lat, site.lon)
+    row0 = round(float(row)) - FLIGHT_PX // 2
+    col0 = round(float(col)) - FLIGHT_PX // 2
+    heights, n_fill = window_heights(grid, row0, col0, FLIGHT_PX)
+    meta = {
+        "site_id": site.id,
+        "lat": site.lat,
+        "lon": site.lon,
+        "kind": "flight",
+        "source": f"{GRID_FILES['L2']}.img",
+        "level": "L2",
+        "cell_m": grid.label.map_scale_m,
+        "row0": row0,
+        "col0": col0,
+        "line_offset_px": grid.label.line_offset_px,
+        "sample_offset_px": grid.label.sample_offset_px,
+        "site_row_px": float(row) - row0,
+        "site_col_px": float(col) - col0,
+        "site_height_m": float(grid.value_at(site.lat, site.lon)),
+        "fill_source": None,
+        "fill_px": n_fill,
+    }
+    return _write_raster(out_dir / f"{site.id}.flight.u16", heights, meta)
+
+
 def write_south_cap(out_dir: Path, factor: int = CAP_FACTOR, grid: LolaGrid | None = None) -> Path:
     """Block-mean the 240 m south-polar grid by `factor` (4 -> 1940 x 1940 cells of 960 m)."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -254,6 +288,16 @@ def write_all(out_dir: Path = config.OUT_DIR / "terrain") -> Path:
                 "width": cmeta["width"],
                 "height": cmeta["height"],
             }
+        if site.id in FLIGHT_SITES:
+            flight = write_site_flight(site, grids, out_dir)
+            fmeta = json.loads(flight.with_suffix(".json").read_text())
+            entry["flight"] = {
+                "file": flight.name,
+                "meta": flight.with_suffix(".json").name,
+                "cell_m": fmeta["cell_m"],
+                "width": fmeta["width"],
+                "height": fmeta["height"],
+            }
         windows.append(entry)
     print("[terrain] south_cap", flush=True)
     cap = write_south_cap(out_dir, grid=grids["L2"])
@@ -263,7 +307,7 @@ def write_all(out_dir: Path = config.OUT_DIR / "terrain") -> Path:
     else:
         print(f"[terrain] {texture} missing; run: fetch --group textures", flush=True)
     manifest = {
-        "version": 2,
+        "version": 3,
         "encoding": ENCODING,
         "projection": PROJECTION,
         "pixel": PIXEL,

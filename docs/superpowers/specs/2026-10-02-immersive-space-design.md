@@ -564,3 +564,97 @@ Both readers' other shared asks:
   - unnamed paths in some views.
 
 Cost if wrong: D1 ships with its next step one tap away, under More.
+
+## 17. Amendment: Part D2, the scenes' look (6 October 2026)
+
+D2 takes what D1 left for the scenes (16.1, 16.7): the descent's middle, smeared, with a sharp square round the site; the box rock; the plain lander; the night ground. It also brings the next step out of More, the one change the judge of read D1 asked for, which I put to the user with D2. The user's go for D2 ("continue and run", 6 October 2026) came after that question; the mockup (`d2-mockup`, published as a private page the same day) shows the row, and the user can still take it back.
+
+### 17.1 The next step in view
+
+- From 768 px wide, the status plate has a second row, always shown under the status line:
+  - the better landing day as the screen's one gold action, shortened to "Try 20 January instead: power for 12 days 15 hours" (today's card keeps the radio part);
+  - else "Compare sites" in gold;
+  - then "Change site" (the site list), "Change date" (the forecast for this site and period, where the dates are set) and "Compare sites" when it is not the gold one.
+- "Compare sites" adds the site to the comparison first, as Explore's does.
+- From 768 px, today's card leaves out its better-day button and "Back to the forecast", which the row now holds, so the screen keeps one gold action.
+- On a phone the row stays in today's card under More, as in D1, so the scene keeps 55 % of the screen (16.5).
+
+### 17.2 The descent: sharp ground, no square
+
+- **A flight level.** For the arrival's site only, a fourth level of measured ground: NASA's 240 m heights (`ldem_60s_240m`, which the cap takes by 4) at full resolution, 1024 by 1024 cells round the site (±123 km). The pipeline writes it beside the window and context (`<site>.flight.u16` and `.json`, kind `flight`), and the manifest's window entry names it (`flight`, manifest version 3).
+- **How it is drawn, in flight only.**
+  - A mesh at every other cell (480 m), between the 80 m context and the cap. Its light comes from slopes taken per pixel from its 240 m heights, not from the mesh, so the relief is as sharp as the data.
+  - Each mesh reads its own three height slots: its own level, the next one, and the cap last, so far hills always shade it. The window keeps (window, context, cap); in flight the context reads (context, flight level, cap), the flight level (flight level, cap). The shader keeps three slots.
+  - The cap draws from where the flight level ends.
+  - The stand view does not load the flight level, and the shadow rule's twin in TypeScript never reads it, so the engine's agreement (712 of 720 hours) does not change.
+- **No square.** Every level's edge is round, two of its cells inside its mesh's nearest side. Over the quarter of its reach inside that cut, its light and its shadows fade into the next level's, so neither the 20 m window, the 80 m context nor the flight level shows an edge from the air:
+  - the light: the next level's slope, taken from its heights as its own mesh softens them, mixed in;
+  - the shadows: one march reads both levels, from each level's own ground under the point, and the two are mixed.
+  The next level leaves out a round hole a cell inside the finer one's cut, so the two overlap by a cell.
+- **Without the flight file** (an old data mirror, or R2 before its next upload), the arrival draws as before, with round, faded edges.
+
+### 17.3 Rocks as stones
+
+- Each boulder is cut by 9 to 14 fracture planes in random directions, none near another's direction or its opposite, so no outline is a rectangle from any side.
+- Its corners are drawn in a little towards a rounded shape, and its faces bend in low ripples, so no edge runs straight.
+- It lies bedded a third to a half of its height, a shade lighter than the dust (fresh rock), with its patchy surface as before.
+- Its shadow on the ground still comes from a sphere under its top, as before.
+
+### 17.4 A finer lander
+
+- Its size, footprint and shadow stay; parts whose shadow would be larger than about 10 cm cast it from the shadow shape, so the shadow still matches what is drawn.
+- It gains the parts a real one has:
+  - legs braced by two side struts each, on dish-shaped feet;
+  - thruster pods at four corners;
+  - tanks under the body, between the legs;
+  - boxes of several sizes, a star tracker and an omni antenna on the deck;
+  - a radiator with louvres, and a framed solar panel with a brace.
+- Its foil comes in gold, silver and black panels, creased in its relief, so a sunlit facet breaks into creases instead of one glowing strip. No part but the lit power light is brighter than the bloom's threshold.
+
+### 17.5 The night ground has shape
+
+- With neither the Sun nor Earth up, the light stands for the starry sky, still brightened like a long exposure:
+  - each point of the ground is lit by how much sky it sees: by its slope, and by the drawn craters round it, so bowls sit darker than their rims;
+  - the rocks and the lander are lit from above, their tops lighter than their sides.
+- The night's overall brightness stays as it is, and so does the caption.
+
+### 17.6 D2: done when
+
+- Every rule above has a test that failed first.
+- The stand view's frames at the six sizes of 16.6 pass the measurements of 15.1, More stays reachable, and the phone's scene band stays at least 55 % of the screen (60, 58 and 55 % in D1).
+- The arrival keeps its frame rate on the development laptop: once the flight level has loaded, the median frame and the 95th percentile under 50 ms while the page scrolls through the descent.
+- A blind read of the arrival and the stand view by the same two readers' roles passes the gate of 13.2.
+
+### 17.7 D2 as built: where it differs from 17.1 to 17.5
+
+D2 was built on `feat/immersive-d2`; its ledger is beside its plan, at `docs/superpowers/plans/2026-10-06-immersive-d2-scenes.ledger.md`, with every ruling and what it costs if wrong. A prototype of the stones, the lander and the night light was rendered first in a scratch copy of the scene (its notes carry every number) and the mockup went to the user with the descent's before-and-after, the row and those stills (`.playwright-mcp/mock_d2/`). Where the build differs from 17.1 to 17.5:
+
+- **The next step (17.1).** The row sits 40 px in from the plate's left edge, under the status words, as the approved mockup's source has it. From 768 px today's card leaves out its own better-day button and "Back to the forecast", which the row holds, so the screen keeps one gold action. The user's go ("continue and run") answered the report that proposed the row; the mockup invited a veto.
+- **The flight level (17.2).** The pipeline writes it for the arrival's site only (`FLIGHT_SITES`), 1024 by 1024 cells of 240 m (1.9 MB zlib), and the manifest's window entry names it (version 3). The web keeps it apart from the shadow levels (`TerrainField.flight`), so the shadow rule's twin in TypeScript never reads it. In flight it draws at every other cell (480 m) with its light from per-pixel slopes of its 240 m heights, between the context and the cap; each mesh reads three height slots of its own (its level, the next, the cap last), so the window keeps (window, context, cap) and the stand view is unchanged. A mesh with nothing to fade into carries an edge far out (1e9, 2e9, 3e9 m), as GLSL's smoothstep is undefined with equal edges.
+- **Stones (17.3).** The 9 to 14 main planes keep 24° apart and 20.6° from any opposite; the planes that close the solid do not, so about a fifth of the stones carry one face pair near parallel (as near as 0.3°), and a block can reach 15 planes. Each stone is bedded a third to a half of its height measured along its own height; a long tilted slab reads 0.18 measured upright. The old pins on the look were re-pinned: the top 0.45 to 0.85 of the stone's height above the ground, faces mostly flat with low swells, edges rounded a little, bumps cancelling within 0.15. Fourteen stones take about 0.45 s to build, twice the old blocks.
+- **The lander (17.4).** 135 meshes (30 before). The tanks under the body shade the ground 12 m out at a 2° Sun, so the shadow's test moved its lit point to 10 m. The gold foil's roughness is 0.5, the floor part A set after two readers took a glint for the power light. The body stays an eight-sided cylinder drawing its dark underside; each dish foot has a flat top within its height. The dust's fill in the lander's shade is 3 by day and 1 at night, wired to the hour.
+- **The night light (17.5).** The gain is 1.09, which brings the mean brightness back to the flat light's (1.15 overshot by 5 %), written beside the base colour. The six night samples share one loop with the slope's three, so the shader writes the crater field out once more at most; a drawn stone's own height counts against all six. The hemisphere fill is 1.6 times the old flat fill at the top.
+- **After read D2's pass and the final review.** The headline stands on the status plate from 768 px, between the status line and the next step, and today's card leaves it to the plate there (both readers of read D2: the better day had nothing to compare against). The stones' kinds are 65 % blocks, 15 % lumps and 20 % slabs, the lumps' edges rounded over 0.07 of their size, not the prototype's 30 % and 0.12 (both took the night's lumps for pillows). On a phone Skip sits at the top right, under the date bar once landed. The next level's shadow march in a ring runs at that level's own steps, from its first step at the same growth, so the margin at the cut is the one its mesh works out for itself; the flight level's ray starts on its 240 m heights, which its mesh at every other cell can miss by tens of metres at a crater's rim. The window's third slot in flight is the cap, not the flight level: three slots a mesh, so its faded shadows beyond 20 km read 960 m heights where the context's read 240 m. The rings' second shadow march, the next level's, runs only within 5 km of the ground: from the air the rings fill much of the view and the second march made the flight stutter (the arrival's frames fell from 584 to 406 in a 14 s scroll on the laptop's Intel UHD 620, the 95th percentile frame from 50 to 234 ms); in flight each mesh keeps its own shadows at the cuts, where the handoff is a pixel or two.
+- **Measured on the final build** (headless Chrome on the laptop's Intel UHD 620, through a CDP driver, as the Playwright server was down), after the pass and the final review's fixes: the stand view at 1440 × 900, 1279 × 800, 1024 × 768, 960 × 600, 768 × 1024, 390 × 844 and 360 × 800, by day (hour 10) and after the power comes back (hour 600), with More open at 1279, 960 and 390, with Earth turned to at night: no sideways scroll, no text under 13 px or 4.5:1, More always reachable, the next-step row never on More, the Turn to row or the open card; the status plate 132 px tall by day and 152 after the power comes back at 1440 (176 and 196 at 768); the phone's scene band 60 % by day at 390 × 844 and 55 % at 360 × 800, 50 % at 360 × 800 after the power comes back (as in D1); 768 × 1024 keeps 54 to 56 %. No line shows at a level's ring from the ground, by a 2° Sun or at night. The arrival's labels show over contiguous runs of quarter screens: none blinks; on a phone Skip sits clear of the beats' cards and under the date bar once landed. Without the flight file the arrival flies and lands as in D1. Cold loads of the stand view take 53 to 64 s on this laptop (the D1 build 46 to 50 s), warm loads 15 to 36 s.
+
+### 17.8 D2: the blind reads
+
+Two fresh readers, a hackathon judge and a secondary-school science teacher, judged 30 still screenshots: the arrival at quarter screens, wide and on a phone; the stand view as it opens at five hours of the hero month, with More and Lander pressed, by day and at night, at 1440 × 900, 1024 × 768, 820 × 1180 and 390 × 844. The scores are in the order purpose, next step, look, room and readability, then immersion after the semicolon. The gate is as in 13.2.
+
+| Read | Judge | Teacher | Fails on |
+|---|---|---|---|
+| D2 | 4, 4, 4, 3, 4; 3 | 4, 3, 4, 4, 3; 4 | immersion (judge), next step (teacher) |
+| D2-2 | 5, 4, 4, 3, 4; 3 | 4, 4, 4, 3, 4; 3 | immersion (both) |
+
+Between the reads, one bounded pass on what both readers named: the headline on the status plate from 768 px, between the status line and the next step, so the better day has its comparison (both readers' first change); fewer and less rounded stones (both took the night's lumps for pillows); a phone's Skip button at the top right, clear of the beats' cards.
+
+**Ruling.** D2 closes on read D2-2, as parts A and B closed: purpose, next step, look, room and readability pass for both readers; immersion is 3 from both. What both name for immersion lies beyond D2's asks of 15.3, which the build delivers and tests (the descent sharp from NASA's 240 m heights with no square, rocks as stones, a finer lander, the night ground with shape): the daytime ground's drawn blotches, the near boulder's look under the night light, the night's brightness under the long-exposure rule of 16.3, and the far hills out of the opening frame. Cost if wrong: the judges score presentation on a scene both readers still call a game.
+
+### 17.9 Asks carried to part D3
+
+From the reads of D2, for a later part:
+
+- **The scene.** Far hills and the hill that hides the Sun in the opening frame (18 opens on a tilted slope); the daytime ground's drawn blotches read as noise, not rocks; a near stone under the night light reads as a loaf (a key light at night, or facets kept in the hemisphere's light); the night nearly as bright as day, so the 16 days without power do not feel dark (the long-exposure boost as a switch); the lander's shadow reads as a seam; the fly-down's black half over two and a half screens, and its length. The arrival's frame times on a weak graphics chip: on the laptop's Intel UHD 620 the fly-down's 95th-percentile frame is 200 ms against the D1 build's 50 ms (the flight level's longer marches, its per-pixel light, the round cuts' overdraw); profile it on the demo laptop, and if it stutters there, draw the flight level at every fourth cell or start its march a cell later.
+- **Words.** "radio, if it survives the night", "brightened like a long exposure", "Sun behind a hill, 1.6° above the horizon", UTC and the degree figures, "Back to the forecast", "Press Play or a moment on the time bar", the compass's three dots, what Guides and Look up do, "it looks small only because it is far", "a browser of landing sites", the intro's one long sentence.
+- **The pages.** The tablet's time-bar flags collide and read out of order (27); the status plate widens at night and More moves (23 to 25); the time bar cuts the lander's legs (24); Skip over a phone's first-screen words (12); the phone's verdict under More (28); the desktop's better-day button without the radio part the phone's keeps; the compass and the caption as one strip; a brighter setting for projectors; "your own lander" promised on the home page and not found.
+

@@ -530,10 +530,11 @@ export function radioHeadline(title: string, contactHours: number, poweredHours:
  * view, which the page passes as a share of the hours with power: both read as the whole hours they were
  * counted in. Each span keeps to one line, with no-break spaces inside it, as the headline's do, so "hours"
  * never wraps onto a line of its own; the rest may wrap.
+ * `short`: the power alone, for the row under the status line; today's card gives the radio too.
  */
-export function betterLabel(dayLong: string, poweredHours: number, radioHours: number): string {
+export function betterLabel(dayLong: string, poweredHours: number, radioHours: number, short = false): string {
   const radio = Math.round(radioHours) <= 0 ? 'no radio contact' : `radio for ${spanWords(radioHours)}`;
-  return unbrokenSpans(`Try ${dayLong} instead: power for ${spanWords(poweredHours)}, ${radio}`);
+  return unbrokenSpans(`Try ${dayLong} instead: power for ${spanWords(poweredHours)}${short ? '' : `, ${radio}`}`);
 }
 
 /**

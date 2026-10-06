@@ -53,6 +53,17 @@ export function hiddenShare(tanSun: number, tanDip: number, cosPlan: number): nu
   return hiddenShadowShare(tanSun, tanDip, cosPlan) * x * x * (3 - 2 * x);
 }
 
+/**
+ * The night light's shape (17.5): with neither the Sun nor Earth up, the ground near the eye is lit by the starry sky it
+ * sees. Each point by how much it faces up, (1 + n.up) / 2 of the drawn detail's normal to the power POWER, so slopes read;
+ * times how much more or less sky it sees than open level ground: 1 less BOWL times the mean rise of the drawn ground
+ * round it (six points, NEAR_M and FAR_M out by turns, each rise over its distance), held within SEEN, so the drawn
+ * craters' bowls are darker and their rims lighter. GAIN brings the whole back to the flat light's mean brightness.
+ * SKY is the hemisphere light over the rocks and the lander at night, in units of the old flat fill: a top gets SKY
+ * times it, an upright side half, an underside next to none.
+ */
+export const NIGHT = { POWER: 4, BOWL: 6, NEAR_M: 1.5, FAR_M: 3.5, SEEN: [0.3, 1.6], GAIN: 1.09, SKY: 1.6 } as const;
+
 export const GROUND_VERT = /* glsl */ `
 varying vec3 vWorld; varying vec3 vNormal;
 #include <common>
@@ -66,8 +77,8 @@ void main() {
 export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
-uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uFarDetail, uSunPower; uniform vec2 uHole;
-uniform float uLanderOn, uSunUp, uBounce, uNight, uFarCut; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
+uniform vec3 uSun, uEarth, uEdge; uniform float uEarthshine, uDetail, uFarDetail, uSunPower, uHoleR, uNextStep;
+uniform float uLanderOn, uSunUp, uBounce, uNight, uFarCut, uPixel, uRingShadows; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
 ${SHADOW_GLSL}
 ${HIDE_GLSL}
 ${BOULDER_GLSL}
@@ -241,17 +252,35 @@ void main() {
   #include <logdepthbuf_fragment>
   float px = max(length(fwidth(vWorld.xz)), 1.0e-3); // metres of ground per pixel, taken before any branch or discard
   vec2 m = toMap(vWorld.xz);
-  if (abs(m.x) < uHole.x && abs(m.y) < uHole.y) discard; // a finer level draws here
+  // Round: a finer level draws inside the hole, the next level beyond the cut (groundLevels.ts edgeOf).
+  float rr = length(m);
+  if (rr < uHoleR || rr > uEdge.z) discard;
   if (dot(m, m) > uFarCut * uFarCut) discard; // beyond this the globe, or the far skyline, draws
   vec3 N0 = normalize(vNormal), Nn = N0;
+  // The flight level's light from its own heights, per pixel: its mesh, at every other cell, would soften the relief.
+  if (uPixel > 0.5) N0 = slopeNormal(uH0, uL0, uS0, m, 1.0);
+  // Over the ring inside the cut the light fades into the next level's, slope by slope, so no edge shows from the air.
+  float edge = smoothstep(uEdge.x, uEdge.y, rr);
+  if (edge > 0.0) N0 = normalize(mix(N0, slopeNormal(uH1, uL1, uS1, m, uNextStep), edge));
+  Nn = N0;
   vec3 Ls = normalize(uSun), V = normalize(cameraPosition - vWorld);
   float dist = length(vWorld - cameraPosition);
   // The shadows, as margins: the measured ground's (its ray starts from the measured ground, not the drawn
   // craters), the lander's (from its drawn shape), and the drawn craters' and rocks' near the eye.
   float mTerrain = -1.0, mLander = 1.0, mViewer = 1.0, mBoulders = 1.0, mDetail = 1.0, wDetail = 0.0;
+  float skySeen = 1.0; // at night, how much more or less of the sky a point sees than open level ground (bowls less, rims more)
   bool facing = dot(N0, Ls) > 0.0;
   if (facing) {
-    mTerrain = sunMargin(vWorld + N0 * 0.4, uSun);
+    // The shadows fade the same way: the next level's from its own ground, mixed in over the ring. The ray starts on
+    // the mesh's own ground: for the flight level, drawn at every other cell, on its 240 m heights, which its mesh can
+    // miss by tens of metres at a crater's rim.
+    vec3 ray0 = vWorld + N0 * 0.4;
+    if (uPixel > 0.5) ray0.y = heightAt(vWorld.xz, 0) + 0.4 * N0.y;
+    // Only near the ground (uRingShadows): from the air the rings cover much of the view, and the second march made
+    // the flight stutter; there the handoff at a cut is a pixel or two.
+    bool both = edge > 0.0 && uRingShadows > 0.5;
+    vec2 mt = sunMargins(ray0, uSun, both);
+    mTerrain = mix(mt.x, mt.y, both ? edge : 0.0);
     if (uLanderOn > 0.5) mLander = landerClearance(toLander(vWorld + N0 * 0.05 - uLanderCenter), toLander(Ls));
     mViewer = viewerClearance(vWorld + N0 * 0.05, Ls);
     if (length(vWorld.xz) < 140.0) mBoulders = rocksClearance(vWorld + N0 * 0.05, Ls);
@@ -269,13 +298,25 @@ void main() {
     // Near the eye only, and not seen from above (the flight's last metres), where they read as bubble wrap.
     float w = (1.0 - smoothstep(250.0, 1600.0, dist)) * (1.0 - smoothstep(20.0, 120.0, cameraPosition.y - vWorld.y));
     if (w > 0.0) {
-      float e = max(0.15, px); float h0 = detailH(vWorld.xz, px), hx = detailH(vWorld.xz + vec2(e, 0.0), px), hz = detailH(vWorld.xz + vec2(0.0, e), px);
+      // The drawn ground here, a step east and a step south (its slope), and at night six points round it, ${f3(NIGHT.NEAR_M)} and
+      // ${f3(NIGHT.FAR_M)} m off by turns (skySeen): all from one call in a loop, so the compiler writes detailH out once, not three times.
+      float e = max(0.15, px); float h0 = 0.0, hx = 0.0, hz = 0.0, around = 0.0;
+      for (int k = 0; k < (uNight > 0.0 ? 9 : 3) * uOne; k++) {
+        float rr = (k / 2) * 2 == k ? ${f3(NIGHT.NEAR_M)} : ${f3(NIGHT.FAR_M)}, a = 1.0472 * float(k);
+        float h = detailH(vWorld.xz + (k == 0 ? vec2(0.0) : k == 1 ? vec2(e, 0.0) : k == 2 ? vec2(0.0, e) : rr * vec2(cos(a), sin(a))), px);
+        if (k == 0) h0 = h; else if (k == 1) hx = h; else if (k == 2) hz = h; else around += (h - h0) / rr;
+      }
       float b0, bx, bz, c0, cx, cz;
       float rockW = w * smoothstep(1.5, 4.0, 0.1 / px), pebbleW = w * smoothstep(1.5, 4.0, 0.03 / px);
-      h0 += stones(vWorld.xz, 1.5, 41.0, 0.18, 0.05, 0.3, b0) * rockW + stones(vWorld.xz, 0.6, 73.0, 0.4, 0.015, 0.07, c0) * pebbleW;
+      float s0 = stones(vWorld.xz, 1.5, 41.0, 0.18, 0.05, 0.3, b0) * rockW + stones(vWorld.xz, 0.6, 73.0, 0.4, 0.015, 0.07, c0) * pebbleW;
+      h0 += s0;
       hx += stones(vWorld.xz + vec2(e, 0.0), 1.5, 41.0, 0.18, 0.05, 0.3, bx) * rockW + stones(vWorld.xz + vec2(e, 0.0), 0.6, 73.0, 0.4, 0.015, 0.07, cx) * pebbleW;
       hz += stones(vWorld.xz + vec2(0.0, e), 1.5, 41.0, 0.18, 0.05, 0.3, bz) * rockW + stones(vWorld.xz + vec2(0.0, e), 0.6, 73.0, 0.4, 0.015, 0.07, cz) * pebbleW;
       Nn = normalize(Nn - vec3((hx - h0) / e, 0.0, (hz - h0) / e) * w * 1.15 * (1.0 - hide));
+      // At night, how much more or less of the sky this point sees than open level ground: less in a bowl (the ground
+      // round it rises), more on a rim and on a drawn stone's top (its own height counts against all six points,
+      // ${f3(3 / NIGHT.NEAR_M + 3 / NIGHT.FAR_M)} the sum of their 1 / r), held within ${f3(NIGHT.SEEN[0])} and ${f3(NIGHT.SEEN[1])}.
+      if (uNight > 0.0) skySeen = clamp(1.0 - ${f3(NIGHT.BOWL / 6)} * w * (around - ${f3(3 / NIGHT.NEAR_M + 3 / NIGHT.FAR_M)} * s0), ${f3(NIGHT.SEEN[0])}, ${f3(NIGHT.SEEN[1])});
       albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0
         + 0.06 * (vnoise(vWorld.xz * 3.1) - 0.5) * smoothstep(1.5, 4.0, 0.32 / px)
         // Grit: the dust's fine grain, a few centimetres across, close to the eye.
@@ -317,9 +358,11 @@ void main() {
   // By day the sunlit dust around scatters a little light into the shadows, the less the lower the Sun
   // (uBounce, from bounceShare): at a Sun a few degrees up they are nearly black, as in the photographs.
   col += albedo * vec3(1.0, 0.99, 0.975) * uSunPower * uBounce * uSunUp;
-  // At night with neither the Sun nor Earth up, a faint light that stands for eyes adapting to the dark (the
-  // lander gets the same), so the ground still shows under it.
-  col += albedo * vec3(0.62, 0.63, 0.66) * uNight;
+  // At night with neither the Sun nor Earth up, a faint light that stands for eyes adapting to the dark (the lander
+  // gets the same), so the ground still shows under it: the starry sky's, by how much of it each point sees (NIGHT),
+  // the drawn detail's normal to the power ${NIGHT.POWER} so the slopes read, less in the bowls and more on the rims (skySeen).
+  float upSeen = 0.5 + 0.5 * Nn.y;
+  col += albedo * vec3(0.62, 0.63, 0.66) * ${f3(NIGHT.GAIN)} * uNight * pow(upSeen, ${NIGHT.POWER.toFixed(1)}) * skySeen;
   gl_FragColor = vec4(col, 1.0);
 }`;
 

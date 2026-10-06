@@ -487,6 +487,10 @@ describe('the better landing day’s button', () => {
   it('says so when Earth is never in view in that time', () => {
     expect(betterLabel('20 January', 303, 0)).toBe(`Try 20 January instead: power for ${unbroken('12 days 15 hours')}, no radio contact`);
   });
+  it('shortens the better day for the row under the status line: the power alone, the radio left to today’s card', () => {
+    expect(betterLabel('20 January', 303, 77, true).replace(/\u00a0/g, ' ')).toBe('Try 20 January instead: power for 12 days 15 hours');
+    expect(betterLabel('20 January', 303, 77).replace(/\u00a0/g, ' ')).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours');
+  });
 });
 
 describe('the note on how we know this', () => {

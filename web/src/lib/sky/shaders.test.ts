@@ -1,9 +1,65 @@
 import { describe, expect, it } from 'vitest';
 import { LANDER_GLSL } from './landerShape';
-import { CRATER, craterLook, craterShape, GROUND_FRAG, HIDE_FADE, hiddenShare, STAR_FRAG } from './shaders';
-import { hiddenShadowShare } from './shadowRule';
+import { CRATER, craterLook, craterShape, GROUND_FRAG, HIDE_FADE, hiddenShare, NIGHT, STAR_FRAG } from './shaders';
+import { hiddenShadowShare, SHADOW_GLSL } from './shadowRule';
 
 describe('the ground shader', () => {
+
+  it('marches the next level\u2019s shadows on a ring only near the ground: from the air the rings cover much of the view, and the second march made the flight stutter', () => {
+    expect(GROUND_FRAG).toMatch(/uniform float [^;]*uRingShadows/);
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toContain('bool both = edge > 0.0 && uRingShadows > 0.5;');
+    expect(main).toContain('vec2 mt = sunMargins(ray0, uSun, both);');
+    expect(main).toContain('mTerrain = mix(mt.x, mt.y, both ? edge : 0.0);');
+  });
+
+  it('marches the next level at its own mesh\u2019s steps, and starts the flight level\u2019s ray on its own heights (the final review)', () => {
+    // In step: the next level's samples run from its first step at the same growth, not at the finer mesh's steps.
+    expect(SHADOW_GLSL).toContain('tb = tB;');
+    expect(SHADOW_GLSL).toContain('heightAt(p.xz + dir * tb, 1)');
+    expect(SHADOW_GLSL).toContain('tb *= uGrowth;');
+    // The flight level's mesh, at every other cell, can miss its 240 m heights by tens of metres: the ray starts on them.
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toContain('vec3 ray0 = vWorld + N0 * 0.4;');
+    expect(main).toContain('if (uPixel > 0.5) ray0.y = heightAt(vWorld.xz, 0) + 0.4 * N0.y;');
+    expect(main).toContain('sunMargins(ray0, uSun, both)');
+  });
+
+  it('lights the night ground by the sky it sees: slopes by how much they face up, bowls darker than their rims, in one bounded loop', () => {
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toContain('float skySeen = 1.0;');
+    // One loop for the slope's three samples and the night's six, so detailH is written out once in it.
+    expect(main).toContain('for (int k = 0; k < (uNight > 0.0 ? 9 : 3) * uOne; k++)');
+    expect((main.match(/detailH\(/g) ?? []).length).toBeLessThanOrEqual(3);
+    expect(main).toContain(`skySeen = clamp(1.0 - ${(NIGHT.BOWL / 6).toFixed(3)} * w * (around - 2.857 * s0), ${NIGHT.SEEN[0].toFixed(3)}, ${NIGHT.SEEN[1].toFixed(3)});`);
+    expect(main).toContain('float upSeen = 0.5 + 0.5 * Nn.y;');
+    expect(main).toContain(`col += albedo * vec3(0.62, 0.63, 0.66) * ${NIGHT.GAIN.toFixed(3)} * uNight * pow(upSeen, ${NIGHT.POWER.toFixed(1)}) * skySeen;`);
+    expect(main).not.toContain('vec3(0.62, 0.63, 0.66) * uNight;');
+    expect(NIGHT.NEAR_M).toBeLessThan(NIGHT.FAR_M);
+    expect(Math.abs(3 / NIGHT.NEAR_M + 3 / NIGHT.FAR_M - 2.857)).toBeLessThan(0.001);
+  });
+
+  it('cuts each level round and fades its edge into the next level’s light and shadows, the two shadows in one march', () => {
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toMatch(/if \(rr < uHoleR \|\| rr > uEdge\.z\) discard;/);
+    expect(main).toContain('float edge = smoothstep(uEdge.x, uEdge.y, rr);');
+    expect(main).toContain('if (edge > 0.0) N0 = normalize(mix(N0, slopeNormal(uH1, uL1, uS1, m, uNextStep), edge));');
+    expect(main.match(/sunMargins\(/g)).toHaveLength(1);
+    expect(main).toContain('mTerrain = mix(mt.x, mt.y, both ? edge : 0.0);');
+    expect(GROUND_FRAG).not.toMatch(/uHole\b/);
+    expect(SHADOW_GLSL).toMatch(/vec2 sunMargins\(vec3 p, vec3 sun, bool both\)/);
+    expect(SHADOW_GLSL).not.toMatch(/float sunMargin\(|float sunFraction\(/);
+    expect(SHADOW_GLSL.match(/for \(int /g)).toHaveLength(1);
+  });
+
+  it('reads heights from a slot on, each mesh from its own, and takes the flight level’s light from per-pixel slopes of its heights', () => {
+    expect(SHADOW_GLSL).toMatch(/float heightAt\(vec2 xz, int from\)/);
+    expect(SHADOW_GLSL).toMatch(/float cellAt\(vec2 xz, int from\)/);
+    expect(SHADOW_GLSL).toMatch(/vec3 slopeNormal\(sampler2D t, vec3 L, vec2 S, vec2 m, float k\)/);
+    expect(SHADOW_GLSL).not.toContain('uMinLevel');
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toContain('if (uPixel > 0.5) N0 = slopeNormal(uH0, uL0, uS0, m, 1.0);');
+  });
   it('fades each size of drawn crater by how many pixels it covers, so craters smaller than a pixel never sparkle', () => {
     // The footprint is taken once, outside every branch (derivatives are undefined in non-uniform flow).
     const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
@@ -89,7 +145,8 @@ describe('the ground shader', () => {
 
   it('starts the shadow ray from the measured ground, not from the drawn craters', () => {
     expect(GROUND_FRAG).toContain('vec3 N0 = normalize(vNormal), Nn = N0;');
-    expect(GROUND_FRAG).toContain('sunMargin(vWorld + N0 * 0.4, uSun)');
+    expect(GROUND_FRAG).toContain('vec3 ray0 = vWorld + N0 * 0.4;');
+    expect(GROUND_FRAG).toContain('sunMargins(ray0, uSun, both)');
   });
 
   it('keeps every star below the bloom threshold, so only the Sun blooms', () => {
@@ -262,6 +319,6 @@ describe('the ground shader', () => {
   });
 
   it('lights the night ground a neutral grey: Earth’s blue only when Earth is up', () => {
-    expect(GROUND_FRAG).toContain('vec3(0.62, 0.63, 0.66) * uNight');
+    expect(GROUND_FRAG).toContain(`vec3(0.62, 0.63, 0.66) * ${NIGHT.GAIN.toFixed(3)} * uNight`);
   });
 });
