@@ -10,7 +10,7 @@ import { LANDER_LIGHT } from './landerMesh';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS } from './boulders';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
-import { bounceShare, buildScene, lookUpTarget, shadowOnGround, threesOwnTextures, toneExposure, toTextureHeights, type StandScene } from './standRenderer';
+import { bounceShare, buildScene, lookUpTarget, movingRatio, shadowOnGround, threesOwnTextures, toneExposure, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, meshHeightAt, terrainField } from './terrainField';
 
 const series = {
@@ -83,12 +83,29 @@ describe('the stand scene', () => {
   it('marches the rings\u2019 second shadows only within 5 km of the ground: in flight above that the ground keeps its own shadows at the cuts', () => {
     const s = buildScene(flat({ field: terrainField(levels(), 0, 100) }));
     const ring = () => s.parts.ground.map((g) => (g.material as THREE.ShaderMaterial).uniforms.uRingShadows.value);
+    const march = () => s.parts.ground.map((g) => [(g.material as THREE.ShaderMaterial).uniforms.uSteps.value, (g.material as THREE.ShaderMaterial).uniforms.uGrowth.value]);
     s.setView(0, 0, 60, 16 / 9);
     expect(ring()).toEqual([1, 1, 1]);
+    expect(s.aloft()).toBe(false);
+    expect(march()).toEqual([[SHADOW.STEPS, SHADOW.GROWTH], [SHADOW.STEPS, SHADOW.GROWTH], [SHADOW.STEPS, SHADOW.GROWTH]]);
+    // Aloft (spec 18.4): the fast setting's march, the same reach in fewer steps, where a cell is a pixel or less.
     s.setPose({ position: [0, 100e3, 0], quaternion: [0, 0, 0, 1], fov: 60, shift: [0, 0] }, 16 / 9);
     expect(ring()).toEqual([0, 0, 0]);
+    expect(s.aloft()).toBe(true);
+    expect(march()).toEqual([[SHADOW_FAST.STEPS, SHADOW_FAST.GROWTH], [SHADOW_FAST.STEPS, SHADOW_FAST.GROWTH], [SHADOW_FAST.STEPS, SHADOW_FAST.GROWTH]]);
     s.setPose({ position: [0, 2e3, 0], quaternion: [0, 0, 0, 1], fov: 60, shift: [0, 0] }, 16 / 9);
     expect(ring()).toEqual([1, 1, 1]);
+    expect(s.aloft()).toBe(false);
+    expect(march()).toEqual([[SHADOW.STEPS, SHADOW.GROWTH], [SHADOW.STEPS, SHADOW.GROWTH], [SHADOW.STEPS, SHADOW.GROWTH]]);
+  });
+
+  it('lowers a moving frame’s pixel ratio at once from the time the last one took, aiming at 40 ms, never under 0.45 and never back up while moving (spec 18.4)', () => {
+    expect(movingRatio(1, 16.7)).toBe(1);
+    expect(movingRatio(1, 40)).toBeCloseTo(1, 9);
+    expect(movingRatio(1, 160)).toBeCloseTo(0.5, 9);
+    expect(movingRatio(0.7, 70)).toBeCloseTo(0.7 * Math.sqrt(40 / 70), 9);
+    expect(movingRatio(0.5, 400)).toBe(0.45);
+    expect(movingRatio(0.45, 1000)).toBe(0.45);
   });
 
   it('lights the rocks and the lander at night from the sky above, tops lighter than sides, and only faintly by day', () => {

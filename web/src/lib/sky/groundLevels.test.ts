@@ -41,7 +41,7 @@ describe('the measured ground', () => {
     expect(u(g.meshes[0]).uH2.value).toBe(u(g.meshes[2]).uH0.value);
   });
 
-  it('draws the flight level in flight between the context and the cap, at every other cell, its light from per-pixel slopes', () => {
+  it('draws the flight level in flight between the context and the cap, at every fourth cell (960 m, the cap’s own, so no cell shrinks under a pixel from the air: spec 18.4), its light from per-pixel slopes', () => {
     const field = terrainField(levels(), 0, 100, flightLevel());
     const g = buildGround(field, { fast: false, flight: true, halfFloat: false, viewerY: 2 });
     expect(g.meshes).toHaveLength(5);
@@ -53,7 +53,7 @@ describe('the measured ground', () => {
     let reach = 0;
     for (let i = 0; i < p.count; i++) reach = Math.max(reach, Math.abs(p.getX(i)), Math.abs(p.getZ(i)));
     expect(reach).toBeGreaterThan(115000);
-    expect(Math.hypot(p.getX(1) - p.getX(0), p.getZ(1) - p.getZ(0))).toBeCloseTo(480, 3);
+    expect(Math.hypot(p.getX(1) - p.getX(0), p.getZ(1) - p.getZ(0))).toBeCloseTo(960, 3);
     // Standing (the stand view), the flight level is never drawn.
     expect(buildGround(field, { fast: false, flight: false, halfFloat: false, viewerY: 2 }).meshes).toHaveLength(3);
   });

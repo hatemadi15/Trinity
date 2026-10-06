@@ -20,6 +20,7 @@ import { placeStars, starColour, starGain, starSize } from './stars';
 import { LANDER } from './landerShape';
 import { buildLander, landerDust } from './landerMesh';
 import { buildGround, STAND_REACH_M } from './groundLevels';
+import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
 import { heightAt, meshHeightAt, type TerrainField } from './terrainField';
 
@@ -710,11 +711,21 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     expose();
   }
   let standingNow = true, measuredNow = true, ringNow = true;
-  /** The rings' second shadow march, the next level's, within 5 km of the ground only: from the air the rings cover much of the view. */
+  /**
+   * Within 5 km of the ground only: the rings' second shadow march, the next level's (from the air the rings cover much
+   * of the view), and the full setting's steps; higher, the fast setting's (the same reach), where a cell is a pixel
+   * or less (18.4). The renderer draws its moving frames there without MSAA (aloft).
+   */
   function ringShadows(on: boolean) {
     if (on === ringNow) return;
     ringNow = on;
-    for (const g of ground) (g.material as THREE.ShaderMaterial).uniforms.uRingShadows.value = on ? 1 : 0;
+    const full = on && !fast;
+    for (const g of ground) {
+      const u = (g.material as THREE.ShaderMaterial).uniforms;
+      u.uRingShadows.value = on ? 1 : 0;
+      u.uSteps.value = full ? SHADOW.STEPS : SHADOW_FAST.STEPS;
+      u.uGrowth.value = full ? SHADOW.GROWTH : SHADOW_FAST.GROWTH;
+    }
   }
   /**
    * The measured ground draws below 1600 km over the site; higher, the globe shows the whole Moon, the pole too,
@@ -949,7 +960,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     rings.visible = ringsOn;
   };
 
-  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, keyLight, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
+  /** More than 5 km over the ground (the arrival's flight): the ground's cells come to a pixel or less (18.4). */
+  const aloft = () => !ringNow;
+  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, aloft, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, keyLight, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
 /**
@@ -965,6 +978,15 @@ const ORDER = { FAINT: 1, SOLID: 2, RINGS: 3, LANDER: 4 } as const;
  * over the cap (the finest ground's depth came out in front of it there, though not for a solid lander drawn last).
  */
 const BLENDED = { transparent: false, blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor } as const;
+
+/**
+ * A moving frame's pixel ratio from the time the last one took (ms): a chip that keeps the view waiting draws fewer
+ * pixels at once. Back to back, the time since the last moving frame is about the chip's time for it, and that goes
+ * with the square of the ratio: aim at 40 ms, never under 0.45, never back up while moving (18.4).
+ */
+export function movingRatio(ratio: number, dtMs: number): number {
+  return Math.max(0.45, Math.min(ratio, ratio * Math.sqrt(40 / dtMs)));
+}
 
 /** The camera's exposure setting, before it stops down for bright ground (see the scene's exposure). */
 const EXPOSURE = 1.05;
@@ -1005,11 +1027,10 @@ export class StandRenderer {
   /** The ratio the canvas is drawn at now. */
   private drawnRatio: number;
   private readonly pacer = new FramePacer();
-  /** The fence after the last frame, and how many times the view waited for it since the last frame. */
+  /** The fence after the last frame. */
   private fence: WebGLSync | null = null;
-  private waits = 0;
-  private slow = 0;
-  private frames = 0;
+  /** When the last moving frame was drawn, while the view goes on moving; null once it rests. */
+  private movedAt: number | null = null;
   /**
    * Resolves once the shaders are built. They are built off the page's thread where the browser can
    * (KHR_parallel_shader_compile), so the page never freezes while the ground's long shader compiles;
@@ -1073,13 +1094,13 @@ export class StandRenderer {
       console.error('A shader of the view did not compile.', gl.getProgramInfoLog(program), gl.getShaderInfoLog(vs), gl.getShaderInfoLog(fs));
       this.onLost?.('A shader of the view did not compile');
     };
-    // Shaders that fail to build reject `ready`, so the view gives way to the fallback rather than draw black.
-    this.ready = this.renderer.compileAsync(this.built.root, this.built.camera).then(() => {
-      this.compiled = true;
-    });
     this.built.starMaterial.uniforms.uPx.value = this.pixelRatio;
     // Four samples per pixel in the composer's own target: smooth edges on Earth and the skyline.
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+    // Shaders that fail to build reject `ready`, so the view gives way to the fallback rather than draw black.
+    this.ready = this.compile(this.built).then(() => {
+      this.compiled = true;
+    });
     this.renderPass = new RenderPass(this.built.root, this.built.camera);
     this.composer.addPass(this.renderPass);
     // A tight bloom: the Sun's disc glows a little, the sky round it stays black.
@@ -1115,12 +1136,27 @@ export class StandRenderer {
     const next = { built, compiled: false };
     this.next?.built.dispose();
     this.next = next;
-    this.renderer.compileAsync(built.root, built.camera).then(
+    // The light all round that the foil mirrors, as the scene will draw with it (swap keeps it): the lander's programs are keyed by it.
+    built.root.environment = this.built.root.environment;
+    this.compile(built).then(
       () => {
         next.compiled = true;
       },
       () => this.onLost?.('A shader of the view did not compile'),
     );
+  }
+
+  /**
+   * Builds a scene's shaders as the composer draws them: into a target of its own kind, so without tone mapping and in
+   * linear colour, which three keys its programs by. Built for the screen, every program was built again on its first
+   * draw, the ground's long shader with the page frozen (15 s on the laptop's first visit, as the ground came into view).
+   */
+  private compile(b: ReturnType<typeof buildScene>): Promise<unknown> {
+    const was = this.renderer.getRenderTarget();
+    this.renderer.setRenderTarget(this.composer.readBuffer);
+    const done = this.renderer.compileAsync(b.root, b.camera);
+    this.renderer.setRenderTarget(was);
+    return done;
   }
 
   /** Puts a compiled new scene on the screen, at the same hour and view, keeping the environment the foil mirrors. */
@@ -1182,6 +1218,18 @@ export class StandRenderer {
     return false;
   }
 
+  /**
+   * Samples a pixel in the composer's target: four for a still frame, none for a moving one aloft, where the ground's
+   * triangles are smaller than a pixel and each sample would run the ground's long shader again (18.4).
+   */
+  private samples(n: number) {
+    for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+      if (rt.samples === n) continue;
+      rt.samples = n;
+      rt.dispose();
+    }
+  }
+
   /** Draws the frame and sets a fence after it. */
   private draw() {
     // The camera stops down looking down-Sun at the sunlit ground (the output pass reads this exposure); a brighter
@@ -1205,11 +1253,13 @@ export class StandRenderer {
     const where = p ? `${p.position.map((x) => x.toFixed(2)).join(',')} ${p.quaternion.map((x) => x.toFixed(6)).join(',')} ${p.fov.toFixed(3)} ${p.shift.join(',')}` : `${v.yaw.toFixed(3)} ${v.pitch.toFixed(3)} ${v.fov.toFixed(3)}`;
     const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation} ${this.guides} ${this.level} ${this.rings}`;
     const busy = this.busy(now);
-    const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.sharpRatio, busy });
+    // Moving frames aloft have no MSAA: the view at rest there gets its sharp frame, with it.
+    const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.sharpRatio && !this.built.aloft(), busy });
     if (mode === 'idle') {
-      if (busy) this.waits++;
+      if (!busy) this.movedAt = null;
       return;
     }
+    if (mode !== 'move') this.movedAt = null;
     if (mode === 'rest') {
       // The view has come to rest and the frame on the screen, drawn at full sharpness while it moved, is done.
       this.onSharp?.();
@@ -1217,24 +1267,18 @@ export class StandRenderer {
     }
     if (mode === 'sharp') {
       // The view has come to rest: one frame at full sharpness, which stays on the screen.
+      this.samples(4);
       this.drawAt(this.sharpRatio);
       this.draw();
       this.sharpSince = now;
-      this.waits = 0;
       return;
     }
+    this.samples(this.built.aloft() ? 0 : 4);
+    // A chip that keeps the view waiting draws fewer pixels while the view moves, at once (movingRatio); the words and
+    // the numbers never change.
+    if (this.movedAt !== null && now - this.movedAt > 50) this.pixelRatio = movingRatio(this.pixelRatio, now - this.movedAt);
+    this.movedAt = now;
     if (this.drawnRatio !== this.pixelRatio) this.drawAt(this.pixelRatio);
-    // A chip that keeps the view waiting (three looks or more a frame, about 50 ms) draws fewer pixels while
-    // the view moves; the words and the numbers never change.
-    this.frames++;
-    if (this.waits >= 3 && this.frames > 10) this.slow++;
-    else this.slow = Math.max(0, this.slow - 1);
-    this.waits = 0;
-    if (this.slow > 8 && this.pixelRatio > 0.45) {
-      this.pixelRatio = Math.max(0.45, this.pixelRatio - 0.15);
-      this.slow = 0;
-      this.drawAt(this.pixelRatio);
-    }
     this.draw();
   }
 
