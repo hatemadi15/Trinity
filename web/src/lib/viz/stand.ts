@@ -2,7 +2,7 @@ import type { Series } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
 import { parseExploreQuery, type ExploreQuery } from '../store/query';
 import { dateLong, dayMonth, pct0, spanWords } from './format';
-import { degrees, groundWords } from './ground';
+import { compassWord, degrees, groundWords } from './ground';
 
 /** Explore's address plus the hour the view opens on: `?site=&start=&days=&hour=`; a malformed hour is left out. */
 export function standQuery(search: string | URLSearchParams): ExploreQuery & { hour?: number } {
@@ -13,28 +13,34 @@ export function standQuery(search: string | URLSearchParams): ExploreQuery & { h
   return out;
 }
 
-/**
- * The label beside the Sun or Earth in the sky: "Sun 2.4° up", "Earth 12° up"; and out of view its height
- * still, as how far below the horizon Earth is says how long the radio waits: "Sun 0.4° up, set behind the
- * hills", "Earth, 1.2° below the horizon". Heights are written as `degrees` writes them for the forecast's
- * sentences, a tenth of a degree under 10° and whole from there, so the two give the same height. Whether
- * the body shows comes from the skyline, as in the ground panel's words: from a high point the skyline dips
- * below level, so a body can show while just below the level horizon, and is then "on the horizon" rather
- * than below it or a negative height up. Within a twentieth of a degree of level a body out of view is "on
- * the horizon, set behind the hills" or "just below the horizon", never 0.0°.
- */
 /** Why Earth's path makes a loop, on the path's name where it first shows (teacher, part B read 7). */
 export const EARTH_LOOP = 'a loop: the Moon wobbles a little each month';
 
+/**
+ * The label beside the Sun or Earth in the sky: "Sun 2.4° up", "Earth 12° up"; and out of view its height
+ * still, as how far below the horizon Earth is says how long the radio waits: "Earth, 1.2° below the
+ * horizon". Hidden by a hill while above the horizon, the hill is named by its direction, as the ground panel
+ * names it, and the height is "up", as for a body in view: "Sun behind a hill to the north-west, 1.6° up"
+ * (18.2: both readers of read D2 took "above the horizon" at night for the skyline). Heights are written as
+ * `degrees` writes them for the forecast's sentences, a tenth of a degree under 10° and whole from there, so
+ * the two give the same height. Whether the body shows comes from the skyline, as in the ground panel's words:
+ * from a high point the skyline dips below level, so a body can show while just below the level horizon, and
+ * is then "on the horizon" rather than below it or a negative height up. Within a twentieth of a degree of
+ * level a body out of view is on the horizon behind its hill, "Sun behind a hill to the north-west, on the
+ * horizon", or "just below the horizon", never 0.0°.
+ */
 export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string {
   const name = body === 'sun' ? 'Sun' : 'Earth';
   const el = body === 'sun' ? s.sunEl[hour] : s.earthEl[hour];
+  const az = body === 'sun' ? s.sunAz[hour] : s.earthAz[hour];
   const shows = body === 'sun' ? s.sunFraction[hour] > 0 : s.earthVisible[hour] === 1;
   if (shows) return el >= 0.05 ? `${name} ${degrees(el)} up` : `${name}, on the horizon`;
   if (el < 0) return el > -0.05 ? `${name}, just below the horizon` : `${name}, ${degrees(-el)} below the horizon`;
-  // Hidden by a hill while above the horizon: "behind a hill", and how far above the horizon, never "up" and "set" at
-  // once (both readers, part C read 1).
-  return el >= 0.05 ? `${name} behind a hill, ${degrees(el)} above the horizon` : `${name} behind a hill, on the horizon`;
+  // Hidden by a hill while above the horizon: the hill named by its direction, as the ground panel names it, and
+  // "up" rather than "above the horizon", which at night reads as the skyline (both readers of read D2); never
+  // "up" and "set" at once (both readers, part C read 1).
+  const hill = `behind a hill to the ${compassWord(az)}`;
+  return el >= 0.05 ? `${name} ${hill}, ${degrees(el)} up` : `${name} ${hill}, on the horizon`;
 }
 
 /**
@@ -124,13 +130,21 @@ export function liveSentence(s: Series, hour: number, powered?: boolean): string
 }
 
 /**
+ * The start of the line on what to watch next (watchNext): Play, or a flag on the time bar, as the key moments
+ * are flags there that a reader can press (18.2; the reads of D2 asked what "a moment on the time bar" was). On a
+ * phone, where the flags are dots, the view shows WATCH_LEAD_DOTS in its place.
+ */
+export const WATCH_LEAD = 'Press Play, or a flag on the time bar, to watch:';
+/** WATCH_LEAD on a phone, where the time bar's flags are dots. */
+export const WATCH_LEAD_DOTS = 'Press Play, or a dot on the time bar, to watch:';
+
+/**
  * One line on what to watch next: the first change after the hour, of the Sun (any part of its disc in
  * view, as the time bar draws it) or of the lander's power, with its day; and the other kind's next change
- * when it follows within three days. It starts "Press Play or a moment on the time bar:", as the key moments are
- * buttons there, dots on a phone, which neither reader of read D1 took for "flags": "Press Play or a moment on the
- * time bar: the Sun sets behind the hills on 3 January,
- * and the battery runs out on 4 January." A Sun that leaves the view while still above the level horizon
- * "sets behind the hills"; below it, it "sets below the horizon". On the same day the day is said once: "...:
+ * when it follows within three days. It starts with WATCH_LEAD: "Press Play, or a flag on the time bar, to
+ * watch: the Sun sets behind the hills on 3 January, and the battery runs out on 4 January." A Sun that
+ * leaves the view while still above the level horizon "sets behind the hills"; below it, it "sets below the
+ * horizon". On the same day the day is said once: "...:
  * the Sun rises on 20 January, and the power with it, if the lander survives 16 days without power at night,
  * colder than −170 °C." The power coming back always carries that condition, straight after it, as the
  * forecast counts energy only: the whole days of that stretch without power, counted as in the headline
@@ -152,7 +166,7 @@ export function watchNext(s: Series, p: PowerResult | null, startUtc: string, ho
   };
   // Kept next to the power coming back, so that it never reads as a condition on the Sun.
   const ifSurvives = (c: Change) => (p && c.kind === 'power' && c.back ? `, if the lander survives ${offWords(s, p, startUtc, c.h)}` : '');
-  const lead = 'Press Play or a moment on the time bar:';
+  const lead = WATCH_LEAD;
   const first = next(hour);
   if (!first) return 'Press Play to watch the light move across the ground.';
   const day = dateLong(startUtc, first.h);
@@ -261,14 +275,15 @@ const NO_TWILIGHT_SHORT = 'No air, so no twilight.';
  * reads as what it is. When the battery runs out with the Sun still in view, it is too low for the panel; with
  * none of the Sun in view the battery runs out "at night", the words of the line on what to watch next
  * (offWords), which hold whether the Sun set below the horizon or behind the hills. The view, turned to the
- * lander, then still shows the ground about it, so the caption says what lights it: only Earthlight with Earth
- * in view, else no Sun or Earth in sight, the view brightened like a long exposure. Earth rises as the Moon's
- * slight rocking lifts it into view, for about two weeks a month. Sunrise with the power brings the power "if
- * the lander survived the cold", which the forecast does not work out. With Earth in view at sunrise, a working
- * lander could radio home. No caption says that higher ground farther off still catches the Sun, as the view of
- * a key moment need not show that ground: whyLines says it. `kind` is the moment's kind from keyMoments, not its
- * label; anything else gets an empty caption. Given the site's latitude, the pole is left out far from the
- * poles; given none, the site is taken to be near one.
+ * lander, then still shows the ground about it, so the caption says what lights it, only Earthlight with Earth
+ * in view, else no Sun or Earth in sight, and that the picture is brightened so you can see it (18.2: "like a
+ * long exposure" puzzled the reads of D2). Earth rises as the Moon's slight rocking lifts it into view, for
+ * about two weeks a month. Sunrise with the power brings the power "if the lander survived the cold", which the
+ * forecast does not work out. With Earth in view at sunrise, a working lander could radio home. No caption says
+ * that higher ground farther off still catches the Sun, as the view of a key moment need not show that ground:
+ * whyLines says it. `kind` is the moment's kind from keyMoments, not its label; anything else gets an empty
+ * caption. Given the site's latitude, the pole is left out far from the poles; given none, the site is taken
+ * to be near one.
  */
 export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: number): string {
   const up = s.sunEl[hour] >= 0, pole = lat === undefined || poleLine(lat) !== null, earth = s.earthVisible[hour] === 1;
@@ -283,8 +298,8 @@ export function momentCaption(kind: MomentKind, s: Series, hour: number, lat?: n
       return s.sunFraction[hour] > 0
         ? 'The battery runs out: the Sun is up, but too low for the panel to keep the lander going.'
         : earth
-          ? 'The battery runs out at night. Only Earthlight lights the ground here, brightened like a long exposure.'
-          : 'The battery runs out at night. With no Sun or Earth in sight, the view is brightened like a long exposure.';
+          ? 'The battery runs out at night. Only Earthlight lights the ground; the picture is brightened so you can see it.'
+          : 'The battery runs out at night. With no Sun or Earth in sight, the picture is brightened so you can see it.';
     case 'earth-in':
       return "Earth rises over the hills: the Moon's slight wobble lifts it into view for about two weeks a month.";
     case 'earth-out':
@@ -313,12 +328,14 @@ const APOLLO = "Apollo's cameras used short exposures for the bright ground, too
  * one face towards it. After Look up ("up"): that with no air the sky is black even by day, and that away from
  * the glare the stars show, as in the view, which like a camera set for the sunlit ground shows none by day
  * until it looks up; from a southern site, first which way the view turned, towards the Southern Cross. When
- * night falls with Earth in view ("earthlight"): that Earthlight lights the ground and tints it blue, brightened like
- * a long exposure (both readers of part B read 7 found the blue unexplained); with Earth a thin crescent ("faint"),
- * that it gives the ground little light, as the ground then looks grey (both readers of read D1). At an hour with
- * neither the Sun nor Earth in view ("dark"): that neither lights the ground, that the view is brightened like a long
- * exposure, and that with no air there is no twilight; that higher ground farther off may still catch the Sun is left
- * to whyLines. After Face the lander ("lander"): landerCaption's line for a view of the panel's face.
+ * night falls with Earth in view ("earthlight"): that Earthlight, sunlight bounced off Earth, tints the ground
+ * blue (both readers of part B read 7 found the blue unexplained); with Earth a thin crescent ("faint"), that it
+ * gives the ground little light, as the ground then looks grey (both readers of read D1); and with either, that
+ * the picture is brightened so you can see it. At an hour with neither the Sun nor Earth in view ("dark"): that
+ * neither lights the ground, that the picture is brightened so you can see it, and that with no air there is no
+ * twilight; that higher ground farther off may still catch the Sun is left to whyLines. The brightening is said
+ * plainly, never "like a long exposure", which puzzled the reads of D2 (18.2). After Face the lander
+ * ("lander"): landerCaption's line for a view of the panel's face.
  */
 export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'faint' | 'lander' | 'dark', lat: number): string {
   if (kind === 'earth') return poleLine(lat) === null ? "Earth barely moves in the Moon's sky: the Moon keeps one face towards it." : "Earth barely moves in the Moon's sky; only the Moon's slight wobble makes it rise or set.";
@@ -327,9 +344,9 @@ export function viewCaption(kind: 'earth' | 'up' | 'earthlight' | 'faint' | 'lan
     return lat > 0 ? why : `Towards the Southern Cross. ${why}`;
   }
   if (kind === 'lander') return landerCaption(lat, false);
-  if (kind === 'dark') return 'Neither the Sun nor Earth lights this ground: the view is brightened like a long exposure. No air, no twilight.';
-  if (kind === 'faint') return 'A thin crescent Earth gives this ground little light; brightened like a long exposure.';
-  return 'Earthlight, sunlight bounced off Earth, lights this ground and tints it blue; brightened like a long exposure.';
+  if (kind === 'dark') return 'Neither the Sun nor Earth lights this ground; the picture is brightened so you can see it. No air, no twilight.';
+  if (kind === 'faint') return 'A thin crescent Earth gives this ground little light; the picture is brightened so you can see it.';
+  return 'Earthlight, sunlight bounced off Earth, tints this ground blue; the picture is brightened so you can see it.';
 }
 
 /**
@@ -369,10 +386,13 @@ export function standingLine(site: { lat: number; blurb?: string }, name: string
   return `Standing at ${name}${pole}. ${flat ? 'Ground drawn flat: no NASA heights here.' : 'Hills: NASA height data.'} Small craters and rocks: added to look real.`;
 }
 
-/** Why the Sun stays low, for a site near a pole; null elsewhere. */
+/**
+ * Why the Sun stays low, for a site near a pole, and what a few degrees look like, as the labels keep their
+ * degrees: two degrees is about a thumb's width at arm's length (18.2). Null elsewhere.
+ */
 export function poleLine(lat: number): string | null {
   if (Math.abs(lat) < 80) return null;
-  return `Near the Moon's ${lat < 0 ? 'south' : 'north'} pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon, so behind a low hill it can stay set for days.`;
+  return `Near the Moon's ${lat < 0 ? 'south' : 'north'} pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay set for days.`;
 }
 
 /** Kilometres to a degree of latitude on the Moon, from its radius of 1,737.4 km. */
@@ -385,7 +405,7 @@ const KM_PER_DEGREE = 30.32;
  * Look up leaves to this line), that eyes dazzled by the bright ground see few as well, and that looking up,
  * away from it, brings more out; with none of the Sun in view, where it is while farther hills are still
  * lit, and that with no air there is no twilight (NO_TWILIGHT); at night with Earth in view, what lights the
- * ground, that the view is brightened as a long-exposure photo would be, and why it looks blue; with Earth
+ * ground, that the picture is brightened so the ground shows, and why it looks blue; with Earth
  * in view, how big it looks; near a pole, how far off the pole is and which way, so that north and south
  * still mean something; with none of the Sun in view, how cold the night is, and why the forecast says the
  * power comes back only "if" the lander survives it; and last, at every hour, that the radio forecast is for
@@ -407,7 +427,7 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
     if (el >= 0) lines.push('The Sun is still above the horizon, but behind a hill: higher ground farther off still catches its light.');
     else if (el > -2) lines.push('The Sun is just below the horizon here, but higher ground farther off still catches its light.');
     lines.push(NO_TWILIGHT);
-    if (earth) lines.push('At night only Earth lights the ground: sunlight bounced off Earth. The view is brightened, as a long-exposure photo would be, so the ground shows, and that light is why it looks blue.');
+    if (earth) lines.push('At night only Earth lights the ground: sunlight bounced off Earth. The picture is brightened so the ground shows, and that light is why it looks blue.');
   }
   if (earth) lines.push('Earth looks about 2° wide from here, nearly four times as wide as the full Moon looks from Earth.');
   // At the pole itself every way leads away from it; a site off the pole still has one way towards it.
@@ -535,6 +555,14 @@ export function radioHeadline(title: string, contactHours: number, poweredHours:
 export function betterLabel(dayLong: string, poweredHours: number, radioHours: number, short = false): string {
   const radio = Math.round(radioHours) <= 0 ? 'no radio contact' : `radio for ${spanWords(radioHours)}`;
   return unbrokenSpans(`Try ${dayLong} instead: power for ${spanWords(poweredHours)}${short ? '' : `, ${radio}`}`);
+}
+
+/**
+ * The better landing day on a phone's first screen (18.3): the day short, as the flags write it ("20 Jan"), and the
+ * power alone, each span on one line; today's card keeps the long form with the radio (betterLabel).
+ */
+export function betterChip(dayShort: string, poweredHours: number): string {
+  return unbrokenSpans(`Try ${dayShort} instead: power for ${spanWords(poweredHours)}`);
 }
 
 /**

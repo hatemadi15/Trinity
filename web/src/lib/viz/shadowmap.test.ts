@@ -42,8 +42,9 @@ describe('heightWords', () => {
   });
 
   it('says so when the hills hide a body that is above the horizon', () => {
-    expect(heightWords('Sun', 2.4, 'yes')).toBe('Sun behind a hill, 2.4° above the horizon');
-    expect(heightWords('Sun', 2.4, 'partly')).toBe('Sun partly behind a hill, 2.4° above the horizon');
+    // "up", as the view's labels say it: "above the horizon" reads at night as the skyline (read D2-2).
+    expect(heightWords('Sun', 2.4, 'yes')).toBe('Sun behind a hill, 2.4° up');
+    expect(heightWords('Sun', 2.4, 'partly')).toBe('Sun partly behind a hill, 2.4° up');
     expect(heightWords('Earth', -1.5, 'yes')).toBe('Earth below the horizon');
   });
 });

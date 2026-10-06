@@ -63,12 +63,17 @@ export function compassCorner(ends: { x: number; y: number }[]): Corner {
 /** Whether the hills hide a body that is above the horizon: not at all, in part, or wholly. */
 export type Hidden = 'no' | 'partly' | 'yes';
 
-/** "Sun 2.4° up", "Sun 2.4° up, behind the hills", or "Earth below the horizon": tenths below 10°, as everywhere. */
+/**
+ * "Sun 2.4° up", "Sun behind a hill, 2.4° up", "Sun partly behind a hill, 2.4° up", or "Earth below the
+ * horizon": tenths below 10°, as everywhere. The words sit at the end of the arrow that points the way, so they
+ * leave the hill's direction to it.
+ */
 export function heightWords(name: 'Sun' | 'Earth', elDeg: number, hidden: Hidden = 'no'): string {
   if (elDeg < 0) return `${name} below the horizon`;
-  // Hidden by a hill while above the horizon: never "up" and "set" at once (both readers, part C read 1).
-  if (hidden === 'yes') return `${name} behind a hill, ${degrees(elDeg)} above the horizon`;
-  if (hidden === 'partly') return `${name} partly behind a hill, ${degrees(elDeg)} above the horizon`;
+  // Hidden by a hill while above the horizon: "up", as the stand view's labels say it, rather than "above the
+  // horizon", which at night reads as the skyline (18.2); never "up" and "set" at once (both readers, part C read 1).
+  if (hidden === 'yes') return `${name} behind a hill, ${degrees(elDeg)} up`;
+  if (hidden === 'partly') return `${name} partly behind a hill, ${degrees(elDeg)} up`;
   return `${name} ${degrees(elDeg)} up`;
 }
 
