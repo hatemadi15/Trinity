@@ -14,7 +14,7 @@ export const HERO_HOUR = 10;
 /** The flight's first two sentences, over the pole and the cap (spec section 5, as amended in section 14). */
 export const BEAT_SENTENCES: [string, string] = [
   'At the south pole the Sun never climbs: it circles the horizon once a month.',
-  'NASA has shortlisted this ridge for astronauts to land on.',
+  'NASA has shortlisted de Gerlache Rim 2, this ridge, for astronauts to land on.',
 ];
 
 export interface Hero { site: Site; series: Series; power: PowerResult; mask: Float64Array; siteHeightM: number; earthKm: number[]; startUtc: string; days: number }

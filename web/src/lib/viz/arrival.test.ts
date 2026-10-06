@@ -47,7 +47,7 @@ describe('the arrival', () => {
     // after landing the month runs on at the site, and its middle says what happened, from the engine's moments.
     expect(w.beats.map(plain)).toEqual([
       'At the south pole the Sun never climbs: it circles the horizon once a month.',
-      'NASA has shortlisted this ridge for astronauts to land on.',
+      'NASA has shortlisted de Gerlache Rim 2, this ridge, for astronauts to land on.',
       'Land a small uncrewed solar lander here on 1 January 2027, as an example: the Sun stands just above the hills.',
       'One hill can keep the Sun set for weeks. Here is January at this spot, sped up.',
       "Earth rises on 10 January, but the lander's battery ran out on 4 January.",

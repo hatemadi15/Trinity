@@ -168,7 +168,9 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
         )}
       </div>
       {(moving || playing) && !capture && (
-        <button type="button" onClick={land} className={`btn fixed bottom-6 right-6 z-20 border-white/30 bg-black/70 max-sm:bottom-auto ${landedAt(beat) ? 'max-sm:top-[160px]' : 'max-sm:top-4'}`}>
+        // On a phone Skip waits for the second screen, so it never covers the first screen's words (18.3); then it sits at
+        // the top right, clear of the beats' cards at the foot, and under the date bar once landed.
+        <button type="button" onClick={land} className={`btn fixed bottom-6 right-6 z-20 border-white/30 bg-black/70 max-sm:bottom-auto ${beat < 1 ? 'max-sm:hidden ' : ''}${landedAt(beat) ? 'max-sm:top-[160px]' : 'max-sm:top-4'}`}>
           Skip
         </button>
       )}
@@ -183,7 +185,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             <p data-words="" className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
               <span className="max-sm:hidden">At the Moon&apos;s south pole the Sun and Earth skim the horizon, and one hill can keep them set for weeks. </span>
               <span>
-                Earthrise is a browser of landing sites and dates: pick a place and a day from 2024 to 2036, and see its hours of sunlight and of radio contact with Earth, and
+                Earthrise is a forecast for landing sites and dates. Pick a place and a day from 2024 to 2036. See its hours of sunlight and of radio contact with Earth, and
                 how long a lander keeps power, for three ready-made landers or your own.
               </span>
             </p>
