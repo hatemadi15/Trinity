@@ -42,3 +42,54 @@ export class FramePacer {
     return this.rested;
   }
 }
+
+/**
+ * A moving frame's pixel ratio from the time the last one took (ms): a chip that keeps the view waiting draws fewer
+ * pixels. Back to back, the time since the last moving frame is about the chip's time for it, and that goes with the
+ * square of the ratio: aim at 40 ms, never under 0.45, never up (18.4).
+ */
+export function movingRatio(ratio: number, dtMs: number): number {
+  return Math.max(0.45, Math.min(ratio, ratio * Math.sqrt(40 / dtMs)));
+}
+
+/** A frame slower than this (ms) counts as slow; faster than FAST_MS as fast. */
+const SLOW_MS = 50, FAST_MS = 25;
+/** How many slow frames in a row lower the ratio, and how many fast ones in a row raise it a tenth. */
+const SLOW_RUN = 3, FAST_RUN = 30;
+
+/**
+ * The moving frames' pixel ratio over a visit (the final review of D3). One slow frame is a hitch (a garbage collection,
+ * a scene swap, a target rebuilt) and changes nothing; three in a row lower the ratio by movingRatio of their mean. Thirty
+ * fast frames in a row raise it a tenth, up to the full ratio, so a visit never stays soft after one bad moment; a slow
+ * frame starts that count again.
+ */
+export class RatioPacer {
+  private slow: number[] = [];
+  private fast = 0;
+  constructor(
+    public ratio: number,
+    private readonly full: number,
+  ) {}
+
+  /** A moving frame drawn `dtMs` after the last one: the ratio for the next. */
+  frame(dtMs: number): number {
+    if (dtMs > SLOW_MS) {
+      this.fast = 0;
+      this.slow.push(dtMs);
+      if (this.slow.length >= SLOW_RUN) {
+        this.ratio = movingRatio(this.ratio, this.slow.reduce((a, b) => a + b, 0) / this.slow.length);
+        this.slow = [];
+      }
+    } else {
+      this.slow = [];
+      if (dtMs < FAST_MS) {
+        this.fast++;
+        if (this.fast >= FAST_RUN) {
+          this.ratio = Math.min(this.full, this.ratio * 1.1);
+          this.fast = 0;
+        }
+      } else this.fast = 0;
+    }
+    return this.ratio;
+  }
+}

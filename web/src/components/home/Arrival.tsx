@@ -53,6 +53,8 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
   const standing = useRef<HTMLHeadingElement>(null);
   const progress = useRef(0);
   const [beat, setBeat] = useState(0);
+  // Whether the first screen, with the intro's words, has scrolled away whole: on a phone Skip waits for that (18.3).
+  const [pastFirst, setPastFirst] = useState(false);
   const [moving, setMoving] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [live, setLive] = useState(false);
@@ -84,6 +86,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
       }
       progress.current = reduced ? BEAT_STOPS[Math.round(s)] : progressFromScroll(s);
       setBeat(Math.round(s));
+      setPastFirst(s >= 1);
       setMoving(s > 0.05 && s < BEATS - 1.05);
     };
     const id = requestAnimationFrame(onScroll);
@@ -168,7 +171,10 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
         )}
       </div>
       {(moving || playing) && !capture && (
-        <button type="button" onClick={land} className={`btn fixed bottom-6 right-6 z-20 border-white/30 bg-black/70 max-sm:bottom-auto ${landedAt(beat) ? 'max-sm:top-[160px]' : 'max-sm:top-4'}`}>
+        // On a phone Skip waits until the first screen has scrolled away whole, so it never covers its words (18.3; at three
+        // quarters of a screen the intro's last lines were still under it, read D3); then it sits at the top right, clear
+        // of the beats' cards at the foot, and under the date bar once landed.
+        <button type="button" onClick={land} className={`btn fixed bottom-6 right-6 z-20 border-white/30 bg-black/70 max-sm:bottom-auto ${pastFirst ? '' : 'max-sm:hidden '}${landedAt(beat) ? 'max-sm:top-[160px]' : 'max-sm:top-4'}`}>
           Skip
         </button>
       )}
@@ -183,7 +189,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             <p data-words="" className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
               <span className="max-sm:hidden">At the Moon&apos;s south pole the Sun and Earth skim the horizon, and one hill can keep them set for weeks. </span>
               <span>
-                Earthrise is a browser of landing sites and dates: pick a place and a day from 2024 to 2036, and see its hours of sunlight and of radio contact with Earth, and
+                Earthrise is a forecast for landing sites and dates. Pick a place and a day from 2024 to 2036. See its hours of sunlight and of radio contact with Earth, and
                 how long a lander keeps power, for three ready-made landers or your own.
               </span>
             </p>

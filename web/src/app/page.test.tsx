@@ -23,8 +23,8 @@ describe('home page', () => {
       ['Open the full forecast', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
     ]);
     for (const beat of hero.querySelectorAll('[data-beat]')) expect(beat.querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
-    // The challenge in plain words on the first screen: a browser of landing sites and dates, for more than two landers.
-    expect(hero.textContent).toMatch(/Earthrise is a browser of landing sites and dates: pick a place and a day from 2024 to 2036/);
+    // The challenge in plain words on the first screen: a forecast for landing sites and dates (spec 18.2), for more than two landers.
+    expect(hero.textContent).toMatch(/Earthrise is a forecast for landing sites and dates\. Pick a place and a day from 2024 to 2036\./);
     expect(hero.textContent).toMatch(/for three ready-made landers or your own\./);
     // Who it is for, with the teachers' way in on the same line.
     const audience = within(hero).getByText(/^For planners of NASA's commercial Moon landers, teachers/);

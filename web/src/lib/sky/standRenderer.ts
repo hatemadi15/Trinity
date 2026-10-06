@@ -13,13 +13,14 @@ import { dirAzEl, enuBasis, meToWorld, type Vec3 } from './frames';
 import { buildGlobe, GLOBE } from './globe';
 import { moonMatrixAt } from './moonOrientation';
 import { EARTH_FRAG, EARTH_VERT, NIGHT, STAR_FRAG, STAR_VERT } from './shaders';
-import { FramePacer } from './framePacer';
+import { FramePacer, movingRatio, RatioPacer } from './framePacer';
 
 import { cachedTexture, releaseCachedTextures } from './textureCache';
 import { placeStars, starColour, starGain, starSize } from './stars';
 import { LANDER } from './landerShape';
 import { buildLander, landerDust } from './landerMesh';
 import { buildGround, STAND_REACH_M } from './groundLevels';
+import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
 import { heightAt, meshHeightAt, type TerrainField } from './terrainField';
 
@@ -454,7 +455,12 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // blue, which comes only with Earth), from the sky above and next to none from the ground below (NIGHT.SKY), so the
   // rocks' and the lander's tops are lighter than their sides, as the ground is lit (17.5).
   const fillLight = new THREE.HemisphereLight(0xc4c6ca, 0x060607, 0);
-  root.add(sunLight, sunLight.target, skyLight, earthLight, fillLight);
+  // A faint key light at night, from 50° up and 90° round from the Sun's place, a third of the fill's share of the sky
+  // (NIGHT.KEY against NIGHT.SKY): under the hemisphere alone every side of a stone took the same light and a near one
+  // read as a loaf; the key gives the stones' facets and the lander's edges a lit side and a shaded one (18.4). Off
+  // by day, when the Sun does that. The measured ground takes no light from it: its shader lights itself.
+  const keyLight = new THREE.DirectionalLight(0xc4c6ca, 0);
+  root.add(sunLight, sunLight.target, skyLight, earthLight, fillLight, keyLight, keyLight.target);
   // In flight (the home page's arrival) the camera is no one standing at the site: no person's shadow at its feet.
   if (flight) for (const g of ground) (g.material as THREE.ShaderMaterial).uniforms.uViewer.value.set(1e9, 0, 1e9);
   if (lander) {
@@ -576,11 +582,15 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     earthLight.intensity = 0.5 * earthshine;
     // NIGHT.SKY times as strong as the flat fill was: a top faces all of the sky, an upright side half of it.
     fillLight.intensity = 0.03 + NIGHT.SKY * night;
+    keyLight.intensity = NIGHT.KEY * night;
   }
   function update(t: number) {
     const v = sampleSeries(scene.series, t);
     const sd = dirAzEl(v.sunAz, v.sunEl), ed = dirAzEl(v.earthAz, v.earthEl);
     sunDir.set(...sd);
+    // The night's key light stands 90° round from the Sun's azimuth, 50° up, aimed at the site (18.4).
+    const kd = dirAzEl(v.sunAz + 90, 50);
+    keyLight.position.set(kd[0] * 100, kd[1] * 100, kd[2] * 100);
     sun.position.set(sd[0] * RS, sd[1] * RS, sd[2] * RS);
     glare.position.copy(sun.position);
     // The month of each path round the hour; a ring where a hidden Sun or Earth sits, on the hill that hides it.
@@ -701,11 +711,21 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     expose();
   }
   let standingNow = true, measuredNow = true, ringNow = true;
-  /** The rings' second shadow march, the next level's, within 5 km of the ground only: from the air the rings cover much of the view. */
+  /**
+   * Within 5 km of the ground only: the rings' second shadow march, the next level's (from the air the rings cover much
+   * of the view), and the full setting's steps; higher, the fast setting's (the same reach), where a cell is a pixel
+   * or less (18.4). The renderer draws its moving frames there without MSAA (aloft).
+   */
   function ringShadows(on: boolean) {
     if (on === ringNow) return;
     ringNow = on;
-    for (const g of ground) (g.material as THREE.ShaderMaterial).uniforms.uRingShadows.value = on ? 1 : 0;
+    const full = on && !fast;
+    for (const g of ground) {
+      const u = (g.material as THREE.ShaderMaterial).uniforms;
+      u.uRingShadows.value = on ? 1 : 0;
+      u.uSteps.value = full ? SHADOW.STEPS : SHADOW_FAST.STEPS;
+      u.uGrowth.value = full ? SHADOW.GROWTH : SHADOW_FAST.GROWTH;
+    }
   }
   /**
    * The measured ground draws below 1600 km over the site; higher, the globe shows the whole Moon, the pole too,
@@ -940,7 +960,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     rings.visible = ringsOn;
   };
 
-  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
+  /** More than 5 km over the ground (the arrival's flight): the ground's cells come to a pixel or less (18.4). */
+  const aloft = () => !ringNow;
+  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, aloft, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, keyLight, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
 /**
@@ -957,8 +979,17 @@ const ORDER = { FAINT: 1, SOLID: 2, RINGS: 3, LANDER: 4 } as const;
  */
 const BLENDED = { transparent: false, blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor } as const;
 
+export { movingRatio };
+
 /** The camera's exposure setting, before it stops down for bright ground (see the scene's exposure). */
 const EXPOSURE = 1.05;
+/** "Brighter picture" (18.3): one stop more, for projectors and bright rooms. */
+const BRIGHT_GAIN = 2;
+
+/** The tone mapping's exposure for a frame: the camera's setting, doubled for a brighter picture, times the scene's own stopping down. */
+export function toneExposure(bright: boolean, sceneExposure: number): number {
+  return EXPOSURE * (bright ? BRIGHT_GAIN : 1) * sceneExposure;
+}
 
 /**
  * The WebGL side: the renderer, bloom for the Sun, and its pacing. No frame is queued while the graphics
@@ -989,11 +1020,12 @@ export class StandRenderer {
   /** The ratio the canvas is drawn at now. */
   private drawnRatio: number;
   private readonly pacer = new FramePacer();
-  /** The fence after the last frame, and how many times the view waited for it since the last frame. */
+  /** The moving frames' pixel ratio over the visit: lowered after three slow frames in a row, raised again after thirty fast ones. */
+  private ratios: RatioPacer;
+  /** The fence after the last frame. */
   private fence: WebGLSync | null = null;
-  private waits = 0;
-  private slow = 0;
-  private frames = 0;
+  /** When the last moving frame was drawn, while the view goes on moving; null once it rests. */
+  private movedAt: number | null = null;
   /**
    * Resolves once the shaders are built. They are built off the page's thread where the browser can
    * (KHR_parallel_shader_compile), so the page never freezes while the ground's long shader compiles;
@@ -1017,6 +1049,16 @@ export class StandRenderer {
   private guides = true;
   private level = true;
   private rings = true;
+  /** "Brighter picture" (18.3): the exposure doubled for projectors and bright rooms. */
+  private bright = false;
+
+  /** A brighter picture for projectors and bright rooms: twice the exposure (18.3), or back to the camera's setting. */
+  setBright(on: boolean) {
+    this.bright = on;
+    this.renderer.toneMappingExposure = toneExposure(on, 1);
+    // A resting view draws its frame again: the pacer's key carries the generation (read D3: the toggle showed no change).
+    this.generation++;
+  }
 
   constructor(canvas: HTMLCanvasElement, scene: StandScene) {
     const gl = canvas.getContext('webgl2', { antialias: true });
@@ -1024,8 +1066,9 @@ export class StandRenderer {
     this.renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true, logarithmicDepthBuffer: true });
     this.pixelRatio = this.sharpRatio = this.drawnRatio = scene.quality === 'fast' ? 0.75 : Math.min(window.devicePixelRatio || 1, 1.5);
     this.renderer.setPixelRatio(this.pixelRatio);
+    this.ratios = new RatioPacer(this.pixelRatio, this.pixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = EXPOSURE;
+    this.renderer.toneMappingExposure = toneExposure(this.bright, 1);
     // Heights go to the GPU as float32 where it can filter them, else as half floats.
     this.half = !this.renderer.extensions.has('OES_texture_float_linear');
     this.built = buildScene(scene, { halfFloat: this.half });
@@ -1049,13 +1092,13 @@ export class StandRenderer {
       console.error('A shader of the view did not compile.', gl.getProgramInfoLog(program), gl.getShaderInfoLog(vs), gl.getShaderInfoLog(fs));
       this.onLost?.('A shader of the view did not compile');
     };
-    // Shaders that fail to build reject `ready`, so the view gives way to the fallback rather than draw black.
-    this.ready = this.renderer.compileAsync(this.built.root, this.built.camera).then(() => {
-      this.compiled = true;
-    });
     this.built.starMaterial.uniforms.uPx.value = this.pixelRatio;
     // Four samples per pixel in the composer's own target: smooth edges on Earth and the skyline.
     this.composer = new EffectComposer(this.renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+    // Shaders that fail to build reject `ready`, so the view gives way to the fallback rather than draw black.
+    this.ready = this.compile(this.built).then(() => {
+      this.compiled = true;
+    });
     this.renderPass = new RenderPass(this.built.root, this.built.camera);
     this.composer.addPass(this.renderPass);
     // A tight bloom: the Sun's disc glows a little, the sky round it stays black.
@@ -1091,12 +1134,27 @@ export class StandRenderer {
     const next = { built, compiled: false };
     this.next?.built.dispose();
     this.next = next;
-    this.renderer.compileAsync(built.root, built.camera).then(
+    // The light all round that the foil mirrors, as the scene will draw with it (swap keeps it): the lander's programs are keyed by it.
+    built.root.environment = this.built.root.environment;
+    this.compile(built).then(
       () => {
         next.compiled = true;
       },
       () => this.onLost?.('A shader of the view did not compile'),
     );
+  }
+
+  /**
+   * Builds a scene's shaders as the composer draws them: into a target of its own kind, so without tone mapping and in
+   * linear colour, which three keys its programs by. Built for the screen, every program was built again on its first
+   * draw, the ground's long shader with the page frozen (15 s on the laptop's first visit, as the ground came into view).
+   */
+  private compile(b: ReturnType<typeof buildScene>): Promise<unknown> {
+    const was = this.renderer.getRenderTarget();
+    this.renderer.setRenderTarget(this.composer.readBuffer);
+    const done = this.renderer.compileAsync(b.root, b.camera);
+    this.renderer.setRenderTarget(was);
+    return done;
   }
 
   /** Puts a compiled new scene on the screen, at the same hour and view, keeping the environment the foil mirrors. */
@@ -1158,10 +1216,23 @@ export class StandRenderer {
     return false;
   }
 
+  /**
+   * Samples a pixel in the composer's target: four for a still frame, none for a moving one aloft, where the ground's
+   * triangles are smaller than a pixel and each sample would run the ground's long shader again (18.4).
+   */
+  private samples(n: number) {
+    for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+      if (rt.samples === n) continue;
+      rt.samples = n;
+      rt.dispose();
+    }
+  }
+
   /** Draws the frame and sets a fence after it. */
   private draw() {
-    // The camera stops down looking down-Sun at the sunlit ground (the output pass reads this exposure).
-    this.renderer.toneMappingExposure = EXPOSURE * this.built.exposure();
+    // The camera stops down looking down-Sun at the sunlit ground (the output pass reads this exposure); a brighter
+    // picture doubles it.
+    this.renderer.toneMappingExposure = toneExposure(this.bright, this.built.exposure());
     this.composer.render();
     const gl = this.renderer.getContext() as WebGL2RenderingContext;
     this.fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
@@ -1180,11 +1251,13 @@ export class StandRenderer {
     const where = p ? `${p.position.map((x) => x.toFixed(2)).join(',')} ${p.quaternion.map((x) => x.toFixed(6)).join(',')} ${p.fov.toFixed(3)} ${p.shift.join(',')}` : `${v.yaw.toFixed(3)} ${v.pitch.toFixed(3)} ${v.fov.toFixed(3)}`;
     const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation} ${this.guides} ${this.level} ${this.rings}`;
     const busy = this.busy(now);
-    const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.sharpRatio, busy });
+    // Moving frames aloft have no MSAA: the view at rest there gets its sharp frame, with it.
+    const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.sharpRatio && !this.built.aloft(), busy });
     if (mode === 'idle') {
-      if (busy) this.waits++;
+      if (!busy) this.movedAt = null;
       return;
     }
+    if (mode !== 'move') this.movedAt = null;
     if (mode === 'rest') {
       // The view has come to rest and the frame on the screen, drawn at full sharpness while it moved, is done.
       this.onSharp?.();
@@ -1192,24 +1265,18 @@ export class StandRenderer {
     }
     if (mode === 'sharp') {
       // The view has come to rest: one frame at full sharpness, which stays on the screen.
+      this.samples(4);
       this.drawAt(this.sharpRatio);
       this.draw();
       this.sharpSince = now;
-      this.waits = 0;
       return;
     }
+    this.samples(this.built.aloft() ? 0 : 4);
+    // A chip that keeps the view waiting draws fewer pixels while the view moves (RatioPacer: after three slow frames in
+    // a row, and back up after thirty fast ones); the words and the numbers never change.
+    if (this.movedAt !== null) this.pixelRatio = this.ratios.frame(now - this.movedAt);
+    this.movedAt = now;
     if (this.drawnRatio !== this.pixelRatio) this.drawAt(this.pixelRatio);
-    // A chip that keeps the view waiting (three looks or more a frame, about 50 ms) draws fewer pixels while
-    // the view moves; the words and the numbers never change.
-    this.frames++;
-    if (this.waits >= 3 && this.frames > 10) this.slow++;
-    else this.slow = Math.max(0, this.slow - 1);
-    this.waits = 0;
-    if (this.slow > 8 && this.pixelRatio > 0.45) {
-      this.pixelRatio = Math.max(0.45, this.pixelRatio - 0.15);
-      this.slow = 0;
-      this.drawAt(this.pixelRatio);
-    }
     this.draw();
   }
 

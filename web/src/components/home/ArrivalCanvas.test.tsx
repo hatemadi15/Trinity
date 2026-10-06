@@ -234,8 +234,8 @@ describe('the arrival’s live stage', () => {
     const { r } = stub();
     const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: () => new Promise(() => {}) };
     render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={vi.fn()} loaders={loaders} createRenderer={() => r} />);
-    // On which day, and that it looks small only because it is far.
-    expect(await screen.findByText(/^Earth, 3\d\d,000 km away on 1 January 2027: it looks small only because it is far$/)).toBeTruthy();
+    // On which day, and that it is small because it is far (spec 18.2: "it looks small only because" puzzled a reader).
+    expect(await screen.findByText(/^Earth, 3\d\d,000 km away on 1 January 2027: small because it is far$/)).toBeTruthy();
   });
 
   it('points to the Sun from the edge of the view while it is out of sight, through the month, and names it where it shows', async () => {

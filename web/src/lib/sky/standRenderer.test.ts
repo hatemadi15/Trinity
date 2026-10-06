@@ -10,7 +10,7 @@ import { LANDER_LIGHT } from './landerMesh';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS } from './boulders';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
-import { bounceShare, buildScene, lookUpTarget, shadowOnGround, threesOwnTextures, toTextureHeights, type StandScene } from './standRenderer';
+import { bounceShare, buildScene, lookUpTarget, movingRatio, shadowOnGround, threesOwnTextures, toneExposure, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, meshHeightAt, terrainField } from './terrainField';
 
 const series = {
@@ -54,16 +54,58 @@ function wideLevels() {
 }
 
 describe('the stand scene', () => {
+  it('lights the rocks and the lander at night with a faint key from 50° up, 90° round from the Sun, a third of the sky’s fill, and not by day (spec 18.4)', () => {
+    const night = { ...series, sunEl: Float64Array.from([-3, -3, -3]), sunFraction: Float64Array.from([0, 0, 0]), earthEl: Float64Array.from([-6, -6, -6]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
+    const s = buildScene(flat({ series: night, lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(0);
+    const key = s.parts.keyLight;
+    expect(key).toBeInstanceOf(THREE.DirectionalLight);
+    // At full night the fill is 0.03 + NIGHT.SKY x 0.35 (the test below): the key takes a third of the sky's share.
+    expect(key.intensity).toBeCloseTo(NIGHT.KEY * 0.35, 6);
+    expect(NIGHT.KEY / NIGHT.SKY).toBeCloseTo(1 / 3, 1);
+    // From 50° up, 90° round from the Sun's azimuth, aimed at the site.
+    const d = key.position.clone().normalize();
+    const want = dirAzEl(night.sunAz[0] + 90, 50);
+    expect([d.x, d.y, d.z].map((v) => Math.round(v * 1e4) / 1e4)).toEqual(want.map((v) => Math.round(v * 1e4) / 1e4));
+    expect(key.target.position.length()).toBe(0);
+    // Off by day: the Sun lights the facets.
+    const day = buildScene(flat({ lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    day.update(0);
+    expect(day.parts.keyLight.intensity).toBe(0);
+  });
+
+  it('doubles the exposure for a brighter picture (projectors, spec 18.3), keeping the camera’s own stopping down under it', () => {
+    expect(toneExposure(false, 1)).toBeCloseTo(1.05, 6);
+    expect(toneExposure(true, 1)).toBeCloseTo(2.1, 6);
+    expect(toneExposure(true, 0.6)).toBeCloseTo(2 * toneExposure(false, 0.6), 9);
+  });
 
   it('marches the rings\u2019 second shadows only within 5 km of the ground: in flight above that the ground keeps its own shadows at the cuts', () => {
     const s = buildScene(flat({ field: terrainField(levels(), 0, 100) }));
     const ring = () => s.parts.ground.map((g) => (g.material as THREE.ShaderMaterial).uniforms.uRingShadows.value);
+    const march = () => s.parts.ground.map((g) => [(g.material as THREE.ShaderMaterial).uniforms.uSteps.value, (g.material as THREE.ShaderMaterial).uniforms.uGrowth.value]);
     s.setView(0, 0, 60, 16 / 9);
     expect(ring()).toEqual([1, 1, 1]);
+    expect(s.aloft()).toBe(false);
+    expect(march()).toEqual([[SHADOW.STEPS, SHADOW.GROWTH], [SHADOW.STEPS, SHADOW.GROWTH], [SHADOW.STEPS, SHADOW.GROWTH]]);
+    // Aloft (spec 18.4): the fast setting's march, the same reach in fewer steps, where a cell is a pixel or less.
     s.setPose({ position: [0, 100e3, 0], quaternion: [0, 0, 0, 1], fov: 60, shift: [0, 0] }, 16 / 9);
     expect(ring()).toEqual([0, 0, 0]);
+    expect(s.aloft()).toBe(true);
+    expect(march()).toEqual([[SHADOW_FAST.STEPS, SHADOW_FAST.GROWTH], [SHADOW_FAST.STEPS, SHADOW_FAST.GROWTH], [SHADOW_FAST.STEPS, SHADOW_FAST.GROWTH]]);
     s.setPose({ position: [0, 2e3, 0], quaternion: [0, 0, 0, 1], fov: 60, shift: [0, 0] }, 16 / 9);
     expect(ring()).toEqual([1, 1, 1]);
+    expect(s.aloft()).toBe(false);
+    expect(march()).toEqual([[SHADOW.STEPS, SHADOW.GROWTH], [SHADOW.STEPS, SHADOW.GROWTH], [SHADOW.STEPS, SHADOW.GROWTH]]);
+  });
+
+  it('lowers a moving frame’s pixel ratio at once from the time the last one took, aiming at 40 ms, never under 0.45 and never back up while moving (spec 18.4)', () => {
+    expect(movingRatio(1, 16.7)).toBe(1);
+    expect(movingRatio(1, 40)).toBeCloseTo(1, 9);
+    expect(movingRatio(1, 160)).toBeCloseTo(0.5, 9);
+    expect(movingRatio(0.7, 70)).toBeCloseTo(0.7 * Math.sqrt(40 / 70), 9);
+    expect(movingRatio(0.5, 400)).toBe(0.45);
+    expect(movingRatio(0.45, 1000)).toBe(0.45);
   });
 
   it('lights the rocks and the lander at night from the sky above, tops lighter than sides, and only faintly by day', () => {

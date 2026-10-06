@@ -62,7 +62,7 @@ export function hiddenShare(tanSun: number, tanDip: number, cosPlan: number): nu
  * SKY is the hemisphere light over the rocks and the lander at night, in units of the old flat fill: a top gets SKY
  * times it, an upright side half, an underside next to none.
  */
-export const NIGHT = { POWER: 4, BOWL: 6, NEAR_M: 1.5, FAR_M: 3.5, SEEN: [0.3, 1.6], GAIN: 1.09, SKY: 1.6 } as const;
+export const NIGHT = { POWER: 4, BOWL: 6, NEAR_M: 1.5, FAR_M: 3.5, SEEN: [0.3, 1.6], GAIN: 1.09, SKY: 1.6, KEY: 0.55 } as const;
 
 export const GROUND_VERT = /* glsl */ `
 varying vec3 vWorld; varying vec3 vNormal;
@@ -317,7 +317,9 @@ void main() {
       // round it rises), more on a rim and on a drawn stone's top (its own height counts against all six points,
       // ${f3(3 / NIGHT.NEAR_M + 3 / NIGHT.FAR_M)} the sum of their 1 / r), held within ${f3(NIGHT.SEEN[0])} and ${f3(NIGHT.SEEN[1])}.
       if (uNight > 0.0) skySeen = clamp(1.0 - ${f3(NIGHT.BOWL / 6)} * w * (around - ${f3(3 / NIGHT.NEAR_M + 3 / NIGHT.FAR_M)} * s0), ${f3(NIGHT.SEEN[0])}, ${f3(NIGHT.SEEN[1])});
-      albedoVar += w * (0.12 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0
+      // The patches of lighter and darker dust about 5 m across are half of part A's: at their full strength the readers
+      // of D2 saw noise, not ground (18.4).
+      albedoVar += w * (0.06 * (vnoise(vWorld.xz * 0.21) - 0.5) * smoothstep(1.5, 4.0, 4.8 / px) + 0.25 * max(0.0, h0) / 3.0
         + 0.06 * (vnoise(vWorld.xz * 3.1) - 0.5) * smoothstep(1.5, 4.0, 0.32 / px)
         // Grit: the dust's fine grain, a few centimetres across, close to the eye.
         + 0.08 * (vnoise(vWorld.xz * 23.0) - 0.5) * smoothstep(1.5, 4.0, 0.05 / px)) + 0.35 * b0 * rockW + 0.25 * c0 * pebbleW;

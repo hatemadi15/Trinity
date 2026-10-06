@@ -167,7 +167,8 @@ describe('the arrival', () => {
   it('keeps the phone’s first screen short, so the Moon shows under the words: the first sentence and the scroll hint wait for a wider screen (both readers, part C read 1)', () => {
     render(<Arrival words={words} Stage={Stage} />);
     expect(screen.getByText(/one hill can keep them set for weeks\./).className).toMatch(/\bmax-sm:hidden\b/);
-    expect(screen.getByText(/^Earthrise is a browser of landing sites and dates/).className).not.toMatch(/\bmax-sm:hidden\b/);
+    // A forecast, in three short sentences (spec 18.2).
+    expect(screen.getByText(/^Earthrise is a forecast for landing sites and dates\. Pick a place and a day from 2024 to 2036\. See its hours of sunlight/).className).not.toMatch(/\bmax-sm:hidden\b/);
     expect(screen.getByText(/^Scroll to fly down/).className).toMatch(/\bmax-sm:hidden\b/);
   });
 
@@ -184,11 +185,20 @@ describe('the arrival', () => {
   it('follows the scroll: each screen is its beat’s stop, and Skip shows only between the first screen and the last', () => {
     render(<Arrival words={words} Stage={Stage} />);
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
+    // On a phone Skip waits until the first screen has scrolled away whole, so it never covers its words (read D2-2 and
+    // read D3: at three quarters of a screen the intro's last lines were still under it; spec 18.3).
+    scrolled(0.3);
+    expect(screen.getByRole('button', { name: 'Skip' }).className).toMatch(/\bmax-sm:hidden\b/);
+    scrolled(0.75);
+    expect(screen.getByRole('button', { name: 'Skip' }).className).toMatch(/\bmax-sm:hidden\b/);
+    scrolled(1);
+    expect(screen.getByRole('button', { name: 'Skip' }).className).not.toMatch(/\bmax-sm:hidden\b/);
     scrolled(2);
     expect(stage!.progress.current).toBeCloseTo(BEAT_STOPS[2], 6);
     // On a phone Skip sits at the top right, clear of the beats' cards at the foot of the screen (read D2: 13, 17).
     expect(screen.getByRole('button', { name: 'Skip' }).className).toMatch(/\bmax-sm:top-4\b/);
     expect(screen.getByRole('button', { name: 'Skip' }).className).toMatch(/\bmax-sm:bottom-auto\b/);
+    expect(screen.getByRole('button', { name: 'Skip' }).className).not.toMatch(/\bmax-sm:hidden\b/);
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
     // Skip lands on the last screen, the answer after the month at the site.
     expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 6 * window.innerHeight - 2 * window.innerHeight, behavior: 'instant' });

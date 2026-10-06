@@ -117,8 +117,9 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
       for (const line of whyLines(h.site.lat, s, hour)) expect(/has set\b.*\babove the horizon/.test(line), line).toBe(false);
     }
     for (const name of ['Sun', 'Earth'] as const) {
-      expect(heightWords(name, 1.4, 'yes')).toBe(`${name} behind a hill, 1.4° above the horizon`);
-      expect(heightWords(name, 1.4, 'partly')).toBe(`${name} partly behind a hill, 1.4° above the horizon`);
+      // "up", not "above the horizon", which at night reads as the skyline (read D2-2, spec 18.2).
+      expect(heightWords(name, 1.4, 'yes')).toBe(`${name} behind a hill, 1.4° up`);
+      expect(heightWords(name, 1.4, 'partly')).toBe(`${name} partly behind a hill, 1.4° up`);
     }
   });
 

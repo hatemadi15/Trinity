@@ -125,7 +125,7 @@ export function buildGround(field: TerrainField, o: GroundOptions): { meshes: TH
    * A mesh's material. `slots` are the levels its shadows and its light read: its own level first, then the next, then
    * the cap, so far hills always shade it and it never meets finer heights it does not show. `order` places it over
    * the coarser meshes under it. `pixel`: its light from per-pixel slopes of its own heights (the flight level, whose
-   * mesh at every other cell would soften the relief).
+   * mesh at every fourth cell would soften the relief).
    */
   const material = (detail: boolean, holeR: number, order: number, slots: FieldLevel[], pixel = false) =>
     new THREE.ShaderMaterial({
@@ -166,7 +166,7 @@ export function buildGround(field: TerrainField, o: GroundOptions): { meshes: TH
       polygonOffsetFactor: order,
       polygonOffsetUnits: order * 4,
     });
-  /** A level at every other cell (a quarter of the vertices): the cap's ring, and the flight level's mesh. */
+  /** A level at every other cell (a quarter of the vertices): the cap's ring, and twice over the flight level's mesh. */
   const half = (l: FieldLevel): FieldLevel => {
     const cols = Math.floor((l.cols - 1) / 2) + 1, rows = Math.floor((l.rows - 1) / 2) + 1;
     const heights = new Float32Array(cols * rows);
@@ -187,16 +187,18 @@ export function buildGround(field: TerrainField, o: GroundOptions): { meshes: TH
     ground.push(mesh);
   } else {
     const drawn = levels.slice(0, 3);
-    // In flight the 240 m flight level draws between the context and the cap (17.2), at every other cell with its light
-    // from per-pixel slopes; standing, it is never drawn. Each mesh's slots: its level, the next, and the cap last.
+    // In flight the 240 m flight level draws between the context and the cap (17.2), at every fourth cell (960 m, the
+    // cap's own: from the air finer cells shrink under a pixel, and with four samples a pixel the ground's long shader
+    // then runs up to four times a pixel), its light and shadows from its 240 m heights per pixel; standing, it is never
+    // drawn. Each mesh's slots: its level, the next, and the cap last.
     const flightLevel = flight ? field.flight : undefined;
     const list = flightLevel ? [...drawn.slice(0, -1), flightLevel, drawn[drawn.length - 1]] : drawn;
     const slotsOf = (k: number) => [...new Set([list[k], list[k + 1], list[list.length - 1]].filter((l): l is FieldLevel => !!l))];
     let holeR = 0;
     list.forEach((l, k) => {
-      const isFlight = l === flightLevel, last = k === list.length - 1, meshCell = isFlight ? 2 * l.cell : l.cell;
+      const isFlight = l === flightLevel, last = k === list.length - 1, meshCell = isFlight ? 4 * l.cell : l.cell;
       const mat = isFlight ? material(false, holeR, k, slotsOf(k), true) : material(k === 0, holeR, k, slotsOf(k));
-      const { mesh, reachM } = isFlight ? groundMesh(half(l), field.lonDeg, STAND_REACH_M, mat) : groundMesh(l, field.lonDeg, meshReachM(l.cell, last, flight), mat);
+      const { mesh, reachM } = isFlight ? groundMesh(half(half(l)), field.lonDeg, STAND_REACH_M, mat) : groundMesh(l, field.lonDeg, meshReachM(l.cell, last, flight), mat);
       ground.push(mesh);
       if (last) {
         // The cap's ring, in flight, starts two of the cap's cells inside its edge: an overlap, never a gap.
