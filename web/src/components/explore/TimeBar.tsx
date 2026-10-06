@@ -515,7 +515,7 @@ export function TimeBar({
                       radio, if the lander survives the cold
                     </span>
                     <span data-phone="" className="sm:hidden">
-                      radio if the lander survives
+                      radio if it survives the cold
                     </span>
                   </span>
                 )}

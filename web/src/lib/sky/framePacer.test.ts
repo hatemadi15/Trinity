@@ -1,5 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { FramePacer, REST_MS } from './framePacer';
+import { FramePacer, RatioPacer, REST_MS } from './framePacer';
+
+describe('the moving frames’ pixel ratio (the final review of D3: one hitch must not lower it for the visit)', () => {
+  it('ignores one slow frame, lowers the ratio after three in a row by the square root of 40 ms over their mean, and never under 0.45', () => {
+    const p = new RatioPacer(1, 1);
+    expect(p.frame(160)).toBe(1);
+    expect(p.frame(16.7)).toBe(1);
+    expect(p.frame(160)).toBe(1);
+    expect(p.frame(160)).toBe(1);
+    expect(p.frame(160)).toBeCloseTo(0.5, 9);
+    for (let i = 0; i < 3; i++) p.frame(1000);
+    expect(p.ratio).toBe(0.45);
+  });
+
+  it('climbs back a tenth after thirty fast frames in a row, up to the full ratio, and a slow frame starts the count again', () => {
+    const p = new RatioPacer(0.5, 1);
+    for (let i = 0; i < 29; i++) expect(p.frame(16.7)).toBe(0.5);
+    expect(p.frame(16.7)).toBeCloseTo(0.55, 9);
+    for (let i = 0; i < 29; i++) p.frame(16.7);
+    // One slow frame: no drop, but the climb starts its count again.
+    expect(p.frame(60)).toBeCloseTo(0.55, 9);
+    for (let i = 0; i < 29; i++) expect(p.frame(16.7)).toBeCloseTo(0.55, 9);
+    expect(p.frame(16.7)).toBeCloseTo(0.605, 9);
+    for (let i = 0; i < 1000; i++) p.frame(16.7);
+    expect(p.ratio).toBe(1);
+  });
+});
 
 describe('when the stand view draws', () => {
   it('draws every frame while the view or the time moves, at the moving sharpness', () => {

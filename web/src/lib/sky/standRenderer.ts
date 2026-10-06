@@ -13,7 +13,7 @@ import { dirAzEl, enuBasis, meToWorld, type Vec3 } from './frames';
 import { buildGlobe, GLOBE } from './globe';
 import { moonMatrixAt } from './moonOrientation';
 import { EARTH_FRAG, EARTH_VERT, NIGHT, STAR_FRAG, STAR_VERT } from './shaders';
-import { FramePacer } from './framePacer';
+import { FramePacer, movingRatio, RatioPacer } from './framePacer';
 
 import { cachedTexture, releaseCachedTextures } from './textureCache';
 import { placeStars, starColour, starGain, starSize } from './stars';
@@ -979,14 +979,7 @@ const ORDER = { FAINT: 1, SOLID: 2, RINGS: 3, LANDER: 4 } as const;
  */
 const BLENDED = { transparent: false, blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor } as const;
 
-/**
- * A moving frame's pixel ratio from the time the last one took (ms): a chip that keeps the view waiting draws fewer
- * pixels at once. Back to back, the time since the last moving frame is about the chip's time for it, and that goes
- * with the square of the ratio: aim at 40 ms, never under 0.45, never back up while moving (18.4).
- */
-export function movingRatio(ratio: number, dtMs: number): number {
-  return Math.max(0.45, Math.min(ratio, ratio * Math.sqrt(40 / dtMs)));
-}
+export { movingRatio };
 
 /** The camera's exposure setting, before it stops down for bright ground (see the scene's exposure). */
 const EXPOSURE = 1.05;
@@ -1027,6 +1020,8 @@ export class StandRenderer {
   /** The ratio the canvas is drawn at now. */
   private drawnRatio: number;
   private readonly pacer = new FramePacer();
+  /** The moving frames' pixel ratio over the visit: lowered after three slow frames in a row, raised again after thirty fast ones. */
+  private ratios: RatioPacer;
   /** The fence after the last frame. */
   private fence: WebGLSync | null = null;
   /** When the last moving frame was drawn, while the view goes on moving; null once it rests. */
@@ -1071,6 +1066,7 @@ export class StandRenderer {
     this.renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true, logarithmicDepthBuffer: true });
     this.pixelRatio = this.sharpRatio = this.drawnRatio = scene.quality === 'fast' ? 0.75 : Math.min(window.devicePixelRatio || 1, 1.5);
     this.renderer.setPixelRatio(this.pixelRatio);
+    this.ratios = new RatioPacer(this.pixelRatio, this.pixelRatio);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = toneExposure(this.bright, 1);
     // Heights go to the GPU as float32 where it can filter them, else as half floats.
@@ -1276,9 +1272,9 @@ export class StandRenderer {
       return;
     }
     this.samples(this.built.aloft() ? 0 : 4);
-    // A chip that keeps the view waiting draws fewer pixels while the view moves, at once (movingRatio); the words and
-    // the numbers never change.
-    if (this.movedAt !== null && now - this.movedAt > 50) this.pixelRatio = movingRatio(this.pixelRatio, now - this.movedAt);
+    // A chip that keeps the view waiting draws fewer pixels while the view moves (RatioPacer: after three slow frames in
+    // a row, and back up after thirty fast ones); the words and the numbers never change.
+    if (this.movedAt !== null) this.pixelRatio = this.ratios.frame(now - this.movedAt);
     this.movedAt = now;
     if (this.drawnRatio !== this.pixelRatio) this.drawAt(this.pixelRatio);
     this.draw();

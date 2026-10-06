@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { HorizonView } from '@/components/explore/HorizonView';
 import { LanderDialog } from '@/components/explore/LanderDialog';
@@ -126,7 +126,12 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const [cardOpen, setCardOpen] = useState(false);
   // "Change lander" (18.3): the forecast page's lander dialog, opened in place; the focus comes back to the button.
   const [landerOpen, setLanderOpen] = useState(false);
-  const landerRef = useRef<HTMLButtonElement>(null);
+  // The button that opened the dialog, in the row or in a phone's card: the focus comes back to it (the final review).
+  const landerRef = useRef<HTMLButtonElement | null>(null);
+  const openLander = (e: MouseEvent<HTMLButtonElement>) => {
+    landerRef.current = e.currentTarget;
+    setLanderOpen(true);
+  };
   // "Brighter picture" (18.3): twice the exposure, for projectors and bright rooms, kept for the visit.
   const [bright, setBright] = useState(() => readBright());
   useEffect(() => {
@@ -461,7 +466,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   Change date
                 </Link>
                 {/* The forecast page's lander dialog, in place (18.3): "your own lander" from here too. */}
-                <button type="button" ref={landerRef} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setLanderOpen(true)}>
+                <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4" onClick={openLander}>
                   Change lander
                 </button>
                 {better && (
@@ -559,7 +564,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     Hide the words
                   </button>
                   {/* On a phone the row under the status line is not shown: Change lander waits here (18.3). */}
-                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => setLanderOpen(true)}>
+                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={openLander}>
                     Change lander
                   </button>
                   {/* Twice the exposure for projectors and bright rooms (18.3); its words never change with its state. */}

@@ -533,7 +533,8 @@ describe('TimeBar', () => {
     // second line and take 20 px from the scene (18.3): a shorter copy shows there, the same meaning.
     expect(key.querySelector('[data-wide]')!.className).toBe('max-sm:hidden');
     const phone = key.querySelector<HTMLElement>('[data-phone]')!;
-    expect(phone.textContent).toBe('radio if the lander survives');
+    // Keeping 'the cold', which is what the words are for (18.2; the final review of D3).
+    expect(phone.textContent).toBe('radio if it survives the cold');
     expect(phone.className).toBe('sm:hidden');
     expect(key.previousElementSibling).toBe(container.querySelector('[data-part="key-earth"]'));
     expect(container.querySelector('[data-part="key-contact"]')).toBeNull();

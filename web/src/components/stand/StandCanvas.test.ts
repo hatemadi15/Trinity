@@ -593,6 +593,28 @@ describe('the guides', () => {
     expect(STRIP_H).toBe(79);
   });
 
+  it('swaps a new scene into the renderer it has (a lander changed in today’s card) rather than building a new one, whose context and programs would take seconds (the final review)', async () => {
+    const setScene = vi.fn();
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn(), setScene };
+    const make = vi.fn(() => r);
+    const first = props(true, r);
+    const view = render(createElement(StandCanvas, { ...first, createRenderer: make }));
+    await waitFor(() => expect(make).toHaveBeenCalledTimes(1));
+    const changed: StandScene = { ...first.scene, lander: { ...first.scene.lander!, powered: Uint8Array.from([0, 0, 0]) } };
+    view.rerender(createElement(StandCanvas, { ...first, scene: changed, createRenderer: make }));
+    await waitFor(() => expect(setScene).toHaveBeenCalledWith(changed));
+    expect(make).toHaveBeenCalledTimes(1);
+    expect(r.dispose).not.toHaveBeenCalled();
+    // A renderer that cannot take a scene is built again, as before.
+    const plain: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
+    const makePlain = vi.fn(() => plain);
+    const again = render(createElement(StandCanvas, { ...first, createRenderer: makePlain }));
+    await waitFor(() => expect(makePlain).toHaveBeenCalledTimes(1));
+    again.rerender(createElement(StandCanvas, { ...first, scene: changed, createRenderer: makePlain }));
+    await waitFor(() => expect(makePlain).toHaveBeenCalledTimes(2));
+    expect(plain.dispose).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the lander’s feet in sight after a look that asks for it (Turn to Lander), until the view is turned by hand', async () => {
     const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
     const view = render(createElement(StandCanvas, { ...props(true, r), look: { yaw: 30, pitch: -5, fov: 36 } }));

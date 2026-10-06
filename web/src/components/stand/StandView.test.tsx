@@ -762,8 +762,10 @@ describe('StandView', () => {
     expect(asRead(phone.textContent!)).toBe(asRead(wide.textContent!).replace(WATCH_LEAD, WATCH_LEAD_DOTS));
   });
 
-  it('opens the lander dialog in place from Change lander, the verdict follows the lander chosen there, and the focus comes back (18.3)', async () => {
-    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+  it('opens the lander dialog in place from Change lander, the verdict follows the lander chosen there, the view keeps its renderer, and the focus comes back (18.3)', async () => {
+    const setScene = vi.fn();
+    const make = vi.fn(() => ({ ...stub(), setScene }));
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', make);
     const before = screen.getByRole('heading', { level: 1 }).textContent;
     const button = within(screen.getByRole('group', { name: 'Next step' })).getByRole('button', { name: 'Change lander' });
     fireEvent.click(button);
@@ -771,6 +773,20 @@ describe('StandView', () => {
     const other = within(within(dialog).getByRole('radiogroup', { name: 'Lander' })).getAllByRole('radio').find((r) => !(r as HTMLInputElement).checked)!;
     fireEvent.click(other);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).not.toBe(before), { timeout: 20_000 });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(button);
+    // The new lander's scene is swapped into the renderer the view has, not drawn by a new one (the final review).
+    await waitFor(() => expect(setScene).toHaveBeenCalled());
+    expect(make).toHaveBeenCalledTimes(1);
+  });
+
+  it('on a phone, closing the lander dialog opened from today’s card gives the focus back to that button (the final review)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    openCard();
+    const button = within(document.getElementById('stand-card')!).getByRole('button', { name: 'Change lander' });
+    fireEvent.click(button);
+    const dialog = await screen.findByRole('dialog', { name: 'The lander' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(button);

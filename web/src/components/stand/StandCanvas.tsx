@@ -5,7 +5,7 @@ import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
 import { EARTH_LOOP, shadowWords, starLabel } from '@/lib/viz/stand';
 
-export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void; setBright?: (on: boolean) => void };
+export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void; setBright?: (on: boolean) => void; setScene?: (scene: StandScene) => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget {
   yaw: number;
@@ -462,6 +462,19 @@ export function StandCanvas({
   const fitRef = useRef(false);
   // The renderer, for settings that change while it lives: the brighter picture (18.3).
   const rendererRef = useRef<RendererLike | null>(null);
+  // The scene drawn. A new one for the same period (a lander changed in today's card, the mast's height) is swapped into
+  // the renderer the canvas has, once its shaders are built, as the arrival's ground is (setScene): a new renderer, with
+  // its context and its programs, took seconds on each change (the final review). A renderer that cannot take a scene is
+  // built again (`generation`).
+  const sceneRef = useRef(scene);
+  const [generation, setGeneration] = useState(0);
+  useEffect(() => {
+    if (sceneRef.current === scene) return;
+    sceneRef.current = scene;
+    const r = rendererRef.current;
+    if (r?.setScene) r.setScene(scene);
+    else setGeneration((g) => g + 1);
+  }, [scene]);
   const brightRef = useRef(bright);
   useEffect(() => {
     brightRef.current = bright;
@@ -562,7 +575,7 @@ export function StandCanvas({
     if (!el) return;
     let r: RendererLike;
     try {
-      r = createRenderer(el, scene);
+      r = createRenderer(el, sceneRef.current);
     } catch (e) {
       failRef.current(e instanceof Error ? e.message : String(e));
       return;
@@ -593,7 +606,7 @@ export function StandCanvas({
     size();
     window.addEventListener('resize', size);
     // The slope you stand on, over 10 m each way, for the facing line.
-    const hAt = (x: number, z: number) => heightAt(scene.field, x, z);
+    const hAt = (x: number, z: number) => heightAt(sceneRef.current.field, x, z);
     const gx = (hAt(10, 0) - hAt(-10, 0)) / 20, gz = (hAt(0, 10) - hAt(0, -10)) / 20;
     const slope = { grade: Math.hypot(gx, gz), upAz: ((Math.atan2(gx, -gz) * 180) / Math.PI + 360) % 360 };
     let shown = hourRef.current;
@@ -653,6 +666,7 @@ export function StandCanvas({
       return m.dy;
     };
     const tick = (now: number) => {
+      const sc = sceneRef.current;
       const step = (now - last) / 1000;
       const dt = Math.min(0.1, Math.max(0, step));
       last = now;
@@ -725,11 +739,11 @@ export function StandCanvas({
       const sunDx = place(sunRef.current, l.sun);
       const earthDx = place(earthRef.current, l.earth);
       // Zoomed in on the lander, its parts carry their names (and its own name gives way to them).
-      const close = zoomedOnLander(v.fov, v.yaw, scene.lander?.azDeg);
+      const close = zoomedOnLander(v.fov, v.yaw, sc.lander?.azDeg);
       place(landerRef.current, (close && l.parts?.panel.visible) || (H > W && !close) ? null : l.lander);
       // The power light says whether it is lit.
-      const lampNode = lampTextRef.current, hr0 = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));
-      const lampText = `Power light: ${scene.lander && Number(scene.lander.powered[hr0]) === 1 ? 'on' : 'off'}`;
+      const lampNode = lampTextRef.current, hr0 = Math.min(sc.series.hours - 1, Math.max(0, Math.round(shown)));
+      const lampText = `Power light: ${sc.lander && Number(sc.lander.powered[hr0]) === 1 ? 'on' : 'off'}`;
       if (lampNode && lampNode.textContent !== lampText) lampNode.textContent = lampText;
       // Each part's name on the first of its sides clear of the panels, so none is lost behind the card.
       for (const [k, , sides] of PARTS) {
@@ -816,12 +830,12 @@ export function StandCanvas({
         if (n.style.opacity !== o) n.style.opacity = o;
       }
       // The Sun, Earth and the lander on the compass strip: filled while in view, hollow while hidden.
-      const hr = Math.min(scene.series.hours - 1, Math.max(0, Math.round(shown)));
+      const hr = Math.min(sc.series.hours - 1, Math.max(0, Math.round(shown)));
       const where: [Body, number, boolean][] = [
-        ['sun', scene.series.sunAz[hr], scene.series.sunFraction[hr] > 0],
-        ['earth', scene.series.earthAz[hr], scene.series.earthVisible[hr] === 1],
+        ['sun', sc.series.sunAz[hr], sc.series.sunFraction[hr] > 0],
+        ['earth', sc.series.earthAz[hr], sc.series.earthVisible[hr] === 1],
       ];
-      if (scene.lander) where.push(['lander', scene.lander.azDeg, true]);
+      if (sc.lander) where.push(['lander', sc.lander.azDeg, true]);
       for (const [k, az, up] of where) {
         const m = compassMark(az, v.yaw), mark = markRefs.current[k];
         if (mark) {
@@ -831,7 +845,7 @@ export function StandCanvas({
         }
       }
       // What lies beyond either side of the view: a pointer from that edge of the screen, at its height.
-      const els: Record<Body, number> = { sun: scene.series.sunEl[hr], earth: scene.series.earthEl[hr], lander: -12 };
+      const els: Record<Body, number> = { sun: sc.series.sunEl[hr], earth: sc.series.earthEl[hr], lander: -12 };
       const pointers = edgePointers(
         where.map(([k, az]) => ({ key: k, az, el: els[k] })),
         { yaw: v.yaw, pitch, fov: v.fov, W, H, freeTop, freeBottom },
@@ -906,7 +920,7 @@ export function StandCanvas({
         keepOff(node, m, place(node, m), body, taken);
         return node && !node.hidden ? node.getBoundingClientRect() : null;
       });
-      chipsShown(clearOfOwn(chips, pathRefs.current.map((_, k) => scene.marks?.[k]?.body), zones), taken).forEach((on, k) => {
+      chipsShown(clearOfOwn(chips, pathRefs.current.map((_, k) => sc.marks?.[k]?.body), zones), taken).forEach((on, k) => {
         const node = pathRefs.current[k];
         if (node && !on) node.hidden = true;
       });
@@ -921,7 +935,7 @@ export function StandCanvas({
       if (rendererRef.current === r) rendererRef.current = null;
       r.dispose();
     };
-  }, [scene, createRenderer]);
+  }, [createRenderer, generation]);
 
   const release = (id: number) => {
     pointers.current.delete(id);
