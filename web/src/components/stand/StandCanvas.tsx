@@ -7,7 +7,13 @@ import { EARTH_LOOP, shadowWords, starLabel } from '@/lib/viz/stand';
 
 export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
-export interface LookTarget { yaw: number; pitch: number; fov: number }
+export interface LookTarget {
+  yaw: number;
+  pitch: number;
+  fov: number;
+  /** Keep the lander's feet in sight above the bar, as the opening does, until the view is turned by hand (Turn to Lander, 18.3). */
+  fit?: boolean;
+}
 
 /**
  * Degrees the view rests higher (or lower, when negative), so the horizon (the Sun on it) sits where the
@@ -107,18 +113,22 @@ export function pathNameText(body: 'sun' | 'earth', text: string): string {
   return body === 'earth' ? `${text}\n${EARTH_LOOP}` : text;
 }
 
-/** A pointer's words on a phone: the body and how high it stands, short ("Earth 4.4° up", "Earth 1.2° below"). */
+/**
+ * A pointer's words on a phone: the body and how high it stands, short ("Earth 4.4° up", "Earth 1.2° below"). The
+ * label names the hill that hides a body by its direction (18.2); the pointer's arrow says where, so the short form
+ * drops the hill.
+ */
 export function pointerShort(label: string): string {
   return label
-    .replace(/^(\w+) behind a hill, (.+) above the horizon$/, '$1 $2 up')
-    .replace(/^(\w+) behind a hill, on the horizon$/, '$1 on the horizon')
+    .replace(/^(\w+) behind a hill to the [\w-]+, (.+) up$/, '$1 $2 up')
+    .replace(/^(\w+) behind a hill to the [\w-]+, on the horizon$/, '$1 on the horizon')
     .replace(/^(\w+), /, '$1 ')
     .replace(/ below the horizon$/, ' below');
 }
 
-/** A pointer's words: the label's, "above the horizon" behind a hill as "up" ("below the horizon" stays: below what?). */
+/** A pointer's words: the label's, which already says "up" behind a hill and names the hill's direction (18.2); "below the horizon" stays: below what? */
 export function pointerWords(label: string): string {
-  return label.replace(/ behind a hill, (.+) above the horizon$/, ' behind a hill, $1 up');
+  return label;
 }
 
 /** The Southern Cross's four stars, named only while the cross's own name is not shown. */
@@ -156,6 +166,12 @@ export function clearOfOwn(boxes: (Rect | null)[], owners: ('sun' | 'earth' | un
 
 /** The compass strip: 120° of the horizon across 300 px, ticks every 15°, the eight points named; its ticks fade at the ends, and each letter shows whole or not at all (letterShown). */
 const STRIP_W = 300, PX_PER_DEG = STRIP_W / 120;
+/**
+ * The compass plate's height, px: the compass 32, the facing line 24, the key naming the dots 22, and its bottom edge 1
+ * (18.3). The caption's plate in the stand view ends where this one starts, 14 px above the time bar, so the two read
+ * as one plate: its bottom offset is 14 + STRIP_H.
+ */
+export const STRIP_H = 79;
 const STRIP_FADE = 'linear-gradient(to right, transparent, #000 16%, #000 84%, transparent)';
 /** Narrower than this (degrees up and down) the view is zoomed in: the compass says so, and the lander's parts are named. */
 const ZOOMED_FOV = 45;
@@ -391,6 +407,7 @@ export function StandCanvas({
   startFov,
   onExplore,
   place,
+  docked = false,
 }: {
   scene: StandScene;
   hour: number;
@@ -422,6 +439,8 @@ export function StandCanvas({
   onExplore?: () => void;
   /** The site's name: on a phone, whose status line leaves it out, the facing chip names it (read D1). */
   place?: string;
+  /** A caption's plate sits on the compass plate (18.3): the plate is square and open at the top, so the two read as one. */
+  docked?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
@@ -436,6 +455,8 @@ export function StandCanvas({
   // than the view's own pitch it looks for them.
   const openingRef = useRef(true);
   const fitOffset = useRef(0);
+  // A look that keeps the lander's feet in sight as the opening does (LookTarget.fit), until the view is turned by hand.
+  const fitRef = useRef(false);
   const keepRef = useRef(keepInView);
   const subjectRef = useRef(keepSubject);
   const earthRef = useRef<HTMLSpanElement>(null);
@@ -503,17 +524,22 @@ export function StandCanvas({
   useEffect(() => {
     readyRef.current = onReady;
   }, [onReady]);
-  /** The opening view ends: its lower pitch becomes the view's own, so nothing jumps. */
+  /** The opening view ends, or a look that kept the lander's feet in sight: its lower pitch becomes the view's own, so nothing jumps. */
   const endOpening = () => {
-    if (!openingRef.current) return;
+    if (!openingRef.current && !fitRef.current) return;
     view.current.pitch += fitOffset.current;
     fitOffset.current = 0;
     openingRef.current = false;
+    fitRef.current = false;
+    canvas.current?.setAttribute('data-fit', '0');
   };
   useEffect(() => {
     if (!look) return;
     endOpening();
     intro.current = null;
+    // A look that asks for it (Turn to Lander) keeps the lander's feet above the bar as the opening does (18.3).
+    fitRef.current = !!look.fit;
+    canvas.current?.setAttribute('data-fit', look.fit ? '1' : '0');
     // With reduced motion the view is there at once: no camera flight.
     if (reducedRef.current) {
       view.current = { ...look };
@@ -653,11 +679,12 @@ export function StandCanvas({
       // Only near the horizon: looking up keeps its own framing.
       const lift = horizonLift(W, H, v.fov, freeTop, freeBottom) * Math.max(0, Math.min(1, (30 - v.pitch) / 10));
       let pitch = v.pitch + lift;
-      // The opening view looks a little lower if it must, so the lander's feet stay in sight above the bar.
+      // The opening view, and a look that asks for it (Turn to Lander), look a little lower if they must, so the lander's
+      // feet stay in sight above the bar.
       const keep = keepRef.current;
       const keepRel = keep ? Math.abs(((((keep.az - v.yaw + 540) % 360) + 360) % 360) - 180) : 180;
       const halfW = (Math.atan(Math.tan((v.fov * Math.PI) / 360) * (W / H)) * 180) / Math.PI;
-      if (openingRef.current && keep && keepRel < halfW) {
+      if ((openingRef.current || fitRef.current) && keep && keepRel < halfW) {
         // No lower than keeps what the view opens on in sight under the words, and never higher than it was.
         const subject = subjectRef.current;
         const fitted = subject === null || subject === undefined ? fitPitch(H, v.fov, freeBottom, keep.el, pitch) : Math.min(pitch, Math.max(fitPitch(H, v.fov, freeBottom, keep.el, pitch), subjectFloor(H, v.fov, freeTop, subject)));
@@ -952,9 +979,12 @@ export function StandCanvas({
           turn(k[0], k[1], k[2]);
         }}
       />
-      <div aria-hidden="true" hidden={clean} style={{ width: STRIP_W }} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 -translate-x-1/2 text-[#f2f0ea] max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+14px)] max-md:hidden">
-      <div data-plate="" className="relative overflow-hidden rounded-[6px] border border-white/15 bg-black">
-        <div className="relative h-8">
+      {/* The compass plate (18.3): as wide as the caption's plate, which docks on top of it (`docked`: square and open at the
+          top, so the two read as one plate at the foot of the view); the compass strip in its middle, the facing line
+          under it, and a key naming the dots. STRIP_H is its height. */}
+      <div aria-hidden="true" hidden={clean} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 text-[#f2f0ea] max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+14px)] max-md:hidden">
+      <div data-plate="" data-strip="" className={`relative overflow-hidden rounded-[6px] border border-white/15 bg-[#060607]${docked ? ' rounded-t-none border-t-0' : ''}`}>
+        <div className="relative mx-auto h-8" style={{ width: STRIP_W }}>
           {/* The ticks fade at the strip's ends; the letters show whole or not at all (letterShown), so none is cut or faint. */}
           <div className="absolute inset-0" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
             <div ref={trackRef} className="absolute inset-y-0 left-0" style={{ transform: `translateX(${STRIP_W / 2 - (startYaw + 360) * PX_PER_DEG}px)` }}>
@@ -979,21 +1009,27 @@ export function StandCanvas({
               </span>
             ))}
           </div>
+          <i className="absolute left-1/2 top-0 h-8 w-0.5 -translate-x-1/2 bg-white" />
+          {BODIES.map(([k, , colour]) => (
+            <i
+              key={k}
+              data-mark={k}
+              ref={(node) => {
+                markRefs.current[k] = node;
+              }}
+              hidden
+              className={`absolute bottom-0.5 h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 ${colour} data-[up=0]:bg-transparent`}
+            />
+          ))}
         </div>
-        <i className="absolute left-1/2 top-0 h-8 w-0.5 -translate-x-1/2 bg-white" />
-        {BODIES.map(([k, , colour]) => (
-          <i
-            key={k}
-            data-mark={k}
-            ref={(node) => {
-              markRefs.current[k] = node;
-            }}
-            hidden
-            className={`absolute bottom-[calc(100%-30px)] h-2.5 w-2.5 -translate-x-1/2 rounded-full border-2 ${colour} data-[up=0]:bg-transparent`}
-          />
-        ))}
-        <p ref={facingRef} className="pb-1 text-center text-[15px]">
+        <p ref={facingRef} className="pb-1 text-center text-[15px] leading-5">
           {`Facing ${compassWord(startYaw)}`}
+        </p>
+        {/* The dots named, each by its colour (18.3): the Sun's gold, Earth's blue, the lander's white. */}
+        <p data-key="" className="pb-2 text-center text-[14px] leading-none text-[#c3bfb6]">
+          <i className="mr-1 inline-block size-2 rounded-full bg-[#f6b646]" />Sun
+          <i className="ml-3 mr-1 inline-block size-2 rounded-full bg-[#74adff]" />Earth
+          <i className="ml-3 mr-1 inline-block size-2 rounded-full bg-[#f2f0ea]" />lander
         </p>
       </div>
       </div>

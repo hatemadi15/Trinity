@@ -1,19 +1,21 @@
 // @vitest-environment jsdom
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
 import { EARTH_LOOP, starLabel } from '@/lib/viz/stand';
-import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, fitPitch, horizonLift, inflate, labelSides, letterShown, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, subjectFloor, withBody, zoomedOnLander, type RendererLike } from './StandCanvas';
+import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, fitPitch, horizonLift, inflate, labelSides, letterShown, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, STRIP_H, subjectFloor, withBody, zoomedOnLander, type RendererLike } from './StandCanvas';
 
 describe('the pointers on a phone', () => {
   it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
     expect(pointerShort('Earth 4.4° up')).toBe('Earth 4.4° up');
-    expect(pointerShort('Earth behind a hill, 4.4° above the horizon')).toBe('Earth 4.4° up');
+    // The label names the hill's direction (spec 18.2); the pointer's arrow says where, so the short form drops it.
+    expect(pointerShort('Earth behind a hill to the east, 4.4° up')).toBe('Earth 4.4° up');
+    expect(pointerShort('Earth behind a hill to the north-west, 4.4° up')).toBe('Earth 4.4° up');
     expect(pointerShort('Earth, 1.2° below the horizon')).toBe('Earth 1.2° below');
-    expect(pointerShort('Earth behind a hill, on the horizon')).toBe('Earth on the horizon');
+    expect(pointerShort('Earth behind a hill to the east, on the horizon')).toBe('Earth on the horizon');
     expect(pointerShort('Earth, just below the horizon')).toBe('Earth just below');
   });
 });
@@ -221,7 +223,8 @@ describe('the words on a pointer', () => {
   it('keep the height and drop what the arrow already says', () => {
     // "Below what?": the horizon stays.
     expect(pointerWords('Earth, 5.7° below the horizon')).toBe('Earth, 5.7° below the horizon');
-    expect(pointerWords('Sun behind a hill, 1.5° above the horizon')).toBe('Sun behind a hill, 1.5° up');
+    // The label already says "up" behind a hill, and names the hill's direction (spec 18.2): the pointer keeps both.
+    expect(pointerWords('Sun behind a hill to the west, 1.5° up')).toBe('Sun behind a hill to the west, 1.5° up');
     expect(pointerWords('Sun 2.5° up')).toBe('Sun 2.5° up');
     expect(pointerWords('Earth, on the horizon')).toBe('Earth, on the horizon');
   });
@@ -556,13 +559,48 @@ describe('the guides', () => {
     // Opaque, as every plate over the view is, so no path line shows through it (frame 31 of read D1).
     expect(phone.classList.contains('bg-black')).toBe(true);
     const strip = document.querySelector<HTMLElement>('[data-plate].overflow-hidden')!;
-    expect(strip.classList.contains('bg-black')).toBe(true);
+    expect(strip.classList.contains('bg-[#060607]')).toBe(true);
     // Below 1280 px the row sits above the time bar, and the strip above the row.
     expect(strip.parentElement!.className).toContain('max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+14px)]');
     // On a phone the status line leaves the site's name out: the chip says where you stand (both readers of read D1).
     await waitFor(() => expect(phone.textContent).toBe('de Gerlache Rim 2, facing north'));
     // The strip on a wide screen keeps its own words.
     expect([...document.querySelectorAll<HTMLElement>('p')].some((p) => p.textContent === 'Facing north')).toBe(true);
+  });
+
+  it('names the compass’s dots in a key row under the facing line, in a plate the caption docks on from 768 px (spec 18.3)', () => {
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
+    const view = render(createElement(StandCanvas, props(true, r)));
+    const strip = document.querySelector<HTMLElement>('[data-strip]')!;
+    expect(strip).toBeTruthy();
+    // The same ground as the caption's plate, as wide as it; whole on its own.
+    expect(strip.classList.contains('bg-[#060607]')).toBe(true);
+    expect(strip.parentElement!.className).toContain('w-[min(460px,calc(100vw-32px))]');
+    for (const c of ['rounded-t-none', 'border-t-0']) expect(strip.classList.contains(c)).toBe(false);
+    // With a caption over it, square and open at the top, so the caption's plate sits on it as one plate.
+    view.rerender(createElement(StandCanvas, { ...props(true, r), docked: true }));
+    for (const c of ['rounded-t-none', 'border-t-0', 'bg-[#060607]']) expect(strip.classList.contains(c)).toBe(true);
+    const key = strip.querySelector<HTMLElement>('[data-key]')!;
+    expect(key.textContent).toBe('SunEarthlander');
+    expect([...key.querySelectorAll('i')].map((i) => i.className)).toEqual([
+      'mr-1 inline-block size-2 rounded-full bg-[#f6b646]',
+      'ml-3 mr-1 inline-block size-2 rounded-full bg-[#74adff]',
+      'ml-3 mr-1 inline-block size-2 rounded-full bg-[#f2f0ea]',
+    ]);
+    // The compass 32 px, the facing line 24, the key 22, the bottom edge 1: the caption's plate ends where this one starts.
+    expect(STRIP_H).toBe(79);
+  });
+
+  it('keeps the lander’s feet in sight after a look that asks for it (Turn to Lander), until the view is turned by hand', async () => {
+    const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
+    const view = render(createElement(StandCanvas, { ...props(true, r), look: { yaw: 30, pitch: -5, fov: 36 } }));
+    const canvas = document.querySelector('canvas')!;
+    await waitFor(() => expect(canvas.getAttribute('data-fit')).toBe('0'));
+    view.rerender(createElement(StandCanvas, { ...props(true, r), look: { yaw: 30, pitch: -5, fov: 36, fit: true } }));
+    await waitFor(() => expect(canvas.getAttribute('data-fit')).toBe('1'));
+    // A turn by hand ends it, as it ends the opening's fit.
+    fireEvent.keyDown(canvas, { key: 'ArrowLeft' });
+    expect(canvas.getAttribute('data-fit')).toBe('0');
   });
 });
 
