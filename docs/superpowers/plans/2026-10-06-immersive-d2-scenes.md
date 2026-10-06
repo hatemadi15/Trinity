@@ -778,9 +778,306 @@ git commit -m "feat(web): every ground level is cut round and fades its light an
 
 ---
 
-### Tasks 6, 7 and 8: stones, the lander's parts, the night light
+### Task 6: Rocks as stones (subagent)
 
-Written from the prototype (`.claude/jobs/a9458886/tmp/mock_d2/proto/NOTES.md`) before Wave 2 starts, in this plan's step style, each with its failing tests first. Wave 1 does not touch their files (`boulders.ts`, `landerMesh.ts` after Task 3's move, `landerShape.ts`, the night term in `shaders.ts`, the night lights in `standRenderer.ts`).
+The prototype's code is the source: `C:\Users\user\.claude\jobs\a9458886\tmp\mock_d2\proto\d2\lib\sky\boulders.ts` against `proto\now\lib\sky\boulders.ts` (the file as it is in the repo), and `proto\NOTES.md` section 1 for the numbers. Port it test-first: write the tests below, see them fail, then bring the prototype's `rockShape`, `KINDS`, `ROCK`, `SHADE` and the rounding and swells into `web/src/lib/sky/boulders.ts`, keeping the public signatures.
+
+**Files:**
+- Modify: `web/src/lib/sky/boulders.ts`
+- Test: `web/src/lib/sky/boulders.test.ts`
+
+**Interfaces:**
+- Consumes: nothing new.
+- Produces: `export type RockKind = 'block' | 'lump' | 'slab'`; `export const KINDS: Record<RockKind, { share: number; planes: [number, number]; dist: [number, number]; edge: number; noise: number; flat: number; lift: [number, number] }>` with the table below; `export function rockPlanes(next: () => number, kind: RockKind): { n: THREE.Vector3; d: number; closing: boolean }[]` (the planes a rock is cut by, before the solid is made; `closing` marks the ones added to close it); `rockShape(next, kind)`; each rock mesh's `name` is `rock-<kind>`. `boulderMeshes(list, groundY, seed)` and its spheres, `placeBoulders`, pebbles and `BOULDER_GLSL` keep their signatures.
+
+| kind | share | planes | dist | edge k | noise | flat (height / radius) | lift (half-heights) |
+|---|---|---|---|---|---|---|---|
+| block | 0.5 | 11-14 | 0.62-1.0 | 0.035 | 0.035 | 0.75 | 0.15-0.33 |
+| lump | 0.3 | 9-11 | 0.80-1.0 | 0.12 | 0.06 | 0.70 | 0.05-0.25 |
+| slab | 0.2 | 9-12 | 0.70-1.0 | 0.05 | 0.03 | 0.42 | 0.20-0.33 |
+
+`ROCK = { CANDIDATES: 2, APART: 0.42, ANTI: 0.36, COVER: 0.5, DIVIDE: 10, NOISE_F: 1.3 }`; `SHADE = [1.0, 1.15]`.
+
+- [ ] **Step 1: Write the failing tests**
+
+In `web/src/lib/sky/boulders.test.ts`, add (import `KINDS`, `rockPlanes`, `ROCK`, `boulderMeshes`, `placeBoulders` as needed; keep the existing tests, adapting only those that pin the old box shape, each adaptation ledgered as a Ruling):
+
+```ts
+describe('stones, not boxes', () => {
+  const seeded = (seed: number) => {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  it('cuts each rock by 9 to 14 planes in random directions, no two within 24° and no pair within 20.6° of opposite, then closes it', () => {
+    for (const kind of ['block', 'lump', 'slab'] as const) {
+      for (let seed = 1; seed <= 40; seed++) {
+        const planes = rockPlanes(seeded(seed * 7919), kind);
+        const main = planes.filter((p) => !p.closing);
+        expect(main.length).toBeGreaterThanOrEqual(KINDS[kind].planes[0]);
+        expect(main.length).toBeLessThanOrEqual(KINDS[kind].planes[1]);
+        for (let i = 0; i < main.length; i++)
+          for (let j = i + 1; j < main.length; j++) {
+            const a = main[i].n.angleTo(main[j].n);
+            expect(a).toBeGreaterThanOrEqual(ROCK.APART - 1e-9);
+            expect(Math.PI - a).toBeGreaterThanOrEqual(ROCK.ANTI - 1e-9);
+          }
+        // Closed all round: every direction lies within 60° of some plane's normal.
+        for (let k = 0; k < 48; k++) {
+          const y = 1 - (2 * k + 1) / 48, r = Math.sqrt(1 - y * y), t = k * 2.399963;
+          const dir = new THREE.Vector3(r * Math.cos(t), y, r * Math.sin(t));
+          expect(Math.max(...planes.map((p) => p.n.dot(dir)))).toBeGreaterThanOrEqual(ROCK.COVER - 1e-9);
+        }
+      }
+    }
+  });
+
+  it('rounds the edges inward and swells the faces by no more than the kind’s noise, with every corner finite', () => {
+    for (const kind of ['block', 'lump', 'slab'] as const) {
+      for (let seed = 1; seed <= 12; seed++) {
+        const next = seeded(seed * 104729);
+        const planes = rockPlanes(seeded(seed * 104729), kind);
+        const geo = rockShape(next, kind);
+        const pos = geo.getAttribute('position'), nor = geo.getAttribute('normal');
+        const v = new THREE.Vector3();
+        for (let i = 0; i < pos.count; i++) {
+          v.fromBufferAttribute(pos, i);
+          expect(Number.isFinite(v.x + v.y + v.z)).toBe(true);
+          expect(Number.isFinite(nor.getX(i) + nor.getY(i) + nor.getZ(i))).toBe(true);
+          // Within the planes, but for the swell (noise, in the rock's size) and the box fit.
+          expect(Math.max(...planes.map((p) => p.n.dot(v) - p.d)) / Math.max(1e-6, v.length())).toBeLessThanOrEqual(KINDS[kind].noise * 1.5 + 0.02);
+        }
+      }
+    }
+  });
+
+  it('beds each stone a third to a half of its height into the ground, a shade lighter than the dust, named by its kind', () => {
+    const list = placeBoulders(12345, null);
+    const { group } = boulderMeshes(list, () => 0, 12345);
+    expect(group.children.length).toBe(list.length);
+    for (const m of group.children as THREE.Mesh[]) {
+      const kind = m.name.replace('rock-', '') as RockKind;
+      expect(KINDS[kind]).toBeDefined();
+      const hh = m.scale.y, bedded = (0 - (m.position.y - hh)) / (2 * hh);
+      expect(bedded).toBeGreaterThanOrEqual((1 - KINDS[kind].lift[1]) / 2 - 1e-6);
+      expect(bedded).toBeLessThanOrEqual((1 - KINDS[kind].lift[0]) / 2 + 1e-6);
+      const c = (m.material as THREE.MeshStandardMaterial).color;
+      expect(c.r).toBeGreaterThanOrEqual(0x8b / 255 - 1e-6);
+      expect(c.r).toBeLessThanOrEqual((0x8b / 255) * 1.15 + 1e-6);
+    }
+  });
+
+  it('mixes the kinds by their shares over many seeds', () => {
+    const counts = { block: 0, lump: 0, slab: 0 };
+    let total = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const list = placeBoulders(seed, null);
+      for (const m of boulderMeshes(list, () => 0, seed).group.children) {
+        counts[m.name.replace('rock-', '') as RockKind]++;
+        total++;
+      }
+    }
+    for (const kind of ['block', 'lump', 'slab'] as const) expect(Math.abs(counts[kind] / total - KINDS[kind].share)).toBeLessThan(0.08);
+  });
+});
+```
+
+(Write the test with the Write or Edit tool. If `rockShape` is not exported today, export it.)
+
+- [ ] **Step 2: Run them to see them fail**
+
+Run: `cd web && npx vitest run src/lib/sky/boulders.test.ts --maxWorkers=1`
+Expected: FAIL: `rockPlanes`, `KINDS` and `ROCK.APART` undefined.
+
+- [ ] **Step 3: Port the prototype**
+
+Bring the prototype's `KINDS`, `ROCK`, `SHADE`, `rockPlanes` (split out of its `rockShape` so the planes can be tested), the rounding (the planes' smooth maximum, 6 Newton steps) and the swells (`octaves` of the rock's own noise, `NOISE_F` 1.3, 2 octaves) into `boulders.ts`; `boulderMeshes` draws each rock's kind from `next()` by share first, then its shape, names the mesh `rock-<kind>`, beds it by the kind's lift and flat, and shades it 1.0 to 1.15. Keep `rockSurface`, `LONG`, the tilt, the spheres, `placeBoulders`, the pebbles and `BOULDER_GLSL` as they are. Keep the doc comments in the file's voice (plain sentences on what each number does).
+
+- [ ] **Step 4: Run them to see them pass**
+
+Run: `cd web && npx vitest run src/lib/sky/boulders.test.ts src/lib/sky/standRenderer.test.ts --maxWorkers=1`
+Expected: PASS. `npx tsc --noEmit` clean for your files; `npx eslint src/lib/sky/boulders.ts src/lib/sky/boulders.test.ts` clean.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add web/src/lib/sky/boulders.ts web/src/lib/sky/boulders.test.ts
+git commit -m "feat(web): rocks as stones: cut by planes in random directions, rounded, swelling, bedded deeper, in three kinds"
+```
+
+---
+
+### Task 7: A finer lander (subagent)
+
+The prototype's code is the source: `C:\Users\user\.claude\jobs\a9458886\tmp\mock_d2\proto\d2\lib\sky\landerShape.ts` and the lander's part of `proto\d2\lib\sky\standRenderer.ts` (`buildLander`, `landerLook`, `crinkle`, `foilColour`, the textures; diff against `proto\now\lib\sky\standRenderer.ts`), with `proto\NOTES.md` section 2 for every part's size and place. In the repo the lander's mesh now lives in `web/src/lib/sky/landerMesh.ts` (Task 3 moved it there unchanged): port the prototype's `buildLander` and helpers into it, and the shadow shape into `landerShape.ts`, test-first.
+
+**Files:**
+- Modify: `web/src/lib/sky/landerShape.ts`, `web/src/lib/sky/landerMesh.ts`
+- Test: `web/src/lib/sky/landerShape.test.ts`, `web/src/lib/sky/landerMesh.test.ts`
+
+**Interfaces:**
+- Consumes: `buildLander(azDeg, distM, faceAzDeg, earthAzDeg, earthElDeg)` in `landerMesh.ts`; `LANDER`, `LEG_ENDS`, `landerSdf`, `landerClearance`, `LANDER_GLSL` in `landerShape.ts`.
+- Produces:
+  - `landerShape.ts`: `LANDER` with the new fields (`legs: { top: [0.8, 1.15], foot: [1.85, 0.10], r: 0.045, knee: 0.22, corner: [0.86, 0.88], sideR: 0.024, padR: 0.25, padH: 0.07 }`, `tanks: { out: 0.5, y: 0.65, r: 0.19 }`, `pods: { out: 0.881, y: 1.9, size: [0.1, 0.1, 0.14] }`, four `boxes`, `tracker`, `omni`), `LEG_ENDS` entries with `knee` and `corners`, `export const TANKS`, `export const PODS`, `landerSdf` and `LANDER_GLSL` folded into the eighth x >= z >= 0 (17 primitives), `landerClearance` unchanged in signature;
+  - `landerMesh.ts`: `buildLander(...)` returning `{ group, lamp, panel, dish, lampPos, dust }` where `dust: { value: number }` is the shared uniform of the lander's materials (the sunlit dust's fill, `LANDER_LIGHT.DUST` 3 by day); `export const LANDER_LIGHT = { GLINT_MAX: 0.9, GLINT_KNEE: 0.5, DUST: 3 }`; `export function landerDust(sunFraction: number): number` (`1 + (DUST - 1) * sunFraction`); `export function glintCap(l: number): number` (the TypeScript twin of the shader's highlight cap: `l` below the knee unchanged, above it `K + (M - K)(1 - exp((K - l) / (M - K)))`). The renderer wires `dust` in Task 8 (`lander.dust.value = landerDust(v.sunFraction)` in `update()`); do not edit `standRenderer.ts`.
+
+- [ ] **Step 1: Write the failing tests**
+
+In `web/src/lib/sky/landerShape.test.ts` add:
+
+```ts
+describe('the finer lander’s shadow shape', () => {
+  const inside = (p: Vec3, r: number) => expect(landerSdf(p)).toBeLessThanOrEqual(-r + 1e-6);
+  it('holds every leg’s main strut, side struts, pad, tank and pod inside by its radius, in all four quarters', () => {
+    for (const { top, foot, knee, corners } of LEG_ENDS) {
+      for (const t of [0.1, 0.5, 0.9]) inside([top[0] + (foot[0] - top[0]) * t, top[1] + (foot[1] - top[1]) * t, top[2] + (foot[2] - top[2]) * t], LANDER.legs.r);
+      for (const c of corners) for (const t of [0.2, 0.8]) inside([knee[0] + (c[0] - knee[0]) * t, knee[1] + (c[1] - knee[1]) * t, knee[2] + (c[2] - knee[2]) * t], LANDER.legs.sideR);
+      inside([foot[0], LANDER.legs.padH / 2, foot[2]], LANDER.legs.padH / 2);
+    }
+    for (const t of TANKS) inside(t, LANDER.tanks.r);
+    for (const p of PODS) inside(p, 0.05);
+  });
+  it('writes the same shape for the ground shader, folded into one eighth', () => {
+    expect(LANDER_GLSL).toContain('vec3 q = vec3(max(abs(p.x), abs(p.z)), p.y, min(abs(p.x), abs(p.z)));');
+    for (const n of [LANDER.tanks.r, LANDER.legs.sideR, LANDER.pods.size[2] / 2]) expect(LANDER_GLSL).toContain(n.toFixed(3));
+  });
+});
+```
+
+(`TANKS`, `PODS`, `LEG_ENDS`, `LANDER`, `landerSdf`, `LANDER_GLSL` and `Vec3` imported from `./landerShape` and `./frames`.) Keep the file's existing parity test between `landerSdf` and `landerClearance` and the shader string; adapt its expected primitive count if it pins one (a Ruling).
+
+In `web/src/lib/sky/landerMesh.test.ts` add:
+
+```ts
+  it('builds every part inside the bound ball, with the lamp clear of the struts and pods on its face, and the dust’s fill shared', () => {
+    const l = buildLander(90, 16, 0, 70, 4);
+    l.group.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(l.group), c = new THREE.Vector3(...LANDER.bound.c).add(l.group.position);
+    for (const corner of [box.min, box.max]) expect(corner.distanceTo(c)).toBeLessThanOrEqual(LANDER.bound.r + 0.3);
+    let meshes = 0;
+    l.group.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) meshes++;
+    });
+    expect(meshes).toBeGreaterThan(40); // tanks, braced legs, pods, payloads, tracker, omni, louvres, trims
+    expect(l.dust.value).toBe(1);
+    expect(landerDust(1)).toBe(LANDER_LIGHT.DUST);
+    expect(landerDust(0)).toBe(1);
+    // The lamp's bead sits on a face, clear of the pod and the strut's fitting on the diagonal faces.
+    const lamp = l.lampPos.clone(), pods = PODS.map((p) => new THREE.Vector3(...p));
+    for (const p of pods) expect(lamp.distanceTo(p)).toBeGreaterThan(0.12 + 0.07);
+  });
+
+  it('caps the foil’s glints under the bloom threshold: unchanged below the knee, never above the cap, always rising', () => {
+    expect(glintCap(0.3)).toBeCloseTo(0.3, 9);
+    expect(glintCap(0.5)).toBeCloseTo(0.5, 9);
+    expect(glintCap(5)).toBeLessThanOrEqual(LANDER_LIGHT.GLINT_MAX);
+    expect(glintCap(100)).toBeLessThanOrEqual(LANDER_LIGHT.GLINT_MAX);
+    for (let l = 0.5; l < 4; l += 0.1) expect(glintCap(l + 0.1)).toBeGreaterThan(glintCap(l));
+  });
+```
+
+- [ ] **Step 2: Run them to see them fail**
+
+Run: `cd web && npx vitest run src/lib/sky/landerShape.test.ts src/lib/sky/landerMesh.test.ts --maxWorkers=1`
+Expected: FAIL: `TANKS`, `PODS`, `knee`, `dust`, `glintCap` undefined.
+
+- [ ] **Step 3: Port the prototype**
+
+`landerShape.ts`: the new `LANDER` fields, `LEG_ENDS` with `knee` and `corners`, `TANKS`, `PODS`, the folded `landerSdf` and `LANDER_GLSL` (the fold `q = (max(|x|,|z|), y, min(|x|,|z|))`, one capsule for the main strut, one for the side strut on that side of the diagonal, one cylinder for the pad, one ball for the tank, one box for the pod in the diagonal's frame). `landerMesh.ts`: the prototype's `buildLander` (the body's eight flat faces in gold and silver foil with the crinkle maps, the skirt, trims, underside, faceted deck, the radiator's louvres, tanks with rings and struts, the inverted-tripod legs with sleeves, pistons, collars, knee balls and dish feet, the thruster pods and nozzles, the four payloads, the star tracker, the omni antenna, the panel's frame, hinge and brace, 12-sided rods), `landerLook` (the materials with `onBeforeCompile`: `iblIrradiance *= uDust; radiance *= uDust;` after `lights_fragment_maps`, and the highlight cap before `opaque_fragment`, `customProgramCacheKey 'lander-look'`), `crinkle(seed 7)`, `foilColour`, `LANDER_LIGHT`, `landerDust`, `glintCap`. Keep the lamp as it is (the only thing that blooms). Doc comments in the file's voice.
+
+- [ ] **Step 4: Run them to see them pass**
+
+Run: `cd web && npx vitest run src/lib/sky/landerShape.test.ts src/lib/sky/landerMesh.test.ts src/lib/sky/shaders.test.ts src/lib/sky/standRenderer.test.ts --maxWorkers=1`
+Expected: PASS. `npx tsc --noEmit` clean for your files; eslint clean.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add web/src/lib/sky/landerShape.ts web/src/lib/sky/landerShape.test.ts web/src/lib/sky/landerMesh.ts web/src/lib/sky/landerMesh.test.ts
+git commit -m "feat(web): a finer lander: braced legs on dish feet, tanks, thruster pods, payloads, creased foil capped under the bloom, its shadow shape folded to one eighth"
+```
+
+---
+
+### Task 8: The night ground has shape (main session)
+
+The prototype's code is the source: `proto\d2\lib\sky\shaders.ts` (`NIGHT`, the night term) and `applyLight` in `proto\d2\lib\sky\standRenderer.ts`; `proto\NOTES.md` section 3.
+
+**Files:**
+- Modify: `web/src/lib/sky/shaders.ts`, `web/src/lib/sky/standRenderer.ts`
+- Test: `web/src/lib/sky/shaders.test.ts`, `web/src/lib/sky/standRenderer.test.ts`
+
+**Interfaces:**
+- Consumes: Task 7's `lander.dust` and `landerDust` (wired here).
+- Produces: `export const NIGHT = { POWER: 4, BOWL: 6, NEAR_M: 1.5, FAR_M: 3.5, SEEN: [0.3, 1.6], GAIN: 1.09, SKY: 1.6 }` in `shaders.ts`; in `GROUND_FRAG`'s near-detail branch the three `detailH` calls (here, a step east, a step south) and the six night samples round the point (1.5 m at 0, 120 and 240 degrees, 3.5 m at 60, 180 and 300) become one loop, `for (int k = 0; k < (uNight > 0.0 ? 9 : 3) * uOne; k++)`, one call site; at night `skySeen = clamp(1.0 - BOWL / 6 * w * (around - 2.857 * s0), 0.3, 1.6)` (`around` the sum of `(h_k - h0) / r_k`, `s0` the drawn stones' height at the point, 2.857 the sum of the six `1 / r_k`), else 1; the night term `col += albedo * vec3(0.62, 0.63, 0.66) * GAIN * uNight * pow(upSeen, POWER) * skySeen;` with `upSeen = 0.5 + 0.5 * Nn.y`; the renderer's `fillLight` a `HemisphereLight(0xc4c6ca, 0x060607)` with intensity `0.03 + NIGHT.SKY * night`.
+
+- [ ] **Step 1: Write the failing tests**
+
+`web/src/lib/sky/shaders.test.ts` (add `NIGHT` to the import from `./shaders`), inside `describe('the ground shader', …)`:
+
+```ts
+  it('lights the night ground by the sky it sees: slopes by how much they face up, bowls darker than their rims, in one bounded loop', () => {
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toContain('float skySeen = 1.0;');
+    // One loop for the slope's three samples and the night's six, so detailH is written out once in it.
+    expect(main).toContain('for (int k = 0; k < (uNight > 0.0 ? 9 : 3) * uOne; k++)');
+    expect((main.match(/detailH\(/g) ?? []).length).toBeLessThanOrEqual(3);
+    expect(main).toContain(`skySeen = clamp(1.0 - ${(NIGHT.BOWL / 6).toFixed(3)} * w * (around - 2.857 * s0), ${NIGHT.SEEN[0].toFixed(3)}, ${NIGHT.SEEN[1].toFixed(3)});`);
+    expect(main).toContain('float upSeen = 0.5 + 0.5 * Nn.y;');
+    expect(main).toContain(`col += albedo * vec3(0.62, 0.63, 0.66) * ${NIGHT.GAIN.toFixed(3)} * uNight * pow(upSeen, ${NIGHT.POWER.toFixed(1)}) * skySeen;`);
+    expect(main).not.toContain('vec3(0.62, 0.63, 0.66) * uNight;');
+  });
+```
+
+Update the existing test `'lights the ground faintly at night when neither the Sun nor Earth does, as the lander is lit, so it stands on something'` and `'lights the night ground a neutral grey: Earth’s blue only when Earth is up'` where they pin the old string `vec3(0.62, 0.63, 0.66) * uNight` to the new term.
+
+`web/src/lib/sky/standRenderer.test.ts`:
+
+```ts
+  it('lights the rocks and the lander at night from the sky above, tops lighter than sides, and fills the lander’s shade with the sunlit dust by day', () => {
+    const night = { ...series, sunEl: Float64Array.from([-3, -3, -3]), sunFraction: Float64Array.from([0, 0, 0]), earthEl: Float64Array.from([-6, -6, -6]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
+    const s = buildScene(flat({ series: night, lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(0);
+    const fill = s.parts.landerFill as THREE.HemisphereLight;
+    expect(fill).toBeInstanceOf(THREE.HemisphereLight);
+    expect(fill.groundColor.getHex()).toBe(0x060607);
+    expect(fill.intensity).toBeCloseTo(0.03 + NIGHT.SKY * 0.35, 6);
+    expect(s.parts.landerDust!.value).toBe(1);
+    const day = buildScene(flat({ lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    day.update(0);
+    expect((day.parts.landerFill as THREE.HemisphereLight).intensity).toBeCloseTo(0.03, 6);
+    expect(day.parts.landerDust!.value).toBe(LANDER_LIGHT.DUST);
+  });
+```
+
+(`NIGHT` from `./shaders`, `LANDER_LIGHT` from `./landerMesh`; `parts.landerDust` is the lander's shared uniform, added to `parts`.)
+
+- [ ] **Step 2: Run them to see them fail**
+
+Run: `cd web && npx vitest run src/lib/sky/shaders.test.ts src/lib/sky/standRenderer.test.ts --maxWorkers=2`
+Expected: FAIL: `NIGHT` undefined; the fill an `AmbientLight`.
+
+- [ ] **Step 3: Port the prototype**
+
+`shaders.ts`: `NIGHT`; in `main()`, `float skySeen = 1.0;` declared with the margins; the near-detail branch's three `detailH` calls become the prototype's loop (`proto\d2\lib\sky\shaders.ts`, `main()`): `k` 0 to 2 set `h0`, `hx`, `hz` at the offsets `0`, `(e, 0)`, `(0, e)`; `k` 3 to 8, at night only, add `(h - h0) / r_k` to `around` for the ring's six points; then `skySeen = clamp(1.0 - 1.000 * w * (around - 2.857 * s0), 0.300, 1.600);` with `s0` the stones' height at the point; the night term as in the test, with `float upSeen = 0.5 + 0.5 * Nn.y;` just before it. By day the loop gives exactly what the three calls gave. `standRenderer.ts`: `fillLight = new THREE.HemisphereLight(0xc4c6ca, 0x060607, 0)`; `applyLight`: `fillLight.intensity = 0.03 + NIGHT.SKY * night;`; in `update()`: `if (lander) lander.dust.value = landerDust(v.sunFraction);`; `parts.landerDust: lander?.dust ?? null`. Comments in the file's voice.
+
+- [ ] **Step 4: Run them to see them pass**
+
+Run: `cd web && npx vitest run src/lib/sky src/components/stand src/components/home --maxWorkers=2`
+Expected: PASS; tsc and eslint clean.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add web/src/lib/sky/shaders.ts web/src/lib/sky/shaders.test.ts web/src/lib/sky/standRenderer.ts web/src/lib/sky/standRenderer.test.ts
+git commit -m "feat(web): the night ground lit by the sky it sees, bowls darker than rims, rocks and the lander lit from above"
+```
 
 ---
 
