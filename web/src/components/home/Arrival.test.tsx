@@ -185,8 +185,11 @@ describe('the arrival', () => {
   it('follows the scroll: each screen is its beat’s stop, and Skip shows only between the first screen and the last', () => {
     render(<Arrival words={words} Stage={Stage} />);
     expect(screen.queryByRole('button', { name: 'Skip' })).toBeNull();
-    // On a phone Skip waits for the second screen, so it never covers the first screen's words (read D2-2, spec 18.3).
+    // On a phone Skip waits until the first screen has scrolled away whole, so it never covers its words (read D2-2 and
+    // read D3: at three quarters of a screen the intro's last lines were still under it; spec 18.3).
     scrolled(0.3);
+    expect(screen.getByRole('button', { name: 'Skip' }).className).toMatch(/\bmax-sm:hidden\b/);
+    scrolled(0.75);
     expect(screen.getByRole('button', { name: 'Skip' }).className).toMatch(/\bmax-sm:hidden\b/);
     scrolled(1);
     expect(screen.getByRole('button', { name: 'Skip' }).className).not.toMatch(/\bmax-sm:hidden\b/);

@@ -1061,6 +1061,8 @@ export class StandRenderer {
   setBright(on: boolean) {
     this.bright = on;
     this.renderer.toneMappingExposure = toneExposure(on, 1);
+    // A resting view draws its frame again: the pacer's key carries the generation (read D3: the toggle showed no change).
+    this.generation++;
   }
 
   constructor(canvas: HTMLCanvasElement, scene: StandScene) {

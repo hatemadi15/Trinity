@@ -167,7 +167,7 @@ describe('StandView', () => {
     for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Paths', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
     // Today's card waits under More: where you stand, what to watch, the better day, the ways on and the help.
     expect(screen.queryByText(watchNext(st.series!, st.power, st.startUtc, 10))).toBeNull();
-    expect(screen.queryByRole('link', { name: 'Open the full forecast' })).toBeNull();
+    expect(document.getElementById('stand-card')).toBeNull();
     const more = screen.getByRole('button', { name: 'More' });
     expect(more.getAttribute('aria-expanded')).toBe('false');
     openCard();
@@ -183,7 +183,7 @@ describe('StandView', () => {
     // Each span on one line, as the headline's (no-break spaces), so "hours" never wraps onto a line of its own.
     expect(better.textContent).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours');
     expect(better.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
-    expect(screen.getByRole('link', { name: 'Open the full forecast' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    expect(within(document.getElementById('stand-card')!).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     expect(screen.getByText('Drag to look around; pinch or scroll to zoom.')).toBeTruthy();
     // The reasons wait under "Why this happens".
     expect(screen.queryByText(/^Near the Moon's south pole the Sun never climbs high/)).toBeNull();
@@ -280,13 +280,13 @@ describe('StandView', () => {
     const better = await within(document.getElementById('stand-card')!).findByRole('link', { name: /^Try 20 January instead/ });
     expect(better.parentElement!.querySelectorAll('a, button').length).toBe(1);
     const why = screen.getByRole('button', { name: /^Why this happens/ });
-    const back = screen.getByRole('link', { name: 'Open the full forecast' });
+    const back = within(document.getElementById('stand-card')!).getByRole('link', { name: 'Change date' });
     const row = why.parentElement!;
     expect(back.parentElement).toBe(row);
     fireEvent.click(why);
     const after = screen.getByRole('button', { name: /^Why this happens/ });
     expect(after.parentElement).toBe(row);
-    expect([...row.children].indexOf(after)).toBeLessThan([...row.children].indexOf(screen.getByRole('link', { name: 'Open the full forecast' })));
+    expect([...row.children].indexOf(after)).toBeLessThan([...row.children].indexOf(within(document.getElementById('stand-card')!).getByRole('link', { name: 'Change date' })));
   });
 
   it('labels the Sun and Earth as Explore does, and follows the time', async () => {
@@ -663,7 +663,7 @@ describe('StandView', () => {
     // Button words on one line; the better day is a sentence, and wraps inside the card.
     expect(within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead/ }).className).not.toMatch(/\bwhitespace-nowrap\b/);
     expect(screen.getByRole('button', { name: /Why this happens/ }).className).toMatch(/\bwhitespace-nowrap\b/);
-    expect(screen.getByRole('link', { name: 'Open the full forecast' }).className).toMatch(/\bwhitespace-nowrap\b/);
+    expect(within(document.getElementById('stand-card')!).getByRole('link', { name: 'Change date' }).className).toMatch(/\bwhitespace-nowrap\b/);
     // The card scrolls inside itself rather than run under the buttons and the time bar.
     expect(document.getElementById('stand-card')!.className).toMatch(/\boverflow-y-auto\b/);
     fireEvent.click(inCard);
@@ -693,6 +693,8 @@ describe('StandView', () => {
     // The radio as today's card gives it (18.3): the desktop and the card say the same.
     const gold = within(row).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, (radio for \d+\sdays\s\d+\shours|no radio contact)$/ });
     expect(gold.className).toContain('text-[#f6d48a]');
+    // A chevron, as the phone's chip has, so the gold reads as a way on (read D3: the judge took it for a line of text).
+    expect(gold.querySelector('[aria-hidden="true"]')!.textContent!.trim()).toBe('›');
     expect(gold.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
     expect(within(row).getByRole('link', { name: 'Change site' }).getAttribute('href')).toBe('/sites');
     expect(within(row).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
@@ -702,7 +704,7 @@ describe('StandView', () => {
     openCard();
     const card = document.getElementById('stand-card')!;
     expect(within(card).getByRole('link', { name: /radio for/ }).closest('div')!.className).toMatch(/\bmd:hidden\b/);
-    expect(within(card).getByRole('link', { name: 'Open the full forecast' }).className).toMatch(/\bmd:hidden\b/);
+    expect(within(card).getByRole('link', { name: 'Change date' }).className).toMatch(/\bmd:hidden\b/);
     expect(within(card).getByRole('button', { name: 'Change lander' }).className).toMatch(/\bmd:hidden\b/);
   });
 
@@ -726,6 +728,19 @@ describe('StandView', () => {
     // It lands on the better day in place, as the row's link does.
     fireEvent.click(chip);
     await waitFor(() => expect(window.location.search).toMatch(/start=2027-01-20/), { timeout: 10_000 });
+  });
+
+  it('on a phone puts the chip away while today’s card is open, which carries the better day itself, and gives the card Change site and Compare sites (17.1; read D3)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    expect(document.querySelector('a[data-chip]')).toBeTruthy();
+    openCard();
+    expect(document.querySelector('a[data-chip]')).toBeNull();
+    const card = document.getElementById('stand-card')!;
+    expect(within(card).getByRole('link', { name: 'Change site' }).getAttribute('href')).toBe('/sites');
+    expect(within(card).getByRole('link', { name: 'Change site' }).className).toMatch(/\bmd:hidden\b/);
+    expect(within(card).getByRole('button', { name: 'Compare sites' }).className).toMatch(/\bmd:hidden\b/);
+    fireEvent.click(screen.getByRole('button', { name: 'Less' }));
+    expect(document.querySelector('a[data-chip]')).toBeTruthy();
   });
 
   it('shows no chip when no landing day is better', async () => {

@@ -447,6 +447,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     className={`${LOOK.replace('whitespace-nowrap ', '')} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
                   >
                     {better.label}
+                    <span aria-hidden="true"> ›</span>
                   </a>
                 ) : (
                   <button type="button" onClick={compare} className={`${LOOK} border-[#f6d48a]/55 text-[#f6d48a]`}>
@@ -470,9 +471,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 )}
               </div>
             </div>
-            {better && (
+            {better && !cardOpen && (
               // A phone's first screen keeps the better day in sight (18.3): one gold chip under the plate, a link to that
-              // landing, 32 px tall at 14 px so the scene keeps 55 % of the screen; from 768 px the row's gold button has it.
+              // landing, 32 px tall at 14 px so the scene keeps 55 % of the screen; from 768 px the row's gold button has it,
+              // and while today's card is open the card has it in full (read D3), so the chip waits.
               <a
                 data-chip=""
                 href={better.href}
@@ -541,10 +543,17 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                       {more ? '▴' : '▾'}
                     </span>
                   </button>
-                  {/* From 768 px "Change date" in the row under the status line goes there instead. */}
-                  <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
-                    Open the full forecast
+                  {/* On a phone the next step waits here (17.1), by the names the readers looked for (read D3): from 768 px the
+                      row under the status line holds them instead. */}
+                  <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
+                    Change site
                   </Link>
+                  <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
+                    Change date
+                  </Link>
+                  <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
+                    Compare sites
+                  </button>
                   {/* On a phone the row above the time bar has no room for it: it waits here. */}
                   <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => setWordsHidden(true)}>
                     Hide the words

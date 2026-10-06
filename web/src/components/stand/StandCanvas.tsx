@@ -1043,6 +1043,7 @@ export function StandCanvas({
           <i className="mr-1 inline-block size-2 rounded-full bg-[#f6b646]" />Sun
           <i className="ml-3 mr-1 inline-block size-2 rounded-full bg-[#74adff]" />Earth
           <i className="ml-3 mr-1 inline-block size-2 rounded-full bg-[#f2f0ea]" />lander
+          <i className="ml-3 mr-1 inline-block size-2 rounded-full border-2 border-[#c3bfb6]" />below the horizon
         </p>
       </div>
       </div>

@@ -581,11 +581,13 @@ describe('the guides', () => {
     view.rerender(createElement(StandCanvas, { ...props(true, r), docked: true }));
     for (const c of ['rounded-t-none', 'border-t-0', 'bg-[#060607]']) expect(strip.classList.contains(c)).toBe(true);
     const key = strip.querySelector<HTMLElement>('[data-key]')!;
-    expect(key.textContent).toBe('SunEarthlander');
+    // A hollow dot stands for a body below the horizon (read D3: the teacher found Earth's hollow circle unexplained).
+    expect(key.textContent).toBe('SunEarthlanderbelow the horizon');
     expect([...key.querySelectorAll('i')].map((i) => i.className)).toEqual([
       'mr-1 inline-block size-2 rounded-full bg-[#f6b646]',
       'ml-3 mr-1 inline-block size-2 rounded-full bg-[#74adff]',
       'ml-3 mr-1 inline-block size-2 rounded-full bg-[#f2f0ea]',
+      'ml-3 mr-1 inline-block size-2 rounded-full border-2 border-[#c3bfb6]',
     ]);
     // The compass 32 px, the facing line 24, the key 22, the bottom edge 1: the caption's plate ends where this one starts.
     expect(STRIP_H).toBe(79);
