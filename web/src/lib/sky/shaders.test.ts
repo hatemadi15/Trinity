@@ -1,9 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { LANDER_GLSL } from './landerShape';
-import { CRATER, craterLook, craterShape, GROUND_FRAG, HIDE_FADE, hiddenShare, STAR_FRAG } from './shaders';
+import { CRATER, craterLook, craterShape, GROUND_FRAG, HIDE_FADE, hiddenShare, NIGHT, STAR_FRAG } from './shaders';
 import { hiddenShadowShare, SHADOW_GLSL } from './shadowRule';
 
 describe('the ground shader', () => {
+
+  it('lights the night ground by the sky it sees: slopes by how much they face up, bowls darker than their rims, in one bounded loop', () => {
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toContain('float skySeen = 1.0;');
+    // One loop for the slope's three samples and the night's six, so detailH is written out once in it.
+    expect(main).toContain('for (int k = 0; k < (uNight > 0.0 ? 9 : 3) * uOne; k++)');
+    expect((main.match(/detailH\(/g) ?? []).length).toBeLessThanOrEqual(3);
+    expect(main).toContain(`skySeen = clamp(1.0 - ${(NIGHT.BOWL / 6).toFixed(3)} * w * (around - 2.857 * s0), ${NIGHT.SEEN[0].toFixed(3)}, ${NIGHT.SEEN[1].toFixed(3)});`);
+    expect(main).toContain('float upSeen = 0.5 + 0.5 * Nn.y;');
+    expect(main).toContain(`col += albedo * vec3(0.62, 0.63, 0.66) * ${NIGHT.GAIN.toFixed(3)} * uNight * pow(upSeen, ${NIGHT.POWER.toFixed(1)}) * skySeen;`);
+    expect(main).not.toContain('vec3(0.62, 0.63, 0.66) * uNight;');
+    expect(NIGHT.NEAR_M).toBeLessThan(NIGHT.FAR_M);
+    expect(Math.abs(3 / NIGHT.NEAR_M + 3 / NIGHT.FAR_M - 2.857)).toBeLessThan(0.001);
+  });
 
   it('cuts each level round and fades its edge into the next level’s light and shadows, the two shadows in one march', () => {
     const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
@@ -284,6 +298,6 @@ describe('the ground shader', () => {
   });
 
   it('lights the night ground a neutral grey: Earth’s blue only when Earth is up', () => {
-    expect(GROUND_FRAG).toContain('vec3(0.62, 0.63, 0.66) * uNight');
+    expect(GROUND_FRAG).toContain(`vec3(0.62, 0.63, 0.66) * ${NIGHT.GAIN.toFixed(3)} * uNight`);
   });
 });

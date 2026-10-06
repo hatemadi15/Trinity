@@ -5,6 +5,7 @@ import type { SkyAssets } from '@/lib/data/sky';
 import type { GlobeAssets } from '@/lib/data/globe';
 import { R_MOON_M } from '@/lib/engine/constants';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
+import { NIGHT } from './shaders';
 import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS } from './boulders';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
@@ -52,6 +53,19 @@ function wideLevels() {
 }
 
 describe('the stand scene', () => {
+
+  it('lights the rocks and the lander at night from the sky above, tops lighter than sides, and only faintly by day', () => {
+    const night = { ...series, sunEl: Float64Array.from([-3, -3, -3]), sunFraction: Float64Array.from([0, 0, 0]), earthEl: Float64Array.from([-6, -6, -6]), earthVisible: Uint8Array.from([0, 0, 0]) } as Series;
+    const s = buildScene(flat({ series: night, lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    s.update(0);
+    const fill = s.parts.landerFill as THREE.HemisphereLight;
+    expect(fill).toBeInstanceOf(THREE.HemisphereLight);
+    expect(fill.groundColor.getHex()).toBe(0x060607);
+    expect(fill.intensity).toBeCloseTo(0.03 + NIGHT.SKY * 0.35, 6);
+    const day = buildScene(flat({ lander: { azDeg: 60, distM: 16, powered: Uint8Array.from([1, 1, 1]) } }));
+    day.update(0);
+    expect((day.parts.landerFill as THREE.HemisphereLight).intensity).toBeCloseTo(0.03, 6);
+  });
   it('puts the Sun, Earth and stars on the sky sphere, in the directions of the hour', () => {
     const s = buildScene(flat());
     s.update(0);

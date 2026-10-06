@@ -12,7 +12,7 @@ import { earthAxes, earthLitFraction } from './earth';
 import { dirAzEl, enuBasis, meToWorld, type Vec3 } from './frames';
 import { buildGlobe, GLOBE } from './globe';
 import { moonMatrixAt } from './moonOrientation';
-import { EARTH_FRAG, EARTH_VERT, STAR_FRAG, STAR_VERT } from './shaders';
+import { EARTH_FRAG, EARTH_VERT, NIGHT, STAR_FRAG, STAR_VERT } from './shaders';
 import { FramePacer } from './framePacer';
 
 import { cachedTexture, releaseCachedTextures } from './textureCache';
@@ -450,9 +450,10 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // The Sun; the sunlit dust's light from below, which fills the lander's shaded sides (as in the Apollo
   // photographs); and Earth's faint blue light.
   const sunLight = new THREE.DirectionalLight(0xffffff, 0), skyLight = new THREE.HemisphereLight(0x0a0a0c, 0x8a857c, 0), earthLight = new THREE.AmbientLight(0x8aa7ff, 0);
-  // A neutral fill: faint by day, and at night the light that stands for eyes adapting to the dark (grey,
-  // not Earth's blue, which comes only with Earth).
-  const fillLight = new THREE.AmbientLight(0xc4c6ca, 0);
+  // A neutral fill: faint by day, and at night the light that stands for eyes adapting to the dark (grey, not Earth's
+  // blue, which comes only with Earth), from the sky above and next to none from the ground below (NIGHT.SKY), so the
+  // rocks' and the lander's tops are lighter than their sides, as the ground is lit (17.5).
+  const fillLight = new THREE.HemisphereLight(0xc4c6ca, 0x060607, 0);
   root.add(sunLight, sunLight.target, skyLight, earthLight, fillLight);
   // In flight (the home page's arrival) the camera is no one standing at the site: no person's shadow at its feet.
   if (flight) for (const g of ground) (g.material as THREE.ShaderMaterial).uniforms.uViewer.value.set(1e9, 0, 1e9);
@@ -573,7 +574,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     // Earth's blue light only while Earth is up; the neutral fill, faint by day, and at night enough for the
     // shapes to show when neither the Sun nor Earth lights them (the ground gets the same).
     earthLight.intensity = 0.5 * earthshine;
-    fillLight.intensity = 0.03 + night;
+    // NIGHT.SKY times as strong as the flat fill was: a top faces all of the sky, an upright side half of it.
+    fillLight.intensity = 0.03 + NIGHT.SKY * night;
   }
   function update(t: number) {
     const v = sampleSeries(scene.series, t);
