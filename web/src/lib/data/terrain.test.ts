@@ -8,7 +8,10 @@ import {
   CAP_SITE_HALF_PX,
   contextFileFor,
   decodeHeightmap,
+  flightFileFor,
+  flightLevel,
   latLonToPixel,
+  loadFlight,
   shadowLevels,
   loadHeightmap,
   loadTerrainManifest,
@@ -69,6 +72,31 @@ describe('contextFileFor', () => {
     expect(contextFileFor(manifest, 'deep')).toEqual({ file: 'deep.context.u16', meta: 'deep.context.json' });
     expect(contextFileFor(manifest, 'far')).toBeNull();
     expect(contextFileFor(manifest, 'nowhere')).toBeNull();
+  });
+});
+
+describe('flightFileFor', () => {
+  const manifest = {
+    version: 3,
+    windows: [
+      { site_id: 'hero', lat: -88.28, lon: -64.31, file: 'hero.u16', meta: 'hero.json', level: 'L0', cell_m: 20, width: 4, height: 4, bytes: 1, flight: { file: 'hero.flight.u16', meta: 'hero.flight.json', cell_m: 240, width: 4, height: 4 } },
+      { site_id: 'deep', lat: -89.5, lon: 0, file: 'deep.u16', meta: 'deep.json', level: 'L0', cell_m: 20, width: 4, height: 4, bytes: 1 },
+    ],
+    cap: { file: 'south_cap.u16', meta: 'south_cap.json' },
+    globe_texture: 'lroc_color_2k.jpg',
+  } satisfies TerrainManifest;
+  it('names the flight level of the arrival’s site, and nothing for any other site', () => {
+    expect(flightFileFor(manifest, 'hero')).toEqual({ file: 'hero.flight.u16', meta: 'hero.flight.json' });
+    expect(flightFileFor(manifest, 'deep')).toBeNull();
+    expect(flightFileFor(manifest, 'nowhere')).toBeNull();
+  });
+  it('turns a loaded flight level into a shadow level with its own site pixel, and nothing into nothing', () => {
+    const hm: Heightmap = {
+      meta: { site_id: 'hero', lat: -88.28, lon: -64.31, kind: 'flight', source: 's', level: 'L2', cell_m: 240, width: 4, height: 4, row0: 0, col0: 0, min_m: 0, max_m: 0, scale_m_per_unit: 1, site_height_m: 0, line_offset_px: 0, sample_offset_px: 0, site_row_px: 1.5, site_col_px: 2.25 },
+      heightsM: new Float32Array(16).fill(7),
+    };
+    expect(flightLevel(hm)).toMatchObject({ width: 4, height: 4, pxM: 240, siteCol: 2.25, siteRow: 1.5 });
+    expect(flightLevel(null)).toBeNull();
   });
 });
 
@@ -209,6 +237,22 @@ describe.skipIf(!present)('terrain loaders over HTTP', () => {
     expect(hm.meta.site_id).toBe('im2_athena');
     expect(hm.heightsM.length).toBe(hm.meta.width * hm.meta.height);
     await expect(loadHeightmap(base, 'nope.u16', 'nope.json')).rejects.toMatchObject({ name: 'DataError', status: 404 });
+  });
+
+  it('loads the arrival’s flight level when the data has it, and gives null for a mirror without the file', async () => {
+    const manifest = await loadTerrainManifest(base);
+    const hero = manifest.windows.find((w) => w.site_id === 'de_gerlache_rim_2');
+    if (hero?.flight) {
+      const hm = await loadFlight(base, manifest, 'de_gerlache_rim_2');
+      expect(hm?.meta.kind).toBe('flight');
+      expect(hm?.meta.cell_m).toBe(240);
+      const { lat, lon } = pixelToLatLon(hm!.meta, hm!.meta.site_col_px, hm!.meta.site_row_px);
+      expect(Math.abs(lat - hm!.meta.lat)).toBeLessThan(1e-3);
+      expect(Math.abs(lon - hm!.meta.lon)).toBeLessThan(1e-3);
+    }
+    const missing = { ...manifest, windows: manifest.windows.map((w) => (w.site_id === 'de_gerlache_rim_2' ? { ...w, flight: { file: 'gone.u16', meta: 'gone.json', cell_m: 240, width: 1, height: 1 } } : w)) };
+    await expect(loadFlight(base, missing, 'de_gerlache_rim_2')).resolves.toBeNull();
+    await expect(loadFlight(base, manifest, 'shackleton_center')).resolves.toBeNull();
   });
 });
 

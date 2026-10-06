@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { loadGlobeAssets, type GlobeAssets } from '@/lib/data/globe';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
-import { contextFileFor, loadHeightmap, loadTerrainManifest, shadowLevels, windowFileFor, type Heightmap } from '@/lib/data/terrain';
+import { contextFileFor, flightLevel, loadFlight, loadHeightmap, loadTerrainManifest, shadowLevels, windowFileFor, type Heightmap } from '@/lib/data/terrain';
 import type { Level } from '@/lib/engine/shadow';
 import { flightKeys, polePoint, poseAt, siteEndHour, siteTrack, type Key, type PathInput } from '@/lib/sky/arrivalPath';
 import { hourAt, LANDED } from '@/lib/sky/arrivalTiming';
@@ -28,7 +28,7 @@ export type ArrivalRenderer = Pick<StandRenderer, 'setTime' | 'setPose' | 'setSc
 export interface ArrivalLoaders {
   sky: () => Promise<SkyAssets>;
   globe: () => Promise<GlobeAssets>;
-  terrain: () => Promise<{ cap: Heightmap; window: Heightmap | null; context: Heightmap | null }>;
+  terrain: () => Promise<{ cap: Heightmap; window: Heightmap | null; context: Heightmap | null; flight: Heightmap | null }>;
 }
 /** 960 m cells each way round the site: the cap reaches 460 km, so shadows out to 200 km have their hills. */
 export const ARRIVAL_CAP_HALF_PX = 480;
@@ -39,12 +39,13 @@ export function browserArrivalLoaders(siteId: string, base = dataBase()): Arriva
     globe: () => loadGlobeAssets(base),
     terrain: async () => {
       const m = await loadTerrainManifest(base), w = windowFileFor(m, siteId), c = contextFileFor(m, siteId);
-      const [cap, window, context] = await Promise.all([
+      const [cap, window, context, flight] = await Promise.all([
         loadHeightmap(base, m.cap.file, m.cap.meta),
         w ? loadHeightmap(base, w.file, w.meta) : Promise.resolve(null),
         c ? loadHeightmap(base, c.file, c.meta).catch(() => null) : Promise.resolve(null),
+        loadFlight(base, m, siteId),
       ]);
-      return { cap, window, context };
+      return { cap, window, context, flight };
     },
   };
 }
@@ -66,11 +67,11 @@ const isTall = () => typeof window !== 'undefined' && window.innerHeight > windo
 const fast = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('quality') === 'fast';
 const newRenderer = (canvas: HTMLCanvasElement, scene: StandScene): ArrivalRenderer => new StandRenderer(canvas, scene);
 
-/** The scene for what has loaded: the sky and the globe, then the measured ground with the lander once it comes. */
-export function arrivalScene(h: Hero, sky: SkyAssets, globe: GlobeAssets, levels: Level[] | null): StandScene {
+/** The scene for what has loaded: the sky and the globe, then the measured ground (and the flight level, when the data has it) with the lander once it comes. */
+export function arrivalScene(h: Hero, sky: SkyAssets, globe: GlobeAssets, levels: Level[] | null, flight: Level | null = null): StandScene {
   const ground = !!levels && levels.length > 0;
   return {
-    field: ground ? terrainField(levels!, h.site.lon, h.siteHeightM) : flatField(h.site.lon),
+    field: ground ? terrainField(levels!, h.site.lon, h.siteHeightM, flight) : flatField(h.site.lon),
     mask: { az0: 0, step: 360 / h.mask.length, el: h.mask },
     series: h.series,
     startUtc: h.startUtc,
@@ -217,7 +218,8 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
   const nightRef = useRef<HTMLSpanElement>(null);
   const [sky, setSky] = useState<SkyAssets | null>(null);
   const [globe, setGlobe] = useState<GlobeAssets | null>(null);
-  const [levels, setLevels] = useState<Level[] | null>(null);
+  // The measured ground's levels, and the flight level beside them (null without one: the arrival flies as before).
+  const [ground, setGround] = useState<{ levels: Level[]; flight: Level | null } | null>(null);
   const failRef = useRef(onFail), liveRef = useRef(onLive);
   useEffect(() => {
     failRef.current = onFail;
@@ -236,7 +238,7 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
     );
     // The measured ground is an extra: without it the flight goes on over the globe.
     load.terrain().then(
-      (t) => alive && setLevels(shadowLevels(h.site, t.window, t.context, t.cap, ARRIVAL_CAP_HALF_PX)),
+      (t) => alive && setGround({ levels: shadowLevels(h.site, t.window, t.context, t.cap, ARRIVAL_CAP_HALF_PX), flight: flightLevel(t.flight) }),
       () => {},
     );
     return () => {
@@ -244,7 +246,7 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
     };
   }, [load, h]);
 
-  const scene = useMemo(() => (sky && globe ? arrivalScene(h, sky, globe, levels) : null), [h, sky, globe, levels]);
+  const scene = useMemo(() => (sky && globe ? arrivalScene(h, sky, globe, ground?.levels ?? null, ground?.flight ?? null) : null), [h, sky, globe, ground]);
   const sceneRef = useRef(scene);
   const rRef = useRef<ArrivalRenderer | null>(null);
   useEffect(() => {
