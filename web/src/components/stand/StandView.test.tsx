@@ -195,7 +195,7 @@ describe('StandView', () => {
     // The key names only what the bar draws: here no radio contact while the lander has power, only the
     // contact after the night, if it survives it.
     expect(screen.queryByText('radio contact')).toBeNull();
-    expect(screen.getByText('radio, if it survives the night')).toBeTruthy();
+    expect(screen.getByText('radio, if the lander survives the cold')).toBeTruthy();
     // The key moments are flags on the time bar, not a panel of their own.
     expect(screen.queryByRole('group', { name: 'Key moments' })).toBeNull();
     for (const m of keyMoments(st.series!, st.power, st.startUtc)) expect(screen.getByRole('button', { name: `${m.label}, ${m.day}` })).toBeTruthy();
