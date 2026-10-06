@@ -35,39 +35,51 @@ export function sunFraction(f: TerrainField, x: number, y: number, z: number, su
 /**
  * The same rule for the ground's fragment shader, over three height textures (finest first); `uSteps` and
  * `uGrowth` come from the quality setting. `uOne` is always 1: a loop whose length depends on a uniform
- * cannot be unrolled, which keeps Windows' shader compiler from spending a minute on it. `uMinLevel` is the level of the mesh being drawn: its rays read
- * that level and coarser ones only, so a coarse mesh is never shaded by fine heights it does not show.
+ * cannot be unrolled, which keeps Windows' shader compiler from spending a minute on it. Each mesh's three slots start
+ * at its own level (groundLevels.ts), so its rays read that level and coarser ones only, and a coarse mesh is never
+ * shaded by fine heights it does not show.
  */
 export const SHADOW_GLSL = /* glsl */ `
-uniform sampler2D uH0, uH1, uH2; uniform vec3 uL0, uL1, uL2; uniform vec2 uS0, uS1, uS2; uniform vec2 uCS; uniform int uLevels, uSteps, uMinLevel, uOne; uniform float uGrowth;
+uniform sampler2D uH0, uH1, uH2; uniform vec3 uL0, uL1, uL2; uniform vec2 uS0, uS1, uS2; uniform vec2 uCS; uniform int uLevels, uSteps, uOne; uniform float uGrowth;
 vec2 toMap(vec2 xz) { float n = -xz.y; return vec2(xz.x * uCS.x + n * uCS.y, -xz.x * uCS.y + n * uCS.x); }
 float lev(sampler2D t, vec3 L, vec2 S, vec2 m, out bool inside) {
   float c = L.x + m.x / L.z, r = L.y - m.y / L.z;
   inside = c > 1.0 && r > 1.0 && c < S.x - 2.0 && r < S.y - 2.0;
   return textureLod(t, vec2((c + 0.5) / S.x, (r + 0.5) / S.y), 0.0).r;
 }
-float heightAt(vec2 xz) {
+// The first of the mesh's slots, from the given one on, that holds the point: slot 0 is the mesh's own level, then the
+// next, then the cap, so a coarse mesh never meets fine heights it does not show.
+float heightAt(vec2 xz, int from) {
   vec2 m = toMap(xz); bool ins; float h;
   if (uLevels == 0) return -dot(m, m) / (2.0 * 1737400.0);
-  if (uMinLevel <= 0) { h = lev(uH0, uL0, uS0, m, ins); if (ins) return h; }
-  if (uLevels > 1 && uMinLevel <= 1) { h = lev(uH1, uL1, uS1, m, ins); if (ins) return h; }
+  if (from <= 0) { h = lev(uH0, uL0, uS0, m, ins); if (ins) return h; }
+  if (uLevels > 1 && from <= 1) { h = lev(uH1, uL1, uS1, m, ins); if (ins) return h; }
   if (uLevels > 2) { h = lev(uH2, uL2, uS2, m, ins); if (ins) return h; }
   return -1.0e6;
 }
-float cellAt(vec2 xz) {
+float cellAt(vec2 xz, int from) {
   vec2 m = toMap(xz); bool ins;
   if (uLevels == 0) return 20.0;
-  if (uMinLevel <= 0) { lev(uH0, uL0, uS0, m, ins); if (ins) return uL0.z; }
-  if (uLevels > 1 && uMinLevel <= 1) { lev(uH1, uL1, uS1, m, ins); if (ins) return uL1.z; }
+  if (from <= 0) { lev(uH0, uL0, uS0, m, ins); if (ins) return uL0.z; }
+  if (uLevels > 1 && from <= 1) { lev(uH1, uL1, uS1, m, ins); if (ins) return uL1.z; }
   return uLevels > 2 ? uL2.z : (uLevels > 1 ? uL1.z : uL0.z);
+}
+// The ground's normal in the world from one slot's heights (map metres m), its slope taken across k cells either way.
+vec3 slopeNormal(sampler2D t, vec3 L, vec2 S, vec2 m, float k) {
+  bool ins; float c = L.z * k;
+  float gx = (lev(t, L, S, m + vec2(c, 0.0), ins) - lev(t, L, S, m - vec2(c, 0.0), ins)) / (2.0 * c);
+  float gy = (lev(t, L, S, m + vec2(0.0, c), ins) - lev(t, L, S, m - vec2(0.0, c), ins)) / (2.0 * c);
+  // The map's slope turned into the world as worldOf turns map metres: x = mx cos - my sin, z = -(mx sin + my cos).
+  vec2 g = vec2(gx * uCS.x - gy * uCS.y, -(gx * uCS.y + gy * uCS.x));
+  return normalize(vec3(-g.x, 1.0, -g.y));
 }
 // The angle (radians) by which the Sun's centre clears the steepest rise of the ground towards it.
 float sunMargin(vec3 p, vec3 sun) {
   float horiz = length(sun.xz); float elSun = atan(sun.y, horiz); vec2 dir = sun.xz / horiz;
-  float maxTan = -10.0; float t = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz));
+  float maxTan = -10.0; float t = max(${SHADOW.T0_MIN_M.toFixed(1)}, ${SHADOW.T0_CELLS} * cellAt(p.xz, 0));
   for (int i = 0; i < ${SHADOW.STEPS} * uOne; i++) {
     if (i >= uSteps) break;
-    float h = heightAt(p.xz + dir * t); if (h < ${SHADOW.OUTSIDE_BELOW_M.toFixed(1)}) break;
+    float h = heightAt(p.xz + dir * t, 0); if (h < ${SHADOW.OUTSIDE_BELOW_M.toFixed(1)}) break;
     maxTan = max(maxTan, (h - p.y - ${SHADOW.TOL_M}) / t);
     t *= uGrowth; if (t > ${SHADOW.MAX_M.toFixed(1)}) break;
   }

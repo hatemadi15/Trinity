@@ -67,7 +67,7 @@ export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
 uniform vec3 uSun, uEarth; uniform float uEarthshine, uDetail, uFarDetail, uSunPower; uniform vec2 uHole;
-uniform float uLanderOn, uSunUp, uBounce, uNight, uFarCut; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
+uniform float uLanderOn, uSunUp, uBounce, uNight, uFarCut, uPixel; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
 ${SHADOW_GLSL}
 ${HIDE_GLSL}
 ${BOULDER_GLSL}
@@ -244,6 +244,9 @@ void main() {
   if (abs(m.x) < uHole.x && abs(m.y) < uHole.y) discard; // a finer level draws here
   if (dot(m, m) > uFarCut * uFarCut) discard; // beyond this the globe, or the far skyline, draws
   vec3 N0 = normalize(vNormal), Nn = N0;
+  // The flight level's light from its own heights, per pixel: its mesh, at every other cell, would soften the relief.
+  if (uPixel > 0.5) N0 = slopeNormal(uH0, uL0, uS0, m, 1.0);
+  Nn = N0;
   vec3 Ls = normalize(uSun), V = normalize(cameraPosition - vWorld);
   float dist = length(vWorld - cameraPosition);
   // The shadows, as margins: the measured ground's (its ray starts from the measured ground, not the drawn

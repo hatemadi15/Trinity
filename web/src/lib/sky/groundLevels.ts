@@ -91,26 +91,39 @@ export interface GroundOptions {
 
 /**
  * The measured ground's meshes, finest first, the cap last (with its coarser ring after it in flight), or flat ground on
- * the curved Moon for a field without levels. Every mesh shares the three height textures and reads its shadows from
- * its own level and the coarser ones.
+ * the curved Moon for a field without levels. Each mesh reads its shadows and its light from its own three height
+ * slots: its level, the next one, and the cap last (one texture a level, shared).
  */
 export function buildGround(field: TerrainField, o: GroundOptions): { meshes: THREE.Mesh[]; cap: THREE.Mesh | null; capRing: THREE.Mesh | null } {
   const { fast, flight, halfFloat } = o;
   const levels = field.levels;
-  // The measured ground: up to three levels as height textures (for the shadows) and meshes (to see).
-  const tex = [0, 1, 2].map((i) => heightTexture(levels[i], halfFloat));
-  const lv = (i: number) => new THREE.Vector3(levels[i]?.siteCol ?? 0, levels[i]?.siteRow ?? 0, levels[i]?.cell ?? 1);
-  const sz = (i: number) => new THREE.Vector2(levels[i]?.cols ?? 1, levels[i]?.rows ?? 1);
+  // One height texture a level, shared by every mesh that reads it, and a 1-by-1 stand-in for an empty slot.
+  const textures = new Map<FieldLevel, THREE.DataTexture>();
+  const none = heightTexture(undefined, false);
+  const texOf = (l: FieldLevel | undefined) => {
+    if (!l) return none;
+    let t = textures.get(l);
+    if (!t) textures.set(l, (t = heightTexture(l, halfFloat)));
+    return t;
+  };
+  const lv = (l: FieldLevel | undefined) => new THREE.Vector3(l?.siteCol ?? 0, l?.siteRow ?? 0, l?.cell ?? 1);
+  const sz = (l: FieldLevel | undefined) => new THREE.Vector2(l?.cols ?? 1, l?.rows ?? 1);
   const c = Math.cos(field.lonDeg * DEG), s = Math.sin(field.lonDeg * DEG);
-  const material = (detail: boolean, hole: number, level: number) =>
+  /**
+   * A mesh's material. `slots` are the levels its shadows and its light read: its own level first, then the next, then
+   * the cap, so far hills always shade it and it never meets finer heights it does not show. `order` places it over
+   * the coarser meshes under it. `pixel`: its light from per-pixel slopes of its own heights (the flight level, whose
+   * mesh at every other cell would soften the relief).
+   */
+  const material = (detail: boolean, hole: number, order: number, slots: FieldLevel[], pixel = false) =>
     new THREE.ShaderMaterial({
       uniforms: {
-        uH0: { value: tex[0] }, uH1: { value: tex[1] }, uH2: { value: tex[2] },
-        uL0: { value: lv(0) }, uL1: { value: lv(1) }, uL2: { value: lv(2) },
-        uS0: { value: sz(0) }, uS1: { value: sz(1) }, uS2: { value: sz(2) },
+        uH0: { value: texOf(slots[0]) }, uH1: { value: texOf(slots[1]) }, uH2: { value: texOf(slots[2]) },
+        uL0: { value: lv(slots[0]) }, uL1: { value: lv(slots[1]) }, uL2: { value: lv(slots[2]) },
+        uS0: { value: sz(slots[0]) }, uS1: { value: sz(slots[1]) }, uS2: { value: sz(slots[2]) },
         uCS: { value: new THREE.Vector2(c, s) },
-        uLevels: { value: Math.min(3, levels.length) },
-        uMinLevel: { value: level },
+        uLevels: { value: slots.length },
+        uPixel: { value: pixel ? 1 : 0 },
         uSteps: { value: fast ? SHADOW_FAST.STEPS : SHADOW.STEPS },
         uOne: { value: 1 },
         uViewer: { value: new THREE.Vector3(0, o.viewerY, 0) },
@@ -134,10 +147,17 @@ export function buildGround(field: TerrainField, o: GroundOptions): { meshes: TH
       },
       vertexShader: GROUND_VERT,
       fragmentShader: GROUND_FRAG,
-      polygonOffset: level > 0,
-      polygonOffsetFactor: level,
-      polygonOffsetUnits: level * 4,
+      polygonOffset: order > 0,
+      polygonOffsetFactor: order,
+      polygonOffsetUnits: order * 4,
     });
+  /** A level at every other cell (a quarter of the vertices): the cap's ring, and the flight level's mesh. */
+  const half = (l: FieldLevel): FieldLevel => {
+    const cols = Math.floor((l.cols - 1) / 2) + 1, rows = Math.floor((l.rows - 1) / 2) + 1;
+    const heights = new Float32Array(cols * rows);
+    for (let r = 0; r < rows; r++) for (let k = 0; k < cols; k++) heights[r * cols + k] = l.heights[2 * r * l.cols + 2 * k];
+    return { cols, rows, cell: 2 * l.cell, siteCol: l.siteCol / 2, siteRow: l.siteRow / 2, heights };
+  };
   const ground: THREE.Mesh[] = [];
   // The cap's own mesh, and in flight the coarser ring round it.
   let cap: THREE.Mesh | null = null, capRing: THREE.Mesh | null = null;
@@ -147,31 +167,33 @@ export function buildGround(field: TerrainField, o: GroundOptions): { meshes: TH
     const p = geo.getAttribute('position');
     for (let i = 0; i < p.count; i++) p.setY(i, -(p.getX(i) ** 2 + p.getZ(i) ** 2) / (2 * R_MOON_M));
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, material(true, 0, 0));
+    const mesh = new THREE.Mesh(geo, material(true, 0, 0, []));
     mesh.frustumCulled = false;
     ground.push(mesh);
   } else {
-    let hole = 0;
     const drawn = levels.slice(0, 3);
-    drawn.forEach((l, i) => {
-      const { mesh, reachM } = groundMesh(l, field.lonDeg, meshReachM(l.cell, i === drawn.length - 1, flight), material(i === 0, hole, i));
+    // In flight the 240 m flight level draws between the context and the cap (17.2), at every other cell with its light
+    // from per-pixel slopes; standing, it is never drawn. Each mesh's slots: its level, the next, and the cap last.
+    const flightLevel = flight ? field.flight : undefined;
+    const list = flightLevel ? [...drawn.slice(0, -1), flightLevel, drawn[drawn.length - 1]] : drawn;
+    const slotsOf = (k: number) => [...new Set([list[k], list[k + 1], list[list.length - 1]].filter((l): l is FieldLevel => !!l))];
+    let hole = 0;
+    list.forEach((l, k) => {
+      const isFlight = l === flightLevel;
+      const { mesh, reachM } = isFlight
+        ? groundMesh(half(l), field.lonDeg, STAND_REACH_M, material(false, hole, k, slotsOf(k), true))
+        : groundMesh(l, field.lonDeg, meshReachM(l.cell, k === list.length - 1, flight), material(k === 0, hole, k, slotsOf(k)));
       ground.push(mesh);
-      // The next, coarser level starts two of this level's cells inside its edge: an overlap, never a gap.
-      hole = Math.max(0, reachM - 2 * l.cell);
+      // The next, coarser level starts two of this mesh's cells inside its edge: an overlap, never a gap.
+      hole = Math.max(0, reachM - 2 * (isFlight ? 2 * l.cell : l.cell));
     });
     cap = ground[ground.length - 1];
     if (flight) {
       // From 900 km over the pole the view spans some 330 km each way: the cap goes on to 460 km in cells twice as
       // wide (a quarter of the vertices), so the month's sweep is all measured ground, sharper than the globe's
       // maps, whose rows bunch up at the pole.
-      const l = drawn[drawn.length - 1], cols = Math.floor((l.cols - 1) / 2) + 1, rows = Math.floor((l.rows - 1) / 2) + 1;
-      const heights = new Float32Array(cols * rows);
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) heights[r * cols + c] = l.heights[2 * r * l.cols + 2 * c];
-      const m = material(false, hole, drawn.length - 1);
-      m.polygonOffset = true;
-      m.polygonOffsetFactor += 1;
-      m.polygonOffsetUnits += 4;
-      capRing = groundMesh({ cols, rows, cell: 2 * l.cell, siteCol: l.siteCol / 2, siteRow: l.siteRow / 2, heights }, field.lonDeg, RING_REACH_M, m).mesh;
+      const l = drawn[drawn.length - 1];
+      capRing = groundMesh(half(l), field.lonDeg, RING_REACH_M, material(false, hole, list.length, [l])).mesh;
       ground.push(capRing);
     }
   }

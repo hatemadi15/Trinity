@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { LANDER_GLSL } from './landerShape';
 import { CRATER, craterLook, craterShape, GROUND_FRAG, HIDE_FADE, hiddenShare, STAR_FRAG } from './shaders';
-import { hiddenShadowShare } from './shadowRule';
+import { hiddenShadowShare, SHADOW_GLSL } from './shadowRule';
 
 describe('the ground shader', () => {
+
+  it('reads heights from a slot on, each mesh from its own, and takes the flight level’s light from per-pixel slopes of its heights', () => {
+    expect(SHADOW_GLSL).toMatch(/float heightAt\(vec2 xz, int from\)/);
+    expect(SHADOW_GLSL).toMatch(/float cellAt\(vec2 xz, int from\)/);
+    expect(SHADOW_GLSL).toMatch(/vec3 slopeNormal\(sampler2D t, vec3 L, vec2 S, vec2 m, float k\)/);
+    expect(SHADOW_GLSL).not.toContain('uMinLevel');
+    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
+    expect(main).toContain('if (uPixel > 0.5) N0 = slopeNormal(uH0, uL0, uS0, m, 1.0);');
+  });
   it('fades each size of drawn crater by how many pixels it covers, so craters smaller than a pixel never sparkle', () => {
     // The footprint is taken once, outside every branch (derivatives are undefined in non-uniform flow).
     const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));

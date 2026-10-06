@@ -28,4 +28,33 @@ describe('the measured ground', () => {
     expect(flat.meshes).toHaveLength(1);
     expect(flat.cap).toBeNull();
   });
+
+  /** The cell sizes in a mesh's three slots, by its uniforms, for as many slots as it has. */
+  const slots = (m: THREE.Mesh) => [u(m).uL0.value.z, u(m).uL1.value.z, u(m).uL2.value.z].slice(0, u(m).uLevels.value);
+  const flightLevel = () => ({ heights: new Float32Array(1024 * 1024).fill(100), width: 1024, height: 1024, pxM: 240, siteCol: 511.5, siteRow: 511.5 });
+
+  it('gives each mesh its own height slots: its level, the next, and the cap last, so far hills always shade it', () => {
+    const g = buildGround(terrainField(levels(), 0, 100), { fast: false, flight: false, halfFloat: false, viewerY: 2 });
+    expect(g.meshes.map(slots)).toEqual([[20, 80, 960], [80, 960], [960]]);
+    expect(g.meshes.map((m) => u(m).uPixel.value)).toEqual([0, 0, 0]);
+    // One texture for each level, shared by every mesh that reads it.
+    expect(u(g.meshes[0]).uH2.value).toBe(u(g.meshes[2]).uH0.value);
+  });
+
+  it('draws the flight level in flight between the context and the cap, at every other cell, its light from per-pixel slopes', () => {
+    const field = terrainField(levels(), 0, 100, flightLevel());
+    const g = buildGround(field, { fast: false, flight: true, halfFloat: false, viewerY: 2 });
+    expect(g.meshes).toHaveLength(5);
+    expect(g.meshes.slice(0, 4).map(slots)).toEqual([[20, 80, 960], [80, 240, 960], [240, 960], [960]]);
+    expect(g.cap).toBe(g.meshes[3]);
+    expect(g.capRing).toBe(g.meshes[4]);
+    expect(g.meshes.map((m) => u(m).uPixel.value)).toEqual([0, 0, 1, 0, 0]);
+    const p = g.meshes[2].geometry.getAttribute('position');
+    let reach = 0;
+    for (let i = 0; i < p.count; i++) reach = Math.max(reach, Math.abs(p.getX(i)), Math.abs(p.getZ(i)));
+    expect(reach).toBeGreaterThan(115000);
+    expect(Math.hypot(p.getX(1) - p.getX(0), p.getZ(1) - p.getZ(0))).toBeCloseTo(480, 3);
+    // Standing (the stand view), the flight level is never drawn.
+    expect(buildGround(field, { fast: false, flight: false, halfFloat: false, viewerY: 2 }).meshes).toHaveLength(3);
+  });
 });

@@ -173,11 +173,6 @@ describe('the stand scene', () => {
     expect(a.sun.y).toBeGreaterThan(l.sun.y);
   });
 
-  it('traces each mesh’s shadows in its own level or coarser ones, so the coarse ground never meets the fine heights it does not show', () => {
-    const s = buildScene(flat({ field: terrainField(levels(), 0, 100) }));
-    expect(s.parts.ground.map((g) => (g.material as THREE.ShaderMaterial).uniforms.uMinLevel.value)).toEqual([0, 1, 2]);
-  });
-
   it('stores heights outside every level as a finite value below the shadow rule’s cut-off, in half floats too', () => {
     const out = toTextureHeights(Float32Array.from([12.5, -1e6]), true) as Uint16Array;
     expect(THREE.DataUtils.fromHalfFloat(out[0])).toBeCloseTo(12.5, 2);
