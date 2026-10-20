@@ -20,9 +20,10 @@ const dark = (power: Pick<PowerConfig, 'batteryWh' | 'loadW'>) => `${spanWords(b
 function Choice({ name, checked, onChange, title, note }: { name: string; checked: boolean; onChange: () => void; title: string; note: string }) {
   return (
     <label className={`flex min-h-[52px] cursor-pointer items-center gap-3 rounded-lg border px-4 py-2.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-sun-ink ${checked ? 'border-ink bg-surface-2' : 'border-line-strong'}`}>
-      <input type="radio" name={name} checked={checked} onChange={onChange} className="h-4 w-4 accent-[var(--ink)]" />
+      {/* A no-break space keeps each number in the title with its unit where it wraps; the name read out keeps plain spaces, as the lander buttons' names do. */}
+      <input type="radio" name={name} checked={checked} onChange={onChange} aria-label={`${title} ${note}`} className="h-4 w-4 accent-[var(--ink)]" />
       <span>
-        <span className="font-medium text-ink">{title}</span>
+        <span className="font-medium text-ink">{title.replace(/(\d) /g, '$1\u00a0')}</span>
         <span className="text-ink-2"> {note}</span>
       </span>
     </label>

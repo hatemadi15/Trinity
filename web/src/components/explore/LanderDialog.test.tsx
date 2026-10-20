@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_PARAMS } from '@/lib/store/explore';
 import { LanderDialog } from './LanderDialog';
 
-/** The words as a reader meets them: the no-break space that keeps a number with its sign reads as a plain one. */
+/** The words as a reader meets them: the no-break space that keeps a number with its sign or its unit reads as a plain one. */
 const asRead = (text: string) => text.replace(/\u00a0/g, ' ');
 
 function open(params = DEFAULT_PARAMS) {
@@ -21,10 +21,14 @@ describe('LanderDialog', () => {
     const dialog = screen.getByRole('dialog', { name: 'The lander' });
     const presets = within(dialog).getByRole('radiogroup', { name: 'Lander' });
     expect(within(presets).getAllByRole('radio').map((r) => (r as HTMLInputElement).checked)).toEqual([true, false, false, false]);
-    expect(presets.textContent).toMatch(/Small lander: 4 m² panel, uses 200 W, 2 kWh battery.*10 hours at night/);
-    expect(presets.textContent).toMatch(/Medium lander: 8 m² panel, uses 400 W, 20 kWh battery/);
-    expect(presets.textContent).toMatch(/Large lander: 20 m² panel, uses 500 W, 50 kWh battery.*4 days 4 hours at night/);
-    expect(presets.textContent).toMatch(/Custom/);
+    const words = asRead(presets.textContent!);
+    expect(words).toMatch(/Small lander: 4 m² panel, uses 200 W, 2 kWh battery.*10 hours at night/);
+    expect(words).toMatch(/Medium lander: 8 m² panel, uses 400 W, 20 kWh battery/);
+    expect(words).toMatch(/Large lander: 20 m² panel, uses 500 W, 50 kWh battery.*4 days 4 hours at night/);
+    expect(words).toMatch(/Custom/);
+    // Where a title wraps, a no-break space keeps each number with its unit; the radio's name keeps plain spaces.
+    const small = screen.getByRole('radio', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery (10 hours at night)' });
+    expect(small.closest('label')!.textContent).toBe('Small lander: 4\u00a0m² panel, uses 200\u00a0W, 2\u00a0kWh battery (10 hours at night)');
     // The three share one panel, so it is said once, under the heading, with the number kept with its sign.
     expect(asRead(dialog.textContent!)).toContain('Pick one, or set your own numbers. All three ready-made landers use a 30 % panel.');
     expect(dialog.textContent).toContain('30\u00a0% panel');

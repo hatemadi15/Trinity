@@ -94,7 +94,12 @@ describe('CompareView', () => {
     const store = await open();
     expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
     expect(screen.getByRole('main').textContent).toMatch(/Up to four landing sites side by side, for the same days and the same lander, landing on the first day\./);
-    expect(screen.getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' })).toBeTruthy();
+    const lander = screen.getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' });
+    const nameSpan = lander.querySelector('span')!;
+    // As in Explore's band, the name wraps rather than being cut, and a no-break space keeps each number with its unit; the accessible name keeps plain spaces.
+    expect(lander.className.split(' ')).toEqual(expect.arrayContaining(['h-auto', 'min-h-[52px]', 'py-2']));
+    expect(nameSpan.className.split(' ')).not.toContain('truncate');
+    expect([nameSpan.textContent, lander.getAttribute('aria-label')]).toEqual(['Small lander: 4\u00a0m² panel, uses 200\u00a0W, 2\u00a0kWh battery', 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change']);
     for (const id of ['shackleton_center', 'de_gerlache_center', 'im1_odysseus', 'im2_athena']) await store.getState().addToCompare(id);
     await waitFor(() => expect((screen.getByRole('combobox', { name: 'Add a site' }) as HTMLSelectElement).disabled).toBe(true));
     expect(screen.getByRole('main').textContent).toMatch(/Four sites is the most this page compares/);

@@ -77,9 +77,10 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
               onClick={() => setLanderOpen(true)}
               aria-haspopup="dialog"
               aria-label={`${landerName(s.params.power)}. Change`}
-              className="field flex min-w-0 items-center gap-3 text-left text-base text-ink"
+              className="field flex h-auto min-h-[52px] min-w-0 items-center gap-3 py-2 text-left text-base text-ink"
             >
-              <span className="grow truncate">{landerName(s.params.power)}</span>
+              {/* As in Explore's band, the name wraps rather than being cut, which would hide the battery, and a no-break space keeps each number with its unit. */}
+              <span className="grow">{landerName(s.params.power).replace(/(\d) /g, '$1\u00a0')}</span>
               <span className={TAG}>change</span>
             </button>
           </div>
