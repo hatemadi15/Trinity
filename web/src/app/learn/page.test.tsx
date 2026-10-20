@@ -45,6 +45,18 @@ describe('How it works', () => {
     expect(steps[4].textContent).toMatch(/Accuracy/);
   });
 
+  it('says how it runs offline, under its own heading, where the home page’s "run it offline" link lands', () => {
+    render(<LearnPage />);
+    const offline = screen.getByRole('region', { name: 'Running it offline' });
+    expect(offline.id).toBe('offline');
+    expect(offline.textContent).toMatch(/Everything is computed in the browser/);
+    expect(offline.textContent).toMatch(/with the Wi-Fi off/);
+    expect(offline.textContent).toMatch(/The live re-check against JPL Horizons on the Accuracy page is the one thing that needs a connection\./);
+    expect(within(offline).getByRole('link', { name: /README/ }).getAttribute('href')).toBe('https://github.com/hatemadi15/Trinity#readme');
+    // The page still ends on the steps and their one gold way in.
+    expect(offline.compareDocumentPosition(screen.getByRole('list', { name: 'Five steps' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('ends on one gold way in, to the site list, and has no Learn mode', () => {
     render(<LearnPage />);
     const gold = screen.getByRole('main').querySelectorAll('.btn-primary');

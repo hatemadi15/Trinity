@@ -186,7 +186,7 @@ export default function Home() {
               <p className="mt-2.5 max-w-[40em] text-lg text-ink-2">
                 Pick a site near the south pole, or any point you choose, and a date. Earthrise shows its sunlight, its contact with Earth and its battery, hour by hour.
               </p>
-              {/* The ways on from a site, in one sentence. "Run it offline" goes to How it works until that page has a section on it (the steps are in docs/hosting.md). */}
+              {/* The ways on from a site, in one sentence. "Run it offline" lands on that section of How it works. */}
               <p className="mt-3 max-w-[40em] text-lg text-ink-2">
                 Then{' '}
                 <Link href="/compare" className={LINK}>
@@ -201,7 +201,7 @@ export default function Home() {
                   print the brief
                 </Link>
                 , or{' '}
-                <Link href="/learn" className={LINK}>
+                <Link href="/learn#offline" className={LINK}>
                   run it offline
                 </Link>{' '}
                 on a laptop.

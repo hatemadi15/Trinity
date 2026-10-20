@@ -211,7 +211,7 @@ describe('home page', () => {
       ['compare sites', '/compare'],
       ['ask in plain words', '/explore#ask'],
       ['print the brief', '/brief'],
-      ['run it offline', '/learn'],
+      ['run it offline', '/learn#offline'],
     ]);
     for (const a of links) expect(a.className).toMatch(/(^| )underline( |$)/);
   });
