@@ -983,10 +983,14 @@ export { movingRatio };
 
 /** The camera's exposure setting, before it stops down for bright ground (see the scene's exposure). */
 const EXPOSURE = 1.05;
-/** "Brighter picture" (18.3): one stop more, for projectors and bright rooms. */
-const BRIGHT_GAIN = 2;
+/**
+ * "Brighter picture" (18.3): for projectors and bright rooms. One stop (×2) read as slight to both readers of D3,
+ * the night term's tone mapping compressing it, so 19.4 makes it a stop and a half (×3); the day frame keeps its
+ * own stopping down under it (sceneExposure as low as 0.35 looking down-Sun), which holds the clipping.
+ */
+const BRIGHT_GAIN = 3;
 
-/** The tone mapping's exposure for a frame: the camera's setting, doubled for a brighter picture, times the scene's own stopping down. */
+/** The tone mapping's exposure for a frame: the camera's setting, tripled for a brighter picture, times the scene's own stopping down. */
 export function toneExposure(bright: boolean, sceneExposure: number): number {
   return EXPOSURE * (bright ? BRIGHT_GAIN : 1) * sceneExposure;
 }

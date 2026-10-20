@@ -74,10 +74,10 @@ describe('the stand scene', () => {
     expect(day.parts.keyLight.intensity).toBe(0);
   });
 
-  it('doubles the exposure for a brighter picture (projectors, spec 18.3), keeping the camera’s own stopping down under it', () => {
+  it('triples the exposure for a brighter picture (projectors, spec 19.4: the doubling of 18.3 read as slight), keeping the camera’s own stopping down under it', () => {
     expect(toneExposure(false, 1)).toBeCloseTo(1.05, 6);
-    expect(toneExposure(true, 1)).toBeCloseTo(2.1, 6);
-    expect(toneExposure(true, 0.6)).toBeCloseTo(2 * toneExposure(false, 0.6), 9);
+    expect(toneExposure(true, 1)).toBeCloseTo(3.15, 6);
+    expect(toneExposure(true, 0.6)).toBeCloseTo(3 * toneExposure(false, 0.6), 9);
   });
 
   it('marches the rings\u2019 second shadows only within 5 km of the ground: in flight above that the ground keeps its own shadows at the cuts', () => {
