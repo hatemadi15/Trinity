@@ -24,11 +24,14 @@ describe('PeriodBand', () => {
     // The name wraps at every width rather than being cut, as it carries the lander's numbers and a cut name would hide the battery;
     // the fields keep one bottom edge, so a lander on two lines grows upward and pushes no other field off line.
     const landerButton = landerControl();
+    const nameSpan = landerButton.querySelector('span')!;
     expect(landerButton.className).toMatch(/(^| )h-auto( |$)/);
     expect(landerButton.className).toMatch(/(^| )min-h-\[52px\]( |$)/);
     expect(landerButton.className).toMatch(/(^| )py-2( |$)/);
-    expect(landerButton.querySelector('span')!.className).not.toMatch(/(^| )(truncate|overflow-hidden|whitespace-nowrap)( |$)/);
+    expect(nameSpan.className).not.toMatch(/(^| )(truncate|overflow-hidden|whitespace-nowrap)( |$)/);
     expect(band.className).toMatch(/(^| )items-end( |$)/);
+    // Where the name wraps, a no-break space keeps each number with its unit, as it keeps "30 %" together; the accessible name keeps plain spaces.
+    expect([nameSpan.textContent, landerButton.getAttribute('aria-label')]).toEqual(['Small lander: 4\u00a0m² panel, uses 200\u00a0W, 2\u00a0kWh battery', 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change']);
   });
 
   it('opens the lander settings and passes period changes on', () => {

@@ -62,8 +62,9 @@ export function PeriodBand({
         <div className="flex min-w-0 flex-[1.8_1_250px] flex-col gap-1.5 text-[15px] text-ink-2">
           <span aria-hidden="true">Lander</span>
           <button ref={landerRef} type="button" onClick={onLander} aria-haspopup="dialog" aria-label={`${lander}. Change`} className="field flex h-auto min-h-[52px] min-w-0 items-center gap-3 py-2 text-left text-base text-ink">
-            {/* The name wraps at every width, not only on a phone: it now carries the lander's name and its numbers, and a cut name would hide the battery. */}
-            <span className="grow">{lander}</span>
+            {/* The name wraps at every width, not only on a phone: it now carries the lander's name and its numbers, and a cut name would hide the battery.
+                A no-break space keeps each number with its unit, as it keeps "30 %" together, so a line never ends on "200" with the "W" on the next. */}
+            <span className="grow">{lander.replace(/(\d) /g, '$1\u00a0')}</span>
             <span className={TAG}>change</span>
           </button>
         </div>
