@@ -15,7 +15,7 @@
 
 - [ ] Both laptops fully charged; chargers packed; HDMI and USB-C to HDMI adapters packed.
 - [ ] Phone hotspot tested with the laptop (for the JPL re-check, if the venue Wi-Fi is down).
-- [ ] Browser: kiosk or full-screen mode, zoom 100 % on the home page and the stand view (their layouts are measured at 100 %); 150 % on Explore, Compare, Accuracy and How it works if the back row cannot read them (spec 15.1; Ctrl+0 resets); bookmarks bar hidden, notifications off, screen saver and sleep off, night mode off.
+- [ ] Browser: kiosk or full-screen mode, zoom 100 % on the home page and the stand view (their layouts are measured at 100 %); 150 % on Explore, Compare, Accuracy and How it works if the back row cannot read them (spec 15.1). The browser keeps one zoom for the whole site, not per tab: Ctrl+Plus twice on Explore, Ctrl+0 before the stand view; bookmarks bar hidden, notifications off, screen saver and sleep off, night mode off.
 - [ ] Open tabs in order: `/?demo=1` (home), `/sites?demo=1` (Choose a landing site), `/explore?site=de_gerlache_rim_2&demo=1` (Explore), `/compare?demo=1` (Compare sites), `/validate` (Accuracy), `/learn` (How it works), the recorded demo video. Demo mode is remembered per tab, so each tab needs its own `?demo=1`. Open the brief from Explore's "Printable brief" link rather than in a tab of its own: it keeps the tab's demo mode only that way.
 - [ ] Project page draft, video and repository link ready to paste into the submission form.
 

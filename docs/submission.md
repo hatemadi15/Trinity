@@ -67,6 +67,8 @@ The engine, pipeline and app in the repository were built by the team between 28
 | JPL DE440 planetary ephemeris and NAIF SPICE kernels (MOON_ME frame) | hourly Sun and Earth table |
 | JPL Horizons API | the Accuracy page's directions check and its live re-check |
 | NASA CGI Moon Kit (colour, with the poles filled, and LOLA heights at 16 pixels per degree) | the globe in the 3D view, and the Moon from space in the home page's arrival |
+| NASA Blue Marble (land, shallow water and topography; clouds), NASA Goddard | Earth in the stand view, turned for the hour |
+| Yale Bright Star Catalogue, 5th revised edition, through NASA HEASARC | the 8,404 stars in the stand view's night sky, with their colours |
 | NASA Artemis III candidate landing regions (October 2024) | site catalogue |
 | NASA CLPS mission records (IM-1, IM-2, Blue Ghost M1 landing sites and reported mission ends) | the Accuracy page's mission check, the two landers on the home page |
 
