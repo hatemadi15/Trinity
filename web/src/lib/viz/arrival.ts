@@ -1,5 +1,5 @@
 import catalogue from '../data/catalogue.json';
-import { HOME, heroMask, heroSeries, type HomeDoc } from '../data/home';
+import { degreesText, HOME, heroMask, heroSeries, type HomeDoc } from '../data/home';
 import { siteLabel, type Site } from '../data/loaders';
 import { summarize, type Series } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerResult } from '../engine/power';
@@ -33,9 +33,18 @@ export function hero(doc: HomeDoc = HOME): Hero {
 /**
  * The beats' sentences, a screen each, between the first screen and the answer: the pole, the cap, the landing
  * (a small uncrewed solar lander: the battery that runs out later is its own, and no one is stranded with it),
- * standing as the month at the site begins, and its middle (from the engine's key moments).
+ * standing as the month at the site begins, and its middle (from the engine's key moments). `proof` is the first
+ * screen's line on its sources and its check, up to the link to the Accuracy page that follows it.
  */
-export interface ArrivalWords { beats: string[]; siteLine: string; answer: string; better: string | null; exploreHref: string }
+export interface ArrivalWords { beats: string[]; siteLine: string; answer: string; better: string | null; exploreHref: string; proof: string }
+
+/**
+ * The first screen's line on where the numbers come from and how they were checked. Its figure is the home page's
+ * `horizons_worst_el_deg`, which the first row of "Checked against NASA" gives in the same words, so the two never
+ * disagree. It is worded here, on the server, because the arrival is a client component and must not carry the home
+ * page's data file to the browser for one number.
+ */
+const proofSentence = (doc: HomeDoc) => `Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to ${degreesText(doc.facts.horizons_worst_el_deg)} and against real landers.`;
 
 /**
  * The arrival's words, worked out on the server so they are page text: the beats, then standing at the site
@@ -63,5 +72,6 @@ export function arrivalWords(doc: HomeDoc = HOME): ArrivalWords {
     answer: standHeadline(answer.title, name, h.series, h.power, h.startUtc, answer.contactHours, answer.poweredHours),
     better: answer.better && best ? unbrokenSpans(`${answer.better.label}: power for ${spanWords(best.poweredHours)} in a row.`) : null,
     exploreHref: exploreHref(h.site.id, h.startUtc, h.days),
+    proof: proofSentence(doc),
   };
 }

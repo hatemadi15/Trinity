@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { hydrateRoot } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -51,6 +51,35 @@ describe('the arrival', () => {
     expect(screen.getByRole('link', { name: 'Choose a landing site' }).getAttribute('href')).toBe('/sites');
     // The headline keeps its spans of days and hours on one line with no-break spaces, as the stand view's does.
     expect(screen.getByRole('heading', { level: 2, name: words.answer })).toBeTruthy();
+  });
+
+  it("names NASA's data and the check on the first screen, for a wider screen only", () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    const proof = screen.getByText(/^Built on NASA LRO LOLA terrain and JPL DE440;/);
+    expect(proof.textContent).toBe('Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to 0.00003° and against real landers. See the checks');
+    const link = within(proof).getByRole('link', { name: 'See the checks' });
+    expect(link.getAttribute('href')).toBe('/validate');
+    expect(link.className).toMatch(/(^| )underline( |$)/);
+    // On a phone the first screen stays short: like the first sentence, this line waits for a wider screen.
+    expect(proof.className).toMatch(/\bmax-sm:hidden\b/);
+    // 15 to 16 px in the intro's colour, and among the first screen's words, so the stage's labels keep clear of it.
+    expect(proof.className).toMatch(/(^| )text-(base|\[1[56]px\])( |$)/);
+    expect(proof.className).toContain('text-[#c6c5c0]');
+    expect(proof.hasAttribute('data-words')).toBe(true);
+    // Under the intro paragraph and above the actions.
+    const intro = screen.getByText(/^Earthrise is a forecast for landing sites and dates\./).closest('p')!;
+    const actions = screen.getByRole('link', { name: 'Fly to the south pole' }).parentElement!;
+    expect(intro.compareDocumentPosition(proof) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(proof.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('names the second action for the section it jumps to, so only the link to /learn says how it works', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    // The three drawings of why the pole is hard, on the home page itself.
+    expect(screen.getByRole('link', { name: 'See why the pole is hard' }).getAttribute('href')).toBe('#why');
+    // The old name read as a twin of the link two lines below it, which goes to a page of its own.
+    expect(screen.queryByRole('link', { name: /see how it works/i })).toBeNull();
+    expect(screen.getAllByRole('link', { name: /how it works/i }).map((a) => a.getAttribute('href'))).toEqual(['/learn']);
   });
 
   /** The beats' plates, each with its beat's screen, before landing and once landed (the date bar shows then). */

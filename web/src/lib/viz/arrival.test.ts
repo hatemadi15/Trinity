@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HOME } from '@/lib/data/home';
+import { degreesText, HOME } from '@/lib/data/home';
 import { readJson } from '@/lib/engine/__tests__/helpers';
 import { recompute } from '@/lib/store/explore';
 import { eph, sites } from '@/test/file-loaders';
@@ -62,5 +62,14 @@ describe('the arrival', () => {
     // The pole's sentence names no site, so it reads the same wherever the hero stands.
     expect(w.beats[0]).toBe(POLE_SENTENCE);
     expect(arrivalWords().beats[1]).toBe(shortlistedSentence('de Gerlache Rim 2'));
+  });
+
+  it('gives the first screen one line on where its numbers come from and how they were checked, with the Horizons figure the home page’s table gives', () => {
+    const w = arrivalWords();
+    expect(w.proof).toBe('Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to 0.00003° and against real landers.');
+    // The figure is the field and the rounding of the first row of "Checked against NASA", so the two never disagree.
+    expect(w.proof).toContain(`to ${degreesText(HOME.facts.horizons_worst_el_deg)} and`);
+    // It follows the data: another largest gap, another line.
+    expect(arrivalWords({ ...HOME, facts: { ...HOME.facts, horizons_worst_el_deg: 0.0004 } }).proof).toContain('checked against JPL Horizons to 0.00040° and against real landers.');
   });
 });

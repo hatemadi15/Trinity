@@ -37,6 +37,8 @@ const utcShort = (iso: string | null) => (iso ? iso.replace('T', ' ').replace(':
 const TH = 'border-b-2 border-ink py-2 pr-4 text-left text-[15px] font-semibold text-ink-2';
 const TD = 'border-b border-line py-2 pr-4 text-[15px]';
 const NUM = `${TD} text-right tabular-nums`;
+/** The page's verdict in one line, by how many of the three checks pass: the count of the cards' own pass marks, never worked out again. */
+const VERDICT = ['No check passes.', 'One of three checks passes.', 'Two of three checks pass.', 'All three checks pass.'];
 
 function Mark({ pass }: { pass: boolean }) {
   return (
@@ -136,6 +138,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
   }
   const { horizons, mazarico, backcasts } = docs;
   const [directions, sunlight, nights] = checkCards(docs);
+  const verdict = VERDICT[[directions, sunlight, nights].filter((card) => card.pass).length];
   const liveSite = horizons.sites.find((s) => s.site_id === 'shackleton_center') ?? horizons.sites[0];
 
   async function runRecheck() {
@@ -177,6 +180,8 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             </p>
           )}
         </div>
+
+        <p className="text-base font-semibold text-ink">{verdict}</p>
 
         <CheckPanel card={directions} extra={recheckBlock}>
           <table className="w-full min-w-[640px] border-collapse">

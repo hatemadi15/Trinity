@@ -196,12 +196,21 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
                 how long a lander keeps power, for three ready-made landers or your own.
               </span>
             </p>
+            {/* Where the numbers come from and how they were checked, for a reader who weighs a forecast by its sources. Like the
+                first sentence it waits for a wider screen, so the phone's first screen stays short. */}
+            <p data-words="" className="mt-3 max-w-[39em] text-base text-[#c6c5c0] max-sm:hidden">
+              {words.proof}{' '}
+              <Link href="/validate" className="font-semibold text-[#f2f0ea] underline underline-offset-4">
+                See the checks
+              </Link>
+            </p>
             <div data-words="" className="mt-7 flex w-fit flex-wrap gap-3">
               <Link href="/sites" onClick={start} className="btn btn-primary h-[52px] px-[22px] text-[17px]">
                 Fly to the south pole
               </Link>
+              {/* Named for the section it jumps to, whose heading is "Why the south pole is hard"; the link just below the buttons goes to How it works. */}
               <a href="#why" className="btn h-[52px] px-[22px] text-[17px]">
-                See how it works
+                See why the pole is hard
               </a>
             </div>
             <p data-words="" className="mt-3 w-fit text-base text-[#c6c5c0]">
