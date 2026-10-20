@@ -139,6 +139,17 @@ export const WATCH_LEAD = 'Press Play, or a flag on the time bar, to watch:';
 export const WATCH_LEAD_DOTS = 'Press Play, or a dot on the time bar, to watch:';
 
 /**
+ * The first step (19.2), on the line over the view from the arrival until the first turn by hand, the first Play,
+ * a flag, Turn to or Look up, or a key moment's line, and then gone for the visit; FIRST_STEP_PHONE under 640 px.
+ * With reduced motion Play is off, so FIRST_STEP_STILL names the drag alone.
+ */
+export const FIRST_STEP = 'Press Play to watch the month go by · drag to look around';
+/** FIRST_STEP under 640 px, short enough for one line there. */
+export const FIRST_STEP_PHONE = 'Press Play · drag to look around';
+/** FIRST_STEP with reduced motion, when Play is off. */
+export const FIRST_STEP_STILL = 'Drag to look around';
+
+/**
  * One line on what to watch next: the first change after the hour, of the Sun (any part of its disc in
  * view, as the time bar draws it) or of the lander's power, with its day; and the other kind's next change
  * when it follows within three days. It starts with WATCH_LEAD: "Press Play, or a flag on the time bar, to
@@ -392,7 +403,7 @@ export function standingLine(site: { lat: number; blurb?: string }, name: string
  */
 export function poleLine(lat: number): string | null {
   if (Math.abs(lat) < 80) return null;
-  return `Near the Moon's ${lat < 0 ? 'south' : 'north'} pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay set for days.`;
+  return `Near the Moon's ${lat < 0 ? 'south' : 'north'} pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay out of sight for days.`;
 }
 
 /** Kilometres to a degree of latitude on the Moon, from its radius of 1,737.4 km. */
@@ -501,6 +512,19 @@ export function standHeadline(title: string, siteName: string, s: Series, p: Pow
   const dark = `No sunlight at ${siteName} in `;
   const unnamed = title.startsWith(landing) ? `Landing on ${title.slice(landing.length)}` : title.startsWith(dark) ? `No sunlight in ${title.slice(dark.length)}` : title;
   return unbrokenSpans(radioHeadline(nightHeadline(unnamed, s, p, startUtc), contactHours, poweredHours));
+}
+
+/**
+ * The headline's short form, the phone's first line on the status plate (19.1): the day, the power and the radio,
+ * "1 January: power for 3 days 4 hours, no radio", in two lines beside More at 360 px; the night is left to today's
+ * card, which keeps the whole headline. It drops "Landing on ", everything from the first ", then", and "contact"
+ * after "no radio"; any other title keeps its words ("No sunlight in these 30 days").
+ */
+export function phoneHeadline(title: string): string {
+  const landing = 'Landing on ';
+  const day = title.startsWith(landing) ? title.slice(landing.length) : title;
+  const then = day.indexOf(', then ');
+  return (then < 0 ? day : day.slice(0, then)).replace('no radio contact', 'no radio');
 }
 
 /**

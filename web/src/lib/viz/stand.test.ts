@@ -12,6 +12,9 @@ import { groundWords } from './ground';
 import {
   betterChip,
   betterLabel,
+  FIRST_STEP,
+  FIRST_STEP_PHONE,
+  FIRST_STEP_STILL,
   keyMoments,
   landerCaption,
   landerState,
@@ -19,6 +22,7 @@ import {
   measuredNote,
   momentCaption,
   nightHeadline,
+  phoneHeadline,
   poleLine,
   radioHeadline,
   radioNext,
@@ -219,7 +223,7 @@ describe('the lander’s power and radio in one sentence', () => {
 });
 
 describe('why the view looks as it does', () => {
-  const pole = "Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay set for days.";
+  const pole = "Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay out of sight for days.";
   const earthMoves =
     "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon wobbles a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.";
   // Why the sky is black by day, that its stars are there, why Apollo's photos show none (the cameras'
@@ -646,8 +650,8 @@ describe('what to watch for', () => {
   });
 
   it('says why the Sun stays low near a pole, and nothing elsewhere', () => {
-    expect(poleLine(-88.28)).toBe("Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay set for days.");
-    expect(poleLine(80)).toBe("Near the Moon's north pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay set for days.");
+    expect(poleLine(-88.28)).toBe("Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay out of sight for days.");
+    expect(poleLine(80)).toBe("Near the Moon's north pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay out of sight for days.");
     expect(poleLine(-80)).toBe(poleLine(-88.28));
     expect(poleLine(79.9)).toBeNull();
     expect(poleLine(18.56)).toBeNull();
@@ -1056,6 +1060,30 @@ describe('the bright stars’ names', () => {
   });
 });
 
+describe('the headline’s short form on a phone (19.1)', () => {
+  it('keeps the day, the power and the radio, and leaves the night to today’s card', () => {
+    const short = phoneHeadline('Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power');
+    expect(short).toBe('1 January: power for 3 days 4 hours, no radio');
+    // Two 15 px lines beside More on a phone 360 px wide.
+    expect(short.length).toBeLessThanOrEqual(60);
+    expect(phoneHeadline('Landing on 2 March: power for all 14 days, radio all the while')).toBe('2 March: power for all 14 days, radio all the while');
+    expect(phoneHeadline('Landing on 1 January: too little sunlight from the first hour')).toBe('1 January: too little sunlight from the first hour');
+  });
+  it('leaves any other title its words', () => {
+    expect(phoneHeadline('No sunlight in these 30 days')).toBe('No sunlight in these 30 days');
+  });
+});
+
+describe('the first step over the view (19.2)', () => {
+  it('fits the caption’s two lines, short on a phone, and leaves Play out with reduced motion, as Play is off then', () => {
+    expect(FIRST_STEP).toBe('Press Play to watch the month go by · drag to look around');
+    expect(FIRST_STEP_PHONE).toBe('Press Play · drag to look around');
+    expect(FIRST_STEP_STILL).toBe('Drag to look around');
+    for (const line of [FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL]) expect(line.length, line).toBeLessThanOrEqual(112);
+    expect(FIRST_STEP_STILL).not.toMatch(/Play/);
+  });
+});
+
 describe('the stand view’s words on real data', () => {
   it('reads de Gerlache Rim 2 in January 2027 the way the page shows it', () => {
     const site = sites.find((x) => x.id === 'de_gerlache_rim_2')!;
@@ -1072,6 +1100,8 @@ describe('the stand view’s words on real data', () => {
     // The site's name is in the line above.
     const a = answerFor({ siteName: 'de Gerlache Rim 2', series: s, summary: summarize(s), power: p, startUtc: start, days: 30, loadW: DEFAULT_POWER.loadW, batteryWh: DEFAULT_POWER.batteryWh, best: null });
     expect(standHeadline(a.title, 'de Gerlache Rim 2', s, p, start, a.contactHours, a.poweredHours)).toBe(`Landing on 1 January: power for ${unbroken('3 days 4 hours')}, no radio contact, then ${unbroken('16 days')} without power`);
+    // A phone's plate leads with the short form, each span still on one line; the night waits in today's card (19.1).
+    expect(phoneHeadline(standHeadline(a.title, 'de Gerlache Rim 2', s, p, start, a.contactHours, a.poweredHours))).toBe(`1 January: power for ${unbroken('3 days 4 hours')}, no radio`);
     expect(standingLine(site, 'de Gerlache Rim 2', 'top')).toBe("Standing at de Gerlache Rim 2, near the Moon's south pole. Hills: NASA height data. Small craters and rocks: added to look real.");
     // Under More, only what the line above does not say: the latitude and the site's own note.
     expect(standingLine(site, 'de Gerlache Rim 2', 'more')).toBe('de Gerlache Rim 2 lies at 88.3° S. A ridge on a crater rim, 52 km from the pole.');

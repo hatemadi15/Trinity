@@ -6,7 +6,7 @@ import { dirAzEl } from '@/lib/sky/frames';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
-import { keyMoments, landerCaption, landerState, momentCaption, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, type MomentKind } from '@/lib/viz/stand';
+import { FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, type MomentKind } from '@/lib/viz/stand';
 import { openingYaw } from '@/lib/viz/standOpening';
 import { fileLoaders, terrainFileLoaders, terrainPresent } from '@/test/file-loaders';
 import type { StandScene } from '@/lib/sky/standRenderer';
@@ -34,6 +34,12 @@ vi.mock('@/lib/data/sky', () => ({
     names: [{ index: 0, name: 'Sirius' }],
   }),
 }));
+
+// The opening's turn, counted where the view works it out: it walks the skyline in some 44,000 steps (19.4).
+vi.mock('@/lib/viz/standOpening', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/lib/viz/standOpening')>();
+  return { ...real, openingYaw: vi.fn(real.openingYaw) };
+});
 
 const everywhere: SkyLabels = {
   sun: { x: 0.5, y: 0.4, visible: true },
@@ -65,22 +71,43 @@ afterEach(() => cleanup());
 
 describe('StandView', () => {
 
-  it('keeps the answer in view from 768 px: the headline on the status plate under its line and above the next step, the card leaving it to the plate', async () => {
-    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    const title = asRead(screen.getByRole('heading', { level: 1 }).textContent!);
+  it('puts the answer first: from 768 px the headline leads the plate above the next step and the moment’s state ends it; a phone’s plate leads with the short headline and keeps the state in the card', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const heading = screen.getByRole('heading', { level: 1 }).textContent!;
+    const title = asRead(heading);
     const more = screen.getByRole('button', { name: 'More' });
     const plate = more.closest('[data-plate]') as HTMLElement;
+    const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    // From 768 px the headline comes first, then the next step, and last the moment's state, on a row of its own.
     const shown = within(plate).getByText(title, { selector: 'p' });
     expect(shown.className).toMatch(/\bmax-md:hidden\b/);
-    // Under the status line (after More), above the next step.
-    expect(more.compareDocumentPosition(shown) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(shown.compareDocumentPosition(screen.getByRole('group', { name: 'Next step' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // On a phone today's card keeps the headline; from 768 px it leaves it to the plate.
+    const next = screen.getByRole('group', { name: 'Next step' });
+    const st = store.getState();
+    const lander = statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh);
+    const state = within(plate).getByText(asRead(lander.text));
+    expect(follows(shown, next)).toBe(true);
+    expect(follows(next, state)).toBe(true);
+    expect(state.parentElement).toBe(plate.lastElementChild);
+    expect(state.parentElement!.className).toMatch(/\bmax-md:hidden\b/);
+    // On a phone the plate leads with the headline's short form, More beside it; the page's heading keeps it whole.
+    const short = within(plate).getByText(asRead(phoneHeadline(heading)), { selector: 'p' });
+    expect(asRead(short.textContent!)).toBe('1 January: power for 3 days 4 hours, no radio');
+    expect(short.className).toMatch(/\bmd:hidden\b/);
+    expect(short.parentElement).toBe(more.parentElement);
+    expect(follows(short, more)).toBe(true);
+    // Today's card opens on the moment's state with its dot, then keeps the whole headline: on a phone only.
     openCard();
     const card = document.getElementById('stand-card')!;
-    expect(within(card).getByText(title, { selector: 'p' }).className).toMatch(/\bmd:hidden\b/);
+    const first = card.firstElementChild as HTMLElement;
+    expect(first.tagName).toBe('P');
+    expect(asRead(first.textContent!)).toBe(asRead(lander.text));
+    expect(first.querySelector('[data-tone]')!.getAttribute('data-tone')).toBe(lander.tone);
+    expect(first.className).toMatch(/\bmd:hidden\b/);
+    const whole = within(card).getByText(title, { selector: 'p' });
+    expect(whole.className).toMatch(/\bmd:hidden\b/);
+    expect(follows(first, whole)).toBe(true);
   });
-  it('opens with the guides off, shows the days on the paths and the level horizon on "Paths", and hides them with the words', async () => {
+  it('opens with the guides off, shows the days on the paths and the level horizon on "Show paths", which then reads "Hide paths", and hides them with the words', async () => {
     window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const store = createExploreStore(fileLoaders());
     const setGuides = vi.fn();
@@ -94,14 +121,21 @@ describe('StandView', () => {
         }}
       />,
     );
-    const guides = await screen.findByRole('button', { name: 'Paths' }, { timeout: 20_000 });
-    // Off when the view opens: the renderer leaves out the paths and the level horizon, and keeps the rings.
-    expect(guides.getAttribute('aria-pressed')).toBe('false');
+    const guides = await screen.findByRole('button', { name: 'Show paths' }, { timeout: 20_000 });
+    // Off when the view opens: the renderer leaves out the paths and the level horizon, and keeps the rings. The button's
+    // words say what it does, so it has no pressed state (19.4).
+    expect(guides.getAttribute('aria-pressed')).toBeNull();
     await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(false, true, true));
     expect(document.querySelectorAll('[data-path-mark]:not([hidden])')).toHaveLength(0);
     expect(screen.getByText('Level horizon').closest('[hidden]')).not.toBeNull();
     fireEvent.click(guides);
-    expect(screen.getByRole('button', { name: 'Paths' }).getAttribute('aria-pressed')).toBe('true');
+    const hide = screen.getByRole('button', { name: 'Hide paths' });
+    expect(hide.getAttribute('aria-pressed')).toBeNull();
+    // A phone keeps "Paths" for the row's width; wider, the button's words are its name.
+    expect([...hide.querySelectorAll('span')].map((x) => [x.className, x.textContent])).toEqual([
+      ['md:hidden', 'Paths'],
+      ['max-md:hidden', 'Hide paths'],
+    ]);
     await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(true, true, true));
     await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])').length).toBeGreaterThan(0));
     // The Sun sets behind the hills on 3 January and rises on the 20th; Earth rises on the 10th and sets on the 23rd.
@@ -117,7 +151,7 @@ describe('StandView', () => {
     await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])')).toHaveLength(0));
     fireEvent.click(screen.getByRole('button', { name: 'Show the words' }));
     await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(true, true, true));
-    expect(screen.getByRole('button', { name: 'Paths' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Hide paths' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Less' })).toBeTruthy();
   }, 30_000);
 
@@ -137,7 +171,7 @@ describe('StandView', () => {
     expect(pathMarks([at('sunset-power-off', 'Sunset and power off', 5, '2 Mar')]).map((m) => m.text)).toEqual(['Sunset, 2 Mar']);
   });
 
-  it('opens with one line on the lander’s power and radio, the site first, and today’s card under More', async () => {
+  it('opens with the lander’s power and radio at the plate’s foot, the site first, and today’s card under More', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The lander stands once the ground has loaded, a moment after the words: on a busy machine, later.
     await screen.findByRole('button', { name: 'Face the lander' }, { timeout: 20_000 });
@@ -148,8 +182,8 @@ describe('StandView', () => {
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1.textContent).toBe('Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power');
     expect(h1.classList.contains('sr-only')).toBe(true);
-    // One line: the site's name (on one line, and waiting for a wider screen on a phone), then the lander's power,
-    // its battery's level and its radio.
+    // At the plate's foot: the site's name (on one line, and waiting for a wider screen on a phone), then the
+    // lander's power, its battery's level and its radio.
     const line = statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh);
     expect(line.text).toMatch(/^Power on, battery 100 %\. No radio: Earth is (below the horizon|behind a hill)\.$/);
     const status = screen.getByText(asRead(line.text));
@@ -160,11 +194,11 @@ describe('StandView', () => {
     expect(document.body.textContent).toContain('de Gerlache Rim 2');
     // One row of buttons.
     const row = screen.getByRole('group', { name: 'Look towards' });
-    // The hide button's visible words are its name, as speech input needs (WCAG 2.5.3).
-    expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Sun', 'Earth', 'Lander', 'Look up', 'Paths', 'Hide the words']);
+    // Each by its name; the hide button has no other, its visible words being its name, as speech input needs (WCAG 2.5.3).
+    expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide the words']);
     // Read as a verb, not a noun (both readers of read D1).
     expect(within(row).getByText('Turn to')).toBeTruthy();
-    for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Paths', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
+    for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
     // Today's card waits under More: where you stand, what to watch, the better day, the ways on and the help.
     expect(screen.queryByText(watchNext(st.series!, st.power, st.startUtc, 10))).toBeNull();
     expect(document.getElementById('stand-card')).toBeNull();
@@ -178,10 +212,11 @@ describe('StandView', () => {
     expect(screen.getByText(watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10))).toBeTruthy();
     // The better landing day says why, as a comparison: the power and the radio from that landing, to the hour, as
     // the headline gives its spans and the home page's forecast gives this landing ("12 days 15 hours").
-    // In the card (the row under the status line carries the same words from 768 px, 18.3).
+    // In the card (the next step's row on the plate carries the same words from 768 px, 18.3).
     const better = within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, radio for 3\sdays\s5\shours$/ });
-    // Each span on one line, as the headline's (no-break spaces), so "hours" never wraps onto a line of its own.
-    expect(better.textContent).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours');
+    // Each span on one line, as the headline's (no-break spaces), so "hours" never wraps onto a line of its own; a chevron
+    // ends it, as the row's from 768 px (19.4), out of its name.
+    expect(better.textContent).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours ›');
     expect(better.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
     expect(within(document.getElementById('stand-card')!).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     expect(screen.getByText('Drag to look around; pinch or scroll to zoom.')).toBeTruthy();
@@ -362,7 +397,9 @@ describe('StandView', () => {
     while (!(screen.getByRole('button', { name: 'Next reason' }) as HTMLButtonElement).disabled) fireEvent.click(screen.getByRole('button', { name: 'Next reason' }));
     expect(screen.queryByText(/How we know this/)).toBeNull();
     const st = store.getState();
-    expect(screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
+    // On the plate, as the card (open here) gives it again for a phone.
+    const plate = screen.getByRole('button', { name: 'Less' }).closest<HTMLElement>('[data-plate]')!;
+    expect(within(plate).getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
   });
 
   it('falls back to the horizon chart when the view’s shaders fail to build, a shader fails while drawing, or the graphics context is lost', async () => {
@@ -600,6 +637,83 @@ describe('StandView', () => {
     expect(r.setView.mock.calls.at(-1)![0]).toBeCloseTo(yaw, 6);
   });
 
+  it('shows the first step over the view on arrival, Play and drag, phone-short below 640 px, until the first drag', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    // On the line over the view, once the ground has drawn (19.2).
+    const plate = await waitFor(
+      () => {
+        const p = document.querySelector<HTMLElement>('[data-caption]');
+        expect(p).not.toBeNull();
+        return p!;
+      },
+      { timeout: 10_000 },
+    );
+    // The line twice, one shown per width: display: none keeps the other from a screen reader.
+    expect(within(plate).getByText(FIRST_STEP).className).toBe('max-sm:hidden');
+    expect(within(plate).getByText(FIRST_STEP_PHONE).className).toBe('sm:hidden');
+    // The time moved by hand is not a step into the view: one hour on by the slider's arrow key, past no key moment.
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Time' }), { key: 'ArrowRight' });
+    expect(within(document.querySelector<HTMLElement>('[data-caption]')!).getByText(FIRST_STEP)).toBeTruthy();
+    // The first drag is a step: the line goes, and by day nothing else takes the plate.
+    const view = screen.getByRole('application');
+    fireEvent.pointerDown(view, { pointerId: 1, clientX: 100, clientY: 100 });
+    fireEvent.pointerMove(view, { pointerId: 1, clientX: 140, clientY: 100 });
+    fireEvent.pointerUp(view, { pointerId: 1 });
+    expect(document.querySelector('[data-caption]')).toBeNull();
+  });
+
+  it('the first Play clears the first step for good', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toContain(FIRST_STEP), { timeout: 10_000 });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(document.querySelector('[data-caption]')).toBeNull();
+    // Paused, then turned to the Sun: no line over the view, the first step gone for the visit.
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Face the Sun' }));
+    expect(document.querySelector('[data-caption]')).toBeNull();
+  });
+
+  it('a key moment’s line replaces the first step, and it does not come back when the line goes', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toContain(FIRST_STEP), { timeout: 10_000 });
+    const st = store.getState();
+    const m = keyMoments(st.series!, st.power, st.startUtc).find((x) => x.kind === 'battery-out')!;
+    fireEvent.click(screen.getByRole('button', { name: 'Battery runs out, 4 Jan' }));
+    expect(document.querySelector('[data-caption]')!.textContent).toBe(momentCaption(m.kind, st.series!, m.hour, -88.28));
+    // Turned to the Sun, the moment's line goes and the night's own line takes the plate, not the first step.
+    fireEvent.click(screen.getByRole('button', { name: 'Face the Sun' }));
+    expect(document.querySelector('[data-caption]')!.textContent).toBe(viewCaption('dark', -88.28));
+    expect(screen.queryByText(FIRST_STEP)).toBeNull();
+  });
+
+  it('with reduced motion the first step is the drag alone, as Play is off', async () => {
+    const was = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
+    try {
+      await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+      await waitFor(() => expect(document.querySelector('[data-caption]')).not.toBeNull(), { timeout: 10_000 });
+      expect(document.querySelector('[data-caption]')!.textContent).toBe(FIRST_STEP_STILL);
+      expect(screen.queryByText(/Press Play/)).toBeNull();
+      expect((screen.getByRole('button', { name: 'Play' }) as HTMLButtonElement).disabled).toBe(true);
+    } finally {
+      window.matchMedia = was;
+    }
+  });
+
+  it('shows no first step while the ground builds', async () => {
+    let finish = () => {};
+    const ready = new Promise<void>((done) => (finish = done));
+    const r = { ...stub(), ready };
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(r.resize).toHaveBeenCalled());
+    expect(screen.getByText('Building the ground from NASA heights…')).toBeTruthy();
+    // Nothing over the empty view while it builds: the first step waits for the ground.
+    await new Promise((done) => setTimeout(done, 100));
+    expect(document.querySelector('[data-caption]')).toBeNull();
+    await act(async () => finish());
+    await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toContain(FIRST_STEP));
+  });
+
   it('names the lander where it stands, with its distance', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     await waitFor(() => expect(screen.getByText('The lander, 16 m away')).toBeTruthy());
@@ -639,14 +753,14 @@ describe('StandView', () => {
     expect(document.querySelector('[data-strip]')!.classList.contains('border-t-0')).toBe(true);
   });
 
-  it('keeps the status line whole: the dot by its first line, More after its last, its lines even, on an opaque plate', async () => {
+  it('keeps the moment’s state whole at the plate’s foot: the dot by its first line, its lines even, More after the headline, on an opaque plate', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=219');
     const st = store.getState();
     const line = screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 219, st.params.power.batteryWh).text));
     const plate = line.closest<HTMLElement>('[data-plate]')!;
     // Opaque, so no guide line shows through it (both readers of read D1).
     expect(plate.classList.contains('bg-[#060607]')).toBe(true);
-    // Two even lines, not a lone word on the second; More follows the last line, the dot leads the first.
+    // Two even lines, not a lone word on the second, the dot leading the first; More follows the headline's last line.
     expect(line.classList.contains('text-balance')).toBe(true);
     expect(screen.getByRole('button', { name: 'More' }).classList.contains('self-end')).toBe(true);
     expect(plate.querySelector('[data-tone]')!.classList.contains('self-start')).toBe(true);
@@ -680,7 +794,8 @@ describe('StandView', () => {
     expect(screen.getByText(/^Standing at de\sGerlache/)).toBeTruthy();
     expect(screen.getByText(watch)).toBeTruthy();
     expect(within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead/ })).toBeTruthy();
-    expect(screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
+    // The moment's state, the card's first line on a phone (19.1).
+    expect(within(document.getElementById('stand-card')!).getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
   });
 
   it('keeps the next step in view from 768 px: the better day in gold with its radio, then Change site, Change date, Change lander and Compare sites, and the card leaves its own gold and way on to that row', async () => {
@@ -708,6 +823,30 @@ describe('StandView', () => {
     expect(within(card).getByRole('button', { name: 'Change lander' }).className).toMatch(/\bmd:hidden\b/);
   });
 
+  it('links to Earthrise, How it works and Accuracy from 768 px on the plate, and in the card on a phone (19.3)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    openCard();
+    const navs = screen.getAllByRole('navigation', { name: 'Sections' });
+    expect(navs).toHaveLength(2);
+    const plate = screen.getByRole('button', { name: 'Less' }).closest<HTMLElement>('[data-plate]')!;
+    const card = document.getElementById('stand-card')!;
+    // From 768 px at the end of the moment's state, the plate's last row; on a phone at the card's foot, before the drag line.
+    const onPlate = navs.find((n) => plate.contains(n))!;
+    expect(onPlate.parentElement).toBe(plate.lastElementChild);
+    expect(onPlate.parentElement!.className).toMatch(/\bmax-md:hidden\b/);
+    const inCard = navs.find((n) => card.contains(n))!;
+    expect(inCard.className).toMatch(/\bmd:hidden\b/);
+    expect(inCard.nextElementSibling!.textContent).toBe('Drag to look around; pinch or scroll to zoom.');
+    for (const nav of [onPlate, inCard]) {
+      expect([...nav.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+        ['Earthrise', '/'],
+        ['How it works', '/learn'],
+        ['Accuracy', '/validate'],
+      ]);
+      expect(nav.className).toContain('text-[14px]');
+    }
+  });
+
   it('keeps the status plate at its full width whatever the words, so More stays put as the night comes (18.3)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const plate = screen.getByRole('button', { name: 'More' }).closest('[data-plate]')!;
@@ -721,7 +860,10 @@ describe('StandView', () => {
     const chip = document.querySelector<HTMLAnchorElement>('a[data-chip]')!;
     expect(chip).toBeTruthy();
     expect(asRead(chip.textContent!)).toMatch(/^Try 20 Jan instead: power for 12 days 15 hours›$/);
-    for (const c of ['md:hidden', 'h-8', 'text-[14px]', 'text-[#f6d48a]']) expect(chip.className).toContain(c);
+    for (const c of ['md:hidden', 'min-h-8', 'text-[14px]', 'text-[#f6d48a]']) expect(chip.classList.contains(c)).toBe(true);
+    // A plate, so no label of the sky sits on it and the view's room starts under it; it grows if its words wrap (19.4).
+    expect(chip.hasAttribute('data-plate')).toBe(true);
+    expect(chip.classList.contains('h-8')).toBe(false);
     expect(chip.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20(T\d\d:\d\d)?&days=30&hour=0$/);
     // Inside the answer's section, so the view's measured top (--top-h) takes it in.
     expect(chip.closest('section[aria-label="The answer for this site"]')).toBeTruthy();
@@ -773,7 +915,7 @@ describe('StandView', () => {
     const other = within(within(dialog).getByRole('radiogroup', { name: 'Lander' })).getAllByRole('radio').find((r) => !(r as HTMLInputElement).checked)!;
     fireEvent.click(other);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).not.toBe(before), { timeout: 20_000 });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(button);
     // The new lander's scene is swapped into the renderer the view has, not drawn by a new one (the final review).
@@ -787,7 +929,7 @@ describe('StandView', () => {
     const button = within(document.getElementById('stand-card')!).getByRole('button', { name: 'Change lander' });
     fireEvent.click(button);
     const dialog = await screen.findByRole('dialog', { name: 'The lander' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(button);
   });
@@ -889,6 +1031,18 @@ describe('StandView', () => {
     expect(turns(hour)).toBeGreaterThan(0.5);
   });
 
+  it('works out the opening’s turn once for the view, not again each hour the time moves (19.4)', async () => {
+    const r = stub();
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(r.setView).toHaveBeenCalled());
+    const turns = vi.mocked(openingYaw).mock.calls.length;
+    // Play moves the time twelve times a second: the skyline's walk must not run with it.
+    for (const h of [11, 12, 13, 14]) act(() => store.getState().setCursor(h));
+    const st = store.getState();
+    await waitFor(() => expect(screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 14, st.params.power.batteryWh).text))).toBeTruthy());
+    expect(vi.mocked(openingYaw).mock.calls.length).toBe(turns);
+  });
+
   it('keeps the lander’s feet in sight after Turn to Lander: the look asks the view to fit them', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The lander stands once the ground has loaded, a moment after the words.
@@ -943,6 +1097,8 @@ describe('StandView', () => {
     expect([s.sunFraction[219], s.earthVisible[219], s.sunFraction[460], s.earthVisible[460]]).toEqual([0, 1, 0, 1]);
     expect(lit(219)).toBeGreaterThanOrEqual(0.25);
     expect(lit(460)).toBeLessThan(0.25);
+    // The first step holds the line over the view on arrival (19.2); the first turn by hand gives it to the night's.
+    fireEvent.keyDown(await screen.findByRole('application', {}, { timeout: 10_000 }), { key: 'ArrowLeft' });
     expect(screen.getByText(viewCaption('earthlight', -88.28))).toBeTruthy();
     act(() => store.getState().setCursor(460));
     await waitFor(() => expect(screen.getByText(viewCaption('faint', -88.28))).toBeTruthy());
@@ -976,7 +1132,7 @@ describe('StandView', () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
     await waitFor(() => expect(r.render).toHaveBeenCalled());
     expect(screen.getByText(/^Your shadow/).hidden).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Paths' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show paths' }));
     // With the height it is worked out for, so a reader can check the Sun's height from it.
     await waitFor(() => expect(screen.getByText('Your shadow, about 52 m long (you are 1.8 m tall)').hidden).toBe(false));
   });

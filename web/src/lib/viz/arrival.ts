@@ -11,11 +11,14 @@ import { keyMoments, standHeadline, standingLine, unbrokenSpans } from './stand'
 /** The hour the arrival shows: 1 January 2027, 10:00 UTC (the Sun on the ridge), the hour section 5 names. */
 export const HERO_HOUR = 10;
 
-/** The flight's first two sentences, over the pole and the cap (spec section 5, as amended in section 14). */
-export const BEAT_SENTENCES: [string, string] = [
-  'At the south pole the Sun never climbs: it circles the horizon once a month.',
-  'NASA has shortlisted de Gerlache Rim 2, this ridge, for astronauts to land on.',
-];
+/** The flight's first sentence, over the pole (spec section 5, as amended in section 14). It names no site. */
+export const POLE_SENTENCE = 'At the south pole the Sun never climbs: it circles the horizon once a month.';
+
+/**
+ * The flight's second sentence, over the cap: who shortlisted the ridge. It takes the hero site's name rather than
+ * carrying one, so it follows the hero if the home page's site changes.
+ */
+export const shortlistedSentence = (name: string) => `NASA has shortlisted ${name}, this ridge, for astronauts to land on.`;
 
 export interface Hero { site: Site; series: Series; power: PowerResult; mask: Float64Array; siteHeightM: number; earthKm: number[]; startUtc: string; days: number }
 
@@ -48,9 +51,10 @@ export function arrivalWords(doc: HomeDoc = HOME): ArrivalWords {
   const earthIn = moments.find((m) => m.kind === 'earth-in'), out = moments.find((m) => m.kind === 'battery-out' || m.kind === 'sunset-power-off');
   return {
     beats: [
-      ...BEAT_SENTENCES,
+      POLE_SENTENCE,
+      shortlistedSentence(name),
       `Land a small uncrewed solar lander here on ${landing} ${h.startUtc.slice(0, 4)}, as an example: the Sun stands just above the hills.`,
-      `One hill can keep the Sun set for weeks. Here is ${month} at this spot, sped up.`,
+      `One hill can keep the Sun out of sight for weeks. Here is ${month} at this spot, sped up.`,
       earthIn && out
         ? `Earth rises on ${dateLong(h.startUtc, earthIn.hour)}, but the lander's battery ran out on ${dateLong(h.startUtc, out.hour)}.`
         : 'The month runs on: when the lander has power, and when it can see Earth.',

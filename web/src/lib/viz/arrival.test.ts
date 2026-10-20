@@ -4,7 +4,7 @@ import { readJson } from '@/lib/engine/__tests__/helpers';
 import { recompute } from '@/lib/store/explore';
 import { eph, sites } from '@/test/file-loaders';
 import { answerFor } from './answer';
-import { arrivalWords, hero } from './arrival';
+import { arrivalWords, hero, POLE_SENTENCE, shortlistedSentence } from './arrival';
 import { spanWords } from './format';
 import { betterLabel, standHeadline } from './stand';
 
@@ -49,8 +49,18 @@ describe('the arrival', () => {
       'At the south pole the Sun never climbs: it circles the horizon once a month.',
       'NASA has shortlisted de Gerlache Rim 2, this ridge, for astronauts to land on.',
       'Land a small uncrewed solar lander here on 1 January 2027, as an example: the Sun stands just above the hills.',
-      'One hill can keep the Sun set for weeks. Here is January at this spot, sped up.',
+      'One hill can keep the Sun out of sight for weeks. Here is January at this spot, sped up.',
       "Earth rises on 10 January, but the lander's battery ran out on 4 January.",
     ]);
+  });
+
+  it('names the ridge NASA shortlisted by the hero site’s own name, so the sentence follows the hero and not a name written into the page', () => {
+    // Only the site changes here: the month's figures stay the home page's, and the sentence does not use them.
+    const w = arrivalWords({ ...HOME, hero: { ...HOME.hero, site_id: 'shackleton_center' } });
+    expect(plain(w.beats[1])).toBe('NASA has shortlisted Shackleton crater floor, this ridge, for astronauts to land on.');
+    expect(w.beats[1]).toBe(shortlistedSentence('Shackleton crater floor'));
+    // The pole's sentence names no site, so it reads the same wherever the hero stands.
+    expect(w.beats[0]).toBe(POLE_SENTENCE);
+    expect(arrivalWords().beats[1]).toBe(shortlistedSentence('de Gerlache Rim 2'));
   });
 });

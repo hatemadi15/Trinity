@@ -135,7 +135,7 @@ describe('ExploreView', () => {
 
   it('opens the lander settings from the band and applies a preset', async () => {
     const { store } = await open();
-    fireEvent.click(screen.getByRole('button', { name: /Lander/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Small lander: / }));
     const dialog = screen.getByRole('dialog', { name: 'The lander' });
     fireEvent.click(within(dialog).getByRole('radio', { name: /20 m² panel, uses 500 W, 50 kWh battery/ }));
     expect(store.getState().params.power.batteryWh).toBe(50000);

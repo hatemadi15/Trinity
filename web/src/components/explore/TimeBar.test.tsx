@@ -297,6 +297,26 @@ describe('TimeBar', () => {
     expect(screen.getByText(/Playback is off because your system asks for reduced motion/)).toBeTruthy();
   });
 
+  it('tells the page when Play starts, and not when it pauses, the slider moves, a key is pressed or a flag is pressed', () => {
+    vi.useFakeTimers();
+    const onPlay = vi.fn();
+    showPeriod(30, { dates: true, moments: MOMENTS, onPlay });
+    // The slider, the keys and the flags move the time through onCursor, as Play does, so onCursor cannot tell the page
+    // that Play was pressed.
+    const slider = screen.getByRole('slider', { name: 'Time' });
+    fireEvent.change(slider, { target: { value: '5' } });
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    fireEvent.click(screen.getByRole('button', { name: 'Earth in view 10 Jan' }));
+    expect(onPlay).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(onPlay).toHaveBeenCalledTimes(1);
+    // Pausing stops the time rather than starting it; the next Play starts it again.
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    expect(onPlay).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(onPlay).toHaveBeenCalledTimes(2);
+  });
+
   it('leaves out the dates, the hours the lander is off, the hours Earth is in view and the name of the grey unless asked: on Explore the chart above shows them', () => {
     // The lander of this period is off for part of the night, but only the chart says so.
     expect(power.powered.includes(0)).toBe(true);
@@ -1361,7 +1381,7 @@ describe('TimeBar', () => {
   });
 });
 
-/** The faults of a layout: px of flags over each other in a row, and stems down behind another flag's words. */
+/** The faults of a layout: px of flags over each other in a row, or less than 4 px apart, and stems down behind another flag's words, or within 4 px past their end. */
 function faults(moments: { label: string; hour: number }[], hours: number, trackPx: number, rows: number[], widths?: number[]) {
   const span = (i: number) => {
     const at = (moments[i].hour / hours) * trackPx, w = widths?.[i] || moments[i].label.length * 7.75 + 14;
@@ -1372,8 +1392,9 @@ function faults(moments: { label: string; hour: number }[], hours: number, track
     for (let b = 0; b < moments.length; b++) {
       if (a === b) continue;
       const sa = span(a), sb = span(b);
-      if (rows[a] === rows[b] && a < b) over += Math.max(0, Math.min(sa.to, sb.to) - Math.max(sa.from, sb.from));
-      if (rows[a] > rows[b] && sb.from < sa.stem && sa.stem < sb.to) behind++;
+      // The clearance a pair lacks counts as overlap, so two flags that touch are 4 px over each other.
+      if (rows[a] === rows[b] && a < b) over += Math.max(0, 4 + Math.min(sa.to, sb.to) - Math.max(sa.from, sb.from));
+      if (rows[a] > rows[b] && sb.from < sa.stem && sa.stem < sb.to + 4) behind++;
     }
   return { over, behind };
 }
@@ -1404,6 +1425,44 @@ describe('momentRows', () => {
     const wide = momentRows(stand, 720, 1050, widths);
     expect(faults(stand, 720, 1050, wide, widths)).toEqual({ over: 0, behind: 0 });
     expect(Math.max(...wide)).toBeLessThanOrEqual(1);
+  });
+
+  it('keeps 4 px between two flags in one row: flags that would touch go to different rows', () => {
+    // "Sunrise, 20 Jan" and "Earth sets, 23 Jan", 72 hours apart, on a 1440 px track: a flag runs right from its hour, so the
+    // first starts at 912 px and the second at 1056 px, and a first flag 144 px wide ends where the second starts. Both hours
+    // fall on whole pixels on this track, so each gap below is exact.
+    const pair = [{ label: 'Sunrise, 20 Jan', hour: 456 }, { label: 'Earth sets, 23 Jan', hour: 528 }];
+    const rowsWithGap = (gap: number) => {
+      const widths = [144 - gap, 120];
+      const rows = momentRows(pair, 720, 1440, widths);
+      // Whichever rows they take, the layout is clean by the 4 px rule.
+      expect(faults(pair, 720, 1440, rows, widths)).toEqual({ over: 0, behind: 0 });
+      return rows;
+    };
+    // Touching, 2 px apart and 3 px apart: the flags lack the clearance, so one goes up.
+    for (const gap of [0, 2, 3]) expect(new Set(rowsWithGap(gap)).size).toBe(2);
+    // 4 px apart is clear enough for one row, and so is more.
+    for (const gap of [4, 5, 40]) expect(rowsWithGap(gap)).toEqual([0, 0]);
+  });
+
+  it('puts the earlier of two flags up when the later one’s stem would come down within 4 px past the end of its words', () => {
+    // The later flag's stem sits at the end of the earlier one's words or just past it. With the later flag up, the stem would run
+    // down right against those words, where it reads as their edge; with the earlier flag up, its stem comes down far from the later one.
+    const pair = [{ label: 'Sunrise, 20 Jan', hour: 456 }, { label: 'Earth sets, 23 Jan', hour: 528 }];
+    for (const gap of [0, 2, 3]) expect(momentRows(pair, 720, 1440, [144 - gap, 120])).toEqual([1, 0]);
+    // 4 px clear of the words is no longer against them: the flags share the first row.
+    expect(momentRows(pair, 720, 1440, [140, 120])).toEqual([0, 0]);
+  });
+
+  it('lifts the earlier of two moments a few hours apart, as the later one’s stem would come down through its words', () => {
+    // The Sun sets at 23:00 on the 3rd and the battery runs out at 02:00 on the 4th, on the 538 px track of a 768 px screen: their
+    // hours are 2 px apart. With the earlier flag up, its stem comes down just before the later flag's words; with the later flag
+    // up instead, its stem would come down through the earlier flag's words, which is worse, so the earlier one goes up.
+    const sunset = [{ label: 'Sunset, 3 Jan', hour: 71 }, { label: 'Battery runs out, 4 Jan', hour: 74 }];
+    const widths = [95, 155];
+    const rows = momentRows(sunset, 720, 538, widths);
+    expect(rows).toEqual([1, 0]);
+    expect(faults(sunset, 720, 538, rows, widths)).toEqual({ over: 0, behind: 0 });
   });
 
   it('takes the fewest rows that are clean, and the lowest of those', () => {
@@ -1460,6 +1519,16 @@ describe('momentRows', () => {
   it('falls back to the greedy rows beyond nine flags, so the search never runs long', () => {
     const many = Array.from({ length: 12 }, (_, k) => ({ label: `M${k}`, hour: k * 60 }));
     expect(momentRows(many, 720, 2000)).toHaveLength(12);
+  });
+
+  it('keeps 4 px between flags in the greedy rows too, beyond nine flags', () => {
+    // Ten flags 96 px apart on a 1440 px track, each 80 px wide but the fifth, 94 px: it ends 2 px short of the sixth. The fifth
+    // goes up, so that the sixth's stem does not come down against its words; the rest share the first row.
+    const crowd = Array.from({ length: 10 }, (_, k) => ({ label: `Moment ${k}`, hour: 48 * (k + 1) }));
+    const widths = crowd.map((_, k) => (k === 4 ? 94 : 80));
+    const rows = momentRows(crowd, 720, 1440, widths);
+    expect(rows).toEqual([0, 0, 0, 0, 1, 0, 0, 0, 0, 0]);
+    expect(faults(crowd, 720, 1440, rows, widths)).toEqual({ over: 0, behind: 0 });
   });
 });
 

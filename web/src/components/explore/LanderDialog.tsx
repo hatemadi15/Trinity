@@ -20,16 +20,17 @@ const dark = (power: Pick<PowerConfig, 'batteryWh' | 'loadW'>) => `${spanWords(b
 function Choice({ name, checked, onChange, title, note }: { name: string; checked: boolean; onChange: () => void; title: string; note: string }) {
   return (
     <label className={`flex min-h-[52px] cursor-pointer items-center gap-3 rounded-lg border px-4 py-2.5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-sun-ink ${checked ? 'border-ink bg-surface-2' : 'border-line-strong'}`}>
-      <input type="radio" name={name} checked={checked} onChange={onChange} className="h-4 w-4 accent-[var(--ink)]" />
+      {/* A no-break space keeps each number in the title with its unit where it wraps; the name read out keeps plain spaces, as the lander buttons' names do. */}
+      <input type="radio" name={name} checked={checked} onChange={onChange} aria-label={`${title} ${note}`} className="h-4 w-4 accent-[var(--ink)]" />
       <span>
-        <span className="font-medium text-ink">{title}</span>
+        <span className="font-medium text-ink">{title.replace(/(\d) /g, '$1\u00a0')}</span>
         <span className="text-ink-2"> {note}</span>
       </span>
     </label>
   );
 }
 
-/** The lander: three ready-made ones named by their numbers, and every field under "Custom". */
+/** The lander: three ready-made ones, named small, medium and large with their numbers, and every field under "Custom". */
 export function LanderDialog({
   params,
   onPower,
@@ -51,7 +52,7 @@ export function LanderDialog({
   const showCustom = custom || preset === null;
   return (
     <Modal title="The lander" onClose={onClose} returnFocus={returnFocus} wide>
-      <p className="mt-2 text-ink-2">What the lander needs decides how long it lasts. Pick one, or set your own numbers.</p>
+      <p className="mt-2 text-ink-2">What the lander needs decides how long it lasts. Pick one, or set your own numbers. All three ready-made landers use a {Math.round(DEFAULT_POWER.efficiency * 100)}&nbsp;% panel.</p>
       <div role="radiogroup" aria-label="Lander" className="mt-4 grid gap-2.5">
         {LANDER_PRESETS.map((x) => (
           <Choice
@@ -82,7 +83,7 @@ export function LanderDialog({
           <div className="mt-4 flex flex-wrap gap-x-5 gap-y-4">
             {p.panel === 'vertical' && <NumberField label="Panel faces (° from north)" value={p.panelAzimuthDeg} {...POWER_RANGES.panelAzimuthDeg} onChange={(v) => onPower({ panelAzimuthDeg: v })} />}
             <NumberField label="Panel area (m²)" value={p.areaM2} {...POWER_RANGES.areaM2} onChange={(v) => onPower({ areaM2: v })} />
-            <NumberField label="Cell efficiency (%)" value={Math.round(p.efficiency * 100)} {...percentRange(POWER_RANGES.efficiency)} onChange={(v) => onPower({ efficiency: v / 100 })} />
+            <NumberField label="Panel efficiency (%)" value={Math.round(p.efficiency * 100)} {...percentRange(POWER_RANGES.efficiency)} onChange={(v) => onPower({ efficiency: v / 100 })} />
             <NumberField label="Lander uses (W)" value={p.loadW} {...POWER_RANGES.loadW} onChange={(v) => onPower({ loadW: v })} />
             <NumberField label="Battery (Wh)" value={p.batteryWh} {...POWER_RANGES.batteryWh} onChange={(v) => onPower({ batteryWh: v })} />
             <NumberField label="Battery at landing (%)" value={Math.round(p.initialSocFraction * 100)} {...percentRange(POWER_RANGES.initialSocFraction)} onChange={(v) => onPower({ initialSocFraction: v / 100 })} />
@@ -98,12 +99,6 @@ export function LanderDialog({
         The panel makes its share of full sunlight (1361 W on each square metre at Earth&apos;s distance), reduced by the part of the Sun behind a hill and by the angle of the panel. The battery fills when the panel makes
         more than the lander uses and empties when it makes less.
       </p>
-
-      <div className="mt-6 flex justify-end">
-        <button type="button" onClick={onClose} className="btn">
-          Done
-        </button>
-      </div>
     </Modal>
   );
 }

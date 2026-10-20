@@ -1,6 +1,6 @@
 import { DEFAULT_POWER, type PowerConfig } from './engine/power';
 
-/** A ready-made lander, named by its numbers so nobody has to guess what "small" means. */
+/** A ready-made lander: a name to call it by, with its numbers beside it so nobody has to guess what "small" means. */
 export interface LanderPreset {
   id: 'small' | 'medium' | 'large';
   label: string;
@@ -8,9 +8,9 @@ export interface LanderPreset {
 }
 
 export const LANDER_PRESETS: LanderPreset[] = [
-  { id: 'small', label: '4 m² panel, uses 200 W, 2 kWh battery', power: { areaM2: 4, loadW: 200, batteryWh: 2000 } },
-  { id: 'medium', label: '8 m² panel, uses 400 W, 20 kWh battery', power: { areaM2: 8, loadW: 400, batteryWh: 20000 } },
-  { id: 'large', label: '20 m² panel, uses 500 W, 50 kWh battery', power: { areaM2: 20, loadW: 500, batteryWh: 50000 } },
+  { id: 'small', label: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery', power: { areaM2: 4, loadW: 200, batteryWh: 2000 } },
+  { id: 'medium', label: 'Medium lander: 8 m² panel, uses 400 W, 20 kWh battery', power: { areaM2: 8, loadW: 400, batteryWh: 20000 } },
+  { id: 'large', label: 'Large lander: 20 m² panel, uses 500 W, 50 kWh battery', power: { areaM2: 20, loadW: 500, batteryWh: 50000 } },
 ];
 
 /** The preset these settings are, or null when any field differs from it or from the defaults around it. */

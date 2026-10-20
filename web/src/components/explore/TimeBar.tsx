@@ -89,21 +89,32 @@ export function dotShifts(moments: KeyMoment[], hours: number, trackPx: number):
 }
 
 /**
+ * The least clearance, in px, between two flags in a row and between the end of a flag's words and a stem that
+ * comes down past it: flags that touch edge to edge read as one, and a stem against a flag's edge reads as part
+ * of it. A gap under that counts as flags over each other, by the px it lacks, and a stem nearer as behind the
+ * words.
+ */
+const FLAG_GAP = 4;
+
+/**
  * The greedy rows of part A, 0 or 1, for flags already placed along the track (`spans`, in order of time), which
  * `momentRows` falls back to beyond nine flags. A flag takes the first row when it clears the flag placed last
- * there. When it does not and its stem would come down behind that flag's words, that flag goes up instead, if
- * its own stem then stays clear of the new one and it clears the second row: as the stem of a flag in the second
- * row comes down past the first, each stem stays in sight. Else the new flag takes the row where it covers less
- * of the words of the flag placed last there, the second on a tie. A flag that ends at its hour, near the right
- * end, counts where it really runs, its stem on its right edge.
+ * there by FLAG_GAP. When it does not and its stem would come down behind that flag's words, or within FLAG_GAP
+ * past their end, that flag goes up instead, if its own stem then stays clear of the new one and it clears the
+ * second row: as the stem of a flag in the second row comes down past the first, each stem stays in sight. Else
+ * the new flag takes the row where it covers less of the words of the flag placed last there, the second on a
+ * tie. A flag that ends at its hour, near the right end, counts where it really runs, its stem on its right edge.
  */
 function greedyRows(spans: { from: number; to: number; flipped: boolean }[]): number[] {
-  // How far two flags run over each other, in px: 0 when they clear each other, or when either is none (-1).
-  const over = (a: number, b: number) => (a < 0 || b < 0 ? 0 : Math.max(0, Math.min(spans[a].to, spans[b].to) - Math.max(spans[a].from, spans[b].from)));
-  // Whether the stem of flag a, at its hour, would come down behind the words of flag b.
+  // How far two flags run over each other, in px, a gap under FLAG_GAP counting as the px it lacks: 0 when they
+  // clear each other by that much, or when either is none (-1).
+  const over = (a: number, b: number) => (a < 0 || b < 0 ? 0 : Math.max(0, FLAG_GAP + Math.min(spans[a].to, spans[b].to) - Math.max(spans[a].from, spans[b].from)));
+  // Whether the stem of flag a, at its hour, would come down behind the words of flag b, or within FLAG_GAP past their
+  // end. Not just before their start: that is the stem of a flag with about the same hour, and lifting b instead would
+  // bring its stem down through the words of a.
   const behind = (a: number, b: number) => {
     const at = spans[a].flipped ? spans[a].to : spans[a].from;
-    return spans[b].from < at && at < spans[b].to;
+    return spans[b].from < at && at < spans[b].to + FLAG_GAP;
   };
   const rows: number[] = [];
   // The flags placed last in the first row and in the second.
@@ -148,11 +159,12 @@ const BEHIND_PX = 60;
 /**
  * The row of each flag over the track, 0 right above it, 1 above that and 2 above that, for moments in order of
  * time, by their measured widths when given (`widths`, px; else a guess from their letters). Of every way of giving
- * the flags rows, the one with no flag over another in its row and no stem down behind another flag's words (a
- * flag's stem comes down past the rows under it), and of those the fewest rows, then the lowest, a later flag going
- * up before an earlier one on a tie. With no clean way in three rows, the one with the fewest faults, a stem behind
- * words counting as 60 px of overlap. A flag that ends at its hour counts where it really runs, its stem on its
- * right edge. Beyond nine flags the greedy rows of part A take over, so the search never runs long.
+ * the flags rows, the one with no flag over another in its row, or less than FLAG_GAP from it, and no stem down
+ * behind another flag's words, or within FLAG_GAP past their end (a flag's stem comes down past the rows under it),
+ * and of those the fewest rows, then the lowest, a later flag going up before an earlier one on a tie. With no clean
+ * way in three rows, the one with the fewest faults, a stem behind words counting as 60 px of overlap. A flag that
+ * ends at its hour counts where it really runs, its stem on its right edge. Beyond nine flags the greedy rows of part
+ * A take over, so the search never runs long.
  */
 export function momentRows(moments: KeyMoment[], hours: number, trackPx: number, widths?: number[]): number[] {
   const spans = moments.map((m, i) => flagSpan(m, hours, trackPx, widths?.[i]));
@@ -160,8 +172,11 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number,
   if (n === 0) return [];
   if (n > SEARCH_MAX) return greedyRows(spans);
   const stemAt = (k: number) => (spans[k].flipped ? spans[k].to : spans[k].from);
-  const over = (a: number, b: number) => Math.max(0, Math.min(spans[a].to, spans[b].to) - Math.max(spans[a].from, spans[b].from));
-  const behind = (a: number, b: number) => spans[b].from < stemAt(a) && stemAt(a) < spans[b].to;
+  // As in the greedy rows: a gap under FLAG_GAP counts as overlap of the px it lacks, and a stem within FLAG_GAP past
+  // the end of another flag's words as down behind them, but not one just before their start: that is the stem of a
+  // flag with about the same hour, and lifting the other flag instead would bring its stem down through those words.
+  const over = (a: number, b: number) => Math.max(0, FLAG_GAP + Math.min(spans[a].to, spans[b].to) - Math.max(spans[a].from, spans[b].from));
+  const behind = (a: number, b: number) => spans[b].from < stemAt(a) && stemAt(a) < spans[b].to + FLAG_GAP;
   let best: number[] = [];
   let bestCost = Infinity;
   const rows = new Array<number>(n).fill(0);
@@ -234,10 +249,10 @@ export function momentRows(moments: KeyMoment[], hours: number, trackPx: number,
  * edge colour runs from its left edge down to the strip; one whose words would run past the right end of the
  * track ends at its hour instead, the stem on its right edge. Flags that would meet go up, into up to three
  * rows (`momentRows`, 18.3), laid out by their widths as the browser draws them, measured once they are drawn
- * and again when their words, the track's width or the page's fonts change: the layout with no two flags over
- * each other in a row and no stem down behind another flag's words, so each flag leads the eye to its own hour
- * even when two stand a few pixels apart, and of those the one with the fewest rows. The flag of the moment
- * the handle is on shows as chosen, with a gold edge.
+ * and again when their words, the track's width or the page's fonts change: the layout with no two flags in a
+ * row over each other or less than 4 px apart, and no stem down behind another flag's words or within 4 px
+ * past their end, so each flag leads the eye to its own hour even when two stand a few pixels apart, and of those
+ * the one with the fewest rows. The flag of the moment the handle is on shows as chosen, with a gold edge.
  *
  * With `compact`, on a phone each flag is a dot instead, 12 px, on the top edge of the strip, its words kept
  * for screen readers, at the foot of a target 40 px tall and 24 px wide that reaches up to the row above but
@@ -271,6 +286,7 @@ export function TimeBar({
   bare = false,
   moments,
   onMoment,
+  onPlay,
   ifSurvivesFrom = null,
   clockNote,
 }: {
@@ -299,6 +315,8 @@ export function TimeBar({
   moments?: KeyMoment[];
   /** Told which moment it was, once a click on its flag or dot has moved the handle there. */
   onMoment?: (m: KeyMoment) => void;
+  /** Told when Play starts: not when it pauses, nor when the slider, a key or a flag moves the time. */
+  onPlay?: () => void;
   /**
    * The hour from which the bar's marks that need power hold only if the lander survives the cold of the night:
    * the first hour with power again after the first power cut, or null when it never needs to. From that hour on
@@ -438,6 +456,9 @@ export function TimeBar({
             disabled={reduced}
             onClick={() => {
               if (!playing && cursor >= last) onCursor(0);
+              // A press that starts the playback tells the page, and one that pauses it does not. onCursor cannot say which:
+              // the slider, the keys and the flags fire it too.
+              if (!playing) onPlay?.();
               setPlaying((p) => !p);
             }}
             className={`btn row-span-2 w-full max-sm:row-span-1 max-sm:w-auto${compact ? ' max-sm:min-w-[92px] max-sm:gap-2 max-sm:px-3' : ''}`}
