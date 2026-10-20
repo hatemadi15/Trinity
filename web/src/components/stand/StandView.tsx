@@ -11,6 +11,7 @@ import { shadowLevels } from '@/lib/data/terrain';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { exploreHref, standHref } from '@/lib/links';
+import { NAV } from '@/lib/nav';
 import { earthLitFraction } from '@/lib/sky/earth';
 import { dirAzEl } from '@/lib/sky/frames';
 import { LANDER } from '@/lib/sky/landerShape';
@@ -20,7 +21,7 @@ import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explor
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth } from '@/lib/viz/format';
-import { betterChip, betterLabel, keyMoments, landerCaption, measuredNote, momentCaption, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
+import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
@@ -44,6 +45,8 @@ const tall = () => typeof window !== 'undefined' && window.innerHeight > window.
 const LANDER_FOOT_M = 2.1;
 /** The session's key for "Brighter picture" (18.3): kept for the visit, not across visits. */
 const BRIGHT_KEY = 'earthrise-bright';
+/** How it works and Accuracy, as the header names them: the way to the evidence from a view with no header (19.3). */
+const EVIDENCE = NAV.filter((item) => item.href === '/learn' || item.href === '/validate');
 
 /**
  * Whether the picture opens brighter: the visitor asked for it earlier in the visit, or `?bright=1` is in the address,
@@ -84,18 +87,23 @@ export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
 }
 
 /**
- * Stand on the Moon: the full-window view from the landing site for the site, period and hour of the
- * address (Explore's address plus `hour`). Over the view (16.2), one line on the lander's power and radio with
- * More, which opens today's card: where you stand, the headline (the page's heading at all times, with how long
- * the night lasts), what to watch next, the better landing day, "Why this happens" (where the site lies, why the
- * light and the sky look as they do, the pole first, the radio story and how we know, one reason at a time or all
- * as one list) and the way back. From 768 px wide a second row under that line keeps the next step in view (17.1):
- * the better landing day in gold (else "Compare sites"), "Change site", "Change date" and "Compare sites", and the
- * card leaves out its better day and way back. One row of buttons faces the Sun, Earth or the lander, looks up,
- * shows the guides and hides the words; on a phone it sits above the time bar, and "Hide the words" waits in the
- * card. A key moment, chosen from its flag or passed as the time moves on, gets a line over the view on why; the
- * moments stay as dots when the words are hidden. A lander stands beside the site for scale, placed by the hour the
- * view opens on. Without WebGL 2 it shows the horizon chart with the same words.
+ * Stand on the Moon: the full-window view from the landing site for the site, period and hour of the address
+ * (Explore's address plus `hour`). Over the view the answer comes first (19.1): the status plate leads with the
+ * headline, then from 768 px wide the next step (17.1), the better landing day in gold (else "Compare sites"), "Change
+ * site", "Change date", "Change lander" and "Compare sites", and last the moment's state, the lander's power and radio
+ * for the hour, with the links to Earthrise, How it works and Accuracy at its end (19.3). The state sits at the plate's
+ * foot, down by the time it describes, rather than in the time bar, which is Explore's too and where its 60 to 90
+ * characters would wrap beside the date. On a phone the plate keeps two lines, the headline's short form and More.
+ * More opens today's card: on a phone the state first, then where you stand, the headline (the page's heading at all
+ * times, with how long the night lasts), what to watch next, the better landing day, "Why this happens" (where the
+ * site lies, why the light and the sky look as they do, the pole first, the radio story and how we know, one reason at
+ * a time or all as one list), the ways on and the links; from 768 px the card leaves the state, the headline, the
+ * better day, the ways on and the links to the plate. One row of buttons faces the Sun, Earth or the lander, looks
+ * up, shows the paths and hides the words; on a phone it sits above the time bar, and "Hide the words" waits in the
+ * card. A key moment, chosen from its flag or passed as the time moves on, gets a line over the view on why; on
+ * arrival that line gives the first step, Play and the drag (19.2), until the visitor turns the view, plays the month
+ * or takes a moment. The moments stay as dots when the words are hidden. A lander stands beside the site for scale,
+ * placed by the hour the view opens on. Without WebGL 2 it shows the horizon chart with the same words.
  */
 export function StandView({ store = exploreStore, createRenderer = defaultRenderer }: { store?: StoreApi<ExploreState>; createRenderer?: (canvas: HTMLCanvasElement, scene: StandScene) => RendererLike }) {
   const s = useStore(store);
@@ -122,13 +130,18 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const id = window.setTimeout(() => setCaption(null), 12000);
     return () => window.clearTimeout(id);
   }, [caption]);
+  // The first step (19.2), on that line from the arrival once the ground has drawn: it goes for the visit at the first
+  // turn by hand, Play, a flag, Turn to or Look up, or a key moment's line, and never on the captions' timer. Set to
+  // false again it changes nothing (React keeps a state set to what it is), so StandCanvas may call it on every turn.
+  const [hint, setHint] = useState(true);
+  const clearHint = useCallback(() => setHint(false), []);
   // "Why this happens": where the site lies, why the light and the sky look as they do, the radio story and how
   // we know, one reason at a time (`page`), so the card never scrolls inside itself; or all of them as one list
   // (`allReasons`), for a reader who would rather read them together.
   const [more, setMore] = useState(false);
   const [page, setPage] = useState(0);
   const [allReasons, setAllReasons] = useState(false);
-  // Today's card under the status line, on every screen (16.2): the headline, what to watch, the better day, the
+  // Today's card under the status plate, on every screen (16.2): the headline, what to watch, the better day, the
   // reasons and the ways on.
   const [cardOpen, setCardOpen] = useState(false);
   // "Change lander" (18.3): the forecast page's lander dialog, opened in place; the focus comes back to the button.
@@ -192,6 +205,17 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const eye = eyeAt(scene);
     return { el: (Math.atan2(ground - eye, l.distM - LANDER_FOOT_M) * 180) / Math.PI, az: l.azDeg };
   }, [scene]);
+  // The hour the view opened on, and whether it opens on Earth: at night with Earth up it does, narrower, so Earth (four
+  // times the Sun's width) shows large: 44° high (56° on a tall screen), so Earth and the lander's feet both fit between
+  // the status plate and the time bar (both readers of read D1 found the lander cut off at 36°).
+  const opening = scene && openHour !== null ? Math.min(scene.series.hours - 1, Math.max(0, openHour)) : 0;
+  const openOnEarth = !!scene && scene.series.sunFraction[opening] === 0 && scene.series.earthVisible[opening] === 1;
+  // The opening's turn (18.4), worked out once for the scene (19.4): its walk round the skyline takes some 44,000 steps,
+  // Play draws the page twelve times a second, and StandCanvas reads the turn when it mounts only.
+  const startYaw = useMemo(
+    () => (scene ? openingYaw(scene.series, opening, tall(), !!scene.lander, scene.mask, halfWidthDeg(openOnEarth ? (tall() ? 56 : 44) : tall() ? 80 : 60)) : 0),
+    [scene, opening, openOnEarth],
+  );
   const onFail = useCallback(() => setFailed('webgl'), []);
   const onReady = useCallback(() => setDrawn(true), []);
   // The time bar moves the time (Play each hour, the slider, a key): moved forward by two days or less across a
@@ -206,9 +230,12 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       const at = st.cursorHour;
       if (!st.site || !st.series || at <= from || at - from > 48) return;
       const passed = keyMoments(st.series, st.power, st.startUtc).filter((m) => from < m.hour && m.hour <= at).at(-1);
-      if (passed) setCaption(momentCaption(passed.kind, st.series, passed.hour, st.site.lat) || null);
+      if (!passed) return;
+      setCaption(momentCaption(passed.kind, st.series, passed.hour, st.site.lat) || null);
+      // The moment's line takes the plate from the first step, which does not come back when it goes (19.2).
+      clearHint();
     },
-    [store],
+    [store, clearHint],
   );
 
   // The time bar and the phone's look buttons change height with the width and the words: what sits above
@@ -225,7 +252,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       main.style.setProperty('--bar-h', `${barRef.current?.offsetHeight ?? 0}px`);
       main.style.setProperty('--look-h', `${lookRef.current?.offsetHeight ?? 0}px`);
       main.style.setProperty('--top-h', `${(topRef.current?.offsetHeight ?? 0) + 16}px`);
-      // The status line's own height, which the card under it takes off the room it may fill.
+      // The status plate's own height, which the card under it takes off the room it may fill.
       main.style.setProperty('--status-h', `${statusRef.current?.offsetHeight ?? 0}px`);
     };
     const ro = new ResizeObserver(measure);
@@ -256,16 +283,16 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const name = siteLabel(site);
   const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best });
   // The headline gives both verdicts the challenge asks for, power and radio contact with Earth, and how long
-  // the night lasts; the site's name is in the line above it, kept on one line ("de Gerlache Rim 2", never
-  // "Rim / 2").
+  // the night lasts; the site's name leads the moment's state at the plate's foot and the card's line on where you
+  // stand, kept on one line ("de Gerlache Rim 2", never "Rim / 2").
   const title = standHeadline(answer.title, name, series, power, s.startUtc, answer.contactHours, answer.poweredHours);
   const oneLine = name.replace(/ /g, ' ');
-  // Without NASA heights the ground is drawn flat, and the line above the headline says so.
+  // Without NASA heights the ground is drawn flat, and the card's line on where you stand says so.
   const flat = !!scene && scene.field.levels.length === 0;
   // With the battery's level while it has power, as the forecast page gives it.
   const lander = statusLine(series, power, s.startUtc, hour, s.params.power.batteryWh);
   // The better landing day opens its own view, from its first hour; the button says why it is better: the power and
-  // the radio, in today's card and in the row under the status line alike (18.3); a phone's chip gives the power alone.
+  // the radio, in today's card and in the next step's row alike (18.3); a phone's chip gives the power alone.
   const better =
     answer.better && s.best
       ? {
@@ -298,6 +325,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // The note describes the view from the site: shown with it, not while the ground loads or in the fallback.
   const note = scene && !failed ? measuredNote(scene.field.levels.map((l) => l.cell), scene.sky.stars.count) : null;
   const face = (az: number, el: number, fov: number) => {
+    clearHint();
     setLookingUp(false);
     setCaption(null);
     setLook({ yaw: az, pitch: Math.max(-8, Math.min(60, el + 1.5)), fov });
@@ -308,6 +336,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const l = scene.lander, a = (l.azDeg * Math.PI) / 180;
     const ground = meshHeightAt(scene.field, l.distM * Math.sin(a), -l.distM * Math.cos(a));
     const eye = eyeAt(scene);
+    clearHint();
     setLookingUp(false);
     setCaption(null);
     // The view fits the lander's feet above the bar, as the opening does (18.3).
@@ -333,16 +362,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const onMoment = (f: { label: string; hour: number }) => {
     const m = moments.find((x) => x.label === f.label && x.hour === f.hour);
     if (!m) return;
+    // A flag is a step into the view: the first step goes for the visit (19.2).
+    clearHint();
     if (m.kind === 'battery-out' || m.kind === 'power-back') faceLander();
     else if (m.kind === 'earth-in' || m.kind === 'earth-out') face(series.earthAz[m.hour], series.earthEl[m.hour], 16);
     else face(series.sunAz[m.hour], series.sunEl[m.hour] - 2, 46);
     setCaption(momentCaption(m.kind, series, m.hour, site.lat) || null);
   };
-  const opening = openHour === null ? hour : Math.min(series.hours - 1, Math.max(0, openHour));
-  // At night with Earth up the view opens on Earth, narrower, so Earth (four times the Sun's width) shows large: 44°
-  // high (56° on a tall screen), so Earth and the lander's feet both fit between the status line and the time bar
-  // (both readers of read D1 found the lander cut off at 36°).
-  const openOnEarth = series.sunFraction[opening] === 0 && series.earthVisible[opening] === 1;
   // After the first power cut, what needs power again holds only if the lander lives through the night.
   let ifSurvivesFrom: number | null = null;
   if (power.firstBrownoutHour !== null) {
@@ -356,24 +382,28 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // Looking up: at the Southern Cross (else away from the Sun, 50° up), the sky alone in view, clear of
   // the ground: a slope rising beside you would curve up from a corner like the edge of a planet.
   const lookUp = () => {
+    clearHint();
     setLookingUp(true);
     setCaption(null);
     const cross = scene ? lookUpTarget(scene.sky, site.lat, site.lon, Date.parse(s.startUtc + 'Z') + hour * 3600e3) : null;
     setLook({ yaw: cross ? cross.az : (series.sunAz[hour] + 180) % 360, pitch: cross ? Math.max(42, Math.min(70, cross.el - 4)) : 50, fov: 62 });
   };
   const crossNamed = !!scene && scene.sky.names?.some((n) => n.name === 'Acrux');
-  // The line over the view, two lines at most: why a key moment happens, why Earth sits where it does, what
-  // looking up shows, or, at night, where the light comes from: Earth's (faint from a thin crescent), or, with neither the Sun nor Earth in
-  // view, none (why farther hills can still be lit is left to "Why this happens").
+  // The line over the view, two lines at most: why a key moment happens, the first step until the visitor takes one
+  // (19.2), why Earth sits where it does, what looking up shows, or, at night, where the light comes from: Earth's
+  // (faint from a thin crescent), or, with neither the Sun nor Earth in view, none (why farther hills can still be lit
+  // is left to "Why this happens").
   const overView =
     caption ??
-    (lookingUp
-      ? viewCaption('up', crossNamed ? site.lat : Math.abs(site.lat))
-      : series.sunFraction[hour] === 0
-        ? series.earthVisible[hour] === 1
-          ? viewCaption(earthLitFraction(dirAzEl(series.sunAz[hour], series.sunEl[hour]), dirAzEl(series.earthAz[hour], series.earthEl[hour])) < FAINT_EARTH ? 'faint' : 'earthlight', site.lat)
-          : viewCaption('dark', site.lat)
-        : null);
+    (hint && drawn
+      ? <FirstStep reduced={reducedMotion} />
+      : lookingUp
+        ? viewCaption('up', crossNamed ? site.lat : Math.abs(site.lat))
+        : series.sunFraction[hour] === 0
+          ? series.earthVisible[hour] === 1
+            ? viewCaption(earthLitFraction(dirAzEl(series.sunAz[hour], series.sunEl[hour]), dirAzEl(series.earthAz[hour], series.earthEl[hour])) < FAINT_EARTH ? 'faint' : 'earthlight', site.lat)
+            : viewCaption('dark', site.lat)
+          : null);
 
   return (
     <main ref={mainRef} className="theme-dark fixed inset-0 overflow-hidden bg-black text-[#f2f0ea]">
@@ -385,7 +415,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           hour={hour}
           look={look}
           // Turned up to 30° towards the skyline's highest point, the Sun and the lander kept in frame (18.4).
-          startYaw={openingYaw(series, opening, tall(), !!scene.lander, scene.mask, halfWidthDeg(openOnEarth ? (tall() ? 56 : 44) : tall() ? 80 : 60))}
+          startYaw={startYaw}
           reducedMotion={reducedMotion}
           createRenderer={createRenderer}
           sunLabel={skyLabel('sun', series, hour)}
@@ -393,6 +423,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           night={series.sunFraction[hour] < 0.5}
           onFail={onFail}
           onReady={onReady}
+          // The first turn by hand takes the first step (19.2).
+          onExplore={clearHint}
           clean={wordsHidden}
           guides={guides}
           keepInView={feet}
@@ -420,20 +452,24 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         </button>
       )}
       {!wordsHidden && (
-        // Side by side from 1280 px wide; narrower, the row sits above the time bar and the status line has the top (the
-        // final review found the row over the status line and its More from 768 px to about 1070 px).
+        // Side by side from 1280 px wide; narrower, the row sits above the time bar and the status plate has the top (the
+        // final review found the row over the status plate and its More from 768 px to about 1070 px).
         <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start gap-3 xl:flex-row xl:justify-between">
-          {/* One line on the lander's power and radio, with More for today's card (16.2). */}
+          {/* The answer first (19.1): the headline, the next step and the moment's state, with More for today's card. */}
           <section ref={topRef} aria-label="The answer for this site" className="pointer-events-none grid w-full min-w-0 justify-items-start gap-2 xl:flex-1">
-            {/* The page's heading at all times, for screen readers; the card shows it when it is open. */}
-            {/* Tighter on a phone, so its longest state (four lines) leaves the scene 55 % of the screen (16.5). */}
+            {/* The page's heading at all times, for screen readers; the plate and the card show it to the eye. */}
             <h1 className="sr-only">{title}</h1>
             <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] flex-col`}>
+              {/* Tighter on a phone, so the short headline's two lines leave the scene 55 % of the screen (16.5). */}
               <div className="flex items-start gap-3 px-3.5 py-1 md:px-4 md:py-1.5">
-                <i aria-hidden="true" data-tone={lander.tone} className={`mt-[11px] h-3 w-3 shrink-0 self-start rounded-full md:mt-[13px] ${TONE[lander.tone]}`} />
-                <p className="min-w-0 flex-1 text-balance py-1.5 text-[15px] leading-snug md:py-2 md:text-base">
-                  <span className="text-[#c3bfb6] max-md:hidden">{oneLine}. </span>
-                  {lander.text}
+                {/* The headline as the eye reads it, first: the landing's verdict, two lines at most from 768 to 1440 px. */}
+                <p aria-hidden="true" className="display min-w-0 flex-1 text-pretty py-1.5 text-[18px] font-semibold leading-snug max-md:hidden">
+                  {title}
+                </p>
+                {/* On a phone its short form, the day, the power and the radio, in the two lines the state took, so the
+                    band is as in 18.3; today's card keeps the whole headline, the night with it. */}
+                <p aria-hidden="true" className="display min-w-0 flex-1 text-pretty py-1.5 text-[15px] font-semibold leading-snug md:hidden">
+                  {phoneHeadline(title)}
                 </p>
                 <button type="button" aria-expanded={cardOpen} className="flex min-h-10 shrink-0 items-center gap-1.5 self-end whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setCardOpen((o) => !o)}>
                   {cardOpen ? 'Less' : 'More'}
@@ -442,13 +478,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   </span>
                 </button>
               </div>
-              {/* The next step, always in view from 768 px (17.1); on a phone it waits in today's card. It starts under
-                  the status's words (the plate's 16 px, the dot's 12 and the gap's 12), as the mockup has it. */}
-              {/* The answer, in view from 768 px (read D2: the better day had nothing to compare against under More); a phone's card keeps it. */}
-              <p aria-hidden="true" className="display text-pretty px-4 pb-1 pl-10 text-[16px] font-semibold leading-snug max-md:hidden">
-                {title}
-              </p>
-              <div role="group" aria-label="Next step" className="flex flex-wrap items-center gap-x-5 gap-y-1 pb-2.5 pl-10 pr-4 pt-0.5 max-md:hidden">
+              {/* The next step, always in view from 768 px (17.1); on a phone it waits in today's card. Under the headline
+                  and in line with it, so the better day reads beside the verdict it improves on (read D2: under More it had
+                  nothing to compare against). */}
+              <div role="group" aria-label="Next step" className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-2.5 pt-0.5 max-md:hidden">
                 {better ? (
                   <a
                     href={better.href}
@@ -482,19 +515,34 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   </button>
                 )}
               </div>
+              {/* Last, the moment's state: the lander's power and radio for the hour, down by the time it describes at the
+                  plate's foot, not in the time bar, which is Explore's too and where 60 to 90 characters beside the date would
+                  wrap (19.1). A phone has it as the card's first line. */}
+              <div className="flex items-start gap-3 border-t border-white/10 px-4 py-1.5 max-md:hidden">
+                <i aria-hidden="true" data-tone={lander.tone} className={`mt-[7px] h-3 w-3 shrink-0 self-start rounded-full ${TONE[lander.tone]}`} />
+                <p className="min-w-0 flex-1 text-balance text-[15px] leading-snug">
+                  <span className="text-[#c3bfb6] max-md:hidden">{oneLine}. </span>
+                  {lander.text}
+                </p>
+                {/* The way to the evidence at the line's end (19.3): the judge's slim header without a header, so the band
+                    grows by nothing. */}
+                <Sections className="ml-auto shrink-0 self-end whitespace-nowrap" />
+              </div>
             </div>
             {better && !cardOpen && (
               // A phone's first screen keeps the better day in sight (18.3): one gold chip under the plate, a link to that
               // landing, 32 px tall at 14 px so the scene keeps 55 % of the screen; from 768 px the row's gold button has it,
-              // and while today's card is open the card has it in full (read D3), so the chip waits.
+              // and while today's card is open the card has it in full (read D3), so the chip waits. A plate itself (19.4):
+              // no label of the sky sits on it, the view's room starts under it, and it grows rather than spill if it wraps.
               <a
                 data-chip=""
+                data-plate=""
                 href={better.href}
                 onClick={(e) => {
                   e.preventDefault();
                   land(better.startUtc, better.href);
                 }}
-                className={`${PLATE} pointer-events-auto inline-flex h-8 items-center gap-1 border-[#f6d48a]/55 px-2.5 text-[14px] text-[#f6d48a] md:hidden`}
+                className={`${PLATE} pointer-events-auto inline-flex min-h-8 items-center gap-1 border-[#f6d48a]/55 px-2.5 text-[14px] text-[#f6d48a] md:hidden`}
               >
                 {better.chip}
                 <span aria-hidden="true">›</span>
@@ -506,8 +554,14 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 data-plate=""
                 className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin] md:gap-2.5 md:p-5 xl:max-h-[calc(100dvh-var(--bar-h,185px)-var(--status-h,64px)-56px)] max-xl:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-var(--status-h,72px)-56px)]`}
               >
+                {/* On a phone the card opens on the moment's state with its dot (19.1); from 768 px the plate's foot has it. */}
+                <p className="flex items-start gap-2.5 text-[15px] md:hidden">
+                  <i aria-hidden="true" data-tone={lander.tone} className={`mt-[5px] h-3 w-3 shrink-0 rounded-full ${TONE[lander.tone]}`} />
+                  <span>{lander.text}</span>
+                </p>
                 <p className="text-[14px] text-[#c3bfb6] md:text-[15px]">{standingLine(site, oneLine, 'top', flat)}</p>
-                {/* The headline as the eye reads it; the heading above says it for screen readers. */}
+                {/* The whole headline on a phone, the night with it, which the plate's short form leaves out; the heading
+                    above says it for screen readers. */}
                 <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px] md:hidden">
                   {title}
                 </p>
@@ -524,8 +578,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   )}
                 </p>
                 {better && (
-                  // The better day, on a row of its own, so the links below never move. From 768 px the row under
-                  // the status line holds it, so the screen keeps one gold action (17.1).
+                  // The better day, on a row of its own, so the links below never move. From 768 px the next step's
+                  // row on the plate holds it, so the screen keeps one gold action (17.1).
                   <div className="md:hidden">
                     <a
                       href={better.href}
@@ -536,6 +590,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                       className={`${LOOK.replace('whitespace-nowrap ', '')} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
                     >
                       {better.label}
+                      {/* A way on, as the row's gold link from 768 px reads (19.4). */}
+                      <span aria-hidden="true"> ›</span>
                     </a>
                   </div>
                 )}
@@ -556,7 +612,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     </span>
                   </button>
                   {/* On a phone the next step waits here (17.1), by the names the readers looked for (read D3): from 768 px the
-                      row under the status line holds them instead. */}
+                      next step's row on the plate holds them instead. */}
                   <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
                     Change site
                   </Link>
@@ -570,7 +626,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => setWordsHidden(true)}>
                     Hide the words
                   </button>
-                  {/* On a phone the row under the status line is not shown: Change lander waits here (18.3). */}
+                  {/* On a phone the next step's row is not shown: Change lander waits here (18.3). */}
                   <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={openLander}>
                     Change lander
                   </button>
@@ -619,6 +675,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     </div>
                   </div>
                 )}
+                {/* On a phone the way to the evidence waits here (19.3); from 768 px the plate's foot has it. */}
+                <Sections className="flex-wrap gap-y-1 md:hidden" />
                 <p className="text-[14px] text-[#c3bfb6]">Drag to look around; pinch or scroll to zoom.</p>
               </div>
             )}
@@ -672,9 +730,11 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   Look up
                 </button>
               )}
-              {/* "Paths" (18.2): the month's paths of the Sun and Earth with their days, the level horizon, the star names, your shadow. */}
-              <button type="button" aria-pressed={guides} className={`${LOOK} ${PRESSED}`} onClick={() => setGuides((g) => !g)}>
-                Paths
+              {/* "Show paths" (18.2): the month's paths of the Sun and Earth with their days, the level horizon, the star names,
+                  your shadow. Its words say what it does, "Hide paths" once they show, so it carries no pressed state: a
+                  toggle's words must not change with its state (19.4). A phone keeps "Paths" for the row's width. */}
+              <button type="button" aria-label={guides ? 'Hide paths' : 'Show paths'} className={LOOK} onClick={() => setGuides((g) => !g)}>
+                <Short short="Paths" long={guides ? 'Hide paths' : 'Show paths'} />
               </button>
               {/* Its words are its name, as speech input needs (WCAG 2.5.3). */}
               <button type="button" className={`${LOOK} max-md:hidden`} onClick={() => setWordsHidden(true)}>
@@ -685,9 +745,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
         </div>
       )}
       {overView && !failed && !wordsHidden && (
-        // Why a key moment happens, or what looking up shows: docked on the compass plate from 768 px, one plate at the
-        // foot of the view (18.3; its foot 14 px plus the plate's 79 px, StandCanvas's STRIP_H, over the bar); on a phone,
-        // which has no compass, its own plate above the buttons.
+        // Why a key moment happens, the first step, or what looking up shows: docked on the compass plate from 768 px, one
+        // plate at the foot of the view (18.3; its foot 14 px plus the plate's 79 px, StandCanvas's STRIP_H, over the bar);
+        // on a phone, which has no compass, its own plate above the buttons.
         <p
           data-plate=""
           data-caption=""
@@ -699,10 +759,44 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
 
       <div ref={barRef} data-plate="" className="fixed inset-x-0 bottom-0">
         {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
-        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={onCursor} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} ifSurvivesFrom={ifSurvivesFrom} clockNote=" (Earth time)" />
+        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={onCursor} onPlay={clearHint} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} ifSurvivesFrom={ifSurvivesFrom} clockNote=" (Earth time)" />
       </div>
       {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
     </main>
+  );
+}
+
+/**
+ * The way to the evidence (19.3): the home page, How it works and Accuracy, in 14 px. From 768 px it ends the plate's
+ * last line, beside the moment's state; on a phone it sits at the foot of today's card.
+ */
+function Sections({ className }: { className: string }) {
+  return (
+    <nav aria-label="Sections" className={`flex items-center gap-x-4 text-[14px] text-[#c3bfb6] ${className}`}>
+      <Link href="/" className="underline underline-offset-4 hover:text-[#f2f0ea]">
+        Earthrise
+      </Link>
+      {EVIDENCE.map((item) => (
+        <Link key={item.href} href={item.href} className="underline underline-offset-4 hover:text-[#f2f0ea]">
+          {item.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/**
+ * The first step on the line over the view (19.2): Play and the drag, short under 640 px (the line twice, one shown per
+ * width, so a screen reader meets only the shown one: display: none keeps the other out), or with reduced motion the
+ * drag alone, as Play is off then.
+ */
+function FirstStep({ reduced }: { reduced: boolean }) {
+  if (reduced) return <>{FIRST_STEP_STILL}</>;
+  return (
+    <>
+      <span className="max-sm:hidden">{FIRST_STEP}</span>
+      <span className="sm:hidden">{FIRST_STEP_PHONE}</span>
+    </>
   );
 }
 

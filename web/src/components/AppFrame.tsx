@@ -1,16 +1,12 @@
 import Link from 'next/link';
+import { NAV } from '@/lib/nav';
 import { BrandMark } from './BrandMark';
 import { DemoModeGate } from './DemoModeGate';
 import { StarBand } from './StarBand';
 import { ThemeSwitch } from './ThemeSwitch';
 
-/** The four sections in plain words. "Choose a site" opens the site list, as its heading says. */
-export const NAV = [
-  { href: '/sites', label: 'Choose a site' },
-  { href: '/compare', label: 'Compare sites' },
-  { href: '/learn', label: 'How it works' },
-  { href: '/validate', label: 'Accuracy' },
-];
+// The sections live in lib/nav, so the stand view can link to them without the frame (19.3).
+export { NAV } from '@/lib/nav';
 
 /**
  * Header, page, footer. The header is 68 px tall and scrolls with the page; only Explore's time bar is
