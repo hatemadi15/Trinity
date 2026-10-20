@@ -21,11 +21,11 @@ Nothing in this document has been run yet: it prepares the go-live steps for the
 
    ```powershell
    uv run python -m lunar_pipeline.cli sync-local --tiles
-   uv run python -m lunar_pipeline.cli publish-r2 --dry-run
-   uv run python -m lunar_pipeline.cli publish-r2
+   uv run python -m lunar_pipeline.cli publish-r2 --dry-run --prefix data-2026-10
+   uv run python -m lunar_pipeline.cli publish-r2 --prefix data-2026-10
    ```
 
-   `sync-local --tiles` copies the committed data, the DEM tiles, the terrain rasters and the globe for the home page's arrival (`data_out/globe`, about 5.3 MB, written by the pipeline's `globe` command) into the mirror. The publisher walks `web/public/data`, uploads every file under the `data/` prefix with its content type and `Cache-Control: public, max-age=31536000, immutable`, and skips files whose size and MD5 already match the object in the bucket, so the globe goes up with the rest. Without `globe/` in the bucket the home page shows the arrival's stills in place of the live view. Files keep their names when the pipeline regenerates them, and a browser keeps its copy for a year, so publish a changed data run under a new prefix (`publish-r2 --prefix data-2026-10-02`) and point `NEXT_PUBLIC_DATA_BASE` at it: no browser then mixes old and new files. Re-running with the same prefix uploads only what changed, which is safe only before anyone has loaded the data. (When the app serves `web/public/data` itself, as on the venue laptop, `next.config.ts` makes the browser check every file again, so a rebuilt mirror shows at once.)
+   `sync-local --tiles` copies the committed data, the DEM tiles, the terrain rasters and the globe for the home page's arrival (`data_out/globe`, about 5.3 MB, written by the pipeline's `globe` command) into the mirror. The publisher walks `web/public/data`, uploads every file under the prefix you name (`data/` if you name none) with its content type and `Cache-Control: public, max-age=31536000, immutable`, and skips files whose size and MD5 already match the object in the bucket, so the globe goes up with the rest. Without `globe/` in the bucket the home page shows the arrival's stills in place of the live view. The commands above publish under `data-2026-10`, so `NEXT_PUBLIC_DATA_BASE` then points at `https://<data host>/data-2026-10`. Files keep their names when the pipeline regenerates them, and a browser keeps its copy for a year, so publish a changed data run under a new prefix (`publish-r2 --prefix data-2026-10-02`) and point `NEXT_PUBLIC_DATA_BASE` at it: no browser then mixes old and new files. Naming the first run too means the second never collides with it. Re-running with the same prefix uploads only what changed, which is safe only before anyone has loaded the data. (When the app serves `web/public/data` itself, as on the venue laptop, `next.config.ts` makes the browser check every file again, so a rebuilt mirror shows at once.)
 
 5. Public access. `r2.dev` URLs are rate-limited and not meant for production, so use one of:
    - **Custom domain** on the bucket (Settings → Public access → Custom domains), for example `data.earthrise.example`. Cloudflare then serves the objects through its CDN with the headers set at upload.
@@ -47,6 +47,8 @@ Nothing in this document has been run yet: it prepares the go-live steps for the
 
    Add the production domain to `AllowedOrigins` when it exists.
 
+   Vercel preview deployments have their own origins (`https://<project>-<hash>-<team>.vercel.app`). R2's CORS policy documents `*` and exact origins. A partial wildcard such as `https://*.vercel.app` is not documented as supported, so do not rely on it. For previews, either serve the data through the Worker below (it answers `Access-Control-Allow-Origin: *`) or add each preview origin you test from to `AllowedOrigins`.
+
 Worker (only when no custom domain is attached):
 
 ```js
@@ -66,14 +68,15 @@ export default {
 };
 ```
 
-Bind the bucket as `DATA` in the Worker's settings. Either way, the app's `NEXT_PUBLIC_DATA_BASE` becomes `https://<host>/data`.
+Bind the bucket as `DATA` in the Worker's settings. Either way, the app's `NEXT_PUBLIC_DATA_BASE` becomes `https://<host>/data-2026-10`.
 
 ## 2. App on Vercel (Hobby)
 
 One rule first: every `NEXT_PUBLIC_*` variable is inlined into the client and server bundles at build time. Set them before the first build and trigger a new build after changing one; a runtime change alone does nothing.
 
-1. Import the GitHub repository in Vercel. **Root directory: `web`.** Framework preset: Next.js. Build command `npm run build`, install command `npm install` (the repo's `.npmrc` already sets `legacy-peer-deps`).
-2. Environment variables (Production and Preview):
+1. Node. Next 16 needs Node 20.9 or later; `web/package.json` pins `"engines": { "node": "22.x" }`, which Vercel reads to pick the runtime (Settings, General, Node.js Version shows it). The venue laptops run the same major.
+2. Import the GitHub repository in Vercel. **Root directory: `web`.** Framework preset: Next.js. Build command `npm run build`, install command `npm install` (the repo's `.npmrc` already sets `legacy-peer-deps`).
+3. Environment variables (Production and Preview):
 
    | Name | Value |
    |---|---|
@@ -81,12 +84,13 @@ One rule first: every `NEXT_PUBLIC_*` variable is inlined into the client and se
    | `OPENROUTER_MODELS` | `qwen/qwen3.8-27b:free,nvidia/nemotron-3-super-120b-a12b:free,google/gemma-4-31b-it:free,nvidia/nemotron-3.5-lightning:free` |
    | `NEXT_PUBLIC_AI_MODE` | `live` (`cached` turns the planner into rehearsed answers only) |
    | `AI_RATE_LIMIT_PER_MIN` | `30` |
-   | `NEXT_PUBLIC_DATA_BASE` | `https://<data host>/data` |
+   | `AI_MODEL_BUDGET_MS` | `24000` (optional; total model time per `/api/chat` request in milliseconds, first answer plus one retry, kept under the browser's 30 s wait) |
+   | `NEXT_PUBLIC_DATA_BASE` | `https://<data host>/data-2026-10` (no trailing slash; the app strips one and reads an empty value as `/data`) |
 
-3. `web/vercel.json` adds the immutable cache header for `/data/*` (only used if the data is ever served by the app) and a one-hour header for the test badge. `web/.vercelignore` keeps the local data mirror out of CLI deployments; Git deployments never see it because `public/data` is gitignored.
-4. Region: leave the default (`iad1`); the routes are light and JPL Horizons sits in the same region.
-5. Limits to keep in mind on Hobby: 100 GB of transfer per month (the data does not count, it comes from R2), 100 MB of source per deployment. Function duration needs no change: Hobby with Fluid compute allows up to 300 s, the chat route caps itself at 60 s (`maxDuration`) and keeps its model time under 24 s per request so the browser's 30 s wait is never exceeded.
-6. After the first deployment, open `/validate` (the Accuracy page), press **Re-check with JPL now**, and ask the assistant one question on `/explore` to confirm both routes and the key.
+4. `web/vercel.json` adds the immutable cache header for `/data/*` (only used if the data is ever served by the app) and a one-hour header for the test badge. `web/.vercelignore` keeps the local data mirror out of CLI deployments; Git deployments never see it because `public/data` is gitignored.
+5. Region: leave the default (`iad1`); the routes are light and JPL Horizons sits in the same region.
+6. Limits to keep in mind on Hobby: 100 GB of transfer per month (the data does not count, it comes from R2), 100 MB of source per deployment. Function duration needs no change: Hobby with Fluid compute allows up to 300 s, the chat route caps itself at 60 s (`maxDuration`) and keeps its model time under 24 s per request so the browser's 30 s wait is never exceeded.
+7. After the first deployment, open `/validate` (the Accuracy page), press **Re-check with JPL now**, and ask the assistant one question on `/explore` to confirm both routes and the key.
 
 ## 3. GitHub Release mirror
 
@@ -125,6 +129,7 @@ If Vercel's transfer or function limits bite, the app can move next to the data:
 - [ ] CORS policy saved with the Vercel origin; custom domain or Worker in front of the bucket.
 - [ ] Vercel project imported with root `web`; environment variables set before the first build (they are inlined at build time); function duration left at the default.
 - [ ] First deployment: `/explore` loads a site from R2, `/validate` re-checks against JPL, `/explore` answers a question to the assistant with "answered by …".
+- [ ] A preview deployment opened `/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10` and the ground drew (CORS and the prefix are right).
 - [ ] `?demo=1` on the live URL answers from the rehearsed transcripts.
 - [ ] GitHub Release with the data zip; both venue laptops run `npm start` offline from the zip.
 - [ ] Project page updated with the live URL and the repository link.
