@@ -392,7 +392,7 @@ export function standingLine(site: { lat: number; blurb?: string }, name: string
  */
 export function poleLine(lat: number): string | null {
   if (Math.abs(lat) < 80) return null;
-  return `Near the Moon's ${lat < 0 ? 'south' : 'north'} pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay set for days.`;
+  return `Near the Moon's ${lat < 0 ? 'south' : 'north'} pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay out of sight for days.`;
 }
 
 /** Kilometres to a degree of latitude on the Moon, from its radius of 1,737.4 km. */

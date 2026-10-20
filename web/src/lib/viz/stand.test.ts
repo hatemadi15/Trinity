@@ -219,7 +219,7 @@ describe('the lander’s power and radio in one sentence', () => {
 });
 
 describe('why the view looks as it does', () => {
-  const pole = "Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay set for days.";
+  const pole = "Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay out of sight for days.";
   const earthMoves =
     "Earth hangs almost still in the Moon's sky, because the Moon keeps one face towards it. But the Moon wobbles a little as it goes round, and this close to the pole that is enough to lift Earth above the horizon and lower it again over the month.";
   // Why the sky is black by day, that its stars are there, why Apollo's photos show none (the cameras'
@@ -646,8 +646,8 @@ describe('what to watch for', () => {
   });
 
   it('says why the Sun stays low near a pole, and nothing elsewhere', () => {
-    expect(poleLine(-88.28)).toBe("Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay set for days.");
-    expect(poleLine(80)).toBe("Near the Moon's north pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay set for days.");
+    expect(poleLine(-88.28)).toBe("Near the Moon's south pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay out of sight for days.");
+    expect(poleLine(80)).toBe("Near the Moon's north pole the Sun circles the sky once a month, never more than a few degrees above or below the horizon (two degrees is about a thumb's width at arm's length), so behind a low hill it can stay out of sight for days.");
     expect(poleLine(-80)).toBe(poleLine(-88.28));
     expect(poleLine(79.9)).toBeNull();
     expect(poleLine(18.56)).toBeNull();
