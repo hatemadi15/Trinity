@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
+import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PlannerChat } from './PlannerChat';
 import { GroundPanel } from './explore/GroundPanel';
 import { LanderDialog } from './explore/LanderDialog';
@@ -97,22 +98,10 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
     );
   }
   if (s.status === 'error' || !s.series || !s.summary || !s.power || !s.mask || !s.site || !scene || !answer) {
-    const missing = /HTTP 404/.test(s.error ?? '');
     return (
       <AppFrame>
         <main className="wrap py-12">
-          <div role="alert" className="max-w-prose border-l-2 border-bad pl-4 text-ink-2">
-            <p className="text-ink">{missing ? 'Data files are missing.' : 'Something went wrong while loading.'}</p>
-            <p className="mt-2 text-[15px]">
-              {missing ? (
-                <>
-                  Run <code className="text-ink">uv run python -m lunar_pipeline.cli sync-local --tiles</code> inside <code className="text-ink">pipeline/</code> and reload this page.
-                </>
-              ) : (
-                s.error
-              )}
-            </p>
-          </div>
+          <DataProblem error={s.error} hint={SYNC_HINT} />
         </main>
       </AppFrame>
     );

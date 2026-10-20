@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
+import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PeriodControls } from './PeriodControls';
 import { PlannerChat } from './PlannerChat';
 import { MiniStrip } from './compare/MiniStrip';
@@ -38,7 +39,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
     return (
       <AppFrame>
         <main className="wrap py-12">
-          <p className="text-ink-2">{s.status === 'error' ? s.error : 'Loading NASA data…'}</p>
+          {s.status === 'error' ? <DataProblem error={s.error} hint={SYNC_HINT} /> : <p className="text-ink-2">Loading NASA data…</p>}
         </main>
       </AppFrame>
     );

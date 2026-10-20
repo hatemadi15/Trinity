@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
+import { fileLoaders } from '@/test/file-loaders';
 import type { Site } from '@/lib/data/loaders';
 import { loadEphemeris, type EphemerisHeader } from '@/lib/engine/ephemeris';
 import { readBytes, readJson } from '@/lib/engine/__tests__/helpers';
@@ -27,6 +28,10 @@ async function storeWithFiles() {
   await store.getState().selectSite('shackleton_center_rim_high');
   return store;
 }
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('BriefView', () => {
   it('speaks like Explore: the verdict title and sentences, the five figures, the Sun and Earth rows, method and credits; and prints', async () => {
@@ -77,6 +82,30 @@ describe('BriefView', () => {
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Custom site/));
     expect(screen.getByText(/hills worked out in your browser/)).toBeTruthy();
     expect(screen.getByText(/coordinates picked by the user/)).toBeTruthy();
+  });
+
+  it('says in plain words when the data cannot be loaded', async () => {
+    const missing = () =>
+      createExploreStore(
+        fileLoaders({
+          loadSites: async () => {
+            throw new Error('could not load /data/sites.json (HTTP 404)');
+          },
+        }),
+      );
+    // Two sentences in two paragraphs, which textContent runs together.
+    const plain = /The data could not be loaded\.\s*Reload the page, or try again in a minute\./;
+    render(<BriefView store={missing()} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
+    // A print page has no frame: the words sit in the brief's own column, in its print colours.
+    expect(screen.getByRole('alert').closest('.brief')).toBeTruthy();
+    // Under next dev, as in tests, the page also names the command that fills web/public/data, then the error.
+    expect(screen.getByRole('alert').textContent).toMatch(/sync-local --tiles.*HTTP 404/);
+    vi.stubEnv('NODE_ENV', 'production');
+    cleanup();
+    render(<BriefView store={missing()} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
+    expect(screen.getByRole('alert').textContent).not.toMatch(/sync-local|HTTP 404/);
   });
 });
 

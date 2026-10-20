@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { AppFrame } from './AppFrame';
+import { DataProblem } from './DataProblem';
 import { dataBase, loadEphemerisFromUrl } from '@/lib/data/loaders';
 import { degreesText } from '@/lib/data/home';
 import { exploreStore } from '@/lib/store/explore';
@@ -110,13 +111,16 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
     return (
       <AppFrame>
         <main className="wrap py-12">
-          <div role="alert" className="max-w-prose border-l-2 border-bad pl-4 text-ink-2">
-            <p className="text-ink">The validation tables are missing.</p>
-            <p className="mt-2 text-[15px]">
-              Run <code className="text-ink">uv run python -m lunar_pipeline.cli validate</code> then <code className="text-ink">uv run python -m lunar_pipeline.cli sync-local</code> inside{' '}
-              <code className="text-ink">pipeline/</code> and reload. ({error})
-            </p>
-          </div>
+          <DataProblem
+            error={error}
+            what="checks"
+            hint={
+              <>
+                Run <code className="text-ink">uv run python -m lunar_pipeline.cli validate</code> then <code className="text-ink">uv run python -m lunar_pipeline.cli sync-local</code> inside{' '}
+                <code className="text-ink">pipeline/</code> and reload.
+              </>
+            }
+          />
         </main>
       </AppFrame>
     );

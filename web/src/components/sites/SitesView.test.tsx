@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
 import { exploreHref, SitesView } from './SitesView';
@@ -13,6 +13,10 @@ async function ready() {
   return { store, ...view };
 }
 const rowOf = (name: string) => screen.getAllByRole('link').find((a) => a.dataset.row && a.textContent?.startsWith(name))!;
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('exploreHref', () => {
   it('carries the site and the period, with the hour only when it is not midnight', () => {
@@ -177,19 +181,29 @@ describe('SitesView', () => {
     expect(store.getState().site?.category).toBe('custom');
   });
 
-  it('says what to do when the data files are missing', async () => {
-    const store = createExploreStore({
-      loadSites: async () => {
-        throw new Error('could not load /data/sites.json (HTTP 404)');
-      },
-      loadEphemeris: async () => {
-        throw new Error('could not load /data/ephemeris/x (HTTP 404)');
-      },
-      loadMask: async () => {
-        throw new Error('could not load /data/masks/x (HTTP 404)');
-      },
-    });
-    render(<SitesView store={store} navigate={() => {}} />);
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/sync-local/));
+  it('says in plain words when the data cannot be loaded, and keeps the pipeline command for developers only', async () => {
+    const missing = () =>
+      createExploreStore({
+        loadSites: async () => {
+          throw new Error('could not load /data/sites.json (HTTP 404)');
+        },
+        loadEphemeris: async () => {
+          throw new Error('could not load /data/ephemeris/x (HTTP 404)');
+        },
+        loadMask: async () => {
+          throw new Error('could not load /data/masks/x (HTTP 404)');
+        },
+      });
+    // Two sentences in two paragraphs, which textContent runs together.
+    const plain = /The data could not be loaded\.\s*Reload the page, or try again in a minute\./;
+    render(<SitesView store={missing()} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
+    // Under next dev, as in tests, the page also names the command that fills web/public/data, then the error.
+    expect(screen.getByRole('alert').textContent).toMatch(/sync-local --tiles.*HTTP 404/);
+    vi.stubEnv('NODE_ENV', 'production');
+    cleanup();
+    render(<SitesView store={missing()} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
+    expect(screen.getByRole('alert').textContent).not.toMatch(/sync-local|HTTP 404/);
   });
 });

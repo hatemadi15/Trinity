@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
@@ -14,9 +14,12 @@ async function open(search = '', navigate: (href: string) => void = () => {}) {
   return { store, ...view };
 }
 const heading = () => screen.getByRole('heading', { level: 1 }).textContent ?? '';
+/** What a visitor reads when the data did not load: two sentences in two paragraphs, which textContent runs together. */
+const PLAIN = /The data could not be loaded\.\s*Reload the page, or try again in a minute\./;
 
 afterEach(() => {
   window.history.replaceState({}, '', '/');
+  vi.unstubAllEnvs();
 });
 
 describe('ExploreView', () => {
@@ -150,28 +153,43 @@ describe('ExploreView', () => {
     expect(screen.getByRole('main').textContent).not.toMatch(/LOLA|DE440|Horizons|CLPS|ephemeris|skyline/);
   });
 
-  it('says what to do when the data files are missing', async () => {
-    const store = createExploreStore(
-      fileLoaders({
-        loadSites: async () => {
-          throw new Error('could not load /data/sites.json (HTTP 404)');
-        },
-      }),
-    );
-    render(<ExploreView store={store} navigate={() => {}} />);
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Data files are missing\..*sync-local --tiles/));
+  it('says in plain words when the data files are missing, and keeps the pipeline command for developers only', async () => {
+    const missing = () =>
+      createExploreStore(
+        fileLoaders({
+          loadSites: async () => {
+            throw new Error('could not load /data/sites.json (HTTP 404)');
+          },
+        }),
+      );
+    render(<ExploreView store={missing()} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(PLAIN));
+    // Under next dev, as in tests, the page also names the command that fills web/public/data, then the error.
+    expect(screen.getByRole('alert').textContent).toMatch(/sync-local --tiles.*HTTP 404/);
+    vi.stubEnv('NODE_ENV', 'production');
+    cleanup();
+    render(<ExploreView store={missing()} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(PLAIN));
+    expect(screen.getByRole('alert').textContent).not.toMatch(/sync-local|HTTP 404/);
   });
 
-  it('shows an error it cannot explain', async () => {
-    const store = createExploreStore(
-      fileLoaders({
-        loadEphemeris: async () => {
-          throw new Error('the table is broken');
-        },
-      }),
-    );
-    render(<ExploreView store={store} navigate={() => {}} />);
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Something went wrong while loading\..*the table is broken/));
+  it('says the same for an error it cannot explain, and shows the error itself to developers only', async () => {
+    const broken = () =>
+      createExploreStore(
+        fileLoaders({
+          loadEphemeris: async () => {
+            throw new Error('the table is broken');
+          },
+        }),
+      );
+    render(<ExploreView store={broken()} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(PLAIN));
+    expect(screen.getByRole('alert').textContent).toMatch(/the table is broken/);
+    vi.stubEnv('NODE_ENV', 'production');
+    cleanup();
+    render(<ExploreView store={broken()} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(PLAIN));
+    expect(screen.getByRole('alert').textContent).not.toMatch(/the table is broken|sync-local/);
   });
 
   it('has no audience switch, no guided story and no cockpit', async () => {
