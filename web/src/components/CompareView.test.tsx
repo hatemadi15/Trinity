@@ -94,7 +94,7 @@ describe('CompareView', () => {
     const store = await open();
     expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
     expect(screen.getByRole('main').textContent).toMatch(/Up to four landing sites side by side, for the same days and the same lander, landing on the first day\./);
-    expect(screen.getByRole('button', { name: /Lander/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' })).toBeTruthy();
     for (const id of ['shackleton_center', 'de_gerlache_center', 'im1_odysseus', 'im2_athena']) await store.getState().addToCompare(id);
     await waitFor(() => expect((screen.getByRole('combobox', { name: 'Add a site' }) as HTMLSelectElement).disabled).toBe(true));
     expect(screen.getByRole('main').textContent).toMatch(/Four sites is the most this page compares/);

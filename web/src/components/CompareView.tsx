@@ -76,7 +76,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
               type="button"
               onClick={() => setLanderOpen(true)}
               aria-haspopup="dialog"
-              aria-label={`Lander: ${landerName(s.params.power)}. Change`}
+              aria-label={`${landerName(s.params.power)}. Change`}
               className="field flex min-w-0 items-center gap-3 text-left text-base text-ink"
             >
               <span className="grow truncate">{landerName(s.params.power)}</span>

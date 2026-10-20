@@ -5,6 +5,8 @@ import { DEFAULT_POWER } from '@/lib/engine/power';
 import { PeriodBand, periodLine } from './PeriodBand';
 
 const site = { id: 'de_gerlache_rim_2', name: 'de Gerlache Rim 2 (Artemis III region)', label: 'de Gerlache Rim 2', lat: -88.28, lon: -64.31, category: 'artemis3', polar: true, source: 'x' };
+/** The lander's button is named by the lander itself, "Small lander: …. Change" or "Custom lander. Change", so it is found by that ending. */
+const landerControl = () => screen.getByRole('button', { name: /lander.*\. Change$/ });
 
 describe('PeriodBand', () => {
   it('shows the four things a forecast is for: site, start, length, lander', () => {
@@ -15,21 +17,25 @@ describe('PeriodBand', () => {
     expect(siteLink.getAttribute('href')).toBe('/sites');
     expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('2027-01-01');
     expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' })).toBeTruthy();
-    // The lander's name is the longest field: it gets the larger share of the row, and the date box no more than it needs,
-    // so "4 m² panel, uses 200 W, 2 kWh battery" fits whole at 1440 px (measured in the browser).
-    expect(screen.getByRole('button', { name: /^Lander: / }).parentElement!.className).toMatch(/flex-\[1\.8_1_250px\]/);
+    expect(screen.getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' })).toBeTruthy();
+    // The lander's name is the longest field: it gets the larger share of the row, and the date box no more than it needs.
+    expect(landerControl().parentElement!.className).toMatch(/flex-\[1\.8_1_250px\]/);
     expect(screen.getByLabelText('From').className).toMatch(/\bw-\[170px\]/);
-    const landerButton = screen.getByRole('button', { name: /^Lander: / });
-    expect(landerButton.className).toMatch(/\bmax-sm:h-auto\b/);
-    expect(landerButton.querySelector('span')!.className).toMatch(/\bmax-sm:whitespace-normal\b/);
+    // The name wraps at every width rather than being cut, as it carries the lander's numbers and a cut name would hide the battery;
+    // the fields keep one bottom edge, so a lander on two lines grows upward and pushes no other field off line.
+    const landerButton = landerControl();
+    expect(landerButton.className).toMatch(/(^| )h-auto( |$)/);
+    expect(landerButton.className).toMatch(/(^| )min-h-\[52px\]( |$)/);
+    expect(landerButton.className).toMatch(/(^| )py-2( |$)/);
+    expect(landerButton.querySelector('span')!.className).not.toMatch(/(^| )(truncate|overflow-hidden|whitespace-nowrap)( |$)/);
+    expect(band.className).toMatch(/(^| )items-end( |$)/);
   });
 
   it('opens the lander settings and passes period changes on', () => {
     const onLander = vi.fn();
     const onWindow = vi.fn();
     render(<PeriodBand site={site} startUtc="2027-01-01T00:00:00" days={30} onWindow={onWindow} power={{ ...DEFAULT_POWER, loadW: 250 }} onLander={onLander} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Lander: Custom lander. Change' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Custom lander. Change' }));
     expect(onLander).toHaveBeenCalled();
     fireEvent.click(screen.getByRole('radio', { name: '14 days' }));
     expect(onWindow).toHaveBeenLastCalledWith('2027-01-01T00:00:00', 14);
@@ -43,20 +49,20 @@ describe('PeriodBand', () => {
 
   it('gives the lander more room than the site at 1440 px, and lets both shrink on a phone', () => {
     render(<PeriodBand site={{ id: 's', name: 'Site', lat: -89, lon: 0, category: 'classic', polar: true, source: 'x' }} startUtc="2027-01-01T00:00:00" days={30} onWindow={() => {}} power={DEFAULT_POWER} onLander={() => {}} />);
-    const lander = screen.getByRole('button', { name: /^Lander:/ }).parentElement!;
+    const lander = landerControl().parentElement!;
     const site = screen.getByRole('link', { name: /^Landing site:/ }).parentElement!;
     expect(lander.className).toMatch(/flex-\[1\.8_1_250px\]/);
     expect(site.className).toMatch(/flex-\[1_1_250px\]/);
-    // A long lander name must not hold the band wider than a phone: the columns may shrink and the name is cut with an ellipsis.
+    // A long lander name must not hold the band wider than a phone: the columns may shrink, and the name wraps to the room it has.
     for (const col of [lander, site]) expect(col.className).toMatch(/(^| )min-w-0( |$)/);
-    for (const control of [screen.getByRole('button', { name: /^Lander:/ }), screen.getByRole('link', { name: /^Landing site:/ })]) expect(control.className).toMatch(/(^| )min-w-0( |$)/);
+    for (const control of [landerControl(), screen.getByRole('link', { name: /^Landing site:/ })]) expect(control.className).toMatch(/(^| )min-w-0( |$)/);
     expect(screen.getByRole('region', { name: 'What this forecast is for' }).className).toMatch(/(^| )min-w-0( |$)/);
   });
 
   it('draws no dropdown arrow: the site opens a page and the lander a dialog, and each says "change"', () => {
     render(<PeriodBand site={site} startUtc="2027-01-01T00:00:00" days={30} onWindow={() => {}} power={DEFAULT_POWER} onLander={() => {}} />);
     const siteField = screen.getByRole('link', { name: /^Landing site/ });
-    const landerField = screen.getByRole('button', { name: /^Lander/ });
+    const landerField = landerControl();
     expect(siteField.querySelector('svg')).toBeNull();
     expect(landerField.querySelector('svg')).toBeNull();
     expect(siteField.textContent).toMatch(/change site$/);

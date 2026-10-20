@@ -7,7 +7,7 @@ export interface PowerConfig {
   /** Azimuth the panel normal faces for the fixed vertical model (degrees clockwise from north). */
   panelAzimuthDeg: number;
   areaM2: number;
-  /** Cell efficiency as a fraction (0.30 = 30 %). */
+  /** Panel efficiency as a fraction (0.30 = 30 %). */
   efficiency: number;
   loadW: number;
   batteryWh: number;

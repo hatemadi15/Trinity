@@ -61,9 +61,9 @@ export function PeriodBand({
         <PeriodControls startUtc={startUtc} days={days} onChange={onWindow} />
         <div className="flex min-w-0 flex-[1.8_1_250px] flex-col gap-1.5 text-[15px] text-ink-2">
           <span aria-hidden="true">Lander</span>
-          <button ref={landerRef} type="button" onClick={onLander} aria-haspopup="dialog" aria-label={`Lander: ${lander}. Change`} className="field flex min-w-0 items-center gap-3 text-left text-base text-ink max-sm:h-auto max-sm:min-h-[52px] max-sm:py-2">
-            {/* On a phone the name wraps rather than cut "2 kWh" to "2 kW…". */}
-            <span className="grow truncate max-sm:overflow-visible max-sm:whitespace-normal">{lander}</span>
+          <button ref={landerRef} type="button" onClick={onLander} aria-haspopup="dialog" aria-label={`${lander}. Change`} className="field flex h-auto min-h-[52px] min-w-0 items-center gap-3 py-2 text-left text-base text-ink">
+            {/* The name wraps at every width, not only on a phone: it now carries the lander's name and its numbers, and a cut name would hide the battery. */}
+            <span className="grow">{lander}</span>
             <span className={TAG}>change</span>
           </button>
         </div>

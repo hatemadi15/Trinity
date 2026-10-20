@@ -773,7 +773,7 @@ describe('StandView', () => {
     const other = within(within(dialog).getByRole('radiogroup', { name: 'Lander' })).getAllByRole('radio').find((r) => !(r as HTMLInputElement).checked)!;
     fireEvent.click(other);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).not.toBe(before), { timeout: 20_000 });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(button);
     // The new lander's scene is swapped into the renderer the view has, not drawn by a new one (the final review).
@@ -787,7 +787,7 @@ describe('StandView', () => {
     const button = within(document.getElementById('stand-card')!).getByRole('button', { name: 'Change lander' });
     fireEvent.click(button);
     const dialog = await screen.findByRole('dialog', { name: 'The lander' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(button);
   });
