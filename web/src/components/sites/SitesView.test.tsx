@@ -181,6 +181,18 @@ describe('SitesView', () => {
     expect(store.getState().site?.category).toBe('custom');
   });
 
+  it('names its NASA data', async () => {
+    await ready();
+    const row = screen.getByLabelText('Data sources');
+    // The figures come from horizons on LOLA's 20 m grid near the pole and its 80 m grid farther out, with DE440. The
+    // places are NASA's Artemis III regions and the CLPS landings.
+    expect(within(row).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'JPL DE440', 'Artemis III regions', 'CLPS mission records']);
+    // The row is the foot of the list: after its last group, before the place to work out somewhere else.
+    const last = screen.getByRole('region', { name: 'High points and crater floors' });
+    expect(last.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(row.compareDocumentPosition(screen.getByRole('region', { name: 'Somewhere else' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('says in plain words when the data cannot be loaded, and keeps the pipeline command for developers only', async () => {
     const missing = () =>
       createExploreStore({

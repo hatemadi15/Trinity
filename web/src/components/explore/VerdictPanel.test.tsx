@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Answer } from '@/lib/viz/answer';
+import { PlannerChat } from '../PlannerChat';
 import { VerdictPanel } from './VerdictPanel';
 
 const night: Answer = {
@@ -33,6 +34,15 @@ function show(answer: Answer, yearNote: string | null = null, nearby: Parameters
 }
 
 describe('VerdictPanel', () => {
+  it('names its NASA data at its foot: the positions, the hills on the site’s grid and the Horizons check, as every panel does', () => {
+    render(<VerdictPanel answer={night} onLand={vi.fn()} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} site={{ lat: -88.28, polar: true }} />);
+    const row = screen.getByLabelText('Data sources');
+    expect([...row.querySelectorAll('li')].map((li) => li.textContent)).toEqual(['JPL DE440', 'NASA LRO LOLA 20 m', 'checked: JPL Horizons']);
+    expect(screen.getByRole('link', { name: 'checked: JPL Horizons' }).getAttribute('href')).toBe('/validate');
+    // The row is the panel's last word, under the 12-month search.
+    expect(row.parentElement!.lastElementChild).toBe(row);
+  });
+
   it('leads the page with the answer in words, which names the site and the landing day', () => {
     show(night);
     const h1 = screen.getByRole('heading', { level: 1 });
@@ -150,6 +160,24 @@ describe('VerdictPanel', () => {
   it('offers no way to stand at the site when it is given none', () => {
     show(night, null, summit);
     expect(screen.queryByRole('link', { name: 'Stand at the site' })).toBeNull();
+  });
+
+  it('the answer links to the assistant and moves the focus to its box', async () => {
+    render(
+      <>
+        <VerdictPanel answer={night} onLand={vi.fn()} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} />
+        <PlannerChat ask={vi.fn()} navigate={vi.fn()} />
+      </>,
+    );
+    const link = screen.getByRole('link', { name: 'Or ask in plain words' });
+    expect(link.getAttribute('href')).toBe('#ask');
+    expect(screen.getByRole('region', { name: 'Ask in plain words' }).id).toBe('ask');
+    // A plain underlined link beside the 12-month search, never a second gold action.
+    expect(link.className).toMatch(/\bunderline\b/);
+    expect(link.className).not.toMatch(/\bbtn/);
+    expect(link.closest('p')).toBe(screen.getByRole('button', { name: 'Find the best date in the next 12 months' }).closest('p'));
+    fireEvent.click(link);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Ask the assistant')));
   });
 
   it('offers the search over the next 12 months and reports what it found', () => {

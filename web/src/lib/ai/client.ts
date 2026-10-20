@@ -1,9 +1,9 @@
 import type { Action } from './actions';
-import type { ChatReply, ChatSource, NarrationReply } from './protocol';
+import { CHAT_REASONS, type ChatReason, type ChatReply, type ChatSource, type NarrationReply } from './protocol';
 import type { StateSummary } from './state-summary';
 import type { AiMode } from '../store/explore';
 
-/** The server may spend two model timeouts plus overhead; the browser waits this long before giving up. */
+/** The server keeps its model time inside a 24 s budget (AI_MODEL_BUDGET_MS); the browser waits this long before giving up. */
 export const CLIENT_TIMEOUT_MS = 30_000;
 
 export interface PlannerAnswer extends ChatReply {
@@ -51,6 +51,7 @@ export async function askPlanner(prompt: string, state: StateSummary | null, mod
     actions: body.actions as Action[],
     reply: body.reply,
     dropped: Array.isArray(body.dropped) ? (body.dropped as string[]) : undefined,
+    reason: CHAT_REASONS.includes(body.reason as ChatReason) ? (body.reason as ChatReason) : undefined,
   };
 }
 

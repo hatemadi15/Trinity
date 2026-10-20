@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { StoreApi } from 'zustand';
 import type { Site } from '../data/loaders';
 import { readJson } from '../engine/__tests__/helpers';
-import type { ExploreState } from '../store/explore';
-import { applyActions, siteByName, validateActions, type Action } from './actions';
+import { COMPARE_MAX, type ExploreState } from '../store/explore';
+import { applyActions, COMPARE_LIMIT, siteByName, validateActions, type Action } from './actions';
 import { explanationFor } from './explanations';
 
 const sites = [
@@ -120,7 +120,7 @@ describe('siteByName', () => {
 });
 
 describe('applyActions', () => {
-  function fakeStore() {
+  function fakeStore(compareIds: string[] = []) {
     const calls: unknown[][] = [];
     const rec = (name: string) =>
       vi.fn((...args: unknown[]) => {
@@ -128,6 +128,7 @@ describe('applyActions', () => {
       });
     const state = {
       sites,
+      compareIds,
       startUtc: '2027-01-01T00:00:00',
       days: 30,
       bestWindowNote: null,
@@ -190,6 +191,18 @@ describe('applyActions', () => {
     const suggested = note.split('; try ')[1].replace(/\.$/, '').split(/, | or /);
     expect(suggested.length).toBe(5);
     for (const topic of suggested) expect(explanationFor(topic), topic).not.toBeNull();
+  });
+
+  it('a full Compare is reported, not claimed', async () => {
+    const { store } = fakeStore(['de_gerlache_rim_2', 'nobile_rim_2', 'haworth', 'malapert_massif']);
+    const [note] = await applyActions(store, [{ type: 'add_to_compare', id: 'shackleton_center' }], vi.fn());
+    expect(note).toBe('Compare is full: four sites. Remove one to add Shackleton crater centre.');
+    // A site already in the four is no fifth one.
+    const [again] = await applyActions(store, [{ type: 'add_to_compare', id: 'haworth' }], vi.fn());
+    expect(again).not.toMatch(/full/);
+    // The note's limit is the store's, and its words say four.
+    expect(COMPARE_LIMIT).toBe(COMPARE_MAX);
+    expect(COMPARE_LIMIT).toBe(4);
   });
 
   it('fills a partial window from the current one and reports unknown sites', async () => {

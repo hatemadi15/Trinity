@@ -6,6 +6,7 @@ import { AppFrame } from '@/components/AppFrame';
 import { DataProblem, SYNC_HINT } from '@/components/DataProblem';
 import { PeriodControls } from '@/components/PeriodControls';
 import { ReliefMap, type MapPin } from '@/components/ReliefMap';
+import { Sources } from '@/components/Sources';
 import { HOME } from '@/lib/data/home';
 import { siteLabel, type Site } from '@/lib/data/loaders';
 import { useNavigate } from '@/lib/hooks/useNavigate';
@@ -316,6 +317,9 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                 )}
               </section>
             ))}
+            {/* The figures come from horizons on LOLA's 20 m grid near the pole and its 80 m grid farther out, with DE440.
+                The places are NASA's Artemis III regions and the CLPS landings, the first two groups. */}
+            <Sources of={['lola', 'lola80', 'de440', 'artemis', 'clps']} />
             <Elsewhere store={store} navigate={go} />
           </div>
         </div>

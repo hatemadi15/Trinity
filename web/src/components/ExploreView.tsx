@@ -121,6 +121,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
           <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
             <VerdictPanel
               answer={answer}
+              site={site}
               nearby={nearby}
               standLink={standHref(site.id, s.startUtc, s.days, s.cursorHour)}
               onLand={(start) => s.setWindow(start, s.days)}
@@ -139,6 +140,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             />
           </div>
           <TimeChart
+            site={site}
             series={s.series}
             mask={s.mask}
             power={s.power}

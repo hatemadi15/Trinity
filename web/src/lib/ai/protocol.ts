@@ -12,6 +12,10 @@ export interface NarrationReply {
   reply: string;
 }
 
+/** Why nothing answered: a key is set and every model failed, or no model, phrasing or rehearsed answer fitted the words. */
+export type ChatReason = 'model-busy' | 'not-understood';
+export const CHAT_REASONS: readonly ChatReason[] = ['model-busy', 'not-understood'];
+
 /** What POST /api/chat returns and the planner strip consumes. */
 export interface ChatReply {
   source: ChatSource;
@@ -19,6 +23,8 @@ export interface ChatReply {
   actions: Action[];
   reply: string;
   dropped?: string[];
+  /** Set when source is "none", so the visitor is told whether the model or their words were the problem. */
+  reason?: ChatReason;
 }
 
 /** What the model is told about the app, the actions and the rules. Sites are listed so ids are never invented. */
@@ -40,7 +46,7 @@ Actions drive the app. Use only these shapes (${ACTION_TYPES.join(', ')}):
 {"type": "add_to_compare", "id": SITE_ID}
 {"type": "remove_from_compare", "id": SITE_ID}
 {"type": "open_page", "page": "explore" | "sites" | "compare" | "validate" | "brief" | "learn"}
-{"type": "explain", "topic": "longest night" | "earth gap" | "best window" | "skyline" | "verdict"}
+{"type": "explain", "topic": "longest night" | "earth gap" | "best window" | "skyline" | "verdict"}   (the reply is then one short sentence; the app adds the paragraph)
 
 SITE_ID must be one of these (id: name):
 ${siteLines}

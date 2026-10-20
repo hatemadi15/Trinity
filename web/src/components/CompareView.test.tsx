@@ -115,6 +115,23 @@ describe('CompareView', () => {
     expect(screen.getByRole('main').textContent).not.toMatch(/skyline|Sun above|Both at once|Learn/);
   });
 
+  it('names its NASA data', async () => {
+    const store = await open();
+    // An empty page compares nothing, so it names no data.
+    expect(screen.queryByLabelText('Data sources')).toBeNull();
+    await store.getState().addToCompare('de_gerlache_rim_2');
+    await store.getState().addToCompare('malapert_massif');
+    const table = await screen.findByRole('table', {}, { timeout: 20_000 });
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
+    const names = () => within(screen.getByLabelText('Data sources')).getAllByRole('listitem').map((li) => li.textContent);
+    // DE440 gives every figure. The hills come from LOLA: the 20 m grid for de Gerlache Rim 2, near the pole, and the 80 m grid for Malapert Massif.
+    expect(names()).toEqual(['JPL DE440', 'NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m']);
+    // The row is the foot of the table's panel.
+    expect(table.closest('section')!.lastElementChild).toBe(screen.getByLabelText('Data sources'));
+    store.getState().removeFromCompare('malapert_massif');
+    await waitFor(() => expect(names()).toEqual(['JPL DE440', 'NASA LRO LOLA 20 m']));
+  });
+
   it('says in plain words when the data cannot be loaded', async () => {
     const missing = () =>
       createExploreStore(

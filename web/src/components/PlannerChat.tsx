@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { applyActions, describeDropped, validateActions } from '@/lib/ai/actions';
 import { askPlanner, shortModel, type PlannerAnswer } from '@/lib/ai/client';
@@ -10,10 +10,12 @@ import { plannerLog, type Exchange } from '@/lib/store/planner-log';
 
 export type Ask = (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
 
-/** The four chips shown while the transcript is empty; each is one of the rehearsed prompts. */
+/** The four chips shown until something answers; each is one of the rehearsed prompts, asked as soon as it is clicked. */
 export const EXAMPLE_PROMPTS = ['Show me Nobile Rim 2', 'Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days', 'Find the best landing date for 14 days', 'Explain the longest night'];
 
 const OFFLINE = 'The assistant is offline; the app works without it. Try one of the example questions below, or ask again in a moment.';
+/** After this many seconds a question still out gets a line on why it can take a while. */
+const SLOW_AFTER_S = 8;
 
 function sourceLabel(x: Exchange): string {
   switch (x.source) {
@@ -51,20 +53,35 @@ export function PlannerChat({
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
   const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
+  // The question that is out, if any: the pending row shows it, and no second one is sent meanwhile.
+  const [pending, setPending] = useState<string | null>(null);
+  const [seconds, setSeconds] = useState(0);
+  const busy = pending !== null;
   const panelBox = useRef<HTMLInputElement>(null);
+
+  // The wait is counted in whole seconds, as text: nothing on the page moves by itself.
+  useEffect(() => {
+    if (pending === null) return;
+    const tick = setInterval(() => setSeconds((n) => n + 1), 1000);
+    return () => clearInterval(tick);
+  }, [pending]);
 
   async function submit(prompt: string) {
     const q = prompt.trim();
     if (!q || busy) return;
-    setBusy(true);
-    setInput('');
+    setPending(q);
+    setSeconds(0);
+    // The box keeps the question while it is out, so the visitor sees what was asked; anything typed meanwhile stays.
+    const done = () => {
+      setInput((now) => (now.trim() === q ? '' : now));
+      setPending(null);
+    };
     let a: PlannerAnswer;
     try {
       a = await ask(q, summarizeState(store.getState()), store.getState().aiMode);
     } catch {
       plannerLog.getState().push({ prompt: q, reply: OFFLINE, source: 'error', notes: [] });
-      setBusy(false);
+      done();
       return;
     }
     const ids = new Set(store.getState().sites.map((s) => s.id));
@@ -77,17 +94,22 @@ export function PlannerChat({
       notes = [`One step could not be applied: ${err instanceof Error ? err.message : String(err)}.`];
     }
     const skipped = describeDropped([...(a.dropped ?? []), ...dropped]);
-    plannerLog.getState().push({ prompt: q, reply: a.reply, source: a.source, model: a.model, notes: skipped ? [...notes, skipped] : notes });
-    setBusy(false);
+    // A step's note that repeats the reply word for word (an explanation, "Selected …") would show the same text twice.
+    const said = a.reply.trim();
+    const fresh = notes.filter((n) => n.trim() !== said);
+    plannerLog.getState().push({ prompt: q, reply: a.reply, source: a.source, model: a.model, notes: skipped ? [...fresh, skipped] : fresh });
+    done();
   }
 
-  const showChips = exchanges.length === 0 || exchanges[0].source === 'error';
+  // The examples stay until something answers: after an offline or "no answer" reply they are the way on.
+  const showChips = exchanges.length === 0 || exchanges[0].source === 'error' || exchanges[0].source === 'none';
   return (
-    <section aria-label="Ask in plain words" className="panel">
+    <section id="ask" aria-label="Ask in plain words" className="panel">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <h2 className="display text-[23px] font-semibold">Ask in plain words</h2>
         <p className="text-[15px] text-ink-2">
-          The assistant moves the controls for you. It never invents numbers.
+          {/* Not "never invents numbers": the check also lets through 14, 30, 90 and any number the visitor typed. */}
+          The assistant moves the controls for you. Numbers it cannot match to the app&apos;s figures are removed.
           {aiMode === 'cached' && ' Demo mode: rehearsed answers.'}
         </p>
       </div>
@@ -115,28 +137,45 @@ export function PlannerChat({
           {busy ? 'Thinking…' : 'Ask'}
         </button>
       </form>
+      {pending !== null && (
+        <div role="status" className="mt-3 text-[15px] text-ink-2">
+          {/* The seconds are for the eye: a live region that changed every second would be read out every second. */}
+          <p>
+            “{pending}”, {aiMode === 'cached' ? 'looking for a rehearsed answer…' : 'asking the model…'} <span aria-hidden="true">{seconds} s</span>
+          </p>
+          {aiMode !== 'cached' && seconds >= SLOW_AFTER_S && <p>Free models can be slow; if none answers, the app replies from its own phrasings.</p>}
+        </div>
+      )}
       {showChips && (
         <div className="mt-3 flex flex-wrap gap-2">
           {EXAMPLE_PROMPTS.map((p) => (
-            <button key={p} type="button" aria-label={`Try: ${p}`} onClick={() => setInput(p)} className="min-h-[40px] rounded-full border border-line-strong px-4 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
+            <button
+              key={p}
+              type="button"
+              aria-label={`Try: ${p}`}
+              onClick={() => {
+                setInput(p);
+                void submit(p);
+              }}
+              className="min-h-[40px] rounded-full border border-line-strong px-4 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink"
+            >
               {p}
             </button>
           ))}
         </div>
       )}
-      {exchanges.length > 0 && (
-        <ol aria-label="Replies from the assistant" className="mt-4 flex flex-col gap-3">
-          {exchanges.map((x, i) => (
-            <li key={x.id} className={i === 0 ? 'text-ink' : 'text-ink-2'}>
-              <p className={i === 0 ? 'text-base' : 'text-[15px]'}>{x.reply}</p>
-              {x.notes.length > 0 && <p className="text-[15px] text-ink-2">{x.notes.join(' ')}</p>}
-              <p className="text-[15px] text-ink-2">
-                {sourceLabel(x)}, after you asked “{x.prompt}”
-              </p>
-            </li>
-          ))}
-        </ol>
-      )}
+      {/* Always in the page, even empty, so the first reply is read out too: a live region must be there before it changes. */}
+      <ol aria-label="Replies from the assistant" aria-live="polite" className={exchanges.length > 0 ? 'mt-4 flex flex-col gap-3' : undefined}>
+        {exchanges.map((x, i) => (
+          <li key={x.id} className={i === 0 ? 'text-ink' : 'text-ink-2'}>
+            <p className={i === 0 ? 'text-base' : 'text-[15px]'}>{x.reply}</p>
+            {x.notes.length > 0 && <p className="text-[15px] text-ink-2">{x.notes.join(' ')}</p>}
+            <p className="text-[15px] text-ink-2">
+              {sourceLabel(x)}, after you asked “{x.prompt}”
+            </p>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

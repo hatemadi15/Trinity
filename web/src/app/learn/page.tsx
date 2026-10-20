@@ -1,7 +1,10 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AppFrame } from '@/components/AppFrame';
 import { WhySection } from '@/components/home/WhySection';
 import { SCIENCE, STORY_STEPS } from '@/lib/learn/story';
+
+export const metadata: Metadata = { title: 'How it works' };
 
 /** How it works: why the pole is hard (the home page's three drawings), the science behind it, then five steps through the pages, then the way in. */
 export default function LearnPage() {
@@ -32,6 +35,20 @@ export default function LearnPage() {
               </div>
             ))}
           </div>
+        </section>
+        {/* Where the home page's "run it offline" lands: what a laptop needs, in a reader's words; the commands stay in the README. */}
+        <section id="offline" aria-labelledby="h-offline" className="wrap pt-16">
+          <h2 id="h-offline" className="display text-[34px] sm:text-[40px]">
+            Running it offline
+          </h2>
+          <p className="mt-5 max-w-[42em] leading-relaxed text-ink-2">
+            Everything is computed in the browser from NASA data, so once the app and its data files are on a laptop it runs with the Wi-Fi off: in a classroom, at a venue, or
+            anywhere a connection cannot be counted on. The steps to build it that way are in the project&apos;s{' '}
+            <a href="https://github.com/hatemadi15/Trinity#readme" className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+              README
+            </a>
+            . The live re-check against JPL Horizons on the Accuracy page is the one thing that needs a connection.
+          </p>
         </section>
         <section aria-labelledby="h-steps" className="wrap pt-16">
           <h2 id="h-steps" className="display text-[34px] sm:text-[40px]">

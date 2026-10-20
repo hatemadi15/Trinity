@@ -18,6 +18,13 @@ describe('askPlanner', () => {
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it('keeps the reason a no-answer reply gives, and only the known ones', async () => {
+    const busy = { source: 'none', reason: 'model-busy', actions: [], reply: 'The language model did not answer just now, so only set phrasings work.' };
+    expect((await askPlanner('hi', null, 'live', async () => json(busy))).reason).toBe('model-busy');
+    expect((await askPlanner('hi', null, 'live', async () => json({ ...busy, reason: 'not-understood' }))).reason).toBe('not-understood');
+    expect((await askPlanner('hi', null, 'live', async () => json({ ...busy, reason: 'gremlins' }))).reason).toBeUndefined();
+  });
+
   it('turns a 429 into a reply that says when to try again', async () => {
     const r = await askPlanner('hi', null, 'live', async () => json({ error: 'Too many questions from this address; try again in 12 s', retryAfterS: 12 }, 429, { 'Retry-After': '12' }));
     expect(r.source).toBe('none');

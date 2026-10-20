@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useRef, useState, type ReactNode } from 'react';
 import { Modal } from '@/components/Modal';
+import { lolaFor, Sources } from '@/components/Sources';
 import type { Site } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
 import type { Summary } from '@/lib/engine/metrics';
@@ -136,6 +137,8 @@ export function NumbersCard({
           Printable brief
         </Link>
       </p>
+      {/* DE440 gives every figure and LOLA the hills on the site's grid; the Sun's and Earth's directions are checked against JPL Horizons. */}
+      <Sources of={['de440', ...lolaFor(site), 'horizons']} />
       {open && (
         <Modal title="All numbers" onClose={() => setOpen(false)} returnFocus={opener} wide>
           <p className="mt-2 text-ink-2">

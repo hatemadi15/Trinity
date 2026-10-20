@@ -135,6 +135,7 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
 
   it('words the arrival and the forecast’s answer the same way', () => {
     for (const beat of arrivalWords().beats) check('beat', beat);
+    check('proof', arrivalWords().proof);
     const b = HOME.battery, best = b.best_hour !== null && b.best_hours !== null ? { hour: b.best_hour, poweredHours: b.best_hours, earthFraction: b.best_earth_fraction ?? 0 } : null;
     const answer = answerFor({ siteName: 'de Gerlache Rim 2', series: s, summary: summarize(s), power: p, startUtc: start, days: h.days, loadW: DEFAULT_POWER.loadW, batteryWh: DEFAULT_POWER.batteryWh, best });
     for (const line of [answer.title, ...answer.sentences]) check('answer', line);

@@ -148,9 +148,15 @@ describe('ExploreView', () => {
     expect(heading()).toMatch(/on 2 March: power for all 14 days/);
   });
 
-  it('keeps instrument and programme names out of the page', async () => {
+  it("keeps instrument and programme names out of the page's words: only the rows of data sources name them", async () => {
     await open();
-    expect(screen.getByRole('main').textContent).not.toMatch(/LOLA|DE440|Horizons|CLPS|ephemeris|skyline/);
+    // The rows at the panels' feet name the datasets on purpose (the judges weigh NASA-data use); the words around
+    // them stay plain.
+    const words = screen.getByRole('main').cloneNode(true) as HTMLElement;
+    const rows = words.querySelectorAll('[aria-label="Data sources"]');
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) row.remove();
+    expect(words.textContent).not.toMatch(/LOLA|DE440|Horizons|CLPS|ephemeris|skyline/);
   });
 
   it('says in plain words when the data files are missing, and keeps the pipeline command for developers only', async () => {

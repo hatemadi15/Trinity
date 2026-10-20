@@ -85,7 +85,9 @@ One rule first: every `NEXT_PUBLIC_*` variable is inlined into the client and se
    | `NEXT_PUBLIC_AI_MODE` | `live` (`cached` turns the planner into rehearsed answers only) |
    | `AI_RATE_LIMIT_PER_MIN` | `30` |
    | `AI_MODEL_BUDGET_MS` | `24000` (optional; total model time per `/api/chat` request in milliseconds, first answer plus one retry, kept under the browser's 30 s wait) |
+   | `AI_MODEL_TIMEOUT_MS` | `10000` (optional; how long one model in the chain may take, in milliseconds, before the next one is asked; all of them stay inside `AI_MODEL_BUDGET_MS`) |
    | `NEXT_PUBLIC_DATA_BASE` | `https://<data host>/data-2026-10` (no trailing slash; the app strips one and reads an empty value as `/data`) |
+   | `NEXT_PUBLIC_SITE_URL` | `https://earthrise.vercel.app` (optional; the address people open, which the share image's link is built on; set it to the real one on a custom domain, and an empty value reads as this one) |
 
 4. `web/vercel.json` adds the immutable cache header for `/data/*` (only used if the data is ever served by the app) and a one-hour header for the test badge. `web/.vercelignore` keeps the local data mirror out of CLI deployments; Git deployments never see it because `public/data` is gitignored.
 5. Region: leave the default (`iad1`); the routes are light and JPL Horizons sits in the same region.

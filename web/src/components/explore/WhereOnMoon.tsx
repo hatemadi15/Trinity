@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { ReliefMap, type MapPin } from '@/components/ReliefMap';
+import { Sources } from '@/components/Sources';
 import { exploreHref } from '@/components/sites/SitesView';
 import { HOME } from '@/lib/data/home';
 import { siteLabel, type Site } from '@/lib/data/loaders';
@@ -109,6 +110,10 @@ export function WhereOnMoon({
           )}
         </div>
       </div>
+      {/* The relief is LOLA's 80 m grid. The sunlight figures and the pins' colours come from horizons on the 20 m grid
+          near the pole and the 80 m grid farther out, with DE440. The pins are NASA's Artemis III regions and the CLPS
+          landings: IM-2 Athena is always on the map. */}
+      <Sources of={['lola', 'lola80', 'de440', 'artemis', 'clps']} />
     </section>
   );
 }

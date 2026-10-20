@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { HOME } from '@/lib/data/home';
+import { degreesText, HOME } from '@/lib/data/home';
 import Home from './page';
 
 // The arrival's live stage needs WebGL; the page's words and stills render without it.
@@ -31,6 +31,27 @@ describe('home page', () => {
     expect(audience.textContent).toBe("For planners of NASA's commercial Moon landers, teachers (start with How it works) and anyone curious.");
     expect(within(audience).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
     expect(hero.textContent).not.toMatch(/survives the night/);
+  });
+
+  it('names the data and the check on the first screen with the figure the table of checks gives, so the page never disagrees with itself', () => {
+    render(<Home />);
+    const hero = screen.getByRole('region', { name: HEADLINE });
+    const proof = within(hero).getByText(/^Built on NASA LRO LOLA terrain and JPL DE440;/);
+    expect(proof.textContent).toBe(`Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to ${degreesText(HOME.facts.horizons_worst_el_deg)} and against real landers. See the checks`);
+    expect(within(proof).getByRole('link', { name: 'See the checks' }).getAttribute('href')).toBe('/validate');
+    // The first row of "Checked against NASA" gives the same figure, from the same field.
+    const row = within(screen.getByRole('region', { name: 'Checked against NASA' })).getAllByRole('row')[1];
+    expect(row.textContent).toContain(degreesText(HOME.facts.horizons_worst_el_deg));
+  });
+
+  it('names the first screen’s second action for the section it opens, the three drawings of why the south pole is hard', () => {
+    render(<Home />);
+    const jump = screen.getByRole('link', { name: 'See why the pole is hard' });
+    const target = document.getElementById(jump.getAttribute('href')!.slice(1))!;
+    expect(within(target).getByRole('heading', { level: 2 }).textContent).toBe('Why the south pole is hard');
+    expect(within(target).getAllByRole('heading', { level: 3 })).toHaveLength(3);
+    // Only the pages of How it works say so: no second name for the one thing.
+    expect(screen.queryByRole('link', { name: /see how it works/i })).toBeNull();
   });
 
   it('opens on a real forecast: the Sun and Earth over one month at the site, each with the hidden stretch in words', () => {
@@ -176,10 +197,29 @@ describe('home page', () => {
     expect(document.querySelectorAll('main .btn-primary')).toHaveLength(3);
   });
 
+  it('points to Compare, the assistant, the brief and offline use from the places section', () => {
+    render(<Home />);
+    const end = screen.getByRole('region', { name: 'Try it on a landing site' });
+    // One sentence after the section's intro, and before the gold action.
+    const next = within(end).getByText(/^Then /);
+    expect(next.textContent).toBe('Then compare sites, ask in plain words, print the brief, or run it offline on a laptop.');
+    const intro = within(end).getByText(/^Pick a site near the south pole/);
+    expect(intro.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(next.compareDocumentPosition(within(end).getByRole('link', { name: 'Choose a landing site' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const links = within(next).getAllByRole('link');
+    expect(links.map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['compare sites', '/compare'],
+      ['ask in plain words', '/explore#ask'],
+      ['print the brief', '/brief'],
+      ['run it offline', '/learn#offline'],
+    ]);
+    for (const a of links) expect(a.className).toMatch(/(^| )underline( |$)/);
+  });
+
   it('underlines the links that stand alone, so they do not read as plain text', () => {
     render(<Home />);
     // How it works is linked twice: from the first screen's audience line and from the three facts.
-    for (const name of [/See every check/, 'How it works']) {
+    for (const name of [/See every check/, 'See the checks', 'How it works', 'compare sites', 'ask in plain words', 'print the brief', 'run it offline']) {
       for (const link of within(screen.getByRole('main')).getAllByRole('link', { name })) expect(link.className).toMatch(/(^| )underline( |$)/);
     }
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
@@ -191,8 +231,12 @@ describe('home page', () => {
     expect(screen.getByRole('main').querySelectorAll('.text-ink-3')).toHaveLength(0);
   });
 
-  it('keeps instrument and programme names out of the main copy', () => {
+  it('keeps instrument and programme names out of the main copy, but for the one line on the first screen that names the data and the check', () => {
     render(<Home />);
-    expect(screen.getByRole('main').textContent).not.toMatch(/LOLA|DE440|CLPS|Horizons|ephemeris|skyline/);
+    const main = screen.getByRole('main');
+    // That line names the terrain, the positions and the check, for a reader who weighs a forecast by its sources; every other line keeps to plain words.
+    const proof = within(main).getByText(/^Built on NASA LRO LOLA terrain and JPL DE440;/);
+    expect(proof.textContent).toMatch(/LOLA.*DE440.*Horizons/);
+    expect((main.textContent ?? '').replace(proof.textContent ?? '', '')).not.toMatch(/LOLA|DE440|CLPS|Horizons|ephemeris|skyline/);
   });
 });

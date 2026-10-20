@@ -48,6 +48,10 @@ describe('prompts', () => {
     expect(p.length).toBeLessThan(6000);
   });
 
+  it('tells the model that an explain step brings its own paragraph, so the reply is one short sentence', () => {
+    expect(systemPrompt(sites)).toMatch(/"explain".*one short sentence; the app adds the paragraph/);
+  });
+
   it('puts the state summary and the question in the user message', () => {
     const state = { site: { id: 'haworth', name: 'Haworth', lat: -86.84, lon: -22.59 } };
     const u = userPrompt('what is the longest night?', state as never);

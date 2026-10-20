@@ -45,6 +45,8 @@ describe('matchIntent', () => {
   it('adds a site to the comparison', () => {
     expect(m('add nobile rim 2 to compare')?.actions).toEqual([{ type: 'add_to_compare', id: 'nobile_rim_2' }]);
     expect(m('Add the peak near Shackleton to the comparison')?.actions).toEqual([{ type: 'add_to_compare', id: 'peak_near_shackleton' }]);
+    // The matcher answers before the store acts, and a full Compare refuses a fifth site: the step's note says which.
+    expect(m('add nobile rim 2 to compare')?.reply).toBe('Adding Nobile Rim 2 (Artemis III region) to the comparison.');
   });
 
   it('finds the best window for the site or the compared sites', () => {

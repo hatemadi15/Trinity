@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { Summary } from '@/lib/engine/metrics';
 import { DEFAULT_POWER, simulateBattery } from '@/lib/engine/power';
@@ -34,7 +34,10 @@ describe('NumbersCard', () => {
     // Contact is counted in the hours the lander has power, the figure the verdict gives; the whole period's share is in the note.
     expect(card.textContent).toMatch(/Radio contact while it has power.*Earth is in view 45 % of the 30 days, but not while the lander has power.*none/);
     expect(card.textContent).toMatch(/Lander.*4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery.*10 h.*of battery when full/);
-    expect(card.textContent).not.toMatch(/skyline|LOLA|brownout/i);
+    // The card's own words stay plain: the datasets are named only in the row of sources at its foot.
+    const sources = within(card).getByLabelText('Data sources');
+    const words = [...card.children].filter((el) => el !== sources).map((el) => el.textContent).join(' ');
+    expect(words).not.toMatch(/skyline|LOLA|brownout/i);
   });
 
   it('gives the hours of contact while the lander has power', () => {
@@ -86,5 +89,23 @@ describe('NumbersCard', () => {
     show({ maskMeta: { siteHeightM: 0, source: 'flat', failedTiles: 0 } });
     fireEvent.click(screen.getByRole('button', { name: 'All numbers' }));
     expect(screen.getByRole('dialog').textContent).toMatch(/flat: this place lies outside the polar elevation maps/);
+  });
+
+  it('names its NASA data', () => {
+    const names = () => within(screen.getByLabelText('Data sources')).getAllByRole('listitem').map((li) => li.textContent);
+    // The figures come from DE440 and the hills from LOLA on the site's grid; the directions are checked against JPL Horizons.
+    show();
+    expect(names()).toEqual(['JPL DE440', 'NASA LRO LOLA 20 m', 'checked: JPL Horizons']);
+    expect(screen.getByRole('link', { name: 'checked: JPL Horizons' }).getAttribute('href')).toBe('/validate');
+    // The row is the card's foot, under its links.
+    expect(screen.getByRole('region', { name: 'The numbers' }).lastElementChild).toBe(screen.getByLabelText('Data sources'));
+    cleanup();
+    // A site north of 87.55° S has its hills from the 80 m grid.
+    show({ site: { ...site, id: 'malapert_massif', label: 'Malapert Massif', lat: -86, lon: 0 } });
+    expect(names()).toEqual(['JPL DE440', 'NASA LRO LOLA 80 m', 'checked: JPL Horizons']);
+    cleanup();
+    // A mare site lies outside the polar elevation maps: its horizon is flat, so no LOLA grid is named.
+    show({ site: { ...site, id: 'blue_ghost_m1', label: 'Blue Ghost', lat: 18.562, lon: 61.81, polar: false }, maskMeta: { siteHeightM: 0, source: 'flat', failedTiles: 0 } });
+    expect(names()).toEqual(['JPL DE440', 'checked: JPL Horizons']);
   });
 });

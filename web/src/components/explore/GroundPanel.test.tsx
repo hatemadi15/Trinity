@@ -432,4 +432,32 @@ describe('GroundPanel', () => {
     await new Promise((r) => setTimeout(r, 350));
     expect(client.picture.mock.calls.length).toBe(asked);
   });
+
+  it('names its NASA data', () => {
+    const names = () => within(screen.getByLabelText('Data sources')).getAllByRole('listitem').map((li) => li.textContent);
+    // The shadow map, the 3D ground and the hills come from LOLA on the site's own grid, the light from DE440.
+    show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
+    const panel = screen.getByRole('region', { name: 'The ground' });
+    expect(names()).toEqual(['NASA LRO LOLA 20 m', 'JPL DE440']);
+    // The row is the panel's foot, away from its heading, and the sentence that says "NASA elevation data" stays.
+    expect(panel.lastElementChild).toBe(screen.getByLabelText('Data sources'));
+    expect(panel.textContent).toMatch(/Worked out from NASA elevation data at 20 m per pixel/);
+    fireEvent.click(tab('3D from above'));
+    expect(names()).toEqual(['NASA LRO LOLA 20 m', 'JPL DE440']);
+    cleanup();
+    // The globe in 3D from above wears the colour map of NASA's Moon Kit.
+    show({ mode: 'globe', textureUrl: '/data/terrain/lroc_color_2k.jpg' });
+    fireEvent.click(tab('3D from above'));
+    expect(names()).toEqual(['NASA LRO LOLA 20 m', 'JPL DE440', 'NASA CGI Moon Kit']);
+    cleanup();
+    // A site north of 87.55° S has its ground and its hills from the 80 m grid.
+    show({ site: { ...site, id: 'malapert_massif', label: 'Malapert Massif', lat: -86, lon: 0 } });
+    expect(names()).toEqual(['NASA LRO LOLA 80 m', 'JPL DE440']);
+    cleanup();
+    // A site with no polar terrain has a flat horizon, so the row names no LOLA grid.
+    show({ site: mare, sites: [mare], mode: 'globe', textureUrl: '/data/terrain/lroc_color_2k.jpg' });
+    expect(names()).toEqual(['JPL DE440']);
+    fireEvent.click(tab('3D from above'));
+    expect(names()).toEqual(['JPL DE440', 'NASA CGI Moon Kit']);
+  });
 });

@@ -16,8 +16,17 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
 
-async function open(recheck: Parameters<typeof ValidateView>[0]['recheck'] = async () => ({ ok: false, message: 'offline' })) {
-  render(<ValidateView load={async () => docs} recheck={recheck} />);
+/** The tables with the named checks forced to miss: the directions past their target, every sunlight gap 9 points, Blue Ghost's end 30 hours from sunset. */
+function missing(...which: ('directions' | 'sunlight' | 'nights')[]): typeof docs {
+  return {
+    horizons: which.includes('directions') ? { ...docs.horizons, max_abs_delta_el_deg: 0.02 } : docs.horizons,
+    mazarico: which.includes('sunlight') ? { ...docs.mazarico, rows: docs.mazarico.rows.map((r) => (r.covered ? { ...r, delta_points: 9 } : r)) } : docs.mazarico,
+    backcasts: which.includes('nights') ? { ...docs.backcasts, rows: docs.backcasts.rows.map((r) => (r.site_id === 'blue_ghost_m1' ? { ...r, end_minus_sunset_h: 30 } : r)) } : docs.backcasts,
+  };
+}
+
+async function open(recheck: Parameters<typeof ValidateView>[0]['recheck'] = async () => ({ ok: false, message: 'offline' }), tables: typeof docs = docs) {
+  render(<ValidateView load={async () => tables} recheck={recheck} />);
   await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Accuracy' })).toBeTruthy());
   await waitFor(() => expect(screen.getByRole('region', { name: TITLES[0] })).toBeTruthy());
 }
@@ -68,6 +77,31 @@ describe('ValidateView', () => {
     expect(within(regions[2]).getByText('+2.4 h')).toBeTruthy(); // Blue Ghost outlived the predicted sunset by 2.4 h
     expect(within(regions[2]).getByText(/panels tilted away/)).toBeTruthy();
     expect(within(regions[2]).getByText(/on its side in a crater/)).toBeTruthy();
+  });
+
+  it('says in one line how many checks pass', async () => {
+    await open();
+    // All three pass on the stored tables.
+    const verdict = screen.getByText('All three checks pass.');
+    expect(verdict.className).toMatch(/(^| )text-base( |$)/);
+    expect(verdict.className).toMatch(/(^| )text-ink( |$)/);
+    // Above the three checks, after the page's own introduction.
+    expect(screen.getByRole('heading', { level: 1, name: 'Accuracy' }).compareDocumentPosition(verdict) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const name of TITLES) expect(verdict.compareDocumentPosition(screen.getByRole('region', { name })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // It counts the checks' own pass marks: with some forced to miss, the line and the panels still agree.
+    const cases = [
+      [['directions'], 'Two of three checks pass.'],
+      [['sunlight', 'nights'], 'One of three checks passes.'],
+      [['directions', 'sunlight', 'nights'], 'No check passes.'],
+    ] as const;
+    for (const [which, line] of cases) {
+      cleanup();
+      await open(undefined, missing(...which));
+      expect(screen.getByText(line)).toBeTruthy();
+      expect(screen.queryByText('All three checks pass.')).toBeNull();
+      const passing = TITLES.filter((name) => /Passes/.test(screen.getByRole('region', { name }).textContent ?? ''));
+      expect(passing).toHaveLength(3 - which.length);
+    }
   });
 
   it('keeps the live re-check inside the first check: success, failure and an error all leave the button usable', async () => {
