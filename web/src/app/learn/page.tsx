@@ -1,7 +1,10 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AppFrame } from '@/components/AppFrame';
 import { WhySection } from '@/components/home/WhySection';
 import { SCIENCE, STORY_STEPS } from '@/lib/learn/story';
+
+export const metadata: Metadata = { title: 'How it works' };
 
 /** How it works: why the pole is hard (the home page's three drawings), the science behind it, then five steps through the pages, then the way in. */
 export default function LearnPage() {
