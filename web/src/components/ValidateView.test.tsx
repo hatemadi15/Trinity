@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BackcastsDoc, HorizonsDoc, MazaricoDoc } from '@/lib/data/validation';
 import { readJson } from '@/lib/engine/__tests__/helpers';
@@ -25,6 +25,7 @@ async function open(recheck: Parameters<typeof ValidateView>[0]['recheck'] = asy
 describe('ValidateView', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('fetches each table once with the default loaders (no refetch loop)', async () => {
@@ -96,15 +97,25 @@ describe('ValidateView', () => {
     expect(gold[0].textContent).toMatch(/Re-check with JPL now/);
   });
 
-  it('shows the data-missing state when the tables cannot be loaded', async () => {
-    render(
+  it('says in plain words when the checks cannot be loaded, and keeps the pipeline commands for developers only', async () => {
+    const missing = () => (
       <ValidateView
         load={async () => {
           throw new Error('could not load /data/validation/horizons.json (HTTP 404)');
         }}
         recheck={async () => ({ ok: false, message: 'offline' })}
-      />,
+      />
     );
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/validate/));
+    // Two sentences in two paragraphs, which textContent runs together.
+    const plain = /The checks could not be loaded\.\s*Reload the page, or try again in a minute\./;
+    render(missing());
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
+    // Under next dev, as in tests, the page also names the commands that write and copy the tables, then the error.
+    expect(screen.getByRole('alert').textContent).toMatch(/lunar_pipeline\.cli validate then .*sync-local inside pipeline\/ and reload\. \(could not load .*HTTP 404\)\)/);
+    vi.stubEnv('NODE_ENV', 'production');
+    cleanup();
+    render(missing());
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
+    expect(screen.getByRole('alert').textContent).not.toMatch(/validate|sync-local|HTTP 404/);
   });
 });

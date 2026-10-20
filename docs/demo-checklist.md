@@ -15,7 +15,7 @@
 
 - [ ] Both laptops fully charged; chargers packed; HDMI and USB-C to HDMI adapters packed.
 - [ ] Phone hotspot tested with the laptop (for the JPL re-check, if the venue Wi-Fi is down).
-- [ ] Browser: kiosk or full-screen mode, zoom 100 %, bookmarks bar hidden, notifications off, screen saver and sleep off, night mode off.
+- [ ] Browser: kiosk or full-screen mode, zoom 100 % on the home page and the stand view (their layouts are measured at 100 %); 150 % on Explore, Compare, Accuracy and How it works if the back row cannot read them (spec 15.1). The browser keeps one zoom for the whole site, not per tab: Ctrl+Plus twice on Explore, Ctrl+0 before the stand view; bookmarks bar hidden, notifications off, screen saver and sleep off, night mode off.
 - [ ] Open tabs in order: `/?demo=1` (home), `/sites?demo=1` (Choose a landing site), `/explore?site=de_gerlache_rim_2&demo=1` (Explore), `/compare?demo=1` (Compare sites), `/validate` (Accuracy), `/learn` (How it works), the recorded demo video. Demo mode is remembered per tab, so each tab needs its own `?demo=1`. Open the brief from Explore's "Printable brief" link rather than in a tab of its own: it keeps the tab's demo mode only that way.
 - [ ] Project page draft, video and repository link ready to paste into the submission form.
 
@@ -23,6 +23,7 @@
 
 - [ ] Plug into the projector; check 1080p output and that the text is readable from the back of the room.
 - [ ] Reload `/?demo=1`; confirm the home page's arrival draws (the Moon from space, not its still: scroll a little and it moves), "Fly to the south pole" plays it to landing and through the month at the site in about 21 s, then "Open the full forecast" on de Gerlache Rim 2 opens Explore with the answer, the shadow map and the 3D terrain.
+- [ ] In the Explore tab open "Stand at the site", turn on Brighter picture under More (kept for that tab), check that the night at the flag "Earth rises, 10 Jan" reads from the back of the room, then "Change date" back to the forecast.
 - [ ] Ask one rehearsed question in "Ask in plain words" and confirm "rehearsed answer" appears under the reply.
 - [ ] Period from 1 January 2027 for 30 days; Lander on the small ready-made one (4 m² panel, 200 W, 2 kWh battery); Compare emptied.
 - [ ] Phone on silent; second laptop on the same page, lid open.

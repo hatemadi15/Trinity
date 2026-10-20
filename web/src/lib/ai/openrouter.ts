@@ -15,6 +15,8 @@ export const DEFAULT_MODELS = [
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
 export const DEFAULT_MAX_TOKENS = 600;
+/** The least of the budget worth starting a request with; under it the chain stops as if the budget were spent. */
+const MIN_CALL_MS = 10;
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -68,7 +70,9 @@ export async function askModel(opts: {
   const errors: string[] = [];
   for (const model of models) {
     const remaining = deadline - Date.now();
-    if (remaining <= 0) {
+    // No model answers in a few milliseconds, so a sliver of budget is as good as none: starting a request only
+    // to abort it costs a call (and Date.now()'s whole milliseconds can read a hair short of a timer that has fired).
+    if (remaining < MIN_CALL_MS) {
       errors.push(`budget of ${budgetMs} ms exhausted before ${model}`);
       break;
     }

@@ -1014,7 +1014,8 @@ describe('the bright stars’ names', () => {
   });
   // One style throughout: a one-word Latin name as English speakers use it, a two-word one in English.
   it('gives every other star the app names its IAU constellation, a two-word Latin name in its English form', () => {
-    const names = readJson<{ names: { name: string }[] }>('web', 'public', 'data', 'sky', 'star_names.json').names.map((n) => n.name);
+    // The committed copy, as file-loaders reads the catalogue: sync-local only mirrors it into web/public/data.
+    const names = readJson<{ names: { name: string }[] }>('data', 'sky', 'star_names.json').names.map((n) => n.name);
     expect(Object.fromEntries(names.map((n) => [n, starLabel(n)]))).toEqual({
       Sirius: 'Sirius, Great Dog',
       Canopus: 'Canopus, Carina',

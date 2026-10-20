@@ -45,10 +45,17 @@ const LANDER_FOOT_M = 2.1;
 /** The session's key for "Brighter picture" (18.3): kept for the visit, not across visits. */
 const BRIGHT_KEY = 'earthrise-bright';
 
-/** Whether the visitor asked for a brighter picture earlier in the visit; false wherever storage is missing or blocked. */
+/**
+ * Whether the picture opens brighter: the visitor asked for it earlier in the visit, or `?bright=1` is in the address,
+ * so that a video capture, a frame harness or a rehearsal link opens the same way each time; the tab then keeps it, as
+ * if the toggle had been pressed. The address is read before storage, so blocked storage cannot lose it. False wherever
+ * neither says so.
+ */
 function readBright(): boolean {
   try {
-    return typeof window !== 'undefined' && window.sessionStorage.getItem(BRIGHT_KEY) === '1';
+    if (typeof window === 'undefined') return false;
+    const inAddress = new URLSearchParams(window.location.search).get('bright') === '1';
+    return inAddress || window.sessionStorage.getItem(BRIGHT_KEY) === '1';
   } catch {
     return false;
   }

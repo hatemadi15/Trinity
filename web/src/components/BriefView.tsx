@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
+import { DataProblem, SYNC_HINT } from './DataProblem';
 import { SkyRow } from './SkyRow';
 import { askNarration, shortModel } from '@/lib/ai/client';
 import { templateBrief } from '@/lib/ai/narrate';
@@ -62,7 +63,7 @@ export function BriefView({
   if (s.status !== 'ready' || !s.site || !s.series || !s.summary || !s.mask || !s.power || !sunHill || !earthHill || !sunUp) {
     return (
       <div className="brief mx-auto max-w-[190mm] px-8 py-8">
-        <p>{s.status === 'error' ? s.error : 'Loading NASA data…'}</p>
+        {s.status === 'error' ? <DataProblem error={s.error} hint={SYNC_HINT} /> : <p>Loading NASA data…</p>}
       </div>
     );
   }

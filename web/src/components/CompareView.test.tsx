@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
 import { CompareView } from './CompareView';
@@ -11,6 +11,10 @@ async function open() {
   await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeTruthy(), { timeout: 20_000 });
   return store;
 }
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('CompareView', () => {
   it('starts empty with two ready pairs; pressing one compares both sites in a table', async () => {
@@ -104,5 +108,27 @@ describe('CompareView', () => {
     expect(screen.getByRole('main').querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
     expect(screen.queryByRole('article')).toBeNull();
     expect(screen.getByRole('main').textContent).not.toMatch(/skyline|Sun above|Both at once|Learn/);
+  });
+
+  it('says in plain words when the data cannot be loaded', async () => {
+    const missing = () =>
+      createExploreStore(
+        fileLoaders({
+          loadSites: async () => {
+            throw new Error('could not load /data/sites.json (HTTP 404)');
+          },
+        }),
+      );
+    // Two sentences in two paragraphs, which textContent runs together.
+    const plain = /The data could not be loaded\.\s*Reload the page, or try again in a minute\./;
+    render(<CompareView store={missing()} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
+    // Under next dev, as in tests, the page also names the command that fills web/public/data, then the error.
+    expect(screen.getByRole('alert').textContent).toMatch(/sync-local --tiles.*HTTP 404/);
+    vi.stubEnv('NODE_ENV', 'production');
+    cleanup();
+    render(<CompareView store={missing()} />);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
+    expect(screen.getByRole('alert').textContent).not.toMatch(/sync-local|HTTP 404/);
   });
 });

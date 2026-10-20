@@ -46,9 +46,8 @@ export class DataError extends Error {
   }
 }
 
-export function dataBase(): string {
-  return process.env.NEXT_PUBLIC_DATA_BASE ?? '/data';
-}
+// The data base lives in ./base; re-exported so importers keep the '@/lib/data/loaders' path.
+export { dataBase } from './base';
 
 async function get(url: string): Promise<Response> {
   const res = await fetch(url);

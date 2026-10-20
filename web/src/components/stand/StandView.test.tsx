@@ -792,6 +792,42 @@ describe('StandView', () => {
     expect(document.activeElement).toBe(button);
   });
 
+  it('opens with Brighter picture on from ?bright=1 and keeps it for the visit', async () => {
+    window.sessionStorage.removeItem('earthrise-bright');
+    const setBright = vi.fn();
+    try {
+      await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10&bright=1', () => ({ ...stub(), setBright }));
+      // A capture or a rehearsal link opens bright with no press of the toggle: the renderer is told so, and the toggle says it.
+      await waitFor(() => expect(setBright).toHaveBeenLastCalledWith(true));
+      openCard();
+      expect(screen.getByRole('button', { name: 'Brighter picture' }).getAttribute('aria-pressed')).toBe('true');
+      // The tab keeps it, as if the toggle had been pressed.
+      expect(window.sessionStorage.getItem('earthrise-bright')).toBe('1');
+    } finally {
+      window.sessionStorage.removeItem('earthrise-bright');
+    }
+  });
+
+  it('opens with Brighter picture on from ?bright=1 even where storage is blocked', async () => {
+    // A private window: nothing can be read or written, so the address alone has to say it.
+    const real = Object.getOwnPropertyDescriptor(window, 'sessionStorage');
+    Object.defineProperty(window, 'sessionStorage', {
+      get() {
+        throw new Error('blocked');
+      },
+      configurable: true,
+    });
+    try {
+      await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10&bright=1');
+      openCard();
+      expect(screen.getByRole('button', { name: 'Brighter picture' }).getAttribute('aria-pressed')).toBe('true');
+    } finally {
+      // Put back what was there, so the tests after this one still have a storage.
+      if (real) Object.defineProperty(window, 'sessionStorage', real);
+      else Reflect.deleteProperty(window, 'sessionStorage');
+    }
+  });
+
   it('brightens the picture for projectors from today’s card, keeps it for the visit, and never throws without storage (18.3)', async () => {
     window.sessionStorage.removeItem('earthrise-bright');
     const setBright = vi.fn();
