@@ -34,6 +34,15 @@ function show(answer: Answer, yearNote: string | null = null, nearby: Parameters
 }
 
 describe('VerdictPanel', () => {
+  it('names its NASA data at its foot: the positions, the hills on the site’s grid and the Horizons check, as every panel does', () => {
+    render(<VerdictPanel answer={night} onLand={vi.fn()} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} site={{ lat: -88.28, polar: true }} />);
+    const row = screen.getByLabelText('Data sources');
+    expect([...row.querySelectorAll('li')].map((li) => li.textContent)).toEqual(['JPL DE440', 'NASA LRO LOLA 20 m', 'checked: JPL Horizons']);
+    expect(screen.getByRole('link', { name: 'checked: JPL Horizons' }).getAttribute('href')).toBe('/validate');
+    // The row is the panel's last word, under the 12-month search.
+    expect(row.parentElement!.lastElementChild).toBe(row);
+  });
+
   it('leads the page with the answer in words, which names the site and the landing day', () => {
     show(night);
     const h1 = screen.getByRole('heading', { level: 1 });

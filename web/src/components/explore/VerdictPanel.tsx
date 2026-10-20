@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import type { Answer } from '@/lib/viz/answer';
+import { lolaFor, Sources } from '../Sources';
 
 /** A battery on its side: full for a good answer, down to its last sliver for a bad one. */
 function BatteryMark({ good }: { good: boolean }) {
@@ -26,6 +27,7 @@ export function VerdictPanel({
   yearNote,
   nearby = null,
   standLink,
+  site,
 }: {
   answer: Answer;
   onLand: (startUtc: string) => void;
@@ -36,6 +38,8 @@ export function VerdictPanel({
   nearby?: { words: string; name: string; href: string } | null;
   /** The stand view for this site, period and hour. */
   standLink?: string;
+  /** The site, for the grid its hills are read from in the row of data sources; without it the row names no grid. */
+  site?: { lat: number; polar: boolean };
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -111,6 +115,8 @@ export function VerdictPanel({
           {yearNote}
         </p>
       )}
+      {/* The answer's figures come from the positions and the hills, and were checked against Horizons: named last, as on every panel. */}
+      <Sources of={['de440', ...lolaFor(...(site ? [site] : [])), 'horizons']} />
     </section>
   );
 }
