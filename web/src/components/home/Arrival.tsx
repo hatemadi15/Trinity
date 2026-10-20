@@ -173,9 +173,12 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
       {(moving || playing) && !capture && (
         // On a phone Skip waits until the first screen has scrolled away whole, so it never covers its words (18.3; at three
         // quarters of a screen the intro's last lines were still under it, read D3); then it sits at the top right, clear
-        // of the beats' cards at the foot, and under the date bar once landed.
-        <button type="button" onClick={land} className={`btn fixed bottom-6 right-6 z-20 border-white/30 bg-black/70 max-sm:bottom-auto ${pastFirst ? '' : 'max-sm:hidden '}${landedAt(beat) ? 'max-sm:top-[160px]' : 'max-sm:top-4'}`}>
-          Skip
+        // of the beats' cards at the foot, and under the date bar once landed. It is named for where it goes (19.4): the label
+        // gives a screen reader that at every width, and the eye reads it from 640 px, with the short word below so the
+        // phone's button stays small. It is not a plate (data-plate), which the section fades as it scrolls up.
+        <button type="button" aria-label="Skip to the answer" onClick={land} className={`btn fixed bottom-6 right-6 z-20 border-white/30 bg-black/70 max-sm:bottom-auto ${pastFirst ? '' : 'max-sm:hidden '}${landedAt(beat) ? 'max-sm:top-[160px]' : 'max-sm:top-4'}`}>
+          <span aria-hidden="true" className="max-sm:hidden">Skip to the answer</span>
+          <span aria-hidden="true" className="sm:hidden">Skip</span>
         </button>
       )}
       <div className="relative z-10 -mt-[100svh]" hidden={bare}>
@@ -187,7 +190,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             </h1>
             {/* On a phone the first sentence waits for a wider screen, so the words leave the Moon in view under them. */}
             <p data-words="" className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
-              <span className="max-sm:hidden">At the Moon&apos;s south pole the Sun and Earth skim the horizon, and one hill can keep them set for weeks. </span>
+              <span className="max-sm:hidden">At the Moon&apos;s south pole the Sun and Earth skim the horizon, and one hill can keep them out of sight for weeks. </span>
               <span>
                 Earthrise is a forecast for landing sites and dates. Pick a place and a day from 2024 to 2036. See its hours of sunlight and of radio contact with Earth, and
                 how long a lander keeps power, for three ready-made landers or your own.

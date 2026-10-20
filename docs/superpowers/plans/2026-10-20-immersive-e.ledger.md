@@ -13,3 +13,5 @@ Pre-flight (shared interfaces and rulings):
 - The deferred minors taken: the flags' gap, the chip's plate and height, the card's chevron, the memoised turn, the arrival's site name; left: the fit's first-frame snap, the faults' weight (a fault already costs 1e6), the dock's two pinned numbers.
 Task 4: complete (commit 75db0bd, tests: npx vitest run src/lib/sky/standRenderer.test.ts --maxWorkers=1 -t "brighter picture" → 1 passed; eslint clean).
 Task 6: spec 19.1 to 19.6 and this ledger written (19.6 waits for the close).
+Task 2: Ruling (the subagent's): one test names Skip for where it goes (the label, the two spans by width, no data-plate) in place of a lone assertion; the Shackleton case tests the name's plumbing, not the shortlist claim, which holds for the hero ridge. `poleLine` in stand.ts ("stay set for days") carries the same "set" and goes to Task 5 — cost if wrong: none found.
+Task 2: complete (commits after cd71b40, tests: npx vitest run src/components/home/Arrival.test.tsx --maxWorkers=1 → 18 passed; src/lib/viz/arrival.test.ts src/lib/viz/words.test.ts → 11 passed; tsc and eslint clean).
