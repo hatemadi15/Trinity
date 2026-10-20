@@ -93,10 +93,18 @@ export function VerdictPanel({
           </Link>
         </p>
       )}
-      <p className="mt-auto pt-3 text-ink-2">
+      <p className="mt-auto flex flex-wrap items-center gap-x-5 pt-3 text-ink-2">
         <button type="button" onClick={onYear} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           Find the best date in the next 12 months
         </button>
+        {/* After the link's own jump to the assistant, its box takes the cursor without a second scroll. */}
+        <a
+          href="#ask"
+          onClick={() => requestAnimationFrame(() => document.getElementById('ask')?.querySelector<HTMLElement>('textarea, input')?.focus({ preventScroll: true }))}
+          className="inline-flex min-h-[40px] items-center underline decoration-line-strong underline-offset-4 hover:decoration-ink"
+        >
+          Or ask in plain words
+        </a>
       </p>
       {yearNote && (
         <p role="status" className="text-ink-2">

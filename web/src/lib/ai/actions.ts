@@ -39,6 +39,11 @@ export function periodNote(startUtc: string, days?: number): string {
   return `Period: from ${dateLong(startUtc, 0)} ${startUtc.slice(0, 4)}${days ? ` for ${days} days` : ''}.`;
 }
 const DAYS: readonly WindowDays[] = [14, 30, 90];
+/**
+ * How many sites Compare holds: the store's COMPARE_MAX, repeated here because the chat route loads this
+ * module on the server and must not load the browser store with it. A test keeps the two equal.
+ */
+export const COMPARE_LIMIT = 4;
 /** The hourly ephemeris table spans these years; a window outside it cannot be computed. */
 export const EPHEMERIS_YEARS = { first: 2024, last: 2036 };
 
@@ -289,6 +294,11 @@ export async function applyActions(store: StoreApi<ExploreState>, actions: Actio
         const site = s.sites.find((x) => x.id === a.id);
         if (!site) {
           notes.push(`No site called "${a.id}" in the catalogue.`);
+          break;
+        }
+        // The store refuses a fifth site without a word, so the note must not claim it was added.
+        if (!s.compareIds.includes(a.id) && s.compareIds.length >= COMPARE_LIMIT) {
+          notes.push(`Compare is full: four sites. Remove one to add ${site.name}.`);
           break;
         }
         await s.addToCompare(a.id);

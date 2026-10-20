@@ -4,7 +4,7 @@ import catalogue from '@/lib/data/catalogue.json';
 import type { Site } from '@/lib/data/loaders';
 import { maxDuration, POST } from './route';
 
-type Reply = { source: string; model?: string; actions: unknown[]; reply: string; dropped?: string[]; error?: string; retryAfterS?: number };
+type Reply = { source: string; reason?: string; model?: string; actions: unknown[]; reply: string; dropped?: string[]; error?: string; retryAfterS?: number };
 
 let ipCounter = 0;
 function request(body: unknown, ip = `10.0.0.${++ipCounter}`): Request {
@@ -67,10 +67,13 @@ describe('POST /api/chat', () => {
     const cached = (await (await POST(request({ prompt: 'Which site should Artemis III pick?', state: null }))).json()) as Reply;
     expect(cached.source).toBe('cache');
     expect(cached.reply.length).toBeGreaterThan(20);
+    // Without a key only the app's own phrasings answer, so a question outside them is not understood.
+    vi.stubEnv('OPENROUTER_API_KEY', '');
     const none = (await (await POST(request({ prompt: 'what is the meaning of life', state: null }))).json()) as Reply;
     expect(none.source).toBe('none');
+    expect(none.reason).toBe('not-understood');
     expect(none.actions).toEqual([]);
-    expect(none.reply).toMatch(/could not/i);
+    expect(none.reply).toMatch(/^I could not understand that\. Try: /);
     // Every suggestion is one the app answers without the model, in the words the pages use.
     const tries = [...none.reply.matchAll(/"([^"]+)"/g)].map((x) => x[1]);
     expect(tries.length).toBe(5);
@@ -233,6 +236,37 @@ describe('POST /api/chat fallbacks and limits', () => {
     expect((await POST(request({ task: 'narrate', prompt: 'x', state: { ...STATE, compare: [{}] } }))).status).toBe(400);
     const badRow = { ...STATE, compare: [{ id: 'x', name: 5, illumFraction: 'a', earthVisFraction: 0.1, survives: true }] };
     expect((await POST(request({ task: 'narrate', prompt: 'x', state: badRow }))).status).toBe(400);
+  });
+
+  it('every model failing gives the busy text and reason', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    const busy = vi.fn(async () => new Response(JSON.stringify({ error: { message: 'Rate limit exceeded: free-models-per-min' } }), { status: 429 }));
+    vi.stubGlobal('fetch', busy);
+    const json = (await (await POST(request({ prompt: 'what is the meaning of life', state: null }))).json()) as Reply;
+    expect(busy).toHaveBeenCalledTimes(4); // every model in the chain was asked once
+    expect(json.source).toBe('none');
+    expect(json.reason).toBe('model-busy');
+    expect(json.actions).toEqual([]);
+    expect(json.reply).toMatch(/^The language model did not answer just now, so only set phrasings work\. Try: /);
+    // The same suggestions as the not-understood reply: each one answered without the model.
+    const tries = [...json.reply.matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+    expect(tries.length).toBe(5);
+    for (const t of tries) expect(matchIntent(t, catalogue.sites as Site[]), t).not.toBeNull();
+  });
+
+  it('AI_MODEL_TIMEOUT_MS is read', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubEnv('AI_MODEL_BUDGET_MS', '2000');
+    vi.stubEnv('AI_MODEL_TIMEOUT_MS', '50');
+    const hang = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal('fetch', hang);
+    const json = (await (await POST(request({ prompt: 'what is the meaning of life', state: null }))).json()) as Reply;
+    // 50 ms a model leaves room in the first answer's 1.6 s for the whole chain; the default 10 s would spend it on one.
+    expect(hang).toHaveBeenCalledTimes(4);
+    expect(json.reason).toBe('model-busy');
+    const brief = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply;
+    expect(brief.reason).toBe('model-error');
+    expect(hang).toHaveBeenCalledTimes(8);
   });
 
   it('caps the function duration', () => {

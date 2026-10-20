@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Answer } from '@/lib/viz/answer';
+import { PlannerChat } from '../PlannerChat';
 import { VerdictPanel } from './VerdictPanel';
 
 const night: Answer = {
@@ -150,6 +151,24 @@ describe('VerdictPanel', () => {
   it('offers no way to stand at the site when it is given none', () => {
     show(night, null, summit);
     expect(screen.queryByRole('link', { name: 'Stand at the site' })).toBeNull();
+  });
+
+  it('the answer links to the assistant and moves the focus to its box', async () => {
+    render(
+      <>
+        <VerdictPanel answer={night} onLand={vi.fn()} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} />
+        <PlannerChat ask={vi.fn()} navigate={vi.fn()} />
+      </>,
+    );
+    const link = screen.getByRole('link', { name: 'Or ask in plain words' });
+    expect(link.getAttribute('href')).toBe('#ask');
+    expect(screen.getByRole('region', { name: 'Ask in plain words' }).id).toBe('ask');
+    // A plain underlined link beside the 12-month search, never a second gold action.
+    expect(link.className).toMatch(/\bunderline\b/);
+    expect(link.className).not.toMatch(/\bbtn/);
+    expect(link.closest('p')).toBe(screen.getByRole('button', { name: 'Find the best date in the next 12 months' }).closest('p'));
+    fireEvent.click(link);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText('Ask the assistant')));
   });
 
   it('offers the search over the next 12 months and reports what it found', () => {

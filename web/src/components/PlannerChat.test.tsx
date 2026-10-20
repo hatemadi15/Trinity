@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createStore, type StoreApi } from 'zustand';
+import { TRANSCRIPTS } from '@/lib/ai/cache';
 import type { PlannerAnswer } from '@/lib/ai/client';
 import type { Site } from '@/lib/data/loaders';
 import { readJson } from '@/lib/engine/__tests__/helpers';
@@ -76,7 +77,7 @@ describe('PlannerChat', () => {
     expect((screen.getByLabelText('Ask the assistant') as HTMLInputElement).value).toBe('');
   });
 
-  it('shows the offline copy and the example chips when the request fails, and a chip fills the input', async () => {
+  it('shows the offline copy and the example chips when the request fails', async () => {
     const { store } = fakeStore();
     render(
       <PlannerChat
@@ -93,8 +94,6 @@ describe('PlannerChat', () => {
     await ask('anything');
     await waitFor(() => expect(screen.getByText(/The assistant is offline/)).toBeTruthy());
     expect(screen.getAllByRole('button', { name: /^Try: / }).length).toBe(4);
-    fireEvent.click(screen.getByRole('button', { name: 'Try: Find the best landing date for 14 days' }));
-    expect((screen.getByLabelText('Ask the assistant') as HTMLInputElement).value).toBe('Find the best landing date for 14 days');
   });
 
   it('offers only examples the app answers without the model, in the words the pages use', () => {
@@ -120,7 +119,8 @@ describe('PlannerChat', () => {
       .mockResolvedValueOnce(answer({ source: 'intent', actions: [{ type: 'open_page', page: 'compare' }], reply: 'Opening compare.' }));
     render(<PlannerChat store={store} ask={askFn} navigate={navigate} />);
     await ask('Show me Nobile Rim 2');
-    await waitFor(() => expect(screen.getByText(/rehearsed answer/)).toBeTruthy());
+    // The source line, not the header's "Demo mode: rehearsed answers." nor the row shown while the answer is looked up.
+    await waitFor(() => expect(screen.getByText(/^rehearsed answer, after you asked/)).toBeTruthy());
     expect(askFn).toHaveBeenCalledWith('Show me Nobile Rim 2', null, 'cached');
     await ask('open compare');
     await waitFor(() => expect(screen.getByText(/matched your words/)).toBeTruthy());
@@ -197,6 +197,131 @@ describe('PlannerChat transcript and failures', () => {
   });
 });
 
+/** A stand-in for /api/chat: the route's JSON for every question, so the real client reads it. */
+function chatRoute(body: (prompt: string) => Record<string, unknown>) {
+  return vi.fn(async (_url: string, init?: RequestInit) => {
+    const { prompt } = JSON.parse(String(init?.body)) as { prompt: string };
+    return new Response(JSON.stringify(body(prompt)), { status: 200, headers: { 'content-type': 'application/json' } });
+  });
+}
+
+describe('PlannerChat through the client', () => {
+  beforeEach(() => {
+    plannerLog.getState().clear();
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('explain shows its paragraph once', async () => {
+    const { store } = fakeStore();
+    const t = TRANSCRIPTS.find((x) => x.id === 'explain_longest_night')!;
+    // The rehearsed reply is the paragraph, and the explain step adds the same paragraph as its note.
+    vi.stubGlobal('fetch', chatRoute(() => ({ source: 'cache', actions: t.actions, reply: t.reply })));
+    render(<PlannerChat store={store} navigate={vi.fn()} />);
+    await ask('Explain the longest night');
+    await waitFor(() => expect(screen.getByText(/^rehearsed answer, after you asked/)).toBeTruthy());
+    const shown = screen.getByRole('list', { name: 'Replies from the assistant' }).textContent ?? '';
+    expect(shown.split('The longest night is the longest run of hours').length - 1).toBe(1);
+  });
+
+  it('an example button asks at once', async () => {
+    const { store } = fakeStore();
+    const route = chatRoute((prompt) => ({ source: 'intent', actions: [], reply: `Answer to ${prompt}.` }));
+    vi.stubGlobal('fetch', route);
+    render(<PlannerChat store={store} navigate={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Try: Find the best landing date for 14 days' }));
+    // The box shows what was asked while the answer is on its way.
+    const box = screen.getByLabelText('Ask the assistant') as HTMLInputElement;
+    expect(box.value).toBe('Find the best landing date for 14 days');
+    await waitFor(() => expect(screen.getByText('Answer to Find the best landing date for 14 days.')).toBeTruthy());
+    expect(route).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(route.mock.calls[0][1]?.body)).prompt).toBe('Find the best landing date for 14 days');
+    expect(box.value).toBe('');
+  });
+
+  it('the examples come back when nothing answered', async () => {
+    const { store } = fakeStore();
+    vi.stubGlobal(
+      'fetch',
+      chatRoute((prompt) =>
+        prompt === 'open compare'
+          ? { source: 'intent', actions: [], reply: 'Opening Compare sites.' }
+          : { source: 'none', reason: 'model-busy', actions: [], reply: 'The language model did not answer just now, so only set phrasings work.' },
+      ),
+    );
+    render(<PlannerChat store={store} navigate={vi.fn()} />);
+    await ask('open compare');
+    await waitFor(() => expect(screen.getByText('Opening Compare sites.')).toBeTruthy());
+    expect(screen.queryAllByRole('button', { name: /^Try: / })).toHaveLength(0);
+    await ask('what is the meaning of life');
+    await waitFor(() => expect(screen.getByText(/did not answer just now/)).toBeTruthy());
+    expect(screen.getAllByRole('button', { name: /^Try: / })).toHaveLength(EXAMPLE_PROMPTS.length);
+  });
+});
+
+describe('PlannerChat while the model is asked', () => {
+  beforeEach(() => {
+    plannerLog.getState().clear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** An ask that answers only when the test says so. */
+  function heldAsk() {
+    let answerNow: (a: PlannerAnswer) => void = () => {};
+    const fn = vi.fn(() => new Promise<PlannerAnswer>((resolve) => (answerNow = resolve)));
+    return { fn, answer: (a: PlannerAnswer) => answerNow(a) };
+  }
+
+  it('shows the question and the seconds while the model is asked', async () => {
+    const { store } = fakeStore();
+    const held = heldAsk();
+    render(<PlannerChat store={store} ask={held.fn} navigate={vi.fn()} />);
+    await ask('what is the meaning of life');
+    expect(screen.getByRole('status').textContent).toBe('“what is the meaning of life”, asking the model… 0 s');
+    act(() => vi.advanceTimersByTime(3000));
+    expect(screen.getByRole('status').textContent).toBe('“what is the meaning of life”, asking the model… 3 s');
+  });
+
+  it('after eight seconds says free models can be slow', async () => {
+    const { store } = fakeStore();
+    const held = heldAsk();
+    render(<PlannerChat store={store} ask={held.fn} navigate={vi.fn()} />);
+    await ask('what is the meaning of life');
+    act(() => vi.advanceTimersByTime(7000));
+    expect(screen.getByRole('status').textContent).not.toMatch(/Free models/);
+    act(() => vi.advanceTimersByTime(1000));
+    const lines = [...screen.getByRole('status').querySelectorAll('p')].map((p) => p.textContent);
+    expect(lines).toEqual(['“what is the meaning of life”, asking the model… 8 s', 'Free models can be slow; if none answers, the app replies from its own phrasings.']);
+  });
+
+  it('in demo mode says it looks for a rehearsed answer, since no model is asked', async () => {
+    const { store } = fakeStore('cached');
+    const held = heldAsk();
+    render(<PlannerChat store={store} ask={held.fn} navigate={vi.fn()} />);
+    await ask('Show me Nobile Rim 2');
+    act(() => vi.advanceTimersByTime(9000));
+    expect(screen.getByRole('status').textContent).toBe('“Show me Nobile Rim 2”, looking for a rehearsed answer… 9 s');
+  });
+
+  it('the row goes when the reply comes', async () => {
+    const { store } = fakeStore();
+    const held = heldAsk();
+    render(<PlannerChat store={store} ask={held.fn} navigate={vi.fn()} />);
+    await ask('open compare');
+    act(() => vi.advanceTimersByTime(2000));
+    expect(screen.getByRole('status')).toBeTruthy();
+    await act(async () => held.answer(answer({ source: 'intent', reply: 'Opening Compare sites.' })));
+    expect(screen.getByText('Opening Compare sites.')).toBeTruthy();
+    expect(screen.queryByRole('status')).toBeNull();
+    // Replies are read out as they arrive.
+    expect(screen.getByRole('list', { name: 'Replies from the assistant' }).getAttribute('aria-live')).toBe('polite');
+  });
+});
+
 describe('useDemoMode persistence', () => {
   it('remembers demo mode for the session and forgets it with ?demo=0', () => {
     window.sessionStorage.clear();
@@ -238,7 +363,9 @@ describe('PlannerChat opens when it has something to show', () => {
       render(<PlannerChat store={store} ask={vi.fn()} navigate={() => {}} />);
       const panel = screen.getByRole('region', { name: 'Ask in plain words' });
       expect(within(panel).getByRole('heading', { level: 2 }).textContent).toBe('Ask in plain words');
-      expect(panel.textContent).toMatch(/The assistant moves the controls for you\. It never invents numbers\./);
+      // The number check removes what it cannot match; it also lets the window lengths and the visitor's own figures through.
+      expect(panel.textContent).toMatch(/The assistant moves the controls for you\. Numbers it cannot match to the app's figures are removed\./);
+      expect(panel.textContent).not.toMatch(/never invents/);
       expect(within(panel).getByLabelText('Ask the assistant').className).toMatch(/\bfield\b/);
       const askButton = within(panel).getByRole('button', { name: 'Ask' });
       expect(askButton.className).toMatch(/\bbtn\b/);

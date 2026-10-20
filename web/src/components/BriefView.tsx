@@ -125,7 +125,7 @@ export function BriefView({
             {writing ? 'Writing…' : 'Let the assistant write it'}
           </button>
         </div>
-        <p data-testid="narration">{shown}</p>
+        <p data-testid="narration" aria-live="polite">{shown}</p>
         <p className="text-ink-2">{narrationLabel}</p>
       </section>
       <section aria-labelledby="brief-verdict" className={`border-l-4 pl-4 ${answer.tone === 'good' ? 'border-good' : 'border-bad'}`}>

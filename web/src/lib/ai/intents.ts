@@ -94,7 +94,7 @@ export const INTENTS: Intent[] = [
     pattern: /^add (.+?) to (?:the )?compar(?:e|ison)$/i,
     build(m, sites) {
       const site = siteByName(sites, m[1]);
-      return site ? { actions: [{ type: 'add_to_compare', id: site.id }], reply: `Added ${site.name} to the comparison.` } : notFound(m[1]);
+      return site ? { actions: [{ type: 'add_to_compare', id: site.id }], reply: `Adding ${site.name} to the comparison.` } : notFound(m[1]);
     },
   },
   {

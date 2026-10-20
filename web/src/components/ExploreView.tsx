@@ -139,6 +139,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             />
           </div>
           <TimeChart
+            site={site}
             series={s.series}
             mask={s.mask}
             power={s.power}
