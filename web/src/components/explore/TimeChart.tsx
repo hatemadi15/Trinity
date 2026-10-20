@@ -1,6 +1,8 @@
 'use client';
 import { useMemo, useRef } from 'react';
 import { SkyRow } from '@/components/SkyRow';
+import { lolaFor, Sources, type SourceKey } from '@/components/Sources';
+import type { Site } from '@/lib/data/loaders';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { dateLong, dayMonth } from '@/lib/viz/format';
@@ -52,6 +54,7 @@ export function TimeChart({
   hoverHour,
   onCursor,
   onHover,
+  site,
 }: {
   series: Series;
   mask: ArrayLike<number>;
@@ -63,12 +66,20 @@ export function TimeChart({
   hoverHour: number | null;
   onCursor: (hour: number) => void;
   onHover: (hour: number | null) => void;
+  /** The site, so the row of data sources can name the grid its hills come from. */
+  site?: Pick<Site, 'lat' | 'polar'>;
 }) {
   const hours = series.hours;
   const dragging = useRef(false);
   const sunHill = useMemo(() => hillsToward(mask, series.sunAz), [mask, series.sunAz]);
   const earthHill = useMemo(() => hillsToward(mask, series.earthAz), [mask, series.earthAz]);
   const sunUp = useMemo(() => Uint8Array.from(series.sunFraction, (f) => (f > 0 ? 1 : 0)), [series.sunFraction]);
+  const lola = useMemo<SourceKey[]>(() => {
+    if (site) return lolaFor(site);
+    // Without the site the grid is not known, so the row names the 20 m grid of the polar models. A horizon of
+    // zeros is a place off the polar grids, with no hills to credit.
+    return Array.from(mask).some((v) => v !== 0) ? ['lola'] : [];
+  }, [site, mask]);
   const pct = (hour: number) => ((hour + 0.5) / hours) * 100;
   const period = `the ${days} days from ${dateLong(startUtc, 0)}`;
 
@@ -209,6 +220,8 @@ export function TimeChart({
           ))}
         </div>
       </div>
+      {/* DE440 gives the heights of the Sun and Earth, LOLA the hills. The battery is the app's own model, so it has no pill. */}
+      <Sources of={['de440', ...lola]} />
     </section>
   );
 }

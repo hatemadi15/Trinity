@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { lolaFor, Sources } from '@/components/Sources';
 import { Scene3DLazy } from '@/components/three';
 import { siteLabel, type Site } from '@/lib/data/loaders';
 import { shadowLevels, type Heightmap } from '@/lib/data/terrain';
@@ -304,6 +305,9 @@ export function GroundPanel({
           That place cannot be worked out: this tool covers the Moon south of 60° S.
         </p>
       )}
+      {/* LOLA, on the site's own grid, gives the ground and the hills, and DE440 the light; the sentence for the hour
+          uses both on every tab. The globe is coloured with NASA's Moon Kit, so its pill shows while the globe does. */}
+      <Sources of={tab === '3d' && view === 'globe' && textureUrl ? [...lolaFor(site), 'de440', 'moonkit'] : [...lolaFor(site), 'de440']} />
     </section>
   );
 }

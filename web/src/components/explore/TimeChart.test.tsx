@@ -161,4 +161,21 @@ describe('TimeChart', () => {
     expect(container.querySelectorAll('svg text')).toHaveLength(0);
     for (const l of container.querySelectorAll<HTMLElement>('[data-label]')) expect(parseFloat(l.style.fontSize)).toBeGreaterThanOrEqual(13);
   });
+
+  it('names its NASA data', () => {
+    const names = () => within(screen.getByLabelText('Data sources')).getAllByRole('listitem').map((li) => li.textContent);
+    // DE440 gives the Sun's and Earth's heights and LOLA the hills; the power model is the app's own, so it has no pill.
+    const first = show();
+    expect(names()).toEqual(['JPL DE440', 'NASA LRO LOLA 20 m']);
+    // The row is the chart's foot, away from its heading.
+    expect(screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' }).lastElementChild).toBe(screen.getByLabelText('Data sources'));
+    first.unmount();
+    // Given its site, the chart names the grid the hills come from: 80 m for a site north of 87.55° S.
+    const farther = show({ site: { lat: -86, polar: true } });
+    expect(names()).toEqual(['JPL DE440', 'NASA LRO LOLA 80 m']);
+    farther.unmount();
+    // A horizon of zeros is a place off the polar grids: no hills, so no LOLA.
+    show({ mask: new Float64Array(720) });
+    expect(names()).toEqual(['JPL DE440']);
+  });
 });

@@ -58,4 +58,17 @@ describe('WhereOnMoon', () => {
     expect(pin.getAttribute('aria-current')).toBe('true');
     expect(pin.style.left).toMatch(/^5[34]/);
   });
+
+  it('names its NASA data', () => {
+    render(<WhereOnMoon site={site('de_gerlache_rim_2')} sites={sites} overview={overview} startUtc="2027-01-01T00:00:00" days={30} wide />);
+    const panel = screen.getByRole('region', { name: 'Where on the Moon' });
+    const row = within(panel).getByLabelText('Data sources');
+    // The relief is LOLA's 80 m grid. The sunlight figures and the pins' colours come from horizons on the 20 m grid
+    // near the pole and the 80 m grid farther out, with DE440. The pins are NASA's Artemis III regions and the CLPS landings.
+    expect(within(row).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'JPL DE440', 'Artemis III regions', 'CLPS mission records']);
+    expect(within(panel).getByRole('link', { name: 'IM-2 Athena' })).toBeTruthy();
+    expect(within(panel).getByRole('link', { name: 'Malapert Massif' })).toBeTruthy();
+    // The row is the panel's foot, away from its heading.
+    expect(panel.lastElementChild).toBe(row);
+  });
 });

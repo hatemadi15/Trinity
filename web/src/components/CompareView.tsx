@@ -6,6 +6,7 @@ import { AppFrame } from './AppFrame';
 import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PeriodControls } from './PeriodControls';
 import { PlannerChat } from './PlannerChat';
+import { lolaFor, Sources } from './Sources';
 import { MiniStrip } from './compare/MiniStrip';
 import { LanderDialog } from './explore/LanderDialog';
 import { siteLabel } from '@/lib/data/loaders';
@@ -156,6 +157,8 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                 ))}
               </tbody>
             </table>
+            {/* DE440 gives every figure, and LOLA the hills on the grids of the sites in the table. */}
+            <Sources of={['de440', ...lolaFor(...s.compare.map((c) => c.site))]} />
           </section>
         )}
 
