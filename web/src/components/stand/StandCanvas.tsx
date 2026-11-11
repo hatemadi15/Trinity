@@ -409,6 +409,8 @@ export function StandCanvas({
   place,
   docked = false,
   bright = false,
+  onFound,
+  lineTaken = false,
 }: {
   scene: StandScene;
   hour: number;
@@ -444,6 +446,13 @@ export function StandCanvas({
   docked?: boolean;
   /** "Brighter picture" (18.3): the renderer doubles its exposure for projectors and bright rooms. */
   bright?: boolean;
+  /** Told once, the first time the resident stands well inside the view: in the middle three fifths across, clear of the plates (20.2). */
+  onFound?: () => void;
+  /**
+   * The line over the view says something else for now (a key moment's, a Turn to's): the resident waits until it has
+   * gone, so its line never takes another's place (a flag on the hero month turns the view straight onto it).
+   */
+  lineTaken?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
@@ -510,6 +519,10 @@ export function StandCanvas({
   const pinch = useRef<{ dist: number; fov: number } | null>(null);
   const failRef = useRef(onFail);
   const readyRef = useRef(onReady);
+  // The resident found (20.2): told once while the canvas lives, through a ref so the frames never start again for it.
+  const foundRef = useRef(onFound);
+  const toldRef = useRef(false);
+  const takenRef = useRef(lineTaken);
   // Until the first frame is drawn no label shows: none floats over the empty view while it builds.
   const drawnRef = useRef(false);
   const [dragging, setDragging] = useState(false);
@@ -547,6 +560,12 @@ export function StandCanvas({
   useEffect(() => {
     readyRef.current = onReady;
   }, [onReady]);
+  useEffect(() => {
+    foundRef.current = onFound;
+  }, [onFound]);
+  useEffect(() => {
+    takenRef.current = lineTaken;
+  }, [lineTaken]);
   /** The opening view ends, or a look that kept the lander's feet in sight: its lower pitch becomes the view's own, so nothing jumps. */
   const endOpening = () => {
     if (!openingRef.current && !fitRef.current) return;
@@ -728,6 +747,17 @@ export function StandCanvas({
         return;
       }
       const l = r.labels();
+      // The resident (20.2), the first time it stands well inside the view while the line over the view is free: in the
+      // middle three fifths across, 40 px or more inside the room between the words and the bar, and on no plate. It has
+      // no pointer and no mark on the compass: they would give it away.
+      const found = l.resident;
+      if (found?.visible && !toldRef.current && !takenRef.current && found.x >= 0.2 && found.x <= 0.8) {
+        const fx = found.x * W, fy = found.y * H;
+        if (fy >= freeTop + 40 && fy <= freeBottom - 40 && !plates.some((p) => fx >= p.left && fx <= p.right && fy >= p.top && fy <= p.bottom)) {
+          toldRef.current = true;
+          foundRef.current?.();
+        }
+      }
       const guide = guidesRef.current;
       // The lander's body on the screen: no label but its own sits on it.
       const lb = l.landerBox, body = lb ? { left: lb.left * W, top: lb.top * H, right: lb.right * W, bottom: lb.bottom * H } : null;

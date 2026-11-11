@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { GlobeAssets } from '../data/globe';
 import type { SkyAssets } from '../data/sky';
 import { R_MOON_M } from '../engine/constants';
@@ -21,8 +22,9 @@ import { LANDER } from './landerShape';
 import { buildLander, landerDust } from './landerMesh';
 import { buildGround, STAND_REACH_M } from './groundLevels';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
-import { boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed } from './boulders';
+import { BOULDERS, boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed, type Boulder } from './boulders';
 import { heightAt, meshHeightAt, type TerrainField } from './terrainField';
+import { standResident } from '../viz/standOpening';
 
 export { toTextureHeights } from './groundLevels';
 
@@ -52,6 +54,8 @@ export interface StandScene {
   ground?: boolean;
   /** The key moments' days, marked on the Sun's or Earth's path at their hours. */
   marks?: { hour: number; body: 'sun' | 'earth'; text: string }[];
+  /** The resident (spec 20.2): a small creature behind you as the view opens, for a visitor who looks round; stand view only, never in flight. */
+  resident?: boolean;
 }
 
 type Spot = { x: number; y: number; visible: boolean };
@@ -95,6 +99,8 @@ export interface SkyLabels {
   landerBox?: ScreenBox | null;
   /** Where the level horizon's name goes: the left end of the first stretch of the line in view that clears the hills, 3° or more long; null when none does, or while the guides or the line are hidden. */
   level?: Spot | null;
+  /** The top of the resident's shell (spec 20.2), so the page can tell when it stands well in view; never named, which would give it away. Null without one. */
+  resident?: Spot | null;
 }
 
 const DEG = Math.PI / 180;
@@ -218,6 +224,94 @@ export function threesOwnTextures(root: THREE.Object3D, properties: { get(o: obj
 export const eyeHeightM = (mastM: number) => Math.max(1.5, mastM);
 /** Where the eye is: over the drawn ground at the site, so the mesh never stands above it. */
 export const eyeAt = (scene: Pick<StandScene, 'field' | 'mastM'>) => meshHeightAt(scene.field, 0, 0) + eyeHeightM(scene.mastM);
+
+/**
+ * The resident (spec 20.2) in its own frame: its soles on the ground at y = 0 and its head towards +z. A shell 0.34 m
+ * wide, 0.26 m tall and 0.42 m long (SHELL, half of each, as a boulder's stone is fitted to a box 2 across), its middle
+ * SHELL_Y up; four stubby legs, LEG_X either side of the middle and LEG_Z before and behind it, LEG_R thick and reaching
+ * up into the shell; a small head (HEAD, half its width, height and length) pushed out of the shell's front at HEAD_AT;
+ * and two dark eye dots on its face, EYE_R across, at EYE either side. Its feet sink BED_M into the dust. The body's
+ * colours are multiplied by the rocks' grey: a little darker and warmer than the shell on the whole, the eyes nearly black.
+ */
+const RESIDENT = {
+  SHELL: [0.17, 0.13, 0.21],
+  SHELL_Y: 0.18,
+  LEG_X: 0.1,
+  LEG_Z: 0.11,
+  LEG_R: 0.035,
+  LEG_TOP: 0.17,
+  HEAD: [0.05, 0.045, 0.06],
+  HEAD_AT: [0, 0.15, 0.21],
+  EYE_R: 0.012,
+  EYE: [0.025, 0.165, 0.258],
+  BED_M: 0.015,
+  BODY_RGB: [0.95, 0.92, 0.88],
+  EYE_RGB: [0.08, 0.08, 0.08],
+} as const;
+/**
+ * The resident's shadow on the ground: one more sphere in the rocks' uniform, data for the loop the ground's shader
+ * already runs, not code. The first thing to drop (set false) if the laptop's frame probe moves with the resident in.
+ */
+export const RESIDENT_SHADOW = true;
+
+/**
+ * The resident's body as one mesh: its head, four legs and two eyes, 260 triangles, with the rocks' own attributes and
+ * nothing more (a position, a normal and a colour of three; no uv, tangent or morph), so drawn in a boulder's material it
+ * takes the program three already built for the boulders. The legs are open at both ends: their soles are in the dust and
+ * their tops inside the shell.
+ */
+function residentBody(): THREE.BufferGeometry {
+  const { HEAD, HEAD_AT, EYE, EYE_R, LEG_X, LEG_Z, LEG_R, LEG_TOP, BODY_RGB, EYE_RGB } = RESIDENT;
+  const part = (geo: THREE.BufferGeometry, at: THREE.Matrix4, rgb: readonly number[]) => {
+    geo.applyMatrix4(at);
+    geo.deleteAttribute('uv');
+    const n = geo.getAttribute('position').count;
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(Array.from({ length: 3 * n }, (_, i) => rgb[i % 3]), 3));
+    return geo;
+  };
+  const parts = [
+    part(new THREE.SphereGeometry(1, 10, 8), new THREE.Matrix4().makeScale(HEAD[0], HEAD[1], HEAD[2]).setPosition(HEAD_AT[0], HEAD_AT[1], HEAD_AT[2]), BODY_RGB),
+    ...[-1, 1].map((side) => part(new THREE.SphereGeometry(EYE_R, 6, 4), new THREE.Matrix4().makeTranslation(side * EYE[0], EYE[1], EYE[2]), EYE_RGB)),
+    ...[-1, 1].flatMap((across) => [-1, 1].map((along) => part(new THREE.CylinderGeometry(LEG_R, 1.15 * LEG_R, LEG_TOP, 6, 1, true), new THREE.Matrix4().makeTranslation(across * LEG_X, LEG_TOP / 2, along * LEG_Z), BODY_RGB))),
+  ];
+  const body = mergeGeometries(parts);
+  for (const p of parts) p.dispose();
+  return body;
+}
+
+/**
+ * The resident's meshes, placed (spec 20.2). Its shell is one of the boulders' own stones (`stones`, whose radii are
+ * `radii`), a rounded lump where there is one, else the smallest, drawn with that stone's geometry and material, so
+ * nothing is uploaded for it; its body (residentBody) is drawn in the same material. It stands at `at` facing the eye,
+ * turned to the plane through the drawn ground under its four feet, so on a slope no foot floats or sinks deeper than
+ * the rest. With the shell's top, where the view looks for it, and the sphere that stands for it in the ground's
+ * shadows as a boulder's does: over its middle, its top at the shell's highest point, three quarters of its half-width wide.
+ */
+function residentMeshes(stones: THREE.Mesh[], radii: number[], at: { x: number; z: number }, field: TerrainField) {
+  const src = stones.find((m) => m.name === 'rock-lump') ?? stones[radii.indexOf(Math.min(...radii))];
+  if (!src) return null;
+  const { SHELL, SHELL_Y, LEG_X, LEG_Z, BED_M } = RESIDENT;
+  const shell = new THREE.Mesh(src.geometry, src.material);
+  shell.scale.set(SHELL[0], SHELL[1], SHELL[2]);
+  shell.position.y = SHELL_Y;
+  const group = new THREE.Group();
+  group.add(shell, new THREE.Mesh(residentBody(), src.material));
+  // Its head towards the eye; the drawn ground under each foot, the feet turned with it, before and behind, either side.
+  const yaw = Math.atan2(-at.x, -at.z), c = Math.cos(yaw), s = Math.sin(yaw);
+  const under = (x: number, z: number) => meshHeightAt(field, at.x + x * c + z * s, at.z - x * s + z * c);
+  const h = [under(-LEG_X, -LEG_Z), under(LEG_X, -LEG_Z), under(-LEG_X, LEG_Z), under(LEG_X, LEG_Z)];
+  // The plane through them: how fast it rises across it (towards +x) and along it (towards its head), metres a metre.
+  const across = (h[1] + h[3] - h[0] - h[2]) / (4 * LEG_X), along = (h[2] + h[3] - h[0] - h[1]) / (4 * LEG_Z);
+  const up = new THREE.Vector3(0, 1, 0);
+  group.quaternion.setFromAxisAngle(up, yaw).multiply(new THREE.Quaternion().setFromUnitVectors(up, new THREE.Vector3(-across, 1, -along).normalize()));
+  group.position.set(at.x, (h[0] + h[1] + h[2] + h[3]) / 4 - BED_M, at.z);
+  group.updateMatrixWorld(true);
+  const pos = shell.geometry.getAttribute('position'), v = new THREE.Vector3(), mid = shell.getWorldPosition(new THREE.Vector3());
+  let top = -Infinity;
+  for (let i = 0; i < pos.count; i++) top = Math.max(top, v.fromBufferAttribute(pos, i).applyMatrix4(shell.matrixWorld).y);
+  const w = 0.75 * SHELL[0];
+  return { group, top: new THREE.Vector3(mid.x, top, mid.z), sphere: new THREE.Vector4(mid.x, top - w, mid.z, w) };
+}
 
 /**
  * The scene for a site and period, without WebGL: the measured ground, the far skyline, the stars, the
@@ -481,17 +575,24 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
 
   // Boulders round the eye, kept clear of the lander, with their shadows on the ground.
   const seed = siteSeed(scene.site.lat, scene.site.lon);
-  const rocks = hasGround
-    ? boulderMeshes(placeBoulders(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => meshHeightAt(scene.field, x, z), seed)
-    : { group: new THREE.Group(), spheres: [] as THREE.Vector4[] };
+  const placed: Boulder[] = hasGround ? placeBoulders(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null) : [];
+  const rocks = hasGround ? boulderMeshes(placed, (x, z) => meshHeightAt(scene.field, x, z), seed) : { group: new THREE.Group(), spheres: [] as THREE.Vector4[] };
   root.add(rocks.group);
   // Pebbles: the near ground's grit, shapes the low Sun catches.
   const pebbles = hasGround ? pebbleMesh(placePebbles(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => meshHeightAt(scene.field, x, z), seed) : null;
   if (pebbles) root.add(pebbles);
+  // The resident (spec 20.2): a small creature with a rock for a back, behind you as the view opens, to be found by
+  // turning round; in the stand view only, with its ground and its lander (the arrival, in flight, never has it). Its
+  // shell is a boulder's own stone and its body 260 triangles in that stone's material: two draw calls, culled when off
+  // screen, no new program to compile, no light, no pass, and no work in the frame but the one projection for its spot.
+  const resident = scene.resident && hasGround && !flight && lander ? residentMeshes(rocks.group.children as THREE.Mesh[], placed.map((b) => b.r), standResident(ls!, placed, seed), scene.field) : null;
+  if (resident) root.add(resident.group);
+  // Its shadow is one sphere more in the rocks' uniform (RESIDENT_SHADOW), while there is room for it.
+  const spheres = resident && RESIDENT_SHADOW && rocks.spheres.length < BOULDERS.MAX ? [...rocks.spheres, resident.sphere] : rocks.spheres;
   for (const g of ground) {
     const u = (g.material as THREE.ShaderMaterial).uniforms;
-    rocks.spheres.forEach((v, i) => (u.uRocks.value as THREE.Vector4[])[i].copy(v));
-    u.uRockCount.value = rocks.spheres.length;
+    spheres.forEach((v, i) => (u.uRocks.value as THREE.Vector4[])[i].copy(v));
+    u.uRockCount.value = spheres.length;
   }
 
   const startMs = Date.parse(scene.startUtc + 'Z');
@@ -847,7 +948,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       pathName('sun', "Sun's path this month", sunDirs, scene.series.sunEl, sunFloor, sunDir, onScreen, o.above ? { dirs: earthDirs, el: scene.series.earthEl, floor: earthFloor } : null, o.middle),
       pathName('earth', "Earth's path this month", earthDirs, scene.series.earthEl, earthFloor, earthDir, onScreen, o.above ? { dirs: sunDirs, el: scene.series.sunEl, floor: sunFloor } : null, o.middle),
     ];
-    return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow, marks, pathNames, landerBox: onScreen, level: levelSpot() };
+    // The top of the resident's shell (20.2): the one projection a frame it costs.
+    const residentSpot = resident ? spot(resident.top, 0, false) : null;
+    return { sun: bodySpot(skyWorld(sun.position), SUN_D * 3 * k), earth: bodySpot(earthPos, EARTH_R * 1.25 * k), stars, lander: landerSpot, parts, shadow, marks, pathNames, landerBox: onScreen, level: levelSpot(), resident: residentSpot };
   }
   /** The box round the lander on the screen: the corners of its box in the world, projected; null while it is out of view. */
   function landerOnScreen(): ScreenBox | null {
@@ -962,7 +1065,7 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
 
   /** More than 5 km over the ground (the arrival's flight): the ground's cells come to a pixel or less (18.4). */
   const aloft = () => !ringNow;
-  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, aloft, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, keyLight, boulders: rocks.group, pebbles, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
+  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, aloft, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, keyLight, boulders: rocks.group, pebbles, resident: resident?.group ?? null, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
 /**

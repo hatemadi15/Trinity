@@ -100,3 +100,55 @@ export function openingYaw(series: Series, hour: number, tall: boolean, withLand
   if (range[0] > range[1]) return base;
   return (base + hillShift(mask, base, halfWidthDeg, range) + 360) % 360;
 }
+
+/**
+ * Where the resident may stand (spec 20.2): 8 to 10 m from the eye, up to 25° round from straight behind you as you
+ * face the lander, tried 5° apart; its middle 0.85 m or more from a rock's edge, so no rock stands against it, and no
+ * rock within 0.3 m of the line between it and the eye, so none hides it.
+ */
+const RESIDENT = { NEAR_M: 8, FAR_M: 10, ROUND_DEG: 25, STEP_DEG: 5, CLEAR_M: 0.85, SIGHT_M: 0.3 } as const;
+
+/** A number from 0 to 1 for a seed and a key, the same each time: an integer hash of the two. */
+function unit(seed: number, key: number): number {
+  let h = (seed ^ Math.imul(key + 1, 0x9e3779b9)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/**
+ * The resident (spec 20.2): a small creature on the ground behind you as the view opens, so a visitor finds it only by
+ * turning round. It stands on the far side of you from the lander, which the opening view holds at every hour (the view
+ * opens 5° to 18° beside it, then turns at most 30° towards a hill), so it lies 120° or more round from the opening's
+ * middle; and up to 25° round from straight behind, towards the Sun's side (`lander.azDeg + 180` and less), as your own
+ * shadow falls 20° to 40° the other way. How far out (8 to 10 m) and how far round come from the site's seed, so it
+ * stands in the same place on every visit; where a rock (`rocks`, the scene's boulders) stands on that spot or between
+ * it and the eye, it steps 5° at a time on towards 25° round, then back the other way, and with no clear spot in the
+ * band it stands where the band is clearest. Azimuth clockwise from north, x east, z south.
+ */
+export function standResident(lander: Pick<NonNullable<StandScene['lander']>, 'azDeg'>, rocks: { x: number; z: number; r: number }[], seed: number): { azDeg: number; distM: number; x: number; z: number } {
+  const distM = RESIDENT.NEAR_M + (RESIDENT.FAR_M - RESIDENT.NEAR_M) * unit(seed, 0);
+  const first = -RESIDENT.ROUND_DEG * unit(seed, 1);
+  // The turns to try, from straight behind: the seed's own, then on to 25° round, then back from it towards none.
+  const turns = [first];
+  for (let t = first - RESIDENT.STEP_DEG; t >= -RESIDENT.ROUND_DEG - 1e-9; t -= RESIDENT.STEP_DEG) turns.push(t);
+  for (let t = first + RESIDENT.STEP_DEG; t <= 1e-9; t += RESIDENT.STEP_DEG) turns.push(t);
+  const at = (t: number) => {
+    const azDeg = (((lander.azDeg + 180 + t) % 360) + 360) % 360, a = (azDeg * Math.PI) / 180;
+    return { azDeg, distM, x: distM * Math.sin(a), z: -distM * Math.cos(a) };
+  };
+  // How far a spot is from the nearest rock's reach, metres: to standing on it, or to the line from the eye passing it.
+  const room = (p: { x: number; z: number }) =>
+    rocks.reduce((least, b) => {
+      const s = Math.max(0, Math.min(1, (b.x * p.x + b.z * p.z) / (distM * distM)));
+      const sight = Math.hypot(b.x - s * p.x, b.z - s * p.z) - (b.r + RESIDENT.SIGHT_M);
+      return Math.min(least, sight, Math.hypot(b.x - p.x, b.z - p.z) - (b.r + RESIDENT.CLEAR_M));
+    }, Infinity);
+  let best = at(first), most = -Infinity;
+  for (const t of turns) {
+    const p = at(t), r = room(p);
+    if (r >= 0) return p;
+    if (r > most) [best, most] = [p, r];
+  }
+  return best;
+}

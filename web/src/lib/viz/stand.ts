@@ -150,6 +150,13 @@ export const FIRST_STEP_PHONE = 'Press Play · drag to look around';
 export const FIRST_STEP_STILL = 'Drag to look around';
 
 /**
+ * The line over the view the first time the resident comes well into it (spec 20.2), once a visit: that it was found,
+ * and what is real, as the card's line on where you stand says it (standingLine): it is made up, as the rocks and the
+ * small craters are; the hills, the Sun and Earth are NASA data (the laser's heights, the tables of the planets).
+ */
+export const RESIDENT_LINE = 'You found Rocky, the only animal here, made up like the rocks. The hills, Sun and Earth are NASA data.';
+
+/**
  * One line on what to watch next: the first change after the hour, of the Sun (any part of its disc in
  * view, as the time bar draws it) or of the lander's power, with its day; and the other kind's next change
  * when it follows within three days. It starts with WATCH_LEAD: "Press Play, or a flag on the time bar, to

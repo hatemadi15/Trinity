@@ -6,7 +6,8 @@ import { dirAzEl } from '@/lib/sky/frames';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
-import { FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, type MomentKind } from '@/lib/viz/stand';
+import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
+import { FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, RESIDENT_LINE, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, type MomentKind } from '@/lib/viz/stand';
 import { openingYaw } from '@/lib/viz/standOpening';
 import { fileLoaders, terrainFileLoaders, terrainPresent } from '@/test/file-loaders';
 import type { StandScene } from '@/lib/sky/standRenderer';
@@ -993,6 +994,7 @@ describe('StandView', () => {
     window.sessionStorage.removeItem('earthrise-bright');
     cleanup();
     // Storage blocked (a private window): the toggle still works for the page.
+    const real = Object.getOwnPropertyDescriptor(window, 'sessionStorage');
     Object.defineProperty(window, 'sessionStorage', {
       get() {
         throw new Error('blocked');
@@ -1007,7 +1009,9 @@ describe('StandView', () => {
       fireEvent.click(again);
       expect(again.getAttribute('aria-pressed')).toBe('true');
     } finally {
-      Reflect.deleteProperty(window, 'sessionStorage');
+      // Put back what was there, so the tests after this one still have a storage.
+      if (real) Object.defineProperty(window, 'sessionStorage', real);
+      else Reflect.deleteProperty(window, 'sessionStorage');
     }
   });
 
@@ -1168,4 +1172,79 @@ describe('StandView', () => {
     const rel = ((((sunAz - r.setView.mock.calls[0][0] + 540) % 360) + 360) % 360) - 180;
     expect(rel).toBeCloseTo(35, 0);
   });
+
+  it('asks for the resident in its scene, and not in demo mode or with bright=1', async () => {
+    /** The scene the view hands its renderer for the hero month with `extra` in the address. */
+    const sceneAt = async (extra: string) => {
+      window.history.replaceState(null, '', `/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10${extra}`);
+      let scene: StandScene | null = null;
+      const view = render(
+        <StandView
+          store={createExploreStore(fileLoaders())}
+          createRenderer={(_canvas, sc) => {
+            scene = sc;
+            return stub();
+          }}
+        />,
+      );
+      await waitFor(() => expect(scene).not.toBeNull(), { timeout: 20_000 });
+      view.unmount();
+      return scene! as StandScene;
+    };
+    try {
+      expect((await sceneAt('')).resident).toBe(true);
+      // Not in the pitch's tabs, which show the forecast (spec 20.2), nor in the video's capture links.
+      expect((await sceneAt('&demo=1')).resident).toBe(false);
+      expect((await sceneAt('&bright=1')).resident).toBe(false);
+      // Demo mode kept for the tab, as the pages in the app frame keep it, until the address turns it off.
+      window.sessionStorage.setItem(DEMO_KEY, '1');
+      expect((await sceneAt('')).resident).toBe(false);
+      expect((await sceneAt('&demo=0')).resident).toBe(true);
+    } finally {
+      window.sessionStorage.removeItem(DEMO_KEY);
+      window.sessionStorage.removeItem('earthrise-bright');
+    }
+  }, 60_000);
+
+  it('says it found the resident once, in the line over the view', async () => {
+    // Renderers whose labels put the resident's shell in the middle of the view from their second frame on.
+    const made: RendererLike[] = [];
+    const finding = () => {
+      let frames = 0;
+      const r = { ...stub(), labels: () => ({ ...everywhere, resident: { x: 0.5, y: 0.55, visible: frames++ > 0 } }) };
+      made.push(r);
+      return r;
+    };
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', finding);
+    await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toBe(RESIDENT_LINE), { timeout: 10_000 });
+    // Another period, the better day, whose view finds it again: the line is said once a visit, and the first step,
+    // which it took the place of, is gone for the visit too.
+    openCard();
+    fireEvent.click(await within(document.getElementById('stand-card')!).findByRole('link', { name: /^Try \d+ January instead/ }));
+    await waitFor(() => expect(store.getState().startUtc.slice(0, 10)).not.toBe('2027-01-01'));
+    await waitFor(() => expect(made.length).toBeGreaterThanOrEqual(2));
+    const last = made.at(-1)!;
+    await waitFor(() => expect((last.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(6));
+    const line = document.querySelector('[data-caption]')?.textContent ?? '';
+    expect(line).not.toBe(RESIDENT_LINE);
+    expect(line).not.toContain(FIRST_STEP);
+  }, 60_000);
+
+  it('keeps a key moment’s line when the resident comes into view under it, and says it found the resident once that line has gone', async () => {
+    // The resident comes into the middle of the view only once `seen` says so, as a flag turns the view onto it.
+    let seen = false;
+    const r = { ...stub(), labels: () => ({ ...everywhere, resident: { x: 0.5, y: 0.55, visible: seen } }) };
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toContain(FIRST_STEP), { timeout: 10_000 });
+    const st = store.getState(), m = keyMoments(st.series!, st.power, st.startUtc).find((x) => x.kind === 'battery-out')!;
+    fireEvent.click(screen.getByRole('button', { name: 'Battery runs out, 4 Jan' }));
+    seen = true;
+    // Frames go by with it in view: the moment's line stays.
+    const drawn = r.render.mock.calls.length;
+    await waitFor(() => expect(r.render.mock.calls.length).toBeGreaterThan(drawn + 6));
+    expect(document.querySelector('[data-caption]')!.textContent).toBe(momentCaption(m.kind, st.series!, m.hour, -88.28));
+    // Turned to the Sun, the moment's line goes: the resident, still in view, is said.
+    fireEvent.click(screen.getByRole('button', { name: 'Face the Sun' }));
+    await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toBe(RESIDENT_LINE));
+  }, 60_000);
 });

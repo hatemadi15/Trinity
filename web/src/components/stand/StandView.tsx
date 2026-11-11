@@ -8,6 +8,7 @@ import { TimeBar } from '@/components/explore/TimeBar';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { shadowLevels } from '@/lib/data/terrain';
+import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { exploreHref, standHref } from '@/lib/links';
@@ -21,7 +22,7 @@ import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explor
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth } from '@/lib/viz/format';
-import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
+import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
@@ -61,6 +62,24 @@ function readBright(): boolean {
     return inAddress || window.sessionStorage.getItem(BRIGHT_KEY) === '1';
   } catch {
     return false;
+  }
+}
+
+/**
+ * Whether the view has its resident (spec 20.2): not in demo mode, the pitch's tabs, which show the forecast (`?demo=1`,
+ * kept for the tab under useDemoMode's key until `?demo=0`; that hook runs in the app frame, which this page is outside,
+ * so the rule is read here as it reads it), nor with `?bright=1`, which the video's capture links carry. The address is
+ * read before storage, so blocked storage, which keeps no demo mode for the tab, leaves the address to say.
+ */
+function readResident(): boolean {
+  if (typeof window === 'undefined') return false;
+  const q = new URLSearchParams(window.location.search);
+  if (q.get('demo') === '1' || q.get('bright') === '1') return false;
+  if (q.get('demo') === '0') return true;
+  try {
+    return window.sessionStorage.getItem(DEMO_KEY) !== '1';
+  } catch {
+    return true;
   }
 }
 
@@ -163,6 +182,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   }, [bright]);
   // ?quality=fast for weaker graphics: a lower pixel ratio, no drawn detail, coarser shadow steps.
   const [quality] = useState<'full' | 'fast'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('quality') === 'fast' ? 'fast' : 'full'));
+  // The resident (20.2), unless demo mode or a capture link leaves it out.
+  const [resident] = useState(readResident);
 
   useEffect(() => {
     let live = true;
@@ -194,8 +215,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const lander = s.power ? standLander(s.series, s.power, tall(), openHour) : undefined;
     // The key moments' days on the paths: the Sun's leaving and coming back on its path, Earth coming into view on Earth's.
     const marks = pathMarks(keyMoments(s.series, s.power, s.startUtc));
-    return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander, marks };
-  }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality]);
+    return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander, marks, resident };
+  }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality, resident]);
   // How far below level the lander's nearest foot lies from the eye, and which way: the opening view keeps
   // it in sight while the lander is in view.
   const feet = useMemo(() => {
@@ -218,6 +239,15 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   );
   const onFail = useCallback(() => setFailed('webgl'), []);
   const onReady = useCallback(() => setDrawn(true), []);
+  // The resident found (20.2): its line over the view once a visit, though the view is built again for each period, and
+  // the first step goes with it.
+  const foundOnce = useRef(false);
+  const onFound = useCallback(() => {
+    if (foundOnce.current) return;
+    foundOnce.current = true;
+    clearHint();
+    setCaption(RESIDENT_LINE);
+  }, [clearHint]);
   // The time bar moves the time (Play each hour, the slider, a key): moved forward by two days or less across a
   // key moment, the line over the view says why, as the moment's flag does, but the view stays where it is. Of
   // the moments passed, the last. Done here as the time moves rather than in an effect on the hour; it reads
@@ -434,6 +464,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           place={name}
           docked={!!overView}
           bright={bright}
+          onFound={onFound}
+          // A key moment's line or a Turn to's keeps the plate: the resident's waits until it has gone.
+          lineTaken={!!caption}
         />
       )}
       {failed && s.mask && (

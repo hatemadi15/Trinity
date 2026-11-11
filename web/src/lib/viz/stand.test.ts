@@ -26,6 +26,7 @@ import {
   poleLine,
   radioHeadline,
   radioNext,
+  RESIDENT_LINE,
   shadowWords,
   skyLabel,
   standHeadline,
@@ -1081,6 +1082,13 @@ describe('the first step over the view (19.2)', () => {
     expect(FIRST_STEP_STILL).toBe('Drag to look around');
     for (const line of [FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL]) expect(line.length, line).toBeLessThanOrEqual(112);
     expect(FIRST_STEP_STILL).not.toMatch(/Play/);
+  });
+});
+
+describe('the resident’s line (spec 20.2)', () => {
+  it('says it was found and what in the view is real, within the caption’s two lines', () => {
+    expect(RESIDENT_LINE).toBe('You found Rocky, the only animal here, made up like the rocks. The hills, Sun and Earth are NASA data.');
+    expect(RESIDENT_LINE.length).toBeLessThanOrEqual(112);
   });
 });
 

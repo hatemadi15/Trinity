@@ -19,7 +19,7 @@ import { answerFor } from './answer';
 import { arrivalWords, hero } from './arrival';
 import { heightWords } from './shadowmap';
 import { statusSentence } from './status';
-import { EARTH_LOOP, keyMoments, liveSentence, momentCaption, poleLine, skyLabel, statusLine, viewCaption, watchNext, whyLines, type MomentKind } from './stand';
+import { EARTH_LOOP, keyMoments, liveSentence, momentCaption, poleLine, RESIDENT_LINE, skyLabel, statusLine, viewCaption, watchNext, whyLines, type MomentKind } from './stand';
 
 /** Other names for an event or stretch that already has one (the plan's vocabulary): each event is named one way. */
 const OTHER_NAMES: [RegExp, string][] = [
@@ -67,6 +67,7 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
     }
     for (const kind of ['earth', 'up', 'earthlight', 'lander', 'dark'] as const) check(`view ${kind}`, viewCaption(kind, -88.28));
     check('pole', poleLine(-88.28) ?? '');
+    check('resident', RESIDENT_LINE);
   });
 
   it('words Explore’s time bar, the shadow map, the chart’s spoken summary and the glossary the same way', () => {
