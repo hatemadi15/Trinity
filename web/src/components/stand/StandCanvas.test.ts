@@ -769,3 +769,78 @@ describe('the compass letters', () => {
     for (const n of letters().filter((n) => n.textContent === 'E' || n.textContent === 'W')) expect(n.style.opacity).toBe('0');
   });
 });
+
+describe('finding the resident (spec 20.2)', () => {
+  const scene: StandScene = { field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series: northSeries, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky: noStars, lander: { azDeg: 30, distM: 16, powered: Uint8Array.from([1, 1, 1]) }, resident: true };
+  /** A renderer whose labels put the resident's shell where `at` says, out of view on the first frame, as when the view opens. */
+  const renderer = (at: () => { x: number; y: number }) => {
+    let frames = 0;
+    const r: RendererLike = {
+      setTime: vi.fn(),
+      setView: vi.fn(),
+      resize: vi.fn(),
+      render: vi.fn(),
+      dispose: vi.fn(),
+      labels: () => ({ sun: { x: 0.5, y: 0.45, visible: true }, earth: { x: 0, y: 0, visible: false }, stars: [], lander: null, resident: frames++ === 0 ? { x: 0.5, y: 0.5, visible: false } : { ...at(), visible: true } }),
+    };
+    return r;
+  };
+  const show = (r: RendererLike, onFound: () => void) =>
+    render(createElement(StandCanvas, { scene, hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun 2.0° up', earthLabel: 'Earth 3.0° up', night: false, onFail: vi.fn(), onFound }));
+  /** Waits for `n` more frames to be drawn. */
+  const frames = async (r: RendererLike, n = 6) => {
+    const drawn = (r.render as ReturnType<typeof vi.fn>).mock.calls.length;
+    await waitFor(() => expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThanOrEqual(drawn + n));
+  };
+
+  it('tells the page once when the resident stands well inside the view', async () => {
+    const onFound = vi.fn(), r = renderer(() => ({ x: 0.5, y: 0.6 }));
+    show(r, onFound);
+    await waitFor(() => expect(onFound).toHaveBeenCalled());
+    // Frame after frame it stays there: still once.
+    await frames(r);
+    expect(onFound).toHaveBeenCalledTimes(1);
+  });
+
+  it('says nothing while the resident is off centre or under a plate', async () => {
+    // A plate in the middle of jsdom's 1024 x 768 view, as the caption's is: it bounds neither the room's top nor its foot.
+    const plate = document.createElement('div');
+    plate.setAttribute('data-plate', '');
+    document.body.appendChild(plate);
+    const box = { left: 400, top: 350, right: 640, bottom: 420 };
+    const rect = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const b = this === plate ? box : { left: 0, top: 0, right: 0, bottom: 0 };
+      return { ...b, x: b.left, y: b.top, width: b.right - b.left, height: b.bottom - b.top, toJSON: () => b } as DOMRect;
+    });
+    try {
+      let at = { x: 0.15, y: 0.6 };
+      const onFound = vi.fn(), r = renderer(() => at);
+      show(r, onFound);
+      // In the outer fifths, under the plate, within 40 px of the room's top or foot: not well inside the view.
+      for (const spot of [{ x: 0.15, y: 0.6 }, { x: 0.85, y: 0.6 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: 30 / 768 }, { x: 0.5, y: 740 / 768 }]) {
+        at = spot;
+        await frames(r);
+        expect(onFound, JSON.stringify(spot)).not.toHaveBeenCalled();
+      }
+      // Clear of them all, it is.
+      at = { x: 0.3, y: 0.7 };
+      await waitFor(() => expect(onFound).toHaveBeenCalledTimes(1));
+    } finally {
+      rect.mockRestore();
+      plate.remove();
+    }
+  });
+
+  it('waits while the line over the view says something else, and tells the page once it has gone', async () => {
+    const onFound = vi.fn(), r = renderer(() => ({ x: 0.5, y: 0.6 }));
+    const props = (lineTaken: boolean) => ({ scene, hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun 2.0° up', earthLabel: 'Earth 3.0° up', night: false, onFail: vi.fn(), onFound, lineTaken });
+    const view = render(createElement(StandCanvas, props(true)));
+    // A key moment's line is up: the resident well in view waits.
+    await frames(r);
+    expect(onFound).not.toHaveBeenCalled();
+    view.rerender(createElement(StandCanvas, props(false)));
+    await waitFor(() => expect(onFound).toHaveBeenCalledTimes(1));
+    await frames(r);
+    expect(onFound).toHaveBeenCalledTimes(1);
+  });
+});

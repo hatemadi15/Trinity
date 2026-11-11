@@ -61,11 +61,23 @@ describe('BriefView', () => {
     expect(screen.getByText(/NASA LRO LOLA polar elevation models/)).toBeTruthy();
     expect(screen.getByText(/hills measured from NASA elevation data/)).toBeTruthy();
     expect(screen.getByText(/team Astroy\/Ed\)\.$/)).toBeTruthy(); // no unfilled placeholder in the footer
+    expect(screen.getByRole('main').classList.contains('brief')).toBe(true);
     expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore?site=shackleton_center_rim_high&start=2027-01-01&days=30');
     const print = vi.spyOn(window, 'print').mockImplementation(() => {});
     fireEvent.click(screen.getByRole('button', { name: /Print or save as PDF/ }));
     expect(print).toHaveBeenCalled();
     print.mockRestore();
+  });
+
+  it('keeps the place and the period under the name, and the rest of the setting in the method (a move, so it prints)', async () => {
+    const store = await storeWithFiles();
+    render(<BriefView store={store} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
+    const meta = screen.getByRole('heading', { level: 1 }).nextElementSibling!;
+    expect(meta.textContent).toMatch(/^\d+\.\d{3}° [NS], \d+\.\d{3}° [EW]; the 30 days from 1 January 2027\.$/);
+    const method = screen.getByRole('heading', { name: 'How this was computed' }).nextElementSibling!;
+    expect(method.textContent).toMatch(/^Site height \d+ m with a 2 m mast; hills measured from NASA elevation data/);
+    expect(method.closest('.no-print')).toBeNull();
   });
 
   it('renders a custom site with its computed provenance', async () => {
@@ -101,6 +113,9 @@ describe('BriefView', () => {
     expect(screen.getByRole('alert').closest('.brief')).toBeTruthy();
     // Under next dev, as in tests, the page also names the command that fills web/public/data, then the error.
     expect(screen.getByRole('alert').textContent).toMatch(/sync-local --tiles.*HTTP 404/);
+    // The page has no header, so the way back must be there even though no data came.
+    expect(screen.getByRole('link', { name: 'Back to Explore' })).toBeTruthy();
+    expect(screen.getByRole('main')).toBeTruthy();
     vi.stubEnv('NODE_ENV', 'production');
     cleanup();
     render(<BriefView store={missing()} />);

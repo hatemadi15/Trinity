@@ -137,6 +137,13 @@ export function liveSentence(s: Series, hour: number, powered?: boolean): string
 export const WATCH_LEAD = 'Press Play, or a flag on the time bar, to watch:';
 /** WATCH_LEAD on a phone, where the time bar's flags are dots. */
 export const WATCH_LEAD_DOTS = 'Press Play, or a dot on the time bar, to watch:';
+/**
+ * WATCH_LEAD with reduced motion, when Play is off (the time bar disables it and the first step names the drag alone):
+ * a flag still takes the time to its moment, so the line offers the flag alone (spec 20.1).
+ */
+export const WATCH_LEAD_STILL = 'Press a flag on the time bar to see:';
+/** WATCH_LEAD_STILL on a phone, where the time bar's flags are dots. */
+export const WATCH_LEAD_STILL_DOTS = 'Press a dot on the time bar to see:';
 
 /**
  * The first step (19.2), on the line over the view from the arrival until the first turn by hand, the first Play,
@@ -148,6 +155,13 @@ export const FIRST_STEP = 'Press Play to watch the month go by · drag to look a
 export const FIRST_STEP_PHONE = 'Press Play · drag to look around';
 /** FIRST_STEP with reduced motion, when Play is off. */
 export const FIRST_STEP_STILL = 'Drag to look around';
+
+/**
+ * The line over the view the first time the resident comes well into it (spec 20.2), once a visit: that it was found,
+ * and what is real, as the card's line on where you stand says it (standingLine): it is made up, as the rocks and the
+ * small craters are; the hills, the Sun and Earth are NASA data (the laser's heights, the tables of the planets).
+ */
+export const RESIDENT_LINE = 'You found Rocky, the only animal here, made up like the rocks. The hills, Sun and Earth are NASA data.';
 
 /**
  * One line on what to watch next: the first change after the hour, of the Sun (any part of its disc in
@@ -162,9 +176,11 @@ export const FIRST_STEP_STILL = 'Drag to look around';
  * (nightHeadline), "at night" however the Sun set, below the horizon or behind the hills (offWords); when the
  * battery ran out with the Sun still up, for too little sunlight, it says nothing of the night: "if the lander
  * survives 2 days without power". With no change left in the period: "Press Play to watch the light move
- * across the ground."
+ * across the ground." With `still`, for reduced motion, Play is off, so the line never offers it (spec 20.1): it
+ * starts with WATCH_LEAD_STILL, and with no change left it says "Drag the time bar to see the light move across
+ * the ground."
  */
-export function watchNext(s: Series, p: PowerResult | null, startUtc: string, hour: number): string {
+export function watchNext(s: Series, p: PowerResult | null, startUtc: string, hour: number, still = false): string {
   const lit = (h: number) => s.sunFraction[h] > 0;
   type Change = { h: number; kind: 'sun' | 'power'; back: boolean; what: string };
   const next = (from: number, kind?: 'sun' | 'power'): Change | null => {
@@ -177,9 +193,9 @@ export function watchNext(s: Series, p: PowerResult | null, startUtc: string, ho
   };
   // Kept next to the power coming back, so that it never reads as a condition on the Sun.
   const ifSurvives = (c: Change) => (p && c.kind === 'power' && c.back ? `, if the lander survives ${offWords(s, p, startUtc, c.h)}` : '');
-  const lead = WATCH_LEAD;
+  const lead = still ? WATCH_LEAD_STILL : WATCH_LEAD;
   const first = next(hour);
-  if (!first) return 'Press Play to watch the light move across the ground.';
+  if (!first) return still ? 'Drag the time bar to see the light move across the ground.' : 'Press Play to watch the light move across the ground.';
   const day = dateLong(startUtc, first.h);
   const then = next(first.h - 1, first.kind === 'sun' ? 'power' : 'sun');
   if (!then || then.h - first.h > 72) return `${lead} ${first.what} on ${day}${ifSurvives(first)}.`;

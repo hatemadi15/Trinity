@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { exploreHref, SitesView } from './SitesView';
 
 async function ready() {
@@ -134,6 +135,29 @@ describe('SitesView', () => {
     fireEvent.mouseLeave(rowOf('Haworth'));
     fireEvent.mouseEnter(within(map).getByRole('link', { name: 'Slater Plain' }));
     expect(rowOf('Slater Plain').getAttribute('data-active')).toBe('true');
+  });
+
+  it('folds the method paragraph behind one tap, as one paragraph (spec 15.1, 20.1)', async () => {
+    await ready();
+    const method = screen.getByText(/^Each site's figures are for landing on its best day/);
+    const fold = screen.getByRole('button', { name: /How these figures are counted/ });
+    const panel = document.getElementById(fold.getAttribute('aria-controls')!)!;
+    expect(panel.contains(method)).toBe(true);
+    expect(panel.hidden).toBe(true);
+    fireEvent.click(fold);
+    expect(panel.hidden).toBe(false);
+  });
+
+  it('keeps the first screen to 105 words before a tap, at 1440 and on a phone (spec 20.1)', async () => {
+    await ready();
+    // From the heading down to the map, the part a first screen shows.
+    const main = document.querySelector('main')!;
+    const top = [...main.children].filter((el) => el.tagName !== 'DIV' || !el.className.includes('xl:grid-cols'));
+    const map = main.querySelector('section[aria-label="Map of the sites"]')!;
+    for (const width of [WIDE, PHONE]) {
+      const n = [...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0);
+      expect(n).toBeLessThanOrEqual(105);
+    }
   });
 
   it('redoes the figures for another period', async () => {

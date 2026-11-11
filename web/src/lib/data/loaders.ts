@@ -64,19 +64,27 @@ export async function fetchBytes(url: string): Promise<Uint8Array> {
 }
 
 export async function loadSites(base: string): Promise<Site[]> {
-  const featured = await fetchJson<{ sites: Site[] }>(`${base}/sites.json`);
-  let derived: Site[] = [];
-  try {
-    derived = (await fetchJson<{ sites: Site[] }>(`${base}/sites_derived.json`)).sites;
-  } catch (err) {
-    if (!(err instanceof DataError && err.status === 404)) throw err;
-  }
+  // Both lists are asked for at once, so the page waits for one round trip, not two. The derived list may be
+  // missing (a 404 leaves it out); any other failure of either list is reported.
+  const [featured, derived] = await Promise.all([
+    fetchJson<{ sites: Site[] }>(`${base}/sites.json`),
+    fetchJson<{ sites: Site[] }>(`${base}/sites_derived.json`).then(
+      (doc) => doc.sites,
+      (err: unknown) => {
+        if (err instanceof DataError && err.status === 404) return [];
+        throw err;
+      },
+    ),
+  ]);
   return [...featured.sites, ...derived];
 }
 
 export async function loadEphemerisFromUrl(base: string): Promise<Ephemeris> {
-  const header = await fetchJson<EphemerisHeader>(`${base}/ephemeris/moon_me_2024_2036_1h.json`);
-  const bytes = await fetchBytes(`${base}/ephemeris/moon_me_2024_2036_1h.f32`);
+  // The header and the table are asked for at once; the table is checked against the header once both are in.
+  const [header, bytes] = await Promise.all([
+    fetchJson<EphemerisHeader>(`${base}/ephemeris/moon_me_2024_2036_1h.json`),
+    fetchBytes(`${base}/ephemeris/moon_me_2024_2036_1h.f32`),
+  ]);
   return loadEphemeris(bytes, header);
 }
 

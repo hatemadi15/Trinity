@@ -5,6 +5,17 @@ import { exploreStore } from '@/lib/store/explore';
 import { AppFrame } from './AppFrame';
 
 describe('AppFrame', () => {
+  it('has no tagline in the header: the page title and the home headline say what Earthrise is', () => {
+    render(
+      <AppFrame>
+        <p>hello</p>
+      </AppFrame>,
+    );
+    const header = screen.getByRole('banner');
+    expect(header.textContent).not.toMatch(/forecast for the Moon/);
+    expect(header.textContent).toMatch(/^Earthrise/);
+  });
+
   it('renders the wordmark, the four sections in plain words, the theme switch and the footer credits', () => {
     render(
       <AppFrame>

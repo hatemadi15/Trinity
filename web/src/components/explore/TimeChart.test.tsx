@@ -6,6 +6,7 @@ import { DEFAULT_POWER, powerBudget } from '@/lib/engine/power';
 import { utcToEt } from '@/lib/engine/time';
 import { readJson } from '@/lib/engine/__tests__/helpers';
 import { eph } from '@/test/file-loaders';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { TimeChart } from './TimeChart';
 
 // jsdom has no PointerEvent; MouseEvent carries clientX, which is all the chart reads.
@@ -40,14 +41,35 @@ describe('TimeChart dates on a phone', () => {
 });
 
 describe('TimeChart', () => {
-  it('says what it is and that time runs left to right', () => {
+  it('says what it is, and keeps how to read it one tap away under "How to read the chart" (spec 20.1)', () => {
     show();
     const chart = screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' });
     expect(within(chart).getByRole('heading', { level: 2 }).textContent).toBe('Why: the 30 days, hour by hour');
     // One sentence explains the top row and the grey: the Sun goes round the sky, so the grey is the hills that way, not one mountain.
-    expect(chart.textContent).toMatch(
-      /Time runs left to right\. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain\. Earth stays low over one stretch of the horizon; the Moon's slow monthly wobble lifts it into view and lowers it out of view\. Press Play in the bar at the bottom to run through the days\./,
+    const intro = within(chart).getByText(
+      /^Time runs left to right\. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain\. Earth stays low over one stretch of the horizon; the Moon's slow monthly wobble lifts it into view and lowers it out of view\. Press Play in the bar at the bottom to run through the days\.$/,
     );
+    // Where it read before, under the heading and above the key; the page keeps it, so a search finds it, but it shows
+    // only once the button opens it.
+    const how = within(chart).getByRole('button', { name: 'How to read the chart' });
+    expect(within(chart).getByRole('heading', { level: 2 }).nextElementSibling!.contains(how)).toBe(true);
+    expect(how.compareDocumentPosition(within(chart).getByRole('list', { name: 'Key' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const fold = document.getElementById(how.getAttribute('aria-controls')!)!;
+    expect(fold.contains(intro)).toBe(true);
+    expect(fold.hidden).toBe(true);
+    fireEvent.click(how);
+    expect(how.getAttribute('aria-expanded')).toBe('true');
+    expect(fold.hidden).toBe(false);
+  });
+
+  it('keeps the words above the plot to 30 before a tap, at 1440 and on a phone (spec 20.1)', () => {
+    show();
+    const chart = screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' });
+    // The heading, the fold and the key: everything above the row of the Sun's directions that tops the plot.
+    const parts = [...chart.children];
+    const above = parts.slice(0, parts.indexOf(screen.getByTestId('compass').parentElement!));
+    expect(above.length).toBeGreaterThan(0);
+    for (const width of [WIDE, PHONE]) expect(above.reduce((n, el) => n + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(30);
   });
 
   it('draws the Sun, Earth and the battery as three named rows with their story in words', () => {

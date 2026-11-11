@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
 import { ExploreView } from './ExploreView';
@@ -139,7 +139,8 @@ describe('ExploreView', () => {
     const dialog = screen.getByRole('dialog', { name: 'The lander' });
     fireEvent.click(within(dialog).getByRole('radio', { name: /20 m² panel, uses 500 W, 50 kWh battery/ }));
     expect(store.getState().params.power.batteryWh).toBe(50000);
-    expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/20 m² panel that turns to the Sun, uses 500 W, 50 kWh battery/);
+    // The band names the lander it now has (the numbers card keeps only the hours its battery lasts).
+    expect(screen.getByRole('button', { name: 'Large lander: 20 m² panel, uses 500 W, 50 kWh battery. Change' })).toBeTruthy();
   });
 
   it('applies the site, start and length from the address', async () => {
@@ -203,5 +204,36 @@ describe('ExploreView', () => {
     expect(screen.queryByRole('button', { name: 'Planner' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Learn' })).toBeNull();
     expect(document.querySelector('[data-testid="cockpit"]')).toBeNull();
+  });
+
+  describe('arriving from a link to the assistant', () => {
+    // jsdom has no scrollIntoView: each test puts a recorder in its place, and the original (none) comes back after.
+    const original = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+    let scrolls: { id: string; options: unknown }[] = [];
+    beforeEach(() => {
+      scrolls = [];
+      Element.prototype.scrollIntoView = function (this: Element, options?: boolean | ScrollIntoViewOptions) {
+        scrolls.push({ id: this.id, options });
+      };
+    });
+    afterEach(() => {
+      if (original) Object.defineProperty(Element.prototype, 'scrollIntoView', original);
+      else delete (Element.prototype as Partial<Element>).scrollIntoView;
+    });
+
+    it('goes to the assistant once the data is in and puts the cursor in its box, when the address ends in #ask', async () => {
+      // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next
+      // looks for #ask, so Next finds nothing to scroll to and drops it: the page has to go there itself.
+      await open('#ask');
+      await waitFor(() => expect(scrolls).toEqual([{ id: 'ask', options: { block: 'start' } }]));
+      expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'Ask the assistant' }));
+    });
+
+    it('stays at the top without it', async () => {
+      await open();
+      await act(async () => {});
+      expect(scrolls).toEqual([]);
+      expect(document.activeElement).toBe(document.body);
+    });
   });
 });

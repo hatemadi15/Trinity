@@ -47,6 +47,19 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
       .init()
       .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search));
   }, [store]);
+  // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
+  // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
+  // itself, once, and puts the cursor in its box, as "Or ask in plain words" does.
+  const arrived = useRef(false);
+  useEffect(() => {
+    if (s.status !== 'ready' || arrived.current) return;
+    arrived.current = true;
+    if (window.location.hash !== '#ask') return;
+    const ask = document.getElementById('ask');
+    // Called only where the browser has it: jsdom, for one, does not.
+    ask?.scrollIntoView?.({ block: 'start' });
+    ask?.querySelector<HTMLElement>('textarea, input')?.focus({ preventScroll: true });
+  }, [s.status]);
   // Where on the Moon lists the nearest sites for the same period and lander.
   useEffect(() => {
     if (s.status === 'ready') void store.getState().loadOverview();

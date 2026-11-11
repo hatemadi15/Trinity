@@ -30,7 +30,16 @@ interface TestBadge {
   pipeline: { tests: number };
 }
 
+/** Plain words for why the live re-check failed; the raw message is for developers and is added only outside production. */
+function recheckProblem(message: string): string {
+  if (/abort|time(d)? ?out/i.test(message)) return 'JPL did not answer in time';
+  if (/HTTP 5\d\d/.test(message)) return 'JPL is busy just now';
+  return 'JPL could not be reached (no internet here?)';
+}
+
 const exp1 = (x: number) => `${x.toExponential(1)}°`;
+/** A gap in the page's five decimals, or "under 0.00001°" where those would read as none: the direction's gap is about 3e-6°. */
+const gapText = (deg: number) => (Math.abs(deg) < 0.000005 ? 'under 0.00001°' : degreesText(deg));
 const pctOf = (x: number) => `${(x * 100).toFixed(1)} %`;
 const signedHours = (h: number) => `${h >= 0 ? '+' : '−'}${Math.abs(h).toFixed(1)} h`;
 const utcShort = (iso: string | null) => (iso ? iso.replace('T', ' ').replace(':00Z', ' UTC').replace('Z', ' UTC') : '—');
@@ -142,6 +151,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
   const liveSite = horizons.sites.find((s) => s.site_id === 'shackleton_center') ?? horizons.sites[0];
 
   async function runRecheck() {
+    if (!liveSite) return;
     setLive({ state: 'busy' });
     try {
       const result = await recheck({ lat: liveSite.lat, lon: liveSite.lon }, 'SUN', RECHECK_EPOCHS);
@@ -152,7 +162,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
     }
   }
 
-  const recheckBlock = (
+  const recheckBlock = !liveSite ? undefined : (
     <div className="mt-4 flex flex-wrap items-center gap-3">
       <button type="button" onClick={() => void runRecheck()} disabled={live.state === 'busy'} className="btn btn-primary">
         Re-check with JPL now
@@ -162,8 +172,8 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
         {live.state === 'busy' && 'Asking JPL…'}
         {live.state === 'done' &&
           (live.result.ok
-            ? `${live.result.n} epochs, worst ${exp1(live.result.worstEl)} in elevation, ${exp1(live.result.worstAzCosEl)} in azimuth (${(live.result.ms / 1000).toFixed(1)} s)`
-            : `${live.result.message}; showing the stored comparison`)}
+            ? `${live.result.n} moments compared just now: the largest gap was ${gapText(live.result.worstEl)} in height and ${gapText(live.result.worstAzCosEl)} in direction (${(live.result.ms / 1000).toFixed(1)} s)`
+            : `${recheckProblem(live.result.message)}, so the stored comparison stands: the largest gap was ${degreesText(horizons.max_abs_delta_el_deg)}.${process.env.NODE_ENV !== 'production' ? ` [${live.result.message}]` : ''}`)}
       </span>
     </div>
   );
@@ -174,11 +184,6 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
         <div>
           <h1 data-band-end="" className="display text-[44px] leading-tight sm:text-[56px]">Accuracy</h1>
           <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">Each step of the forecast is checked against an independent NASA source. The smaller the gap, the better.</p>
-          {badge && (
-            <p className="mt-2 text-[15px] text-ink-2">
-              {badge.web.tests} automated tests in the app and {badge.pipeline.tests} in the data pipeline check the sums on every change; last counted {utcShort(badge.generated_utc)}.
-            </p>
-          )}
         </div>
 
         <p className="text-base font-semibold text-ink">{verdict}</p>
@@ -299,6 +304,11 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             <li>Directions to the Sun and Earth: under 0.01° (the first check finds {degreesText(horizons.max_abs_delta_el_deg)}).</li>
             <li>The height of the hills around a site: 0.05 to 0.15°, because NASA&apos;s elevation maps are 1 to 2 m uncertain; the app follows them to 0.01°.</li>
           </ul>
+          {badge && (
+            <p className="mt-4 text-[15px] text-ink-2">
+              {badge.web.tests.toLocaleString('en-US')} automated tests in the app and {badge.pipeline.tests.toLocaleString('en-US')} in the data pipeline check the sums on every change; last counted {utcShort(badge.generated_utc)}.
+            </p>
+          )}
         </section>
       </main>
     </AppFrame>

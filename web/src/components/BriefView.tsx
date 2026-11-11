@@ -62,9 +62,15 @@ export function BriefView({
   const sunUp = useMemo(() => (s.series ? Uint8Array.from(s.series.sunFraction, (f) => (f > 0 ? 1 : 0)) : null), [s.series]);
   if (s.status !== 'ready' || !s.site || !s.series || !s.summary || !s.mask || !s.power || !sunHill || !earthHill || !sunUp) {
     return (
-      <div className="brief mx-auto max-w-[190mm] px-8 py-8">
+      <main className="brief mx-auto max-w-[190mm] px-8 py-8">
+        {/* This page has no header, so the way back is here while loading and after a data failure. */}
+        <p className="no-print mb-4">
+          <Link href={s.site ? exploreHref(s.site.id, s.startUtc, s.days) : '/explore'} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+            Back to Explore
+          </Link>
+        </p>
         {s.status === 'error' ? <DataProblem error={s.error} hint={SYNC_HINT} /> : <p>Loading NASA data…</p>}
-      </div>
+      </main>
     );
   }
   const p = s.params.power;
@@ -101,7 +107,7 @@ export function BriefView({
   const every = s.days > 45 ? 10 : 5;
   const ticks = Array.from({ length: Math.floor((s.days - 1) / every) + 1 }, (_, k) => k * every);
   return (
-    <div className="brief mx-auto flex max-w-[190mm] flex-col gap-5 px-8 py-8">
+    <main className="brief mx-auto flex max-w-[190mm] flex-col gap-5 px-8 py-8">
       <div className="no-print flex items-center justify-between gap-4">
         <Link href={exploreHref(s.site.id, s.startUtc, s.days)} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           Back to Explore
@@ -114,8 +120,7 @@ export function BriefView({
         <p className="text-[15px] text-ink-2">Earthrise mission brief</p>
         <h1 className="display text-[30px] leading-tight">{name}</h1>
         <p className="text-[15px] text-ink-2">
-          {Math.abs(s.site.lat).toFixed(3)}° {s.site.lat < 0 ? 'S' : 'N'}, {Math.abs(s.site.lon).toFixed(3)}° {s.site.lon < 0 ? 'W' : 'E'}; {period} {s.startUtc.slice(0, 4)}; {provenance}, site height{' '}
-          {s.maskMeta?.siteHeightM.toFixed(0)} m, {mast} m mast{s.site.approximate ? '; the centre of a region drawn on NASA’s map (about ±5 km)' : ''}.
+          {Math.abs(s.site.lat).toFixed(3)}° {s.site.lat < 0 ? 'S' : 'N'}, {Math.abs(s.site.lon).toFixed(3)}° {s.site.lon < 0 ? 'W' : 'E'}; {period} {s.startUtc.slice(0, 4)}.
         </p>
       </header>
       <section className="flex flex-col gap-1 text-[15px]">
@@ -176,8 +181,11 @@ export function BriefView({
       </section>
       <section className="flex flex-col gap-1 text-[15px]">
         <h2 className="display text-[18px] font-semibold">How this was computed</h2>
+        {/* The site's setting sits here, not under its name, so the first line is the place and the period; it is text, not a fold, because the brief is printed. */}
         <p>
-          The Sun&apos;s and Earth&apos;s directions come from the JPL DE440 ephemeris (an hourly table, checked against JPL Horizons to 0.00003°). The hills on the horizon are traced through
+          Site height {s.maskMeta?.siteHeightM.toFixed(0)} m with a {mast} m mast; {provenance}
+          {s.site.approximate ? '; the site is the centre of a region drawn on NASA’s map (about ±5 km)' : ''}. The Sun&apos;s and Earth&apos;s directions come from the JPL DE440 ephemeris (an hourly table, checked against JPL Horizons to 0.00003°).
+          The hills on the horizon are traced through
           NASA LRO LOLA elevation grids (20 m within 6 km, 80 m to 100 km, 240 m to 220 km) from a {mast} m mast; the Sun counts as up when any part of it clears the hills. Power is the
           panel&apos;s share of 1361 W/m² at the Moon&apos;s distance from the Sun, times the part of the Sun in view; the battery charges with the surplus and empties on the deficit, hour by hour.
           Errors: directions under 0.01°, the hills 0.05 to 0.15°, times within 15 to 60 minutes near the pole.
@@ -194,6 +202,6 @@ export function BriefView({
       <footer className="text-[14px] text-ink-2">
         Generated {new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC by Earthrise (NASA Space Apps 2026, team Astroy/Ed).
       </footer>
-    </div>
+    </main>
   );
 }

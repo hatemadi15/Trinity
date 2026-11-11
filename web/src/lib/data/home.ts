@@ -93,20 +93,20 @@ export const PLACES: { title: string; outcome: string; tone: 'good' | 'bad' | 'p
     outcome: 'Shortlisted for a crewed landing',
     tone: 'plain',
     body: 'One of nine regions NASA shortlisted in 2024 for the first crewed landing of its Artemis programme. Long days, long nights, and a rim that changes everything.',
-    href: '/explore?site=de_gerlache_rim_2',
+    href: '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30',
   },
   {
     title: 'Athena lander, March 2025',
     outcome: 'Ended after one day',
     tone: 'bad',
     body: "Intuitive Machines' Athena came down near a mountain called Mons Mouton and ended on its side in a crater. Replay the sky it saw and how little light reached it.",
-    href: '/explore?site=im2_athena&start=2025-03-06T18:00',
+    href: '/explore?site=im2_athena&start=2025-03-06T18:00&days=30',
   },
   {
     title: 'Blue Ghost lander, March 2025',
     outcome: 'Worked all 14 days',
     tone: 'good',
     body: "Firefly Aerospace's Blue Ghost landed far from the pole: two weeks of sunlight, Earth always in view. Our predicted sunset falls within hours of its last signal.",
-    href: '/explore?site=blue_ghost_m1&start=2025-03-02T09:00',
+    href: '/explore?site=blue_ghost_m1&start=2025-03-02T09:00&days=30',
   },
 ];

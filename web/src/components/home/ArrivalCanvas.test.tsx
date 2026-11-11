@@ -71,6 +71,27 @@ describe('the arrival’s live stage', () => {
     expect(scenes[0].lander?.distM).toBe(16);
   });
 
+  it('never asks for the resident: not over the globe, not with the ground, not after landing (spec 20.2)', async () => {
+    // Every scene the arrival hands over, as it builds its renderer and as the ground comes: the video's first seconds.
+    const { r, scenes } = stub();
+    const loaders: ArrivalLoaders = { sky: async () => sky, globe: async () => globe, terrain: async () => ({ cap: cap() as never, window: null, context: null, flight: null }) };
+    render(
+      <ArrivalCanvas
+        progress={{ current: 0 }}
+        reduced={false}
+        onLive={vi.fn()}
+        onFail={vi.fn()}
+        loaders={loaders}
+        createRenderer={(_c, s) => {
+          scenes.push(s);
+          return r;
+        }}
+      />,
+    );
+    await waitFor(() => expect(scenes.some((s) => s.ground)).toBe(true));
+    expect(scenes.filter((s) => s.resident === true)).toEqual([]);
+  });
+
   it('hands the renderer the flight level with the ground when the data has one, and the ground alone when not', async () => {
     const flight = () => ({ meta: { width: 64, height: 64, cell_m: 240, site_col_px: 31.5, site_row_px: 31.5, site_height_m: 0, row0: 0, col0: 0, line_offset_px: 31.5, sample_offset_px: 31.5, min_m: 0, scale_m_per_unit: 1 }, heightsM: new Float32Array(64 * 64) });
     for (const withFlight of [true, false]) {

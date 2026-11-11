@@ -26,6 +26,7 @@ import {
   poleLine,
   radioHeadline,
   radioNext,
+  RESIDENT_LINE,
   shadowWords,
   skyLabel,
   standHeadline,
@@ -37,6 +38,8 @@ import {
   watchNext,
   WATCH_LEAD,
   WATCH_LEAD_DOTS,
+  WATCH_LEAD_STILL,
+  WATCH_LEAD_STILL_DOTS,
   whyLines,
   type MomentKind,
 } from './stand';
@@ -574,6 +577,17 @@ describe('what to watch for', () => {
     expect(WATCH_LEAD).toBe('Press Play, or a flag on the time bar, to watch:');
     expect(WATCH_LEAD_DOTS).toBe('Press Play, or a dot on the time bar, to watch:');
   });
+  it('leaves Play out of what to watch with reduced motion, as Play is off then, and keeps the flags, or the dots on a phone (spec 20.1)', () => {
+    expect(WATCH_LEAD_STILL).toBe('Press a flag on the time bar to see:');
+    expect(WATCH_LEAD_STILL_DOTS).toBe('Press a dot on the time bar to see:');
+    expect(watchNext(s, p, start, 10, true)).toBe(`${WATCH_LEAD_STILL} the Sun sets behind the hills on 4 January, and the battery runs out on 5 January.`);
+    expect(watchNext(s, p, start, 467, true)).toBe(`${WATCH_LEAD_STILL} the power comes back on 20 January, if the lander survives 15 days without power at night, colder than −170 °C.`);
+    // With nothing more to happen in the period, the time bar moves the light by hand.
+    expect(watchNext(s, p, start, 600, true)).toBe('Drag the time bar to see the light move across the ground.');
+    for (let h = 0; h < hours; h += 6) expect(watchNext(s, p, start, h, true), `hour ${h}`).not.toMatch(/Play/);
+    // Without reduced motion the line is as it was.
+    expect(watchNext(s, p, start, 10, false)).toBe(watchNext(s, p, start, 10));
+  });
   it('says the day once when the second thing happens the same day', () => {
     // The Sun comes back at 466 and the power at 470, both on 20 January.
     expect(watchNext(s, p, start, 200)).toBe(`${WATCH_LEAD} the Sun rises on 20 January, and the power with it, if the lander survives 15 days without power at night, colder than −170 °C.`);
@@ -1081,6 +1095,13 @@ describe('the first step over the view (19.2)', () => {
     expect(FIRST_STEP_STILL).toBe('Drag to look around');
     for (const line of [FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL]) expect(line.length, line).toBeLessThanOrEqual(112);
     expect(FIRST_STEP_STILL).not.toMatch(/Play/);
+  });
+});
+
+describe('the resident’s line (spec 20.2)', () => {
+  it('says it was found and what in the view is real, within the caption’s two lines', () => {
+    expect(RESIDENT_LINE).toBe('You found Rocky, the only animal here, made up like the rocks. The hills, Sun and Earth are NASA data.');
+    expect(RESIDENT_LINE.length).toBeLessThanOrEqual(112);
   });
 });
 

@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { StoreApi } from 'zustand';
 import type { Site } from '../data/loaders';
 import { readJson } from '../engine/__tests__/helpers';
-import { COMPARE_MAX, type ExploreState } from '../store/explore';
+import { COMPARE_MAX, createExploreStore, type ExploreState } from '../store/explore';
+import { fileLoaders } from '../../test/file-loaders';
 import { applyActions, COMPARE_LIMIT, siteByName, validateActions, type Action } from './actions';
 import { explanationFor } from './explanations';
 
@@ -135,7 +136,11 @@ describe('applyActions', () => {
       selectSite: vi.fn(async (id: string) => {
         calls.push(['selectSite', id]);
       }),
-      setWindow: rec('setWindow'),
+      // As the store does with a period that fits the table: the note reads the period back from it.
+      setWindow: vi.fn((startUtc: string, days: number) => {
+        calls.push(['setWindow', startUtc, days]);
+        Object.assign(state, { startUtc, days });
+      }),
       setPower: rec('setPower'),
       setParams: rec('setParams'),
       addToCompare: vi.fn(async (id: string) => {
@@ -203,6 +208,16 @@ describe('applyActions', () => {
     // The note's limit is the store's, and its words say four.
     expect(COMPARE_LIMIT).toBe(COMPARE_MAX);
     expect(COMPARE_LIMIT).toBe(4);
+  });
+
+  it('reports a period the store refused, in its words, instead of claiming it was set', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    const notes = await applyActions(store, [{ type: 'set_window', startUtc: '2036-12-20T00:00:00' }, { type: 'set_window', startUtc: '2036-12-01T00:00:00' }], vi.fn());
+    expect(notes[0]).toBe('A 30-day period from 20 December 2036 runs past 31 December 2036, where the Sun and Earth table ends. Choose an earlier date or a shorter period.');
+    // One that fits is set and said as before.
+    expect(notes[1]).toBe('Period: from 1 December 2036 for 30 days.');
+    expect(store.getState().startUtc).toBe('2036-12-01T00:00:00');
   });
 
   it('fills a partial window from the current one and reports unknown sites', async () => {

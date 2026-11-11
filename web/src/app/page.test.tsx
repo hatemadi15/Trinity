@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { degreesText, HOME } from '@/lib/data/home';
 import Home from './page';
@@ -24,8 +24,7 @@ describe('home page', () => {
     ]);
     for (const beat of hero.querySelectorAll('[data-beat]')) expect(beat.querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
     // The challenge in plain words on the first screen: a forecast for landing sites and dates (spec 18.2), for more than two landers.
-    expect(hero.textContent).toMatch(/Earthrise is a forecast for landing sites and dates\. Pick a place and a day from 2024 to 2036\./);
-    expect(hero.textContent).toMatch(/for three ready-made landers or your own\./);
+    expect(hero.textContent).toMatch(/Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth and how long a lander keeps power, for ready-made landers or your own\./);
     // Who it is for, with the teachers' way in on the same line.
     const audience = within(hero).getByText(/^For planners of NASA's commercial Moon landers, teachers/);
     expect(audience.textContent).toBe("For planners of NASA's commercial Moon landers, teachers (start with How it works) and anyone curious.");
@@ -103,14 +102,15 @@ describe('home page', () => {
 
   it("keeps the forecast's explanation to a readable line length", () => {
     render(<Home />);
-    expect(screen.getByText(/^A ridge NASA shortlisted for astronauts\. Read it from left to right/).className).toMatch(/\bmax-w-\[42em\]/);
+    expect(screen.getByText(/^Read it from left to right/).className).toMatch(/\bmax-w-\[42em\]/);
   });
 
   it('explains how to read the forecast before it starts', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
+    expect(band.textContent).toMatch(/A ridge NASA shortlisted for astronauts\./);
     expect(band.textContent).toMatch(
-      /A ridge NASA shortlisted for astronauts\. Read it from left to right, one day at a time\. Heights are angles above the horizon: 5° is about the width of three fingers held at arm's length\. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day\./,
+      /Read it from left to right, one day at a time\. Heights are angles above the horizon: 5° is about the width of three fingers held at arm's length\. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day\./,
     );
     expect(within(band).getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while set', 'the hills in its direction at that time']);
   });
@@ -120,7 +120,7 @@ describe('home page', () => {
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     expect(band.textContent).toMatch(/NASA's elevation map of the Moon and NASA's positions of the Sun and Earth/);
     const link = within(band).getByRole('link', { name: 'Open the full forecast' });
-    expect(link.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2');
+    expect(link.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     // The band is a picture panel: its focus ring is the bright gold that shows on black.
     expect(band.hasAttribute('data-stage')).toBe(true);
   });
@@ -164,7 +164,7 @@ describe('home page', () => {
     const links = within(places).getAllByRole('link');
     expect(links.map((a) => a.getAttribute('aria-label'))).toEqual(['Open the forecast: de Gerlache Rim 2', 'Open the forecast: Athena lander, March 2025', 'Open the forecast: Blue Ghost lander, March 2025']);
     expect(links.map((a) => a.textContent)).toEqual(['Open the forecast', 'Open the forecast', 'Open the forecast']);
-    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/explore?site=de_gerlache_rim_2', '/explore?site=im2_athena&start=2025-03-06T18:00', '/explore?site=blue_ghost_m1&start=2025-03-02T09:00']);
+    expect(links.map((a) => a.getAttribute('href'))).toEqual(['/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30', '/explore?site=im2_athena&start=2025-03-06T18:00&days=30', '/explore?site=blue_ghost_m1&start=2025-03-02T09:00&days=30']);
     for (const a of links) expect(a.className).toMatch(/(^| )btn( |$)/);
   });
 
@@ -238,5 +238,29 @@ describe('home page', () => {
     const proof = within(main).getByText(/^Built on NASA LRO LOLA terrain and JPL DE440;/);
     expect(proof.textContent).toMatch(/LOLA.*DE440.*Horizons/);
     expect((main.textContent ?? '').replace(proof.textContent ?? '', '')).not.toMatch(/LOLA|DE440|CLPS|Horizons|ephemeris|skyline/);
+  });
+
+  it('folds the guide to reading the band behind "How to read this", one tap away', () => {
+    render(<Home />);
+    const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
+    const toggle = within(band).getByRole('button', { name: /^How to read this/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    const guide = within(band).getByText(/Read it from left to right, one day at a time/, { selector: 'p' });
+    expect(guide.closest('[hidden]')).not.toBeNull();
+    expect(document.getElementById(toggle.getAttribute('aria-controls')!)!.contains(guide)).toBe(true);
+    expect(guide.textContent).toMatch(/5° is about the width of three fingers/);
+    fireEvent.click(toggle);
+    expect(guide.closest('[hidden]')).toBeNull();
+  });
+
+  it('every Explore link on the home page carries its start and its days, so a visit never opens on the period the last one used', () => {
+    render(<Home />);
+    const hrefs = [...document.querySelectorAll('a[href^="/explore?"]')].map((a) => a.getAttribute('href')!);
+    expect(hrefs.length).toBeGreaterThanOrEqual(5);
+    for (const href of hrefs) {
+      const q = new URLSearchParams(href.split('?')[1]);
+      expect(q.get('start'), href).toBeTruthy();
+      expect(q.get('days'), href).toBe('30');
+    }
   });
 });

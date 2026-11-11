@@ -2,7 +2,6 @@
 import Link from 'next/link';
 import { useRef, useState, type ReactNode } from 'react';
 import { Modal } from '@/components/Modal';
-import { lolaFor, Sources } from '@/components/Sources';
 import type { Site } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
 import type { Summary } from '@/lib/engine/metrics';
@@ -13,13 +12,14 @@ import { pct, pct0, spanShort } from '@/lib/viz/format';
 
 const ICON = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
 
-function Line({ icon, title, note, value, unit }: { icon: ReactNode; title: string; note: string; value: string; unit?: ReactNode }) {
+/** One figure on the card: its icon and name, a note only where the figure needs one to be read right, the value. */
+function Line({ icon, title, note, value, unit }: { icon: ReactNode; title: string; note?: string; value: string; unit?: ReactNode }) {
   return (
     <div className="flex items-center gap-3.5 border-t border-line py-3 first:border-t-0 first:pt-0">
       <span className="shrink-0">{icon}</span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold">{title}</span>
-        <span className="block text-[15px] text-ink-2">{note}</span>
+        {note && <span className="block text-[15px] text-ink-2">{note}</span>}
       </span>
       <span className="shrink-0 text-right">
         <span className="block display text-[28px] font-semibold leading-none">{value}</span>
@@ -37,7 +37,10 @@ function coordinates(site: Site): string {
   return `${lat}, ${lon}`;
 }
 
-/** The three numbers behind the answer, and every other number behind "All numbers". */
+/**
+ * The three numbers behind the answer, and every other number behind "All numbers", with what each one
+ * measures: the card shows the figures, and their definitions wait one tap away (spec 20.1).
+ */
 export function NumbersCard({
   site,
   summary,
@@ -95,7 +98,6 @@ export function NumbersCard({
           </svg>
         }
         title="Sunlight"
-        note={`share of the ${days} days with the Sun above the hills`}
         value={pct0(summary.illumFraction)}
       />
       <Line
@@ -106,6 +108,8 @@ export function NumbersCard({
           </svg>
         }
         title="Radio contact while it has power"
+        // The one note the card keeps: it says why the contact can be "none" while the chart shows Earth in view, which a
+        // reader took for a contradiction.
         note={
           contactHours > 0 || summary.earthVisFraction === 0
             ? `Earth is in view ${pct0(summary.earthVisFraction)} of the ${days} days in all`
@@ -121,7 +125,7 @@ export function NumbersCard({
           </svg>
         }
         title="Lander"
-        note={landerLine(params.power)}
+        // The band above names the lander, and All numbers gives its whole line: the card keeps the hours a full battery lasts.
         value={Number.isFinite(dark) ? spanShort(dark) : 'no load'}
         unit={
           <>
@@ -137,8 +141,8 @@ export function NumbersCard({
           Printable brief
         </Link>
       </p>
-      {/* DE440 gives every figure and LOLA the hills on the site's grid; the Sun's and Earth's directions are checked against JPL Horizons. */}
-      <Sources of={['de440', ...lolaFor(site), 'horizons']} />
+      {/* No row of data sources here: the answer's row beside the card names the same data (DE440 for every figure, LOLA
+          for the hills on the site's grid, the Horizons check), and the same row twice on one screen only says it twice. */}
       {open && (
         <Modal title="All numbers" onClose={() => setOpen(false)} returnFocus={opener} wide>
           <p className="mt-2 text-ink-2">

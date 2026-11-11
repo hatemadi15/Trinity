@@ -12,14 +12,15 @@ const pct = (n: number) => `${n}\u00a0%`;
  * "Why the south pole is hard": three drawings with what each says, on the home page and on How it
  * works. `teaching` adds the pointer to How it works, which that page itself leaves out.
  */
-export function WhySection({ teaching = true }: { teaching?: boolean }) {
+export function WhySection({ teaching = true, intro = true }: { teaching?: boolean; intro?: boolean }) {
   const { hero, pair } = HOME;
   return (
     <section id="why" aria-labelledby="h-why" className="wrap pt-16">
       <h2 id="h-why" className={H2}>
         Why the south pole is hard
       </h2>
-      <p className="mt-2.5 max-w-[46em] text-lg text-ink-2">The Moon&apos;s water ice is there, and so is its hardest lighting. Three facts decide whether a lander lives.</p>
+      {/* How it works leaves the intro out: the three headings, the drawings and the science below carry it. */}
+      {intro && <p className="mt-2.5 max-w-[46em] text-lg text-ink-2">The Moon&apos;s water ice is there, and so is its hardest lighting. Three facts decide whether a lander lives.</p>}
       {teaching && (
         <p className="mt-3 text-lg text-ink-2">
           Teaching this?{' '}

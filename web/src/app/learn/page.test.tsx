@@ -1,15 +1,36 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import LearnPage from './page';
 
+const CAP = 50;
+
 describe('How it works', () => {
-  it('tells a teacher how to show it on a projector, right under the title', () => {
+  it('keeps the projector tip one tap away, under the title: the toggle is its question', () => {
     render(<LearnPage />);
-    const note = screen.getByText(/^Showing it to a class\?/);
-    expect(note.textContent).toBe('Showing it to a class? On a projector, zoom the page to 150 % (Ctrl and +, or ⌘ and + on a Mac): the words, the charts and the views all grow, and nothing runs off the side.');
-    expect(screen.getByRole('heading', { level: 1 }).compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const toggle = screen.getByRole('button', { name: /^Showing it to a class\?/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    const tip = document.getElementById(toggle.getAttribute('aria-controls')!)!;
+    expect(tip.hidden).toBe(true);
+    fireEvent.click(toggle);
+    expect(tip.hidden).toBe(false);
+    expect(tip.textContent).toBe('On a projector, zoom the page to 150 % (Ctrl and +, or ⌘ and + on a Mac): the words, the charts and the views all grow, and nothing runs off the side.');
+    expect(screen.getByRole('heading', { level: 1 }).compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(document.body.textContent).toMatch(/whether they have set behind the hills/);
+  });
+
+  it('says once that the data is NASA\'s, in the offline section, and leaves the south-pole section\'s intro to the home page', () => {
+    render(<LearnPage />);
+    expect(screen.getByRole('heading', { level: 1 }).parentElement!.textContent).not.toMatch(/Everything comes from NASA data/);
+    expect(screen.getByRole('region', { name: 'Running it offline' }).textContent).toMatch(/computed in the browser from NASA data/);
+    expect(document.body.textContent).not.toMatch(/Three facts decide whether a lander lives/);
+  });
+
+  it('keeps the title block to 50 words, at 1440 and on a phone (spec 20.1)', () => {
+    render(<LearnPage />);
+    const top = screen.getByRole('main').firstElementChild!;
+    for (const width of [WIDE, PHONE]) expect(visibleWords(top, width).length).toBeLessThanOrEqual(CAP);
   });
 
   it('opens with the home page\'s three drawings and what each says', () => {

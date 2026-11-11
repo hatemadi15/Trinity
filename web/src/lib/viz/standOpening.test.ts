@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Series } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
-import { hillShift, LANDER_DIST_M, openingAnchor, openingYaw, standLander } from './standOpening';
+import catalogue from '../data/catalogue.json';
+import { placeBoulders, siteSeed } from '../sky/boulders';
+import { hero } from './arrival';
+import { hillShift, LANDER_DIST_M, openingAnchor, openingYaw, standLander, standResident } from './standOpening';
 
 /** Twelve hours: the Sun up at 320° for ten of them, then night with Earth in view at 70°. */
 const series = {
@@ -121,5 +124,85 @@ describe('a hill in the opening frame (spec 18.4)', () => {
     expect(openingYaw(series, 0, false, true, undefined, 44)).toBe(285);
     expect(openingYaw(series, 0, false, true, maskWith(240))).toBe(285);
     expect(openingYaw(series, 11, false, true, maskWith(30), 22)).toBe(66);
+  });
+});
+
+describe('where the resident stands (spec 20.2)', () => {
+  const h = hero(), skyline = { az0: 0, step: 360 / h.mask.length, el: h.mask };
+  const seedOf = (site: { lat: number; lon: number }) => siteSeed(site.lat, site.lon);
+  /** Where the lander stands on the ground, as the scene places it: x east, z south. */
+  const feetOf = (lander: { azDeg: number; distM: number }) => ({ x: lander.distM * Math.sin((lander.azDeg * Math.PI) / 180), z: -lander.distM * Math.cos((lander.azDeg * Math.PI) / 180) });
+  /** The angle from one azimuth to another, degrees, from -180 to 180. */
+  const turn = (fromDeg: number, toDeg: number) => ((((toDeg - fromDeg) % 360) + 540) % 360) - 180;
+  /** How far a rock's middle lies from the line between the eye and a spot on the ground. */
+  const offSight = (b: { x: number; z: number }, p: { x: number; z: number }) => {
+    const t = Math.max(0, Math.min(1, (b.x * p.x + b.z * p.z) / (p.x * p.x + p.z * p.z)));
+    return Math.hypot(b.x - t * p.x, b.z - t * p.z);
+  };
+
+  it('keeps the resident out of the opening view at every hour, on a wide and a tall screen', () => {
+    // The hero month, its lander and rocks placed as the scene places them for each hour the view may open on, and the
+    // view turned towards its hills as the page turns it, half as wide as a tall phone's (21°) up to a 32:9 screen's (64°).
+    const seed = seedOf(h.site);
+    let worst = { margin: Infinity, where: '' };
+    for (let hour = 0; hour < h.series.hours; hour++)
+      for (const tall of [false, true]) {
+        const lander = standLander(h.series, h.power, tall, hour);
+        const resident = standResident(lander, placeBoulders(seed, feetOf(lander)), seed);
+        for (const halfW of [21, 32, 43, 54, 64]) {
+          const margin = Math.abs(turn(openingYaw(h.series, hour, tall, true, skyline, halfW), resident.azDeg)) - halfW;
+          if (margin < worst.margin) worst = { margin, where: `hour ${hour}, ${tall ? 'tall' : 'wide'}, half-width ${halfW}°` };
+        }
+      }
+    // At least 10° outside the frame's edge, for its own width and the hill turn's last degree.
+    expect(worst.margin, worst.where).toBeGreaterThanOrEqual(10);
+  });
+
+  it('places the resident 8 to 10 m out, clear of every rock and with none between it and the eye', () => {
+    // Every site of the catalogue, its lander anywhere round: behind you from the lander, up to 25° round towards the
+    // Sun's side of straight behind (away from your own shadow), and the same each time for a site.
+    for (const site of catalogue.sites)
+      for (const azDeg of [0, 75, 150, 225, 300]) {
+        const seed = seedOf(site), lander = { azDeg, distM: 16 };
+        const rocks = placeBoulders(seed, feetOf(lander));
+        const r = standResident(lander, rocks, seed), where = `${site.id}, lander at ${azDeg}°`;
+        expect(r.distM, where).toBeGreaterThanOrEqual(8);
+        expect(r.distM, where).toBeLessThanOrEqual(10);
+        expect(r.x, where).toBeCloseTo(r.distM * Math.sin((r.azDeg * Math.PI) / 180), 9);
+        expect(r.z, where).toBeCloseTo(-r.distM * Math.cos((r.azDeg * Math.PI) / 180), 9);
+        const round = turn(azDeg + 180, r.azDeg);
+        expect(round, where).toBeGreaterThanOrEqual(-25 - 1e-9);
+        expect(round, where).toBeLessThanOrEqual(1e-9);
+        for (const b of rocks) {
+          expect(Math.hypot(b.x - r.x, b.z - r.z), where).toBeGreaterThanOrEqual(b.r + 0.85);
+          expect(offSight(b, r), where).toBeGreaterThanOrEqual(b.r + 0.3);
+        }
+        expect(standResident(lander, rocks, seed)).toEqual(r);
+      }
+  });
+
+  it('steps 5° at a time from where the seed puts it, on towards 25° round first, then back the other way, and stands where the band is clearest when nothing is clear', () => {
+    const lander = { azDeg: 100 };
+    // A seed whose spot lies 10° to 15° round, so the band has room both ways: two steps on, two back.
+    const seed = Array.from({ length: 400 }, (_, k) => k).find((k) => {
+      const t = turn(280, standResident(lander, [], k).azDeg);
+      return t < -10 && t > -15;
+    })!;
+    const free = standResident(lander, [], seed);
+    // A small rock 6.5 m out on the way to the spot `k` steps round from the seed's own (+ on towards 25°, - back).
+    const onSight = (k: number, off = 0) => {
+      const a = ((free.azDeg - 5 * k) * Math.PI) / 180;
+      return { x: 6.5 * Math.sin(a) + off * Math.cos(a), z: -6.5 * Math.cos(a) + off * Math.sin(a), r: 0.15 };
+    };
+    expect(standResident(lander, [onSight(0)], seed).azDeg).toBeCloseTo(free.azDeg - 5, 9);
+    // On towards 25° round blocked to the band's end: back the other way, past the seed's own.
+    expect(standResident(lander, [onSight(0), onSight(1), onSight(2)], seed).azDeg).toBeCloseTo(free.azDeg + 5, 9);
+    // A rock beside the spot itself, 0.4 m off it, is in the way as one in the line of sight is.
+    const a = (free.azDeg * Math.PI) / 180;
+    expect(standResident(lander, [{ x: free.x + 0.4 * Math.cos(a), z: free.z + 0.4 * Math.sin(a), r: 0.15 }], seed).azDeg).toBeCloseTo(free.azDeg - 5, 9);
+    // Every spot blocked: the one whose rock lies farthest off its line of sight, still in the band.
+    const all = [onSight(2), onSight(1), onSight(0), onSight(-1), onSight(-2, 0.3)];
+    expect(standResident(lander, all, seed).azDeg).toBeCloseTo(free.azDeg + 10, 9);
+    expect(standResident(lander, all, seed).distM).toBe(free.distM);
   });
 });

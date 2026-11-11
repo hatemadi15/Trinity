@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from '@/components/AppFrame';
 import { DataProblem, SYNC_HINT } from '@/components/DataProblem';
+import { Fold } from '@/components/Fold';
 import { PeriodControls } from '@/components/PeriodControls';
 import { ReliefMap, type MapPin } from '@/components/ReliefMap';
 import { Sources } from '@/components/Sources';
@@ -242,12 +243,14 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
         <h1 data-band-end="" className="display text-[40px] leading-tight">Choose a landing site</h1>
         <p className="mt-3 max-w-[46em] text-lg text-ink-2">{catalogue.length} places on the Moon, most of them near the south pole. Pick one to see its forecast.</p>
         {/* What a row counts from, the lander, the order, in plain sentences: the figures of a row differ from Explore's
-            first day, and this says why (both readers, part C read 1). */}
-        <p className="mt-3 max-w-[52em] text-[15px] text-ink-2">
-          Each site&apos;s figures are for landing on its best day of the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, the day under its name, and the{' '}
-          {s.days} days after it, for one lander: {landerLine(s.params.power)}. Explore and Compare start on the first day, so their figures can differ. In each group, the
-          longest time with power comes first.
-        </p>
+            first day, and this says why (both readers, part C read 1). It is one tap away, since it is read once. */}
+        <Fold label="How these figures are counted" className="mt-3">
+          <p className="max-w-[52em] text-[15px] text-ink-2">
+            Each site&apos;s figures are for landing on its best day of the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, the day under its name, and the{' '}
+            {s.days} days after it, for one lander: {landerLine(s.params.power)}. Explore and Compare start on the first day, so their figures can differ. In each group, the
+            longest time with power comes first.
+          </p>
+        </Fold>
         <div className="mt-6 flex flex-wrap items-end gap-4">
           <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
         </div>

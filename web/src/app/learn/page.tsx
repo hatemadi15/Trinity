@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AppFrame } from '@/components/AppFrame';
+import { Fold } from '@/components/Fold';
 import { WhySection } from '@/components/home/WhySection';
 import { SCIENCE, STORY_STEPS } from '@/lib/learn/story';
 
@@ -15,14 +16,14 @@ export default function LearnPage() {
           <h1 data-band-end="" className="display text-[44px] leading-tight sm:text-[56px]">How it works</h1>
           <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">
             Earthrise works out, hour by hour, where the Sun and Earth are as seen from one spot on the Moon, whether they have set behind the hills, and what that means for a
-            solar lander and its radio. Everything comes from NASA data: the shape of the ground, and where the Sun and Earth are at every hour.
+            solar lander and its radio.
           </p>
-          <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">
-            Showing it to a class? On a projector, zoom the page to 150 % (Ctrl and +, or ⌘ and + on a Mac): the words, the charts and the views all grow, and nothing runs off
-            the side.
-          </p>
+          {/* The teacher's tip stays, one tap away (spec 15.1, 20.1): the toggle is its question. */}
+          <Fold label="Showing it to a class?" className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">
+            <p>On a projector, zoom the page to 150 % (Ctrl and +, or ⌘ and + on a Mac): the words, the charts and the views all grow, and nothing runs off the side.</p>
+          </Fold>
         </div>
-        <WhySection teaching={false} />
+        <WhySection teaching={false} intro={false} />
         <section aria-labelledby="h-science" className="wrap pt-16">
           <h2 id="h-science" className="display text-[34px] sm:text-[40px]">
             The science behind the three facts

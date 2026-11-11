@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Site } from '../data/loaders';
 import { loadEphemeris, type EphemerisHeader } from '../engine/ephemeris';
 import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
@@ -13,6 +13,22 @@ describe('parseExploreQuery', () => {
     expect(parseExploreQuery('?start=2040-01-01')).toEqual({});
     expect(parseExploreQuery('?site=../etc&days=30')).toEqual({ days: 30 });
     expect(parseExploreQuery('')).toEqual({});
+  });
+
+  it("keeps a clicked point's id, as the store writes it, and still leaves out what is neither that nor a catalogue id", () => {
+    expect(parseExploreQuery('?site=custom_-89.5000_10.0000&days=14')).toEqual({ site: 'custom_-89.5000_10.0000', days: 14 });
+    expect(parseExploreQuery('?site=custom_-60.0000_-160.2500')).toEqual({ site: 'custom_-60.0000_-160.2500' });
+    expect(parseExploreQuery('?site=custom_-90.0000_180.0000')).toEqual({ site: 'custom_-90.0000_180.0000' });
+    expect(parseExploreQuery('?site=custom_x')).toEqual({});
+    expect(parseExploreQuery(`?site=${'a'.repeat(70)}`)).toEqual({});
+    expect(parseExploreQuery('?site=custom_-89.5_10.0')).toEqual({});
+    expect(parseExploreQuery('?site=custom_-89.5000_10.0000_x')).toEqual({});
+    // Numbers in the right form that name no point on the Moon.
+    expect(parseExploreQuery('?site=custom_-95.0000_10.0000')).toEqual({});
+    expect(parseExploreQuery('?site=custom_-89.5000_190.0000')).toEqual({});
+    // The prefix is the clicked points' alone: a catalogue id that took it would be left out.
+    const catalogue = [...readJson<{ sites: Site[] }>('data', 'sites.json').sites, ...readJson<{ sites: Site[] }>('data', 'sites_derived.json').sites];
+    expect(catalogue.filter((s) => s.id.startsWith('custom_'))).toEqual([]);
   });
 });
 
@@ -57,6 +73,32 @@ describe.skipIf(!haveData)('applyQuery', () => {
     expect(after.siteId).toBe(before.siteId);
     expect(after.startUtc).toBe(before.startUtc);
     expect(after.error).toBeNull();
+  });
+
+  it('opens a clicked point from its address, the reload or shared link of a visit there, its skyline computed again', async () => {
+    const computeMask = vi.fn(async () => ({ mask: new Float64Array(720), siteHeightM: 12, failedTiles: 0 }));
+    const store = createExploreStore({ ...fileLoaders(), computeMask });
+    await store.getState().init();
+    await store.getState().applyQuery('?site=custom_-89.5000_10.0000&start=2027-03-01&days=14');
+    const s = store.getState();
+    expect(s.siteId).toBe('custom_-89.5000_10.0000');
+    expect(s.site?.category).toBe('custom');
+    expect(s.maskMeta?.source).toBe('computed');
+    expect(computeMask).toHaveBeenCalledWith(-89.5, 10, 2);
+    expect(s.startUtc).toBe('2027-03-01T00:00:00');
+    expect(s.series?.hours).toBe(14 * 24);
+    expect(s.customError).toBeNull();
+  });
+
+  it('keeps the default site for a point outside the area a click may pick, as for an unknown id', async () => {
+    const computeMask = vi.fn(async () => ({ mask: new Float64Array(720), siteHeightM: 12, failedTiles: 0 }));
+    const store = createExploreStore({ ...fileLoaders(), computeMask });
+    await store.getState().init();
+    await store.getState().applyQuery('?site=custom_-45.0000_10.0000');
+    expect(store.getState().siteId).toBe('de_gerlache_rim_2');
+    expect(computeMask).not.toHaveBeenCalled();
+    expect(store.getState().customError).toBeNull();
+    expect(store.getState().error).toBeNull();
   });
 
   it('gives a mare site a flat skyline and the globe view', async () => {

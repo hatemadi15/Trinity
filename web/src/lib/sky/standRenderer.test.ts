@@ -8,9 +8,10 @@ import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { NIGHT } from './shaders';
 import { LANDER_LIGHT } from './landerMesh';
 import { LANDER, LEG_ENDS } from './landerShape';
-import { BOULDERS } from './boulders';
+import { BOULDERS, placeBoulders, siteSeed } from './boulders';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
-import { bounceShare, buildScene, lookUpTarget, movingRatio, shadowOnGround, threesOwnTextures, toneExposure, toTextureHeights, type StandScene } from './standRenderer';
+import { standResident } from '@/lib/viz/standOpening';
+import { bounceShare, buildScene, lookUpTarget, movingRatio, RESIDENT_SHADOW, shadowOnGround, threesOwnTextures, toneExposure, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, meshHeightAt, terrainField } from './terrainField';
 
 const series = {
@@ -1348,5 +1349,141 @@ describe('what a renderer that goes gives back', () => {
     ]);
     const found = threesOwnTextures(root, { get: (o: object) => uniforms.get(o) ?? {} });
     expect(found).toEqual([table]);
+  });
+});
+
+describe('the resident (spec 20.2)', () => {
+  // The lander as standLander places it for the first hour: 40° left of the Sun at 300°. The view opens 35° left of the Sun.
+  const lander = { azDeg: 260, distM: 16, powered: Uint8Array.from([1, 1, 1]) };
+  /** The meshes in an object, in the order they were added: the resident's shell, then its body. */
+  const meshesOf = (o: THREE.Object3D) => {
+    const out: THREE.Mesh[] = [];
+    o.traverse((x) => {
+      if ((x as THREE.Mesh).isMesh) out.push(x as THREE.Mesh);
+    });
+    return out;
+  };
+  /** The lights anywhere in a scene. */
+  const lights = (o: THREE.Object3D) => {
+    let n = 0;
+    o.traverse((x) => {
+      if ((x as THREE.Light).isLight) n++;
+    });
+    return n;
+  };
+
+  it('builds the resident only when asked, never in flight or without ground', () => {
+    expect(buildScene(flat({ lander })).parts.resident).toBeNull();
+    const s = buildScene(flat({ lander, resident: true }));
+    const r = s.parts.resident!;
+    expect(r).toBeInstanceOf(THREE.Group);
+    expect(r.parent).toBe(s.root);
+    // A group of its own: the boulders keep their count.
+    expect(s.parts.boulders.children).toHaveLength(BOULDERS.COUNT);
+    // Where standResident puts it, clear of the rocks the scene places round the lander.
+    const seed = siteSeed(-88.28, -64.31), at = standResident(lander, placeBoulders(seed, { x: s.parts.lander!.position.x, z: s.parts.lander!.position.z }), seed);
+    expect([r.position.x, r.position.z].map((v) => Math.round(v * 1e6) / 1e6)).toEqual([at.x, at.z].map((v) => Math.round(v * 1e6) / 1e6));
+    // Never in flight (the home page's arrival), before the ground has loaded, or with no lander to stand away from.
+    expect(buildScene(flat({ lander, resident: true, globe, siteHeightM: 100 })).parts.resident).toBeNull();
+    expect(buildScene(flat({ lander, resident: true, ground: false })).parts.resident).toBeNull();
+    expect(buildScene(flat({ resident: true })).parts.resident).toBeNull();
+  });
+
+  it('stands the resident on the drawn ground facing you, its feet bedded 1 to 2 cm in the dust, on a slope as on the level', () => {
+    // Ground rising 20 % towards the east, a plane, so every triangle the mesh draws lies in it.
+    const n = 1024, cell = 20, mid = (n - 1) / 2, heights = new Float32Array(n * n);
+    for (let row = 0; row < n; row++) for (let col = 0; col < n; col++) heights[row * n + col] = 100 + 0.2 * cell * (col - mid);
+    const slope = terrainField([{ heights, width: n, height: n, pxM: cell, siteCol: mid, siteRow: mid }], 0, 100);
+    for (const field of [flatField(-64.31), slope]) {
+      const s = buildScene(flat({ field, lander, resident: true }));
+      const r = s.parts.resident!;
+      r.updateMatrixWorld(true);
+      // Its head towards the eye.
+      const ahead = new THREE.Vector3(0, 0, 1).applyQuaternion(r.quaternion);
+      expect(new THREE.Vector2(ahead.x, ahead.z).normalize().dot(new THREE.Vector2(-r.position.x, -r.position.z).normalize())).toBeGreaterThan(0.999);
+      // The soles of its feet (the legs' open ends, the body's lowest corners) 1 to 2 cm under the ground where each stands.
+      const body = meshesOf(r)[1], p = body.geometry.getAttribute('position');
+      let soles = 0;
+      for (let i = 0; i < p.count; i++) {
+        if (p.getY(i) > 1e-6) continue;
+        const w = new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(body.matrixWorld), depth = meshHeightAt(field, w.x, w.z) - w.y;
+        expect(depth).toBeGreaterThanOrEqual(0.01 - 1e-4);
+        expect(depth).toBeLessThanOrEqual(0.02 + 1e-4);
+        soles++;
+      }
+      expect(soles).toBeGreaterThanOrEqual(4 * 6);
+    }
+  });
+
+  it('draws the resident with a boulder’s own geometry and material: no new program, a few hundred new triangles', () => {
+    const s = buildScene(flat({ lander, resident: true }));
+    const rocks = s.parts.boulders.children as THREE.Mesh[];
+    const meshes = meshesOf(s.parts.resident!);
+    // Two draw calls: the shell and the body.
+    expect(meshes).toHaveLength(2);
+    const [shell, body] = meshes;
+    // The shell is one of the boulders' own stones, a rounded lump where there is one: its geometry and its material,
+    // so nothing new is uploaded; 0.34 m wide, 0.26 m tall and 0.42 m long, the stone being fitted to a box 2 across.
+    const src = rocks.find((b) => b.geometry === shell.geometry)!;
+    expect(src).toBeTruthy();
+    expect(shell.material).toBe(src.material);
+    if (rocks.some((b) => b.name === 'rock-lump')) expect(src.name).toBe('rock-lump');
+    expect([shell.scale.x, shell.scale.y, shell.scale.z]).toEqual([0.17, 0.13, 0.21]);
+    // The body in a boulder's material too, with the rocks' own attributes (a colour of three, no uv, tangents or morphs),
+    // so three keys its program as it keys theirs and builds none; its colours lighter for the body and dark for the eyes,
+    // under the material's grey.
+    for (const m of meshes) expect(rocks.some((b) => b.material === m.material)).toBe(true);
+    expect(Object.keys(body.geometry.attributes).sort()).toEqual(['color', 'normal', 'position']);
+    expect(Object.keys(src.geometry.attributes).sort()).toEqual(['color', 'normal', 'position']);
+    expect(body.geometry.getAttribute('color').itemSize).toBe(3);
+    expect(Object.keys(body.geometry.morphAttributes)).toHaveLength(0);
+    const colours = new Set<string>(), c = body.geometry.getAttribute('color');
+    for (let i = 0; i < c.count; i++) colours.add([c.getX(i), c.getY(i), c.getZ(i)].map((v) => v.toFixed(2)).join(' '));
+    expect([...colours].sort()).toEqual(['0.08 0.08 0.08', '0.95 0.92 0.88']);
+    const triangles = body.geometry.index!.count / 3;
+    expect(triangles).toBeGreaterThan(100);
+    expect(triangles).toBeLessThanOrEqual(300);
+    // No instancing, solid, culled when off screen, no shadow map, and no light added.
+    for (const m of meshes) {
+      expect(m).not.toBeInstanceOf(THREE.InstancedMesh);
+      expect((m.material as THREE.Material).transparent).toBe(false);
+      expect(m.frustumCulled).toBe(true);
+      expect(m.castShadow).toBe(false);
+    }
+    expect(lights(s.root)).toBe(lights(buildScene(flat({ lander })).root));
+  });
+
+  it('casts the resident’s shadow as one more rock sphere', () => {
+    const s = buildScene(flat({ lander, resident: true }));
+    const shell = meshesOf(s.parts.resident!)[0];
+    s.parts.resident!.updateMatrixWorld(true);
+    const top = new THREE.Box3().setFromObject(shell, true).max.y, mid = shell.getWorldPosition(new THREE.Vector3());
+    for (const g of s.parts.ground) {
+      const u = (g.material as THREE.ShaderMaterial).uniforms, spheres = u.uRocks.value as THREE.Vector4[];
+      expect(u.uRockCount.value).toBe(BOULDERS.COUNT + (RESIDENT_SHADOW ? 1 : 0));
+      if (!RESIDENT_SHADOW) continue;
+      // Over the shell's middle, its top at the shell's highest point, three quarters of the shell's half-width wide.
+      const last = spheres[BOULDERS.COUNT];
+      expect([last.x, last.z].map((v) => Math.round(v * 1e6) / 1e6)).toEqual([mid.x, mid.z].map((v) => Math.round(v * 1e6) / 1e6));
+      expect(last.y + last.w).toBeCloseTo(top, 6);
+      expect(last.w).toBeCloseTo(0.75 * 0.17, 9);
+    }
+    expect((buildScene(flat({ lander })).parts.ground[0].material as THREE.ShaderMaterial).uniforms.uRockCount.value).toBe(BOULDERS.COUNT);
+  });
+
+  it('labels the resident when the view faces it, and not in the opening view', () => {
+    const s = buildScene(flat({ lander, resident: true }));
+    s.update(0);
+    const r = s.parts.resident!, az = (THREE.MathUtils.radToDeg(Math.atan2(r.position.x, -r.position.z)) + 360) % 360;
+    s.setView(az, -10, 60, 16 / 9);
+    const seen = s.labels().resident!;
+    expect(seen.visible).toBe(true);
+    expect(seen.x).toBeCloseTo(0.5, 3);
+    // Over its shell, above where it stands.
+    expect(seen.y).toBeLessThan((1 - r.position.clone().project(s.camera).y) / 2);
+    // The opening view, 35° left of the Sun, leaves it behind you.
+    s.setView(265, 2, 60, 16 / 9);
+    expect(s.labels().resident!.visible).toBe(false);
+    expect(buildScene(flat({ lander })).labels().resident).toBeNull();
   });
 });

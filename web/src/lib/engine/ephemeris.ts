@@ -40,10 +40,6 @@ export function indexForEt(eph: Ephemeris, et: number): number {
   return Math.round((et - eph.t0Et) / eph.stepS);
 }
 
-export function etForIndex(eph: Ephemeris, i: number): number {
-  return eph.t0Et + i * eph.stepS;
-}
-
 /** Catmull-Rom interpolation of both body vectors at TDB epoch `et` (same range rule as Python). */
 export function interpVectors(eph: Ephemeris, et: number): { sun: Vec3; earth: Vec3 } {
   const x = (et - eph.t0Et) / eph.stepS;

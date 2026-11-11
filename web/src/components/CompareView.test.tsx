@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { CompareView } from './CompareView';
 
 async function open() {
@@ -17,6 +18,16 @@ afterEach(() => {
 });
 
 describe('CompareView', () => {
+  it('keeps the empty page to 200 words before a tap, at 1440 and on a phone (spec 20.1)', async () => {
+    await open();
+    const main = screen.getByRole('main');
+    expect(main.textContent).not.toMatch(/one by one/);
+    for (const width of [WIDE, PHONE]) {
+      const n = visibleWords(main, width).length;
+      expect(n).toBeLessThanOrEqual(200);
+    }
+  });
+
   it('starts empty with two ready pairs; pressing one compares both sites in a table', async () => {
     await open();
     expect(screen.queryByRole('table')).toBeNull();
@@ -26,7 +37,7 @@ describe('CompareView', () => {
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
     const heads = within(table).getAllByRole('columnheader').map((h) => h.textContent);
     // What happens to the lander is one phrase, in colour, under "Time with power": no separate verdict repeating it.
-    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', '']);
+    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Remove']);
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows[0].textContent).toMatch(/de Gerlache Rim 2/);
     expect(rows[1].textContent).toMatch(/de Gerlache rim summit/);
@@ -34,7 +45,7 @@ describe('CompareView', () => {
     expect(within(rows[0]).getByRole('img', { name: /^The Sun and Earth at de Gerlache Rim 2 over the 30 days/ })).toBeTruthy();
     // The strips' colours are explained under the table.
     expect(screen.getByRole('main').textContent).toMatch(/In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the 30 days\./);
-    expect(screen.getByRole('main').textContent).toMatch(/Time with power counts from landing until the battery first runs out; Earth in view counts every hour of the period\./);
+    expect(screen.getByRole('main').textContent).toMatch(/Time with power counts from landing on the first day until the battery first runs out; Earth in view counts every hour of the period\./);
     expect(rows[0].textContent).toMatch(/3 d 4 h, then off until 20 Jan/);
     expect(within(rows[0]).getByText('3 d 4 h, then off until 20 Jan').className).toMatch(/\btext-bad\b/);
     expect(within(rows[1]).getByText('all 30 days').className).toMatch(/\btext-good\b/);
@@ -73,7 +84,7 @@ describe('CompareView', () => {
     const heads = within(table).getAllByRole('columnheader').map((h) => h.textContent);
     for (const row of within(table).getAllByRole('row').slice(1)) {
       const cells = Array.from(row.querySelectorAll('td'));
-      expect(cells.map((c) => c.getAttribute('data-label'))).toEqual(heads.slice(1));
+      expect(cells.map((c) => c.getAttribute('data-label'))).toEqual(heads.slice(1).map((h) => (h === 'Remove' ? '' : h)));
       expect(cells[1].className).toMatch(/max-sm:before:content-\[attr\(data-label\)\]/);
     }
   });
@@ -93,7 +104,7 @@ describe('CompareView', () => {
   it('keeps the period and the lander, and offers no more than four sites', async () => {
     const store = await open();
     expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
-    expect(screen.getByRole('main').textContent).toMatch(/Up to four landing sites side by side, for the same days and the same lander, landing on the first day\./);
+    expect(screen.getByRole('main').textContent).toMatch(/Up to four sites side by side, for the same days and the same lander\./);
     const lander = screen.getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' });
     const nameSpan = lander.querySelector('span')!;
     // As in Explore's band, the name wraps rather than being cut, and a no-break space keeps each number with its unit; the accessible name keeps plain spaces.
@@ -113,6 +124,16 @@ describe('CompareView', () => {
     expect(screen.getByRole('main').querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
     expect(screen.queryByRole('article')).toBeNull();
     expect(screen.getByRole('main').textContent).not.toMatch(/skyline|Sun above|Both at once|Learn/);
+  });
+
+  it('gives every column header of the table a name, the remove column included', async () => {
+    const store = await open();
+    await store.getState().addToCompare('de_gerlache_rim_2');
+    await store.getState().addToCompare('malapert_massif');
+    const table = await screen.findByRole('table', {}, { timeout: 20_000 });
+    const headers = within(table).getAllByRole('columnheader');
+    expect(headers.length).toBeGreaterThan(0);
+    for (const h of headers) expect((h.textContent ?? '').trim()).not.toBe('');
   });
 
   it('names its NASA data', async () => {

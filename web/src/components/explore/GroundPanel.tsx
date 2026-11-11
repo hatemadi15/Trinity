@@ -1,6 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { ChunkBoundary } from '@/components/ChunkBoundary';
+import { Fold } from '@/components/Fold';
 import { lolaFor, Sources } from '@/components/Sources';
 import { Scene3DLazy } from '@/components/three';
 import { siteLabel, type Site } from '@/lib/data/loaders';
@@ -48,6 +50,20 @@ function aboutTab(tab: GroundTab, view: SceneMode, km: number | null): string {
 /** The 3D picture's box, the element put on the whole screen. */
 const FULL = '[data-full="3d"]';
 
+/**
+ * What the 3D tab shows when its code fails to load (after a redeploy while the page is open, or on a dropped
+ * connection): the 3D view's own words for a device that cannot show it. The panel keeps its own copy, since the 3D
+ * view's is in the code that failed.
+ */
+function No3D({ siteName }: { siteName: string }) {
+  return (
+    <div role="status" className="flex h-full min-h-[320px] flex-col items-center justify-center gap-2 px-6 text-center text-ink-2">
+      <p className="text-ink">3D view is not available on this device.</p>
+      <p className="text-[15px]">{siteName} is still shown in the chart above; reload the page to try again.</p>
+    </div>
+  );
+}
+
 /** One line of the map's reading guide: a sample and its words. */
 function KeyItem({ sample, children }: { sample: ReactNode; children: string }) {
   return (
@@ -67,8 +83,8 @@ function KeyItem({ sample, children }: { sample: ReactNode; children: string }) 
  * default for a site with no polar terrain, which has no map). Under the tabs one line says what the
  * chosen tab shows, then one sentence, the same for every tab, says whether the site is in sunlight
  * and whether Earth can be reached. Beside the tabs, "Stand at the site" opens the full-window view
- * from the site itself at the same hour (on flat ground where there is no polar terrain), with a line
- * that says so.
+ * from the site itself at the same hour (on flat ground where there is no polar terrain); the line that
+ * says so waits under the map's "About this view", with the map's notes.
  */
 export function GroundPanel({
   site,
@@ -137,6 +153,9 @@ export function GroundPanel({
   const finest = levels.length > 0 ? levels[levels.length - 1] : null;
   const picture = useShadowPicture(levels, levelsKey, sunBearingDeg(site.lon, scene.sunAz), scene.sunEl, { enabled: tab === 'map' || (tab === '3d' && view === 'terrain'), client: shadowClient });
   const words = groundWords(series, Math.min(series.hours - 1, Math.max(0, cursor)));
+  // The map's notes, among them the line on what Stand at the site does, are in the page only while the map is drawn,
+  // so only then can that line describe the button.
+  const mapNotes = tab === 'map' && site.polar && finest !== null;
 
   const choose = (next: GroundTab) => {
     setChosen(next);
@@ -168,9 +187,9 @@ export function GroundPanel({
         </h2>
         <p className="text-[15px] text-ink-2">{when}</p>
       </div>
-      {/* The tabs, and beside them the way to stand at the site with its line. Where the row is too narrow
-          for both, the button and its line go above the tabs (wrap-reverse), so the chosen tab's underline
-          stays on the line. On a phone the tabs spread across the row instead of keeping 24 px apart. */}
+      {/* The tabs, and beside them the way to stand at the site. Where the row is too narrow for both, the
+          button goes above the tabs (wrap-reverse), so the chosen tab's underline stays on the line. On a
+          phone the tabs spread across the row instead of keeping 24 px apart. */}
       <div className="mt-2 flex flex-wrap-reverse justify-between gap-x-6 gap-y-2 border-b border-line">
         <div role="tablist" aria-label="How to look at the ground" className="mt-auto flex gap-6 max-sm:w-full max-sm:justify-between max-sm:gap-0">
           {TABS.map((t) => (
@@ -193,14 +212,12 @@ export function GroundPanel({
             </button>
           ))}
         </div>
-        {/* The line beside the button, or under it where the row is narrow, describes it without renaming it. */}
-        <div className="mb-1.5 mt-auto flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link href={standHref(site.id, startUtc, days, cursor)} aria-describedby="ground-stand-note" className="btn btn-ink btn-sm">
+        {/* The line on what the button does waits under "About this view" (spec 20.1). While it is in the page it
+            still describes the button, folded away or not, so a screen reader hears it without renaming the button. */}
+        <div className="mb-1.5 mt-auto">
+          <Link href={standHref(site.id, startUtc, days, cursor)} aria-describedby={mapNotes ? 'ground-stand-note' : undefined} className="btn btn-ink btn-sm">
             Stand at the site
           </Link>
-          <p id="ground-stand-note" className="text-pretty text-[15px] text-ink-2">
-            Full window: look around as if you stood there.
-          </p>
         </div>
       </div>
       <p data-part="about" className="mt-3 text-pretty text-[15px] text-ink-2">
@@ -240,10 +257,17 @@ export function GroundPanel({
                   <KeyItem sample={<Arrow color="var(--stage-earth)" dotted />}>towards Earth (dotted when below the horizon)</KeyItem>
                   <KeyItem sample={<span className="flex h-6 w-6 items-center justify-center rounded-full border border-stage-ink/40 text-[14px] font-bold leading-none text-stage-ink">N</span>}>north is up</KeyItem>
                 </ul>
-                <p className="mt-4 text-ink">Move the time bar at the bottom of the window, or press Play, to watch the shadows move.</p>
-                <p className="mt-3">
-                  Worked out from NASA elevation data at {finest.pxM} m per pixel: {heightmap ? 'computed, not a photograph. Faint stripes are seams in that data, not real ground.' : "too coarse to show the site's own slopes."}
-                </p>
+                {/* How to use the map and how it is made are read once, so they wait one tap away (spec 20.1); the key above
+                    reads the map without them. */}
+                <Fold label="About this view" className="mt-4">
+                  <p className="text-ink">Move the time bar at the bottom of the window, or press Play, to watch the shadows move.</p>
+                  <p className="mt-3">
+                    Worked out from NASA elevation data at {finest.pxM} m per pixel: {heightmap ? 'computed, not a photograph. Faint stripes are seams in that data, not real ground.' : "too coarse to show the site's own slopes."}
+                  </p>
+                  <p className="mt-3">
+                    Stand at the site <span id="ground-stand-note">fills the whole window: look around as if you stood there.</span>
+                  </p>
+                </Fold>
               </div>
             </div>
           ) : (
@@ -256,7 +280,11 @@ export function GroundPanel({
           <div className={BESIDE}>
             <div ref={stage} data-full="3d" className="stage aspect-square">
               <div className="absolute inset-0">
-                <Scene3DLazy mode={view} scene={scene} site={site} sites={sites} heightmap={heightmap} capHeightmap={capHeightmap} exaggeration={exaggeration} textureUrl={textureUrl} onPick={onPick} reducedMotion={reducedMotion} picture={view === 'terrain' ? picture : null} />
+                {/* When the 3D view's code fails to load, the tab says so and the other tabs work on, where the failure would
+                    otherwise blank the whole page. */}
+                <ChunkBoundary fallback={<No3D siteName={siteLabel(site)} />}>
+                  <Scene3DLazy mode={view} scene={scene} site={site} sites={sites} heightmap={heightmap} capHeightmap={capHeightmap} exaggeration={exaggeration} textureUrl={textureUrl} onPick={onPick} reducedMotion={reducedMotion} picture={view === 'terrain' ? picture : null} />
+                </ChunkBoundary>
               </div>
               {isFull && (
                 <button type="button" onClick={() => void document.exitFullscreen?.().catch(() => {})} className="absolute right-4 top-4 h-11 rounded-lg border border-stage-ink/40 bg-stage/85 px-3.5 text-[15px] text-stage-ink">

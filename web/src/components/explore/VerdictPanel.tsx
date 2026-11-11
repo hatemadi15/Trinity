@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import type { Answer } from '@/lib/viz/answer';
+import { Fold } from '../Fold';
 import { lolaFor, Sources } from '../Sources';
 
 /** A battery on its side: full for a good answer, down to its last sliver for a bad one. */
@@ -15,9 +16,9 @@ function BatteryMark({ good }: { good: boolean }) {
 }
 
 /**
- * The answer, first on the page: where and when the lander lands, how long the power lasts and why,
- * contact with Earth in that time, the better landing date and a better place nearby, then the way to
- * stand at the site. The better date is the one gold button; when there is none, "Compare sites" is.
+ * The answer, first on the page: where and when the lander lands, how long the power lasts, contact
+ * with Earth in that time and, one tap away, why; then the better landing date and a better place nearby,
+ * and the way to stand at the site. The better date is the one gold button; when there is none, "Compare sites" is.
  */
 export function VerdictPanel({
   answer,
@@ -53,9 +54,14 @@ export function VerdictPanel({
         {/* The site's number stays with its name: "Rim 2" never breaks across two lines. */}
         <h1 className="display text-balance text-[24px] leading-[1.12] sm:text-[32px]">{answer.title.replace(/ (\d+) on /, '\u00a0$1 on ')}</h1>
       </div>
-      {/* The first sentence leads on a line of its own; the reasons follow. */}
+      {/* The first sentence leads on a line of its own. The reasons wait one tap away under the stand view's words for
+          them, since the first screen keeps one short answer (spec 20.1); an answer of one sentence has none to fold. */}
       <p className="mt-2.5 max-w-[42em] text-[17px] font-medium leading-relaxed text-ink">{answer.sentences[0]}</p>
-      {answer.sentences.length > 1 && <p className="mt-1 max-w-[42em] text-[17px] leading-relaxed text-ink">{answer.sentences.slice(1).join(' ')}</p>}
+      {answer.sentences.length > 1 && (
+        <Fold label="Why this happens" className="mt-1">
+          <p className="max-w-[42em] text-[17px] leading-relaxed text-ink">{answer.sentences.slice(1).join(' ')}</p>
+        </Fold>
+      )}
       {/* One gold action: the better date, else the better place nearby (below), else comparing sites. */}
       {(better || !nearby) && (
         <div className="mt-4 flex flex-wrap items-center gap-3">

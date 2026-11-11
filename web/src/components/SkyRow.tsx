@@ -110,7 +110,6 @@ export function SkyRowKey({ body, compass = false, className = '' }: { body: 'su
   }
   const color = body === 'sun' ? 'var(--stage-sun)' : 'var(--stage-earth)';
   const who = body === 'sun' ? 'the Sun' : 'Earth';
-  const name = body === 'sun' ? 'Sun' : 'Earth';
   return (
     <ul className={`flex flex-wrap gap-x-6 gap-y-1.5 text-base ${className}`}>
       <li className={item}>

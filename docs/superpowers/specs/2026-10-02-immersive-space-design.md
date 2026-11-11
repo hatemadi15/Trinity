@@ -793,3 +793,54 @@ A line of links, Earthrise (the home page), How it works and Accuracy, in 14 px 
 ### 19.6 E as built
 
 (Filled when the part closes: where it differs from 19.1 to 19.4, the measurements, the read, and the asks carried on.)
+
+## 20. Amendment: Part F, fewer words, a resident, and polish (11 November 2026)
+
+The user's three asks after part E: the visitor is flooded with text, so cut it; hide an Easter egg on the Moon for a visitor who looks around; and improve the whole project where it is safe to, three days before the event. Photorealism waits until after the event: every known gap in the scene (the crater shadows by day, the lander's look, the flight's black half) took rounds of measurement on the laptop, and this pass must not move the frame rate D3 measured (p95 17 ms). So nothing in part F touches a shader, the terrain, the shadow march or the render loop.
+
+### 20.1 Fewer words: fold, not delete
+
+- Each first screen keeps one short answer and one action. The reasons, the explanations and the secondary links move one tap away, behind a disclosure the page already has ("More", "Why this happens", "Show the numbers") or a new one that works the same way (a button whose words say what it does, `aria-expanded`, the content in the page's order once open). No fact leaves the app: a fold moves it, a duplicate on the same screen goes.
+- What the spec requires on a first screen stays: the answer first (19.1), the better day's gold action (18.3), the first step on arrival (19.2), the way to the evidence (19.3).
+- A test caps the words each first screen shows before a tap, page by page, so the text cannot creep back.
+- The stand view's next step, from 768 px: the links after the gold one (Change site, Change date, Change lander, Compare sites) become one "Change ▾" that opens them in a small plate under it, the judge's ask of 18.8 for one menu for site, date, lander and compare. This replaces the row of links of 17.1, 18.3 and 19.1; the gold link stays where it is, and a phone's card keeps its links. In today's card the line on what to watch and the help line wait until the first step has gone, as they repeat it, and with reduced motion the line on what to watch does not offer Play.
+
+### 20.2 The resident
+
+- A small creature with a rock for a back stands on the ground near the viewer, in a direction the opening never faces at any hour, so a visitor finds it only by turning round. When it first comes well into the view, the line over the view says so, and says what is real: like the rocks and the lander it is made up; the hills, the Sun and Earth are NASA data.
+- It costs nothing to compile and almost nothing to draw: its shell shares a boulder's geometry and material instance (nothing uploaded, no new shader program, so no compile time), its body adds a few hundred triangles drawn with that same material, it is culled when off screen, and it adds no light, no pass and no per-frame work but the one projection that finds whether it is in view. Its shadow on the ground is one more sphere in the rocks' uniform (data, not code); if the laptop's frame probe moves, that sphere goes first.
+- It never appears in the home page's arrival (the video's first 13 seconds), with `bare=1` or the capture hook, or in demo mode (`?demo=1`, the pitch's tabs): the pitch shows the forecast, and a judge who has not looked round sees nothing new.
+
+### 20.3 Polish
+
+The low-risk fixes the audit of the whole project found, each under two hours and test-first: listed in 20.5 as built.
+
+### 20.4 F: done when
+
+- Every rule above has a test that failed first; the suite, `tsc`, lint and the build are clean; the badge is refreshed.
+- On the laptop: the frames of 19.5 again, the resident found at day and at night, and the arrival's and the stand view's frame times as D3's (p95 about 17 ms).
+
+### 20.5 F as built
+
+**Fewer words (20.1).** The words that show before a tap, at 1440 and on a phone (390), each now capped by a test:
+
+| First screen | Before | After |
+|---|---|---|
+| Home (the first screen's words) | 136 / 82 | 100 / 69 |
+| Explore: the answer | 152 | 107 |
+| Explore: the numbers card | 73 | 38 |
+| Explore: the chart above its plot | 100 | 30 |
+| Explore: the ground panel | 156 | 107 |
+| Sites (the heading down to the map) | 169 | 103 |
+| Compare, empty | about 211 | 199 |
+| Accuracy (heading, intro, verdict) | about 48 | 23 |
+| How it works (the title block) | 100 | 46 |
+| The stand view's plate, 1440 | 65 | 58 |
+
+What folded, and behind what: Explore's reasons ("Why this happens", the stand view's words for the same thing), the chart's guide ("How to read the chart"), the ground panel's notes ("About this view"), Sites' method paragraph ("How these figures are counted", still one paragraph as 15.1 asks), the home band's reading guide ("How to read this"), How it works' projector tip (its question, "Showing it to a class?"). What went, as it repeated the same screen: the home page's first sentence (the flight's first and fourth lines say it), the header's tagline (the title and the home headline), the numbers card's data row (the answer's beside it), Compare's "Or add sites one by one below", How it works' second intro sentence and, on that page, the drawings' intro. What moved: Accuracy's test count to the error budget's foot, the brief's setting from under its name to its method (a move, as the brief is printed). The product sentence stays on the home page's first screen in a short form (15.1, 18.2). The stand view's links after the gold one became one "Change ▾" (20.1); today's card waits to repeat the first step until it has gone; reduced motion's lines do not offer Play.
+
+**The resident (20.2).** Rocky stands at lander + 180° + δ (δ in [−25°, 0] from the site's seed), 8 to 10 m out, at least 56° outside the opening view at every hour and width (worst 60.1°, hour 468, a tall screen), stepped 5° at a time clear of the rocks. Its shell is `new THREE.Mesh(rock.geometry, rock.material)` of a boulder (a `rock-lump` where one exists); its body is one 260-triangle geometry with the rocks' attributes (position, normal, color), drawn with that material: two draw calls, no new program, culled, opaque, no light, no pass. Its shadow is a fifteenth rock sphere (`RESIDENT_SHADOW`, the first thing to drop if the frame probe moves). The line over the view, once it stands well inside the view, is "You found Rocky, the only animal here, made up like the rocks. The hills, Sun and Earth are NASA data." (102 characters), once a visit, and it waits while another caption shows (the "Sunrise, 20 Jan" flag turns the view to within 5° of it on a wide screen). It is never built in the arrival, in demo mode or with `bright=1`.
+
+**Polish (20.3).** The forecast store: `/explore#ask` lands on the assistant once Explore has loaded; a period past the Sun and Earth table keeps the figures and says so in a plain sentence, the date box's latest start following the period and a year typed digit by digit kept as a draft; Explore's data loads once and in pairs; a clicked site's address opens it again. Accuracy's live re-check says in plain words why it could not run and that the stored comparison stands. The home page's forecast links carry their start and days. Compare's remove column has a name; the brief is a `main` with its way back in every state; the words follow the focus when they hide and show. A part that loads on its own (the arrival's stage, Explore's 3D tab) shows its fallback when its code fails to load (`ChunkBoundary`). The lint warning and the dead modules (`verdict`, `timeline`, `dome`) are gone; two timing tests have room. The pitch, the checklist, the storyboard, the READMEs and the submission match the app.
+
+**Left for the laptop (20.4)** and for after the event: the frames of 19.5 with the folds and the one Change; Rocky's look, scale, eyes and shadow by day and at night, with `renderer.info.programs.length` unchanged; the frame probe (p95 about 17 ms); the stand view's blind read of part E. Photorealism (the crater shadows, the lander's look, the flight's black half) after the event.

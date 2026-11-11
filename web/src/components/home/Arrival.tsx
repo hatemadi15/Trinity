@@ -2,6 +2,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type MouseEvent } from 'react';
+import { ChunkBoundary } from '@/components/ChunkBoundary';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { BEAT_STOPS, LANDED, LAST, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
 import type { ArrivalWords } from '@/lib/viz/arrival';
@@ -166,7 +167,10 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
         })}
         {!failed && (
           <div className={`absolute inset-0 transition-opacity duration-500 ${live ? 'opacity-100' : 'opacity-0'}`}>
-            <Stage progress={progress} reduced={reduced} capture={!!capture} onLive={() => setLive(true)} onFail={() => setFailed(true)} />
+            {/* If the stage's code fails to load, the stills stand in for every beat and the page's words stay. */}
+            <ChunkBoundary fallback={null} onError={() => setFailed(true)}>
+              <Stage progress={progress} reduced={reduced} capture={!!capture} onLive={() => setLive(true)} onFail={() => setFailed(true)} />
+            </ChunkBoundary>
           </div>
         )}
       </div>
@@ -188,13 +192,9 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             <h1 id="h-hero" data-words="" className="display max-w-[760px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[72px]">
               See when a Moon lander has sunlight and a signal.
             </h1>
-            {/* On a phone the first sentence waits for a wider screen, so the words leave the Moon in view under them. */}
+            {/* One sentence says what this is and what it gives; the flight just below says why the pole is hard. */}
             <p data-words="" className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
-              <span className="max-sm:hidden">At the Moon&apos;s south pole the Sun and Earth skim the horizon, and one hill can keep them out of sight for weeks. </span>
-              <span>
-                Earthrise is a forecast for landing sites and dates. Pick a place and a day from 2024 to 2036. See its hours of sunlight and of radio contact with Earth, and
-                how long a lander keeps power, for three ready-made landers or your own.
-              </span>
+              Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth and how long a lander keeps power, for ready-made landers or your own.
             </p>
             {/* Where the numbers come from and how they were checked, for a reader who weighs a forecast by its sources. Like the
                 first sentence it waits for a wider screen, so the phone's first screen stays short. */}

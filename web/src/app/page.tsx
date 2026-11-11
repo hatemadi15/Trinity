@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { AppFrame } from '@/components/AppFrame';
 import { Arrival } from '@/components/home/Arrival';
 import { WhySection } from '@/components/home/WhySection';
+import { Fold } from '@/components/Fold';
 import { SkyRow, SkyRowKey } from '@/components/SkyRow';
+import { exploreHref } from '@/lib/links';
 import { degreesText, HOME, PLACES, thousandsText } from '@/lib/data/home';
 import { arrivalWords } from '@/lib/viz/arrival';
 import { dateLong, spanWords } from '@/lib/viz/format';
@@ -34,7 +36,7 @@ function Check() {
 
 export default function Home() {
   const { hero, sky, facts, battery } = HOME;
-  const siteLink = `/explore?site=${hero.site_id}`;
+  const siteLink = exploreHref(hero.site_id, sky.start_utc, 30);
   const frameDate = new Date(`${hero.frame_utc}Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   const typical = Math.round(facts.mazarico_median_points);
   /** Each check has the same four attributes, so the three are a table. */
@@ -68,10 +70,13 @@ export default function Home() {
             <p id="h-forecast" className="text-[17px] font-semibold">
               A real forecast: {hero.name}, January 2027
             </p>
-            <p className="mt-1 max-w-[42em] text-base text-stage-ink">
-              A ridge NASA shortlisted for astronauts. Read it from left to right, one day at a time. Heights are angles above the horizon: 5° is about the width of three fingers held
-              at arm&apos;s length. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day.
-            </p>
+            <p className="mt-1 max-w-[42em] text-base text-stage-ink">A ridge NASA shortlisted for astronauts.</p>
+            <Fold label="How to read this" className="mt-1 text-base text-stage-ink">
+              <p className="max-w-[42em]">
+                Read it from left to right, one day at a time. Heights are angles above the horizon: 5° is about the width of three fingers held at arm&apos;s length. The grey is not
+                one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day.
+              </p>
+            </Fold>
             <SkyRowKey body="both" className="mt-2.5 text-stage-ink-2" />
           </figcaption>
           <div className="mt-2">
