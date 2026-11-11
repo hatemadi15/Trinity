@@ -62,9 +62,15 @@ export function BriefView({
   const sunUp = useMemo(() => (s.series ? Uint8Array.from(s.series.sunFraction, (f) => (f > 0 ? 1 : 0)) : null), [s.series]);
   if (s.status !== 'ready' || !s.site || !s.series || !s.summary || !s.mask || !s.power || !sunHill || !earthHill || !sunUp) {
     return (
-      <div className="brief mx-auto max-w-[190mm] px-8 py-8">
+      <main className="brief mx-auto max-w-[190mm] px-8 py-8">
+        {/* This page has no header, so the way back is here while loading and after a data failure. */}
+        <p className="no-print mb-4">
+          <Link href={s.site ? exploreHref(s.site.id, s.startUtc, s.days) : '/explore'} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+            Back to Explore
+          </Link>
+        </p>
         {s.status === 'error' ? <DataProblem error={s.error} hint={SYNC_HINT} /> : <p>Loading NASA data…</p>}
-      </div>
+      </main>
     );
   }
   const p = s.params.power;
@@ -101,7 +107,7 @@ export function BriefView({
   const every = s.days > 45 ? 10 : 5;
   const ticks = Array.from({ length: Math.floor((s.days - 1) / every) + 1 }, (_, k) => k * every);
   return (
-    <div className="brief mx-auto flex max-w-[190mm] flex-col gap-5 px-8 py-8">
+    <main className="brief mx-auto flex max-w-[190mm] flex-col gap-5 px-8 py-8">
       <div className="no-print flex items-center justify-between gap-4">
         <Link href={exploreHref(s.site.id, s.startUtc, s.days)} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           Back to Explore
@@ -194,6 +200,6 @@ export function BriefView({
       <footer className="text-[14px] text-ink-2">
         Generated {new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC by Earthrise (NASA Space Apps 2026, team Astroy/Ed).
       </footer>
-    </div>
+    </main>
   );
 }

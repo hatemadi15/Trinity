@@ -126,7 +126,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                 <tr className="text-[15px] text-ink-2">
                   {['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', ''].map((h, i) => (
                     <th key={i} scope="col" className="border-b-2 border-ink py-2 pr-4 font-semibold">
-                      {h}
+                      {h || <span className="sr-only">Remove</span>}
                     </th>
                   ))}
                 </tr>

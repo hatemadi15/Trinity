@@ -26,7 +26,7 @@ describe('CompareView', () => {
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
     const heads = within(table).getAllByRole('columnheader').map((h) => h.textContent);
     // What happens to the lander is one phrase, in colour, under "Time with power": no separate verdict repeating it.
-    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', '']);
+    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Remove']);
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows[0].textContent).toMatch(/de Gerlache Rim 2/);
     expect(rows[1].textContent).toMatch(/de Gerlache rim summit/);
@@ -73,7 +73,7 @@ describe('CompareView', () => {
     const heads = within(table).getAllByRole('columnheader').map((h) => h.textContent);
     for (const row of within(table).getAllByRole('row').slice(1)) {
       const cells = Array.from(row.querySelectorAll('td'));
-      expect(cells.map((c) => c.getAttribute('data-label'))).toEqual(heads.slice(1));
+      expect(cells.map((c) => c.getAttribute('data-label'))).toEqual(heads.slice(1).map((h) => (h === 'Remove' ? '' : h)));
       expect(cells[1].className).toMatch(/max-sm:before:content-\[attr\(data-label\)\]/);
     }
   });
@@ -113,6 +113,16 @@ describe('CompareView', () => {
     expect(screen.getByRole('main').querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
     expect(screen.queryByRole('article')).toBeNull();
     expect(screen.getByRole('main').textContent).not.toMatch(/skyline|Sun above|Both at once|Learn/);
+  });
+
+  it('gives every column header of the table a name, the remove column included', async () => {
+    const store = await open();
+    await store.getState().addToCompare('de_gerlache_rim_2');
+    await store.getState().addToCompare('malapert_massif');
+    const table = await screen.findByRole('table', {}, { timeout: 20_000 });
+    const headers = within(table).getAllByRole('columnheader');
+    expect(headers.length).toBeGreaterThan(0);
+    for (const h of headers) expect((h.textContent ?? '').trim()).not.toBe('');
   });
 
   it('names its NASA data', async () => {

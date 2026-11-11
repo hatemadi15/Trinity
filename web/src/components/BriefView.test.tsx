@@ -61,6 +61,7 @@ describe('BriefView', () => {
     expect(screen.getByText(/NASA LRO LOLA polar elevation models/)).toBeTruthy();
     expect(screen.getByText(/hills measured from NASA elevation data/)).toBeTruthy();
     expect(screen.getByText(/team Astroy\/Ed\)\.$/)).toBeTruthy(); // no unfilled placeholder in the footer
+    expect(screen.getByRole('main').classList.contains('brief')).toBe(true);
     expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore?site=shackleton_center_rim_high&start=2027-01-01&days=30');
     const print = vi.spyOn(window, 'print').mockImplementation(() => {});
     fireEvent.click(screen.getByRole('button', { name: /Print or save as PDF/ }));
@@ -101,6 +102,9 @@ describe('BriefView', () => {
     expect(screen.getByRole('alert').closest('.brief')).toBeTruthy();
     // Under next dev, as in tests, the page also names the command that fills web/public/data, then the error.
     expect(screen.getByRole('alert').textContent).toMatch(/sync-local --tiles.*HTTP 404/);
+    // The page has no header, so the way back must be there even though no data came.
+    expect(screen.getByRole('link', { name: 'Back to Explore' })).toBeTruthy();
+    expect(screen.getByRole('main')).toBeTruthy();
     vi.stubEnv('NODE_ENV', 'production');
     cleanup();
     render(<BriefView store={missing()} />);
