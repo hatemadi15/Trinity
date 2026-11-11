@@ -806,8 +806,8 @@ The user's three asks after part E: the visitor is flooded with text, so cut it;
 
 ### 20.2 The resident
 
-- A small creature with a rock for a back stands on the ground near the viewer, in a direction the opening never faces at any hour, so a visitor finds it only by turning round. When it first comes well into the view, the line over the view says so, with a nod to the data: everything else in the view is NASA's or worked out from it.
-- It costs nothing to draw: it reuses the scene's own rock material and a rock's geometry for its shell (no new shader program, so no compile time), a few hundred triangles in all, no extra pass, no per-frame work but the one projection that finds whether it is in view.
+- A small creature with a rock for a back stands on the ground near the viewer, in a direction the opening never faces at any hour, so a visitor finds it only by turning round. When it first comes well into the view, the line over the view says so, and says what is real: like the rocks and the lander it is made up; the hills, the Sun and Earth are NASA data.
+- It costs nothing to compile and almost nothing to draw: its shell shares a boulder's geometry and material instance (nothing uploaded, no new shader program, so no compile time), its body adds a few hundred triangles drawn with that same material, it is culled when off screen, and it adds no light, no pass and no per-frame work but the one projection that finds whether it is in view. Its shadow on the ground is one more sphere in the rocks' uniform (data, not code); if the laptop's frame probe moves, that sphere goes first.
 - It never appears in the home page's arrival (the video's first 13 seconds), with `bare=1` or the capture hook, or in demo mode (`?demo=1`, the pitch's tabs): the pitch shows the forecast, and a judge who has not looked round sees nothing new.
 
 ### 20.3 Polish
