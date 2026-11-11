@@ -1,5 +1,5 @@
 'use client';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { EPHEMERIS_YEARS } from '@/lib/ai/actions';
 import { WINDOW_DAYS, type WindowDays } from '@/lib/store/explore';
 import { dateLong } from '@/lib/viz/format';
@@ -23,6 +23,15 @@ function lastStart(days: number): string {
 export function PeriodControls({ startUtc, days, onChange }: { startUtc: string; days: WindowDays; onChange: (startUtc: string, days: WindowDays) => void }) {
   const id = useId();
   const max = lastStart(days);
+  // The box shows what is being typed. The browser reports a year after each digit (0002, 0020 and 0202 on the way
+  // to 2027), and a box that went back to the period's date on each of them could never reach the year typed.
+  const [draft, setDraft] = useState<string | null>(null);
+  // A new date from outside (a landing date, the assistant, a link) replaces whatever was being typed.
+  const [draftStart, setDraftStart] = useState(startUtc);
+  if (draftStart !== startUtc) {
+    setDraftStart(startUtc);
+    setDraft(null);
+  }
   return (
     <>
       <div className="flex flex-col gap-1.5 text-[15px] text-ink-2">
@@ -36,15 +45,17 @@ export function PeriodControls({ startUtc, days, onChange }: { startUtc: string;
         <input
           id={`${id}-from`}
           type="date"
-          value={startUtc.slice(0, 10)}
+          value={draft ?? startUtc.slice(0, 10)}
           min={FIRST_START}
           max={max}
           onChange={(e) => {
-            // The box passes every keystroke, so a year typed digit by digit arrives as 0002, 0020 and 0202 on its way
-            // to 2025: only a start whose period fits the table moves the period, and an emptied box changes nothing.
+            // Only a whole date whose period fits the table moves the period; a partial year or an emptied box waits.
             const value = e.target.value;
+            setDraft(value);
             if (DATE.test(value) && value >= FIRST_START && value <= max) onChange(`${value}T00:00:00`, days);
           }}
+          // A date the period could not take is undone once the box is left, so the box shows the period's date again.
+          onBlur={() => setDraft(null)}
           className="field w-[170px]"
         />
       </div>
