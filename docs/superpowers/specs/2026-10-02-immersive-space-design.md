@@ -793,3 +793,32 @@ A line of links, Earthrise (the home page), How it works and Accuracy, in 14 px 
 ### 19.6 E as built
 
 (Filled when the part closes: where it differs from 19.1 to 19.4, the measurements, the read, and the asks carried on.)
+
+## 20. Amendment: Part F, fewer words, a resident, and polish (11 November 2026)
+
+The user's three asks after part E: the visitor is flooded with text, so cut it; hide an Easter egg on the Moon for a visitor who looks around; and improve the whole project where it is safe to, three days before the event. Photorealism waits until after the event: every known gap in the scene (the crater shadows by day, the lander's look, the flight's black half) took rounds of measurement on the laptop, and this pass must not move the frame rate D3 measured (p95 17 ms). So nothing in part F touches a shader, the terrain, the shadow march or the render loop.
+
+### 20.1 Fewer words: fold, not delete
+
+- Each first screen keeps one short answer and one action. The reasons, the explanations and the secondary links move one tap away, behind a disclosure the page already has ("More", "Why this happens", "Show the numbers") or a new one that works the same way (a button whose words say what it does, `aria-expanded`, the content in the page's order once open). No fact leaves the app: a fold moves it, a duplicate on the same screen goes.
+- What the spec requires on a first screen stays: the answer first (19.1), the better day's gold action (18.3), the first step on arrival (19.2), the way to the evidence (19.3).
+- A test caps the words each first screen shows before a tap, page by page, so the text cannot creep back.
+
+### 20.2 The resident
+
+- A small creature with a rock for a back stands on the ground near the viewer, in a direction the opening never faces at any hour, so a visitor finds it only by turning round. When it first comes well into the view, the line over the view says so, with a nod to the data: everything else in the view is NASA's or worked out from it.
+- It costs nothing to draw: it reuses the scene's own rock material and a rock's geometry for its shell (no new shader program, so no compile time), a few hundred triangles in all, no extra pass, no per-frame work but the one projection that finds whether it is in view.
+- It never appears in the home page's arrival (the video's first 13 seconds), with `bare=1` or the capture hook, or in demo mode (`?demo=1`, the pitch's tabs): the pitch shows the forecast, and a judge who has not looked round sees nothing new.
+
+### 20.3 Polish
+
+The low-risk fixes the audit of the whole project found, each under two hours and test-first: listed in 20.5 as built.
+
+### 20.4 F: done when
+
+- Every rule above has a test that failed first; the suite, `tsc`, lint and the build are clean; the badge is refreshed.
+- On the laptop: the frames of 19.5 again, the resident found at day and at night, and the arrival's and the stand view's frame times as D3's (p95 about 17 ms).
+
+### 20.5 F as built
+
+(Filled when the part closes.)
