@@ -822,4 +822,25 @@ The low-risk fixes the audit of the whole project found, each under two hours an
 
 ### 20.5 F as built
 
-(Filled when the part closes.)
+**Fewer words (20.1).** The words that show before a tap, at 1440 and on a phone (390), each now capped by a test:
+
+| First screen | Before | After |
+|---|---|---|
+| Home (the first screen's words) | 136 / 82 | 100 / 69 |
+| Explore: the answer | 152 | 107 |
+| Explore: the numbers card | 73 | 38 |
+| Explore: the chart above its plot | 100 | 30 |
+| Explore: the ground panel | 156 | 107 |
+| Sites (the heading down to the map) | 169 | 103 |
+| Compare, empty | about 211 | 199 |
+| Accuracy (heading, intro, verdict) | about 48 | 23 |
+| How it works (the title block) | 100 | 46 |
+| The stand view's plate, 1440 | 65 | 58 |
+
+What folded, and behind what: Explore's reasons ("Why this happens", the stand view's words for the same thing), the chart's guide ("How to read the chart"), the ground panel's notes ("About this view"), Sites' method paragraph ("How these figures are counted", still one paragraph as 15.1 asks), the home band's reading guide ("How to read this"), How it works' projector tip (its question, "Showing it to a class?"). What went, as it repeated the same screen: the home page's first sentence (the flight's first and fourth lines say it), the header's tagline (the title and the home headline), the numbers card's data row (the answer's beside it), Compare's "Or add sites one by one below", How it works' second intro sentence and, on that page, the drawings' intro. What moved: Accuracy's test count to the error budget's foot, the brief's setting from under its name to its method (a move, as the brief is printed). The product sentence stays on the home page's first screen in a short form (15.1, 18.2). The stand view's links after the gold one became one "Change ▾" (20.1); today's card waits to repeat the first step until it has gone; reduced motion's lines do not offer Play.
+
+**The resident (20.2).** Rocky stands at lander + 180° + δ (δ in [−25°, 0] from the site's seed), 8 to 10 m out, at least 56° outside the opening view at every hour and width (worst 60.1°, hour 468, a tall screen), stepped 5° at a time clear of the rocks. Its shell is `new THREE.Mesh(rock.geometry, rock.material)` of a boulder (a `rock-lump` where one exists); its body is one 260-triangle geometry with the rocks' attributes (position, normal, color), drawn with that material: two draw calls, no new program, culled, opaque, no light, no pass. Its shadow is a fifteenth rock sphere (`RESIDENT_SHADOW`, the first thing to drop if the frame probe moves). The line over the view, once it stands well inside the view, is "You found Rocky, the only animal here, made up like the rocks. The hills, Sun and Earth are NASA data." (102 characters), once a visit, and it waits while another caption shows (the "Sunrise, 20 Jan" flag turns the view to within 5° of it on a wide screen). It is never built in the arrival, in demo mode or with `bright=1`.
+
+**Polish (20.3).** The forecast store: `/explore#ask` lands on the assistant once Explore has loaded; a period past the Sun and Earth table keeps the figures and says so in a plain sentence, the date box's latest start following the period and a year typed digit by digit kept as a draft; Explore's data loads once and in pairs; a clicked site's address opens it again. Accuracy's live re-check says in plain words why it could not run and that the stored comparison stands. The home page's forecast links carry their start and days. Compare's remove column has a name; the brief is a `main` with its way back in every state; the words follow the focus when they hide and show. A part that loads on its own (the arrival's stage, Explore's 3D tab) shows its fallback when its code fails to load (`ChunkBoundary`). The lint warning and the dead modules (`verdict`, `timeline`, `dome`) are gone; two timing tests have room. The pitch, the checklist, the storyboard, the READMEs and the submission match the app.
+
+**Left for the laptop (20.4)** and for after the event: the frames of 19.5 with the folds and the one Change; Rocky's look, scale, eyes and shadow by day and at night, with `renderer.info.programs.length` unchanged; the frame probe (p95 about 17 ms); the stand view's blind read of part E. Photorealism (the crater shadows, the lander's look, the flight's black half) after the event.
