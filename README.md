@@ -19,7 +19,8 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   lander. Three drawings explain why the south pole is hard (the Sun never climbs, the hills decide,
   Earth sets too). "Start from a real place" pairs a computed shadow picture of the ridge with three
   places to open: the ridge, and the Athena and Blue Ghost landers of March 2025, which open Explore
-  at the first whole hour after each one landed. The page ends with the three checks against NASA.
+  at the first whole hour after each one landed. The page ends with the three checks against NASA, then the ways on: compare sites, ask in
+  plain words, print the brief, run it offline.
 - **Choose a landing site** (`/sites`): the 19 places in the catalogue (the nine Artemis III
   candidate regions, the landing spots of three commercial landers, and high points and crater
   floors), sorted by how long a lander keeps power from its best landing day in the chosen period,
@@ -40,9 +41,9 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   Sun with the shadows worked out from those heights; the Sun small and white in a black sky; Earth
   from NASA's Blue Marble, turned for the hour; the real stars, placed for the site and hour (by day
   they show once you look up, away from the bright ground). A lander stands 16 m away, with rocks and
-  small craters around you: these are drawn, not measured, and the view says so. A card at the top
-  left gives the answer (power, radio contact, the night and a better landing day) and the lander's
-  state at the hour; the time bar below plays the period and carries flags for its key moments (the
+  small craters around you: these are drawn, not measured, and the view says so. A plate at the top
+  gives the answer first (power, radio contact, the days without power), the next step under it and
+  the lander's state for the hour at its foot; "More" opens today's card; the time bar below plays the period and carries flags for its key moments (the
   Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back).
   `?hour=` sets the hour and `?quality=fast` lightens the drawing for weaker graphics; without WebGL 2
   the horizon chart stands in, with the same words.
@@ -53,9 +54,9 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
 - **Accuracy** (`/validate`): three checks, each with its pass mark, its headline figure and its
   full table on request: the Sun's and Earth's directions against JPL Horizons (with a live
   re-check), sunlight against NASA's LOLA illumination map, and predicted sunsets against how three
-  real missions ended. Also the error budget and the count of automated tests.
+  real missions ended. All three checks pass. Also the error budget and the count of automated tests.
 - **How it works** (`/learn`): the three drawings, the science behind them for a class (the Moon's
-  small tilt, libration, how to read the charts, the battery sum) and five steps through the pages.
+  small tilt, libration, how to read the charts, the battery sum) and five steps through the pages, then how to run it offline.
 - **The brief** (`/brief`): one printable page with Explore's answer, five numbers, the Sun's and
   Earth's rows over the period, the lander, the method and the data, and an optional narrated
   paragraph checked number by number against the figures.
