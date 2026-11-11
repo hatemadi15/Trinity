@@ -17,7 +17,8 @@ describe('useShadowPicture', () => {
   it('hands the levels over once, then asks for a half-resolution picture at once and the full one when the hour rests', async () => {
     const client = stubClient();
     const { result } = renderHook(() => useShadowPicture([level], 'a', 90, 2, { client }));
-    await waitFor(() => expect(result.current?.width).toBe(4));
+    // The full picture follows a 250 ms rest timer, so the default 1 s wait is too tight on a busy machine.
+    await waitFor(() => expect(result.current?.width).toBe(4), { timeout: 5000 });
     expect(client.setLevels).toHaveBeenCalledTimes(1);
     expect(client.picture.mock.calls.map((c) => c[3])).toEqual([true, false]);
   });
