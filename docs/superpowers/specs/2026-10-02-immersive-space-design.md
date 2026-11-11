@@ -803,6 +803,7 @@ The user's three asks after part E: the visitor is flooded with text, so cut it;
 - Each first screen keeps one short answer and one action. The reasons, the explanations and the secondary links move one tap away, behind a disclosure the page already has ("More", "Why this happens", "Show the numbers") or a new one that works the same way (a button whose words say what it does, `aria-expanded`, the content in the page's order once open). No fact leaves the app: a fold moves it, a duplicate on the same screen goes.
 - What the spec requires on a first screen stays: the answer first (19.1), the better day's gold action (18.3), the first step on arrival (19.2), the way to the evidence (19.3).
 - A test caps the words each first screen shows before a tap, page by page, so the text cannot creep back.
+- The stand view's next step, from 768 px: the links after the gold one (Change site, Change date, Change lander, Compare sites) become one "Change ▾" that opens them in a small plate under it, the judge's ask of 18.8 for one menu for site, date, lander and compare. This replaces the row of links of 17.1, 18.3 and 19.1; the gold link stays where it is, and a phone's card keeps its links. In today's card the line on what to watch and the help line wait until the first step has gone, as they repeat it, and with reduced motion the line on what to watch does not offer Play.
 
 ### 20.2 The resident
 
