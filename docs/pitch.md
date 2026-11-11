@@ -38,7 +38,7 @@ Planners get a first answer in a minute and a brief they can hand to engineering
 
 NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and about 1,600 automated tests keep the two in step. Team Astroy/Ed.
 
-[The Accuracy page shows the exact count: 1,444 tests in the web app and 134 in the pipeline on 20 October; refresh it with `npm run validation:tests` before the pitch.]
+[The Accuracy page shows the exact count: 1,499 tests in the web app and 134 in the pipeline on 11 November; refresh it with `npm run validation:tests` before the pitch.]
 
 ## 4:40 — Close (20 s)
 
