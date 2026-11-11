@@ -108,7 +108,7 @@ describe('ValidateView', () => {
     await open(async () => ({ ok: true, worstEl: 0.00003, worstAzCosEl: 0.000002, n: 8, ms: 1200 }));
     const first = screen.getByRole('region', { name: TITLES[0] });
     fireEvent.click(within(first).getByRole('button', { name: /Re-check with JPL now/ }));
-    await waitFor(() => expect(first.textContent).toMatch(/8 epochs, worst 3\.0e-5°/));
+    await waitFor(() => expect(first.textContent).toMatch(/8 moments compared just now: the largest gap was 0\.00003° in height and under 0\.00001° in direction \(1\.2 s\)/));
   });
 
   it('a re-check that fails or throws shows the fallback and re-enables the button', async () => {
@@ -117,8 +117,45 @@ describe('ValidateView', () => {
     });
     const button = screen.getByRole('button', { name: /Re-check with JPL now/ });
     fireEvent.click(button);
-    await waitFor(() => expect(screen.getByText(/HTTP 404\); showing the stored comparison/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/JPL could not be reached \(no internet here\?\), so the stored comparison stands: the largest gap was 0\.00003°\./)).toBeTruthy());
     expect((screen.getByRole('button', { name: /Re-check with JPL now/ }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('words a failed re-check in plain terms and keeps the raw message out of production', async () => {
+    const click = () => fireEvent.click(screen.getByRole('button', { name: /Re-check with JPL now/ }));
+    await open(async () => ({ ok: false, message: 'fetch failed' }));
+    click();
+    await waitFor(() => expect(screen.getByText(/JPL could not be reached/)).toBeTruthy());
+    expect(screen.getByText(/JPL could not be reached/).textContent).toMatch(/\[fetch failed\]/);
+    cleanup();
+    vi.stubEnv('NODE_ENV', 'production');
+    await open(async () => ({ ok: false, message: 'fetch failed' }));
+    click();
+    await waitFor(() => expect(screen.getByText(/JPL could not be reached/)).toBeTruthy());
+    expect(screen.getByRole('main').textContent).not.toMatch(/fetch failed/);
+    cleanup();
+    await open(async () => ({ ok: false, message: 'The operation was aborted due to timeout' }));
+    click();
+    await waitFor(() => expect(screen.getByText(/JPL did not answer in time/)).toBeTruthy());
+    cleanup();
+    await open(async () => ({ ok: false, message: 'JPL answered HTTP 503' }));
+    click();
+    await waitFor(() => expect(screen.getByText(/JPL is busy just now/)).toBeTruthy());
+  });
+
+  it('writes the test count with a thousands comma', async () => {
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/validation/tests.json')) return jsonResponse({ generated_utc: '2026-10-02T05:48:59Z', web: { files: 102, tests: 1444 }, pipeline: { tests: 114 } });
+      return new Response('missing', { status: 404 });
+    });
+    await open();
+    await waitFor(() => expect(screen.getByRole('main').textContent).toMatch(/1,444 automated tests/));
+  });
+
+  it('renders without the re-check button when no site is listed', async () => {
+    await open(undefined, { ...docs, horizons: { ...docs.horizons, sites: [] } });
+    expect(screen.queryByRole('button', { name: /Re-check with JPL now/ })).toBeNull();
   });
 
   it('keeps the error budget, and one gold action on the page', async () => {
