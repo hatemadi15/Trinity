@@ -184,11 +184,6 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
         <div>
           <h1 data-band-end="" className="display text-[44px] leading-tight sm:text-[56px]">Accuracy</h1>
           <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">Each step of the forecast is checked against an independent NASA source. The smaller the gap, the better.</p>
-          {badge && (
-            <p className="mt-2 text-[15px] text-ink-2">
-              {badge.web.tests.toLocaleString('en-US')} automated tests in the app and {badge.pipeline.tests.toLocaleString('en-US')} in the data pipeline check the sums on every change; last counted {utcShort(badge.generated_utc)}.
-            </p>
-          )}
         </div>
 
         <p className="text-base font-semibold text-ink">{verdict}</p>
@@ -309,6 +304,11 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             <li>Directions to the Sun and Earth: under 0.01° (the first check finds {degreesText(horizons.max_abs_delta_el_deg)}).</li>
             <li>The height of the hills around a site: 0.05 to 0.15°, because NASA&apos;s elevation maps are 1 to 2 m uncertain; the app follows them to 0.01°.</li>
           </ul>
+          {badge && (
+            <p className="mt-4 text-[15px] text-ink-2">
+              {badge.web.tests.toLocaleString('en-US')} automated tests in the app and {badge.pipeline.tests.toLocaleString('en-US')} in the data pipeline check the sums on every change; last counted {utcShort(badge.generated_utc)}.
+            </p>
+          )}
         </section>
       </main>
     </AppFrame>

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { CompareView } from './CompareView';
 
 async function open() {
@@ -17,6 +18,16 @@ afterEach(() => {
 });
 
 describe('CompareView', () => {
+  it('keeps the empty page to 200 words before a tap, at 1440 and on a phone (spec 20.1)', async () => {
+    await open();
+    const main = screen.getByRole('main');
+    expect(main.textContent).not.toMatch(/one by one/);
+    for (const width of [WIDE, PHONE]) {
+      const n = visibleWords(main, width).length;
+      expect(n).toBeLessThanOrEqual(200);
+    }
+  });
+
   it('starts empty with two ready pairs; pressing one compares both sites in a table', async () => {
     await open();
     expect(screen.queryByRole('table')).toBeNull();
@@ -34,7 +45,7 @@ describe('CompareView', () => {
     expect(within(rows[0]).getByRole('img', { name: /^The Sun and Earth at de Gerlache Rim 2 over the 30 days/ })).toBeTruthy();
     // The strips' colours are explained under the table.
     expect(screen.getByRole('main').textContent).toMatch(/In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the 30 days\./);
-    expect(screen.getByRole('main').textContent).toMatch(/Time with power counts from landing until the battery first runs out; Earth in view counts every hour of the period\./);
+    expect(screen.getByRole('main').textContent).toMatch(/Time with power counts from landing on the first day until the battery first runs out; Earth in view counts every hour of the period\./);
     expect(rows[0].textContent).toMatch(/3 d 4 h, then off until 20 Jan/);
     expect(within(rows[0]).getByText('3 d 4 h, then off until 20 Jan').className).toMatch(/\btext-bad\b/);
     expect(within(rows[1]).getByText('all 30 days').className).toMatch(/\btext-good\b/);
@@ -93,7 +104,7 @@ describe('CompareView', () => {
   it('keeps the period and the lander, and offers no more than four sites', async () => {
     const store = await open();
     expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
-    expect(screen.getByRole('main').textContent).toMatch(/Up to four landing sites side by side, for the same days and the same lander, landing on the first day\./);
+    expect(screen.getByRole('main').textContent).toMatch(/Up to four sites side by side, for the same days and the same lander\./);
     const lander = screen.getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' });
     const nameSpan = lander.querySelector('span')!;
     // As in Explore's band, the name wraps rather than being cut, and a no-break space keeps each number with its unit; the accessible name keeps plain spaces.

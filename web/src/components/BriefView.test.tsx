@@ -69,6 +69,17 @@ describe('BriefView', () => {
     print.mockRestore();
   });
 
+  it('keeps the place and the period under the name, and the rest of the setting in the method (a move, so it prints)', async () => {
+    const store = await storeWithFiles();
+    render(<BriefView store={store} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
+    const meta = screen.getByRole('heading', { level: 1 }).nextElementSibling!;
+    expect(meta.textContent).toMatch(/^\d+\.\d{3}° [NS], \d+\.\d{3}° [EW]; the 30 days from 1 January 2027\.$/);
+    const method = screen.getByRole('heading', { name: 'How this was computed' }).nextElementSibling!;
+    expect(method.textContent).toMatch(/^Site height \d+ m with a 2 m mast; hills measured from NASA elevation data/);
+    expect(method.closest('.no-print')).toBeNull();
+  });
+
   it('renders a custom site with its computed provenance', async () => {
     const store = await storeWithFiles();
     render(<BriefView store={store} />);

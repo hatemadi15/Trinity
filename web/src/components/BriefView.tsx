@@ -120,8 +120,7 @@ export function BriefView({
         <p className="text-[15px] text-ink-2">Earthrise mission brief</p>
         <h1 className="display text-[30px] leading-tight">{name}</h1>
         <p className="text-[15px] text-ink-2">
-          {Math.abs(s.site.lat).toFixed(3)}° {s.site.lat < 0 ? 'S' : 'N'}, {Math.abs(s.site.lon).toFixed(3)}° {s.site.lon < 0 ? 'W' : 'E'}; {period} {s.startUtc.slice(0, 4)}; {provenance}, site height{' '}
-          {s.maskMeta?.siteHeightM.toFixed(0)} m, {mast} m mast{s.site.approximate ? '; the centre of a region drawn on NASA’s map (about ±5 km)' : ''}.
+          {Math.abs(s.site.lat).toFixed(3)}° {s.site.lat < 0 ? 'S' : 'N'}, {Math.abs(s.site.lon).toFixed(3)}° {s.site.lon < 0 ? 'W' : 'E'}; {period} {s.startUtc.slice(0, 4)}.
         </p>
       </header>
       <section className="flex flex-col gap-1 text-[15px]">
@@ -182,8 +181,11 @@ export function BriefView({
       </section>
       <section className="flex flex-col gap-1 text-[15px]">
         <h2 className="display text-[18px] font-semibold">How this was computed</h2>
+        {/* The site's setting sits here, not under its name, so the first line is the place and the period; it is text, not a fold, because the brief is printed. */}
         <p>
-          The Sun&apos;s and Earth&apos;s directions come from the JPL DE440 ephemeris (an hourly table, checked against JPL Horizons to 0.00003°). The hills on the horizon are traced through
+          Site height {s.maskMeta?.siteHeightM.toFixed(0)} m with a {mast} m mast; {provenance}
+          {s.site.approximate ? '; the site is the centre of a region drawn on NASA’s map (about ±5 km)' : ''}. The Sun&apos;s and Earth&apos;s directions come from the JPL DE440 ephemeris (an hourly table, checked against JPL Horizons to 0.00003°).
+          The hills on the horizon are traced through
           NASA LRO LOLA elevation grids (20 m within 6 km, 80 m to 100 km, 240 m to 220 km) from a {mast} m mast; the Sun counts as up when any part of it clears the hills. Power is the
           panel&apos;s share of 1361 W/m² at the Moon&apos;s distance from the Sun, times the part of the Sun in view; the battery charges with the surplus and empties on the deficit, hour by hour.
           Errors: directions under 0.01°, the hills 0.05 to 0.15°, times within 15 to 60 minutes near the pole.

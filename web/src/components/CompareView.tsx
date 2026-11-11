@@ -66,7 +66,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
       <main className="wrap flex flex-col gap-6 pb-12 pt-8">
         <div>
           <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">Compare sites</h1>
-          <p className="mt-2 max-w-[46em] text-lg text-ink-2">Up to four landing sites side by side, for the same days and the same lander, landing on the first day.</p>
+          <p className="mt-2 max-w-[46em] text-lg text-ink-2">Up to four sites side by side, for the same days and the same lander.</p>
         </div>
         <section aria-label="What this comparison is for" className="flex flex-wrap items-end gap-4">
           <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
@@ -97,7 +97,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             <h2 id="h-pairs" className="display text-[23px] font-semibold">
               Start with a pair
             </h2>
-            <p className="mt-2 text-ink-2">Each pair shows how much a few kilometres change. Or add sites one by one below.</p>
+            <p className="mt-2 text-ink-2">Each pair shows how much a few kilometres change.</p>
             <div className="mt-4 flex flex-wrap gap-3">
               {READY_PAIRS.map((p) => (
                 <button key={p.title} type="button" onClick={() => addPair(p.ids)} className="btn h-auto min-h-[48px] max-w-full whitespace-normal py-2.5 text-left">
@@ -117,7 +117,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             <p className="max-w-[60em] text-[17px] leading-relaxed text-ink">{bestSentence(s.compare, s.startUtc, s.days)}</p>
             {/* How to read the table, before it: a phone shows the strips before anything under them. */}
             <p className="mt-2 max-w-[60em] text-[15px] text-ink-2">
-              In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the {s.days} days. Time with power counts from landing until the battery
+              In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the {s.days} days. Time with power counts from landing on the first day until the battery
               first runs out; Earth in view counts every hour of the period.
             </p>
             {/* On a phone each site is a block of labelled figures: no table to scroll sideways. */}

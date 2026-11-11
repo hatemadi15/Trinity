@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BackcastsDoc, HorizonsDoc, MazaricoDoc } from '@/lib/data/validation';
 import { readJson } from '@/lib/engine/__tests__/helpers';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { ValidateView } from './ValidateView';
 
 const docs = {
@@ -151,6 +152,28 @@ describe('ValidateView', () => {
     });
     await open();
     await waitFor(() => expect(screen.getByRole('main').textContent).toMatch(/1,444 automated tests/));
+  });
+
+  it('puts the test count last, after the error budget, and keeps the top to 25 words (spec 20.1)', async () => {
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/validation/tests.json')) return jsonResponse({ generated_utc: '2026-10-02T05:48:59Z', web: { files: 102, tests: 1444 }, pipeline: { tests: 114 } });
+      return new Response('missing', { status: 404 });
+    });
+    await open();
+    const badge = await waitFor(() => screen.getByText(/1,444 automated tests/));
+    const budget = screen.getByRole('heading', { level: 2, name: 'How far off the forecast can be' }).closest('section')!;
+    expect(budget.contains(badge)).toBe(true);
+    expect(budget.lastElementChild).toBe(badge);
+    const first = screen.getByRole('region', { name: TITLES[0] });
+    expect(first.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const main = screen.getByRole('main');
+    // The heading, the intro and the verdict: what shows before the first check.
+    const top = [...main.children].slice(0, 2);
+    for (const width of [WIDE, PHONE]) {
+      const n = top.reduce((sum, el) => sum + visibleWords(el, width).length, 0);
+      expect(n).toBeLessThanOrEqual(25);
+    }
   });
 
   it('renders without the re-check button when no site is listed', async () => {
