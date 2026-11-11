@@ -273,7 +273,11 @@ export async function applyActions(store: StoreApi<ExploreState>, actions: Actio
         const startUtc = a.startUtc ?? s.startUtc;
         const days = a.days ?? s.days;
         s.setWindow(startUtc, days);
-        notes.push(periodNote(startUtc, days));
+        // The store refuses a period that runs off its Sun and Earth table, keeps the one it had and says why in
+        // its error: the note gives that reason rather than claim a period that was never set.
+        const now = store.getState();
+        const refused = now.startUtc !== startUtc || now.days !== days;
+        notes.push(refused ? (now.error ?? 'That period could not be set.') : periodNote(startUtc, days));
         break;
       }
       case 'find_best_window': {

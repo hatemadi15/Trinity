@@ -5,6 +5,7 @@ import { createExploreStore, DEFAULT_PARAMS, DEFAULT_START, recompute } from './
 import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
 import type { Site } from '../data/loaders';
 import { decodeHeightmap, type HeightmapMeta, type TerrainManifest } from '../data/terrain';
+import { fileLoaders as withFiles } from '../../test/file-loaders';
 
 const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
 const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
@@ -72,6 +73,37 @@ describe('explore store', () => {
     expect(counters.sites).toBe(1);
     expect(store.getState().siteId).toBe('shackleton_center');
   });
+  it('a second init while the first is still loading joins it, so each file is fetched once', async () => {
+    // React runs a page's effects twice in development, so Explore calls init twice before anything has loaded.
+    const calls = { sites: 0, eph: 0, masks: 0 };
+    const files = withFiles();
+    const store = createExploreStore(
+      withFiles({
+        loadSites: () => {
+          calls.sites++;
+          return files.loadSites();
+        },
+        loadEphemeris: () => {
+          calls.eph++;
+          return files.loadEphemeris();
+        },
+        loadMask: (id) => {
+          calls.masks++;
+          return files.loadMask(id);
+        },
+      }),
+    );
+    const first = store.getState().init();
+    await store.getState().init();
+    // The second call returns only once the page has its figures, as the first does.
+    expect(store.getState().status).toBe('ready');
+    expect(store.getState().series?.hours).toBe(30 * 24);
+    await first;
+    expect(calls).toEqual({ sites: 1, eph: 1, masks: 1 });
+    // Once settled, init does nothing more, as before.
+    await store.getState().init();
+    expect(calls).toEqual({ sites: 1, eph: 1, masks: 1 });
+  });
   it('selectSite recomputes and resets the cursor', async () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();
@@ -128,15 +160,31 @@ describe('explore store', () => {
     store.getState().setWindow('2027-01-01T00:00:00', 14);
     expect(store.getState().cursorHour).toBe(14 * 24 - 1);
   });
-  it('setWindow past the table sets an error and keeps state', async () => {
+  it('setWindow past the table says why in plain words and keeps the period, its figures and the overview', async () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();
-    const before = store.getState().series;
-    store.getState().setWindow('2036-12-20T00:00:00', 90);
+    await store.getState().loadOverview();
+    const { series, overview } = store.getState();
+    expect(Object.keys(overview)).toHaveLength(19);
+    store.getState().setWindow('2036-12-20T00:00:00', 30);
     const s = store.getState();
-    expect(s.error).toMatch(/ephemeris table/);
-    expect(s.series).toBe(before);
+    expect(s.error).toBe('A 30-day period from 20 December 2036 runs past 31 December 2036, where the Sun and Earth table ends. Choose an earlier date or a shorter period.');
+    expect(s.startUtc).toBe(DEFAULT_START);
     expect(s.days).toBe(30);
+    expect(s.series).toBe(series);
+    // The site list and the nearby line keep their figures: they are still for the period shown.
+    expect(s.overview).toBe(overview);
+    await store.getState().loadOverview();
+    expect(store.getState().overview).toBe(overview);
+    // The same for a longer period from a date that fits a shorter one, and for a start before the table.
+    store.getState().setWindow('2036-11-01T00:00:00', 30);
+    expect(store.getState().error).toBeNull();
+    store.getState().setWindow('2036-11-01T00:00:00', 90);
+    expect(store.getState().error).toBe('A 90-day period from 1 November 2036 runs past 31 December 2036, where the Sun and Earth table ends. Choose an earlier date or a shorter period.');
+    expect(store.getState().days).toBe(30);
+    store.getState().setWindow('2023-12-01T00:00:00', 30);
+    expect(store.getState().error).toBe('A 30-day period from 1 December 2023 starts before 1 January 2024, where the Sun and Earth table begins. Choose a later date.');
+    expect(store.getState().startUtc).toBe('2036-11-01T00:00:00');
   });
   it('applyMask installs a computed mask for a custom site', async () => {
     const store = createExploreStore(fileLoaders());
