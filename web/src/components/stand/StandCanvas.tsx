@@ -444,7 +444,7 @@ export function StandCanvas({
   place?: string;
   /** A caption's plate sits on the compass plate (18.3): the plate is square and open at the top, so the two read as one. */
   docked?: boolean;
-  /** "Brighter picture" (18.3): the renderer doubles its exposure for projectors and bright rooms. */
+  /** "Brighter picture" (18.3): the renderer triples its exposure for projectors and bright rooms. */
   bright?: boolean;
   /** Told once, the first time the resident stands well inside the view: in the middle three fifths across, clear of the plates (20.2). */
   onFound?: () => void;

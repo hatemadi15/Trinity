@@ -24,7 +24,7 @@
 
 - [ ] Plug into the projector; check 1080p output and that the text is readable from the back of the room.
 - [ ] Reload `/?demo=1`; confirm the home page's arrival draws (the Moon from space, not its still: scroll a little and it moves), "Fly to the south pole" plays it to landing and through the month at the site in about 21 s, then "Open the full forecast" on de Gerlache Rim 2 opens Explore with the answer, the shadow map and the 3D terrain.
-- [ ] In the home tab: Open the full forecast, then Stand at the site, then More, then Brighter picture; check the night at "Earth rises, 10 Jan" reads from the back of the room; Change date; reload `/?demo=1` in that tab (the setting survives the reload).
+- [ ] In the home tab: Open the full forecast, then Stand at the site, then More, then Brighter picture; check the night at "Earth rises, 10 Jan" reads from the back of the room; Change, then Change date; reload `/?demo=1` in that tab (the setting survives the reload).
 - [ ] Ask one rehearsed question in "Ask in plain words" and confirm "rehearsed answer" appears under the reply.
 - [ ] Period from 1 January 2027 for 30 days; Lander on "Small lander: 4 m² panel, uses 200 W, 2 kWh battery"; Compare emptied.
 - [ ] Phone on silent; second laptop on the same page, lid open.
