@@ -23,7 +23,6 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <Link href="/" className="flex items-center gap-2.5 font-display text-[21px] font-bold tracking-tight text-ink">
             <BrandMark />
             Earthrise
-            <span className="ml-1.5 hidden whitespace-nowrap font-text text-[15px] font-normal tracking-normal text-ink-3 xl:inline">sunlight and signal forecast for the Moon</span>
           </Link>
           <nav aria-label="Sections" className="order-last flex w-full flex-wrap gap-x-7 gap-y-1 text-[15px] font-medium max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 lg:order-none lg:w-auto lg:flex-nowrap">
             {NAV.map((item) => (

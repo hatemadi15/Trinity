@@ -3,7 +3,9 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { hydrateRoot } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ComponentType } from 'react';
 import { BEAT_STOPS, LANDED } from '@/lib/sky/arrivalTiming';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { arrivalWords } from '@/lib/viz/arrival';
 import { Arrival } from './Arrival';
 import type { StageProps } from './ArrivalCanvas';
@@ -11,6 +13,7 @@ import type { StageProps } from './ArrivalCanvas';
 // The live stage needs WebGL: these tests hand the section a stand-in.
 vi.mock('./ArrivalCanvas', () => ({ default: () => null }));
 const words = arrivalWords();
+const CAP = 100;
 const plain = (t: string) => t.replace(/ /g, ' ');
 let stage: StageProps | null = null;
 const Stage = (p: StageProps) => {
@@ -67,7 +70,7 @@ describe('the arrival', () => {
     expect(proof.className).toContain('text-[#c6c5c0]');
     expect(proof.hasAttribute('data-words')).toBe(true);
     // Under the intro paragraph and above the actions.
-    const intro = screen.getByText(/^Earthrise is a forecast for landing sites and dates\./).closest('p')!;
+    const intro = screen.getByText(/^Earthrise is a forecast for Moon landing sites and dates/).closest('p')!;
     const actions = screen.getByRole('link', { name: 'Fly to the south pole' }).parentElement!;
     expect(intro.compareDocumentPosition(proof) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(proof.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -193,12 +196,31 @@ describe('the arrival', () => {
     expect(last.className).not.toMatch(/:pt-/);
   });
 
-  it('keeps the phone’s first screen short, so the Moon shows under the words: the first sentence and the scroll hint wait for a wider screen (both readers, part C read 1)', () => {
+  it('keeps the phone’s first screen short, so the Moon shows under the words: the product sentence stays, the proof line and the scroll hint wait for a wider screen (spec 18.2, 20.1)', () => {
     render(<Arrival words={words} Stage={Stage} />);
-    expect(screen.getByText(/one hill can keep them out of sight for weeks\./).className).toMatch(/\bmax-sm:hidden\b/);
-    // A forecast, in three short sentences (spec 18.2).
-    expect(screen.getByText(/^Earthrise is a forecast for landing sites and dates\. Pick a place and a day from 2024 to 2036\. See its hours of sunlight/).className).not.toMatch(/\bmax-sm:hidden\b/);
+    // The sentence that repeats the flight's first lines is gone, not hidden.
+    expect(document.body.textContent).not.toMatch(/one hill can keep them out of sight for weeks/);
+    const product = screen.getByText(/^Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth and how long a lander keeps power, for ready-made landers or your own\.$/);
+    expect(product.className).not.toMatch(/\bmax-sm:hidden\b/);
     expect(screen.getByText(/^Scroll to fly down/).className).toMatch(/\bmax-sm:hidden\b/);
+  });
+
+  it('keeps the first screen to 100 words, at 1440 and on a phone (spec 20.1)', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    const first = document.querySelector('[data-beat="0"]')!;
+    for (const width of [WIDE, PHONE]) expect(visibleWords(first, width).length).toBeLessThanOrEqual(CAP);
+  });
+
+  it('keeps the page when the stage fails to load: the headline and the first still stay', () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const Broken = () => {
+      throw new Error('chunk failed');
+    };
+    render(<Arrival words={words} Stage={Broken as unknown as ComponentType<StageProps>} />);
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('See when a Moon lander has sunlight and a signal.');
+    const first = document.querySelector('[data-still="0"]')!;
+    expect(first.getAttribute('data-shown')).toBe('1');
+    quiet.mockRestore();
   });
 
   it('on a phone keeps Skip under the date bar once landed, and at the top right before (the final review)', () => {

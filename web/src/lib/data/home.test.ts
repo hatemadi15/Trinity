@@ -68,7 +68,7 @@ describe('home facts', () => {
   });
 
   it('lists the places in the order of the page: the ridge in the picture first, then the two landers on their dates', () => {
-    expect(PLACES.map((p) => p.href)).toEqual(['/explore?site=de_gerlache_rim_2', '/explore?site=im2_athena&start=2025-03-06T18:00', '/explore?site=blue_ghost_m1&start=2025-03-02T09:00']);
+    expect(PLACES.map((p) => p.href)).toEqual(['/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30', '/explore?site=im2_athena&start=2025-03-06T18:00&days=30', '/explore?site=blue_ghost_m1&start=2025-03-02T09:00&days=30']);
     expect(PLACES.map((p) => p.tone)).toEqual(['plain', 'bad', 'good']);
   });
 });
@@ -90,7 +90,7 @@ describe.skipIf(!haveData)('the two landers on the home page', () => {
     });
     await store.getState().init();
     const landed = new Map<string, string>(validation('backcasts.json').rows.map((r: { site_id: string; landed_utc: string }) => [r.site_id, r.landed_utc]));
-    const landers = PLACES.filter((p) => p.href.includes('start='));
+    const landers = PLACES.filter((p) => p.tone !== 'plain');
     expect(landers).toHaveLength(2);
     for (const p of landers) {
       const query = p.href.slice(p.href.indexOf('?'));
