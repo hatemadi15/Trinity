@@ -1,5 +1,6 @@
 'use client';
 import { useMemo, useRef } from 'react';
+import { Fold } from '@/components/Fold';
 import { SkyRow } from '@/components/SkyRow';
 import { lolaFor, Sources, type SourceKey } from '@/components/Sources';
 import type { Site } from '@/lib/data/loaders';
@@ -100,10 +101,14 @@ export function TimeChart({
       <h2 id="h-why-chart" className="display text-[23px] font-semibold">
         Why: the {days} days, hour by hour
       </h2>
-      <p className="mt-1 max-w-[46em] text-[15px] text-ink">
-        Time runs left to right. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain. Earth
-        stays low over one stretch of the horizon; the Moon&apos;s slow monthly wobble lifts it into view and lowers it out of view. Press Play in the bar at the bottom to run through the days.
-      </p>
+      {/* How to read the chart is read once, so it waits one tap away (spec 20.1); the key below names every mark without it. */}
+      <Fold label="How to read the chart" className="mt-1 text-[15px]">
+        <p className="max-w-[46em] text-[15px] text-ink">
+          Time runs left to right. From the site, the Sun goes once round the sky in a month: the top row names its direction, and the grey is the hills that way at that hour, not one mountain.
+          Earth stays low over one stretch of the horizon; the Moon&apos;s slow monthly wobble lifts it into view and lowers it out of view. Press Play in the bar at the bottom to run through the
+          days.
+        </p>
+      </Fold>
       <ul aria-label="Key" className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
         <li className="flex items-center gap-2">
           <Swatch color="var(--stage-sun)" />

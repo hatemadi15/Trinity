@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Answer } from '@/lib/viz/answer';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { PlannerChat } from '../PlannerChat';
 import { VerdictPanel } from './VerdictPanel';
 
@@ -54,12 +55,37 @@ describe('VerdictPanel', () => {
     expect(screen.getByRole('region', { name: 'The answer' }).getAttribute('data-tone')).toBe('bad');
   });
 
-  it('gives its first sentence a line of its own, the reasons after it', () => {
+  it('gives its first sentence a line of its own, and folds the reasons behind "Why this happens" right after it (spec 20.1)', () => {
     show(night);
     const lead = screen.getByText('No radio contact: Earth is out of view for all 3 days 4 hours with power.');
     expect(lead.tagName).toBe('P');
     expect(lead.className).toMatch(/\bfont-medium\b/);
-    expect(screen.getByText(/^The Sun sets behind the hills on 3 January, .* power comes back on 20 January\.$/).tagName).toBe('P');
+    const reasons = screen.getByText(/^The Sun sets behind the hills on 3 January, .* power comes back on 20 January\.$/);
+    expect(reasons.tagName).toBe('P');
+    // The stand view's words for its reasons, straight under the first sentence.
+    const why = screen.getByRole('button', { name: 'Why this happens' });
+    expect(lead.nextElementSibling!.contains(why)).toBe(true);
+    // The reasons stay in the page, so a search still finds them, but show only once the button opens them.
+    const fold = document.getElementById(why.getAttribute('aria-controls')!)!;
+    expect(fold.contains(reasons)).toBe(true);
+    expect(why.getAttribute('aria-expanded')).toBe('false');
+    expect(fold.hidden).toBe(true);
+    fireEvent.click(why);
+    expect(why.getAttribute('aria-expanded')).toBe('true');
+    expect(fold.hidden).toBe(false);
+  });
+
+  it('has no fold for an answer of one sentence: there are no reasons to open', () => {
+    show(good);
+    expect(screen.getByText('The Sun never sets in these 30 days.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Why this happens' })).toBeNull();
+  });
+
+  it('keeps the answer to 110 words before a tap, at 1440 and on a phone (spec 20.1)', () => {
+    // The pitch's first screen: de Gerlache Rim 2 from 1 January, with the better day, the rim summit nearby and the way to stand there.
+    render(<VerdictPanel answer={night} onLand={vi.fn()} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} nearby={summit} standLink={stand} site={{ lat: -88.28, polar: true }} />);
+    const panel = screen.getByRole('region', { name: 'The answer' });
+    for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(110);
   });
 
   it('makes the better landing date the one gold button, with what it gives', () => {

@@ -1,11 +1,26 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { ComponentProps, ComponentType } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Heightmap, HeightmapMeta } from '@/lib/data/terrain';
 import type { Series } from '@/lib/engine/metrics';
 import { standHref } from '@/lib/links';
 import type { SceneState } from '@/lib/viz/scene-state';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { GroundPanel } from './GroundPanel';
+
+/** Whether the 3D view's code fails to load, as after a redeploy while the page is open; otherwise the real lazy view loads. */
+const chunk = vi.hoisted(() => ({ fails: false }));
+vi.mock('@/components/three', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/components/three')>();
+  const { createElement, lazy, Suspense } = await import('react');
+  type Props = ComponentProps<typeof real.Scene3DLazy>;
+  // In the app, next/dynamic is React's lazy inside a Suspense, and an import that fails makes the lazy view throw as it
+  // renders. Vitest resolves next/dynamic to the pages router's loader, which keeps a failure to itself, so the failing
+  // view is built the app's way.
+  const Failed = lazy<ComponentType<Props>>(() => Promise.reject(new Error('Loading chunk 42 failed.')));
+  return { ...real, Scene3DLazy: (props: Props) => (chunk.fails ? createElement(Suspense, { fallback: null }, createElement(Failed, props)) : createElement(real.Scene3DLazy, props)) };
+});
 
 const scene = { sunDirLocal: [0, 0.1, -1], earthDirLocal: [1, 0.1, 0], sunDirMoon: [1, 0, 0], earthDirMoon: [0, 1, 0], sunAz: 0, sunEl: 2, earthAz: 90, earthEl: 3, skylineAtSun: 0, skylineAtEarth: 0, light: { intensity: 1 }, earthVisible: true } as SceneState;
 const site = { id: 'de_gerlache_rim_2', name: 'de Gerlache Rim 2 (Artemis III region)', label: 'de Gerlache Rim 2', lat: -88.28, lon: -64.31, category: 'artemis3', polar: true, source: 'x' };
@@ -97,6 +112,15 @@ describe('GroundPanel', () => {
     expect(client.setLevels).toHaveBeenCalledTimes(1);
     expect(panel.textContent).toMatch(/Move the time bar at the bottom of the window, or press Play, to watch the shadows move\./);
     expect(panel.textContent).toMatch(/Worked out from NASA elevation data at 20 m per pixel: computed, not a photograph\. Faint stripes are seams in that data, not real ground\./);
+    // Both notes wait under "About this view", after the map's key: in the page, shown once the button opens them.
+    const about = within(panel).getByRole('button', { name: 'About this view' });
+    expect(within(panel).getByRole('list', { name: 'How to read the map' }).compareDocumentPosition(about) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const fold = document.getElementById(about.getAttribute('aria-controls')!)!;
+    expect(fold.textContent).toMatch(/^Move the time bar .*Worked out from NASA elevation data at 20 m per pixel/);
+    expect(fold.hidden).toBe(true);
+    fireEvent.click(about);
+    expect(about.getAttribute('aria-expanded')).toBe('true');
+    expect(fold.hidden).toBe(false);
   });
 
   it('says in words, above every tab, whether the site is in sunlight at that hour and whether Earth can be reached', () => {
@@ -228,18 +252,32 @@ describe('GroundPanel', () => {
     expect(link.className).not.toMatch(/btn-primary|bg-sun/);
   });
 
-  it('says beside the button, in small grey words, that it opens the whole window, and keeps its name', () => {
-    show();
+  it('says what Stand at the site does one tap away, under "About this view" with the map’s notes, and keeps its name (spec 20.1)', () => {
+    show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
     const link = screen.getByRole('link', { name: 'Stand at the site' });
     expect(link.textContent).toBe('Stand at the site');
-    // The words sit next to the button, outside it, and describe it to a screen reader.
-    expect(link.getAttribute('aria-describedby')).toBeTruthy();
-    const note = document.getElementById(link.getAttribute('aria-describedby')!)!;
-    expect(note.textContent).toBe('Full window: look around as if you stood there.');
-    expect(note.parentElement).toBe(link.parentElement);
-    expect(link.contains(note)).toBe(false);
-    expect(note.className).toMatch(/\btext-\[15px\]/);
-    expect(note.className).toMatch(/\btext-ink-2\b/);
+    // Nothing sits beside the button now: its line waits in the fold, in words that name the button.
+    expect(link.parentElement!.children).toHaveLength(1);
+    expect(screen.queryByText('Full window: look around as if you stood there.')).toBeNull();
+    const fold = document.getElementById(screen.getByRole('button', { name: 'About this view' }).getAttribute('aria-controls')!)!;
+    expect(fold.hidden).toBe(true);
+    expect(fold.textContent).toMatch(/Stand at the site fills the whole window: look around as if you stood there\.$/);
+    // A screen reader still hears what the button does, with the button, before the fold is opened.
+    const note = document.getElementById(link.getAttribute('aria-describedby') ?? '');
+    expect(note && fold.contains(note)).toBe(true);
+    expect(screen.getByRole('link', { name: 'Stand at the site', description: 'fills the whole window: look around as if you stood there.' })).toBe(link);
+  });
+
+  it('describes Stand at the site only by a line that is in the page: on the other tabs it has none', () => {
+    show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
+    for (const name of ['3D from above', 'Horizon chart']) {
+      fireEvent.click(tab(name));
+      expect(screen.getByRole('link', { name: 'Stand at the site' }).hasAttribute('aria-describedby')).toBe(false);
+    }
+    cleanup();
+    // While the terrain loads there is no map, so no notes either.
+    show({ terrainState: 'loading' });
+    expect(screen.getByRole('link', { name: 'Stand at the site' }).hasAttribute('aria-describedby')).toBe(false);
   });
 
   it('offers to stand at a site with no polar terrain too, for its own period and hour', () => {
@@ -271,6 +309,27 @@ describe('GroundPanel', () => {
     await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/3D view is not available/));
     expect(screen.getByRole('status').textContent).toMatch(/de Gerlache Rim 2 is still shown in the chart above/);
     expect(screen.getByRole('status').textContent).not.toMatch(/Artemis III region|sky-dome/);
+  });
+
+  it("keeps the 3D view's words in its tab when its code fails to load, and the shadow map works on", async () => {
+    // React reports the caught failure on the console; the test keeps that out of the run's output.
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    chunk.fails = true;
+    try {
+      show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
+      fireEvent.click(tab('3D from above'));
+      const panel = screen.getByRole('tabpanel', { name: '3D from above' });
+      // The 3D view's own words for a device without it, which live in the code that failed, so the panel keeps a copy.
+      await waitFor(() => expect(within(panel).getByRole('status').textContent).toBe('3D view is not available on this device.de Gerlache Rim 2 is still shown in the chart above; reload the page to try again.'));
+      expect(within(panel).getByRole('button', { name: 'Terrain' })).toBeTruthy();
+      // The rest of the panel works on: the shadow map draws in its own tab.
+      fireEvent.click(tab('Shadow map'));
+      const map = screen.getByRole('tabpanel', { name: 'Shadow map' });
+      await waitFor(() => expect(within(map).getByRole('img', { name: 'Shadows at 2 Jan 2027, 06:00 UTC. The site is in sunlight.' })).toBeTruthy());
+    } finally {
+      chunk.fails = false;
+      quiet.mockRestore();
+    }
   });
 
   it('switches between the terrain and the globe, and between true and tripled heights', () => {
@@ -433,13 +492,21 @@ describe('GroundPanel', () => {
     expect(client.picture.mock.calls.length).toBe(asked);
   });
 
+  it('keeps the ground to 110 words before a tap, at 1440 and on a phone (spec 20.1)', async () => {
+    show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
+    const panel = screen.getByRole('region', { name: 'The ground' });
+    // The map as a visitor first sees it, its picture drawn.
+    await waitFor(() => expect(within(panel).getByRole('img', { name: 'Shadows at 2 Jan 2027, 06:00 UTC. The site is in sunlight.' })).toBeTruthy());
+    for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(110);
+  });
+
   it('names its NASA data', () => {
     const names = () => within(screen.getByLabelText('Data sources')).getAllByRole('listitem').map((li) => li.textContent);
     // The shadow map, the 3D ground and the hills come from LOLA on the site's own grid, the light from DE440.
     show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
     const panel = screen.getByRole('region', { name: 'The ground' });
     expect(names()).toEqual(['NASA LRO LOLA 20 m', 'JPL DE440']);
-    // The row is the panel's foot, away from its heading, and the sentence that says "NASA elevation data" stays.
+    // The row is the panel's foot, away from its heading, and the sentence that says "NASA elevation data" stays, under "About this view".
     expect(panel.lastElementChild).toBe(screen.getByLabelText('Data sources'));
     expect(panel.textContent).toMatch(/Worked out from NASA elevation data at 20 m per pixel/);
     fireEvent.click(tab('3D from above'));
