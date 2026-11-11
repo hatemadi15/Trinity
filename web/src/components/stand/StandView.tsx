@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { HorizonView } from '@/components/explore/HorizonView';
 import { LanderDialog } from '@/components/explore/LanderDialog';
@@ -22,7 +22,7 @@ import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explor
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth } from '@/lib/viz/format';
-import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
+import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, WATCH_LEAD_STILL, WATCH_LEAD_STILL_DOTS, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
@@ -108,16 +108,18 @@ export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
 /**
  * Stand on the Moon: the full-window view from the landing site for the site, period and hour of the address
  * (Explore's address plus `hour`). Over the view the answer comes first (19.1): the status plate leads with the
- * headline, then from 768 px wide the next step (17.1), the better landing day in gold (else "Compare sites"), "Change
- * site", "Change date", "Change lander" and "Compare sites", and last the moment's state, the lander's power and radio
- * for the hour, with the links to Earthrise, How it works and Accuracy at its end (19.3). The state sits at the plate's
- * foot, down by the time it describes, rather than in the time bar, which is Explore's too and where its 60 to 90
- * characters would wrap beside the date. On a phone the plate keeps two lines, the headline's short form and More.
+ * headline, then from 768 px wide the next step (17.1), the better landing day in gold (else "Compare sites") and one
+ * "Change" that opens "Change site", "Change date", "Change lander" and "Compare sites" in a small plate under it (20.1),
+ * and last the moment's state, the lander's power and radio for the hour, with the links to Earthrise, How it works and
+ * Accuracy at its end (19.3). The state sits at the plate's foot, down by the time it describes, rather than in the time
+ * bar, which is Explore's too and where its 60 to 90 characters would wrap beside the date. On a phone the plate keeps
+ * two lines, the headline's short form and More.
  * More opens today's card: on a phone the state first, then where you stand, the headline (the page's heading at all
  * times, with how long the night lasts), what to watch next, the better landing day, "Why this happens" (where the
  * site lies, why the light and the sky look as they do, the pole first, the radio story and how we know, one reason at
- * a time or all as one list), the ways on and the links; from 768 px the card leaves the state, the headline, the
- * better day, the ways on and the links to the plate. One row of buttons faces the Sun, Earth or the lander, looks
+ * a time or all as one list), the ways on and the links, and the help on dragging; what to watch and the help wait
+ * until the first step has gone, as they say what it says (20.1). From 768 px the card leaves the state, the headline,
+ * the better day, the ways on and the links to the plate. One row of buttons faces the Sun, Earth or the lander, looks
  * up, shows the paths and hides the words; on a phone it sits above the time bar, and "Hide the words" waits in the
  * card. A key moment, chosen from its flag or passed as the time moves on, gets a line over the view on why; on
  * arrival that line gives the first step, Play and the drag (19.2), until the visitor turns the view, plays the month
@@ -165,13 +167,15 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const [cardOpen, setCardOpen] = useState(false);
   // "Change lander" (18.3): the forecast page's lander dialog, opened in place; the focus comes back to the button.
   const [landerOpen, setLanderOpen] = useState(false);
-  // The button that opened the dialog, in the row or in a phone's card: the focus comes back to it (the final review).
+  // The button the focus comes back to when the dialog closes: Change from 768 px, as the list it opened from has closed
+  // by then, or the one in a phone's card (the final review).
   const landerRef = useRef<HTMLButtonElement | null>(null);
-  const openLander = (e: MouseEvent<HTMLButtonElement>) => {
-    landerRef.current = e.currentTarget;
+  const openLander = (from: HTMLButtonElement) => {
+    landerRef.current = from;
     setLanderOpen(true);
   };
-  // "Brighter picture" (18.3): twice the exposure, for projectors and bright rooms, kept for the visit.
+  // "Brighter picture" (18.3): three times the exposure (a stop and a half, 19.4), for projectors and bright rooms, kept
+  // for the visit.
   const [bright, setBright] = useState(() => readBright());
   useEffect(() => {
     try {
@@ -291,6 +295,23 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     return () => ro.disconnect();
   }, [s.status, wordsHidden, failed, scene, more, cardOpen]);
 
+  // "Hide the words" and "Show the words" each take away the button pressed, so the focus goes to the one in its place:
+  // "Show the words", then back to "Hide the words" in the row, or below 768 px, where the row's copy is hidden, to More.
+  // A keyboard is never left on the page's body. Only after a press: the view opens with the focus where it was.
+  const showRef = useRef<HTMLButtonElement>(null);
+  const hideRef = useRef<HTMLButtonElement>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const wordsPressed = useRef(false);
+  const pressWords = (hidden: boolean) => {
+    wordsPressed.current = true;
+    setWordsHidden(hidden);
+  };
+  useEffect(() => {
+    if (!wordsPressed.current) return;
+    if (wordsHidden) showRef.current?.focus();
+    else ((window.innerWidth >= 768 ? hideRef.current : null) ?? moreRef.current)?.focus();
+  }, [wordsHidden]);
+
   if (s.status === 'error') {
     return (
       <main className="theme-dark fixed inset-0 grid place-items-center bg-black p-4 text-[#f2f0ea]">
@@ -385,9 +406,16 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     ...(note ? [{ title: 'How we know this', text: note }] : []),
   ];
   const shownPage = Math.min(page, reasons.length - 1);
+  // What to watch next, in today's card: with reduced motion Play is off, so the line offers a flag alone (20.1); a
+  // phone names the flags as its dots.
+  const watch = watchNext(series, power, s.startUtc, hour, reducedMotion);
+  const [lead, leadDots] = reducedMotion ? [WATCH_LEAD_STILL, WATCH_LEAD_STILL_DOTS] : [WATCH_LEAD, WATCH_LEAD_DOTS];
+  // The first step on the line over the view, or about to be once the ground has drawn (19.2): today's card keeps its
+  // line on what to watch and its help line until it has gone, as they say what it says (20.1). A view that could not
+  // be drawn never shows the first step, so its card has them from the start.
+  const stepShows = hint && !failed;
   // The key moments, as flags on the time bar: each moves the time there, turns the view to what it is about
   // (the lander for its power, Earth for Earth, else the Sun) and says why.
-  const watch = watchNext(series, power, s.startUtc, hour);
   const moments = keyMoments(series, power, s.startUtc).map((m) => ({ label: `${m.label}, ${m.day}`, hour: m.hour, kind: m.kind }));
   const onMoment = (f: { label: string; hour: number }) => {
     const m = moments.find((x) => x.label === f.label && x.hour === f.hour);
@@ -480,7 +508,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       {!failed && (!scene || !drawn) && <p role="status" className="fixed inset-x-0 top-1/2 text-center text-lg text-[#c3bfb6]">Building the ground from NASA heights…</p>}
 
       {wordsHidden && (
-        <button type="button" data-plate="" className={`${LOOK} fixed left-4 top-4 bg-black/75`} onClick={() => setWordsHidden(false)}>
+        <button ref={showRef} type="button" data-plate="" className={`${LOOK} fixed left-4 top-4 bg-black/75`} onClick={() => pressWords(false)}>
           Show the words
         </button>
       )}
@@ -504,7 +532,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 <p aria-hidden="true" className="display min-w-0 flex-1 text-pretty py-1.5 text-[15px] font-semibold leading-snug md:hidden">
                   {phoneHeadline(title)}
                 </p>
-                <button type="button" aria-expanded={cardOpen} className="flex min-h-10 shrink-0 items-center gap-1.5 self-end whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setCardOpen((o) => !o)}>
+                <button ref={moreRef} type="button" aria-expanded={cardOpen} className="flex min-h-10 shrink-0 items-center gap-1.5 self-end whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setCardOpen((o) => !o)}>
                   {cardOpen ? 'Less' : 'More'}
                   <span aria-hidden="true" className="no-underline">
                     {cardOpen ? '▴' : '▾'}
@@ -513,7 +541,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               </div>
               {/* The next step, always in view from 768 px (17.1); on a phone it waits in today's card. Under the headline
                   and in line with it, so the better day reads beside the verdict it improves on (read D2: under More it had
-                  nothing to compare against). */}
+                  nothing to compare against). The gold one first, then one Change for the other ways on (20.1). */}
               <div role="group" aria-label="Next step" className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-2.5 pt-0.5 max-md:hidden">
                 {better ? (
                   <a
@@ -532,21 +560,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     Compare sites
                   </button>
                 )}
-                <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
-                  Change site
-                </Link>
-                <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
-                  Change date
-                </Link>
-                {/* The forecast page's lander dialog, in place (18.3): "your own lander" from here too. */}
-                <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4" onClick={openLander}>
-                  Change lander
-                </button>
-                {better && (
-                  <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
-                    Compare sites
-                  </button>
-                )}
+                <ChangeWays dateHref={exploreHref(site.id, s.startUtc, s.days)} onLander={openLander} onCompare={better ? compare : undefined} />
               </div>
               {/* Last, the moment's state: the lander's power and radio for the hour, down by the time it describes at the
                   plate's foot, not in the time bar, which is Explore's too and where 60 to 90 characters beside the date would
@@ -600,16 +614,18 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 </p>
                 {/* The lead names the flags, or the dots a phone has (18.2): the line twice, one shown per width, so a screen
                     reader meets only the shown one (display: none keeps the other out of the accessibility tree). */}
-                <p className="text-[14px] text-[#f6d48a] md:text-[15px]">
-                  {watch.startsWith(WATCH_LEAD) ? (
-                    <>
-                      <span className="sm:hidden">{`${WATCH_LEAD_DOTS}${watch.slice(WATCH_LEAD.length)}`}</span>
-                      <span className="max-sm:hidden">{watch}</span>
-                    </>
-                  ) : (
-                    watch
-                  )}
-                </p>
+                {!stepShows && (
+                  <p className="text-[14px] text-[#f6d48a] md:text-[15px]">
+                    {watch.startsWith(lead) ? (
+                      <>
+                        <span className="sm:hidden">{`${leadDots}${watch.slice(lead.length)}`}</span>
+                        <span className="max-sm:hidden">{watch}</span>
+                      </>
+                    ) : (
+                      watch
+                    )}
+                  </p>
+                )}
                 {better && (
                   // The better day, on a row of its own, so the links below never move. From 768 px the next step's
                   // row on the plate holds it, so the screen keeps one gold action (17.1).
@@ -656,14 +672,14 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     Compare sites
                   </button>
                   {/* On a phone the row above the time bar has no room for it: it waits here. */}
-                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => setWordsHidden(true)}>
+                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => pressWords(true)}>
                     Hide the words
                   </button>
                   {/* On a phone the next step's row is not shown: Change lander waits here (18.3). */}
-                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={openLander}>
+                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={(e) => openLander(e.currentTarget)}>
                     Change lander
                   </button>
-                  {/* Twice the exposure for projectors and bright rooms (18.3); its words never change with its state. */}
+                  {/* Three times the exposure for projectors and bright rooms (18.3, 19.4); its words never change with its state. */}
                   <button type="button" aria-pressed={bright} className={`${LOOK} ${PRESSED}`} onClick={() => setBright((b) => !b)}>
                     Brighter picture
                   </button>
@@ -710,7 +726,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 )}
                 {/* On a phone the way to the evidence waits here (19.3); from 768 px the plate's foot has it. */}
                 <Sections className="flex-wrap gap-y-1 md:hidden" />
-                <p className="text-[14px] text-[#c3bfb6]">Drag to look around; pinch or scroll to zoom.</p>
+                {!stepShows && <p className="text-[14px] text-[#c3bfb6]">Drag to look around; pinch or scroll to zoom.</p>}
               </div>
             )}
           </section>
@@ -770,7 +786,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 <Short short="Paths" long={guides ? 'Hide paths' : 'Show paths'} />
               </button>
               {/* Its words are its name, as speech input needs (WCAG 2.5.3). */}
-              <button type="button" className={`${LOOK} max-md:hidden`} onClick={() => setWordsHidden(true)}>
+              <button ref={hideRef} type="button" className={`${LOOK} max-md:hidden`} onClick={() => pressWords(true)}>
                 Hide the words
               </button>
             </div>
@@ -815,6 +831,112 @@ function Sections({ className }: { className: string }) {
         </Link>
       ))}
     </nav>
+  );
+}
+
+/** A way on in the list under Change: as the row's links were (17.1), and as wide as the list, so the whole line takes a press. */
+const WAY = 'flex min-h-10 w-full items-center whitespace-nowrap text-[15px] underline underline-offset-4';
+
+/**
+ * The next step's other ways on from 768 px (20.1): one "Change", the judge's one menu for site, date, lander and compare
+ * (18.8), in place of the row of links of 17.1, 18.3 and 19.1. It opens them in a small plate under it, in the same
+ * order, by the same names and doing the same: a disclosure of links and buttons, not an ARIA menu, which would ask for
+ * arrow keys and roles that four ways on do not need. Escape closes it and gives the focus back to Change, as a way
+ * chosen does; a press outside it closes it, and so does the focus moving on past it, so the plate never covers what the
+ * focus has gone to. With no better day the gold is Compare sites, and the list holds the other three.
+ */
+function ChangeWays({ dateHref, onLander, onCompare }: { dateHref: string; onLander: (from: HTMLButtonElement) => void; onCompare?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLUListElement>(null);
+  useLayoutEffect(() => {
+    const l = list.current, b = button.current;
+    if (!open || !l || !b) return;
+    // Under Change from its left edge, moved left only as far as keeps 16 px clear of the screen's right edge: from 768 px
+    // a long better day can leave Change at the end of the row. Placed before the first paint, so it never jumps.
+    const place = () => {
+      l.style.left = `${-Math.max(0, b.getBoundingClientRect().left + l.offsetWidth - (window.innerWidth - 16))}px`;
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setOpen(false);
+      b.focus();
+    };
+    const press = (e: PointerEvent) => {
+      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+    };
+    place();
+    window.addEventListener('resize', place);
+    document.addEventListener('keydown', key);
+    // Caught on the way down, so a press on the view, which takes the pointer for the drag, closes it too.
+    document.addEventListener('pointerdown', press, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      document.removeEventListener('keydown', key);
+      document.removeEventListener('pointerdown', press, true);
+    };
+  }, [open]);
+  // A way chosen closes the list, and the focus waits on Change rather than on a way the list has just hidden.
+  const chosen = () => {
+    setOpen(false);
+    button.current?.focus();
+  };
+  return (
+    <div
+      ref={wrap}
+      className="relative"
+      onBlur={(e) => {
+        if (e.relatedTarget instanceof Node && !e.currentTarget.contains(e.relatedTarget)) setOpen(false);
+      }}
+    >
+      <button ref={button} type="button" aria-expanded={open} aria-controls="stand-change" className="flex min-h-10 items-center gap-1.5 whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setOpen((o) => !o)}>
+        Change
+        <span aria-hidden="true" className="no-underline">
+          {open ? '▴' : '▾'}
+        </span>
+      </button>
+      {/* In the page's order, after Change; `hidden` until it opens, so a search of the page still finds the ways on. */}
+      <ul ref={list} id="stand-change" data-plate="" hidden={!open} className={`${PLATE} absolute left-0 top-full z-10 mt-1 grid w-max px-4 py-1`}>
+        <li>
+          <Link href="/sites" className={WAY} onClick={chosen}>
+            Change site
+          </Link>
+        </li>
+        <li>
+          <Link href={dateHref} className={WAY} onClick={chosen}>
+            Change date
+          </Link>
+        </li>
+        <li>
+          {/* The forecast page's lander dialog, in place (18.3); it gives the focus back to Change when it closes. */}
+          <button
+            type="button"
+            className={WAY}
+            onClick={() => {
+              setOpen(false);
+              if (button.current) onLander(button.current);
+            }}
+          >
+            Change lander
+          </button>
+        </li>
+        {onCompare && (
+          <li>
+            <button
+              type="button"
+              className={WAY}
+              onClick={() => {
+                chosen();
+                onCompare();
+              }}
+            >
+              Compare sites
+            </button>
+          </li>
+        )}
+      </ul>
+    </div>
   );
 }
 

@@ -1156,10 +1156,10 @@ export class StandRenderer {
   private guides = true;
   private level = true;
   private rings = true;
-  /** "Brighter picture" (18.3): the exposure doubled for projectors and bright rooms. */
+  /** "Brighter picture" (18.3): the exposure tripled for projectors and bright rooms (19.4). */
   private bright = false;
 
-  /** A brighter picture for projectors and bright rooms: twice the exposure (18.3), or back to the camera's setting. */
+  /** A brighter picture for projectors and bright rooms: three times the exposure (18.3, 19.4), or back to the camera's setting. */
   setBright(on: boolean) {
     this.bright = on;
     this.renderer.toneMappingExposure = toneExposure(on, 1);
@@ -1338,7 +1338,7 @@ export class StandRenderer {
   /** Draws the frame and sets a fence after it. */
   private draw() {
     // The camera stops down looking down-Sun at the sunlit ground (the output pass reads this exposure); a brighter
-    // picture doubles it.
+    // picture triples it.
     this.renderer.toneMappingExposure = toneExposure(this.bright, this.built.exposure());
     this.composer.render();
     const gl = this.renderer.getContext() as WebGL2RenderingContext;

@@ -38,6 +38,8 @@ import {
   watchNext,
   WATCH_LEAD,
   WATCH_LEAD_DOTS,
+  WATCH_LEAD_STILL,
+  WATCH_LEAD_STILL_DOTS,
   whyLines,
   type MomentKind,
 } from './stand';
@@ -574,6 +576,17 @@ describe('what to watch for', () => {
   it('starts what to watch with Play and the flags, and has a lead for a phone, where the flags are dots', () => {
     expect(WATCH_LEAD).toBe('Press Play, or a flag on the time bar, to watch:');
     expect(WATCH_LEAD_DOTS).toBe('Press Play, or a dot on the time bar, to watch:');
+  });
+  it('leaves Play out of what to watch with reduced motion, as Play is off then, and keeps the flags, or the dots on a phone (spec 20.1)', () => {
+    expect(WATCH_LEAD_STILL).toBe('Press a flag on the time bar to see:');
+    expect(WATCH_LEAD_STILL_DOTS).toBe('Press a dot on the time bar to see:');
+    expect(watchNext(s, p, start, 10, true)).toBe(`${WATCH_LEAD_STILL} the Sun sets behind the hills on 4 January, and the battery runs out on 5 January.`);
+    expect(watchNext(s, p, start, 467, true)).toBe(`${WATCH_LEAD_STILL} the power comes back on 20 January, if the lander survives 15 days without power at night, colder than −170 °C.`);
+    // With nothing more to happen in the period, the time bar moves the light by hand.
+    expect(watchNext(s, p, start, 600, true)).toBe('Drag the time bar to see the light move across the ground.');
+    for (let h = 0; h < hours; h += 6) expect(watchNext(s, p, start, h, true), `hour ${h}`).not.toMatch(/Play/);
+    // Without reduced motion the line is as it was.
+    expect(watchNext(s, p, start, 10, false)).toBe(watchNext(s, p, start, 10));
   });
   it('says the day once when the second thing happens the same day', () => {
     // The Sun comes back at 466 and the power at 470, both on 20 January.

@@ -7,9 +7,10 @@ import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
 import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
-import { FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, RESIDENT_LINE, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, watchNext, type MomentKind } from '@/lib/viz/stand';
+import { FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, RESIDENT_LINE, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, WATCH_LEAD_STILL, WATCH_LEAD_STILL_DOTS, watchNext, type MomentKind } from '@/lib/viz/stand';
 import { openingYaw } from '@/lib/viz/standOpening';
 import { fileLoaders, terrainFileLoaders, terrainPresent } from '@/test/file-loaders';
+import { visibleWords, WIDE } from '@/test/visible-words';
 import type { StandScene } from '@/lib/sky/standRenderer';
 import { pathMarks, StandView } from './StandView';
 import type { RendererLike } from './StandCanvas';
@@ -67,6 +68,20 @@ async function open(search: string, createRenderer: () => RendererLike = stub) {
 
 /** Opens today's card under the status line. */
 const openCard = () => fireEvent.click(screen.getByRole('button', { name: 'More' }));
+
+/** Waits for the first step on the line over the view, which shows once the ground has drawn (19.2). */
+const firstStep = () => waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toContain(FIRST_STEP), { timeout: 10_000 });
+
+/** A drag on the view, the first turn by hand: the first step goes for the visit (19.2). */
+async function drag() {
+  const view = await screen.findByRole('application', {}, { timeout: 10_000 });
+  fireEvent.pointerDown(view, { pointerId: 1, clientX: 100, clientY: 100 });
+  fireEvent.pointerMove(view, { pointerId: 1, clientX: 140, clientY: 100 });
+  fireEvent.pointerUp(view, { pointerId: 1 });
+}
+
+/** The card's help line, which says what the first step says. */
+const HELP = 'Drag to look around; pinch or scroll to zoom.';
 
 afterEach(() => cleanup());
 
@@ -172,7 +187,7 @@ describe('StandView', () => {
     expect(pathMarks([at('sunset-power-off', 'Sunset and power off', 5, '2 Mar')]).map((m) => m.text)).toEqual(['Sunset, 2 Mar']);
   });
 
-  it('opens with the lander’s power and radio at the plate’s foot, the site first, and today’s card under More', async () => {
+  it('opens with the lander’s power and radio at the plate’s foot, the site first, and today’s card under More, which keeps what to watch and the help line until the first step has gone (20.1)', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The lander stands once the ground has loaded, a moment after the words: on a busy machine, later.
     await screen.findByRole('button', { name: 'Face the lander' }, { timeout: 20_000 });
@@ -205,12 +220,16 @@ describe('StandView', () => {
     expect(document.getElementById('stand-card')).toBeNull();
     const more = screen.getByRole('button', { name: 'More' });
     expect(more.getAttribute('aria-expanded')).toBe('false');
+    // Opened while the first step shows over the view.
+    await firstStep();
     openCard();
     expect(screen.getByRole('button', { name: 'Less' }).getAttribute('aria-expanded')).toBe('true');
     // Where you stand, and what is measured and what is added: "Hills: NASA height data." (or, without NASA
     // heights, "Ground drawn flat: no NASA heights here.") and "Small craters and rocks: added to look real."
     expect(screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole\. (Hills: NASA height data|Ground drawn flat: no NASA heights here)\. Small craters and rocks: added to look real\.$/)).toBeTruthy();
-    expect(screen.getByText(watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10))).toBeTruthy();
+    // What to watch waits while the first step shows, as it says what the first step says (20.1).
+    const watch = watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10);
+    expect(screen.queryByText(watch)).toBeNull();
     // The better landing day says why, as a comparison: the power and the radio from that landing, to the hour, as
     // the headline gives its spans and the home page's forecast gives this landing ("12 days 15 hours").
     // In the card (the next step's row on the plate carries the same words from 768 px, 18.3).
@@ -220,7 +239,8 @@ describe('StandView', () => {
     expect(better.textContent).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours ›');
     expect(better.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
     expect(within(document.getElementById('stand-card')!).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
-    expect(screen.getByText('Drag to look around; pinch or scroll to zoom.')).toBeTruthy();
+    // So does the help line.
+    expect(screen.queryByText(HELP)).toBeNull();
     // The reasons wait under "Why this happens".
     expect(screen.queryByText(/^Near the Moon's south pole the Sun never climbs high/)).toBeNull();
     expect(screen.queryByText('How we know this')).toBeNull();
@@ -244,6 +264,12 @@ describe('StandView', () => {
     await waitFor(() => expect(screen.getAllByText('N').length).toBeGreaterThan(0));
     for (const point of ['NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']) expect(screen.getAllByText(point).length).toBeGreaterThan(0);
     expect(document.querySelector('.theme-dark')).toBeTruthy();
+    // The first drag takes the first step: the card gives what to watch and the help line, in its order.
+    await drag();
+    expect(document.querySelector('[data-caption]')).toBeNull();
+    const card = document.getElementById('stand-card')!;
+    const shown = [within(card).getByText(/^Standing at /), within(card).getByText(watch), better, within(card).getByText(HELP)];
+    for (let k = 1; k < shown.length; k++) expect(shown[k - 1].compareDocumentPosition(shown[k]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('gives the reasons one at a time under "Why this happens", where the site lies and the pole first, the radio story after the whys and how we know last, then folds them away', async () => {
@@ -535,6 +561,35 @@ describe('StandView', () => {
     expect(screen.getByRole('button', { name: 'Face Earth' })).toBeTruthy();
   });
 
+  it('moves the focus to "Show the words" when the words hide, and back to "Hide the words" when they show, or to More below 768 px', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    // From 768 px (jsdom's window is 1024 px wide) the row's button hides the words, and has the focus back after.
+    const hide = screen.getByRole('button', { name: 'Hide the words' });
+    hide.focus();
+    fireEvent.click(hide);
+    const show = screen.getByRole('button', { name: 'Show the words' });
+    expect(document.activeElement).toBe(show);
+    fireEvent.click(show);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Hide the words' }));
+    cleanup();
+    // Below 768 px the row's copy is hidden: the card's hides the words, and the focus comes back to More, reading Less
+    // as the card is open.
+    const was = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+    try {
+      await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+      openCard();
+      const inCard = screen.getAllByRole('button', { name: 'Hide the words' }).find((b) => b.classList.contains('md:hidden'))!;
+      inCard.focus();
+      fireEvent.click(inCard);
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show the words' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Show the words' }));
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Less' }));
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { value: was, configurable: true });
+    }
+  });
+
   it('turns to the lander, which stands 40° to the left of the Sun of the hour the view opened on (on a wide screen)', async () => {
     const r = stub();
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
@@ -701,6 +756,31 @@ describe('StandView', () => {
     }
   });
 
+  it('with reduced motion today’s card names a flag, or a dot on a phone, for what to watch, and not Play, as Play is off (spec 20.1)', async () => {
+    const was = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
+    try {
+      const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+      await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toBe(FIRST_STEP_STILL), { timeout: 10_000 });
+      await drag();
+      openCard();
+      const card = document.getElementById('stand-card')!;
+      expect(within(card).queryAllByText(/Press Play/)).toHaveLength(0);
+      const st = store.getState();
+      const watch = watchNext(st.series!, st.power, st.startUtc, 10, true);
+      expect(watch.startsWith(`${WATCH_LEAD_STILL} the Sun sets`)).toBe(true);
+      // The line twice, one shown per width, as without reduced motion.
+      const wide = within(card).getByText(watch);
+      const phone = within(card).getByText(/^Press a dot on the time bar to see: /);
+      expect(wide.className).toBe('max-sm:hidden');
+      expect(phone.className).toBe('sm:hidden');
+      expect(asRead(phone.textContent!)).toBe(asRead(watch).replace(WATCH_LEAD_STILL, WATCH_LEAD_STILL_DOTS));
+      expect((screen.getByRole('button', { name: 'Play' }) as HTMLButtonElement).disabled).toBe(true);
+    } finally {
+      window.matchMedia = was;
+    }
+  });
+
   it('shows no first step while the ground builds', async () => {
     let finish = () => {};
     const ready = new Promise<void>((done) => (finish = done));
@@ -788,6 +868,8 @@ describe('StandView', () => {
   it('keeps the card open and the same whatever the view does', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const st = store.getState();
+    // The first step taken, so the card has all its lines (20.1).
+    await drag();
     openCard();
     const watch = watchNext(st.series!, st.power, st.startUtc, 10);
     expect(screen.getByText(watch)).toBeTruthy();
@@ -799,7 +881,7 @@ describe('StandView', () => {
     expect(within(document.getElementById('stand-card')!).getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
   });
 
-  it('keeps the next step in view from 768 px: the better day in gold with its radio, then Change site, Change date, Change lander and Compare sites, and the card leaves its own gold and way on to that row', async () => {
+  it('keeps the next step in view from 768 px: the better day in gold with its radio, then Change, holding Change site, Change date, Change lander and Compare sites, and the card leaves its own gold and way on to that row', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const row = screen.getByRole('group', { name: 'Next step' });
     // A phone keeps the row in today's card, under More: the scene keeps its 55 % (17.1).
@@ -812,6 +894,8 @@ describe('StandView', () => {
     // A chevron, as the phone's chip has, so the gold reads as a way on (read D3: the judge took it for a line of text).
     expect(gold.querySelector('[aria-hidden="true"]')!.textContent!.trim()).toBe('›');
     expect(gold.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
+    // The other ways on wait under Change (20.1).
+    fireEvent.click(within(row).getByRole('button', { name: 'Change' }));
     expect(within(row).getByRole('link', { name: 'Change site' }).getAttribute('href')).toBe('/sites');
     expect(within(row).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     expect(within(row).getByRole('button', { name: 'Change lander' })).toBeTruthy();
@@ -824,8 +908,113 @@ describe('StandView', () => {
     expect(within(card).getByRole('button', { name: 'Change lander' }).className).toMatch(/\bmd:hidden\b/);
   });
 
+  it('gathers the next step’s links under one Change from 768 px, the gold link left beside it (spec 20.1)', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const row = screen.getByRole('group', { name: 'Next step' });
+    // Before a tap the row holds the gold link, then Change, and nothing else: the four ways to change wait under it.
+    const gold = within(row).getByRole('link', { name: /^Try 20 January instead/ });
+    const change = within(row).getByRole('button', { name: 'Change' });
+    expect(within(row).getAllByRole('link')).toHaveLength(1);
+    expect(within(row).getAllByRole('button')).toHaveLength(1);
+    expect(gold.compareDocumentPosition(change) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(row).queryByRole('link', { name: 'Change site' })).toBeNull();
+    expect(within(row).queryByRole('link', { name: 'Change date' })).toBeNull();
+    expect(within(row).queryByRole('button', { name: 'Change lander' })).toBeNull();
+    expect(within(row).queryByRole('button', { name: 'Compare sites' })).toBeNull();
+    // It looks as the row's links did: 40 px tall, 15 px, underlined, with a chevron for its state.
+    for (const c of ['min-h-10', 'text-[15px]', 'underline']) expect(change.classList.contains(c)).toBe(true);
+    expect(change.getAttribute('aria-expanded')).toBe('false');
+    expect(change.querySelector('[aria-hidden="true"]')!.textContent).toBe('▾');
+    const list = document.getElementById(change.getAttribute('aria-controls')!)!;
+    expect(list.hidden).toBe(true);
+    // Open, it shows the same ways in the same order and by the same names, in a plate of its own after Change, which
+    // the sky's labels keep clear of: a disclosure of links and buttons, not an ARIA menu.
+    fireEvent.click(change);
+    expect(change.getAttribute('aria-expanded')).toBe('true');
+    expect(change.querySelector('[aria-hidden="true"]')!.textContent).toBe('▴');
+    expect(list.hidden).toBe(false);
+    expect(list.hasAttribute('data-plate')).toBe(true);
+    expect(list.classList.contains('bg-[#060607]')).toBe(true);
+    expect(change.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect([...list.querySelectorAll('a, button')].map((el) => [el.tagName, el.textContent, el.getAttribute('href')])).toEqual([
+      ['A', 'Change site', '/sites'],
+      ['A', 'Change date', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
+      ['BUTTON', 'Change lander', null],
+      ['BUTTON', 'Compare sites', null],
+    ]);
+    for (const way of list.querySelectorAll('a, button')) for (const c of ['min-h-10', 'text-[15px]', 'underline']) expect(way.classList.contains(c)).toBe(true);
+    expect(document.querySelector('[role="menu"], [role="menuitem"]')).toBeNull();
+    // A press inside it keeps it open; Escape closes it and gives the focus back to Change.
+    const date = within(list).getByRole('link', { name: 'Change date' });
+    fireEvent.pointerDown(date);
+    expect(list.hidden).toBe(false);
+    date.focus();
+    fireEvent.keyDown(date, { key: 'Escape' });
+    expect(list.hidden).toBe(true);
+    expect(change.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(change);
+    // A press outside it closes it.
+    fireEvent.click(change);
+    fireEvent.pointerDown(document.body);
+    expect(list.hidden).toBe(true);
+    // So does the focus moving on past it, which it would otherwise cover, and the focus stays where it went.
+    fireEvent.click(change);
+    act(() => within(list).getByRole('button', { name: 'Compare sites' }).focus());
+    const on = screen.getByRole('link', { name: 'Earthrise' });
+    act(() => on.focus());
+    expect(list.hidden).toBe(true);
+    expect(document.activeElement).toBe(on);
+    // So does a way chosen from it, here by the keyboard (the browser's own following of the link is left out).
+    fireEvent.click(change);
+    const site = within(list).getByRole('link', { name: 'Change site' });
+    site.focus();
+    const stay = (e: Event) => e.preventDefault();
+    document.addEventListener('click', stay);
+    try {
+      fireEvent.click(site);
+    } finally {
+      document.removeEventListener('click', stay);
+    }
+    expect(list.hidden).toBe(true);
+    // The focus waits on Change, not on a way the list has hidden.
+    expect(document.activeElement).toBe(change);
+    // Change lander opens the lander dialog in place, the list closing; when the dialog closes the focus is on Change.
+    fireEvent.click(change);
+    fireEvent.click(within(list).getByRole('button', { name: 'Change lander' }));
+    expect(list.hidden).toBe(true);
+    const dialog = await screen.findByRole('dialog', { name: 'The lander' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(change);
+    // Compare sites adds the site to the comparison on the way there, as the gold one does.
+    fireEvent.click(change);
+    fireEvent.click(within(list).getByRole('button', { name: 'Compare sites' }));
+    expect(list.hidden).toBe(true);
+    await waitFor(() => expect(store.getState().compareIds).toContain('de_gerlache_rim_2'), { timeout: 10_000 });
+    cleanup();
+    // With no better day the gold is Compare sites, and Change holds the other three.
+    await open('?site=de_gerlache_rim_2&start=2027-01-20&days=30&hour=10');
+    const next = screen.getByRole('group', { name: 'Next step' });
+    const compare = within(next).getByRole('button', { name: 'Compare sites' });
+    expect(compare.className).toContain('text-[#f6d48a]');
+    const other = within(next).getByRole('button', { name: 'Change' });
+    expect(within(next).getAllByRole('button')).toHaveLength(2);
+    expect(compare.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(other);
+    expect([...document.getElementById(other.getAttribute('aria-controls')!)!.querySelectorAll('a, button')].map((el) => el.textContent)).toEqual(['Change site', 'Change date', 'Change lander']);
+  }, 40_000);
+
+  it('keeps the plate to 60 words before a tap at 1440 (spec 20.1)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    // The headline, the gold link and Change, then the moment's state and the way to the evidence.
+    const plate = screen.getByRole('button', { name: 'More' }).closest<HTMLElement>('[data-plate]')!;
+    expect(visibleWords(plate, WIDE).length).toBeLessThanOrEqual(60);
+  });
+
   it('links to Earthrise, How it works and Accuracy from 768 px on the plate, and in the card on a phone (19.3)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    // The first step taken, so the help line the links sit above shows (20.1).
+    await drag();
     openCard();
     const navs = screen.getAllByRole('navigation', { name: 'Sections' });
     expect(navs).toHaveLength(2);
@@ -891,9 +1080,16 @@ describe('StandView', () => {
     expect(document.querySelector('a[data-chip]')).toBeNull();
   });
 
-  it('leads what to watch with Play and a flag, or a dot on a phone, said once to a screen reader (18.2)', async () => {
+  it('leads what to watch with Play and a flag, or a dot on a phone, said once to a screen reader, once the first step has gone (18.2, 20.1)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    // While the first step shows over the view, the card leaves the line out in both its forms, and the help line with it.
+    await firstStep();
     openCard();
+    expect(screen.queryAllByText(/^Press Play, or a (flag|dot) on the time bar/)).toHaveLength(0);
+    expect(screen.queryByText(HELP)).toBeNull();
+    // After the first drag, both.
+    await drag();
+    expect(screen.getByText(HELP)).toBeTruthy();
     const wide = screen.getByText(/^Press Play, or a flag on the time bar, to watch: the Sun sets/);
     const phone = screen.getByText(/^Press Play, or a dot on the time bar, to watch: the Sun sets/);
     // The same line twice, one shown per width; neither is hidden from a screen reader by hand: display: none does it.
@@ -905,13 +1101,15 @@ describe('StandView', () => {
     expect(asRead(phone.textContent!)).toBe(asRead(wide.textContent!).replace(WATCH_LEAD, WATCH_LEAD_DOTS));
   });
 
-  it('opens the lander dialog in place from Change lander, the verdict follows the lander chosen there, the view keeps its renderer, and the focus comes back (18.3)', async () => {
+  it('opens the lander dialog in place from Change lander under Change, the verdict follows the lander chosen there, the view keeps its renderer, and the focus comes back to Change (18.3, 20.1)', async () => {
     const setScene = vi.fn();
     const make = vi.fn(() => ({ ...stub(), setScene }));
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', make);
     const before = screen.getByRole('heading', { level: 1 }).textContent;
-    const button = within(screen.getByRole('group', { name: 'Next step' })).getByRole('button', { name: 'Change lander' });
+    const row = screen.getByRole('group', { name: 'Next step' });
+    const button = within(row).getByRole('button', { name: 'Change' });
     fireEvent.click(button);
+    fireEvent.click(within(row).getByRole('button', { name: 'Change lander' }));
     const dialog = await screen.findByRole('dialog', { name: 'The lander' });
     const other = within(within(dialog).getByRole('radiogroup', { name: 'Lander' })).getAllByRole('radio').find((r) => !(r as HTMLInputElement).checked)!;
     fireEvent.click(other);
