@@ -43,8 +43,9 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   they show once you look up, away from the bright ground). A lander stands 16 m away, with rocks and
   small craters around you: these are drawn, not measured, and the view says so. A plate at the top
   gives the answer first (power, radio contact, the days without power), the next step under it and
-  the lander's state for the hour at its foot; "More" opens today's card; the time bar below plays the period and carries flags for its key moments (the
-  Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back).
+  the lander's state for the hour at its foot; "More" opens today's card; the time bar below plays the period at a day a second (2× and 4× on its speed button), stops on each
+  of its key moments and turns the view there (the Sun going behind the hills, the battery running out,
+  Earth coming into view, the Sun coming back), which show as dots on the bar, and Next steps to them.
   `?hour=` sets the hour and `?quality=fast` lightens the drawing for weaker graphics; without WebGL 2
   the horizon chart stands in, with the same words.
 - **Compare sites** (`/compare`): up to four sites in one table for the same days and lander:

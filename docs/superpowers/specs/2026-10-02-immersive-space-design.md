@@ -851,7 +851,22 @@ The user's asks two days before the event: the player (the time bar) more intuit
 
 ### 21.1 The player
 
-To follow, from the critique of the bar in use (scratchpad, not committed) and the user's four points.
+A critique of the bar in use (the production build driven at 1440, 768 and 390 px with touch) found: Play slow and fixed (a month in 60 s, 33 s of it one night), a moment's line gone in 0.74 s, Play fighting the hand (it ran on while the track was held), the phone's "Next" chip a label that sent taps to the dots under it, a 32 px slider over a 47 px box whose lanes took no presses and no time shown under the pointer, a bar of 163 px and 54 words at 1440 (five boxed flags in two rows, three at 768), no key to a moment, nothing at the end. So:
+
+- **Speed.** Play moves a day a second (`PLAY_HPS` 24: still 12 steps a second, 2 hours a step), with a speed button beside it that cycles 1×, 2× and 4×; off, with Play, under reduced motion. The view glides between steps at 7/6 of Play's pace (`glideStep`), so the light moves smoothly at any speed.
+- **Holds.** No step jumps a moment: Play lands on each moment's hour and holds there (2.5 s on the stand view, 1 s on Explore), so its line can be read.
+- **Play follows the story.** On the stand view each moment Play holds on turns the view to what it is about, as its dot does, until the visitor turns the view by hand or with Turn to or Look up; the next Play follows again.
+- **Play gives way to the hand.** A press on the track, a dot or Next, or a key on the slider pauses Play. Space plays and pauses (on the stand view from anywhere but a button, a link, a field or a dialog). At the end Play reads "Replay" and starts again from the first hour.
+- **One primary control.** Play has the ink fill and one width for Play, Pause and Replay; it keeps its word on a phone.
+- **Next.** A button beside Play names the next moment ("Next: Sunset, 3 Jan") and takes the time there; Shift with an arrow on the slider steps between moments. After the last moment there is none.
+- **Dots, not flags.** The moments are dots on the strip at every width, gold for the moment the time is on, each with a target of its own; their words move to Next, the readout and the dots' names. Explore's bar has them too, with Next.
+- **One target and a readout.** The slider covers the strip and its lanes (47 px with the lanes). Under a mouse, or a finger held down, a plate over the track shows the date and hour there and, on the stand view, that hour's words from the key ("night · lander off · Earth in view"), or a dot's moment; it only previews. On Explore the date, the sentence and the chart's time line follow it.
+- **On a phone the key folds** behind "Key ▾" after the date, so the scene keeps its room; from 640 px it shows as before.
+- What to watch, in today's card, names the bar's two buttons: "Press Play, or Next on the time bar, to watch:" (with reduced motion, "Press Next on the time bar to see:").
+
+This replaces 13.1's twelve hours a second and flags, 13.3 and 15.1's keys with no Key button on a phone, 15.1's 32 px slider, 18.3's flags in up to three rows, the phone chip that was a label, and plan B's rule that Play shows a moment's line without turning the view.
+
+**As built.** Next keeps the width of the period's longest moment, its words centred, and the date that of its widest, so nothing beside them moves as the time does (sizers drawn by the stylesheet, so the page's words hold each name once); after the last moment its place stays, empty. On a phone Next starts a row of its own under Play with "Key ▾" at its end, in the room the three lines of keys took. The stand view's bar drops the chart's inset at every width (no chart above it); on Explore's phone the inset stays with the track alone, under the chart's plot, so the date keeps one line. Measured in the built app: the stand view's bar is 163 px at 1440 with 41 words (163 px and 54 words before), 203 px at 768 (227) and 203 px on a phone with 19 words (204 px, 49 words); Explore's is 124 px at 1440 (80) and 205 px on a phone (142), the cost of Next and the dots there. Explore's sentence can still take a second line at hours whose words are long, as before.
 
 ### 21.2 Rocky, redesigned
 
