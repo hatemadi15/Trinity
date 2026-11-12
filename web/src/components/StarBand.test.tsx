@@ -72,6 +72,21 @@ describe('StarBand', () => {
     expect(String(vi.mocked(globalThis.fetch).mock.calls[0][0])).toMatch(/\/sky\/stars\.bin$/);
   });
 
+  it('stands out of the page’s flow by itself, so a page whose stylesheet failed to load never grows with it', async () => {
+    // Measured in a browser whose stylesheet did not load: the canvas sat in the flow, each redraw made the page taller,
+    // the page's new size drew it again, taller, and the tab ran out of memory.
+    const { StarBand } = await import('./StarBand');
+    const { container } = render(
+      <div>
+        <StarBand />
+        <header />
+      </div>,
+    );
+    const canvas = container.querySelector('canvas')!;
+    expect(canvas.style.position).toBe('absolute');
+    expect([canvas.style.top, canvas.style.left, canvas.style.right]).toEqual(['0px', '0px', '0px']);
+  });
+
   it('leaves the page as it is, with no stars and no error, when the catalogue cannot be fetched', async () => {
     const { StarBand } = await import('./StarBand');
     const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext');

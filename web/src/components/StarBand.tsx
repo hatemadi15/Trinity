@@ -80,5 +80,7 @@ export function StarBand() {
       watch?.disconnect();
     };
   }, []);
-  return <canvas ref={ref} aria-hidden="true" data-star-band="" className="star-band pointer-events-none absolute inset-x-0 top-0 w-full" />;
+  // Out of the page's flow by itself, not by the stylesheet alone: a page whose stylesheet failed to load would otherwise
+  // take the canvas into its height, draw it again for the new size, taller, and grow until the tab runs out of memory.
+  return <canvas ref={ref} aria-hidden="true" data-star-band="" className="star-band pointer-events-none absolute inset-x-0 top-0 w-full" style={{ position: 'absolute', top: 0, left: 0, right: 0 }} />;
 }
