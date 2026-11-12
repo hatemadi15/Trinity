@@ -6,7 +6,7 @@ import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
 import { EARTH_LOOP, starLabel } from '@/lib/viz/stand';
-import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, fitPitch, horizonLift, inflate, labelSides, letterShown, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, STRIP_H, subjectFloor, withBody, zoomedOnLander, type RendererLike } from './StandCanvas';
+import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, glideStep, fitPitch, horizonLift, inflate, labelSides, letterShown, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, STRIP_H, subjectFloor, withBody, zoomedOnLander, type RendererLike } from './StandCanvas';
 
 describe('the pointers on a phone', () => {
   it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
@@ -119,6 +119,29 @@ describe('turning the view', () => {
     expect(easeStep(0.5)).toBeCloseTo(1 - Math.exp(-2.5), 9);
     expect(easeStep(2)).toBeCloseTo(easeStep(0.5), 9);
     expect(easeStep(-1)).toBe(0);
+  });
+});
+
+describe('the time following Play (spec 21.1)', () => {
+  it('glides at the old pace for the old Play: 14 hours a second, and jumps beyond two hours', () => {
+    expect(glideStep(10, 11, 0.05, 12)).toBeCloseTo(10.7, 9);
+    expect(glideStep(10, 11, 0.5, 12)).toBe(11);
+    expect(glideStep(10, 13, 0.05, 12)).toBe(13);
+    expect(glideStep(10, 8, 0.05, 12)).toBeCloseTo(9.3, 9);
+  });
+
+  it('keeps up with Play at any speed: each step of 12 a second caught up within its own twelfth of a second, more than two steps a jump', () => {
+    for (const hps of [24, 48, 96]) {
+      const step = hps / 12;
+      // One step behind: there within the step's time, gliding, not jumping.
+      expect(glideStep(100, 100 + step, 1 / 12, hps)).toBe(100 + step);
+      const part = glideStep(100, 100 + step, 1 / 60, hps);
+      expect(part).toBeGreaterThan(100);
+      expect(part).toBeLessThan(100 + step);
+      // Two steps behind, as after a slow frame: still a glide; beyond two, a jump.
+      expect(glideStep(100, 100 + 2 * step, 1 / 60, hps)).toBeLessThan(100 + 2 * step);
+      expect(glideStep(100, 100 + 2.5 * step, 1 / 60, hps)).toBe(100 + 2.5 * step);
+    }
   });
 });
 
