@@ -37,9 +37,7 @@ import {
   viewCaption,
   watchNext,
   WATCH_LEAD,
-  WATCH_LEAD_DOTS,
   WATCH_LEAD_STILL,
-  WATCH_LEAD_STILL_DOTS,
   whyLines,
   type MomentKind,
 } from './stand';
@@ -565,7 +563,7 @@ describe('what to watch for', () => {
     earthVisible: Array.from({ length: hours }, (_, h) => (h >= 200 && h < 500 ? 1 : 0)),
   });
   const start = '2027-01-01T00:00:00';
-  // The key moments are flags on the time bar under the card: the line says they can be pressed.
+  // The key moments are dots on the time bar under the card, and Next steps to them: the line says Next can be pressed.
   it('names the next thing that happens, and its day, and what follows within three days', () => {
     expect(watchNext(s, p, start, 10)).toBe(`${WATCH_LEAD} the Sun sets behind the hills on 4 January, and the battery runs out on 5 January.`);
     expect(watchNext(s, p, start, 80)).toBe(`${WATCH_LEAD} the battery runs out on 5 January.`);
@@ -573,13 +571,11 @@ describe('what to watch for', () => {
     expect(watchNext(s, p, start, 467)).toBe(`${WATCH_LEAD} the power comes back on 20 January, if the lander survives 15 days without power at night, colder than −170 °C.`);
     expect(watchNext(s, null, start, 200)).toBe(`${WATCH_LEAD} the Sun rises on 20 January.`);
   });
-  it('starts what to watch with Play and the flags, and has a lead for a phone, where the flags are dots', () => {
-    expect(WATCH_LEAD).toBe('Press Play, or a flag on the time bar, to watch:');
-    expect(WATCH_LEAD_DOTS).toBe('Press Play, or a dot on the time bar, to watch:');
+  it('starts what to watch with Play and Next, the time bar’s two buttons at every width (spec 21.1)', () => {
+    expect(WATCH_LEAD).toBe('Press Play, or Next on the time bar, to watch:');
   });
-  it('leaves Play out of what to watch with reduced motion, as Play is off then, and keeps the flags, or the dots on a phone (spec 20.1)', () => {
-    expect(WATCH_LEAD_STILL).toBe('Press a flag on the time bar to see:');
-    expect(WATCH_LEAD_STILL_DOTS).toBe('Press a dot on the time bar to see:');
+  it('leaves Play out of what to watch with reduced motion, as Play is off then, and keeps Next (spec 20.1, 21.1)', () => {
+    expect(WATCH_LEAD_STILL).toBe('Press Next on the time bar to see:');
     expect(watchNext(s, p, start, 10, true)).toBe(`${WATCH_LEAD_STILL} the Sun sets behind the hills on 4 January, and the battery runs out on 5 January.`);
     expect(watchNext(s, p, start, 467, true)).toBe(`${WATCH_LEAD_STILL} the power comes back on 20 January, if the lander survives 15 days without power at night, colder than −170 °C.`);
     // With nothing more to happen in the period, the time bar moves the light by hand.

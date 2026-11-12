@@ -133,6 +133,17 @@ describe('ExploreView', () => {
     expect(bar.textContent).not.toBe(before);
   });
 
+  it('puts the period’s key moments on its time bar as dots, with Next to step to them, as the stand view does (21.1)', async () => {
+    const { store } = await open();
+    const bar = screen.getByRole('region', { name: 'Time' });
+    const dots = within(within(bar).getByRole('group', { name: 'Jump to a moment' })).getAllByRole('button');
+    expect(dots.map((b) => b.getAttribute('aria-label') ?? b.textContent)).toContain('Sunset, 3 Jan');
+    // Next takes the time to the first moment, hour 67, when the Sun goes behind the hills on 3 January.
+    fireEvent.click(within(bar).getByRole('button', { name: /^Next: Sunset, 3 Jan/ }));
+    expect(store.getState().cursorHour).toBe(67);
+    await waitFor(() => expect(bar.textContent).toMatch(/Sun behind a hill/));
+  });
+
   it('opens the lander settings from the band and applies a preset', async () => {
     const { store } = await open();
     fireEvent.click(screen.getByRole('button', { name: /^Small lander: / }));

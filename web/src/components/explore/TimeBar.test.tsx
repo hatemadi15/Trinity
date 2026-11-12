@@ -1,12 +1,28 @@
 // @vitest-environment jsdom
 import fs from 'node:fs';
 import path from 'node:path';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { Series } from '@/lib/engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '@/lib/engine/power';
 import { PLOT_GRID } from './TimeChart';
-import { dotShifts, momentRows, TimeBar } from './TimeBar';
+import { dotShifts, PLAY_HPS, SPEEDS, TimeBar } from './TimeBar';
+
+// jsdom has no PointerEvent; this one carries the pointer's id and its kind (mouse, touch or pen) on top of the mouse
+// event's position.
+if (typeof window.PointerEvent === 'undefined') {
+  class PointerEventPolyfill extends MouseEvent {
+    pointerId: number;
+    pointerType: string;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 0;
+      this.pointerType = init.pointerType ?? '';
+    }
+  }
+  window.PointerEvent = PointerEventPolyfill as unknown as typeof PointerEvent;
+}
 
 const CFG: PowerConfig = { ...DEFAULT_POWER, panel: 'full_tracking', areaM2: 1, efficiency: 1, loadW: 100, batteryWh: 1000 };
 const HOURS = 72;
@@ -25,6 +41,8 @@ const series: Series = {
 };
 const power = powerBudget(series, CFG);
 const START = '2027-01-01T00:00:00';
+/** A little over one of Play's steps, which come twelve a second. */
+const STEP = 84;
 
 /** The colours of the stand view's dark theme, where the bar carries the dates, from globals.css (its block sits in `@media screen`). */
 const DARK: Record<string, string> = (() => {
@@ -49,19 +67,21 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-function show(cursor: number, extra: Partial<Parameters<typeof TimeBar>[0]> = {}) {
+type Props = Parameters<typeof TimeBar>[0];
+
+function show(cursor: number, extra: Partial<Props> = {}) {
   const onCursor = vi.fn();
   const view = render(<TimeBar series={series} power={power} startUtc={START} cursor={cursor} hoverHour={null} batteryWh={CFG.batteryWh} onCursor={onCursor} {...extra} />);
   return { onCursor, ...view };
 }
 
 /**
- * A period of `days` days from START under a steady Sun with Earth out of view, for the dates and the
- * bands under the sunlight; `over` swaps in other hours of the Sun or of Earth.
+ * A period of `days` days from START under a steady Sun with Earth out of view, for the dates and the bands under
+ * the sunlight; `over` swaps in other hours of the Sun or of Earth.
  */
-function showPeriod(days: number, extra: Partial<Parameters<typeof TimeBar>[0]> = {}, over: Partial<Series> = {}) {
+function steady(days: number, over: Partial<Series> = {}): Series {
   const hours = days * 24;
-  const steady: Series = {
+  return {
     i0: 0,
     hours,
     sunAz: new Float64Array(hours),
@@ -73,8 +93,40 @@ function showPeriod(days: number, extra: Partial<Parameters<typeof TimeBar>[0]> 
     sunAu: new Float64Array(hours).fill(1),
     ...over,
   };
-  return render(<TimeBar series={steady} power={null} startUtc={START} cursor={0} hoverHour={null} batteryWh={0} onCursor={vi.fn()} {...extra} />);
 }
+function showPeriod(days: number, extra: Partial<Props> = {}, over: Partial<Series> = {}) {
+  return render(<TimeBar series={steady(days, over)} power={null} startUtc={START} cursor={0} hoverHour={null} batteryWh={0} onCursor={vi.fn()} {...extra} />);
+}
+
+/**
+ * The bar on a page that keeps the hour, as the pages do: each hour the bar asks for (Play's steps, the slider, a
+ * dot) comes back to it as its hour. `onCursor` records the hours asked for.
+ */
+function playPage(s: Series, start: number, extra: Partial<Props> = {}) {
+  const onCursor = vi.fn();
+  function Page() {
+    const [hour, setHour] = useState(start);
+    return (
+      <TimeBar
+        series={s}
+        power={null}
+        startUtc={START}
+        hoverHour={null}
+        batteryWh={0}
+        {...extra}
+        cursor={hour}
+        onCursor={(h) => {
+          onCursor(h);
+          setHour(h);
+        }}
+      />
+    );
+  }
+  return { onCursor, ...render(<Page />) };
+}
+/** The hours the bar has asked the page for, in order. */
+const asked = (onCursor: Mock) => onCursor.mock.calls.map(([h]) => h as number);
+
 const dateLabels = () => [...screen.getByTestId('dates').querySelectorAll<HTMLElement>('[data-date]')];
 /** The labels left out on a track narrower than `px`, so that the rest do not crowd. */
 const leftOutBelow = (px: number) => dateLabels().filter((l) => l.className.includes(`@max-[${px}px]:hidden`)).map((l) => l.textContent);
@@ -89,19 +141,8 @@ const heightPx = (el: Element) => {
 };
 /** The box the sunlight strip and the bands under it share. */
 const stripBox = (container: HTMLElement) => container.querySelector('[data-part="track"] svg')!.parentElement!;
-/**
- * The stand view's key moments over 30 days from START, in order of time: the Sun sets on the 3rd, the
- * battery runs out on the 4th, Earth comes into view on the 10th, and the Sun and the power come back on the 20th.
- */
-const MOMENTS = [
-  { label: 'Sunset 3 Jan', hour: 50 },
-  { label: 'Battery runs out 4 Jan', hour: 76 },
-  { label: 'Earth in view 10 Jan', hour: 216 },
-  { label: 'Sun and power back 20 Jan', hour: 456 },
-];
-const flagsOf = (container: HTMLElement) => [...container.querySelectorAll<HTMLButtonElement>('[data-part="moment"]')];
-/** The stem of each flag, in the order of the flags. */
-const stemsOf = (container: HTMLElement) => flagsOf(container).map((f) => f.querySelector<HTMLElement>('[data-part="moment-stem"]')!);
+/** The buttons of the moments' dots, in order of time. */
+const dotsOf = (container: HTMLElement) => [...container.querySelectorAll<HTMLButtonElement>('[data-part="moment"]')];
 /** Diagonal stripes of the radio band's green at 45°, with the ground between them clear. */
 const HATCHED = /(?:^| )bg-\[repeating-linear-gradient\(45deg,var\(--good\)_[^\]\s]*transparent[^\]\s]*\)\](?: |$)/;
 /** The radio band's stretches over a period of `hours`, as hours from the start, and whether each is hatched. */
@@ -110,13 +151,13 @@ const contactRunsOf = (container: HTMLElement, hours: number) =>
     const from = Math.round((parseFloat(r.style.left) / 100) * hours);
     return { from, to: from + Math.round((parseFloat(r.style.width) / 100) * hours), hatched: r.hasAttribute('data-if-survives') };
   });
-/** The words of the key's entries, in order. */
 /** A key entry's words as a wide screen shows them (the hatched entry has a shorter copy for a phone, 18.3). */
 const wordsOf = (k: Element) => k.querySelector('[data-wide]')?.textContent ?? k.textContent;
+/** The words of the key's entries, in order. */
 const keyWords = (container: HTMLElement) => [...container.querySelectorAll<HTMLElement>('[data-part^="key"]')].map(wordsOf);
 /**
- * A length in px from a class such as `max-sm:h-[27px]` or `max-sm:h-10` (a Tailwind step of 4 px): `prop` is
- * the utility (h, w, size), `prefix` the variant before it ('' for none, 'max-sm:' on a phone).
+ * A length in px from a class such as `h-[27px]` or `h-10` (a Tailwind step of 4 px): `prop` is the utility (h, w,
+ * size), `prefix` the variant before it ('' for none, 'max-sm:' on a phone).
  */
 const classPx = (el: Element, prop: string, prefix = '') => {
   for (const c of (el.getAttribute('class') ?? '').split(/\s+/)) {
@@ -133,8 +174,8 @@ const classPx = (el: Element, prop: string, prefix = '') => {
 const textSizes = (container: HTMLElement) =>
   [...container.querySelectorAll('*')].flatMap((el) => [...el.classList].flatMap((c) => /(?:^|:)text-\[(\d+(?:\.\d+)?)px\]$/.exec(c)?.[1] ?? []).map(Number));
 /**
- * The stand view's key moments as it labels them, with a comma before the day; the Sun and the power back
- * together is "Sun back", as the power needs the lander to have survived the night.
+ * The stand view's key moments as it labels them, with a comma before the day: the Sun sets on the 3rd, the
+ * battery runs out on the 4th, Earth comes into view on the 10th, and the Sun comes back on the 20th.
  */
 const STAND_MOMENTS = [
   { label: 'Sunset, 3 Jan', hour: 50 },
@@ -148,13 +189,15 @@ const STAND_MOMENTS = [
  * the 10th; the Sun and the power come back on the 20th, while Earth is still in view, until the 23rd. So all
  * its radio contact, the 20th to the 23rd, needs the lander to have survived the night.
  */
-function showStandPeriod(extra: Partial<Parameters<typeof TimeBar>[0]> = {}) {
-  const sunFraction = Float64Array.from({ length: 720 }, (_, h) => (h < 50 || h >= 456 ? 1 : 0));
-  const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
-  const powered = Uint8Array.from({ length: 720 }, (_, h) => (h >= 76 && h < 456 ? 0 : 1));
-  return showPeriod(30, { dates: true, powered, ifSurvivesFrom: 456, ...extra }, { sunFraction, earthVisible });
+const STAND_SKY = {
+  sunFraction: Float64Array.from({ length: 720 }, (_, h) => (h < 50 || h >= 456 ? 1 : 0)),
+  earthVisible: Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0)),
+};
+const STAND_POWERED = Uint8Array.from({ length: 720 }, (_, h) => (h >= 76 && h < 456 ? 0 : 1));
+function showStandPeriod(extra: Partial<Props> = {}) {
+  return showPeriod(30, { dates: true, powered: STAND_POWERED, ifSurvivesFrom: 456, ...extra }, STAND_SKY);
 }
-/** A ResizeObserver whose one report sets the width the flags' row measures; call the result inside act(). */
+/** A ResizeObserver whose one report sets the width the moments' row measures; call the result inside act(). */
 function measuredTrack(): (px: number) => void {
   let report: ((entries: { contentRect: { width: number } }[]) => void) | null = null;
   class FakeObserver {
@@ -167,16 +210,34 @@ function measuredTrack(): (px: number) => void {
   vi.stubGlobal('ResizeObserver', FakeObserver);
   return (px) => report!([{ contentRect: { width: px } }]);
 }
+/** Where the target of a moment's dot starts along a track `trackPx` wide, in px: at its hour's share, then by its own margin (`--dot-x`). */
+const dotTargetLeft = (b: HTMLElement, trackPx: number) => (parseFloat(b.style.left) / 100) * trackPx + parseFloat(b.style.getPropertyValue('--dot-x'));
 /**
- * Where the target of a moment's dot starts along a track `trackPx` wide, in px: at its hour's share, back by
- * the whole target when its flag ends at its hour, then by its own margin (`--dot-x`).
+ * Gives the slider a size on screen, 14 px wider than the hours it runs over from the first to the `last`: its
+ * handle is 14 px wide, and its middle runs from 7 px in at one end to 7 px in at the other. So the hour under the
+ * pointer is its x less 7 px.
  */
-const dotTargetLeft = (b: HTMLElement, trackPx: number) =>
-  (parseFloat(b.style.left) / 100) * trackPx + (b.style.transform === 'translateX(-100%)' ? -24 : 0) + parseFloat(b.style.getPropertyValue('--dot-x'));
+function sizeSlider(last: number): HTMLElement {
+  const slider = screen.getByRole('slider', { name: 'Time' });
+  const width = last + 14;
+  vi.spyOn(slider, 'getBoundingClientRect').mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: width, bottom: 47, width, height: 47, toJSON: () => ({}) });
+  return slider;
+}
+const peekOf = (container: HTMLElement) => container.querySelector<HTMLElement>('[data-part="peek"]');
+/** The share of the track a plate is drawn back by, from its `translateX(-…%)`. */
+const drawnBack = (el: HTMLElement) => Number(/^translateX\(-?([\d.]+)%\)$/.exec(el.style.transform)?.[1]);
+/** One rule of globals.css, by its selector exactly, and a length in it in px. */
+const css = fs.readFileSync(path.resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
+const rule = (selector: string) => {
+  const at = css.indexOf(`${selector} {`);
+  return at < 0 ? '' : css.slice(at, css.indexOf('}', at));
+};
+const lengthIn = (body: string, prop: string) => Number(new RegExp(`(?:^|[\\s;{])${prop}:\\s*(-?\\d+(?:\\.\\d+)?)px`).exec(body)?.[1]);
 
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('TimeBar', () => {
@@ -186,26 +247,64 @@ describe('TimeBar', () => {
     expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth behind a hill, battery 100 %');
   });
 
-  it("lines its track up under the chart's plot: the chart's grid, inset by the chart panel's edge", () => {
+  it("lines its track up under the chart's plot: the chart's grid, inset by the chart panel's edge, Play in the column of the row names", () => {
     show(6);
     const bar = screen.getByRole('region', { name: 'Time' });
     const grid = bar.querySelector<HTMLElement>('[data-part="bar-grid"]')!;
     for (const c of PLOT_GRID.split(' ')) expect(grid.classList.contains(c)).toBe(true);
     expect(grid.className).toMatch(/\bpx-\[25px\]/);
-    // Play sits in the column of the row names; the date, the words and the track in the column of the plot.
-    expect(screen.getByRole('button', { name: /Play/ }).className).toMatch(/\brow-span-2\b/);
+    // Play first, in the column of the row names; the date's line and the track in the column of the plot.
+    expect(grid.firstElementChild).toBe(screen.getByRole('button', { name: 'Play' }));
     const track = screen.getByRole('slider', { name: 'Time' }).closest<HTMLElement>('[data-part="track"]')!;
-    expect(track.className).toMatch(/\bcol-start-2\b/);
-    // The date and the words share one line.
-    expect(screen.getByTestId('when').parentElement).toBe(screen.getByTestId('status').parentElement);
+    expect(track.className).toMatch(/(^| )col-start-2( |$)/);
+    // On a phone the date's line takes the bar's whole width, so the date and hour keep one line beside Play and the
+    // speed (21.1); the track keeps the inset, under the chart's plot, inset by as much there.
+    expect(grid.classList.contains('max-sm:px-0')).toBe(true);
+    expect(track.classList.contains('max-sm:mx-[25px]')).toBe(true);
+    // The sentence wraps evenly, never leaving a lone word ("%") on a line of its own.
+    expect(screen.getByTestId('status').classList.contains('text-pretty')).toBe(true);
+    // The date's line starts with the speed, right after Play, and carries the date and the words.
+    const line = grid.querySelector<HTMLElement>('[data-part="line"]')!;
+    expect(line.previousElementSibling).toBe(grid.firstElementChild);
+    expect(line.firstElementChild).toBe(screen.getByRole('button', { name: /^Speed / }));
+    expect(line.contains(screen.getByTestId('when'))).toBe(true);
+    expect(line.contains(screen.getByTestId('status'))).toBe(true);
   });
 
-  it('keeps the bar short: Play shows only its sign on a phone, and the days are left to the chart the track lines up with', () => {
+  it("keeps Play's word beside its sign on a phone in every mode, Explore's too, and leaves the days to the chart the track lines up with", () => {
+    for (const mode of [{}, { dates: true, powered: power.powered, compact: true }, { dates: true, bare: true }]) {
+      show(6, mode);
+      const word = screen.getByRole('button', { name: 'Play' }).querySelector('span')!;
+      expect(word.textContent).toBe('Play');
+      expect(word.className).not.toMatch(/sr-only|hidden/);
+      cleanup();
+    }
     show(6);
-    const word = screen.getByRole('button', { name: /Play/ }).querySelector('span')!;
-    expect(word.textContent).toBe('Play');
-    expect(word.className).toMatch(/max-sm:sr-only/);
     expect(screen.queryByTestId('ticks')).toBeNull();
+    expect(screen.queryByTestId('dates')).toBeNull();
+  });
+
+  it('on a phone puts Play and the speed beside the date, and gives the line after them the whole width of the bar', () => {
+    const { container } = show(6, { dates: true, powered: power.powered, compact: true });
+    const grid = container.querySelector<HTMLElement>('[data-part="bar-grid"]')!;
+    // Three columns there, Play's, the speed's and the date's, 8 px apart, and rows flush, as the targets are 40 px tall.
+    for (const c of ['max-sm:grid-cols-[auto_auto_minmax(0,1fr)]', 'max-sm:gap-x-2', 'max-sm:gap-y-0']) expect(grid.classList.contains(c)).toBe(true);
+    // The date's line gives up its own box there, so the speed and the date take a column each, and what follows a row
+    // of the bar's whole width.
+    expect(grid.querySelector('[data-part="line"]')!.classList.contains('max-sm:contents')).toBe(true);
+    const track = container.querySelector<HTMLElement>('[data-part="track"]')!;
+    for (const c of ['max-sm:col-span-3', 'max-sm:col-start-1', 'max-sm:mt-1']) expect(track.classList.contains(c)).toBe(true);
+    // No chart above the stand view's bar to line the track up with: it drops the chart panel's inset at every width,
+    // room for Play's word and the speed on a phone and for Next on the date's line from 768 px.
+    expect(grid.classList.contains('px-0')).toBe(true);
+    expect(grid.className).not.toMatch(/px-\[25px\]/);
+    cleanup();
+    // Explore keeps the inset for its track on a phone too, where its chart's plot is inset by as much; its date's line
+    // takes the whole width there (21.1). The stand view's track has none.
+    expect(track.className).not.toMatch(/mx-\[25px\]/);
+    show(6);
+    expect(document.querySelector('[data-part="bar-grid"]')!.classList.contains('px-[25px]')).toBe(true);
+    expect(document.querySelector('[data-part="track"]')!.classList.contains('max-sm:mx-[25px]')).toBe(true);
   });
 
   it('shows the hour under the pointer on the chart while the handle stays put', () => {
@@ -260,61 +359,6 @@ describe('TimeBar', () => {
   it('draws the sunlight of the period as the track', () => {
     const { container } = show(0);
     expect(container.querySelectorAll('[data-part="lit"]')).toHaveLength(2);
-  });
-
-  it('plays an hour at a time from a plain button, not gold or ink, and stops at the end', () => {
-    vi.useFakeTimers();
-    const { onCursor, rerender } = show(69);
-    const play = screen.getByRole('button', { name: 'Play' });
-    expect(play.className).toMatch(/\bbtn\b/);
-    expect(play.className).not.toMatch(/btn-ink|btn-primary/);
-    expect(play.className).not.toMatch(/btn-primary/);
-    fireEvent.click(play);
-    expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy();
-    act(() => {
-      vi.advanceTimersByTime(90);
-    });
-    expect(onCursor).toHaveBeenLastCalledWith(70);
-    rerender(<TimeBar series={series} power={power} startUtc={START} cursor={71} hoverHour={null} batteryWh={CFG.batteryWh} onCursor={onCursor} />);
-    act(() => {
-      vi.advanceTimersByTime(200);
-    });
-    expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy(); // stopped at the last hour
-    expect(onCursor).not.toHaveBeenCalledWith(72);
-  });
-
-  it('starts again from the beginning when Play is pressed at the end', () => {
-    vi.useFakeTimers();
-    const { onCursor } = show(71);
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
-    expect(onCursor).toHaveBeenLastCalledWith(0);
-  });
-
-  it('does not play when the system asks for reduced motion, and says why', () => {
-    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce'), media: query, addEventListener: () => {}, removeEventListener: () => {} }));
-    show(0);
-    expect((screen.getByRole('button', { name: 'Play' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText(/Playback is off because your system asks for reduced motion/)).toBeTruthy();
-  });
-
-  it('tells the page when Play starts, and not when it pauses, the slider moves, a key is pressed or a flag is pressed', () => {
-    vi.useFakeTimers();
-    const onPlay = vi.fn();
-    showPeriod(30, { dates: true, moments: MOMENTS, onPlay });
-    // The slider, the keys and the flags move the time through onCursor, as Play does, so onCursor cannot tell the page
-    // that Play was pressed.
-    const slider = screen.getByRole('slider', { name: 'Time' });
-    fireEvent.change(slider, { target: { value: '5' } });
-    fireEvent.keyDown(slider, { key: 'ArrowRight' });
-    fireEvent.click(screen.getByRole('button', { name: 'Earth in view 10 Jan' }));
-    expect(onPlay).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
-    expect(onPlay).toHaveBeenCalledTimes(1);
-    // Pausing stops the time rather than starting it; the next Play starts it again.
-    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
-    expect(onPlay).toHaveBeenCalledTimes(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
-    expect(onPlay).toHaveBeenCalledTimes(2);
   });
 
   it('leaves out the dates, the hours the lander is off, the hours Earth is in view and the name of the grey unless asked: on Explore the chart above shows them', () => {
@@ -735,16 +779,19 @@ describe('TimeBar', () => {
     }
   });
 
-  it('slims the bar when compact on a medium screen and up: the keys join the line of the date and hour, at its right end, and stay under the date on a phone', () => {
+  it('slims the bar when compact on a medium screen and up: the keys join the line of the date and hour at its right end, in up to two lines, where they have room', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, clockNote: ' (Earth time)' });
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
     expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
-    // In the date's own line of words, after the date and its note.
-    expect(group.parentElement).toBe(screen.getByTestId('when').closest('p'));
-    expect(group.previousElementSibling).toBe(screen.getByTestId('clock-note').parentElement);
-    // On a phone a line of their own under the date, as before; from md up as wide as they are, so they sit beside
-    // the date when they fit (else on the next line, at the right all the same), pushed to the right end.
-    for (const c of ['basis-full', 'md:basis-auto', 'md:ml-auto', 'sm:justify-end', 'flex-wrap', 'items-baseline']) expect(group.classList.contains(c)).toBe(true);
+    // In the date's own line, after the date and its note.
+    expect(container.querySelector('[data-part="line"]')!.contains(group)).toBe(true);
+    expect(screen.getByTestId('clock-note').compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // From md up they ask for 28rem beside the date and Next, room for the five entries in two lines, and take what is
+    // left of the line, their entries at its right end; with less room left they take the next line whole, at the right
+    // all the same.
+    for (const c of ['basis-full', 'md:basis-[28rem]', 'md:grow', 'md:ml-auto', 'sm:justify-end', 'flex-wrap', 'items-baseline']) expect(group.classList.contains(c)).toBe(true);
+    // Each line of entries 20 px tall, so two of them are no taller than Play, the speed and Next beside them.
+    expect(group.classList.contains('leading-5')).toBe(true);
     cleanup();
     // Without compact they keep a line of their own at every width.
     const plain = show(6, { dates: true, powered: power.powered });
@@ -770,17 +817,34 @@ describe('TimeBar', () => {
     expect(screen.getByTestId('status').className).not.toMatch(/hidden/);
   });
 
-  it('on a phone when compact, names the keys under the date, with no Key button to open (13.3)', () => {
+  it('on a phone folds the key behind a "Key ▾" button after the date: 14 px, underlined, a 40 px target, and opens it under the date', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, ifSurvivesFrom: 30, clockNote: ' (Earth time)' });
-    expect(screen.queryByRole('button', { name: 'Key' })).toBeNull();
+    const key = screen.getByRole('button', { name: 'Key' });
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
+    expect(key.textContent).toBe('Key ▾');
+    expect(key.querySelector('[aria-hidden="true"]')!.textContent).toBe(' ▾');
+    // On a phone only: from 640 px up the key shows whole, as it always has.
+    for (const c of ['text-[14px]', 'underline', 'h-10', 'sm:hidden']) expect(key.classList.contains(c)).toBe(true);
+    expect(group.className).not.toMatch(/(^| )(sm|md|lg|xl):hidden( |$)/);
+    // After the date in the bar's order.
+    expect(screen.getByTestId('when').compareDocumentPosition(key) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Folded: the entries do not show on a phone, and the button says so.
+    expect(key.getAttribute('aria-expanded')).toBe('false');
+    expect(group.classList.contains('max-sm:hidden')).toBe(true);
     expect([...group.children].map(wordsOf)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if the lander survives the cold']);
-    // Named on a phone too, under the date, at 14 px with shorter swatches.
-    expect(group.className).not.toMatch(/max-sm:hidden/);
+    fireEvent.click(key);
+    // Opened: under the date at 14 px with shorter swatches, as a phone has shown them.
+    expect(key.getAttribute('aria-expanded')).toBe('true');
+    expect(key.textContent).toBe('Key ▴');
+    expect(group.classList.contains('max-sm:hidden')).toBe(false);
     for (const c of ['flex', 'basis-full', 'flex-wrap', 'items-baseline', 'max-sm:gap-x-2', 'max-sm:[&>span]:text-[14px]', 'max-sm:[&_i]:w-4']) expect(group.classList.contains(c)).toBe(true);
+    // And folded again.
+    fireEvent.click(key);
+    expect(key.getAttribute('aria-expanded')).toBe('false');
+    expect(group.classList.contains('max-sm:hidden')).toBe(true);
   });
 
-  it('on a phone when compact, names only what the bar draws', () => {
+  it('on a phone names in the key only what the bar draws', () => {
     // The stand view's period, where the only radio drawn is hatched: no "radio contact".
     const { container } = showStandPeriod({ compact: true });
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
@@ -793,27 +857,26 @@ describe('TimeBar', () => {
     expect([...keys.children].map((k) => k.textContent)).toEqual(['in sunlight', 'Earth in view', 'radio contact']);
   });
 
-  it('has no Key button without compact or when bare: the keys stay in sight, or are not there at all', () => {
-    const { container } = show(6, { dates: true, powered: power.powered });
+  it("has no Key button where the key is the Sun's alone, as on Explore, or when bare: there is nothing to fold", () => {
+    const { container } = show(6);
     expect(screen.queryByRole('button', { name: 'Key' })).toBeNull();
-    const group = container.querySelector('[data-part="key"]')!.parentElement!;
-    expect(group.className).not.toMatch(/hidden/);
-    expect(group.hasAttribute('id')).toBe(false);
-    expect(screen.getByTestId('when').children).toHaveLength(0);
+    expect(container.querySelector('[data-part="key"]')!.className).not.toMatch(/hidden/);
     cleanup();
     show(6, { dates: true, powered: power.powered, compact: true, bare: true });
     expect(screen.queryByRole('button', { name: 'Key' })).toBeNull();
   });
 
   it('sets every word in the bar at 14 px or more, in every mode and at every width', () => {
-    // Every mode the bar has, with every part it can carry, and its keys open where a button hides them.
+    // Every mode the bar has, with every part it can carry, its key open where a button folds it, and the plate shown.
     const all = { dates: true, powered: power.powered, moments: [{ label: 'Sunset 2 Jan', hour: 24 }, { label: 'Earth in view 2 Jan', hour: 30 }], onMoment: vi.fn(), ifSurvivesFrom: 30, clockNote: ' (Earth time)' };
-    const modes: Partial<Parameters<typeof TimeBar>[0]>[] = [{}, { powered: power.powered }, all, { ...all, compact: true }, { ...all, bare: true }, { ...all, compact: true, bare: true }];
+    const modes: Partial<Props>[] = [{}, { powered: power.powered }, all, { ...all, compact: true }, { ...all, bare: true }, { ...all, compact: true, bare: true }];
     for (const mode of modes) {
       for (const cursor of [6, 24]) {
         const { container } = show(cursor, mode);
         const key = screen.queryByRole('button', { name: 'Key' });
         if (key) fireEvent.click(key);
+        fireEvent.pointerMove(sizeSlider(71), { clientX: 30, pointerType: 'mouse' });
+        expect(peekOf(container)).not.toBeNull();
         const sizes = textSizes(container);
         expect(sizes.length).toBeGreaterThan(0);
         expect(Math.min(...sizes)).toBeGreaterThanOrEqual(14);
@@ -822,9 +885,6 @@ describe('TimeBar', () => {
         cleanup();
       }
     }
-    // The flags too: their words were 13 px.
-    showPeriod(30, { dates: true, moments: MOMENTS });
-    for (const f of flagsOf(document.body)) expect(f.classList.contains('text-[14px]')).toBe(true);
   });
 
   it('writes a note after the date and hour on a wide screen only, in the second ink, on the same line', () => {
@@ -848,7 +908,658 @@ describe('TimeBar', () => {
     expect(screen.getByTestId('when').parentElement!.tagName).toBe('P');
     expect(screen.queryByTestId('clock-note')).toBeNull();
   });
+});
 
+describe('TimeBar: Play', () => {
+  it('plays a day a second at 1×: twelve steps a second, two hours a step', () => {
+    vi.useFakeTimers();
+    expect(PLAY_HPS).toBe(24);
+    const { onCursor } = playPage(series, 0);
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy();
+    act(() => vi.advanceTimersByTime(1000));
+    expect(asked(onCursor)).toEqual([2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24]);
+  });
+
+  it("makes Play the one primary control, filled with ink and never gold: gold is the page's one other action", () => {
+    show(10);
+    const play = screen.getByRole('button', { name: 'Play' });
+    expect(play.classList.contains('btn')).toBe(true);
+    expect(play.classList.contains('btn-ink')).toBe(true);
+    expect(play.className).not.toMatch(/btn-primary|bg-sun|border-sun/);
+    // The bar's other buttons keep the plain edge.
+    for (const b of screen.getAllByRole('button').filter((b) => b !== play)) expect(b.className).not.toMatch(/btn-ink|btn-primary/);
+  });
+
+  it('moves two hours a step for each step of speed, and stops exactly on the last hour', () => {
+    vi.useFakeTimers();
+    const twice = playPage(series, 0, { speed: 2 });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    act(() => vi.advanceTimersByTime(3 * STEP));
+    expect(asked(twice.onCursor)).toEqual([4, 8, 12]);
+    twice.unmount();
+    // At 4× from hour 50 of 71: 58, 66, then a short step onto the last hour, where Play stops.
+    const four = playPage(series, 50, { speed: 4 });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    act(() => vi.advanceTimersByTime(1000));
+    expect(asked(four.onCursor)).toEqual([58, 66, 71]);
+    expect(screen.getByRole('button', { name: 'Replay' })).toBeTruthy();
+  });
+
+  it('cycles its speed 1×, 2×, 4× and back from a button right after Play, 44 px wide and 40 px tall whatever it shows, named for what it means', () => {
+    expect(SPEEDS).toEqual([1, 2, 4]);
+    show(10);
+    const speed = screen.getByRole('button', { name: 'Speed 1×: a day a second' });
+    expect(screen.getAllByRole('button').indexOf(speed)).toBe(screen.getAllByRole('button').indexOf(screen.getByRole('button', { name: 'Play' })) + 1);
+    expect(speed.textContent).toBe('1×');
+    expect(classPx(speed, 'w')).toBe(44);
+    expect(classPx(speed, 'h')).toBe(40);
+    expect(speed.classList.contains('shrink-0')).toBe(true);
+    const look = speed.className;
+    fireEvent.click(speed);
+    expect(speed.getAttribute('aria-label')).toBe('Speed 2×: two days a second');
+    expect(speed.textContent).toBe('2×');
+    fireEvent.click(speed);
+    expect(speed.getAttribute('aria-label')).toBe('Speed 4×: four days a second');
+    expect(speed.textContent).toBe('4×');
+    fireEvent.click(speed);
+    expect(speed.getAttribute('aria-label')).toBe('Speed 1×: a day a second');
+    expect(speed.className).toBe(look);
+  });
+
+  it('plays at a speed chosen while it runs from the next step on, and keeps playing', () => {
+    vi.useFakeTimers();
+    const { onCursor } = playPage(series, 0);
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    act(() => vi.advanceTimersByTime(STEP));
+    fireEvent.click(screen.getByRole('button', { name: /^Speed / }));
+    act(() => vi.advanceTimersByTime(STEP));
+    expect(asked(onCursor)).toEqual([2, 6]);
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy();
+  });
+
+  it('keeps the speed the page gives it, telling the page the next one when pressed, and its own when the page gives none', () => {
+    const onSpeed = vi.fn();
+    const props = { series, power, startUtc: START, cursor: 10, hoverHour: null, batteryWh: CFG.batteryWh, onCursor: vi.fn(), onSpeed };
+    const { rerender } = render(<TimeBar {...props} speed={2} />);
+    const speed = screen.getByRole('button', { name: 'Speed 2×: two days a second' });
+    fireEvent.click(speed);
+    expect(onSpeed).toHaveBeenLastCalledWith(4);
+    // The page decides: until it gives the new speed, the button shows the one it gave.
+    expect(speed.textContent).toBe('2×');
+    rerender(<TimeBar {...props} speed={4} />);
+    expect(speed.getAttribute('aria-label')).toBe('Speed 4×: four days a second');
+    fireEvent.click(speed);
+    expect(onSpeed).toHaveBeenLastCalledWith(1);
+    cleanup();
+    // Given none, the bar keeps its own, from 1×, and tells the page all the same.
+    render(<TimeBar {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Speed 1×: a day a second' }));
+    expect(onSpeed).toHaveBeenLastCalledWith(2);
+    expect(screen.getByRole('button', { name: 'Speed 2×: two days a second' }).textContent).toBe('2×');
+  });
+
+  it('does not play when the system asks for reduced motion, and says why: Play and the speed are off, and Space is the page’s', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce'), media: query, addEventListener: () => {}, removeEventListener: () => {} }));
+    show(0, { spaceToPlay: true });
+    expect((screen.getByRole('button', { name: 'Play' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: /^Speed / }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/Playback is off because your system asks for reduced motion/)).toBeTruthy();
+    expect(fireEvent.keyDown(document.body, { key: ' ' })).toBe(true);
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Time' }), { key: ' ' });
+    expect(screen.queryByRole('button', { name: 'Pause' })).toBeNull();
+  });
+
+  it('stops on each moment it comes to, stepping past none, holds there for a second reading Pause, then goes on, and tells the page it arrived', () => {
+    vi.useFakeTimers();
+    const onArrive = vi.fn();
+    const { onCursor, unmount } = playPage(steady(30), 47, { moments: STAND_MOMENTS, onArrive });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    act(() => vi.advanceTimersByTime(2 * STEP));
+    // Two hours a step from 47 would pass the sunset at 50: the second step stops on it.
+    expect(asked(onCursor)).toEqual([49, 50]);
+    expect(onArrive).toHaveBeenCalledTimes(1);
+    expect(onArrive).toHaveBeenCalledWith(STAND_MOMENTS[0]);
+    // The time first, then the page, which may turn the view to the moment.
+    expect(onCursor.mock.invocationCallOrder[1]).toBeLessThan(onArrive.mock.invocationCallOrder[0]);
+    // A second on the moment, Play still running.
+    act(() => vi.advanceTimersByTime(990));
+    expect(asked(onCursor)).toEqual([49, 50]);
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy();
+    act(() => vi.advanceTimersByTime(10));
+    expect(asked(onCursor)).toEqual([49, 50, 52]);
+    unmount();
+    // At 4× a step from 70 would jump the battery running out at 76: it stops there too.
+    const fast = playPage(steady(30), 70, { moments: STAND_MOMENTS, onArrive, speed: 4 });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    act(() => vi.advanceTimersByTime(STEP));
+    expect(asked(fast.onCursor)).toEqual([76]);
+    expect(onArrive).toHaveBeenLastCalledWith(STAND_MOMENTS[1]);
+  });
+
+  it('holds on a moment for as long as the page asks', () => {
+    vi.useFakeTimers();
+    const { onCursor } = playPage(steady(30), 49, { moments: STAND_MOMENTS, holdMs: 2500 });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    act(() => vi.advanceTimersByTime(STEP));
+    expect(asked(onCursor)).toEqual([50]);
+    act(() => vi.advanceTimersByTime(2400));
+    expect(asked(onCursor)).toEqual([50]);
+    act(() => vi.advanceTimersByTime(100));
+    expect(asked(onCursor)).toEqual([50, 52]);
+  });
+
+  it('does not hold on the hour Play starts from, nor on the first hour when it plays again from the end', () => {
+    vi.useFakeTimers();
+    const onArrive = vi.fn();
+    const from = playPage(steady(30), 50, { moments: STAND_MOMENTS, onArrive });
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    act(() => vi.advanceTimersByTime(STEP));
+    expect(asked(from.onCursor)).toEqual([52]);
+    from.unmount();
+    const again = playPage(steady(30), 719, { moments: [{ label: 'Sunrise, 1 Jan', hour: 0 }, ...STAND_MOMENTS], onArrive });
+    fireEvent.click(screen.getByRole('button', { name: 'Replay' }));
+    act(() => vi.advanceTimersByTime(STEP));
+    expect(asked(again.onCursor)).toEqual([0, 2]);
+    expect(onArrive).not.toHaveBeenCalled();
+  });
+
+  it('gives way to the hand: a press on the track, a dot or Next, or a key on the slider, pauses Play until Play is pressed again', () => {
+    vi.useFakeTimers();
+    const slider = () => screen.getByRole('slider', { name: 'Time' });
+    const presses: [string, () => void][] = [
+      ['a press on the track', () => fireEvent.pointerDown(slider(), { pointerType: 'mouse' })],
+      ['a dot', () => fireEvent.click(screen.getByRole('button', { name: 'Earth in view, 10 Jan' }))],
+      ['Next', () => fireEvent.click(screen.getByRole('button', { name: /^Next: / }))],
+      ...['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].map((key): [string, () => void] => [key, () => fireEvent.keyDown(slider(), { key })]),
+      ['Shift+ArrowRight', () => fireEvent.keyDown(slider(), { key: 'ArrowRight', shiftKey: true })],
+      ['Shift+ArrowLeft', () => fireEvent.keyDown(slider(), { key: 'ArrowLeft', shiftKey: true })],
+    ];
+    for (const [what, press] of presses) {
+      const { onCursor, unmount } = playPage(steady(30), 100, { moments: STAND_MOMENTS });
+      fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+      act(() => vi.advanceTimersByTime(STEP));
+      expect(asked(onCursor), what).toEqual([102]);
+      press();
+      expect(screen.queryByRole('button', { name: 'Pause' }), what).toBeNull();
+      const before = onCursor.mock.calls.length;
+      act(() => vi.advanceTimersByTime(2000));
+      expect(onCursor.mock.calls.length, what).toBe(before);
+      unmount();
+    }
+  });
+
+  it('toggles Play with Space on the slider, without scrolling the page', () => {
+    vi.useFakeTimers();
+    show(10);
+    const slider = screen.getByRole('slider', { name: 'Time' });
+    expect(fireEvent.keyDown(slider, { key: ' ' })).toBe(false);
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy();
+    expect(fireEvent.keyDown(slider, { key: ' ' })).toBe(false);
+    expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy();
+  });
+
+  it('toggles Play with Space anywhere on the page when asked, but not in a button, a link, a field, an editable element or a dialog', () => {
+    vi.useFakeTimers();
+    const page = document.createElement('div');
+    page.innerHTML =
+      '<button type="button">A button</button><a href="#there">A link</a><input aria-label="A field"><select aria-label="A list"><option>One</option></select>' +
+      '<textarea aria-label="Words"></textarea><div contenteditable="true">Editable</div><div role="dialog"><p>In a dialog</p></div><dialog open><p>In a dialog element</p></dialog>';
+    document.body.append(page);
+    try {
+      show(10, { spaceToPlay: true });
+      // From the page itself: Play, then Pause, and the page does not scroll.
+      expect(fireEvent.keyDown(document.body, { key: ' ' })).toBe(false);
+      expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy();
+      expect(fireEvent.keyDown(document.body, { key: ' ' })).toBe(false);
+      expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy();
+      // In each of these Space is theirs: Play stays as it was, and the browser does what it does there.
+      const theirs = page.querySelectorAll('button, a, input, select, textarea, [contenteditable], [role="dialog"] p, dialog p');
+      expect(theirs).toHaveLength(8);
+      for (const el of theirs) {
+        expect(fireEvent.keyDown(el, { key: ' ' }), el.outerHTML).toBe(true);
+        expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy();
+      }
+    } finally {
+      page.remove();
+    }
+    cleanup();
+    // Not asked, Space on the page is the page's.
+    show(10);
+    expect(fireEvent.keyDown(document.body, { key: ' ' })).toBe(true);
+    expect(screen.getByRole('button', { name: 'Play' })).toBeTruthy();
+  });
+
+  it('reads Replay with a ↺ sign at the last hour, and from there plays again from the first hour', () => {
+    vi.useFakeTimers();
+    const { onCursor } = playPage(series, 71);
+    const replay = screen.getByRole('button', { name: 'Replay' });
+    expect(replay.querySelector('svg')!.getAttribute('data-sign')).toBe('replay');
+    fireEvent.click(replay);
+    expect(asked(onCursor)).toEqual([0]);
+    expect(screen.getByRole('button', { name: 'Pause' })).toBe(replay);
+    act(() => vi.advanceTimersByTime(STEP));
+    expect(asked(onCursor)).toEqual([0, 2]);
+  });
+
+  it('keeps one width for Play, Pause and Replay, and a sign that never shrinks, so nothing beside it moves', () => {
+    vi.useFakeTimers();
+    playPage(series, 69);
+    const button = screen.getByRole('button', { name: 'Play' });
+    const look = button.className;
+    // 104 px at every width: the column of the chart's row names on a wide screen, and on a phone room for "Replay".
+    expect(classPx(button, 'w')).toBe(104);
+    expect(PLOT_GRID).toContain('grid-cols-[104px_');
+    const sign = () => button.querySelector('svg')!;
+    expect(sign().getAttribute('data-sign')).toBe('play');
+    expect(sign().classList.contains('shrink-0')).toBe(true);
+    fireEvent.click(button);
+    expect(button.textContent).toBe('Pause');
+    expect(sign().getAttribute('data-sign')).toBe('pause');
+    expect(sign().classList.contains('shrink-0')).toBe(true);
+    expect(button.className).toBe(look);
+    act(() => vi.advanceTimersByTime(STEP));
+    expect(button.textContent).toBe('Replay');
+    expect(sign().getAttribute('data-sign')).toBe('replay');
+    expect(sign().classList.contains('shrink-0')).toBe(true);
+    expect(button.className).toBe(look);
+  });
+
+  it('tells the page when Play starts, by Space and Replay too, and not when it pauses or the time is moved by hand', () => {
+    vi.useFakeTimers();
+    const onPlay = vi.fn();
+    showPeriod(30, { dates: true, moments: STAND_MOMENTS, onPlay, cursor: 60 });
+    // The slider, the keys, the dots and Next move the time through onCursor, as Play does, so onCursor cannot tell
+    // the page that Play was pressed.
+    const slider = screen.getByRole('slider', { name: 'Time' });
+    fireEvent.change(slider, { target: { value: '5' } });
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    fireEvent.keyDown(slider, { key: 'ArrowRight', shiftKey: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Earth in view, 10 Jan' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Next: / }));
+    fireEvent.click(screen.getByRole('button', { name: /^Speed / }));
+    expect(onPlay).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(onPlay).toHaveBeenCalledTimes(1);
+    // Pausing stops the time rather than starting it; the next Play starts it again, by Space as by a press.
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    expect(onPlay).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(slider, { key: ' ' });
+    expect(onPlay).toHaveBeenCalledTimes(2);
+    fireEvent.keyDown(slider, { key: ' ' });
+    expect(onPlay).toHaveBeenCalledTimes(2);
+    cleanup();
+    const replay = vi.fn();
+    show(71, { onPlay: replay });
+    fireEvent.click(screen.getByRole('button', { name: 'Replay' }));
+    expect(replay).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TimeBar: moments', () => {
+  it('draws each moment as a 12 px dot on the top edge of the strip at every width, gold for the one the time is on, with a target 24 px wide and 40 px tall', () => {
+    const { container } = showPeriod(30, { dates: true, moments: STAND_MOMENTS, cursor: 216 });
+    const row = container.querySelector<HTMLElement>('[data-part="moments"]')!;
+    // Right above the strip in the track's own column, so the dots line up with the hours: 27 px over the slider and
+    // lifted over it, so with the grid's 4 px above the row and the slider's 9 px over the strip under it each target
+    // is 40 px tall, its foot on the strip's top edge, the strip left to the slider.
+    expect(row.parentElement).toBe(screen.getByRole('slider', { name: 'Time' }).closest('[data-part="track"]'));
+    expect(row.nextElementSibling).toBe(stripBox(container));
+    expect(classPx(row, 'h')).toBe(27);
+    expect(row.classList.contains('z-[1]')).toBe(true);
+    expect(topPx(container.querySelector('[data-part="track"] svg')!)).toBe(9);
+    // The same at every width: no width's variant in the row.
+    expect(row.outerHTML).not.toMatch(/(?:max-)?(?:sm|md|lg|xl):/);
+    dotsOf(container).forEach((f, k) => {
+      // At its hour's share of the track, like the sunlight and the lanes under it.
+      expect(parseFloat(f.style.left) / 100).toBeCloseTo(STAND_MOMENTS[k].hour / 720, 6);
+      // Named for screen readers, its words not shown.
+      expect(f.getAttribute('aria-label')).toBe(STAND_MOMENTS[k].label);
+      expect(f.querySelector('span')!.classList.contains('sr-only')).toBe(true);
+      expect(f.querySelector('span')!.textContent).toBe(STAND_MOMENTS[k].label);
+      // A target 40 px tall and 24 px wide, centred on its hour, lighter under the pointer.
+      expect(classPx(f, 'h')).toBe(40);
+      expect(classPx(f, 'w')).toBe(24);
+      expect(classPx(f, 'h')).toBe(4 + classPx(row, 'h') + 9);
+      for (const c of ['absolute', '-bottom-[9px]', 'ml-[var(--dot-x)]', 'rounded-full', 'cursor-pointer', 'hover:bg-line']) expect(f.classList.contains(c)).toBe(true);
+      expect(f.style.getPropertyValue('--dot-x')).toBe('-12px');
+      // A round dot 12 px across at its foot.
+      const dot = f.querySelector('[data-part="moment-dot"]')!;
+      for (const c of ['block', 'size-3', 'rounded-full', 'absolute', 'bottom-0', 'left-1/2', '-translate-x-1/2']) expect(dot.classList.contains(c)).toBe(true);
+      expect(dot.getAttribute('aria-hidden')).toBe('true');
+    });
+    // Gold for the moment the time is on, the ink for the others.
+    const tones = dotsOf(container).map((f) => f.querySelector('[data-part="moment-dot"]')!.classList);
+    expect(tones.map((c) => (c.contains('bg-sun') ? 'gold' : c.contains('bg-ink') ? 'ink' : null))).toEqual(['ink', 'ink', 'gold', 'ink']);
+    expect(dotsOf(container).map((f) => f.getAttribute('aria-current'))).toEqual([null, null, 'true', null]);
+    // No boxed flags, stems, rows of flags or chip.
+    for (const part of ['moment-stem', 'moment-chip']) expect(container.querySelector(`[data-part="${part}"]`)).toBeNull();
+    expect(container.querySelector('[data-row]')).toBeNull();
+  });
+
+  it('draws the moments with or without the dates, so Explore can have them too', () => {
+    const { container } = showPeriod(30, { moments: STAND_MOMENTS, cursor: 60 });
+    expect(dotsOf(container).map((f) => f.getAttribute('aria-label'))).toEqual(STAND_MOMENTS.map((m) => m.label));
+    expect(screen.getByRole('button', { name: 'Next: Battery runs out, 4 Jan' })).toBeTruthy();
+    // Over the strip's 32 px box, with no lanes under it.
+    expect(heightPx(stripBox(container))).toBe(32);
+    expect(container.querySelector('[data-part="moments"]')!.nextElementSibling).toBe(stripBox(container));
+  });
+
+  it('draws no dots and no Next without moments, so the bar is as it was', () => {
+    const before = show(6).container.innerHTML;
+    cleanup();
+    expect(show(6, { moments: [], onMoment: vi.fn() }).container.innerHTML).toBe(before);
+    cleanup();
+    const plain = showPeriod(30, { dates: true }).container.innerHTML;
+    cleanup();
+    const empty = showPeriod(30, { dates: true, moments: [] });
+    expect(empty.container.querySelector('[data-part="moments"]')).toBeNull();
+    expect(empty.container.querySelector('[data-part="next"]')).toBeNull();
+    expect(empty.container.innerHTML).toBe(plain);
+    cleanup();
+    // Without the dates there is no radio band to hatch.
+    const off = show(6, { powered: power.powered }).container.innerHTML;
+    cleanup();
+    expect(show(6, { powered: power.powered, ifSurvivesFrom: 30 }).container.innerHTML).toBe(off);
+  });
+
+  it("moves the time to a dot's moment when pressed, then tells the page which moment it was", () => {
+    const onCursor = vi.fn();
+    const onMoment = vi.fn();
+    showPeriod(30, { dates: true, moments: STAND_MOMENTS, onCursor, onMoment });
+    fireEvent.click(screen.getByRole('button', { name: 'Earth in view, 10 Jan' }));
+    expect(onCursor).toHaveBeenCalledTimes(1);
+    expect(onCursor).toHaveBeenCalledWith(216);
+    expect(onMoment).toHaveBeenCalledTimes(1);
+    expect(onMoment.mock.calls[0][0]).toBe(STAND_MOMENTS[2]);
+    // The time first, then the page.
+    expect(onCursor.mock.invocationCallOrder[0]).toBeLessThan(onMoment.mock.invocationCallOrder[0]);
+    cleanup();
+    // Without onMoment a dot still moves the time.
+    const alone = vi.fn();
+    showPeriod(30, { dates: true, moments: STAND_MOMENTS, onCursor: alone });
+    fireEvent.click(screen.getByRole('button', { name: 'Sunset, 3 Jan' }));
+    expect(alone).toHaveBeenCalledWith(50);
+  });
+
+  it('moves dots too close for their targets apart, so each keeps a target of its own 24 px wide', () => {
+    const report = measuredTrack();
+    const { container } = showPeriod(30, { dates: true, moments: STAND_MOMENTS });
+    const exact = (px: number) => STAND_MOMENTS.map((m) => (m.hour / 720) * px);
+    // Until measured (1000 px) the dots are on their hours, 36 px apart and more.
+    expect(dotsOf(container).map((f) => dotTargetLeft(f, 1000) + 12)).toEqual(exact(1000).map((x) => expect.closeTo(x, 9)));
+    // On a phone's 358 px track the 1st and the 2nd lie 13 px apart: the two dots move apart evenly, so their targets
+    // meet without covering each other; the other two stay on their hours.
+    act(() => report(358));
+    const at = exact(358);
+    const middle = (at[0] + at[1]) / 2;
+    const lefts = dotsOf(container).map((f) => dotTargetLeft(f, 358));
+    expect(lefts.map((l) => l + 12)).toEqual([middle - 12, middle + 12, at[2], at[3]].map((x) => expect.closeTo(x, 9)));
+    for (let k = 1; k < lefts.length; k++) expect(lefts[k] - lefts[k - 1]).toBeGreaterThanOrEqual(24 - 1e-9);
+  });
+
+  it('offers the next moment as a real button after the date, "Next: Battery runs out, 4 Jan ›", which moves the time there and tells the page', () => {
+    const onCursor = vi.fn();
+    const onMoment = vi.fn();
+    const { container } = showStandPeriod({ compact: true, clockNote: ' (Earth time)', moments: STAND_MOMENTS, cursor: 60, onCursor, onMoment });
+    const next = screen.getByRole('button', { name: 'Next: Battery runs out, 4 Jan' });
+    expect(next.getAttribute('type')).toBe('button');
+    // Its words: "Next:" in the second ink, the moment in the ink, then a sign no screen reader reads.
+    const label = next.querySelector<HTMLElement>('[data-label]')!;
+    expect(label.textContent).toBe('Next: Battery runs out, 4 Jan ›');
+    expect(label.querySelector('.text-ink-2')!.textContent).toBe('Next:');
+    expect(label.querySelector('[aria-hidden="true"]')!.textContent).toBe(' ›');
+    // A button like the bar's others, at 15 px, on a target 40 px tall, its words in its middle whatever its width (it
+    // keeps the width of the longest, so a short one would sit off to one side of an empty box).
+    for (const c of ['btn', 'h-10', 'text-[15px]', 'text-center', 'justify-items-center']) expect(next.classList.contains(c)).toBe(true);
+    expect(next.classList.contains('text-left')).toBe(false);
+    // On the date's line, right after the date and hour and their note, and never over the track.
+    expect(container.querySelector('[data-part="line"]')!.contains(next)).toBe(true);
+    expect(container.querySelector('[data-part="readout"]')!.nextElementSibling!.contains(next)).toBe(true);
+    expect(next.closest('[data-part="track"]')).toBeNull();
+    fireEvent.click(next);
+    expect(onCursor).toHaveBeenCalledWith(76);
+    expect(onMoment).toHaveBeenCalledWith(STAND_MOMENTS[1]);
+    expect(onCursor.mock.invocationCallOrder[0]).toBeLessThan(onMoment.mock.invocationCallOrder[0]);
+  });
+
+  it('names in Next the moment after the time, and after the last keeps its place empty, not a button', () => {
+    const nextAt = (cursor: number) => {
+      cleanup();
+      showPeriod(30, { dates: true, moments: STAND_MOMENTS, cursor });
+      return screen.queryByRole('button', { name: /^Next: / })?.querySelector('[data-label]')?.textContent ?? null;
+    };
+    expect(nextAt(0)).toBe('Next: Sunset, 3 Jan ›');
+    // On a moment's hour, the one after it.
+    expect(nextAt(50)).toBe('Next: Battery runs out, 4 Jan ›');
+    expect(nextAt(217)).toBe('Next: Sun back, 20 Jan ›');
+    expect(nextAt(456)).toBeNull();
+    expect(nextAt(719)).toBeNull();
+    // Its place stays, empty and unread, so nothing beside it moves.
+    const place = document.querySelector<HTMLElement>('[data-part="next"]')!;
+    expect(place.tagName).toBe('SPAN');
+    expect(place.getAttribute('aria-hidden')).toBe('true');
+    for (const c of ['invisible', 'btn', 'h-10']) expect(place.classList.contains(c)).toBe(true);
+  });
+
+  it('keeps Next in one place and one width from 640 px up: the date before it holds the width of its widest, and Next the width of its longest name', () => {
+    const { container } = showPeriod(90, { dates: true, moments: STAND_MOMENTS, cursor: 60, compact: true, clockNote: ' (Earth time)' });
+    const readout = container.querySelector<HTMLElement>('[data-part="readout"]')!;
+    expect(readout.classList.contains('grid')).toBe(true);
+    // The 28th of each month the period runs into: two figures for the day, and every figure as wide as the others; drawn
+    // in the date's type, then the note in its own, from 768 px as the note shows.
+    const dates = [...readout.querySelectorAll<HTMLElement>('[data-sizer]')];
+    expect(dates.map((s) => s.style.getPropertyValue('--sizer'))).toEqual(['"28 Jan 2027, 00:00 UTC"', '"28 Feb 2027, 00:00 UTC"', '"28 Mar 2027, 00:00 UTC"']);
+    for (const s of dates) {
+      expect(s.style.getPropertyValue('--note')).toBe('" (Earth time)"');
+      for (const c of ['before:content-[var(--sizer)]', 'before:text-[17px]', 'before:font-semibold', 'after:content-[var(--note)]', 'after:text-[15px]', 'max-md:after:hidden']) expect(s.classList.contains(c)).toBe(true);
+    }
+    // Next holds the width of the longest of the period's moments, whichever it names.
+    const next = screen.getByRole('button', { name: 'Next: Battery runs out, 4 Jan' });
+    const names = [...next.querySelectorAll<HTMLElement>('[data-sizer]')];
+    expect(names.map((s) => s.style.getPropertyValue('--sizer'))).toEqual(STAND_MOMENTS.map((m) => `"Next: ${m.label} ›"`));
+    for (const s of names) expect(s.classList.contains('before:content-[var(--sizer)]')).toBe(true);
+    // Unseen and unread, in the cell of what shows, and not on a phone, where Next has a row of its own; drawn by the
+    // stylesheet rather than written, so no search of the page's words finds them twice.
+    for (const s of [...dates, ...names]) {
+      expect(s.getAttribute('aria-hidden')).toBe('true');
+      expect(s.textContent).toBe('');
+      for (const c of ['invisible', 'col-start-1', 'row-start-1', 'whitespace-nowrap', 'max-sm:hidden']) expect(s.classList.contains(c)).toBe(true);
+    }
+    expect(screen.getAllByText(/\(Earth time\)/)).toHaveLength(1);
+    for (const shown of [screen.getByTestId('when').parentElement!, next.querySelector('[data-label]')!]) for (const c of ['col-start-1', 'row-start-1']) expect(shown.classList.contains(c)).toBe(true);
+    cleanup();
+    // Bare, or with no moments, there is no Next to keep in place.
+    for (const extra of [{ bare: true }, { moments: [] }]) {
+      const { container: c } = showPeriod(30, { dates: true, moments: STAND_MOMENTS, ...extra });
+      expect(c.querySelector('[data-sizer]')).toBeNull();
+      cleanup();
+    }
+  });
+
+  it('on a phone gives Next and the Key button a row of their own under Play, Next at its start and Key at its end', () => {
+    const { container } = showStandPeriod({ compact: true, moments: STAND_MOMENTS, cursor: 60 });
+    const next = screen.getByRole('button', { name: 'Next: Battery runs out, 4 Jan' });
+    const row = next.parentElement!;
+    expect(row).toBe(screen.getByRole('button', { name: 'Key' }).parentElement);
+    expect(row.firstElementChild).toBe(next);
+    // From 640 px up it gives up its box to the date's line; on a phone it is a row as wide as the bar.
+    for (const c of ['contents', 'max-sm:col-span-3', 'max-sm:flex', 'max-sm:justify-between']) expect(row.classList.contains(c)).toBe(true);
+    expect(container.querySelector('[data-part="line"]')!.contains(row)).toBe(true);
+  });
+
+  it('steps to the next and the previous moment with Shift and the arrow keys on the slider, telling the page', () => {
+    const onCursor = vi.fn();
+    const onMoment = vi.fn();
+    const { rerender } = showPeriod(30, { moments: STAND_MOMENTS, cursor: 60, onCursor, onMoment });
+    const slider = screen.getByRole('slider', { name: 'Time' });
+    expect(fireEvent.keyDown(slider, { key: 'ArrowRight', shiftKey: true })).toBe(false);
+    expect(onCursor).toHaveBeenLastCalledWith(76);
+    expect(onMoment).toHaveBeenLastCalledWith(STAND_MOMENTS[1]);
+    fireEvent.keyDown(slider, { key: 'ArrowLeft', shiftKey: true });
+    expect(onCursor).toHaveBeenLastCalledWith(50);
+    expect(onMoment).toHaveBeenLastCalledWith(STAND_MOMENTS[0]);
+    // Before the first moment there is none to step back to, and nothing moves.
+    rerender(<TimeBar series={steady(30)} power={null} startUtc={START} cursor={40} hoverHour={null} batteryWh={0} onCursor={onCursor} moments={STAND_MOMENTS} onMoment={onMoment} />);
+    onCursor.mockClear();
+    fireEvent.keyDown(slider, { key: 'ArrowLeft', shiftKey: true });
+    expect(onCursor).not.toHaveBeenCalled();
+    // The arrows alone still move an hour.
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    expect(onCursor).toHaveBeenLastCalledWith(41);
+  });
+
+  it('takes Play, the speed, Next and the slider in that order from the keyboard, and leaves the dots to the pointer, named in their group', () => {
+    showPeriod(30, { moments: STAND_MOMENTS, cursor: 60 });
+    const bar = screen.getByRole('region', { name: 'Time' });
+    const order = [...bar.querySelectorAll<HTMLElement>('button, input, a[href], [tabindex]')].filter((el) => el.tabIndex >= 0);
+    expect(order).toEqual([
+      screen.getByRole('button', { name: 'Play' }),
+      screen.getByRole('button', { name: 'Speed 1×: a day a second' }),
+      screen.getByRole('button', { name: 'Next: Battery runs out, 4 Jan' }),
+      screen.getByRole('slider', { name: 'Time' }),
+    ]);
+    const dots = within(screen.getByRole('group', { name: 'Jump to a moment' })).getAllByRole('button');
+    expect(dots.map((d) => d.getAttribute('aria-label'))).toEqual(STAND_MOMENTS.map((m) => m.label));
+    for (const d of dots) expect(d.tabIndex).toBe(-1);
+  });
+});
+
+describe('TimeBar: scrubbing and the plate', () => {
+  it('lets the slider cover the strip and all its lanes, 47 px tall with the dates and 32 px without, its handle centred on the strip', () => {
+    const { container } = showStandPeriod();
+    const slider = screen.getByRole('slider', { name: 'Time' });
+    const box = stripBox(container);
+    expect(slider.parentElement).toBe(box);
+    expect(heightPx(box)).toBe(47);
+    expect(slider.classList.contains('time-range')).toBe(true);
+    expect(slider.hasAttribute('data-lanes')).toBe(true);
+    // 47 px with the lanes, its own track and handle kept to the top 32 px by padding under them, in WebKit and Firefox
+    // alike; the radio band, the lowest lane, ends at the foot of the box.
+    expect(lengthIn(rule('.time-range'), 'height')).toBe(32);
+    expect(lengthIn(rule('.time-range[data-lanes]'), 'height')).toBe(47);
+    expect(lengthIn(rule('.time-range[data-lanes]'), 'padding-bottom')).toBe(15);
+    expect(lengthIn(rule('.time-range::-webkit-slider-runnable-track'), 'height')).toBe(32);
+    expect(lengthIn(rule('.time-range::-moz-range-track'), 'height')).toBe(32);
+    const contact = container.querySelector('[data-part="contact"]')!;
+    expect(topPx(contact) + heightPx(contact)).toBe(47);
+    // The handle's middle on the strip's, 9 + 14 / 2 = 16 px down: WebKit's by its margin, Firefox's in the middle of its track.
+    const strip = container.querySelector('[data-part="track"] svg')!;
+    const middle = topPx(strip) + 14 / 2;
+    expect(strip.classList.contains('h-3.5')).toBe(true);
+    const thumb = rule('.time-range::-webkit-slider-thumb');
+    expect(lengthIn(thumb, 'margin-top') + lengthIn(thumb, 'height') / 2).toBe(middle);
+    expect(lengthIn(rule('.time-range::-moz-range-track'), 'height') / 2).toBe(middle);
+    cleanup();
+    // Without the lanes, the slider is the box's 32 px.
+    const plain = showPeriod(30, {});
+    expect(stripBox(plain.container).getAttribute('class')).toBe('relative h-8');
+    expect(screen.getByRole('slider', { name: 'Time' }).hasAttribute('data-lanes')).toBe(false);
+  });
+
+  it('shows the date and hour under a mouse on a plate above the track, and what the lanes say then, without moving the time', () => {
+    const onCursor = vi.fn();
+    const { container } = showStandPeriod({ onCursor });
+    const slider = sizeSlider(719);
+    expect(peekOf(container)).toBeNull();
+    // Hour 263, the 11th at 23:00: the night, the lander off, Earth in view.
+    fireEvent.pointerMove(slider, { clientX: 7 + 263, pointerType: 'mouse' });
+    const plate = peekOf(container)!;
+    expect([...plate.children].map((l) => l.textContent)).toEqual(['11 Jan, 23:00', 'night · lander off · Earth in view']);
+    // In the key's own words and order: the Sun and the power back on the 20th with Earth still in view, so radio if
+    // the lander survived the night.
+    fireEvent.pointerMove(slider, { clientX: 7 + 500, pointerType: 'mouse' });
+    expect([...plate.children].map((l) => l.textContent)).toEqual(['21 Jan, 20:00', 'in sunlight · Earth in view · radio, if the lander survives the cold']);
+    fireEvent.pointerMove(slider, { clientX: 7 + 20, pointerType: 'mouse' });
+    expect([...plate.children].map((l) => l.textContent)).toEqual(['1 Jan, 20:00', 'in sunlight']);
+    // Above the track, taking no presses, and unread: the slider's own words say the hour.
+    expect(plate.parentElement).toBe(slider.closest('[data-part="track"]'));
+    for (const c of ['absolute', 'bottom-full', 'pointer-events-none']) expect(plate.classList.contains(c)).toBe(true);
+    expect(plate.getAttribute('aria-hidden')).toBe('true');
+    // A plate at 14 px, opaque, inside an edge that shows on the dark bar: no shadow, no blur.
+    for (const c of ['text-[14px]', 'bg-surface', 'border', 'border-line-strong', 'rounded']) expect(plate.classList.contains(c)).toBe(true);
+    // A preview: the time stays where it was.
+    expect(onCursor).not.toHaveBeenCalled();
+    // Gone when the pointer leaves the track, or is let go.
+    fireEvent.pointerLeave(slider, { pointerType: 'mouse' });
+    expect(peekOf(container)).toBeNull();
+    fireEvent.pointerMove(slider, { clientX: 100, pointerType: 'mouse' });
+    expect(peekOf(container)).not.toBeNull();
+    fireEvent.pointerUp(slider, { pointerType: 'mouse' });
+    expect(peekOf(container)).toBeNull();
+  });
+
+  it('shows the plate under a finger or a pen only while it is held down on the track', () => {
+    for (const pointerType of ['touch', 'pen']) {
+      const { container, unmount } = showStandPeriod();
+      const slider = sizeSlider(719);
+      fireEvent.pointerMove(slider, { clientX: 7 + 263, pointerType });
+      expect(peekOf(container), pointerType).toBeNull();
+      fireEvent.pointerDown(slider, { clientX: 7 + 263, pointerType });
+      expect(peekOf(container)!.firstElementChild!.textContent).toBe('11 Jan, 23:00');
+      fireEvent.pointerMove(slider, { clientX: 7 + 500, pointerType });
+      expect(peekOf(container)!.firstElementChild!.textContent).toBe('21 Jan, 20:00');
+      fireEvent.pointerUp(slider, { pointerType });
+      expect(peekOf(container)).toBeNull();
+      fireEvent.pointerMove(slider, { clientX: 7 + 263, pointerType });
+      expect(peekOf(container)).toBeNull();
+      unmount();
+    }
+  });
+
+  it("names the moment on the plate over its dot's target, over the dot", () => {
+    const { container } = showStandPeriod({ moments: STAND_MOMENTS });
+    sizeSlider(719);
+    fireEvent.pointerMove(screen.getByRole('button', { name: 'Battery runs out, 4 Jan' }), { clientX: 80, pointerType: 'mouse' });
+    const plate = peekOf(container)!;
+    expect(plate.textContent).toBe('Battery runs out, 4 Jan');
+    // At the dot's share of the track, drawn back by as much of its own width, so the dot is always under it.
+    expect(parseFloat(plate.style.left)).toBeCloseTo((76 / 720) * 100, 6);
+    expect(drawnBack(plate)).toBeCloseTo((76 / 720) * 100, 6);
+  });
+
+  it('keeps the plate inside the track at both ends, and the hour on the period, past the ends too', () => {
+    const { container } = showStandPeriod();
+    const slider = sizeSlider(719);
+    const at = (clientX: number) => {
+      fireEvent.pointerMove(slider, { clientX, pointerType: 'mouse' });
+      const plate = peekOf(container)!;
+      return { left: parseFloat(plate.style.left), back: drawnBack(plate), when: plate.firstElementChild!.textContent };
+    };
+    // At the start its left edge on the track's, at the end its right edge on the track's, in between drawn back by
+    // its share of the track, so the pointer is always under it.
+    expect(at(0)).toEqual({ left: 0, back: 0, when: '1 Jan, 00:00' });
+    expect(at(733)).toEqual({ left: 100, back: 100, when: '30 Jan, 23:00' });
+    expect(at(-50)).toEqual({ left: 0, back: 0, when: '1 Jan, 00:00' });
+    expect(at(900)).toEqual({ left: 100, back: 100, when: '30 Jan, 23:00' });
+    const middle = at(7 + 263);
+    expect(middle.left).toBeCloseTo((270 / 733) * 100, 6);
+    expect(middle.back).toBeCloseTo((270 / 733) * 100, 6);
+  });
+
+  it('tells the page the hour under the pointer as it moves, once for each hour, and null once it leaves', () => {
+    const onHover = vi.fn();
+    showStandPeriod({ moments: STAND_MOMENTS, onHover });
+    const slider = sizeSlider(719);
+    fireEvent.pointerMove(slider, { clientX: 7 + 263, pointerType: 'mouse' });
+    fireEvent.pointerMove(slider, { clientX: 7 + 263.2, pointerType: 'mouse' });
+    fireEvent.pointerMove(screen.getByRole('button', { name: 'Earth in view, 10 Jan' }), { clientX: 300, pointerType: 'mouse' });
+    fireEvent.pointerLeave(slider, { pointerType: 'mouse' });
+    expect(onHover.mock.calls).toEqual([[263], [216], [null]]);
+  });
+
+  it('shows only the date and hour on the plate where the bar draws no lanes: on Explore, and when bare', () => {
+    for (const extra of [{ dates: false, powered: null }, { bare: true }]) {
+      const { container, unmount } = showStandPeriod(extra);
+      fireEvent.pointerMove(sizeSlider(719), { clientX: 7 + 263, pointerType: 'mouse' });
+      expect([...peekOf(container)!.children].map((l) => l.textContent)).toEqual(['11 Jan, 23:00']);
+      unmount();
+    }
+  });
+});
+
+describe('TimeBar: bare', () => {
   it('keeps only Play, the date and hour, the track with its sunlight and handle, and the moments as dots when bare, for a clean view of the picture', () => {
     // The stand view's bar with every part it can carry: the night, the hours the lander is off, Earth on the second day, a moment.
     for (const compact of [true, false]) {
@@ -856,69 +1567,40 @@ describe('TimeBar', () => {
       expect(screen.getByTestId('when').textContent).toBe('1 Jan 2027, 06:00 UTC');
       expect(screen.getByRole('slider', { name: 'Time' })).toBeTruthy();
       expect(container.querySelectorAll('[data-part="lit"]')).toHaveLength(2);
-      // Play and the moment's dot are the buttons: no Key button.
+      // Play and the moment's dot are the buttons: no speed, no Next, no Key button.
       expect(screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Play', 'Sunset 2 Jan']);
-      // No sentence, no note, no keys, no bands, no stems and no dates.
+      // No sentence, no note, no keys, no lanes and no dates.
       expect(screen.queryByTestId('status')).toBeNull();
       expect(screen.queryByTestId('clock-note')).toBeNull();
       expect(container.querySelector('[data-part^="key"]')).toBeNull();
       expect(container.querySelector('[data-swatch]')).toBeNull();
-      for (const part of ['off', 'earth', 'contact', 'moment-stem', 'moment-tick']) expect(container.querySelector(`[data-part="${part}"]`)).toBeNull();
+      for (const part of ['off', 'earth', 'contact', 'next']) expect(container.querySelector(`[data-part="${part}"]`)).toBeNull();
       expect(screen.queryByTestId('dates')).toBeNull();
       expect(container.querySelector('[data-date]')).toBeNull();
-      // Besides the date and hour the bar writes only the chip over the dots: the dot's own words are for screen readers.
+      // Besides the date and hour the bar writes nothing: the dot's own words are for screen readers.
       expect(container.querySelector('[data-part="moment"] span')!.classList.contains('sr-only')).toBe(true);
-      expect(screen.getByRole('region', { name: 'Time' }).textContent).toBe('Play1 Jan 2027, 06:00 UTCSunset 2 JanNext: Sunset 2 Jan');
-      // With no band under the strip its box keeps only the slider's own room, so the bar stays as low as it can.
+      expect(screen.getByRole('region', { name: 'Time' }).textContent).toBe('Play1 Jan 2027, 06:00 UTCSunset 2 Jan');
+      // With no lane under the strip its box keeps only the slider's own room, so the bar stays as low as it can; and with
+      // nothing on the date's line but the date, Play stands beside both the date and the track, as it did before the speed.
       expect(stripBox(container).getAttribute('class')).toBe('relative h-8');
+      expect(screen.getByRole('slider', { name: 'Time' }).hasAttribute('data-lanes')).toBe(false);
+      const play = screen.getByRole('button', { name: 'Play' });
+      for (const c of ['row-span-2', 'self-center', 'max-sm:row-span-1']) expect(play.classList.contains(c)).toBe(true);
+      expect(container.querySelector('[data-part="line"]')!.classList.contains('min-h-10')).toBe(false);
       cleanup();
     }
   });
 
-  it('keeps the moments as dots on the track when bare, at every width, so a class can jump between them without the words coming back', () => {
+  it('keeps the moments as dots when bare, which move the time when pressed and name themselves on the plate, so a class can go from one to the next', () => {
     const onCursor = vi.fn();
     const onMoment = vi.fn();
     const { container } = showPeriod(30, { dates: true, moments: STAND_MOMENTS, compact: true, bare: true, onCursor, onMoment, cursor: 60 });
-    // The phone's row of dots at every width: 27 px over the strip, lifted over the slider, with no rows of flags.
-    const row = container.querySelector<HTMLElement>('[data-part="moments"]')!;
-    expect(classPx(row, 'h')).toBe(27);
-    expect(row.classList.contains('z-[1]')).toBe(true);
-    expect(row.className).not.toMatch(/max-sm:|h-\[22px\]|h-\[44px\]/);
-    flagsOf(container).forEach((f, k) => {
-      // Named for screen readers, its words hidden at every width.
-      expect(f.getAttribute('aria-label')).toBe(STAND_MOMENTS[k].label);
-      expect(f.querySelector('span')!.classList.contains('sr-only')).toBe(true);
-      // A target 40 px tall and 24 px wide, centred on its hour with its foot on the strip's top edge, and no flag's look.
-      expect(classPx(f, 'h')).toBe(40);
-      expect(classPx(f, 'w')).toBe(24);
-      for (const c of ['absolute', '-bottom-[9px]', 'ml-[var(--dot-x)]', 'rounded-full', 'cursor-pointer']) expect(f.classList.contains(c)).toBe(true);
-      expect(f.style.transform).toBe('');
-      expect(f.style.getPropertyValue('--dot-x')).toBe('-12px');
-      expect(f.outerHTML).not.toMatch(/max-sm:|border-ink-3|text-\[14px\]|(^| )h-5( |$)/);
-      expect(f.querySelector('[data-part="moment-stem"]')).toBeNull();
-      // A 12 px dot at its foot, in sight at every width.
-      const dot = f.querySelector('[data-part="moment-dot"]')!;
-      for (const c of ['block', 'size-3', 'bottom-0', 'bg-ink']) expect(dot.classList.contains(c)).toBe(true);
-      expect(dot.classList.contains('hidden')).toBe(false);
-    });
-    // The chip names the next moment, at every width.
-    const chip = container.querySelector<HTMLElement>('[data-part="moment-chip"]')!;
-    expect(chip.textContent).toBe('Next: Battery runs out, 4 Jan');
-    expect(chip.classList.contains('flex')).toBe(true);
-    expect(chip.className).not.toMatch(/(^| )hidden( |$)|max-sm:/);
-    // Pressing a dot moves the handle there, then tells the page, as a flag does.
+    expect(dotsOf(container).map((f) => f.getAttribute('aria-label'))).toEqual(STAND_MOMENTS.map((m) => m.label));
     fireEvent.click(screen.getByRole('button', { name: 'Earth in view, 10 Jan' }));
     expect(onCursor).toHaveBeenCalledWith(216);
     expect(onMoment).toHaveBeenCalledWith(STAND_MOMENTS[2]);
-    expect(onCursor.mock.invocationCallOrder[0]).toBeLessThan(onMoment.mock.invocationCallOrder[0]);
-    cleanup();
-    // On a moment's hour the chip names that one, gold over its gold dot.
-    const on = showPeriod(30, { dates: true, moments: STAND_MOMENTS, bare: true, cursor: 216 });
-    const chosen = on.container.querySelector<HTMLElement>('[data-part="moment-chip"]')!;
-    expect(chosen.textContent).toBe('Earth in view, 10 Jan');
-    expect(chosen.classList.contains('border-sun')).toBe(true);
-    expect(flagsOf(on.container)[2].getAttribute('aria-current')).toBe('true');
-    expect(flagsOf(on.container)[2].querySelector('[data-part="moment-dot"]')!.classList.contains('bg-sun')).toBe(true);
+    fireEvent.pointerMove(screen.getByRole('button', { name: 'Battery runs out, 4 Jan' }), { pointerType: 'mouse' });
+    expect(peekOf(container)!.textContent).toBe('Battery runs out, 4 Jan');
   });
 
   it('still plays, and moves with the slider and its keys, when bare', () => {
@@ -933,602 +1615,8 @@ describe('TimeBar', () => {
     expect(onCursor).toHaveBeenLastCalledWith(34);
     fireEvent.click(screen.getByRole('button', { name: 'Play' }));
     expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy();
-    act(() => {
-      vi.advanceTimersByTime(90);
-    });
-    expect(onCursor).toHaveBeenLastCalledWith(11);
-  });
-
-  it("puts a flag above the track at each of the period's key moments, at the share of the track its hour gives", () => {
-    const { container } = showPeriod(30, { dates: true, moments: MOMENTS });
-    const flags = flagsOf(container);
-    expect(flags.map((f) => f.textContent)).toEqual(MOMENTS.map((m) => m.label));
-    // Buttons, each named by its moment.
-    for (const m of MOMENTS) expect(screen.getByRole('button', { name: m.label }).getAttribute('data-part')).toBe('moment');
-    for (const f of flags) expect(f.type).toBe('button');
-    // Hours 50, 76, 216 and 456 of the 720, as shares of the track, like the sunlight and the bands under it.
-    flags.forEach((f, k) => expect(parseFloat(f.style.left) / 100).toBeCloseTo(MOMENTS[k].hour / 720, 6));
-    // In the track's own column, right above the strip, so the flags line up with the hours.
-    const row = container.querySelector<HTMLElement>('[data-part="moments"]')!;
-    expect(row.parentElement).toBe(screen.getByRole('slider', { name: 'Time' }).closest('[data-part="track"]'));
-    expect(row.nextElementSibling).toBe(stripBox(container));
-    // Each starts at its hour, where its stem comes down on its left edge; all four have room to the right.
-    for (const f of flags) expect(f.style.transform).toBe('');
-    for (const s of stemsOf(container)) expect(s.classList.contains('-left-px')).toBe(true);
-    // Words at 14 px, the smallest the bar sets, in the ink on the panel colour, inside a thin rounded edge, on one line 20 px tall.
-    for (const f of flags) {
-      for (const c of ['text-[14px]', 'text-ink', 'bg-surface', 'border', 'border-ink-3', 'rounded', 'h-5', 'items-center', 'whitespace-nowrap']) {
-        expect(f.classList.contains(c)).toBe(true);
-      }
-    }
-    // No marks for the hours apart from the flags': each flag's stem is its tick.
-    expect(container.querySelector('[data-part="moment-tick"]')).toBeNull();
-  });
-
-  it('makes each flag read as a button: a pointer, a clear edge, and a lighter fill with a brighter edge under the pointer or the keyboard, which also draws the page’s 2 px ring', () => {
-    const { container } = showPeriod(30, { dates: true, moments: MOMENTS, cursor: 216 });
-    const flags = flagsOf(container);
-    const [chosen] = flags.splice(2, 1);
-    for (const f of [...flags, chosen]) {
-      for (const c of ['cursor-pointer', 'hover:bg-line', 'focus-visible:bg-line', 'hover:z-10', 'focus-visible:z-10']) expect(f.classList.contains(c)).toBe(true);
-      // Nothing takes the keyboard's ring away.
-      expect(f.className).not.toMatch(/outline-(none|hidden|0)\b/);
-    }
-    for (const f of flags) for (const c of ['border-ink-3', 'bg-surface', 'hover:border-ink', 'focus-visible:border-ink']) expect(f.classList.contains(c)).toBe(true);
-    // The chosen flag keeps its marks, and its gold brightens in turn.
-    expect(chosen.getAttribute('aria-current')).toBe('true');
-    for (const c of ['border-sun', 'bg-surface-2', 'hover:border-sun-hover', 'focus-visible:border-sun-hover']) expect(chosen.classList.contains(c)).toBe(true);
-    expect(chosen.className).not.toMatch(/(^| )(hover:|focus-visible:)?border-ink(-3)?( |$)/);
-    // On the stand view's dark bar: an edge at rest that stands out from the bar and the flag's own ground, brighter
-    // than the controls' strong line (3:1 on the near-black page since part C), and under the pointer a fill lighter
-    // than both grounds and a brighter edge.
-    for (const ground of ['--page', '--surface']) expect(contrast(DARK['--ink-3'], DARK[ground])).toBeGreaterThanOrEqual(3);
-    expect(contrast(DARK['--ink-3'], DARK['--page'])).toBeGreaterThan(contrast(DARK['--line-strong'], DARK['--page']));
-    expect(luminance(DARK['--line'])).toBeGreaterThan(luminance(DARK['--surface-2']));
-    expect(luminance(DARK['--surface-2'])).toBeGreaterThan(luminance(DARK['--surface']));
-    expect(luminance(DARK['--ink'])).toBeGreaterThan(luminance(DARK['--ink-3']));
-    expect(luminance(DARK['--sun-hover'])).toBeGreaterThan(luminance(DARK['--sun']));
-    // The keyboard's ring is the page's own, 2 px of gold 2 px out (globals.css), on any flag that comes to the front.
-    const css = fs.readFileSync(path.resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
-    expect(css).toMatch(/\n:focus-visible \{\s*outline: 2px solid var\(--sun-ink\);\s*outline-offset: 2px;\s*\}/);
-  });
-
-  it('runs a 1 px stem in each flag’s own edge colour from the flag down to its hour on the strip', () => {
-    const { container } = showPeriod(30, { dates: true, moments: MOMENTS, cursor: 216 });
-    const flags = flagsOf(container);
-    const stems = stemsOf(container);
-    flags.forEach((f, k) => {
-      // One stem, inside the flag: its colour is the flag's edge whatever that is (at rest, under the pointer,
-      // chosen), and it takes no taps from the slider under it.
-      expect(f.querySelectorAll('[data-part="moment-stem"]')).toHaveLength(1);
-      const s = stems[k];
-      for (const c of ['absolute', 'w-0', 'border-l', 'border-inherit', 'top-full', 'pointer-events-none', '-left-px']) expect(s.classList.contains(c)).toBe(true);
-      expect(s.getAttribute('aria-hidden')).toBe('true');
-      // From 1 px up into the flag's bottom edge, past the 2 px under a flag of the first row (24 px under one of
-      // the second), to the strip 9 px down the box under the flags.
-      expect(heightPx(s)).toBe(f.dataset.row === '1' ? 1 + 24 + 9 : 1 + 2 + 9);
-    });
-    expect(topPx(container.querySelector('[data-part="track"] svg')!)).toBe(9);
-    // The words stay the flag's name: the stem adds none.
-    expect(flags.map((f) => f.textContent)).toEqual(MOMENTS.map((m) => m.label));
-  });
-
-  it('draws no flags without the dates or without moments: Explore stays exactly as it was', () => {
-    const before = show(6).container.innerHTML;
-    cleanup();
-    const explore = show(6, { moments: MOMENTS, onMoment: vi.fn() });
-    expect(explore.container.querySelector('[data-part="moment"]')).toBeNull();
-    expect(explore.container.innerHTML).toBe(before);
-    cleanup();
-    const plain = showPeriod(30, { dates: true }).container.innerHTML;
-    cleanup();
-    const empty = showPeriod(30, { dates: true, moments: [] });
-    expect(empty.container.querySelector('[data-part="moments"]')).toBeNull();
-    expect(empty.container.innerHTML).toBe(plain);
-    cleanup();
-    // Without the dates there is no radio band to hatch.
-    const off = show(6, { powered: power.powered }).container.innerHTML;
-    cleanup();
-    expect(show(6, { powered: power.powered, ifSurvivesFrom: 30 }).container.innerHTML).toBe(off);
-  });
-
-  it("moves the handle to a flag's hour on a click, then tells the page which moment it was", () => {
-    const onCursor = vi.fn();
-    const onMoment = vi.fn();
-    showPeriod(30, { dates: true, moments: MOMENTS, onCursor, onMoment });
-    fireEvent.click(screen.getByRole('button', { name: 'Earth in view 10 Jan' }));
-    expect(onCursor).toHaveBeenCalledTimes(1);
-    expect(onCursor).toHaveBeenCalledWith(216);
-    expect(onMoment).toHaveBeenCalledTimes(1);
-    expect(onMoment.mock.calls[0][0]).toBe(MOMENTS[2]);
-    // The handle first, then the page.
-    expect(onCursor.mock.invocationCallOrder[0]).toBeLessThan(onMoment.mock.invocationCallOrder[0]);
-    cleanup();
-    // Without onMoment a flag still moves the handle.
-    const alone = vi.fn();
-    showPeriod(30, { dates: true, moments: MOMENTS, onCursor: alone });
-    fireEvent.click(screen.getByRole('button', { name: 'Sunset 3 Jan' }));
-    expect(alone).toHaveBeenCalledWith(50);
-  });
-
-  it('shows the flag of the moment the handle is on as chosen: the current one, with a gold edge on a lighter ground', () => {
-    const { container } = showPeriod(30, { dates: true, moments: MOMENTS, cursor: 216 });
-    const flags = flagsOf(container);
-    // "Earth in view 10 Jan", at hour 216, and no other.
-    expect(flags.map((f) => f.getAttribute('aria-current'))).toEqual([null, null, 'true', null]);
-    const [chosen] = flags.splice(2, 1);
-    // The Sun's gold for its edge, which both themes set, on a ground lighter than the others'.
-    expect(chosen.classList.contains('border-sun')).toBe(true);
-    expect(chosen.classList.contains('bg-surface-2')).toBe(true);
-    expect(chosen.classList.contains('border-ink-3')).toBe(false);
-    expect(chosen.classList.contains('bg-surface')).toBe(false);
-    for (const f of flags) {
-      expect(f.classList.contains('border-ink-3')).toBe(true);
-      expect(f.classList.contains('bg-surface')).toBe(true);
-      expect(f.classList.contains('border-sun')).toBe(false);
-    }
-    cleanup();
-    // Between two moments none is chosen.
-    const between = showPeriod(30, { dates: true, moments: MOMENTS, cursor: 100 });
-    for (const f of flagsOf(between.container)) {
-      expect(f.hasAttribute('aria-current')).toBe(false);
-      expect(f.classList.contains('border-sun')).toBe(false);
-    }
-    cleanup();
-    // On a phone when compact, where each flag is a dot, the chosen one's dot is gold and the others' ink.
-    const phone = showPeriod(30, { dates: true, moments: MOMENTS, compact: true, cursor: 216 });
-    const dots = flagsOf(phone.container).map((f) => f.querySelector('[data-part="moment-dot"]')!);
-    expect(dots.map((d) => (d.classList.contains('bg-sun') ? 'gold' : d.classList.contains('bg-ink') ? 'ink' : null))).toEqual(['ink', 'ink', 'gold', 'ink']);
-    expect(flagsOf(phone.container)[2].getAttribute('aria-current')).toBe('true');
-  });
-
-  it('puts one of two flags that would meet in a second row, choosing the one whose stem then comes down in sight', () => {
-    // On the 1000 px a track has without a layout (jsdom), "Battery runs out 4 Jan" starts on the words of "Sunset 3 Jan":
-    // lifted, its stem would come down behind them, so "Sunset 3 Jan" goes up instead, its stem just left of the other.
-    const rows = momentRows(MOMENTS, 720, 1000);
-    expect(rows[0]).toBeGreaterThan(rows[1]);
-    const { container } = showPeriod(30, { dates: true, moments: MOMENTS });
-    const flags = flagsOf(container);
-    expect(flags.map((f) => Number(f.dataset.row))).toEqual(rows);
-    // Rows of 22 px, each flag 20 px tall with 2 px under it; the first row right above the strip.
-    const top = Math.max(...rows);
-    expect(container.querySelector('[data-part="moments"]')!.classList.contains(['h-[22px]', 'h-[44px]', 'h-[66px]'][top])).toBe(true);
-    flags.forEach((f, i) => expect(f.classList.contains(['bottom-[2px]', 'bottom-[24px]', 'bottom-[46px]'][rows[i]])).toBe(true));
-    // Every stem reaches the strip: 12 px from the first row, 22 px more from each row above it.
-    expect(stemsOf(container).map(heightPx)).toEqual(rows.map((r) => [12, 34, 56][r]));
-    // The upper flag's stem, at hour 50, comes down left of the lower flag, which starts at hour 76.
-    expect(parseFloat(flags[0].style.left)).toBeLessThan(parseFloat(flags[1].style.left));
-    cleanup();
-    // Moments far apart keep to one row.
-    const one = showPeriod(30, { dates: true, moments: [MOMENTS[0], MOMENTS[2], MOMENTS[3]] });
-    expect(flagsOf(one.container).map((f) => f.dataset.row)).toEqual(['0', '0', '0']);
-    expect(one.container.querySelector('[data-part="moments"]')!.classList.contains('h-[22px]')).toBe(true);
-  });
-
-  it('draws a third row 22 px above the second when the rows need it, each stem down to the strip', () => {
-    const stand = [
-      { label: 'Sunset, 3 Jan', hour: 50 },
-      { label: 'Battery runs out, 4 Jan', hour: 76 },
-      { label: 'Earth rises, 5 Jan', hour: 100 },
-      { label: 'Sunrise, 6 Jan', hour: 124 },
-      { label: 'Earth sets, 7 Jan', hour: 148 },
-    ];
-    const rows = momentRows(stand, 720, 1000);
-    // Five flags in five days: two rows are not enough.
-    expect(Math.max(...rows)).toBe(2);
-    const { container } = showPeriod(30, { dates: true, moments: stand });
-    const flags = flagsOf(container);
-    expect(flags.map((f) => Number(f.dataset.row))).toEqual(rows);
-    expect(container.querySelector('[data-part="moments"]')!.classList.contains('h-[66px]')).toBe(true);
-    flags.forEach((f, i) => expect(f.classList.contains(['bottom-[2px]', 'bottom-[24px]', 'bottom-[46px]'][rows[i]])).toBe(true));
-    expect(stemsOf(container).map(heightPx)).toEqual(rows.map((r) => [12, 34, 56][r]));
-  });
-
-  it('lays the flags out by their widths as the browser draws them, measured once they are drawn and again once the page’s fonts are in (18.3)', async () => {
-    // The stand view's five moments on a 538 px track, a 768 px screen (read D2-2, frame 27). Until the page's fonts
-    // are in, the browser draws the words a fifth wider, in a fallback font.
-    const stand = [
-      { label: 'Sunset, 3 Jan', hour: 50 },
-      { label: 'Battery runs out, 4 Jan', hour: 76 },
-      { label: 'Earth rises, 10 Jan', hour: 216 },
-      { label: 'Sunrise, 20 Jan', hour: 456 },
-      { label: 'Earth sets, 23 Jan', hour: 528 },
-    ];
-    const drawn = [95, 155, 125, 100, 120];
-    const fallback = drawn.map((w) => Math.round(w * 1.2));
-    // Neither the fallback font's widths nor the guess from their letters lay them out clean.
-    expect(momentRows(stand, 720, 538, drawn)).toEqual([2, 1, 0, 1, 0]);
-    expect(momentRows(stand, 720, 538, fallback)).not.toEqual([2, 1, 0, 1, 0]);
-    expect(momentRows(stand, 720, 538)).not.toEqual([2, 1, 0, 1, 0]);
-    // Compact too, as the stand view always is: from sm up its moments are flags with their words, dots only on a phone.
-    for (const extra of [{}, { compact: true }]) {
-      let widths = fallback;
-      let fontsIn: () => void = () => {};
-      Object.defineProperty(document, 'fonts', { configurable: true, value: { ready: new Promise<void>((done) => (fontsIn = () => done())) } });
-      const offsetWidth = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (this: HTMLElement) {
-        const k = stand.findIndex((m) => m.label === this.textContent);
-        return this.dataset.part === 'moment' && k >= 0 ? widths[k] : 0;
-      });
-      try {
-        const track = measuredTrack();
-        const { container, unmount } = showPeriod(30, { dates: true, moments: stand, ...extra });
-        act(() => track(538));
-        const rowsDrawn = () => flagsOf(container).map((f) => Number(f.dataset.row));
-        expect(rowsDrawn()).toEqual(momentRows(stand, 720, 538, fallback));
-        // The fonts come in and the flags are measured again: now they lay out clean, in three rows.
-        widths = drawn;
-        await act(async () => fontsIn());
-        expect(rowsDrawn()).toEqual([2, 1, 0, 1, 0]);
-        expect(container.querySelector('[data-part="moments"]')!.classList.contains('h-[66px]')).toBe(true);
-        unmount();
-      } finally {
-        offsetWidth.mockRestore();
-        Reflect.deleteProperty(document, 'fonts');
-      }
-    }
-  });
-
-  it('ends a flag at its hour when its words would run past the right end of the track, the stem on its right edge', () => {
-    const moments = [
-      { label: 'Earth in view 21 Jan', hour: 480 },
-      { label: 'Sun back 30 Jan', hour: 719 },
-    ];
-    const { container } = showPeriod(30, { dates: true, moments });
-    const [earth, sun] = flagsOf(container);
-    const [earthStem, sunStem] = stemsOf(container);
-    expect(earth.style.transform).toBe('');
-    expect(sun.style.transform).toBe('translateX(-100%)');
-    expect(parseFloat(sun.style.left) / 100).toBeCloseTo(719 / 720, 6);
-    // The stem stays on the hour: on the flag's right edge rather than its left.
-    expect(sunStem.classList.contains('-right-px')).toBe(true);
-    expect(sunStem.classList.contains('-left-px')).toBe(false);
-    expect(earthStem.classList.contains('-left-px')).toBe(true);
-    expect(earthStem.classList.contains('-right-px')).toBe(false);
-    // The corner over the stem is square, so the stem runs on from the flag's edge.
-    expect(earth.classList.contains('rounded-bl-none')).toBe(true);
-    expect(sun.classList.contains('rounded-br-none')).toBe(true);
-  });
-
-  it('measures the track, so on a narrow one a flag near the right end ends at its hour', () => {
-    let report: ((entries: { contentRect: { width: number } }[]) => void) | null = null;
-    class FakeObserver {
-      constructor(cb: (entries: { contentRect: { width: number } }[]) => void) {
-        report = cb;
-      }
-      observe() {}
-      disconnect() {}
-    }
-    vi.stubGlobal('ResizeObserver', FakeObserver);
-    const { container } = showPeriod(30, { dates: true, moments: [{ label: 'Earth in view 25 Jan', hour: 590 }] });
-    // Until measured, 1000 px: hour 590 of the 720 leaves 181 px, room for the 169 px of its words.
-    expect(flagsOf(container)[0].style.transform).toBe('');
-    act(() => report!([{ contentRect: { width: 600 } }]));
-    // On 600 px it leaves 108 px: the flag ends at its hour.
-    expect(flagsOf(container)[0].style.transform).toBe('translateX(-100%)');
-  });
-
-  it('on a phone when compact, Play shows its word beside its sign, at one width for Play and Pause, and the bar takes the whole width for it', () => {
-    vi.useFakeTimers();
-    const { container } = show(0, { dates: true, powered: power.powered, compact: true });
-    const play = screen.getByRole('button', { name: 'Play' });
-    const word = play.querySelector('span')!;
-    expect(word.textContent).toBe('Play');
-    expect(word.className).not.toMatch(/sr-only/);
-    // Still the plain 48 px button, a little tighter at the sides on a phone, and wide enough for "Pause" too, so the
-    // date beside it does not move when it is pressed.
-    expect(play.classList.contains('btn')).toBe(true);
-    for (const c of ['max-sm:px-3', 'max-sm:gap-2']) expect(play.classList.contains(c)).toBe(true);
-    expect(play.className).toMatch(/(^| )max-sm:min-w-\[\d+px\]( |$)/);
-    fireEvent.click(play);
-    const pause = screen.getByRole('button', { name: 'Pause' });
-    expect(pause.querySelector('span')!.textContent).toBe('Pause');
-    expect(pause.querySelector('span')!.className).not.toMatch(/sr-only/);
-    expect(pause.className).toBe(play.className);
-    // No chart above the stand view's bar to line the track up with: on a phone the bar drops the chart panel's
-    // inset and keeps the room for the word.
-    const grid = container.querySelector('[data-part="bar-grid"]')!;
-    expect(grid.classList.contains('px-[25px]')).toBe(true);
-    expect(grid.classList.contains('max-sm:px-0')).toBe(true);
-    cleanup();
-    // Without compact, as before: the sign alone on a phone, and the inset kept.
-    const plain = show(0, { dates: true });
-    expect(screen.getByRole('button', { name: 'Play' }).querySelector('span')!.className).toMatch(/max-sm:sr-only/);
-    expect(screen.getByRole('button', { name: 'Play' }).className).not.toMatch(/max-sm:(min-w|px|gap)/);
-    expect(plain.container.querySelector('[data-part="bar-grid"]')!.className).not.toMatch(/max-sm:px-0/);
-  });
-
-  it('on a phone when compact, the chosen dot shows its words in a chip just above it, kept inside the track', () => {
-    const { container } = showPeriod(30, { dates: true, moments: MOMENTS, compact: true, cursor: 456 });
-    const chips = [...container.querySelectorAll<HTMLElement>('[data-part="moment-chip"]')];
-    expect(chips).toHaveLength(1);
-    const [chip] = chips;
-    expect(chip.textContent).toBe('Sun and power back 20 Jan');
-    // Only on a phone, where the flags are dots; elsewhere the chosen flag shows its words itself.
-    expect(chip.classList.contains('hidden')).toBe(true);
-    expect(chip.classList.contains('max-sm:flex')).toBe(true);
-    // In the row of the flags, its foot 4 px up the row, 1 px over the dot: the dot, 12 px, rests on the strip, 9 px
-    // down the box under the row, so its top is 3 px up the row. Over the dots' targets, which it does not hide.
-    expect(chip.parentElement).toBe(container.querySelector('[data-part="moments"]'));
-    expect(chip.classList.contains('bottom-[4px]')).toBe(true);
-    expect(classPx(chip, 'h')).toBe(18);
-    expect(4 + 18).toBeLessThanOrEqual(classPx(chip.parentElement!, 'h', 'max-sm:'));
-    expect(chip.classList.contains('z-20')).toBe(true);
-    // At its hour's share of the track, drawn back by the same share of its own width: at the start of the track it
-    // starts there, at the end it ends there, and its dot is always under it.
-    expect(parseFloat(chip.style.left)).toBeCloseTo((456 / 720) * 100, 6);
-    expect(chip.style.transform).toBe(`translateX(-${(456 / 720) * 100}%)`);
-    // Words at 14 px in the ink, on the chosen flag's ground inside its gold edge, on one line.
-    for (const c of ['text-[14px]', 'text-ink', 'bg-surface-2', 'border', 'border-sun', 'rounded', 'whitespace-nowrap']) expect(chip.classList.contains(c)).toBe(true);
-    // A label, not a second button: a tap goes through it, and the dot's own button already carries the words.
-    expect(chip.classList.contains('pointer-events-none')).toBe(true);
-    expect(chip.getAttribute('aria-hidden')).toBe('true');
-    cleanup();
-    // At the first hour, at the very start of the track.
-    const start = showPeriod(30, { dates: true, moments: [{ label: 'Sunrise 1 Jan', hour: 0 }, ...MOMENTS], compact: true, cursor: 0 });
-    const first = start.container.querySelector<HTMLElement>('[data-part="moment-chip"]')!;
-    expect(first.textContent).toBe('Sunrise 1 Jan');
-    expect(parseFloat(first.style.left)).toBe(0);
-    cleanup();
-    // None after the last moment, and none without compact, where every flag shows its words.
-    expect(showPeriod(30, { dates: true, moments: MOMENTS, compact: true, cursor: 500 }).container.querySelector('[data-part="moment-chip"]')).toBeNull();
-    cleanup();
-    expect(showPeriod(30, { dates: true, moments: MOMENTS, cursor: 456 }).container.querySelector('[data-part="moment-chip"]')).toBeNull();
-    cleanup();
-    expect(showPeriod(30, { dates: true, moments: MOMENTS, cursor: 100 }).container.querySelector('[data-part="moment-chip"]')).toBeNull();
-  });
-
-  it('on a phone when compact, names the next moment in the chip while the time is on none: "Next: Battery runs out, 4 Jan"', () => {
-    const chipAt = (cursor: number) => {
-      cleanup();
-      return showPeriod(30, { dates: true, moments: STAND_MOMENTS, compact: true, cursor }).container.querySelector<HTMLElement>('[data-part="moment-chip"]');
-    };
-    const chip = chipAt(60)!;
-    expect(chip.textContent).toBe('Next: Battery runs out, 4 Jan');
-    expect(chip.hasAttribute('data-next')).toBe(true);
-    // Over the next moment's dot, kept inside the track like the chosen one's.
-    expect(parseFloat(chip.style.left)).toBeCloseTo((76 / 720) * 100, 6);
-    expect(chip.style.transform).toBe(`translateX(-${(76 / 720) * 100}%)`);
-    // Not chosen: the plain edge and ground of a flag at rest rather than the gold, "Next:" in the second ink; on a
-    // phone only, a label that taps go through.
-    for (const c of ['border', 'border-ink-3', 'bg-surface', 'text-[14px]', 'text-ink', 'hidden', 'max-sm:flex', 'pointer-events-none', 'bottom-[4px]']) expect(chip.classList.contains(c)).toBe(true);
-    expect(chip.classList.contains('border-sun')).toBe(false);
-    expect(chip.querySelector('.text-ink-2')!.textContent).toBe('Next:');
-    expect(chip.getAttribute('aria-hidden')).toBe('true');
-    // No dot is chosen meanwhile.
-    expect(document.querySelector('[data-part="moment"][aria-current]')).toBeNull();
-    // From the start, the first moment is next.
-    expect(chipAt(0)!.textContent).toBe('Next: Sunset, 3 Jan');
-    // On a moment's hour the chip names that one, chosen, as before.
-    const on = chipAt(76)!;
-    expect(on.textContent).toBe('Battery runs out, 4 Jan');
-    expect(on.hasAttribute('data-next')).toBe(false);
-    expect(on.classList.contains('border-sun')).toBe(true);
-    expect(chipAt(217)!.textContent).toBe('Next: Sun back, 20 Jan');
-    expect(chipAt(456)!.textContent).toBe('Sun back, 20 Jan');
-    // With no moment after the time, no chip.
-    expect(chipAt(457)).toBeNull();
-    expect(chipAt(719)).toBeNull();
-  });
-
-  it('on a phone when compact, makes each flag a dot on the top edge of the strip, named for screen readers, with a target 40 px tall and 24 px wide', () => {
-    const { container } = showPeriod(30, { dates: true, moments: MOMENTS, compact: true });
-    // The flags take 27 px over the strip there: with the grid's 4 px gap above the row and the slider's 9 px over the
-    // strip under it, room for a target 40 px tall whose top stays clear of Play and the date, and whose foot stays
-    // off the strip, which the slider keeps for a finger. No more: the bar stays as low as that allows.
-    const row = container.querySelector<HTMLElement>('[data-part="moments"]')!;
-    expect(classPx(row, 'h', 'max-sm:')).toBe(27);
-    expect(row.classList.contains('max-sm:z-[1]')).toBe(true);
-    expect(container.querySelector('[data-part="bar-grid"]')!.classList.contains('gap-y-1')).toBe(true);
-    expect(topPx(container.querySelector('[data-part="track"] svg')!)).toBe(9);
-    flagsOf(container).forEach((f, k) => {
-      expect(f.getAttribute('aria-label')).toBe(MOMENTS[k].label);
-      expect(screen.getByRole('button', { name: MOMENTS[k].label })).toBe(f);
-      // The words stay, for screen readers only.
-      const words = f.querySelector('span')!;
-      expect(words.textContent).toBe(MOMENTS[k].label);
-      expect(words.classList.contains('max-sm:sr-only')).toBe(true);
-      // A 12 px round dot, on a phone only, at the foot of its target.
-      const dot = f.querySelector<HTMLElement>('[data-part="moment-dot"]')!;
-      for (const c of ['size-3', 'rounded-full', 'hidden', 'max-sm:block', 'absolute', 'bottom-0', 'left-1/2', '-translate-x-1/2']) expect(dot.classList.contains(c)).toBe(true);
-      expect(dot.getAttribute('aria-hidden')).toBe('true');
-      // A target 40 px tall and 24 px wide, its foot on the strip's top edge, without the flag's edge or panel colour.
-      expect(classPx(f, 'h', 'max-sm:')).toBe(40);
-      expect(classPx(f, 'w', 'max-sm:')).toBe(24);
-      expect(classPx(f, 'h', 'max-sm:')).toBe(4 + classPx(row, 'h', 'max-sm:') + 9);
-      for (const c of ['max-sm:-bottom-[9px]', 'max-sm:rounded-full', 'max-sm:border-0', 'max-sm:bg-transparent', 'max-sm:p-0', 'max-sm:ml-[var(--dot-x)]']) expect(f.classList.contains(c)).toBe(true);
-      // Centred on its hour: half a target back, or, for a flag that ends at its hour (already a whole target back), half a target on.
-      expect(f.style.getPropertyValue('--dot-x')).toBe(f.style.transform === 'translateX(-100%)' ? '12px' : '-12px');
-    });
-    // No stems there: the dot sits on the strip itself.
-    for (const s of stemsOf(container)) expect(s.classList.contains('max-sm:hidden')).toBe(true);
-    cleanup();
-    // Without compact the flags keep their words at every width.
-    const wide = showPeriod(30, { dates: true, moments: MOMENTS });
-    for (const f of flagsOf(wide.container)) {
-      expect(f.querySelector('[data-part="moment-dot"]')).toBeNull();
-      expect(f.outerHTML).not.toMatch(/max-sm:|--dot-x/);
-    }
-    expect(wide.container.querySelector('[data-part="moments"]')!.className).not.toMatch(/max-sm:/);
-  });
-
-  it('on a phone when compact, moves dots too close for their targets apart, so each keeps a target of its own 24 px wide', () => {
-    const report = measuredTrack();
-    const { container } = showPeriod(30, { dates: true, moments: STAND_MOMENTS, compact: true });
-    const exact = (px: number) => STAND_MOMENTS.map((m) => (m.hour / 720) * px);
-    // Until measured (1000 px) the dots are on their hours, 36 px apart and more.
-    expect(flagsOf(container).map((f) => dotTargetLeft(f, 1000) + 12)).toEqual(exact(1000).map((x) => expect.closeTo(x, 9)));
-    // On a phone's 358 px track the 3rd and the 4th lie 13 px apart: the two dots move apart evenly, so their targets
-    // meet without covering each other; the other two stay on their hours.
-    act(() => report(358));
-    const at = exact(358);
-    const middle = (at[0] + at[1]) / 2;
-    const lefts = flagsOf(container).map((f) => dotTargetLeft(f, 358));
-    expect(lefts.map((l) => l + 12)).toEqual([middle - 12, middle + 12, at[2], at[3]].map((x) => expect.closeTo(x, 9)));
-    for (let k = 1; k < lefts.length; k++) expect(lefts[k] - lefts[k - 1]).toBeGreaterThanOrEqual(24 - 1e-9);
-    // The last ends at its hour as a flag, so its target comes back from a whole target to the left.
-    expect(flagsOf(container)[3].style.transform).toBe('translateX(-100%)');
-    // The chip stays over its dot wherever that has moved: at its hour, moved as far as the dot, and drawn back by the
-    // dot's share of the track.
-    cleanup();
-    const report2 = measuredTrack();
-    const chosen = showPeriod(30, { dates: true, moments: STAND_MOMENTS, compact: true, cursor: 50 });
-    act(() => report2(358));
-    const chip = chosen.container.querySelector<HTMLElement>('[data-part="moment-chip"]')!;
-    expect(chip.textContent).toBe('Sunset, 3 Jan');
-    expect(parseFloat(chip.style.left)).toBeCloseTo((50 / 720) * 100, 9);
-    expect(parseFloat(chip.style.marginLeft)).toBeCloseTo(middle - 12 - at[0], 9);
-    expect(Number(/^translateX\(-([\d.]+)%\)$/.exec(chip.style.transform)?.[1])).toBeCloseTo(((middle - 12) / 358) * 100, 9);
-  });
-});
-
-/** The faults of a layout: px of flags over each other in a row, or less than 4 px apart, and stems down behind another flag's words, or within 4 px past their end. */
-function faults(moments: { label: string; hour: number }[], hours: number, trackPx: number, rows: number[], widths?: number[]) {
-  const span = (i: number) => {
-    const at = (moments[i].hour / hours) * trackPx, w = widths?.[i] || moments[i].label.length * 7.75 + 14;
-    return at + w > trackPx ? { from: at - w, to: at, stem: at } : { from: at, to: at + w, stem: at };
-  };
-  let over = 0, behind = 0;
-  for (let a = 0; a < moments.length; a++)
-    for (let b = 0; b < moments.length; b++) {
-      if (a === b) continue;
-      const sa = span(a), sb = span(b);
-      // The clearance a pair lacks counts as overlap, so two flags that touch are 4 px over each other.
-      if (rows[a] === rows[b] && a < b) over += Math.max(0, 4 + Math.min(sa.to, sb.to) - Math.max(sa.from, sb.from));
-      if (rows[a] > rows[b] && sb.from < sa.stem && sa.stem < sb.to + 4) behind++;
-    }
-  return { over, behind };
-}
-
-describe('momentRows', () => {
-  it('keeps moments far apart in the first row', () => {
-    expect(momentRows([MOMENTS[0], MOMENTS[2], MOMENTS[3]], 720, 1000)).toEqual([0, 0, 0]);
-  });
-
-  it('lifts the first of two moments a day apart, as the second one’s stem would come down behind it', () => {
-    expect(momentRows([{ label: 'Sunset 3 Jan', hour: 48 }, { label: 'Battery runs out 4 Jan', hour: 72 }], 720, 1000)).toEqual([1, 0]);
-  });
-
-  it('lays the stand view’s five moments out clean on a 538 px track by their measured widths, in three rows (read D2-2, frame 27)', () => {
-    // A 768 px screen; the widths as the browser measures them at 14 px.
-    const stand = [
-      { label: 'Sunset, 3 Jan', hour: 50 },
-      { label: 'Battery runs out, 4 Jan', hour: 76 },
-      { label: 'Earth rises, 10 Jan', hour: 216 },
-      { label: 'Sunrise, 20 Jan', hour: 456 },
-      { label: 'Earth sets, 23 Jan', hour: 528 },
-    ];
-    const widths = [95, 155, 125, 100, 120];
-    const rows = momentRows(stand, 720, 538, widths);
-    expect(faults(stand, 720, 538, rows, widths)).toEqual({ over: 0, behind: 0 });
-    expect(Math.max(...rows)).toBe(2);
-    // With a wide track two rows do.
-    const wide = momentRows(stand, 720, 1050, widths);
-    expect(faults(stand, 720, 1050, wide, widths)).toEqual({ over: 0, behind: 0 });
-    expect(Math.max(...wide)).toBeLessThanOrEqual(1);
-  });
-
-  it('keeps 4 px between two flags in one row: flags that would touch go to different rows', () => {
-    // "Sunrise, 20 Jan" and "Earth sets, 23 Jan", 72 hours apart, on a 1440 px track: a flag runs right from its hour, so the
-    // first starts at 912 px and the second at 1056 px, and a first flag 144 px wide ends where the second starts. Both hours
-    // fall on whole pixels on this track, so each gap below is exact.
-    const pair = [{ label: 'Sunrise, 20 Jan', hour: 456 }, { label: 'Earth sets, 23 Jan', hour: 528 }];
-    const rowsWithGap = (gap: number) => {
-      const widths = [144 - gap, 120];
-      const rows = momentRows(pair, 720, 1440, widths);
-      // Whichever rows they take, the layout is clean by the 4 px rule.
-      expect(faults(pair, 720, 1440, rows, widths)).toEqual({ over: 0, behind: 0 });
-      return rows;
-    };
-    // Touching, 2 px apart and 3 px apart: the flags lack the clearance, so one goes up.
-    for (const gap of [0, 2, 3]) expect(new Set(rowsWithGap(gap)).size).toBe(2);
-    // 4 px apart is clear enough for one row, and so is more.
-    for (const gap of [4, 5, 40]) expect(rowsWithGap(gap)).toEqual([0, 0]);
-  });
-
-  it('puts the earlier of two flags up when the later one’s stem would come down within 4 px past the end of its words', () => {
-    // The later flag's stem sits at the end of the earlier one's words or just past it. With the later flag up, the stem would run
-    // down right against those words, where it reads as their edge; with the earlier flag up, its stem comes down far from the later one.
-    const pair = [{ label: 'Sunrise, 20 Jan', hour: 456 }, { label: 'Earth sets, 23 Jan', hour: 528 }];
-    for (const gap of [0, 2, 3]) expect(momentRows(pair, 720, 1440, [144 - gap, 120])).toEqual([1, 0]);
-    // 4 px clear of the words is no longer against them: the flags share the first row.
-    expect(momentRows(pair, 720, 1440, [140, 120])).toEqual([0, 0]);
-  });
-
-  it('lifts the earlier of two moments a few hours apart, as the later one’s stem would come down through its words', () => {
-    // The Sun sets at 23:00 on the 3rd and the battery runs out at 02:00 on the 4th, on the 538 px track of a 768 px screen: their
-    // hours are 2 px apart. With the earlier flag up, its stem comes down just before the later flag's words; with the later flag
-    // up instead, its stem would come down through the earlier flag's words, which is worse, so the earlier one goes up.
-    const sunset = [{ label: 'Sunset, 3 Jan', hour: 71 }, { label: 'Battery runs out, 4 Jan', hour: 74 }];
-    const widths = [95, 155];
-    const rows = momentRows(sunset, 720, 538, widths);
-    expect(rows).toEqual([1, 0]);
-    expect(faults(sunset, 720, 538, rows, widths)).toEqual({ over: 0, behind: 0 });
-  });
-
-  it('takes the fewest rows that are clean, and the lowest of those', () => {
-    const rows = momentRows(MOMENTS, 720, 1000);
-    expect(faults(MOMENTS, 720, 1000, rows)).toEqual({ over: 0, behind: 0 });
-    expect(Math.max(...rows)).toBe(1);
-  });
-
-  it('with no clean layout in three rows, takes the one with the fewest faults, a stem behind words counting as 60 px', () => {
-    // Six moments in a week on a 538 px track: nothing is clean; the layout still has every flag in a row and no exception.
-    const crowd = [0, 24, 48, 72, 96, 120].map((hour, k) => ({ label: `Moment ${k}, ${k + 1} Jan`, hour }));
-    const rows = momentRows(crowd, 720, 538);
-    expect(rows).toHaveLength(6);
-    for (const r of rows) expect([0, 1, 2]).toContain(r);
-    const f = faults(crowd, 720, 538, rows);
-    expect(f.over + 60 * f.behind).toBeGreaterThan(0);
-  });
-
-  it('prefers the later of two flags up on a tie: a flag ending at its hour reaches back over the one before', () => {
-    expect(momentRows([{ label: 'Earth in view 25 Jan', hour: 576 }, { label: 'Sun and power back, 29 Jan', hour: 684 }], 720, 1000)).toEqual([0, 1]);
-  });
-
-  it('takes a flag at the very end as ending at its hour: it reaches back over one just before it, and clears one further back', () => {
-    // Run to the right, "Sun back 30 Jan" at the last hour would start at 999 px, past the end of "Earth in view 25 Jan" at 988 px.
-    // Ending at its hour it starts at 869 px, on those words, so one of the two goes up; either stem then comes down clear
-    // of the other's words (its own, on its right edge at 999 px, past their end), and on that tie the later one goes up.
-    expect(
-      momentRows(
-        [
-          { label: 'Earth in view 25 Jan', hour: 590 },
-          { label: 'Sun back 30 Jan', hour: 719 },
-        ],
-        720,
-        1000,
-      ),
-    ).toEqual([0, 1]);
-    // "Earth in view 21 Jan" ends at 836 px: the two share the first row.
-    expect(
-      momentRows(
-        [
-          { label: 'Earth in view 21 Jan', hour: 480 },
-          { label: 'Sun back 30 Jan', hour: 719 },
-        ],
-        720,
-        1000,
-      ),
-    ).toEqual([0, 0]);
-  });
-
-  it('has no rows for no moments', () => {
-    expect(momentRows([], 720, 1000)).toEqual([]);
-  });
-
-  it('falls back to the greedy rows beyond nine flags, so the search never runs long', () => {
-    const many = Array.from({ length: 12 }, (_, k) => ({ label: `M${k}`, hour: k * 60 }));
-    expect(momentRows(many, 720, 2000)).toHaveLength(12);
-  });
-
-  it('keeps 4 px between flags in the greedy rows too, beyond nine flags', () => {
-    // Ten flags 96 px apart on a 1440 px track, each 80 px wide but the fifth, 94 px: it ends 2 px short of the sixth. The fifth
-    // goes up, so that the sixth's stem does not come down against its words; the rest share the first row.
-    const crowd = Array.from({ length: 10 }, (_, k) => ({ label: `Moment ${k}`, hour: 48 * (k + 1) }));
-    const widths = crowd.map((_, k) => (k === 4 ? 94 : 80));
-    const rows = momentRows(crowd, 720, 1440, widths);
-    expect(rows).toEqual([0, 0, 0, 0, 1, 0, 0, 0, 0, 0]);
-    expect(faults(crowd, 720, 1440, rows, widths)).toEqual({ over: 0, behind: 0 });
+    act(() => vi.advanceTimersByTime(STEP));
+    expect(onCursor).toHaveBeenLastCalledWith(12);
   });
 });
 

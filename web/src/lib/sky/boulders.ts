@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /**
  * A few boulders near the eye, drawn (not measured, like the small craters underfoot): real shapes the view
@@ -370,6 +371,35 @@ function rockSurface(geo: THREE.BufferGeometry, seed: number) {
   bumped.computeVertexNormals();
   geo.setAttribute('color', new THREE.BufferAttribute(colour, 3));
   geo.setAttribute('normal', bumped.getAttribute('normal'));
+}
+
+/**
+ * The resident's shell (spec 21.2): a dome made as the rocks are, so it reads as one of them, and as a shell. A round top
+ * over a flatter belly (UNDER: how deep the belly is, in the top's height), swelling and denting a little all over
+ * (SWELL, slow, about one swell across it: NOISE_F) so it is a stone, not a ball; fitted to the box from -1 to 1 on each
+ * axis, as a boulder's shape is, with its corners welded (no seam down its back) and a rock's surface (rockSurface:
+ * patches lighter and darker, small bumps), all from `seed`. SEGMENTS: how finely round and up.
+ */
+export const DOME = { UNDER: 0.25, SWELL: 0.06, SEGMENTS: [24, 14] } as const;
+export function rockDome(seed: number): THREE.BufferGeometry {
+  const ball = new THREE.SphereGeometry(1, DOME.SEGMENTS[0], DOME.SEGMENTS[1]);
+  ball.deleteAttribute('uv');
+  ball.deleteAttribute('normal');
+  const geo = mergeVertices(ball, 1e-6);
+  ball.dispose();
+  const pos = geo.getAttribute('position'), swell = noise(seed), v = new THREE.Vector3(), f = ROCK.NOISE_F;
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const k = 1 + DOME.SWELL * octaves(swell, f * v.x + 3.1, f * v.y + 7.7, f * v.z + 1.3, 2);
+    pos.setXYZ(i, v.x * k, (v.y < 0 ? DOME.UNDER * v.y : v.y) * k, v.z * k);
+  }
+  geo.computeBoundingBox();
+  const box = geo.boundingBox!.clone(), mid = box.getCenter(new THREE.Vector3()), half = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
+  for (let i = 0; i < pos.count; i++) pos.setXYZ(i, (pos.getX(i) - mid.x) / half.x, (pos.getY(i) - mid.y) / half.y, (pos.getZ(i) - mid.z) / half.z);
+  geo.computeBoundingBox();
+  geo.computeVertexNormals();
+  rockSurface(geo, (seed ^ 0x2545f491) >>> 0);
+  return geo;
 }
 
 /**

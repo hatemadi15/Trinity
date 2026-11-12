@@ -5,7 +5,7 @@ import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
 import { EARTH_LOOP, shadowWords, starLabel } from '@/lib/viz/stand';
 
-export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void; setBright?: (on: boolean) => void; setScene?: (scene: StandScene) => void };
+export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void; setBright?: (on: boolean) => void; setScene?: (scene: StandScene) => void; greet?: (atOnce: boolean) => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget {
   yaw: number;
@@ -369,6 +369,18 @@ const TICKS = Array.from({ length: 72 }, (_, k) => -360 + k * 15);
  */
 export const easeStep = (dt: number): number => 1 - Math.exp(-5 * Math.min(0.5, Math.max(0, dt)));
 
+/**
+ * The hour the view shows a frame `dt` seconds on, gliding from `shown` towards `target` (the time bar's hour) at 7/6 of
+ * Play's pace (`playHps`, hours a second, in 12 steps a second), so each step is caught up within its own twelfth of a
+ * second and the light moves smoothly between steps; a gap of more than two steps (a press on the track, a dot or Next)
+ * is a jump (21.1). At the old Play's 12 hours a second: 14 hours a second, and a jump beyond two hours.
+ */
+export function glideStep(shown: number, target: number, dt: number, playHps: number): number {
+  const d = target - shown, pace = Math.max(12, playHps);
+  if (Math.abs(d) > (2 * pace) / 12) return target;
+  return shown + Math.sign(d) * Math.min(Math.abs(d), dt * (14 * pace) / 12);
+}
+
 const lerpAngle = (a: number, b: number, f: number) => (a + ((((b - a + 540) % 360) - 180) * f) + 360) % 360;
 // Opaque, so no path line shows through a name (16.3; both readers of read D1).
 const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] border border-white/15 bg-black px-2 py-1 text-[15px]';
@@ -411,6 +423,7 @@ export function StandCanvas({
   bright = false,
   onFound,
   lineTaken = false,
+  playHps = 12,
 }: {
   scene: StandScene;
   hour: number;
@@ -453,6 +466,8 @@ export function StandCanvas({
    * gone, so its line never takes another's place (a flag on the hero month turns the view straight onto it).
    */
   lineTaken?: boolean;
+  /** Play's pace, hours a second (21.1): the view glides between Play's steps at a little more than it (glideStep). */
+  playHps?: number;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
@@ -523,6 +538,7 @@ export function StandCanvas({
   const foundRef = useRef(onFound);
   const toldRef = useRef(false);
   const takenRef = useRef(lineTaken);
+  const playHpsRef = useRef(playHps);
   // Until the first frame is drawn no label shows: none floats over the empty view while it builds.
   const drawnRef = useRef(false);
   const [dragging, setDragging] = useState(false);
@@ -566,6 +582,9 @@ export function StandCanvas({
   useEffect(() => {
     takenRef.current = lineTaken;
   }, [lineTaken]);
+  useEffect(() => {
+    playHpsRef.current = playHps;
+  }, [playHps]);
   /** The opening view ends, or a look that kept the lander's feet in sight: its lower pitch becomes the view's own, so nothing jumps. */
   const endOpening = () => {
     if (!openingRef.current && !fitRef.current) return;
@@ -689,9 +708,8 @@ export function StandCanvas({
       const step = (now - last) / 1000;
       const dt = Math.min(0.1, Math.max(0, step));
       last = now;
-      const d = hourRef.current - shown;
-      if (d !== 0) {
-        shown = Math.abs(d) > 2 ? hourRef.current : shown + Math.sign(d) * Math.min(Math.abs(d), dt * 14);
+      if (hourRef.current !== shown) {
+        shown = glideStep(shown, hourRef.current, dt, playHpsRef.current);
         r.setTime(shown);
       }
       const v = view.current;
@@ -748,14 +766,18 @@ export function StandCanvas({
       }
       const l = r.labels();
       // The resident (20.2), the first time it stands well inside the view while the line over the view is free: in the
-      // middle three fifths across, 40 px or more inside the room between the words and the bar, and on no plate. It has
-      // no pointer and no mark on the compass: they would give it away.
+      // middle three fifths across, 16 px or more inside the room between the words and the bar, and on no plate. At
+      // night the view opens looking down and an uphill turn carries the resident high: there its shell's top stood 36 px
+      // under the plate above, which a 40 px margin missed, though the whole creature was in sight. It has no pointer and
+      // no mark on the compass: they would give it away. Found, it turns its head to look at you (21.2), at once with
+      // reduced motion.
       const found = l.resident;
       if (found?.visible && !toldRef.current && !takenRef.current && found.x >= 0.2 && found.x <= 0.8) {
         const fx = found.x * W, fy = found.y * H;
-        if (fy >= freeTop + 40 && fy <= freeBottom - 40 && !plates.some((p) => fx >= p.left && fx <= p.right && fy >= p.top && fy <= p.bottom)) {
+        if (fy >= freeTop + 16 && fy <= freeBottom - 16 && !plates.some((p) => fx >= p.left && fx <= p.right && fy >= p.top && fy <= p.bottom)) {
           toldRef.current = true;
           foundRef.current?.();
+          r.greet?.(reducedRef.current);
         }
       }
       const guide = guidesRef.current;

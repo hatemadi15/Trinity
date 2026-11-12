@@ -25,6 +25,7 @@ import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
 import { dateTimeUtc } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 import { sceneStateAt } from '@/lib/viz/scene-state';
+import { keyMoments } from '@/lib/viz/stand';
 
 /**
  * Explore: the answer for one site and period first (in words, with the better landing date), then why
@@ -193,7 +194,19 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
           <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide />
           <PlannerChat store={store} navigate={go} />
         </div>
-        <TimeBar series={s.series} power={s.power} startUtc={s.startUtc} cursor={s.cursorHour} hoverHour={hoverHour} batteryWh={s.params.power.batteryWh} onCursor={s.setCursor} />
+        {/* The period's key moments as dots with Next, as on the stand view, so Play and Next show what happens on the first
+            screen (21.1); a preview on the bar moves the chart's time line and the date, as the chart's own does. */}
+        <TimeBar
+          series={s.series}
+          power={s.power}
+          startUtc={s.startUtc}
+          cursor={s.cursorHour}
+          hoverHour={hoverHour}
+          batteryWh={s.params.power.batteryWh}
+          onCursor={s.setCursor}
+          moments={keyMoments(s.series, s.power, s.startUtc).map((m) => ({ label: `${m.label}, ${m.day}`, hour: m.hour }))}
+          onHover={setHoverHour}
+        />
         {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
       </main>
     </AppFrame>
