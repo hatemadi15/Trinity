@@ -257,6 +257,12 @@ describe('TimeBar', () => {
     expect(grid.firstElementChild).toBe(screen.getByRole('button', { name: 'Play' }));
     const track = screen.getByRole('slider', { name: 'Time' }).closest<HTMLElement>('[data-part="track"]')!;
     expect(track.className).toMatch(/(^| )col-start-2( |$)/);
+    // On a phone the date's line takes the bar's whole width, so the date and hour keep one line beside Play and the
+    // speed (21.1); the track keeps the inset, under the chart's plot, inset by as much there.
+    expect(grid.classList.contains('max-sm:px-0')).toBe(true);
+    expect(track.classList.contains('max-sm:mx-[25px]')).toBe(true);
+    // The sentence wraps evenly, never leaving a lone word ("%") on a line of its own.
+    expect(screen.getByTestId('status').classList.contains('text-pretty')).toBe(true);
     // The date's line starts with the speed, right after Play, and carries the date and the words.
     const line = grid.querySelector<HTMLElement>('[data-part="line"]')!;
     expect(line.previousElementSibling).toBe(grid.firstElementChild);
@@ -293,10 +299,12 @@ describe('TimeBar', () => {
     expect(grid.classList.contains('px-0')).toBe(true);
     expect(grid.className).not.toMatch(/px-\[25px\]/);
     cleanup();
-    // Explore keeps the inset on a phone too, where its chart's plot is inset by as much.
+    // Explore keeps the inset for its track on a phone too, where its chart's plot is inset by as much; its date's line
+    // takes the whole width there (21.1). The stand view's track has none.
+    expect(track.className).not.toMatch(/mx-\[25px\]/);
     show(6);
     expect(document.querySelector('[data-part="bar-grid"]')!.classList.contains('px-[25px]')).toBe(true);
-    expect(document.querySelector('[data-part="bar-grid"]')!.className).not.toMatch(/(^| )(max-sm:)?px-0( |$)/);
+    expect(document.querySelector('[data-part="track"]')!.classList.contains('max-sm:mx-[25px]')).toBe(true);
   });
 
   it('shows the hour under the pointer on the chart while the handle stays put', () => {

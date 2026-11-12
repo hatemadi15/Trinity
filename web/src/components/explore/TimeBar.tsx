@@ -477,7 +477,7 @@ export function TimeBar({
     />
   ));
   const status = !compact && !bare && (
-    <span data-testid="status" className="text-[15px] text-ink-2">
+    <span data-testid="status" className="text-pretty text-[15px] text-ink-2">
       {statusSentence(series, power, shown, batteryWh)}
     </span>
   );
@@ -557,10 +557,11 @@ export function TimeBar({
             button, the words, and the track. The rows are flush there, as their targets are 40 px tall, so the bar is no
             taller than when the keys stood under the date. Compact (the stand view), no chart is above the bar to line the
             track up with, so it drops the chart panel's inset at every width: room for Play's word and the speed on a
-            phone, and for Next on the date's line from 768 px. */}
+            phone, and for Next on the date's line from 768 px. On Explore's phone the inset stays with the track alone,
+            under the chart's plot, and the date's line takes the whole width, so the date keeps one line (21.1). */}
         <div
           data-part="bar-grid"
-          className={`${PLOT_GRID} items-center gap-y-1 py-2.5 max-sm:grid-cols-[auto_auto_minmax(0,1fr)] max-sm:gap-x-2 max-sm:gap-y-0 ${compact ? 'px-0' : 'px-[25px]'}`}
+          className={`${PLOT_GRID} items-center gap-y-1 py-2.5 max-sm:grid-cols-[auto_auto_minmax(0,1fr)] max-sm:gap-x-2 max-sm:gap-y-0 ${compact ? 'px-0' : 'px-[25px] max-sm:px-0'}`}
         >
           {/* Play, Pause or Replay at one width, in the column of the chart's row names; its sign never shrinks. Level with
               the speed and Next on the date's line; bare, with nothing on that line but the date, beside the date and the
@@ -668,7 +669,7 @@ export function TimeBar({
           </div>
           <div
             data-part="track"
-            className="relative col-start-2 max-sm:col-span-3 max-sm:col-start-1 max-sm:mt-1"
+            className={`relative col-start-2 max-sm:col-span-3 max-sm:col-start-1 max-sm:mt-1${compact ? '' : ' max-sm:mx-[25px]'}`}
             onPointerMove={(e) => {
               if (e.pointerType === 'mouse' || pressed.current) look(e);
             }}
