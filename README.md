@@ -76,6 +76,73 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
 - `docs/`: method notes, data credits, hosting, the submission and pitch drafts, the design spec
   and the implementation plans.
 
+## Before you start: Node.js and npm
+
+The app needs Node.js and npm and nothing else: its native parts (Tailwind, Next's compiler, the
+image tools) come prebuilt for Windows, macOS and Linux, so npm needs no Python, Visual Studio or
+other build tools. (The pipeline needs Python; see `pipeline/README.md`.)
+
+1. Install Node.js 22, the version the team works on. Node 20.9 or later up to 26 works too: a
+   clean install, the tests and the production build were checked on Node 20, 22, 24 and 26, with
+   npm 10 and 11.
+   - Windows: the installer from https://nodejs.org (the LTS one is fine), or with nvm-windows:
+     `nvm install 22`, then `nvm use 22`.
+   - macOS or Linux: `nvm install 22`; in `web/`, `nvm use` reads the version from `web/.nvmrc`.
+2. Close every terminal and VS Code, open a new terminal, and check:
+
+       node --version              # v22.x, or v20.9 to v26
+       npm --version               # 10.x or 11.x
+
+3. Install the app's packages in `web/`, never in the repository's root, which has no
+   `package.json`:
+
+       cd web
+       npm ci
+
+   `npm ci` installs exactly what `package-lock.json` lists: about 500 packages, in 15 to 30
+   seconds on a good connection. `npm install` works too, but it can rewrite `package-lock.json`;
+   commit that file only when you have added a package.
+
+### When `npm ci` or `npm install` fails
+
+- `ENOENT: no such file or directory, open '...\Trinity\package.json'`: you are in the
+  repository's root. Run `cd web` and try again.
+- `'npm' is not recognized` or `npm: command not found`: Node.js is not installed, or the terminal
+  was opened before it was. Install it, then open a new terminal.
+- PowerShell says `npm.ps1 cannot be loaded because running scripts is disabled on this system`:
+  run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once, or use Command
+  Prompt, or type `npm.cmd ci`.
+- `npm warn EBADENGINE Unsupported engine`: a warning, not an error. Check that `node --version`
+  is between v20.9 and v26.
+- `ERESOLVE unable to resolve dependency tree`: run npm in `web/`, whose `.npmrc` sets
+  `legacy-peer-deps` (npm's peer resolver stumbles on vitest 5's peers without it).
+- `EPERM: operation not permitted` or `EBUSY: resource busy or locked` on Windows: another program
+  holds the files. Stop `npm run dev`, close VS Code's terminals, pause OneDrive or move the clone
+  out of a OneDrive folder (Desktop and Documents often are one) to a short path such as
+  `C:\dev\Trinity`, then delete `node_modules` and run `npm ci` again.
+- `ETIMEDOUT`, `ECONNRESET` or `self-signed certificate in certificate chain`: the network blocks
+  or inspects npm's downloads, as campus Wi-Fi often does. Try a phone's hotspot, and check that
+  `npm config get registry` prints `https://registry.npmjs.org/`.
+- `Cannot find module '@tailwindcss/oxide-...'`, `lightningcss...node` or `@next/swc-...` when the
+  app starts: `node_modules` came from another computer or from an install that was cut short.
+  Delete it and run `npm ci` on this computer; never copy `node_modules` between computers.
+- An error about a path that is too long, on Windows: clone to a short path such as
+  `C:\dev\Trinity`, and run `git config --global core.longpaths true`.
+
+A clean start, when nothing else helps (in `web/`):
+
+    # PowerShell
+    Remove-Item -Recurse -Force node_modules
+    npm cache verify
+    npm ci
+
+    # macOS, Linux or Git Bash
+    rm -rf node_modules && npm cache verify && npm ci
+
+Then `npm run dev` and open http://localhost:3000. Until the data files are in `web/public/data`
+(next section), the pages that need them say "The data could not be loaded." and, in development,
+name the command that copies them; the home page's words still show.
+
 ## Run it
 
 The pipeline turns NASA data into the files the app reads; the commands are in
@@ -86,7 +153,7 @@ start it:
     uv sync
     uv run python -m lunar_pipeline.cli sync-local --tiles
     cd ../web
-    npm install
+    npm ci
     npm run dev                 # http://localhost:3000
 
 For the venue laptop, build once and serve the build with the Wi-Fi off: `npm run build` then
