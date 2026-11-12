@@ -802,6 +802,19 @@ describe('finding the resident (spec 20.2)', () => {
     expect(onFound).toHaveBeenCalledTimes(1);
   });
 
+  it('turns the resident’s head to you as it tells the page, once; at once with reduced motion', async () => {
+    for (const reducedMotion of [true, false]) {
+      const onFound = vi.fn(), greet = vi.fn(), r = { ...renderer(() => ({ x: 0.5, y: 0.6 })), greet };
+      const view = render(createElement(StandCanvas, { scene, hour: 0, look: null, startYaw: 0, reducedMotion, createRenderer: () => r, sunLabel: 'Sun 2.0° up', earthLabel: 'Earth 3.0° up', night: false, onFail: vi.fn(), onFound }));
+      await waitFor(() => expect(onFound).toHaveBeenCalledTimes(1), { timeout: 6000 });
+      expect(greet).toHaveBeenCalledTimes(1);
+      expect(greet).toHaveBeenCalledWith(reducedMotion);
+      await frames(r);
+      expect(greet).toHaveBeenCalledTimes(1);
+      view.unmount();
+    }
+  });
+
   it('tells the page when the resident stands 20 px inside the room, as at night, when the view looks down an uphill slope and it rides high', async () => {
     // Measured in the rendered night view: the shell's top sat 36 px under the plate above, which a 40 px margin missed.
     const onFound = vi.fn(), r = renderer(() => ({ x: 0.5, y: 20 / 768 }));

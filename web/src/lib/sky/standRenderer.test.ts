@@ -8,10 +8,10 @@ import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { NIGHT } from './shaders';
 import { LANDER_LIGHT } from './landerMesh';
 import { LANDER, LEG_ENDS } from './landerShape';
-import { BOULDERS, placeBoulders, siteSeed } from './boulders';
+import { BOULDERS, placeBoulders, rockDome, siteSeed } from './boulders';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
 import { standResident } from '@/lib/viz/standOpening';
-import { bounceShare, buildScene, lookUpTarget, movingRatio, RESIDENT_SHADOW, shadowOnGround, threesOwnTextures, toneExposure, toTextureHeights, type StandScene } from './standRenderer';
+import { bounceShare, buildScene, lookUpTarget, movingRatio, RESIDENT_SHADOW, RESIDENT_TURN_MS, residentTurn, shadowOnGround, threesOwnTextures, toneExposure, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, meshHeightAt, terrainField } from './terrainField';
 
 const series = {
@@ -1389,7 +1389,22 @@ describe('the resident (spec 20.2)', () => {
     expect(buildScene(flat({ resident: true })).parts.resident).toBeNull();
   });
 
-  it('stands the resident on the drawn ground facing you, its feet bedded 1 to 2 cm in the dust, on a slope as on the level', () => {
+  /** A named part of the resident. */
+  const part = (s: ReturnType<typeof buildScene>, name: string) => s.parts.resident!.getObjectByName(`resident-${name}`) as THREE.Mesh;
+  /** Where the eye stands, in the world. */
+  const eyeOf = (s: ReturnType<typeof buildScene>) => new THREE.Vector3(0, s.camera.position.y, 0);
+  /** Which way an object looks (its +z) in the world, and the angle in degrees between that and the way from it to a point. */
+  const ahead = (o: THREE.Object3D) => new THREE.Vector3(0, 0, 1).transformDirection(o.matrixWorld);
+  const offFrom = (o: THREE.Object3D, p: THREE.Vector3) => THREE.MathUtils.radToDeg(ahead(o).angleTo(p.clone().sub(o.getWorldPosition(new THREE.Vector3()))));
+  /** How far the head is turned from the body (degrees, round the body's up) and tipped up (degrees). */
+  const headTurn = (s: ReturnType<typeof buildScene>) => {
+    const r = s.parts.resident!, head = part(s, 'head');
+    r.updateMatrixWorld(true);
+    const local = new THREE.Vector3(0, 0, 1).applyQuaternion(head.quaternion);
+    return { yaw: THREE.MathUtils.radToDeg(Math.atan2(local.x, local.z)), up: THREE.MathUtils.radToDeg(Math.asin(local.y)) };
+  };
+
+  it('stands the resident on the drawn ground side on to you, its round feet bedded 1 to 2 cm in the dust, on a slope as on the level', () => {
     // Ground rising 20 % towards the east, a plane, so every triangle the mesh draws lies in it.
     const n = 1024, cell = 20, mid = (n - 1) / 2, heights = new Float32Array(n * n);
     for (let row = 0; row < n; row++) for (let col = 0; col < n; col++) heights[row * n + col] = 100 + 0.2 * cell * (col - mid);
@@ -1398,64 +1413,183 @@ describe('the resident (spec 20.2)', () => {
       const s = buildScene(flat({ field, lander, resident: true }));
       const r = s.parts.resident!;
       r.updateMatrixWorld(true);
-      // Its head towards the eye.
-      const ahead = new THREE.Vector3(0, 0, 1).applyQuaternion(r.quaternion);
-      expect(new THREE.Vector2(ahead.x, ahead.z).normalize().dot(new THREE.Vector2(-r.position.x, -r.position.z).normalize())).toBeGreaterThan(0.999);
-      // The soles of its feet (the legs' open ends, the body's lowest corners) 1 to 2 cm under the ground where each stands.
-      const body = meshesOf(r)[1], p = body.geometry.getAttribute('position');
+      // Its body 55° round from facing the eye, so you see it side on, the outline of a tortoise; the head along it.
+      const body = new THREE.Vector3(0, 0, 1).applyQuaternion(r.quaternion);
+      const toEye = new THREE.Vector2(-r.position.x, -r.position.z).normalize();
+      const aside = THREE.MathUtils.radToDeg(Math.acos(Math.min(1, new THREE.Vector2(body.x, body.z).normalize().dot(toEye))));
+      expect(Math.abs(aside - 55)).toBeLessThan(1.5);
+      expect(Math.abs(headTurn(s).yaw)).toBeLessThan(1e-6);
+      // The soles of its feet (each round foot's lowest point) 1 to 2 cm under the ground where each stands.
+      const legs = part(s, 'legs'), p = legs.geometry.getAttribute('position');
       let soles = 0;
       for (let i = 0; i < p.count; i++) {
         if (p.getY(i) > 1e-6) continue;
-        const w = new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(body.matrixWorld), depth = meshHeightAt(field, w.x, w.z) - w.y;
+        const w = new THREE.Vector3().fromBufferAttribute(p, i).applyMatrix4(legs.matrixWorld), depth = meshHeightAt(field, w.x, w.z) - w.y;
         expect(depth).toBeGreaterThanOrEqual(0.01 - 1e-4);
         expect(depth).toBeLessThanOrEqual(0.02 + 1e-4);
         soles++;
       }
-      expect(soles).toBeGreaterThanOrEqual(4 * 6);
+      expect(soles).toBeGreaterThanOrEqual(4);
+      // Round feet: each leg a rounded lump, closed, no open end left in the dust.
+      expect(legs.geometry.index!.count / 3).toBeGreaterThanOrEqual(4 * 40);
     }
   });
 
-  it('draws the resident with a boulder’s own geometry and material: no new program, a few hundred new triangles', () => {
+  it('gives the resident a big round head with two big eyes, dark pupils and a catchlight, and two feelers with round tips', () => {
+    const s = buildScene(flat({ lander, resident: true }));
+    s.parts.resident!.updateMatrixWorld(true);
+    // Its size in its own frame: every corner of every part, as it stands in the group.
+    const size = (o: THREE.Object3D) => {
+      const box = new THREE.Box3(), inv = o.matrixWorld.clone().invert(), v = new THREE.Vector3();
+      o.traverse((x) => {
+        const m = x as THREE.Mesh;
+        if (!m.isMesh) return;
+        const p = m.geometry.getAttribute('position'), to = inv.clone().multiply(m.matrixWorld);
+        for (let i = 0; i < p.count; i++) box.expandByPoint(v.fromBufferAttribute(p, i).applyMatrix4(to));
+      });
+      return box.getSize(new THREE.Vector3());
+    };
+    // Bigger than the first one (0.34 m wide, 0.42 m long), so easier to spot 8 to 10 m off: a shell 0.42 m wide, 0.30 m
+    // tall, 0.50 m long, its rim low over the dust.
+    const shell = part(s, 'shell');
+    expect([shell.scale.x, shell.scale.y, shell.scale.z]).toEqual([0.21, 0.15, 0.25]);
+    // The head about half as wide as the shell and nearly round (a baby's proportions), the eyes big on it: each a third
+    // of the head's width or more, set low on the face, their dark pupils looking ahead, each with a white catchlight.
+    const face = part(s, 'face'), eyes = part(s, 'eyes'), glow = part(s, 'glow');
+    const head = face.geometry.userData.head as { radii: number[]; at: number[] };
+    expect(2 * head.radii[0]).toBeGreaterThanOrEqual(0.42 * 0.42);
+    expect(Math.min(...head.radii) / Math.max(...head.radii)).toBeGreaterThan(0.9);
+    const eye = eyes.geometry.userData.eye as { r: number; at: number[] }[], glints = eyes.geometry.userData.glints as number[][];
+    expect(eye).toHaveLength(2);
+    expect(glints).toHaveLength(2);
+    eye.forEach((e, i) => {
+      expect(2 * e.r).toBeGreaterThanOrEqual(head.radii[0] * 2 / 3 - 1e-9);
+      expect(e.at[1]).toBeLessThan(head.at[1]);
+      // The catchlight on the eye's front, a little up from its middle, in the eyes' white.
+      const g = new THREE.Vector3(...glints[i]), mid = new THREE.Vector3(...e.at);
+      expect(g.distanceTo(mid)).toBeGreaterThan(e.r);
+      expect(g.z).toBeGreaterThan(mid.z);
+      expect(g.y).toBeGreaterThan(mid.y);
+    });
+    // Two colours on the face: the skin, and the pupils nearly black; the eyes white.
+    const colours = (m: THREE.Mesh) => {
+      const out = new Set<string>(), c = m.geometry.getAttribute('color');
+      for (let i = 0; i < c.count; i++) out.add([c.getX(i), c.getY(i), c.getZ(i)].map((v) => v.toFixed(2)).join(' '));
+      return [...out].sort();
+    };
+    expect(colours(face)).toHaveLength(2);
+    expect(Math.min(...colours(face).map((k) => Number(k.split(' ')[0])))).toBeLessThan(0.1);
+    expect((eyes.material as THREE.MeshStandardMaterial).color.getHSL({ h: 0, s: 0, l: 0 }).l).toBeGreaterThan(0.75);
+    // The eyes catch the light by day and at night: smoother than the rocks, so the Sun leaves a highlight, and faintly
+    // lit from within, as the catchlights and the feelers' tips are, more brightly.
+    const eyeMat = eyes.material as THREE.MeshStandardMaterial, glowMat = glow.material as THREE.MeshStandardMaterial;
+    expect(eyeMat.roughness).toBeLessThan(0.6);
+    expect(eyeMat.emissive.getHSL({ h: 0, s: 0, l: 0 }).l * eyeMat.emissiveIntensity).toBeGreaterThan(0);
+    expect(glowMat.emissive.getHSL({ h: 0, s: 0, l: 0 }).l * glowMat.emissiveIntensity).toBeGreaterThan(eyeMat.emissive.getHSL({ h: 0, s: 0, l: 0 }).l * eyeMat.emissiveIntensity);
+    // Never brighter than the bloom's threshold, which the Sun alone passes: they shine, they do not glare.
+    for (const m of [eyeMat, glowMat]) expect(Math.max(m.emissive.r, m.emissive.g, m.emissive.b) * m.emissiveIntensity).toBeLessThan(0.9);
+    // The feelers: two, their round tips over the head's top.
+    const tips = glow.geometry.userData.tips as number[][];
+    expect(tips).toHaveLength(2);
+    for (const t of tips) expect(t[1]).toBeGreaterThan(head.at[1] + head.radii[1]);
+    // Still small: under 0.8 m long and 0.6 m tall, feelers and all.
+    const all = size(s.parts.resident!);
+    expect(Math.max(all.x, all.z)).toBeLessThan(0.8);
+    expect(all.y).toBeLessThan(0.6);
+  });
+
+  it('draws the resident with the rocks’ own program: a boulder’s stone for its shell, the rest in materials three keys as it keys theirs', () => {
     const s = buildScene(flat({ lander, resident: true }));
     const rocks = s.parts.boulders.children as THREE.Mesh[];
     const meshes = meshesOf(s.parts.resident!);
-    // Two draw calls: the shell and the body.
-    expect(meshes).toHaveLength(2);
-    const [shell, body] = meshes;
-    // The shell is one of the boulders' own stones, a rounded lump where there is one: its geometry and its material,
-    // so nothing new is uploaded; 0.34 m wide, 0.26 m tall and 0.42 m long, the stone being fitted to a box 2 across.
-    const src = rocks.find((b) => b.geometry === shell.geometry)!;
+    // Five small draw calls: the shell, the legs, and the face, the eyes and the glowing tips, which turn with the head.
+    expect(meshes.map((m) => m.name).sort()).toEqual(['resident-eyes', 'resident-face', 'resident-glow', 'resident-legs', 'resident-shell']);
+    const shell = part(s, 'shell');
+    // The shell is a dome made as the rocks are, in one of the boulders' own materials (a rounded lump's where there is
+    // one), so it reads as one of them; the same dome on every visit to the site.
+    const src = rocks.find((b) => b.material === shell.material)!;
     expect(src).toBeTruthy();
-    expect(shell.material).toBe(src.material);
     if (rocks.some((b) => b.name === 'rock-lump')) expect(src.name).toBe('rock-lump');
-    expect([shell.scale.x, shell.scale.y, shell.scale.z]).toEqual([0.17, 0.13, 0.21]);
-    // The body in a boulder's material too, with the rocks' own attributes (a colour of three, no uv, tangents or morphs),
-    // so three keys its program as it keys theirs and builds none; its colours lighter for the body and dark for the eyes,
-    // under the material's grey.
-    for (const m of meshes) expect(rocks.some((b) => b.material === m.material)).toBe(true);
-    expect(Object.keys(body.geometry.attributes).sort()).toEqual(['color', 'normal', 'position']);
-    expect(Object.keys(src.geometry.attributes).sort()).toEqual(['color', 'normal', 'position']);
-    expect(body.geometry.getAttribute('color').itemSize).toBe(3);
-    expect(Object.keys(body.geometry.morphAttributes)).toHaveLength(0);
-    const colours = new Set<string>(), c = body.geometry.getAttribute('color');
-    for (let i = 0; i < c.count; i++) colours.add([c.getX(i), c.getY(i), c.getZ(i)].map((v) => v.toFixed(2)).join(' '));
-    expect([...colours].sort()).toEqual(['0.08 0.08 0.08', '0.95 0.92 0.88']);
-    const triangles = body.geometry.index!.count / 3;
-    expect(triangles).toBeGreaterThan(100);
-    expect(triangles).toBeLessThanOrEqual(300);
+    expect(Array.from(shell.geometry.getAttribute('position').array)).toEqual(Array.from(rockDome(siteSeed(-88.28, -64.31)).getAttribute('position').array));
+    // The rest: the rocks' kind of material with everything three builds a program from the same (vertex colours, no
+    // map of any kind, opaque, smooth shading, the front side, no defines or hooks), so only uniforms differ (colour,
+    // roughness, glow) and no program is built; with the rocks' own attributes (a colour of three, no uv, tangents or morphs).
+    const rock = src.material as THREE.MeshStandardMaterial;
+    const programOf = (m: THREE.MeshStandardMaterial) => ({
+      type: m.type,
+      vertexColors: m.vertexColors,
+      flatShading: m.flatShading,
+      transparent: m.transparent,
+      side: m.side,
+      maps: [m.map, m.emissiveMap, m.normalMap, m.bumpMap, m.roughnessMap, m.metalnessMap, m.aoMap, m.lightMap, m.alphaMap, m.displacementMap, m.envMap].filter(Boolean).length,
+      alphaTest: m.alphaTest,
+      defines: JSON.stringify(m.defines ?? {}),
+      key: m.customProgramCacheKey(),
+      hook: m.onBeforeCompile.toString(),
+      fog: m.fog,
+      toneMapped: m.toneMapped,
+    });
+    for (const m of meshes) {
+      expect(programOf(m.material as THREE.MeshStandardMaterial), m.name).toEqual(programOf(rock));
+      expect(Object.keys(m.geometry.attributes).sort(), m.name).toEqual(['color', 'normal', 'position']);
+      expect(m.geometry.getAttribute('color').itemSize).toBe(3);
+      expect(Object.keys(m.geometry.morphAttributes)).toHaveLength(0);
+    }
+    // Under 2,500 triangles in all, beside the ground's hundreds of thousands.
+    const triangles = meshes.reduce((n, m) => n + m.geometry.index!.count / 3, 0);
+    expect(triangles).toBeGreaterThan(500);
+    expect(triangles).toBeLessThan(2500);
     // No instancing, solid, culled when off screen, no shadow map, and no light added.
     for (const m of meshes) {
       expect(m).not.toBeInstanceOf(THREE.InstancedMesh);
-      expect((m.material as THREE.Material).transparent).toBe(false);
       expect(m.frustumCulled).toBe(true);
       expect(m.castShadow).toBe(false);
     }
     expect(lights(s.root)).toBe(lights(buildScene(flat({ lander })).root));
   });
 
+  it('turns the resident’s head to look at you once it is found, and holds it there', () => {
+    const s = buildScene(flat({ lander, resident: true }));
+    const r = s.parts.resident!, head = part(s, 'head'), eye = eyeOf(s);
+    const shellAt = part(s, 'shell').getWorldPosition(new THREE.Vector3()), legsAt = part(s, 'legs').getWorldPosition(new THREE.Vector3());
+    // Before: looking along its body and a little down, at the dust before it, 55° or so away from you.
+    r.updateMatrixWorld(true);
+    expect(headTurn(s).up).toBeLessThan(-6);
+    expect(offFrom(head, eye)).toBeGreaterThan(50);
+    // Found: the head turned round and up, to look at the eye, within 3°.
+    s.greet(1);
+    r.updateMatrixWorld(true);
+    expect(offFrom(head, eye)).toBeLessThan(3);
+    expect(headTurn(s).up).toBeGreaterThan(5);
+    // Halfway, halfway round; the body, its shell and legs, stays where it stood.
+    s.greet(0.5);
+    r.updateMatrixWorld(true);
+    expect(offFrom(head, eye)).toBeGreaterThan(15);
+    expect(offFrom(head, eye)).toBeLessThan(45);
+    expect(part(s, 'shell').getWorldPosition(new THREE.Vector3()).distanceTo(shellAt)).toBe(0);
+    expect(part(s, 'legs').getWorldPosition(new THREE.Vector3()).distanceTo(legsAt)).toBe(0);
+    // With no resident, nothing to turn.
+    expect(() => buildScene(flat({ lander })).greet(1)).not.toThrow();
+  });
+
+  it('turns the head in about a second, a little past and back, then stops', () => {
+    expect(RESIDENT_TURN_MS).toBeGreaterThanOrEqual(600);
+    expect(RESIDENT_TURN_MS).toBeLessThanOrEqual(1500);
+    expect(residentTurn(0)).toBe(0);
+    expect(residentTurn(-50)).toBe(0);
+    expect(residentTurn(RESIDENT_TURN_MS)).toBe(1);
+    expect(residentTurn(10 * RESIDENT_TURN_MS)).toBe(1);
+    const steps = Array.from({ length: 101 }, (_, i) => residentTurn((i / 100) * RESIDENT_TURN_MS));
+    // A little past (no more than 8 %), then back to rest.
+    expect(Math.max(...steps)).toBeGreaterThan(1);
+    expect(Math.max(...steps)).toBeLessThanOrEqual(1.08);
+    // Halfway through it is well on its way.
+    expect(residentTurn(RESIDENT_TURN_MS / 2)).toBeGreaterThan(0.6);
+  });
+
   it('casts the resident’s shadow as one more rock sphere', () => {
     const s = buildScene(flat({ lander, resident: true }));
-    const shell = meshesOf(s.parts.resident!)[0];
+    const shell = part(s, 'shell');
     s.parts.resident!.updateMatrixWorld(true);
     const top = new THREE.Box3().setFromObject(shell, true).max.y, mid = shell.getWorldPosition(new THREE.Vector3());
     for (const g of s.parts.ground) {
@@ -1466,7 +1600,7 @@ describe('the resident (spec 20.2)', () => {
       const last = spheres[BOULDERS.COUNT];
       expect([last.x, last.z].map((v) => Math.round(v * 1e6) / 1e6)).toEqual([mid.x, mid.z].map((v) => Math.round(v * 1e6) / 1e6));
       expect(last.y + last.w).toBeCloseTo(top, 6);
-      expect(last.w).toBeCloseTo(0.75 * 0.17, 9);
+      expect(last.w).toBeCloseTo(0.75 * 0.21, 9);
     }
     expect((buildScene(flat({ lander })).parts.ground[0].material as THREE.ShaderMaterial).uniforms.uRockCount.value).toBe(BOULDERS.COUNT);
   });

@@ -22,7 +22,7 @@ import { LANDER } from './landerShape';
 import { buildLander, landerDust } from './landerMesh';
 import { buildGround, STAND_REACH_M } from './groundLevels';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
-import { BOULDERS, boulderMeshes, pebbleMesh, placeBoulders, placePebbles, siteSeed, type Boulder } from './boulders';
+import { BOULDERS, boulderMeshes, pebbleMesh, placeBoulders, placePebbles, rockDome, siteSeed, type Boulder } from './boulders';
 import { heightAt, meshHeightAt, type TerrainField } from './terrainField';
 import { standResident } from '../viz/standOpening';
 
@@ -226,27 +226,59 @@ export const eyeHeightM = (mastM: number) => Math.max(1.5, mastM);
 export const eyeAt = (scene: Pick<StandScene, 'field' | 'mastM'>) => meshHeightAt(scene.field, 0, 0) + eyeHeightM(scene.mastM);
 
 /**
- * The resident (spec 20.2) in its own frame: its soles on the ground at y = 0 and its head towards +z. A shell 0.34 m
- * wide, 0.26 m tall and 0.42 m long (SHELL, half of each, as a boulder's stone is fitted to a box 2 across), its middle
- * SHELL_Y up; four stubby legs, LEG_X either side of the middle and LEG_Z before and behind it, LEG_R thick and reaching
- * up into the shell; a small head (HEAD, half its width, height and length) pushed out of the shell's front at HEAD_AT;
- * and two dark eye dots on its face, EYE_R across, at EYE either side. Its feet sink BED_M into the dust. The body's
- * colours are multiplied by the rocks' grey: a little darker and warmer than the shell on the whole, the eyes nearly black.
+ * The resident (spec 20.2, 21.2) in its own frame, a small moon tortoise drawn to be found 8 to 10 m off: its soles on
+ * the ground at y = 0 and its head towards +z. A shell 0.42 m wide, 0.30 m tall and 0.50 m long (SHELL, half of each, a
+ * dome made as the rocks are and fitted to a box 2 across, as a boulder's stone is), its middle SHELL_Y up, so its rim
+ * stands 8 cm over the dust; four stubby round feet (LEG, half of each), LEG_X either side of the middle and LEG_Z before
+ * and behind it, each a closed lump whose lowest point is its sole, peeping out from under the rim and reaching up into
+ * the shell. Its head turns (`resident-head`) about the neck's root (NECK_AT, inside the shell's front): a short neck
+ * NECK_R thick out to a big, nearly round head (HEAD, half its width, height and length, its middle HEAD_AT from the
+ * root, about half the shell's width as a baby's is); two big eyes EYE_R in radius, set wide and low on the face
+ * (EYE_DEG: round from straight ahead, and up), bulging EYE_OUT of their radius from it, each with a dark pupil (PUPIL,
+ * half its width, height and depth) looking mostly ahead and a white catchlight GLINT_R in radius on it; and two
+ * feelers from the head's top (STALK_AT, round from straight up, either side), thin stalks STALK_L long leaning out and
+ * back (STALK_DEG), each with a round tip TIP_R in radius. Its feet sink BED_M into the dust. It stands three quarters on
+ * to you, its body ASIDE_DEG round from facing the eye, its head along its body and HEAD_DOWN_DEG down at the dust before
+ * it, until it is found; then it turns its head to look at you (`greet`).
  */
 const RESIDENT = {
-  SHELL: [0.17, 0.13, 0.21],
-  SHELL_Y: 0.18,
-  LEG_X: 0.1,
-  LEG_Z: 0.11,
-  LEG_R: 0.035,
-  LEG_TOP: 0.17,
-  HEAD: [0.05, 0.045, 0.06],
-  HEAD_AT: [0, 0.15, 0.21],
-  EYE_R: 0.012,
-  EYE: [0.025, 0.165, 0.258],
+  SHELL: [0.21, 0.15, 0.25],
+  SHELL_Y: 0.17,
+  LEG: [0.05, 0.06, 0.055],
+  LEG_X: 0.14,
+  LEG_Z: 0.15,
+  NECK_AT: [0, 0.13, 0.17],
+  NECK_R: 0.04,
+  HEAD: [0.095, 0.088, 0.092],
+  HEAD_AT: [0, 0.04, 0.17],
+  EYE_R: 0.034,
+  EYE_DEG: [30, -8],
+  EYE_OUT: 0.6,
+  PUPIL: [0.02, 0.022, 0.008],
+  GLINT_R: 0.0065,
+  STALK_AT: 28,
+  STALK_L: 0.13,
+  STALK_R: 0.0055,
+  STALK_DEG: [22, 16],
+  TIP_R: 0.02,
   BED_M: 0.015,
-  BODY_RGB: [0.95, 0.92, 0.88],
-  EYE_RGB: [0.08, 0.08, 0.08],
+  ASIDE_DEG: 55,
+  HEAD_DOWN_DEG: 12,
+  /** How far the head may turn from the body to look at you, round and up (degrees). */
+  TURN_MAX_DEG: [85, 30],
+  /** The skin (pale and a little green, lighter than the rocks so it shows), the pupils' share of it, and the eyes. */
+  SKIN: 0xbcc3b0,
+  PUPIL_RGB: [0.04, 0.04, 0.05],
+  EYE_WHITE: 0xf2f2ee,
+  /**
+   * What lights from within: the eyes and their catchlights faintly, so they catch the light at night as by day, and
+   * the feelers' tips more (a pale sea green), all well under the bloom's threshold, which the Sun alone passes.
+   */
+  EYE_GLOW: 0xdfe8e4,
+  EYE_GLOW_K: 0.12,
+  TIP: 0xd8f5ea,
+  TIP_GLOW: 0x7fffd4,
+  TIP_GLOW_K: 0.4,
 } as const;
 /**
  * The resident's shadow on the ground: one more sphere in the rocks' uniform, data for the loop the ground's shader
@@ -254,50 +286,138 @@ const RESIDENT = {
  */
 export const RESIDENT_SHADOW = true;
 
+/** How long the resident takes to turn its head to you once found (21.2), in milliseconds. */
+export const RESIDENT_TURN_MS = 1100;
 /**
- * The resident's body as one mesh: its head, four legs and two eyes, 260 triangles, with the rocks' own attributes and
- * nothing more (a position, a normal and a colour of three; no uv, tangent or morph), so drawn in a boulder's material it
- * takes the program three already built for the boulders. The legs are open at both ends: their soles are in the dust and
- * their tops inside the shell.
+ * How far round the resident's head has turned (0 to 1) `ms` after it was found: a gentle start, a little past (about
+ * 5 %) and back, then still.
  */
-function residentBody(): THREE.BufferGeometry {
-  const { HEAD, HEAD_AT, EYE, EYE_R, LEG_X, LEG_Z, LEG_R, LEG_TOP, BODY_RGB, EYE_RGB } = RESIDENT;
-  const part = (geo: THREE.BufferGeometry, at: THREE.Matrix4, rgb: readonly number[]) => {
-    geo.applyMatrix4(at);
-    geo.deleteAttribute('uv');
-    const n = geo.getAttribute('position').count;
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(Array.from({ length: 3 * n }, (_, i) => rgb[i % 3]), 3));
-    return geo;
-  };
-  const parts = [
-    part(new THREE.SphereGeometry(1, 10, 8), new THREE.Matrix4().makeScale(HEAD[0], HEAD[1], HEAD[2]).setPosition(HEAD_AT[0], HEAD_AT[1], HEAD_AT[2]), BODY_RGB),
-    ...[-1, 1].map((side) => part(new THREE.SphereGeometry(EYE_R, 6, 4), new THREE.Matrix4().makeTranslation(side * EYE[0], EYE[1], EYE[2]), EYE_RGB)),
-    ...[-1, 1].flatMap((across) => [-1, 1].map((along) => part(new THREE.CylinderGeometry(LEG_R, 1.15 * LEG_R, LEG_TOP, 6, 1, true), new THREE.Matrix4().makeTranslation(across * LEG_X, LEG_TOP / 2, along * LEG_Z), BODY_RGB))),
-  ];
-  const body = mergeGeometries(parts);
+export function residentTurn(ms: number): number {
+  if (ms <= 0) return 0;
+  if (ms >= RESIDENT_TURN_MS) return 1;
+  const t = ms / RESIDENT_TURN_MS, s = t * t * (3 - 2 * t) - 1;
+  return 1 + 2.2 * s * s * s + 1.2 * s * s;
+}
+
+/** A part of the resident: a shape placed by `at`, with the rocks' own attributes (no uv), coloured `rgb` all over. */
+function residentPart(geo: THREE.BufferGeometry, at: THREE.Matrix4, rgb: readonly number[] = [1, 1, 1]) {
+  geo.applyMatrix4(at);
+  geo.deleteAttribute('uv');
+  const n = geo.getAttribute('position').count;
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(Array.from({ length: 3 * n }, (_, i) => rgb[i % 3]), 3));
+  return geo;
+}
+/** Parts in one geometry: one draw call. */
+function residentMerge(parts: THREE.BufferGeometry[]) {
+  const geo = mergeGeometries(parts);
   for (const p of parts) p.dispose();
-  return body;
+  return geo;
+}
+const v3 = (a: readonly number[]) => new THREE.Vector3(a[0], a[1], a[2]);
+/** A place `d` from the middle of the ellipsoid with half-sizes `r`, on its surface, and the way out of it there. */
+function onEllipsoid(r: readonly number[], d: THREE.Vector3) {
+  const p = d.clone().divideScalar(Math.hypot(d.x / r[0], d.y / r[1], d.z / r[2]));
+  return { p, n: new THREE.Vector3(p.x / (r[0] * r[0]), p.y / (r[1] * r[1]), p.z / (r[2] * r[2])).normalize() };
+}
+/** The way `deg` round from straight ahead (towards +x for `side` 1) and `up` degrees up. */
+function aheadAt(side: number, deg: number, up: number) {
+  const a = THREE.MathUtils.degToRad(deg), e = THREE.MathUtils.degToRad(up);
+  return new THREE.Vector3(side * Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
+}
+/** A matrix that turns +z towards `z`, scales by `s` along its own axes and puts its middle at `at`. */
+function facing(z: THREE.Vector3, s: readonly number[], at: THREE.Vector3) {
+  const zz = z.clone().normalize(), x = new THREE.Vector3(0, 1, 0).cross(zz).normalize(), y = zz.clone().cross(x);
+  return new THREE.Matrix4().makeBasis(x, y, zz).scale(v3(s)).setPosition(at);
+}
+
+/** The four legs, one geometry: each a closed, rounded lump, its sole its lowest point at y = 0. */
+function residentLegs(): THREE.BufferGeometry {
+  const { LEG, LEG_X, LEG_Z } = RESIDENT;
+  return residentMerge([-1, 1].flatMap((across) => [-1, 1].map((along) => residentPart(new THREE.SphereGeometry(1, 8, 6), new THREE.Matrix4().makeScale(LEG[0], LEG[1], LEG[2]).setPosition(across * LEG_X, LEG[1], along * LEG_Z)))));
 }
 
 /**
- * The resident's meshes, placed (spec 20.2). Its shell is one of the boulders' own stones (`stones`, whose radii are
- * `radii`), a rounded lump where there is one, else the smallest, drawn with that stone's geometry and material, so
- * nothing is uploaded for it; its body (residentBody) is drawn in the same material. It stands at `at` facing the eye,
- * turned to the plane through the drawn ground under its four feet, so on a slope no foot floats or sinks deeper than
- * the rest. With the shell's top, where the view looks for it, and the sphere that stands for it in the ground's
- * shadows as a boulder's does: over its middle, its top at the shell's highest point, three quarters of its half-width wide.
+ * The head's parts in the head's own frame (its origin the neck's root): the face (neck, head, the feelers' stalks and
+ * the pupils, the pupils nearly black), the eyes (their whites and catchlights), and the feelers' glowing tips, each one
+ * geometry, with what the tests need to know of them in its userData.
  */
-function residentMeshes(stones: THREE.Mesh[], radii: number[], at: { x: number; z: number }, field: TerrainField) {
+function residentHead() {
+  const R = RESIDENT, headAt = v3(R.HEAD_AT);
+  const head = residentPart(new THREE.SphereGeometry(1, 14, 11), new THREE.Matrix4().makeScale(R.HEAD[0], R.HEAD[1], R.HEAD[2]).setPosition(headAt));
+  // The neck: from the root, inside the shell, to the head's middle, inside the head.
+  const neckLen = headAt.length(), neck = new THREE.CylinderGeometry(R.NECK_R, 1.15 * R.NECK_R, neckLen, 10, 1, true);
+  const neckAt = new THREE.Matrix4().compose(headAt.clone().multiplyScalar(0.5), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), headAt.clone().normalize()), new THREE.Vector3(1, 1, 1));
+  const face = [head, residentPart(neck, neckAt)], whites: THREE.BufferGeometry[] = [], glow: THREE.BufferGeometry[] = [];
+  const eyes: { r: number; at: number[] }[] = [], glints: number[][] = [], tips: number[][] = [];
+  for (const side of [-1, 1]) {
+    // The eye: its middle under the face, so it bulges EYE_OUT of its radius out of it.
+    const { p, n } = onEllipsoid(R.HEAD, aheadAt(side, R.EYE_DEG[0], R.EYE_DEG[1]));
+    const eye = headAt.clone().add(p).addScaledVector(n, -(1 - R.EYE_OUT) * R.EYE_R);
+    whites.push(residentPart(new THREE.SphereGeometry(R.EYE_R, 12, 9), new THREE.Matrix4().makeTranslation(eye.x, eye.y, eye.z)));
+    eyes.push({ r: R.EYE_R, at: eye.toArray() });
+    // Its pupil, looking mostly ahead (so the two look at what the head looks at), a flat dark lens on the eye's front;
+    // the catchlight up and to one side on it, as from one light.
+    const look = n.clone().lerp(new THREE.Vector3(0, 0, 1), 0.6).normalize();
+    face.push(residentPart(new THREE.SphereGeometry(1, 10, 6), facing(look, R.PUPIL, eye.clone().addScaledVector(look, R.EYE_R - 0.5 * R.PUPIL[2])), R.PUPIL_RGB));
+    const glint = look.clone().add(new THREE.Vector3(0.22, 0.26, 0)).normalize();
+    const g = eye.clone().addScaledVector(glint, R.EYE_R + 0.5 * R.PUPIL[2]);
+    whites.push(residentPart(new THREE.SphereGeometry(R.GLINT_R, 6, 4), new THREE.Matrix4().makeTranslation(g.x, g.y, g.z)));
+    glints.push(g.toArray());
+    // A feeler: from the head's top, leaning out and back; its tip at the stalk's end.
+    const root = headAt.clone().add(onEllipsoid(R.HEAD, new THREE.Vector3(side * Math.sin(THREE.MathUtils.degToRad(R.STALK_AT)), Math.cos(THREE.MathUtils.degToRad(R.STALK_AT)), -0.15)).p);
+    const lean = new THREE.Quaternion().setFromEuler(new THREE.Euler(-THREE.MathUtils.degToRad(R.STALK_DEG[1]), 0, -side * THREE.MathUtils.degToRad(R.STALK_DEG[0]), 'XYZ'));
+    const along = new THREE.Vector3(0, 1, 0).applyQuaternion(lean);
+    const stalk = new THREE.CylinderGeometry(R.STALK_R, 1.3 * R.STALK_R, R.STALK_L, 6, 1, true);
+    face.push(residentPart(stalk, new THREE.Matrix4().compose(root.clone().addScaledVector(along, R.STALK_L / 2), lean, new THREE.Vector3(1, 1, 1))));
+    const tip = root.clone().addScaledVector(along, R.STALK_L + 0.6 * R.TIP_R);
+    glow.push(residentPart(new THREE.SphereGeometry(R.TIP_R, 10, 8), new THREE.Matrix4().makeTranslation(tip.x, tip.y, tip.z)));
+    tips.push(tip.toArray());
+  }
+  const faceGeo = residentMerge(face), whitesGeo = residentMerge(whites), glowGeo = residentMerge(glow);
+  faceGeo.userData.head = { radii: [...R.HEAD], at: headAt.toArray() };
+  whitesGeo.userData.eye = eyes;
+  whitesGeo.userData.glints = glints;
+  glowGeo.userData.tips = tips;
+  return { face: faceGeo, whites: whitesGeo, glow: glowGeo };
+}
+
+/**
+ * The resident's meshes, placed (spec 20.2, 21.2). Its shell is a dome made as the rocks are (rockDome, from the site's
+ * `seed`), drawn in one of the boulders' own materials (`stones`, whose radii are `radii`: a rounded lump's where there
+ * is one, else the smallest's), so it reads as one of them. The rest is drawn in materials of the rocks' own kind with
+ * every setting three builds a program from the same as theirs (vertex colours, no maps, opaque, smooth), so only
+ * uniforms differ (colour, roughness, glow) and three builds no program for them. It stands at `at`, three quarters on to the eye at `eyeY` over the site,
+ * turned to the plane through the drawn ground under its four feet, so on a slope no foot floats or sinks deeper than
+ * the rest. With the shell's top, where the view looks for it; the sphere that stands for it in the ground's shadows as
+ * a boulder's does (over its middle, its top at the shell's highest point, three quarters of its half-width wide); and
+ * `greet(f)`, which turns its head `f` of the way (0 to 1, a little past 1 as it overshoots) from looking at the dust
+ * before it to looking at the eye.
+ */
+function residentMeshes(stones: THREE.Mesh[], radii: number[], at: { x: number; z: number }, field: TerrainField, eyeY: number, seed: number) {
   const src = stones.find((m) => m.name === 'rock-lump') ?? stones[radii.indexOf(Math.min(...radii))];
   if (!src) return null;
-  const { SHELL, SHELL_Y, LEG_X, LEG_Z, BED_M } = RESIDENT;
-  const shell = new THREE.Mesh(src.geometry, src.material);
+  const R = RESIDENT, { SHELL, SHELL_Y, LEG_X, LEG_Z, BED_M } = R;
+  const shell = new THREE.Mesh(rockDome(seed), src.material);
+  shell.name = 'resident-shell';
   shell.scale.set(SHELL[0], SHELL[1], SHELL[2]);
   shell.position.y = SHELL_Y;
+  const named = (geo: THREE.BufferGeometry, material: THREE.Material, name: string) => {
+    const m = new THREE.Mesh(geo, material);
+    m.name = `resident-${name}`;
+    return m;
+  };
+  const skin = new THREE.MeshStandardMaterial({ color: R.SKIN, roughness: 0.9, metalness: 0, vertexColors: true });
+  const white = new THREE.MeshStandardMaterial({ color: R.EYE_WHITE, roughness: 0.35, metalness: 0, vertexColors: true, emissive: R.EYE_GLOW, emissiveIntensity: R.EYE_GLOW_K });
+  const lit = new THREE.MeshStandardMaterial({ color: R.TIP, roughness: 0.5, metalness: 0, vertexColors: true, emissive: R.TIP_GLOW, emissiveIntensity: R.TIP_GLOW_K });
+  const parts = residentHead();
+  const head = new THREE.Group();
+  head.name = 'resident-head';
+  head.position.set(R.NECK_AT[0], R.NECK_AT[1], R.NECK_AT[2]);
+  head.add(named(parts.face, skin, 'face'), named(parts.whites, white, 'eyes'), named(parts.glow, lit, 'glow'));
   const group = new THREE.Group();
-  group.add(shell, new THREE.Mesh(residentBody(), src.material));
-  // Its head towards the eye; the drawn ground under each foot, the feet turned with it, before and behind, either side.
-  const yaw = Math.atan2(-at.x, -at.z), c = Math.cos(yaw), s = Math.sin(yaw);
+  group.add(shell, named(residentLegs(), skin, 'legs'), head);
+  // Three quarters on to the eye; the drawn ground under each foot, the feet turned with it, before and behind, either side.
+  const yaw = Math.atan2(-at.x, -at.z) + THREE.MathUtils.degToRad(R.ASIDE_DEG), c = Math.cos(yaw), s = Math.sin(yaw);
   const under = (x: number, z: number) => meshHeightAt(field, at.x + x * c + z * s, at.z - x * s + z * c);
   const h = [under(-LEG_X, -LEG_Z), under(LEG_X, -LEG_Z), under(-LEG_X, LEG_Z), under(LEG_X, LEG_Z)];
   // The plane through them: how fast it rises across it (towards +x) and along it (towards its head), metres a metre.
@@ -306,11 +426,23 @@ function residentMeshes(stones: THREE.Mesh[], radii: number[], at: { x: number; 
   group.quaternion.setFromAxisAngle(up, yaw).multiply(new THREE.Quaternion().setFromUnitVectors(up, new THREE.Vector3(-across, 1, -along).normalize()));
   group.position.set(at.x, (h[0] + h[1] + h[2] + h[3]) / 4 - BED_M, at.z);
   group.updateMatrixWorld(true);
+  // Where it looks once found: the eye, from the neck's root, in the body's frame; round and up, as far as a neck turns.
+  const toEye = group.worldToLocal(new THREE.Vector3(0, eyeY, 0)).sub(head.position);
+  const [maxRound, maxUp] = R.TURN_MAX_DEG.map((d) => THREE.MathUtils.degToRad(d));
+  const round = THREE.MathUtils.clamp(Math.atan2(toEye.x, toEye.z), -maxRound, maxRound), lift = THREE.MathUtils.clamp(Math.atan2(toEye.y, Math.hypot(toEye.x, toEye.z)), -maxUp, maxUp);
+  const down = THREE.MathUtils.degToRad(R.HEAD_DOWN_DEG);
+  const greet = (f: number) => {
+    head.rotation.set(down + (-lift - down) * f, round * f, 0, 'YXZ');
+    head.updateMatrix();
+  };
+  greet(0);
+  group.updateMatrixWorld(true);
   const pos = shell.geometry.getAttribute('position'), v = new THREE.Vector3(), mid = shell.getWorldPosition(new THREE.Vector3());
   let top = -Infinity;
   for (let i = 0; i < pos.count; i++) top = Math.max(top, v.fromBufferAttribute(pos, i).applyMatrix4(shell.matrixWorld).y);
   const w = 0.75 * SHELL[0];
-  return { group, top: new THREE.Vector3(mid.x, top, mid.z), sphere: new THREE.Vector4(mid.x, top - w, mid.z, w) };
+  // Its geometries and materials go with the scene's (dispose, which frees every mesh's under the root).
+  return { group, top: new THREE.Vector3(mid.x, top, mid.z), sphere: new THREE.Vector4(mid.x, top - w, mid.z, w), greet };
 }
 
 /**
@@ -581,11 +713,12 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   // Pebbles: the near ground's grit, shapes the low Sun catches.
   const pebbles = hasGround ? pebbleMesh(placePebbles(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null), (x, z) => meshHeightAt(scene.field, x, z), seed) : null;
   if (pebbles) root.add(pebbles);
-  // The resident (spec 20.2): a small creature with a rock for a back, behind you as the view opens, to be found by
+  // The resident (spec 20.2, 21.2): a small creature with a rock for a back, behind you as the view opens, to be found by
   // turning round; in the stand view only, with its ground and its lander (the arrival, in flight, never has it). Its
-  // shell is a boulder's own stone and its body 260 triangles in that stone's material: two draw calls, culled when off
-  // screen, no new program to compile, no light, no pass, and no work in the frame but the one projection for its spot.
-  const resident = scene.resident && hasGround && !flight && lander ? residentMeshes(rocks.group.children as THREE.Mesh[], placed.map((b) => b.r), standResident(ls!, placed, seed), scene.field) : null;
+  // shell a dome made as the rocks are, in a boulder's material; the rest in materials that take the rocks' program: five small
+  // draw calls, culled when off screen, no new program to compile, no light, no pass, and no work in the frame but the
+  // one projection for its spot, and its head's turn for a second once it is found.
+  const resident = scene.resident && hasGround && !flight && lander ? residentMeshes(rocks.group.children as THREE.Mesh[], placed.map((b) => b.r), standResident(ls!, placed, seed), scene.field, eye, seed) : null;
   if (resident) root.add(resident.group);
   // Its shadow is one sphere more in the rocks' uniform (RESIDENT_SHADOW), while there is room for it.
   const spheres = resident && RESIDENT_SHADOW && rocks.spheres.length < BOULDERS.MAX ? [...rocks.spheres, resident.sphere] : rocks.spheres;
@@ -1065,7 +1198,9 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
 
   /** More than 5 km over the ground (the arrival's flight): the ground's cells come to a pixel or less (18.4). */
   const aloft = () => !ringNow;
-  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, aloft, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, keyLight, boulders: rocks.group, pebbles, resident: resident?.group ?? null, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
+  /** Turns the resident's head `f` of the way to look at you (21.2); nothing without one. */
+  const greet = (f: number) => resident?.greet(f);
+  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, aloft, greet, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, keyLight, boulders: rocks.group, pebbles, resident: resident?.group ?? null, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
 /**
@@ -1158,6 +1293,11 @@ export class StandRenderer {
   private rings = true;
   /** "Brighter picture" (18.3): the exposure tripled for projectors and bright rooms (19.4). */
   private bright = false;
+  /** When the resident was found (21.2), so its head turns to you; and whether at once (reduced motion). */
+  private greetedAt: number | null = null;
+  private greetAtOnce = false;
+  /** How far round the resident's head is on the scene shown (NaN until set, as after a new scene). */
+  private turned = NaN;
 
   /** A brighter picture for projectors and bright rooms: three times the exposure (18.3, 19.4), or back to the camera's setting. */
   setBright(on: boolean) {
@@ -1220,6 +1360,16 @@ export class StandRenderer {
     this.built.update(hour);
   }
 
+  /**
+   * The resident has been found (21.2): its head turns to look at you over RESIDENT_TURN_MS, or at once with reduced
+   * motion. Once only; the frames are drawn while it turns, and none after.
+   */
+  greet(atOnce: boolean) {
+    if (this.greetedAt !== null) return;
+    this.greetedAt = performance.now();
+    this.greetAtOnce = atOnce;
+  }
+
   setView(yawDeg: number, pitchDeg: number, fovDeg: number) {
     this.pose = null;
     this.view = { yaw: yawDeg, pitch: pitchDeg, fov: fovDeg };
@@ -1280,6 +1430,7 @@ export class StandRenderer {
     this.built.setGuides(this.guides, this.level, this.rings);
     this.built.update(this.hour);
     this.apply();
+    this.turned = NaN;
     this.generation++;
   }
 
@@ -1356,7 +1507,13 @@ export class StandRenderer {
     const maps = `${earthMaps} ${g ? `${g.uColor.value?.uuid ?? ''} ${g.uNormal.value?.uuid ?? ''}` : ''}`;
     const v = this.view, p = this.pose;
     const where = p ? `${p.position.map((x) => x.toFixed(2)).join(',')} ${p.quaternion.map((x) => x.toFixed(6)).join(',')} ${p.fov.toFixed(3)} ${p.shift.join(',')}` : `${v.yaw.toFixed(3)} ${v.pitch.toFixed(3)} ${v.fov.toFixed(3)}`;
-    const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation} ${this.guides} ${this.level} ${this.rings}`;
+    // The resident's head as it turns to you (21.2): it moves the frame while it turns, and is still once round.
+    const turn = this.greetedAt === null ? 0 : this.greetAtOnce ? 1 : residentTurn(now - this.greetedAt);
+    if (turn !== this.turned) {
+      this.built.greet(turn);
+      this.turned = turn;
+    }
+    const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation} ${this.guides} ${this.level} ${this.rings} ${turn.toFixed(4)}`;
     const busy = this.busy(now);
     // Moving frames aloft have no MSAA: the view at rest there gets its sharp frame, with it.
     const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.sharpRatio && !this.built.aloft(), busy });

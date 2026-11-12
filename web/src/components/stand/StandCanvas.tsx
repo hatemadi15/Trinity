@@ -5,7 +5,7 @@ import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
 import { EARTH_LOOP, shadowWords, starLabel } from '@/lib/viz/stand';
 
-export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void; setBright?: (on: boolean) => void; setScene?: (scene: StandScene) => void };
+export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void; setBright?: (on: boolean) => void; setScene?: (scene: StandScene) => void; greet?: (atOnce: boolean) => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget {
   yaw: number;
@@ -751,13 +751,15 @@ export function StandCanvas({
       // middle three fifths across, 16 px or more inside the room between the words and the bar, and on no plate. At
       // night the view opens looking down and an uphill turn carries the resident high: there its shell's top stood 36 px
       // under the plate above, which a 40 px margin missed, though the whole creature was in sight. It has no pointer and
-      // no mark on the compass: they would give it away.
+      // no mark on the compass: they would give it away. Found, it turns its head to look at you (21.2), at once with
+      // reduced motion.
       const found = l.resident;
       if (found?.visible && !toldRef.current && !takenRef.current && found.x >= 0.2 && found.x <= 0.8) {
         const fx = found.x * W, fy = found.y * H;
         if (fy >= freeTop + 16 && fy <= freeBottom - 16 && !plates.some((p) => fx >= p.left && fx <= p.right && fy >= p.top && fy <= p.bottom)) {
           toldRef.current = true;
           foundRef.current?.();
+          r.greet?.(reducedRef.current);
         }
       }
       const guide = guidesRef.current;

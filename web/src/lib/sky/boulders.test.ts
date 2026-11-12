@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { BOULDER_GLSL, BOULDERS, boulderMeshes, KINDS, PEBBLES, pebbleMesh, placeBoulders, placePebbles, ROCK, type RockKind, rockPlanes, rockShape, siteSeed } from './boulders';
+import { BOULDER_GLSL, BOULDERS, boulderMeshes, DOME, KINDS, PEBBLES, pebbleMesh, placeBoulders, placePebbles, ROCK, rockDome, type RockKind, rockPlanes, rockShape, siteSeed } from './boulders';
 
 describe('the boulders near the eye', () => {
   const lander = { x: 16 * Math.sin(Math.PI / 4), z: -16 * Math.cos(Math.PI / 4) };
@@ -449,3 +449,44 @@ function faceDirections(tris: Triangle[], face: number[]): Map<number, THREE.Vec
   for (const n of out.values()) n.normalize();
   return out;
 }
+
+describe('the resident’s shell, a dome made as the rocks are (spec 21.2)', () => {
+  it('rounds its top over a flatter underside, fitted to the box a boulder’s shape is fitted to, with no seam', () => {
+    const geo = rockDome(7);
+    const pos = geo.getAttribute('position');
+    geo.computeBoundingBox();
+    const box = geo.boundingBox!;
+    for (const k of ['x', 'y', 'z'] as const) {
+      expect(box.min[k]).toBeCloseTo(-1, 6);
+      expect(box.max[k]).toBeCloseTo(1, 6);
+    }
+    // Its rim, where it is widest, low on it: a dome over a shallow belly, DOME.UNDER as deep as the top is high.
+    let widest = 0, rimY = 0;
+    for (let i = 0; i < pos.count; i++) {
+      const w = Math.hypot(pos.getX(i), pos.getZ(i));
+      if (w > widest) [widest, rimY] = [w, pos.getY(i)];
+    }
+    expect(rimY).toBeCloseTo((DOME.UNDER - 1) / (1 + DOME.UNDER), 1);
+    expect(rimY).toBeLessThan(-0.4);
+    // One corner where two meet (welded), so its shading has no seam down its back.
+    const seen = new Set<string>();
+    for (let i = 0; i < pos.count; i++) seen.add([pos.getX(i), pos.getY(i), pos.getZ(i)].map((v) => v.toFixed(5)).join(' '));
+    expect(seen.size).toBe(pos.count);
+    expect(geo.getIndex()).not.toBeNull();
+  });
+
+  it('gives it a rock’s surface and attributes: a grey in patches about its own, bumped normals, no uv', () => {
+    const geo = rockDome(7);
+    expect(Object.keys(geo.attributes).sort()).toEqual(['color', 'normal', 'position']);
+    const c = geo.getAttribute('color');
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 0; i < c.count; i++) {
+      lo = Math.min(lo, c.getX(i));
+      hi = Math.max(hi, c.getX(i));
+    }
+    expect(hi - lo).toBeGreaterThan(0.2);
+    // Not a ball: the same seed gives the same dome, another a different one.
+    expect(Array.from(rockDome(7).getAttribute('position').array)).toEqual(Array.from(geo.getAttribute('position').array));
+    expect(Array.from(rockDome(8).getAttribute('position').array)).not.toEqual(Array.from(geo.getAttribute('position').array));
+  });
+});
