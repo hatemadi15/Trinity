@@ -130,20 +130,16 @@ export function liveSentence(s: Series, hour: number, powered?: boolean): string
 }
 
 /**
- * The start of the line on what to watch next (watchNext): Play, or a flag on the time bar, as the key moments
- * are flags there that a reader can press (18.2; the reads of D2 asked what "a moment on the time bar" was). On a
- * phone, where the flags are dots, the view shows WATCH_LEAD_DOTS in its place.
+ * The start of the line on what to watch next (watchNext): Play, or Next on the time bar, the bar's two buttons at
+ * every width, Next stepping to the key moment the line goes on to name (18.2, 21.1; the reads of D2 asked what "a
+ * moment on the time bar" was).
  */
-export const WATCH_LEAD = 'Press Play, or a flag on the time bar, to watch:';
-/** WATCH_LEAD on a phone, where the time bar's flags are dots. */
-export const WATCH_LEAD_DOTS = 'Press Play, or a dot on the time bar, to watch:';
+export const WATCH_LEAD = 'Press Play, or Next on the time bar, to watch:';
 /**
  * WATCH_LEAD with reduced motion, when Play is off (the time bar disables it and the first step names the drag alone):
- * a flag still takes the time to its moment, so the line offers the flag alone (spec 20.1).
+ * Next still takes the time to its moment, so the line offers Next alone (spec 20.1).
  */
-export const WATCH_LEAD_STILL = 'Press a flag on the time bar to see:';
-/** WATCH_LEAD_STILL on a phone, where the time bar's flags are dots. */
-export const WATCH_LEAD_STILL_DOTS = 'Press a dot on the time bar to see:';
+export const WATCH_LEAD_STILL = 'Press Next on the time bar to see:';
 
 /**
  * The first step (19.2), on the line over the view from the arrival until the first turn by hand, the first Play,
@@ -166,7 +162,7 @@ export const RESIDENT_LINE = 'You found Rocky, the only animal here, made up lik
 /**
  * One line on what to watch next: the first change after the hour, of the Sun (any part of its disc in
  * view, as the time bar draws it) or of the lander's power, with its day; and the other kind's next change
- * when it follows within three days. It starts with WATCH_LEAD: "Press Play, or a flag on the time bar, to
+ * when it follows within three days. It starts with WATCH_LEAD: "Press Play, or Next on the time bar, to
  * watch: the Sun sets behind the hills on 3 January, and the battery runs out on 4 January." A Sun that
  * leaves the view while still above the level horizon "sets behind the hills"; below it, it "sets below the
  * horizon". On the same day the day is said once: "...:

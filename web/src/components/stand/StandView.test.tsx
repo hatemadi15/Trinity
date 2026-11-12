@@ -7,7 +7,7 @@ import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
 import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
-import { FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, RESIDENT_LINE, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, WATCH_LEAD_STILL, WATCH_LEAD_STILL_DOTS, watchNext, type MomentKind } from '@/lib/viz/stand';
+import { FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, RESIDENT_LINE, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_STILL, watchNext, type MomentKind } from '@/lib/viz/stand';
 import { openingYaw } from '@/lib/viz/standOpening';
 import { fileLoaders, terrainFileLoaders, terrainPresent } from '@/test/file-loaders';
 import { visibleWords, WIDE } from '@/test/visible-words';
@@ -756,7 +756,7 @@ describe('StandView', () => {
     }
   });
 
-  it('with reduced motion today’s card names a flag, or a dot on a phone, for what to watch, and not Play, as Play is off (spec 20.1)', async () => {
+  it('with reduced motion today’s card names Next for what to watch, and not Play, as Play is off (spec 20.1, 21.1)', async () => {
     const was = window.matchMedia;
     window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
     try {
@@ -769,12 +769,8 @@ describe('StandView', () => {
       const st = store.getState();
       const watch = watchNext(st.series!, st.power, st.startUtc, 10, true);
       expect(watch.startsWith(`${WATCH_LEAD_STILL} the Sun sets`)).toBe(true);
-      // The line twice, one shown per width, as without reduced motion.
-      const wide = within(card).getByText(watch);
-      const phone = within(card).getByText(/^Press a dot on the time bar to see: /);
-      expect(wide.className).toBe('max-sm:hidden');
-      expect(phone.className).toBe('sm:hidden');
-      expect(asRead(phone.textContent!)).toBe(asRead(watch).replace(WATCH_LEAD_STILL, WATCH_LEAD_STILL_DOTS));
+      // Once, the same at every width.
+      expect(within(card).getAllByText(watch)).toHaveLength(1);
       expect((screen.getByRole('button', { name: 'Play' }) as HTMLButtonElement).disabled).toBe(true);
     } finally {
       window.matchMedia = was;
@@ -1080,25 +1076,22 @@ describe('StandView', () => {
     expect(document.querySelector('a[data-chip]')).toBeNull();
   });
 
-  it('leads what to watch with Play and a flag, or a dot on a phone, said once to a screen reader, once the first step has gone (18.2, 20.1)', async () => {
+  it('leads what to watch with Play and Next, once, the same at every width, once the first step has gone (18.2, 20.1, 21.1)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // While the first step shows over the view, the card leaves the line out in both its forms, and the help line with it.
     await firstStep();
     openCard();
-    expect(screen.queryAllByText(/^Press Play, or a (flag|dot) on the time bar/)).toHaveLength(0);
+    expect(screen.queryAllByText(/^Press Play, or Next on the time bar/)).toHaveLength(0);
     expect(screen.queryByText(HELP)).toBeNull();
     // After the first drag, both.
     await drag();
     expect(screen.getByText(HELP)).toBeTruthy();
-    const wide = screen.getByText(/^Press Play, or a flag on the time bar, to watch: the Sun sets/);
-    const phone = screen.getByText(/^Press Play, or a dot on the time bar, to watch: the Sun sets/);
-    // The same line twice, one shown per width; neither is hidden from a screen reader by hand: display: none does it.
-    expect(wide.className).toBe('max-sm:hidden');
-    expect(phone.className).toBe('sm:hidden');
-    expect(wide.getAttribute('aria-hidden')).toBeNull();
-    expect(phone.getAttribute('aria-hidden')).toBeNull();
-    expect(wide.parentElement).toBe(phone.parentElement);
-    expect(asRead(phone.textContent!)).toBe(asRead(wide.textContent!).replace(WATCH_LEAD, WATCH_LEAD_DOTS));
+    const line = screen.getByText(/^Press Play, or Next on the time bar, to watch: the Sun sets/);
+    expect(line.textContent!.startsWith(WATCH_LEAD)).toBe(true);
+    // Once, shown at every width, and read as it is shown.
+    expect(screen.getAllByText(/^Press Play, or Next on the time bar/)).toHaveLength(1);
+    expect(line.className).not.toMatch(/hidden/);
+    expect(line.getAttribute('aria-hidden')).toBeNull();
   });
 
   it('opens the lander dialog in place from Change lander under Change, the verdict follows the lander chosen there, the view keeps its renderer, and the focus comes back to Change (18.3, 20.1)', async () => {

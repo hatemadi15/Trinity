@@ -22,7 +22,7 @@ import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explor
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth } from '@/lib/viz/format';
-import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_DOTS, WATCH_LEAD_STILL, WATCH_LEAD_STILL_DOTS, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
+import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
@@ -406,10 +406,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     ...(note ? [{ title: 'How we know this', text: note }] : []),
   ];
   const shownPage = Math.min(page, reasons.length - 1);
-  // What to watch next, in today's card: with reduced motion Play is off, so the line offers a flag alone (20.1); a
-  // phone names the flags as its dots.
+  // What to watch next, in today's card: Play or Next, the time bar's two buttons at every width (21.1); with reduced
+  // motion Play is off, so the line offers Next alone (20.1).
   const watch = watchNext(series, power, s.startUtc, hour, reducedMotion);
-  const [lead, leadDots] = reducedMotion ? [WATCH_LEAD_STILL, WATCH_LEAD_STILL_DOTS] : [WATCH_LEAD, WATCH_LEAD_DOTS];
   // The first step on the line over the view, or about to be once the ground has drawn (19.2): today's card keeps its
   // line on what to watch and its help line until it has gone, as they say what it says (20.1). A view that could not
   // be drawn never shows the first step, so its card has them from the start.
@@ -612,20 +611,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                 <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px] md:hidden">
                   {title}
                 </p>
-                {/* The lead names the flags, or the dots a phone has (18.2): the line twice, one shown per width, so a screen
-                    reader meets only the shown one (display: none keeps the other out of the accessibility tree). */}
-                {!stepShows && (
-                  <p className="text-[14px] text-[#f6d48a] md:text-[15px]">
-                    {watch.startsWith(lead) ? (
-                      <>
-                        <span className="sm:hidden">{`${leadDots}${watch.slice(lead.length)}`}</span>
-                        <span className="max-sm:hidden">{watch}</span>
-                      </>
-                    ) : (
-                      watch
-                    )}
-                  </p>
-                )}
+                {/* The lead names Play and Next, the same at every width (18.2, 21.1). */}
+                {!stepShows && <p className="text-[14px] text-[#f6d48a] md:text-[15px]">{watch}</p>}
                 {better && (
                   // The better day, on a row of its own, so the links below never move. From 768 px the next step's
                   // row on the plate holds it, so the screen keeps one gold action (17.1).
