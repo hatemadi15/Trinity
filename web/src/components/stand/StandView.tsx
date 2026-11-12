@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useStore, type StoreApi } from 'zustand';
 import { HorizonView } from '@/components/explore/HorizonView';
 import { LanderDialog } from '@/components/explore/LanderDialog';
-import { TimeBar } from '@/components/explore/TimeBar';
+import { PLAY_HPS, TimeBar, type Speed } from '@/components/explore/TimeBar';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { shadowLevels } from '@/lib/data/terrain';
@@ -156,6 +156,19 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // false again it changes nothing (React keeps a state set to what it is), so StandCanvas may call it on every turn.
   const [hint, setHint] = useState(true);
   const clearHint = useCallback(() => setHint(false), []);
+  // Play's speed (21.1), which the view's glide between Play's steps follows.
+  const [speed, setSpeed] = useState<Speed>(1);
+  // Play follows the story (21.1): from a press of Play until the visitor turns the view by hand, or with Turn to or
+  // Look up, each moment Play holds on turns the view to what it is about, as the moment's dot does.
+  const followRef = useRef(false);
+  const onPlay = useCallback(() => {
+    clearHint();
+    followRef.current = true;
+  }, [clearHint]);
+  const onHand = useCallback(() => {
+    clearHint();
+    followRef.current = false;
+  }, [clearHint]);
   // "Why this happens": where the site lies, why the light and the sky look as they do, the radio story and how
   // we know, one reason at a time (`page`), so the card never scrolls inside itself; or all of them as one list
   // (`allReasons`), for a reader who would rather read them together.
@@ -413,18 +426,30 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // line on what to watch and its help line until it has gone, as they say what it says (20.1). A view that could not
   // be drawn never shows the first step, so its card has them from the start.
   const stepShows = hint && !failed;
-  // The key moments, as flags on the time bar: each moves the time there, turns the view to what it is about
-  // (the lander for its power, Earth for Earth, else the Sun) and says why.
+  // The key moments, as dots on the time bar: each, and Next, moves the time there, turns the view to what it is
+  // about (the lander for its power, Earth for Earth, else the Sun) and says why.
   const moments = keyMoments(series, power, s.startUtc).map((m) => ({ label: `${m.label}, ${m.day}`, hour: m.hour, kind: m.kind }));
-  const onMoment = (f: { label: string; hour: number }) => {
+  const toMoment = (f: { label: string; hour: number }) => {
     const m = moments.find((x) => x.label === f.label && x.hour === f.hour);
     if (!m) return;
-    // A flag is a step into the view: the first step goes for the visit (19.2).
-    clearHint();
     if (m.kind === 'battery-out' || m.kind === 'power-back') faceLander();
     else if (m.kind === 'earth-in' || m.kind === 'earth-out') face(series.earthAz[m.hour], series.earthEl[m.hour], 16);
     else face(series.sunAz[m.hour], series.sunEl[m.hour] - 2, 46);
     setCaption(momentCaption(m.kind, series, m.hour, site.lat) || null);
+  };
+  // A dot or Next is a step into the view: the first step goes for the visit (19.2).
+  const onMoment = (f: { label: string; hour: number }) => {
+    clearHint();
+    toMoment(f);
+  };
+  // Play holds on a moment (21.1): it turns the view there too, as long as the visitor has not turned it since Play.
+  const onArrive = (f: { label: string; hour: number }) => {
+    if (followRef.current) toMoment(f);
+  };
+  /** A turn the visitor asks for (Turn to, Look up, Look ahead): Play no longer turns the view, until it is pressed again. */
+  const byHand = (turn: () => void) => () => {
+    followRef.current = false;
+    turn();
   };
   // After the first power cut, what needs power again holds only if the lander lives through the night.
   let ifSurvivesFrom: number | null = null;
@@ -481,7 +506,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           onFail={onFail}
           onReady={onReady}
           // The first turn by hand takes the first step (19.2).
-          onExplore={clearHint}
+          onExplore={onHand}
           clean={wordsHidden}
           guides={guides}
           keepInView={feet}
@@ -494,6 +519,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           onFound={onFound}
           // A key moment's line or a Turn to's keeps the plate: the resident's waits until it has gone.
           lineTaken={!!caption}
+          playHps={PLAY_HPS * speed}
         />
       )}
       {failed && s.mask && (
@@ -728,17 +754,17 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               className={`${PLATE} pointer-events-auto flex shrink-0 items-center gap-1.5 p-1.5 max-xl:fixed max-xl:inset-x-0 max-xl:bottom-[var(--bar-h,211px)] max-xl:justify-between max-xl:gap-1 max-xl:rounded-none max-xl:border-x-0 max-xl:border-b-0 max-xl:bg-[#1e1e1e] max-xl:px-3 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
             >
               <span className="pl-1 pr-0.5 text-[14px] text-[#c3bfb6] md:text-[15px]">Turn to</span>
-              <button type="button" aria-label="Face the Sun" className={LOOK} onClick={() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)}>
+              <button type="button" aria-label="Face the Sun" className={LOOK} onClick={byHand(() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46))}>
                 Sun
               </button>
               <button
                 type="button"
                 aria-label="Face Earth"
                 className={LOOK}
-                onClick={() => {
+                onClick={byHand(() => {
                   face(series.earthAz[hour], series.earthEl[hour], 16);
                   setCaption(viewCaption('earth', site.lat));
-                }}
+                })}
               >
                 Earth
               </button>
@@ -747,10 +773,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   type="button"
                   aria-label="Face the lander"
                   className={LOOK}
-                  onClick={() => {
+                  onClick={byHand(() => {
                     faceLander();
                     setCaption(landerCaption(site.lat, panelBackSeen));
-                  }}
+                  })}
                 >
                   Lander
                 </button>
@@ -758,11 +784,11 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               {/* The "Turn to" buttons end here: what follows is not a way to turn. */}
               <i aria-hidden="true" className="h-7 w-px shrink-0 bg-white/25" />
               {lookingUp ? (
-                <button type="button" aria-label="Look ahead" className={LOOK} onClick={() => face(series.sunAz[hour], 0.5, 60)}>
+                <button type="button" aria-label="Look ahead" className={LOOK} onClick={byHand(() => face(series.sunAz[hour], 0.5, 60))}>
                   <Short short="Ahead" long="Look ahead" />
                 </button>
               ) : (
-                <button type="button" aria-label="Look up" className={LOOK} onClick={lookUp}>
+                <button type="button" aria-label="Look up" className={LOOK} onClick={byHand(lookUp)}>
                   Look up
                 </button>
               )}
@@ -795,7 +821,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
 
       <div ref={barRef} data-plate="" className="fixed inset-x-0 bottom-0">
         {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
-        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={onCursor} onPlay={clearHint} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} ifSurvivesFrom={ifSurvivesFrom} clockNote=" (Earth time)" />
+        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={onCursor} onPlay={onPlay} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} ifSurvivesFrom={ifSurvivesFrom} clockNote=" (Earth time)" speed={speed} onSpeed={setSpeed} holdMs={2500} spaceToPlay onArrive={onArrive} />
       </div>
       {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
     </main>

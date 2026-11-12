@@ -693,6 +693,44 @@ describe('StandView', () => {
     expect(r.setView.mock.calls.at(-1)![0]).toBeCloseTo(yaw, 6);
   });
 
+  it('turns the view to each moment Play holds on, as its dot does, until the visitor turns the view by hand (21.1)', async () => {
+    const r = stub();
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(r.setView).toHaveBeenCalled());
+    const st = store.getState();
+    const [first, second] = keyMoments(st.series!, st.power, st.startUtc).filter((x) => x.hour > 10);
+    const off = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+    fireEvent.click(screen.getByRole('button', { name: /^Play/ }));
+    // Play lands on the first moment and holds there: its line, and the view turned to what it is about.
+    await waitFor(() => expect(store.getState().cursorHour).toBe(first.hour), { timeout: 10_000 });
+    expect(screen.getByText(momentCaption(first.kind, st.series!, first.hour, -88.28))).toBeTruthy();
+    expect(first.kind).toBe('sunset');
+    await waitFor(() => expect(off(r.setView.mock.calls.at(-1)![0], st.series!.sunAz[first.hour])).toBeLessThan(1), { timeout: 4000 });
+    // A turn by hand: the next moment Play holds on says why, and the view stays where the visitor turned it.
+    await drag();
+    // The drag's own turn drawn first.
+    await new Promise((done) => setTimeout(done, 300));
+    const yaw = r.setView.mock.calls.at(-1)![0];
+    expect(store.getState().cursorHour).toBeLessThan(second.hour);
+    await waitFor(() => expect(store.getState().cursorHour).toBe(second.hour), { timeout: 10_000 });
+    expect(screen.getByText(momentCaption(second.kind, st.series!, second.hour, -88.28))).toBeTruthy();
+    await new Promise((done) => setTimeout(done, 400));
+    expect(r.setView.mock.calls.at(-1)![0]).toBeCloseTo(yaw, 6);
+  }, 30_000);
+
+  it('plays and pauses with Space from anywhere on the view but a button, a link or a field (21.1)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    fireEvent.keyDown(document.body, { key: ' ', code: 'Space' });
+    expect(screen.getByRole('button', { name: /^Pause/ })).toBeTruthy();
+    fireEvent.keyDown(document.body, { key: ' ', code: 'Space' });
+    expect(screen.getByRole('button', { name: /^Play/ })).toBeTruthy();
+    // On a button Space presses that button, not Play.
+    const more = screen.getByRole('button', { name: 'More' });
+    more.focus();
+    fireEvent.keyDown(more, { key: ' ', code: 'Space' });
+    expect(screen.getByRole('button', { name: /^Play/ })).toBeTruthy();
+  });
+
   it('shows the first step over the view on arrival, Play and drag, phone-short below 640 px, until the first drag', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // On the line over the view, once the ground has drawn (19.2).
