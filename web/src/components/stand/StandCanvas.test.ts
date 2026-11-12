@@ -802,6 +802,13 @@ describe('finding the resident (spec 20.2)', () => {
     expect(onFound).toHaveBeenCalledTimes(1);
   });
 
+  it('tells the page when the resident stands 20 px inside the room, as at night, when the view looks down an uphill slope and it rides high', async () => {
+    // Measured in the rendered night view: the shell's top sat 36 px under the plate above, which a 40 px margin missed.
+    const onFound = vi.fn(), r = renderer(() => ({ x: 0.5, y: 20 / 768 }));
+    show(r, onFound);
+    await waitFor(() => expect(onFound).toHaveBeenCalledTimes(1));
+  });
+
   it('says nothing while the resident is off centre or under a plate', async () => {
     // A plate in the middle of jsdom's 1024 x 768 view, as the caption's is: it bounds neither the room's top nor its foot.
     const plate = document.createElement('div');
@@ -816,8 +823,8 @@ describe('finding the resident (spec 20.2)', () => {
       let at = { x: 0.15, y: 0.6 };
       const onFound = vi.fn(), r = renderer(() => at);
       show(r, onFound);
-      // In the outer fifths, under the plate, within 40 px of the room's top or foot: not well inside the view.
-      for (const spot of [{ x: 0.15, y: 0.6 }, { x: 0.85, y: 0.6 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: 30 / 768 }, { x: 0.5, y: 740 / 768 }]) {
+      // In the outer fifths, under the plate, within 16 px of the room's top or foot: not well inside the view.
+      for (const spot of [{ x: 0.15, y: 0.6 }, { x: 0.85, y: 0.6 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: 10 / 768 }, { x: 0.5, y: 758 / 768 }]) {
         at = spot;
         await frames(r);
         expect(onFound, JSON.stringify(spot)).not.toHaveBeenCalled();

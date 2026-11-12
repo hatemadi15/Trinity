@@ -748,12 +748,14 @@ export function StandCanvas({
       }
       const l = r.labels();
       // The resident (20.2), the first time it stands well inside the view while the line over the view is free: in the
-      // middle three fifths across, 40 px or more inside the room between the words and the bar, and on no plate. It has
-      // no pointer and no mark on the compass: they would give it away.
+      // middle three fifths across, 16 px or more inside the room between the words and the bar, and on no plate. At
+      // night the view opens looking down and an uphill turn carries the resident high: there its shell's top stood 36 px
+      // under the plate above, which a 40 px margin missed, though the whole creature was in sight. It has no pointer and
+      // no mark on the compass: they would give it away.
       const found = l.resident;
       if (found?.visible && !toldRef.current && !takenRef.current && found.x >= 0.2 && found.x <= 0.8) {
         const fx = found.x * W, fy = found.y * H;
-        if (fy >= freeTop + 40 && fy <= freeBottom - 40 && !plates.some((p) => fx >= p.left && fx <= p.right && fy >= p.top && fy <= p.bottom)) {
+        if (fy >= freeTop + 16 && fy <= freeBottom - 16 && !plates.some((p) => fx >= p.left && fx <= p.right && fy >= p.top && fy <= p.bottom)) {
           toldRef.current = true;
           foundRef.current?.();
         }
