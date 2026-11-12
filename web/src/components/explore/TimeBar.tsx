@@ -633,7 +633,7 @@ export function TimeBar({
               <div className="contents max-sm:col-span-3 max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-x-3">
                 {nexts &&
                   (next ? (
-                    <button type="button" data-part="next" onClick={() => jump(next)} className="btn grid h-10 shrink-0 px-3 text-left text-[15px]">
+                    <button type="button" data-part="next" onClick={() => jump(next)} className="btn grid h-10 shrink-0 justify-items-center px-3 text-center text-[15px]">
                       {nextNames}
                       <span data-label="" className="col-start-1 row-start-1">
                         <span className="text-ink-2">Next:</span> {next.label}
@@ -641,7 +641,7 @@ export function TimeBar({
                       </span>
                     </button>
                   ) : (
-                    <span data-part="next" aria-hidden="true" className="btn invisible grid h-10 shrink-0 px-3 text-left text-[15px]">
+                    <span data-part="next" aria-hidden="true" className="btn invisible grid h-10 shrink-0 justify-items-center px-3 text-center text-[15px]">
                       {nextNames}
                     </span>
                   ))}

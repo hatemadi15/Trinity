@@ -1302,8 +1302,10 @@ describe('TimeBar: moments', () => {
     expect(label.textContent).toBe('Next: Battery runs out, 4 Jan ›');
     expect(label.querySelector('.text-ink-2')!.textContent).toBe('Next:');
     expect(label.querySelector('[aria-hidden="true"]')!.textContent).toBe(' ›');
-    // A button like the bar's others, at 15 px, on a target 40 px tall, its words from its left edge whatever its width.
-    for (const c of ['btn', 'h-10', 'text-[15px]', 'text-left']) expect(next.classList.contains(c)).toBe(true);
+    // A button like the bar's others, at 15 px, on a target 40 px tall, its words in its middle whatever its width (it
+    // keeps the width of the longest, so a short one would sit off to one side of an empty box).
+    for (const c of ['btn', 'h-10', 'text-[15px]', 'text-center', 'justify-items-center']) expect(next.classList.contains(c)).toBe(true);
+    expect(next.classList.contains('text-left')).toBe(false);
     // On the date's line, right after the date and hour and their note, and never over the track.
     expect(container.querySelector('[data-part="line"]')!.contains(next)).toBe(true);
     expect(container.querySelector('[data-part="readout"]')!.nextElementSibling!.contains(next)).toBe(true);
