@@ -74,7 +74,7 @@ Bind the bucket as `DATA` in the Worker's settings. Either way, the app's `NEXT_
 
 One rule first: every `NEXT_PUBLIC_*` variable is inlined into the client and server bundles at build time. Set them before the first build and trigger a new build after changing one; a runtime change alone does nothing.
 
-1. Node. Next 16 needs Node 20.9 or later; `web/package.json` pins `"engines": { "node": "22.x" }`, which Vercel reads to pick the runtime (Settings, General, Node.js Version shows it). The venue laptops run the same major.
+1. Node. Next 16 needs Node 20.9 or later; `web/package.json` sets `"engines": { "node": ">=20.9.0 <27" }`, the majors a clean install, the tests and the production build were checked on (20, 22, 24 and 26). Vercel reads it to pick the runtime from that range (Settings, General, Node.js Version shows which). The team works on 22 (`web/.nvmrc`); the venue laptops can run any of them.
 2. Import the GitHub repository in Vercel. **Root directory: `web`.** Framework preset: Next.js. Build command `npm run build`, install command `npm install` (the repo's `.npmrc` already sets `legacy-peer-deps`).
 3. Environment variables (Production and Preview):
 
