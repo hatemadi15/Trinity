@@ -243,7 +243,10 @@ html {
     margin-inline: auto;
   }
   /* The time slider: a see-through track over the sunlight strip, and a handle that is easy to grab.
-     32 px tall, the handle centred on the strip drawn 9 px from its top. */
+     32 px tall, the handle centred on the strip drawn 9 px from its top (9 to 23 px). Over the lanes under
+     the strip (data-lanes) it reaches 15 px further down, 47 px in all, so a press on a lane scrubs as one on
+     the strip does: the padding keeps the track and the handle in the top 32 px, on the strip, in WebKit and
+     Firefox alike, while the whole box takes the presses. */
   .time-range {
     appearance: none;
     -webkit-appearance: none;
@@ -252,6 +255,10 @@ html {
     margin: 0;
     background: transparent;
     cursor: pointer;
+  }
+  .time-range[data-lanes] {
+    height: 47px;
+    padding-bottom: 15px;
   }
   .time-range::-webkit-slider-runnable-track {
     height: 32px;
