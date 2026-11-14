@@ -7,7 +7,7 @@ export interface StoryStep {
 export const STORY_STEPS: StoryStep[] = [
   {
     title: 'Choose a landing site',
-    body: 'The site list shows every place the tool knows near the south pole, sorted by how long a solar lander keeps power there if it lands on the best day of the period you choose. Picking a site opens Explore on that day. Any other point south of 60° S can be worked out too.',
+    body: 'The site list shows every place the tool knows, most of them near the south pole, sorted by how long a solar lander keeps power there if it lands on the best day of the period you choose. Picking a site opens Explore on that day. Any other point south of 60° S can be worked out too.',
   },
   {
     title: 'Read the answer',

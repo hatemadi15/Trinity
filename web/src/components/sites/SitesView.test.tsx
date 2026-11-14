@@ -11,7 +11,7 @@ async function ready() {
   const store = createExploreStore(fileLoaders());
   const view = render(<SitesView store={store} navigate={() => {}} />);
   await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 20_000 });
-  await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(19), { timeout: 20_000 });
+  await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(34), { timeout: 20_000 });
   return { store, ...view };
 }
 const rowOf = (name: string) => screen.getAllByRole('link').find((a) => a.dataset.row && a.textContent?.startsWith(name))!;
@@ -31,7 +31,7 @@ describe('SitesView', () => {
   it('titles the page, says what the figures assume and groups the catalogue in plain words', async () => {
     await ready();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Choose a landing site');
-    expect(screen.getByText(/19 places on the Moon/).textContent).toBe('19 places on the Moon, most of them near the south pole. Pick one to see its forecast.');
+    expect(screen.getByText(/34 places on the Moon/).textContent).toBe('34 places on the Moon, most of them near the south pole. Pick one to see its forecast.');
     // What the figures count from, the lander and the order, in plain sentences rather than a list of terms (both
     // readers, part C read 1: the figures differ from Explore's, and this says why).
     expect(screen.getByText(/^Each site's figures are for landing on its best day/).textContent).toBe(
@@ -42,6 +42,9 @@ describe('SitesView', () => {
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       'Shortlisted by NASA for a crewed Artemis landing',
       'Where commercial landers touched down',
+      'Where commercial landers are to land next',
+      'Landers from other countries',
+      'Where the Apollo crews landed',
       'High points and crater floors',
       'Somewhere else',
     ]);
@@ -99,6 +102,9 @@ describe('SitesView', () => {
     const best = Math.max(...Object.values(o).filter((x) => x.afterEarth > 0).map((x) => x.best?.poweredHours ?? -1));
     expect(o[id].best?.poweredHours).toBe(best);
     expect(o[id].afterEarth).toBeGreaterThan(0);
+    // A high point worked out from the heights is named as one, never as a checked place to land.
+    if (id.endsWith('_rim_high')) expect(line.textContent).toMatch(/, a derived high point not checked as safe to land, /);
+    else expect(line.textContent).not.toMatch(/derived/);
   });
 
   it('draws a bar for contact with Earth as it does for sunlight', async () => {
@@ -115,7 +121,7 @@ describe('SitesView', () => {
     const pins = within(map).getAllByRole('link');
     expect(pins).toHaveLength(17);
     expect(within(map).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
-    expect(map.textContent).toMatch(/IM-1 Odysseus and Blue Ghost Mission 1 lie outside this map/);
+    expect(map.textContent).toMatch(/17 places lie farther from the pole, outside this map\./);
     expect(map.textContent).toMatch(/The south pole is at the centre of the map/);
     // The key to the pins' colours comes before the map, on the first screen.
     const key = within(map).getByText('two weeks or more with power');
@@ -161,11 +167,55 @@ describe('SitesView', () => {
     }
   });
 
+  it('says on every row what kind of point the site is, with the radius where it is known', async () => {
+    await ready();
+    expect(rowOf('Apollo 11').textContent).toMatch(/Surveyed point/);
+    expect(rowOf("Chang'e 4").textContent).toMatch(/Surveyed point, ±20\u00a0m/);
+    expect(rowOf('Haworth').textContent).toMatch(/Centre of a region, ±5\u00a0km/);
+    expect(rowOf('Luna 25 target').textContent).toMatch(/Landing target, ±15\u00a0km/);
+    expect(rowOf('IM-3 Reiner Gamma').textContent).toMatch(/Landing target/);
+    expect(rowOf('Lunar south pole').textContent).toMatch(/Reference point/);
+    // A high point worked out from the heights is never offered as a checked place to land.
+    expect(rowOf('Shackleton rim summit').textContent).toMatch(/Derived high point, not checked as safe to land/);
+  });
+
+  it('puts the far side under a heading of its own: Earth never rises there, and the relay lesson is told', async () => {
+    await ready();
+    const group = screen.getByRole('region', { name: 'Landers from other countries' });
+    const heading = within(group).getAllByRole('heading', { level: 3 }).find((h) => /far side/.test(h.textContent ?? ''))!;
+    expect(heading.textContent).toBe('On the far side: Earth never rises');
+    expect(group.textContent).toMatch(/a lander there can talk to Earth only through a relay satellite, as Chang'e 4 and Chang'e 6 did through China's Queqiao satellites\./);
+    const far = heading.parentElement!.querySelector('ul')!;
+    expect([...far.querySelectorAll<HTMLElement>('a[data-row]')].map((a) => a.dataset.row).sort()).toEqual(['change4', 'change6']);
+    expect(rowOf("Chang'e 4").textContent).toMatch(/Never: far side/);
+    expect(rowOf("Chang'e 4").textContent).not.toMatch(/NaN/);
+    expect(rowOf('CP-12 Schrödinger').textContent).toMatch(/Never: far side/);
+  });
+
+  it('gives the Apollo landings two weeks of sunlight and Earth in view all the time, for the days chosen above', async () => {
+    const { store } = await ready();
+    const group = screen.getByRole('region', { name: 'Where the Apollo crews landed' });
+    expect(group.textContent).toMatch(/The six crewed landings of 1969 to 1972, near the equator\. Like every row here, the figures are for the days chosen above/);
+    const o = store.getState().overview;
+    for (const id of ['apollo_11', 'apollo_15']) {
+      expect(o[id].afterEarth, id).toBe(1);
+      // One sunrise and one sunset a lunar day: about 15 days of light in every 29.5.
+      expect(o[id].afterSun, id).toBeGreaterThan(0.45);
+      expect(o[id].afterSun, id).toBeLessThan(0.55);
+    }
+    // Landing at sunrise, the lander keeps power through the two-week day and the battery's first hours of night.
+    expect(o.apollo_15.best!.poweredHours).toBeGreaterThan(15 * 24);
+    expect(o.apollo_15.best!.poweredHours).toBeLessThan(15.5 * 24);
+    // Almost on the equator the midday Sun stands nearly overhead, where the upright panel catches little of it.
+    expect(o.apollo_11.best!.poweredHours).toBeLessThan(9 * 24);
+    expect(rowOf('Apollo 11').textContent).toMatch(/Earth in view 100\u00a0%/);
+  });
+
   it('redoes the figures for another period', async () => {
     const { store } = await ready();
     fireEvent.click(screen.getByRole('radio', { name: '14 days' }));
     expect(store.getState().days).toBe(14);
-    await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(19), { timeout: 20_000 });
+    await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(34), { timeout: 20_000 });
     await waitFor(() => expect(rowOf('de Gerlache Rim 2').getAttribute('href')).toMatch(/days=14/));
     expect(screen.getByText(/^Each site's figures/).textContent).toMatch(/best day of the 14 days from 1 January 2027, the day under its name, and the 14 days after it/);
   });
@@ -224,7 +274,7 @@ describe('SitesView', () => {
     const row = screen.getByLabelText('Data sources');
     // The figures come from horizons on LOLA's 20 m grid near the pole and its 80 m grid farther out, with DE440. The
     // places are NASA's Artemis III regions and the CLPS landings.
-    expect(within(row).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'JPL DE440', 'Artemis III regions', 'CLPS mission records']);
+    expect(within(row).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'NASA LRO LOLA 240 m', 'JPL DE440', 'Artemis III regions', 'CLPS mission records', 'LROC and NSSDCA lander positions']);
     // The row is the foot of the list: after its last group, before the place to work out somewhere else.
     const last = screen.getByRole('region', { name: 'High points and crater floors' });
     expect(last.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { ReliefMap, type MapPin } from '@/components/ReliefMap';
-import { Sources } from '@/components/Sources';
+import { lolaFor, Sources } from '@/components/Sources';
 import { exploreHref } from '@/components/sites/SitesView';
 import { HOME } from '@/lib/data/home';
+import { landedWords, pointKind } from '@/lib/data/kind';
 import { siteLabel, type Site } from '@/lib/data/loaders';
 import type { SiteOverview } from '@/lib/store/explore';
 import { pct0 } from '@/lib/viz/format';
@@ -46,6 +47,8 @@ export function WhereOnMoon({
     });
   const here = pins.some((p) => p.id === site.id);
   const near = nearestSites(site, sites, 3).filter((n) => n.km <= NEAR_KM);
+  // The day it landed opens Explore there only inside the 2024 to 2036 table; an older landing keeps its date.
+  const landed = landedWords(site);
   return (
     <section aria-label="Where on the Moon" className="panel">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4">
@@ -57,7 +60,19 @@ export function WhereOnMoon({
       <div data-part="layout" className={wide ? 'mt-3 grid gap-x-8 md:grid-cols-[minmax(0,420px)_minmax(0,1fr)]' : ''}>
         <p className={`mt-2 text-ink-2 ${wide ? 'md:col-start-2 md:row-start-1' : ''}`}>
           <b className="font-semibold text-ink">{siteLabel(site)}.</b> {site.blurb ? `${site.blurb}.` : `A place at ${Math.abs(site.lat).toFixed(2)}° ${site.lat < 0 ? 'S' : 'N'}.`}
-          {!here && ' It lies far outside this map of the south pole.'}
+          {!here && ' It lies far outside this map of the south pole.'} {pointKind(site).sentence}
+          {site.far_side && ' It lies on the far side, where Earth never rises: a lander there talks to Earth through a relay satellite.'}
+          {landed &&
+            (landed.startUtc ? (
+              <>
+                {` It landed on ${landed.date}. `}
+                <Link href={exploreHref(site.id, landed.startUtc, days)} className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+                  See the days after it landed
+                </Link>
+              </>
+            ) : (
+              ` It landed on ${landed.date}, before the years this app covers (2024 to 2036), so the figures are for the days chosen above.`
+            ))}
           {ground && <span className="mt-1 block text-[15px]">{groundWords(ground)}</span>}
         </p>
         <div className={`mt-3 ${wide ? 'md:col-start-1 md:row-span-3 md:row-start-1 md:mt-0' : ''}`}>
@@ -118,8 +133,8 @@ export function WhereOnMoon({
       </div>
       {/* The relief is LOLA's 80 m grid. The sunlight figures and the pins' colours come from horizons on the 20 m grid
           near the pole and the 80 m grid farther out, with DE440. The pins are NASA's Artemis III regions and the CLPS
-          landings: IM-2 Athena is always on the map. */}
-      <Sources of={['lola', 'lola80', 'de440', 'artemis', 'clps']} />
+          landings: IM-2 Athena is always on the map. A site north of 80° S reads its skyline from the 240 m grid. */}
+      <Sources of={['lola', 'lola80', ...lolaFor(site).filter((k) => k === 'lola240'), 'de440', 'artemis', 'clps']} />
     </section>
   );
 }
