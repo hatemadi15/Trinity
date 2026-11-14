@@ -14,7 +14,7 @@ const plex = IBM_Plex_Sans({ subsets: ['latin'], variable: '--font-plex', weight
 
 const TITLE = 'Earthrise: sunlight and signal forecast for the Moon';
 const DESCRIPTION =
-  'See when a Moon lander has sunlight and a signal. Pick a landing site near the lunar south pole and a date: hours of sunlight, hours of radio contact with Earth, and whether the battery's charge lasts the night. NASA Space Apps 2026, team Astroy/Ed.';
+  'See when a Moon lander has sunlight and a signal. Pick a landing site near the lunar south pole and a date: hours of sunlight, hours of radio contact with Earth, and whether the battery’s charge lasts the night. NASA Space Apps 2026, team Astroy/Ed.';
 /** The address people open the site at, the origin docs/hosting.md lists for the data bucket's CORS. */
 const PRODUCTION_URL = 'https://earthrise.vercel.app';
 
