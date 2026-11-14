@@ -347,7 +347,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const site = s.site, series = s.series, power = s.power;
   const hour = Math.min(series.hours - 1, Math.max(0, s.cursorHour));
   const name = siteLabel(site);
-  const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best });
+  const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, farSide: s.site.far_side, panel: s.params.power.panel });
   // The headline gives both verdicts the challenge asks for, power and radio contact with Earth, and how long
   // the night lasts; the site's name leads the moment's state at the plate's foot and the card's line on where you
   // stand, kept on one line ("de Gerlache Rim 2", never "Rim / 2").
@@ -418,7 +418,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // "Why this happens", one reason a page or all as a list: where the site lies first, then why the light and
   // the sky look as they do (the pole first among them), then the radio story, and how we know last.
   const reasons: { title?: string; text: string }[] = [
-    ...[standingLine(site, name, 'more'), ...whyLines(site.lat, series, hour), radio ?? contact].filter((t): t is string => !!t).map((text) => ({ text })),
+    ...[standingLine(site, name, 'more'), ...whyLines(site.lat, series, hour, site.far_side), radio ?? contact].filter((t): t is string => !!t).map((text) => ({ text })),
     ...(note ? [{ title: 'How we know this', text: note }] : []),
   ];
   const shownPage = Math.min(page, reasons.length - 1);

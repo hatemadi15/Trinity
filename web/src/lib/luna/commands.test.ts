@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Site } from '../data/loaders';
+import { readJson } from '../engine/__tests__/helpers';
 import { heard, parseCommand, spokenToDigits, type LunaCommand } from './commands';
 
 /** A few catalogue sites, by the names the catalogue gives them. */
@@ -118,5 +119,41 @@ describe('Luna’s commands', () => {
     expect(parse('um')).toEqual({ kind: 'nothing' });
     expect(parse('yeah okay')).toEqual({ kind: 'nothing' });
     expect(parse('')).toEqual({ kind: 'nothing' });
+  });
+});
+
+describe('the catalogue’s newer names, as speech writes them', () => {
+  const catalogue = [...readJson<{ sites: Site[] }>('data', 'sites.json').sites, ...readJson<{ sites: Site[] }>('data', 'sites_derived.json').sites];
+  const pick = (said: string) => {
+    const c = parseCommand(said, catalogue);
+    return c.kind === 'planner' ? c.actions.map((a) => ('id' in a ? a.id : a.type)) : c.kind;
+  };
+
+  it.each([
+    ['show me apollo eleven', 'apollo_11'],
+    ['show me apollo seventeen', 'apollo_17'],
+    ['show me chandrayaan three', 'chandrayaan3_vikram'],
+    ['show me chandrayan three', 'chandrayaan3_vikram'],
+    ['show me change four', 'change4'],
+    ['show me chang e six', 'change6'],
+    ['show me changy five', 'change5'],
+    ['show me the slim lander', 'slim'],
+    ['show me rainer gamma', 'im3_reiner_gamma'],
+    ['show me i m three', 'im3_reiner_gamma'],
+    ['show me schroedinger', 'cp12_schrodinger'],
+    ['show me shrodinger basin', 'cp12_schrodinger'],
+    ['Luna, show me luna twenty five', 'luna25_target'],
+  ])('hears "%s" as %s', (said, id) => {
+    expect(pick(said)).toEqual([id]);
+  });
+
+  it('compares two of them by their spoken names', () => {
+    expect(pick('compare apollo eleven and change four')).toEqual(['apollo_11', 'change4', 'open_page']);
+  });
+
+  it('never takes the probe Luna 25 for her name', () => {
+    expect(heard('Luna twenty five').addressed).toBe(false);
+    expect(heard('Luna 25 please').addressed).toBe(false);
+    expect(heard('Luna, show me Apollo 11')).toEqual({ text: 'show me Apollo 11', addressed: true });
   });
 });

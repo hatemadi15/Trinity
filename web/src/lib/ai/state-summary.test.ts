@@ -62,4 +62,25 @@ describe.skipIf(!haveData)('summarizeState', () => {
     expect(typeof s!.compare[0].survives).toBe('boolean');
     expect(JSON.stringify(s).length).toBeLessThan(1500); // compact enough for a prompt
   });
+
+  it('says whether power ends at night or with the Sun up, as the verdict does, and nothing when it does not end', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().selectSite('nobile_rim_2');
+    store.getState().setWindow('2027-03-01T00:00:00', 14);
+    const night = summarizeState(store.getState())!;
+    expect(night.power.survives).toBe(false);
+    expect(night.power.endsAtNight).toBe(true);
+    // Where the Sun never sets, a load above what the panel gives in full sunlight runs the battery down with the Sun up.
+    await store.getState().selectSite('shackleton_center_rim_high');
+    store.getState().setWindow('2027-01-01T00:00:00', 30);
+    const lasts = summarizeState(store.getState())!;
+    expect(lasts.power.survives).toBe(true);
+    expect(lasts.power.endsAtNight).toBeUndefined();
+    store.getState().setPower({ loadW: 2000 });
+    const lowSun = summarizeState(store.getState())!;
+    expect(lowSun.summary.longestDarkH).toBe(0);
+    expect(lowSun.power.survives).toBe(false);
+    expect(lowSun.power.endsAtNight).toBe(false);
+  });
 });

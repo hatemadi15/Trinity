@@ -1,20 +1,23 @@
 {
  "format": 1,
- "data_version": "2026-11-14-a120b7a9",
- "content_sha256": "a120b7a9ae6289eb5d64a3f491dde53dd52210e6f7db19d5287182d7b141075c",
- "written_utc": "2026-11-14T11:31:26Z",
+ "data_version": "2026-11-14-609589f6",
+ "content_sha256": "609589f617a19140c8ef5d0a842e84dba05815f4eb74809361ab15485585e1fd",
+ "written_utc": "2026-11-14T12:33:35Z",
  "about": "Every data file the app reads, as web/public/data lays them out. Check a folder with: uv run python -m lunar_pipeline.cli check-data",
  "groups": [
-  {"id": "core", "title": "the site catalogue, the hourly Sun and Earth table and the sites' horizon masks", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "No forecast can be shown: Explore, the site list, Compare and the brief say the data could not be loaded.", "bytes": 2851571, "files": [
+  {"id": "core", "title": "the site catalogue, the hourly Sun and Earth table and the sites' horizon masks", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "No forecast can be shown: Explore, the site list, Compare and the brief say the data could not be loaded.", "bytes": 2876180, "files": [
    {"path": "ephemeris/moon_me_2024_2036_1h.f32", "bytes": 2735424, "sha256": "279fad83a151b69fb446c826719476d99ac671369416dc0c08fef49565642545"},
    {"path": "ephemeris/moon_me_2024_2036_1h.json", "bytes": 1274, "sha256": "5a925de3336beb22b6cf8a774b70573433c4d5e78e8e9b99739a8d3277811a14"},
+   {"path": "masks/chandrayaan3_vikram.json", "bytes": 5579, "sha256": "a0b386dacee62f771de6aeb0d2940bab57d26310e0e188dbe1563386c085f959"},
    {"path": "masks/connecting_ridge.json", "bytes": 6012, "sha256": "7150d6aa23909ba8d61674fc02f737523ea8ec7f784d320e19cd7f52f89819ed"},
+   {"path": "masks/cp12_schrodinger.json", "bytes": 5660, "sha256": "da0fd5d7e75e0917cf8f429b67a1e81fe048ad9321a449c228993cb10625c0ec"},
    {"path": "masks/de_gerlache_center.json", "bytes": 5630, "sha256": "c261eb1137693034ce438c88f2632cb729cb58b85a5203472b186a995580cfc3"},
    {"path": "masks/de_gerlache_center_rim_high.json", "bytes": 6307, "sha256": "0d2d65ffb41b8fc57fc0c5f3e88e55fb63530a252536c7de44d7f84da8880a22"},
    {"path": "masks/de_gerlache_rim_2.json", "bytes": 6017, "sha256": "9316adab2c4a3b73ea8e80c2e397e959d88573e8be9593ce6a80fae45242c2f3"},
    {"path": "masks/haworth.json", "bytes": 5616, "sha256": "029ab04ea6d4ae3ca0ed083e37c318f8b4d6f70bc68da21408b87cc595a9d5ae"},
    {"path": "masks/im1_odysseus.json", "bytes": 5716, "sha256": "2bb2efc6629bd48b1f9b0caa53516f04fb0edb0130f6ff7d81321f9d0bd85220"},
    {"path": "masks/im2_athena.json", "bytes": 5703, "sha256": "622584d336c9a140227107f22de9f140f63b0de9d639c29d0d287259a11d9823"},
+   {"path": "masks/luna25_target.json", "bytes": 5570, "sha256": "dc311f8713d5cf11ec26d9f63fb9d0c406d9d71df95e49709548017c3ceb3f16"},
    {"path": "masks/malapert_massif.json", "bytes": 5795, "sha256": "80d7f9a22fa96916e565a35eeb59655a7f2e9096e24ba4ad376ee33858cfccec"},
    {"path": "masks/mons_mouton.json", "bytes": 6016, "sha256": "e116f05fc6957201b91811b0b49c47607126c71ce8e7c3945144b5ce136bd320"},
    {"path": "masks/mons_mouton_plateau.json", "bytes": 5721, "sha256": "ebb42e316858708b0861c2d888a8b48157890ab2e529066bfb6f571d01b62cfe"},
@@ -26,8 +29,8 @@
    {"path": "masks/shackleton_center_rim_high.json", "bytes": 6289, "sha256": "826eb491910509e2cf7ef8263ff9da389917c704db94cdde3726eb15077c7fbc"},
    {"path": "masks/slater_plain.json", "bytes": 5763, "sha256": "c7de8cb19d9460ac011eb1347f7dcbded72997bdceaa47f0983e5e2777fe278e"},
    {"path": "masks/south_pole.json", "bytes": 5840, "sha256": "eebd4e6fa09acb7faedc5ad9d534868daafaf8e4f3f5474da35597e0b53aba24"},
-   {"path": "sites.json", "bytes": 7688, "sha256": "fe381a0413dca5ae9eec58b4f2cd7890caac55319da487b9edb560ea9841ee0e"},
-   {"path": "sites_derived.json", "bytes": 1216, "sha256": "5b0432621edef294da6d94bcea23cd397190435e29c715d1004a354da14d066a"}
+   {"path": "sites.json", "bytes": 15328, "sha256": "e5702ab79a5fac021b011ec12d0825620c9cb035293fa57abf276d2fa05821d2"},
+   {"path": "sites_derived.json", "bytes": 1376, "sha256": "19f479d74339a3080232c379d7d564f0858bc5e9f97602c93d0d5134be72bc52"}
   ]},
   {"id": "sky", "title": "the sky: the stars, the Moon's turning and Earth's maps", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "The view from the site cannot open, the home page's arrival shows its still pictures and the header's band of stars stays empty.", "bytes": 1543157, "files": [
    {"path": "sky/credits.json", "bytes": 472, "sha256": "ee6f584666254164c78a384fbc031b8fbe656bb1aee0caa2dc19cd0c1e454b82"},
@@ -39,10 +42,11 @@
    {"path": "sky/stars.bin", "bytes": 168080, "sha256": "a35bad0d01c5d7f630a53e101c115b4a643ce9f0e4237de60ef3e83ba324e0c5"},
    {"path": "sky/stars.json", "bytes": 367, "sha256": "0cb31c542ab8e3c2516b12623c60c9a5ac57deed48c0b6bb294f82a45b63e811"}
   ]},
-  {"id": "validation", "title": "the Accuracy page's tables", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "The Accuracy page says the checks could not be loaded.", "bytes": 61318, "files": [
-   {"path": "validation/backcasts.json", "bytes": 2507, "sha256": "cc9075319959572bb050875a90d7e190b7a59cb6c4570c62a63d21b8e5d53b69"},
-   {"path": "validation/horizons.json", "bytes": 54267, "sha256": "d6b1f358c2b34570c1d5105b45c2aaa0f66955c25f52fa7837bb6f94e6f30505"},
-   {"path": "validation/mazarico.json", "bytes": 4544, "sha256": "1717c8b1ac61a30285904f898c6349016099e9cd1e0c8661dc6d311c62539b45"}
+  {"id": "validation", "title": "the Accuracy page's tables", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "The Accuracy page says the checks could not be loaded.", "bytes": 108928, "files": [
+   {"path": "validation/backcasts.json", "bytes": 4168, "sha256": "d92ed31e6fda202062a2e10e216f3a3b6ae1be3865c0109eeab64e712931b2c7"},
+   {"path": "validation/horizons.json", "bytes": 56459, "sha256": "ccd8ba98bab47e58fae3afa91006344fd52baed255abf0294d79f411efb1c7d1"},
+   {"path": "validation/mazarico.json", "bytes": 33250, "sha256": "f50fe698bf930a0931f0209356b27f6edcd05120a7431e8e941be4383aff0b31"},
+   {"path": "validation/power.json", "bytes": 15051, "sha256": "cd7d8efaaffd7b2e8330400850e81aa64f6214790534e5e12d8db7b2419b35a3"}
   ]},
   {"id": "tiles", "title": "the LOLA height tiles", "required": false, "origin": "made by the pipeline", "get": ["fetch --group lola", "tiles", "sync-local --tiles"], "without": "The 19 catalogue sites work with the 2 m mast; a point outside the catalogue (Somewhere else) and any other mast height cannot be worked out.", "bytes": 247843123, "files": [
    {"path": "tiles/L0/0_0.bin", "bytes": 322096, "sha256": "727e153bfcb6afa4f6e3a204aa9587ca6b92cf3bbabc7e9e66e7a08de5fd66ec"},
@@ -756,11 +760,15 @@
    {"path": "tiles/L2/level.json", "bytes": 4802, "sha256": "3980a27af0d360ab98e98e139495dd3d840952b025dd61f7e10ee4ec168cb676"},
    {"path": "tiles/manifest.json", "bytes": 15330, "sha256": "a43ef3a46cf03db5265098cece74daef01dd7351808ef78e5016ac2e1eda5f1b"}
   ]},
-  {"id": "terrain", "title": "the terrain around the sites", "required": false, "origin": "made by the pipeline", "get": ["fetch --group lola --group textures", "tiles", "terrain", "sync-local --tiles"], "without": "Explore's Shadow map and 3D from above tabs say the terrain is missing and the Horizon chart stands in; the view from the site draws flat ground under the real skyline, and the home page's arrival lands on flat ground.", "bytes": 29013490, "files": [
+  {"id": "terrain", "title": "the terrain around the sites", "required": false, "origin": "made by the pipeline", "get": ["fetch --group lola --group textures", "tiles", "terrain", "sync-local --tiles"], "without": "Explore's Shadow map and 3D from above tabs say the terrain is missing and the Horizon chart stands in; the view from the site draws flat ground under the real skyline, and the home page's arrival lands on flat ground.", "bytes": 29332068, "files": [
+   {"path": "terrain/chandrayaan3_vikram.json", "bytes": 658, "sha256": "381283bbcd8274cfa03784fe31cdbd8754d3e63fd70e2501ae9fdac5a39586c3"},
+   {"path": "terrain/chandrayaan3_vikram.u16", "bytes": 110718, "sha256": "d152e0eec346ef6e293f7cb53e94eca066aaac08c5c52238c93a33b9c7c611a5"},
    {"path": "terrain/connecting_ridge.context.json", "bytes": 661, "sha256": "c92eb11f71071fe15947681ff43bbf290a4c02a7067537c9fb2ebafb58f8b7b4"},
    {"path": "terrain/connecting_ridge.context.u16", "bytes": 457073, "sha256": "776cc9b774befac59ebeb8d28e4c40dd34e3d5ae3614a0eb1d4d84863122d3d7"},
    {"path": "terrain/connecting_ridge.json", "bytes": 651, "sha256": "72a03cceb7a4a327b6c863dd3a806f643eaa310e264c8cfdc79a4753e6b45dc3"},
    {"path": "terrain/connecting_ridge.u16", "bytes": 1477155, "sha256": "764bfd751df23cd7d9c7b5c006c5b1c47a04318d6a301fcedf013a24c3159e5d"},
+   {"path": "terrain/cp12_schrodinger.json", "bytes": 655, "sha256": "b561e9cb0d86e1e28b8c466ba1a941f00a5e9efd93d4cd6807207c5db3def040"},
+   {"path": "terrain/cp12_schrodinger.u16", "bytes": 88430, "sha256": "86368b66f83b1c7e7cd39ebecff52737fee0f2df426a58db45004deaf1859ab9"},
    {"path": "terrain/de_gerlache_center.context.json", "bytes": 654, "sha256": "89a870dddba6a6a13552b9ce0f2fc09f2af420b74a727c419092bcd8469f661e"},
    {"path": "terrain/de_gerlache_center.context.u16", "bytes": 456465, "sha256": "ddde160b6c8c1186c0d9e0fbbceb970ed3de65f69f3681617bb2ed9b936476ad"},
    {"path": "terrain/de_gerlache_center.json", "bytes": 657, "sha256": "be542cadec4366abe6dad8dac9127b4654e5a725c4cd2c6baa942e0b470d0d87"},
@@ -781,9 +789,11 @@
    {"path": "terrain/im1_odysseus.u16", "bytes": 455485, "sha256": "8cf6b7c107f4453f0fd5bad1391e829b1d6896020dad63fd05e6101394505693"},
    {"path": "terrain/im2_athena.json", "bytes": 649, "sha256": "cc3ebeea650d332e3afd152f784eac59bb8080e122262c584396a6fb4d375bc6"},
    {"path": "terrain/im2_athena.u16", "bytes": 423336, "sha256": "2c338ef28942f26f3e2b58e86afa7a02a6a383c8379719d37816b8124d9e5799"},
+   {"path": "terrain/luna25_target.json", "bytes": 652, "sha256": "20b0a9d3ee49667db0a6d195e34e6063a4423130263a25dabccd6b9392807e65"},
+   {"path": "terrain/luna25_target.u16", "bytes": 116738, "sha256": "21e389c067f8d5ac1d41661eb0bfaad22b1d69999023357f338efd2074362a11"},
    {"path": "terrain/malapert_massif.json", "bytes": 636, "sha256": "c08e7f67cf3f73d80bff084b7fd64a249cd98cd3da133777ce72235db9c1f493"},
    {"path": "terrain/malapert_massif.u16", "bytes": 449954, "sha256": "611527e56534a7eb7f1e85a3217ec619698b781cb2ddbdb60b19fb87496f4bf2"},
-   {"path": "terrain/manifest.json", "bytes": 6668, "sha256": "dd854520e4ee08e79dbd1706b088d67785139989af5fb62956d8afd6a960ff5b"},
+   {"path": "terrain/manifest.json", "bytes": 7395, "sha256": "5826aafd6cd3232c77ebcd01a6148b1277e6f338cc73028902610e048d635691"},
    {"path": "terrain/mons_mouton.json", "bytes": 647, "sha256": "1e475885e3c14861d2219de1118bc4feb7c68e3497e43ce985cf11ed5341aed2"},
    {"path": "terrain/mons_mouton.u16", "bytes": 462545, "sha256": "475714b517d613ca9ffe094b43c418d955d60b57dc0bcf00e70a4e9ab08d752a"},
    {"path": "terrain/mons_mouton_plateau.json", "bytes": 653, "sha256": "635df6e4dec03c219a8e0046cc9ccb9b289bb1ef1e898578a3de5805688a9ebb"},

@@ -9,6 +9,7 @@
 | LOLA Lunar Polar Illumination maps `avgvisib_85s_060m_201608` (+ `_earth`), `lpsr_85s_060m_201608` | The Accuracy page's terrain check: the share of hourly steps over 18.6 years in which any part of the Sun's (or Earth's) disc is above the skyline, seen from the ground on 60 m terrain, against ours worked out the same way; overlay layers | https://pgda.gsfc.nasa.gov/products/69 (files and labels: http://imbrium.mit.edu/EXTRAS/ILLUMINATION/ and https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/extras/illumination/) | Mazarico et al. 2011, Icarus 211, 1066–1081 |
 | JPL Horizons API (observer on the lunar surface) | Cross-check of Sun and Earth azimuth/elevation | https://ssd-api.jpl.nasa.gov/doc/horizons.html | Giorgini et al. 1996 |
 | CLPS landing coordinates (IM-1, IM-2, Blue Ghost M1) | Featured sites and mission backcasts | NASA / provider press releases, LROC | — |
+| Lander positions measured in LRO images: the Apollo Lunar Modules (NSSDCA's table), Chandrayaan-3, Chang'e 3 to 6 and SLIM (LROC's posts) | The surveyed points of the catalogue | https://nssdc.gsfc.nasa.gov/planetary/lunar/lunar_sites.html and https://lroc.im-ldi.com (posts listed below) | Wagner et al. 2017, Icarus 283, 92–103 |
 | Yale Bright Star Catalogue, 5th revised edition (`bsc5p`, through NASA HEASARC) | The stars in the stand view: 8,404 stars to magnitude 6.5, with their B−V colours | https://heasarc.gsfc.nasa.gov/W3Browse/star-catalog/bsc5p.html (file: https://heasarc.gsfc.nasa.gov/FTP/heasarc/dbase/tdat_files/heasarc_bsc5p.tdat.gz) | Hoffleit & Warren 1991, Yale University Observatory |
 | NASA Blue Marble: `land_shallow_topo_2048.jpg` and `cloud_combined_2048.jpg` | Earth in the stand view, turned for the hour | https://visibleearth.nasa.gov/images/57752 and https://visibleearth.nasa.gov/images/57747 | NASA Goddard Space Flight Center (Reto Stöckli, Blue Marble) |
 | NASA SVS CGI Moon Kit `lroc_color_2k.jpg` (LRO LROC WAC colour mosaic, 2K equirectangular, longitude 0 at the centre) | Globe texture in the 3D view | https://svs.gsfc.nasa.gov/4720 (file: https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg) | NASA's Scientific Visualization Studio; LRO LROC WAC (Arizona State University) |
@@ -22,6 +23,21 @@ Method reference for horizon masks: Barker et al. 2021, Planet. Space Sci. 203, 
 - Sanchez-Lozano, Pena-Asensio, Neira-Acosta, "A GIS-based multi-criteria decision-making approach for Artemis III landing site selection", LPSC 2025 abstract 1149 (Nobile Rim 2 optimal site 84 12'5.61"S, 60 41'59.61"E).
 - Gracy & Lee, "Candidate landing sites for Artemis 3 in two NASA candidate landing regions nearest the lunar south pole", LPSC 2024 abstract 1695 (Connecting Ridge 89.53432 S, 209.94767 E; Peak near Shackleton 89.01701 S, 126.27302 E).
 - LROC featured image 1294, "Malapert Massif" (86 S, 0 E), Arizona State University / NASA GSFC.
+
+## Site catalogue: landings, targets and kinds of point (P1)
+
+Every site in `data/sites.json` carries a `kind`: `surveyed` (hardware located in images from orbit), `target` (a landing point chosen in advance: planned, proposed by a study, or attempted), `region_centre` (the rough centre of a wider region), `derived` (worked out here from LOLA heights: the highest point in a ring round a crater, not a checked landing spot) or `reference` (the pole, a crater's catalogued centre). `uncertainty_km` is the radius the source states, where it states one. `far_side` marks the sites where Earth never rises; a pipeline test checks it against every hour of the 2024 to 2036 table.
+
+- Apollo 11, 12, 14, 15, 16 and 17: Lunar Module positions from NASA NSSDCA, "Apollo Landing Site Coordinates" (Mean Earth/Polar Axis, DE421), measured in LRO images by Wagner et al. 2017, "Coordinates of anthropogenic features on the Moon", Icarus 283, 92–103. Landing times (UTC) from the NSSDCA mission pages.
+- Chandrayaan-3 Vikram: LROC featured image 1314, "Chandrayaan-3 Landing Site" (69.3741°S, 32.32°E, 532 m), landed 23 August 2023 (ISRO).
+- Chang'e 3: LROC, "Chang'e 3 Lander and Rover From Above" (44.1214°N, 340.4884°E).
+- Chang'e 4: LROC, "Chang'e 4 Lander Coordinates" (45.457°S, 177.589°E, ±20 m), far side.
+- Chang'e 5: LROC, "First Look: Chang'e 5" (43.0576°N, 308.0839°E, ±20 m).
+- Chang'e 6: LROC featured image 1374, "First Look: Chang'e 6" (41.6385°S, 206.0148°E, ±30 m), far side.
+- SLIM: NASA / LROC, "NASA's LRO Spots Japan's Moon Lander" (13.3160°S, 25.2510°E).
+- Luna 25 (a target: it crashed on 19 August 2023 before landing): IKI RAS / Roscosmos main landing ellipse, 15 × 30 km, centred at 69.545°S, 43.544°E, north of Boguslawsky; the site selection is described by Djachkova et al. 2017, Solar System Research 51, 185.
+- IM-3 (target): NASA CLPS task order CP-11 to Reiner Gamma; the point 7.585°N, 58.725°W is from Blewett et al., "Lunar Vertex landing site", LPSC 2023 abstract 1780 (NASA NTRS 20230000531).
+- CP-12 (region centre): NASA CLPS task order CP-12, Draper with the ispace-U.S. APEX 1.0 lander, to Schrödinger basin. The landing spot inside the basin is not published, so the catalogue uses the basin's centre, 74.73°S, 132.93°E (316 km across), from the IAU Gazetteer of Planetary Nomenclature (USGS), with a radius of 158 km.
 
 ## Mission context (Week 5)
 

@@ -7,7 +7,7 @@ const sites = [...readJson<{ sites: Site[] }>('data', 'sites.json').sites, ...re
 
 describe('site labels and blurbs', () => {
   it('gives every catalogue site a short label and one plain line', () => {
-    expect(sites).toHaveLength(19);
+    expect(sites).toHaveLength(34);
     for (const s of sites) {
       expect(s.label, s.id).toBeTruthy();
       expect(s.label!.length, s.id).toBeLessThanOrEqual(28);
@@ -20,7 +20,7 @@ describe('site labels and blurbs', () => {
 
   it('carries them into the catalogue bundled with the app', () => {
     const bundled = catalogue.sites as Site[];
-    expect(bundled).toHaveLength(19);
+    expect(bundled).toHaveLength(34);
     for (const s of bundled) expect(Boolean(s.label && s.blurb), s.id).toBe(true);
   });
 

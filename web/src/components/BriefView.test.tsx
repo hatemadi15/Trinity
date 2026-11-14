@@ -81,6 +81,43 @@ describe('BriefView', () => {
     expect(method.closest('.no-print')).toBeNull();
   });
 
+  it('says what kind of point the site is under its place and period, and never offers a derived high point as a checked landing spot', async () => {
+    const store = await storeWithFiles();
+    render(<BriefView store={store} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Shackleton rim summit'));
+    const kind = screen.getByRole('heading', { level: 1 }).nextElementSibling!.nextElementSibling!;
+    expect(kind.textContent).toBe("A derived point: the highest ground on the crater rim in NASA's height data, worked out by this app. It has not been checked as a safe place to land.");
+    await act(() => store.getState().selectSite('haworth'));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Haworth'));
+    expect(screen.getByRole('heading', { level: 1 }).nextElementSibling!.nextElementSibling!.textContent).toBe('The rough centre of a wider region, give or take 5\u00a0km, not a chosen landing point.');
+  });
+
+  it('gives an Apollo landing its date, says the table cannot reach it, and reads its flat horizon in the method', async () => {
+    const store = await storeWithFiles();
+    render(<BriefView store={store} />);
+    await act(() => store.getState().selectSite('apollo_11'));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Apollo 11'));
+    const kind = screen.getByRole('heading', { level: 1 }).nextElementSibling!.nextElementSibling!;
+    expect(kind.textContent).toBe(
+      'A surveyed point: the lander has been found in images taken from orbit. It landed on 20 July 1969, before the years this app covers (2024 to 2036), so the figures are for the period above.',
+    );
+    const method = screen.getByRole('heading', { name: 'How this was computed' }).nextElementSibling!;
+    expect(method.textContent).toMatch(/a flat horizon \(no polar height data there\)/);
+    expect(method.textContent).toMatch(/There are no hills on this horizon: the place lies outside NASA's polar elevation grids, so the horizon is taken as flat; the Sun counts as up when any part of it clears the horizon\./);
+    expect(method.textContent).not.toMatch(/20 m within 6 km/);
+  });
+
+  it('says on the far side that Earth never rises, and names the 240 m grid for a polar site north of 80° S', async () => {
+    const store = await storeWithFiles();
+    render(<BriefView store={store} />);
+    await act(() => store.getState().selectSite('cp12_schrodinger'));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('CP-12 Schrödinger'));
+    expect(screen.getByRole('main').textContent).toMatch(/No radio contact: this is the far side, where Earth never rises\./);
+    const method = screen.getByRole('heading', { name: 'How this was computed' }).nextElementSibling!;
+    expect(method.textContent).toMatch(/NASA LRO LOLA's 240 m elevation grid out to 220 km \(the finer grids stop at 80° S\)/);
+    expect(screen.getByRole('main').textContent).not.toMatch(/NaN/);
+  });
+
   it('renders a custom site with its computed provenance', async () => {
     const store = await storeWithFiles();
     render(<BriefView store={store} />);
@@ -136,7 +173,7 @@ describe('BriefView narration', () => {
     expect(screen.getByText(/written by the app from the figures below/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByTestId('narration').textContent).toBe('Model paragraph about the rim.'));
-    expect(screen.getByText(/narrated by gemma-4-31b/)).toBeTruthy();
+    expect(screen.getByText(/^narrated by gemma-4-31b; each number, unit and cause checked against the figures below$/)).toBeTruthy();
     expect(narrate).toHaveBeenCalledTimes(1);
     expect((narrate.mock.calls[0] as unknown[])[0]).toMatchObject({ site: { id: 'shackleton_center_rim_high' } });
   });
@@ -164,14 +201,20 @@ describe('BriefView narration labels', () => {
     const narrate = vi
       .fn()
       .mockResolvedValueOnce({ source: 'template', reason: 'cached', reply: 'T1' })
-      .mockResolvedValueOnce({ source: 'template', reason: 'numbers', reply: 'T2' })
+      .mockResolvedValueOnce({ source: 'template', reason: 'numbers', problems: ['"67 %" for sunlight, where the figures say 100 %'], reply: 'T2' })
       .mockRejectedValueOnce(new Error('Too many questions; try again in 12 s.'));
     render(<BriefView store={store} narrate={narrate} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByText(/demo mode; written by the app from the figures below/)).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
-    await waitFor(() => expect(screen.getByText(/did not pass the number check/)).toBeTruthy());
+    // The template stands, and the page says what in the model's paragraph did not match.
+    await waitFor(() =>
+      expect(screen.getByText(/^the model's paragraph did not match the figures \("67 %" for sunlight, where the figures say 100 %\); written by the app from the figures below$/)).toBeTruthy(),
+    );
+    // A number and its unit stay on one line, as everywhere on the page (the matcher above folds the no-break space).
+    expect(screen.getByText(/did not match the figures/).textContent).toContain('say 100\u00a0%)');
+    expect(screen.getByTestId('narration').textContent).toBe('T2');
     fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByText(/try again in 12 s/)).toBeTruthy());
     expect(screen.getByTestId('narration').textContent).toMatch(/keeps power for all 30 days/);
