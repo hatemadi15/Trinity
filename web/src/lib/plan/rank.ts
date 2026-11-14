@@ -104,10 +104,10 @@ const FIGURES: [TradeOffId, string, (o: Outcome) => number, 1 | -1][] = [
   ['sunlight', 'Sunlight', (o) => o.sunH, 1],
   ['contact', 'Earth in view', (o) => o.contactH, 1],
   ['powered-contact', 'Contact while powered', (o) => o.poweredContactH, 1],
-  ['outage', 'Longest time without Earth', (o) => o.outageH, -1],
+  ['outage', 'Longest time without Earth while powered', (o) => o.poweredOutageH, -1],
 ];
 
-/** What a choice gains and loses against the current one: power, sunlight, Earth in view, contact while powered and the longest time without Earth. */
+/** What a choice gains and loses against the current one: power, sunlight, Earth in view, contact while powered and the longest time without Earth while powered. */
 export function tradeOffs(o: Outcome, base: Outcome): TradeOff[] {
   return FIGURES.map(([id, label, get, sense]) => {
     const delta = get(o) - get(base);

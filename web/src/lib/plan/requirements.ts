@@ -10,7 +10,7 @@ export interface Requirements {
   minPoweredH: number | null;
   /** Earth in view at the landing hour (0), or within this many hours of it. */
   contactWithinH: number | null;
-  /** The longest time without Earth in view the mission accepts over its stay. */
+  /** The longest time without Earth in view the mission accepts while the lander has power. */
   maxOutageH: number | null;
   /** The least time with Earth in view while the lander has power. */
   minPoweredContactH: number | null;
@@ -62,9 +62,10 @@ export function checkRequirements(o: Outcome, r: Requirements): Check[] {
     }
   }
   if (r.maxOutageH !== null) {
-    const label = `Longest time without Earth at most ${spanShort(r.maxOutageH)}`;
-    const margin = r.maxOutageH - o.outageH;
-    checks.push({ id: 'outage', label, met: margin >= 0, value: o.outageH, limit: r.maxOutageH, margin, words: `${label}: ${spanShort(o.outageH)}, ${margin >= 0 ? `${spanShort(margin)} to spare` : `${spanShort(-margin)} too long`}` });
+    const label = `Longest time without Earth while powered at most ${spanShort(r.maxOutageH)}`;
+    const v = o.poweredOutageH;
+    const margin = r.maxOutageH - v;
+    checks.push({ id: 'outage', label, met: margin >= 0, value: v, limit: r.maxOutageH, margin, words: `${label}: ${spanShort(v)}, ${margin >= 0 ? `${spanShort(margin)} to spare` : `${spanShort(-margin)} too long`}` });
   }
   if (r.minPoweredContactH !== null) checks.push(atLeast('powered-contact', `Earth contact while powered at least ${spanShort(r.minPoweredContactH)}`, o.poweredContactH, r.minPoweredContactH));
   return checks;
@@ -75,9 +76,10 @@ export function midSentence(label: string): string {
   return /^(Earth|Sun)\b/.test(label) ? label : `${label[0].toLowerCase()}${label.slice(1)}`;
 }
 
-/** A failed check as a sentence names it: "longest time without Earth at most 3 d (16 d 12 h)". */
+/** A failed check as a sentence names it: "longest time without Earth while powered at most 3 d (16 d 12 h)". */
 export function failedWords(c: Check): string {
-  return `${midSentence(c.label)} (${c.value === null ? 'never in view' : spanShort(c.value)})`;
+  const value = c.value === null ? 'never in view' : c.id === 'contact-at-landing' ? `not until ${spanShort(c.value)} after landing` : spanShort(c.value);
+  return `${midSentence(c.label)} (${value})`;
 }
 
 /** The checks summed up in one sentence; null when no requirement is set. */

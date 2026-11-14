@@ -21,6 +21,11 @@ export interface Outcome {
   poweredContactH: number;
   /** The longest stretch of the stay without Earth in view; stretches cut short by the stay's ends count as they are. */
   outageH: number;
+  /**
+   * The longest stretch without Earth in view while the lander has power, from landing to the first power cut: the
+   * outage a mission lives through. Near a pole Earth sets for about two weeks a month, mostly after the power is gone.
+   */
+  poweredOutageH: number;
   /** Hours from landing to the first hour with Earth in view (0 when it is in view at landing); null when it never is in the stay. */
   firstContactH: number | null;
   /** Whether any part of the Sun shows at the landing hour: a lander lands in daylight. */
@@ -92,6 +97,7 @@ function measure(ix: Index, hour: number, stay: number, powered: (end: number) =
     contactH: stayH > 0 ? ix.vis[end] - ix.vis[hour] : 0,
     poweredContactH: poweredH > 0 ? ix.vis[hour + poweredH] - ix.vis[hour] : 0,
     outageH: stayH > 0 ? longestGap(ix, hour, end) : 0,
+    poweredOutageH: poweredH > 0 ? longestGap(ix, hour, hour + poweredH) : 0,
     firstContactH: first >= 0 && first < end ? first - hour : null,
     sunlitAtLanding: ix.sunlit(hour),
   };
@@ -128,6 +134,7 @@ export function worstOf(outcomes: Outcome[]): Outcome {
       contactH: Math.min(w.contactH, o.contactH),
       poweredContactH: Math.min(w.poweredContactH, o.poweredContactH),
       outageH: Math.max(w.outageH, o.outageH),
+      poweredOutageH: Math.max(w.poweredOutageH, o.poweredOutageH),
       firstContactH: w.firstContactH === null || o.firstContactH === null ? null : Math.max(w.firstContactH, o.firstContactH),
       sunlitAtLanding: w.sunlitAtLanding && o.sunlitAtLanding,
     }),
