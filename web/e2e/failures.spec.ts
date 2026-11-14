@@ -135,4 +135,16 @@ test.describe('When the data fails', () => {
     await page.goto('/validate');
     await expect(page.getByRole('alert').filter({ hasText: 'The checks could not be loaded.' })).toBeVisible({ timeout: 60_000 });
   });
+
+  test('with the horizon file of the site in a link missing, Explore says so in plain words', async ({ page }) => {
+    test.fixme(
+      true,
+      'Known bug, reported: Explore keeps the last site that loaded (de Gerlache Rim 2) and prints "could not load /data/masks/nobile_rim_2.json (HTTP 404)" over its answer; Compare and Choose a site print such errors the same way.',
+    );
+    await missing(page, '**/data/masks/nobile_rim_2.json');
+    await page.goto(exploreUrl('nobile_rim_2'));
+    await expect(answerHeading(page)).toBeVisible({ timeout: 60_000 });
+    expect(await page.locator('main').innerText()).not.toMatch(RAW);
+    await expect(page.getByText(/Nobile Rim 2/).first()).toBeVisible();
+  });
 });

@@ -112,7 +112,8 @@ class ResultsReporter implements Reporter {
     const o = t.outcome();
     const outcome: Outcome = o === 'expected' ? (last?.status === 'skipped' ? 'skipped' : 'passed') : o === 'unexpected' ? 'failed' : o === 'flaky' ? 'flaky' : 'skipped';
     const notes = [...t.annotations, ...(last?.annotations ?? [])];
-    const skip = notes.find((a) => a.type === 'skip' || a.type === 'fixme');
+    const skips = notes.filter((a) => a.type === 'skip' || a.type === 'fixme');
+    const skip = skips.find((a) => a.description) ?? skips[0];
     const error = t.results.find((r) => r.error)?.error?.message ?? '';
     return {
       file: path.relative(path.join(WEB, 'e2e'), t.location.file).replace(/\\/g, '/'),
