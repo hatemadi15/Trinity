@@ -61,6 +61,9 @@ GROUPS: tuple[Group, ...] = (
           "Nothing: the app does not read them (the tests read them from data/fixtures)."),
     Group("uncertainty", "the margins and the terrain versions", False, False, ("uncertainty/", "ensemble/"), ("sync-local",),
           "Explore, the brief, Compare and the Accuracy page show no margins and no terrain versions; every figure itself is the same."),
+    Group("coldtraps", "the modelled cold traps near the polar sites (LRO Diviner, PGDA product 90)", False, False, ("coldtraps/",),
+          ("coldtraps", "sync-local"),
+          "Explore, the brief and the site list leave out the line on modelled cold traps, and the shadow map offers no layer of cold ground."),
 )
 BY_ID = {g.id: g for g in GROUPS}
 

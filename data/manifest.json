@@ -1,8 +1,8 @@
 {
  "format": 1,
- "data_version": "2026-11-14-c9e51db2",
- "content_sha256": "c9e51db2cb561705a30b54190f1372a56e55da7a29c2cb69fc499c65a8d0a28d",
- "written_utc": "2026-11-14T16:43:21Z",
+ "data_version": "2026-11-14-57864fc8",
+ "content_sha256": "57864fc82ce2ac38b57a0d192f1a681035674aacfb6eef50076aa8d72aa05ae4",
+ "written_utc": "2026-11-14T16:46:00Z",
  "about": "Every data file the app reads, as web/public/data lays them out. Check a folder with: uv run python -m lunar_pipeline.cli check-data",
  "groups": [
   {"id": "core", "title": "the site catalogue, the hourly Sun and Earth table and the sites' horizon masks", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "No forecast can be shown: Explore, the site list, Compare and the brief say the data could not be loaded.", "bytes": 2876180, "files": [
@@ -915,6 +915,10 @@
    {"path": "uncertainty/skylines/shackleton_center_rim_high.json", "bytes": 17252, "sha256": "4c5bcdf12b797bf9f77ba96ebdd2eeebea897394c1491ec156cab45fd0a84f8a"},
    {"path": "uncertainty/skylines/slater_plain.json", "bytes": 15882, "sha256": "6383844a2adb62acc5bc03320e300a97c680b3dfc56a3480814137c7a2b87819"},
    {"path": "uncertainty/skylines/south_pole.json", "bytes": 16081, "sha256": "d0dcb178f1caf1b8d2700da077b15685d21f6b62cf984f3bfaafbd1ed5b895c5"}
+  ]},
+  {"id": "coldtraps", "title": "the modelled cold traps near the polar sites (LRO Diviner, PGDA product 90)", "required": false, "origin": "committed in data/", "get": ["coldtraps", "sync-local"], "without": "Explore, the brief and the site list leave out the line on modelled cold traps, and the shadow map offers no layer of cold ground.", "bytes": 79559, "files": [
+   {"path": "coldtraps/coldtraps.json", "bytes": 28195, "sha256": "0e08fdfe3a42d176b2e421dc03ce978d67dbf1a12d072289e469f9d72a1342ea"},
+   {"path": "coldtraps/overlay.json", "bytes": 51364, "sha256": "0f27b20b350c76b629127d278dfdc8078e208720ee3070c45e2cf0efef8eca62"}
   ]}
  ]
 }

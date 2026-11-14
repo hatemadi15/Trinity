@@ -49,7 +49,7 @@ def test_the_manifest_lists_every_file_with_its_size_hash_and_group(sources):
     _remove(web, "terrain")
     doc = _build(sources)
     groups = {g["id"]: g for g in doc["groups"]}
-    assert list(groups) == ["core", "sky", "validation", "tiles", "terrain", "globe", "fixtures", "uncertainty"]
+    assert list(groups) == ["core", "sky", "validation", "tiles", "terrain", "globe", "fixtures", "uncertainty", "coldtraps"]
     assert [f["path"] for f in groups["core"]["files"]] == ["ephemeris/table.f32", "masks/south_pole.json", "sites.json", "sites_derived.json"]
     entry = groups["tiles"]["files"][0]
     assert entry == {"path": "tiles/L0/0_0.bin", "bytes": len(b"tiles/L0/0_0.bin"), "sha256": hashlib.sha256(b"tiles/L0/0_0.bin").hexdigest()}
@@ -111,7 +111,7 @@ def test_check_says_every_part_is_complete_when_the_mirror_matches(sources):
     _, _, web = sources
     report = manifest.check(web, doc)
     states = {g["id"]: g["state"] for g in report["groups"]}
-    assert states == {"core": "complete", "sky": "complete", "validation": "complete", "tiles": "complete", "terrain": "complete", "globe": "complete", "fixtures": "complete", "uncertainty": "complete"}
+    assert states == {"core": "complete", "sky": "complete", "validation": "complete", "tiles": "complete", "terrain": "complete", "globe": "complete", "fixtures": "complete", "uncertainty": "complete", "coldtraps": "complete"}
     assert report["ok"] is True and report["extra"] == []
 
 
@@ -189,3 +189,14 @@ def test_the_margins_and_the_terrain_versions_are_one_optional_group(sources):
     group = next(g for g in _build(sources)["groups"] if g["id"] == "uncertainty")
     assert [f["path"] for f in group["files"]] == ["ensemble/connecting_ridge.json", "uncertainty/budget.json"]
     assert group["required"] is False and "terrain versions" in group["title"]
+
+
+def test_the_modelled_cold_traps_are_an_optional_committed_part(sources):
+    data, _, web = sources
+    _write(data, "coldtraps/coldtraps.json", b"{}")
+    _write(web, "coldtraps/coldtraps.json", b"{}")
+    groups = {g["id"]: g for g in _build(sources)["groups"]}
+    cold = groups["coldtraps"]
+    assert [f["path"] for f in cold["files"]] == ["coldtraps/coldtraps.json"]
+    assert cold["required"] is False and cold["origin"] == "committed in data/"
+    assert "cold traps" in cold["without"]

@@ -60,6 +60,9 @@ def build_parser() -> argparse.ArgumentParser:
     en.add_argument("--versions", type=int, default=32, help="versions per site (default 32)")
     en.add_argument("--seed", type=int, default=20261115)
     en.add_argument("--index-only", action="store_true", help="only write the index again from the stored versions")
+    ct = sub.add_parser("coldtraps", help="write data/coldtraps: modelled cold traps near each polar site (LRO Diviner, PGDA product 90)")
+    ct.add_argument("--site", action="append", help="only these polar sites (default: every polar catalogue site)")
+    ct.add_argument("--zip", type=Path, help="the Diviner zip (default: data_raw/diviner/dlre_prp_south.zip, downloaded when absent)")
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
     sub.add_parser("home-assets", help="render the home page picture, the relief map and home.json into web/")
@@ -168,6 +171,11 @@ def main(argv: list[str] | None = None) -> None:
 
         doc = reindex() if args.index_only else build(site_ids=args.site, n=args.versions, seed=args.seed)
         print(f"data/ensemble: {len(doc['sites'])} sites, {doc['bytes']} bytes")
+    elif args.cmd == "coldtraps":
+        from . import coldtraps
+
+        for path in coldtraps.write_all(args.zip, args.site):
+            print(path)
     elif args.cmd == "manifest":
         from . import manifest
 

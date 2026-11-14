@@ -28,6 +28,12 @@ before the deadline, commit this study and at most one sentence of future work; 
 model and run the ensemble, then add a cold-trap layer worded as modelled conditions, never as ice found,
 and try an emulator only if the simple rule is shown to fail.
 
+Update, 14 November: with the user's go-ahead, step 4 of the plan below, the cold-trap layer, was built before
+the deadline as a transparent layer (no score, no classifier): `data/coldtraps`, shown on Explore, in the brief,
+on the site list and as a layer on the shadow map. The -1 value is settled: it is exactly the ground whose annual
+maximum is below 101.3 K, where ice would be stable at the surface all year (`docs/method.md`, "Modelled cold
+traps").
+
 ## Terms used
 
 - **Skyline**: the height of the terrain horizon in each of 720 directions around a site, as the app
@@ -368,8 +374,11 @@ physical threshold as a learned probability. The value is in a careful, sourced,
   by 11 to 15 %. Ice depth 0 (stable at the surface) covers only 2,341 km², but a value of **-1, which the
   label does not explain**, covers 12,813 km², all of it colder than 101 K: 87 % of the ground colder than
   110 K carries -1 and only 13 % carries 0. A reader that took the label at its word would miss most of the
-  coldest ground. Buried ice would last within 10 cm of the surface on 20 % of the cap, between 10 and 50 cm
-  on 13 %, between 0.5 and 2.87 m on 4 %, and deeper (or not at all) on 58 %.
+  coldest ground. (Settled since: -1 is exactly the ground whose annual maximum is below 101.3 K, the
+  temperature at which exposed ice sublimates at the product's own rate, Paige et al.'s white "surface cold
+  traps"; see `docs/method.md`, "Modelled cold traps".) Buried ice would last within 10 cm of the surface on
+  20 % of the cap, between 10 and 50 cm on 13 %, between 0.5 and 2.87 m on 4 %, and deeper (or not at all) on
+  58 %.
 - **Around each polar site**, next to product 90's permanent shadow (the 10 km LPSR windows the budget
   already caches):
 
@@ -409,7 +418,8 @@ physical threshold as a learned probability. The value is in a careful, sourced,
   as expected if not every shadow is a cold trap. Report every class area for 100, 110 and 120 K, so the
   threshold's weight (11 to 15 %) is visible.
 - **The undocumented -1**: settle with the Diviner team or the PDS Geosciences Node what it means before any
-  depth is shown.
+  depth is shown. (Settled from the table, the physics and Paige et al.'s own map on 14 November, before any
+  depth was shown; the team and the node have not been asked. `docs/method.md`, "Modelled cold traps".)
 - **Independent indicators**: compare the classes with LAMP and LOLA albedo where they were not used, and
   with Li et al.'s figure, crater by crater; LCROSS's single point at Cabeus.
 - **Registration**: Diviner's mesh comes from a Kaguya elevation model, not the LOLA grids the app uses, and
@@ -460,7 +470,8 @@ emulator of step 5 was not built.)
    20 pictures agree on a median 92 % of the ground, nearly all disagreement on shadows' edges; with the Sun 1.1° up
    or less the app puts a fifth to a quarter of the sunlit ground in shadow, and product 90's terrain does much the same.
 4. Build the cold-trap layer as a transparent index (Diviner, product 90 shadow and slope), with per-site
-   summaries next to power and radio contact, and strict wording.
+   summaries next to power and radio contact, and strict wording. (Built on 14 November, ahead of this
+   order, at the user's request: `data/coldtraps`, `docs/method.md`, "Modelled cold traps".)
 5. Consider an emulator only if step 2 shows first-order propagation failing often and instant spreads are
    needed for points the app has not seen; try a small ensemble in the browser worker or a precomputed
    margin map first.

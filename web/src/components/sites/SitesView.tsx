@@ -22,6 +22,8 @@ import { dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 import { missingWords, pickProblem, terrainTag } from '@/lib/viz/terrain';
 import { exploreHref } from '@/lib/links';
+import { coldTrapShort, coldTrapSite, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
+import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
 
 const TWO_WEEKS_H = 14 * 24;
 
@@ -59,7 +61,7 @@ const noContact = (o: SiteOverview | undefined) => o !== undefined && o.afterEar
 /** On the far side Earth never rises at all (data/sites.json "far_side", checked against every hour of the table). */
 const farSide = (site: Site) => site.far_side === true;
 
-function Row({ site, o, href, startUtc, days, active, onActive, problem = null }: { site: Site; o: SiteOverview | undefined; href: string; startUtc: string; days: number; active: boolean; onActive: (id: string | null) => void; problem?: string | null }) {
+function Row({ site, o, href, startUtc, days, active, onActive, problem = null, cold = null }: { site: Site; o: SiteOverview | undefined; href: string; startUtc: string; days: number; active: boolean; onActive: (id: string | null) => void; problem?: string | null; cold?: string | null }) {
   const capped = o?.best ? o.best.poweredHours >= days * 24 : false;
   const tag = terrainTag(o?.terrain);
   return (
@@ -135,6 +137,14 @@ function Row({ site, o, href, startUtc, days, active, onActive, problem = null }
         <svg viewBox="0 0 16 16" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="text-ink-3 transition-[transform,color] duration-300 group-hover:translate-x-1 group-hover:text-accent-ink" aria-hidden="true">
           <path d="M6 3l5 5-5 5" />
         </svg>
+        {/* The modelled cold traps near a polar site (data/coldtraps), under its power and radio figures across the whole row,
+            so the narrow site column does not grow on a phone. */}
+        {cold && (
+          <span className="col-span-full mt-1 block text-[15px] text-ink-2">
+            <span className="sr-only">, </span>
+            {cold}
+          </span>
+        )}
       </Link>
     </li>
   );
@@ -198,8 +208,10 @@ function Elsewhere({ store, navigate }: { store: StoreApi<ExploreState>; navigat
 const SKY = { planetX: 0.82, planetY: 0.55, planetRadius: 0.12, bandAngle: 0.2, bandOffset: 0.1, sparkles: 6 };
 
 /** "Choose a landing site": every catalogue site with its sunlight, its contact with Earth and its longest time with power. */
-export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi<ExploreState>; navigate?: (href: string) => void }) {
+export function SitesView({ store = exploreStore, navigate, coldTraps }: { store?: StoreApi<ExploreState>; navigate?: (href: string) => void; coldTraps?: () => Promise<ColdTrapDoc> }) {
   const s = useStore(store);
+  const coldDoc = useColdTraps(coldTraps);
+  const coldOf = (id: string) => coldTrapShort(coldTrapSite(coldDoc, id));
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
   const [active, setActive] = useState<string | null>(null);
@@ -389,7 +401,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                   </div>
                   <ul className="divide-y divide-line-strong">
                     {g.rows.map((site) => (
-                      <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} problem={s.skylineProblems[site.id]} />
+                      <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} problem={s.skylineProblems[site.id]} cold={coldOf(site.id)} />
                     ))}
                   </ul>
                   {/* Places that never see Earth get a heading of their own, so their place in the order explains itself. */}
@@ -399,7 +411,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                       <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">These places keep power for a while but cannot reach Earth by radio then.</p>
                       <ul className="divide-y divide-line-strong">
                         {g.without.map((site) => (
-                          <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} problem={s.skylineProblems[site.id]} />
+                          <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} problem={s.skylineProblems[site.id]} cold={coldOf(site.id)} />
                         ))}
                       </ul>
                     </>
@@ -414,7 +426,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                       </p>
                       <ul className="divide-y divide-line-strong">
                         {g.far.map((site) => (
-                          <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
+                          <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} cold={coldOf(site.id)} />
                         ))}
                       </ul>
                     </div>
