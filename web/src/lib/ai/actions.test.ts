@@ -56,21 +56,68 @@ describe('validateActions', () => {
     expect(r.dropped.join(' ')).toMatch(/shackleton_east_rim/);
   });
 
-  it('coerces window days from strings and rejects sizes outside 14, 30 and 90', () => {
+  it('coerces window days from strings and keeps any whole number from 2 to 90, dropping any other', () => {
     const r = validateActions(
       [
         { type: 'set_window', days: '30' },
         { type: 'set_window', days: 45 },
+        { type: 'set_window', days: 7 },
         { type: 'find_best_window', days: '14' },
+        { type: 'find_best_window', days: 7 },
+        { type: 'set_window', days: 120 },
+        { type: 'set_window', days: 1 },
+        { type: 'set_window', days: 7.5 },
+        { type: 'find_best_window', days: 91 },
         { type: 'set_window', startUtc: '2027-02-30' },
       ],
       ids,
     );
     expect(r.actions).toEqual([
       { type: 'set_window', days: 30 },
+      { type: 'set_window', days: 45 },
+      { type: 'set_window', days: 7 },
       { type: 'find_best_window', days: 14, scope: 'site' },
+      { type: 'find_best_window', days: 7, scope: 'site' },
     ]);
-    expect(r.dropped.length).toBe(2);
+    expect(r.dropped).toEqual([
+      'set_window: days must be a whole number from 2 to 90 (got 120)',
+      'set_window: days must be a whole number from 2 to 90 (got 1)',
+      'set_window: days must be a whole number from 2 to 90 (got 7.5)',
+      'find_best_window: days must be a whole number from 2 to 90 (got 91)',
+      'set_window: bad start date "2027-02-30"',
+    ]);
+  });
+
+  it('keeps a landing hour, reads minutes at the nearest whole hour, and checks a time and a shift', () => {
+    const r = validateActions(
+      [
+        { type: 'set_window', startUtc: '2027-01-20T17:00:00', days: 7 },
+        { type: 'set_window', startUtc: '2027-01-20T17:40' },
+        { type: 'set_window', timeUtc: '17:00' },
+        { type: 'shift_window', hours: 120 },
+        { type: 'shift_window', hours: '-6' },
+        { type: 'set_window', timeUtc: '24:00' },
+        { type: 'set_window', timeUtc: '5 pm' },
+        { type: 'shift_window', hours: 0 },
+        { type: 'shift_window', hours: 2.5 },
+        { type: 'shift_window' },
+      ],
+      ids,
+    );
+    expect(r.actions).toEqual([
+      { type: 'set_window', startUtc: '2027-01-20T17:00:00', days: 7 },
+      { type: 'set_window', startUtc: '2027-01-20T18:00:00' },
+      { type: 'set_window', timeUtc: '17:00' },
+      { type: 'shift_window', hours: 120 },
+      { type: 'shift_window', hours: -6 },
+    ]);
+    expect(r.dropped).toEqual([
+      'set_window: bad time "24:00"',
+      'set_window: bad time "5 pm"',
+      'shift_window: hours must be a whole number other than 0 (got 0)',
+      'shift_window: hours must be a whole number other than 0 (got 2.5)',
+      'shift_window: hours must be a whole number other than 0 (got undefined)',
+    ]);
   });
 
   it('clamps power and planner patches to the panel ranges and drops empty patches', () => {
@@ -182,9 +229,9 @@ describe('applyActions', () => {
     expect(navigate).toHaveBeenCalledWith('/compare');
     expect(notes.length).toBe(actions.length);
     expect(notes[0]).toMatch(/Selected Nobile Rim 2/);
-    expect(notes[1]).toBe('Period: from 1 March 2027 for 14 days.');
+    expect(notes[1]).toBe('Period: from 1 March 2027, 00:00 UTC, for 14 days.');
     expect(notes[3]).toBe('Lander settings: mast 5 m.');
-    expect(notes[6]).toBe('Moved to the best landing date for 14 days: 2027-03-04.');
+    expect(notes[6]).toBe('Moved to the best landing for 14 days: 4 March 2027, 00:00 UTC.');
     expect(notes[7]).toBe('Opened Compare sites.');
     expect(notes[8]).toMatch(/longest night/i);
   });
@@ -214,10 +261,32 @@ describe('applyActions', () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();
     const notes = await applyActions(store, [{ type: 'set_window', startUtc: '2036-12-20T00:00:00' }, { type: 'set_window', startUtc: '2036-12-01T00:00:00' }], vi.fn());
-    expect(notes[0]).toBe('A 30-day period from 20 December 2036 runs past 31 December 2036, where the Sun and Earth table ends. Choose an earlier date or a shorter period.');
+    expect(notes[0]).toBe('A 30-day period from 20 December 2036, 00:00 UTC runs past 31 December 2036, where the Sun and Earth table ends. The latest landing for 30 days is 2 December 2036, 00:00 UTC.');
     // One that fits is set and said as before.
-    expect(notes[1]).toBe('Period: from 1 December 2036 for 30 days.');
+    expect(notes[1]).toBe('Period: from 1 December 2036, 00:00 UTC, for 30 days.');
     expect(store.getState().startUtc).toBe('2036-12-01T00:00:00');
+  });
+
+  it('lands at a UTC hour on the date chosen, for any length, and says the period as the controls show it', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    const notes = await applyActions(store, [{ type: 'set_window', startUtc: '2027-01-20T00:00:00', days: 7 }, { type: 'set_window', timeUtc: '17:00' }], vi.fn());
+    expect(notes).toEqual(['Period: from 20 January 2027, 00:00 UTC, for 7 days.', 'Period: from 20 January 2027, 17:00 UTC, for 7 days.']);
+    expect([store.getState().startUtc, store.getState().days]).toEqual(['2027-01-20T17:00:00', 7]);
+  });
+
+  it('moves a slipped landing by days or hours, keeping the length, and stops at the end of the table with a plain sentence', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    store.getState().setWindow('2027-01-20T17:00:00', 7);
+    expect(await applyActions(store, [{ type: 'shift_window', hours: 120 }], vi.fn())).toEqual(['Landing 5 days later. Period: from 25 January 2027, 17:00 UTC, for 7 days.']);
+    expect(await applyActions(store, [{ type: 'shift_window', hours: -6 }], vi.fn())).toEqual(['Landing 6 hours earlier. Period: from 25 January 2027, 11:00 UTC, for 7 days.']);
+    expect([store.getState().startUtc, store.getState().days]).toEqual(['2027-01-25T11:00:00', 7]);
+    store.getState().setWindow('2036-12-20T00:00:00', 7);
+    expect(await applyActions(store, [{ type: 'shift_window', hours: 240 }], vi.fn())).toEqual([
+      'Period: from 25 December 2036, 00:00 UTC, for 7 days. The Sun and Earth table ends on 31 December 2036, so a 7-day period can start no later than 25 December 2036, 00:00 UTC: the landing moved there.',
+    ]);
+    expect(store.getState().startUtc).toBe('2036-12-25T00:00:00');
   });
 
   it('fills a partial window from the current one and reports unknown sites', async () => {

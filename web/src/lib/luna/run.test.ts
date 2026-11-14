@@ -108,6 +108,7 @@ describe('what Luna does with a command', () => {
     expect(await runCommand({ kind: 'theme', theme: 'dark' }, d)).toBe('Dark theme.');
     expect(d.setTheme).toHaveBeenCalledWith('dark');
     expect(await runCommand({ kind: 'help' }, d)).toBe(HELP_REPLY);
+    expect(HELP_REPLY).toMatch(/move the landing, as in "delay the landing by five days"\.$/);
     expect(await runCommand({ kind: 'hello' }, d)).toMatch(/^Hello/);
     expect(await runCommand({ kind: 'thanks' }, d)).toMatch(/welcome/i);
     expect(await runCommand({ kind: 'stop' }, d)).toMatch(/^Luna is off/);
@@ -133,6 +134,22 @@ describe('what Luna does with a command', () => {
     await runCommand(parseCommand('start on january 20th 2027', store.getState().sites), d, 'start on january 20th 2027');
     expect(store.getState().startUtc).toBe('2027-01-20T00:00:00');
     expect(d.navigate).toHaveBeenCalledWith('/explore/stand?site=de_gerlache_rim_2&start=2027-01-20&days=30&hour=0');
+  });
+
+  it('says the period the app set, not the one asked for: a slipped landing, a landing hour, and a stop at the end of the table', async () => {
+    const store = await loaded();
+    const d = deps(store, '/explore');
+    const run = (said: string) => runCommand(parseCommand(said, store.getState().sites), d, said);
+    expect(await run('start on january twentieth twenty twenty seven at five p m for seven days')).toBe('Period: from 20 January 2027, 17:00 UTC, for 7 days.');
+    expect(await run('delay the landing by five days')).toBe('Landing 5 days later. Period: from 25 January 2027, 17:00 UTC, for 7 days.');
+    expect(await run('land at oh six hundred')).toBe('Period: from 25 January 2027, 06:00 UTC, for 7 days.');
+    expect([store.getState().startUtc, store.getState().days]).toEqual(['2027-01-25T06:00:00', 7]);
+    store.getState().setWindow('2036-12-20T00:00:00', 7);
+    expect(await run('delay by ten days')).toMatch(/^Period: from 25 December 2036, 00:00 UTC, for 7 days\. The Sun and Earth table ends on 31 December 2036/);
+    // A period the store refuses is said in its words.
+    expect(await run('for ninety days')).toBe('A 90-day period from 25 December 2036, 00:00 UTC runs past 31 December 2036, where the Sun and Earth table ends. The latest landing for 90 days is 3 October 2036, 00:00 UTC.');
+    // The Ask box's log keeps the same notes.
+    expect(plannerLog.getState().exchanges[0].notes).toEqual([expect.stringMatching(/^A 90-day period/)]);
   });
 
   it('asks the model the rest, applies what it answers, and says when it cannot be reached', async () => {

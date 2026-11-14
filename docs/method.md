@@ -49,9 +49,11 @@ Radio windows (`web/src/lib/viz/contact.ts`, built on the engine's `contactWindo
 
 Countdown (`web/src/lib/viz/countdown.ts`): at an hour of the period, whether the Sun and Earth are up by the conventions above, and the hours to the first hour with the other state (the hour the key moments give the event). A change that does not come before the period ends is reported as such, never extrapolated. The Sun's elevation is the topocentric elevation above the level horizon (not the skyline), at the time bar's hour and at its highest in the period.
 
-## Best window (Week 4)
+## The period and the best landing (Week 4)
 
-The finder scans the 365 days after the chosen start date (clamped to the ephemeris table) in 6-hour steps and scores every window of the chosen length as sunlit fraction + Earth-visible fraction − (longest night + longest Earth gap) / (2 × window hours). Only sunlit start hours are candidates, because a lander arrives in daylight; a site that never sees the Sun in the scan falls back to every start. Without this rule a window that begins mid-night wins by truncating the night at its edge.
+A period is a landing on a whole UTC hour and a length of 2 to 90 whole days. The table's rows fall on whole UTC hours and the engine reads the row nearest the landing, so a landing given with minutes is read at the nearest hour, half an hour and more rounding up; the period boxes, links, the assistant and Luna all do the same (`web/src/lib/period.ts`). The first landing offered is 2 January 2024, 00:00 UTC, and a period must end by 1 January 2037, 00:00 UTC, the hour after the table's last row: a 90-day period can start no later than 3 October 2036, a 7-day one no later than 25 December 2036. Moving the landing by hours or days keeps the length and stops at either end with a plain sentence. The length stops at 90 days because the cost grows with it (the site list works out every site for up to twice the period, the 12-month search a year and a period at each site); it starts at 2 days because every sentence of a forecast counts its days in the plural.
+
+The better landing inside a period is the sunlit hour, tried every hour, that gives the longest time with power, more contact with Earth breaking ties. The 12-month search tries every sixth hour from the landing over the next 365 days (clamped to the table), keeps only landings that leave room for the whole period, scores them the same way, and moves the period to the best one with its hour. Only sunlit landing hours are candidates, because a lander arrives in daylight; a site with no sunlit hour in the scan is reported, not moved.
 
 ## Validation
 

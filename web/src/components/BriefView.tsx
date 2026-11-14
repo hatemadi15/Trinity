@@ -16,10 +16,11 @@ import { siteLabel, type Site } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
 import { landerLine } from '@/lib/lander';
 import { exploreHref } from '@/lib/links';
+import { landingWords, periodWords } from '@/lib/period';
 import { exploreStore, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
-import { dateLong, dayMonth, pct0, spanShort } from '@/lib/viz/format';
-import { hillsToward } from '@/lib/viz/timechart';
+import { dayMonth, pct0, spanShort } from '@/lib/viz/format';
+import { dayTicks, hillsToward } from '@/lib/viz/timechart';
 import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
 import { provenanceWords, terrainDetails, terrainLimitation, trustedAnswer } from '@/lib/viz/terrain';
@@ -149,9 +150,8 @@ export function BriefView({
     }
   }
   const provenance = terrain ? provenanceWords(terrain) : 'hills measured from NASA elevation data';
-  const period = `the ${s.days} days from ${dateLong(s.startUtc, 0)}`;
-  const every = s.days > 45 ? 10 : 5;
-  const ticks = Array.from({ length: Math.floor((s.days - 1) / every) + 1 }, (_, k) => k * every);
+  const period = `the ${s.days} days from ${landingWords(s.startUtc)}`;
+  const ticks = dayTicks(s.days);
   return (
     <main className="brief mx-auto flex max-w-[190mm] flex-col gap-5 px-8 py-8">
       <div className="no-print flex items-center justify-between gap-4">
@@ -166,7 +166,8 @@ export function BriefView({
         <p className="text-[15px] text-ink-2">Earthrise mission brief</p>
         <h1 className="display text-[30px] leading-tight">{name}</h1>
         <p className="text-[15px] text-ink-2">
-          {Math.abs(s.site.lat).toFixed(3)}° {s.site.lat < 0 ? 'S' : 'N'}, {Math.abs(s.site.lon).toFixed(3)}° {s.site.lon < 0 ? 'W' : 'E'}; {period} {s.startUtc.slice(0, 4)}.
+          {/* The period as a planner copies it: the landing with its hour in UTC, then the length. */}
+          {Math.abs(s.site.lat).toFixed(3)}° {s.site.lat < 0 ? 'S' : 'N'}, {Math.abs(s.site.lon).toFixed(3)}° {s.site.lon < 0 ? 'W' : 'E'}; {periodWords(s.startUtc, s.days)}.
         </p>
         {/* What kind of point the coordinate is, so a region's centre or a derived high point never reads as a surveyed landing spot. */}
         <p className="text-[15px] text-ink-2">{pointWords(s.site)}</p>

@@ -54,7 +54,7 @@ describe('the site list shows only figures from the chosen mast, and what limits
     // At 2 m the de Gerlache rim summit tops the list: all 30 days with power, and more Earth in view than the Shackleton rim summit.
     const store = await list(fileLoaders({ computeMask: worker(Promise.resolve(), 'de_gerlache_center_rim_high') }));
     const main = screen.getByRole('main');
-    expect(main.textContent).toMatch(/Longest time with power in these days: de Gerlache rim summit/);
+    await waitFor(() => expect(main.textContent).toMatch(/Longest time with power in these days: de Gerlache rim summit/), { timeout: 30_000 });
     act(() => store.getState().setParams({ mastM: 5 }));
     await waitFor(() => expect(store.getState().overview.de_gerlache_center_rim_high?.terrain?.quality).toBe('incomplete'), { timeout: 30_000 });
     await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 30_000 });

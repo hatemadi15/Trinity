@@ -64,7 +64,7 @@ describe('CompareView', () => {
     const table = await screen.findByRole('table', {}, { timeout: 20_000 });
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
     const [apollo, rim] = within(table).getAllByRole('row').slice(1);
-    expect(within(apollo).getByRole('rowheader').textContent).toBe('Apollo 11Surveyed point');
+    expect(within(apollo).getByRole('rowheader').textContent).toBe('Apollo 11Surveyed pointflat horizon assumed');
     expect(within(rim).getByRole('rowheader').textContent).toBe('Shackleton rim summitDerived high point, not checked as safe to land');
     const groups = [...document.querySelectorAll<HTMLOptGroupElement>('#compare-add optgroup')].map((g) => g.label);
     expect(groups).toEqual(['Artemis III regions', 'Commercial landers', 'Coming commercial landings', "Other countries' landers", 'Apollo landings', 'High points and crater floors']);
@@ -123,7 +123,7 @@ describe('CompareView', () => {
 
   it('keeps the period and the lander, and offers no more than four sites', async () => {
     const store = await open();
-    expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
+    expect((screen.getByLabelText('For') as HTMLInputElement).value).toBe('30');
     expect(screen.getByRole('main').textContent).toMatch(/Up to four sites side by side, for the same days and the same lander\./);
     const lander = screen.getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' });
     const nameSpan = lander.querySelector('span')!;

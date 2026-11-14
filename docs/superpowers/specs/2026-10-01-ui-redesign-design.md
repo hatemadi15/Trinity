@@ -145,7 +145,7 @@ The Planner/Learn switch is removed. Plain language is the default for everyone;
 
 Top to bottom:
 
-1. **Period band.** Landing site (shows the name, opens `/sites`), From (date), For (14, 30 or 90 days), Lander (shows the preset name, opens the settings dialog). The lander dialog has three presets named by their numbers and the existing fields under "Custom".
+1. **Period band.** Landing site (shows the name, opens `/sites`), From (a date and a whole hour, UTC, each with a step either way), For (any whole number of days from 2 to 90), Lander (shows the preset name, opens the settings dialog), and one tap away a shift of the landing by any number of days or hours. The lander dialog has three presets named by their numbers and the existing fields under "Custom".
 2. **Answer row.**
    - *Verdict panel* with an icon, a title, one or two sentences and the actions. Wording in section 7.2. The gold button is the better landing date when there is one, otherwise "Compare sites".
    - *Numbers card*: sunlight share, contact-with-Earth share, and the lander line with how long the battery lasts in the dark. A link "All numbers" opens the full table (longest night, longest Earth gap, both at once, lowest battery, mean power, mast, minimum Earth elevation, skyline source, site height).

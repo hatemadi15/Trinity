@@ -59,12 +59,21 @@ export function ExploreView({
   const reducedMotion = useReducedMotion();
   useDemoMode(store);
 
+  // The address the visit came with is applied once the data is in; from then on the address follows the site and
+  // the period, landing hour and length included, so a reload or a shared link opens the same forecast.
+  const [addressed, setAddressed] = useState(false);
   useEffect(() => {
     void store
       .getState()
       .init()
-      .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search));
+      .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search))
+      .then(() => setAddressed(true));
   }, [store]);
+  useEffect(() => {
+    if (!addressed || !s.siteId) return;
+    const href = exploreHref(s.siteId, s.startUtc, s.days);
+    if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState(window.history.state, '', `${href}${window.location.hash}`);
+  }, [addressed, s.siteId, s.startUtc, s.days]);
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
   // itself, once, and puts the cursor in its box, as "Or ask in plain words" does.
