@@ -1,6 +1,6 @@
 {
  "version": 1,
- "generated_utc": "2026-11-14T11:29:44+00:00",
+ "generated_utc": "2026-11-14T11:55:59+00:00",
  "span": {
   "start_utc": "2025-01-01T00:00:00Z",
   "days": 730,
@@ -550,7 +550,7 @@
       "max_s": null
      },
      "plus_minus_h": 0.0,
-     "shown_h": 0.0
+     "shown_h": 0.5
     },
     "power_back": {
      "sampling": {
@@ -2419,7 +2419,7 @@
       "max_s": null
      },
      "plus_minus_h": 0.0,
-     "shown_h": 0.0
+     "shown_h": 0.5
     },
     "power_back": {
      "sampling": {
