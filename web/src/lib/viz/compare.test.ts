@@ -115,6 +115,9 @@ describe('the figures side by side', () => {
     // A body not there at landing says when it first comes: the night at landing lasts 14 d 10 h.
     expect(row('sunset').cells[1]).toEqual({ value: 'night at landing, rises after 14 d 10 h', change: 'was 2 d 19 h', tone: 'worse' });
     expect(row('earthset').cells[1]).toEqual({ value: 'out of view at landing, rises after 1 d 16 h', change: 'was 1 d 6 h', tone: 'worse' });
+    // Out of view at landing in both, the one that comes sooner is better.
+    const both = figureRows([cols[1], { ...cols[1], outcome: { ...cols[1].outcome!, firstEarthriseH: 100 } }]).find((r) => r.id === 'earthset')!;
+    expect(both.cells[1]).toEqual({ value: 'out of view at landing, rises after 4 d 4 h', change: '2 d 12 h later', tone: 'worse' });
     expect(row('sunset').cells[2]).toEqual({ value: 'none in the period', change: 'was 2 d 19 h', tone: 'better' });
     expect(row('night').cells[2]).toEqual({ value: 'none', change: '−16 d 15 h', tone: 'better' });
     expect(row('verdict').cells[2]).toEqual({ value: 'power for all 30 days', change: null, tone: 'better' });

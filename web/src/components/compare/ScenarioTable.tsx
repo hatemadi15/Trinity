@@ -74,7 +74,7 @@ export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs:
             ))}
             <tr>
               <th scope="row" className={HEAD}>
-                Sun and Earth, hour by hour
+                Sun and Earth
               </th>
               {cols.map((c) => {
                 const series = runs[c.scenario.id]?.result?.series;
@@ -99,7 +99,7 @@ export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs:
             ))}
             <tr>
               <th scope="row" className={HEAD}>
-                Its own best landing in its stay
+                Its own best landing
               </th>
               {cols.map((c) => {
                 const best = c.outcome?.best;

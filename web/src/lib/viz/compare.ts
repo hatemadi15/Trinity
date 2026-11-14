@@ -66,14 +66,14 @@ const outageHours = (o: Outage | null) => o?.hours ?? 0;
 const outageSentence = (o: Outage | null) => (!o ? 'none' : `${o.fromStart || o.toEnd ? 'at least ' : ''}${spanWords(o.hours)}`);
 
 /** A first setting after landing: when the body is not there at landing, it says so; with no setting in the period, it says that. */
-function setValue(o: Outcome, body: 'sun' | 'earth'): { text: string; rank: number } {
+function setValue(o: Outcome, body: 'sun' | 'earth'): { text: string; rank: number; rise?: number } {
   const there = body === 'sun' ? o.sunAtLanding : o.earthAtLanding;
   const c = body === 'sun' ? o.firstSunset : o.firstEarthset;
   // For the lander a later setting is better, a body missing at landing worst of all; when it is missing, when it first comes.
   if (!there) {
     const rise = body === 'sun' ? o.firstSunriseH : o.firstEarthriseH;
     const lead = body === 'sun' ? 'night at landing' : 'out of view at landing';
-    return { text: rise === null ? `${lead}, all the period` : `${lead}, rises after ${spanShort(rise)}`, rank: -1 };
+    return { text: rise === null ? `${lead}, all the period` : `${lead}, rises after ${spanShort(rise)}`, rank: -1, rise: rise ?? Infinity };
   }
   if (c.inHours === null) return { text: 'none in the period', rank: Infinity };
   return { text: spanShort(c.inHours), rank: c.inHours };
@@ -82,6 +82,13 @@ function setValue(o: Outcome, body: 'sun' | 'earth'): { text: string; rank: numb
 function setCell(o: Outcome, b: Outcome, body: 'sun' | 'earth'): Cell {
   const x = setValue(o, body);
   const y = setValue(b, body);
+  // Missing at landing in both: the one that rises sooner is better.
+  if (x.rise !== undefined && y.rise !== undefined) {
+    const sooner = y.rise - x.rise;
+    const known = Number.isFinite(sooner);
+    const change = x.text === y.text ? 'no change' : known ? `${spanShort(Math.abs(sooner))} ${sooner > 0 ? 'sooner' : 'later'}` : `was ${y.text}`;
+    return { value: x.text, change, tone: toneOf(known ? sooner : x.rise === y.rise ? 0 : x.rise < y.rise ? 1 : -1, true) };
+  }
   const both = Number.isFinite(x.rank) && Number.isFinite(y.rank) && x.rank >= 0 && y.rank >= 0;
   const d = both ? x.rank - y.rank : x.rank === y.rank ? 0 : x.rank > y.rank ? 1 : -1;
   const change = x.text === y.text ? 'no change' : both ? `${spanShort(Math.abs(d))} ${d > 0 ? 'later' : 'sooner'}` : x.rank === y.rank ? 'changed' : `was ${y.text}`;

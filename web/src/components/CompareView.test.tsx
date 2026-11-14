@@ -200,7 +200,7 @@ describe('CompareView', () => {
     baselineOf(st);
     await st.scenarios.getState().settle();
     await screen.findByRole('table');
-    expect(row('Its own best landing in its stay')[0]).toBe('20 Jan 2027, 10:00 UTCpower 12 d 15 hAdd it');
+    expect(row('Its own best landing')[0]).toBe('20 Jan 2027, 10:00 UTCpower 12 d 15 hAdd it');
     fireEvent.click(within(table()).getByRole('button', { name: 'Add “Original landing” at this landing time' }));
     await st.scenarios.getState().settle();
     await waitFor(() => expect(row('Landing (UTC)')[1]).toBe('20 Jan 2027, 10:00 UTC19 days 10 hours laterthe site’s own best time'));
