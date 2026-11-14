@@ -24,6 +24,14 @@ Irradiance on a Sun-facing surface is 1361 W/m² · (1 AU / d)² · f, where d i
 
 Earth is in view when its elevation exceeds the skyline at its azimuth by the minimum elevation the planner sets (0–10°). Contact windows are maximal runs of visible hours. Mast height changes the skyline itself: the browser worker recomputes the selected site's skyline with the new mast; featured skylines are computed with a 2 m mast.
 
+This is geometric direct-to-Earth visibility: a clear line from the site to the centre of Earth's disc. It does not by itself establish antenna performance, a link budget, ground-station availability or a scheduled contact, and the app says so once beside its radio windows.
+
+Two conventions, kept apart: the Sun counts as up while any part of its disc is above the skyline (sunlit fraction > 0); Earth counts as in view by its centre, so its disc (about 2° wide from the Moon) is half risen when it starts counting. The status sentence, the numbers, the countdown and the radio windows all read these same two flags.
+
+Radio windows (`web/src/lib/viz/contact.ts`, built on the engine's `contactWindows`): each window's first and last hour on the hourly grid (UTC, the first whole hour of the new state, so the change itself falls within the hour before) and its length; the hours with Earth in view in all; the longest stretch without Earth, counting the stretches cut by the period's start or end, which are reported as "at least" (its length equals the summary's longest Earth gap); and powered contact, the hours with Earth in view and the lander powered, window by window. Powered contact is split at the first power cut: the hours before it are the radio contact while the lander has power that the answer, the numbers card, the brief and Compare give; the hours after the power comes back are reported apart, as they hold only if the lander survives the cold without power, which the energy model does not work out.
+
+Countdown (`web/src/lib/viz/countdown.ts`): at an hour of the period, whether the Sun and Earth are up by the conventions above, and the hours to the first hour with the other state (the hour the key moments give the event). A change that does not come before the period ends is reported as such, never extrapolated. The Sun's elevation is the topocentric elevation above the level horizon (not the skyline), at the time bar's hour and at its highest in the period.
+
 ## Best window (Week 4)
 
 The finder scans the 365 days after the chosen start date (clamped to the ephemeris table) in 6-hour steps and scores every window of the chosen length as sunlit fraction + Earth-visible fraction − (longest night + longest Earth gap) / (2 × window hours). Only sunlit start hours are candidates, because a lander arrives in daylight; a site that never sees the Sun in the scan falls back to every start. Without this rule a window that begins mid-night wins by truncating the night at its edge.
