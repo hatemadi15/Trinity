@@ -67,49 +67,372 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   a number itself, and every answer says where it came from: a model on OpenRouter's free tier, a
   rehearsed answer, or a matched phrase. `?demo=1` uses the rehearsed answers only, for the pitch.
 
-## Repository
+## Run it on your computer
 
-- `pipeline/`: the offline Python pipeline (NASA SPICE kernels, LOLA elevation grids and
-  illumination maps), the reference implementation of the science; it writes `data/`.
-- `web/`: the Next.js app with the TypeScript engine, pinned to the pipeline by golden fixtures.
-- `data/`: the committed outputs (the site catalogue, the hourly Sun and Earth table, the horizon
-  masks of the catalogue sites, the validation tables and the golden fixtures).
-- `docs/`: method notes, data credits, hosting, the submission and pitch drafts, the design spec
-  and the implementation plans.
+Earthrise runs on Windows, macOS and Linux. You need Git, Node.js and uv (uv brings its own
+Python), an internet connection for the setup, and free disk space: about 2 GB for the app with
+the committed data, about 3 GB with the full NASA data. Once set up, it runs offline.
 
-## Before you start: Node.js and npm
+Where the commands differ, each step gives them for Windows PowerShell, for Windows Command Prompt
+(only where it differs from PowerShell) and for macOS and Linux (bash or zsh; Git Bash on Windows
+takes these too). A block marked "any shell" is the same everywhere. The blocks hold commands
+only, so each line can be typed or pasted as it is.
 
-The app needs Node.js and npm and nothing else: its native parts (Tailwind, Next's compiler, the
-image tools) come prebuilt for Windows, macOS and Linux, so npm needs no Python, Visual Studio or
-other build tools. (The pipeline needs Python; see `pipeline/README.md`.)
+The times below were measured on a 4-core Linux computer with a fast connection (about 40 MB/s).
+On a slower connection the downloads take longer: 335 MB at 10 Mbit/s is about 5 minutes.
 
-1. Install Node.js 22, the version the team works on. Node 20.9 or later up to 26 works too: a
-   clean install, the tests and the production build were checked on Node 20, 22, 24 and 26, with
-   npm 10 and 11.
-   - Windows: the installer from https://nodejs.org (the LTS one is fine), or with nvm-windows:
-     `nvm install 22`, then `nvm use 22`.
-   - macOS or Linux: `nvm install 22`; in `web/`, `nvm use` reads the version from `web/.nvmrc`.
-2. Close every terminal and VS Code, open a new terminal, and check:
+### 1. Install Git, Node.js 22 and uv
 
-       node --version              # v22.x, or v20.9 to v26
-       npm --version               # 10.x or 11.x
+- Node.js 22 is the version the team works on; 20.9 or later up to 26 works too (`engines` in
+  `web/package.json` accepts `>=20.9.0 <27`, and `web/.nvmrc` says 22). A clean install, the
+  tests and the production build were checked on Node 20, 22, 24 and 26, with npm 10 and 11.
+- uv runs the Python pipeline. The first `uv sync` downloads Python 3.12 when the computer has no
+  3.12 (`pipeline/pyproject.toml` asks for 3.12 or later and `pipeline/.python-version` pins
+  3.12), so you do not install Python yourself.
+- Nothing is compiled: the app's native parts (Tailwind, Next's compiler, the image tools) and the
+  pipeline's packages (numpy, rasterio with GDAL, SpiceyPy) come prebuilt, so you need no Visual
+  Studio, Xcode or GDAL. The pipeline's prebuilt packages cover Windows 10 and 11 on x64 (SpiceyPy
+  has no build for Windows on ARM), macOS 14 or later on Apple silicon, macOS 15 or later on Intel,
+  and Linux with glibc 2.28 or later (Ubuntu 20.04, Debian 10 and newer).
 
-3. Install the app's packages in `web/`, never in the repository's root, which has no
-   `package.json`:
+**Windows**, with winget (part of Windows 11 and of an up-to-date Windows 10), in PowerShell or
+Command Prompt:
 
-       cd web
-       npm ci
+```powershell
+winget install --id Git.Git -e
+winget install --id CoreyButler.NVMforWindows -e
+winget install --id astral-sh.uv -e
+```
 
-   `npm ci` installs exactly what `package-lock.json` lists: about 500 packages, in 15 to 30
-   seconds on a good connection. `npm install` works too, but it can rewrite `package-lock.json`;
-   commit that file only when you have added a package.
+Close the terminal and open a new one (winget's changes to the PATH reach new terminals only), then:
 
-### When `npm ci` or `npm install` fails
+```powershell
+nvm install 22
+nvm use 22
+```
+
+`nvm use` may ask for administrator permission; accept it. Instead of nvm-windows,
+`winget install --id OpenJS.NodeJS.LTS -e` installs the current LTS release of Node.js, which works
+too while it is 26 or older. Without winget: Git from
+https://git-scm.com/download/win, Node.js from https://nodejs.org/en/download (pick v22; the LTS
+offered there works too), and uv with its installer, in PowerShell or Command Prompt:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+**macOS**, with Homebrew (https://brew.sh):
+
+```bash
+brew install git node@22 uv
+echo 'export PATH="/opt/homebrew/opt/node@22/bin:$PATH"' >> ~/.zshrc
+```
+
+Homebrew does not put `node@22` on the PATH; the second line does, for zsh, the default shell (on an
+Intel Mac the folder is `/usr/local/opt/node@22/bin`). Open a new terminal afterwards. nvm, as for
+Linux below, works on macOS too.
+
+**Linux** (Debian or Ubuntu; on Fedora, `sudo dnf install git curl`):
+
+```bash
+sudo apt install git curl
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.41.0/install.sh | bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Open a new terminal, then:
+
+```bash
+nvm install 22
+```
+
+In `web/`, `nvm use` reads the version from `web/.nvmrc`.
+
+**Check**, in a new terminal (any shell):
+
+```
+git --version
+node --version
+npm --version
+uv --version
+```
+
+`node --version` should print v22 (v20.9 to v26 works) and `npm --version` 10 or 11. If a command
+is not found, see [When something fails](#when-something-fails).
+
+### 2. Get the code and the app's packages
+
+Any shell:
+
+```
+git clone https://github.com/hatemadi15/Trinity.git
+cd Trinity
+cd web
+npm ci
+cd ..
+```
+
+Run npm in `web/`, never in the repository's root, which has no `package.json`. `npm ci` installs
+exactly what `web/package-lock.json` lists: 505 packages, about 300 MB to download and 860 MB in
+`web/node_modules`. It took 55 seconds here with an empty npm cache and 15 with a warm one.
+It prints deprecation warnings and a count of vulnerabilities; neither stops it, and `npm audit fix
+--force` would rewrite the lock file across major versions, so leave it. `npm install` works too,
+but it can rewrite `package-lock.json`; commit that file only when you have added a package. npm
+may offer a newer major version of itself; the setup was checked with npm 10 and 11.
+
+### 3. Put the data in `web/public/data`
+
+The app reads its data files from `web/public/data`, which git ignores. Until they are there, the
+pages that need them say "The data could not be loaded." (Accuracy: "The checks could not be
+loaded."); the home page's words still show. In development the pages also suggest a command, but
+on a fresh clone it fails: `sync-local --tiles` needs the tiles built first (the full data below),
+and the `validate` that Accuracy suggests needs the kernels and the illumination maps. `sync-local`
+alone, as below, is all those pages need. There are two ways to fill the folder.
+
+#### The committed data (5 MB, a minute)
+
+Any shell, from the repository's root:
+
+```
+cd pipeline
+uv sync
+uv run python -m lunar_pipeline.cli sync-local
+cd ..
+```
+
+`uv sync` downloads Python 3.12 (about 30 MB, only when the computer has no 3.12) and the
+pipeline's packages (65 to 85 MB, by system) into `pipeline/.venv`; it took 5 seconds here.
+`sync-local` copies the committed `data/` (4.7 MB: the site catalogue, the hourly Sun and Earth
+table, the horizon masks of the catalogue sites, the sky, the validation tables and the test
+fixtures) into `web/public/data` in under a second.
+
+With this data every page opens and works for the 19 places in the catalogue: the site list,
+Explore's answer, numbers, chart and horizon chart, Compare, Accuracy, How it works, the brief and
+the assistant. What needs the full data:
+
+- Home: the arrival shows its still pictures instead of the live flight from space to the site.
+- Explore: the "Shadow map" and "3D from above" tabs say "The terrain files are not on this
+  machine."
+- Stand on the Moon: the view draws flat ground under the real skyline, with the lander, instead of
+  NASA's measured ground and its shadows.
+- Choose a landing site, "Somewhere else": computing a place that is not in the catalogue says
+  "That place could not be worked out: could not load /data/tiles/manifest.json (HTTP 404)."
+- Explore, Lander dialog: a mast other than 2 m needs the same tiles; without them Explore says
+  "That place cannot be worked out: this tool covers the Moon south of 60° S.", even for a site in
+  the catalogue.
+
+The browser's console then lists 404s for `/data/terrain/manifest.json` (and, on the home page,
+`/data/globe/manifest.json`); they are expected.
+
+#### The full data (380 MB to download, 650 MB on disk)
+
+Any shell, from the repository's root, after the block above:
+
+```
+cd pipeline
+uv run python -m lunar_pipeline.cli fetch --group lola --group textures --group globe
+uv run python -m lunar_pipeline.cli tiles
+uv run python -m lunar_pipeline.cli terrain
+uv run python -m lunar_pipeline.cli globe
+uv run python -m lunar_pipeline.cli sync-local --tiles
+cd ..
+```
+
+| Command | Reads or downloads | Writes | Time here | What it gives the app |
+|---|---|---|---|---|
+| `fetch --group lola` | 335 MB: LOLA heights of the south pole at 20, 80 and 240 m | `data_raw/lola` | 9 s | the input of `tiles` and `terrain` |
+| `fetch --group textures` | 0.45 MB: the LROC colour map of the Moon | `data_raw/textures` | 1 s | the colour of Explore's 3D globe |
+| `fetch --group globe` | 44 MB: NASA's CGI Moon Kit colour map and heights | `data_raw/globe` | 3 s | the input of `globe` |
+| `tiles` | `data_raw/lola` | `data_out/tiles`: 706 tiles, 238 MB | 12 s | "Somewhere else" and other mast heights |
+| `terrain` | `data_raw/lola`, `data_raw/textures` | `data_out/terrain`: 29 MB | 2 s | the shadow map, the 3D view, the stand view's ground, the arrival's ground |
+| `globe` | `data_raw/globe` | `data_out/globe`: 5.3 MB | 3 s | the arrival's Moon from space |
+| `sync-local --tiles` | `data/`, `data_out/` | `web/public/data`: 276 MB, 840 files | under 1 s | all of the above, in the app |
+
+`globe` needs about 1.1 GB of memory and `terrain` 0.5 GB. `globe` prints a few
+`NotGeoreferencedWarning` lines; they are harmless.
+
+`sync-local --tiles` copies what the other commands made; it does not generate tiles. The
+downloaded sources in `data_raw/` and the generated files in `data_out/` are gitignored, so they are
+absent from a fresh checkout. If you see `data_out/tiles missing; run the tiles command first`, run
+the `fetch` and `tiles` commands above before syncing. If the sources are already downloaded, start
+with `tiles`: `fetch` skips files it already has, and run again after a cut-off download it resumes
+where it stopped. The `--tiles` option also copies the terrain and the globe when the `terrain` and
+`globe` commands have made them. Run `sync-local` (with `--tiles` once you have built them) again
+after a `git pull` that changes `data/`. Every pipeline command is in
+[pipeline/README.md](pipeline/README.md).
+
+### 4. The environment file (optional)
+
+The app runs without one: every variable has a default. To set one, copy the example from the
+repository's root.
+
+PowerShell:
+
+```powershell
+Copy-Item web\.env.example web\.env.local
+```
+
+Command Prompt:
+
+```bat
+copy web\.env.example web\.env.local
+```
+
+macOS and Linux:
+
+```bash
+cp web/.env.example web/.env.local
+```
+
+`web/.env.local` is gitignored; keep keys out of every other file.
+
+| Variable | What it does | Default |
+|---|---|---|
+| `OPENROUTER_API_KEY` | The OpenRouter key for the assistant and the brief's narrated paragraph. Read by the server only (`web/src/app/api/chat/route.ts`); the browser never sees it. A free key from https://openrouter.ai is enough: the models below are its free ones. | empty: no model |
+| `OPENROUTER_MODELS` | The models asked in turn, comma-separated; the first good answer wins. | the four free models in `web/src/lib/ai/openrouter.ts` |
+| `AI_MODEL_TIMEOUT_MS` | How long one model may take before the next is asked. | 10000 |
+| `AI_MODEL_BUDGET_MS` | The total model time for one question, a retry included, kept under the browser's 30 s wait. | 24000 |
+| `AI_RATE_LIMIT_PER_MIN` | Questions per minute from one address before the server answers 429. | 30 |
+| `NEXT_PUBLIC_AI_MODE` | `live`: ask the model when a key is set. `cached`: rehearsed answers only, never a model, as `?demo=1` does for one tab. | `live` |
+| `NEXT_PUBLIC_DATA_BASE` | Where the browser fetches the data files, with no trailing slash. | `/data`, which is `web/public/data` |
+| `NEXT_PUBLIC_SITE_URL` | The address the share image links to. | `https://earthrise.vercel.app` |
+
+Without a key the assistant ("Ask in plain words" on Explore and Compare) still answers the
+phrasings it knows, from its phrase matcher and its twelve rehearsed answers, for example "compare de
+Gerlache Rim 2 and Nobile Rim 2 for 14 days", "make it 90 days" or "set the load to 300 W". Anything
+else gets "I could not understand that." with five phrasings that work. The brief's paragraph is
+then written from a template. Nothing else changes: no number in the app comes from a model.
+
+`npm run dev` and `npm start` read the file when they start, so restart them after an edit. The
+`NEXT_PUBLIC_` variables are built into the pages: after changing one, run `npm run build` again
+before `npm start`. A variable set in the terminal wins over the file.
+
+### 5. Start it
+
+Any shell:
+
+```
+cd web
+npm run dev
+```
+
+Open http://localhost:3000. The first visit to a page compiles it (8 seconds for the home page
+here, 1 to 2 seconds for the others). Ctrl+C stops the server.
+
+The production build, as the hosting runs it (any shell, in `web/`):
+
+```
+npm run build
+npm start
+```
+
+`npm run build` took 18 seconds here and about 1.3 GB of memory. A build with no earlier build in
+`web/.next` downloads the app's two fonts from Google Fonts and fails without a connection; once a
+build has run, later ones work offline while `web/.next` is kept. `npm start` serves the build at
+http://localhost:3000 and needs no connection.
+
+On another port, when 3000 is taken (any shell, in `web/`):
+
+```
+npm run dev -- --port 3005
+npm start -- --port 3005
+```
+
+Without `--port`, `npm run dev` takes the next free port when 3000 is busy and prints it
+(`Local: http://localhost:3001`); `npm start`, and `npm run dev` with `--port`, stop with
+`Error: listen EADDRINUSE: address already in use` and the port. To find what holds the port, see
+[The port is taken](#the-port-is-taken).
+
+### Run it offline (demo mode)
+
+For a talk or a classroom without Wi-Fi: fill `web/public/data` with the full data (step 3), then
+build once with a connection and serve the build with the Wi-Fi off. `NEXT_PUBLIC_AI_MODE=cached`
+makes the assistant use its rehearsed answers and never call a model; it is built into the pages,
+so set it before `npm run build`. In `web/`:
+
+PowerShell:
+
+```powershell
+$env:NEXT_PUBLIC_AI_MODE = "cached"
+npm run build
+npm start
+```
+
+Command Prompt:
+
+```bat
+set NEXT_PUBLIC_AI_MODE=cached
+npm run build
+npm start
+```
+
+macOS and Linux:
+
+```bash
+NEXT_PUBLIC_AI_MODE=cached npm run build
+npm start
+```
+
+In PowerShell and Command Prompt the variable stays set in that window; `Remove-Item
+Env:NEXT_PUBLIC_AI_MODE` (PowerShell) or `set NEXT_PUBLIC_AI_MODE=` (Command Prompt) clears it
+before a normal build. Instead of the terminal you can write `NEXT_PUBLIC_AI_MODE=cached` in
+`web/.env.local`; a value set in the terminal wins over the file. Keep `NEXT_PUBLIC_DATA_BASE`
+unset or `/data` for this build.
+
+Then open http://localhost:3000/?demo=1. `?demo=1` switches the assistant to the rehearsed answers
+in that browser tab whatever the build says, and the tab remembers it (`?demo=0` switches back).
+The JPL re-check on the Accuracy page needs the internet; without it the page keeps the stored
+comparison and says so. The venue steps are in `docs/hosting.md` (section 4) and
+`docs/demo-checklist.md`.
+
+## Before you push
+
+From `web/` (any shell):
+
+```
+npx vitest run
+npm run lint
+npx tsc --noEmit
+npm run build
+npm run validation:tests
+```
+
+From `pipeline/` (any shell):
+
+```
+uv run pytest -q
+```
+
+- `npx vitest run` (also `npm test`) runs 1,514 tests in 138 files: 72 to 110 seconds here on 4
+  cores with the full data. With only the committed data, the 23 that need the tiles or the terrain
+  skip. On a computer with few cores or little memory, `npx vitest run --maxWorkers=2` runs two
+  test files at a time (89 seconds here). The tests print warnings and stack traces from the
+  components they exercise; the result is the `Test Files` and `Tests` lines at the end.
+- `npm run lint` (ESLint, 16 seconds) and `npx tsc --noEmit` (the type check, 11 seconds) print
+  nothing when all is well. `npm run build` (18 seconds) checks the types again and builds.
+- `npm run validation:tests` refreshes the test count on the Accuracy page's badge: it runs the web
+  tests, counts the pipeline's (so it needs uv) and rewrites `web/public/validation/tests.json`
+  (79 seconds here). Commit that file when a count changed; when only its date changed,
+  `git restore web/public/validation/tests.json`.
+- `uv run pytest -q` runs the pipeline's 134 tests. With no NASA files downloaded, 108 pass and the
+  26 that need them skip (4 seconds). With `fetch --group kernels --group lola --group
+  illumination` (525 MB) all 134 run (14 seconds). Partial downloads trip two tests that check for
+  fewer files than they read: with `lola` but not `kernels`,
+  `test_write_all_produces_the_picture_the_map_and_the_facts` fails with `missing kernels`; with
+  `lola` and `kernels` but not `illumination`, `test_metrics_fixture_matches_report` fails with
+  `FileNotFoundError`. With the kernels present, a test rewrites
+  `data/fixtures/horizons/summary.json` with differences in the 16th digit; run
+  `git restore data/fixtures/horizons/summary.json` before you commit.
+
+## When something fails
+
+### `npm ci` or `npm install`
 
 - `ENOENT: no such file or directory, open '...\Trinity\package.json'`: you are in the
   repository's root. Run `cd web` and try again.
 - `'npm' is not recognized` or `npm: command not found`: Node.js is not installed, or the terminal
-  was opened before it was. Install it, then open a new terminal.
+  was opened before it was. Install it, then close every terminal and VS Code and open a new
+  terminal.
 - PowerShell says `npm.ps1 cannot be loaded because running scripts is disabled on this system`:
   run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once, or use Command
   Prompt, or type `npm.cmd ci`.
@@ -127,53 +450,166 @@ other build tools. (The pipeline needs Python; see `pipeline/README.md`.)
 - `Cannot find module '@tailwindcss/oxide-...'`, `lightningcss...node` or `@next/swc-...` when the
   app starts: `node_modules` came from another computer or from an install that was cut short.
   Delete it and run `npm ci` on this computer; never copy `node_modules` between computers.
-- An error about a path that is too long, on Windows: clone to a short path such as
-  `C:\dev\Trinity`, and run `git config --global core.longpaths true`.
 
-A clean start, when nothing else helps (in `web/`):
+A clean start, when nothing else helps, in `web/`:
 
-    # PowerShell
-    Remove-Item -Recurse -Force node_modules
-    npm cache verify
-    npm ci
+PowerShell:
 
-    # macOS, Linux or Git Bash
-    rm -rf node_modules && npm cache verify && npm ci
+```powershell
+Remove-Item -Recurse -Force node_modules
+npm cache verify
+npm ci
+```
 
-Then `npm run dev` and open http://localhost:3000. Until the data files are in `web/public/data`
-(next section), the pages that need them say "The data could not be loaded." and, in development,
-name the command that copies them; the home page's words still show.
+Command Prompt:
 
-## Run it
+```bat
+rmdir /s /q node_modules
+npm cache verify
+npm ci
+```
 
-The pipeline turns NASA data into the files the app reads (the elevation tiles alone are about
-240 MB). Download the LOLA sources, build the tiles, then copy the data into the app and start it:
+macOS and Linux:
 
-    cd pipeline
-    uv sync
-    uv run python -m lunar_pipeline.cli fetch --group lola
-    uv run python -m lunar_pipeline.cli tiles
-    uv run python -m lunar_pipeline.cli sync-local --tiles
-    cd ../web
-    npm ci
-    npm run dev                 # http://localhost:3000
+```bash
+rm -rf node_modules
+npm cache verify
+npm ci
+```
 
-`sync-local --tiles` copies existing artifacts; it does not generate tiles. The downloaded
-sources in `data_raw/` and generated tiles in `data_out/tiles` are gitignored, so they are absent
-from a fresh checkout. If you see `data_out/tiles missing; run the tiles command first`, run the
-`fetch --group lola` and `tiles` commands above before syncing. If the sources are already
-downloaded, start with `tiles`.
+### uv, Python and the pipeline
 
-To copy only the committed data without generated tiles, run
-`uv run python -m lunar_pipeline.cli sync-local` from `pipeline/`. For the full pipeline and
-optional terrain and globe assets, see [pipeline/README.md](pipeline/README.md).
+- `'uv' is not recognized` or `uv: command not found`: the installer puts uv in
+  `%USERPROFILE%\.local\bin` on Windows and `~/.local/bin` on macOS and Linux and adds that folder to
+  the PATH of new terminals. Open a new terminal. On macOS and Linux, `source $HOME/.local/bin/env`
+  also works in the open one.
+- PowerShell refuses the uv installer with `running scripts is disabled on this system`, or a
+  policy set by your organisation: use the installer line exactly as in step 1 (its
+  `-ExecutionPolicy ByPass` covers that one run), or `winget install --id astral-sh.uv -e`.
+- `ModuleNotFoundError: No module named 'lunar_pipeline'`: the command ran outside `pipeline/`.
+  Run `cd pipeline` first; every `uv run` line in this README runs from there.
+- `uv sync` fails while building `rasterio` or `spiceypy` (it tries to compile them): the system
+  is one the prebuilt packages do not cover (Windows on ARM, macOS before 14 on Apple silicon or
+  before 15 on Intel, Linux with glibc older than 2.28). The app alone does not need them: copy the
+  committed data by hand, from the repository's root, as `sync-local` would.
 
-For the venue laptop, build once and serve the build with the Wi-Fi off: `npm run build` then
-`npm start`, and open `http://localhost:3000/?demo=1`. The JPL re-check on the Accuracy page needs
-the internet; without it the page keeps the stored comparison and says so.
+  PowerShell:
 
-Tests: `npx vitest run` in `web/` and `uv run pytest -q` in `pipeline/`; tests that need the large
-data files skip when they are missing.
+  ```powershell
+  New-Item -ItemType Directory -Force web\public\data | Out-Null
+  Copy-Item -Recurse -Force data\* web\public\data
+  ```
+
+  Command Prompt:
+
+  ```bat
+  xcopy data web\public\data\ /E /I /Y
+  ```
+
+  macOS and Linux:
+
+  ```bash
+  mkdir -p web/public/data
+  cp -R data/. web/public/data/
+  ```
+
+- Downloads cut off, `Connection reset`, `IncompleteRead`, or `OSError: ... expected N bytes, got
+  M`: run the same `fetch` command again; it skips finished files and resumes the cut one from its
+  `.part` file. `uv sync` can be run again the same way; on a slow connection set `UV_HTTP_TIMEOUT`
+  to 120 first (`$env:UV_HTTP_TIMEOUT = 120` in PowerShell, `set UV_HTTP_TIMEOUT=120` in Command
+  Prompt, `export UV_HTTP_TIMEOUT=120` in bash or zsh). If a proxy inspects HTTPS, `uv sync
+  --system-certs` uses the system's certificates; otherwise try another network, such as a phone's
+  hotspot.
+- The LOLA files come over plain HTTP from `imbrium.mit.edu`. If your network blocks it, download
+  the same six files over HTTPS from NASA's PDS (same names, lower case) into `data_raw/lola/`, then
+  skip `fetch --group lola` and run `tiles`. In `pipeline/`:
+
+  PowerShell (`curl.exe` comes with Windows 10 and 11):
+
+  ```powershell
+  New-Item -ItemType Directory -Force ../data_raw/lola | Out-Null
+  foreach ($f in "ldem_875s_20m.lbl", "ldem_875s_20m.img", "ldem_80s_80m.lbl", "ldem_80s_80m.img", "ldem_60s_240m.lbl", "ldem_60s_240m.img") { curl.exe -L -o "../data_raw/lola/$f" "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/$f" }
+  ```
+
+  macOS and Linux:
+
+  ```bash
+  mkdir -p ../data_raw/lola
+  for f in ldem_875s_20m.lbl ldem_875s_20m.img ldem_80s_80m.lbl ldem_80s_80m.img ldem_60s_240m.lbl ldem_60s_240m.img; do curl -L -o "../data_raw/lola/$f" "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/$f"; done
+  ```
+
+- `test_constants_and_paths` fails with `assert 'Trinity-main' == 'Trinity'` (or another name): the
+  test expects the clone's folder to be named `Trinity`, as `git clone` names it. A ZIP download
+  from GitHub unpacks to `Trinity-main`; rename the folder.
+
+### The port is taken
+
+`npm start` says `Error: listen EADDRINUSE: address already in use` with port 3000, often because
+an `npm run dev` is still running in another terminal or in VS Code. Start on another port (step
+5), or find the process and stop it: replace 12345 with the number the first line prints.
+
+PowerShell:
+
+```powershell
+Get-NetTCPConnection -LocalPort 3000 -State Listen | Select-Object OwningProcess
+Stop-Process -Id 12345
+```
+
+Command Prompt:
+
+```bat
+netstat -ano | findstr :3000
+taskkill /PID 12345 /F
+```
+
+macOS and Linux:
+
+```bash
+lsof -i :3000
+kill 12345
+```
+
+### Disk space and long paths
+
+- The full setup takes about 3 GB: `web/node_modules` 860 MB, `web/.next` up to 420 MB,
+  `pipeline/.venv` 250 MB, the data about 930 MB (`data_raw/` 380 MB, `data_out/` 272 MB,
+  `web/public/data` 276 MB), plus npm's and uv's caches (about 300 and 250 MB) and uv's Python
+  (about 100 MB). After `sync-local --tiles`, deleting `data_out/` frees 272 MB (later syncs then
+  run without `--tiles`; the tiles already copied stay in `web/public/data`), and `data_raw/` 380 MB
+  more if you will not build again; `npm cache clean --force` and `uv cache clean` empty the
+  caches.
+- Windows limits paths to 260 characters unless long paths are turned on, and the deepest file the
+  app writes (in `web\.next\dev\cache\images\`) sits 168 characters below the clone's folder. An
+  error about a path that is too long, `ENAMETOOLONG` or git's `Filename too long`: clone to a short
+  path such as `C:\dev\Trinity`, and run `git config --global core.longpaths true`.
+
+## Where things are
+
+- `web/`: the Next.js app. `src/app/` holds the pages and the two server routes (`api/chat`, the
+  assistant; `api/horizons`, the JPL re-check), `src/components/` the pages' parts,
+  `src/lib/engine/` the TypeScript port of the pipeline's science (pinned to it by golden
+  fixtures), `src/lib/sky/` the stand view and the arrival, `src/lib/ai/` the assistant,
+  `src/lib/store/` the state the pages share, `src/workers/` the web workers, and `scripts/` the
+  engine demo and the test count. `public/` holds the static files; `public/data` is the data
+  mirror, filled by `sync-local` and gitignored. [web/README.md](web/README.md) explains the
+  engine, the routes, the stand view, the arrival, the themes and the assistant.
+- `pipeline/`: the offline Python pipeline (NASA SPICE kernels, LOLA elevation grids and
+  illumination maps), the reference implementation of the science; it writes `data/`. The commands
+  are in `pipeline/lunar_pipeline/cli.py` and [pipeline/README.md](pipeline/README.md).
+- `data/`: the committed outputs (the site catalogue, the hourly Sun and Earth table, the horizon
+  masks of the catalogue sites, the sky, the validation tables and the golden fixtures).
+  `data_raw/` (downloads) and `data_out/` (generated files) appear beside it once you run the
+  pipeline; both are gitignored.
+- Tests: the web's sit beside the code as `*.test.ts` and `*.test.tsx` (vitest; shared helpers in
+  `web/src/test/`, the engine's parity tests in `web/src/lib/engine/__tests__/`); the pipeline's are
+  in `pipeline/tests/` (pytest).
+- `docs/`: `method.md` (the science), `data-credits.md`, `hosting.md` (Vercel, Cloudflare R2, the
+  offline venue mode), `demo-checklist.md`, the pitch, the submission and the video storyboard. The
+  spec is in `docs/superpowers/specs/`: the first plan (2026-09-28), the UI redesign (2026-10-01),
+  the immersive design that the stand view and the arrival follow, with its amendments (2026-10-02;
+  the section numbers the code and `web/README.md` cite), and a C++ core design that was not built.
+  The implementation plans and their ledgers are in `docs/superpowers/plans/`, the design mockups in
+  `docs/design/`.
 
 ## Hosting
 

@@ -4,11 +4,12 @@ Next.js 16 app for the CLPS Lunar Mission Browser (NASA Space Apps 2026, team As
 
 ## Setup
 
-Node.js 22 (20.9 to 26 works; `.nvmrc` holds 22 for nvm and fnm), and npm run here, in `web/`. The root README's "Before you start: Node.js and npm" covers installing Node and what to do when npm fails.
+Node.js 22 (20.9 to 26 works; `.nvmrc` holds 22 for nvm and fnm), and npm run here, in `web/`. The root README's "Run it on your computer" covers installing Node and uv on Windows, macOS and Linux, filling `public/data`, the environment file, another port and what to do when npm fails.
 
     npm ci
-    # copy the pipeline artifacts (run from pipeline/): uv run python -m lunar_pipeline.cli sync-local --tiles
     npm run dev
+
+Between the two, fill `public/data` from `pipeline/`: `uv run python -m lunar_pipeline.cli sync-local` copies the committed data, enough for every page; the root README's step 3 builds the tiles, the terrain and the globe before `sync-local --tiles` copies them. Before pushing: `npx vitest run` (`--maxWorkers=2` on a small computer), `npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run validation:tests` for the badge (root README, "Before you push").
 
 `.npmrc` sets `legacy-peer-deps=true` because npm 10's peer resolver crashes on vitest 5's peer set. `package.json`'s `engines` accepts Node 20.9 to 26, the versions a clean install, the tests and the build were checked on.
 
