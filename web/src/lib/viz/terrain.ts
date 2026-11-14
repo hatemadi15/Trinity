@@ -65,6 +65,15 @@ export function verdictLimitation(report: TerrainReport | undefined): { line: st
   return { line: null, label: 'About the terrain', detail };
 }
 
+/** What is missing from an incomplete terrain, in a few words for a refusal to name a best; null when nothing is. */
+export function missingWords(report: TerrainReport | undefined): string | null {
+  if (!report) return null;
+  const open = find(report, 'open');
+  if (open) return `the elevation map is missing in ${open.azimuths} of ${open.nAz} directions, from ${km(open.nearestM)} out`;
+  if (find(report, 'unreported')) return 'no record of how much of the elevation map was found';
+  return null;
+}
+
 /** A short tag for a row of the site list or of the comparison; null where nothing material limits the terrain. */
 export function terrainTag(report: TerrainReport | undefined): string | null {
   if (!report || report.quality === 'complete') return null;
@@ -81,7 +90,9 @@ export function terrainTag(report: TerrainReport | undefined): string | null {
 export function terrainDetails(report: TerrainReport): string {
   const lead = terrainLimitation(report);
   if (report.source.kind === 'featured') {
-    const made = 'The file was made from the whole maps, so no piece of them could be missing.';
+    const made = report.source.method
+      ? `The pipeline made the file (${report.source.method}) from the whole maps, so no piece of them could be missing.`
+      : 'The file was made from the whole maps, so no piece of them could be missing.';
     return lead ? `${lead} ${made}` : `Terrain complete: ${made.charAt(0).toLowerCase()}${made.slice(1)}`;
   }
   if (report.source.kind === 'flat' || !report.findings) return lead ?? '';

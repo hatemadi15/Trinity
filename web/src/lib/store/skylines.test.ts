@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fileLoaders, sites } from '../../test/file-loaders';
 import { findingsWith, LOST_TILE } from '../../test/terrain';
-import { createExploreStore, FEATURED_MAST_M, skylineKey, type ExploreState, type Loaders } from './explore';
+import { createExploreStore, FEATURED_MAST_M, seenFrom, skylineKey, type ExploreState, type Loaders } from './explore';
 
 const findings = findingsWith;
 
@@ -36,6 +36,16 @@ function honest(s: ExploreState): string | null {
   }
   return null;
 }
+
+describe('the height a skyline is seen from', () => {
+  it('is its own for a file or a worked-out skyline, and the chosen one for a flat horizon, which no height changes', () => {
+    expect(seenFrom({ siteHeightM: 0, source: 'featured', failedTiles: 0, mastM: 2 }, 5)).toBe(2);
+    expect(seenFrom({ siteHeightM: 0, source: 'computed', failedTiles: 0, mastM: 7 }, 5)).toBe(7);
+    expect(seenFrom({ siteHeightM: 0, source: 'featured', failedTiles: 0 }, 5)).toBe(2);
+    expect(seenFrom({ siteHeightM: 0, source: 'flat', failedTiles: 0 }, 5)).toBe(5);
+    expect(seenFrom(null, 5)).toBe(5);
+  });
+});
 
 describe('skylines are kept and worked out by everything that changes them', () => {
   it('keys a skyline by the place, the mast height and the terrain source; a flat horizon by its place alone', () => {
@@ -188,7 +198,7 @@ describe('skylines are kept and worked out by everything that changes them', () 
     store.getState().setParams({ mastM: 5 });
     await expect(store.getState().findBestWindow(30)).resolves.toBeNull();
     expect(store.getState().startUtc).toBe('2027-01-01T00:00:00');
-    expect(store.getState().bestWindowNote).toBe('No best date is named: the terrain at de Gerlache Rim 2 is incomplete, so its figures may be too high.');
+    expect(store.getState().bestWindowNote).toBe('No best date is named: the terrain at de Gerlache Rim 2 is incomplete (the elevation map is missing in 7 of 720 directions, from 100 km out), so its figures may be too high.');
     expect(store.getState().maskMeta?.terrain?.quality).toBe('incomplete');
   });
 });

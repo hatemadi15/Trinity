@@ -12,6 +12,7 @@ import { etToIso, utcToEt } from '../engine/time';
 import { dateLong, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
 import { computedReport, featuredReport, flatReport, unreportedReport, type TerrainFindings, type TerrainReport } from '../engine/completeness';
+import { missingWords } from '../viz/terrain';
 import { customPoint, parseExploreQuery } from './query';
 
 export const WINDOW_DAYS = [14, 30, 90] as const;
@@ -244,6 +245,11 @@ export function skylineKey(site: Pick<Site, 'id' | 'lat' | 'lon' | 'polar' | 'ca
 /** The mast height a skyline is seen from: its own, or the chosen one for a flat horizon, which no height changes. */
 function heightOf(meta: MaskMeta, chosenM: number): number {
   return meta.source === 'flat' ? chosenM : (meta.mastM ?? FEATURED_MAST_M);
+}
+
+/** The height the figures shown are seen from: the skyline's own, which lags the chosen one while a new one is worked out. */
+export function seenFrom(meta: MaskMeta | null, chosenM: number): number {
+  return meta ? heightOf(meta, chosenM) : chosenM;
 }
 
 /**
@@ -581,10 +587,11 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       // Settings that moved on while the skylines were worked out: the newer request is the one to answer.
       const now = get();
       if (now.params !== params || now.startUtc !== startUtc || (scope === 'site' && now.site !== site) || now.compareIds !== compareIds) return null;
-      const incomplete = targets.filter((_, i) => terrainOf(masks[i].meta).quality === 'incomplete');
+      const incomplete = targets.flatMap((t, i) => (terrainOf(masks[i].meta).quality === 'incomplete' ? [{ name: t.label ?? t.name, missing: missingWords(terrainOf(masks[i].meta)) }] : []));
       if (incomplete.length > 0) {
         // A missing step can only lower a skyline, so an incomplete one can only overstate the power: no date is named.
-        set({ bestWindowNote: `No best date is named: the terrain at ${incomplete.map((t) => t.label ?? t.name).join(' and ')} is incomplete, so its figures may be too high.` });
+        const at = incomplete.map((t) => (t.missing ? `${t.name} is incomplete (${t.missing})` : `${t.name} is incomplete`)).join(' and the terrain at ');
+        set({ bestWindowNote: `No best date is named: the terrain at ${at}, so ${incomplete.length > 1 ? 'their' : 'its'} figures may be too high.` });
         return null;
       }
       const windowHours = days * 24;

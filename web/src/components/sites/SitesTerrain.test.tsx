@@ -45,6 +45,8 @@ describe('the site list shows only figures from the chosen mast, and what limits
     await waitFor(() => expect(screen.queryByRole('status', { name: 'The hills behind these figures' })).toBeNull(), { timeout: 30_000 });
     await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 30_000 });
     for (const o of Object.values(store.getState().overview)) expect(o.mastM).toBe(5);
+    // The method, one tap away, names the height the hills are seen from.
+    expect(screen.getByText(/^Each site's figures/).textContent).toMatch(/, the hills seen from a 5 m mast\./);
     expect(rowOf('Blue Ghost').textContent).toMatch(/flat horizon assumed/);
   });
 
@@ -59,7 +61,7 @@ describe('the site list shows only figures from the chosen mast, and what limits
     await waitFor(() => expect(rowOf('de Gerlache rim summit').textContent).toMatch(/terrain incomplete/));
     // Its figures, too high if anything, beat the Shackleton rim summit's: so neither can be named, and the page says why.
     expect(main.textContent).not.toMatch(/Longest time with power in these days:/);
-    expect(main.textContent).toMatch(/The longest time with power is not named: the terrain at de Gerlache rim summit is incomplete, so its figures may be too high\./);
+    expect(main.textContent).toMatch(/The longest time with power is not named: the terrain at de Gerlache rim summit is incomplete \(the elevation map is missing in 7 of 720 directions, from 100 km out\), so its figures may be too high\./);
     // Last of its group: the rows with figures that can be trusted come first.
     const group = rowOf('de Gerlache rim summit').closest('section')!;
     const rows = [...group.querySelector('ul')!.querySelectorAll('a[data-row]')].map((a) => (a as HTMLElement).dataset.row);

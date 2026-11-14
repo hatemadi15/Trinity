@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { computedReport, featuredReport, flatReport, unreportedReport } from '../engine/completeness';
 import type { Answer } from './answer';
 import { findingsWith, LOST_TILE } from '@/test/terrain';
-import { pendingWords, pickProblem, provenanceWords, skylineProblem, statusLines, terrainDetails, terrainLimitation, terrainTag, trustedAnswer, trustedOverview, verdictLimitation, withheldNote } from './terrain';
+import { missingWords, pendingWords, pickProblem, provenanceWords, skylineProblem, statusLines, terrainDetails, terrainLimitation, terrainTag, trustedAnswer, trustedOverview, verdictLimitation, withheldNote } from './terrain';
 
 const complete = computedReport(findingsWith(), 5);
 const lost = computedReport(findingsWith(LOST_TILE), 5);
@@ -62,6 +62,18 @@ describe('the limits of the terrain, in plain words', () => {
     );
     expect(terrainDetails(complete)).toBe('Terrain complete: terrain found at every step along 720 directions out to 220 km.');
     expect(terrainDetails(im1)).toBe('Part of the horizon comes from a coarser map: 240 m pixels from 3.9 km to 100 km out, where the 80 m map ends. The file was made from the whole maps, so no piece of them could be missing.');
+  });
+
+  it('says in a few words what is missing from an incomplete terrain, for a refusal to name a best', () => {
+    expect(missingWords(lost)).toBe('the elevation map is missing in 7 of 720 directions, from 100 km out');
+    expect(missingWords(unreportedReport(5))).toBe('no record of how much of the elevation map was found');
+    expect(missingWords(complete)).toBeNull();
+    expect(missingWords(im1)).toBeNull();
+  });
+
+  it('names what made a featured file', () => {
+    const made = featuredReport({ site_id: 'south_pole', mast_m: 2, fallback_bands: [], method: 'Barker et al. 2021 nested-grid horizon; great-circle march', generated_utc: '2026-09-28T20:31:32+00:00' });
+    expect(terrainDetails(made)).toBe('Terrain complete: the pipeline made the file (Barker et al. 2021 nested-grid horizon; great-circle march) from the whole maps, so no piece of them could be missing.');
   });
 
   it('says where the hills come from and the height they are seen from', () => {

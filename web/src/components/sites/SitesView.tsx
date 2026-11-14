@@ -16,7 +16,7 @@ import { landerLine } from '@/lib/lander';
 import { exploreStore, type ExploreState, type SiteOverview } from '@/lib/store/explore';
 import { dateLong, dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
-import { pickProblem, terrainTag } from '@/lib/viz/terrain';
+import { missingWords, pickProblem, terrainTag } from '@/lib/viz/terrain';
 import { exploreHref } from '@/lib/links';
 
 const TWO_WEEKS_H = 14 * 24;
@@ -224,7 +224,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
       } else if (!found || better(o, found.o)) found = { site, o };
     }
     // Named only when no incomplete site could beat it: an incomplete figure, too high if anything, that is no higher cannot.
-    if (doubtful && (!found || better(doubtful.o, found.o))) return { withheld: doubtful.site };
+    if (doubtful && (!found || better(doubtful.o, found.o))) return { withheld: doubtful };
     return found;
   }, [catalogue, s.overview, s.overviewBusy]);
   const offMap = catalogue.filter((x) => !HOME.relief.sites.some((p) => p.id === x.id)).map(siteLabel);
@@ -258,7 +258,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
         <Fold label="How these figures are counted" className="mt-3">
           <p className="max-w-[52em] text-[15px] text-ink-2">
             Each site&apos;s figures are for landing on its best day of the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, the day under its name, and the{' '}
-            {s.days} days after it, for one lander: {landerLine(s.params.power)}. Explore and Compare start on the first day, so their figures can differ. In each group, the
+            {s.days} days after it, for one lander: {landerLine(s.params.power)}, the hills seen from a {s.params.mastM} m mast. Explore and Compare start on the first day, so their figures can differ. In each group, the
             longest time with power comes first.
           </p>
         </Fold>
@@ -293,7 +293,9 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
             {/* Over the rows that wait for their hills at a new mast height. */}
             <SkylineNote state={s} ids={catalogue.map((x) => x.id)} className="mb-6" />
             {top && 'withheld' in top && (
-              <p className="mb-8 text-[17px] text-ink">The longest time with power is not named: the terrain at {siteLabel(top.withheld)} is incomplete, so its figures may be too high.</p>
+              <p className="mb-8 text-[17px] text-ink">
+                The longest time with power is not named: the terrain at {siteLabel(top.withheld.site)} is incomplete{missingWords(top.withheld.o.terrain) ? ` (${missingWords(top.withheld.o.terrain)})` : ''}, so its figures may be too high.
+              </p>
             )}
             {top && 'o' in top && (
               <p className="mb-8 text-[17px] text-ink">
