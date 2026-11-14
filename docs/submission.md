@@ -23,7 +23,7 @@ Accuracy shows what each check establishes and what it leaves out: our Sun and E
 
 ### The problem
 
-Missions to the Moon's south pole live or die by two questions: when is the Sun above the local horizon, and when can a radio see Earth? The answers depend on terrain a few kilometres away and change hour by hour. The tools that answer them (SPICE, GIS stacks, illumination maps) are exact but slow to set up, and comparing two sites for two dates means running them once for each.
+Missions to the Moon's south pole turn on two questions: when is the Sun above the local horizon, and when can a radio see Earth? The answers depend on terrain a few kilometres away and change hour by hour. The tools that answer them (SPICE, GIS stacks, illumination maps) are exact but slow to set up, and comparing two sites for two dates means running them once for each.
 
 ### What Earthrise does
 

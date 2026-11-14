@@ -33,11 +33,11 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 ## 3:00 — Validity (45 s)
 
-[Open Accuracy.] Three of four checks meet their criteria, and each says what it leaves out. Where the Sun and Earth are in the sky: our directions against JPL Horizons, worst gap 0.00003 degrees over 300 test cases, and [click "Re-check with JPL now"] this button asks JPL live. How much sunlight a site gets: against NASA's LOLA sunlight maps worked out their way, a typical gap of 0.9 points at fifteen sites; the power sums are checked in this browser. The fourth, our shadows over 20 pictures from orbit, misses its own mark in three of them. And, as context, not a check, when night falls on a real mission: Blue Ghost's last signal came 2.4 hours after our predicted sunset. [Click "Show the numbers" under the missions.] Athena and IM-1 ended early, for the reasons written here.
+[Open Accuracy.] Three of four checks meet their criteria, and each says what it leaves out. Where the Sun and Earth are: our directions against JPL Horizons, worst gap 0.00003 degrees over 300 cases, and [click "Re-check with JPL now"] this button asks JPL live. How much sunlight a site gets: against NASA's LOLA sunlight maps, a typical gap of 0.9 points at fifteen sites; the power sums are checked against worked answers. The fourth, our shadows over 20 pictures from orbit, misses its own mark in three, all with the Sun barely up. As context, not a check: Blue Ghost's last signal came 2.4 hours after our predicted sunset.
 
 ## 3:45 — Impact and next (35 s)
 
-Planners get a first answer in a minute and a brief they can hand to engineering. Students and the public get the same pages in plain words, and How it works gives teachers the science behind them, with sums a class can check. Anyone can replay real missions from the home page. Next: NAC imagery per site, the descent for every site, relay passes, and a public API for the tables.
+Planners get a first answer in a minute and a brief they can hand to engineering. Students and the public get the same pages in plain words, and How it works gives teachers the science behind them, with sums a class can check. Anyone can replay real missions from the home page. Next: more pictures from orbit per site, the descent for every site, relay passes, and a public API for the tables.
 
 ## 4:20 — Data and team (20 s)
 
