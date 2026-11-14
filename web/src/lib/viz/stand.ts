@@ -1,6 +1,7 @@
 import { hasNo } from '../data/parts';
 import type { Series } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
+import { checksShort, midSentence, type Check } from '../plan/requirements';
 import { parseExploreQuery, type ExploreQuery } from '../store/query';
 import { countdown, countdownWords } from './countdown';
 import { dateLong, dayMonth, pct0, spanWords } from './format';
@@ -618,6 +619,22 @@ export function betterLabel(dayLong: string, poweredHours: number, radioHours: n
  */
 export function betterChip(dayShort: string, poweredHours: number): string {
   return unbrokenSpans(`Try ${dayShort} instead: power for ${spanWords(poweredHours)}`);
+}
+
+/**
+ * Why a better landing day is better when it is so for the mission's requirements rather than for more power: it
+ * fails fewer of them than landing now. "meets your requirement", "meets all 2 of your requirements", or "fails fewer
+ * of your requirements (1 of 2)"; null when it fails as many, or none is set, and its power says why.
+ */
+export function requirementReason(better: { failed: number; checks: Check[] }, now: { failed: number }): string | null {
+  if (better.checks.length === 0 || better.failed >= now.failed) return null;
+  if (better.failed > 0) return `fails fewer of your requirements (${better.failed} of ${better.checks.length})`;
+  return midSentence(checksShort(better.checks) ?? '').replace(/\.$/, '');
+}
+
+/** A better day's button or chip with the reason it is better first, after "instead:"; as it was with no reason. */
+export function withReason(label: string, reason: string | null): string {
+  return reason ? label.replace(' instead: ', ` instead: ${reason}, `) : label;
 }
 
 /**

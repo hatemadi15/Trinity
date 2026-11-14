@@ -106,6 +106,25 @@ describe.skipIf(!haveData)('a shared link in a fresh browser', () => {
     expect(computeMask).toHaveBeenCalledTimes(1);
   });
 
+  it('opens the requirements a link names, so a colleague’s browser ranks the landing times the same', async () => {
+    const { store: a } = await freshBrowser();
+    a.getState().setPower({ loadW: 300 });
+    a.getState().setRequirements({ minPoweredH: 120, contactWithinH: 0, maxOutageH: 72 });
+    const sent = a.getState();
+    const link = withSettings(exploreHref(sent.siteId!, sent.startUtc, sent.days), sent.params, sent.requirements);
+    expect(link).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30&load=300&minpower=120&earthby=0&maxgap=72');
+    const { store: b } = await freshBrowser();
+    await b.getState().applyQuery(search(link));
+    expect(b.getState().requirements).toEqual(sent.requirements);
+    expect(figures(b.getState())).toEqual(figures(sent));
+    // A link that names no requirement keeps the ones the visit has; one that names some sets those it names, a
+    // malformed one left out, and no others.
+    await b.getState().applyQuery('?site=haworth&start=2027-02-01&days=14');
+    expect(b.getState().requirements).toEqual(sent.requirements);
+    await b.getState().applyQuery('?minpower=lots&mincontact=24');
+    expect(b.getState().requirements).toEqual({ minPoweredH: null, contactWithinH: null, maxOutageH: null, minPoweredContactH: 24 });
+  });
+
   it('keeps the settings a visit already has when a link inside the app names none, and old links still open', async () => {
     const { store } = await freshBrowser();
     store.getState().setPower({ loadW: 400 });

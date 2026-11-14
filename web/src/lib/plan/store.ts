@@ -4,7 +4,7 @@ import { comparisonHref } from '../scenario/codec';
 import { createMaskSource, type MaskSource } from '../scenario/masks';
 import type { Scenario } from '../scenario/scenario';
 import { scenarioStore, type ScenarioState } from '../store/scenarios';
-import { exploreHref } from '../links';
+import { exploreHref, withSettings } from '../links';
 import { DAYS_RANGE, clampTo } from '../planner-ranges';
 import { FEATURED_MAST_M, browserLoaders, exploreStore, type ExploreState, type WindowDays } from '../store/explore';
 import { dateTimeUtc } from '../viz/format';
@@ -220,9 +220,13 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
       const ex = deps.explore.getState();
       const days = exploreDays(searched.stayH);
       ex.setParams({ power: { ...ex.params.power, ...powerOf(searched), efficiency: ex.params.power.efficiency }, mastM: searched.lander.mastM, minEarthElDeg: searched.lander.earthClearanceDeg });
+      // The requirements the landing was chosen by, as one set, so Explore checks it and ranks its better date by them.
+      ex.setRequirements(searched.req);
       await deps.explore.getState().selectSite(f.site.id);
       deps.explore.getState().setWindow(f.best.item.utc, days);
-      navigate(exploreHref(f.site.id, f.best.item.utc, days));
+      // The link names the lander and the requirements too, so it opens the same landing in a new tab or a colleague's browser.
+      const now = deps.explore.getState();
+      navigate(withSettings(exploreHref(f.site.id, f.best.item.utc, days), now.params, now.requirements));
       return `Explore is on ${siteLabel(f.site)}, landing ${dateTimeUtc(f.best.item.utc, 0)}, for ${days} days with this lander.`;
     },
 
@@ -245,7 +249,9 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
         timing: 'site-best',
       }));
       (deps.scenarios ?? scenarioStore).getState().load(list);
-      navigate(comparisonHref(list));
+      // Compare checks each against the requirements they were ranked by.
+      ex.setRequirements(searched.req);
+      navigate(comparisonHref(list, '/compare', searched.req));
       return `Compare shows the ${list.length === 1 ? 'best site' : `best ${list.length} sites`}, each at its own best landing time, for ${days} days with this lander.`;
     },
 

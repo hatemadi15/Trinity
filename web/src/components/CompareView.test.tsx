@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NO_REQUIREMENTS } from '@/lib/plan/requirements';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { scenarioFile } from '@/lib/scenario/file';
 import { createExploreStore } from '@/lib/store/explore';
@@ -97,6 +98,54 @@ describe('CompareView', () => {
     await fresh.scenarios.getState().settle();
     await screen.findByRole('table');
     expect(names.map(row)).toEqual(before);
+  });
+
+  it('carries the requirements in its address and its brief, so a fresh browser checks every scenario against the same ones', async () => {
+    const st = stores();
+    st.explore.getState().setRequirements({ minPoweredH: 120 });
+    const first = await example(st);
+    const req = { ...NO_REQUIREMENTS, minPoweredH: 120 };
+    const href = comparisonHref(first.scenarios.getState().scenarios, '/compare', req);
+    expect(href).toMatch(/&minpower=120$/);
+    await waitFor(() => expect(`${window.location.pathname}${window.location.search}`).toBe(href));
+    expect(screen.getByRole('link', { name: 'Printable comparison brief' }).getAttribute('href')).toBe(comparisonHref(first.scenarios.getState().scenarios, '/compare/brief', req));
+    // The link copied holds them, and says so.
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy the link' }));
+    await waitFor(() => expect(screen.getByRole('main').textContent).toContain('Link copied. It holds every setting of every scenario, and your requirements.'));
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}${href}`);
+    vi.unstubAllGlobals();
+    const before = row('Your requirements');
+    cleanup();
+    // A colleague's browser, with requirements of its own: the link's replace them.
+    window.history.replaceState(null, '', href);
+    const fresh = stores();
+    fresh.explore.getState().setRequirements({ maxOutageH: 72 });
+    await open(fresh);
+    await waitFor(() => expect(fresh.scenarios.getState().scenarios).toHaveLength(3));
+    expect(fresh.explore.getState().requirements).toEqual(req);
+    await fresh.scenarios.getState().settle();
+    await screen.findByRole('table');
+    expect(row('Your requirements')).toEqual(before);
+  });
+
+  it('opens a scenario file with the requirements it was saved with, and says they are set', async () => {
+    const first = await example();
+    const req = { ...NO_REQUIREMENTS, maxOutageH: 72 };
+    const cols = columnsOf(first.scenarios.getState().scenarios, first.scenarios.getState().runs, first.explore.getState().sites, req);
+    const text = JSON.stringify(scenarioFile(cols, { data: null, ephemeris: null, sites: null, terrain: null }, new Date(), req));
+    cleanup();
+    window.history.replaceState(null, '', '/compare');
+    const st = stores();
+    await open(st);
+    const input = screen.getByLabelText('Open a scenario file') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File([text], 'earthrise-comparison.json', { type: 'application/json' })] } });
+    await waitFor(() => expect(screen.getByRole('main').textContent).toContain('The file’s 3 scenarios replace the ones that were on this page, and the requirements saved with it are set.'));
+    expect(st.scenarios.getState().scenarios).toHaveLength(3);
+    expect(st.explore.getState().requirements).toEqual(req);
+    await st.scenarios.getState().settle();
+    await waitFor(() => expect(within(table()).getByRole('rowheader', { name: 'Your requirements' })).toBeTruthy());
   });
 
   it('says so when a link cannot be read, and keeps an old /compare address working', async () => {
@@ -224,6 +273,31 @@ describe('CompareView', () => {
     expect(box.getAttribute('tabindex')).toBe('0');
     for (const th of within(table()).getAllByRole('rowheader')) expect(th.className).toMatch(/\bsticky\b.*\bleft-0\b/);
     expect(screen.getByRole('main').querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
+  });
+
+  it('checks every scenario against the requirements set on Explore, each met or failed with its value and margin', async () => {
+    const st = stores();
+    st.explore.getState().setRequirements({ minPoweredH: 120, maxOutageH: 96 });
+    await example(st);
+    const cells = () => Array.from(within(table()).getByRole('rowheader', { name: 'Your requirements' }).parentElement!.querySelectorAll('td'));
+    const shown = () => cells().map((td) => visibleWords(td, WIDE).join(' '));
+    // How many each fails, against the baseline's count; the full comparison keeps to its 750 words with the row.
+    expect(shown()).toEqual(['Fails 1 of your 2 requirements.', 'Fails 1 of your 2 requirements. same', 'Fails 1 of your 2 requirements. same']);
+    const main = screen.getByRole('main');
+    for (const width of [WIDE, PHONE]) expect(visibleWords(main, width).length).toBeLessThanOrEqual(750);
+    // One tap on the row's name opens each requirement, met or failed, with the value reached and the margin.
+    const toggle = within(table()).getByRole('button', { name: 'Your requirements' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(shown()).toEqual([
+      'Fails 1 of your 2 requirements. Fails Power for at least 5 d: 3 d 4 h, 1 d 20 h short Meets Longest time without Earth while powered at most 4 d: 3 d 4 h, 20 h to spare',
+      'Fails 1 of your 2 requirements. same Fails Power for at least 5 d: 10 h, 4 d 14 h short Meets Longest time without Earth while powered at most 4 d: 10 h, 3 d 14 h to spare',
+      'Fails 1 of your 2 requirements. same Meets Power for at least 5 d: 30 d, 25 d to spare Fails Longest time without Earth while powered at most 4 d: 11 d 10 h, 7 d 10 h too long',
+    ]);
+    // Set to none, the row goes, and nothing else shows in its place.
+    act(() => st.explore.getState().setRequirements({ minPoweredH: null, maxOutageH: null }));
+    expect(within(table()).queryByRole('rowheader', { name: 'Your requirements' })).toBeNull();
   });
 
   it('keeps the full comparison to 750 words before a tap, at 1440 and on a phone', async () => {

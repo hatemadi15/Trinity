@@ -9,9 +9,12 @@ import { answerFor } from './answer';
 import { hero } from './arrival';
 import { spanWords } from './format';
 import { groundWords } from './ground';
+import { checkRequirements, NO_REQUIREMENTS, type Requirements } from '@/lib/plan/requirements';
 import {
   betterChip,
   betterLabel,
+  requirementReason,
+  withReason,
   FIRST_STEP,
   FIRST_STEP_PHONE,
   FIRST_STEP_STILL,
@@ -533,6 +536,24 @@ describe('the better landing day’s button', () => {
   it('gives a phone its chip: the day short, the power alone, each span on one line', () => {
     expect(betterChip('20 Jan', 303)).toBe(`Try 20 Jan instead: power for ${unbroken('12 days 15 hours')}`);
     expect(betterChip('2 Feb', 20)).toBe(`Try 2 Feb instead: power for ${unbroken('20 hours')}`);
+  });
+  it('leads with the requirements when the day is better for them rather than for more power, which its figures alone would not say', () => {
+    // Earth in view at landing, and power for at least 5 days: a landing in view with 22 days of power, one out of view.
+    const at = (firstContactH: number | null, poweredH: number) => ({ hour: 0, stayH: 720, poweredH, sunH: 720, contactH: 322, poweredContactH: 322, outageH: 0, poweredOutageH: 0, firstContactH, sunlitAtLanding: true });
+    const option = (o: ReturnType<typeof at>, req: Requirements = { ...NO_REQUIREMENTS, contactWithinH: 0 }) => {
+      const checks = checkRequirements(o, req);
+      return { checks, failed: checks.filter((c) => !c.met).length };
+    };
+    expect(requirementReason(option(at(0, 544)), option(at(225, 720)))).toBe('meets your requirement');
+    const both = { ...NO_REQUIREMENTS, contactWithinH: 0, minPoweredH: 120 };
+    expect(requirementReason(option(at(0, 544), both), option(at(225, 100), both))).toBe('meets all 2 of your requirements');
+    expect(requirementReason(option(at(0, 100), both), option(at(225, 100), both))).toBe('fails fewer of your requirements (1 of 2)');
+    // A day better for its power alone, or with no requirement set, keeps the power first.
+    expect(requirementReason(option(at(0, 544)), option(at(0, 100)))).toBeNull();
+    expect(requirementReason(option(at(0, 544), NO_REQUIREMENTS), option(at(225, 100), NO_REQUIREMENTS))).toBeNull();
+    expect(withReason(betterLabel('10 January', 544, 322), 'meets your requirement')).toBe(`Try 10 January instead: meets your requirement, power for ${unbroken('22 days 16 hours')}, radio for ${unbroken('13 days 10 hours')}`);
+    expect(withReason(betterChip('10 Jan', 544), 'meets your requirement')).toBe(`Try 10 Jan instead: meets your requirement, power for ${unbroken('22 days 16 hours')}`);
+    expect(withReason(betterChip('10 Jan', 544), null)).toBe(betterChip('10 Jan', 544));
   });
 });
 

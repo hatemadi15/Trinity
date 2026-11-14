@@ -222,9 +222,20 @@ describe('each scenario’s requirement checks', () => {
     const checked = cols.map((c, i) => ({ ...c, checks: checkRequirements(i === 0 ? plan(76, 60) : i === 1 ? plan(10, 10) : plan(720, 60), req) }));
     const row = figureRows(checked).find((r) => r.id === 'requirements')!;
     expect(row.name).toBe('Your requirements');
-    expect(row.cells[0]).toEqual({ value: 'Fails 1 of your 2 requirements: power for at least 5 d (3 d 4 h).', change: null, tone: null });
-    expect(row.cells[1]).toEqual({ value: 'Fails 1 of your 2 requirements: power for at least 5 d (10 h).', change: 'same', tone: 'same' });
-    expect(row.cells[2]).toEqual({ value: 'Meets all 2 of your requirements.', change: '1 fewer failed', tone: 'better' });
+    // Each check reads met or failed, with its value and its margin, under the count of those failed.
+    expect(row.cells[0]).toEqual({
+      value: 'Fails 1 of your 2 requirements.',
+      change: null,
+      tone: null,
+      checks: [
+        { met: false, words: 'Power for at least 5 d: 3 d 4 h, 1 d 20 h short' },
+        { met: true, words: 'Longest time without Earth while powered at most 3 d: 2 d 12 h, 12 h to spare' },
+      ],
+    });
+    expect(row.cells[1]).toMatchObject({ value: 'Fails 1 of your 2 requirements.', change: 'same', tone: 'same' });
+    expect(row.cells[1]!.checks!.map((c) => c.words)).toEqual(['Power for at least 5 d: 10 h, 4 d 14 h short', 'Longest time without Earth while powered at most 3 d: 10 h, 2 d 14 h to spare']);
+    expect(row.cells[2]).toMatchObject({ value: 'Meets all 2 of your requirements.', change: '1 fewer failed', tone: 'better' });
+    expect(row.cells[2]!.checks!.map((c) => c.met)).toEqual([true, true]);
     // With none set there is nothing to check, and no row.
     expect(figureRows(cols).some((r) => r.id === 'requirements')).toBe(false);
     expect(figureRows(cols.map((c) => ({ ...c, checks: [] }))).some((r) => r.id === 'requirements')).toBe(false);

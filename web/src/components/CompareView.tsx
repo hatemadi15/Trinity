@@ -53,6 +53,8 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
         if (!live) return;
         const r = readComparison(window.location.search);
         if (r.found) scenarios.getState().load(r.scenarios, r.problem);
+        // The requirements the link names replace the visit's, so every scenario is checked against the sender's.
+        if (r.requirements) store.getState().setRequirements(r.requirements);
         scenarios.getState().takeList();
         setLinkRead(true);
       });
@@ -61,12 +63,12 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
     };
   }, [store, scenarios]);
 
-  // The address carries the comparison, so copying it from the browser shares every setting too.
+  // The address carries the comparison and the requirements set, so copying it from the browser shares every setting too.
   useEffect(() => {
     if (!linkRead) return;
-    const href = comparisonHref(sc.scenarios);
+    const href = comparisonHref(sc.scenarios, '/compare', s.requirements);
     if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState(window.history.state, '', href);
-  }, [linkRead, sc.scenarios]);
+  }, [linkRead, sc.scenarios, s.requirements]);
 
   if (s.status !== 'ready') {
     return (
@@ -79,7 +81,8 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
   }
 
   const act = scenarios.getState();
-  const cols = columnsOf(sc.scenarios, sc.runs, s.sites);
+  // Each scenario checked against the requirements set on Explore (Options), when any is set.
+  const cols = columnsOf(sc.scenarios, sc.runs, s.sites, s.requirements);
   const full = sc.scenarios.length >= SCENARIO_MAX;
   // The file's figures are checked only while the page holds the scenarios the file gave, unchanged.
   const unchanged = opened !== null && opened.scenarios.length === sc.scenarios.length && opened.scenarios.every((x, i) => scenarioKey(x) === scenarioKey(sc.scenarios[i]));
@@ -178,7 +181,7 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
                     onDuplicate={() => act.duplicate(c.scenario.id)}
                     onBaseline={() => act.makeBaseline(c.scenario.id)}
                     onRemove={() => act.remove(c.scenario.id)}
-                    onSave={() => saveFile(fileName([c]), `${JSON.stringify(scenarioFile([c], versions), null, 2)}\n`)}
+                    onSave={() => saveFile(fileName([c]), `${JSON.stringify(scenarioFile([c], versions, new Date(), s.requirements), null, 2)}\n`)}
                   />
                 ))}
               </div>
@@ -193,6 +196,7 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
 
         <ComparisonFiles
           cols={cols}
+          requirements={s.requirements}
           check={check}
           onOpen={(o) => {
             setOpened(o);
@@ -201,7 +205,9 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
               return;
             }
             act.load(o.scenarios, o.problem);
-            act.setNote(`The file’s ${o.scenarios.length === 1 ? 'scenario replaces' : `${o.scenarios.length} scenarios replace`} the ones that were on this page.`);
+            // The requirements saved with the file are set, as one set, so the checks are the ones it was saved with.
+            if (o.requirements) store.getState().setRequirements(o.requirements);
+            act.setNote(`The file’s ${o.scenarios.length === 1 ? 'scenario replaces' : `${o.scenarios.length} scenarios replace`} the ones that were on this page${o.requirements ? ', and the requirements saved with it are set' : ''}.`);
           }}
         />
         {cols.length > 0 && (

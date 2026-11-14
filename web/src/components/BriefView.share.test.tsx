@@ -20,6 +20,25 @@ describe('the brief from its own address', () => {
     expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore?site=haworth&start=2027-02-01&days=14&load=400&earthmin=2');
   });
 
+  it('names the same better date as Explore when the address sets requirements, says why, and lists each one met or failed', async () => {
+    // Shackleton rim summit keeps power all 30 days from 1 January, but Earth is out of view at that landing.
+    window.history.replaceState({}, '', '/brief?site=shackleton_center_rim_high&earthby=0');
+    const store = createExploreStore(fileLoaders());
+    render(<BriefView store={store} narrate={async () => ({ reply: '', source: 'template' })} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Shackleton rim summit'), { timeout: 20_000 });
+    expect(store.getState().requirements).toEqual({ minPoweredH: null, contactWithinH: 0, maxOutageH: null, minPoweredContactH: null });
+    const verdict = screen.getByRole('region', { name: 'Landing at Shackleton rim summit on 1 January: power for all 30 days' });
+    expect(verdict.textContent).toContain('From 10 January, 09:00 UTC: power for 22 days 16 hours in a row.');
+    expect(verdict.textContent).toContain('It meets every requirement; landing at the period start fails one: Earth in view at landing (not until 9 d 9 h after landing).');
+    const req = screen.getByRole('region', { name: 'Your requirements' });
+    expect(within(req).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Fails Earth in view at landing: not until 9 d 9 h after landing, 9 d 9 h late', 'Meets Earth in view at landing: yes']);
+    expect(req.textContent).toContain('Landing on 10 Jan 2027, 09:00 UTC, the better date above:');
+    // The way back, the printed link and the address keep them.
+    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore?site=shackleton_center_rim_high&start=2027-01-01&days=30&earthby=0');
+    expect(screen.getByRole('region', { name: 'Settings, sources and versions' }).textContent).toContain(`${window.location.origin}/explore?site=shackleton_center_rim_high&start=2027-01-01&days=30&earthby=0`);
+    await waitFor(() => expect(window.location.search).toBe('?site=shackleton_center_rim_high&start=2027-01-01&days=30&earthby=0'));
+  });
+
   it('prints the settings, the sources, the versions and the assumptions behind the figures, in UTC, with the link that opens them again', async () => {
     window.history.replaceState({}, '', '/brief?site=haworth&load=400&earthmin=2');
     const store = createExploreStore(fileLoaders());

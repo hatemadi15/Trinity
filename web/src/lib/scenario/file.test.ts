@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { Site } from '@/lib/data/loaders';
 import { DEFAULT_POWER } from '@/lib/engine/power';
 import { readJson } from '@/lib/engine/__tests__/helpers';
+import type { Outcome as PlanOutcome } from '@/lib/plan/outcome';
+import { checkRequirements, NO_REQUIREMENTS } from '@/lib/plan/requirements';
+import { comparisonHref } from './codec';
 import { FILE_FORMAT, FILE_VERSION, figuresOf, fileName, readScenarioFile, scenarioFile, type FileColumn } from './file';
 import type { Outcome } from './outcome';
 import type { Scenario } from './scenario';
@@ -69,6 +72,35 @@ describe('a scenario file', () => {
     const r = readScenarioFile(JSON.stringify(f));
     expect(r.scenarios).toHaveLength(1);
     expect(r.problem).toBe('One scenario in this file could not be read and is left out.');
+  });
+
+  it('carries the requirements set, and each scenario’s checks against them when it was saved, and reads them back', () => {
+    const req = { ...NO_REQUIREMENTS, minPoweredH: 120, contactWithinH: 0 };
+    const plan: PlanOutcome = { hour: 0, stayH: 720, poweredH: 76, sunH: 321, contactH: 324, poweredContactH: 0, outageH: 219, poweredOutageH: 76, firstContactH: 10, sunlitAtLanding: true };
+    const checked = [{ ...cols[0], checks: checkRequirements(plan, req) }, cols[1]];
+    const f = scenarioFile(checked, versions, NOW, req);
+    expect(f.requirements).toEqual({ minTimeWithPowerHours: 120, earthInViewWithinHours: 0, maxTimeWithoutEarthWhilePoweredHours: null, minEarthInViewWhilePoweredHours: null });
+    expect(f.link).toBe(comparisonHref([base, later], '/compare', req));
+    expect(f.scenarios[0].requirementChecks).toEqual([
+      { requirement: 'Power for at least 5 d', met: false, valueHours: 76, limitHours: 120, marginHours: -44 },
+      { requirement: 'Earth in view at landing', met: false, valueHours: 10, limitHours: 0, marginHours: -10 },
+    ]);
+    // A scenario still being worked out when saved has no checks.
+    expect(f.scenarios[1].requirementChecks).toBeUndefined();
+    const back = readScenarioFile(JSON.stringify(f));
+    expect(back.requirements).toEqual(req);
+    expect(back.scenarios.map(settings)).toEqual([base, later].map(settings));
+  });
+
+  it('reads a file saved with no requirement set, or before files carried them, with none, and leaves out one it cannot use', () => {
+    const plain = scenarioFile(cols, versions, NOW, NO_REQUIREMENTS);
+    expect(plain.requirements).toBeUndefined();
+    expect(readScenarioFile(JSON.stringify(plain)).requirements).toBeUndefined();
+    expect(readScenarioFile(JSON.stringify(scenarioFile(cols, versions, NOW))).requirements).toBeUndefined();
+    const odd = { ...plain, requirements: { minTimeWithPowerHours: 'lots', earthInViewWithinHours: -1, maxTimeWithoutEarthWhilePoweredHours: 72, minEarthInViewWhilePoweredHours: 2161 } };
+    expect(readScenarioFile(JSON.stringify(odd)).requirements).toEqual({ ...NO_REQUIREMENTS, maxOutageH: 72 });
+    expect(readScenarioFile(JSON.stringify({ ...plain, requirements: { minTimeWithPowerHours: 'lots' } })).requirements).toBeUndefined();
+    expect(readScenarioFile(JSON.stringify({ ...plain, requirements: [120] })).requirements).toBeUndefined();
   });
 
   it('reads the versions from the data’s own headers', async () => {

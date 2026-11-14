@@ -2,6 +2,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_POWER } from '@/lib/engine/power';
+import { NO_REQUIREMENTS } from '@/lib/plan/requirements';
 import { comparisonHref } from '@/lib/scenario/codec';
 import type { Scenario } from '@/lib/scenario/scenario';
 import { APP } from '@/lib/scenario/versions';
@@ -14,9 +15,10 @@ const base: Scenario = { id: 'a', label: 'Original landing', siteId: 'de_gerlach
 const later: Scenario = { ...base, id: 'b', label: '5 days later', startUtc: '2027-01-06T00:00:00', from: 'a' };
 const near: Scenario = { ...later, id: 'c', label: 'Nearby: de Gerlache rim summit', siteId: 'de_gerlache_center_rim_high', from: 'b' };
 
-async function open(ready = () => screen.getByText('Earthrise comparison brief')) {
+async function open(ready = () => screen.getByText('Earthrise comparison brief'), setup: (explore: ReturnType<typeof createExploreStore>) => void = () => {}) {
   const loaders = fileLoaders();
   const explore = createExploreStore(loaders);
+  setup(explore);
   const scenarios = createScenarioStore(explore, loaders);
   render(<ComparisonBrief store={explore} scenarios={scenarios} />);
   await waitFor(() => expect(ready()).toBeTruthy(), { timeout: 20_000 });
@@ -68,6 +70,27 @@ describe('ComparisonBrief', () => {
     expect(main.textContent).toContain(`The same comparison opens again at ${window.location.origin}${comparisonHref([base, later])}`);
     expect(screen.getByRole('link', { name: 'Back to Compare' }).getAttribute('href')).toBe(comparisonHref([base, later]));
     expect(screen.getByRole('button', { name: 'Print or save as PDF' })).toBeTruthy();
+  });
+
+  it('prints each scenario’s requirement checks, met or failed with the value and the margin, once a requirement is set', async () => {
+    window.history.replaceState(null, '', comparisonHref([base, near], '/compare/brief'));
+    await open(undefined, (explore) => explore.getState().setRequirements({ minPoweredH: 120 }));
+    const table = within(screen.getByRole('region', { name: 'The scenarios side by side' })).getByRole('table');
+    const row = within(table).getByRole('rowheader', { name: 'Your requirements' }).parentElement!;
+    expect(Array.from(row.querySelectorAll('td')).map((td) => td.textContent)).toEqual([
+      'Fails your requirement.Fails Power for at least 5 d: 3 d 4 h, 1 d 20 h short',
+      'Meets your requirement.1 fewer failed against the baseline, betterMeets Power for at least 5 d: 30 d, 25 d to spare',
+    ]);
+  });
+
+  it('reads the requirements its link names, checks every scenario against them, and gives them to the way back', async () => {
+    const req = { ...NO_REQUIREMENTS, minPoweredH: 120 };
+    window.history.replaceState(null, '', comparisonHref([base, near], '/compare/brief', req));
+    await open();
+    const table = within(screen.getByRole('region', { name: 'The scenarios side by side' })).getByRole('table');
+    expect(within(table).getByRole('rowheader', { name: 'Your requirements' }).parentElement!.textContent).toContain('Fails Power for at least 5 d: 3 d 4 h, 1 d 20 h short');
+    expect(screen.getByRole('link', { name: 'Back to Compare' }).getAttribute('href')).toBe(comparisonHref([base, near], '/compare', req));
+    expect(screen.getByRole('main').textContent).toContain(`The same comparison opens again at ${window.location.origin}${comparisonHref([base, near], '/compare', req)}`);
   });
 
   it('says so when there is no comparison to print', async () => {

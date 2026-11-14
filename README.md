@@ -53,8 +53,8 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   ready-made landers or your own panel, load, battery and mast. A new mast height works out the hills again for every
   site shown, and each page says which sites are still waiting. Explore's address is its share link: `/explore?site=&start=&days=` (for example
   `start=2027-01-20T17:00&days=7`) plus every setting that differs from the defaults (`panel`, `facing`,
-  `area`, `efficiency`, `load`, `battery`, `charge`, `mast`, `earthmin`), so a reload or a copied link
-  opens the same figures in any browser. Share, on the numbers card, copies it and downloads the
+  `area`, `efficiency`, `load`, `battery`, `charge`, `mast`, `earthmin`) and any requirements you set, in hours (`minpower`, `earthby`, `maxgap`,
+  `mincontact`), so a reload or a copied link opens the same figures and the same better date in any browser. Share, on the numbers card, copies it and downloads the
   figures: hour by hour, all numbers and the radio windows as CSV, with the settings, versions and
   sources in a JSON file beside them.
 - **Stand on the Moon** (`/explore/stand`, "Stand at the site" on Explore): the view from the landing
@@ -79,7 +79,9 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   alternative works better and the trade-offs, then gives every setting and figure side by side
   with the signed change from the baseline, and says when the scenarios share a landing time. The
   address carries the whole comparison; scenario files save and reopen one or many with the app and
-  data versions; `/compare/brief` prints it. Empty, it offers the five-day slip at de Gerlache Rim 2
+  data versions; `/compare/brief` prints it. With requirements set, a row checks every
+  scenario against them (one tap shows each with its margin); the comparison's address, its brief and its
+  files carry them. Empty, it offers the five-day slip at de Gerlache Rim 2
   and two ready pairs.
 - **Accuracy** (`/validate`): four kinds of evidence, each saying what it shows, what it was tested
   on and what it leaves out, with its full table on request. Three are checks with a pass mark: the

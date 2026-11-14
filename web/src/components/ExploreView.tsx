@@ -28,10 +28,11 @@ import { briefHref, standHref, withSettings } from '@/lib/links';
 import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
 import { useDataVersions } from '@/lib/hooks/useDataVersions';
 import { appVersion } from '@/lib/share/versions';
-import { COMPARE_MAX, exploreStore, scanOf, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, periodPlan, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { neighbourhoodRange, rangeWords } from '@/lib/plan/neighbourhood';
-import { placeOptions, timeOptions } from '@/lib/plan/options';
+import { placeOptions } from '@/lib/plan/options';
 import { periodOutcome } from '@/lib/plan/outcome';
+import { requirementCount } from '@/lib/plan/requirements';
 import { answerFor, nearbyWords, planView, spotSite } from '@/lib/viz/answer';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
@@ -85,9 +86,9 @@ export function ExploreView({
       .then(() => store.getState().applyQuery(search))
       .then(() => setLinked(true));
   }, [store]);
-  // From then on the address follows the site, the period (its landing hour and length included) and every setting the
-  // figures depend on, so a reload or a copied address opens the same forecast.
-  const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params) : null;
+  // From then on the address follows the site, the period (its landing hour and length included), every setting the
+  // figures depend on and the requirements set, so a reload or a copied address opens the same forecast and better date.
+  const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements) : null;
   useAddressFollows(link, linked && s.status === 'ready');
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
@@ -137,17 +138,17 @@ export function ExploreView({
 
   // "Compare from here": this landing, with every setting, as a comparison's baseline; Compare opens on its link.
   const onScenario = useCallback(() => {
-    if (scenarios.getState().startFrom(store.getState())) go(comparisonHref(scenarios.getState().scenarios));
+    if (scenarios.getState().startFrom(store.getState())) go(comparisonHref(scenarios.getState().scenarios, '/compare', store.getState().requirements));
   }, [store, scenarios, go]);
 
   const scene = useMemo(() => (s.eph && s.series && s.mask ? sceneStateAt(s.eph, s.series, s.mask, s.cursorHour) : null), [s.eph, s.series, s.mask, s.cursorHour]);
   // The terrain behind the figures, and whether they are still from another mast height than the one chosen.
   const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
   const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
-  // The period's landing times, ranked with the requirements: the better date comes from here.
+  // The period's landing times, ranked with the requirements: the better date comes from here, as on the brief and the view from the site.
   const times = useMemo(
-    () => (s.series && s.site ? timeOptions({ scan: scanOf(s.series), cfg: s.params.power, req: s.requirements, hours: s.series.hours, startUtc: s.startUtc }) : null),
-    [s.series, s.site, s.params.power, s.requirements, s.startUtc],
+    () => (s.site ? periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc }) : null),
+    [s.series, s.site, s.params, s.requirements, s.startUtc],
   );
   const current = useMemo(() => (s.series && s.power ? periodOutcome(s.series, s.power) : null), [s.series, s.power]);
   const hood = s.neighbourhood && s.site && s.neighbourhood.siteId === s.site.id ? s.neighbourhood : null;
@@ -242,7 +243,7 @@ export function ExploreView({
   const site = s.site;
   const better = answer?.better;
   // The view from the site and the brief work their figures out from the same settings.
-  const standLink = withSettings(standHref(site.id, s.startUtc, s.days, s.cursorHour), s.params);
+  const standLink = withSettings(standHref(site.id, s.startUtc, s.days, s.cursorHour), s.params, s.requirements);
   return (
     <AppFrame>
       <main className="flex flex-col">
@@ -293,7 +294,7 @@ export function ExploreView({
               series={s.series}
               hour={s.cursorHour}
               startUtc={s.startUtc}
-              briefLink={withSettings(briefHref(site.id, s.startUtc, s.days), s.params)}
+              briefLink={withSettings(briefHref(site.id, s.startUtc, s.days), s.params, s.requirements)}
               onShare={() => setShareOpen(true)}
               shareRef={shareRef}
             />
@@ -368,6 +369,7 @@ export function ExploreView({
           <ShareDialog
             input={{ site, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph, series: s.series, power: s.power, summary: s.summary, maskMeta: s.maskMeta, best: s.best }}
             link={new URL(link, window.location.origin).href}
+            requirements={requirementCount(s.requirements) > 0}
             versions={{ app: appVersion(), data: dataVersions ?? { data: null, sites: null, ephemeris: null, terrain: null } }}
             onClose={() => setShareOpen(false)}
             returnFocus={shareRef}
