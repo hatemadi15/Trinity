@@ -12,8 +12,10 @@ const FIRST_DAY = FIRST_START.slice(0, 10);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 /** The most days or hours one shift takes: more than the table's span either way, which a shift stops at anyway. */
 const SHIFT_MAX = 9999;
-const STEP =
-  'flex h-[52px] w-10 shrink-0 items-center justify-center rounded-lg border border-line-strong bg-surface text-[22px] leading-none text-ink hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-sun-ink';
+/** A box with a step either side of it, in one frame, as the length used to be: the steps and the box keep their focus ring inside it. */
+const GROUP = 'flex h-[52px] shrink-0 overflow-hidden rounded-lg border border-line-strong bg-surface';
+const STEP = 'flex w-9 shrink-0 items-center justify-center text-[22px] leading-none text-ink hover:bg-surface-2 focus-visible:-outline-offset-2';
+const INNER = 'field h-full rounded-none border-0 focus-visible:-outline-offset-2';
 
 /** A box's own text while it is being typed in; a new period from outside, or leaving the box, puts the period's back. */
 type Drafts = { date?: string; time?: string; days?: string };
@@ -67,8 +69,8 @@ export function PeriodControls({ startUtc, days, onChange, children }: { startUt
           </span>
         </span>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="flex items-center gap-1">
-            <button type="button" aria-label="One day earlier" onClick={() => shift(-24)} className={STEP}>
+          <span className={GROUP}>
+            <button type="button" aria-label="One day earlier" onClick={() => shift(-24)} className={`${STEP} border-r border-line`}>
               ‹
             </button>
             <input
@@ -91,37 +93,39 @@ export function PeriodControls({ startUtc, days, onChange, children }: { startUt
                 if (to && to.slice(0, 10) !== startUtc.slice(0, 10)) say(periodProblem(to, days));
                 draft({ date: undefined });
               }}
-              className="field w-[160px]"
+              className={`${INNER} w-[150px]`}
             />
-            <button type="button" aria-label="One day later" onClick={() => shift(24)} className={STEP}>
+            <button type="button" aria-label="One day later" onClick={() => shift(24)} className={`${STEP} border-l border-line`}>
               ›
             </button>
           </span>
-          <span className="flex items-center gap-1">
-            <button type="button" aria-label="One hour earlier" onClick={() => shift(-1)} className={STEP}>
-              ‹
-            </button>
-            <input
-              id={`${id}-time`}
-              type="time"
-              step={3600}
-              aria-label="Landing time, UTC"
-              aria-describedby={`${id}-time-help`}
-              value={drafts.time ?? startUtc.slice(11, 16)}
-              onChange={(e) => {
-                // A cleared box waits; minutes round to the nearest hour, as the engine reads its hourly table, and the sentence says so.
-                const value = e.target.value;
-                draft({ time: value });
-                const r = withClock(startUtc, value);
-                if (r) move(r.startUtc, days, r.rounded ? `The Sun and Earth table is hourly, so ${value.slice(0, 5)} is read as ${r.startUtc.slice(11, 16)} UTC.` : null);
-              }}
-              onBlur={() => draft({ time: undefined })}
-              className="field w-[124px]"
-            />
-            <button type="button" aria-label="One hour later" onClick={() => shift(1)} className={STEP}>
-              ›
-            </button>
-            <label htmlFor={`${id}-time`} className="ml-1 text-base text-ink">
+          <span className="flex items-center gap-2">
+            <span className={GROUP}>
+              <button type="button" aria-label="One hour earlier" onClick={() => shift(-1)} className={`${STEP} border-r border-line`}>
+                ‹
+              </button>
+              <input
+                id={`${id}-time`}
+                type="time"
+                step={3600}
+                aria-label="Landing time, UTC"
+                aria-describedby={`${id}-time-help`}
+                value={drafts.time ?? startUtc.slice(11, 16)}
+                onChange={(e) => {
+                  // A cleared box waits; minutes round to the nearest hour, as the engine reads its hourly table, and the sentence says so.
+                  const value = e.target.value;
+                  draft({ time: value });
+                  const r = withClock(startUtc, value);
+                  if (r) move(r.startUtc, days, r.rounded ? `The Sun and Earth table is hourly, so ${value.slice(0, 5)} is read as ${r.startUtc.slice(11, 16)} UTC.` : null);
+                }}
+                onBlur={() => draft({ time: undefined })}
+                className={`${INNER} w-[132px] px-3`}
+              />
+              <button type="button" aria-label="One hour later" onClick={() => shift(1)} className={`${STEP} border-l border-line`}>
+                ›
+              </button>
+            </span>
+            <label htmlFor={`${id}-time`} className="text-base text-ink">
               UTC
             </label>
             <span id={`${id}-time-help`} hidden>
