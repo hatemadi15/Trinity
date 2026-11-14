@@ -20,7 +20,7 @@ import { fileName, scenarioFile } from '@/lib/scenario/file';
 import { paramsOf } from '@/lib/scenario/scenario';
 import { DEFAULT_PARAMS, DEFAULT_START, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
-import { READY_PAIRS } from '@/lib/viz/compare';
+import { READY_PAIRS, timingLine } from '@/lib/viz/compare';
 
 const LINK = 'font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink';
 /** The example the empty page leads with: a five-day slip at de Gerlache Rim 2, from the forecast's first landing. */
@@ -104,7 +104,7 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
           <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">
             Compare sites
           </h1>
-          <p className="mt-2 max-w-[46em] text-lg text-ink-2">A baseline and up to three changes to it: another landing time, another site, another lander. Each is worked out with its own settings.</p>
+          <p className="mt-2 max-w-[46em] text-lg text-ink-2">A baseline and up to three changes to it, each worked out with its own settings: another landing time, site or lander.</p>
         </div>
         {sc.problem && (
           <p role="status" className="text-[15px] text-bad">
@@ -149,11 +149,17 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
           </section>
         ) : (
           <>
-            <CompareStory cols={cols} />
+            {/* Alone, the baseline has nothing to compare with yet: its card, with what to do next, comes first. */}
+            {cols.length > 1 && <CompareStory cols={cols} />}
             <section aria-labelledby="h-scenarios" className="flex flex-col gap-4">
               <h2 id="h-scenarios" className="display text-[23px] font-semibold">
                 The scenarios
               </h2>
+              {cols.length === 1 && (
+                <p className="max-w-[60em] text-ink">
+                  {timingLine(cols)} Slip the landing, or find a nearby alternative, to compare it with this baseline.
+                </p>
+              )}
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {cols.map((c, i) => (
                   <ScenarioCard

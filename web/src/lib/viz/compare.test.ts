@@ -27,6 +27,8 @@ function outcome(o: Partial<Outcome> & { poweredH: number }): Outcome {
     firstEarthset: { at: 30, inHours: 30, leftHours: hours },
     sunAtLanding: true,
     earthAtLanding: true,
+    firstSunriseH: 0,
+    firstEarthriseH: 0,
     longestNightH: 300,
     batteryH: 10,
     answer: { tone: o.poweredH >= hours ? 'good' : 'bad', kind: 'night', title: 't', sentences: ['First.', 'The Sun sets behind the hills on 3 January, and the night lasts 16 days 15 hours.'], better: null, hint: null, poweredHours: o.poweredH, contactHours: 0 },
@@ -47,6 +49,9 @@ const cols: Column[] = [
       sunFraction: 0.408,
       earthFraction: 0.45,
       sunAtLanding: false,
+      firstSunriseH: 346,
+      earthAtLanding: false,
+      firstEarthriseH: 40,
       outage: { start: 0, end: 297, hours: 297, fromStart: true, toEnd: false },
       longestNightH: 346,
       verdict: 'power for 10 hours, then night',
@@ -106,9 +111,11 @@ describe('the figures side by side', () => {
     // Less time without Earth is better; an edge of the period cuts the delayed landing's, so it is "at least".
     expect(row('outage').cells[1]).toEqual({ value: 'at least 12 d 9 h', change: '+3 d 6 h', tone: 'worse' });
     expect(row('outage').cells[2]).toEqual({ value: '11 d 10 h', change: '+2 d 7 h', tone: 'worse' });
-    expect(row('sunset').cells[0]).toEqual({ value: '2 d 19 h after landing', change: null, tone: null });
-    expect(row('sunset').cells[1]).toEqual({ value: 'night at landing', change: 'was 2 d 19 h after landing', tone: 'worse' });
-    expect(row('sunset').cells[2]).toEqual({ value: 'none in the period', change: 'was 2 d 19 h after landing', tone: 'better' });
+    expect(row('sunset').cells[0]).toEqual({ value: '2 d 19 h', change: null, tone: null });
+    // A body not there at landing says when it first comes: the night at landing lasts 14 d 10 h.
+    expect(row('sunset').cells[1]).toEqual({ value: 'night at landing, rises after 14 d 10 h', change: 'was 2 d 19 h', tone: 'worse' });
+    expect(row('earthset').cells[1]).toEqual({ value: 'out of view at landing, rises after 1 d 16 h', change: 'was 1 d 6 h', tone: 'worse' });
+    expect(row('sunset').cells[2]).toEqual({ value: 'none in the period', change: 'was 2 d 19 h', tone: 'better' });
     expect(row('night').cells[2]).toEqual({ value: 'none', change: '−16 d 15 h', tone: 'better' });
     expect(row('verdict').cells[2]).toEqual({ value: 'power for all 30 days', change: null, tone: 'better' });
   });
@@ -135,7 +142,7 @@ describe('the comparison in words', () => {
   it('says what changed at the original site, with the reason', () => {
     const s = story(cols);
     expect(s.atOriginal).toEqual([
-      '5 days later (6 January 2027, 00:00 UTC): power for 10 hours instead of 3 days 4 hours. The period starts at night: the Sun is set behind the hills until it rises on 10 January. Sunlight 41 % of the period instead of 45 %; Radio contact while it has power: none, as before.',
+      '5 days later (6 January 2027, 00:00 UTC): power for 10 hours instead of 3 days 4 hours. The period starts at night: the Sun is set behind the hills until it rises on 10 January. Sunlight 41 % instead of 45 %; Radio contact while it has power: none, as before.',
     ]);
   });
 
@@ -143,9 +150,9 @@ describe('the comparison in words', () => {
     const s = story(cols);
     expect(s.alternative?.lead).toBe('Summit, 12 km from Rim, works better than “5 days later” at the same landing time (6 January 2027, 00:00 UTC): power for all 30 days instead of 10 hours.');
     expect(s.alternative?.tradeoffs).toEqual([
-      'Sunlight: 100 % of the period against 41 %: better.',
+      'Sunlight: 100 % against 41 %: better.',
       'Radio contact while it has power: 14 days 15 hours against none: better.',
-      'Earth in view: 49 % of the period against 45 %: better.',
+      'Earth in view: 49 % against 45 %: better.',
       'Longest time without Earth: 11 days 10 hours against at least 12 days 9 hours: better.',
     ]);
   });
@@ -163,6 +170,10 @@ describe('the comparison in words', () => {
 });
 
 describe('the landing times', () => {
+  it('says when the baseline alone lands', () => {
+    expect(timingLine([cols[0]])).toBe('The baseline lands 1 January 2027, 00:00 UTC.');
+  });
+
   it('says when every scenario lands at the same time', () => {
     expect(timingLine([cols[1], cols[2]])).toBe('Same landing time for every scenario: 6 January 2027, 00:00 UTC.');
   });

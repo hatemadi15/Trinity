@@ -68,14 +68,14 @@ describe('CompareView', () => {
     expect(row('Time with power')).toEqual(['3 d 4 h', '10 h−2 d 18 h, worse', 'all 30 days+26 d 20 h, better']);
     expect(row('Radio contact while it has power')).toEqual(['none', 'noneno change', '14 d 15 h+14 d 15 h, better']);
     expect(row('Sunlight')[2]).toBe('100 %+55 points, better');
-    expect(row('First sunset after landing')).toEqual(['2 d 19 h after landing', 'night at landingwas 2 d 19 h after landing, worse', 'none in the periodwas 2 d 19 h after landing, better']);
+    expect(row('First sunset after landing')).toEqual(['2 d 19 h', 'night at landing, rises after 14 d 10 hwas 2 d 19 h, worse', 'none in the periodwas 2 d 19 h, better']);
     // What changed at the original site, then which alternative works better and why, with the trade-offs.
     const story = screen.getByRole('region', { name: 'What changed, and what works better' });
     expect(story.textContent).toMatch(/Landing times differ: the figures compare different dates as well as places\./);
     expect(story.textContent).toMatch(/5 days later \(6 January 2027, 00:00 UTC\): power for 10 hours instead of 3 days 4 hours\. The period starts at night/);
     expect(story.textContent).toMatch(/de Gerlache rim summit, 12 km from de Gerlache Rim 2, works better than “5 days later” at the same landing time \(6 January 2027, 00:00 UTC\): power for all 30 days instead of 10 hours\./);
     expect(within(story).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
-      expect.arrayContaining(['Sunlight: 100 % of the period against 41 %: better.', 'Radio contact while it has power: 14 days 15 hours against none: better.']),
+      expect.arrayContaining(['Sunlight: 100 % against 41 %: better.', 'Radio contact while it has power: 14 days 15 hours against none: better.']),
     );
     // What the figures assume, and do not show, one tap away.
     expect(within(story).getByRole('button', { name: /What these figures assume, and what they do not show/ }).getAttribute('aria-expanded')).toBe('false');
@@ -115,6 +115,9 @@ describe('CompareView', () => {
     await open(st);
     baselineOf(st);
     const card = await screen.findByRole('group', { name: 'Baseline: Original landing' });
+    // Alone, the baseline has nothing to compare with yet: the scenarios come first, with what to do next.
+    expect(screen.queryByRole('region', { name: 'What changed, and what works better' })).toBeNull();
+    expect(screen.getByRole('main').textContent).toMatch(/The baseline lands 1 January 2027, 00:00 UTC\. Slip the landing, or find a nearby alternative, to compare it with this baseline\./);
     fireEvent.click(within(card).getByRole('button', { name: 'Add 5 days later' }));
     await waitFor(() => expect(st.scenarios.getState().scenarios.map((s) => s.label)).toEqual(['Original landing', '5 days later']));
     // With two scenarios, each card's slip waits behind its button.
@@ -210,6 +213,8 @@ describe('CompareView', () => {
     await example();
     const box = screen.getByRole('region', { name: 'The scenarios side by side' });
     expect(box.className).toMatch(/\boverflow-x-auto\b/);
+    // The words kept for screen readers are placed absolutely: the box holds them, or they would widen a phone's page.
+    expect(box.className).toMatch(/\brelative\b/);
     expect(box.getAttribute('tabindex')).toBe('0');
     for (const th of within(table()).getAllByRole('rowheader')) expect(th.className).toMatch(/\bsticky\b.*\bleft-0\b/);
     expect(screen.getByRole('main').querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);

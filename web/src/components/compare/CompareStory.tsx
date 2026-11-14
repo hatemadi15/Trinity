@@ -24,7 +24,6 @@ export function CompareStory({ cols }: { cols: Column[] }) {
         What changed, and what works better
       </h2>
       <p className="text-ink-2">{timingLine(cols)}</p>
-      {cols.length === 1 && <p className="max-w-[60em] text-ink">Slip the landing, or find a nearby alternative, to compare it with this baseline.</p>}
       {s.atOriginal.length > 0 && (
         <div>
           <h3 className="font-semibold text-ink">At the original site</h3>

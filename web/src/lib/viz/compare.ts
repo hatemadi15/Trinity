@@ -69,10 +69,14 @@ const outageSentence = (o: Outage | null) => (!o ? 'none' : `${o.fromStart || o.
 function setValue(o: Outcome, body: 'sun' | 'earth'): { text: string; rank: number } {
   const there = body === 'sun' ? o.sunAtLanding : o.earthAtLanding;
   const c = body === 'sun' ? o.firstSunset : o.firstEarthset;
-  // For the lander a later setting is better, a body missing at landing worst of all.
-  if (!there) return { text: body === 'sun' ? 'night at landing' : 'not in view at landing', rank: -1 };
+  // For the lander a later setting is better, a body missing at landing worst of all; when it is missing, when it first comes.
+  if (!there) {
+    const rise = body === 'sun' ? o.firstSunriseH : o.firstEarthriseH;
+    const lead = body === 'sun' ? 'night at landing' : 'out of view at landing';
+    return { text: rise === null ? `${lead}, all the period` : `${lead}, rises after ${spanShort(rise)}`, rank: -1 };
+  }
   if (c.inHours === null) return { text: 'none in the period', rank: Infinity };
-  return { text: `${spanShort(c.inHours)} after landing`, rank: c.inHours };
+  return { text: spanShort(c.inHours), rank: c.inHours };
 }
 
 function setCell(o: Outcome, b: Outcome, body: 'sun' | 'earth'): Cell {
@@ -80,7 +84,7 @@ function setCell(o: Outcome, b: Outcome, body: 'sun' | 'earth'): Cell {
   const y = setValue(b, body);
   const both = Number.isFinite(x.rank) && Number.isFinite(y.rank) && x.rank >= 0 && y.rank >= 0;
   const d = both ? x.rank - y.rank : x.rank === y.rank ? 0 : x.rank > y.rank ? 1 : -1;
-  const change = x.text === y.text ? 'no change' : both ? `${spanShort(Math.abs(d))} ${d > 0 ? 'later' : 'sooner'}` : `was ${y.text}`;
+  const change = x.text === y.text ? 'no change' : both ? `${spanShort(Math.abs(d))} ${d > 0 ? 'later' : 'sooner'}` : x.rank === y.rank ? 'changed' : `was ${y.text}`;
   return { value: x.text, change, tone: toneOf(d, true) };
 }
 
@@ -203,7 +207,7 @@ export function story(cols: Column[]): Story {
     const head = `${c.scenario.label} (${startWords(c.scenario.startUtc)})`;
     const power = o.poweredH === bo.poweredH ? `power as before: ${o.verdict}.` : `power for ${powerWords(o)} instead of ${powerWords(bo)}.`;
     const reason = o.poweredH === bo.poweredH ? null : powerReason(o);
-    const sun = `Sunlight ${pct0(o.sunFraction)} of the period instead of ${pct0(bo.sunFraction)}`;
+    const sun = `Sunlight ${pct0(o.sunFraction)} instead of ${pct0(bo.sunFraction)}`;
     const contact = o.poweredContactH === bo.poweredContactH ? `Radio contact while it has power: ${wordsOrNone(o.poweredContactH)}, as before.` : `Radio contact while it has power: ${wordsOrNone(o.poweredContactH)} instead of ${wordsOrNone(bo.poweredContactH)}.`;
     return [[`${head}: ${power}`, reason, `${sun}; ${contact}`].filter(Boolean).join(' ')];
   });
@@ -223,9 +227,9 @@ export function story(cols: Column[]): Story {
       : `, landing at another time (${startWords(best.scenario.startUtc)} against ${startWords(ref.scenario.startUtc)})`;
   const lead = `${best.siteName}, ${km} km from ${b.siteName}, ${works ? 'works better' : 'does not work better'} than ${quoted(ref)}${when}: power for ${powerWords(o)} instead of ${powerWords(r)}.`;
   const tradeoffs = [
-    againstWords('Sunlight', `${pct0(o.sunFraction)} of the period`, pct0(r.sunFraction), Math.round(o.sunFraction * 100) - Math.round(r.sunFraction * 100)),
+    againstWords('Sunlight', pct0(o.sunFraction), pct0(r.sunFraction), Math.round(o.sunFraction * 100) - Math.round(r.sunFraction * 100)),
     againstWords('Radio contact while it has power', wordsOrNone(o.poweredContactH), wordsOrNone(r.poweredContactH), o.poweredContactH - r.poweredContactH),
-    againstWords('Earth in view', `${pct0(o.earthFraction)} of the period`, pct0(r.earthFraction), Math.round(o.earthFraction * 100) - Math.round(r.earthFraction * 100)),
+    againstWords('Earth in view', pct0(o.earthFraction), pct0(r.earthFraction), Math.round(o.earthFraction * 100) - Math.round(r.earthFraction * 100)),
     againstWords('Longest time without Earth', outageSentence(o.outage), outageSentence(r.outage), outageHours(r.outage) - outageHours(o.outage)),
   ];
   return { atOriginal, alternative: { lead, tradeoffs } };
@@ -237,6 +241,7 @@ export function story(cols: Column[]): Story {
  */
 export function timingLine(cols: Column[]): string {
   if (cols.length === 0) return '';
+  if (cols.length === 1) return `The baseline lands ${startWords(cols[0].scenario.startUtc)}.`;
   const same = cols.every((c) => c.scenario.startUtc === cols[0].scenario.startUtc);
   const lead = same ? `Same landing time for every scenario: ${startWords(cols[0].scenario.startUtc)}.` : 'Landing times differ: the figures compare different dates as well as places.';
   const best = cols.filter((c) => c.scenario.timing === 'site-best').map((c) => `${quoted(c)} lands at ${c.siteName}’s own best time in its period, not a time it shares by choice.`);

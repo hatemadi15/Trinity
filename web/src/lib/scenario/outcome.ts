@@ -28,6 +28,10 @@ export interface Outcome {
   firstEarthset: Change;
   sunAtLanding: boolean;
   earthAtLanding: boolean;
+  /** Hours from landing to the first hour with the Sun up (0 when it is up at landing); null when it never rises in the period. */
+  firstSunriseH: number | null;
+  /** Hours from landing to the first hour with Earth in view (0 when it is at landing); null when it never comes into view. */
+  firstEarthriseH: number | null;
   /** The longest run of hours with no Sun in the period. */
   longestNightH: number;
   /** How long a full battery carries the lander with no Sun. */
@@ -38,6 +42,12 @@ export interface Outcome {
   verdict: string;
   /** The site's own best landing hour inside the period (hours from the landing), or null when no hour is sunlit. */
   best: Landing | null;
+}
+
+/** The first hour at which `up` holds, or null when it never does. */
+function firstUp(values: ArrayLike<number>, up: (v: number) => boolean): number | null {
+  for (let h = 0; h < values.length; h++) if (up(values[h])) return h;
+  return null;
 }
 
 /** The verdict without the place and date it starts with: what is left after "Landing at X on 1 January: ". */
@@ -64,6 +74,8 @@ export function outcomeOf(r: SiteResult, s: Scenario, siteName: string): Outcome
     firstEarthset: firstSetAfter(r.series, 'earth', 0),
     sunAtLanding: r.series.sunFraction[0] > 0,
     earthAtLanding: r.series.earthVisible[0] === 1,
+    firstSunriseH: firstUp(r.series.sunFraction, (f) => f > 0),
+    firstEarthriseH: firstUp(r.series.earthVisible, (v) => v === 1),
     longestNightH: r.summary.longestDarkH,
     batteryH: batteryHours(s.power),
     answer,
