@@ -1,5 +1,44 @@
 {
- "generated_utc": "2026-09-29T09:55:47+00:00",
+ "generated_utc": "2026-11-14T11:50:05+00:00",
+ "evidence": {
+  "kind": "context",
+  "title": "Historical mission context",
+  "establishes": "Nothing on its own: it sets our predicted local sunset after each CLPS landing beside the end of the mission its operator reported.",
+  "criteria": null,
+  "can_tell": [
+   "Whether our predicted sunset comes before or after a reported end, when the operator says the lander ran into the night (Blue Ghost Mission 1).",
+   "That the Sun was still up when IM-1 and IM-2 ended, so their ends had other causes."
+  ],
+  "cannot_tell": [
+   "The hour of sunset: reported ends are announcements, two of them without a published hour.",
+   "Whether a battery would last a night, or anything about a lander's power system.",
+   "How often the forecast is right: one lander that ran to sunset is one case, not a sample."
+  ],
+  "limitations": [
+   "Mission end times are reported events, not observed sunsets.",
+   "They are not battery-survival validation: a lander's end depends on its attitude, power system, temperatures and operations.",
+   "Blue Ghost's site is far from the pole and uses a flat horizon, which puts our sunset about 2.5 hours after the one Firefly reported."
+  ],
+  "coverage": {
+   "missions": 3,
+   "landed_utc": {
+    "im1_odysseus": "2024-02-22T23:23:00Z",
+    "im2_athena": "2025-03-06T17:30:00Z",
+    "blue_ghost_m1": "2025-03-02T08:34:00Z"
+   },
+   "end_hour_published": {
+    "im1_odysseus": false,
+    "im2_athena": false,
+    "blue_ghost_m1": true
+   },
+   "skylines": {
+    "im1_odysseus": "lola",
+    "im2_athena": "lola",
+    "blue_ghost_m1": "flat"
+   }
+  },
+  "command": "cd pipeline && uv run python -m lunar_pipeline.cli validate"
+ },
  "rows": [
   {
    "site_id": "im1_odysseus",

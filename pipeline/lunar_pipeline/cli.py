@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     fl.add_argument("--days", type=int, default=30)
     sub.add_parser("fixture-shadow", help="write golden shadow-sweep fixtures for the TS port")
     sub.add_parser("fixture-sky", help="write SPICE fixtures for the web's sky maths")
-    sub.add_parser("validate", help="write validation tables (Horizons, Mazarico, backcasts) into data/validation")
+    sub.add_parser("validate", help="write the evidence tables (Horizons, LOLA maps, power sums, mission context) into data/validation")
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
     sub.add_parser("home-assets", help="render the home page picture, the relief map and home.json into web/")
