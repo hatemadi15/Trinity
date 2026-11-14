@@ -181,6 +181,73 @@ describe('POST /api/chat task narrate', () => {
   });
 });
 
+/** A model that gives these answers in turn, the last one again after that. */
+const modelAnswers = (...contents: string[]) => {
+  let i = 0;
+  return vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: contents[Math.min(i++, contents.length - 1)] } }] }), { status: 200, headers: { 'content-type': 'application/json' } }));
+};
+
+describe('POST /api/chat narrate: each claim checked against the state', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it('falls back to the template, and says why, when a number in the state sits on the wrong measure', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    // 67 % is Earth in view in this state; sunlight is 100 %. The old check let this through.
+    const fetchMock = modelAnswer('Nobile Rim 2 sees the Sun 67 % of the time over these 14 days.');
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { problems?: string[] };
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect([json.source, json.reason]).toEqual(['template', 'numbers']);
+    expect(json.reply).toMatch(/^Nobile Rim 2 \(84\.202°S, 60\.700°E\)/);
+    expect(json.problems?.[0]).toMatch(/"67 %" for sunlight, where the figures say 100 %/);
+  });
+
+  it('falls back to the template on a cause the figures do not give', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubGlobal('fetch', modelAnswer('Nobile Rim 2 keeps power for all 14 days because it sits high on the crater rim.'));
+    const json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { problems?: string[] };
+    expect([json.source, json.reason]).toEqual(['template', 'numbers']);
+    expect(json.problems?.join(' ')).toMatch(/"because", a cause the figures do not give/);
+  });
+
+  it('names what failed in the retry, and takes a corrected paragraph', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    const good = 'Nobile Rim 2 sees the Sun 100 % of the time over these 14 days, and Earth is in view 67 % of the time.';
+    const fetchMock = modelAnswers('Nobile Rim 2 sees the Sun 67 % of the time, at 84.2°N.', good);
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply;
+    expect([json.source, json.reply]).toEqual(['model', good]);
+    const retry = JSON.parse(String((fetchMock.mock.calls as unknown as [string, RequestInit][])[1][1].body)) as { messages: { role: string; content: string }[] };
+    const nudge = retry.messages[retry.messages.length - 1].content;
+    expect(nudge).toMatch(/"67 %" for sunlight, where the figures say 100 %/);
+    expect(nudge).toMatch(/"84\.2°N" for the latitude, where the figures say 84\.202°S/);
+  });
+
+  it('names a site outside the state as a failure, from the catalogue', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubGlobal('fetch', modelAnswer('Nobile Rim 2 sees the Sun 100 % of the time, more than Malapert Massif.'));
+    const json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { problems?: string[] };
+    expect(json.source).toBe('template');
+    expect(json.problems?.join(' ')).toMatch(/"Malapert Massif", a site the figures do not cover/);
+  });
+
+  it('drops a planner sentence that puts a figure on the wrong measure or gives figures for a site outside the state', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubGlobal('fetch', modelAnswer('{"actions":[{"type":"select_site","id":"malapert_massif"}],"reply":"Selected Malapert Massif. It is sunlit 67 % of the time. Nobile Rim 2 is sunlit 67 % of the time."}'));
+    const json = (await (await POST(request({ prompt: 'show me malapert', state: STATE }))).json()) as Reply;
+    expect(json.source).toBe('model');
+    expect(json.reply).toBe('Selected Malapert Massif.');
+  });
+});
+
 describe('POST /api/chat fallbacks and limits', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
