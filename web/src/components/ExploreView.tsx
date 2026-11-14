@@ -14,6 +14,7 @@ import { LunaControls } from './luna/LunaControls';
 import { TimeChart } from './explore/TimeChart';
 import { VerdictPanel } from './explore/VerdictPanel';
 import { WhereOnMoon } from './explore/WhereOnMoon';
+import { YearView } from './explore/YearView';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { globeTextureUrl } from '@/lib/data/terrain';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
@@ -165,6 +166,8 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               contactHours={answer.contactHours}
             />
           </div>
+          {/* Every landing day of the next 12 months, one tap under the answer: a day pressed there lands the period on it. */}
+          <YearView eph={s.eph} site={site} mask={s.mask} startUtc={s.startUtc} days={s.days} params={s.params} onLand={(start) => s.setWindow(start, s.days)} />
           <TimeChart
             site={site}
             series={s.series}
