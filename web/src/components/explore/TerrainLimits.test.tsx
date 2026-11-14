@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
 import { Blob as NodeBlob } from 'node:buffer';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ExploreView } from '@/components/ExploreView';
+import { VerdictPanel } from '@/components/explore/VerdictPanel';
+import { computedReport, featuredReport } from '@/lib/engine/completeness';
+import type { Answer } from '@/lib/viz/answer';
+import { trustedAnswer, verdictLimitation } from '@/lib/viz/terrain';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { readJson } from '@/lib/engine/__tests__/helpers';
 import { MemoryTileSource, type TileLevel } from '@/lib/engine/tiles';
 import { handleEngineRequest } from '@/lib/engine/worker-handler';
@@ -120,4 +125,31 @@ describe('Explore says what the terrain behind its figures is', () => {
     expect(open_).toBeGreaterThan(150);
     expect(verdict().textContent).toContain(`Terrain incomplete: the elevation map is missing in ${open_} of 720 directions, from 100 km out.`);
   }, 120_000);
+});
+
+describe('the verdict keeps to its words with a terrain limit', () => {
+  // The pitch's first screen, the longest verdict: de Gerlache Rim 2 with the better day, the rim summit nearby and the way to stand there.
+  const night: Answer = {
+    tone: 'bad', kind: 'night', title: 'Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night',
+    sentences: ['No radio contact: Earth is out of view for all 3 days 4 hours with power.', 'The Sun sets behind the hills on 3 January, and the night lasts 16 days 15 hours.', 'The battery covers the first 10 hours of the night; power comes back on 20 January.'],
+    better: { hour: 466, startUtc: '2027-01-20T10:00:00', label: 'Land on 20 January instead', note: 'From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.' },
+    hint: null, poweredHours: 76, contactHours: 0,
+  };
+  const summit = { words: 'Nearby, de Gerlache rim summit (12 km away) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high' };
+  const coarser = featuredReport({ site_id: 'im1_odysseus', mast_m: 2, fallback_bands: [{ grid: 'ldem_60s_240m', r_min_m: 3880, r_max_m: 100_000, step_m: 120 }] });
+  const lost = computedReport(findingsWith(LOST_TILE), 5);
+
+  it('keeps the answer to 110 words before a tap with a terrain limit, folding what the limit is', () => {
+    for (const [report, nearby] of [
+      [coarser, summit],
+      [lost, null],
+    ] as const) {
+      render(<VerdictPanel answer={trustedAnswer(night, report, false)} limitation={verdictLimitation(report)} onLand={() => {}} onCompare={() => {}} onYear={() => {}} yearNote={null} nearby={nearby} standLink="/explore/stand" site={{ lat: -88.28, polar: true }} />);
+      const panel = screen.getByRole('region', { name: 'The answer' });
+      for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(110);
+      // The whole limit is one tap away, in the page.
+      expect(panel.textContent).toContain(verdictLimitation(report)!.detail);
+      cleanup();
+    }
+  });
 });

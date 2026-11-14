@@ -52,6 +52,19 @@ export function terrainLimitation(report: TerrainReport | undefined): string | n
   return null;
 }
 
+/**
+ * The verdict's share of a terrain limit, so the answer keeps to its words (spec 20.1): a short line for what a reader
+ * must see at once (an incomplete terrain, a flat horizon assumed), and the whole limit one tap away under `label`.
+ */
+export function verdictLimitation(report: TerrainReport | undefined): { line: string | null; label: string; detail: string } | null {
+  const detail = terrainLimitation(report);
+  if (!report || !detail) return null;
+  if (find(report, 'open')) return { line: 'Terrain incomplete: these figures may be too high.', label: 'What is missing', detail };
+  if (find(report, 'unreported')) return { line: 'Terrain unchecked: these figures may be too high.', label: 'What is missing', detail };
+  if (find(report, 'flat')) return { line: 'Flat horizon assumed: the hills around this place are left out.', label: 'About the terrain', detail };
+  return { line: null, label: 'About the terrain', detail };
+}
+
 /** A short tag for a row of the site list or of the comparison; null where nothing material limits the terrain. */
 export function terrainTag(report: TerrainReport | undefined): string | null {
   if (!report || report.quality === 'complete') return null;

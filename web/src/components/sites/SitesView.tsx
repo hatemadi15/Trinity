@@ -265,7 +265,6 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
         <div className="mt-6 flex flex-wrap items-end gap-4">
           <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
         </div>
-        <SkylineNote state={s} ids={catalogue.map((x) => x.id)} className="mt-3" />
         {s.error && (
           <p role="status" className="mt-3 text-warn">
             {s.error}
@@ -291,6 +290,8 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
           </section>
 
           <div>
+            {/* Over the rows that wait for their hills at a new mast height. */}
+            <SkylineNote state={s} ids={catalogue.map((x) => x.id)} className="mb-6" />
             {top && 'withheld' in top && (
               <p className="mb-8 text-[17px] text-ink">The longest time with power is not named: the terrain at {siteLabel(top.withheld)} is incomplete, so its figures may be too high.</p>
             )}

@@ -25,7 +25,7 @@ import { COMPARE_MAX, exploreStore, terrainOf, type ExploreState } from '@/lib/s
 import { timeWithPower } from '@/lib/engine/landing';
 import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
 import { dateTimeUtc } from '@/lib/viz/format';
-import { terrainLimitation, trustedAnswer, trustedOverview } from '@/lib/viz/terrain';
+import { trustedAnswer, trustedOverview, verdictLimitation } from '@/lib/viz/terrain';
 import { checkPick } from '@/lib/viz/pick';
 import { sceneStateAt } from '@/lib/viz/scene-state';
 import { keyMoments } from '@/lib/viz/stand';
@@ -157,7 +157,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
           <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
             <VerdictPanel
               answer={answer}
-              limitation={terrainLimitation(terrain)}
+              limitation={verdictLimitation(terrain)}
               site={site}
               nearby={nearby}
               standLink={standHref(site.id, s.startUtc, s.days, s.cursorHour)}

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { computedReport, featuredReport, flatReport, unreportedReport } from '../engine/completeness';
 import type { Answer } from './answer';
 import { findingsWith, LOST_TILE } from '@/test/terrain';
-import { pendingWords, pickProblem, provenanceWords, skylineProblem, statusLines, terrainDetails, terrainLimitation, terrainTag, trustedAnswer, trustedOverview, withheldNote } from './terrain';
+import { pendingWords, pickProblem, provenanceWords, skylineProblem, statusLines, terrainDetails, terrainLimitation, terrainTag, trustedAnswer, trustedOverview, verdictLimitation, withheldNote } from './terrain';
 
 const complete = computedReport(findingsWith(), 5);
 const lost = computedReport(findingsWith(LOST_TILE), 5);
@@ -34,6 +34,15 @@ describe('the limits of the terrain, in plain words', () => {
     expect(terrainTag(im1)).toBe('coarser map in places');
     const siteGrid = computedReport(findingsWith({}, { siteGrid: 'L1', plannedSiteGrid: 'L0' }), 2);
     expect(terrainLimitation(siteGrid)).toBe('The site’s own height comes from the 80 m map: the 20 m map has no data under it.');
+  });
+
+  it('gives the verdict a short line for an incomplete terrain or an assumed flat horizon, and folds the rest', () => {
+    expect(verdictLimitation(complete)).toBeNull();
+    expect(verdictLimitation(lost)).toEqual({ line: 'Terrain incomplete: these figures may be too high.', label: 'What is missing', detail: terrainLimitation(lost) });
+    expect(verdictLimitation(unreportedReport(5))).toEqual({ line: 'Terrain unchecked: these figures may be too high.', label: 'What is missing', detail: terrainLimitation(unreportedReport(5)) });
+    expect(verdictLimitation(flatReport())).toEqual({ line: 'Flat horizon assumed: the hills around this place are left out.', label: 'About the terrain', detail: terrainLimitation(flatReport()) });
+    // A coarser map in places leaves the figures standing: the detail waits one tap away.
+    expect(verdictLimitation(im1)).toEqual({ line: null, label: 'About the terrain', detail: terrainLimitation(im1) });
   });
 
   it('calls a flat horizon an assumption', () => {

@@ -6,6 +6,7 @@ import { readJson } from '@/lib/engine/__tests__/helpers';
 import { createExploreStore, type Loaders } from '@/lib/store/explore';
 import { fileLoaders, sites } from '@/test/file-loaders';
 import { findingsWith, LOST_TILE } from '@/test/terrain';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 
 /** A worker that returns each catalogue site's own skyline once `gate` opens; the march at `lostId` lost a tile. */
 function worker(gate: Promise<void>, lostId?: string): NonNullable<Loaders['computeMask']> {
@@ -35,6 +36,11 @@ describe('the site list shows only figures from the chosen mast, and what limits
     act(() => store.getState().setParams({ mastM: 5 }));
     await waitFor(() => expect(screen.getByRole('status', { name: 'The hills behind these figures' }).textContent).toBe(`Working out the hills seen from a 5 m mast for ${polar} sites…`));
     expect(rowOf('Haworth').textContent).toMatch(/working it out/);
+    // The line sits over the rows that wait, so the first screen keeps to its 105 words (spec 20.1).
+    const main = document.querySelector('main')!;
+    const top = [...main.children].filter((el) => el.tagName !== 'DIV' || !el.className.includes('xl:grid-cols'));
+    const map = main.querySelector('section[aria-label="Map of the sites"]')!;
+    for (const width of [WIDE, PHONE]) expect([...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(105);
     act(() => release());
     await waitFor(() => expect(screen.queryByRole('status', { name: 'The hills behind these figures' })).toBeNull(), { timeout: 30_000 });
     await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 30_000 });

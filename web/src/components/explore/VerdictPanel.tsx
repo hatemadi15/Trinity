@@ -42,8 +42,8 @@ export function VerdictPanel({
   standLink?: string;
   /** The site, for the grid its hills are read from in the row of data sources; without it the row names no grid. */
   site?: { lat: number; polar: boolean };
-  /** What limits the terrain behind the figures (lib/viz/terrain), said under the first sentence; null when it is complete. */
-  limitation?: string | null;
+  /** What limits the terrain behind the figures (lib/viz/terrain verdictLimitation): a short line under the first sentence, the whole limit one tap away; null when it is complete. */
+  limitation?: { line: string | null; label: string; detail: string } | null;
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -60,7 +60,12 @@ export function VerdictPanel({
       {/* The first sentence leads on a line of its own. The reasons wait one tap away under the stand view's words for
           them, since the first screen keeps one short answer (spec 20.1); an answer of one sentence has none to fold. */}
       <p className="mt-2.5 max-w-[42em] text-[17px] font-medium leading-relaxed text-ink">{answer.sentences[0]}</p>
-      {limitation && <p className="mt-2 max-w-[42em] text-[15px] font-medium text-warn">{limitation}</p>}
+      {limitation?.line && <p className="mt-2 max-w-[42em] text-[15px] font-medium text-warn">{limitation.line}</p>}
+      {limitation && (
+        <Fold label={limitation.label} className="mt-1">
+          <p className="max-w-[42em] text-[15px] text-ink">{limitation.detail}</p>
+        </Fold>
+      )}
       {answer.sentences.length > 1 && (
         <Fold label="Why this happens" className="mt-1">
           <p className="max-w-[42em] text-[17px] leading-relaxed text-ink">{answer.sentences.slice(1).join(' ')}</p>
