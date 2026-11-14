@@ -323,6 +323,33 @@ def terrain_offsets(base: dict, others: list[dict], kind: str) -> tuple[np.ndarr
     return np.where(lost, np.nan, worst), int(lost.sum())
 
 
+VERSIONS_LOST_SHARE = 0.05  # an event lost in more than one version in twenty is counted apart, as one a skyline loses
+
+
+def version_offsets(base: dict, versions: list[dict], kind: str) -> tuple[np.ndarray, int]:
+    """For each event under the app's skyline, the 95th percentile of its shift over the terrain versions (signed as that
+    version's shift), and how many events more than one version in twenty loses (those are NaN)."""
+    tb, db = _of_kind(base, kind)[:2]
+    if not versions or not tb.size:
+        return np.zeros(tb.shape), 0
+    shifts = np.stack([-match_offsets(tb, db, *_of_kind(v, kind)[:2], TERRAIN_WINDOW_H) for v in versions])  # versions x events
+    lost = np.mean(np.isnan(shifts), axis=0) > VERSIONS_LOST_SHARE
+    out = np.full(tb.shape, np.nan)
+    for j in np.flatnonzero(~lost):
+        s = shifts[:, j][np.isfinite(shifts[:, j])]
+        size = np.percentile(np.abs(s), 95)
+        out[j] = s[np.argmin(np.abs(np.abs(s) - size))] if s.size else 0.0
+    return out, int(lost.sum())
+
+
+def combine_offsets(a: tuple[np.ndarray, int], b: tuple[np.ndarray, int]) -> tuple[np.ndarray, int]:
+    """Two terrain spreads of the same events: the larger shift of each, NaN where either loses it, and the events either loses."""
+    x, y = a[0], b[0]
+    out = np.where(np.abs(np.nan_to_num(y)) > np.abs(np.nan_to_num(x)), y, x)
+    gone = np.isnan(x) | np.isnan(y)
+    return np.where(gone, np.nan, out), int(gone.sum())
+
+
 def ephemeris_seconds(rates_per_h: np.ndarray, angle_deg: float) -> dict:
     """The largest gap to Horizons as a time at each crossing: angle over the rate of the height above the skyline."""
     r = np.abs(np.asarray(rates_per_h, dtype=np.float64))
@@ -342,17 +369,24 @@ def plus_minus_h(sampling: dict, terrain: dict | None, ephemeris: dict, terrain_
     return round(float(sampling["p95_abs_h"]) + max(float(t), terrain_floor_h) + e, 3)
 
 
-def event_budget(hourly: dict, fine: dict, others: list[dict], kind: str, angle_deg: float, terrain_floor_h: float = 0.0) -> dict:
+def event_budget(hourly: dict, fine: dict, others: list[dict], kind: str, angle_deg: float, terrain_floor_h: float = 0.0, versions: list[dict] | None = None) -> dict:
     """One event kind at one site: the sampling error, the terrain spread and the ephemeris error, then their sum.
 
     `others` are the one-minute events under the other skylines; with none, the terrain is not measured and
-    `terrain_floor_h` stands for it (a flat horizon's stated allowance).
+    `terrain_floor_h` stands for it (a flat horizon's stated allowance). `versions`, the events under the terrain
+    versions, widen the terrain spread of each event to their 95th percentile shift where that is larger.
     """
     sampling = stats(sampling_offsets(hourly, fine, kind))
     terrain = None
     if others:
         off, lost = terrain_offsets(fine, others, kind)
-        terrain = {**stats(off), "lost": lost}
+        if versions:
+            v_off, v_lost = version_offsets(fine, versions, kind)
+            skylines = {**stats(off), "lost": lost}
+            off, lost = combine_offsets((off, lost), (v_off, v_lost))
+            terrain = {**stats(off), "lost": lost, "skylines": skylines, "versions": {**stats(v_off), "lost": v_lost}}
+        else:
+            terrain = {**stats(off), "lost": lost}
     flag = EVENT_FLAG[kind][0]
     # The battery's times follow the Sun's: its crossings carry the rate at which the planets' tables move them.
     rates = fine["lit"][2] if flag == "powered" else _of_kind(fine, kind)[2]
@@ -445,10 +479,15 @@ POINT_HALF_M = 200.0
 PSR_HALF_M = 10_000.0
 
 
-def terrain_quality(lat: float, lon: float, read=None) -> dict:
-    """The ground at a site from product 90: height error, effective resolution, slope and its error, 100 m roughness, nearest permanent shadow."""
+def terrain_quality(lat: float, lon: float, read=None) -> dict | None:
+    """The ground at a site from product 90: height error, effective resolution, slope and its error, 100 m roughness, nearest permanent shadow.
+
+    None north of 80 S, where product 90's 20 m and 50 m maps of the ground end.
+    """
     from .pgda90 import read_window
 
+    if lat > -80.0:
+        return None
     read = read or read_window
 
     def at(product: str, half: float = POINT_HALF_M) -> float | None:
@@ -549,8 +588,9 @@ def site_budget(
     step_s: float,
     angles: dict,
     terrain_floor_h: float = 0.0,
+    versions: np.ndarray | None = None,
 ) -> dict:
-    """Every event kind and duration at one site, from the hourly series, the one-minute sky and the other skylines."""
+    """Every event kind and duration at one site, from the hourly series, the one-minute sky, the other skylines and the terrain versions."""
     step_h = step_s / 3600.0
     per_hour = int(round(3600.0 / step_s))
     t_fine = np.arange(vectors.shape[0], dtype=np.float64) * step_h
@@ -566,10 +606,17 @@ def site_budget(
         lit_o, earth_o, pow_o = _flags(sk_o, cfg, step_h)
         other_ev.append(fine_events(sk_o, pow_o, t_fine))
         other_dur[name] = duration_metrics(lit_o, earth_o, pow_o, step_h)
+    version_ev: list[dict] = []
+    version_dur: list[dict] = []
+    for mask in versions if versions is not None else []:
+        sk_v = sky(vectors, site.lat, site.lon, mask)
+        lit_v, earth_v, pow_v = _flags(sk_v, cfg, step_h)
+        version_ev.append(fine_events(sk_v, pow_v, t_fine))
+        version_dur.append(duration_metrics(lit_v, earth_v, pow_v, step_h))
     events = {}
     for kind in EVENT_KINDS:
         angle = angles["earth" if EVENT_FLAG[kind][0] == "earth" else "sun"]["angle_deg"]
-        events[kind] = event_budget(h_ev, f_ev, other_ev, kind, angle, terrain_floor_h)
+        events[kind] = event_budget(h_ev, f_ev, other_ev, kind, angle, terrain_floor_h, version_ev)
     h_lit = np.asarray(hourly["sun_fraction"]) > 0.0
     h_earth = np.asarray(hourly["earth_visible"], dtype=bool)
     hours = h_lit.size
@@ -577,6 +624,14 @@ def site_budget(
     durations = {"hourly": duration_metrics(h_lit, h_earth, hp, 1.0), "fine": fine_dur, "other_skylines": other_dur}
     if other_dur:
         durations["terrain_max_abs"] = {k: round(max(abs(d[k] - fine_dur[k]) for d in other_dur.values()), 3) for k in fine_dur}
+    if version_dur:
+        # Each duration over the versions: its 5th, 50th and 95th percentiles, and the 95th of its change from the app's.
+        durations["versions"] = {
+            k: {"p05": round(float(np.percentile([d[k] for d in version_dur], 5)), 3), "median": round(float(np.median([d[k] for d in version_dur])), 3),
+                "p95": round(float(np.percentile([d[k] for d in version_dur], 95)), 3), "p95_abs_change": round(float(np.percentile([abs(d[k] - fine_dur[k]) for d in version_dur], 95)), 3)}
+            for k in fine_dur
+        }
+        durations["versions_count"] = len(version_dur)
     agreement = {
         "lit": float(np.mean(lit[::per_hour][:hours] == h_lit)),
         "earth": float(np.mean(earth[::per_hour][:hours] == h_earth)),
@@ -666,7 +721,14 @@ def build(
             floor = FLAT_HORIZON_ALLOWANCE_H
             entry["skyline"] = {"flat": True, "allowance_h": floor, "allowance_source": FLAT_HORIZON_SOURCE}
             entry["terrain_quality"] = None
-        entry.update(site_budget(site, vectors, hourly, app_mask, others, cfg, step_s, angles, floor))
+        versions = None
+        if site.polar:
+            from .ensemble import load_versions
+
+            got = load_versions(site.id)
+            versions = got[1] if got is not None else None
+            entry["terrain_versions"] = 0 if versions is None else int(versions.shape[0])
+        entry.update(site_budget(site, vectors, hourly, app_mask, others, cfg, step_s, angles, floor, versions))
         entries.append(entry)
     polar = [e for e in entries if e["polar"]]
     sources = [
@@ -720,8 +782,11 @@ METHOD = {
     "terrain": (
         "Skylines traced through PGDA product 90's adjusted models (20 m within 6 km south of 87.55° S, 80 m to 100 km, 240 m to 220 km, "
         "the app's bands, march and 2 m mast), and the same skylines raised and lowered by one stated height error (the ERR maps, at the "
-        "point that makes the skyline and at the site, over its distance). An event's terrain spread is the largest shift of its one-minute "
-        "time under those three skylines; an event that one of them loses is counted apart."
+        "point that makes the skyline and at the site, over its distance); and the site's terrain versions (data/ensemble), product 90's "
+        "models with errors drawn from the model fitted to the app's grids minus product 90's, which differ by several times the stated "
+        "error. An event's terrain spread is the larger of its largest shift under those three skylines and the 95th percentile of its "
+        "shifts over the versions; an event that one of the three skylines, or more than one version in twenty, loses is counted apart. "
+        "The raised and lowered skylines stay as a stand-in for the slow, coherent part of the error that the versions leave out."
     ),
     "ephemeris": (
         "The largest gap to JPL Horizons in height plus direction, for each body, divided by the rate of the body's height above the "
