@@ -1,16 +1,11 @@
 'use client';
 import { useMemo, useState, type RefObject } from 'react';
+import { DOWNLOAD_NOTE, Downloads } from '@/components/Downloads';
 import { Modal } from '@/components/Modal';
-import { aboutJson, hourlyCsv, numbersCsv, windowsCsv, type CsvFile, type ExportInput, type RadioWindowRow } from '@/lib/share/csv';
+import type { ExportInput, RadioWindowRow } from '@/lib/share/csv';
 import { copyText, saveFile } from '@/lib/share/download';
 import { collectProvenance } from '@/lib/share/provenance';
 import type { AppVersion, DataVersions } from '@/lib/share/versions';
-
-const CSV = 'text/csv;charset=utf-8';
-const JSON_TYPE = 'application/json';
-
-/** Now, as the settings file stamps it: an ISO time in UTC, to the second. */
-const nowUtc = () => `${new Date().toISOString().slice(0, 19)}Z`;
 
 /**
  * Share and download: the link that opens the same figures, with a button that copies it, and the figures as files,
@@ -40,13 +35,6 @@ export function ShareDialog({
 }) {
   const [said, setSaid] = useState('');
   const provenance = useMemo(() => collectProvenance(input, versions), [input, versions]);
-  const tables = (): CsvFile[] => [hourlyCsv(input), numbersCsv(input, provenance), windowsCsv(input, windows)];
-  const files: { label: string; note: string; type: string; make: () => { name: string; text: string } }[] = [
-    { label: 'Hour by hour (CSV)', note: `the Sun and Earth, the panel and the battery for each of the ${input.series.hours} hours`, type: CSV, make: () => tables()[0] },
-    { label: 'All numbers (CSV)', note: 'every figure, with the settings behind it', type: CSV, make: () => tables()[1] },
-    { label: 'Radio windows (CSV)', note: 'each time Earth is in view: when it opens and closes, and for how long', type: CSV, make: () => tables()[2] },
-    { label: 'Settings and sources (JSON)', note: 'the settings, versions, data sources and assumptions behind the tables, each column described, and the link', type: JSON_TYPE, make: () => aboutJson(input, provenance, link, tables(), nowUtc()) },
-  ];
   const onCopy = () => {
     copy(link).then(
       () => setSaid('Link copied.'),
@@ -67,26 +55,8 @@ export function ShareDialog({
         {said}
       </p>
       <h3 className="mt-3 font-semibold">Download the figures</h3>
-      <p className="mt-1 max-w-[52em] text-[15px] text-ink-2">
-        Times are in UTC. Each table is a plain CSV whose first row names the columns, so any spreadsheet opens it as it is; the settings, versions and data sources that made them are in the JSON file beside them, and on the printable brief.
-      </p>
-      <ul className="mt-3 grid gap-3">
-        {files.map((f) => (
-          <li key={f.label} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
-            <button
-              type="button"
-              onClick={() => {
-                const file = f.make();
-                save(file.name, file.text, f.type);
-              }}
-              className="btn shrink-0 sm:w-[17rem]"
-            >
-              {f.label}
-            </button>
-            <span className="text-[15px] text-ink-2">{f.note}</span>
-          </li>
-        ))}
-      </ul>
+      <p className="mt-1 mb-3 max-w-[52em] text-[15px] text-ink-2">{DOWNLOAD_NOTE}</p>
+      <Downloads input={input} provenance={provenance} link={link} windows={windows} save={save} />
     </Modal>
   );
 }

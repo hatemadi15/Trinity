@@ -12,6 +12,8 @@ export interface Provenance {
   site: { id: string; name: string; lat: number; lon: number; catalogue: string; approximate: boolean };
   /** The period in UTC, as ISO times with a Z: its first hour and the hour after its last. */
   period: { startUtc: string; endUtc: string; days: number; hours: number };
+  /** Every setting the figures depend on, as the store holds them. */
+  settings: PlannerParams;
   terrain: {
     kind: MaskMeta['source'] | 'unknown';
     /** Which skyline, made how and from what mast, in words. */
@@ -94,6 +96,7 @@ export function collectProvenance(input: ProvenanceInput, versions: { app: AppVe
       approximate: site.approximate === true,
     },
     period: { startUtc: z(etToIso(startEt)), endUtc: z(etToIso(startEt + hours * 3600)), days, hours },
+    settings: params,
     terrain: {
       kind: maskMeta?.source ?? 'unknown',
       mask: maskWords(site, maskMeta, mastM),
@@ -118,6 +121,20 @@ export function collectProvenance(input: ProvenanceInput, versions: { app: AppVe
   };
 }
 
+const PANEL_WORDS: Record<PlannerParams['power']['panel'], (facing: number) => string> = {
+  horizontal: () => 'flat on the deck (horizontal)',
+  vertical: (facing) => `upright, facing ${num(facing)}° from north (vertical)`,
+  vertical_tracking: () => 'turns to the Sun (vertical_tracking)',
+  full_tracking: () => 'follows the Sun in two axes (full_tracking)',
+};
+
+/** Every setting in one line, with its exact number: the panel, the load, the battery, the mast and Earth's clearance. */
+export function settingsLine(params: PlannerParams): string {
+  const p = params.power;
+  const earth = params.minEarthElDeg > 0 ? `Earth counts from ${num(params.minEarthElDeg)}° above the skyline` : 'Earth counts whenever it is above the skyline';
+  return `panel ${PANEL_WORDS[p.panel](p.panelAzimuthDeg)}, ${num(p.areaM2)} m², ${num(p.efficiency * 100)} % efficient; load ${num(p.loadW)} W; battery ${num(p.batteryWh)} Wh, ${num(p.initialSocFraction * 100)} % full at landing; mast ${num(params.mastM)} m; ${earth}`;
+}
+
 /** "2027-01-01 00:00" from "2027-01-01T00:00:00Z". */
 const minute = (isoZ: string) => isoZ.slice(0, 16).replace('T', ' ');
 
@@ -129,6 +146,7 @@ export function provenanceLines(p: Provenance): [string, string][] {
   const versions = [`Earthrise ${v.app ?? '(a development build)'}${v.commit ? `, commit ${v.commit}` : ''}`, v.sites && `site catalogue ${v.sites}`, v.ephemeris && `Sun and Earth table ${v.ephemeris}`].filter(Boolean).join('; ');
   return [
     ['Period (UTC)', `${minute(p.period.startUtc)} to ${minute(p.period.endUtc)} UTC, ${p.period.days} days, one value per hour`],
+    ['Settings', settingsLine(p.settings)],
     ['Site', `${p.site.name} (${p.site.id}), ${p.site.lat.toFixed(4)}°, ${p.site.lon.toFixed(4)}°: ${p.site.catalogue}${p.site.approximate ? '; the centre of a region drawn on NASA’s map, to about 5 km' : ''}`],
     ['Skyline', skyline],
     ['Sun and Earth', `${p.ephemeris.name}, hourly from ${minute(p.ephemeris.firstUtc)} to ${minute(p.ephemeris.lastUtc)} UTC`],

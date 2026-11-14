@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PARAMS } from '../store/explore';
 import { eph, sites } from '@/test/file-loaders';
-import { collectProvenance, provenanceLines } from './provenance';
+import { collectProvenance, provenanceLines, settingsLine } from './provenance';
 import { loadDataVersions } from './versions';
 
 const site = (id: string) => sites.find((s) => s.id === id)!;
@@ -48,6 +48,10 @@ describe('collectProvenance', () => {
     const p = collectProvenance({ site: site('de_gerlache_rim_2'), maskMeta: { siteHeightM: 190.33, source: 'featured', failedTiles: 0, mastM: 2 }, params: DEFAULT_PARAMS, eph, startUtc: '2027-01-01T00:00:00', days: 30 }, versions);
     const lines = Object.fromEntries(provenanceLines(p));
     expect(lines['Period (UTC)']).toBe('2027-01-01 00:00 to 2027-01-31 00:00 UTC, 30 days, one value per hour');
+    expect(lines.Settings).toBe('panel turns to the Sun (vertical_tracking), 4 m², 30 % efficient; load 200 W; battery 2000 Wh, 100 % full at landing; mast 2 m; Earth counts whenever it is above the skyline');
+    expect(settingsLine({ ...DEFAULT_PARAMS, minEarthElDeg: 1.5, mastM: 5, power: { ...DEFAULT_PARAMS.power, panel: 'vertical', panelAzimuthDeg: 90, efficiency: 33.3 / 100 } })).toBe(
+      'panel upright, facing 90° from north (vertical), 4 m², 33.3 % efficient; load 200 W; battery 2000 Wh, 100 % full at landing; mast 5 m; Earth counts from 1.5° above the skyline',
+    );
     expect(lines.Skyline).toMatch(/^the precomputed skyline file masks\/de_gerlache_rim_2\.json.*; LOLA LDEM 20 m/);
     expect(lines['Sun and Earth']).toBe('JPL DE440 through NAIF SPICE, the Sun and Earth seen from the Moon, hourly from 2024-01-01 00:00 to 2036-12-31 23:00 UTC');
     expect(lines.Versions).toBe('Earthrise 0.1.0, commit abc123def456; site catalogue sites.json version 1, sites_derived.json version 1; Sun and Earth table made 2026-09-28T20:53:33+00:00, SHA-256 279fad83a151');
