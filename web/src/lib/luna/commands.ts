@@ -31,6 +31,7 @@ export type Control =
   | 'brighter-on'
   | 'brighter-off'
   | 'better-day'
+  | 'year'
   | 'fly';
 
 /** Where Luna can take you: the app's pages, the view from the site and the home page among them. */
@@ -185,6 +186,7 @@ const CONTROLS: [RegExp, Control][] = [
   [/^(?:brighter|brighter picture|make it brighter|brighten(?: it)?(?: up)?|it's too dark|too dark|turn on brighter picture)$/, 'brighter-on'],
   [/^(?:normal brightness|less bright|darker|dimmer|turn off brighter picture)$/, 'brighter-off'],
   [/^(?:(?:land on|try|use|switch to|go to) (?:the )?better (?:day|date)(?: instead)?|(?:the )?better (?:day|date))$/, 'better-day'],
+  [/^(?:(?:show (?:me )?)?(?:the )?(?:whole )?year(?: at a glance)?|(?:show (?:me )?)?(?:every|all(?: the)?) landing days?)$/, 'year'],
   [/^(?:fly to the (?:south )?pole|fly (?:me )?to the south pole|take off|start the flight|fly)$/, 'fly'],
 ];
 

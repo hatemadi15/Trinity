@@ -70,6 +70,24 @@ describe('what Luna does with a command', () => {
     expect(better).toMatch(/Explore|view from the site/);
   });
 
+  it('opens the forecast to show the year from a page without it, where the year then shows itself', async () => {
+    const store = await loaded();
+    const d = deps(store, '/sites');
+    expect(await runCommand({ kind: 'control', control: 'year' }, d)).toBe('Opening the forecast, with every landing day of the next 12 months.');
+    expect(d.navigate).toHaveBeenCalledWith('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    // The forecast lends the year once it is there, and the year waiting for it runs.
+    vi.useFakeTimers();
+    try {
+      const show = vi.fn();
+      const off = registerControls({ year: show });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(show).toHaveBeenCalledTimes(1);
+      off();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('takes you to each page, Explore and the view from the site on the site and period chosen', async () => {
     const store = await loaded();
     const d = deps(store, '/');
