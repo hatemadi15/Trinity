@@ -72,6 +72,14 @@ describe('prompts', () => {
     expect(u).toContain('what is the longest night?');
     expect(userPrompt('hi', null)).toMatch(/no site is selected/i);
   });
+
+  it('names the power flag for what it measures, power lasting the whole period, not survival: the figures count electrical energy only', () => {
+    const state = { site: { id: 'haworth' }, power: { poweredHours: 336, survives: true }, compare: [{ id: 'malapert_massif', survives: false }] };
+    const u = userPrompt('will it survive?', state as never);
+    expect(u).toContain('"powerLastsWholePeriod": true');
+    expect(u).toContain('"powerLastsWholePeriod": false');
+    expect(u.replace('will it survive?', '')).not.toMatch(/surviv/i);
+  });
 });
 
 describe('parseModelReply envelope', () => {
