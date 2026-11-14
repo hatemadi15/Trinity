@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POWER } from '@/lib/engine/power';
+import { NO_REQUIREMENTS } from '@/lib/plan/requirements';
 import { comparisonHref, readComparison, writeComparison, LINK_VERSION } from './codec';
 import type { Scenario } from './scenario';
 
@@ -86,5 +87,32 @@ describe('the comparison in a link', () => {
   it('keeps at most four scenarios', () => {
     const q = writeComparison([base, later, near, custom, { ...base, id: 'e' }]);
     expect(readComparison(q).scenarios).toHaveLength(4);
+  });
+});
+
+describe('the requirements in a comparison’s link', () => {
+  const req = { ...NO_REQUIREMENTS, minPoweredH: 120, maxOutageH: 72 };
+
+  it('carries the requirements set after the scenarios, named as Explore’s link names them, and reads them back exactly', () => {
+    const q = writeComparison([base, later], req);
+    expect(q).toBe(`${writeComparison([base, later])}&minpower=120&maxgap=72`);
+    const back = readComparison(q);
+    expect(back.requirements).toEqual(req);
+    expect(back.problem).toBeNull();
+    expect(back.scenarios.map(settings)).toEqual([base, later].map(settings));
+    expect(comparisonHref([base], '/compare/brief', req)).toBe(`/compare/brief?${writeComparison([base])}&minpower=120&maxgap=72`);
+  });
+
+  it('names none when none is set, and still reads a link of this version made before them', () => {
+    expect(writeComparison([base], NO_REQUIREMENTS)).toBe(writeComparison([base]));
+    expect(comparisonHref([], '/compare', req)).toBe('/compare');
+    expect(readComparison(writeComparison([base])).requirements).toBeUndefined();
+    expect(readComparison(writeComparison([base])).scenarios).toHaveLength(1);
+  });
+
+  it('takes the requirements it names as one set, a malformed one left out, and none from a newer version', () => {
+    expect(readComparison(`${writeComparison([base])}&minpower=lots&mincontact=24`).requirements).toEqual({ ...NO_REQUIREMENTS, minPoweredContactH: 24 });
+    expect(readComparison(`${writeComparison([base])}&minpower=lots`).requirements).toBeUndefined();
+    expect(readComparison('v=9&s=x&minpower=120').requirements).toBeUndefined();
   });
 });

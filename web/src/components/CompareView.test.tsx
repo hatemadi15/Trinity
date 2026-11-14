@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NO_REQUIREMENTS } from '@/lib/plan/requirements';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { scenarioFile } from '@/lib/scenario/file';
 import { createExploreStore } from '@/lib/store/explore';
@@ -97,6 +98,47 @@ describe('CompareView', () => {
     await fresh.scenarios.getState().settle();
     await screen.findByRole('table');
     expect(names.map(row)).toEqual(before);
+  });
+
+  it('carries the requirements in its address and its brief, so a fresh browser checks every scenario against the same ones', async () => {
+    const st = stores();
+    st.explore.getState().setRequirements({ minPoweredH: 120 });
+    const first = await example(st);
+    const req = { ...NO_REQUIREMENTS, minPoweredH: 120 };
+    const href = comparisonHref(first.scenarios.getState().scenarios, '/compare', req);
+    expect(href).toMatch(/&minpower=120$/);
+    await waitFor(() => expect(`${window.location.pathname}${window.location.search}`).toBe(href));
+    expect(screen.getByRole('link', { name: 'Printable comparison brief' }).getAttribute('href')).toBe(comparisonHref(first.scenarios.getState().scenarios, '/compare/brief', req));
+    const before = row('Your requirements');
+    cleanup();
+    // A colleague's browser, with requirements of its own: the link's replace them.
+    window.history.replaceState(null, '', href);
+    const fresh = stores();
+    fresh.explore.getState().setRequirements({ maxOutageH: 72 });
+    await open(fresh);
+    await waitFor(() => expect(fresh.scenarios.getState().scenarios).toHaveLength(3));
+    expect(fresh.explore.getState().requirements).toEqual(req);
+    await fresh.scenarios.getState().settle();
+    await screen.findByRole('table');
+    expect(row('Your requirements')).toEqual(before);
+  });
+
+  it('opens a scenario file with the requirements it was saved with, and says they are set', async () => {
+    const first = await example();
+    const req = { ...NO_REQUIREMENTS, maxOutageH: 72 };
+    const cols = columnsOf(first.scenarios.getState().scenarios, first.scenarios.getState().runs, first.explore.getState().sites, req);
+    const text = JSON.stringify(scenarioFile(cols, { data: null, ephemeris: null, sites: null, terrain: null }, new Date(), req));
+    cleanup();
+    window.history.replaceState(null, '', '/compare');
+    const st = stores();
+    await open(st);
+    const input = screen.getByLabelText('Open a scenario file') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File([text], 'earthrise-comparison.json', { type: 'application/json' })] } });
+    await waitFor(() => expect(screen.getByRole('main').textContent).toContain('The file’s 3 scenarios replace the ones that were on this page, and the requirements saved with it are set.'));
+    expect(st.scenarios.getState().scenarios).toHaveLength(3);
+    expect(st.explore.getState().requirements).toEqual(req);
+    await st.scenarios.getState().settle();
+    await waitFor(() => expect(within(table()).getByRole('rowheader', { name: 'Your requirements' })).toBeTruthy());
   });
 
   it('says so when a link cannot be read, and keeps an old /compare address working', async () => {

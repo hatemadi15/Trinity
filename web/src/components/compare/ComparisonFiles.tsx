@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useId, useState } from 'react';
+import type { Requirements } from '@/lib/plan/requirements';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { figureDifferences, figuresOf, fileName, readScenarioFile, scenarioFile, type FileColumn, type FileFigures } from '@/lib/scenario/file';
 import { loadDataVersions, UNKNOWN_VERSIONS, type DataVersions } from '@/lib/scenario/versions';
@@ -50,6 +51,8 @@ export interface Opened {
   scenarios: Scenario[];
   figures: (FileFigures | null)[];
   problem: string | null;
+  /** The requirements saved with the file, as one set; absent when it holds none. */
+  requirements?: Requirements;
 }
 
 /** Whether the figures worked out now are the file's, in one sentence. */
@@ -62,14 +65,14 @@ export function checkWords(opened: Opened, now: (FileColumn | null)[]): string |
 }
 
 /**
- * The comparison to share and keep: its link (the address carries every setting), a file of it, a file opened, and the
- * printable comparison brief.
+ * The comparison to share and keep: its link (the address carries every setting, and the requirements set), a file of
+ * it, a file opened, and the printable comparison brief.
  */
-export function ComparisonFiles({ cols, onOpen, check }: { cols: FileColumn[]; onOpen: (o: Opened) => void; check: string | null }) {
+export function ComparisonFiles({ cols, requirements = null, onOpen, check }: { cols: FileColumn[]; requirements?: Requirements | null; onOpen: (o: Opened) => void; check: string | null }) {
   const id = useId();
   const versions = useDataVersions();
   const [copied, setCopied] = useState<string | null>(null);
-  const href = comparisonHref(cols.map((c) => c.scenario));
+  const href = comparisonHref(cols.map((c) => c.scenario), '/compare', requirements);
   const copy = async () => {
     const url = `${window.location.origin}${href}`;
     try {
@@ -90,10 +93,10 @@ export function ComparisonFiles({ cols, onOpen, check }: { cols: FileColumn[]; o
             <button type="button" onClick={() => void copy()} className={QUIET}>
               Copy the link
             </button>
-            <button type="button" onClick={() => saveFile(fileName(cols), `${JSON.stringify(scenarioFile(cols, versions), null, 2)}\n`)} className={QUIET}>
+            <button type="button" onClick={() => saveFile(fileName(cols), `${JSON.stringify(scenarioFile(cols, versions, new Date(), requirements), null, 2)}\n`)} className={QUIET}>
               Save as a file
             </button>
-            <Link href={comparisonHref(cols.map((c) => c.scenario), '/compare/brief')} className={QUIET}>
+            <Link href={comparisonHref(cols.map((c) => c.scenario), '/compare/brief', requirements)} className={QUIET}>
               Printable comparison brief
             </Link>
           </>
@@ -110,7 +113,7 @@ export function ComparisonFiles({ cols, onOpen, check }: { cols: FileColumn[]; o
               if (!file) return;
               void readText(file).then((text) => {
                 const r = readScenarioFile(text);
-                onOpen({ scenarios: r.scenarios, figures: r.figures, problem: r.problem });
+                onOpen({ scenarios: r.scenarios, figures: r.figures, problem: r.problem, ...(r.requirements ? { requirements: r.requirements } : {}) });
               });
             }}
           />

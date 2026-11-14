@@ -2,6 +2,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_POWER } from '@/lib/engine/power';
+import { NO_REQUIREMENTS } from '@/lib/plan/requirements';
 import { comparisonHref } from '@/lib/scenario/codec';
 import type { Scenario } from '@/lib/scenario/scenario';
 import { APP } from '@/lib/scenario/versions';
@@ -80,6 +81,16 @@ describe('ComparisonBrief', () => {
       'Fails your requirement.Fails Power for at least 5 d: 3 d 4 h, 1 d 20 h short',
       'Meets your requirement.1 fewer failed against the baseline, betterMeets Power for at least 5 d: 30 d, 25 d to spare',
     ]);
+  });
+
+  it('reads the requirements its link names, checks every scenario against them, and gives them to the way back', async () => {
+    const req = { ...NO_REQUIREMENTS, minPoweredH: 120 };
+    window.history.replaceState(null, '', comparisonHref([base, near], '/compare/brief', req));
+    await open();
+    const table = within(screen.getByRole('region', { name: 'The scenarios side by side' })).getByRole('table');
+    expect(within(table).getByRole('rowheader', { name: 'Your requirements' }).parentElement!.textContent).toContain('Fails Power for at least 5 d: 3 d 4 h, 1 d 20 h short');
+    expect(screen.getByRole('link', { name: 'Back to Compare' }).getAttribute('href')).toBe(comparisonHref([base, near], '/compare', req));
+    expect(screen.getByRole('main').textContent).toContain(`The same comparison opens again at ${window.location.origin}${comparisonHref([base, near], '/compare', req)}`);
   });
 
   it('says so when there is no comparison to print', async () => {

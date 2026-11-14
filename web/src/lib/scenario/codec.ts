@@ -1,5 +1,7 @@
 import type { PanelModel, PowerConfig } from '../engine/power';
+import { NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
 import { PARAM_RANGES, POWER_RANGES, type NumberRange } from '../planner-ranges';
+import { parseRequirements, requirementEntries } from '../share/settings';
 import { customPoint } from '../store/query';
 import { periodDays, periodProblem } from './period';
 import type { Scenario, Timing } from './scenario';
@@ -9,8 +11,10 @@ import type { Scenario, Timing } from './scenario';
  * scenario's settings, every one of them, as short fields joined by "~" (the site, the landing to the hour in UTC, the
  * length, the lander's seven numbers, the mast, the clearance for Earth, how the landing time was chosen, and which
  * scenario it was made from); each `l` is that scenario's label. Every setting is written out, so a colleague's
- * browser works out the same figures even if the app's defaults change. An address without `v` is an old /compare
- * link, left to the page as it was.
+ * browser works out the same figures even if the app's defaults change. The mission's requirements that are set follow,
+ * in hours, named as Explore's link names them (`minpower`, `earthby`, `maxgap`, `mincontact`), so every scenario is
+ * checked against the same ones; a link of this version without them still reads. An address without `v` is an old
+ * /compare link, left to the page as it was.
  */
 
 export const LINK_VERSION = 1;
@@ -34,17 +38,18 @@ function fieldsOf(s: Scenario, index: Map<string, number>): string {
   return [s.siteId, start, s.days, PANELS[p.panel], num(p.panelAzimuthDeg), num(p.areaM2), num(p.efficiency), num(p.loadW), num(p.batteryWh), num(p.initialSocFraction), num(s.mastM), num(s.minEarthElDeg), TIMING[s.timing], from].join('~');
 }
 
-/** The query of a comparison's link, without the question mark; empty for no scenarios. */
-export function writeComparison(list: Scenario[]): string {
+/** The query of a comparison's link, without the question mark, with the requirements set in `req`; empty for no scenarios. */
+export function writeComparison(list: Scenario[], req: Requirements | null = null): string {
   const kept = list.slice(0, SCENARIO_MAX);
   if (kept.length === 0) return '';
   const index = new Map(kept.map((s, i) => [s.id, i]));
-  return [`v=${LINK_VERSION}`, ...kept.map((s) => `s=${fieldsOf(s, index)}&l=${encodeURIComponent(s.label)}`)].join('&');
+  const needs = req ? requirementEntries(req).map(([k, v]) => `${k}=${encodeURIComponent(v)}`) : [];
+  return [`v=${LINK_VERSION}`, ...kept.map((s) => `s=${fieldsOf(s, index)}&l=${encodeURIComponent(s.label)}`), ...needs].join('&');
 }
 
-/** The address of Compare showing this comparison. */
-export function comparisonHref(list: Scenario[], path = '/compare'): string {
-  const q = writeComparison(list);
+/** The address of Compare showing this comparison, checked against the requirements set in `req`. */
+export function comparisonHref(list: Scenario[], path = '/compare', req: Requirements | null = null): string {
+  const q = writeComparison(list, req);
   return q ? `${path}?${q}` : path;
 }
 
@@ -55,6 +60,11 @@ export interface ReadComparison {
   problem: string | null;
   /** True when the address carries a comparison at all (an old /compare link does not). */
   found: boolean;
+  /**
+   * The mission's requirements the link names, as one set (those it leaves out are none); absent when it names none it
+   * can read, so the visit keeps its own.
+   */
+  requirements?: Requirements;
 }
 
 /** A number within a range, or null. */
@@ -167,5 +177,6 @@ export function readComparison(search: string | URLSearchParams): ReadComparison
   const read = all.slice(0, SCENARIO_MAX).map((fields, i) => scenarioOf(fields, labels[i] ?? null, i));
   const scenarios = withIds(read);
   const problem = unreadWords(read.filter((r) => r === null).length, 'this link');
-  return { scenarios, problem, found: true };
+  const needs = parseRequirements(q);
+  return { scenarios, problem, found: true, ...(Object.keys(needs).length > 0 ? { requirements: { ...NO_REQUIREMENTS, ...needs } } : {}) };
 }

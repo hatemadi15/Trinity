@@ -137,7 +137,7 @@ export function ExploreView({
 
   // "Compare from here": this landing, with every setting, as a comparison's baseline; Compare opens on its link.
   const onScenario = useCallback(() => {
-    if (scenarios.getState().startFrom(store.getState())) go(comparisonHref(scenarios.getState().scenarios));
+    if (scenarios.getState().startFrom(store.getState())) go(comparisonHref(scenarios.getState().scenarios, '/compare', store.getState().requirements));
   }, [store, scenarios, go]);
 
   const scene = useMemo(() => (s.eph && s.series && s.mask ? sceneStateAt(s.eph, s.series, s.mask, s.cursorHour) : null), [s.eph, s.series, s.mask, s.cursorHour]);

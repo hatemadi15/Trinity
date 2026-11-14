@@ -59,10 +59,13 @@ describe('the planner’s store', () => {
     expect(s.params.power).toMatchObject({ loadW: 300, batteryWh: 3000 });
     expect(navigate).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^/explore\\?site=${first.site.id}&start=`)));
     expect(said).toMatch(/^Explore is on /);
+    // The requirements the landing was chosen by go with it, as one set, in the store and in the link with the lander.
+    expect(s.requirements).toEqual({ minPoweredH: 120, contactWithinH: 0, maxOutageH: 72, minPoweredContactH: null });
+    expect(navigate.mock.calls[0][0]).toMatch(/&days=14&load=300&battery=3000&minpower=120&earthby=0&maxgap=72$/);
   });
 
   it('opens Compare with the top results as scenarios, each at its own best landing time', async () => {
-    const { plan, scenarios } = await stores();
+    const { plan, scenarios, explore } = await stores();
     plan.getState().hear(EXAMPLE);
     const answer = (await plan.getState().search())!;
     const navigate = vi.fn();
@@ -73,6 +76,10 @@ describe('the planner’s store', () => {
     expect(read.scenarios.map((x) => [x.siteId, x.startUtc, x.days, x.timing])).toEqual(answer.shown.map((f) => [f.site.id, f.best!.item.utc, 14, 'site-best']));
     expect(read.scenarios[0].power).toMatchObject({ loadW: 300, batteryWh: 3000 });
     expect(scenarios.getState().scenarios.map((x) => x.siteId)).toEqual(answer.shown.map((f) => f.site.id));
+    // Compare checks each against the requirements they were ranked by.
+    const req = { minPoweredH: 120, contactWithinH: 0, maxOutageH: 72, minPoweredContactH: null };
+    expect(read.requirements).toEqual(req);
+    expect(explore.getState().requirements).toEqual(req);
   });
 
   it('takes the model’s fields only where the words did not give them, and only numbers found in the words', async () => {

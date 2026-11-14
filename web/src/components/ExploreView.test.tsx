@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NO_REQUIREMENTS } from '@/lib/plan/requirements';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { createExploreStore } from '@/lib/store/explore';
 import { createScenarioStore } from '@/lib/store/scenarios';
@@ -158,6 +159,10 @@ describe('ExploreView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Compare from here' }));
     expect(scenarios.getState().scenarios).toMatchObject([{ label: 'Original landing', siteId: 'de_gerlache_rim_2', startUtc: '2027-01-01T00:00:00', days: 30, mastM: 2, minEarthElDeg: 0 }]);
     expect(navigate).toHaveBeenCalledWith(comparisonHref(scenarios.getState().scenarios));
+    // With requirements set, Compare opens on a link that carries them, so its address can be sent on as it is.
+    act(() => store.getState().setRequirements({ minPoweredH: 120 }));
+    fireEvent.click(screen.getByRole('button', { name: 'Compare from here' }));
+    expect(navigate).toHaveBeenLastCalledWith(comparisonHref(scenarios.getState().scenarios, '/compare', { ...NO_REQUIREMENTS, minPoweredH: 120 }));
   });
 
   it('puts the answer first and the time bar last, and names every region', async () => {
