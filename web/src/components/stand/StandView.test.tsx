@@ -124,6 +124,17 @@ describe('StandView', () => {
     expect(whole.className).toMatch(/\bmd:hidden\b/);
     expect(follows(first, whole)).toBe(true);
   });
+  it('counts down in today’s card to the next sunset or sunrise and to Earth rising or setting, at every width, as the hour moves', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    openCard();
+    const line = () => document.getElementById('stand-card')!.querySelector<HTMLElement>('[data-countdown]')!;
+    expect(line().textContent).toBe('Sunset in 2 d 9 h · Earth rises in 8 d 17 h');
+    expect(line().className).not.toMatch(/hidden/);
+    // Under where you stand, before the line on what to watch.
+    expect(asRead(line().previousElementSibling!.textContent!)).toMatch(/^Standing at de Gerlache Rim 2/);
+    act(() => store.getState().setCursor(300));
+    await waitFor(() => expect(line().textContent).toBe('Sunrise in 6 d 22 h · Earth sets in 10 d 3 h'));
+  });
   it('opens with the guides off, shows the days on the paths and the level horizon on "Show paths", which then reads "Hide paths", and hides them with the words', async () => {
     window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const store = createExploreStore(fileLoaders());

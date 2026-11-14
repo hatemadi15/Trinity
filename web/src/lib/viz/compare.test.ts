@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type { SiteResult } from '@/lib/store/explore';
 import { bestSentence, compareRow, READY_PAIRS } from './compare';
 
-/** A compared site with only what the table reads. */
-function result(id: string, label: string, o: { sun: number; earth: number; nightH: number; brownout: number | null; backAt?: number; hours?: number }): SiteResult {
+/** A compared site with only what the table reads; Earth in view over `earthHours` ([from, to) runs), none by default. */
+function result(id: string, label: string, o: { sun: number; earth: number; nightH: number; brownout: number | null; backAt?: number; hours?: number; earthHours?: [number, number][] }): SiteResult {
   const hours = o.hours ?? 720;
   // Powered until the brownout, off until `backAt` (or to the end), then powered again.
   const powered = Uint8Array.from({ length: hours }, (_, h) => (o.brownout === null || h < o.brownout || (o.backAt !== undefined && h >= o.backAt) ? 1 : 0));
+  const earthVisible = Uint8Array.from({ length: hours }, (_, h) => ((o.earthHours ?? []).some(([from, to]) => h >= from && h < to) ? 1 : 0));
   return {
     site: { id, name: `${label} (formal)`, label, lat: -88, lon: 0, category: 'x', polar: true, source: 'x' },
+    series: { hours, earthVisible },
     summary: { hours, illumFraction: o.sun, meanSunFraction: o.sun, longestDarkH: o.nightH, earthVisFraction: o.earth, longestEarthGapH: 0, jointFraction: 0 },
     power: { firstBrownoutHour: o.brownout, powerW: new Float64Array(hours), powered },
   } as unknown as SiteResult;
@@ -31,6 +33,18 @@ describe('compareRow', () => {
 
   it('never shows a site in permanent shadow as good, even when the battery outlasts the period', () => {
     expect(compareRow(result('s', 'Shadow', { sun: 0, earth: 0, nightH: 720, brownout: null }), START, 30)).toMatchObject({ power: 'all 30 days on the battery; no sunlight', tone: 'bad' });
+  });
+
+  it('gives the radio contact while it has power from landing, as the time with power counts it, and the longest time without Earth', () => {
+    // Earth in view from hour 50 to 300: the battery runs out at 76, so 26 hours of contact; then none until 300.
+    const ridge = compareRow(result('a', 'Ridge', { sun: 0.7, earth: 0.35, nightH: 400, brownout: 76, backAt: 466, earthHours: [[50, 300]] }), START, 30);
+    expect(ridge).toMatchObject({ contact: '1 d 2 h', longestOutage: 'at least 17 d 12 h' });
+    // Power all through, and Earth out of view once, from hour 100 to 300, well inside the period.
+    const summit = compareRow(result('b', 'Summit', { sun: 1, earth: 0.72, nightH: 0, brownout: null, earthHours: [[0, 100], [300, 720]] }), START, 30);
+    expect(summit).toMatchObject({ contact: '21 d 16 h', longestOutage: '8 d 8 h' });
+    // Earth never in view; or always.
+    expect(compareRow(result('c', 'Floor', { sun: 0, earth: 0, nightH: 720, brownout: 9 }), START, 30)).toMatchObject({ contact: 'none', longestOutage: 'at least 30 d' });
+    expect(compareRow(result('d', 'Face', { sun: 1, earth: 1, nightH: 0, brownout: null, earthHours: [[0, 720]] }), START, 30)).toMatchObject({ contact: '30 d', longestOutage: 'none' });
   });
 
   it('says when power lasts the whole period, and when there is no sunlight at all', () => {
