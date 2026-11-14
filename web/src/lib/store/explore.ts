@@ -330,6 +330,20 @@ function message(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/**
+ * Plain words for a site whose skyline could not be had: a horizon file missing from the server is named as such, and
+ * the page says the other sites still work, so no path or status code reaches a visitor (the raw error goes to the
+ * console). Other failures keep their own words, which the skyline queue already writes plainly.
+ */
+export function siteProblem(site: Pick<Site, 'name' | 'label'>, err: unknown): string {
+  const raw = message(err);
+  const name = site.label ?? site.name;
+  if (/\/masks\/\S+\.json/.test(raw) && /\b404\b/.test(raw)) {
+    return `${name}: its horizon file is not on this server, so its forecast cannot be shown here. The other sites still work.`;
+  }
+  return `${name}: ${raw}`;
+}
+
 export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   // Skylines by skylineKey: every parameter that changes one (place, mast height, terrain source) is in its key, so a
   // skyline made for one height is never used for another. `loading` holds the fetches and computations on their way.
@@ -467,7 +481,11 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         });
         void loadWindow(id);
       } catch (err) {
-        if (seq === selectSeq) commit({ error: message(err) });
+        if (seq !== selectSeq || err instanceof SkylineSuperseded) return;
+        // The site asked for becomes the selected one, with no figures, so nothing of the site before stays on screen
+        // under the new name; the sentence says in plain words what is missing.
+        console.warn(message(err));
+        commit({ siteId: id, site, mask: null, maskMeta: null, series: null, summary: null, power: null, contacts: [], best: null, heightmap: null, contextHeightmap: null, error: siteProblem(site, err) });
       }
     },
 
