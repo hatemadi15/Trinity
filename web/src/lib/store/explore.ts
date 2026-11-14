@@ -11,6 +11,7 @@ import { etToIso, utcToEt } from '../engine/time';
 import { dateLong, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
 import { customPoint, parseExploreQuery } from './query';
+import { mergeSettings, parseSettings, sameSettings, type SettingsPatch } from '../share/settings';
 
 export const WINDOW_DAYS = [14, 30, 90] as const;
 export type WindowDays = (typeof WINDOW_DAYS)[number];
@@ -554,7 +555,13 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     async applyQuery(search) {
       const q = parseExploreQuery(search);
       if (q.startUtc || q.days) get().setWindow(q.startUtc ?? get().startUtc, q.days ?? get().days);
-      if (!q.site || q.site === get().siteId) return;
+      // The lander's and the radio's settings the link names come before its site, so the site's skyline is worked out
+      // once, from the mast the link names; those it does not name keep the values the visit has.
+      const mastChanged = applySettings(parseSettings(search));
+      if (!q.site || q.site === get().siteId) {
+        if (mastChanged) await recomputeMask();
+        return;
+      }
       if (get().sites.some((s) => s.id === q.site)) {
         await get().selectSite(q.site);
         return;
@@ -649,6 +656,22 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       }
     }
     store.setState({ compare });
+  }
+
+  /**
+   * A link's settings, applied at once: the lander's and the radio's through setParams, the mast without the spinner's
+   * debounce, whose timer would otherwise work out the skyline of the site shown before the link's own. True when the
+   * mast changed, so the caller works out the skyline of the site it then shows.
+   */
+  function applySettings(patch: SettingsPatch): boolean {
+    const { params } = store.getState();
+    const asked = mergeSettings(params, patch);
+    if (sameSettings(asked, params)) return false;
+    const { mastM, ...rest } = asked;
+    store.getState().setParams(rest);
+    if (mastM === params.mastM) return false;
+    store.setState({ params: { ...store.getState().params, mastM } });
+    return true;
   }
 
   /** Coalesces mast changes; when the timer fires and the cached skyline's mast differs, recomputes once. */
