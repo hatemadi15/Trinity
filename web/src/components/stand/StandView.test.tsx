@@ -1489,6 +1489,52 @@ describe('StandView', () => {
     }
   }, 60_000);
 
+  it('opens each view of a site and period on its landing: the first, and a better day landed on in place', async () => {
+    const made: (ReturnType<typeof stub> & { land: ReturnType<typeof vi.fn> })[] = [];
+    const landing = () => {
+      const r = { ...stub(), land: vi.fn() };
+      made.push(r);
+      return r;
+    };
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', landing);
+    await waitFor(() => expect(made[0]?.land).toHaveBeenCalledTimes(1));
+    // Another period, landed on in place: its view opens on its own landing.
+    openCard();
+    fireEvent.click(await within(document.getElementById('stand-card')!).findByRole('link', { name: /^Try \d+ January instead/ }));
+    await waitFor(() => expect(store.getState().startUtc.slice(0, 10)).not.toBe('2027-01-01'));
+    await waitFor(() => expect(made.length).toBeGreaterThanOrEqual(2));
+    await waitFor(() => expect(made.at(-1)!.land).toHaveBeenCalledTimes(1));
+    // The first view's landing was not asked for again.
+    expect(made[0].land).toHaveBeenCalledTimes(1);
+  }, 60_000);
+
+  it('lands in demo mode and with bright=1 too, as it opens: the pitch and the video show the landing, unlike the resident', async () => {
+    try {
+      for (const extra of ['&demo=1', '&bright=1']) {
+        const land = vi.fn();
+        const { view } = await open(`?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10${extra}`, () => ({ ...stub(), land }));
+        await waitFor(() => expect(land).toHaveBeenCalledTimes(1));
+        view.unmount();
+      }
+    } finally {
+      window.sessionStorage.removeItem(DEMO_KEY);
+      window.sessionStorage.removeItem('earthrise-bright');
+    }
+  }, 60_000);
+
+  it('does not land with reduced motion: the lander is simply there', async () => {
+    const was = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
+    try {
+      const land = vi.fn(), r = { ...stub(), land };
+      await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+      await waitFor(() => expect(r.render.mock.calls.length).toBeGreaterThan(6));
+      expect(land).not.toHaveBeenCalled();
+    } finally {
+      window.matchMedia = was;
+    }
+  });
+
   it('says it found the resident once, in the line over the view', async () => {
     // Renderers whose labels put the resident's shell in the middle of the view from their second frame on.
     const made: RendererLike[] = [];

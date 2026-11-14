@@ -31,6 +31,16 @@ PowerShell, Command Prompt, bash and zsh; run from elsewhere, Python says
     uv run python -m lunar_pipeline.cli fetch --group globe
     uv run python -m lunar_pipeline.cli globe
     uv run python -m lunar_pipeline.cli sync-local --tiles
+    uv run python -m lunar_pipeline.cli pgda90-fetch
+    uv run python -m lunar_pipeline.cli uncertainty
+
+`pgda90-fetch` downloads four files of PGDA product 90 (Barker et al. 2023, https://pgda.gsfc.nasa.gov/products/90)
+into `data_raw/pgda90`, 890 MB in all: the adjusted LOLA models at 80 m and 240 m and their height-error maps.
+`uncertainty` (about 12 minutes; needs the kernels, the LOLA grids and those files) finds every event at one-minute
+SPICE steps for 730 days from 2025-01-01, traces each polar site's skyline through the adjusted models, reads small
+windows of the 20 m and 50 m products around each site over HTTP (cached in `data_raw/pgda90/windows`), and writes
+`data/uncertainty/budget.json` and `data/uncertainty/skylines/`; `sync-local` copies them into the app. The method,
+the results and every download are in `docs/method.md`, "Uncertainty budget".
 
 `fetch` downloads each group into `data_raw/<group>`; it skips files it already has and, run again
 after a cut-off download, resumes from the `.part` file. `data_raw/` is gitignored.

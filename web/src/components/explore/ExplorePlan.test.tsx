@@ -25,7 +25,7 @@ afterEach(() => window.history.replaceState({}, '', '/'));
 describe('Explore’s recommendations, with the requirements and the range round an approximate point', () => {
   it('gives the range round de Gerlache Rim 2, a region centre known to about 5 km, next to the result once its points are worked out', async () => {
     const store = await open();
-    await waitFor(() => expect(within(panel()).getByText(/^Within about 5 km \(9 points\): power for \d/)).toBeTruthy(), { timeout: 20_000 });
+    await waitFor(() => expect(within(panel()).getByText(/^Within 5 km \(9 points\): power \d/)).toBeTruthy(), { timeout: 20_000 });
     expect(store.getState().neighbourhood?.points).toHaveLength(8);
     // The first screen keeps to its 110 words with the range on it.
     for (const width of [WIDE, PHONE]) expect(visibleWords(panel(), width).length).toBeLessThanOrEqual(110);
@@ -33,7 +33,7 @@ describe('Explore’s recommendations, with the requirements and the range round
 
   it('ranks the better date with the requirements set in the panel, and says what it meets and fails', async () => {
     const store = await open();
-    fireEvent.click(within(panel()).getByRole('button', { name: 'Options and why' }));
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Options' }));
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Power for at least (days)' }), { target: { value: '5' } });
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Longest time without Earth while powered at most (days)' }), { target: { value: '3' } });
     expect(store.getState().requirements).toMatchObject({ minPoweredH: 120, maxOutageH: 72 });
@@ -51,7 +51,7 @@ describe('Explore’s recommendations, with the requirements and the range round
 
   it('lists the places nearby, the rim summit among them, with their trade-offs against this site', async () => {
     await open();
-    fireEvent.click(within(panel()).getByRole('button', { name: 'Options and why' }));
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Options' }));
     const places = within(panel()).getByRole('region', { name: 'Places nearby' });
     await waitFor(() => expect(within(places).getByRole('listitem', { name: 'de Gerlache rim summit, 12 km away' })).toBeTruthy(), { timeout: 20_000 });
     expect(within(places).getByRole('listitem', { name: 'de Gerlache rim summit, 12 km away' }).textContent).toContain('Against this site: Power +26 d 20 h');
@@ -61,7 +61,7 @@ describe('Explore’s recommendations, with the requirements and the range round
     const store = await open();
     fireEvent.click(within(panel()).getByRole('button', { name: 'Find the best date in the next 12 months' }));
     await waitFor(() => expect(store.getState().yearPlan).not.toBeNull());
-    fireEvent.click(within(panel()).getByRole('button', { name: 'Options and why' }));
+    fireEvent.click(within(panel()).getByRole('button', { name: 'Options' }));
     const year = within(panel()).getByRole('region', { name: 'Over the next 12 months' });
     expect(year.textContent).toContain('Landing times tried every 6 hours over the next 12 months (UTC), each for a 30-day stay.');
     expect(within(year).getAllByRole('listitem').length).toBeGreaterThanOrEqual(3);

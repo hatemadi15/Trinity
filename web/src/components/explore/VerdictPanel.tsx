@@ -1,10 +1,12 @@
 'use client';
 import Link from 'next/link';
 import type { Requirements } from '@/lib/plan/requirements';
+import type { SureLines } from '@/lib/uncertainty/budget';
 import type { Answer, PlanView } from '@/lib/viz/answer';
 import { Fold } from '../Fold';
 import { lolaFor, Sources } from '../Sources';
 import { OptionsList, RequirementsFields } from './PlanParts';
+import { SureFold } from './SureFold';
 
 /** A battery on its side: full for a good answer, down to its last sliver for a bad one. */
 function BatteryMark({ good }: { good: boolean }) {
@@ -35,6 +37,7 @@ export function VerdictPanel({
   requirements,
   onRequirements,
   range = null,
+  sure,
 }: {
   answer: Answer;
   onLand: (startUtc: string) => void;
@@ -48,7 +51,7 @@ export function VerdictPanel({
   /** The site, for the grid its hills are read from in the row of data sources; without it the row names no grid. */
   site?: { lat: number; polar: boolean };
   /**
-   * Every option behind the recommendations, one tap away under "Options and why": what they are ranked by, each one's
+   * Every option behind the recommendations, one tap away under "Options": what they are ranked by, each one's
    * checks, trade-offs and reason. With it the better date's note waits there too, so the first screen keeps its words.
    */
   plan?: PlanView | null;
@@ -57,6 +60,8 @@ export function VerdictPanel({
   onRequirements?: (patch: Partial<Requirements>) => void;
   /** The same result worked out around an approximate point: one line next to the result, how it was found in the fold. */
   range?: { words: string; detail?: string | null } | null;
+  /** The verdict's times with their supported margins, and what the power figures leave out (one tap away). */
+  sure?: SureLines | null;
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -78,6 +83,7 @@ export function VerdictPanel({
           <p className="max-w-[42em] text-[17px] leading-relaxed text-ink">{answer.sentences.slice(1).join(' ')}</p>
         </Fold>
       )}
+      {sure && <SureFold sure={sure} />}
       {/* A point known only to a few kilometres: the same result around it, next to the result itself. */}
       {range && <p className="mt-2 max-w-[42em] text-ink">{range.words}</p>}
       {/* One gold action: the better date, else the better place nearby (below), else comparing sites. */}
@@ -124,7 +130,7 @@ export function VerdictPanel({
       )}
       {/* For a planner, one tap away: why the better date, the requirements, and every option with its checks and reasons. */}
       {plan && (
-        <Fold label="Options and why" className="mt-2">
+        <Fold label="Options" className="mt-2">
           <div className="flex flex-col gap-4 text-[15px] leading-relaxed">
             {better && (
               <div className="max-w-[46em]">

@@ -113,10 +113,11 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     };
   }
 
-  // The lander is back at the first hour with power after the brownout.
+  // The power can return at the first hour with power after the brownout, but only if the lander starts again:
+  // the forecast counts energy, not the cold of the night or a restart after it.
   let back = first;
   while (back < hours && power.powered[back] === 0) back++;
-  const backPart = back < hours ? `; power comes back on ${dateLong(startUtc, back)}.` : ', and the lander stays off for the rest of the period.';
+  const backPart = back < hours ? `; power comes back on ${dateLong(startUtc, back)}, if the lander starts again after the cold.` : ', and the lander stays off for the rest of the period.';
   const lead = `power for ${spanWords(first)}`;
 
   let kind: AnswerKind;
@@ -126,7 +127,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     kind = 'low-sun';
     title = first === 0 ? `${landing}: too little sunlight from the first hour` : `${landing}: ${lead}, then too little sunlight`;
     sentences = [`The Sun is up, but the panel makes about ${Math.round(power.powerW[first])} W and the lander uses ${loadW} W.`];
-    sentences.push(back < hours ? `The lander is back on ${dateLong(startUtc, back)}.` : 'The lander stays off for the rest of the period.');
+    sentences.push(back < hours ? `The panel gives enough again on ${dateLong(startUtc, back)}, if the lander starts again.` : 'The lander stays off for the rest of the period.');
   } else {
     kind = 'night';
     title = first === 0 ? `${landing}: no power, it is night` : `${landing}: ${lead}, then night`;
@@ -183,7 +184,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
       ? `This landing ${midSentence(checksShort(plan.current.checks) ?? '').replace(/\.$/, '')}, and no landing time in these ${days} days does better.`
       : plan && plan.current.checks.length > 0
         ? `No landing time in these ${days} days does better against your requirements. Try a bigger battery (Lander, above), a shorter stay or another site.`
-        : `No landing date in these ${days} days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.`;
+        : `No landing date in these ${days} days gives more power here. For power through the night, choose a bigger battery (Lander, above) or a shorter stay.`;
   return { tone: 'bad', kind, title, sentences: withContact(sentences), better, hint, poweredHours: powered, contactHours: contact };
 }
 

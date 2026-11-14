@@ -120,7 +120,8 @@ export function rangeWords(
   r: NeighbourhoodRange,
   { radiusKm, ms, mastM, stated = true }: { radiusKm: number; /** The time the points' skylines took to work out. */ ms: number; mastM: number; /** False for a probe round a derived point. */ stated?: boolean },
 ): { words: string; detail: string } {
-  const within = `Within ${stated ? 'about ' : ''}${radiusKm} km`;
+  // The points are exactly half the radius and the radius out: the line says where they are, the detail how sure the point is.
+  const within = `Within ${radiusKm} km`;
   const probe = stated ? '' : `A derived high point states no radius of its own: these points, ${radiusKm / 2} and ${radiusKm} km away, show how much the result depends on landing on the point itself. `;
   if (r.points === 1) {
     const why = `the points round this one have ${r.reasons.join(' or ')}`;
@@ -130,11 +131,11 @@ export function rangeWords(
   const count = r.missing > 0 ? `${r.points} of ${total} points` : `${r.points} points`;
   const [lo, hi] = r.poweredH;
   const stay = days(r.stayH);
-  const power = lo === hi ? (lo >= r.stayH ? `all ${stay} days at every one` : `${days(lo)} days at every one`) : `${days(lo)} to ${hi >= r.stayH ? stay : days(hi)} days`;
+  const power = lo === hi ? `for ${lo >= r.stayH ? `all ${stay}` : days(lo)} days at each` : `${days(lo)} to ${hi >= r.stayH ? stay : days(hi)} days`;
   const around = r.missing > 0 ? `${r.points - 1} of ${total - 1}` : `${r.points - 1}`;
   const missing = r.missing > 0 ? ` ${r.missing} ${r.missing === 1 ? 'point has' : 'points have'} ${r.reasons.join(' or ')}, so ${r.missing === 1 ? 'it is' : 'they are'} left out.` : '';
   return {
-    words: `${within} (${count}): power for ${power}.`,
+    words: `${within} (${count}): power ${power}.`,
     detail:
       probe +
       `Worked out here and at ${around} points round it, ${radiusKm / 2} and ${radiusKm} km away, with the same lander, period and ${mastM} m mast; their skylines took ${(ms / 1000).toFixed(1)} s to work out. ` +

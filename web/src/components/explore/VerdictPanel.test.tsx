@@ -262,18 +262,20 @@ describe('VerdictPanel with requirements and the options behind its recommendati
     year: null,
   };
   const requirements = { minPoweredH: 120, contactWithinH: null, maxOutageH: 72, minPoweredContactH: null };
-  const range = { words: 'Within about 5 km: power for 3 d 4 h to 30 d.', detail: 'Worked out at 8 points round this one, 2.5 and 5 km out, in 2.4 s.' };
+  const range = { words: 'Within 5 km (9 points): power 0.4 to 3.5 days.', detail: 'Worked out here and at 8 points round it, 2.5 and 5 km away; their skylines took 6.9 s to work out.' };
+  // How sure the times are, as the uncertainty part gives it: one more fold on the first screen.
+  const sure = { lines: ['Sunset 3 Jan 14:00 UTC, within about 1.5 h.'], basis: 'From the measured skylines.', widest: 1.5 };
 
   function showAll(answer: Answer = ranked) {
     const onLand = vi.fn();
     const onRequirements = vi.fn();
-    render(<VerdictPanel answer={answer} onLand={onLand} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} nearby={summit} standLink={stand} site={{ lat: -88.28, polar: true }} plan={plan} requirements={requirements} onRequirements={onRequirements} range={range} />);
+    render(<VerdictPanel answer={answer} onLand={onLand} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} nearby={summit} standLink={stand} site={{ lat: -88.28, polar: true }} plan={plan} requirements={requirements} onRequirements={onRequirements} range={range} sure={sure} />);
     return { onLand, onRequirements };
   }
 
-  it('keeps the better date the one gold action on the first screen, its note, checks and reason one tap away under "Options and why"', () => {
+  it('keeps the better date the one gold action on the first screen, its note, checks and reason one tap away under "Options"', () => {
     showAll();
-    const open = screen.getByRole('button', { name: 'Options and why' });
+    const open = screen.getByRole('button', { name: 'Options' });
     const fold = document.getElementById(open.getAttribute('aria-controls')!)!;
     expect(fold.hidden).toBe(true);
     for (const words of ['From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.', 'Fails 1 of your 2 requirements.', 'It fails fewer requirements than landing at the period start: 1 against 2.']) {
@@ -288,7 +290,7 @@ describe('VerdictPanel with requirements and the options behind its recommendati
 
   it('lists every option with the requirements it meets and fails, its trade-offs and why it ranks above the next, under the objective and the search resolution (review acceptance)', () => {
     showAll();
-    const open = screen.getByRole('button', { name: 'Options and why' });
+    const open = screen.getByRole('button', { name: 'Options' });
     const list = document.getElementById(open.getAttribute('aria-controls')!)!;
     fireEvent.click(open);
     expect(list.hidden).toBe(false);
@@ -311,7 +313,7 @@ describe('VerdictPanel with requirements and the options behind its recommendati
 
   it('keeps every action in the options plain: the better date stays the one gold action', () => {
     const { onLand } = showAll();
-    fireEvent.click(screen.getByRole('button', { name: 'Options and why' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
     expect(document.querySelectorAll('.btn-primary')).toHaveLength(1);
     const second = screen.getByRole('button', { name: 'Land on 23 January at 10:00 UTC' });
     expect(second.className).not.toMatch(/btn-primary/);
@@ -323,7 +325,7 @@ describe('VerdictPanel with requirements and the options behind its recommendati
 
   it('keeps the requirements one tap away, every box named, an empty box meaning no requirement', () => {
     const { onRequirements } = showAll();
-    const open = screen.getByRole('button', { name: 'Options and why' });
+    const open = screen.getByRole('button', { name: 'Options' });
     expect(open.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(open);
     expect(screen.getByRole('heading', { name: 'Your requirements' })).toBeTruthy();
@@ -354,9 +356,10 @@ describe('VerdictPanel with requirements and the options behind its recommendati
     expect(screen.getByText(range.detail).closest('[hidden]')).toBeTruthy();
   });
 
-  it('still keeps the answer to 110 words before a tap with the requirements, the options and the range, at 1440 and on a phone (spec 20.1)', () => {
+  it('still keeps the answer to 110 words before a tap with the requirements, the options, the range and how sure the times are, at 1440 and on a phone (spec 20.1)', () => {
     showAll();
     const panel = screen.getByRole('region', { name: 'The answer' });
-    for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(110);
+    // Three words to spare for the kind of point a derived high point is, on the nearby line ("unchecked for landing").
+    for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(107);
   });
 });

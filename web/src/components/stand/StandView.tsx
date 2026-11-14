@@ -549,6 +549,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           // A key moment's line or a Turn to's keeps the plate: the resident's waits until it has gone.
           lineTaken={!!caption}
           playHps={PLAY_HPS * speed}
+          // Each view of a site and period opens on its landing: the first, and each better day landed on in place, which the
+          // key opens again. In demo mode and with bright=1 too: it is how the view opens, as its tilt is, not a secret to keep
+          // out of the pitch and the video as the resident is.
+          landing
         />
       )}
       {failed && s.mask && (
