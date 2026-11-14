@@ -17,6 +17,7 @@ import { TimeBar } from './explore/TimeBar';
 import { LunaControls } from './luna/LunaControls';
 import { TimeChart } from './explore/TimeChart';
 import { VerdictPanel } from './explore/VerdictPanel';
+import { VersionsFold } from './explore/VersionsFold';
 import { WhereOnMoon } from './explore/WhereOnMoon';
 import { YearView } from './explore/YearView';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
@@ -28,7 +29,8 @@ import { briefHref, standHref, withSettings } from '@/lib/links';
 import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
 import { useDataVersions } from '@/lib/hooks/useDataVersions';
 import { appVersion } from '@/lib/share/versions';
-import { COMPARE_MAX, exploreStore, periodPlan, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, periodPlan, scanOf, seenFrom, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { holdNoteFor, useTerrainVersions, type VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
 import { neighbourhoodRange, rangeWords } from '@/lib/plan/neighbourhood';
 import { placeOptions } from '@/lib/plan/options';
 import { periodOutcome } from '@/lib/plan/outcome';
@@ -44,6 +46,8 @@ import { sceneStateAt } from '@/lib/viz/scene-state';
 import { keyMoments } from '@/lib/viz/stand';
 import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
+import { coldTrapSite, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
+import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
 
 /**
  * Explore: the answer for one site and period first (in words, with the better landing date), then why
@@ -55,6 +59,8 @@ export function ExploreView({
   scenarios = scenarioStore,
   navigate,
   uncertainty,
+  versions,
+  coldTraps,
 }: {
   store?: StoreApi<ExploreState>;
   /** The comparison "Compare from here" starts; by default the app's. */
@@ -62,9 +68,14 @@ export function ExploreView({
   navigate?: (href: string) => void;
   /** Injected in tests; by default the app's data/uncertainty/budget.json. */
   uncertainty?: () => Promise<UncertaintyDoc>;
+  /** Injected in tests; by default the site's data/ensemble file and the versions' worker. */
+  versions?: VersionsDeps;
+  /** Injected in tests; by default the app's data/coldtraps/coldtraps.json. */
+  coldTraps?: () => Promise<ColdTrapDoc>;
 }) {
   const s = useStore(store);
   const budget = useUncertainty(uncertainty);
+  const cold = useColdTraps(coldTraps);
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
   const [hoverHour, setHoverHour] = useState<number | null>(null);
@@ -146,10 +157,18 @@ export function ExploreView({
   // The terrain behind the figures, and whether they are still from another mast height than the one chosen.
   const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
   const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
+  // The same landing and period under every terrain version of the site, in the versions' worker: a fold beside the
+  // margins, and, when the requirement on them is set, how many versions each landing time of the period holds in.
+  const holdAsked = (s.requirements.minHoldPct ?? null) !== null;
+  const versionsState = useTerrainVersions(
+    { site: s.site, series: s.series ? scanOf(s.series) : null, hours: s.series?.hours ?? 0, params: s.params, requirements: s.requirements, mastM: seenFrom(s.maskMeta, s.params.mastM), byHour: holdAsked },
+    versions,
+  );
+  const holds = holdAsked && versionsState.status === 'ready' ? versionsState.result.holdsByHour : null;
   // The period's landing times, ranked with the requirements: the better date comes from here, as on the brief and the view from the site.
   const times = useMemo(
-    () => (s.site ? periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy }) : null),
-    [s.series, s.site, s.params, s.requirements, s.startUtc, s.rankBy],
+    () => (s.site ? periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy, holds }) : null),
+    [s.series, s.site, s.params, s.requirements, s.startUtc, s.rankBy, holds],
   );
   const current = useMemo(() => (s.series && s.power ? periodOutcome(s.series, s.power) : null), [s.series, s.power]);
   const hood = s.neighbourhood && s.site && s.neighbourhood.siteId === s.site.id ? s.neighbourhood : null;
@@ -300,6 +319,8 @@ export function ExploreView({
               onRankBy={s.setRankBy}
               range={range}
               sure={sure}
+              versions={<VersionsFold state={versionsState} startUtc={s.startUtc} days={s.days} />}
+              holdNote={holdNoteFor(versionsState, holdAsked)}
             />
             <NumbersCard
               site={site}
@@ -366,8 +387,9 @@ export function ExploreView({
             onPick={onPick}
             reducedMotion={reducedMotion}
             standLink={standLink}
+            coldLayer={coldTrapSite(cold, site.id)?.covered === true}
           />
-          <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} />
+          <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} coldTraps={coldTrapSite(cold, site.id)} />
           <PlannerChat store={store} scenarios={scenarios} navigate={go} />
         </div>
         {/* The period's key moments as dots with Next, as on the stand view, so Play and Next show what happens on the first

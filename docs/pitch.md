@@ -4,7 +4,7 @@ Setup before walking up: laptop on `http://localhost:3000/?demo=1` (offline buil
 
 ## 0:00 — Hook (30 s)
 
-[Home page at the top. Click "Fly to the south pole" as you begin.] In March 2025 two landers reached the Moon four days apart. Blue Ghost, on a flat plain in Mare Crisium, worked for fourteen days and switched off a few hours after sunset, as planned. Athena, near a mountain close to the south pole, was dead within a day: it came to rest on its side in a crater with the Sun low on the horizon, and its batteries never charged. Same Moon, same month. The difference was light and line of sight to Earth.
+[Home page at the top. Click "Fly to the south pole" as you begin.] In March 2025 two landers reached the Moon four days apart. Blue Ghost, on a flat plain in Mare Crisium, worked for fourteen days and switched off a few hours after sunset, as planned. Athena, near a mountain close to the south pole, had lost power within a day: it came to rest on its side in a crater with the Sun low on the horizon, and its batteries never charged. Same Moon, same month. The difference was light and line of sight to Earth.
 
 [On screen: the headline "See when a Moon lander has sunlight and a signal." beside the whole Moon, Earth beside it; then the descent plays for 11 seconds: the Moon turns, tips its south pole towards us and comes closer, down to the pole's relief map and de Gerlache Rim 2's shadow picture, ending on the answer "Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power". It holds there to the end of the hook.]
 
@@ -33,17 +33,17 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 ## 3:00 — Validity (45 s)
 
-[Open Accuracy.] Three checks meet their criteria, and each says what it leaves out. Where the Sun and Earth are in the sky: our directions against JPL Horizons, worst gap 0.00003 degrees over 300 test cases, and [click "Re-check with JPL now"] this button asks JPL live. How much sunlight a site gets: against NASA's LOLA sunlight maps worked out their way, a typical gap of 0.9 points at fifteen sites; the power sums are checked in this browser. And, as context, not a check, when night falls on a real mission: Blue Ghost's last signal came 2.4 hours after our predicted sunset. [Click "Show the numbers" under the missions.] Athena and IM-1 ended early, for the reasons written here.
+[Open Accuracy.] Three of four checks meet their criteria, and each says what it leaves out. Where the Sun and Earth are: our directions against JPL Horizons, worst gap 0.00003 degrees over 300 cases, and [click "Re-check with JPL now"] this button asks JPL live. How much sunlight a site gets: against NASA's LOLA sunlight maps, a typical gap of 0.9 points at fifteen sites; the power sums are checked against worked answers. The fourth, our shadows over 20 pictures from orbit, misses its own mark in three, all with the Sun barely up. As context, not a check: Blue Ghost's last signal came 2.4 hours after our predicted sunset.
 
 ## 3:45 — Impact and next (35 s)
 
-Planners get a first answer in a minute and a brief they can hand to engineering. Students and the public get the same pages in plain words, and How it works gives teachers the science behind them, with sums a class can check. Anyone can replay real missions from the home page. Next: NAC imagery per site, the descent for every site, relay passes, and a public API for the tables.
+Planners get a first answer in a minute and a brief they can hand to engineering. Students and the public get the same pages in plain words, and How it works gives teachers the science behind them, with sums a class can check. Anyone can replay real missions from the home page. Next: more pictures from orbit per site, the descent for every site, relay passes, and a public API for the tables.
 
 ## 4:20 — Data and team (20 s)
 
-NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and about 1,600 automated tests keep the two in step. Team Astroy/Ed.
+NASA data: LRO LOLA elevation models and illumination maps, NASA Goddard's adjusted south-pole maps, LRO's camera pictures and Diviner's temperature model, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and about 2,500 automated tests keep the two in step. Team Astroy/Ed.
 
-[The Accuracy page shows the last recorded run of the tests; refresh it with `npm run validation:tests` before the pitch and say the number it shows, if it is not about 1,600.]
+[The Accuracy page shows the last recorded run of the tests; refresh it with `npm run validation:tests` before the pitch and say the number it shows, if it is not about 2,500.]
 
 ## 4:40 — Close (20 s)
 

@@ -21,7 +21,8 @@ import { dirAzEl } from '@/lib/sky/frames';
 import { LANDER } from '@/lib/sky/landerShape';
 import { eyeAt, lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
-import { COMPARE_MAX, exploreStore, periodPlan, seenFrom, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, periodPlan, scanOf, seenFrom, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { useHoldsByHour, type VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { trustedAnswer } from '@/lib/viz/terrain';
@@ -130,7 +131,16 @@ export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
  * or takes a moment. The moments stay as dots when the words are hidden. A lander stands beside the site for scale,
  * placed by the hour the view opens on. Without WebGL 2 it shows the horizon chart with the same words.
  */
-export function StandView({ store = exploreStore, createRenderer = defaultRenderer }: { store?: StoreApi<ExploreState>; createRenderer?: (canvas: HTMLCanvasElement, scene: StandScene) => RendererLike }) {
+export function StandView({
+  store = exploreStore,
+  createRenderer = defaultRenderer,
+  versions,
+}: {
+  store?: StoreApi<ExploreState>;
+  createRenderer?: (canvas: HTMLCanvasElement, scene: StandScene) => RendererLike;
+  /** Injected in tests; by default the site's data/ensemble file and the versions' worker, run only for the requirement on them. */
+  versions?: VersionsDeps;
+}) {
   const s = useStore(store);
   const reducedMotion = useReducedMotion();
   // A plain change of page without a router (tests, static previews), as Explore's.
@@ -229,8 +239,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // Once the address it opened with is applied, the settings in it follow a change of lander made here, and the
   // requirements with them.
   useSettingsInAddress(s.params, openHour !== null, s.requirements, s.rankBy);
-  // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the better day is Explore's.
-  const times = useMemo(() => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy }), [s.series, s.params, s.requirements, s.startUtc, s.rankBy]);
+  // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the better day is
+  // Explore's: with the requirement on the terrain versions set, by how many versions each landing time holds in.
+  const holds = useHoldsByHour({ site: s.site, series: s.series ? scanOf(s.series) : null, hours: s.series?.hours ?? 0, params: s.params, requirements: s.requirements, mastM: seenFrom(s.maskMeta, s.params.mastM) }, versions);
+  const times = useMemo(
+    () => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy, holds }),
+    [s.series, s.params, s.requirements, s.startUtc, s.rankBy, holds],
+  );
 
   const scene = useMemo<StandScene | null>(() => {
     if (openHour === null || !sky || !s.site || !s.series || !s.mask) return null;

@@ -39,6 +39,16 @@ describe('columnsOf', () => {
     ]);
   });
 
+  it('marks the share of terrain versions, which Compare does not check, as set but not checked', async () => {
+    const { explore, scenarios } = await worked();
+    const { runs } = scenarios.getState();
+    const sites = explore.getState().sites;
+    const [rim] = columnsOf([base, near], runs, sites, { ...NO_REQUIREMENTS, minPoweredH: 120, minHoldPct: 90 });
+    expect(rim.checks?.map((c) => c.id)).toEqual(['power']);
+    expect(rim.unchecked).toBe(true);
+    expect(columnsOf([base, near], runs, sites, { ...NO_REQUIREMENTS, minPoweredH: 120 })[0].unchecked).toBe(false);
+  });
+
   it('checks nothing with no requirement set, or before a scenario is worked out', async () => {
     const { explore, scenarios } = await worked();
     const { runs } = scenarios.getState();

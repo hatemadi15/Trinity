@@ -20,7 +20,7 @@ def test_write_catalogue_merges_the_site_files_with_compact_fields(tmp_path: Pat
     assert out.read_bytes().count(b"\r\n") == 0
 
 
-def test_sync_with_tiles_copies_the_globe_when_it_was_built(tmp_path: Path, monkeypatch):
+def test_sync_with_tiles_copies_the_terrain_when_it_was_built_and_never_a_globe(tmp_path: Path, monkeypatch):
     data, out, web = tmp_path / "data", tmp_path / "out", tmp_path / "web"
     data.mkdir()
     (out / "tiles").mkdir(parents=True)
@@ -29,13 +29,18 @@ def test_sync_with_tiles_copies_the_globe_when_it_was_built(tmp_path: Path, monk
     monkeypatch.setattr(config, "OUT_DIR", out)
     # The catalogue goes to the temporary directory too, never over the app's own copy.
     catalogue = tmp_path / "catalogue.json"
-    # No globe built yet: the copy is skipped, as with the terrain.
-    assert web / "globe" not in sync(web, tiles=True, catalogue=catalogue)
-    assert not (web / "globe").exists()
+    # No terrain built yet: the copy is skipped.
+    assert web / "terrain" not in sync(web, tiles=True, catalogue=catalogue)
+    assert not (web / "terrain").exists()
+    (out / "terrain").mkdir()
+    (out / "terrain" / "manifest.json").write_text('{"version": 3}')
+    # A globe an older pipeline built stays in data_out: no page reads it.
     (out / "globe").mkdir()
     (out / "globe" / "manifest.json").write_text('{"version": 1}')
-    assert web / "globe" in sync(web, tiles=True, catalogue=catalogue)
-    assert (web / "globe" / "manifest.json").read_text() == '{"version": 1}'
+    copied = sync(web, tiles=True, catalogue=catalogue)
+    assert web / "terrain" in copied
+    assert (web / "terrain" / "manifest.json").read_text() == '{"version": 3}'
+    assert web / "globe" not in copied and not (web / "globe").exists()
 
 
 def test_sync_copies_the_uncertainty_budget_for_the_app(tmp_path: Path, monkeypatch):
@@ -46,6 +51,15 @@ def test_sync_copies_the_uncertainty_budget_for_the_app(tmp_path: Path, monkeypa
     assert web / "uncertainty" in sync(web, catalogue=tmp_path / "catalogue.json")
     assert (web / "uncertainty" / "budget.json").read_text() == '{"version": 1}'
 
+def test_sync_copies_the_modelled_cold_traps_for_the_app(tmp_path: Path, monkeypatch):
+    data, web = tmp_path / "data", tmp_path / "web"
+    (data / "coldtraps").mkdir(parents=True)
+    (data / "coldtraps" / "coldtraps.json").write_text('{"version": 1}')
+    monkeypatch.setattr(config, "DATA_DIR", data)
+    assert web / "coldtraps" in sync(web, catalogue=tmp_path / "catalogue.json")
+    assert (web / "coldtraps" / "coldtraps.json").read_text() == '{"version": 1}'
+
+
 def test_sync_copies_the_asset_manifest_beside_the_data(tmp_path: Path, monkeypatch):
     data, web = tmp_path / "data", tmp_path / "web"
     data.mkdir()
@@ -54,3 +68,12 @@ def test_sync_copies_the_asset_manifest_beside_the_data(tmp_path: Path, monkeypa
     # The published data and the release zip then carry the list of files they should hold.
     assert web / "manifest.json" in sync(web, catalogue=tmp_path / "catalogue.json")
     assert (web / "manifest.json").read_text() == '{"format": 1}'
+
+
+def test_sync_copies_the_terrain_versions_for_the_app(tmp_path: Path, monkeypatch):
+    data, web = tmp_path / "data", tmp_path / "web"
+    (data / "ensemble").mkdir(parents=True)
+    (data / "ensemble" / "index.json").write_text('{"version": 1}')
+    monkeypatch.setattr(config, "DATA_DIR", data)
+    assert web / "ensemble" in sync(web, catalogue=tmp_path / "catalogue.json")
+    assert (web / "ensemble" / "index.json").read_text() == '{"version": 1}'

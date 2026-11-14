@@ -35,7 +35,7 @@ export function WhySection({ teaching = true, intro = true, n }: { teaching?: bo
             Why the south pole is <em>hard</em>
           </>
         }
-        lede={intro ? 'The Moon’s water ice is there, and so is its hardest lighting. Three facts decide whether a lander has power and a signal. Point at a drawing to play it.' : undefined}
+        lede={intro ? 'Water ice has been found in its coldest shadows, and its light is the Moon’s hardest. Three facts decide whether a lander has power and a signal. Point at a drawing to play it.' : undefined}
       />
       {teaching && (
         <p className="mt-3 text-lg text-ink-2">

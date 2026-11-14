@@ -22,6 +22,8 @@ export interface LunaDeps {
   ask: (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
   setTheme: (theme: 'light' | 'dark') => void;
   turnOff: () => void;
+  /** Whether she says her replies aloud, as the switch in her panel sets it. */
+  setVoice: (on: boolean) => void;
   /** The comparison a planner answer may start ("compare with a five-day delay"). */
   scenarios?: StoreApi<ScenarioState>;
   /** The planner's store (spec 23); the app's own by default. */
@@ -67,6 +69,10 @@ const GO_REPLIES: Record<Place, string> = {
 export const HELP_REPLY =
   'You can ask me to open a page or the view from the site, to play, pause or go to the next moment, to turn to the Sun, Earth or the lander, to show a site, to compare two sites, to plan a landing, or to move the landing, as in "delay the landing by five days".';
 const HELLO_REPLY = 'Hello. Tell me what you would like to see: for example, open the view from the site, or play the month.';
+/** Her answer to "be quiet": in the conversation only, as her voice is off by then. */
+export const MUTE_REPLY = 'Quiet now: my replies show in the chat only. Say "speak again" to hear me.';
+/** Her answer to "speak again", said aloud. */
+export const UNMUTE_REPLY = 'Saying my replies aloud again.';
 const OFFLINE_REPLY = 'I cannot reach the assistant right now. I can still open pages, play the month and turn the view.';
 
 /** The view from the site's controls, and the time bar's: the view from the site has both. */
@@ -175,6 +181,9 @@ export async function runCommand(cmd: LunaCommand, deps: LunaDeps, said = ''): P
     case 'stop':
       deps.turnOff();
       return 'Luna is off. Press Luna to talk to me again.';
+    case 'voice':
+      deps.setVoice(cmd.on);
+      return cmd.on ? UNMUTE_REPLY : MUTE_REPLY;
     case 'theme':
       deps.setTheme(cmd.theme);
       return cmd.theme === 'dark' ? 'Dark theme.' : 'Light theme.';

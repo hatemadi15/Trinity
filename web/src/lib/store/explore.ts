@@ -14,7 +14,7 @@ import { clockUtc, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
 import { timeOptions, yearOptions, type LandingTime, type Recommendation, type YearChoice } from '../plan/options';
 import { periodOutcome, type Outcome } from '../plan/outcome';
-import { checksWords, NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
+import { checksWords, NO_REQUIREMENTS, oneSet, type Holds, type Requirements } from '../plan/requirements';
 import { BY_POWER, validPriorities, yearRuleWords, type RankBy } from '../plan/rank';
 import { neighbourhoodRadius, ringPoints, type PointResult } from '../plan/neighbourhood';
 import { computedReport, featuredReport, flatReport, unreportedReport, type TerrainFindings, type TerrainReport } from '../engine/completeness';
@@ -260,10 +260,18 @@ export function scanOf(series: Series): Series {
 /**
  * The period's landing times ranked with the requirements (lib/plan `timeOptions`), each tried for a stay as long as
  * the period: Explore, the brief and the view from the site name their better date from it, so all three name the
- * same one. Null before a period is worked out.
+ * same one. `holds`, by landing hour, is in how many terrain versions each holds (lib/ensemble), for the optional
+ * requirement on them; without it that requirement is not checked. Null before a period is worked out.
  */
-export function periodPlan({ series, params, requirements, startUtc, rankBy = BY_POWER }: Pick<ExploreState, 'series' | 'params' | 'requirements' | 'startUtc'> & { rankBy?: RankBy }): Recommendation<LandingTime> | null {
-  return series ? timeOptions({ scan: scanOf(series), cfg: params.power, req: requirements, hours: series.hours, startUtc, by: rankBy }) : null;
+export function periodPlan({
+  series,
+  params,
+  requirements,
+  startUtc,
+  rankBy = BY_POWER,
+  holds = null,
+}: Pick<ExploreState, 'series' | 'params' | 'requirements' | 'startUtc'> & { rankBy?: RankBy; holds?: (Holds | null)[] | null }): Recommendation<LandingTime> | null {
+  return series ? timeOptions({ scan: scanOf(series), cfg: params.power, req: requirements, hours: series.hours, startUtc, by: rankBy, holds }) : null;
 }
 
 export function recompute(
@@ -786,7 +794,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         targets.length > 1
           ? `Across ${targets.length} compared sites, ranked by the site that does worst: best landing in the next 12 months: ${when}. Power for ${each.slice(0, -1).join(', ')} and ${each[each.length - 1]}.`
           : `Best landing in the next 12 months: ${when}, power for ${spanShort(best.poweredH)}, Earth in view ${pct0(earthFraction)} of that time.`;
-      const checks = checksWords(top.checks);
+      // The search works out no terrain versions: with the share of them set, the best meets only the requirements checked here.
+      const checks = checksWords(top.checks, top.unchecked);
       const rule = yearRuleWords(scan.step, top.checks.length > 0, rankBy);
       set({
         bestWindowNote: checks ? `${found} ${checks}${top.failed > 0 ? ' None in the next 12 months meets them all.' : ''} ${rule}` : `${found} ${rule}`,
@@ -857,7 +866,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       // A link that names the mission's requirements, which rank the better date, sets them as it names them, the ones it
       // leaves out as none; a link that names none (every link inside the app but Explore's own) keeps the visit's.
       const req = parseRequirements(search);
-      if (Object.keys(req).length > 0) get().setRequirements({ ...NO_REQUIREMENTS, ...req });
+      if (Object.keys(req).length > 0) get().setRequirements(oneSet(req));
       // The ranking the link names, beside the settings; a link that names none keeps the visit's own.
       const rank = parseRank(search);
       if (rank) get().setRankBy(rank);

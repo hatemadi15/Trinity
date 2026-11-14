@@ -5,11 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lunaStore } from '@/lib/luna/store';
 import { LunaButton } from './LunaButton';
 
-const reset = () => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, messages: [], canListen: false, submit: () => {}, toggleMic: () => {} });
+const reset = () => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, messages: [], canListen: false, voice: true, submit: () => {}, toggleMic: () => {} });
 beforeEach(reset);
 afterEach(() => {
   cleanup();
   reset();
+  window.localStorage.clear();
 });
 
 describe('Luna’s button', () => {
@@ -115,6 +116,78 @@ describe('Luna’s button', () => {
       const size = el.className.toString().match(/text-\[(\d+)px\]/);
       if (size) expect(Number(size[1]), el.outerHTML.slice(0, 80)).toBeGreaterThanOrEqual(14);
     }
+  });
+});
+
+describe('her switch for saying replies aloud', () => {
+  const open = () => {
+    render(createElement(LunaButton));
+    act(() => lunaStore.setState({ on: true, status: 'listening', canListen: true }));
+    return screen.getByRole('region', { name: 'Luna' });
+  };
+
+  it('is a real switch in her panel, labelled plainly, on at first as spec 22 has her', () => {
+    const panel = open();
+    const sw = within(panel).getByRole('switch', { name: 'Say replies aloud' });
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    // A button in the tab order, with the page’s own focus ring, and a target of 44 px or more.
+    expect(sw.tagName).toBe('BUTTON');
+    expect(sw.getAttribute('type')).toBe('button');
+    expect(sw.tabIndex).toBe(0);
+    expect(sw.className).not.toMatch(/outline-none|outline-0/);
+    expect(sw.className).toMatch(/\bmin-h-11\b/);
+    // Outside the box to type to her, so Enter flips it and sends nothing.
+    expect(sw.closest('form')).toBeNull();
+  });
+
+  it('turns her voice off and on again at a press, and the panel says which', () => {
+    const panel = open();
+    const sw = within(panel).getByRole('switch', { name: 'Say replies aloud' });
+    fireEvent.click(sw);
+    expect(lunaStore.getState().voice).toBe(false);
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(sw);
+    expect(lunaStore.getState().voice).toBe(true);
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('works from the keyboard: Space and Enter flip it once each, a held key once, other keys not at all', () => {
+    const panel = open();
+    const sw = within(panel).getByRole('switch', { name: 'Say replies aloud' });
+    sw.focus();
+    expect(document.activeElement).toBe(sw);
+    const press = (key: string) => {
+      fireEvent.keyDown(sw, { key });
+      fireEvent.keyUp(sw, { key });
+    };
+    press(' ');
+    expect(lunaStore.getState().voice).toBe(false);
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    press('Enter');
+    expect(lunaStore.getState().voice).toBe(true);
+    fireEvent.keyDown(sw, { key: 'Enter' });
+    fireEvent.keyDown(sw, { key: 'Enter', repeat: true });
+    fireEvent.keyDown(sw, { key: 'Enter', repeat: true });
+    fireEvent.keyUp(sw, { key: 'Enter' });
+    expect(lunaStore.getState().voice).toBe(false);
+    press('a');
+    press('Tab');
+    expect(lunaStore.getState().voice).toBe(false);
+    // The keys are its own: Space does not scroll the page under it, nor Enter press anything else.
+    expect(fireEvent.keyDown(sw, { key: ' ' })).toBe(false);
+    expect(fireEvent.keyUp(sw, { key: ' ' })).toBe(false);
+    expect(fireEvent.keyDown(sw, { key: 'Enter' })).toBe(false);
+  });
+
+  it('leaves the microphone to pause and restart the listening, whichever way the switch is', () => {
+    const toggleMic = vi.fn();
+    const panel = open();
+    act(() => lunaStore.setState({ toggleMic }));
+    fireEvent.click(within(panel).getByRole('switch', { name: 'Say replies aloud' }));
+    const mic = within(panel).getByRole('button', { name: 'Pause the microphone' });
+    fireEvent.click(mic);
+    expect(toggleMic).toHaveBeenCalledTimes(1);
+    expect(lunaStore.getState().voice).toBe(false);
   });
 });
 

@@ -7,7 +7,7 @@ import { fileLoaders } from '@/test/file-loaders';
 import type { PlannerAnswer } from '../ai/client';
 import { parseCommand } from './commands';
 import { registerControls } from './controls';
-import { HELP_REPLY, REPLIES, runCommand, type LunaDeps } from './run';
+import { HELP_REPLY, MUTE_REPLY, REPLIES, runCommand, UNMUTE_REPLY, type LunaDeps } from './run';
 
 /** A store with the real catalogue, on de Gerlache Rim 2 from 1 January 2027 for 30 days. */
 async function loaded() {
@@ -18,7 +18,11 @@ async function loaded() {
   return store;
 }
 
-function deps(store: Awaited<ReturnType<typeof loaded>>, at = '/explore', ask?: LunaDeps['ask']): LunaDeps & { navigate: Mock<(href: string) => void>; setTheme: Mock<(t: 'light' | 'dark') => void>; turnOff: Mock<() => void> } {
+function deps(
+  store: Awaited<ReturnType<typeof loaded>>,
+  at = '/explore',
+  ask?: LunaDeps['ask'],
+): LunaDeps & { navigate: Mock<(href: string) => void>; setTheme: Mock<(t: 'light' | 'dark') => void>; turnOff: Mock<() => void>; setVoice: Mock<(on: boolean) => void> } {
   return {
     store,
     navigate: vi.fn<(href: string) => void>(),
@@ -26,6 +30,7 @@ function deps(store: Awaited<ReturnType<typeof loaded>>, at = '/explore', ask?: 
     ask: ask ?? vi.fn(async () => ({ source: 'model', actions: [], reply: 'An answer.' }) as PlannerAnswer),
     setTheme: vi.fn<(t: 'light' | 'dark') => void>(),
     turnOff: vi.fn<() => void>(),
+    setVoice: vi.fn<(on: boolean) => void>(),
   };
 }
 
@@ -115,6 +120,19 @@ describe('what Luna does with a command', () => {
     expect(await runCommand({ kind: 'stop' }, d)).toMatch(/^Luna is off/);
     expect(d.turnOff).toHaveBeenCalledTimes(1);
     expect(await runCommand({ kind: 'nothing' }, d)).toBeNull();
+  });
+
+  it('turns her voice off and on again when asked, saying which, and how to hear her again', async () => {
+    const store = await loaded();
+    const d = deps(store);
+    expect(await runCommand({ kind: 'voice', on: false }, d)).toBe(MUTE_REPLY);
+    expect(d.setVoice).toHaveBeenLastCalledWith(false);
+    expect(MUTE_REPLY).toMatch(/chat/);
+    expect(MUTE_REPLY).toMatch(/"speak again"/);
+    expect(await runCommand({ kind: 'voice', on: true }, d)).toBe(UNMUTE_REPLY);
+    expect(d.setVoice).toHaveBeenLastCalledWith(true);
+    expect(d.setVoice).toHaveBeenCalledTimes(2);
+    expect(d.navigate).not.toHaveBeenCalled();
   });
 
   it('compares the landing with a five-day delay when asked, as the Ask box does', async () => {

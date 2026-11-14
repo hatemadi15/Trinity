@@ -23,13 +23,17 @@ import { collectProvenance, provenanceLines } from '@/lib/share/provenance';
 import { appVersion } from '@/lib/share/versions';
 import { landingWords, periodWords } from '@/lib/period';
 import { FAIL_RULE, OBJECTIVE } from '@/lib/plan/rank';
-import type { Check } from '@/lib/plan/requirements';
-import { exploreStore, periodPlan, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { holdLabel, type Check } from '@/lib/plan/requirements';
+import { exploreStore, periodPlan, scanOf, seenFrom, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateTimeUtc, dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { dayTicks, hillsToward } from '@/lib/viz/timechart';
 import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
+import { holdUncheckedWords, useHoldCheck, type VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
+import { BriefVersions } from './BriefVersions';
+import { coldTrapSite, coldTrapWords, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
+import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
 import { provenanceWords, terrainDetails, terrainLimitation, trustedAnswer } from '@/lib/viz/terrain';
 
 type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; problems?: string[]; message?: string };
@@ -80,8 +84,11 @@ function pointWords(site: Site): string {
   return `${pointKind(site).sentence}${when}`;
 }
 
-/** Each requirement met or failed, with the value reached and the margin, as a printed list. */
-function CheckList({ checks }: { checks: Check[] }) {
+/**
+ * Each requirement met or failed, with the value reached and the margin, as a printed list; last, one set but not checked
+ * here (the share of terrain versions, where none were worked out), with why.
+ */
+function CheckList({ checks, unchecked = null }: { checks: Check[]; unchecked?: string | null }) {
   return (
     <ul className="list-disc pl-5">
       {checks.map((c) => (
@@ -89,6 +96,7 @@ function CheckList({ checks }: { checks: Check[] }) {
           {c.met ? 'Meets' : 'Fails'} {c.words}
         </li>
       ))}
+      {unchecked && <li key="holds">{unchecked}</li>}
     </ul>
   );
 }
@@ -101,15 +109,22 @@ export function BriefView({
   store = exploreStore,
   narrate,
   uncertainty,
+  versions,
+  coldTraps,
 }: {
   store?: StoreApi<ExploreState>;
   /** Injected in tests; by default asks /api/chat for the paragraph. */
   narrate?: (state: StateSummary) => Promise<NarrationReply>;
   /** Injected in tests; by default the app's data/uncertainty/budget.json. */
   uncertainty?: () => Promise<UncertaintyDoc>;
+  /** Injected in tests; by default the site's data/ensemble file and the versions' worker. */
+  versions?: VersionsDeps;
+  /** Injected in tests; by default the app's data/coldtraps/coldtraps.json. */
+  coldTraps?: () => Promise<ColdTrapDoc>;
 }) {
   const s = useStore(store);
   const budget = useUncertainty(uncertainty);
+  const coldDoc = useColdTraps(coldTraps);
   const [narration, setNarration] = useState<Narration | null>(null);
   const [writing, setWriting] = useState(false);
   // A brief opened from a link, in a new tab or another browser, shows the site, period and settings its address names;
@@ -126,8 +141,13 @@ export function BriefView({
   useAddressFollows(s.site ? withSettings(briefHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : null, linked && s.status === 'ready');
   // Back to Explore on the same site, period, settings and requirements.
   const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : '/explore';
-  // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the brief names the same better date.
-  const times = useMemo(() => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy }), [s.series, s.params, s.requirements, s.startUtc, s.rankBy]);
+  // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the brief names the
+  // same better date: with the requirement on the terrain versions set, by how many versions each landing time holds in.
+  const { holds, state: holdState } = useHoldCheck({ site: s.site, series: s.series ? scanOf(s.series) : null, hours: s.series?.hours ?? 0, params: s.params, requirements: s.requirements, mastM: seenFrom(s.maskMeta, s.params.mastM) }, versions);
+  const times = useMemo(
+    () => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy, holds }),
+    [s.series, s.params, s.requirements, s.startUtc, s.rankBy, holds],
+  );
   const dataVersions = useDataVersions();
   const sunHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.sunAz) : null), [s.mask, s.series]);
   const earthHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.earthAz) : null), [s.mask, s.series]);
@@ -150,13 +170,19 @@ export function BriefView({
   // Each time with its supported margin (data/uncertainty), printed in full; the ground where the budget measured it.
   const sure = sureLines({ doc: budget, site: { id: s.site.id, polar: s.site.polar }, series: s.series, power: s.power, startUtc: s.startUtc });
   const ground = siteBudget(budget, s.site.id)?.terrain_quality ?? null;
+  // The modelled cold traps near a polar site, in full: printed, so nothing waits behind a link.
+  const coldSite = coldTrapSite(coldDoc, s.site.id);
+  const cold = coldTrapWords(coldSite, { full: true });
   // The terrain behind the figures, and whether they are still from another mast height than the one chosen: an
   // incomplete terrain, or figures still on their way, name no better day (lib/viz/terrain).
   const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
   const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
   const answer = trustedAnswer(answerFor({ siteName: name, series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: p.loadW, batteryWh: p.batteryWh, best: s.best, plan: times, farSide: s.site.far_side, panel: p.panel }), terrain, behind);
-  // With requirements set, the brief says why the better date ranks first and how each landing does against them.
-  const checked = times && times.current.checks.length > 0 ? times : null;
+  // With requirements set, the brief says why the better date ranks first and how each landing does against them; one set
+  // but not checked here (the share of terrain versions, where none were worked out) is listed with why, never as met.
+  const checked = times && (times.current.checks.length > 0 || times.current.unchecked) ? times : null;
+  const holdPct = s.requirements.minHoldPct ?? null;
+  const notChecked = (o: { unchecked?: boolean }) => (o.unchecked && holdPct !== null ? `${holdLabel(holdPct)}: ${holdUncheckedWords(holdState)}` : null);
   const limitation = terrainLimitation(terrain);
   const hours = s.days * 24;
   const powered = Math.min(hours, timeWithPower(s.power));
@@ -242,11 +268,11 @@ export function BriefView({
             Your requirements
           </h2>
           <p>Landing at the period start, {dateTimeUtc(s.startUtc, 0)}:</p>
-          <CheckList checks={checked.current.checks} />
+          <CheckList checks={checked.current.checks} unchecked={notChecked(checked.current)} />
           {answer.better && checked.better && (
             <>
               <p>Landing on {dateTimeUtc(s.startUtc, checked.better.item.hour)}, the better date above:</p>
-              <CheckList checks={checked.better.checks} />
+              <CheckList checks={checked.better.checks} unchecked={notChecked(checked.better)} />
             </>
           )}
           <p className="text-ink-2">
@@ -267,6 +293,7 @@ export function BriefView({
           {sure.basis && <p className="text-ink-2">{sure.basis} The margins add the three sources; the Accuracy page gives each one apart.</p>}
         </section>
       )}
+      <BriefVersions site={s.site} series={s.series} params={s.params} requirements={s.requirements} mastM={mast} startUtc={s.startUtc} days={s.days} deps={versions} />
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-[15px] sm:grid-cols-3">
         {figures.map(([k, v]) => (
           <div key={k}>
@@ -317,6 +344,7 @@ export function BriefView({
           {sure.lines.length > 0 ? 'each time above carries its own margin.' : 'the times are hourly, so each change falls in the hour before the one given, and the hills can move them by more (see the Accuracy page).'}
         </p>
         {ground && <p className="text-ink-2">{groundWords(ground)}</p>}
+        {cold && <p className="text-ink-2">{cold}</p>}
         {terrain && terrainDetails(terrain) && <p>{terrainDetails(terrain)}</p>}
       </section>
       <section className="flex flex-col gap-1 text-[15px]">
@@ -325,6 +353,7 @@ export function BriefView({
           <li>NASA LRO LOLA polar elevation models (LDEM 20 m, 80 m and 240 m), PDS Geosciences Node.</li>
           <li>JPL DE440 planetary ephemeris and NAIF SPICE kernels; JPL Horizons for the cross-checks.</li>
           {budget && <li>NASA PGDA product 90 (Barker et al. 2023): the adjusted LOLA south-pole models, their height error and the ground at each site, for the margins.</li>}
+          {coldSite?.covered && <li>NASA LRO Diviner Polar Resource Product (Paige et al. 2010) and PGDA product 90&apos;s permanent shadow and slope maps: the modelled cold traps.</li>}
           <li>Site: {s.site.source === 'user' ? 'coordinates picked by the user on the Earthrise map' : s.site.source}.</li>
         </ul>
       </section>

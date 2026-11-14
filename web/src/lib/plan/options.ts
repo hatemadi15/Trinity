@@ -6,7 +6,7 @@ import { isoAt } from '../viz/format';
 import { nearestSites } from '../viz/relief';
 import { outcomeScanner, worstOf, type Outcome } from './outcome';
 import { BY_POWER, compareOptions, optionOf, pickApart, rankOptions, tradeOffs, whyAbove, type Option, type RankBy, type TradeOff } from './rank';
-import type { Requirements } from './requirements';
+import type { Holds, Requirements } from './requirements';
 
 /** An alternative to the current choice: its checks, what it gains and loses against the current one, and why it ranks above the next. */
 export interface Row<T> extends Option<T> {
@@ -53,15 +53,36 @@ export interface LandingTime {
 /**
  * The better landing time inside the period: every sunlit hour after the start is tried for a stay as long as the
  * period, on the series the store scans (it runs a period past the end), and ranked against landing at the start.
- * Alternatives are kept `apartH` hours apart.
+ * Alternatives are kept `apartH` hours apart. `holds`, by landing hour, is in how many terrain versions each holds, for
+ * the optional requirement on them (lib/ensemble); without it that requirement is not checked.
  */
-export function timeOptions({ scan, cfg, req, hours, startUtc, top = 3, apartH = 72, by = BY_POWER }: { scan: Series; cfg: PowerConfig; req: Requirements; hours: number; startUtc: string; top?: number; apartH?: number; by?: RankBy }): Recommendation<LandingTime> {
+export function timeOptions({
+  scan,
+  cfg,
+  req,
+  hours,
+  startUtc,
+  top = 3,
+  apartH = 72,
+  by = BY_POWER,
+  holds = null,
+}: {
+  scan: Series;
+  cfg: PowerConfig;
+  req: Requirements;
+  hours: number;
+  startUtc: string;
+  top?: number;
+  apartH?: number;
+  by?: RankBy;
+  holds?: (Holds | null)[] | null;
+}): Recommendation<LandingTime> {
   const at = outcomeScanner(scan, cfg);
-  const current = optionOf({ hour: 0, startUtc }, at(0, hours), req);
+  const current = optionOf({ hour: 0, startUtc }, at(0, hours), req, holds?.[0]);
   const candidates: Option<LandingTime>[] = [];
   for (let h = 1; h < hours && h < scan.hours; h++) {
     const o = at(h, hours);
-    if (o.sunlitAtLanding) candidates.push(optionOf({ hour: h, startUtc: isoAt(startUtc, h) }, o, req));
+    if (o.sunlitAtLanding) candidates.push(optionOf({ hour: h, startUtc: isoAt(startUtc, h) }, o, req, holds?.[h]));
   }
   return recommend('time', current, pickApart(rankOptions(candidates, by), apartH, top + 1), top, 'landing at the period start', givesMore(1, by), by);
 }

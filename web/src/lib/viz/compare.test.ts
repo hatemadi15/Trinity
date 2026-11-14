@@ -236,6 +236,13 @@ describe('each scenario’s requirement checks', () => {
     expect(row.cells[1]!.checks!.map((c) => c.words)).toEqual(['Power for at least 5 d: 10 h, 4 d 14 h short', 'Longest time without Earth while powered at most 3 d: 10 h, 2 d 14 h to spare']);
     expect(row.cells[2]).toMatchObject({ value: 'Meets all 2 of your requirements.', change: '1 fewer failed', tone: 'better' });
     expect(row.cells[2]!.checks!.map((c) => c.met)).toEqual([true, true]);
+    // With 90 % of terrain versions asked for too, which Compare does not check, a scenario that fails none meets the
+    // requirements checked here, never all of yours.
+    const asked = { ...req, minHoldPct: 90 };
+    const unchecked = cols.map((c, i) => ({ ...c, checks: checkRequirements(i === 0 ? plan(76, 60) : plan(720, 60), asked), unchecked: true }));
+    const held = figureRows(unchecked).find((r) => r.id === 'requirements')!;
+    expect(held.cells[0]).toMatchObject({ value: 'Fails 1 of your 2 requirements.' });
+    expect(held.cells[2]).toMatchObject({ value: 'Meets the requirements checked here.', change: '1 fewer failed', tone: 'better' });
     // With none set there is nothing to check, and no row.
     expect(figureRows(cols).some((r) => r.id === 'requirements')).toBe(false);
     expect(figureRows(cols.map((c) => ({ ...c, checks: [] }))).some((r) => r.id === 'requirements')).toBe(false);

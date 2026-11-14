@@ -16,8 +16,10 @@ import type { Exaggeration, SceneMode, TerrainState } from '@/lib/store/explore'
 import { groundWords } from '@/lib/viz/ground';
 import type { SceneState } from '@/lib/viz/scene-state';
 import { pickProblem } from '@/lib/viz/terrain';
+import { decodeMask, overlayFor, overlayRect, type ColdOverlayDoc } from '@/lib/coldtraps/coldtraps';
+import { useColdOverlay } from '@/lib/coldtraps/useColdTraps';
 import { HorizonView } from './HorizonView';
-import { ShadowMap } from './ShadowMap';
+import { COLD_FILL, ShadowMap } from './ShadowMap';
 
 /** The page's segmented control, as for the period: the chosen part dark, the others plain. */
 const SEG = 'flex h-11 overflow-hidden rounded-lg border border-line-strong bg-surface text-[15px]';
@@ -112,6 +114,8 @@ export function GroundPanel({
   reducedMotion,
   shadowClient,
   standLink,
+  coldLayer = false,
+  coldOverlay,
 }: {
   site: Site;
   sites: Site[];
@@ -141,6 +145,10 @@ export function GroundPanel({
   shadowClient?: ShadowSource;
   /** The view from the site's address with the lander's and the radio's settings; without it, the site, period and hour alone. */
   standLink?: string;
+  /** Whether the modelled cold-trap layer (data/coldtraps) covers this site, so the map can offer its cold ground. */
+  coldLayer?: boolean;
+  /** Injected in tests; by default the app's data/coldtraps/overlay.json, loaded once the layer is switched on. */
+  coldOverlay?: () => Promise<ColdOverlayDoc>;
 }) {
   // Until a tab is chosen, a site with no polar terrain opens on the horizon chart: it has no map.
   const [chosen, setChosen] = useState<GroundTab | null>(null);
@@ -160,6 +168,12 @@ export function GroundPanel({
   // The map's notes, among them the line on what Stand at the site does, are in the page only while the map is drawn,
   // so only then can that line describe the button.
   const mapNotes = tab === 'map' && site.polar && finest !== null;
+  // The modelled cold ground, off until asked for, on the terrain window it was cut for (never on the coarse cap alone).
+  const [coldOn, setColdOn] = useState(false);
+  const coldOffered = coldLayer && site.polar && heightmap !== null;
+  const coldDoc = useColdOverlay(coldOn && coldOffered, coldOverlay);
+  const coldEntry = coldOn && coldOffered ? overlayFor(coldDoc, site.id) : null;
+  const cold = useMemo(() => (coldEntry && heightmap ? { mask: decodeMask(coldEntry), width: coldEntry.width, height: coldEntry.height, rect: overlayRect(coldEntry, heightmap.meta) } : null), [coldEntry, heightmap]);
 
   const choose = (next: GroundTab) => {
     setChosen(next);
@@ -252,6 +266,7 @@ export function GroundPanel({
                   sunHidden={words.sunHidden}
                   earthHidden={words.earthHidden}
                   siteState={words.siteState}
+                  cold={cold}
                 />
               </div>
               <div className="text-[15px] text-ink-2">
@@ -261,7 +276,18 @@ export function GroundPanel({
                   <KeyItem sample={<Arrow color="var(--stage-sun)" />}>towards the Sun</KeyItem>
                   <KeyItem sample={<Arrow color="var(--stage-earth)" dotted />}>towards Earth (dotted when below the horizon)</KeyItem>
                   <KeyItem sample={<span className="flex h-6 w-6 items-center justify-center rounded-full border border-stage-ink/40 text-[14px] font-bold leading-none text-stage-ink">N</span>}>north is up</KeyItem>
+                  {cold && <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm" style={{ background: COLD_FILL }} />}>below 110 K all year in NASA’s Diviner model: modelled conditions where ice could last</KeyItem>}
                 </ul>
+                {coldOffered && (
+                  <button
+                    type="button"
+                    aria-pressed={coldOn}
+                    onClick={() => setColdOn((on) => !on)}
+                    className={`mt-4 h-11 rounded-lg border border-line-strong px-3.5 text-[15px] ${coldOn ? 'bg-ink font-semibold text-page' : 'bg-surface text-ink hover:bg-surface-2'}`}
+                  >
+                    Modelled cold ground
+                  </button>
+                )}
                 {/* How to use the map and how it is made are read once, so they wait one tap away (spec 20.1); the key above
                     reads the map without them. */}
                 <Fold label="About this view" className="mt-4">
@@ -272,6 +298,12 @@ export function GroundPanel({
                   <p className="mt-3">
                     Stand at the site <span id="ground-stand-note">fills the whole window: look around as if you stood there.</span>
                   </p>
+                  {cold && (
+                    <p className="mt-3">
+                      The cold ground is NASA’s Diviner temperature model, fitted to one year of measurements in patches about half a kilometre across: modelled conditions where ice could last,
+                      not a finding that any is there.
+                    </p>
+                  )}
                 </Fold>
               </div>
             </div>
@@ -340,7 +372,8 @@ export function GroundPanel({
       )}
       {/* LOLA, on the site's own grid, gives the ground and the hills, and DE440 the light; the sentence for the hour
           uses both on every tab. The globe is coloured with NASA's Moon Kit, so its pill shows while the globe does. */}
-      <Sources of={tab === '3d' && view === 'globe' && textureUrl ? [...lolaFor(site), 'de440', 'moonkit'] : [...lolaFor(site), 'de440']} />
+      {/* The modelled cold ground, while its layer is on the shadow map, comes from Diviner's model. */}
+      <Sources of={tab === '3d' && view === 'globe' && textureUrl ? [...lolaFor(site), 'de440', 'moonkit'] : [...lolaFor(site), 'de440', ...(tab === 'map' && cold ? (['diviner'] as const) : [])]} />
     </section>
   );
 }

@@ -28,6 +28,12 @@ before the deadline, commit this study and at most one sentence of future work; 
 model and run the ensemble, then add a cold-trap layer worded as modelled conditions, never as ice found,
 and try an emulator only if the simple rule is shown to fail.
 
+Update, 14 November: with the user's go-ahead, step 4 of the plan below, the cold-trap layer, was built before
+the deadline as a transparent layer (no score, no classifier): `data/coldtraps`, shown on Explore, in the brief,
+on the site list and as a layer on the shadow map. The -1 value is read from the table itself (not yet confirmed with the Diviner team or the PDS node): it is exactly the ground whose annual
+maximum is below 101.3 K, where ice would be stable at the surface all year (`docs/method.md`, "Modelled cold
+traps").
+
 ## Terms used
 
 - **Skyline**: the height of the terrain horizon in each of 720 directions around a site, as the app
@@ -66,10 +72,13 @@ and try an emulator only if the simple rule is shown to fail.
 
 - **The uncertainty budget** (`data/uncertainty/budget.json`, method in `docs/method.md`, "Uncertainty
   budget"): per site and event, the sampling, terrain and ephemeris errors and their sum, shown as
-  "Times ±3.5 h" on Explore, in the brief and on the Accuracy page. Its terrain part traces three other
+  "Times ±N h" on Explore, in the brief and on the Accuracy page. Its terrain part traces three other
   skylines per polar site (`data/uncertainty/skylines/<site>.json`): product 90's adjusted skyline, and the
   same skyline raised and lowered by one stated error in every direction at once. A point not in the
-  catalogue gets the largest margin found at the featured polar sites.
+  catalogue gets the largest margin found at the featured polar sites. (Since 14 November the terrain part
+  also takes the 32 terrain versions of each polar site; 68 margins grew and none shrank, and the
+  default landing, de Gerlache Rim 2 on 1 January 2027, now shows "Times ±8 h", where it showed ±4.5 h.
+  `docs/method.md`, "Terrain versions".)
 - **The ground at each site** (`terrain_quality`): height error, effective resolution, slope and its
   error, roughness at 100 m, and the nearest permanently shadowed pixel of `LPSR_80S_20MPP_ADJ` within
   10 km. At all 18 polar sites that pixel is within 1.05 km (from 6 m to 1.05 km), so the distance alone
@@ -368,8 +377,11 @@ physical threshold as a learned probability. The value is in a careful, sourced,
   by 11 to 15 %. Ice depth 0 (stable at the surface) covers only 2,341 km², but a value of **-1, which the
   label does not explain**, covers 12,813 km², all of it colder than 101 K: 87 % of the ground colder than
   110 K carries -1 and only 13 % carries 0. A reader that took the label at its word would miss most of the
-  coldest ground. Buried ice would last within 10 cm of the surface on 20 % of the cap, between 10 and 50 cm
-  on 13 %, between 0.5 and 2.87 m on 4 %, and deeper (or not at all) on 58 %.
+  coldest ground. (Read from the table since, not yet confirmed with the Diviner team: -1 is exactly the ground whose annual maximum is below 101.3 K, the
+  temperature at which exposed ice sublimates at the product's own rate, Paige et al.'s white "surface cold
+  traps"; see `docs/method.md`, "Modelled cold traps".) Buried ice would last within 10 cm of the surface on
+  20 % of the cap, between 10 and 50 cm on 13 %, between 0.5 and 2.87 m on 4 %, and deeper (or not at all) on
+  58 %.
 - **Around each polar site**, next to product 90's permanent shadow (the 10 km LPSR windows the budget
   already caches):
 
@@ -409,7 +421,8 @@ physical threshold as a learned probability. The value is in a careful, sourced,
   as expected if not every shadow is a cold trap. Report every class area for 100, 110 and 120 K, so the
   threshold's weight (11 to 15 %) is visible.
 - **The undocumented -1**: settle with the Diviner team or the PDS Geosciences Node what it means before any
-  depth is shown.
+  depth is shown. (Settled from the table, the physics and Paige et al.'s own map on 14 November, before any
+  depth was shown; the team and the node have not been asked. `docs/method.md`, "Modelled cold traps".)
 - **Independent indicators**: compare the classes with LAMP and LOLA albedo where they were not used, and
   with Li et al.'s figure, crater by crater; LCROSS's single point at Cabeus.
 - **Registration**: Diviner's mesh comes from a Kaguya elevation model, not the LOLA grids the app uses, and
@@ -443,14 +456,26 @@ Diviner beside each site's power and radio windows, labelled as modelled conditi
 
 **After the deadline, in this order:**
 
+(Update, 14 November: steps 1 and 2 were built before the deadline after all, on the user's go-ahead; see
+`docs/method.md`, "Terrain versions". The fitted model differs from the prototype's guesses in two ways that
+matter: the two generations differ by about 1.4 m, 3 to 29 times the stated error, but are correlated over only
+32 to 131 m, under two pixels, so the versions move each direction of the skyline partly on its own. The
+emulator of step 5 was not built.)
+
 1. Fit an error model to the two DEM generations, so its size and correlation length come from data, not
    from `ERR` alone (half a day to a day).
 2. Run the Monte Carlo ensemble at the featured sites and compare it with first-order propagation and with
    today's budget; then show ranges and rank options by how often they hold (two to three days with the
    app).
-3. Check skylines against product 90's NAC images at the sites they cover.
+3. Check skylines against product 90's NAC images at the sites they cover. *Done on 14 November 2026, ahead of the
+   deadline at the team's request:* product 90's pictures reach only one featured site, so LROC's WAC polar movie
+   frames were added (`docs/method.md`, Validation, item 5; `data/validation/images.json`). The app's shadows and
+   20 pictures agree on a median 92 % of the ground, nearly all disagreement on shadows' edges; 17 of the 20 meet the
+   check's own mark, so it misses: in the three that do not, all with the Sun 1.1° up or less, the app puts a fifth to a
+   quarter of the sunlit ground in shadow, and product 90's terrain does much the same.
 4. Build the cold-trap layer as a transparent index (Diviner, product 90 shadow and slope), with per-site
-   summaries next to power and radio contact, and strict wording.
+   summaries next to power and radio contact, and strict wording. (Built on 14 November, ahead of this
+   order, at the user's request: `data/coldtraps`, `docs/method.md`, "Modelled cold traps".)
 5. Consider an emulator only if step 2 shows first-order propagation failing often and instant spreads are
    needed for points the app has not seen; try a small ensemble in the browser worker or a precomputed
    margin map first.

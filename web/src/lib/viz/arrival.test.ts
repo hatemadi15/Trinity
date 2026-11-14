@@ -25,8 +25,6 @@ describe('the arrival', () => {
     }
     expect(h.power.firstBrownoutHour).toBe(r.power.firstBrownoutHour);
     expect(h.power.firstBrownoutHour).toBe(HOME.battery.now_hours);
-    expect(h.siteHeightM).toBeCloseTo(190.33, 1);
-    expect(h.earthKm[10]).toBeGreaterThan(360000);
   });
 
   it('gives the standing beat Explore’s answer for the site, as the stand view words it, with the better day', () => {

@@ -143,10 +143,18 @@ describe('the budget the app reads (data/uncertainty/budget.json)', () => {
     for (const s of real.sites.filter((x) => x.polar)) expect(s.skyline?.adjusted_minus_app?.p95_abs_deg, s.site_id).toBeLessThan(1);
   });
 
-  it('describes the ground at every polar site from NASA’s adjusted maps, and at none far from the pole', () => {
+  it('describes the ground at every polar site from NASA’s adjusted maps, and at none far from the pole or north of 80° S, where those maps end', () => {
     for (const s of real.sites) {
-      if (!s.polar) expect(s.terrain_quality).toBeNull();
+      if (!s.polar || s.lat > -80) expect(s.terrain_quality).toBeNull();
       else expect(s.terrain_quality).toMatchObject({ height_error_m: expect.any(Number), slope_deg: expect.any(Number), effective_resolution_m: expect.any(Number) });
+    }
+  });
+
+  it('measures the terrain of every polar site with its terrain versions too, and keeps the two spreads apart', () => {
+    for (const s of real.sites.filter((x) => x.polar)) {
+      expect(s.terrain_versions).toBe(32);
+      const sunset = s.events.sunset.terrain;
+      if (sunset && sunset.n > 0) expect(sunset.p95_abs_h!).toBeGreaterThanOrEqual(sunset.skylines?.p95_abs_h ?? 0);
     }
   });
 });

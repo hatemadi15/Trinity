@@ -6,7 +6,7 @@ import type { Requirements } from '@/lib/plan/requirements';
 import type { OptionView, PlanView } from '@/lib/viz/answer';
 
 /** Each requirement's box: its words, its unit, the hours one unit stands for, and the most it takes. */
-const FIELDS: { key: keyof Requirements; label: string; unit: string; scale: number; max: number }[] = [
+const FIELDS: { key: Exclude<keyof Requirements, 'minHoldPct'>; label: string; unit: string; scale: number; max: number }[] = [
   { key: 'minPoweredH', label: 'Power for at least', unit: 'days', scale: 24, max: 90 },
   { key: 'contactWithinH', label: 'Earth in view within', unit: 'hours of landing; 0 for the landing hour', scale: 1, max: 2160 },
   { key: 'maxOutageH', label: 'Longest time without Earth while powered at most', unit: 'days', scale: 24, max: 90 },
@@ -46,8 +46,18 @@ function RequirementField({ label, unit, scale, max, hours, onChange }: { label:
   );
 }
 
-/** The mission's requirements, each box empty for none: the recommendations above are ranked and checked against them. */
-export function RequirementsFields({ value, onChange }: { value: Requirements; onChange: (patch: Partial<Requirements>) => void }) {
+/** The optional requirement on the terrain versions: a share in percent, not hours. */
+const HOLD_FIELD = { key: 'minHoldPct' as const, label: 'Holds in at least', unit: '% of terrain versions', scale: 1, max: 100 };
+
+/** What holding in a version means, said under its box. */
+export const HOLD_MEANING = 'A version holds when it meets your other requirements; with none set, when power lasts the whole stay.';
+
+/**
+ * The mission's requirements, each box empty for none: the recommendations above are ranked and checked against them.
+ * With `holds` (where the terrain versions are worked out), a last box asks how often a choice must still hold across
+ * them, with `holds` saying in a sentence what is checked against them and how far the work has got.
+ */
+export function RequirementsFields({ value, onChange, holds }: { value: Requirements; onChange: (patch: Partial<Requirements>) => void; holds?: string }) {
   return (
     <div className="flex flex-col gap-3">
       <h3 className="font-medium text-ink">Your requirements</h3>
@@ -56,6 +66,14 @@ export function RequirementsFields({ value, onChange }: { value: Requirements; o
         {FIELDS.map((f) => (
           <RequirementField key={f.key} label={f.label} unit={f.unit} scale={f.scale} max={f.max} hours={value[f.key]} onChange={(h) => onChange({ [f.key]: h })} />
         ))}
+        {holds !== undefined && (
+          <div className="flex flex-col gap-1.5">
+            <RequirementField label={HOLD_FIELD.label} unit={HOLD_FIELD.unit} scale={HOLD_FIELD.scale} max={HOLD_FIELD.max} hours={value.minHoldPct ?? null} onChange={(v) => onChange({ minHoldPct: v })} />
+            <p className="max-w-[34em] text-[15px] text-ink-2">
+              {HOLD_MEANING} {holds}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

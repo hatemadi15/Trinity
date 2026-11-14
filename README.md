@@ -11,7 +11,9 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
 
 ## A tour of the pages
 
-- **Home** (`/`): what the tool answers, in one real month. It opens with the descent, by scrolling
+- **Home** (`/`): what the tool answers, in one real month, and who it is for, in a line under the
+  first screen's sentence: planners of NASA's commercial Moon landers, teachers (sent to How it works
+  first) and anyone curious. It opens with the descent, by scrolling
   or in 11 seconds with "Fly to the south pole": the whole Moon, beside the title and never under
   it, with Earth beside it, turns, tips its south pole towards you and comes closer, down to the
   500 km relief map of the pole and to de Gerlache Rim 2's 20 km shadow picture, with the answer for
@@ -22,7 +24,8 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   03 "Start from a real place" pairs a computed shadow picture of the ridge with three
   places to open: the ridge, and the Athena and Blue Ghost landers of March 2025, which open Explore
   at the first whole hour after each one landed. 04 gives two checks against NASA and one real
-  mission as context, and 05 the ways on: compare sites, ask in plain words, print the brief, run it
+  mission as context, and says that a third, where shadows fall in pictures from orbit, misses its
+  own mark; 05 gives the ways on: compare sites, ask in plain words, print the brief, run it
   offline.
 - **Choose a landing site** (`/sites`): the 34 places in the catalogue (the nine Artemis III candidate regions, the landing
   spots of three commercial landers and two coming ones, the six Apollo landings, the landers of
@@ -36,7 +39,7 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   60° S can be worked out in the browser.
 - **Explore** (`/explore`): the answer for one site and one landing date, first. "Landing at de
   Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, how sure its
-  times are ("Times ±4.5 h", one tap away), the time
+  times are ("Times ±8 h", one tap away), the time
   Earth is in view while the lander has power, a better landing day or a better place nearby, ranked against
   mission requirements you can set and then by the longest time with power, or by priorities you choose
   under "Then rank by" (balanced, mostly power, mostly Earth in view, mostly shorter gaps, or your own
@@ -58,8 +61,8 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   ready-made landers or your own panel, load, battery and mast. A new mast height works out the hills again for every
   site shown, and each page says which sites are still waiting. Explore's address is its share link: `/explore?site=&start=&days=` (for example
   `start=2027-01-20T17:00&days=7`) plus every setting that differs from the defaults (`panel`, `facing`,
-  `area`, `efficiency`, `load`, `battery`, `charge`, `mast`, `earthmin`) and any requirements you set, in hours (`minpower`, `earthby`, `maxgap`,
-  `mincontact`), then the ranking when it is not the default (`rank=balanced`, `power`, `contact`, `gap`, or three
+  `area`, `efficiency`, `load`, `battery`, `charge`, `mast`, `earthmin`) and any requirements you set (`minpower`, `earthby`, `maxgap` and
+  `mincontact` in hours, `minhold` in percent of terrain versions), then the ranking when it is not the default (`rank=balanced`, `power`, `contact`, `gap`, or three
   weights such as `rank=1,7,3`), so a reload or a copied link opens the same figures and the same better date in any browser. Share, on the numbers card, copies it and downloads the
   figures: hour by hour, all numbers and the radio windows as CSV, with the settings, versions and
   sources in a JSON file beside them.
@@ -86,21 +89,44 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   with the signed change from the baseline, and says when the scenarios share a landing time. The
   address carries the whole comparison; scenario files save and reopen one or many with the app and
   data versions; `/compare/brief` prints it. With requirements set, a row checks every
-  scenario against them (one tap shows each with its margin); the comparison's address, its brief and its
+  scenario against them, all but the share of terrain versions, which Compare carries but does not check (one tap shows each with its margin); the comparison's address, its brief and its
   files carry them. Empty, it offers the five-day slip at de Gerlache Rim 2
   and two ready pairs.
-- **Accuracy** (`/validate`): four kinds of evidence, each saying what it shows, what it was tested
-  on and what it leaves out, with its full table on request. Three are checks with a pass mark: the
+- **Terrain versions** (on Explore, Compare, the brief and Accuracy): NASA's two generations of
+  south-pole maps, made from the same laser shots, differ by about 1.4 m (2 m on the 240 m grid), 6 to 14 times the error the
+  newer one states, grid by grid. Earthrise fits an error model to those differences and draws 32
+  versions of the ground at each of the 21 polar sites, each traced to a skyline with the pipeline's
+  own code. On Explore, a fold beside the margins shows how the landing's time with power, first
+  sunset, longest night and contact with Earth move across the versions, and in how many it still
+  meets your requirements. Compare shows it per scenario (one tap on the row's name), the brief
+  prints it, and the Accuracy page explains the fit and its limits. A requirement can ask that a
+  choice hold in at least N % of versions, and the margins now include the versions' spread. A share
+  of versions is not the chance a landing works.
+- **Modelled cold traps** (on Explore, the brief, the site list and the shadow map): beside the power
+  and radio results of each polar site south of 80° S, Explore, the brief and the site list say how
+  much ground within 5 km stays below 110 K all year in NASA's Diviner temperature model, how far the
+  nearest is and how steep the straight way there; the shadow map can show that ground as a layer.
+  These are modelled conditions where ice could last, not a finding of ice (How it works explains).
+  To rebuild: `cd pipeline && uv run python -m lunar_pipeline.cli coldtraps` (it downloads the
+  117 MB Diviner zip into `data_raw/diviner` the first time), then `manifest` and `sync-local`.
+  Method and figures: `docs/method.md`, "Modelled cold traps".
+- **Accuracy** (`/validate`): five kinds of evidence, each saying what it shows, what it was tested
+  on and what it leaves out, with its full table on request. Four are checks with a pass mark: the
   Sun's and Earth's directions against JPL Horizons (with a live re-check), sunlight and Earth in
   view against NASA's LOLA illumination maps worked out the maps' way (from the ground, any part of
-  the disc, hourly over 18.6 years, 60 m terrain), and the power and battery sums against worked
-  answers, run in the browser. The fourth, predicted sunsets beside how three real missions ended,
-  is context, not a check. The page opens with "Three checks meet their criteria; past missions are
-  context, not a check." Then how sure the times are: the margin each event carries at four kinds of
-  site, measured against one-minute steps, NASA's adjusted south-pole maps (PGDA product 90) and JPL
-  Horizons, with each source apart and the ground at each site; then the error budget and the
-  automated tests' last run: what passed, was skipped and failed, when, on which commit and with
-  which data.
+  the disc, hourly over 18.6 years, 60 m terrain), the app's shadows laid over 20 pictures from
+  LRO's cameras at seven featured sites, at the moment each was taken (92 % of the ground called
+  alike in the typical picture), and the power and battery sums against worked answers, run in the
+  browser. The shadows check misses its own mark: 17 of the 20 pictures meet it; the three that do
+  not were all taken with the Sun 1.1° up or less, and in them the app puts a fifth to a quarter of
+  the ground the camera saw lit in shadow. The fifth kind of evidence, predicted sunsets beside how
+  three real missions ended, is context, not a check. The page opens with "Three of four checks meet
+  their criteria; past missions are context, not a check." Then how sure the times are: the margin
+  each event carries at four kinds of site, measured against one-minute steps, NASA's adjusted
+  south-pole maps (PGDA product 90) and their terrain versions, and JPL Horizons, with each source
+  apart and the ground at each site; then the terrain versions themselves (the error model's fit,
+  what the versions show and what they cannot show); then the error budget and the automated tests'
+  last run: what passed, was skipped and failed, when, on which commit and with which data.
 - **How it works** (`/learn`): the three drawings, the science behind them for a class (the Moon's
   small tilt, libration, how to read the charts, the battery sum) and five steps through the pages, then how to run it offline.
 - **The brief** (`/brief`): one printable page with Explore's answer, five numbers, the Sun's and
@@ -123,8 +149,10 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   "dark mode") and she does it and answers aloud; she knows the site names as speech tends to write
   them. She uses the browser's own speech recognition: Chrome and Edge send the sound to their
   makers' servers, so voice needs the internet there, and Firefox has none. Her panel is a chat that
-  keeps the conversation from page to page; it always takes typed words, and its microphone button
-  pauses and restarts the listening. What she does not know goes to the same assistant as "Ask in plain words".
+  keeps the conversation from page to page; it always takes typed words, its microphone button
+  pauses and restarts the listening, and its "Say replies aloud" switch (on at first, remembered in the
+  browser) keeps her answers to the chat when off; "be quiet" and "speak again" do the same by voice.
+  What she does not know goes to the same assistant as "Ask in plain words".
   The code is in `web/src/lib/luna` and `web/src/components/luna`.
 - **Plan a landing** (`/plan`, "Plan a landing" in the header): say or type what the mission needs,
   for example "at least five days of power, Earth in view when we land, no radio gap longer than three
@@ -278,16 +306,16 @@ page. More resources may be added before the hackathon begins.
 | The brief asks for | How Earthrise answers it |
 |---|---|
 | Site selection and comparison | A catalogue of 34 places: the south pole's nine Artemis III candidate regions, crater-rim high points and floors, three CLPS landers that landed and two coming ones, the six Apollo landings, and the landers of India, China and Japan and Luna 25's target, each saying what kind of point it is (surveyed, a target, a region's centre with its radius, or a derived high point never checked for landing), with the polar ones on a relief map of the pole; and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts a baseline and up to three scenarios side by side, each with its own site, landing hour, stay and lander, with the change from the baseline: the original landing, the same site five days later and a nearby alternative, in three presses. |
-| Dates and times | Any landing date and hour (UTC) the ephemeris covers (2024 to 2036), for 2 to 90 days, with steps and shifts by hours or days; a better landing day inside the period and a search of the next 12 months, both ranked by any requirements you set and then by the longest time with power from landing (ties: Earth contact while powered) or by priorities you choose, weighed by a stated rule; the planner's months of the window for its best sites; and a year at a glance: every landing day of the next 12 months coloured by power and radio contact, one press to land on it. |
+| Dates and times | Any landing date and hour (UTC) the ephemeris covers (2024 to 2036), for 2 to 90 days, with steps and shifts by hours or days; a better landing day inside the period and a search of the next 12 months, both ranked by any requirements you set (the 12-month search leaves out the share of terrain versions) and then by the longest time with power from landing (ties: Earth contact while powered) or by priorities you choose, weighed by a stated rule; the planner's months of the window for its best sites; and a year at a glance: every landing day of the next 12 months coloured by power and radio contact, one press to land on it. |
 | The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments (the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back) and counts down to the next sunset or sunrise and to Earth's next rising or setting. |
 | Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; the Sun's height above the horizon at any hour and its highest; hours of sunlight; the radio windows with their UTC times, which of them the lander has power to use, and the longest time without Earth (geometric direct-to-Earth visibility, not a booked antenna); the longest night; every figure under "All numbers". |
 | Several ways to see it | A relief map of the pole, a north-up shadow map and the same light in 3D from above, the horizon chart, an hour-by-hour chart of the Sun, Earth and the battery, the view from the site, and the descent from the whole Moon on the home page. |
 | Time and change | The time bar plays the period hour by hour at a day a second (2× and 4× on its speed button), with dots for the key moments and Next to step between them; the chart and every view follow it. |
 | Every skill level | Plain words first and every number a click away; a Learn mode with a guided story for classes; the printable brief; an assistant for typed questions and Luna for spoken ones; keyboard use, phone layouts, light and dark themes, and an offline mode for the venue. |
-| Ephemeris data | The Sun's and Earth's positions are pre-computed hourly for 2024 to 2036 from JPL's DE440 ephemeris with NASA's SPICE toolkit, in the Moon's own frame (MOON_ME), and checked against JPL Horizons on the Accuracy page; every event time carries a measured margin (hourly steps, terrain and ephemeris kept apart). |
+| Ephemeris data | The Sun's and Earth's positions are pre-computed hourly for 2024 to 2036 from JPL's DE440 ephemeris with NASA's SPICE toolkit, in the Moon's own frame (MOON_ME), and checked against JPL Horizons on the Accuracy page; every event time carries a measured margin (hourly steps, terrain and ephemeris kept apart, the terrain part taking 32 terrain versions at the polar sites). |
 | Topography and the horizon | LOLA elevation grids at 20, 80 and 240 m per pixel. The horizon is the terrain itself over the curved Moon, with no atmosphere to bend the light. |
 | Libration | The ephemeris carries the Moon's real orientation, so Earth wanders in the sky over the month and the year; How it works explains why. |
-| Slopes, craters and shadow | Crater floors in permanent shadow and rim high points are in the catalogue; each polar site shows its slope, how well its heights are known and its distance to permanently shadowed ground, from NASA's adjusted maps (PGDA product 90); the shadow map and the view from the site show the shadows the hills cast. |
+| Slopes, craters and shadow | Crater floors in permanent shadow and rim high points are in the catalogue; each polar site shows its slope, how well its heights are known and its distance to permanently shadowed ground, from NASA's adjusted maps (PGDA product 90), and, south of 80° S, the modelled cold traps within 5 km from LRO Diviner's temperature model (modelled conditions where ice could last, not a finding of ice); the shadow map and the view from the site show the shadows the hills cast, and the shadow map can show the cold ground as a layer. |
 
 ## Run it on your computer
 
@@ -417,7 +445,7 @@ loaded."); the home page's words still show. In development the pages also give 
 fills the folder, `sync-local` below, which works on a fresh clone. There are two ways to fill the
 folder, and a command that checks it against the list of every file the app reads.
 
-#### The committed data (5 MB, a minute)
+#### The committed data (7 MB, a minute)
 
 Any shell, from the repository's root:
 
@@ -430,9 +458,10 @@ cd ..
 
 `uv sync` downloads Python 3.12 (about 30 MB, only when the computer has no 3.12) and the
 pipeline's packages (65 to 85 MB, by system) into `pipeline/.venv`; it took 5 seconds here.
-`sync-local` copies the committed `data/` (4.7 MB: the site catalogue, the hourly Sun and Earth
-table, the horizon masks of the catalogue sites, the sky, the validation tables and the test
-fixtures) into `web/public/data` in under a second.
+`sync-local` copies the committed `data/` (6.8 MB: the site catalogue, the hourly Sun and Earth
+table, the horizon masks of the catalogue sites, the sky, the validation tables, the margins and the
+terrain versions, the modelled cold traps and the test fixtures) into `web/public/data` in under a
+second.
 
 With this data every page opens and works for the 34 places in the catalogue: the site list,
 Explore's answer, numbers, chart and horizon chart, Compare, Accuracy, How it works, the brief and
@@ -453,16 +482,15 @@ the assistant. What needs the full data:
 The home page needs none of it: the descent's pictures ship with the app. The browser's console
 then lists 404s for `/data/terrain/manifest.json`; they are expected.
 
-#### The full data (380 MB to download, 650 MB on disk)
+#### The full data (335 MB to download, 600 MB on disk)
 
 Any shell, from the repository's root, after the block above:
 
 ```
 cd pipeline
-uv run python -m lunar_pipeline.cli fetch --group lola --group textures --group globe
+uv run python -m lunar_pipeline.cli fetch --group lola --group textures
 uv run python -m lunar_pipeline.cli tiles
 uv run python -m lunar_pipeline.cli terrain
-uv run python -m lunar_pipeline.cli globe
 uv run python -m lunar_pipeline.cli sync-local --tiles
 cd ..
 ```
@@ -471,24 +499,29 @@ cd ..
 |---|---|---|---|---|
 | `fetch --group lola` | 335 MB: LOLA heights of the south pole at 20, 80 and 240 m | `data_raw/lola` | 9 s | the input of `tiles` and `terrain` |
 | `fetch --group textures` | 0.45 MB: the LROC colour map of the Moon | `data_raw/textures` | 1 s | the colour of Explore's 3D globe |
-| `fetch --group globe` | 44 MB: NASA's CGI Moon Kit colour map and heights | `data_raw/globe` | 3 s | the input of `globe` |
 | `tiles` | `data_raw/lola` | `data_out/tiles`: 706 tiles, 238 MB | 12 s | "Somewhere else" and other mast heights |
-| `terrain` | `data_raw/lola`, `data_raw/textures` | `data_out/terrain`: 29 MB | 2 s | the shadow map, the 3D view, the stand view's ground |
-| `globe` | `data_raw/globe` | `data_out/globe`: 5.3 MB | 3 s | no page now: the old arrival's Moon from space |
-| `sync-local --tiles` | `data/`, `data_out/` | `web/public/data`: 276 MB, 840 files | under 1 s | all of the above, in the app |
+| `terrain` | `data_raw/lola`, `data_raw/textures` | `data_out/terrain`: 27 MB | 2 s | the shadow map, the 3D view, the stand view's ground |
+| `sync-local --tiles` | `data/`, `data_out/` | `web/public/data`: 282 MB, 889 files | under 1 s | all of the above, in the app |
 
-`globe` needs about 1.1 GB of memory and `terrain` 0.5 GB. `globe` prints a few
-`NotGeoreferencedWarning` lines; they are harmless.
+`terrain` needs about 0.5 GB of memory.
 
 `sync-local --tiles` copies what the other commands made; it does not generate tiles. The
 downloaded sources in `data_raw/` and the generated files in `data_out/` are gitignored, so they are
 absent from a fresh checkout. If you see `data_out/tiles missing; run the tiles command first`, run
 the `fetch` and `tiles` commands above before syncing. If the sources are already downloaded, start
 with `tiles`: `fetch` skips files it already has, and run again after a cut-off download it resumes
-where it stopped. The `--tiles` option also copies the terrain and the globe when the `terrain` and
-`globe` commands have made them. Run `sync-local` (with `--tiles` once you have built them) again
+where it stopped. The `--tiles` option also copies the terrain when the `terrain` command has made
+it. Run `sync-local` (with `--tiles` once you have built them) again
 after a `git pull` that changes `data/`. Every pipeline command is in
 [pipeline/README.md](pipeline/README.md).
+
+Three parts of the committed data are made from further NASA downloads, by commands of their own
+(each followed by `manifest` and `sync-local`), and need running only to make them again: the
+terrain versions (`error-model`, `ensemble`, then `uncertainty` and `ensemble --index-only`, about
+35 minutes, with product 90's files from `pgda90-fetch`), the shadows check against camera pictures
+(`images`, about 10 minutes the first time and 16 seconds from its cache in `data_raw/images`) and
+the modelled cold traps (`coldtraps`, about 40 seconds; it downloads the 117 MB Diviner zip into
+`data_raw/diviner` the first time).
 
 #### Check what the folder holds
 
@@ -499,15 +532,20 @@ uv run python -m lunar_pipeline.cli check-data
 ```
 
 It compares `web/public/data` with `data/manifest.json`, the list of every data file the app reads
-(839 files in seven parts, each file with its size and SHA-256, under a data version such as
-`2026-11-14-a120b7a9`), and says part by part what is complete, missing, incomplete or different,
+(888 files in eight parts, each file with its size and SHA-256, under a data version such as
+`2026-11-14-730a29df`), and says part by part what is complete, missing, incomplete or different,
 what the app does without each part and the commands that get it. With the committed data alone it
-names the tiles, the terrain and the globe and ends "Every page opens: the required files are all
-here. 3 optional parts are not complete; the pages named above fall back."; with the full data it
+names the tiles and the terrain and ends "Every page opens: the required files are all here. 2
+optional parts are not complete; the pages named above fall back."; with the full data it
 ends "The full demo is here." It exits with 1 only when a required file is missing or differs (run
 `sync-local` again). `--root <folder>` checks another copy, such as an unzipped data release, and
 `--json` prints the report for scripts. After a change to `data/`, `uv run python -m
-lunar_pipeline.cli manifest` rewrites the manifest; a pipeline test fails until it is in step.
+lunar_pipeline.cli manifest` rewrites the manifest; a pipeline test fails until it is in step. An
+older copy may still hold the globe that the home page's arrival drew until 14 November
+(`data_raw/globe`, `data_out/globe`, `web/public/data/globe`) and that arrival's 240 m flight level
+(`de_gerlache_rim_2.flight.u16` and `.json` in `data_out/terrain` and `web/public/data/terrain`).
+Nothing reads them now, `check-data` lists the copies in `web/public/data` as not in the manifest,
+and all of them can be deleted.
 
 ### 4. The environment file (optional)
 
@@ -837,16 +875,42 @@ kill 12345
 ### Disk space and long paths
 
 - The full setup takes about 3 GB: `web/node_modules` 860 MB, `web/.next` up to 420 MB,
-  `pipeline/.venv` 250 MB, the data about 930 MB (`data_raw/` 380 MB, `data_out/` 272 MB,
-  `web/public/data` 276 MB), plus npm's and uv's caches (about 300 and 250 MB) and uv's Python
-  (about 100 MB). After `sync-local --tiles`, deleting `data_out/` frees 272 MB (later syncs then
-  run without `--tiles`; the tiles already copied stay in `web/public/data`), and `data_raw/` 380 MB
+  `pipeline/.venv` 250 MB, the data about 890 MB (`data_raw/` 335 MB, `data_out/` 275 MB,
+  `web/public/data` 282 MB), plus npm's and uv's caches (about 300 and 250 MB) and uv's Python
+  (about 100 MB). After `sync-local --tiles`, deleting `data_out/` frees 275 MB (later syncs then
+  run without `--tiles`; the tiles already copied stay in `web/public/data`), and `data_raw/` 335 MB
   more if you will not build again; `npm cache clean --force` and `uv cache clean` empty the
   caches.
 - Windows limits paths to 260 characters unless long paths are turned on, and the deepest file the
   app writes (in `web\.next\dev\cache\images\`) sits 168 characters below the clone's folder. An
   error about a path that is too long, `ENAMETOOLONG` or git's `Filename too long`: clone to a short
   path such as `C:\dev\Trinity`, and run `git config --global core.longpaths true`.
+
+## NASA data and credits
+
+Every dataset, what the app uses it for, where it comes from and how to cite it is in
+[docs/data-credits.md](docs/data-credits.md). In short:
+
+- LRO LOLA's elevation grids of the south pole at 20, 80 and 240 m and its polar illumination maps
+  (https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/,
+  https://pgda.gsfc.nasa.gov/products/69).
+- PGDA product 90, "A New View of the Lunar South Pole from LOLA" (Barker et al. 2023,
+  https://pgda.gsfc.nasa.gov/products/90): the adjusted heights and their stated error, for the
+  margins, the terrain error model and its terrain versions, the ground at each polar site, and the
+  slopes and permanent shadow beside the modelled cold traps.
+- LRO's camera, LROC: 18 frames of the Wide Angle Camera's south polar movie
+  (https://pds.mcp.nasa.gov/data/store/img/lunar_reconnaissance_orbiter/pds4/lroc/lro-l-lroc-5-rdr/LROLRC_2001/DATA/BDR/WAC_POLE/WAC_POLE_MOVIE_SOUTH/)
+  and two Narrow Angle Camera pictures from product 90 (https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/),
+  timed through the PDS Orbital Data Explorer (https://oderest.rsl.wustl.edu/live2/), for the
+  shadows check.
+- LRO Diviner's Polar Resource Product (Paige et al. 2010,
+  https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_prp/), for
+  the modelled cold traps.
+- JPL's DE440 ephemeris through NAIF's SPICE kernels (https://naif.jpl.nasa.gov/pub/naif/generic_kernels/),
+  and JPL Horizons (https://ssd-api.jpl.nasa.gov/doc/horizons.html) for the directions check.
+- NASA's CGI Moon Kit (https://svs.gsfc.nasa.gov/4720) and Blue Marble (https://visibleearth.nasa.gov)
+  for the Moon and Earth, the Yale Bright Star Catalogue through NASA HEASARC for the stars, and
+  NASA's Artemis III regions and the CLPS mission records for the catalogue.
 
 ## Where things are
 
@@ -862,8 +926,9 @@ kill 12345
   illumination maps), the reference implementation of the science; it writes `data/`. The commands
   are in `pipeline/lunar_pipeline/cli.py` and [pipeline/README.md](pipeline/README.md).
 - `data/`: the committed outputs (the site catalogue, the hourly Sun and Earth table, the horizon
-  masks of the catalogue sites, the sky, the validation tables, the uncertainty budget with each polar site's skylines
-  from NASA's adjusted maps, and the golden fixtures).
+  masks of the catalogue sites, the sky, the validation tables with the pictures from orbit, the uncertainty budget with each polar site's skylines
+  from NASA's adjusted maps, the terrain error model and each polar site's 32 terrain versions (`ensemble/`), the
+  modelled cold traps (`coldtraps/`), and the golden fixtures).
   `data_raw/` (downloads) and `data_out/` (generated files) appear beside it once you run the
   pipeline; both are gitignored.
 - Tests: the web's sit beside the code as `*.test.ts` and `*.test.tsx` (vitest; shared helpers in
@@ -876,9 +941,10 @@ kill 12345
   (`python3 docs/handouts/create_project_guide.py` writes both). The
   spec is in `docs/superpowers/specs/`: the first plan (2026-09-28), the UI redesign (2026-10-01),
   the immersive design that the stand view follows, with its amendments (2026-10-02;
-  the section numbers the code and `web/README.md` cite), Moonstone, the redesign of the look, the
-  home page's descent and Luna's chat (spec 23, 2026-11-14), and a C++ core design that was not
-  built.
+  the section numbers the code and `web/README.md` cite; its section 24 has the terrain versions, the
+  shadows check against pictures from orbit and the modelled cold traps), Moonstone, the redesign of
+  the look, the home page's descent and Luna's chat (spec 23, 2026-11-14), and a C++ core design that
+  was not built.
   The implementation plans and their ledgers are in `docs/superpowers/plans/`, the design mockups in
   `docs/design/`.
 

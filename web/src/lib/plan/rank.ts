@@ -1,6 +1,6 @@
 import { spanShort } from '../viz/format';
 import type { Outcome } from './outcome';
-import { checkRequirements, failedWords, midSentence, type Check, type Requirements } from './requirements';
+import { checkedHere, checkRequirements, failedWords, holdUnchecked, midSentence, type Check, type Holds, type Requirements } from './requirements';
 
 /** What every recommendation is ranked by, said where the recommendations are. */
 export const OBJECTIVE =
@@ -139,11 +139,22 @@ export interface Option<T> {
   checks: Check[];
   /** How many requirements it fails. */
   failed: number;
+  /** In how many terrain versions it holds, where they were worked out for it. */
+  holds?: Holds | null;
+  /** A requirement set was not checked for it: the share of terrain versions, where none were worked out. */
+  unchecked?: boolean;
 }
 
-export function optionOf<T>(item: T, outcome: Outcome, req: Requirements): Option<T> {
-  const checks = checkRequirements(outcome, req);
-  return { item, outcome, checks, failed: checks.filter((c) => !c.met).length };
+/**
+ * A choice checked against the requirements. How often it still holds across the terrain versions ranks it only through
+ * the optional requirement "holds in at least N % of terrain versions" (Requirements.minHoldPct), which then counts as any
+ * other: a choice that holds in fewer versions fails it and ranks below every choice that meets them all. It is a
+ * requirement and not a criterion of its own after them so that, unless a planner sets it, the ranking and the better
+ * date stay exactly as worked out on the app's own skyline: a share of versions rests on an error model's assumptions.
+ */
+export function optionOf<T>(item: T, outcome: Outcome, req: Requirements, holds?: Holds | null): Option<T> {
+  const checks = checkRequirements(outcome, req, holds);
+  return { item, outcome, checks, failed: checks.filter((c) => !c.met).length, holds: holds ?? null, unchecked: holdUnchecked(req, checks) };
 }
 
 /**
@@ -182,12 +193,15 @@ export function pickApart<T>(ranked: Option<T>[], apartH: number, top: number): 
   return out;
 }
 
-/** Why `a` ranks above `b`, in one plain sentence; `other` names `b` ("the next", "landing at the period start"). */
+/**
+ * Why `a` ranks above `b`, in one plain sentence; `other` names `b` ("the next", "landing at the period start"). A
+ * requirement set but not checked for `a` is never counted as met: it meets the requirements checked here.
+ */
 export function whyAbove<T>(a: Option<T>, b: Option<T>, kind: 'time' | 'place', other = 'the next', by: RankBy = BY_POWER): string {
   if (a.failed < b.failed) {
     if (a.failed === 0) {
       const fails = b.checks.filter((c) => !c.met);
-      return `It meets every requirement; ${other} fails ${fails.length === 1 ? 'one' : fails.length}: ${fails.map(failedWords).join('; ')}.`;
+      return `It meets ${a.unchecked ? checkedHere(a.checks) : 'every requirement'}; ${other} fails ${fails.length === 1 ? 'one' : fails.length}: ${fails.map(failedWords).join('; ')}.`;
     }
     return `It fails fewer requirements than ${other}: ${a.failed} against ${b.failed}.`;
   }

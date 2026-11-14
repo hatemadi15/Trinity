@@ -1,0 +1,1377 @@
+{
+ "version": 1,
+ "generated_utc": "2026-11-14T14:54:09+00:00",
+ "about": "The app's LOLA heights minus PGDA product 90's adjusted heights around the polar sites: their fitted size and correlation length, beside product 90's stated error.",
+ "app_grids": {
+  "20": "ldem_875s_20m",
+  "80": "ldem_80s_80m",
+  "240": "ldem_60s_240m"
+ },
+ "adjusted_files": {
+  "20": [
+   "LDEM_80S_20MPP_ADJ.TIF",
+   "LDEM_80S_20MPP_ADJ_ERR.TIF"
+  ],
+  "80": [
+   "LDEM_80S_80MPP_ADJ.TIF",
+   "LDEM_80S_80MPP_ADJ_ERR.TIF"
+  ],
+  "240": [
+   "LDEM_60S_240MPP_ADJ.TIF",
+   "LDEM_60S_240MPP_ADJ_ERR.TIF"
+  ]
+ },
+ "windows_half_km": {
+  "20": 6.5,
+  "80": 30.0,
+  "240": 90.0
+ },
+ "model": "sigma(x) = sqrt(a^2 + (b tan slope)^2 + (c ERR)^2) m; correlation exp(-distance / length)",
+ "method": "Around every polar site, the app's LOLA heights (ldem_875s_20m, ldem_80s_80m, ldem_60s_240m) minus product 90's adjusted heights on the same pixels, less their median over the window: 6.5 km squares at 20 m round the sites south of 87.55 S, 30 km squares at 80 m and 90 km squares at 240 m round every site, each pixel counted once where squares overlap (not at 20 m). The size: the mean square difference in cells of slope (product 90's, 2.5 to 10 degree bins) by stated error (quantile bins), fitted by non-negative weighted least squares with sigma^2 = a^2 + (b tan slope)^2 + (c ERR)^2. The length: the semivariogram of the differences divided by that sigma, pooled over the windows, fitted with s (1 - exp(-h / L)) at lags up to 1 km.",
+ "not_captured": "Errors both generations share, since both come from the same laser shots (a hill neither resolves, a track error both inherit); the slow part of the differences (a few tenths of a metre over tens of kilometres), which moves a site and its skyline together and is left out; the differences' heavier-than-Gaussian tails and their alignment along laser tracks; and anything under one pixel.",
+ "resolutions": {
+  "20": {
+   "scale_m": 20.0,
+   "windows": 8,
+   "sigma": {
+    "a_m": 0.06196334773993312,
+    "b_m": 5.062390503178331,
+    "c": 1.2818600494045393
+   },
+   "length_m": 32.4,
+   "sill": 1.086,
+   "within_1_sigma": 0.705,
+   "within_2_sigma": 0.948,
+   "difference_rms_m": {
+    "median": 1.354,
+    "min": 1.04,
+    "max": 2.654
+   },
+   "stated_error_rms_m": {
+    "median": 0.253,
+    "min": 0.221,
+    "max": 0.29
+   },
+   "difference_over_stated_error": {
+    "median": 5.59
+   },
+   "slow_rise": 0.045,
+   "semivariogram": [
+    [
+     21,
+     0.5316,
+     13540799
+    ],
+    [
+     27,
+     0.7117,
+     13519999
+    ],
+    [
+     36,
+     0.8265,
+     13519967
+    ],
+    [
+     48,
+     0.8656,
+     26998399
+    ],
+    [
+     64,
+     0.9446,
+     80849695
+    ],
+    [
+     84,
+     0.9977,
+     80704223
+    ],
+    [
+     111,
+     1.0236,
+     227991039
+    ],
+    [
+     148,
+     1.045,
+     293972928
+    ],
+    [
+     195,
+     1.0578,
+     585213983
+    ],
+    [
+     259,
+     1.0681,
+     977636607
+    ],
+    [
+     342,
+     1.0766,
+     1677552031
+    ],
+    [
+     453,
+     1.0823,
+     2980281056
+    ],
+    [
+     600,
+     1.088,
+     5156181728
+    ],
+    [
+     794,
+     1.0925,
+     8817312736
+    ],
+    [
+     1052,
+     1.0965,
+     15058044448
+    ],
+    [
+     1392,
+     1.1032,
+     25372564768
+    ],
+    [
+     1843,
+     1.1103,
+     42213727552
+    ],
+    [
+     2440,
+     1.1158,
+     69340301088
+    ],
+    [
+     3229,
+     1.1219,
+     110391695744
+    ],
+    [
+     4275,
+     1.1304,
+     168861181920
+    ],
+    [
+     5660,
+     1.1402,
+     242573346720
+    ],
+    [
+     7492,
+     1.1375,
+     310006027776
+    ],
+    [
+     9919,
+     1.1339,
+     307046648096
+    ],
+    [
+     13131,
+     1.132,
+     120643985856
+    ],
+    [
+     17383,
+     1.1115,
+     4402111232
+    ]
+   ],
+   "cells": {
+    "slope_edges_deg": [
+     0.0,
+     2.5,
+     5.0,
+     7.5,
+     10.0,
+     12.5,
+     15.0,
+     17.5,
+     20.0,
+     25.0,
+     30.0,
+     40.0,
+     90.0
+    ],
+    "err_edges_m": [
+     0.1535,
+     0.1755,
+     0.1915,
+     0.2239,
+     0.3426,
+     0.5331,
+     null
+    ],
+    "count": [
+     34616,
+     32972,
+     31339,
+     17535,
+     8071,
+     3203,
+     76023,
+     71178,
+     65480,
+     36306,
+     15273,
+     5769,
+     97855,
+     89845,
+     83206,
+     46112,
+     19611,
+     7506,
+     102698,
+     97165,
+     93265,
+     52325,
+     22960,
+     9002,
+     106698,
+     105617,
+     104440,
+     61032,
+     28324,
+     11369,
+     94090,
+     96131,
+     98523,
+     60697,
+     29239,
+     12474,
+     69297,
+     73555,
+     78062,
+     51271,
+     25623,
+     11689,
+     47429,
+     52832,
+     58922,
+     40210,
+     21627,
+     11050,
+     49988,
+     57751,
+     66326,
+     46499,
+     25562,
+     13576,
+     62935,
+     62834,
+     61403,
+     35139,
+     14737,
+     5621,
+     105972,
+     107717,
+     106625,
+     61430,
+     26297,
+     10454,
+     1,
+     5,
+     11,
+     4,
+     5,
+     0
+    ],
+    "rms_m": [
+     0.431,
+     0.475,
+     0.441,
+     0.598,
+     0.474,
+     0.525,
+     0.518,
+     0.548,
+     0.546,
+     0.572,
+     0.701,
+     0.674,
+     0.654,
+     0.7,
+     0.746,
+     0.737,
+     0.777,
+     0.846,
+     0.837,
+     0.882,
+     0.919,
+     0.928,
+     0.947,
+     0.897,
+     1.013,
+     1.08,
+     1.078,
+     1.107,
+     1.114,
+     1.113,
+     1.2,
+     1.246,
+     1.288,
+     1.332,
+     1.357,
+     1.478,
+     1.408,
+     1.42,
+     1.495,
+     1.596,
+     1.643,
+     1.518,
+     1.605,
+     1.616,
+     1.697,
+     1.733,
+     1.848,
+     2.125,
+     1.938,
+     1.969,
+     1.985,
+     2.082,
+     2.052,
+     1.986,
+     2.627,
+     2.691,
+     2.738,
+     2.815,
+     2.953,
+     3.188,
+     3.122,
+     3.16,
+     3.244,
+     3.336,
+     3.427,
+     3.329,
+     1.34,
+     1.992,
+     3.741,
+     1.245,
+     3.275,
+     0.0
+    ]
+   },
+   "sites": {
+    "south_pole": {
+     "pixels": 423801,
+     "difference_rms_m": 2.134,
+     "difference_p95_abs_m": 4.561,
+     "stated_error_median_m": 0.192,
+     "stated_error_rms_m": 0.251,
+     "difference_over_stated_error": 8.5,
+     "within_fitted_sigma": 0.72
+    },
+    "shackleton_center": {
+     "pixels": 423801,
+     "difference_rms_m": 2.654,
+     "difference_p95_abs_m": 5.52,
+     "stated_error_median_m": 0.187,
+     "stated_error_rms_m": 0.227,
+     "difference_over_stated_error": 11.7,
+     "within_fitted_sigma": 0.691
+    },
+    "de_gerlache_center": {
+     "pixels": 423801,
+     "difference_rms_m": 1.04,
+     "difference_p95_abs_m": 2.144,
+     "stated_error_median_m": 0.199,
+     "stated_error_rms_m": 0.29,
+     "difference_over_stated_error": 3.59,
+     "within_fitted_sigma": 0.715
+    },
+    "connecting_ridge": {
+     "pixels": 423801,
+     "difference_rms_m": 1.397,
+     "difference_p95_abs_m": 2.86,
+     "stated_error_median_m": 0.185,
+     "stated_error_rms_m": 0.221,
+     "difference_over_stated_error": 6.32,
+     "within_fitted_sigma": 0.693
+    },
+    "peak_near_shackleton": {
+     "pixels": 423801,
+     "difference_rms_m": 1.049,
+     "difference_p95_abs_m": 2.111,
+     "stated_error_median_m": 0.191,
+     "stated_error_rms_m": 0.256,
+     "difference_over_stated_error": 4.1,
+     "within_fitted_sigma": 0.669
+    },
+    "de_gerlache_rim_2": {
+     "pixels": 423801,
+     "difference_rms_m": 1.206,
+     "difference_p95_abs_m": 2.342,
+     "stated_error_median_m": 0.195,
+     "stated_error_rms_m": 0.266,
+     "difference_over_stated_error": 4.53,
+     "within_fitted_sigma": 0.699
+    },
+    "shackleton_center_rim_high": {
+     "pixels": 423801,
+     "difference_rms_m": 2.298,
+     "difference_p95_abs_m": 5.04,
+     "stated_error_median_m": 0.189,
+     "stated_error_rms_m": 0.241,
+     "difference_over_stated_error": 9.53,
+     "within_fitted_sigma": 0.698
+    },
+    "de_gerlache_center_rim_high": {
+     "pixels": 423801,
+     "difference_rms_m": 1.31,
+     "difference_p95_abs_m": 2.529,
+     "stated_error_median_m": 0.194,
+     "stated_error_rms_m": 0.269,
+     "difference_over_stated_error": 4.86,
+     "within_fitted_sigma": 0.759
+    }
+   }
+  },
+  "80": {
+   "scale_m": 80.0,
+   "windows": 18,
+   "sigma": {
+    "a_m": 0.4651682150661614,
+    "b_m": 5.585019457045508,
+    "c": 1.686517698170094
+   },
+   "length_m": 58.3,
+   "sill": 0.857,
+   "within_1_sigma": 0.736,
+   "within_2_sigma": 0.96,
+   "difference_rms_m": {
+    "median": 1.364,
+    "min": 1.163,
+    "max": 1.74
+   },
+   "stated_error_rms_m": {
+    "median": 0.146,
+    "min": 0.106,
+    "max": 0.6
+   },
+   "difference_over_stated_error": {
+    "median": 9.58
+   },
+   "slow_rise": 0.049,
+   "semivariogram": [
+    [
+     83,
+     0.628,
+     39575347
+    ],
+    [
+     110,
+     0.7652,
+     39521999
+    ],
+    [
+     145,
+     0.8042,
+     39521927
+    ],
+    [
+     193,
+     0.8167,
+     78937303
+    ],
+    [
+     255,
+     0.8323,
+     236438691
+    ],
+    [
+     338,
+     0.8417,
+     236065543
+    ],
+    [
+     448,
+     0.8496,
+     667131067
+    ],
+    [
+     594,
+     0.8567,
+     938675323
+    ],
+    [
+     787,
+     0.8623,
+     1674860999
+    ],
+    [
+     1043,
+     0.867,
+     2943086183
+    ],
+    [
+     1381,
+     0.8717,
+     5074247615
+    ],
+    [
+     1830,
+     0.8762,
+     9021151683
+    ],
+    [
+     2425,
+     0.8803,
+     15320710999
+    ],
+    [
+     3212,
+     0.8844,
+     26784840903
+    ],
+    [
+     4256,
+     0.8893,
+     45598373743
+    ],
+    [
+     5639,
+     0.8941,
+     77626460471
+    ],
+    [
+     7471,
+     0.8993,
+     130346414707
+    ],
+    [
+     9898,
+     0.9052,
+     215694676035
+    ],
+    [
+     13115,
+     0.9119,
+     347825055107
+    ],
+    [
+     17376,
+     0.918,
+     543417483699
+    ]
+   ],
+   "cells": {
+    "slope_edges_deg": [
+     0.0,
+     2.5,
+     5.0,
+     7.5,
+     10.0,
+     12.5,
+     15.0,
+     17.5,
+     20.0,
+     25.0,
+     30.0,
+     40.0,
+     90.0
+    ],
+    "err_edges_m": [
+     0.0191,
+     0.0771,
+     0.0999,
+     0.1717,
+     0.2976,
+     0.5932,
+     null
+    ],
+    "count": [
+     99811,
+     98345,
+     95465,
+     57263,
+     30188,
+     14072,
+     168596,
+     166774,
+     174486,
+     114344,
+     60241,
+     27156,
+     188676,
+     187274,
+     202445,
+     138085,
+     74076,
+     34376,
+     181102,
+     186286,
+     204169,
+     141899,
+     78136,
+     37441,
+     148077,
+     167958,
+     188821,
+     132648,
+     74257,
+     36879,
+     110261,
+     141864,
+     167049,
+     118868,
+     66440,
+     34237,
+     79882,
+     111600,
+     136090,
+     98611,
+     55360,
+     28840,
+     50156,
+     76472,
+     100123,
+     75979,
+     44053,
+     23351,
+     49832,
+     85052,
+     122368,
+     97314,
+     57573,
+     30287,
+     18794,
+     28451,
+     39600,
+     31855,
+     18648,
+     9253,
+     13127,
+     9453,
+     5642,
+     2003,
+     590,
+     99,
+     0,
+     0,
+     0,
+     0,
+     0,
+     0
+    ],
+    "rms_m": [
+     0.439,
+     0.495,
+     0.554,
+     0.658,
+     0.838,
+     1.238,
+     0.518,
+     0.585,
+     0.653,
+     0.765,
+     0.922,
+     1.592,
+     0.648,
+     0.736,
+     0.827,
+     0.933,
+     1.131,
+     1.541,
+     0.803,
+     0.919,
+     1.03,
+     1.177,
+     1.379,
+     1.714,
+     0.975,
+     1.113,
+     1.26,
+     1.411,
+     1.562,
+     1.858,
+     1.163,
+     1.331,
+     1.5,
+     1.694,
+     1.828,
+     2.599,
+     1.363,
+     1.558,
+     1.756,
+     1.955,
+     2.093,
+     2.294,
+     1.562,
+     1.778,
+     2.0,
+     2.261,
+     2.339,
+     3.067,
+     1.806,
+     2.089,
+     2.378,
+     2.682,
+     2.757,
+     2.738,
+     2.262,
+     2.613,
+     2.961,
+     3.282,
+     3.407,
+     3.526,
+     2.585,
+     3.041,
+     3.484,
+     3.851,
+     3.749,
+     4.885,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "sites": {
+    "south_pole": {
+     "pixels": 564001,
+     "difference_rms_m": 1.326,
+     "difference_p95_abs_m": 2.798,
+     "stated_error_median_m": 0.08,
+     "stated_error_rms_m": 0.115,
+     "difference_over_stated_error": 11.57,
+     "within_fitted_sigma": 0.76
+    },
+    "shackleton_center": {
+     "pixels": 564001,
+     "difference_rms_m": 1.354,
+     "difference_p95_abs_m": 2.857,
+     "stated_error_median_m": 0.083,
+     "stated_error_rms_m": 0.121,
+     "difference_over_stated_error": 11.2,
+     "within_fitted_sigma": 0.75
+    },
+    "de_gerlache_center": {
+     "pixels": 564001,
+     "difference_rms_m": 1.296,
+     "difference_p95_abs_m": 2.695,
+     "stated_error_median_m": 0.097,
+     "stated_error_rms_m": 0.157,
+     "difference_over_stated_error": 8.27,
+     "within_fitted_sigma": 0.75
+    },
+    "connecting_ridge": {
+     "pixels": 564001,
+     "difference_rms_m": 1.414,
+     "difference_p95_abs_m": 2.983,
+     "stated_error_median_m": 0.084,
+     "stated_error_rms_m": 0.123,
+     "difference_over_stated_error": 11.45,
+     "within_fitted_sigma": 0.744
+    },
+    "peak_near_shackleton": {
+     "pixels": 564001,
+     "difference_rms_m": 1.346,
+     "difference_p95_abs_m": 2.824,
+     "stated_error_median_m": 0.092,
+     "stated_error_rms_m": 0.136,
+     "difference_over_stated_error": 9.89,
+     "within_fitted_sigma": 0.733
+    },
+    "peak_near_cabeus_b": {
+     "pixels": 564001,
+     "difference_rms_m": 1.74,
+     "difference_p95_abs_m": 3.486,
+     "stated_error_median_m": 0.254,
+     "stated_error_rms_m": 0.507,
+     "difference_over_stated_error": 3.43,
+     "within_fitted_sigma": 0.718
+    },
+    "haworth": {
+     "pixels": 564001,
+     "difference_rms_m": 1.251,
+     "difference_p95_abs_m": 2.586,
+     "stated_error_median_m": 0.08,
+     "stated_error_rms_m": 0.106,
+     "difference_over_stated_error": 11.75,
+     "within_fitted_sigma": 0.746
+    },
+    "malapert_massif": {
+     "pixels": 564001,
+     "difference_rms_m": 1.368,
+     "difference_p95_abs_m": 2.844,
+     "stated_error_median_m": 0.087,
+     "stated_error_rms_m": 0.134,
+     "difference_over_stated_error": 10.21,
+     "within_fitted_sigma": 0.751
+    },
+    "mons_mouton_plateau": {
+     "pixels": 564001,
+     "difference_rms_m": 1.531,
+     "difference_p95_abs_m": 3.125,
+     "stated_error_median_m": 0.137,
+     "stated_error_rms_m": 0.238,
+     "difference_over_stated_error": 6.44,
+     "within_fitted_sigma": 0.719
+    },
+    "mons_mouton": {
+     "pixels": 564001,
+     "difference_rms_m": 1.644,
+     "difference_p95_abs_m": 3.461,
+     "stated_error_median_m": 0.108,
+     "stated_error_rms_m": 0.174,
+     "difference_over_stated_error": 9.47,
+     "within_fitted_sigma": 0.719
+    },
+    "nobile_rim_1": {
+     "pixels": 564001,
+     "difference_rms_m": 1.692,
+     "difference_p95_abs_m": 3.575,
+     "stated_error_median_m": 0.12,
+     "stated_error_rms_m": 0.193,
+     "difference_over_stated_error": 8.77,
+     "within_fitted_sigma": 0.714
+    },
+    "nobile_rim_2": {
+     "pixels": 564001,
+     "difference_rms_m": 1.65,
+     "difference_p95_abs_m": 3.268,
+     "stated_error_median_m": 0.253,
+     "stated_error_rms_m": 0.448,
+     "difference_over_stated_error": 3.68,
+     "within_fitted_sigma": 0.703
+    },
+    "de_gerlache_rim_2": {
+     "pixels": 564001,
+     "difference_rms_m": 1.212,
+     "difference_p95_abs_m": 2.517,
+     "stated_error_median_m": 0.087,
+     "stated_error_rms_m": 0.125,
+     "difference_over_stated_error": 9.69,
+     "within_fitted_sigma": 0.767
+    },
+    "slater_plain": {
+     "pixels": 564001,
+     "difference_rms_m": 1.163,
+     "difference_p95_abs_m": 2.32,
+     "stated_error_median_m": 0.111,
+     "stated_error_rms_m": 0.17,
+     "difference_over_stated_error": 6.84,
+     "within_fitted_sigma": 0.718
+    },
+    "im1_odysseus": {
+     "pixels": 319175,
+     "difference_rms_m": 1.674,
+     "difference_p95_abs_m": 3.203,
+     "stated_error_median_m": 0.306,
+     "stated_error_rms_m": 0.6,
+     "difference_over_stated_error": 2.79,
+     "within_fitted_sigma": 0.711
+    },
+    "im2_athena": {
+     "pixels": 564001,
+     "difference_rms_m": 1.59,
+     "difference_p95_abs_m": 3.338,
+     "stated_error_median_m": 0.125,
+     "stated_error_rms_m": 0.205,
+     "difference_over_stated_error": 7.77,
+     "within_fitted_sigma": 0.719
+    },
+    "shackleton_center_rim_high": {
+     "pixels": 564001,
+     "difference_rms_m": 1.361,
+     "difference_p95_abs_m": 2.868,
+     "stated_error_median_m": 0.081,
+     "stated_error_rms_m": 0.119,
+     "difference_over_stated_error": 11.48,
+     "within_fitted_sigma": 0.755
+    },
+    "de_gerlache_center_rim_high": {
+     "pixels": 564001,
+     "difference_rms_m": 1.25,
+     "difference_p95_abs_m": 2.617,
+     "stated_error_median_m": 0.085,
+     "stated_error_rms_m": 0.128,
+     "difference_over_stated_error": 9.78,
+     "within_fitted_sigma": 0.765
+    }
+   }
+  },
+  "240": {
+   "scale_m": 240.0,
+   "windows": 21,
+   "sigma": {
+    "a_m": 0.9601019553489598,
+    "b_m": 9.811344433183239,
+    "c": 1.800682987986538
+   },
+   "length_m": 130.6,
+   "sill": 0.877,
+   "within_1_sigma": 0.786,
+   "within_2_sigma": 0.961,
+   "difference_rms_m": {
+    "median": 2.034,
+    "min": 1.679,
+    "max": 2.963
+   },
+   "stated_error_rms_m": {
+    "median": 0.131,
+    "min": 0.059,
+    "max": 0.9
+   },
+   "difference_over_stated_error": {
+    "median": 14.33
+   },
+   "slow_rise": 0.016,
+   "semivariogram": [
+    [
+     249,
+     0.7185,
+     47312999
+    ],
+    [
+     330,
+     0.8386,
+     47249999
+    ],
+    [
+     438,
+     0.8684,
+     47249915
+    ],
+    [
+     582,
+     0.8665,
+     94373999
+    ],
+    [
+     772,
+     0.8707,
+     282681251
+    ],
+    [
+     1024,
+     0.8764,
+     282240587
+    ],
+    [
+     1359,
+     0.8801,
+     797648879
+    ],
+    [
+     1804,
+     0.8828,
+     1215608519
+    ],
+    [
+     2394,
+     0.8851,
+     2095207463
+    ],
+    [
+     3178,
+     0.8868,
+     3611305235
+    ],
+    [
+     4217,
+     0.8883,
+     6387237275
+    ],
+    [
+     5597,
+     0.8899,
+     10917109811
+    ],
+    [
+     7427,
+     0.8914,
+     19567201835
+    ],
+    [
+     9857,
+     0.8931,
+     33495433943
+    ],
+    [
+     13082,
+     0.8947,
+     57455664839
+    ],
+    [
+     17361,
+     0.8957,
+     98258435267
+    ]
+   ],
+   "cells": {
+    "slope_edges_deg": [
+     0.0,
+     2.5,
+     5.0,
+     7.5,
+     10.0,
+     12.5,
+     15.0,
+     17.5,
+     20.0,
+     25.0,
+     30.0,
+     40.0,
+     90.0
+    ],
+    "err_edges_m": [
+     0.0151,
+     0.0408,
+     0.0768,
+     0.168,
+     0.4183,
+     0.9582,
+     null
+    ],
+    "count": [
+     53358,
+     89513,
+     190989,
+     225345,
+     138151,
+     60866,
+     65082,
+     105070,
+     206486,
+     207569,
+     116704,
+     50367,
+     61917,
+     96002,
+     190208,
+     183573,
+     98391,
+     42503,
+     53858,
+     78861,
+     165692,
+     163967,
+     87628,
+     37966,
+     42974,
+     64809,
+     137245,
+     139759,
+     75594,
+     33534,
+     31908,
+     50646,
+     108205,
+     112912,
+     61544,
+     28222,
+     22271,
+     38666,
+     81151,
+     85501,
+     46611,
+     22152,
+     13621,
+     25694,
+     57932,
+     60878,
+     34175,
+     16301,
+     12529,
+     27267,
+     66207,
+     71199,
+     40126,
+     20296,
+     4319,
+     8157,
+     23270,
+     28146,
+     16601,
+     8536,
+     2562,
+     789,
+     1625,
+     2909,
+     2083,
+     1190,
+     0,
+     0,
+     0,
+     2,
+     2,
+     2
+    ],
+    "rms_m": [
+     0.919,
+     1.077,
+     1.217,
+     1.372,
+     1.603,
+     2.288,
+     0.98,
+     1.133,
+     1.349,
+     1.625,
+     1.989,
+     2.885,
+     1.125,
+     1.255,
+     1.534,
+     1.86,
+     2.218,
+     2.975,
+     1.282,
+     1.45,
+     1.747,
+     2.136,
+     2.526,
+     3.254,
+     1.481,
+     1.679,
+     2.034,
+     2.475,
+     2.832,
+     3.529,
+     1.673,
+     1.929,
+     2.324,
+     2.852,
+     3.239,
+     3.947,
+     1.92,
+     2.197,
+     2.664,
+     3.287,
+     3.626,
+     4.492,
+     2.139,
+     2.485,
+     3.02,
+     3.705,
+     4.174,
+     4.528,
+     2.482,
+     2.934,
+     3.633,
+     4.487,
+     4.992,
+     5.795,
+     3.044,
+     3.611,
+     4.413,
+     5.33,
+     5.926,
+     8.999,
+     3.422,
+     4.647,
+     5.594,
+     6.706,
+     7.404,
+     7.531,
+     0.0,
+     0.0,
+     0.0,
+     7.995,
+     19.921,
+     3.342
+    ]
+   },
+   "sites": {
+    "south_pole": {
+     "pixels": 564001,
+     "difference_rms_m": 1.708,
+     "difference_p95_abs_m": 3.538,
+     "stated_error_median_m": 0.042,
+     "stated_error_rms_m": 0.059,
+     "difference_over_stated_error": 28.93,
+     "within_fitted_sigma": 0.826
+    },
+    "shackleton_center": {
+     "pixels": 564001,
+     "difference_rms_m": 1.717,
+     "difference_p95_abs_m": 3.552,
+     "stated_error_median_m": 0.043,
+     "stated_error_rms_m": 0.062,
+     "difference_over_stated_error": 27.67,
+     "within_fitted_sigma": 0.823
+    },
+    "de_gerlache_center": {
+     "pixels": 564001,
+     "difference_rms_m": 1.758,
+     "difference_p95_abs_m": 3.634,
+     "stated_error_median_m": 0.047,
+     "stated_error_rms_m": 0.082,
+     "difference_over_stated_error": 21.47,
+     "within_fitted_sigma": 0.815
+    },
+    "connecting_ridge": {
+     "pixels": 564001,
+     "difference_rms_m": 1.679,
+     "difference_p95_abs_m": 3.47,
+     "stated_error_median_m": 0.043,
+     "stated_error_rms_m": 0.063,
+     "difference_over_stated_error": 26.71,
+     "within_fitted_sigma": 0.821
+    },
+    "peak_near_shackleton": {
+     "pixels": 564001,
+     "difference_rms_m": 1.706,
+     "difference_p95_abs_m": 3.526,
+     "stated_error_median_m": 0.047,
+     "stated_error_rms_m": 0.07,
+     "difference_over_stated_error": 24.3,
+     "within_fitted_sigma": 0.815
+    },
+    "peak_near_cabeus_b": {
+     "pixels": 564001,
+     "difference_rms_m": 2.286,
+     "difference_p95_abs_m": 4.717,
+     "stated_error_median_m": 0.146,
+     "stated_error_rms_m": 0.324,
+     "difference_over_stated_error": 7.05,
+     "within_fitted_sigma": 0.743
+    },
+    "haworth": {
+     "pixels": 564001,
+     "difference_rms_m": 1.901,
+     "difference_p95_abs_m": 3.933,
+     "stated_error_median_m": 0.049,
+     "stated_error_rms_m": 0.093,
+     "difference_over_stated_error": 20.36,
+     "within_fitted_sigma": 0.816
+    },
+    "malapert_massif": {
+     "pixels": 564001,
+     "difference_rms_m": 2.034,
+     "difference_p95_abs_m": 4.207,
+     "stated_error_median_m": 0.055,
+     "stated_error_rms_m": 0.109,
+     "difference_over_stated_error": 18.71,
+     "within_fitted_sigma": 0.807
+    },
+    "mons_mouton_plateau": {
+     "pixels": 564001,
+     "difference_rms_m": 2.359,
+     "difference_p95_abs_m": 4.909,
+     "stated_error_median_m": 0.1,
+     "stated_error_rms_m": 0.198,
+     "difference_over_stated_error": 11.94,
+     "within_fitted_sigma": 0.775
+    },
+    "mons_mouton": {
+     "pixels": 564001,
+     "difference_rms_m": 2.21,
+     "difference_p95_abs_m": 4.592,
+     "stated_error_median_m": 0.077,
+     "stated_error_rms_m": 0.154,
+     "difference_over_stated_error": 14.33,
+     "within_fitted_sigma": 0.792
+    },
+    "nobile_rim_1": {
+     "pixels": 564001,
+     "difference_rms_m": 2.206,
+     "difference_p95_abs_m": 4.58,
+     "stated_error_median_m": 0.081,
+     "stated_error_rms_m": 0.167,
+     "difference_over_stated_error": 13.21,
+     "within_fitted_sigma": 0.788
+    },
+    "nobile_rim_2": {
+     "pixels": 564001,
+     "difference_rms_m": 2.54,
+     "difference_p95_abs_m": 4.941,
+     "stated_error_median_m": 0.145,
+     "stated_error_rms_m": 0.287,
+     "difference_over_stated_error": 8.84,
+     "within_fitted_sigma": 0.744
+    },
+    "de_gerlache_rim_2": {
+     "pixels": 564001,
+     "difference_rms_m": 1.733,
+     "difference_p95_abs_m": 3.579,
+     "stated_error_median_m": 0.045,
+     "stated_error_rms_m": 0.081,
+     "difference_over_stated_error": 21.4,
+     "within_fitted_sigma": 0.82
+    },
+    "slater_plain": {
+     "pixels": 564001,
+     "difference_rms_m": 1.797,
+     "difference_p95_abs_m": 3.681,
+     "stated_error_median_m": 0.07,
+     "stated_error_rms_m": 0.131,
+     "difference_over_stated_error": 13.72,
+     "within_fitted_sigma": 0.783
+    },
+    "im1_odysseus": {
+     "pixels": 564001,
+     "difference_rms_m": 2.723,
+     "difference_p95_abs_m": 5.675,
+     "stated_error_median_m": 0.204,
+     "stated_error_rms_m": 0.398,
+     "difference_over_stated_error": 6.85,
+     "within_fitted_sigma": 0.683
+    },
+    "im2_athena": {
+     "pixels": 564001,
+     "difference_rms_m": 2.324,
+     "difference_p95_abs_m": 4.835,
+     "stated_error_median_m": 0.091,
+     "stated_error_rms_m": 0.181,
+     "difference_over_stated_error": 12.81,
+     "within_fitted_sigma": 0.781
+    },
+    "cp12_schrodinger": {
+     "pixels": 564001,
+     "difference_rms_m": 2.963,
+     "difference_p95_abs_m": 5.481,
+     "stated_error_median_m": 0.441,
+     "stated_error_rms_m": 0.893,
+     "difference_over_stated_error": 3.32,
+     "within_fitted_sigma": 0.716
+    },
+    "chandrayaan3_vikram": {
+     "pixels": 564001,
+     "difference_rms_m": 2.435,
+     "difference_p95_abs_m": 4.833,
+     "stated_error_median_m": 0.417,
+     "stated_error_rms_m": 0.837,
+     "difference_over_stated_error": 2.91,
+     "within_fitted_sigma": 0.744
+    },
+    "luna25_target": {
+     "pixels": 564001,
+     "difference_rms_m": 2.478,
+     "difference_p95_abs_m": 4.747,
+     "stated_error_median_m": 0.445,
+     "stated_error_rms_m": 0.9,
+     "difference_over_stated_error": 2.75,
+     "within_fitted_sigma": 0.763
+    },
+    "shackleton_center_rim_high": {
+     "pixels": 564001,
+     "difference_rms_m": 1.697,
+     "difference_p95_abs_m": 3.504,
+     "stated_error_median_m": 0.042,
+     "stated_error_rms_m": 0.061,
+     "difference_over_stated_error": 27.97,
+     "within_fitted_sigma": 0.824
+    },
+    "de_gerlache_center_rim_high": {
+     "pixels": 564001,
+     "difference_rms_m": 1.707,
+     "difference_p95_abs_m": 3.532,
+     "stated_error_median_m": 0.043,
+     "stated_error_rms_m": 0.073,
+     "difference_over_stated_error": 23.42,
+     "within_fitted_sigma": 0.823
+    }
+   }
+  }
+ }
+}

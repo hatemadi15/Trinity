@@ -1,5 +1,5 @@
 'use client';
-import { Mic, SendHorizontal, Square } from 'lucide-react';
+import { Mic, SendHorizontal, Square, Volume2, VolumeX } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createStore, useStore } from 'zustand';
 import { lunaStore, type LunaStatus } from '@/lib/luna/store';
@@ -43,11 +43,51 @@ function Bubble({ from, children, live = false }: { from: 'you' | 'luna'; childr
 }
 
 /**
+ * Whether she says her replies aloud (spec 22): a switch, on at first and kept in this browser. Off, her replies show
+ * in the conversation only, and turned off while she speaks, she stops at once (her engine sees to both). The whole
+ * row is the switch, 44 px high. Enter and Space flip it once each; the browser's own press for either key is held
+ * back, so it never flips twice.
+ */
+function VoiceSwitch() {
+  const voice = useStore(lunaStore, (s) => s.voice);
+  const flip = () => lunaStore.getState().setVoice(!lunaStore.getState().voice);
+  return (
+    <div className="mt-3 border-t border-line pt-2">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={voice}
+        onClick={flip}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          e.preventDefault();
+          if (!e.repeat) flip();
+        }}
+        onKeyUp={(e) => {
+          if (e.key === ' ') e.preventDefault();
+        }}
+        className="group flex min-h-11 w-full cursor-pointer items-center gap-2.5 rounded-lg px-1 text-left text-[14px] text-ink-2 transition-colors hover:text-ink"
+      >
+        {voice ? <Volume2 size={18} aria-hidden="true" className="shrink-0" /> : <VolumeX size={18} aria-hidden="true" className="shrink-0" />}
+        <span className="flex-1">Say replies aloud</span>
+        <span
+          aria-hidden="true"
+          className={`flex h-6 w-10 shrink-0 items-center rounded-full border p-[3px] transition-[background-color,border-color,box-shadow] duration-200 ${voice ? 'border-accent bg-accent shadow-[0_0_14px_-4px_rgb(var(--glow)/var(--glow-strength))]' : 'border-line-strong group-hover:border-accent'}`}
+        >
+          <span className={`h-4 w-4 rounded-full transition-transform duration-200 ${voice ? 'translate-x-4 bg-surface' : 'bg-ink-3'}`} />
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/**
  * Luna's panel, wherever it opens (spec 23.2): a chat. Her face and what she is doing at the top; the conversation as
  * speech bubbles, what she heard on the right and her replies on the left, read out to a screen reader as they come,
  * with three dots while she works; ready-made messages to start with; and a box to type to her (her only way in where
  * the browser cannot listen, and always there), with the microphone, which she keeps listening on while she is on
- * (spec 22) and which pauses and starts again at a press. `className` places it.
+ * (spec 22) and which pauses and starts again at a press; and under it the switch for saying her replies aloud.
+ * `className` places it.
  */
 export function LunaPanel({ className }: { className: string }) {
   const status = useStore(lunaStore, (s) => s.status);
@@ -141,6 +181,7 @@ export function LunaPanel({ className }: { className: string }) {
         </button>
       </form>
       {listening && <p className="mt-2 text-[14px] text-ink-2">Say it in plain English; she acts when you pause.</p>}
+      <VoiceSwitch />
     </section>
   );
 }

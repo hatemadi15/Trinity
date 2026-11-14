@@ -504,7 +504,7 @@ export function StandCanvas({
   // The renderer, for settings that change while it lives: the brighter picture (18.3).
   const rendererRef = useRef<RendererLike | null>(null);
   // The scene drawn. A new one for the same period (a lander changed in today's card, the mast's height) is swapped into
-  // the renderer the canvas has, once its shaders are built, as the arrival's ground is (setScene): a new renderer, with
+  // the renderer the canvas has, once its shaders are built (setScene): a new renderer, with
   // its context and its programs, took seconds on each change (the final review). A renderer that cannot take a scene is
   // built again (`generation`).
   const sceneRef = useRef(scene);

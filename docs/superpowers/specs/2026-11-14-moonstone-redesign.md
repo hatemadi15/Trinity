@@ -19,7 +19,10 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
 
 ## Pages
 - **Home.** The descent (23.1) from the first screen to the answer: the whole Moon beside the title, Earth beside
-  it (NASA Blue Marble with clouds, night lights, ocean glint and air glow; LRO's Moon with its relief). Then five
+  it (NASA Blue Marble with clouds, night lights, ocean glint and air glow; LRO's Moon with its relief), and under the
+  lede the audience line, "For planners of NASA's commercial Moon landers, teachers (start with How it works) and
+  anyone curious.", with the title in two lines where the first screen is short (a phone, a landscape window under
+  880 px tall) so the buttons stay clear of Luna. Then five
   numbered sections in one line (`SectionHead`): 01 the forecast on black, which reads hour by hour under the
   pointer or the arrow keys (`ForecastHover`), with the lander in three figures; then, on paper in both themes
   (`.theme-light`) after one clean edge with room on both sides of it, 02 why the pole is hard (23.3), 03 real
@@ -56,8 +59,9 @@ Textures and their credits: `web/public/hero/textures/`.
   own view. Without WebGL, the still, the relief map and the site's picture stand in.
 - **Never under the words.** The page measures the first screen's words and the rail and puts the Moon in the
   largest room left: right of the words on wide screens, under them on tall ones; Earth sits clear of the words, the
-  rail and Luna. The title steps from 42 to 84 px with the width. Measured gap from the Moon's edge to the nearest
-  line of words, both themes: 98–118 px at 1920, 58 at 1440, 51 at 1280, 46 at 1024, 31 at 768, 26 at 390; no width
+  rail and Luna. The title steps from 35 to 84 px with the width. Measured gap from the Moon's edge to the nearest
+  line of words, with the audience line, both themes: 107–124 px at 1920, 58 at 1440, 97–99 at 1280, 47 at 1024, 31
+  at 768, 24 at 390; no width
   scrolls sideways. The first paint and browsers without WebGL show cut-outs of the Moon and Earth in the same places.
 - **Easing.** Every move eases in and out, the spin included. The Moon holds its place and size until the first
   screen's words have gone; the picture glides after the scroll, so wheel steps do not jolt it; the idle spin slows
@@ -68,7 +72,9 @@ Textures and their credits: `web/public/hero/textures/`.
 - Her panel is a chat: her greeting, your lines on the right in blue, hers on the left with her face, three dots
   while she works, and ready-made messages to start. The conversation lasts from page to page (`lunaStore.messages`).
 - She listens as spec 22 has it: each phrase heard is a command and her reply is said aloud; the panel's microphone
-  pauses and restarts the listening; typed words are answered in the conversation.
+  pauses and restarts the listening; typed words are answered in the conversation; and a switch at the panel's foot,
+  "Say replies aloud" (a 44 px row whose pill fills with the accent when on; on at first, and remembered in the
+  browser, `lunaStore.voice`), keeps every reply to the conversation when off, stopping her at once mid-reply.
 
 ## 23.3 Clearer sections
 - The forecast reads in three steps with room between them: the Sun, Earth, the lander; each row with its own words

@@ -1,5 +1,5 @@
 import type { PanelModel, PowerConfig } from '../engine/power';
-import { NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
+import { oneSet, type Requirements } from '../plan/requirements';
 import { PARAM_RANGES, POWER_RANGES, type NumberRange } from '../planner-ranges';
 import { parseRequirements, requirementEntries } from '../share/settings';
 import { customPoint } from '../store/query';
@@ -178,5 +178,5 @@ export function readComparison(search: string | URLSearchParams): ReadComparison
   const scenarios = withIds(read);
   const problem = unreadWords(read.filter((r) => r === null).length, 'this link');
   const needs = parseRequirements(q);
-  return { scenarios, problem, found: true, ...(Object.keys(needs).length > 0 ? { requirements: { ...NO_REQUIREMENTS, ...needs } } : {}) };
+  return { scenarios, problem, found: true, ...(Object.keys(needs).length > 0 ? { requirements: oneSet(needs) } : {}) };
 }

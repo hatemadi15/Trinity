@@ -3,7 +3,7 @@ import type { BackcastRow, PowerCaseInputs, ValidationDocs } from '../data/valid
 import type { Series } from '../engine/metrics';
 import { powerSeries, simulateBattery, type PowerConfig } from '../engine/power';
 
-export type EvidenceId = 'directions' | 'sunlight' | 'sums' | 'missions';
+export type EvidenceId = 'directions' | 'sunlight' | 'sums' | 'missions' | 'pictures';
 
 /**
  * One kind of evidence on the Accuracy page. A check has a rule and a pass mark; context has neither (`pass` is
@@ -207,4 +207,16 @@ export function evidenceCards({ horizons, mazarico, power, backcasts }: Validati
       ],
     },
   ];
+}
+
+const COUNT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+
+/** The page's verdict in words: how many of the checks meet their criteria ("Three of four checks meet their criteria"). */
+export function checksVerdict(passed: number, total: number): string {
+  const word = (n: number) => COUNT_WORDS[n] ?? String(n);
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  if (passed === 0) return 'No check meets its criteria';
+  if (passed === total) return total === 1 ? 'The check meets its criteria' : `${cap(word(total))} checks meet their criteria`;
+  if (passed === 1) return `One of ${word(total)} checks meets its criteria`;
+  return `${cap(word(passed))} of ${word(total)} checks meet their criteria`;
 }

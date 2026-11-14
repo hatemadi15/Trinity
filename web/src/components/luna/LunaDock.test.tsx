@@ -15,7 +15,7 @@ vi.mock('./LunaBot', () => ({
 
 afterEach(() => {
   cleanup();
-  act(() => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null }));
+  act(() => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, voice: true }));
   lunaPlace.setState({ at: 'header' });
   window.localStorage.clear();
 });
@@ -78,5 +78,19 @@ describe('Luna’s 3D self (spec 23)', () => {
     render(<LunaDock />);
     await waitFor(() => expect(document.querySelector('[data-luna-dock] svg[data-mood]')).not.toBeNull());
     expect(screen.getByRole('button', { name: 'Talk to Luna' })).toBeTruthy();
+  });
+
+  it('gives her panel beside her the same switch for saying replies aloud, kept as it was left on the page before', () => {
+    render(<LunaDock />);
+    const me = screen.getByRole('button', { name: 'Talk to Luna' });
+    fireEvent.pointerDown(me);
+    fireEvent.pointerUp(me);
+    fireEvent.click(screen.getByRole('switch', { name: 'Say replies aloud' }));
+    expect(lunaStore.getState().voice).toBe(false);
+    // The next page: a new dock and panel, the choice as it was.
+    cleanup();
+    render(<LunaDock />);
+    const dock = document.querySelector<HTMLElement>('[data-luna-dock]')!;
+    expect(within(dock).getByRole('switch', { name: 'Say replies aloud' }).getAttribute('aria-checked')).toBe('false');
   });
 });

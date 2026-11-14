@@ -10,6 +10,7 @@ import type { SiteOverview } from '@/lib/store/explore';
 import { pct0 } from '@/lib/viz/format';
 import { nearestSites, reliefUV } from '@/lib/viz/relief';
 import type { TerrainQuality } from '@/lib/uncertainty/budget';
+import { coldTrapWords, type ColdTrapSite } from '@/lib/coldtraps/coldtraps';
 import { groundWords } from './GroundQuality';
 
 /** Farther than this, another site is not "nearby": a mare lander's nearest neighbour is thousands of km away. */
@@ -24,6 +25,7 @@ export function WhereOnMoon({
   days,
   wide = false,
   ground = null,
+  coldTraps = null,
 }: {
   site: Site;
   sites: Site[];
@@ -34,6 +36,8 @@ export function WhereOnMoon({
   wide?: boolean;
   /** The ground at the site from NASA's adjusted south-pole maps, when the uncertainty budget measured it. */
   ground?: TerrainQuality | null;
+  /** The modelled cold traps near the site (data/coldtraps), when the layer lists it. */
+  coldTraps?: ColdTrapSite | null;
 }) {
   const half = HOME.relief.half_km;
   const onMap = (uv: { u: number; v: number }) => uv.u > 0.02 && uv.u < 0.98 && uv.v > 0.02 && uv.v < 0.98;
@@ -49,6 +53,7 @@ export function WhereOnMoon({
   const near = nearestSites(site, sites, 3).filter((n) => n.km <= NEAR_KM);
   // The day it landed opens Explore there only inside the 2024 to 2036 table; an older landing keeps its date.
   const landed = landedWords(site);
+  const cold = coldTrapWords(coldTraps);
   return (
     <section aria-label="Where on the Moon" className="panel">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4">
@@ -74,6 +79,14 @@ export function WhereOnMoon({
               ` It landed on ${landed.date}, before the years this app covers (2024 to 2036), so the figures are for the days chosen above.`
             ))}
           {ground && <span className="mt-1 block text-[15px]">{groundWords(ground)}</span>}
+          {cold && (
+            <span className="mt-1 block text-[15px]">
+              {cold}{' '}
+              <Link href="/learn#cold-traps" className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+                What a cold trap is
+              </Link>
+            </span>
+          )}
         </p>
         <div className={`mt-3 ${wide ? 'md:col-start-1 md:row-span-3 md:row-start-1 md:mt-0' : ''}`}>
           <ReliefMap pins={pins} selectedId={site.id} />
@@ -133,8 +146,9 @@ export function WhereOnMoon({
       </div>
       {/* The relief is LOLA's 80 m grid. The sunlight figures and the pins' colours come from horizons on the 20 m grid
           near the pole and the 80 m grid farther out, with DE440. The pins are NASA's Artemis III regions and the CLPS
-          landings: IM-2 Athena is always on the map. A site north of 80° S reads its skyline from the 240 m grid. */}
-      <Sources of={['lola', 'lola80', ...lolaFor(site).filter((k) => k === 'lola240'), 'de440', 'artemis', 'clps']} />
+          landings: IM-2 Athena is always on the map. A site north of 80° S reads its skyline from the 240 m grid. The
+          cold-trap line, where the layer reaches the site, comes from Diviner's model. */}
+      <Sources of={['lola', 'lola80', ...lolaFor(site).filter((k) => k === 'lola240'), ...(coldTraps?.covered ? (['diviner'] as const) : []), 'de440', 'artemis', 'clps']} />
     </section>
   );
 }
