@@ -36,7 +36,8 @@ export function LunaButton({ className, panelClassName }: { className?: string; 
   const reply = useStore(lunaStore, (s) => s.reply);
   const [text, setText] = useState('');
   return (
-    <div className="relative">
+    // The toggle's box frames the panel from 640 px; on a phone the header's does, so the panel spans the screen.
+    <div className="sm:relative">
       <button
         type="button"
         aria-pressed={on}
@@ -54,7 +55,7 @@ export function LunaButton({ className, panelClassName }: { className?: string; 
           aria-label="Luna"
           className={
             panelClassName ??
-            'absolute right-0 top-full z-50 mt-2 w-[min(380px,calc(100vw-32px))] rounded-lg border border-line-strong bg-surface p-4 text-left text-[15px] text-ink'
+            'absolute right-0 top-full z-50 mt-2 w-[min(380px,calc(100vw-32px))] rounded-lg border border-line-strong bg-surface p-4 text-left text-[15px] text-ink max-sm:left-4 max-sm:right-4 max-sm:w-auto'
           }
         >
           <p className="font-semibold">{STATUS[status]}</p>

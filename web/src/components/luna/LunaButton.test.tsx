@@ -55,6 +55,15 @@ describe('Luna’s button', () => {
     expect(within(panel).getByText(/microphone is not allowed/)).toBeTruthy();
   });
 
+  it('on a phone spans the screen under the header, 16 px from each edge, rather than hang off the toggle past the edge', () => {
+    render(createElement(LunaButton));
+    act(() => lunaStore.setState({ on: true, status: 'listening' }));
+    const panel = screen.getByRole('region', { name: 'Luna' });
+    for (const c of ['max-sm:left-4', 'max-sm:right-4', 'max-sm:w-auto']) expect(panel.classList.contains(c), c).toBe(true);
+    // The toggle's own box is the panel's frame only from 640 px; below, the header's is.
+    expect(panel.parentElement!.className).toBe('sm:relative');
+  });
+
   it('gives examples of what to say, and sets every word at 14 px or more', () => {
     render(createElement(LunaButton));
     act(() => lunaStore.setState({ on: true, status: 'listening' }));
