@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import type { Requirements } from '@/lib/plan/requirements';
 import type { SureLines } from '@/lib/uncertainty/budget';
 import type { Answer, PlanView } from '@/lib/viz/answer';
@@ -39,6 +40,8 @@ export function VerdictPanel({
   range = null,
   sure,
   limitation = null,
+  versions = null,
+  holdNote,
 }: {
   answer: Answer;
   onLand: (startUtc: string) => void;
@@ -65,6 +68,10 @@ export function VerdictPanel({
   sure?: SureLines | null;
   /** What limits the terrain behind the figures (lib/viz/terrain verdictLimitation): a short line under the first sentence, the whole limit one tap away; null when it is complete. */
   limitation?: { line: string | null; label: string; detail: string } | null;
+  /** How the key results move across the terrain versions, a fold beside the margins (an addition: the figures above stay the app's). */
+  versions?: ReactNode;
+  /** Where the terrain versions are worked out, the requirement on them gets its box, with this sentence on what it checks. */
+  holdNote?: string;
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -93,6 +100,7 @@ export function VerdictPanel({
         </Fold>
       )}
       {sure && <SureFold sure={sure} />}
+      {versions}
       {/* A point known only to a few kilometres: the same result around it, next to the result itself. */}
       {range && <p className="mt-2 max-w-[42em] text-ink">{range.words}</p>}
       {/* One gold action: the better date, else the better place nearby (below), else comparing sites. */}
@@ -149,7 +157,7 @@ export function VerdictPanel({
                 {better.why && <p className="text-ink">{better.why}</p>}
               </div>
             )}
-            {requirements && onRequirements && <RequirementsFields value={requirements} onChange={onRequirements} />}
+            {requirements && onRequirements && <RequirementsFields value={requirements} onChange={onRequirements} holds={holdNote} />}
             <OptionsList plan={plan} onLand={onLand} />
             {range?.detail && <p className="max-w-[46em] text-ink-2">{range.detail}</p>}
           </div>
