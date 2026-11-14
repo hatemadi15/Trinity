@@ -16,7 +16,7 @@ export function nearbyCandidates(site: Site, sites: Site[], maxKm = NEARBY_KM): 
   return nearestSites(site, sites, sites.length).filter((c) => c.km <= maxKm);
 }
 
-/** Better for the lander first: the longest time with power, then the most Earth in view with power, then the most sunlight. */
+/** Better for the lander first: the longest time with power, then the most radio contact while it has power, then the most sunlight. */
 export function rankOutcomes(a: Outcome, b: Outcome): number {
   return b.poweredH - a.poweredH || b.poweredContactH - a.poweredContactH || b.sunFraction - a.sunFraction;
 }

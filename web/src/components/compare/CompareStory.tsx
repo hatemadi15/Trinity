@@ -37,7 +37,7 @@ export function CompareStory({ cols }: { cols: Column[] }) {
       )}
       {s.alternative && (
         <div>
-          <h3 className="font-semibold text-ink">Nearby</h3>
+          <h3 className="font-semibold text-ink">At another site</h3>
           <p className="mt-1 max-w-[60em] leading-relaxed text-ink">{s.alternative.lead}</p>
           <ul className="mt-1 list-disc pl-5 text-ink">
             {s.alternative.tradeoffs.map((t) => (

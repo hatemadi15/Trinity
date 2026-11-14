@@ -89,7 +89,7 @@ describe('the figures side by side', () => {
       'Time with power',
       'Sunlight',
       'Earth in view',
-      'Earth in view with power',
+      'Radio contact while it has power',
       'Longest time without Earth',
       'First sunset after landing',
       'Earth first sets after landing',
@@ -135,7 +135,7 @@ describe('the comparison in words', () => {
   it('says what changed at the original site, with the reason', () => {
     const s = story(cols);
     expect(s.atOriginal).toEqual([
-      '5 days later (6 January 2027, 00:00 UTC): power for 10 hours instead of 3 days 4 hours. The period starts at night: the Sun is set behind the hills until it rises on 10 January. Sunlight 41 % of the period instead of 45 %; Earth in view with power: none, as before.',
+      '5 days later (6 January 2027, 00:00 UTC): power for 10 hours instead of 3 days 4 hours. The period starts at night: the Sun is set behind the hills until it rises on 10 January. Sunlight 41 % of the period instead of 45 %; Radio contact while it has power: none, as before.',
     ]);
   });
 
@@ -144,7 +144,7 @@ describe('the comparison in words', () => {
     expect(s.alternative?.lead).toBe('Summit, 12 km from Rim, works better than “5 days later” at the same landing time (6 January 2027, 00:00 UTC): power for all 30 days instead of 10 hours.');
     expect(s.alternative?.tradeoffs).toEqual([
       'Sunlight: 100 % of the period against 41 %: better.',
-      'Earth in view with power: 14 days 15 hours against none: better.',
+      'Radio contact while it has power: 14 days 15 hours against none: better.',
       'Earth in view: 49 % of the period against 45 %: better.',
       'Longest time without Earth: 11 days 10 hours against at least 12 days 9 hours: better.',
     ]);

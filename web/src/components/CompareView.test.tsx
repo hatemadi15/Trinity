@@ -66,7 +66,7 @@ describe('CompareView', () => {
     expect(row('Landing (UTC)')).toEqual(['1 Jan 2027, 00:00 UTC', '6 Jan 2027, 00:00 UTC5 days later', '6 Jan 2027, 00:00 UTC5 days later']);
     // Absolute figures, and the change from the baseline under each.
     expect(row('Time with power')).toEqual(['3 d 4 h', '10 h−2 d 18 h, worse', 'all 30 days+26 d 20 h, better']);
-    expect(row('Earth in view with power')).toEqual(['none', 'noneno change', '14 d 15 h+14 d 15 h, better']);
+    expect(row('Radio contact while it has power')).toEqual(['none', 'noneno change', '14 d 15 h+14 d 15 h, better']);
     expect(row('Sunlight')[2]).toBe('100 %+55 points, better');
     expect(row('First sunset after landing')).toEqual(['2 d 19 h after landing', 'night at landingwas 2 d 19 h after landing, worse', 'none in the periodwas 2 d 19 h after landing, better']);
     // What changed at the original site, then which alternative works better and why, with the trade-offs.
@@ -75,7 +75,7 @@ describe('CompareView', () => {
     expect(story.textContent).toMatch(/5 days later \(6 January 2027, 00:00 UTC\): power for 10 hours instead of 3 days 4 hours\. The period starts at night/);
     expect(story.textContent).toMatch(/de Gerlache rim summit, 12 km from de Gerlache Rim 2, works better than “5 days later” at the same landing time \(6 January 2027, 00:00 UTC\): power for all 30 days instead of 10 hours\./);
     expect(within(story).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
-      expect.arrayContaining(['Sunlight: 100 % of the period against 41 %: better.', 'Earth in view with power: 14 days 15 hours against none: better.']),
+      expect.arrayContaining(['Sunlight: 100 % of the period against 41 %: better.', 'Radio contact while it has power: 14 days 15 hours against none: better.']),
     );
     // What the figures assume, and do not show, one tap away.
     expect(within(story).getByRole('button', { name: /What these figures assume, and what they do not show/ }).getAttribute('aria-expanded')).toBe('false');
@@ -85,7 +85,7 @@ describe('CompareView', () => {
     const first = await example();
     const href = comparisonHref(first.scenarios.getState().scenarios);
     await waitFor(() => expect(`${window.location.pathname}${window.location.search}`).toBe(href));
-    const names = ['Site', 'Landing (UTC)', 'Lander', 'Time with power', 'Sunlight', 'Earth in view', 'Earth in view with power', 'Longest time without Earth'];
+    const names = ['Site', 'Landing (UTC)', 'Lander', 'Time with power', 'Sunlight', 'Earth in view', 'Radio contact while it has power', 'Longest time without Earth'];
     const before = names.map(row);
     cleanup();
     // A colleague's browser: new stores, nothing but the address.

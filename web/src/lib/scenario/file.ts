@@ -173,7 +173,7 @@ export function figureDifferences(file: FileFigures, now: FileFigures): string[]
     timeWithPowerHours: 'time with power (hours)',
     sunlightPercent: 'sunlight (%)',
     earthInViewPercent: 'Earth in view (%)',
-    earthInViewWithPowerHours: 'Earth in view with power (hours)',
+    earthInViewWithPowerHours: 'radio contact while it has power (hours)',
     longestTimeWithoutEarthHours: 'longest time without Earth (hours)',
     longestNightHours: 'longest night (hours)',
   };

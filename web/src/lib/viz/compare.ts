@@ -106,7 +106,7 @@ export function figureRows(cols: Column[]): FigureRow[] {
     row('power', 'Time with power', 'From landing until the battery first runs out, by the power model: the panel, the load and the battery, hour by hour.', hoursCell((o) => o.poweredH, powerValue, true), powerValue),
     row('sun', 'Sunlight', 'The share of the period with any part of the Sun above the hills.', shareCell((o) => o.sunFraction), (o) => pct0(o.sunFraction)),
     row('earth', 'Earth in view', 'The share of the period with the centre of Earth above the hills by the height set: a clear line to Earth, not a working radio link.', shareCell((o) => o.earthFraction), (o) => pct0(o.earthFraction)),
-    row('contact', 'Earth in view with power', 'Hours with Earth in view while the lander has power, before the battery first runs out.', hoursCell((o) => o.poweredContactH, (o) => spanOrNone(o.poweredContactH), true), (o) => spanOrNone(o.poweredContactH)),
+    row('contact', 'Radio contact while it has power', 'Hours with Earth in view while the lander has power, before the battery first runs out: a clear line to Earth, not a booked antenna.', hoursCell((o) => o.poweredContactH, (o) => spanOrNone(o.poweredContactH), true), (o) => spanOrNone(o.poweredContactH)),
     row('outage', 'Longest time without Earth', 'The longest stretch of the period without Earth in view; "at least" when the start or end of the period cuts it.', hoursCell((o) => outageHours(o.outage), (o) => outageWords(o.outage), false), (o) => outageWords(o.outage)),
     row('sunset', 'First sunset after landing', 'How long after landing the Sun first sets behind the hills.', (o, base) => setCell(o, base, 'sun'), (o) => setValue(o, 'sun').text),
     row('earthset', 'Earth first sets after landing', 'How long after landing Earth first sets behind the hills.', (o, base) => setCell(o, base, 'earth'), (o) => setValue(o, 'earth').text),
@@ -204,7 +204,7 @@ export function story(cols: Column[]): Story {
     const power = o.poweredH === bo.poweredH ? `power as before: ${o.verdict}.` : `power for ${powerWords(o)} instead of ${powerWords(bo)}.`;
     const reason = o.poweredH === bo.poweredH ? null : powerReason(o);
     const sun = `Sunlight ${pct0(o.sunFraction)} of the period instead of ${pct0(bo.sunFraction)}`;
-    const contact = o.poweredContactH === bo.poweredContactH ? `Earth in view with power: ${wordsOrNone(o.poweredContactH)}, as before.` : `Earth in view with power: ${wordsOrNone(o.poweredContactH)} instead of ${wordsOrNone(bo.poweredContactH)}.`;
+    const contact = o.poweredContactH === bo.poweredContactH ? `Radio contact while it has power: ${wordsOrNone(o.poweredContactH)}, as before.` : `Radio contact while it has power: ${wordsOrNone(o.poweredContactH)} instead of ${wordsOrNone(bo.poweredContactH)}.`;
     return [[`${head}: ${power}`, reason, `${sun}; ${contact}`].filter(Boolean).join(' ')];
   });
 
@@ -224,7 +224,7 @@ export function story(cols: Column[]): Story {
   const lead = `${best.siteName}, ${km} km from ${b.siteName}, ${works ? 'works better' : 'does not work better'} than ${quoted(ref)}${when}: power for ${powerWords(o)} instead of ${powerWords(r)}.`;
   const tradeoffs = [
     againstWords('Sunlight', `${pct0(o.sunFraction)} of the period`, pct0(r.sunFraction), Math.round(o.sunFraction * 100) - Math.round(r.sunFraction * 100)),
-    againstWords('Earth in view with power', wordsOrNone(o.poweredContactH), wordsOrNone(r.poweredContactH), o.poweredContactH - r.poweredContactH),
+    againstWords('Radio contact while it has power', wordsOrNone(o.poweredContactH), wordsOrNone(r.poweredContactH), o.poweredContactH - r.poweredContactH),
     againstWords('Earth in view', `${pct0(o.earthFraction)} of the period`, pct0(r.earthFraction), Math.round(o.earthFraction * 100) - Math.round(r.earthFraction * 100)),
     againstWords('Longest time without Earth', outageSentence(o.outage), outageSentence(r.outage), outageHours(r.outage) - outageHours(o.outage)),
   ];
