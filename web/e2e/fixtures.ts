@@ -21,8 +21,8 @@ type Options = {
   allowedPageErrors: RegExp[];
 };
 type Fixtures = {
-  /** Saves a screenshot of the window under SHOTS, named for the journey and the step. */
-  shot: (name: string) => Promise<void>;
+  /** Saves a screenshot of the window (the test's page, or another) under SHOTS, named for the journey and the step. */
+  shot: (name: string, of?: Page) => Promise<void>;
   /** Uncaught errors and unhandled rejections the page has thrown so far. */
   pageErrors: string[];
 };
@@ -62,9 +62,10 @@ export const test = base.extend<Options & Fixtures & { _guards: void }, WorkerFi
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-|-$/g, '')
-        .slice(0, 60);
-    await provide(async (name) => {
-      await page.screenshot({ path: path.join(SHOTS, `${slug(testInfo.titlePath.slice(1, -1).join(' ') || 'journey')}--${slug(name)}.png`), timeout: 120_000 });
+        .slice(0, 72)
+        .replace(/-$/, '');
+    await provide(async (name, of = page) => {
+      await of.screenshot({ path: path.join(SHOTS, `${slug(testInfo.titlePath.slice(1).join(' '))}--${slug(name)}.png`), timeout: 120_000 });
     });
   },
 });

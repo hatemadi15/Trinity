@@ -69,7 +69,7 @@ test.describe('The main planning journey', () => {
     await test.step('Compare sites adds the site and a second one joins it, for the same days and lander', async () => {
       const next = page.getByRole('group', { name: 'Next step' });
       // Compare sites is the gold step when no better day is offered; otherwise it waits under Change.
-      if (!(await next.getByRole('button', { name: 'Compare sites' }).first().isVisible())) await next.getByRole('button', { name: 'Change' }).click();
+      if (!(await next.getByRole('button', { name: 'Compare sites' }).first().isVisible())) await next.getByRole('button', { name: 'Change', exact: true }).click();
       await next.getByRole('button', { name: 'Compare sites' }).filter({ visible: true }).click();
       await page.waitForURL(/\/compare$/);
       await expect(page.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeVisible();
