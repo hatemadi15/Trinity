@@ -92,6 +92,9 @@ describe('better places nearby', () => {
     const p = placeOptions({ site: here, sites: all, outcomes: { summit: o(720), step: o(90) }, extra: [{ place: spot, outcome: o(720) }], current: o(76), req: NO_REQUIREMENTS });
     expect(p.alternatives.map((a) => a.item.site.id)).toEqual(['custom_-88.2575_-64.3100', 'summit', 'step']);
     expect(p.better?.item.km).toBe(2.5);
+    // A spot round a region 158 km across is no place nearby.
+    const far = { site: { ...spot.site, id: 'custom_-87.0000_-64.3100' }, km: 79 };
+    expect(placeOptions({ site: here, sites: all, outcomes: {}, extra: [{ place: far, outcome: o(720) }], current: o(76), req: NO_REQUIREMENTS }).alternatives).toEqual([]);
   });
 
   it('recommends a site that meets a requirement the current one fails, even for less power', () => {
@@ -159,5 +162,20 @@ describe('the recommendation at de Gerlache Rim 2 from 1 January 2027, for 30 da
     expect(checksWords(p.better!.checks)).toBe('Fails 1 of your 2 requirements: longest time without Earth while powered at most 3 d (8 d 23 h).');
     expect(p.betterWhy).toBe('It fails fewer requirements than this site: 1 against 2.');
     expect(p.alternatives[0].why).toBe('Power lasts 29 d 14 h longer than the next.');
+  });
+});
+
+describe('the figures agree with the radio windows Explore lists', () => {
+  it('counts the longest time without Earth and the contact while powered as the radio windows do', async () => {
+    const { contactPlan } = await import('../viz/contact');
+    for (const id of ['de_gerlache_rim_2', 'nobile_rim_1', 'shackleton_center_rim_high']) {
+      const site = sites.find((s) => s.id === id)!;
+      const r = recompute(eph, site, Float64Array.from((await fileLoaders().loadMask(id)).elevation_deg), '2027-01-01T00:00:00', 30, DEFAULT_PARAMS);
+      const o = periodOutcome(r.series, r.power);
+      const radio = contactPlan(r.series, r.power);
+      expect(o.outageH).toBe(radio.longestOutage?.hours ?? 0);
+      expect(o.poweredContactH).toBe(radio.sureHours);
+      expect(o.contactH).toBe(radio.totalHours);
+    }
   });
 });

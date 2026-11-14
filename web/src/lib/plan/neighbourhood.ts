@@ -36,16 +36,34 @@ export function ringPoints(site: { lat: number; lon: number }, radiusKm: number)
   return out;
 }
 
+/** What the catalogue says of a point's position: its kind and the radius its source states (data/sites.json). */
+export type SitePosition = Pick<Site, 'source' | 'polar'> & { approximate?: boolean; kind?: string; uncertainty_km?: number | null };
+
 /**
- * How far from its coordinate a site may really be, in km, as the catalogue states it: a stated radius when the site
- * has one, else the "about ±5 km" of a region centre digitised from NASA's map; null for a surveyed or landed point,
- * and for a derived point that states none (no range is better than a guessed one).
+ * How far from its coordinate a site may really be, in km, as the catalogue states it: the radius of a region centre
+ * or a landing target, else the "about ±5 km" its source gives; null for a surveyed point (the few metres its images
+ * leave are no neighbourhood), a reference, and a point that states none.
  */
-export function positionRadiusKm(site: Site): number | null {
-  const stated = (site as unknown as Record<string, unknown>).uncertainty_km;
-  if (typeof stated === 'number' && stated > 0) return stated;
+export function positionRadiusKm(site: SitePosition): number | null {
+  if (site.kind === 'surveyed' || site.kind === 'reference' || site.kind === 'derived') return null;
+  if (typeof site.uncertainty_km === 'number' && site.uncertainty_km > 0) return site.uncertainty_km;
   const m = /about ±\s*(\d+(?:\.\d+)?)\s*km/.exec(site.source);
   return m ? Number(m[1]) : null;
+}
+
+/** How far out a derived high point is probed: it states no radius, and a landing that misses it by this much is not far off. */
+export const DERIVED_PROBE_KM = 1;
+
+/**
+ * The ring to work out round a site, and whether its radius is one the catalogue states: a stated radius, or a probe
+ * of `DERIVED_PROBE_KM` round a derived high point, which states none but whose figures hold only on the point itself.
+ * Null for a site outside the polar elevation grids, where no skyline can be worked out round a point.
+ */
+export function neighbourhoodRadius(site: SitePosition): { km: number; stated: boolean } | null {
+  if (!site.polar) return null;
+  const km = positionRadiusKm(site);
+  if (km !== null) return { km, stated: true };
+  return site.kind === 'derived' || (site.kind === undefined && site.source.startsWith('derived')) ? { km: DERIVED_PROBE_KM, stated: false } : null;
 }
 
 /** One point's result: the outcome of landing at the period start there, or why it could not be worked out. */
@@ -98,10 +116,15 @@ const spanText = ([lo, hi]: Span) => (lo === hi ? spanShort(lo) : `${spanShort(l
  * 3.2 to 30 days."), and the detail for planners, with every figure's range in hours, how it was found and what the
  * terrain cannot show.
  */
-export function rangeWords(r: NeighbourhoodRange, { radiusKm, ms, mastM }: { radiusKm: number; /** The time the points' skylines took to work out. */ ms: number; mastM: number }): { words: string; detail: string } {
+export function rangeWords(
+  r: NeighbourhoodRange,
+  { radiusKm, ms, mastM, stated = true }: { radiusKm: number; /** The time the points' skylines took to work out. */ ms: number; mastM: number; /** False for a probe round a derived point. */ stated?: boolean },
+): { words: string; detail: string } {
+  const within = `Within ${stated ? 'about ' : ''}${radiusKm} km`;
+  const probe = stated ? '' : `A derived high point states no radius of its own: these points, ${radiusKm / 2} and ${radiusKm} km away, show how much the result depends on landing on the point itself. `;
   if (r.points === 1) {
     const why = `the points round this one have ${r.reasons.join(' or ')}`;
-    return { words: `No range within about ${radiusKm} km: ${why}.`, detail: `Tried at ${r.missing} points ${radiusKm / 2} and ${radiusKm} km away: ${why}.` };
+    return { words: `No range ${within[0].toLowerCase()}${within.slice(1)}: ${why}.`, detail: `${probe}Tried at ${r.missing} points ${radiusKm / 2} and ${radiusKm} km away: ${why}.` };
   }
   const total = r.points + r.missing;
   const count = r.missing > 0 ? `${r.points} of ${total} points` : `${r.points} points`;
@@ -111,8 +134,9 @@ export function rangeWords(r: NeighbourhoodRange, { radiusKm, ms, mastM }: { rad
   const around = r.missing > 0 ? `${r.points - 1} of ${total - 1}` : `${r.points - 1}`;
   const missing = r.missing > 0 ? ` ${r.missing} ${r.missing === 1 ? 'point has' : 'points have'} ${r.reasons.join(' or ')}, so ${r.missing === 1 ? 'it is' : 'they are'} left out.` : '';
   return {
-    words: `Within about ${radiusKm} km (${count}): power for ${power}.`,
+    words: `${within} (${count}): power for ${power}.`,
     detail:
+      probe +
       `Worked out here and at ${around} points round it, ${radiusKm / 2} and ${radiusKm} km away, with the same lander, period and ${mastM} m mast; their skylines took ${(ms / 1000).toFixed(1)} s to work out. ` +
       `Power ${spanText(r.poweredH)}; sunlight ${spanText(r.sunH)}; Earth in view ${spanText(r.contactH)}; contact while powered ${spanText(r.poweredContactH)}; longest time without Earth while powered ${spanText(r.poweredOutageH)}.${missing} ` +
       'Each point’s hills come from the same NASA elevation grids, which do not show a hill narrower than one grid cell.',

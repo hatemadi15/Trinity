@@ -14,7 +14,7 @@ import { yearOptions, type Recommendation, type YearChoice } from '../plan/optio
 import { periodOutcome, type Outcome } from '../plan/outcome';
 import { checksWords, NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
 import { yearRuleWords } from '../plan/rank';
-import { positionRadiusKm, ringPoints, type PointResult } from '../plan/neighbourhood';
+import { neighbourhoodRadius, ringPoints, type PointResult } from '../plan/neighbourhood';
 import { customPoint, parseExploreQuery } from './query';
 
 export const WINDOW_DAYS = [14, 30, 90] as const;
@@ -73,8 +73,10 @@ export const DEFAULT_START = '2027-01-01T00:00:00';
 /** The same period worked out at points round a site whose position is known only to a few kilometres. */
 export interface Neighbourhood {
   siteId: string;
-  /** How far from its coordinate the site may be, as the catalogue states it. */
+  /** How far out the points are: the radius the catalogue states for the site, or a probe round a derived high point. */
   radiusKm: number;
+  /** False for a probe round a derived high point, which states no radius. */
+  stated: boolean;
   /** True while the worker computes the points' skylines. */
   busy: boolean;
   points: PointResult[];
@@ -478,8 +480,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
 
     async loadNeighbourhood() {
       const { site, eph, startUtc, days, params } = get();
-      const radiusKm = site ? positionRadiusKm(site) : null;
-      if (!site || !eph || !loaders.computeMask || radiusKm === null) {
+      const ring = site ? neighbourhoodRadius(site) : null;
+      if (!site || !eph || !loaders.computeMask || ring === null) {
         neighbourhoodKey = null;
         neighbourhoodSeq++;
         if (get().neighbourhood) set({ neighbourhood: null });
@@ -490,7 +492,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       neighbourhoodKey = key;
       const seq = ++neighbourhoodSeq;
       const t0 = Date.now();
-      const base = { siteId: site.id, radiusKm, mastM: params.mastM };
+      const radiusKm = ring.km;
+      const base = { siteId: site.id, radiusKm, stated: ring.stated, mastM: params.mastM };
       set({ neighbourhood: { ...base, busy: true, points: [], ms: 0, skylineMs: 0 } });
       const points: PointResult[] = [];
       let skylineMs = 0;

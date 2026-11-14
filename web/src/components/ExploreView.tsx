@@ -143,8 +143,8 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   // The same result round an approximate point, next to the result.
   const range = useMemo(() => {
     if (!hood || !current) return null;
-    if (hood.busy) return { words: `Working out the results within about ${hood.radiusKm} km…` };
-    return rangeWords(neighbourhoodRange(current, hood.points), { radiusKm: hood.radiusKm, ms: hood.skylineMs, mastM: hood.mastM });
+    if (hood.busy) return { words: `Working out the results within ${hood.stated ? 'about ' : ''}${hood.radiusKm} km…` };
+    return rangeWords(neighbourhoodRange(current, hood.points), { radiusKm: hood.radiusKm, ms: hood.skylineMs, mastM: hood.mastM, stated: hood.stated });
   }, [hood, current]);
 
   if (s.status === 'loading' || s.status === 'idle') {

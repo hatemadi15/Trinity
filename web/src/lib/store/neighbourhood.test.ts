@@ -26,7 +26,7 @@ describe('the results round an approximate site', () => {
     expect(store.getState().neighbourhood).toBeNull();
     await store.getState().loadNeighbourhood();
     const n = store.getState().neighbourhood!;
-    expect(n).toMatchObject({ siteId: 'de_gerlache_rim_2', radiusKm: 5, busy: false, mastM: 2 });
+    expect(n).toMatchObject({ siteId: 'de_gerlache_rim_2', radiusKm: 5, stated: true, busy: false, mastM: 2 });
     expect(n.points).toHaveLength(8);
     expect(w.calls).toHaveLength(8);
     expect(n.ms).toBeGreaterThanOrEqual(0);
@@ -69,6 +69,16 @@ describe('the results round an approximate site', () => {
     await store.getState().loadNeighbourhood();
     expect(store.getState().neighbourhood).toBeNull();
     expect(w.calls).toHaveLength(8);
+  });
+
+  it('probes a derived high point at 1 km, which states no radius, and says the radius is not a stated one', async () => {
+    const w = worker();
+    const store = createExploreStore(fileLoaders({ computeMask: w.computeMask }));
+    await store.getState().init();
+    await store.getState().selectSite('de_gerlache_center_rim_high');
+    await store.getState().loadNeighbourhood();
+    expect(store.getState().neighbourhood).toMatchObject({ siteId: 'de_gerlache_center_rim_high', radiusKm: 1, stated: false, busy: false });
+    expect(store.getState().neighbourhood!.points.map((p) => p.km)).toEqual([0.5, 0.5, 0.5, 0.5, 1, 1, 1, 1]);
   });
 
   it('says plainly which points have no elevation data, and leaves them out', async () => {

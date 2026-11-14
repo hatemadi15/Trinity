@@ -98,7 +98,7 @@ export function placeOptions({
     const o = outcomes[x.site.id];
     return x.km <= maxKm && o ? [{ place: x, outcome: o }] : [];
   });
-  const candidates = [...extra, ...catalogue].sort((a, b) => a.place.km - b.place.km).map((x) => optionOf<NearbyPlace>(x.place, x.outcome, req));
+  const candidates = [...extra.filter((x) => x.place.km <= maxKm), ...catalogue].sort((a, b) => a.place.km - b.place.km).map((x) => optionOf<NearbyPlace>(x.place, x.outcome, req));
   return recommend('place', optionOf<NearbyPlace>({ site, km: 0 }, current, req), rankOptions(candidates).slice(0, top + 1), top, 'this site', givesMore(marginH));
 }
 
