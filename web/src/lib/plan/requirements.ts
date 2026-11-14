@@ -90,3 +90,11 @@ export function checksWords(checks: Check[]): string | null {
   const of = checks.length === 1 ? 'your requirement' : `${failed.length} of your ${checks.length} requirements`;
   return `Fails ${of}: ${failed.map(failedWords).join('; ')}.`;
 }
+
+/** The checks in a few words for a first screen, the details left to the list of options: "Fails 1 of your 2 requirements."; null when none is set. */
+export function checksShort(checks: Check[]): string | null {
+  if (checks.length === 0) return null;
+  const failed = checks.filter((c) => !c.met).length;
+  if (failed === 0) return checksWords(checks);
+  return checks.length === 1 ? 'Fails your requirement.' : `Fails ${failed} of your ${checks.length} requirements.`;
+}

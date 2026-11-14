@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Series } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '../engine/power';
 import { outcomeScanner, periodOutcome, worstOf, type Outcome } from './outcome';
-import { checkRequirements, checksWords, NO_REQUIREMENTS, requirementCount, type Requirements } from './requirements';
+import { checkRequirements, checksShort, checksWords, NO_REQUIREMENTS, requirementCount, type Requirements } from './requirements';
 import { compareOptions, FAIL_RULE, OBJECTIVE, optionOf, pickApart, rankOptions, searchWords, tradeOffs, tradeOffWords, whyAbove } from './rank';
 
 // 1361 W while any Sun shows, 100 W load, 1000 Wh battery: ten hours in the dark.
@@ -104,6 +104,11 @@ describe('requirement checks', () => {
     expect(checksWords(checks)).toBe('Fails 1 of your 4 requirements: longest time without Earth while powered at most 3 d (16 d 12 h).');
     expect(checksWords(checks.filter((c) => c.met))).toBe('Meets all 3 of your requirements.');
     expect(checksWords(checks.slice(0, 1))).toBe('Meets your requirement.');
+    // In a few words for a first screen, the details left to the list of options.
+    expect(checksShort(checks)).toBe('Fails 1 of your 4 requirements.');
+    expect(checksShort(checks.filter((c) => c.met))).toBe('Meets all 3 of your requirements.');
+    expect(checksShort(checks.filter((c) => !c.met))).toBe('Fails your requirement.');
+    expect(checksShort([])).toBeNull();
     // Earth keeps its capital in the middle of a sentence.
     expect(checksWords(checkRequirements(outcome({ firstContactH: null }), req({ contactWithinH: 0 })))).toBe('Fails your requirement: Earth in view at landing (never in view).');
     expect(checksWords(checkRequirements(outcome({ firstContactH: 219 }), req({ contactWithinH: 0 })))).toBe('Fails your requirement: Earth in view at landing (not until 9 d 3 h after landing).');

@@ -2,7 +2,10 @@ import { siteLabel, type Site } from '../data/loaders';
 import type { Landing } from '../engine/landing';
 import type { Series, Summary } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
-import { clockUtc, dateLong, isoAt, pct0, spanWords } from './format';
+import type { LandingTime, NearbyPlace, Recommendation, Row, YearChoice } from '../plan/options';
+import { FAIL_RULE, OBJECTIVE, searchWords, tradeOffWords, type Option } from '../plan/rank';
+import { checksShort, requirementCount, type Requirements } from '../plan/requirements';
+import { clockUtc, dateLong, isoAt, pct0, spanShort, spanWords } from './format';
 import { nearestSites } from './relief';
 
 export type AnswerKind = 'all' | 'night' | 'low-sun' | 'no-sun';
@@ -14,8 +17,12 @@ export interface Answer {
   title: string;
   /** One or two sentences that give the reason. */
   sentences: string[];
-  /** A landing hour inside the period that gives more power, when there is one. */
-  better: { hour: number; startUtc: string; label: string; note: string } | null;
+  /**
+   * A landing hour inside the period that does better, when there is one: more power, or, with requirements set,
+   * fewer of them failed. `checks` says in short what it meets (null with no requirement set), `why` why it ranks
+   * above landing at the period start; both come with a ranked `plan`.
+   */
+  better: { hour: number; startUtc: string; label: string; note: string; checks?: string | null; why?: string | null } | null;
   /** What to try when the answer is bad and no landing date in the period does better. */
   hint: string | null;
   /** Hours with power from the landing (the whole period when the power never fails), and how many of them have Earth in view. */
@@ -37,9 +44,31 @@ export interface AnswerInput {
   batteryWh: number;
   /** The best landing hour inside the period (hours from the period start), or null when no hour is sunlit. */
   best: Landing | null;
+  /**
+   * The period's landing times ranked with the requirements (lib/plan `timeOptions`): when given, the better date is its
+   * recommendation, which honours the requirements, rather than `best`, which knows only the time with power.
+   */
+  plan?: Recommendation<LandingTime> | null;
 }
 
-export function answerFor({ siteName, series, summary, power, startUtc, days, loadW, batteryWh, best }: AnswerInput): Answer {
+/** The better date in the plan, worded as the answer offers it; null when the plan has none. */
+function betterOf(plan: Recommendation<LandingTime>, startUtc: string, days: number, hours: number): Answer['better'] {
+  const b = plan.better;
+  if (!b) return null;
+  const clock = clockUtc(startUtc, b.item.hour);
+  const when = `${dateLong(startUtc, b.item.hour)}${clock === '00:00' ? '' : `, ${clock} UTC`}`;
+  const n = b.outcome.poweredH;
+  return {
+    hour: b.item.hour,
+    startUtc: b.item.startUtc,
+    label: `Land on ${dateLong(startUtc, b.item.hour)} instead`,
+    note: n >= hours ? `From ${when}, the lander keeps power for all ${days} days.` : `From ${when}: power for ${spanWords(n)} in a row.`,
+    checks: checksShort(b.checks),
+    why: plan.betterWhy,
+  };
+}
+
+export function answerFor({ siteName, series, summary, power, startUtc, days, loadW, batteryWh, best, plan = null }: AnswerInput): Answer {
   const hours = series.hours;
   const first = power.firstBrownoutHour;
   // Every answer is for a lander that lands at the start of the period; the title says where and when.
@@ -66,7 +95,9 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
         : summary.longestDarkH === 0
           ? `The Sun never sets in these ${days} days.`
           : `The Sun is up ${pct0(summary.illumFraction)} of the time. The longest night lasts ${spanWords(summary.longestDarkH)}, and the battery covers it.`;
-    return { tone: 'good', kind: 'all', title: `${landing}: power for all ${days} days`, sentences: withContact([sentence]), better: null, hint: null, poweredHours: powered, contactHours: contact };
+    // Power for the whole period leaves nothing to gain in power, but a requirement the start fails can still be met later.
+    const better = plan && plan.better && plan.better.failed < plan.current.failed ? betterOf(plan, startUtc, days, hours) : null;
+    return { tone: 'good', kind: 'all', title: `${landing}: power for all ${days} days`, sentences: withContact([sentence]), better, hint: null, poweredHours: powered, contactHours: contact };
   }
 
   if (summary.illumFraction === 0) {
@@ -133,7 +164,9 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
   }
 
   let better: Answer['better'] = null;
-  if (best && best.poweredHours > first) {
+  if (plan) {
+    better = betterOf(plan, startUtc, days, hours);
+  } else if (best && best.poweredHours > first) {
     const clock = clockUtc(startUtc, best.hour);
     const when = `${dateLong(startUtc, best.hour)}${clock === '00:00' ? '' : `, ${clock} UTC`}`;
     better = {
@@ -143,7 +176,11 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
       note: best.poweredHours >= hours ? `From ${when}, the lander keeps power for all ${days} days.` : `From ${when}: power for ${spanWords(best.poweredHours)} in a row.`,
     };
   }
-  const hint = better ? null : `No landing date in these ${days} days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.`;
+  const hint = better
+    ? null
+    : plan && plan.current.checks.length > 0
+      ? `No landing time in these ${days} days does better against your requirements. Try a bigger battery (Lander, above), a shorter stay or another site.`
+      : `No landing date in these ${days} days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.`;
   return { tone: 'bad', kind, title, sentences: withContact(sentences), better, hint, poweredHours: powered, contactHours: contact };
 }
 
@@ -180,4 +217,88 @@ export function nearbyAdvice(
     if (o && o.nowHours >= poweredHours + marginH) return { site: other, km, hours: o.nowHours };
   }
   return null;
+}
+
+/** One option as the panel lists it: when or where, its checks, its trade-offs against the current choice and why it ranks above the next. */
+export interface OptionView {
+  key: string;
+  /** "20 January, 10:00 UTC", "de Gerlache rim summit, 12 km away". */
+  title: string;
+  /** The checks in short; null when no requirement is set. */
+  summary: string | null;
+  checks: { met: boolean; words: string }[];
+  /** "Power +9 d 11 h, sunlight −1 d 3 h, …", against the current choice. */
+  trade: string;
+  why: string | null;
+  /** Each compared site's own time with power, when the choice is for several sites. */
+  perSite?: string;
+  /** The landing time to move the period to (UTC), for a landing time. */
+  land?: string;
+  /** Where to explore it, for a place. */
+  href?: string;
+}
+
+/** Everything the panel's list of options says, in words: the objective, the rule, and each list with how finely it was searched. */
+export interface PlanView {
+  objective: string;
+  /** How a choice that fails a requirement is treated; null when none is set. */
+  rule: string | null;
+  current: { title: string; summary: string | null; checks: { met: boolean; words: string }[] };
+  times: { search: string; options: OptionView[] };
+  places: { search: string; options: OptionView[] } | null;
+  year: { search: string; options: OptionView[] } | null;
+}
+
+const checkList = <T,>(o: Option<T>) => o.checks.map((c) => ({ met: c.met, words: c.words }));
+
+function viewOf<T>(row: Row<T>, key: string, title: string, extra: Partial<OptionView> = {}): OptionView {
+  return { key, title, summary: checksShort(row.checks), checks: checkList(row), trade: tradeOffWords(row.trade), why: row.why, ...extra };
+}
+
+/** A landing time for a list: "20 January, 10:00 UTC", with the year when it is not the start's. */
+const timeTitle = (startUtc: string, hour: number) => `${dateLong(startUtc, hour)}, ${clockUtc(startUtc, hour)} UTC`;
+
+/**
+ * The options in words for the panel: the period's landing times, the places nearby and, after a 12-month search, its
+ * landing times (with each compared site's own power when it searched several), each against the current choice.
+ */
+export function planView({
+  times,
+  places,
+  year,
+  req,
+  startUtc,
+  days,
+  hrefFor,
+}: {
+  times: Recommendation<LandingTime>;
+  places: Recommendation<NearbyPlace> | null;
+  year: { plan: Recommendation<YearChoice>; fromUtc: string; days: number; stepH: number; siteNames: string[] } | null;
+  req: Requirements;
+  startUtc: string;
+  days: number;
+  hrefFor: (siteId: string) => string;
+}): PlanView {
+  return {
+    objective: OBJECTIVE,
+    rule: requirementCount(req) > 0 ? FAIL_RULE : null,
+    current: { title: `Landing at the period start, ${timeTitle(startUtc, 0)}`, summary: checksShort(times.current.checks), checks: checkList(times.current) },
+    times: {
+      search: searchWords({ kind: 'period', days }),
+      options: times.alternatives.map((r) => viewOf(r, `time-${r.item.hour}`, timeTitle(startUtc, r.item.hour), { land: r.item.startUtc })),
+    },
+    places: places && {
+      search: searchWords({ kind: 'place', days, km: 30 }),
+      options: places.alternatives.map((r) => viewOf(r, `place-${r.item.site.id}`, `${siteLabel(r.item.site)}, ${Math.round(r.item.km)} km away`, { href: hrefFor(r.item.site.id) })),
+    },
+    year: year && {
+      search: searchWords({ kind: 'year', days: year.days, stepH: year.stepH }),
+      options: year.plan.alternatives.map((r) =>
+        viewOf(r, `year-${r.item.hour}`, timeTitle(year.fromUtc, r.item.hour), {
+          land: r.item.startUtc,
+          ...(r.item.perSite.length > 1 ? { perSite: `Power for ${r.item.perSite.map((o, i) => `${spanShort(o.poweredH)} at ${year.siteNames[i]}`).join(', ')}` } : {}),
+        }),
+      ),
+    },
+  };
 }
