@@ -144,7 +144,8 @@ describe.skipIf(!haveData)('selectSite failure', () => {
     store.setState({ maskBusy: true });
     await store.getState().selectSite('haworth');
     expect(store.getState().maskBusy).toBe(false);
-    expect(store.getState().error).toMatch(/haworth/);
+    // The problem names the site by its label (store/explore.ts, siteProblem).
+    expect(store.getState().error).toMatch(/^Haworth: /);
   });
 });
 
