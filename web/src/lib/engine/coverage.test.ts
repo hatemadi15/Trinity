@@ -24,10 +24,14 @@ function tileUnder(samplers: Samplers, level: 'L0' | 'L1' | 'L2', lat: number, l
 }
 
 describe.skipIf(!present)('coverage of the real skylines', () => {
-  it('finds terrain at every step of every featured site; only IM-1 takes part of its skyline from the coarser grid', async () => {
+  it('finds terrain at every step of every featured site, and each takes from the coarser grid only what its file says', async () => {
     const samplers = samplersWithout();
     const files = fs.readdirSync(repoPath('data', 'masks')).filter((f) => f.endsWith('.json'));
-    expect(files.length).toBe(18);
+    // One featured skyline per polar catalogue site, derived high points included (21 since the sites north of 80° S,
+    // which take their whole skyline from the 240 m grid, joined IM-1 on it).
+    type Doc = { sites: { polar: boolean }[] };
+    const polar = [...readJson<Doc>('data', 'sites.json').sites, ...readJson<Doc>('data', 'sites_derived.json').sites].filter((s) => s.polar).length;
+    expect(files.length).toBe(polar);
     for (const f of files) {
       const doc = readJson<{ site_id: string; lat: number; lon: number; fallback_bands: unknown[] }>('data', 'masks', f);
       const r = await computeSiteMask(doc.lat, doc.lon, samplers, { mastM: 2 });

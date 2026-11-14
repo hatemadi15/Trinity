@@ -111,6 +111,24 @@ describe('Luna’s commands', () => {
     expect(parse('explain the longest night').kind).toBe('planner');
   });
 
+  it('hears a landing time as it is said, a length in words and a slipped landing', () => {
+    const actions = (said: string) => {
+      const c = parse(said);
+      return c.kind === 'planner' ? c.actions : c;
+    };
+    expect(actions('start on the twentieth of january twenty twenty seven at five p m')).toEqual([{ type: 'set_window', startUtc: '2027-01-20T17:00:00' }]);
+    expect(actions('Start on January 20th, 2027 at 5:00 p.m.')).toEqual([{ type: 'set_window', startUtc: '2027-01-20T17:00:00' }]);
+    expect(actions('start on january twentieth twenty twenty seven at seventeen hundred')).toEqual([{ type: 'set_window', startUtc: '2027-01-20T17:00:00' }]);
+    expect(actions('land at seventeen hundred hours')).toEqual([{ type: 'set_window', timeUtc: '17:00' }]);
+    expect(actions('start at oh six hundred')).toEqual([{ type: 'set_window', timeUtc: '06:00' }]);
+    expect(actions('land at 17:00 UTC')).toEqual([{ type: 'set_window', timeUtc: '17:00' }]);
+    expect(actions('Luna, for seven days')).toEqual([{ type: 'set_window', days: 7 }]);
+    expect(actions('delay by five days')).toEqual([{ type: 'shift_window', hours: 120 }]);
+    expect(actions('hey luna delay the landing by five days please')).toEqual([{ type: 'shift_window', hours: 120 }]);
+    expect(actions('our landing slipped by five days')).toEqual([{ type: 'shift_window', hours: 120 }]);
+    expect(actions('shift the landing six hours earlier')).toEqual([{ type: 'shift_window', hours: -6 }]);
+  });
+
   it('keeps its own words before the planner’s: "show me the sun" turns the view, it names no site', () => {
     expect(parse('show me the sun')).toEqual(control('turn-sun'));
     expect(parse('show me the lander')).toEqual(control('turn-lander'));

@@ -6,6 +6,7 @@ import { askPlanner, shortModel, type PlannerAnswer } from '@/lib/ai/client';
 import { summarizeState, type StateSummary } from '@/lib/ai/state-summary';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { exploreStore, type AiMode, type ExploreState } from '@/lib/store/explore';
+import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
 import { plannerLog, type Exchange } from '@/lib/store/planner-log';
 
 export type Ask = (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
@@ -41,10 +42,13 @@ function sourceLabel(x: Exchange): string {
  */
 export function PlannerChat({
   store = exploreStore,
+  scenarios = scenarioStore,
   ask = askPlanner,
   navigate,
 }: {
   store?: StoreApi<ExploreState>;
+  /** The comparison an answer may start ("compare with a five-day delay"); by default the app's. */
+  scenarios?: StoreApi<ScenarioState>;
   ask?: Ask;
   navigate?: (href: string) => void;
 }) {
@@ -88,7 +92,7 @@ export function PlannerChat({
     const { actions, dropped } = validateActions(a.actions, ids);
     let notes: string[];
     try {
-      notes = await applyActions(store, actions, go);
+      notes = await applyActions(store, actions, go, scenarios);
     } catch (err) {
       // The answer stands; only the step failed (for example a window past the end of the table).
       notes = [`One step could not be applied: ${err instanceof Error ? err.message : String(err)}.`];

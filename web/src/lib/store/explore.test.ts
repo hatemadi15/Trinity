@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { isoAt } from '../viz/format';
+import { dateTimeUtc, isoAt } from '../viz/format';
+import { sliceSeries } from '../engine/metrics';
+import { powerBudget } from '../engine/power';
 import { loadEphemeris, type EphemerisHeader } from '../engine/ephemeris';
 import { createExploreStore, DEFAULT_PARAMS, DEFAULT_START, recompute } from './explore';
 import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
@@ -168,7 +170,7 @@ describe('explore store', () => {
     expect(Object.keys(overview)).toHaveLength(34);
     store.getState().setWindow('2036-12-20T00:00:00', 30);
     const s = store.getState();
-    expect(s.error).toBe('A 30-day period from 20 December 2036 runs past 31 December 2036, where the Sun and Earth table ends. Choose an earlier date or a shorter period.');
+    expect(s.error).toBe('A 30-day period from 20 December 2036, 00:00 UTC runs past 31 December 2036, where the Sun and Earth table ends. The latest landing for 30 days is 2 December 2036, 00:00 UTC.');
     expect(s.startUtc).toBe(DEFAULT_START);
     expect(s.days).toBe(30);
     expect(s.series).toBe(series);
@@ -180,11 +182,65 @@ describe('explore store', () => {
     store.getState().setWindow('2036-11-01T00:00:00', 30);
     expect(store.getState().error).toBeNull();
     store.getState().setWindow('2036-11-01T00:00:00', 90);
-    expect(store.getState().error).toBe('A 90-day period from 1 November 2036 runs past 31 December 2036, where the Sun and Earth table ends. Choose an earlier date or a shorter period.');
+    expect(store.getState().error).toBe('A 90-day period from 1 November 2036, 00:00 UTC runs past 31 December 2036, where the Sun and Earth table ends. The latest landing for 90 days is 3 October 2036, 00:00 UTC.');
     expect(store.getState().days).toBe(30);
     store.getState().setWindow('2023-12-01T00:00:00', 30);
-    expect(store.getState().error).toBe('A 30-day period from 1 December 2023 starts before 1 January 2024, where the Sun and Earth table begins. Choose a later date.');
+    expect(store.getState().error).toBe('A 30-day period from 1 December 2023, 00:00 UTC starts before 2 January 2024, 00:00 UTC, the first landing the Sun and Earth table allows.');
     expect(store.getState().startUtc).toBe('2036-11-01T00:00:00');
+  });
+  it('lands at 17:00 UTC: the series starts at the 17:00 row, the time bar starts at 17:00 and the battery walk starts with the landing', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    store.getState().setWindow('2027-01-20T17:00:00', 7);
+    const s = store.getState();
+    expect([s.startUtc, s.days, s.error, s.series?.hours]).toEqual(['2027-01-20T17:00:00', 7, null, 7 * 24]);
+    // The same hours as a period from midnight, 17 rows on.
+    const site = s.site!, mask = s.mask!;
+    const fromMidnight = recompute(eph, site, mask, '2027-01-20T00:00:00', 8);
+    expect(s.series!.i0).toBe(fromMidnight.series.i0 + 17);
+    for (const h of [0, 1, 50, 167]) {
+      expect(s.series!.sunEl[h], `hour ${h}`).toBe(fromMidnight.series.sunEl[h + 17]);
+      expect(s.series!.earthVisible[h], `hour ${h}`).toBe(fromMidnight.series.earthVisible[h + 17]);
+    }
+    // Hour zero of the time bar is the landing, written in UTC.
+    expect(dateTimeUtc(s.startUtc, 0)).toBe('20 Jan 2027, 17:00 UTC');
+    // The battery starts at the landing with the lander's charge: the walk is the one over those same hours.
+    expect(s.power).toEqual(powerBudget(sliceSeries(fromMidnight.series, 17, 7 * 24), DEFAULT_PARAMS.power));
+  });
+  it('reads a landing between hours at the nearest whole hour, as the engine reads its hourly table', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    store.getState().setWindow('2027-01-20T17:20:00', 7);
+    expect(store.getState().startUtc).toBe('2027-01-20T17:00:00');
+    store.getState().setWindow('2027-01-20T17:30:00', 7);
+    expect(store.getState().startUtc).toBe('2027-01-20T18:00:00');
+  });
+  it('takes any whole number of days from 2 to 90, and refuses any other length in plain words', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    for (const days of [2, 7, 45, 90]) {
+      store.getState().setWindow('2027-01-20T17:00:00', days);
+      expect([store.getState().days, store.getState().series?.hours, store.getState().error]).toEqual([days, days * 24, null]);
+    }
+    for (const days of [1, 91, 7.5, 0]) {
+      store.getState().setWindow('2027-01-20T17:00:00', days);
+      expect([store.getState().days, store.getState().error], String(days)).toEqual([90, 'A period is 2 to 90 whole days.']);
+    }
+  });
+  it('findBestWindow searches for the length chosen and keeps the landing hour it finds, in the store and in its note', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    store.getState().setWindow('2027-01-20T17:00:00', 7);
+    const r = await store.getState().findBestWindow(7);
+    expect(r).not.toBeNull();
+    const s = store.getState();
+    expect([s.startUtc, s.days, s.series?.hours]).toEqual([r!.startUtc, 7, 7 * 24]);
+    // Landing hours are tried every 6 hours from the landing: 17:00, 23:00, 05:00 and 11:00 UTC.
+    expect(['05', '11', '17', '23']).toContain(r!.startUtc.slice(11, 13));
+    expect(s.bestWindowNote).toContain(`${r!.startUtc.slice(11, 16)} UTC, power for `);
+    expect(r!.poweredHours).toBeLessThanOrEqual(7 * 24);
+    await expect(store.getState().findBestWindow(1)).resolves.toBeNull();
+    expect(store.getState().bestWindowNote).toBe('A period is 2 to 90 whole days.');
   });
   it('applyMask installs a computed mask for a custom site', async () => {
     const store = createExploreStore(fileLoaders());
@@ -581,7 +637,7 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().startUtc).toBe('2027-10-12T18:00:00');
     expect(store.getState().days).toBe(30);
     expect(store.getState().series!.sunFraction[0]).toBeGreaterThan(0); // a lander arrives in daylight
-    expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, power for 13 d 21 h, Earth in view 80 % of that time.');
+    expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, 18:00 UTC, power for 13 d 21 h, Earth in view 80 % of that time.');
   });
 
   it('findBestWindow across the compared sites takes the mean time with power and says so', async () => {
@@ -594,6 +650,8 @@ describe('planner parameters, compare and best window', () => {
     expect(r!.poweredHours).toBeGreaterThan(300);
     expect(store.getState().startUtc).toBe(r!.startUtc);
     expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites: best landing in the next 12 months: .* power for .* on average/);
+    // Each site's own result at that landing, not only the mean (technical review, P1).
+    expect(store.getState().bestWindowNote).toMatch(/; at each site: IM-1 Odysseus [\d dh]+, Shackleton rim summit (all 14 days|[\d dh]+)\.$/);
     for (const c of store.getState().compare) expect(c.series.sunFraction[0]).toBeGreaterThan(0);
   });
 

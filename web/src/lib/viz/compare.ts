@@ -1,31 +1,14 @@
+import type { Site } from '../data/loaders';
 import { pointKind } from '../data/kind';
-import { siteLabel } from '../data/loaders';
-import { timeWithPower } from '../engine/landing';
-import { exploreHref } from '../links';
-import type { SiteResult } from '../store/explore';
-import { contactPlan, outageWords, poweredContactWords } from './contact';
-import { dateLong, dayMonth, pct0, spanShort } from './format';
-import { withheldNote } from './terrain';
-
-/** One row of the comparison table: what it says about a site, ready to print. */
-export interface CompareRow {
-  id: string;
-  name: string;
-  /** What kind of point the site is, in a few words: "Surveyed point, ±20 m". */
-  kind: string;
-  /** Explore on the same site and period. */
-  href: string;
-  sunlight: string;
-  earth: string;
-  longestNight: string;
-  /** What happens to a lander that lands on the first day: "all 30 days", or "3 d 4 h, then off until 20 Jan". */
-  power: string;
-  /** Radio contact while it has power: hours with Earth in view from landing until the battery first runs out, or "none". */
-  contact: string;
-  /** The longest time without Earth in view: "at least 9 d 3 h" when the period's start or end cuts it, or "none". */
-  longestOutage: string;
-  tone: 'good' | 'bad';
-}
+import type { TerrainReport } from '../engine/completeness';
+import { landerName } from '../lander';
+import { outageWords, type Outage } from '../scenario/contact';
+import { rankOutcomes as rank } from '../scenario/nearby';
+import type { Outcome } from '../scenario/outcome';
+import { startWords } from '../scenario/period';
+import type { Scenario } from '../scenario/scenario';
+import { pct0, spanShort, spanWords } from './format';
+import { distanceKm } from './relief';
 
 /** Two pairs the empty page offers, each a lesson in itself. */
 export const READY_PAIRS: { title: string; ids: [string, string] }[] = [
@@ -33,108 +16,261 @@ export const READY_PAIRS: { title: string; ids: [string, string] }[] = [
   { title: 'A rim in sunlight and a floor in shadow', ids: ['shackleton_center_rim_high', 'shackleton_center'] },
 ];
 
-/** Hours with power for a lander that lands at the period's start, capped at the period. */
-const poweredHours = (r: SiteResult, hours: number) => Math.min(hours, timeWithPower(r.power));
-
-/** How long the power lasts and what follows: "3 d 4 h, then off until 20 Jan", "10 h, then off to the end", "all 30 days". */
-function powerWords(r: SiteResult, startUtc: string, days: number, powered: number): string {
-  const hours = days * 24;
-  if (r.summary.illumFraction === 0) return powered >= hours ? `all ${days} days on the battery; no sunlight` : powered > 0 ? `${spanShort(powered)} on the battery; no sunlight` : 'none; no sunlight';
-  if (powered >= hours) return `all ${days} days`;
-  let back = powered;
-  while (back < hours && r.power.powered[back] === 0) back++;
-  if (powered === 0) return back < hours ? `none at landing; on from ${dayMonth(startUtc, back)}` : 'none';
-  return `${spanShort(powered)}, then off ${back < hours ? `until ${dayMonth(startUtc, back)}` : 'to the end'}`;
+/** One scenario of a comparison as the page reads it: its settings, its site and its figures once worked out. */
+export interface Column {
+  scenario: Scenario;
+  site: Site;
+  siteName: string;
+  /** Null while it is worked out, or when it cannot be. */
+  outcome: Outcome | null;
+  /** What was found of the terrain behind its skyline, once worked out. */
+  terrain?: TerrainReport;
 }
 
-/**
- * A compared site as a row: sunlight and Earth in view over the period, its longest night, its time with power from the
- * period's first day, the radio contact in that time, and the longest time without Earth.
- */
-export function compareRow(r: SiteResult, startUtc: string, days: number): CompareRow {
-  const hours = days * 24;
-  const powered = poweredHours(r, hours);
-  const lit = r.summary.illumFraction > 0;
-  const all = powered >= hours;
-  // The radio windows over the period, as Explore counts them.
-  const plan = contactPlan(r.series, r.power);
-  return {
-    id: r.site.id,
-    name: siteLabel(r.site),
-    kind: pointKind(r.site).short,
-    href: exploreHref(r.site.id, startUtc, days),
-    sunlight: pct0(r.summary.illumFraction),
-    // On the far side Earth never rises: no period gives it a share.
-    earth: r.site.far_side ? 'never: far side' : pct0(r.summary.earthVisFraction),
-    longestNight: r.summary.longestDarkH > 0 ? spanShort(r.summary.longestDarkH) : 'none',
-    power: powerWords(r, startUtc, days, powered),
-    contact: poweredContactWords(plan).value,
-    longestOutage: outageWords(plan.longestOutage),
-    tone: lit && all ? 'good' : 'bad',
-  };
+export type Tone = 'better' | 'worse' | 'same';
+export interface Cell {
+  value: string;
+  /** The change from the baseline in words with its sign and units; null for the baseline itself. */
+  change: string | null;
+  /** Whether that change is better or worse for the lander; null for the baseline. */
+  tone: Tone | null;
+}
+export interface FigureRow {
+  id: 'power' | 'sun' | 'earth' | 'contact' | 'outage' | 'sunset' | 'earthset' | 'night' | 'verdict';
+  name: string;
+  /** What the figure means, for the fold under the table. */
+  means: string;
+  /** One per column; null for a column still being worked out. */
+  cells: (Cell | null)[];
 }
 
-/** "A", "A and B", "A, B and C". */
-function list(words: string[]): string {
-  return words.length < 3 ? words.join(' and ') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+const MINUS = '−';
+
+/** A change of hours, signed, with its units: "+2 d 2 h", "−2 d 18 h", or "no change". */
+export function signedSpan(dh: number): string {
+  const h = Math.round(dh);
+  if (h === 0) return 'no change';
+  return `${h > 0 ? '+' : MINUS}${spanShort(Math.abs(h))}`;
 }
 
-/** The best score among the sites and every site that reaches it. */
-function best(results: SiteResult[], score: (r: SiteResult) => number): { top: number; names: string[]; winners: SiteResult[] } {
-  const top = Math.max(...results.map(score));
-  const winners = results.filter((r) => score(r) === top);
-  return { top, names: winners.map((r) => siteLabel(r.site)), winners };
+/** A change of share in percentage points, from the whole percentages the table shows: "+55 points", "−4 points". */
+export function signedPoints(x: number, base: number): string {
+  const d = Math.round(x * 100) - Math.round(base * 100);
+  if (d === 0) return 'no change';
+  return `${d > 0 ? '+' : MINUS}${Math.abs(d)} point${Math.abs(d) === 1 ? '' : 's'}`;
 }
 
-/** A site may win a measure unless its terrain is incomplete: then its figures can only be too high. */
-const trustedTerrain = (r: SiteResult) => r.terrain?.quality !== 'incomplete';
+const toneOf = (d: number, moreIsBetter: boolean): Tone => (d === 0 ? 'same' : d > 0 === moreIsBetter ? 'better' : 'worse');
 
-/**
- * One sentence over the table: for a lander landing on the period's first day, the site with the
- * longest time with power, the most sunlight and the most contact with Earth (ties name every site,
- * compared as the table prints them), each site named once with everything it wins. A measure where
- * every site scores nothing names no site and is said to be missing everywhere.
- */
-export function bestSentence(results: SiteResult[], startUtc: string, days: number, trusted: (r: SiteResult) => boolean = trustedTerrain): string {
-  if (results.length === 0) return '';
-  if (results.length === 1) return `Add another site to compare it with ${siteLabel(results[0].site)}.`;
-  const hours = days * 24;
-  const power = best(results, (r) => poweredHours(r, hours));
-  const sun = best(results, (r) => Math.round(r.summary.illumFraction * 100));
-  const earth = best(results, (r) => Math.round(r.summary.earthVisFraction * 100));
-  const wins: { names: string[]; words: string }[] = [];
-  // An incomplete terrain can only overstate a figure, so a site with one never wins a measure. A trusted site that
-  // reaches the top still wins (an incomplete one level with it is truly level or lower); a measure whose top only
-  // incomplete sites reach names no site, and the sentence says why.
-  const withheld: { names: string[]; measures: string[] } = { names: [], measures: [] };
-  const win = (m: { top: number; names: string[]; winners: SiteResult[] }, measure: string, figure: string) => {
-    if (m.top <= 0) return;
-    const sure = m.winners.filter(trusted);
-    if (sure.length > 0) {
-      wins.push({ names: sure.map((r) => siteLabel(r.site)), words: `${measure} (${figure})` });
-      return;
-    }
-    for (const r of m.winners) if (!withheld.names.includes(siteLabel(r.site))) withheld.names.push(siteLabel(r.site));
-    withheld.measures.push(measure);
-  };
-  win(power, 'the longest time with power', power.top >= hours ? `all ${days} days` : spanShort(power.top));
-  win(sun, 'the most sunlight', `${sun.top} %`);
-  win(earth, 'the most contact with Earth', `${earth.top} %`);
-  const bySites = new Map<string, { names: string[]; words: string[] }>();
-  for (const w of wins) {
-    const key = w.names.join('\n');
-    const group = bySites.get(key) ?? { names: w.names, words: [] };
-    group.words.push(w.words);
-    bySites.set(key, group);
+const powerValue = (o: Outcome) => (o.allPeriod ? `all ${o.days} days` : spanShort(o.poweredH));
+const powerWords = (o: Outcome) => (o.allPeriod ? `all ${o.days} days` : spanWords(o.poweredH));
+const spanOrNone = (h: number) => (h > 0 ? spanShort(h) : 'none');
+const wordsOrNone = (h: number) => (h > 0 ? spanWords(h) : 'none');
+const outageHours = (o: Outage | null) => o?.hours ?? 0;
+const outageSentence = (o: Outage | null) => (!o ? 'none' : `${o.fromStart || o.toEnd ? 'at least ' : ''}${spanWords(o.hours)}`);
+
+/** A first setting after landing: when the body is not there at landing, it says so; with no setting in the period, it says that. */
+function setValue(o: Outcome, body: 'sun' | 'earth'): { text: string; rank: number; rise?: number } {
+  const there = body === 'sun' ? o.sunAtLanding : o.earthAtLanding;
+  const c = body === 'sun' ? o.firstSunset : o.firstEarthset;
+  // For the lander a later setting is better, a body missing at landing worst of all; when it is missing, when it first comes.
+  if (!there) {
+    const rise = body === 'sun' ? o.firstSunriseH : o.firstEarthriseH;
+    const lead = body === 'sun' ? 'night at landing' : 'out of view at landing';
+    return { text: rise === null ? `${lead}, all the period` : `${lead}, rises after ${spanShort(rise)}`, rank: -1, rise: rise ?? Infinity };
   }
-  const clauses = [...bySites.values()].map((g) => `${list(g.names)} ${g.names.length > 1 ? 'have' : 'has'} ${list(g.words)}`);
-  const lacks: string[] = [];
-  if (power.top === 0) lacks.push('has power at landing');
-  if (sun.top === 0 && earth.top === 0) lacks.push('sees the Sun or Earth');
-  else if (sun.top === 0) lacks.push('sees the Sun');
-  else if (earth.top === 0) lacks.push('sees Earth');
-  if (lacks.length > 0) clauses.push(`none of these sites ${lacks.join(' or ')}`);
-  const note = withheld.measures.length > 0 ? withheldNote(withheld.names, withheld.measures) : '';
-  if (clauses.length === 0) return note;
-  return `Landing on ${dateLong(startUtc, 0)}, ${clauses.join('; ')}.${note ? ` ${note}` : ''}`;
+  if (c.inHours === null) return { text: 'none in the period', rank: Infinity };
+  return { text: spanShort(c.inHours), rank: c.inHours };
+}
+
+function setCell(o: Outcome, b: Outcome, body: 'sun' | 'earth'): Cell {
+  const x = setValue(o, body);
+  const y = setValue(b, body);
+  // Missing at landing in both: the one that rises sooner is better.
+  if (x.rise !== undefined && y.rise !== undefined) {
+    const sooner = y.rise - x.rise;
+    const known = Number.isFinite(sooner);
+    const change = x.text === y.text ? 'no change' : known ? `${spanShort(Math.abs(sooner))} ${sooner > 0 ? 'sooner' : 'later'}` : `was ${y.text}`;
+    return { value: x.text, change, tone: toneOf(known ? sooner : x.rise === y.rise ? 0 : x.rise < y.rise ? 1 : -1, true) };
+  }
+  const both = Number.isFinite(x.rank) && Number.isFinite(y.rank) && x.rank >= 0 && y.rank >= 0;
+  const d = both ? x.rank - y.rank : x.rank === y.rank ? 0 : x.rank > y.rank ? 1 : -1;
+  const change = x.text === y.text ? 'no change' : both ? `${spanShort(Math.abs(d))} ${d > 0 ? 'later' : 'sooner'}` : x.rank === y.rank ? 'changed' : `was ${y.text}`;
+  return { value: x.text, change, tone: toneOf(d, true) };
+}
+
+/** The figures of each scenario, the change from the baseline (the first column) beside each, better or worse for the lander. */
+export function figureRows(cols: Column[]): FigureRow[] {
+  const b = cols[0]?.outcome ?? null;
+  const row = (id: FigureRow['id'], name: string, means: string, cell: (o: Outcome, b: Outcome, c: Column) => Cell, value: (o: Outcome, c: Column) => string): FigureRow => ({
+    id,
+    name,
+    means,
+    cells: cols.map((c, i) => (!c.outcome ? null : i === 0 || !b ? { value: value(c.outcome, c), change: null, tone: null } : cell(c.outcome, b, c))),
+  });
+  // On the far side Earth never rises: no period gives it a share.
+  const FAR = 'never: far side';
+  const farSide = (cell: (o: Outcome, b: Outcome) => Cell) => (o: Outcome, base: Outcome, c: Column): Cell => (c.site.far_side ? { ...cell(o, base), value: FAR } : cell(o, base));
+  const hoursCell = (get: (o: Outcome) => number, value: (o: Outcome) => string, moreIsBetter: boolean) => (o: Outcome, base: Outcome): Cell => {
+    const d = get(o) - get(base);
+    return { value: value(o), change: signedSpan(d), tone: toneOf(Math.round(d), moreIsBetter) };
+  };
+  const shareCell = (get: (o: Outcome) => number) => (o: Outcome, base: Outcome): Cell => ({
+    value: pct0(get(o)),
+    change: signedPoints(get(o), get(base)),
+    tone: toneOf(Math.round(get(o) * 100) - Math.round(get(base) * 100), true),
+  });
+  return [
+    row('power', 'Time with power', 'From landing until the battery first runs out, by the power model: the panel, the load and the battery, hour by hour.', hoursCell((o) => o.poweredH, powerValue, true), powerValue),
+    row('sun', 'Sunlight', 'The share of the period with any part of the Sun above the hills.', shareCell((o) => o.sunFraction), (o) => pct0(o.sunFraction)),
+    row('earth', 'Earth in view', 'The share of the period with the centre of Earth above the hills by the height set: a clear line to Earth, not a working radio link.', farSide(shareCell((o) => o.earthFraction)), (o, c) => (c.site.far_side ? FAR : pct0(o.earthFraction))),
+    row('contact', 'Radio contact while it has power', 'Hours with Earth in view while the lander has power, before the battery first runs out: a clear line to Earth, not a booked antenna.', hoursCell((o) => o.poweredContactH, (o) => spanOrNone(o.poweredContactH), true), (o) => spanOrNone(o.poweredContactH)),
+    row('outage', 'Longest time without Earth', 'The longest stretch of the period without Earth in view; "at least" when the start or end of the period cuts it.', hoursCell((o) => outageHours(o.outage), (o) => outageWords(o.outage), false), (o) => outageWords(o.outage)),
+    row('sunset', 'First sunset after landing', 'How long after landing the Sun first sets behind the hills.', (o, base) => setCell(o, base, 'sun'), (o) => setValue(o, 'sun').text),
+    row('earthset', 'Earth first sets after landing', 'How long after landing Earth first sets behind the hills.', (o, base) => setCell(o, base, 'earth'), (o) => setValue(o, 'earth').text),
+    row('night', 'Longest night', 'The longest stretch of the period with no Sun at all.', hoursCell((o) => o.longestNightH, (o) => spanOrNone(o.longestNightH), false), (o) => spanOrNone(o.longestNightH)),
+    row(
+      'verdict',
+      'The answer',
+      'What happens to the lander, in the words of the forecast.',
+      (o, base) => ({ value: o.verdict, change: null, tone: o.verdict === base.verdict ? 'same' : toneOf(o.poweredH - base.poweredH, true) }),
+      (o) => o.verdict,
+    ),
+  ];
+}
+
+export interface SettingCell {
+  value: string;
+  /** How it differs from the baseline, in words; null where it is the same, and for the baseline. */
+  change: string | null;
+  /** For the site: what kind of point it is, in a few words ("Centre of a region, ±5 km"). */
+  kind?: string;
+}
+export interface SettingRow {
+  id: 'site' | 'landing' | 'period' | 'lander' | 'mast' | 'clearance';
+  name: string;
+  cells: SettingCell[];
+}
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** A landing for a table cell: "6 Jan 2027, 00:00 UTC". */
+export function landingShort(startUtc: string): string {
+  const d = new Date(`${startUtc}Z`);
+  return `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}, ${startUtc.slice(11, 16)} UTC`;
+}
+const hoursBetween = (a: string, b: string) => Math.round((Date.parse(`${a}Z`) - Date.parse(`${b}Z`)) / 3_600_000);
+
+/** The settings of each scenario, each marked where it differs from the baseline's. */
+export function settingRows(cols: Column[]): SettingRow[] {
+  const b = cols[0];
+  const cells = (value: (c: Column) => string, change: (c: Column) => string | null) => cols.map((c, i) => ({ value: value(c), change: i === 0 || !b ? null : change(c) }));
+  const differs = (value: (c: Column) => string) => (c: Column) => (value(c) === value(b) ? null : 'changed');
+  const lander = (c: Column) => landerName(c.scenario.power);
+  return [
+    {
+      id: 'site',
+      name: 'Site',
+      cells: cells(
+        (c) => c.siteName,
+        (c) => (c.scenario.siteId === b.scenario.siteId ? null : `${Math.round(distanceKm(b.site, c.site))} km from ${b.siteName}`),
+      ).map((cell, i) => ({ ...cell, kind: pointKind(cols[i].site).short })),
+    },
+    {
+      id: 'landing',
+      name: 'Landing (UTC)',
+      cells: cells(
+        (c) => landingShort(c.scenario.startUtc),
+        (c) => {
+          const d = hoursBetween(c.scenario.startUtc, b.scenario.startUtc);
+          return d === 0 ? null : `${spanWords(Math.abs(d))} ${d > 0 ? 'later' : 'earlier'}`;
+        },
+      ),
+    },
+    { id: 'period', name: 'Stay', cells: cells((c) => `${c.scenario.days} days`, differs((c) => String(c.scenario.days))) },
+    { id: 'lander', name: 'Lander', cells: cells(lander, (c) => (JSON.stringify(c.scenario.power) === JSON.stringify(b.scenario.power) ? null : 'changed')) },
+    { id: 'mast', name: 'Mast for panel and antenna', cells: cells((c) => `${c.scenario.mastM} m`, differs((c) => String(c.scenario.mastM))) },
+    { id: 'clearance', name: 'Earth counts from', cells: cells((c) => `${c.scenario.minEarthElDeg}° above the hills`, differs((c) => String(c.scenario.minEarthElDeg))) },
+  ];
+}
+
+/** A point the app worked out from NASA's heights (a rim's highest ground), not one checked as a safe place to land. */
+function unchecked(site: Site): boolean {
+  return (site as Site & { kind?: string }).kind === 'derived' || site.source.startsWith('derived');
+}
+
+/** A scenario's label in sentences, in quotation marks. */
+const quoted = (c: Column) => `“${c.scenario.label}”`;
+
+/** The first sentence of the answer's reasons that is not about Earth: why the power lasts as long as it does. */
+function powerReason(o: Outcome): string | null {
+  return o.answer.sentences.find((s) => !/^(No radio contact|Earth is in view)/.test(s)) ?? null;
+}
+
+/** The comparison in words, top to bottom: what changed at the original site, then the alternative that works better and its trade-offs. */
+export interface Story {
+  /** One paragraph per scenario at the baseline's site: what changed, and why. */
+  atOriginal: string[];
+  /** The best scenario at another site, against the scenario it was made from (the baseline when none). */
+  alternative: { lead: string; tradeoffs: string[] } | null;
+}
+
+function againstWords(name: string, x: string, y: string, better: number): string {
+  return `${name}: ${x} against ${y}: ${better === 0 ? 'the same' : better > 0 ? 'better' : 'worse'}.`;
+}
+
+export function story(cols: Column[]): Story {
+  const b = cols[0];
+  if (!b?.outcome) return { atOriginal: [], alternative: null };
+  const bo = b.outcome;
+  const atOriginal = cols.slice(1).flatMap((c) => {
+    const o = c.outcome;
+    if (!o || c.scenario.siteId !== b.scenario.siteId) return [];
+    const head = `${c.scenario.label} (${startWords(c.scenario.startUtc)})`;
+    const power = o.poweredH === bo.poweredH ? `power as before: ${o.verdict}.` : `power for ${powerWords(o)} instead of ${powerWords(bo)}.`;
+    const reason = o.poweredH === bo.poweredH ? null : powerReason(o);
+    const sun = `Sunlight ${pct0(o.sunFraction)} instead of ${pct0(bo.sunFraction)}`;
+    const contact = o.poweredContactH === bo.poweredContactH ? `radio contact while it has power: ${wordsOrNone(o.poweredContactH)}, as before.` : `radio contact while it has power: ${wordsOrNone(o.poweredContactH)} instead of ${wordsOrNone(bo.poweredContactH)}.`;
+    return [[`${head}: ${power}`, reason, `${sun}; ${contact}`].filter(Boolean).join(' ')];
+  });
+
+  const byId = new Map(cols.map((c) => [c.scenario.id, c]));
+  const others = cols.filter((c, i) => i > 0 && c.outcome && c.scenario.siteId !== b.scenario.siteId).sort((x, y) => rank(x.outcome!, y.outcome!));
+  const best = others[0];
+  if (!best?.outcome) return { atOriginal, alternative: null };
+  const ref = (best.scenario.from && byId.get(best.scenario.from)?.outcome ? byId.get(best.scenario.from)! : b) as Column;
+  const o = best.outcome;
+  const r = ref.outcome!;
+  // An incomplete terrain can only overstate a figure, so a site with one is never named as working better.
+  if (best.terrain?.quality === 'incomplete' && rank(o, r) < 0) {
+    return { atOriginal, alternative: { lead: `The terrain at ${best.siteName} is incomplete, so it is not named as working better than ${quoted(ref)}: its figures may be too high.`, tradeoffs: [] } };
+  }
+  const works = rank(o, r) < 0;
+  const km = Math.round(distanceKm(b.site, best.site));
+  const when =
+    best.scenario.startUtc === ref.scenario.startUtc
+      ? ` at the same landing time (${startWords(best.scenario.startUtc)})`
+      : `, landing at another time (${startWords(best.scenario.startUtc)} against ${startWords(ref.scenario.startUtc)})`;
+  // A high point worked out from the heights is said to be one, as the forecast's nearby advice says it: never a checked place to land.
+  const where = `${km} km from ${b.siteName}${unchecked(best.site) ? ' and unchecked for landing' : ''}`;
+  const lead = `${best.siteName}, ${where}, ${works ? 'works better' : 'does not work better'} than ${quoted(ref)}${when}: power for ${powerWords(o)} instead of ${powerWords(r)}.`;
+  const tradeoffs = [
+    againstWords('Sunlight', pct0(o.sunFraction), pct0(r.sunFraction), Math.round(o.sunFraction * 100) - Math.round(r.sunFraction * 100)),
+    againstWords('Radio contact while it has power', wordsOrNone(o.poweredContactH), wordsOrNone(r.poweredContactH), o.poweredContactH - r.poweredContactH),
+    againstWords('Earth in view', pct0(o.earthFraction), pct0(r.earthFraction), Math.round(o.earthFraction * 100) - Math.round(r.earthFraction * 100)),
+    againstWords('Longest time without Earth', outageSentence(o.outage), outageSentence(r.outage), outageHours(r.outage) - outageHours(o.outage)),
+  ];
+  return { atOriginal, alternative: { lead, tradeoffs } };
+}
+
+/**
+ * Whether the scenarios share a landing time, in one sentence: a same-day comparison says so, one across dates says so
+ * too, and a scenario at its site's own best time is named, so the two kinds of comparison are never mixed silently.
+ */
+export function timingLine(cols: Column[]): string {
+  if (cols.length === 0) return '';
+  if (cols.length === 1) return `The baseline lands ${startWords(cols[0].scenario.startUtc)}.`;
+  const same = cols.every((c) => c.scenario.startUtc === cols[0].scenario.startUtc);
+  const lead = same ? `Same landing time for every scenario: ${startWords(cols[0].scenario.startUtc)}.` : 'Landing times differ: the figures compare different dates as well as places.';
+  const best = cols.filter((c) => c.scenario.timing === 'site-best').map((c) => `${quoted(c)} lands at ${c.siteName}’s own best time in its period, not a time it shares by choice.`);
+  return [lead, ...best].join(' ');
 }

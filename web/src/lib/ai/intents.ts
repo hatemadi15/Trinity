@@ -1,9 +1,10 @@
 import type { Site } from '../data/loaders';
 import { PANEL_LABELS, type PanelModel } from '../engine/power';
-import { clampTo, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
-import type { WindowDays } from '../store/explore';
+import { periodDays, shiftWords, withClock } from '../period';
+import { clampTo, DAYS_RANGE, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
 import { PAGE_NAMES, periodNote, siteByName, type Action, type Page } from './actions';
 import { EXPLANATIONS, explanationFor } from './explanations';
+import { slipLabel } from '../scenario/scenario';
 
 export { EXPLANATIONS };
 
@@ -14,14 +15,71 @@ export interface Intent {
   build: (m: RegExpMatchArray, sites: Site[]) => { actions: Action[]; reply: string } | null;
 }
 
-const DAYS: readonly WindowDays[] = [14, 30, 90];
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
-const parseDays = (x: string | undefined): WindowDays | null => {
-  if (x === undefined) return null;
-  const n = Number(x);
-  return (DAYS as readonly number[]).includes(n) ? (n as WindowDays) : null;
-};
+const parseDays = (x: string | undefined): number | null => (x === undefined ? null : periodDays(amountOf(x) ?? Number.NaN));
+
+const UNITS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+/** A count typed in figures or words: "5", "five", "twenty four", "a" or "an" (one); null for anything else. */
+export function amountOf(text: string): number | null {
+  const t = text.trim().toLowerCase();
+  if (/^\d+$/.test(t)) return Number(t);
+  if (t === 'a' || t === 'an') return 1;
+  const unit = UNITS.indexOf(t);
+  if (unit >= 0) return unit;
+  const m = t.match(/^([a-z]+)(?:[ -]([a-z]+))?$/);
+  const tens = m ? TENS.indexOf(m[1]) : -1;
+  if (!m || tens < 2) return null;
+  const rest = m[2] === undefined ? 0 : UNITS.indexOf(m[2]);
+  return rest >= 0 && rest <= 9 ? tens * 10 + rest : null;
+}
+
+/** "17:00", "1700", "17h", "5 pm", "17 hundred" (said "seventeen hundred"), "oh 6 hundred", "noon": minutes after midnight UTC. */
+export function parseClock(text: string): number | null {
+  let t = text.trim().toLowerCase().replace(/\s+/g, ' ');
+  // A zone named at the end is UTC's own name; a bare hour counts only with it ("17 UTC"), as "at 5" could be morning or evening.
+  const zoned = /(?:^|\s|\d)(?:utc|gmt|zulu|z)$/.test(t);
+  t = t.replace(/\s*(?:utc|gmt|zulu|z)$/, '').trim();
+  if (t === 'noon' || t === 'midday') return 720;
+  if (t === 'midnight') return 0;
+  const at = (h: number, min = 0) => (h >= 0 && h <= 23 && min >= 0 && min <= 59 ? h * 60 + min : null);
+  let m = t.match(/^(\d{1,2})(?:[: ](\d{2}))? ?([ap])\.? ?m\.?$/);
+  if (m) {
+    const h = Number(m[1]);
+    return h >= 1 && h <= 12 ? at((h % 12) + (m[3] === 'p' ? 12 : 0), Number(m[2] ?? 0)) : null;
+  }
+  if ((m = t.match(/^(\d{1,2}):(\d{2})$/)) || (m = t.match(/^(\d{1,2}) (\d{2})$/))) return at(Number(m[1]), Number(m[2]));
+  // Four figures are a time on the hour ("1700"), or with "hours" or the zone ("1730 UTC"): "2027" alone is a year.
+  if ((m = t.match(/^(\d{2})(\d{2})( hours| hrs)?$/)) && (m[2] === '00' || m[3] || zoned)) return at(Number(m[1]), Number(m[2]));
+  if ((m = t.match(/^(\d{1,2}) ?h(\d{2})?$/))) return at(Number(m[1]), Number(m[2] ?? 0));
+  if ((m = t.match(/^(?:oh |o |0 |zero )?(\d{1,2}) hundred(?: hours)?$/))) return at(Number(m[1]));
+  if (zoned && (m = t.match(/^(\d{1,2})$/))) return at(Number(m[1]));
+  return null;
+}
+
+const hhmm = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
+/**
+ * A landing said in words: a date, a date and a time ("January 20th 2027 at 17:00 UTC", "2027-01-20 5 pm"), or a time
+ * alone ("at 17:00"), which lands on the date already chosen. Null when it is neither.
+ */
+export function parseWhen(text: string): { startUtc: string | null; clock: string | null } | null {
+  const t = text.trim().toLowerCase().replace(/\s+/g, ' ').replace(/,$/, '').replace(/^at /, '');
+  const date = parseDate(t);
+  if (date) return { startUtc: date, clock: null };
+  const minutes = parseClock(t);
+  if (minutes !== null) return { startUtc: null, clock: hhmm(minutes) };
+  // A date, then its time: tried at every space from the right, "at" between them or not.
+  const words = t.split(' ');
+  for (let i = words.length - 1; i > 0; i--) {
+    const d = parseDate(words.slice(0, i).join(' ').replace(/,$/, ''));
+    const c = d ? parseClock(words.slice(i).join(' ').replace(/^at /, '')) : null;
+    if (d && c !== null) return { startUtc: d, clock: hhmm(c) };
+  }
+  return null;
+}
 
 /** ISO `2027-03-01`, `1 March 2027` or `March 1, 2027` → `2027-03-01T00:00:00`; null otherwise. */
 export function parseDate(text: string): string | null {
@@ -41,7 +99,12 @@ export function parseDate(text: string): string | null {
 }
 
 const notFound = (text: string) => ({ actions: [] as Action[], reply: `I could not find a site called "${text.trim()}" in the catalogue.` });
-const NO_SUCH_PERIOD = 'Periods are 14, 30 or 90 days, so the period stays as it is.';
+const NO_SUCH_PERIOD = `A period is ${DAYS_RANGE.min} to ${DAYS_RANGE.max} whole days, so the period stays as it is.`;
+
+/** Words that move a landing later or earlier, as "delay" or "bring forward" do; any other verb moves it later unless told "earlier". */
+const LATER = /^(?:delay|postpone|push back|push|slip|slipped)$/;
+const EARLIER = /^(?:advance|bring forward|bring|move up|move forward|shift forward|push forward)$/;
+const AMOUNT = '(-|minus |\\+|plus )?(\\d+|an?|[a-z]+(?:[ -][a-z]+)?)';
 
 /** The pages' own names, and the words people use for them, to the page each one opens. */
 const PAGE_WORDS: Record<string, Page> = {
@@ -68,8 +131,27 @@ function panelFor(words: string): PanelModel | null {
   return null;
 }
 
-/** The twelve rehearsed phrasings, most specific first. Matching is case-insensitive on a trimmed prompt without its final punctuation. */
+/** A count for a comparison's delay, in figures or words ("5", "five", "twelve"), read as the period's amounts are. */
+const countOf = (text: string): number | null => amountOf(text);
+const COUNT = '(\\d{1,4}|[a-z]+)';
+
+/** The fourteen rehearsed phrasings, most specific first. Matching is case-insensitive on a trimmed prompt without its final punctuation. */
 export const INTENTS: Intent[] = [
+  {
+    // Before "compare A and B": "compare with a five-day delay" is the landing shown against the same landing moved.
+    name: 'compare_shift',
+    pattern: new RegExp(
+      `^compare(?: it| this(?: landing)?| the landing)? (?:with|against|to) (?:(?:a|an) )?(?:(?:landing )?${COUNT}[- ](days?|hours?)(?:[- ](delay|slip|later|earlier|sooner))?|(?:delay|slip) of ${COUNT} (days?|hours?))$`,
+      'i',
+    ),
+    build(m) {
+      const n = countOf(m[1] ?? m[4]);
+      const unit = (m[2] ?? m[5]).toLowerCase();
+      if (n === null || n === 0) return null;
+      const hours = n * (unit.startsWith('day') ? 24 : 1) * (/^(earlier|sooner)$/i.test(m[3] ?? '') ? -1 : 1);
+      return { actions: [{ type: 'compare_shift', hours }], reply: `Comparing this landing with the same one ${slipLabel(hours)}.` };
+    },
+  },
   {
     name: 'compare',
     pattern: /^compare (.+?) (?:and|with|vs\.?|versus|against) (.+?)(?: (?:for|over) (\d+)[- ]?days?)?$/i,
@@ -112,20 +194,46 @@ export const INTENTS: Intent[] = [
   },
   {
     name: 'start_on',
-    pattern: /^(?:start|begin) (?:on |at |from )?(.+?)(?: for (\d+)[- ]?days?)?$/i,
+    pattern: /^(?:start|begin|land|landing)(?: on| from)? (.+?)(?: for (\w+(?:[ -]\w+)?)[- ]?days?)?$/i,
     build(m) {
-      const startUtc = parseDate(m[1]);
-      if (!startUtc) return null;
+      const when = parseWhen(m[1]);
+      if (!when) return null;
       const days = parseDays(m[2]);
       if (m[2] !== undefined && !days) return null;
-      const action: Action = days ? { type: 'set_window', startUtc, days } : { type: 'set_window', startUtc };
-      return { actions: [action], reply: periodNote(startUtc, days ?? undefined) };
+      const length = days ? { days } : {};
+      // A time alone lands on the date already chosen: the store knows it, the phrasing does not.
+      if (!when.startUtc) return { actions: [{ type: 'set_window', timeUtc: when.clock!, ...length }], reply: `Landing at ${when.clock} UTC on the date already chosen.` };
+      // Minutes are read at the nearest whole hour, as the engine reads its hourly table, and the reply says so.
+      const timed = when.clock ? withClock(when.startUtc, when.clock)! : { startUtc: when.startUtc, rounded: false };
+      const rounded = timed.rounded ? ` The Sun and Earth table is hourly, so ${when.clock} is read as ${timed.startUtc.slice(11, 16)} UTC.` : '';
+      return { actions: [{ type: 'set_window', startUtc: timed.startUtc, ...length }], reply: `${periodNote(timed.startUtc, days ?? undefined)}${rounded}` };
+    },
+  },
+  {
+    name: 'shift',
+    pattern: new RegExp(
+      `^(?:(?:our|the) )?(delay|postpone|push back|push|slip|shift|move|advance|bring|move up|move forward|land|landing)(?: the)?(?: landing| start| launch| period| mission)?(?: date| time| slipped)?(?: (back|forward))?(?: by)? ${AMOUNT} (days?|hours?|hrs?|h|d)(?: (later|earlier|sooner|back|forward))?$`,
+      'i',
+    ),
+    build(m) {
+      // "the landing slipped five days" reads its verb after the noun.
+      const verb = (m[1].toLowerCase() === 'landing' ? 'slipped' : m[1].toLowerCase()) + (m[2] ? ` ${m[2].toLowerCase()}` : '');
+      const n = amountOf(m[4]);
+      if (n === null || n === 0) return null;
+      const hours = n * (/^d/i.test(m[5]) ? 24 : 1);
+      // "later" and "earlier" after the amount say it; "back" after it is back in time; else the verb does ("delay", "bring forward").
+      const after = m[6]?.toLowerCase();
+      const earlier = after === 'later' ? false : after === 'earlier' || after === 'sooner' || after === 'back' ? true : after === 'forward' ? !LATER.test(verb) : EARLIER.test(verb);
+      const sign = /^(?:-|minus)$/.test((m[3] ?? '').trim()) || earlier ? -1 : 1;
+      return { actions: [{ type: 'shift_window', hours: sign * hours }], reply: `Moving the landing ${shiftWords(hours)} ${sign > 0 ? 'later' : 'earlier'}.` };
     },
   },
   {
     name: 'period',
-    pattern: /^(?:make it|set (?:the )?period to|change (?:the )?period to|for|over) (\d+)[- ]?days?$/i,
+    pattern: /^(?:make it|(?:set|change) (?:the )?(?:period|length|duration|stay)(?: length)? to|for|over|stay for) (\w+(?:[ -]\w+)?)[- ]?days?$/i,
     build(m) {
+      // A length in words that is no number ("for a few days") is left to the model; a number outside the bounds is not a period.
+      if (amountOf(m[1]) === null) return null;
       const days = parseDays(m[1]);
       return days ? { actions: [{ type: 'set_window', days }], reply: `Period: ${days} days.` } : { actions: [], reply: NO_SUCH_PERIOD };
     },

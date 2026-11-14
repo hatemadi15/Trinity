@@ -1,43 +1,72 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
 import { DataProblem, SYNC_HINT } from './DataProblem';
-import { PeriodControls } from './PeriodControls';
 import { PlannerChat } from './PlannerChat';
-import { SkylineNote } from './SkylineNote';
 import { lolaFor, Sources } from './Sources';
-import { MiniStrip } from './compare/MiniStrip';
+import { CompareStory } from './compare/CompareStory';
+import { checkWords, ComparisonFiles, saveFile, useDataVersions, type Opened } from './compare/ComparisonFiles';
+import { ScenarioCard } from './compare/ScenarioCard';
+import { ScenarioEditor } from './compare/ScenarioEditor';
+import { ScenarioTable } from './compare/ScenarioTable';
+import { columnsOf } from './compare/columns';
 import { LanderDialog } from './explore/LanderDialog';
-import { CATEGORY_GROUPS } from '@/lib/data/kind';
 import { siteLabel } from '@/lib/data/loaders';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
-import { landerName } from '@/lib/lander';
-import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
-import { bestSentence, compareRow, READY_PAIRS } from '@/lib/viz/compare';
-import { dateLong } from '@/lib/viz/format';
-import { terrainLimitation, terrainTag } from '@/lib/viz/terrain';
+import { comparisonHref, readComparison, SCENARIO_MAX } from '@/lib/scenario/codec';
+import { fileName, scenarioFile } from '@/lib/scenario/file';
+import { paramsOf, scenarioKey } from '@/lib/scenario/scenario';
+import { DEFAULT_PARAMS, DEFAULT_START, exploreStore, type ExploreState } from '@/lib/store/explore';
+import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
+import { READY_PAIRS, timingLine } from '@/lib/viz/compare';
 
 const LINK = 'font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink';
-const TAG = 'shrink-0 rounded-full border border-line px-2.5 py-0.5 text-[15px] text-ink-2';
-const CELL = 'border-b border-line py-3 pr-4 align-middle';
-/** On a phone a cell is a line of its own: its column's name on the left, the figure on the right. */
-const STACKED = 'max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-4 max-sm:border-0 max-sm:py-1.5 max-sm:pr-0 max-sm:before:text-[15px] max-sm:before:text-ink-2 max-sm:before:content-[attr(data-label)]';
+/** The example the empty page leads with: a five-day slip at de Gerlache Rim 2, from the forecast's first landing. */
+const EXAMPLE_SITE = 'de_gerlache_rim_2';
+const EXAMPLE_SLIP_H = 5 * 24;
 
 /**
- * Compare: up to four sites over the same period with the same lander, as a table (one row per site),
- * with one sentence above it naming the best site for each measure. An empty page offers two pairs.
+ * Compare: a baseline scenario and up to three more, each with its own site, landing time, stay, lander, mast and
+ * clearance for Earth, worked out on its own. The page reads top to bottom: what changed at the original site and why,
+ * the alternative that works better and its trade-offs, the scenarios, then every setting and figure side by side with
+ * the change from the baseline. The address carries the whole comparison.
  */
-export function CompareView({ store = exploreStore }: { store?: StoreApi<ExploreState> }) {
+export function CompareView({ store = exploreStore, scenarios = scenarioStore }: { store?: StoreApi<ExploreState>; scenarios?: StoreApi<ScenarioState> }) {
   const s = useStore(store);
+  const sc = useStore(scenarios);
   useDemoMode(store);
-  const [adding, setAdding] = useState('');
-  const [landerOpen, setLanderOpen] = useState(false);
-  const landerRef = useRef<HTMLButtonElement>(null);
+  const versions = useDataVersions();
+  const [linkRead, setLinkRead] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [landerFor, setLanderFor] = useState<string | null>(null);
+  const [opened, setOpened] = useState<Opened | null>(null);
+
+  // A shared link's comparison replaces the one on the page; an old /compare address keeps it, and the sites on Explore's list join it.
   useEffect(() => {
-    void store.getState().init();
-  }, [store]);
+    let live = true;
+    void store
+      .getState()
+      .init()
+      .then(() => {
+        if (!live) return;
+        const r = readComparison(window.location.search);
+        if (r.found) scenarios.getState().load(r.scenarios, r.problem);
+        scenarios.getState().takeList();
+        setLinkRead(true);
+      });
+    return () => {
+      live = false;
+    };
+  }, [store, scenarios]);
+
+  // The address carries the comparison, so copying it from the browser shares every setting too.
+  useEffect(() => {
+    if (!linkRead) return;
+    const href = comparisonHref(sc.scenarios);
+    if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState(window.history.state, '', href);
+  }, [linkRead, sc.scenarios]);
 
   if (s.status !== 'ready') {
     return (
@@ -49,66 +78,60 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
     );
   }
 
-  const rows = s.compare.map((c) => compareRow(c, s.startUtc, s.days));
-  // A compared site whose hills for the chosen mast are still on their way keeps its row, without figures.
-  const waiting = s.compareIds.filter((id) => !s.compare.some((c) => c.site.id === id));
-  const limits = s.compare.flatMap((c) => {
-    const words = terrainLimitation(c.terrain);
-    return words ? [`${siteLabel(c.site)}: ${words}`] : [];
-  });
-  const full = s.compareIds.length >= COMPARE_MAX;
-  const candidates = s.sites.filter((x) => x.category !== 'custom' && !s.compareIds.includes(x.id));
-  const period = `the ${s.days} days from ${dateLong(s.startUtc, 0)}`;
-  const add = () => {
-    if (!adding) return;
-    void store.getState().addToCompare(adding);
-    setAdding('');
+  const act = scenarios.getState();
+  const cols = columnsOf(sc.scenarios, sc.runs, s.sites);
+  const full = sc.scenarios.length >= SCENARIO_MAX;
+  // The file's figures are checked only while the page holds the scenarios the file gave, unchanged.
+  const unchanged = opened !== null && opened.scenarios.length === sc.scenarios.length && opened.scenarios.every((x, i) => scenarioKey(x) === scenarioKey(sc.scenarios[i]));
+  const check = opened && unchanged ? checkWords(opened, cols) : null;
+  const editingScenario = sc.scenarios.find((x) => x.id === editing) ?? null;
+  const landerScenario = sc.scenarios.find((x) => x.id === landerFor) ?? null;
+  const example = () => {
+    setOpened(null);
+    const a = act.startFrom({ siteId: EXAMPLE_SITE, startUtc: DEFAULT_START, days: 30, params: DEFAULT_PARAMS });
+    const b = a ? act.slip(a, EXAMPLE_SLIP_H) : null;
+    if (b) void act.findNearby(b);
   };
   const addPair = (ids: [string, string]) => {
     void (async () => {
       for (const id of ids) await store.getState().addToCompare(id);
     })();
   };
+  const update = (id: string, patch: Parameters<ScenarioState['update']>[1]) => act.update(id, patch);
 
   return (
     <AppFrame>
       <main className="wrap flex flex-col gap-6 pb-12 pt-8">
         <div>
-          <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">Compare sites</h1>
-          <p className="mt-2 max-w-[46em] text-lg text-ink-2">Up to four sites side by side, for the same days and the same lander.</p>
+          <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">
+            Compare sites
+          </h1>
+          <p className="mt-2 max-w-[46em] text-lg text-ink-2">A baseline and up to three changes, each worked out on its own: another landing time, site or lander.</p>
         </div>
-        <section aria-label="What this comparison is for" className="flex flex-wrap items-end gap-4">
-          <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
-          <div className="flex min-w-0 flex-[1_1_250px] flex-col gap-1.5 text-[15px] text-ink-2">
-            <span aria-hidden="true">Lander</span>
-            <button
-              ref={landerRef}
-              type="button"
-              onClick={() => setLanderOpen(true)}
-              aria-haspopup="dialog"
-              aria-label={`${landerName(s.params.power)}. Change`}
-              className="field flex h-auto min-h-[52px] min-w-0 items-center gap-3 py-2 text-left text-base text-ink"
-            >
-              {/* As in Explore's band, the name wraps rather than being cut, which would hide the battery, and a no-break space keeps each number with its unit. */}
-              <span className="grow">{landerName(s.params.power).replace(/(\d) /g, '$1\u00a0')}</span>
-              <span className={TAG}>change</span>
-            </button>
-          </div>
-        </section>
-        {s.error && (
+        {sc.problem && (
           <p role="status" className="text-[15px] text-bad">
-            {s.error}
+            {sc.problem}
           </p>
         )}
-        <SkylineNote state={s} ids={s.compareIds} />
+        {sc.note && (
+          <p role="status" className="text-[15px] text-ink">
+            {sc.note}
+          </p>
+        )}
 
-        {s.compareIds.length === 0 ? (
-          <section aria-labelledby="h-pairs" className="panel">
-            <h2 id="h-pairs" className="display text-[23px] font-semibold">
-              Start with a pair
+        {cols.length === 0 ? (
+          <section aria-labelledby="h-start" className="panel">
+            <h2 id="h-start" className="display text-[23px] font-semibold">
+              Start with an example
             </h2>
-            <p className="mt-2 text-ink-2">Each pair shows how much a few kilometres change.</p>
+            <p className="mt-2 text-ink-2">Each shows how much a few days or a few kilometres change.</p>
             <div className="mt-4 flex flex-wrap gap-3">
+              <button type="button" onClick={example} className="btn btn-primary h-auto min-h-[48px] max-w-full whitespace-normal py-2.5 text-left">
+                <span>
+                  <span className="block font-semibold">Our landing slipped by five days</span>
+                  <span className="block text-[15px] font-normal">de Gerlache Rim 2, five days later, and the best place nearby</span>
+                </span>
+              </button>
               {READY_PAIRS.map((p) => (
                 <button key={p.title} type="button" onClick={() => addPair(p.ids)} className="btn h-auto min-h-[48px] max-w-full whitespace-normal py-2.5 text-left">
                   <span>
@@ -118,133 +141,109 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                 </button>
               ))}
             </div>
+            <p className="mt-4 text-ink-2">
+              Or choose a landing in{' '}
+              <Link href="/explore" className={LINK}>
+                Explore
+              </Link>{' '}
+              and press “Compare from here”.
+            </p>
           </section>
         ) : (
-          <section aria-labelledby="h-table" className="panel overflow-x-auto">
-            <h2 id="h-table" className="sr-only">
-              The sites side by side
-            </h2>
-            {/* No best site is named while a compared site still waits for its figures. */}
-            {waiting.length === 0 && <p className="max-w-[60em] text-[17px] leading-relaxed text-ink">{bestSentence(s.compare, s.startUtc, s.days)}</p>}
-            {/* How to read the table, before it: a phone shows the strips before anything under them. */}
-            <p className="mt-2 max-w-[60em] text-[15px] text-ink-2">
-              In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the {s.days} days. Time with power counts from landing on the first day until the battery
-              first runs out; Earth in view counts every hour of the period. Radio contact counts the hours with Earth in view in that time with power; the longest time without Earth is at least as long where the
-              period’s start or end cuts it. The hills are seen from a {s.params.mastM} m mast at every site.
-            </p>
-            {/* On a phone each site is a block of labelled figures: no table to scroll sideways. */}
-            <table className="mt-4 w-full border-collapse text-left max-sm:block sm:min-w-[900px]">
-              <thead className="max-sm:sr-only">
-                <tr className="text-[15px] text-ink-2">
-                  {['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Radio contact while it has power', 'Longest without Earth', ''].map((h, i) => (
-                    <th key={i} scope="col" className="border-b-2 border-ink py-2 pr-4 font-semibold">
-                      {h || <span className="sr-only">Remove</span>}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="max-sm:block">
-                {rows.map((r, i) => (
-                  <tr key={r.id} className="max-sm:block max-sm:border-b max-sm:border-line max-sm:py-2">
-                    <th scope="row" className={`${CELL} font-semibold max-sm:block max-sm:border-0`}>
-                      <Link href={r.href} className={LINK}>
-                        {r.name}
-                      </Link>
-                      {/* What kind of point it is, so a region's centre or a derived high point never reads as a surveyed spot. */}
-                      <span className="mt-0.5 block text-[15px] font-normal text-ink-2">{r.kind}</span>
-                      {terrainTag(s.compare[i].terrain) && <span className="block text-[15px] font-normal text-warn">{terrainTag(s.compare[i].terrain)}</span>}
-                    </th>
-                    <td data-label="Sun and Earth" className={`${CELL} ${STACKED}`}>
-                      <MiniStrip series={s.compare[i].series} name={r.name} period={period} />
-                    </td>
-                    <td data-label="Sunlight" className={`${CELL} ${STACKED} tabular-nums`}>{r.sunlight}</td>
-                    <td data-label="Earth in view" className={`${CELL} ${STACKED} tabular-nums`}>{r.earth}</td>
-                    <td data-label="Longest night" className={`${CELL} ${STACKED} tabular-nums`}>{r.longestNight}</td>
-                    <td data-label="Time with power" className={`${CELL} ${STACKED} tabular-nums`}>
-                      <span className={`font-medium ${r.tone === 'good' ? 'text-good' : 'text-bad'}`}>{r.power}</span>
-                    </td>
-                    <td data-label="Radio contact while it has power" className={`${CELL} ${STACKED} tabular-nums`}>{r.contact}</td>
-                    <td data-label="Longest without Earth" className={`${CELL} ${STACKED} tabular-nums`}>{r.longestOutage}</td>
-                    <td data-label="" className={`${CELL} ${STACKED} text-right`}>
-                      <button type="button" onClick={() => store.getState().removeFromCompare(r.id)} aria-label={`Remove ${r.name}`} className="h-10 rounded-lg border border-line-strong px-3 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
+          <>
+            {/* Alone, the baseline has nothing to compare with yet: its card, with what to do next, comes first. */}
+            {cols.length > 1 && <CompareStory cols={cols} />}
+            <section aria-labelledby="h-scenarios" className="flex flex-col gap-4">
+              <h2 id="h-scenarios" className="display text-[23px] font-semibold">
+                The scenarios
+              </h2>
+              {cols.length === 1 && (
+                <p className="max-w-[60em] text-ink">
+                  {timingLine(cols)} Slip the landing, or find a nearby alternative, to compare it with this baseline.
+                </p>
+              )}
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {cols.map((c, i) => (
+                  <ScenarioCard
+                    key={c.scenario.id}
+                    col={c}
+                    index={i}
+                    alone={cols.length === 1}
+                    run={sc.runs[c.scenario.id]}
+                    full={full}
+                    searching={sc.searching === c.scenario.id}
+                    onSlip={(h) => act.slip(c.scenario.id, h)}
+                    onNearby={() => void act.findNearby(c.scenario.id)}
+                    onChange={() => setEditing(c.scenario.id)}
+                    onDuplicate={() => act.duplicate(c.scenario.id)}
+                    onBaseline={() => act.makeBaseline(c.scenario.id)}
+                    onRemove={() => act.remove(c.scenario.id)}
+                    onSave={() => saveFile(fileName([c]), `${JSON.stringify(scenarioFile([c], versions), null, 2)}\n`)}
+                  />
                 ))}
-                {waiting.map((id) => {
-                  const name = siteLabel(s.sites.find((x) => x.id === id) ?? { name: id });
-                  return (
-                    <tr key={id} className="max-sm:block max-sm:border-b max-sm:border-line max-sm:py-2">
-                      <th scope="row" className={`${CELL} font-semibold max-sm:block max-sm:border-0`}>
-                        {name}
-                      </th>
-                      <td colSpan={5} className={`${CELL} text-[15px] text-ink-2 max-sm:block max-sm:border-0`}>
-                        {s.skylineProblems[id] ? 'could not be worked out for this mast height' : 'working it out…'}
-                      </td>
-                      <td className={`${CELL} text-right max-sm:block max-sm:border-0`}>
-                        <button type="button" onClick={() => store.getState().removeFromCompare(id)} aria-label={`Remove ${name}`} className="h-10 rounded-lg border border-line-strong px-3 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {/* What limits the terrain behind a row, in plain words, under the table. */}
-            {limits.map((line) => (
-              <p key={line} className="mt-3 max-w-[60em] text-[15px] text-warn">
-                {line}
-              </p>
-            ))}
-            {/* DE440 gives every figure, and LOLA the hills on the grids of the sites in the table. */}
-            <Sources of={['de440', ...lolaFor(...s.compare.map((c) => c.site))]} />
-          </section>
+              </div>
+              <div className="panel">
+                <ScenarioTable cols={cols} runs={sc.runs} onUseBest={(id) => act.useSiteBest(id)} />
+                {/* DE440 gives every figure, and LOLA the hills on the grids of the sites compared. */}
+                <Sources of={['de440', ...lolaFor(...cols.map((c) => c.site))]} />
+              </div>
+            </section>
+          </>
         )}
 
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1.5 text-[15px] text-ink-2">
-            <label htmlFor="compare-add">Add a site</label>
-            <select id="compare-add" value={adding} disabled={full} onChange={(e) => setAdding(e.target.value)} className="field w-[300px] max-w-full disabled:opacity-60">
-              <option value="">{full ? 'Four sites already' : 'Choose a site…'}</option>
-              {/* The sites in the site list's groups, so a long list reads by kind of place. */}
-              {CATEGORY_GROUPS.map((g) => {
-                const inGroup = candidates.filter((x) => g.categories.includes(x.category));
-                return inGroup.length === 0 ? null : (
-                  <optgroup key={g.name} label={g.name}>
-                    {inGroup.map((x) => (
-                      <option key={x.id} value={x.id}>
-                        {siteLabel(x)}
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </select>
-          </div>
-          <button type="button" onClick={add} disabled={full || !adding} className="btn">
-            Add
-          </button>
-          {full && <p className="pb-3 text-[15px] text-ink-2">Four sites is the most this page compares: remove one to add another.</p>}
-        </div>
-        {s.compareIds.length > 0 && (
-          <p className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            {s.compareIds.length >= 2 && (
-              <button type="button" onClick={() => void store.getState().findBestWindow(s.days, 'compare')} className="btn h-auto min-h-[48px] max-w-full whitespace-normal py-2.5 text-left">
-                Find the best landing day for these sites in the next 12 months
-              </button>
-            )}
-            {/* The brief is for one site, the one Explore has selected: the link says which. */}
-            <Link href="/brief" className={LINK}>
-              Printable brief{s.site ? ` for ${siteLabel(s.site)}` : ''}
-            </Link>
+        <ComparisonFiles
+          cols={cols}
+          check={check}
+          onOpen={(o) => {
+            setOpened(o);
+            if (o.scenarios.length === 0) {
+              act.setNote(o.problem ?? 'This file holds no scenarios.');
+              return;
+            }
+            act.load(o.scenarios, o.problem);
+            act.setNote(`The file’s ${o.scenarios.length === 1 ? 'scenario replaces' : `${o.scenarios.length} scenarios replace`} the ones that were on this page.`);
+          }}
+        />
+        {cols.length > 0 && (
+          <p>
+            <button
+              type="button"
+              onClick={() => {
+                setOpened(null);
+                act.clear();
+              }}
+              className="btn btn-sm"
+            >
+              Start again
+            </button>
           </p>
         )}
-        {s.bestWindowNote && <p className="text-[15px] text-ink-2">{s.bestWindowNote}</p>}
-        <PlannerChat store={store} />
+        <PlannerChat store={store} scenarios={scenarios} />
       </main>
-      {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
+      {editingScenario && (
+        <ScenarioEditor
+          scenario={editingScenario}
+          sites={s.sites}
+          onChange={(patch) => update(editingScenario.id, patch)}
+          onLander={() => {
+            setEditing(null);
+            setLanderFor(editingScenario.id);
+          }}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {landerScenario && (
+        <LanderDialog
+          params={paramsOf(landerScenario)}
+          onPower={(patch) => {
+            const now = scenarios.getState().scenarios.find((x) => x.id === landerScenario.id);
+            if (now) update(now.id, { power: { ...now.power, ...patch } });
+          }}
+          onParams={(patch) => update(landerScenario.id, patch)}
+          busy={sc.runs[landerScenario.id]?.status === 'busy'}
+          onClose={() => setLanderFor(null)}
+        />
+      )}
     </AppFrame>
   );
 }

@@ -24,6 +24,8 @@ import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { standHref } from '@/lib/links';
 import { COMPARE_MAX, exploreStore, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { comparisonHref } from '@/lib/scenario/codec';
+import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
 import { timeWithPower } from '@/lib/engine/landing';
 import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
 import { dateTimeUtc } from '@/lib/viz/format';
@@ -41,10 +43,13 @@ import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
  */
 export function ExploreView({
   store = exploreStore,
+  scenarios = scenarioStore,
   navigate,
   uncertainty,
 }: {
   store?: StoreApi<ExploreState>;
+  /** The comparison "Compare from here" starts; by default the app's. */
+  scenarios?: StoreApi<ScenarioState>;
   navigate?: (href: string) => void;
   /** Injected in tests; by default the app's data/uncertainty/budget.json. */
   uncertainty?: () => Promise<UncertaintyDoc>;
@@ -59,12 +64,21 @@ export function ExploreView({
   const reducedMotion = useReducedMotion();
   useDemoMode(store);
 
+  // The address the visit came with is applied once the data is in; from then on the address follows the site and
+  // the period, landing hour and length included, so a reload or a shared link opens the same forecast.
+  const [addressed, setAddressed] = useState(false);
   useEffect(() => {
     void store
       .getState()
       .init()
-      .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search));
+      .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search))
+      .then(() => setAddressed(true));
   }, [store]);
+  useEffect(() => {
+    if (!addressed || !s.siteId) return;
+    const href = exploreHref(s.siteId, s.startUtc, s.days);
+    if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState(window.history.state, '', `${href}${window.location.hash}`);
+  }, [addressed, s.siteId, s.startUtc, s.days]);
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
   // itself, once, and puts the cursor in its box, as "Or ask in plain words" does.
@@ -106,6 +120,11 @@ export function ExploreView({
       go('/compare');
     }
   }, [store, go]);
+
+  // "Compare from here": this landing, with every setting, as a comparison's baseline; Compare opens on its link.
+  const onScenario = useCallback(() => {
+    if (scenarios.getState().startFrom(store.getState())) go(comparisonHref(scenarios.getState().scenarios));
+  }, [store, scenarios, go]);
 
   const scene = useMemo(() => (s.eph && s.series && s.mask ? sceneStateAt(s.eph, s.series, s.mask, s.cursorHour) : null), [s.eph, s.series, s.mask, s.cursorHour]);
   // The terrain behind the figures, and whether they are still from another mast height than the one chosen.
@@ -200,6 +219,12 @@ export function ExploreView({
               startUtc={s.startUtc}
             />
           </div>
+          {/* This landing, every setting with it, as a comparison's baseline: under the answer, outside its word cap. */}
+          <p className="-mt-2">
+            <button type="button" onClick={onScenario} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+              Compare from here
+            </button>
+          </p>
           <TimeChart
             site={site}
             series={s.series}
@@ -244,7 +269,7 @@ export function ExploreView({
             reducedMotion={reducedMotion}
           />
           <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} />
-          <PlannerChat store={store} navigate={go} />
+          <PlannerChat store={store} scenarios={scenarios} navigate={go} />
         </div>
         {/* The period's key moments as dots with Next, as on the stand view, so Play and Next show what happens on the first
             screen (21.1); a preview on the bar moves the chart's time line and the date, as the chart's own does. */}

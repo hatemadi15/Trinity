@@ -31,6 +31,14 @@ function show(extra: Partial<Parameters<typeof TimeChart>[0]> = {}) {
   return { onCursor, onHover, ...view };
 }
 
+describe('TimeChart for a landing that is not at midnight', () => {
+  it('names the landing hour, in UTC, in its rows’ captions', () => {
+    show({ startUtc: '2027-01-01T17:00:00' });
+    expect(screen.getByRole('img', { name: /^The Sun over the 30 days from 1 January at 17:00 UTC/ })).toBeTruthy();
+    expect(screen.getByRole('img', { name: /^Earth over the 30 days from 1 January at 17:00 UTC/ })).toBeTruthy();
+  });
+});
+
 describe('TimeChart dates on a phone', () => {
   it('keeps every other date only from the small screen up, so the dates never run into each other', () => {
     show();
