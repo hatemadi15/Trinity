@@ -20,9 +20,10 @@ const REPORTS = ['web/public/validation/e2e.json', 'web/public/validation/tests.
 type Outcome = 'passed' | 'failed' | 'skipped' | 'flaky';
 type Manifest = { data_version?: string; groups?: { id: string; files: { path: string }[] }[] };
 
+/** What git prints, untrimmed: a porcelain status line starts with a space when only the work tree changed. */
 function git(...args: string[]): string | null {
   try {
-    return execFileSync('git', args, { cwd: WEB, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    return execFileSync('git', args, { cwd: WEB, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   } catch {
     return null;
   }
@@ -79,7 +80,8 @@ class ResultsReporter implements Reporter {
     const remote = process.env.E2E_BASE_URL;
     const changed = (git('status', '--porcelain', '--untracked-files=no') ?? '')
       .split('\n')
-      .filter((line) => line.trim() !== '' && !REPORTS.includes(line.slice(3).trim())).length;
+      .filter((line) => line.trim() !== '' && !REPORTS.includes(line.slice(3).replace(/^"|"$/g, '')))
+      .length;
     const doc = {
       suite: 'Earthrise browser journeys (Playwright, web/e2e)',
       generated_utc: this.started.toISOString().slice(0, 19) + 'Z',
@@ -87,10 +89,10 @@ class ResultsReporter implements Reporter {
       complete: !partialRun(process.argv) && journeys.length > 0 && result.status !== 'interrupted' && result.status !== 'timedout',
       status: result.status,
       build: {
-        commit: git('rev-parse', 'HEAD'),
+        commit: git('rev-parse', 'HEAD')?.trim() ?? null,
         dirty: changed > 0,
         changed,
-        branch: git('rev-parse', '--abbrev-ref', 'HEAD'),
+        branch: git('rev-parse', '--abbrev-ref', 'HEAD')?.trim() ?? null,
         server: remote ?? `next start, production build, at ${this.config?.projects[0]?.use.baseURL ?? ''}`,
         next_build_id: !remote && existsSync(buildIdFile) ? readFileSync(buildIdFile, 'utf8').trim() : null,
         built_utc: !remote && existsSync(buildIdFile) ? statSync(buildIdFile).mtime.toISOString().slice(0, 19) + 'Z' : null,
