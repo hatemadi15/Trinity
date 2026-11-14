@@ -65,6 +65,14 @@ describe('PlannerChat', () => {
     plannerLog.getState().clear();
   });
 
+  it('names Gemini in the source line when Gemini answered', async () => {
+    const { store } = fakeStore();
+    const askFn = vi.fn(async () => answer({ model: 'gemini-2.5-flash', actions: [{ type: 'select_site', id: 'nobile_rim_2' }], reply: 'Nobile Rim 2 selected.' }));
+    render(<PlannerChat store={store} ask={askFn} navigate={vi.fn()} />);
+    await ask('please pick the Nobile site for me');
+    await waitFor(() => expect(screen.getByText(/answered by Gemini 2\.5 Flash, after you asked/)).toBeTruthy());
+  });
+
   it('submits a question, applies the actions to the store and shows the reply with its source', async () => {
     const { store, calls } = fakeStore();
     const askFn = vi.fn(async () =>

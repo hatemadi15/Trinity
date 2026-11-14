@@ -2,6 +2,7 @@
 import { Mic, SendHorizontal, Square, Volume2, VolumeX } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createStore, useStore } from 'zustand';
+import { RECORDING_MAX_MS } from '@/lib/luna/limits';
 import { lunaStore, type LunaStatus } from '@/lib/luna/store';
 import { KAOMOJI, LunaPet, lunaMood } from './LunaPet';
 
@@ -15,6 +16,12 @@ const STATUS: Record<LunaStatus, string> = {
   typing: 'This browser has no voice input: type to Luna below.',
   blocked: 'The microphone is not allowed for this page: allow it in the address bar, or type below.',
   offline: 'Voice input needs the internet here: type to Luna below.',
+};
+
+/** What she is doing where her microphone records a phrase at a press (spec 22.5), where it differs. */
+const PRESS_STATUS: Partial<Record<LunaStatus, string>> = {
+  ready: 'Press the microphone and speak; press it again when you have finished.',
+  listening: 'Listening. Press the square when you have finished.',
 };
 
 /**
@@ -93,6 +100,7 @@ export function LunaPanel({ className }: { className: string }) {
   const status = useStore(lunaStore, (s) => s.status);
   const messages = useStore(lunaStore, (s) => s.messages);
   const canListen = useStore(lunaStore, (s) => s.canListen);
+  const pressToTalk = useStore(lunaStore, (s) => s.pressToTalk);
   const [text, setText] = useState('');
   const thread = useRef<HTMLOListElement>(null);
   useEffect(() => {
@@ -118,7 +126,7 @@ export function LunaPanel({ className }: { className: string }) {
               {KAOMOJI[mood]}
             </span>
           </p>
-          <p className="mt-1 text-[14px] text-ink-2">{STATUS[status]}</p>
+          <p className="mt-1 text-[14px] text-ink-2">{(pressToTalk && PRESS_STATUS[status]) || STATUS[status]}</p>
         </div>
       </div>
       <ol ref={thread} aria-label="Conversation with Luna" className="mt-3 flex max-h-[300px] min-h-[120px] flex-col gap-2 overflow-y-auto pr-1 text-[15px]">
@@ -169,7 +177,7 @@ export function LunaPanel({ className }: { className: string }) {
           <button
             type="button"
             aria-pressed={listening}
-            aria-label={listening ? 'Pause the microphone' : 'Speak to Luna'}
+            aria-label={listening ? (pressToTalk ? 'Stop and send' : 'Pause the microphone') : 'Speak to Luna'}
             onClick={() => lunaStore.getState().toggleMic()}
             className={`grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full border transition-[border-color,box-shadow,color] ${listening ? 'animate-[pulse-dot_1.6s_ease-in-out_infinite] border-accent bg-accent text-[#050506]' : 'border-line-strong text-ink-2 hover:border-accent hover:text-ink'}`}
           >
@@ -180,7 +188,11 @@ export function LunaPanel({ className }: { className: string }) {
           <SendHorizontal size={18} aria-hidden="true" />
         </button>
       </form>
-      {listening && <p className="mt-2 text-[14px] text-ink-2">Say it in plain English; she acts when you pause.</p>}
+      {listening && (
+        <p className="mt-2 text-[14px] text-ink-2">
+          {pressToTalk ? `Say it in plain English; she listens for up to ${RECORDING_MAX_MS / 1000} seconds, or until you press the square.` : 'Say it in plain English; she acts when you pause.'}
+        </p>
+      )}
       <VoiceSwitch />
     </section>
   );
@@ -206,6 +218,8 @@ export function LunaButton({ className, panelClassName }: { className?: string; 
         aria-pressed={on}
         onClick={() => {
           lunaPlace.setState({ at: 'header' });
+          // During the press, so a browser that wants one first lets her voice play later.
+          if (!on) lunaStore.getState().prime();
           lunaStore.getState().setOn(!on);
         }}
         className={

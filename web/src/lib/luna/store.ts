@@ -34,6 +34,11 @@ export interface LunaState {
   /** Whether this browser has voice input, so her panel offers the microphone. Set by her engine. */
   canListen: boolean;
   /**
+   * Whether her microphone records a phrase at a press and sends it at the next (at most 15 s), where the browser has
+   * no speech recognition of its own (spec 22.5); else it listens on, continuously. Set by her engine.
+   */
+  pressToTalk: boolean;
+  /**
    * Whether she says her replies aloud (the switch in her panel, "Say replies aloud"): on at first, as spec 22 has her,
    * and kept in this browser for the next visit. Off, her replies show in the conversation only.
    */
@@ -45,6 +50,11 @@ export interface LunaState {
   submit: (text: string) => void;
   /** Pauses the microphone while she listens, or starts it again (also after it was blocked). Set by her engine. */
   toggleMic: () => void;
+  /**
+   * Readies her voice during the press that turns her on, for browsers that play sound only during a press (Safari),
+   * so Gemini's audio for her replies can play later. Set by her engine.
+   */
+  prime: () => void;
 }
 
 /** Where this browser keeps whether she says her replies aloud: "off" once turned off, "on" once turned on again. */
@@ -76,6 +86,7 @@ export const lunaStore = createStore<LunaState>()((set) => ({
   reply: null,
   messages: [],
   canListen: false,
+  pressToTalk: false,
   voice: storedVoice(),
   setOn: (on) => set(on ? { on } : { on, status: 'off' }),
   setVoice: (voice) => {
@@ -88,4 +99,5 @@ export const lunaStore = createStore<LunaState>()((set) => ({
   },
   submit: () => {},
   toggleMic: () => {},
+  prime: () => {},
 }));

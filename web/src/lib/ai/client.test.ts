@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { askNarration, askPlanner } from './client';
+import { askLuna, askNarration, askPlanner, shortModel } from './client';
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
@@ -42,6 +42,27 @@ describe('askPlanner', () => {
         throw new Error('Failed to fetch');
       }),
     ).rejects.toThrow(/Failed to fetch/);
+  });
+});
+
+describe('askLuna', () => {
+  it('posts as askPlanner does, saying the question is Luna’s, so the server asks Gemini first', async () => {
+    const reply = { source: 'model', model: 'gemini-2.5-flash', actions: [], reply: 'Hello.' };
+    const fetchImpl = vi.fn(async () => json(reply));
+    expect(await askLuna('what is the meaning of life', null, 'live', fetchImpl)).toEqual(reply);
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/chat');
+    expect(JSON.parse(String(init.body))).toEqual({ prompt: 'what is the meaning of life', state: null, mode: 'live', from: 'luna' });
+  });
+});
+
+describe('shortModel', () => {
+  it('shortens an OpenRouter id, and names Gemini in plain words when Gemini answered', () => {
+    expect(shortModel('google/gemma-4-31b-it:free')).toBe('gemma-4-31b');
+    expect(shortModel('qwen/qwen3.8-27b:free')).toBe('qwen3.8-27b');
+    expect(shortModel('gemini-2.5-flash')).toBe('Gemini 2.5 Flash');
+    expect(shortModel('models/gemini-3.8-flash-lite')).toBe('Gemini 3.8 Flash Lite');
+    expect(shortModel('gemini-flash-latest')).toBe('Gemini Flash Latest');
   });
 });
 

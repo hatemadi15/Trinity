@@ -2,9 +2,11 @@ import { describeDropped, validateActions } from '@/lib/ai/actions';
 import { cachedAnswer } from '@/lib/ai/cache';
 import { matchIntent } from '@/lib/ai/intents';
 import { cleanNarration, isStateSummary, narrationProblems, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from '@/lib/ai/narrate';
-import { askModel, modelsFromEnv, type ChatMessage } from '@/lib/ai/openrouter';
+import { runChain } from '@/lib/ai/chain';
+import { geminiFromEnv, geminiText, type GeminiSettings } from '@/lib/ai/gemini';
+import { callOpenRouter, DEFAULT_MAX_TOKENS, modelsFromEnv, type ChatMessage } from '@/lib/ai/openrouter';
 import { parseModelReply, systemPrompt, userPrompt, type ChatReason, type ChatReply, type NarrationReply } from '@/lib/ai/protocol';
-import { SlidingWindowLimiter } from '@/lib/ai/rate-limit';
+import { clientIp, SlidingWindowLimiter } from '@/lib/ai/rate-limit';
 import type { StateSummary } from '@/lib/ai/state-summary';
 import catalogue from '@/lib/data/catalogue.json';
 import type { Site } from '@/lib/data/loaders';
@@ -44,17 +46,15 @@ function noAnswer(reason: ChatReason): ChatReply {
   return { source: 'none', actions: [], reply: reason === 'model-busy' ? MODEL_BUSY : NO_ANSWER, reason };
 }
 
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return request.headers.get('x-real-ip')?.trim() || 'local';
-}
+/** Who asks: Luna (spec 22) gets Gemini first; "Ask in plain words", the brief and the planner keep OpenRouter first. */
+type Asker = 'luna' | 'ask';
 
 interface Body {
   task: 'plan' | 'narrate';
   prompt: string;
   state: StateSummary | null;
   mode: 'live' | 'cached';
+  from: Asker;
 }
 
 async function parseBody(request: Request): Promise<Body | string> {
@@ -71,36 +71,75 @@ async function parseBody(request: Request): Promise<Body | string> {
   if (prompt.length > MAX_PROMPT_CHARS) return `prompt is longer than ${MAX_PROMPT_CHARS} characters`;
   if (o.mode !== undefined && o.mode !== 'live' && o.mode !== 'cached') return 'mode must be "live" or "cached"';
   if (o.task !== undefined && o.task !== 'plan' && o.task !== 'narrate') return 'task must be "plan" or "narrate"';
+  if (o.from !== undefined && o.from !== 'luna' && o.from !== 'ask') return 'from must be "luna" or "ask"';
   let state = o.state && typeof o.state === 'object' && !Array.isArray(o.state) ? (o.state as StateSummary) : null;
   // A real summary is about 1 KB; anything much larger is not ours and must not reach a prompt.
   if (state && JSON.stringify(state).length > MAX_STATE_CHARS) state = null;
   if (o.task === 'narrate' && !isStateSummary(state)) return 'narrate needs the state summary of a loaded site';
-  return { task: o.task === 'narrate' ? 'narrate' : 'plan', prompt, state, mode: o.mode === 'cached' ? 'cached' : 'live' };
+  return { task: o.task === 'narrate' ? 'narrate' : 'plan', prompt, state, mode: o.mode === 'cached' ? 'cached' : 'live', from: o.from === 'luna' ? 'luna' : 'ask' };
+}
+
+/** A model to ask: one of OpenRouter's, or Gemini. */
+interface Candidate {
+  provider: 'openrouter' | 'gemini';
+  model: string;
+}
+
+/** What this request may use: OpenRouter's key, Gemini's settings; neither in cached mode, where no model is asked. */
+interface Keys {
+  openrouter: string;
+  gemini: GeminiSettings | null;
+}
+
+/** Whether any model can be asked. */
+const anyModel = (keys: Keys) => Boolean(keys.openrouter || keys.gemini);
+
+/** One model's answer, through its own provider: Gemini with JSON output when the task expects JSON. */
+function caller(keys: Keys, messages: ChatMessage[], json: boolean) {
+  return (c: Candidate, signal: AbortSignal) =>
+    c.provider === 'gemini'
+      ? geminiText({ model: c.model, apiKey: keys.gemini?.apiKey ?? '', messages, maxTokens: DEFAULT_MAX_TOKENS, json, signal })
+      : callOpenRouter(c.model, messages, keys.openrouter, { signal });
+}
+
+/** Asks the candidates in turn inside `budgetMs`, each at most AI_MODEL_TIMEOUT_MS. */
+function ask(keys: Keys, chain: Candidate[], messages: ChatMessage[], json: boolean, budgetMs: number) {
+  return runChain({ chain, label: (c) => c.model, call: caller(keys, messages, json), timeoutMs: modelTimeoutMs(), budgetMs });
+}
+
+/**
+ * The first answer, in the asker's order, inside the first answer's share of the budget (the rest is for one retry).
+ * Luna: Gemini first, then the OpenRouter chain. Everyone else ("Ask in plain words", the brief): the OpenRouter chain
+ * first, as the owner wants, and Gemini last, which may then use what is left of the whole budget, so a chain that
+ * hangs still leaves it time.
+ */
+async function firstAnswer(keys: Keys, from: Asker, messages: ChatMessage[], json: boolean, deadline: number) {
+  const openrouter: Candidate[] = keys.openrouter ? modelsFromEnv().map((model) => ({ provider: 'openrouter', model })) : [];
+  const gemini: Candidate[] = keys.gemini ? [{ provider: 'gemini', model: keys.gemini.textModel }] : [];
+  const share = Math.round((deadline - Date.now()) * FIRST_SHARE);
+  if (from === 'luna') return ask(keys, [...gemini, ...openrouter], messages, json, share);
+  const first = await ask(keys, openrouter, messages, json, share);
+  if (!('error' in first) || gemini.length === 0) return first;
+  const last = await ask(keys, gemini, messages, json, deadline - Date.now());
+  return 'error' in last ? { error: [openrouter.length ? first.error : '', last.error].filter(Boolean).join('; ') } : last;
 }
 
 /**
  * The model's answer for a plan question; null when an answer came back but nothing in it was usable, and
- * "busy" when no model in the chain answered at all (timeouts, rate limits, empty answers). Either way the
- * fallbacks try next.
+ * "busy" when no model answered at all (timeouts, rate limits, empty answers). Either way the fallbacks try next.
  */
-async function fromModel(prompt: string, state: StateSummary | null, apiKey: string): Promise<ChatReply | 'busy' | null> {
+async function fromModel(prompt: string, state: StateSummary | null, keys: Keys, from: Asker): Promise<ChatReply | 'busy' | null> {
   const deadline = Date.now() + modelBudgetMs();
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt(SITES) },
     { role: 'user', content: userPrompt(prompt, state) },
   ];
-  const first = await askModel({ messages, models: modelsFromEnv(), apiKey, timeoutMs: modelTimeoutMs(), budgetMs: Math.round((deadline - Date.now()) * FIRST_SHARE) });
+  const first = await firstAnswer(keys, from, messages, true, deadline);
   if ('error' in first) return 'busy';
   let parsed = parseModelReply(first.content);
   if (!parsed && deadline - Date.now() > MIN_RETRY_MS) {
     // One retry on the model that answered, with a nudge back to the contract.
-    const second = await askModel({
-      messages: [...messages, { role: 'assistant', content: first.content }, { role: 'user', content: RETRY_NUDGE }],
-      models: [first.model],
-      apiKey,
-      timeoutMs: modelTimeoutMs(),
-      budgetMs: deadline - Date.now(),
-    });
+    const second = await ask(keys, [first.candidate], [...messages, { role: 'assistant', content: first.content }, { role: 'user', content: RETRY_NUDGE }], true, deadline - Date.now());
     if (!('error' in second)) parsed = parseModelReply(second.content);
   }
   if (!parsed) return null;
@@ -110,7 +149,7 @@ async function fromModel(prompt: string, state: StateSummary | null, apiKey: str
   const reply = state && isStateSummary(state) ? stripForeignNumbers(parsed.reply, state, [...numbersIn(prompt), '14', '30', '90'], SITE_NAMES) : parsed.reply;
   if (actions.length === 0 && !reply) return null;
   const text = [reply || 'Done.', describeDropped(dropped)].filter(Boolean).join(' ');
-  return { source: 'model', model: first.model, actions, reply: text, dropped };
+  return { source: 'model', model: first.candidate.model, actions, reply: text, dropped };
 }
 
 function fromIntent(prompt: string): ChatReply | null {
@@ -131,7 +170,7 @@ function fromCache(prompt: string): ChatReply | null {
  * The brief's paragraph: the model's words when every claim in them holds against the state (one retry, told what
  * failed), else the template with the reason and, when the check failed it, the first things it found.
  */
-async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean): Promise<NarrationReply> {
+async function narrate(state: StateSummary, keys: Keys, cachedMode: boolean, from: Asker): Promise<NarrationReply> {
   const template = (reason: NonNullable<NarrationReply['reason']>, problems?: string[]): NarrationReply => ({
     source: 'template',
     reason,
@@ -139,19 +178,22 @@ async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean)
     ...(problems?.length ? { problems: problems.slice(0, MAX_PROBLEMS) } : {}),
   });
   if (cachedMode) return template('cached');
-  if (!apiKey) return template('no-key');
+  if (!anyModel(keys)) return template('no-key');
   const deadline = Date.now() + modelBudgetMs();
   const messages = narrationPrompt(state);
-  const first = await askModel({ messages, models: modelsFromEnv(), apiKey, timeoutMs: modelTimeoutMs(), budgetMs: Math.round((deadline - Date.now()) * FIRST_SHARE) });
+  const first = await firstAnswer(keys, from, messages, false, deadline);
   if ('error' in first) return template('model-error');
+  const by = first.candidate.model;
   let text = cleanNarration(first.content);
   let problems = narrationProblems(text, state, SITE_NAMES);
   if (problems.length) {
     const found = problems.slice(0, MAX_PROBLEMS).join('; ');
-    console.info(`narration by ${first.model} rejected: ${found} — "${text.slice(0, 240)}"`);
+    console.info(`narration by ${by} rejected: ${found} — "${text.slice(0, 240)}"`);
     if (deadline - Date.now() <= MIN_RETRY_MS) return template('numbers', problems);
-    const second = await askModel({
-      messages: [
+    const second = await ask(
+      keys,
+      [first.candidate],
+      [
         ...messages,
         { role: 'assistant', content: first.content },
         {
@@ -159,20 +201,18 @@ async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean)
           content: `These claims do not match STATE: ${found}. Rewrite the paragraph: put each number next to what it measures, with its unit, copied from STATE; give no causes or comparisons STATE does not give; leave out anything you cannot copy. Paragraph only.`,
         },
       ],
-      models: [first.model],
-      apiKey,
-      timeoutMs: modelTimeoutMs(),
-      budgetMs: deadline - Date.now(),
-    });
+      false,
+      deadline - Date.now(),
+    );
     if ('error' in second) return template('numbers', problems);
     text = cleanNarration(second.content);
     problems = narrationProblems(text, state, SITE_NAMES);
     if (problems.length) {
-      console.info(`narration retry by ${first.model} rejected: ${problems.slice(0, MAX_PROBLEMS).join('; ')}`);
+      console.info(`narration retry by ${by} rejected: ${problems.slice(0, MAX_PROBLEMS).join('; ')}`);
       return template('numbers', problems);
     }
   }
-  return text ? { source: 'model', model: first.model, reply: text } : template('model-error');
+  return text ? { source: 'model', model: by, reply: text } : template('model-error');
 }
 
 async function answer(body: Body, request: Request): Promise<Response> {
@@ -184,15 +224,16 @@ async function answer(body: Body, request: Request): Promise<Response> {
     );
   }
   const cachedMode = body.mode === 'cached' || process.env.NEXT_PUBLIC_AI_MODE === 'cached';
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim() ?? '';
-  if (body.task === 'narrate') return Response.json(await narrate(body.state as StateSummary, apiKey, cachedMode));
+  // Cached mode (the offline build, ?demo=1) never asks a model, Gemini included.
+  const keys: Keys = cachedMode ? { openrouter: '', gemini: null } : { openrouter: process.env.OPENROUTER_API_KEY?.trim() ?? '', gemini: geminiFromEnv() };
+  if (body.task === 'narrate') return Response.json(await narrate(body.state as StateSummary, keys, cachedMode, body.from));
   let reply: ChatReply | null = null;
   let busy = false;
   if (cachedMode) {
     reply = fromCache(body.prompt) ?? fromIntent(body.prompt);
   } else {
-    if (apiKey) {
-      const model = await fromModel(body.prompt, body.state, apiKey);
+    if (anyModel(keys)) {
+      const model = await fromModel(body.prompt, body.state, keys, body.from);
       busy = model === 'busy';
       reply = model === 'busy' ? null : model;
     }
@@ -216,10 +257,12 @@ function safeAnswer(body: Body): ChatReply | NarrationReply {
 }
 
 /**
- * POST { prompt, state?, mode?, task? }.
- * task "plan" (default) → { source, model?, actions, reply, dropped?, reason? }: with a key and live mode the
+ * POST { prompt, state?, mode?, task?, from? }.
+ * task "plan" (default) → { source, model?, actions, reply, dropped?, reason? }: with a key and live mode a
  * model answers (at most two model answers, inside a 24 s budget), then the intent matcher, then the
- * cached transcripts. Cached mode (`mode: "cached"`, `?demo=1` on the client, or
+ * cached transcripts. The models: Gemini (GEMINI_API_KEY) and OpenRouter's chain (OPENROUTER_API_KEY), in the
+ * asker's order: `from: "luna"` asks Gemini first, anyone else OpenRouter first and Gemini last; `model` names the
+ * one that answered. Cached mode (`mode: "cached"`, `?demo=1` on the client, or
  * NEXT_PUBLIC_AI_MODE=cached) serves transcripts first and never calls the model. When nothing answers,
  * the reply has no actions, says why in `reason` ("model-busy" when a key is set and every model failed,
  * else "not-understood") and offers five phrasings that work without the model.

@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# the clip scripts/check-voice.mjs saves to listen to
+/luna-check.wav
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

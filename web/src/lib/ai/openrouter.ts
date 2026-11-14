@@ -1,3 +1,5 @@
+import { runChain, type CallResult } from './chain';
+
 /** OpenRouter chat completions: one JSON request per model in the chain, first good answer wins. */
 export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -15,8 +17,6 @@ export const DEFAULT_MODELS = [
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
 export const DEFAULT_MAX_TOKENS = 600;
-/** The least of the budget worth starting a request with; under it the chain stops as if the budget were spent. */
-const MIN_CALL_MS = 10;
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -50,10 +50,37 @@ function contentText(content: unknown): string {
 }
 
 /**
- * Asks each model in turn (temperature 0, capped tokens, one timeout per model) and returns the
- * first non-empty assistant answer with the model that gave it. HTTP errors, timeouts, transport
- * failures and empty answers move the chain on; when every model fails the result carries every
- * reason. Never throws, never logs the key.
+ * One OpenRouter model's answer (temperature 0, capped tokens): its text, or why there is none (an HTTP status, an
+ * error in the body, an empty answer). A transport failure throws, for the chain to report. Never logs the key.
+ */
+export async function callOpenRouter(
+  model: string,
+  messages: ChatMessage[],
+  apiKey: string,
+  { maxTokens = DEFAULT_MAX_TOKENS, signal, fetchImpl = fetch }: { maxTokens?: number; signal?: AbortSignal; fetchImpl?: typeof fetch } = {},
+): Promise<CallResult> {
+  const res = await fetchImpl(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://github.com/hatemadi15/Trinity',
+      'X-Title': 'Earthrise',
+    },
+    body: JSON.stringify({ model, messages, temperature: 0, max_tokens: maxTokens }),
+    signal,
+  });
+  if (!res.ok) return { error: `${model}: HTTP ${res.status}` };
+  const json = (await res.json().catch(() => ({}))) as Completion;
+  const text = contentText(json.choices?.[0]?.message?.content);
+  if (!text) return { error: `${model}: ${json.error?.message ? `API error ${json.error.message}` : 'empty answer'}` };
+  return { content: text };
+}
+
+/**
+ * Asks each OpenRouter model in turn (one timeout per model) and returns the first non-empty assistant answer with the
+ * model that gave it. HTTP errors, timeouts, transport failures and empty answers move the chain on; when every model
+ * fails the result carries every reason. Never throws, never logs the key.
  */
 export async function askModel(opts: {
   messages: ChatMessage[];
@@ -66,56 +93,12 @@ export async function askModel(opts: {
   fetchImpl?: typeof fetch;
 }): Promise<ModelAnswer> {
   const { messages, models, apiKey, timeoutMs = DEFAULT_TIMEOUT_MS, maxTokens = DEFAULT_MAX_TOKENS, budgetMs, fetchImpl = fetch } = opts;
-  const deadline = budgetMs === undefined ? Infinity : Date.now() + budgetMs;
-  const errors: string[] = [];
-  for (const model of models) {
-    const remaining = deadline - Date.now();
-    // No model answers in a few milliseconds, so a sliver of budget is as good as none: starting a request only
-    // to abort it costs a call (and Date.now()'s whole milliseconds can read a hair short of a timer that has fired).
-    if (remaining < MIN_CALL_MS) {
-      errors.push(`budget of ${budgetMs} ms exhausted before ${model}`);
-      break;
-    }
-    const perModelMs = Math.min(timeoutMs, remaining);
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        controller.abort();
-        reject(new Error(`timed out after ${perModelMs} ms`));
-      }, perModelMs);
-    });
-    try {
-      const res = await Promise.race([
-        fetchImpl(OPENROUTER_URL, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://github.com/hatemadi15/Trinity',
-            'X-Title': 'Earthrise',
-          },
-          body: JSON.stringify({ model, messages, temperature: 0, max_tokens: maxTokens }),
-          signal: controller.signal,
-        }),
-        timeout,
-      ]);
-      if (!res.ok) {
-        errors.push(`${model}: HTTP ${res.status}`);
-        continue;
-      }
-      const json = (await res.json().catch(() => ({}))) as Completion;
-      const text = contentText(json.choices?.[0]?.message?.content);
-      if (!text) {
-        errors.push(`${model}: ${json.error?.message ? `API error ${json.error.message}` : 'empty answer'}`);
-        continue;
-      }
-      return { model, content: text };
-    } catch (err) {
-      errors.push(`${model}: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-  }
-  return { error: errors.join('; ') || 'no model configured' };
+  const r = await runChain({
+    chain: models,
+    label: (m) => m,
+    call: (model, signal) => callOpenRouter(model, messages, apiKey, { maxTokens, signal, fetchImpl }),
+    timeoutMs,
+    budgetMs,
+  });
+  return 'error' in r ? r : { model: r.candidate, content: r.content };
 }
