@@ -1,6 +1,7 @@
 import type { Site } from '../data/loaders';
 import type { Action } from '../ai/actions';
 import { matchIntent } from '../ai/intents';
+import { skyQuestion, type SkyQuestion } from './sky';
 
 /**
  * Luna, the voice of the app (spec 22): what she hears, turned into one command. Her own words come first (the
@@ -44,6 +45,7 @@ export type LunaCommand =
   | { kind: 'stop' }
   | { kind: 'thanks' }
   | { kind: 'hello' }
+  | { kind: 'sky'; question: SkyQuestion }
   | { kind: 'planner'; actions: Action[]; reply: string }
   | { kind: 'ask'; prompt: string }
   | { kind: 'nothing' };
@@ -217,6 +219,9 @@ export function parseCommand(transcript: string, sites: Site[]): LunaCommand {
   for (const [re, theme] of THEME) if (re.test(t)) return { kind: 'theme', theme };
   for (const [re, control] of CONTROLS) if (re.test(t)) return { kind: 'control', control };
   for (const [re, place] of PLACES) if (re.test(t)) return { kind: 'go', place };
+  // A question on the sky at the time bar's hour, answered from the pages' own countdown and radio windows.
+  const sky = skyQuestion(t);
+  if (sky) return { kind: 'sky', question: sky };
   let planned = tidyDates(spokenToDigits(t));
   for (const [re, name] of SPOKEN_NAMES) planned = planned.replace(re, name);
   const r = matchIntent(planned, sites);

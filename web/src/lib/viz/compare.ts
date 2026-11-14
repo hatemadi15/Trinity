@@ -2,6 +2,7 @@ import { siteLabel } from '../data/loaders';
 import { timeWithPower } from '../engine/landing';
 import { exploreHref } from '../links';
 import type { SiteResult } from '../store/explore';
+import { contactPlan, outageWords, poweredContactWords } from './contact';
 import { dateLong, dayMonth, pct0, spanShort } from './format';
 
 /** One row of the comparison table: what it says about a site, ready to print. */
@@ -15,6 +16,10 @@ export interface CompareRow {
   longestNight: string;
   /** What happens to a lander that lands on the first day: "all 30 days", or "3 d 4 h, then off until 20 Jan". */
   power: string;
+  /** Radio contact while it has power: hours with Earth in view from landing until the battery first runs out, or "none". */
+  contact: string;
+  /** The longest time without Earth in view: "at least 9 d 3 h" when the period's start or end cuts it, or "none". */
+  longestOutage: string;
   tone: 'good' | 'bad';
 }
 
@@ -38,12 +43,17 @@ function powerWords(r: SiteResult, startUtc: string, days: number, powered: numb
   return `${spanShort(powered)}, then off ${back < hours ? `until ${dayMonth(startUtc, back)}` : 'to the end'}`;
 }
 
-/** A compared site as a row: sunlight and Earth in view over the period, its longest night, and its time with power from the period's first day. */
+/**
+ * A compared site as a row: sunlight and Earth in view over the period, its longest night, its time with power from the
+ * period's first day, the radio contact in that time, and the longest time without Earth.
+ */
 export function compareRow(r: SiteResult, startUtc: string, days: number): CompareRow {
   const hours = days * 24;
   const powered = poweredHours(r, hours);
   const lit = r.summary.illumFraction > 0;
   const all = powered >= hours;
+  // The radio windows over the period, as Explore counts them.
+  const plan = contactPlan(r.series, r.power);
   return {
     id: r.site.id,
     name: siteLabel(r.site),
@@ -52,6 +62,8 @@ export function compareRow(r: SiteResult, startUtc: string, days: number): Compa
     earth: pct0(r.summary.earthVisFraction),
     longestNight: r.summary.longestDarkH > 0 ? spanShort(r.summary.longestDarkH) : 'none',
     power: powerWords(r, startUtc, days, powered),
+    contact: poweredContactWords(plan).value,
+    longestOutage: outageWords(plan.longestOutage),
     tone: lit && all ? 'good' : 'bad',
   };
 }
