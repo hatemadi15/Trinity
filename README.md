@@ -49,9 +49,12 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   is hourly) and a length of 2 to 90 days, with steps of an hour and a day either way and a shift by
   any number of days or hours ("our landing slipped by five days"); the Lander dialog offers three
   ready-made landers or your own panel, load, battery and mast. A new mast height works out the hills again for every
-  site shown, and each page says which sites are still waiting. `/explore?site=&start=&days=` links to one forecast
-  (for example `start=2027-01-20T17:00&days=7`), and Explore's address follows the period, so a
-  reload or a shared link keeps it.
+  site shown, and each page says which sites are still waiting. Explore's address is its share link: `/explore?site=&start=&days=` (for example
+  `start=2027-01-20T17:00&days=7`) plus every setting that differs from the defaults (`panel`, `facing`,
+  `area`, `efficiency`, `load`, `battery`, `charge`, `mast`, `earthmin`), so a reload or a copied link
+  opens the same figures in any browser. Share, on the numbers card, copies it and downloads the
+  figures: hour by hour, all numbers and the radio windows as CSV, with the settings, versions and
+  sources in a JSON file beside them.
 - **Stand on the Moon** (`/explore/stand`, "Stand at the site" on Explore): the view from the landing
   site, full window, for Explore's site, period and hour. It opens with the lander coming down in
   front of you (an eased descent, its plume and dust, touchdown), except with reduced motion. NASA's ground out to 125 km, lit by the hour's
@@ -66,11 +69,16 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   Earth coming into view, the Sun coming back), which show as dots on the bar, and Next steps to them.
   `?hour=` sets the hour and `?quality=fast` lightens the drawing for weaker graphics; without WebGL 2
   the horizon chart stands in, with the same words.
-- **Compare sites** (`/compare`): up to four sites in one table for the same days and lander:
-  sunlight, Earth in view, longest night, time with power (and when the power comes back), radio contact while
-  it has power and the longest time without Earth, with a small Sun and
-  Earth strip per site and one sentence naming the best site for each measure. Empty, it offers two
-  ready pairs that show how much a few kilometres change.
+- **Compare sites** (`/compare`): a baseline and up to three scenarios, each with its own site, UTC
+  landing hour, stay, lander, mast and Earth clearance, worked out on its own. "Compare from here"
+  under Explore's answer makes the landing shown the baseline; each scenario can be slipped (five
+  days later in one press), given a nearby alternative (the best catalogue site within 30 km for its
+  own settings) or changed. The page says what changed at the original site and why, which
+  alternative works better and the trade-offs, then gives every setting and figure side by side
+  with the signed change from the baseline, and says when the scenarios share a landing time. The
+  address carries the whole comparison; scenario files save and reopen one or many with the app and
+  data versions; `/compare/brief` prints it. Empty, it offers the five-day slip at de Gerlache Rim 2
+  and two ready pairs.
 - **Accuracy** (`/validate`): four kinds of evidence, each saying what it shows, what it was tested
   on and what it leaves out, with its full table on request. Three are checks with a pass mark: the
   Sun's and Earth's directions against JPL Horizons (with a live re-check), sunlight and Earth in
@@ -88,7 +96,10 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
 - **The brief** (`/brief`): one printable page with Explore's answer, five numbers, the Sun's and
   Earth's rows over the period, each of its times with its measured margin, the lander and what its
   power figures assume (electrical energy only, not keeping warm through the night or starting
-  again), the method, the ground at the site and the data, and an optional narrated paragraph checked claim by claim against the figures
+  again), the method, the ground at the site and the data, the settings, sources and versions behind the figures (every
+  setting, the period in UTC, the skyline and its LOLA grids and mast, the ephemeris and its span,
+  the app's commit and the data version), what the figures take as given, the link that opens them
+  again, and the same downloads as Explore; its address opens the same brief in any browser, and an optional narrated paragraph checked claim by claim against the figures
   (each number on its measure, unit, site and sign, and no cause or survival claim the figures do
   not give); when it fails, the app's own paragraph stands and the page says what did not match.
 - **Ask in plain words** (on Explore and Compare): an assistant that turns a typed question
@@ -98,7 +109,7 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   rehearsed answer, or a matched phrase. `?demo=1` uses the rehearsed answers only, for the pitch.
 - **Luna** (the "Luna" button in the header, and in the row of the view from the site): a voice
   assistant, off until you turn it on. Say what you want to see ("open the view from the site",
-  "play", "next", "turn to Earth", "compare de Gerlache Rim 2 and Nobile Rim 2 for fourteen days",
+  "play", "next", "turn to Earth", "compare de Gerlache Rim 2 and Nobile Rim 2 for fourteen days", "compare with a five-day delay",
   "dark mode") and she does it and answers aloud; she knows the site names as speech tends to write
   them. She uses the browser's own speech recognition: Chrome and Edge send the sound to their
   makers' servers, so voice needs the internet there, and Firefox has none. Her panel always takes
@@ -241,7 +252,7 @@ page. More resources may be added before the hackathon begins.
 
 | The brief asks for | How Earthrise answers it |
 |---|---|
-| Site selection and comparison | A catalogue of 34 places: the south pole's nine Artemis III candidate regions, crater-rim high points and floors, three CLPS landers that landed and two coming ones, the six Apollo landings, and the landers of India, China and Japan and Luna 25's target, each saying what kind of point it is (surveyed, a target, a region's centre with its radius, or a derived high point never checked for landing), with the polar ones on a relief map of the pole; and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts up to four sites side by side for the same days and lander. |
+| Site selection and comparison | A catalogue of 34 places: the south pole's nine Artemis III candidate regions, crater-rim high points and floors, three CLPS landers that landed and two coming ones, the six Apollo landings, and the landers of India, China and Japan and Luna 25's target, each saying what kind of point it is (surveyed, a target, a region's centre with its radius, or a derived high point never checked for landing), with the polar ones on a relief map of the pole; and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts a baseline and up to three scenarios side by side, each with its own site, landing hour, stay and lander, with the change from the baseline: the original landing, the same site five days later and a nearby alternative, in three presses. |
 | Dates and times | Any landing date and hour (UTC) the ephemeris covers (2024 to 2036), for 2 to 90 days, with steps and shifts by hours or days; a better landing day inside the period, a search of the next 12 months for the best one, and a year at a glance: every landing day of the next 12 months coloured by power and radio contact, one press to land on it. |
 | The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments (the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back) and counts down to the next sunset or sunrise and to Earth's next rising or setting. |
 | Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; the Sun's height above the horizon at any hour and its highest; hours of sunlight; the radio windows with their UTC times, which of them the lander has power to use, and the longest time without Earth (geometric direct-to-Earth visibility, not a booked antenna); the longest night; every figure under "All numbers". |

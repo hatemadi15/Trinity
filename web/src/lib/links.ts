@@ -8,3 +8,11 @@ export function exploreHref(siteId: string, startUtc: string, days: number): str
 export function standHref(siteId: string, startUtc: string, days: number, hour: number): string {
   return `${exploreHref(siteId, startUtc, days).replace('/explore?', '/explore/stand?')}&hour=${hour}`;
 }
+
+/** The printable brief for a site and period: Explore's address on the brief's page, which reads it back the same way. */
+export function briefHref(siteId: string, startUtc: string, days: number): string {
+  return exploreHref(siteId, startUtc, days).replace('/explore?', '/brief?');
+}
+
+/** Any of these addresses with the lander's, the mast's and the radio's settings that differ from the defaults. */
+export { withSettings } from './share/settings';

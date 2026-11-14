@@ -183,7 +183,7 @@ describe('CompareView', () => {
   it('opens a scenario file, replacing the comparison, and says whether the figures match the file’s', async () => {
     const first = await example();
     const cols = columnsOf(first.scenarios.getState().scenarios, first.scenarios.getState().runs, first.explore.getState().sites);
-    const text = JSON.stringify(scenarioFile(cols, { ephemeris: null, sites: null, terrain: null }));
+    const text = JSON.stringify(scenarioFile(cols, { data: null, ephemeris: null, sites: null, terrain: null }));
     cleanup();
     const st = stores();
     await open(st);
