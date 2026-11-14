@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DataError } from '@/lib/data/loaders';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
 import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
@@ -203,6 +204,19 @@ describe('SitesView', () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/explore'));
     expect(computeMask).toHaveBeenCalledWith(-88.2, 40, 2);
     expect(store.getState().site?.category).toBe('custom');
+  });
+
+  it('says plainly when the height tiles are missing, and that the places in the list work without them', async () => {
+    // A copy set up with the committed data alone: the engine finds no tiles to trace the hills from.
+    const computeMask = vi.fn(async () => {
+      throw new DataError('/data/tiles/manifest.json', 404);
+    });
+    const store = createExploreStore(fileLoaders({ computeMask }));
+    render(<SitesView store={store} navigate={vi.fn()} />);
+    await waitFor(() => expect(store.getState().status).toBe('ready'));
+    fireEvent.change(screen.getByLabelText('Latitude (°)'), { target: { value: '-88.2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Compute this place' }));
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('That place cannot be worked out here: this copy of Earthrise has no height tiles. The places in the list work without them.'));
   });
 
   it('names its NASA data', async () => {

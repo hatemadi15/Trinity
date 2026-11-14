@@ -10,6 +10,7 @@ import type { HorizonsBody } from '@/lib/horizons/query';
 import { recheckSite, type RecheckResult } from '@/lib/horizons/recheck';
 import { checkCards, type CheckCard } from '@/lib/viz/checks';
 import { UncertaintySection } from './UncertaintySection';
+import { testRunWords, type TestRun } from '@/lib/report/testRun';
 
 type Recheck = (site: { lat: number; lon: number }, body: HorizonsBody, epochsUtc: string[]) => Promise<RecheckResult>;
 
@@ -23,12 +24,6 @@ async function defaultRecheck(site: { lat: number; lon: number }, body: Horizons
   // The Explore store may already hold the ephemeris (same tab, earlier visit); otherwise fetch it once here.
   const eph = exploreStore.getState().eph ?? (await loadEphemerisFromUrl(dataBase()));
   return recheckSite(site, body, epochs, eph);
-}
-
-interface TestBadge {
-  generated_utc: string;
-  web: { files: number; tests: number };
-  pipeline: { tests: number };
 }
 
 /** Plain words for why the live re-check failed; the raw message is for developers and is added only outside production. */
@@ -91,13 +86,14 @@ function CheckPanel({ card, extra, children }: { card: CheckCard; extra?: ReactN
 /**
  * Accuracy: the three checks of the home page's table, each with a pass mark, its headline figure,
  * one plain sentence and the full table on request; the live re-check with JPL sits in the first.
- * Then the error budget and the count of automated tests.
+ * Then the error budget and the automated tests' last run: what passed, was skipped and failed, when, on which commit, with which data.
  */
 export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: { load?: () => Promise<ValidationDocs>; recheck?: Recheck }) {
   const [docs, setDocs] = useState<ValidationDocs | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [live, setLive] = useState<{ state: 'idle' } | { state: 'busy' } | { state: 'done'; result: RecheckResult }>({ state: 'idle' });
-  const [badge, setBadge] = useState<TestBadge | null>(null);
+  // The automated tests' last run, as npm run validation:tests recorded it.
+  const [badge, setBadge] = useState<TestRun | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,7 +105,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
       });
     fetch('/validation/tests.json')
-      .then((r) => (r.ok ? (r.json() as Promise<TestBadge>) : null))
+      .then((r) => (r.ok ? (r.json() as Promise<TestRun>) : null))
       .then((b) => {
         if (!cancelled && b) setBadge(b);
       })
@@ -128,8 +124,8 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             what="checks"
             hint={
               <>
-                Run <code className="text-ink">uv run python -m lunar_pipeline.cli validate</code> then <code className="text-ink">uv run python -m lunar_pipeline.cli sync-local</code> inside{' '}
-                <code className="text-ink">pipeline/</code> and reload.
+                Run <code className="text-ink">uv run python -m lunar_pipeline.cli sync-local</code> inside <code className="text-ink">pipeline/</code> and reload: it copies the tables committed in{' '}
+                <code className="text-ink">data/validation</code>.
               </>
             }
           />
@@ -307,11 +303,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             <li>Directions to the Sun and Earth: under 0.01° (the first check finds {degreesText(horizons.max_abs_delta_el_deg)}).</li>
             <li>The height of the hills around a site: within a degree of NASA&apos;s adjusted south-pole maps in 95 % of directions at every featured site (compared above); the app follows its own maps to 0.01°.</li>
           </ul>
-          {badge && (
-            <p className="mt-4 text-[15px] text-ink-2">
-              {badge.web.tests.toLocaleString('en-US')} automated tests in the app and {badge.pipeline.tests.toLocaleString('en-US')} in the data pipeline check the sums on every change; last counted {utcShort(badge.generated_utc)}.
-            </p>
-          )}
+          {badge && <p className="mt-4 text-[15px] text-ink-2">{testRunWords(badge).join(' ')}</p>}
         </section>
       </main>
     </AppFrame>

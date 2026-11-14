@@ -93,7 +93,9 @@ def fetch_fixtures(
     return paths
 
 
-def compare_all(fixtures_dir: Path = config.DATA_DIR / "fixtures" / "horizons") -> dict:
+def compare_all(fixtures_dir: Path = config.DATA_DIR / "fixtures" / "horizons", out: Path | None = None) -> dict:
+    """Compares our directions with each Horizons fixture and writes the summary to `out` (by default beside the
+    fixtures, which is what the horizons-compare command commits; the tests pass a temporary file)."""
     table, header = load_table()
     per_file = []
     worst_el = worst_az = 0.0
@@ -115,5 +117,5 @@ def compare_all(fixtures_dir: Path = config.DATA_DIR / "fixtures" / "horizons") 
             worst_el, worst_az = max(worst_el, d_el), max(worst_az, d_az)
     summary = {"n_rows": n_rows, "max_abs_delta_el_deg": worst_el, "max_abs_delta_az_cos_el_deg": worst_az,
                "files": per_file}
-    (fixtures_dir / "summary.json").write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8", newline="\n")
+    (out or fixtures_dir / "summary.json").write_text(json.dumps(summary, indent=1) + "\n", encoding="utf-8", newline="\n")
     return summary

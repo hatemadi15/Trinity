@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { loadGlobeAssets, type GlobeAssets } from '@/lib/data/globe';
+import { missingPart } from '@/lib/data/parts';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { contextFileFor, flightLevel, loadFlight, loadHeightmap, loadTerrainManifest, shadowLevels, windowFileFor, type Heightmap } from '@/lib/data/terrain';
@@ -228,13 +229,16 @@ export default function ArrivalCanvas({ progress, capture = false, onLive, onFai
 
   useEffect(() => {
     let alive = true;
+    // Files that are not there are passed on as they are (a DataError's message), so the page can say why it shows
+    // still pictures; any other failure keeps its own words.
+    const why = (e: unknown, words: string) => (missingPart(e) && e instanceof Error ? e.message : words);
     load.sky().then(
       (a) => alive && setSky(a),
-      () => alive && failRef.current('The sky did not load'),
+      (e: unknown) => alive && failRef.current(why(e, 'The sky did not load')),
     );
     load.globe().then(
       (g) => alive && setGlobe(g),
-      () => alive && failRef.current('The Moon did not load'),
+      (e: unknown) => alive && failRef.current(why(e, 'The Moon did not load')),
     );
     // The measured ground is an extra: without it the flight goes on over the globe.
     load.terrain().then(

@@ -1,3 +1,4 @@
+import { hasNo } from '../data/parts';
 import type { Series } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
 import { parseExploreQuery, type ExploreQuery } from '../store/query';
@@ -404,10 +405,12 @@ const NO_TWILIGHT = 'With no air there is no twilight: once the Sun has set, it 
  * alone for a site without a note, "Blue Ghost Mission 1 lies at 18.6° N." The pole is named from 80° on,
  * south or north, and not at all between.
  */
-export function standingLine(site: { lat: number; blurb?: string }, name: string, kind: 'top' | 'more', flat = false): string {
+export function standingLine(site: { lat: number; blurb?: string }, name: string, kind: 'top' | 'more', flat: boolean | 'no-terrain' = false): string {
   if (kind === 'more') return `${name} lies at ${Math.abs(site.lat).toFixed(1)}° ${site.lat < 0 ? 'S' : 'N'}.${site.blurb ? ` ${site.blurb}.` : ''}`;
   const pole = site.lat <= -80 ? ", near the Moon's south pole" : site.lat >= 80 ? ", near the Moon's north pole" : '';
-  return `Standing at ${name}${pole}. ${flat ? 'Ground drawn flat: no NASA heights here.' : 'Hills: NASA height data.'} Small craters and rocks: added to look real.`;
+  // Flat where the tool has no NASA heights, or where it has them but this copy lacks the terrain files ('no-terrain').
+  const ground = flat === 'no-terrain' ? `Ground drawn flat: ${hasNo('terrain')}.` : flat ? 'Ground drawn flat: no NASA heights here.' : 'Hills: NASA height data.';
+  return `Standing at ${name}${pole}. ${ground} Small craters and rocks: added to look real.`;
 }
 
 /**
