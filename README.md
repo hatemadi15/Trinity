@@ -146,16 +146,27 @@ name the command that copies them; the home page's words still show.
 
 ## Run it
 
-The pipeline turns NASA data into the files the app reads; the commands are in
-`pipeline/README.md` (the elevation tiles alone are about 240 MB). Then copy them into the app and
-start it:
+The pipeline turns NASA data into the files the app reads (the elevation tiles alone are about
+240 MB). Download the LOLA sources, build the tiles, then copy the data into the app and start it:
 
     cd pipeline
     uv sync
+    uv run python -m lunar_pipeline.cli fetch --group lola
+    uv run python -m lunar_pipeline.cli tiles
     uv run python -m lunar_pipeline.cli sync-local --tiles
     cd ../web
     npm ci
     npm run dev                 # http://localhost:3000
+
+`sync-local --tiles` copies existing artifacts; it does not generate tiles. The downloaded
+sources in `data_raw/` and generated tiles in `data_out/tiles` are gitignored, so they are absent
+from a fresh checkout. If you see `data_out/tiles missing; run the tiles command first`, run the
+`fetch --group lola` and `tiles` commands above before syncing. If the sources are already
+downloaded, start with `tiles`.
+
+To copy only the committed data without generated tiles, run
+`uv run python -m lunar_pipeline.cli sync-local` from `pipeline/`. For the full pipeline and
+optional terrain and globe assets, see [pipeline/README.md](pipeline/README.md).
 
 For the venue laptop, build once and serve the build with the Wi-Fi off: `npm run build` then
 `npm start`, and open `http://localhost:3000/?demo=1`. The JPL re-check on the Accuracy page needs
