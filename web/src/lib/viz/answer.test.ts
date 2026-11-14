@@ -269,6 +269,11 @@ describe('nearbyAdvice', () => {
     expect(nearbyWords({ site: spot, km: 2.5, hours: 720 }, 30)).toBe('Nearby, the spot 2.5 km south keeps power for all 30 days from the same landing day.');
   });
 
+  it('says when Earth is never in view at the place it offers: more power there buys no radio contact', () => {
+    expect(nearbyWords({ site: summit, km: 13, hours: 271, earthNever: true }, 30)).toBe('Nearby, Summit (13 km away) keeps power for 11 days 7 hours from the same landing day, but Earth is never in view there.');
+    expect(nearbyWords({ site: summit, km: 13, hours: 271, earthNever: false }, 30)).toBe('Nearby, Summit (13 km away) keeps power for 11 days 7 hours from the same landing day.');
+  });
+
   it('says nothing when no site nearby does clearly better, or before their figures are in', () => {
     expect(nearbyAdvice(here, sites, { summit: o(80), step: o(90), far: o(720) }, 76)).toBeNull();
     expect(nearbyAdvice(here, sites, {}, 76)).toBeNull();

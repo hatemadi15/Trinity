@@ -133,7 +133,7 @@ export function ExploreView({
   // A nearby place that does clearly better from the same landing day: more power by a day, or fewer requirements failed.
   const nearby = useMemo(() => {
     const b = places?.better;
-    return b ? { words: nearbyWords({ site: b.item.site, km: b.item.km, hours: b.outcome.poweredH }, s.days), name: siteLabel(b.item.site), href: exploreHref(b.item.site.id, s.startUtc, s.days) } : null;
+    return b ? { words: nearbyWords({ site: b.item.site, km: b.item.km, hours: b.outcome.poweredH, earthNever: b.outcome.contactH === 0 }, s.days), name: siteLabel(b.item.site), href: exploreHref(b.item.site.id, s.startUtc, s.days) } : null;
   }, [places, s.days, s.startUtc]);
   // Every option behind the recommendations, for the panel's fold.
   const plan = useMemo(

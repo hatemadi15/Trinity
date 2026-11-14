@@ -194,6 +194,8 @@ export interface NearbyAdvice {
   km: number;
   /** Hours with power at that site when the lander arrives at the period start. */
   hours: number;
+  /** True when Earth is never in view there over the stay: the sentence says so, as more power buys no contact. */
+  earthNever?: boolean;
 }
 
 /** The nearby advice in one sentence: where, how far, and how long the power lasts there. */
@@ -201,7 +203,7 @@ export function nearbyWords(a: NearbyAdvice, days: number): string {
   const lasting = a.hours >= days * 24 ? `all ${days} days` : spanWords(a.hours);
   // A spot round an approximate site has its distance in its name already.
   const where = a.site.category === 'custom' ? siteLabel(a.site) : `${siteLabel(a.site)} (${Math.round(a.km)} km away)`;
-  return `Nearby, ${where} keeps power for ${lasting} from the same landing day.`;
+  return `Nearby, ${where} keeps power for ${lasting} from the same landing day${a.earthNever ? ', but Earth is never in view there' : ''}.`;
 }
 
 const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
