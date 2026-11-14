@@ -777,7 +777,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
 
 let engineClient: EngineClient | null = null;
 
-const browserLoaders: Loaders = {
+export const browserLoaders: Loaders = {
   loadSites: () => loadSites(dataBase()),
   loadEphemeris: () => loadEphemerisFromUrl(dataBase()),
   loadMask: (id) => loadMask(dataBase(), id),
