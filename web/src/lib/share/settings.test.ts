@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_POWER, type PowerConfig } from '../engine/power';
 import { LANDER_PRESETS } from '../lander';
 import { DEFAULT_PARAMS, type PlannerParams } from '../store/explore';
-import { LINK_DEFAULTS, mergeSettings, parseSettings, SETTING_NAMES, settingsEntries, withSettings } from './settings';
+import { LINK_DEFAULTS, mergeSettings, parseSettings, replaceSettings, SETTING_NAMES, settingsEntries, withSettings } from './settings';
 
 const params = (power: Partial<PowerConfig> = {}, rest: Partial<Omit<PlannerParams, 'power'>> = {}): PlannerParams => ({ ...DEFAULT_PARAMS, ...rest, power: { ...DEFAULT_POWER, ...power } });
 
@@ -52,5 +52,14 @@ describe('the settings a link carries', () => {
     const current = params({ loadW: 400 }, { mastM: 5 });
     expect(mergeSettings(current, { power: { batteryWh: 9000 }, minEarthElDeg: 1 })).toEqual(params({ loadW: 400, batteryWh: 9000 }, { mastM: 5, minEarthElDeg: 1 }));
     expect(mergeSettings(current, {})).toEqual(current);
+  });
+
+  it('puts the current settings in an address in place of the ones it had, and leaves every other part as it was', () => {
+    const was = '?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10&battery=6000&quality=fast&earthmin=1';
+    expect(replaceSettings(was, params({ loadW: 400, batteryWh: 6000 }))).toBe('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10&quality=fast&load=400&battery=6000');
+    expect(replaceSettings(was, DEFAULT_PARAMS)).toBe('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10&quality=fast');
+    expect(replaceSettings('', params({}, { mastM: 5 }))).toBe('?mast=5');
+    expect(replaceSettings('?quality=fast', DEFAULT_PARAMS)).toBe('?quality=fast');
+    expect(replaceSettings('?mast=5', DEFAULT_PARAMS)).toBe('');
   });
 });

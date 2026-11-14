@@ -14,6 +14,7 @@ import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { exploreHref, standHref, withSettings } from '@/lib/links';
+import { useSettingsInAddress } from '@/lib/hooks/useAddressFollows';
 import { NAV } from '@/lib/nav';
 import { earthLitFraction } from '@/lib/sky/earth';
 import { dirAzEl } from '@/lib/sky/frames';
@@ -223,6 +224,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
       live = false;
     };
   }, [store]);
+
+  // Once the address it opened with is applied, the settings in it follow a change of lander made here.
+  useSettingsInAddress(s.params, openHour !== null);
 
   const scene = useMemo<StandScene | null>(() => {
     if (openHour === null || !sky || !s.site || !s.series || !s.mask) return null;

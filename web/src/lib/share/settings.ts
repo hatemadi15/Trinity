@@ -109,3 +109,17 @@ export function mergeSettings(params: PlannerParams, patch: SettingsPatch): Plan
 export function sameSettings(a: PlannerParams, b: PlannerParams): boolean {
   return settingsEntries(a, b).length === 0;
 }
+
+/**
+ * An address's query with the settings it names replaced by `params`' (those that differ from the defaults), every other
+ * parameter kept as it was and where it was: for a page whose address carries more than a link builder writes (the view
+ * from the site's hour and drawing switches), so only its settings follow a change of lander.
+ */
+export function replaceSettings(search: string, params: PlannerParams): string {
+  const names = new Set(Object.values(SETTING_NAMES));
+  const raw = search.startsWith('?') ? search.slice(1) : search;
+  const kept = raw === '' ? [] : raw.split('&').filter((part) => part !== '' && !names.has(decodeURIComponent(part.split('=')[0])));
+  const added = settingsEntries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
+  const all = [...kept, ...added];
+  return all.length === 0 ? '' : `?${all.join('&')}`;
+}

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
 import { createExploreStore } from '@/lib/store/explore';
@@ -46,5 +46,18 @@ describe('the view from the site, opened from a link with settings', () => {
     expect(better.getAttribute('href')).toMatch(/&hour=0&battery=6000&earthmin=1$/);
     fireEvent.click(better);
     await waitFor(() => expect(window.location.search).toMatch(/&hour=0&battery=6000&earthmin=1$/));
+  });
+
+  it('keeps the settings in its address in step when the lander changes in the view, and its other parts as they were', async () => {
+    window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10&quality=fast&battery=6000');
+    const store = createExploreStore(fileLoaders());
+    render(<StandView store={store} createRenderer={() => stub()} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing on 1 January/), { timeout: 20_000 });
+    await waitFor(() => expect(store.getState().params.power.batteryWh).toBe(6000));
+    act(() => store.getState().setPower({ loadW: 400 }));
+    await waitFor(() => expect(window.location.search).toBe('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10&quality=fast&load=400&battery=6000'), { timeout: 10_000 });
+    act(() => store.getState().setPower({ loadW: 200, batteryWh: 2000 }));
+    await waitFor(() => expect(window.location.search).toBe('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10&quality=fast'));
+    expect(window.location.pathname).toBe('/explore/stand');
   });
 });
