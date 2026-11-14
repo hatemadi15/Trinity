@@ -24,10 +24,9 @@ describe('PeriodControls', () => {
     expect(time().step).toBe('3600');
     expect(time().getAttribute('aria-describedby')).toBeTruthy();
     expect(document.getElementById(time().getAttribute('aria-describedby')!)!.textContent).toBe('Whole hours in UTC: the Sun and Earth table is hourly, so minutes round to the nearest hour.');
-    // Any whole number of days from 2 to 90, with the bounds on the page and the usual lengths offered as picks.
+    // Any whole number of days from 2 to 90, with the bounds on the page.
     expect([length().type, length().min, length().max, length().step]).toEqual(['number', '2', '90', '1']);
     expect(screen.getByText('(2–90)')).toBeTruthy();
-    expect([...length().list!.options].map((o) => o.value)).toEqual(['7', '14', '30', '90']);
     // Every word before a tap, at a phone's width and at 1440: no more than the three lengths and their labels took.
     for (const width of [WIDE, PHONE]) expect(visibleWords(container, width)).toEqual(['From', '20', 'January', '2027,', '10:00', 'UTC', 'For', '(2–90)', 'days', 'Shift', 'by…']);
   });

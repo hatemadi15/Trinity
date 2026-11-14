@@ -2,7 +2,7 @@
 import { useId, useState, type ReactNode } from 'react';
 import { FIRST_START, lastStart, periodDays, periodProblem, shiftPeriod, shiftWords, withClock, withDate } from '@/lib/period';
 import { DAYS_RANGE } from '@/lib/planner-ranges';
-import { WINDOW_DAYS, type WindowDays } from '@/lib/store/explore';
+import type { WindowDays } from '@/lib/store/explore';
 import { dateLong } from '@/lib/viz/format';
 import { Fold } from './Fold';
 
@@ -93,7 +93,7 @@ export function PeriodControls({ startUtc, days, onChange, children }: { startUt
                 if (to && to.slice(0, 10) !== startUtc.slice(0, 10)) say(periodProblem(to, days));
                 draft({ date: undefined });
               }}
-              className={`${INNER} w-[150px]`}
+              className={`${INNER} w-[144px]`}
             />
             <button type="button" aria-label="One day later" onClick={() => shift(24)} className={`${STEP} border-l border-line`}>
               ›
@@ -119,7 +119,7 @@ export function PeriodControls({ startUtc, days, onChange, children }: { startUt
                   if (r) move(r.startUtc, days, r.rounded ? `The Sun and Earth table is hourly, so ${value.slice(0, 5)} is read as ${r.startUtc.slice(11, 16)} UTC.` : null);
                 }}
                 onBlur={() => draft({ time: undefined })}
-                className={`${INNER} w-[120px] px-2.5`}
+                className={`${INNER} w-[136px] px-3`}
               />
               <button type="button" aria-label="One hour later" onClick={() => shift(1)} className={`${STEP} border-l border-line`}>
                 ›
@@ -149,7 +149,6 @@ export function PeriodControls({ startUtc, days, onChange, children }: { startUt
             min={DAYS_RANGE.min}
             max={DAYS_RANGE.max}
             step={DAYS_RANGE.step}
-            list={`${id}-picks`}
             value={drafts.days ?? String(days)}
             onChange={(e) => {
               // Any whole number of days the table has room for moves the period; "1" on the way to "14" waits.
@@ -164,15 +163,9 @@ export function PeriodControls({ startUtc, days, onChange, children }: { startUt
               if (value !== undefined && value.trim() !== '') say(periodProblem(startUtc, Number(value)));
               draft({ days: undefined });
             }}
-            className="field w-[72px]"
+            className="field w-[76px]"
           />
           <span className="text-base text-ink">days</span>
-          {/* The usual lengths, offered as the box is opened; any other whole number of days is typed. */}
-          <datalist id={`${id}-picks`}>
-            {WINDOW_DAYS.map((d) => (
-              <option key={d} value={d} />
-            ))}
-          </datalist>
         </span>
       </div>
       {children}

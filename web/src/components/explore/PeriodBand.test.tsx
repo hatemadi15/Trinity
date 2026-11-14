@@ -21,7 +21,7 @@ describe('PeriodBand', () => {
     expect(screen.getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' })).toBeTruthy();
     // The lander's name is the longest field: it gets the larger share of the row, and the date box no more than it needs.
     expect(landerControl().parentElement!.className).toMatch(/flex-\[1\.8_1_250px\]/);
-    expect(screen.getByLabelText('From').className).toMatch(/\bw-\[150px\]/);
+    expect(screen.getByLabelText('From').className).toMatch(/\bw-\[144px\]/);
     // The name wraps at every width rather than being cut, as it carries the lander's numbers and a cut name would hide the battery;
     // the fields keep one bottom edge, so a lander on two lines grows upward and pushes no other field off line.
     const landerButton = landerControl();
