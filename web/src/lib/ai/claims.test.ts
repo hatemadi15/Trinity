@@ -197,6 +197,12 @@ describe('checkClaims: planner replies', () => {
     expect(reply('Malapert Massif is sunlit 44.6 % of the time.').ok).toBe(false);
   });
 
+  it('reads "the site" as the site the sentences are about, not always the one in the figures', () => {
+    // After the planner selects another site, "the site" is that one, which the figures do not cover yet.
+    expect(reply('Selected Malapert Massif. The site is sunlit 44.6 % of the time.').sentences.map((x) => x.ok)).toEqual([true, false]);
+    expect(reply('The site is sunlit 44.6 % of the time.').ok).toBe(true);
+  });
+
   it('keeps the sentences that pass and says which failed', () => {
     const r = reply('Selected de Gerlache Rim 2. It is sunlit 45 % of the time. Earth is in view 71.2 % of the time.');
     expect(r.sentences.map((x) => x.ok)).toEqual([true, true, false]);

@@ -2,7 +2,7 @@ import { spanWords } from '../viz/format';
 import type { StateSummary } from './state-summary';
 
 /**
- * The claim checker for generated text (spec 23): reads a narration or a planner reply into claims, each a
+ * The claim checker for generated text: reads a narration or a planner reply into claims, each a
  * number with its unit, the measure it is attached to, the site and its sign or direction, or a stated
  * state ("the Sun never sets", "runs out"), a comparison or a cause, and checks each one against the named
  * fields of the state summary. A right number on the wrong measure or the wrong site, a flipped sign or
@@ -507,7 +507,8 @@ function siteVariants(s: StateSummary, siteNames: readonly string[]): { text: st
     seen.add(key);
     out.push({ text: normalize(text).trim(), ref });
   };
-  for (const v of [s.site.name, s.site.label, shortName(s.site.name), 'the selected site', 'the landing site', 'this site', 'the site']) push(v, STATE_SITE);
+  // "The site" names no site: it is whichever site the sentences are about, as "it" is.
+  for (const v of [s.site.name, s.site.label, shortName(s.site.name)]) push(v, STATE_SITE);
   s.compare.forEach((c, i) => {
     const ref: SiteRef = c.id === s.site.id ? STATE_SITE : { kind: 'compare', i };
     push(c.name, ref);
