@@ -38,11 +38,13 @@ export function CompareStory({ cols }: { cols: Column[] }) {
         <div>
           <h3 className="font-semibold text-ink">At another site</h3>
           <p className="mt-1 max-w-[60em] leading-relaxed text-ink">{s.alternative.lead}</p>
-          <ul className="mt-1 list-disc pl-5 text-ink">
-            {s.alternative.tradeoffs.map((t) => (
-              <li key={t}>{t}</li>
-            ))}
-          </ul>
+          {s.alternative.tradeoffs.length > 0 && (
+            <ul className="mt-1 list-disc pl-5 text-ink">
+              {s.alternative.tradeoffs.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
       {working && <p className="text-[15px] text-ink-2">Working out the figures…</p>}

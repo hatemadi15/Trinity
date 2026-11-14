@@ -77,7 +77,8 @@ describe('skylines are kept and worked out by everything that changes them', () 
       ['blue_ghost_m1', 5],
     ]);
     expect(s.compare[0].series.sunEl.length).toBe(30 * 24);
-    expect(Object.keys(s.overview)).toHaveLength(19);
+    // Every catalogue site but a clicked point: the count follows the catalogue, which grew from 19 to 34 places.
+    expect(Object.keys(s.overview)).toHaveLength(sites.filter((x) => x.category !== 'custom').length);
     for (const o of Object.values(s.overview)) expect(o.mastM).toBe(5);
     // One computation per polar catalogue site at 5 m, the selected and compared ones among them; none for the mare site.
     expect(worker.calls.every((c) => c.mastM === 5)).toBe(true);

@@ -1,5 +1,6 @@
 import { siteLabel, type Site } from '@/lib/data/loaders';
 import type { Scenario } from '@/lib/scenario/scenario';
+import { terrainOf } from '@/lib/store/explore';
 import { siteFor, type ScenarioRun } from '@/lib/store/scenarios';
 import type { Column } from '@/lib/viz/compare';
 
@@ -11,6 +12,6 @@ export function columnsOf(scenarios: Scenario[], runs: Record<string, ScenarioRu
   return scenarios.map((scenario) => {
     const run = runs[scenario.id];
     const site = run?.site ?? siteFor(scenario.siteId, sites) ?? unknownSite(scenario.siteId);
-    return { scenario, site, siteName: siteLabel(site), outcome: run?.status === 'ready' ? run.outcome : null };
+    return { scenario, site, siteName: siteLabel(site), outcome: run?.status === 'ready' ? run.outcome : null, terrain: run?.mask ? terrainOf(run.mask) : undefined };
   });
 }

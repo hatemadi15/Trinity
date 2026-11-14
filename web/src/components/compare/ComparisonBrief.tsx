@@ -14,6 +14,7 @@ import { APP } from '@/lib/scenario/versions';
 import { exploreStore, type ExploreState, type MaskMeta } from '@/lib/store/explore';
 import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
 import { figureRows, settingRows, story, timingLine, type Column } from '@/lib/viz/compare';
+import { terrainLimitation } from '@/lib/viz/terrain';
 import { isoAt } from '@/lib/viz/format';
 
 const CELL = 'border-b border-line py-1.5 pr-3 align-top';
@@ -207,7 +208,9 @@ export function ComparisonBrief({ store = exploreStore, scenarios = scenarioStor
               <p>
                 {presetOf(p)?.label.split(':')[0] ?? 'Custom lander'}: {landerLine(p)}, battery {Math.round(p.initialSocFraction * 100)}&nbsp;% full at landing. Earth counts as in view {c.scenario.minEarthElDeg > 0 ? `from ${c.scenario.minEarthElDeg}° above the hills` : 'once its centre clears the hills'}.
               </p>
-              <p>Skyline: {skylineWords(run?.mask, c.scenario.mastM)}.</p>
+              <p>
+                Skyline: {skylineWords(run?.mask, c.scenario.mastM)}.{c.terrain && terrainLimitation(c.terrain) ? ` ${terrainLimitation(c.terrain)}` : ''}
+              </p>
               {c.outcome && (
                 <p>
                   {c.outcome.answer.title}. {c.outcome.answer.sentences.join(' ')}

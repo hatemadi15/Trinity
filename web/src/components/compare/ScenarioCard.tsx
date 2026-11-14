@@ -4,6 +4,7 @@ import { Fold } from '../Fold';
 import { slipLabel } from '@/lib/scenario/scenario';
 import type { ScenarioRun } from '@/lib/store/scenarios';
 import type { Column } from '@/lib/viz/compare';
+import { terrainLimitation } from '@/lib/viz/terrain';
 
 const QUIET = 'min-h-10 text-left font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink disabled:text-ink-3 disabled:no-underline';
 const UNITS = { days: 24, hours: 1 } as const;
@@ -108,7 +109,8 @@ export function ScenarioCard({
           {run.error}
         </p>
       )}
-      {run?.mask && run.mask.failedTiles > 0 && <p className="text-[15px] text-bad">Some elevation tiles did not load: the hills may be incomplete.</p>}
+      {/* What limits the terrain behind its figures, in the integrity part's words: nothing when it is complete. */}
+      {col.terrain && terrainLimitation(col.terrain) && <p className={`text-[15px] ${col.terrain.quality === 'incomplete' ? 'text-bad' : 'text-ink-2'}`}>{terrainLimitation(col.terrain)}</p>}
       <div className="mt-1 flex flex-col items-start gap-2">
         {!full && <SlipForm label={s.label} onSlip={onSlip} startOpen={alone} />}
         <button type="button" onClick={onNearby} disabled={full || searching} className={QUIET}>

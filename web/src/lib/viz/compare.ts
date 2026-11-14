@@ -1,5 +1,6 @@
 import type { Site } from '../data/loaders';
 import { pointKind } from '../data/kind';
+import type { TerrainReport } from '../engine/completeness';
 import { landerName } from '../lander';
 import { outageWords, type Outage } from '../scenario/contact';
 import { rankOutcomes as rank } from '../scenario/nearby';
@@ -22,6 +23,8 @@ export interface Column {
   siteName: string;
   /** Null while it is worked out, or when it cannot be. */
   outcome: Outcome | null;
+  /** What was found of the terrain behind its skyline, once worked out. */
+  terrain?: TerrainReport;
 }
 
 export type Tone = 'better' | 'worse' | 'same';
@@ -237,6 +240,10 @@ export function story(cols: Column[]): Story {
   const ref = (best.scenario.from && byId.get(best.scenario.from)?.outcome ? byId.get(best.scenario.from)! : b) as Column;
   const o = best.outcome;
   const r = ref.outcome!;
+  // An incomplete terrain can only overstate a figure, so a site with one is never named as working better.
+  if (best.terrain?.quality === 'incomplete' && rank(o, r) < 0) {
+    return { atOriginal, alternative: { lead: `The terrain at ${best.siteName} is incomplete, so it is not named as working better than ${quoted(ref)}: its figures may be too high.`, tradeoffs: [] } };
+  }
   const works = rank(o, r) < 0;
   const km = Math.round(distanceKm(b.site, best.site));
   const when =

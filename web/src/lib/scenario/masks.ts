@@ -1,4 +1,5 @@
 import type { Site } from '../data/loaders';
+import { computedReport, featuredReport, flatReport, unreportedReport } from '../engine/completeness';
 import type { Loaders, MaskMeta } from '../store/explore';
 
 /**
@@ -18,14 +19,16 @@ export function createMaskSource(loaders: MaskLoaders): MaskSource {
 
   async function load(site: Site, mastM: number): Promise<{ mask: Float64Array; meta: MaskMeta }> {
     // Mare sites lie outside the LOLA polar grids: a flat horizon is the honest skyline there, from any mast.
-    if (!site.polar) return { mask: new Float64Array(720), meta: { siteHeightM: 0, source: 'flat', failedTiles: 0, mastM } };
+    if (!site.polar) return { mask: new Float64Array(720), meta: { siteHeightM: 0, source: 'flat', failedTiles: 0, mastM, terrain: flatReport() } };
     if (site.category !== 'custom') {
       const doc = await loaders.loadMask(site.id);
-      if ((doc.mast_m ?? 2) === mastM) return { mask: Float64Array.from(doc.elevation_deg), meta: { siteHeightM: doc.site_height_m, source: 'featured', failedTiles: 0, mastM } };
+      if ((doc.mast_m ?? 2) === mastM) return { mask: Float64Array.from(doc.elevation_deg), meta: { siteHeightM: doc.site_height_m, source: 'featured', failedTiles: 0, mastM, terrain: featuredReport(doc) } };
     }
     if (!loaders.computeMask) throw new Error(`The skyline from a ${mastM} m mast is traced in the browser, which is not available here.`);
     const r = await loaders.computeMask(site.lat, site.lon, mastM);
-    return { mask: r.mask, meta: { siteHeightM: r.siteHeightM, source: 'computed', failedTiles: r.failedTiles, mastM } };
+    // The march's record says how much of the terrain was found, as Explore's store reads it; without one the skyline is unchecked.
+    const terrain = r.terrain ? computedReport(r.terrain, mastM) : unreportedReport(mastM);
+    return { mask: r.mask, meta: { siteHeightM: r.siteHeightM, source: 'computed', failedTiles: r.failedTiles, mastM, terrain } };
   }
 
   return {
