@@ -53,6 +53,21 @@ describe('the scenario store', () => {
     expect(store.getState().searching).toBeNull();
   });
 
+  it('ranks the nearby alternative by the priorities chosen on Explore, and says so', async () => {
+    const { explore, store } = await stores();
+    explore.getState().setRankBy({ kind: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } });
+    const a = store.getState().startFrom(explore.getState())!;
+    const b = store.getState().slip(a, 5 * 24)!;
+    await store.getState().settle();
+    const c = await store.getState().findNearby(b);
+    expect(c).not.toBeNull();
+    expect(store.getState().note).toBe('The nearby alternative is ranked by your requirements, then your priorities (power 1, Earth in view 5, shorter gaps 1), as set under Explore’s Options.');
+    // Ranked the default way there is nothing to add.
+    explore.getState().setRankBy({ kind: 'power' });
+    await store.getState().findNearby(b);
+    expect(store.getState().note).toBeNull();
+  });
+
   it('says so when no nearby site works better, and adds nothing', async () => {
     const { explore, store } = await stores();
     explore.getState().setWindow('2027-01-06T00:00:00', 30);
