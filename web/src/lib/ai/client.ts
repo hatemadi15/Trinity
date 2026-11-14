@@ -11,12 +11,20 @@ export interface PlannerAnswer extends ChatReply {
   retryAfterS?: number;
 }
 
-/** "google/gemma-4-31b-it:free" → "gemma-4-31b", for the source lines. */
+/**
+ * The name the source lines give a model: "google/gemma-4-31b-it:free" → "gemma-4-31b"; Gemini by name, in plain words,
+ * so an answer says when Gemini gave it: "gemini-2.5-flash" → "Gemini 2.5 Flash".
+ */
 export function shortModel(model: string): string {
-  return model
+  const short = model
     .replace(/^[^/]+\//, '')
     .replace(/:.*$/, '')
     .replace(/-(it|instruct)$/, '');
+  if (!/^gemini-/i.test(short)) return short;
+  return short
+    .split('-')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 async function post(body: unknown, fetchImpl: typeof fetch): Promise<{ res: Response; json: Record<string, unknown> | null }> {
@@ -33,10 +41,11 @@ async function post(body: unknown, fetchImpl: typeof fetch): Promise<{ res: Resp
 /**
  * Posts one question to /api/chat. A 429 comes back as a normal answer that says when to try
  * again; any other failure (network, 4xx, 5xx, malformed body) throws so the strip can show its
- * offline copy.
+ * offline copy. `from: "luna"` says Luna asks, and the server asks Gemini first; without it, OpenRouter's models
+ * come first and Gemini last.
  */
-export async function askPlanner(prompt: string, state: StateSummary | null, mode: AiMode, fetchImpl: typeof fetch = fetch): Promise<PlannerAnswer> {
-  const { res, json: body } = await post({ prompt, state, mode }, fetchImpl);
+export async function askPlanner(prompt: string, state: StateSummary | null, mode: AiMode, fetchImpl: typeof fetch = fetch, from?: 'luna'): Promise<PlannerAnswer> {
+  const { res, json: body } = await post({ prompt, state, mode, ...(from ? { from } : {}) }, fetchImpl);
   if (res.status === 429) {
     const retryAfterS = Number(body?.retryAfterS) || Number(res.headers.get('Retry-After')) || 60;
     return { source: 'none', actions: [], reply: `Too many questions; try again in ${retryAfterS} s.`, retryAfterS };
@@ -53,6 +62,11 @@ export async function askPlanner(prompt: string, state: StateSummary | null, mod
     dropped: Array.isArray(body.dropped) ? (body.dropped as string[]) : undefined,
     reason: CHAT_REASONS.includes(body.reason as ChatReason) ? (body.reason as ChatReason) : undefined,
   };
+}
+
+/** Luna's questions (spec 22): as askPlanner, marked as hers. */
+export function askLuna(prompt: string, state: StateSummary | null, mode: AiMode, fetchImpl: typeof fetch = fetch): Promise<PlannerAnswer> {
+  return askPlanner(prompt, state, mode, fetchImpl, 'luna');
 }
 
 /** Asks for the brief's narrated paragraph; the server returns the template, and what failed, when the model's claims do not check out. */

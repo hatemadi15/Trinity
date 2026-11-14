@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { useStore, type StoreApi } from 'zustand';
-import { askPlanner } from '@/lib/ai/client';
+import { askLuna } from '@/lib/ai/client';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { parseCommand } from '@/lib/luna/commands';
 import { runCommand, type LunaDeps } from '@/lib/luna/run';
@@ -32,7 +32,7 @@ export const NOT_CAUGHT = 'I did not catch a request there. Try one of the examp
  */
 export function LunaEngine({
   store = exploreStore,
-  ask = askPlanner,
+  ask = askLuna,
   recognition = recognitionCtor,
   speak = browserSpeak,
   hush = browserHush,

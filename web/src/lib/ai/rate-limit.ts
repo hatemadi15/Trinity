@@ -39,3 +39,10 @@ export class SlidingWindowLimiter {
     this.lastSweep = now;
   }
 }
+
+/** The caller's address, as the proxy in front reports it (the first of x-forwarded-for), for the limiter's key. */
+export function clientIp(request: Request): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return request.headers.get('x-real-ip')?.trim() || 'local';
+}

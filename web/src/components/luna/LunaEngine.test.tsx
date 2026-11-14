@@ -360,3 +360,26 @@ describe('Luna’s engine, with her replies said aloud or not (the switch in her
     expect(window.localStorage.getItem(LUNA_VOICE_KEY)).toBe('on');
   });
 });
+
+describe('Luna’s questions for the assistant', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('are marked as hers, so the server asks Gemini first', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ source: 'model', model: 'gemini-2.5-flash', actions: [], reply: 'The app forecasts sunlight and radio contact, not weather.' }), { status: 200, headers: { 'content-type': 'application/json' } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const v = voice();
+    // Her engine with the app's own assistant, not a test's.
+    render(createElement(LunaEngine, { store: createExploreStore(fileLoaders()), recognition: () => FakeRec, speak: v.speak, hush: vi.fn(), navigate: vi.fn() }));
+    act(() => lunaStore.getState().setOn(true));
+    act(() => lunaStore.getState().submit('what is the weather like on the moon today'));
+    await waitFor(() => expect(thread()).toHaveLength(2));
+    expect(thread()[1]).toEqual(['luna', 'The app forecasts sunlight and radio contact, not weather.']);
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    const chat = calls.find(([url]) => url === '/api/chat');
+    expect(JSON.parse(String(chat![1].body))).toMatchObject({ prompt: 'what is the weather like on the moon today', from: 'luna' });
+  });
+});

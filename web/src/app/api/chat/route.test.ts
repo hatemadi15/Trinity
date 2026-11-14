@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { matchIntent } from '@/lib/ai/intents';
 import catalogue from '@/lib/data/catalogue.json';
 import type { Site } from '@/lib/data/loaders';
@@ -14,6 +14,11 @@ function request(body: unknown, ip = `10.0.0.${++ipCounter}`): Request {
     body: typeof body === 'string' ? body : JSON.stringify(body),
   });
 }
+
+// Gemini is asked only where a test sets its key, whatever the shell running the tests holds.
+beforeEach(() => {
+  vi.stubEnv('GEMINI_API_KEY', '');
+});
 
 const modelAnswer = (content: string) =>
   vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200, headers: { 'content-type': 'application/json' } }));
@@ -415,5 +420,188 @@ describe('POST /api/chat state size', () => {
     const body = String((fetchMock.mock.calls as unknown as [string, RequestInit][])[0][1].body);
     expect(body).not.toContain('y'.repeat(100));
     expect(body).toMatch(/No site is selected yet/);
+  });
+});
+
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+type Answer = () => Response | Promise<Response>;
+const geminiSays = (text: string): Answer => () =>
+  new Response(JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text }] }, finishReason: 'STOP' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+const openrouterSays = (content: string): Answer => () => new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+const fails = (status: number): Answer => () => new Response('no', { status });
+
+/** Gemini and OpenRouter answering as a test says, with who was asked, in turn, and what each was sent. */
+function network(o: { gemini?: Answer | Answer[]; openrouter?: Answer }) {
+  const asked: string[] = [];
+  const bodies: { to: string; url: string; headers: Record<string, string>; body: Record<string, unknown> }[] = [];
+  let g = 0;
+  const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    const headers = init?.headers as Record<string, string>;
+    if (String(url).startsWith('https://generativelanguage.googleapis.com/')) {
+      asked.push('gemini');
+      bodies.push({ to: 'gemini', url, headers, body });
+      const list = Array.isArray(o.gemini) ? o.gemini : [o.gemini ?? fails(500)];
+      return list[Math.min(g++, list.length - 1)]();
+    }
+    if (url === OPENROUTER_URL) {
+      asked.push(`openrouter ${String(body.model)}`);
+      bodies.push({ to: 'openrouter', url, headers, body });
+      return (o.openrouter ?? fails(500))();
+    }
+    throw new Error(`unexpected request to ${url}`);
+  });
+  return { asked, bodies, fetchMock };
+}
+const NOBILE = '{"actions":[{"type":"select_site","id":"nobile_rim_2"}],"reply":"Nobile Rim 2 selected."}';
+const CHAIN = ['qwen/qwen3.8-27b:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3.5-lightning:free'].map((m) => `openrouter ${m}`);
+
+describe('POST /api/chat with Gemini as a provider: who asks decides the order', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+  const bothKeys = () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    vi.stubEnv('GEMINI_API_KEY', 'AIza-test');
+  };
+
+  it('asks Gemini first for Luna, and names Gemini as the model that answered', async () => {
+    bothKeys();
+    const { asked, fetchMock } = network({ gemini: geminiSays(NOBILE), openrouter: openrouterSays(NOBILE) });
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'luna' }))).json()) as Reply;
+    expect(asked).toEqual(['gemini']);
+    expect([json.source, json.model]).toEqual(['model', 'gemini-2.5-flash']);
+    expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
+    expect(json.reply).toBe('Nobile Rim 2 selected.');
+  });
+
+  it('goes on to the OpenRouter chain for Luna when Gemini fails', async () => {
+    bothKeys();
+    const { asked, fetchMock } = network({ gemini: fails(503), openrouter: openrouterSays(NOBILE) });
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'luna' }))).json()) as Reply;
+    expect(asked).toEqual(['gemini', CHAIN[0]]);
+    expect([json.source, json.model]).toEqual(['model', 'qwen/qwen3.8-27b:free']);
+  });
+
+  it('keeps OpenRouter first for "Ask in plain words", and asks Gemini only after every OpenRouter model failed', async () => {
+    bothKeys();
+    let net = network({ gemini: geminiSays(NOBILE), openrouter: openrouterSays(NOBILE) });
+    vi.stubGlobal('fetch', net.fetchMock);
+    let json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null }))).json()) as Reply;
+    expect(net.asked).toEqual([CHAIN[0]]);
+    expect(json.model).toBe('qwen/qwen3.8-27b:free');
+    net = network({ gemini: geminiSays(NOBILE), openrouter: fails(429) });
+    vi.stubGlobal('fetch', net.fetchMock);
+    json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'ask' }))).json()) as Reply;
+    expect(net.asked).toEqual([...CHAIN, 'gemini']);
+    expect([json.source, json.model]).toEqual(['model', 'gemini-2.5-flash']);
+    expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
+  });
+
+  it('gives Gemini the prompt and question the OpenRouter models get, asks it for JSON, and sends the key in its header only', async () => {
+    bothKeys();
+    const { bodies, fetchMock } = network({ gemini: geminiSays(NOBILE), openrouter: fails(502) });
+    vi.stubGlobal('fetch', fetchMock);
+    await POST(request({ prompt: 'please pick the Nobile site for me', state: STATE }));
+    const or = bodies.find((b) => b.to === 'openrouter')!.body as { messages: { role: string; content: string }[] };
+    const g = bodies.find((b) => b.to === 'gemini')!;
+    const gb = g.body as { systemInstruction: { parts: { text: string }[] }; contents: { role: string; parts: { text: string }[] }[]; generationConfig: { responseMimeType?: string; temperature?: number } };
+    expect(g.url).toBe(GEMINI_URL);
+    expect(gb.systemInstruction.parts[0].text).toBe(or.messages[0].content);
+    expect(gb.contents).toEqual([{ role: 'user', parts: [{ text: or.messages[1].content }] }]);
+    expect(gb.generationConfig.responseMimeType).toBe('application/json');
+    expect(gb.generationConfig.temperature).toBe(0);
+    expect(g.headers['x-goog-api-key']).toBe('AIza-test');
+    expect(g.url + JSON.stringify(g.body)).not.toContain('AIza-test');
+  });
+
+  it('answers from Gemini alone when only its key is set, for either asker', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', '');
+    vi.stubEnv('GEMINI_API_KEY', 'AIza-test');
+    for (const from of [undefined, 'luna']) {
+      const { asked, fetchMock } = network({ gemini: geminiSays(NOBILE) });
+      vi.stubGlobal('fetch', fetchMock);
+      const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, ...(from ? { from } : {}) }))).json()) as Reply;
+      expect(asked).toEqual(['gemini']);
+      expect(json.model).toBe('gemini-2.5-flash');
+    }
+  });
+
+  it('never asks Gemini in cached mode, with ?demo=1 or in the offline build', async () => {
+    bothKeys();
+    const { fetchMock } = network({ gemini: geminiSays(NOBILE), openrouter: openrouterSays(NOBILE) });
+    vi.stubGlobal('fetch', fetchMock);
+    const demo = (await (await POST(request({ prompt: 'Show me Nobile Rim 2', state: null, mode: 'cached', from: 'luna' }))).json()) as Reply;
+    expect(demo.source).toBe('cache');
+    vi.stubEnv('NEXT_PUBLIC_AI_MODE', 'cached');
+    const offline = (await (await POST(request({ prompt: 'what is the meaning of life', state: null, from: 'luna' }))).json()) as Reply;
+    expect(offline.source).toBe('none');
+    const brief = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply;
+    expect(brief.source).toBe('template');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('stays inside the model budget, and leaves Gemini the rest of it when the OpenRouter chain hangs', async () => {
+    bothKeys();
+    vi.stubEnv('AI_MODEL_BUDGET_MS', '1000');
+    const { asked, fetchMock } = network({ gemini: geminiSays(NOBILE), openrouter: () => new Promise<Response>(() => {}) });
+    vi.stubGlobal('fetch', fetchMock);
+    const t0 = Date.now();
+    const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null }))).json()) as Reply;
+    expect(Date.now() - t0).toBeLessThan(1500);
+    // The first OpenRouter model takes the first answer's 800 ms; Gemini, last, answers in the 200 ms left.
+    expect(asked).toEqual([CHAIN[0], 'gemini']);
+    expect(json.model).toBe('gemini-2.5-flash');
+  });
+
+  it('says every model is busy when Gemini fails after the OpenRouter chain', async () => {
+    bothKeys();
+    const { asked, fetchMock } = network({ gemini: fails(429), openrouter: fails(429) });
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ prompt: 'what is the meaning of life', state: null }))).json()) as Reply;
+    expect(asked).toEqual([...CHAIN, 'gemini']);
+    expect([json.source, json.reason]).toEqual(['none', 'model-busy']);
+  });
+
+  it('retries Gemini once with the nudge when it answers prose for Luna, its own turn given back as the model’s', async () => {
+    bothKeys();
+    const { asked, bodies, fetchMock } = network({ gemini: [geminiSays('Sure, Nobile Rim 2 it is!'), geminiSays(NOBILE)] });
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'luna' }))).json()) as Reply;
+    expect(asked).toEqual(['gemini', 'gemini']);
+    expect(json.model).toBe('gemini-2.5-flash');
+    const retry = bodies[1].body as { contents: { role: string; parts: { text: string }[] }[] };
+    expect(retry.contents.map((c) => c.role)).toEqual(['user', 'model', 'user']);
+    expect(retry.contents[1].parts[0].text).toBe('Sure, Nobile Rim 2 it is!');
+    expect(retry.contents[2].parts[0].text).toMatch(/^Answer again with ONE JSON object only/);
+  });
+
+  it('narrates the brief with Gemini last, in plain text, when the OpenRouter chain fails', async () => {
+    bothKeys();
+    const text = 'Nobile Rim 2 sees the Sun 100 % of the time over these 14 days; Earth is in view 67 % of the time with a longest gap of 9 d 9 h, and the lander keeps power for all 14 days.';
+    const { asked, bodies, fetchMock } = network({ gemini: geminiSays(text), openrouter: fails(503) });
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ task: 'narrate', prompt: 'write the brief', state: STATE }))).json()) as Reply;
+    expect(asked).toEqual([...CHAIN, 'gemini']);
+    expect([json.source, json.model, json.reply]).toEqual(['model', 'gemini-2.5-flash', text]);
+    expect((bodies.at(-1)!.body as { generationConfig: { responseMimeType?: string } }).generationConfig.responseMimeType).toBeUndefined();
+    // With Gemini's key alone, the brief is not short of a key.
+    vi.stubEnv('OPENROUTER_API_KEY', '');
+    const alone = network({ gemini: fails(500) });
+    vi.stubGlobal('fetch', alone.fetchMock);
+    const t = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply;
+    expect([t.source, t.reason]).toEqual(['template', 'model-error']);
+  });
+
+  it('takes the asker as "luna" or "ask" only', async () => {
+    vi.stubGlobal('fetch', vi.fn());
+    expect((await POST(request({ prompt: 'open compare', from: 'robot' }))).status).toBe(400);
+    expect((await POST(request({ prompt: 'open compare', from: 'ask' }))).status).toBe(200);
+    expect((await POST(request({ prompt: 'open compare', from: 'luna' }))).status).toBe(200);
   });
 });
