@@ -30,6 +30,13 @@ def test_uncertainty_takes_sites_and_a_span_and_pgda90_fetch_needs_nothing():
     assert build_parser().parse_args(["pgda90-fetch"]).cmd == "pgda90-fetch"
 
 
+def test_the_error_model_and_the_terrain_versions_have_commands_of_their_own():
+    assert build_parser().parse_args(["error-model"]).cmd == "error-model"
+    args = build_parser().parse_args(["ensemble", "--site", "connecting_ridge", "--versions", "8"])
+    assert args.cmd == "ensemble" and args.site == ["connecting_ridge"] and args.versions == 8
+    assert build_parser().parse_args(["ensemble"]).versions == 32
+
+
 def test_terrain_takes_named_sites_and_runs_them_alone(monkeypatch):
     from lunar_pipeline import cli, terrain3d
 

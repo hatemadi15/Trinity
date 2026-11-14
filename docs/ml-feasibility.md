@@ -443,6 +443,12 @@ Diviner beside each site's power and radio windows, labelled as modelled conditi
 
 **After the deadline, in this order:**
 
+(Update, 14 November: steps 1 and 2 were built before the deadline after all, on the user's go-ahead; see
+`docs/method.md`, "Terrain versions". The fitted model differs from the prototype's guesses in two ways that
+matter: the two generations differ by about 1.4 m, 3 to 29 times the stated error, but are correlated over only
+32 to 131 m, under two pixels, so the versions move each direction of the skyline partly on its own. The
+emulator of step 5 was not built.)
+
 1. Fit an error model to the two DEM generations, so its size and correlation length come from data, not
    from `ERR` alone (half a day to a day).
 2. Run the Monte Carlo ensemble at the featured sites and compare it with first-order propagation and with

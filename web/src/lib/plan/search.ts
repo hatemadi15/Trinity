@@ -155,6 +155,7 @@ const REACH_WORDS: Record<RequirementId, (v: number | null) => string> = {
   'contact-at-landing': (v) => (v === null ? 'Earth is never in view during the stay' : `Earth is first in view ${spanShort(v)} after landing at the soonest`),
   outage: (v) => `the shortest is ${spanShort(v ?? 0)}`,
   'powered-contact': (v) => `the most is ${spanShort(v ?? 0)}`,
+  holds: (v) => `the most is ${v ?? 0} % of terrain versions`,
 };
 
 /** Why `a` ranks above `b`, in one plain sentence, by the requirements and then the objective. */

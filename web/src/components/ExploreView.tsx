@@ -17,6 +17,7 @@ import { TimeBar } from './explore/TimeBar';
 import { LunaControls } from './luna/LunaControls';
 import { TimeChart } from './explore/TimeChart';
 import { VerdictPanel } from './explore/VerdictPanel';
+import { VersionsFold } from './explore/VersionsFold';
 import { WhereOnMoon } from './explore/WhereOnMoon';
 import { YearView } from './explore/YearView';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
@@ -28,7 +29,8 @@ import { briefHref, standHref, withSettings } from '@/lib/links';
 import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
 import { useDataVersions } from '@/lib/hooks/useDataVersions';
 import { appVersion } from '@/lib/share/versions';
-import { COMPARE_MAX, exploreStore, periodPlan, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, periodPlan, scanOf, seenFrom, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { holdNoteFor, useTerrainVersions, type VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
 import { neighbourhoodRange, rangeWords } from '@/lib/plan/neighbourhood';
 import { placeOptions } from '@/lib/plan/options';
 import { periodOutcome } from '@/lib/plan/outcome';
@@ -54,6 +56,7 @@ export function ExploreView({
   scenarios = scenarioStore,
   navigate,
   uncertainty,
+  versions,
 }: {
   store?: StoreApi<ExploreState>;
   /** The comparison "Compare from here" starts; by default the app's. */
@@ -61,6 +64,8 @@ export function ExploreView({
   navigate?: (href: string) => void;
   /** Injected in tests; by default the app's data/uncertainty/budget.json. */
   uncertainty?: () => Promise<UncertaintyDoc>;
+  /** Injected in tests; by default the site's data/ensemble file and the versions' worker. */
+  versions?: VersionsDeps;
 }) {
   const s = useStore(store);
   const budget = useUncertainty(uncertainty);
@@ -145,10 +150,18 @@ export function ExploreView({
   // The terrain behind the figures, and whether they are still from another mast height than the one chosen.
   const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
   const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
+  // The same landing and period under every terrain version of the site, in the versions' worker: a fold beside the
+  // margins, and, when the requirement on them is set, how many versions each landing time of the period holds in.
+  const holdAsked = (s.requirements.minHoldPct ?? null) !== null;
+  const versionsState = useTerrainVersions(
+    { site: s.site, series: s.series ? scanOf(s.series) : null, hours: s.series?.hours ?? 0, params: s.params, requirements: s.requirements, mastM: seenFrom(s.maskMeta, s.params.mastM), byHour: holdAsked },
+    versions,
+  );
+  const holds = holdAsked && versionsState.status === 'ready' ? versionsState.result.holdsByHour : null;
   // The period's landing times, ranked with the requirements: the better date comes from here, as on the brief and the view from the site.
   const times = useMemo(
-    () => (s.site ? periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc }) : null),
-    [s.series, s.site, s.params, s.requirements, s.startUtc],
+    () => (s.site ? periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, holds }) : null),
+    [s.series, s.site, s.params, s.requirements, s.startUtc, holds],
   );
   const current = useMemo(() => (s.series && s.power ? periodOutcome(s.series, s.power) : null), [s.series, s.power]);
   const hood = s.neighbourhood && s.site && s.neighbourhood.siteId === s.site.id ? s.neighbourhood : null;
@@ -282,6 +295,8 @@ export function ExploreView({
               onRequirements={s.setRequirements}
               range={range}
               sure={sure}
+              versions={<VersionsFold state={versionsState} startUtc={s.startUtc} days={s.days} />}
+              holdNote={holdNoteFor(versionsState, holdAsked)}
             />
             <NumbersCard
               site={site}

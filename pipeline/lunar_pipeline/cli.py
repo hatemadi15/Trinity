@@ -53,6 +53,12 @@ def build_parser() -> argparse.ArgumentParser:
     un.add_argument("--site", action="append", help="only these sites (default: every featured site)")
     un.add_argument("--start", default="2025-01-01T00:00:00")
     un.add_argument("--days", type=int, default=730)
+    sub.add_parser("error-model", help="fit the terrain error model (the app's LOLA heights against product 90's) into data/ensemble/error_model.json")
+    en = sub.add_parser("ensemble", help="draw terrain versions from the error model for every polar site into data/ensemble")
+    en.add_argument("--site", action="append", help="only these polar sites (default: every one)")
+    en.add_argument("--versions", type=int, default=32, help="versions per site (default 32)")
+    en.add_argument("--seed", type=int, default=20261115)
+    en.add_argument("--index-only", action="store_true", help="only write the index again from the stored versions")
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
     sub.add_parser("home-assets", help="render the home page picture, the relief map and home.json into web/")
@@ -147,6 +153,16 @@ def main(argv: list[str] | None = None) -> None:
         from .uncertainty import build, write_doc
 
         print(write_doc(build(site_ids=args.site, start_utc=args.start, days=args.days)))
+    elif args.cmd == "error-model":
+        from .terrain_error import OUT_DIR, fit
+
+        fit()
+        print(OUT_DIR / "error_model.json")
+    elif args.cmd == "ensemble":
+        from .ensemble import build, reindex
+
+        doc = reindex() if args.index_only else build(site_ids=args.site, n=args.versions, seed=args.seed)
+        print(f"data/ensemble: {len(doc['sites'])} sites, {doc['bytes']} bytes")
     elif args.cmd == "manifest":
         from . import manifest
 

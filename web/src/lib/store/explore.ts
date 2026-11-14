@@ -14,7 +14,7 @@ import { clockUtc, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
 import { timeOptions, yearOptions, type LandingTime, type Recommendation, type YearChoice } from '../plan/options';
 import { periodOutcome, type Outcome } from '../plan/outcome';
-import { checksWords, NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
+import { checksWords, NO_REQUIREMENTS, type Holds, type Requirements } from '../plan/requirements';
 import { yearRuleWords } from '../plan/rank';
 import { neighbourhoodRadius, ringPoints, type PointResult } from '../plan/neighbourhood';
 import { computedReport, featuredReport, flatReport, unreportedReport, type TerrainFindings, type TerrainReport } from '../engine/completeness';
@@ -256,10 +256,17 @@ export function scanOf(series: Series): Series {
 /**
  * The period's landing times ranked with the requirements (lib/plan `timeOptions`), each tried for a stay as long as
  * the period: Explore, the brief and the view from the site name their better date from it, so all three name the
- * same one. Null before a period is worked out.
+ * same one. `holds`, by landing hour, is in how many terrain versions each holds (lib/ensemble), for the optional
+ * requirement on them; without it that requirement is not checked. Null before a period is worked out.
  */
-export function periodPlan({ series, params, requirements, startUtc }: Pick<ExploreState, 'series' | 'params' | 'requirements' | 'startUtc'>): Recommendation<LandingTime> | null {
-  return series ? timeOptions({ scan: scanOf(series), cfg: params.power, req: requirements, hours: series.hours, startUtc }) : null;
+export function periodPlan({
+  series,
+  params,
+  requirements,
+  startUtc,
+  holds = null,
+}: Pick<ExploreState, 'series' | 'params' | 'requirements' | 'startUtc'> & { holds?: (Holds | null)[] | null }): Recommendation<LandingTime> | null {
+  return series ? timeOptions({ scan: scanOf(series), cfg: params.power, req: requirements, hours: series.hours, startUtc, holds }) : null;
 }
 
 export function recompute(

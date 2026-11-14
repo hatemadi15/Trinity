@@ -2,6 +2,9 @@
 import { useId, useState } from 'react';
 import { Fold } from '../Fold';
 import { MiniStrip } from './MiniStrip';
+import { VersionsCell } from './VersionsCell';
+import type { VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
+import { NO_REQUIREMENTS, type Requirements } from '@/lib/plan/requirements';
 import type { ScenarioRun } from '@/lib/store/scenarios';
 import { figureRows, landingShort, settingRows, type Cell, type Column, type Tone } from '@/lib/viz/compare';
 import { isoAt, spanShort } from '@/lib/viz/format';
@@ -11,6 +14,9 @@ const TONE: Record<Tone, string> = {
   worse: 'text-bad',
   same: 'text-ink-2',
 };
+/** What the terrain versions' row means, for the table's key. */
+export const VERSIONS_MEANS =
+  'The same scenario over 32 versions of the ground drawn round NASA’s adjusted south-pole map (PGDA product 90) with errors as large as two generations of its maps differ by: how many still meet your requirements, or with none set give the same verdict, and the range of time with power. Only the polar catalogue sites seen from a 2 m mast have versions; a share of versions is not the chance that the landing works.';
 const HEAD = 'sticky left-0 z-[1] bg-surface border-b border-line py-2.5 pr-4 text-left align-top text-[15px] font-semibold text-ink-2 max-sm:min-w-[118px]';
 const CELL = 'border-b border-line py-2.5 pr-4 align-top';
 
@@ -60,7 +66,21 @@ function ChecksSwitch({ name, open, controls, onToggle }: { name: string; open: 
  * The scenarios side by side: one column each, the baseline first, the settings and then the figures, each figure with
  * its change from the baseline. A wide table scrolls inside its own box, the row names staying in view.
  */
-export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs: Record<string, ScenarioRun>; onUseBest: (id: string) => void }) {
+export function ScenarioTable({
+  cols,
+  runs,
+  onUseBest,
+  requirements = NO_REQUIREMENTS,
+  versions,
+}: {
+  cols: Column[];
+  runs: Record<string, ScenarioRun>;
+  onUseBest: (id: string) => void;
+  /** The requirements the terrain versions' row counts against; with none, a version keeps the scenario's verdict or not. */
+  requirements?: Requirements;
+  /** Injected in tests; by default each site's data/ensemble file and the versions' worker. */
+  versions?: VersionsDeps;
+}) {
   const settings = settingRows(cols);
   const figures = figureRows(cols);
   const id = useId();
@@ -135,6 +155,16 @@ export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs:
             ))}
             <tr>
               <th scope="row" className={HEAD}>
+                Terrain versions
+              </th>
+              {cols.map((c) => (
+                <td key={c.scenario.id} className={`${CELL} text-[15px]`}>
+                  <VersionsCell col={c} run={runs[c.scenario.id]} requirements={requirements} deps={versions} />
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <th scope="row" className={HEAD}>
                 Its own best landing
               </th>
               {cols.map((c) => {
@@ -175,6 +205,10 @@ export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs:
               <dd className="text-ink-2">{row.means}</dd>
             </div>
           ))}
+          <div className="contents">
+            <dt className="font-semibold text-ink">Terrain versions</dt>
+            <dd className="text-ink-2">{VERSIONS_MEANS}</dd>
+          </div>
         </dl>
       </Fold>
     </>

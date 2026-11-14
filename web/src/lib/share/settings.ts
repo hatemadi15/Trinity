@@ -49,13 +49,16 @@ export function settingsEntries(params: PlannerParams, defaults: PlannerParams =
   return out;
 }
 
+/** The requirements a link carries: the four in hours. */
+type LinkRequirement = Exclude<keyof Requirements, 'minHoldPct'>;
+
 /**
  * The name each of the mission's requirements has in a link, its value in hours as the store keeps it: power for at
  * least so many hours, Earth in view by so many hours after landing, the longest time without Earth while powered,
  * and Earth contact while powered. They rank the recommendations rather than change the figures, and a link names only
  * those set.
  */
-export const REQUIREMENT_NAMES: Record<keyof Requirements, string> = {
+export const REQUIREMENT_NAMES: Record<LinkRequirement, string> = {
   minPoweredH: 'minpower',
   contactWithinH: 'earthby',
   maxOutageH: 'maxgap',
@@ -63,7 +66,7 @@ export const REQUIREMENT_NAMES: Record<keyof Requirements, string> = {
 };
 
 /** The requirements in the order a link writes them, the order every list of checks gives them. */
-const REQUIREMENT_KEYS: (keyof Requirements)[] = ['minPoweredH', 'contactWithinH', 'maxOutageH', 'minPoweredContactH'];
+const REQUIREMENT_KEYS: LinkRequirement[] = ['minPoweredH', 'contactWithinH', 'maxOutageH', 'minPoweredContactH'];
 
 /** What a requirement may be: none to 90 days in hours, as the boxes on Explore and in the planner take them. */
 const REQUIREMENT_RANGE: NumberRange = { min: 0, max: 90 * 24, step: 1 };

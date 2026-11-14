@@ -251,3 +251,31 @@ def test_build_measures_a_site_with_the_three_sources_apart():
         if e["sampling"]["n"]:
             assert 0.0 <= e["sampling"]["max_abs_h"] <= 1.0
             assert e["plus_minus_h"] >= e["sampling"]["p95_abs_h"]
+
+
+def test_version_offsets_take_each_events_95th_percentile_shift_over_the_versions_that_keep_it():
+    from lunar_pipeline.uncertainty import version_offsets
+
+    empty = (np.array([]), np.array([]), np.array([]))
+    base = {"lit": (np.array([10.0, 50.0, 90.0]), np.array([-1, -1, -1]), np.zeros(3)), "earth": empty, "powered": empty}
+    # Twenty versions: the first sunset moves by up to 0.95 h either way; the second is lost in two of them, the third in fifteen.
+    versions = []
+    for i in range(20):
+        shift = (i - 9.5) / 10.0
+        times = [10.0 + shift] + ([] if i < 2 else [50.1]) + ([] if i < 15 else [90.2])
+        versions.append({"lit": (np.array(times), np.full(len(times), -1), np.zeros(len(times))), "earth": empty, "powered": empty})
+    off, lost = version_offsets(base, versions, "sunset")
+    assert abs(off[0]) == pytest.approx(np.percentile(np.abs((np.arange(20) - 9.5) / 10.0), 95), abs=0.06)
+    # Lost in two versions of twenty: its shift over the eighteen that keep it, and counted as lost by the versions.
+    assert off[1] == pytest.approx(0.1)
+    # Lost in most versions: no shift to take, so it widens nothing.
+    assert np.isnan(off[2])
+    assert lost == 2
+
+
+def test_the_versions_only_ever_widen_the_terrain_spread_and_never_unlose_an_event():
+    from lunar_pipeline.uncertainty import combine_offsets
+
+    off, lost = combine_offsets((np.array([0.5, -0.2, np.nan, 0.3]), 1), (np.array([-0.3, 0.9, 0.1, np.nan]), 4))
+    assert off[0] == 0.5 and off[1] == 0.9 and np.isnan(off[2]) and off[3] == 0.3
+    assert lost == 1

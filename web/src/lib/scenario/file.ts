@@ -39,7 +39,7 @@ export interface FileRequirements {
 }
 
 /** Each requirement's name in a file, beside the store's. */
-const FILE_REQUIREMENTS: [keyof Requirements, keyof FileRequirements][] = [
+const FILE_REQUIREMENTS: [Exclude<keyof Requirements, 'minHoldPct'>, keyof FileRequirements][] = [
   ['minPoweredH', 'minTimeWithPowerHours'],
   ['contactWithinH', 'earthInViewWithinHours'],
   ['maxOutageH', 'maxTimeWithoutEarthWhilePoweredHours'],
