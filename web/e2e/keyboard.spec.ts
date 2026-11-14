@@ -100,7 +100,7 @@ test.describe('Keyboard only', () => {
 
     await test.step('Compare: a second site chosen in the list by typing its name, and added with Enter', async () => {
       const table = page.getByRole('table');
-      await expect(table.getByRole('rowheader')).toHaveText(['de Gerlache Rim 2']);
+      await expect(table.getByRole('rowheader').getByRole('link')).toHaveText(['de Gerlache Rim 2']);
       const add = page.getByLabel('Add a site');
       await tabTo(page, add);
       await expectFocusVisible(page);
@@ -109,7 +109,7 @@ test.describe('Keyboard only', () => {
       await tabTo(page, page.getByRole('button', { name: 'Add', exact: true }), { max: 5 });
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');
-      await expect(table.getByRole('rowheader')).toHaveText(['de Gerlache Rim 2', 'de Gerlache rim summit']);
+      await expect(table.getByRole('rowheader').getByRole('link')).toHaveText(['de Gerlache Rim 2', 'de Gerlache rim summit']);
     });
 
     await test.step('the brief: reached by its link and printed with Enter', async () => {

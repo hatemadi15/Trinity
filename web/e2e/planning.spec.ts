@@ -74,10 +74,10 @@ test.describe('The main planning journey', () => {
       await page.waitForURL(/\/compare$/);
       await expect(page.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeVisible();
       const table = page.getByRole('table');
-      await expect(table.getByRole('rowheader')).toHaveText(['de Gerlache Rim 2']);
+      await expect(table.getByRole('rowheader').getByRole('link')).toHaveText(['de Gerlache Rim 2']);
       await page.getByLabel('Add a site').selectOption({ label: 'de Gerlache rim summit' });
       await page.getByRole('button', { name: 'Add', exact: true }).click();
-      await expect(table.getByRole('rowheader')).toHaveText(['de Gerlache Rim 2', 'de Gerlache rim summit']);
+      await expect(table.getByRole('rowheader').getByRole('link')).toHaveText(['de Gerlache Rim 2', 'de Gerlache rim summit']);
       // The same period and lander as Explore's.
       const forWhat = page.getByRole('region', { name: 'What this comparison is for' });
       await expect(forWhat.getByText('6 January 2027', { exact: true })).toBeVisible();
