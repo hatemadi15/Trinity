@@ -41,9 +41,9 @@ Planners get a first answer in a minute and a brief they can hand to engineering
 
 ## 4:20 — Data and team (20 s)
 
-NASA data: LRO LOLA elevation models and illumination maps, NASA Goddard's adjusted south-pole maps, LRO's camera pictures and Diviner's temperature model, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and about 1,600 automated tests keep the two in step. Team Astroy/Ed.
+NASA data: LRO LOLA elevation models and illumination maps, NASA Goddard's adjusted south-pole maps, LRO's camera pictures and Diviner's temperature model, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and about 2,500 automated tests keep the two in step. Team Astroy/Ed.
 
-[The Accuracy page shows the last recorded run of the tests; refresh it with `npm run validation:tests` before the pitch and say the number it shows, if it is not about 1,600.]
+[The Accuracy page shows the last recorded run of the tests; refresh it with `npm run validation:tests` before the pitch and say the number it shows, if it is not about 2,500.]
 
 ## 4:40 — Close (20 s)
 
