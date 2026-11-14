@@ -1,16 +1,18 @@
 import type { StoreApi } from 'zustand';
 import type { Site } from '../data/loaders';
 import { PANEL_LABELS, type PanelModel, type PowerConfig } from '../engine/power';
-import { clampTo, PANEL_MODELS, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
+import { clampTo, DAYS_RANGE, PANEL_MODELS, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
 import type { ExploreState, WindowDays } from '../store/explore';
-import { dateLong } from '../viz/format';
-import { EPHEMERIS_YEARS, snapToHour } from '../period';
+import { EPHEMERIS_YEARS, periodDays, shiftPeriod, shiftWords, snapToHour, startWords, withClock } from '../period';
 import { explanationFor } from './explanations';
 
 /** The closed set of things the planner may do to the app. Validated on the server and again on the client. */
 export type Action =
   | { type: 'select_site'; id: string }
-  | { type: 'set_window'; startUtc?: string; days?: WindowDays }
+  /** `timeUtc` ("17:00") moves the landing to that hour on its date: the given start's, else the one already chosen. */
+  | { type: 'set_window'; startUtc?: string; days?: WindowDays; timeUtc?: string }
+  /** The landing moved by whole hours, later when positive, keeping the length; it stops at the ends of the table. */
+  | { type: 'shift_window'; hours: number }
   | { type: 'find_best_window'; days: WindowDays; scope?: 'site' | 'compare' }
   | { type: 'set_power'; patch: Partial<PowerConfig> }
   | { type: 'set_params'; patch: { minEarthElDeg?: number; mastM?: number } }
@@ -24,6 +26,7 @@ export const PAGES: readonly Page[] = ['explore', 'sites', 'compare', 'validate'
 export const ACTION_TYPES: readonly Action['type'][] = [
   'select_site',
   'set_window',
+  'shift_window',
   'find_best_window',
   'set_power',
   'set_params',
@@ -35,11 +38,12 @@ export const ACTION_TYPES: readonly Action['type'][] = [
 /** What each page is called on screen. */
 export const PAGE_NAMES: Record<Page, string> = { explore: 'Explore', sites: 'the site list', compare: 'Compare sites', validate: 'Accuracy', brief: 'the brief', learn: 'How it works' };
 
-/** The period in the words of its controls ("From", "For"): "Period: from 1 March 2027 for 14 days." */
+/** The period in the words of its controls ("From", "For"), the landing with its hour: "Period: from 1 March 2027, 17:00 UTC, for 14 days." */
 export function periodNote(startUtc: string, days?: number): string {
-  return `Period: from ${dateLong(startUtc, 0)} ${startUtc.slice(0, 4)}${days ? ` for ${days} days` : ''}.`;
+  return `Period: from ${startWords(startUtc)}${days ? `, for ${days} days` : ''}.`;
 }
-const DAYS: readonly WindowDays[] = [14, 30, 90];
+/** The longest shift the assistant asks for, either way: the table's span, which a shift stops at anyway. */
+const SHIFT_MAX_HOURS = 13 * 366 * 24;
 /**
  * How many sites Compare holds: the store's COMPARE_MAX, repeated here because the chat route loads this
  * module on the server and must not load the browser store with it. A test keeps the two equal.
@@ -60,9 +64,9 @@ function asNumber(x: unknown): number | null {
 }
 
 function parseDays(x: unknown): WindowDays | null {
-  const n = asNumber(x);
-  return n !== null && (DAYS as readonly number[]).includes(n) ? (n as WindowDays) : null;
+  return periodDays(asNumber(x));
 }
+const BAD_DAYS = `days must be a whole number from ${DAYS_RANGE.min} to ${DAYS_RANGE.max}`;
 
 /**
  * Accepts `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` or `YYYY-MM-DDTHH:MM:SS` (optional Z) inside the ephemeris years; returns
@@ -123,15 +127,25 @@ function validateOne(raw: unknown, siteIds: ReadonlySet<string>): One {
       }
       if (raw.days !== undefined) {
         const days = parseDays(raw.days);
-        if (!days) return { reason: `set_window: days must be 14, 30 or 90 (got ${String(raw.days)})` };
+        if (!days) return { reason: `set_window: ${BAD_DAYS} (got ${String(raw.days)})` };
         action.days = days;
       }
-      if (action.startUtc === undefined && action.days === undefined) return { reason: 'set_window: nothing to set' };
+      if (raw.timeUtc !== undefined) {
+        const time = typeof raw.timeUtc === 'string' ? raw.timeUtc.trim() : '';
+        if (!/^\d{2}:\d{2}$/.test(time) || !withClock('2027-01-01T00:00:00', time)) return { reason: `set_window: bad time "${String(raw.timeUtc)}"` };
+        action.timeUtc = time;
+      }
+      if (action.startUtc === undefined && action.days === undefined && action.timeUtc === undefined) return { reason: 'set_window: nothing to set' };
       return { action };
+    }
+    case 'shift_window': {
+      const hours = asNumber(raw.hours);
+      if (hours === null || !Number.isInteger(hours) || hours === 0 || Math.abs(hours) > SHIFT_MAX_HOURS) return { reason: `shift_window: hours must be a whole number other than 0 (got ${String(raw.hours)})` };
+      return { action: { type: 'shift_window', hours } };
     }
     case 'find_best_window': {
       const days = parseDays(raw.days);
-      if (!days) return { reason: `find_best_window: days must be 14, 30 or 90 (got ${String(raw.days)})` };
+      if (!days) return { reason: `find_best_window: ${BAD_DAYS} (got ${String(raw.days)})` };
       const scope = raw.scope === 'compare' ? 'compare' : 'site';
       return { action: { type: 'find_best_window', days, scope } };
     }
@@ -253,6 +267,18 @@ function describeParams(patch: { minEarthElDeg?: number; mastM?: number }): stri
 }
 
 /**
+ * Sets the period and says what was set, in the words of its controls, with `extra` after it. The store refuses a
+ * period that runs off its Sun and Earth table, keeps the one it had and says why in its error: the note gives that
+ * reason rather than claim a period that was never set.
+ */
+function setPeriod(store: StoreApi<ExploreState>, startUtc: string, days: number, extra = ''): string {
+  store.getState().setWindow(startUtc, days);
+  const now = store.getState();
+  const refused = now.startUtc !== startUtc || now.days !== days;
+  return refused ? (now.error ?? 'That period could not be set.') : `${periodNote(startUtc, days)}${extra}`;
+}
+
+/**
  * Applies validated actions to the Explore store in order and returns one note per action, in the
  * user's words ("Selected Nobile Rim 2."). Page changes go through `navigate` so the caller can use
  * the Next router.
@@ -274,20 +300,25 @@ export async function applyActions(store: StoreApi<ExploreState>, actions: Actio
         break;
       }
       case 'set_window': {
-        const startUtc = a.startUtc ?? s.startUtc;
+        // A time alone keeps the date; minutes round to the nearest hour, as the engine reads its hourly table.
+        const timed = a.timeUtc ? withClock(a.startUtc ?? s.startUtc, a.timeUtc) : null;
+        const startUtc = snapToHour(timed?.startUtc ?? a.startUtc ?? s.startUtc);
         const days = a.days ?? s.days;
-        s.setWindow(startUtc, days);
-        // The store refuses a period that runs off its Sun and Earth table, keeps the one it had and says why in
-        // its error: the note gives that reason rather than claim a period that was never set.
-        const now = store.getState();
-        const refused = now.startUtc !== startUtc || now.days !== days;
-        notes.push(refused ? (now.error ?? 'That period could not be set.') : periodNote(startUtc, days));
+        notes.push(setPeriod(store, startUtc, days, timed?.rounded ? ` The Sun and Earth table is hourly, so ${a.timeUtc} is read as ${startUtc.slice(11, 16)} UTC.` : ''));
+        break;
+      }
+      case 'shift_window': {
+        // The length stays; a shift past either end of the table stops there, and the note says so.
+        const r = shiftPeriod(s.startUtc, s.days, a.hours);
+        const moved = r.note ? ` ${r.note}` : '';
+        const note = setPeriod(store, r.startUtc, s.days, moved);
+        notes.push(note.startsWith('Period:') && !r.note ? `Landing ${shiftWords(a.hours)} ${a.hours > 0 ? 'later' : 'earlier'}. ${note}` : note);
         break;
       }
       case 'find_best_window': {
         const scope = a.scope ?? 'site';
         const r = await s.findBestWindow(a.days, scope);
-        notes.push(r ? `Moved to the best landing date for ${a.days} days: ${r.startUtc.slice(0, 10)}.` : (store.getState().bestWindowNote ?? `No ${a.days}-day period fits after the start date.`));
+        notes.push(r ? `Moved to the best landing for ${a.days} days: ${startWords(r.startUtc)}.` : (store.getState().bestWindowNote ?? `No ${a.days}-day period fits after the start date.`));
         break;
       }
       case 'set_power':

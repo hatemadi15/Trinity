@@ -48,6 +48,17 @@ describe('prompts', () => {
     expect(p.length).toBeLessThan(6000);
   });
 
+  it('tells the model the landing is a whole UTC hour, a period 2 to 90 days, and a slipped landing a shift in hours', () => {
+    const p = systemPrompt(sites);
+    expect(p).toContain('{"type": "set_window", "startUtc": "YYYY-MM-DDTHH:00:00", "days": 2-90, "timeUtc": "HH:00"}');
+    expect(p).toContain('{"type": "shift_window", "hours": N}');
+    expect(p).toContain('{"type": "find_best_window", "days": 2-90, "scope": "site" | "compare"}');
+    expect(p).toMatch(/Dates and times are UTC, in whole hours/);
+    expect(p).toMatch(/a period is 2 to 90 whole days/);
+    expect(p).toMatch(/slipped by five days.*shift_window.*120/);
+    expect(p).not.toMatch(/14 \| 30 \| 90|14, 30 or 90/);
+  });
+
   it('tells the model that an explain step brings its own paragraph, so the reply is one short sentence', () => {
     expect(systemPrompt(sites)).toMatch(/"explain".*one short sentence; the app adds the paragraph/);
   });
