@@ -399,15 +399,15 @@ def now_utc() -> str:
 
 
 def ceil_half(h: float | None) -> float | None:
-    """Up to the next half hour: the plus-or-minus the app shows."""
-    return None if h is None else math.ceil(h * 2.0 - 1e-9) / 2.0
+    """Up to the next half hour, and never under half an hour: the plus-or-minus the app shows."""
+    return None if h is None else max(0.5, math.ceil(h * 2.0 - 1e-9) / 2.0)
 
 
 def skyline_doc(site_id: str, adjusted_deg, sigma_deg, site_height_m: float, mast_m: float = 2.0) -> dict:
     """The other skylines of a site in the app's mask layout: product 90's, and it raised and lowered by one stated error."""
     a = np.asarray(adjusted_deg, dtype=np.float64)
     s = np.asarray(sigma_deg, dtype=np.float64)
-    r = lambda v: [round(float(x), 3) for x in v]  # noqa: E731
+    r = lambda v: [round(float(x), 3) for x in v]
     return {
         "site_id": site_id,
         "n_az": int(a.size),
@@ -605,7 +605,15 @@ def build(
     """The uncertainty budget for every featured site (or `site_ids`) over `days` from `start_utc`."""
     from .ephemeris import load_table
     from .masks import load_mask
-    from .pgda90 import CITATION, FULL_FILES, LISTED_SIZE, WINDOW_FILES, full_path, grid_from_geotiff, url_for
+    from .pgda90 import (
+        CITATION,
+        FULL_FILES,
+        LISTED_SIZE,
+        WINDOW_FILES,
+        full_path,
+        grid_from_geotiff,
+        url_for,
+    )
     from .sites import all_sites
     from .spice_env import spice_kernels, utc_to_et
 

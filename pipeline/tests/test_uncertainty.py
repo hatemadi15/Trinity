@@ -127,6 +127,11 @@ def test_ceil_half_rounds_a_plus_minus_up_to_the_next_half_hour():
     assert ceil_half(None) is None
 
 
+def test_ceil_half_never_shows_less_than_half_an_hour():
+    # A battery draining with no Sun runs out at the same minute at any step: the margin still shows the half-hour grain.
+    assert ceil_half(0.0) == 0.5
+
+
 def test_horizon_profile_gives_the_app_skyline_and_where_it_is_made(synthetic_grid_factory):
     # A 100 m wall 3 km east of the pole on a flat plain.
     grid = synthetic_grid_factory(size=600, scale_m=20.0)
