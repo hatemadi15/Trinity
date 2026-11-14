@@ -59,5 +59,8 @@ describe('the range of results round a point', () => {
     const gaps = rangeWords(neighbourhoodRange(o(76), done([90, 120, 720, 76, 80, 400, 300, 100], [2, 5])), { radiusKm: 5, ms: 2400, mastM: 2 });
     expect(gaps.words).toBe('Within about 5 km (7 of 9 points): power for 3.2 to 12.5 days.');
     expect(gaps.detail).toMatch(/^Worked out here and at 6 of 8 points round it.* 2 points have no elevation data here, so they are left out\./);
+    // With no point round it worked out there is no range to give, and the line says why.
+    const none = rangeWords(neighbourhoodRange(o(76), done([], [0, 1, 2, 3, 4, 5, 6, 7])), { radiusKm: 5, ms: 300, mastM: 2 });
+    expect(none.words).toBe('No range within about 5 km: the points round this one have no elevation data here.');
   });
 });

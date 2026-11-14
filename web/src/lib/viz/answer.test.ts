@@ -9,7 +9,7 @@ import { placeOptions, timeOptions } from '../plan/options';
 import type { Outcome } from '../plan/outcome';
 import { FAIL_RULE, OBJECTIVE } from '../plan/rank';
 import { NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
-import { answerFor, nearbyAdvice, nearbyWords, planView } from './answer';
+import { answerFor, nearbyAdvice, nearbyWords, planView, spotSite } from './answer';
 
 // 1361 W while any Sun shows, 100 W load, 1000 Wh battery: ten hours in the dark.
 const CFG: PowerConfig = { ...DEFAULT_POWER, panel: 'full_tracking', areaM2: 1, efficiency: 1, loadW: 100, batteryWh: 1000 };
@@ -254,6 +254,14 @@ describe('nearbyAdvice', () => {
     expect(nearbyWords({ site: summit, km: 4.04, hours: 300 }, 30)).toBe('Nearby, Summit (4 km away) keeps power for 12 days 12 hours from the same landing day.');
   });
 
+  it('names a spot worked out round an approximate site by its distance and direction, and links to it as a clicked point', () => {
+    const spot = spotSite(here, { lat: -88.32, lon: -64.3, km: 2.5, bearingDeg: 180 });
+    expect(spot).toMatchObject({ id: 'custom_-88.3200_-64.3000', label: 'the spot 2.5 km south', category: 'custom', lat: -88.32, lon: -64.3 });
+    expect(spotSite(here, { lat: -88.3, lon: -64, km: 5, bearingDeg: 45 }).label).toBe('the spot 5 km north-east');
+    // Its distance is in its name already.
+    expect(nearbyWords({ site: spot, km: 2.5, hours: 720 }, 30)).toBe('Nearby, the spot 2.5 km south keeps power for all 30 days from the same landing day.');
+  });
+
   it('says nothing when no site nearby does clearly better, or before their figures are in', () => {
     expect(nearbyAdvice(here, sites, { summit: o(80), step: o(90), far: o(720) }, 76)).toBeNull();
     expect(nearbyAdvice(here, sites, {}, 76)).toBeNull();
@@ -336,5 +344,9 @@ describe('planView: every option for the panel, in words', () => {
       land: '2027-01-01T12:00:00',
     });
     expect(v.places?.options[0]).toMatchObject({ key: 'place-summit', title: 'Summit, 12 km away', action: 'Explore Summit', summary: 'Meets your requirement.', href: '/explore?site=summit' });
+    // A spot round the site is titled by its own name, which has its distance.
+    const spot = spotSite(here, { lat: -88.32, lon: -64.3, km: 2.5, bearingDeg: 180 });
+    const withSpot = placeOptions({ site: here, sites: [here], outcomes: {}, extra: [{ place: { site: spot, km: 2.5 }, outcome: o(48, 6) }], current: o(10, 10), req });
+    expect(planView({ times, places: withSpot, year: null, req, startUtc: START, days: 2, hrefFor: (id) => id }).places?.options[0]).toMatchObject({ title: 'The spot 2.5 km south', action: 'Explore the spot 2.5 km south', href: 'custom_-88.3200_-64.3000' });
   });
 });

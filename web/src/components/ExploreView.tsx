@@ -20,9 +20,11 @@ import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { standHref } from '@/lib/links';
-import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
-import { timeWithPower } from '@/lib/engine/landing';
-import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
+import { COMPARE_MAX, exploreStore, scanOf, type ExploreState } from '@/lib/store/explore';
+import { neighbourhoodRange, rangeWords } from '@/lib/plan/neighbourhood';
+import { placeOptions, timeOptions } from '@/lib/plan/options';
+import { periodOutcome } from '@/lib/plan/outcome';
+import { answerFor, nearbyWords, planView, spotSite } from '@/lib/viz/answer';
 import { dateTimeUtc } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 import { sceneStateAt } from '@/lib/viz/scene-state';
@@ -66,6 +68,10 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   useEffect(() => {
     if (s.status === 'ready') void store.getState().loadOverview();
   }, [store, s.status, s.startUtc, s.days, s.params]);
+  // A site known only to a few kilometres: the same period at points round it, in the worker, after the main result.
+  useEffect(() => {
+    if (s.status === 'ready') void store.getState().loadNeighbourhood();
+  }, [store, s.status, s.siteId, s.startUtc, s.days, s.params]);
 
   const onPick = useCallback(
     (lat: number, lon: number) => {
@@ -92,16 +98,41 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   }, [store, go]);
 
   const scene = useMemo(() => (s.eph && s.series && s.mask ? sceneStateAt(s.eph, s.series, s.mask, s.cursorHour) : null), [s.eph, s.series, s.mask, s.cursorHour]);
-  const answer = useMemo(
-    () => (s.series && s.summary && s.power && s.site ? answerFor({ siteName: siteLabel(s.site), series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best }) : null),
-    [s.site, s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.best],
+  // The period's landing times, ranked with the requirements: the better date comes from here.
+  const times = useMemo(
+    () => (s.series && s.site ? timeOptions({ scan: scanOf(s.series), cfg: s.params.power, req: s.requirements, hours: s.series.hours, startUtc: s.startUtc }) : null),
+    [s.series, s.site, s.params.power, s.requirements, s.startUtc],
   );
-  // A nearby site that keeps power clearly longer from the same landing day, once the overview has its figures.
+  const current = useMemo(() => (s.series && s.power ? periodOutcome(s.series, s.power) : null), [s.series, s.power]);
+  const hood = s.neighbourhood && s.site && s.neighbourhood.siteId === s.site.id ? s.neighbourhood : null;
+  // The places nearby from the same landing day, once the overview has their figures, and the spots round an approximate site.
+  const places = useMemo(() => {
+    if (!s.site || !current) return null;
+    const centre = s.site;
+    const outcomes = Object.fromEntries(Object.entries(s.overview).map(([id, o]) => [id, o.now]));
+    const extra = hood && !hood.busy ? hood.points.flatMap((p) => (p.outcome ? [{ place: { site: spotSite(centre, p), km: p.km }, outcome: p.outcome }] : [])) : [];
+    return placeOptions({ site: centre, sites: s.sites, outcomes, extra, current, req: s.requirements });
+  }, [s.site, s.sites, s.overview, current, hood, s.requirements]);
+  const answer = useMemo(
+    () => (s.series && s.summary && s.power && s.site ? answerFor({ siteName: siteLabel(s.site), series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, plan: times }) : null),
+    [s.site, s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.best, times],
+  );
+  // A nearby place that does clearly better from the same landing day: more power by a day, or fewer requirements failed.
   const nearby = useMemo(() => {
-    if (!s.site || !s.power) return null;
-    const advice = nearbyAdvice(s.site, s.sites, s.overview, timeWithPower(s.power));
-    return advice ? { words: nearbyWords(advice, s.days), name: siteLabel(advice.site), href: exploreHref(advice.site.id, s.startUtc, s.days) } : null;
-  }, [s.site, s.sites, s.overview, s.power, s.days, s.startUtc]);
+    const b = places?.better;
+    return b ? { words: nearbyWords({ site: b.item.site, km: b.item.km, hours: b.outcome.poweredH }, s.days), name: siteLabel(b.item.site), href: exploreHref(b.item.site.id, s.startUtc, s.days) } : null;
+  }, [places, s.days, s.startUtc]);
+  // Every option behind the recommendations, for the panel's fold.
+  const plan = useMemo(
+    () => (times ? planView({ times, places, year: s.yearPlan, req: s.requirements, startUtc: s.startUtc, days: s.days, hrefFor: (id) => exploreHref(id, s.startUtc, s.days) }) : null),
+    [times, places, s.yearPlan, s.requirements, s.startUtc, s.days],
+  );
+  // The same result round an approximate point, next to the result.
+  const range = useMemo(() => {
+    if (!hood || !current) return null;
+    if (hood.busy) return { words: `Working out the results within about ${hood.radiusKm} km…` };
+    return rangeWords(neighbourhoodRange(current, hood.points), { radiusKm: hood.radiusKm, ms: hood.ms, mastM: hood.mastM });
+  }, [hood, current]);
 
   if (s.status === 'loading' || s.status === 'idle') {
     return (
@@ -154,6 +185,10 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               onCompare={onCompare}
               onYear={() => void store.getState().findBestWindow(s.days)}
               yearNote={s.bestWindowNote}
+              plan={plan}
+              requirements={s.requirements}
+              onRequirements={s.setRequirements}
+              range={range}
             />
             <NumbersCard
               site={site}

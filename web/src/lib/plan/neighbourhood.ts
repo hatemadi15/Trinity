@@ -99,6 +99,10 @@ const spanText = ([lo, hi]: Span) => (lo === hi ? spanShort(lo) : `${spanShort(l
  * terrain cannot show.
  */
 export function rangeWords(r: NeighbourhoodRange, { radiusKm, ms, mastM }: { radiusKm: number; ms: number; mastM: number }): { words: string; detail: string } {
+  if (r.points === 1) {
+    const why = `the points round this one have ${r.reasons.join(' or ')}`;
+    return { words: `No range within about ${radiusKm} km: ${why}.`, detail: `Tried at ${r.missing} points ${radiusKm / 2} and ${radiusKm} km away: ${why}.` };
+  }
   const total = r.points + r.missing;
   const count = r.missing > 0 ? `${r.points} of ${total} points` : `${r.points} points`;
   const [lo, hi] = r.poweredH;

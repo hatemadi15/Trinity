@@ -87,6 +87,13 @@ describe('better places nearby', () => {
     expect(placeOptions({ site: here, sites: all, outcomes: {}, current: o(76), req: NO_REQUIREMENTS }).alternatives).toEqual([]);
   });
 
+  it('ranks the spots worked out round the site with the catalogue sites, nearer first on a tie', () => {
+    const spot = { site: { ...here, id: 'custom_-88.2575_-64.3100', name: 'the spot 2.5 km north', label: 'the spot 2.5 km north', category: 'custom' }, km: 2.5 };
+    const p = placeOptions({ site: here, sites: all, outcomes: { summit: o(720), step: o(90) }, extra: [{ place: spot, outcome: o(720) }], current: o(76), req: NO_REQUIREMENTS });
+    expect(p.alternatives.map((a) => a.item.site.id)).toEqual(['custom_-88.2575_-64.3100', 'summit', 'step']);
+    expect(p.better?.item.km).toBe(2.5);
+  });
+
   it('recommends a site that meets a requirement the current one fails, even for less power', () => {
     const p = placeOptions({ site: here, sites: all, outcomes: { summit: o(720, 200), step: o(90, 20) }, current: o(76, 76), req: req({ maxOutageH: 72 }) });
     expect(p.alternatives.map((a) => a.item.site.id)).toEqual(['step', 'summit']);

@@ -195,7 +195,20 @@ export interface NearbyAdvice {
 /** The nearby advice in one sentence: where, how far, and how long the power lasts there. */
 export function nearbyWords(a: NearbyAdvice, days: number): string {
   const lasting = a.hours >= days * 24 ? `all ${days} days` : spanWords(a.hours);
-  return `Nearby, ${siteLabel(a.site)} (${Math.round(a.km)} km away) keeps power for ${lasting} from the same landing day.`;
+  // A spot round an approximate site has its distance in its name already.
+  const where = a.site.category === 'custom' ? siteLabel(a.site) : `${siteLabel(a.site)} (${Math.round(a.km)} km away)`;
+  return `Nearby, ${where} keeps power for ${lasting} from the same landing day.`;
+}
+
+const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+
+/**
+ * A spot worked out round an approximate site, as a place to go: named by its distance and direction from the site
+ * ("the spot 5 km north-east"), with the id a clicked point there has, so its link opens it as a click would.
+ */
+export function spotSite(centre: Pick<Site, 'polar'>, p: { lat: number; lon: number; km: number; bearingDeg: number }): Site {
+  const label = `the spot ${p.km} km ${COMPASS[Math.round(p.bearingDeg / 45) % 8]}`;
+  return { id: `custom_${p.lat.toFixed(4)}_${p.lon.toFixed(4)}`, name: label, label, lat: p.lat, lon: p.lon, category: 'custom', polar: centre.polar, source: 'user' };
 }
 
 /**
@@ -292,7 +305,12 @@ export function planView({
     },
     places: places && {
       search: searchWords({ kind: 'place', days, km: 30 }),
-      options: places.alternatives.map((r) => viewOf(r, `place-${r.item.site.id}`, `${siteLabel(r.item.site)}, ${Math.round(r.item.km)} km away`, { action: `Explore ${siteLabel(r.item.site)}`, href: hrefFor(r.item.site.id) })),
+      options: places.alternatives.map((r) => {
+        const name = siteLabel(r.item.site);
+        // A spot round the site is titled by its own name, which has its distance.
+        const title = r.item.site.category === 'custom' ? `${name[0].toUpperCase()}${name.slice(1)}` : `${name}, ${Math.round(r.item.km)} km away`;
+        return viewOf(r, `place-${r.item.site.id}`, title, { action: `Explore ${name}`, href: hrefFor(r.item.site.id) });
+      }),
     },
     year: year && {
       search: searchWords({ kind: 'year', days: year.days, stepH: year.stepH }),

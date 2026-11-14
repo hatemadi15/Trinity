@@ -68,14 +68,16 @@ export interface NearbyPlace {
 }
 
 /**
- * The better place nearby: the catalogue sites within `maxKm` whose figures are in (`outcomes`, by site id), each from
- * the same landing hour, ranked against the current site. One is recommended only when it fails fewer requirements or
+ * The better place nearby: the catalogue sites within `maxKm` whose figures are in (`outcomes`, by site id), and any
+ * `extra` places worked out for it (the spots round an approximate site), each from the same landing hour, ranked
+ * against the current site, the nearer first on a tie. One is recommended only when it fails fewer requirements or
  * keeps power at least `marginH` hours longer: an hour or two is within what the terrain data can tell apart.
  */
 export function placeOptions({
   site,
   sites,
   outcomes,
+  extra = [],
   current,
   req,
   maxKm = 30,
@@ -85,16 +87,18 @@ export function placeOptions({
   site: Site;
   sites: Site[];
   outcomes: Record<string, Outcome | undefined>;
+  extra?: { place: NearbyPlace; outcome: Outcome }[];
   current: Outcome;
   req: Requirements;
   maxKm?: number;
   top?: number;
   marginH?: number;
 }): Recommendation<NearbyPlace> {
-  const candidates = nearestSites(site, sites, sites.length).flatMap((x) => {
+  const catalogue = nearestSites(site, sites, sites.length).flatMap((x) => {
     const o = outcomes[x.site.id];
-    return x.km <= maxKm && o ? [optionOf<NearbyPlace>(x, o, req)] : [];
+    return x.km <= maxKm && o ? [{ place: x, outcome: o }] : [];
   });
+  const candidates = [...extra, ...catalogue].sort((a, b) => a.place.km - b.place.km).map((x) => optionOf<NearbyPlace>(x.place, x.outcome, req));
   return recommend('place', optionOf<NearbyPlace>({ site, km: 0 }, current, req), rankOptions(candidates).slice(0, top + 1), top, 'this site', givesMore(marginH));
 }
 
