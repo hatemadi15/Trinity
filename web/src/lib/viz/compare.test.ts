@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Site } from '@/lib/data/loaders';
 import { DEFAULT_POWER } from '@/lib/engine/power';
 import type { Outcome } from '@/lib/scenario/outcome';
+import type { Outcome as PlanOutcome } from '@/lib/plan/outcome';
+import { checkRequirements, NO_REQUIREMENTS } from '@/lib/plan/requirements';
 import type { Scenario } from '@/lib/scenario/scenario';
 import { figureRows, READY_PAIRS, settingRows, signedPoints, signedSpan, story, timingLine, type Column } from './compare';
 
@@ -208,5 +210,23 @@ describe('READY_PAIRS', () => {
     expect(READY_PAIRS).toHaveLength(2);
     expect(READY_PAIRS[0]).toEqual({ title: 'A ridge and the summit 12 km away', ids: ['de_gerlache_rim_2', 'de_gerlache_center_rim_high'] });
     expect(READY_PAIRS[1]).toEqual({ title: 'A rim in sunlight and a floor in shadow', ids: ['shackleton_center_rim_high', 'shackleton_center'] });
+  });
+});
+
+describe('each scenario’s requirement checks', () => {
+  // The planner's requirements, checked against what each scenario's lander gets (lib/plan).
+  const plan = (poweredH: number, poweredOutageH: number): PlanOutcome => ({ hour: 0, stayH: 720, poweredH, sunH: 300, contactH: 300, poweredContactH: 0, outageH: 200, poweredOutageH, firstContactH: 0, sunlitAtLanding: true });
+  const req = { ...NO_REQUIREMENTS, minPoweredH: 120, maxOutageH: 72 };
+
+  it('adds a row of your requirements, each scenario against the baseline, only once a requirement is set', () => {
+    const checked = cols.map((c, i) => ({ ...c, checks: checkRequirements(i === 0 ? plan(76, 60) : i === 1 ? plan(10, 10) : plan(720, 60), req) }));
+    const row = figureRows(checked).find((r) => r.id === 'requirements')!;
+    expect(row.name).toBe('Your requirements');
+    expect(row.cells[0]).toEqual({ value: 'Fails 1 of your 2 requirements: power for at least 5 d (3 d 4 h).', change: null, tone: null });
+    expect(row.cells[1]).toEqual({ value: 'Fails 1 of your 2 requirements: power for at least 5 d (10 h).', change: 'same', tone: 'same' });
+    expect(row.cells[2]).toEqual({ value: 'Meets all 2 of your requirements.', change: '1 fewer failed', tone: 'better' });
+    // With none set there is nothing to check, and no row.
+    expect(figureRows(cols).some((r) => r.id === 'requirements')).toBe(false);
+    expect(figureRows(cols.map((c) => ({ ...c, checks: [] }))).some((r) => r.id === 'requirements')).toBe(false);
   });
 });

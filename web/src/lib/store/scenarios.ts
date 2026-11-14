@@ -2,7 +2,8 @@ import { createStore, type StoreApi } from 'zustand';
 import { siteLabel, type Site } from '../data/loaders';
 import { SCENARIO_MAX } from '../scenario/codec';
 import { createMaskSource, type MaskLoaders, type MaskSource } from '../scenario/masks';
-import { bestNearby, nearbyCandidates, NEARBY_KM } from '../scenario/nearby';
+import { bestNearbyFor, nearbyCandidates, NEARBY_KM } from '../scenario/nearby';
+import { periodOutcome, type Outcome as PlanOutcome } from '../plan/outcome';
 import { outcomeOf, type Outcome } from '../scenario/outcome';
 import { periodProblem } from '../scenario/period';
 import { baselineFrom, duplicateOf, paramsOf, scenarioKey, slipOf, type ExploreSettings, type Scenario } from '../scenario/scenario';
@@ -164,18 +165,20 @@ export function createScenarioStore(explore: StoreApi<ExploreState>, loaders: Ma
           if (!eph || !site) return null;
           await run(s);
           const own = get().runs[s.id]?.outcome;
-          if (!own) return null;
-          const tried: { site: Site; km: number; outcome: Outcome }[] = [];
+          const ownResult = get().runs[s.id]?.result;
+          if (!own || !ownResult) return null;
+          const tried: { site: Site; km: number; outcome: Outcome; plan: PlanOutcome }[] = [];
           for (const c of nearbyCandidates(site, sites)) {
             try {
               const { mask } = await masks.get(c.site, s.mastM);
               const r = recompute(eph, c.site, mask, s.startUtc, s.days, paramsOf(s), s.mastM);
-              tried.push({ ...c, outcome: outcomeOf(r, s, siteLabel(c.site)) });
+              tried.push({ ...c, outcome: outcomeOf(r, s, siteLabel(c.site)), plan: periodOutcome(r.series, r.power) });
             } catch {
               // a skyline that fails to load leaves that site out of the search
             }
           }
-          const best = bestNearby(own, tried);
+          // Ranked with the planner's requirements, as Explore's places nearby are (lib/plan).
+          const best = bestNearbyFor(site, periodOutcome(ownResult.series, ownResult.power), tried, explore.getState().requirements);
           // The scenario may have changed or gone while the search ran.
           if (find(id) !== s) return null;
           if (!best) {
