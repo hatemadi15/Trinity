@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { descentPose, ease, firstFromDisc, globePoint, psSouthKm, R_MOON_KM, type Disc, type FirstMoon } from '@/lib/viz/descentPose';
+import { descentPose, ease, firstFromDisc, globePoint, psSouthKm, R_MOON_KM, SPIN_DONE, type Disc, type FirstMoon } from '@/lib/viz/descentPose';
 
 /**
  * The descent's picture (spec 23.1): one globe, and the camera coming down to a landing site as the page scrolls.
@@ -117,7 +117,8 @@ void main() {
 
   vec2 su = vec2(0.5 + (xy.x - siteXY.x) / siteKm, 0.5 - (xy.y - siteXY.y) / siteKm);
   float e = max(abs(su.x - 0.5), abs(su.y - 0.5));
-  float sm = smoothstep(0.5, 0.485, e);
+  // A soft edge, so the picture never reads as a square pasted on the map; at the site it lies beyond the view.
+  float sm = smoothstep(0.5, 0.45, e);
   vec3 sc = texture2D(siteMap, vec2(clamp(su.x, 0.0, 1.0), 1.0 - clamp(su.y, 0.0, 1.0))).rgb;
   col = mix(col, sc, sm * siteMix);
   col *= mix(1.0, 0.38, (1.0 - sm) * siteMix);
@@ -316,7 +317,7 @@ export default function DescentScene({ progress, reduced, hero, pins, layout, on
       const view = layout?.current ?? null;
       const first = view && view.w > 0 && view.h > 0 ? firstFromDisc(view.moon, view.w, view.h) : undefined;
       const pose = descentPose(p, aspect, { reliefHalfKm: hero.reliefHalfKm, windowKm: hero.windowKm }, first);
-      const idleNow = idle + (Math.round(idle / (2 * Math.PI)) * 2 * Math.PI - idle) * ease(p / 0.82);
+      const idleNow = idle + (Math.round(idle / (2 * Math.PI)) * 2 * Math.PI - idle) * ease(p / SPIN_DONE);
       moon.rotation.set(pose.tilt, REST_SPIN + pose.spin + idleNow, 0);
       moon.updateMatrixWorld();
 
