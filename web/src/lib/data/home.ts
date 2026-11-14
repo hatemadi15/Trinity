@@ -29,6 +29,11 @@ export interface HomeDoc {
   /** The hero site's skyline: the hills' height (degrees, to 0.01°) in each direction from `az0` (north), clockwise, `step` degrees apart. */
   mask: { az0: number; step: number; el: number[] };
   pair: { site_sun_pct: number; rim_site_id: string; rim_sun_pct: number; distance_km: number };
+  /**
+   * The crater rim's summit beside the hero site (the pair's rim), for the drawing of the hills: the Sun's direction and
+   * height there hour by hour over the same month, whether it is sunlit, and its own skyline.
+   */
+  rim: { site_id: string; sun_az: number[]; sun_el: number[]; lit: number[]; sunlit_pct: number; mask: { az0: number; step: number; el: number[] } };
   facts: {
     horizons_worst_el_deg: number;
     horizons_rows: number;

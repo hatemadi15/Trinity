@@ -36,7 +36,7 @@ all in tools built for specialists.
 **D:** Earthrise compares landing sites and dates, hour by hour. When does the Sun clear the hills?
 When is Earth in view? How long does a solar lander keep power?
 
-*Screen: the home page's "Fly to the south pole", with the Moon, the pole and the ridge flashing by.*
+*Screen: "Fly to the south pole": the Moon turns and comes closer, down to the pole and the ridge.*
 
 ## 0:38–1:28 | Demo: the five-day slip (screen recording, with reaction cutaways)
 

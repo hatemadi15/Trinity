@@ -25,23 +25,33 @@ afterEach(() => {
 });
 
 describe('root layout', () => {
-  it('loads both faces from font files in the repository, with their licences, so a build needs no network', () => {
+  it('loads the four faces from font files in the repository, with their licences, so a build needs no network', () => {
     expect(src).not.toMatch(/next\/font\/google/);
     expect(src).toMatch(/from 'next\/font\/local'/);
     const files = [...new Set([...src.matchAll(/'\.\/(fonts\/[\w-]+\.woff2)'/g)].map((m) => m[1]))];
-    expect(files).toEqual(['fonts/BricolageGrotesque-latin.woff2', 'fonts/IBMPlexSans-latin.woff2']);
+    expect(files).toEqual([
+      'fonts/InstrumentSerif-latin.woff2',
+      'fonts/InstrumentSerif-Italic-latin.woff2',
+      'fonts/PixelifySans-latin.woff2',
+      'fonts/IBMPlexSans-latin.woff2',
+      'fonts/IBMPlexMono-latin.woff2',
+      'fonts/IBMPlexMono-Medium-latin.woff2',
+    ]);
     for (const file of files) {
       const bytes = fs.readFileSync(path.resolve(process.cwd(), 'src/app', file));
       expect(bytes.subarray(0, 4).toString('latin1'), file).toBe('wOF2');
     }
-    for (const licence of ['OFL-BricolageGrotesque.txt', 'OFL-IBMPlexSans.txt']) {
+    for (const licence of ['OFL-InstrumentSerif.txt', 'OFL-PixelifySans.txt', 'OFL-IBMPlexSans.txt', 'OFL-IBMPlexMono.txt']) {
       expect(fs.readFileSync(path.resolve(process.cwd(), 'src/app/fonts', licence), 'utf8')).toMatch(/SIL Open Font License, Version 1\.1/);
     }
   });
 
-  it('declares the display face with its width range, which the 87.5 % headlines need', () => {
-    expect(src).toMatch(/declarations: \[\{ prop: 'font-stretch', value: '75% 100%' \}\]/);
-    expect(src).toMatch(/weight: '200 800'/);
+  it('loads four faces, each with one job: the serif with its italic for titles, the pixel accent, Plex to read and its mono for labels (spec 23)', () => {
+    expect(src).toMatch(/const serif = localFont\(\{[^;]*InstrumentSerif-latin[^;]*style: 'normal'[^;]*InstrumentSerif-Italic-latin[^;]*style: 'italic'[^;]*variable: '--font-serif'/);
+    expect(src).toMatch(/const pixel = localFont\(\{[^;]*variable: '--font-pixelify'/);
+    expect(src).toMatch(/const plex = localFont\(\{[^;]*weight: '400'[^;]*weight: '500'[^;]*weight: '600'[^;]*variable: '--font-plex'/);
+    expect(src).toMatch(/const plexMono = localFont\(\{[^;]*weight: '400'[^;]*weight: '500'[^;]*variable: '--font-plex-mono'/);
+    expect(src).toMatch(/className=\{`\$\{serif\.variable\} \$\{pixel\.variable\} \$\{plex\.variable\} \$\{plexMono\.variable\} h-full`\}/);
   });
 
   it('sets a share image base, the Open Graph card and a title template', async () => {

@@ -40,8 +40,8 @@ test.describe('Reduced motion', () => {
   test('the home page lands at once when Fly to the south pole is pressed', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('link', { name: 'Fly to the south pole' }).click();
-    // No 21-second flight: the landing's heading has the focus and is in view at once.
-    const landed = page.locator('[data-arrival] h2[tabindex="-1"]');
+    // No 11-second descent: the answer's heading has the focus and is in view at once.
+    const landed = page.locator('[data-descent] h2[tabindex="-1"]');
     await expect(landed).toBeFocused({ timeout: 3_000 });
     await expect(landed).toBeInViewport();
     expect(page.url()).not.toMatch(/\/sites$/);

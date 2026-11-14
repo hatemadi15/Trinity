@@ -70,12 +70,13 @@ test.describe('Without WebGL 2', () => {
     await shot('explore-ground');
   });
 
-  test('the home page shows the arrival as pictures, with its words and its way to the forecast', async ({ page }) => {
+  test('the home page shows the descent as pictures, with its words, a line that says so and its way to the forecast', async ({ page }) => {
     await withoutWebGL(page);
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.locator('[data-arrival] img').first()).toBeVisible();
-    await expect(page.locator('[data-arrival] canvas')).toHaveCount(0);
+    await expect(page.locator('[data-descent] img[data-still="moon"]')).toBeVisible();
+    await expect(page.locator('[data-descent] canvas')).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: 'Still pictures: this browser cannot draw the live view.' })).toBeVisible();
     await expect(page.getByRole('link', { name: /Open the full forecast/ }).first()).toBeAttached();
   });
 });
@@ -113,10 +114,12 @@ test.describe('When the data fails', () => {
 
   test('with one file missing, the page says which part did not load', async ({ page, shot }) => {
     test.setTimeout(240_000);
-    // The site's horizon: Explore and the view from the site say the data did not load, rather than wait for ever.
+    // The site's horizon: Explore says the site's horizon file is not on the server (as it has since the session
+    // branch's fix for a missing horizon file), and the view from the site says the data did not load, rather than wait
+    // for ever.
     await missing(page, '**/data/masks/de_gerlache_rim_2.json');
     await page.goto(exploreUrl());
-    await expect(page.getByRole('alert').filter({ hasText: 'The data could not be loaded.' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('alert').filter({ hasText: 'its horizon file is not on this server' })).toBeVisible({ timeout: 60_000 });
     await page.goto(standUrl());
     await expect(page.getByText('The data for this view did not load.')).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText('Building the ground from NASA heights…')).toBeHidden();

@@ -128,6 +128,9 @@ def test_write_all_produces_the_picture_the_map_and_the_facts(tmp_path):
     assert len(sky["earth_el"]) == 720 and len(sky["earth_hill_el"]) == 720 and len(sky["earth_visible"]) == 720
     assert 0.0 < sky["earth_pct"] < 100.0
     assert doc["pair"]["rim_sun_pct"] == 100.0 and doc["pair"]["distance_km"] == pytest.approx(12.1, abs=0.2)
+    rim = doc["rim"]
+    assert rim["site_id"] == "de_gerlache_center_rim_high" and rim["sunlit_pct"] == 100.0
+    assert len(rim["sun_az"]) == 720 and len(rim["sun_el"]) == 720 and all(rim["lit"]) and len(rim["mask"]["el"]) == 720
     assert 0.3 < doc["hero"]["lit_fraction"] < 0.8
     assert doc["hero"]["frame_utc"] == "2027-01-02T06:00:00"
     ids = {s["id"] for s in doc["relief"]["sites"]}
