@@ -28,6 +28,8 @@ import { dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { dayTicks, hillsToward } from '@/lib/viz/timechart';
 import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
+import { coldTrapSite, coldTrapWords, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
+import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
 import { provenanceWords, terrainDetails, terrainLimitation, trustedAnswer } from '@/lib/viz/terrain';
 
 type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; problems?: string[]; message?: string };
@@ -86,15 +88,19 @@ export function BriefView({
   store = exploreStore,
   narrate,
   uncertainty,
+  coldTraps,
 }: {
   store?: StoreApi<ExploreState>;
   /** Injected in tests; by default asks /api/chat for the paragraph. */
   narrate?: (state: StateSummary) => Promise<NarrationReply>;
   /** Injected in tests; by default the app's data/uncertainty/budget.json. */
   uncertainty?: () => Promise<UncertaintyDoc>;
+  /** Injected in tests; by default the app's data/coldtraps/coldtraps.json. */
+  coldTraps?: () => Promise<ColdTrapDoc>;
 }) {
   const s = useStore(store);
   const budget = useUncertainty(uncertainty);
+  const coldDoc = useColdTraps(coldTraps);
   const [narration, setNarration] = useState<Narration | null>(null);
   const [writing, setWriting] = useState(false);
   // A brief opened from a link, in a new tab or another browser, shows the site, period and settings its address names;
@@ -133,6 +139,9 @@ export function BriefView({
   // Each time with its supported margin (data/uncertainty), printed in full; the ground where the budget measured it.
   const sure = sureLines({ doc: budget, site: { id: s.site.id, polar: s.site.polar }, series: s.series, power: s.power, startUtc: s.startUtc });
   const ground = siteBudget(budget, s.site.id)?.terrain_quality ?? null;
+  // The modelled cold traps near a polar site, in full: printed, so nothing waits behind a link.
+  const coldSite = coldTrapSite(coldDoc, s.site.id);
+  const cold = coldTrapWords(coldSite, { full: true });
   // The terrain behind the figures, and whether they are still from another mast height than the one chosen: an
   // incomplete terrain, or figures still on their way, name no better day (lib/viz/terrain).
   const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
@@ -279,6 +288,7 @@ export function BriefView({
           {sure.lines.length > 0 ? 'each time above carries its own margin.' : 'the times are hourly, so each change falls in the hour before the one given, and the hills can move them by more (see the Accuracy page).'}
         </p>
         {ground && <p className="text-ink-2">{groundWords(ground)}</p>}
+        {cold && <p className="text-ink-2">{cold}</p>}
         {terrain && terrainDetails(terrain) && <p>{terrainDetails(terrain)}</p>}
       </section>
       <section className="flex flex-col gap-1 text-[15px]">
@@ -287,6 +297,7 @@ export function BriefView({
           <li>NASA LRO LOLA polar elevation models (LDEM 20 m, 80 m and 240 m), PDS Geosciences Node.</li>
           <li>JPL DE440 planetary ephemeris and NAIF SPICE kernels; JPL Horizons for the cross-checks.</li>
           {budget && <li>NASA PGDA product 90 (Barker et al. 2023): the adjusted LOLA south-pole models, their height error and the ground at each site, for the margins.</li>}
+          {coldSite?.covered && <li>NASA LRO Diviner Polar Resource Product (Paige et al. 2010) and PGDA product 90&apos;s permanent shadow and slope maps: the modelled cold traps.</li>}
           <li>Site: {s.site.source === 'user' ? 'coordinates picked by the user on the Earthrise map' : s.site.source}.</li>
         </ul>
       </section>

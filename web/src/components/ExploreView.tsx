@@ -41,6 +41,8 @@ import { sceneStateAt } from '@/lib/viz/scene-state';
 import { keyMoments } from '@/lib/viz/stand';
 import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
+import { coldTrapSite, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
+import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
 
 /**
  * Explore: the answer for one site and period first (in words, with the better landing date), then why
@@ -52,6 +54,7 @@ export function ExploreView({
   scenarios = scenarioStore,
   navigate,
   uncertainty,
+  coldTraps,
 }: {
   store?: StoreApi<ExploreState>;
   /** The comparison "Compare from here" starts; by default the app's. */
@@ -59,9 +62,12 @@ export function ExploreView({
   navigate?: (href: string) => void;
   /** Injected in tests; by default the app's data/uncertainty/budget.json. */
   uncertainty?: () => Promise<UncertaintyDoc>;
+  /** Injected in tests; by default the app's data/coldtraps/coldtraps.json. */
+  coldTraps?: () => Promise<ColdTrapDoc>;
 }) {
   const s = useStore(store);
   const budget = useUncertainty(uncertainty);
+  const cold = useColdTraps(coldTraps);
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
   const [hoverHour, setHoverHour] = useState<number | null>(null);
@@ -328,7 +334,7 @@ export function ExploreView({
             reducedMotion={reducedMotion}
             standLink={standLink}
           />
-          <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} />
+          <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} coldTraps={coldTrapSite(cold, site.id)} />
           <PlannerChat store={store} scenarios={scenarios} navigate={go} />
         </div>
         {/* The period's key moments as dots with Next, as on the stand view, so Play and Next show what happens on the first

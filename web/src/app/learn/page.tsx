@@ -4,6 +4,7 @@ import { AppFrame } from '@/components/AppFrame';
 import { Fold } from '@/components/Fold';
 import { WhySection } from '@/components/home/WhySection';
 import { SCIENCE, STORY_STEPS } from '@/lib/learn/story';
+import { COLD_TRAPS } from '@/lib/learn/coldtraps';
 
 export const metadata: Metadata = { title: 'How it works' };
 
@@ -30,6 +31,20 @@ export default function LearnPage() {
           </h2>
           <div className="mt-7 grid gap-x-10 gap-y-7 md:grid-cols-2">
             {SCIENCE.map((x) => (
+              <div key={x.title} className="max-w-[38em]">
+                <h3 className="display text-[23px] font-semibold leading-tight">{x.title}</h3>
+                <p className="mt-2 leading-relaxed text-ink-2">{x.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+        {/* Where Explore's "What a cold trap is" lands: why cold traps matter and what the modelled layer does not establish. */}
+        <section id="cold-traps" aria-labelledby="h-cold-traps" className="wrap pt-16">
+          <h2 id="h-cold-traps" className="display text-[34px] sm:text-[40px]">
+            Cold traps: where ice could last
+          </h2>
+          <div className="mt-7 grid gap-x-10 gap-y-7 md:grid-cols-2">
+            {COLD_TRAPS.map((x) => (
               <div key={x.title} className="max-w-[38em]">
                 <h3 className="display text-[23px] font-semibold leading-tight">{x.title}</h3>
                 <p className="mt-2 leading-relaxed text-ink-2">{x.body}</p>
