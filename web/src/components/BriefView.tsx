@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { DataProblem, SYNC_HINT } from './DataProblem';
+import { groundWords } from './explore/GroundQuality';
+import { ENERGY_ONLY, POWER_SCOPE_LINE } from './PowerScope';
 import { SkyRow } from './SkyRow';
 import { askNarration, shortModel } from '@/lib/ai/client';
 import { templateBrief } from '@/lib/ai/narrate';
@@ -16,6 +18,8 @@ import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { hillsToward } from '@/lib/viz/timechart';
+import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
+import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
 
 type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; message?: string };
 
@@ -46,12 +50,16 @@ const EARTH_H = 80;
 export function BriefView({
   store = exploreStore,
   narrate,
+  uncertainty,
 }: {
   store?: StoreApi<ExploreState>;
   /** Injected in tests; by default asks /api/chat for the paragraph. */
   narrate?: (state: StateSummary) => Promise<NarrationReply>;
+  /** Injected in tests; by default the app's data/uncertainty/budget.json. */
+  uncertainty?: () => Promise<UncertaintyDoc>;
 }) {
   const s = useStore(store);
+  const budget = useUncertainty(uncertainty);
   const [narration, setNarration] = useState<Narration | null>(null);
   const [writing, setWriting] = useState(false);
   useEffect(() => {
@@ -75,6 +83,9 @@ export function BriefView({
   }
   const p = s.params.power;
   const name = siteLabel(s.site);
+  // Each time with its supported margin (data/uncertainty), printed in full; the ground where the budget measured it.
+  const sure = sureLines({ doc: budget, site: { id: s.site.id, polar: s.site.polar }, series: s.series, power: s.power, startUtc: s.startUtc });
+  const ground = siteBudget(budget, s.site.id)?.terrain_quality ?? null;
   const answer = answerFor({ siteName: name, series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: p.loadW, batteryWh: p.batteryWh, best: s.best });
   const hours = s.days * 24;
   const powered = Math.min(hours, timeWithPower(s.power));
@@ -145,6 +156,19 @@ export function BriefView({
         {answer.better && <p className="mt-1 text-[15px]">{answer.better.note}</p>}
         {answer.hint && <p className="mt-1 text-[15px] text-ink-2">{answer.hint}</p>}
       </section>
+      {sure.lines.length > 0 && (
+        <section aria-labelledby="brief-sure" className="flex flex-col gap-1 text-[15px]">
+          <h2 id="brief-sure" className="display text-[18px] font-semibold">
+            How sure these times are
+          </h2>
+          <ul className="list-disc pl-5">
+            {sure.lines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          {sure.basis && <p className="text-ink-2">{sure.basis} The margins add the three sources; the Accuracy page gives each one apart.</p>}
+        </section>
+      )}
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-[15px] sm:grid-cols-3">
         {figures.map(([k, v]) => (
           <div key={k}>
@@ -178,6 +202,9 @@ export function BriefView({
           {landerLine(p)}, starting with the battery {Math.round(p.initialSocFraction * 100)}&nbsp;% full; Earth counts as in view{' '}
           {s.params.minEarthElDeg > 0 ? `when it clears the hills by at least ${s.params.minEarthElDeg}°` : 'whenever it clears the hills'}.
         </p>
+        <p>
+          {POWER_SCOPE_LINE} {ENERGY_ONLY}
+        </p>
       </section>
       <section className="flex flex-col gap-1 text-[15px]">
         <h2 className="display text-[18px] font-semibold">How this was computed</h2>
@@ -188,14 +215,17 @@ export function BriefView({
           The hills on the horizon are traced through
           NASA LRO LOLA elevation grids (20 m within 6 km, 80 m to 100 km, 240 m to 220 km) from a {mast} m mast; the Sun counts as up when any part of it clears the hills. Power is the
           panel&apos;s share of 1361 W/m² at the Moon&apos;s distance from the Sun, times the part of the Sun in view; the battery charges with the surplus and empties on the deficit, hour by hour.
-          Errors: directions under 0.01°, the hills 0.05 to 0.15°, times within 15 to 60 minutes near the pole.
+          Errors: the directions match JPL Horizons to 0.00003°;{' '}
+          {sure.lines.length > 0 ? 'each time above carries its own margin.' : 'the times are hourly, so each change falls in the hour before the one given, and the hills can move them by more (see the Accuracy page).'}
         </p>
+        {ground && <p className="text-ink-2">{groundWords(ground)}</p>}
       </section>
       <section className="flex flex-col gap-1 text-[15px]">
         <h2 className="display text-[18px] font-semibold">Data</h2>
         <ul className="list-disc pl-5">
           <li>NASA LRO LOLA polar elevation models (LDEM 20 m, 80 m and 240 m), PDS Geosciences Node.</li>
           <li>JPL DE440 planetary ephemeris and NAIF SPICE kernels; JPL Horizons for the cross-checks.</li>
+          {budget && <li>NASA PGDA product 90 (Barker et al. 2023): the adjusted LOLA south-pole models, their height error and the ground at each site, for the margins.</li>}
           <li>Site: {s.site.source === 'user' ? 'coordinates picked by the user on the Earthrise map' : s.site.source}.</li>
         </ul>
       </section>
