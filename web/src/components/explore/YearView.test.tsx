@@ -159,6 +159,14 @@ describe('YearView', () => {
     expect(screen.getByText('The Sun and Earth table ends on 31 December 2036, so the year stops at 3 October 2036, the last landing whose 90 days fit.')).toBeTruthy();
   });
 
+  it('names no best day when its figures cannot support one, as the answer names no better day then', async () => {
+    await openYear(props('blue_ghost_m1', { startUtc: '2025-03-02T00:00:00', days: 14, caution: 'The hills here are not complete.' }));
+    expect(screen.getByRole('status').textContent).toBe('The hills here are not complete. The year shows what each landing day would give, but names no best day.');
+    // Each day still carries its figures.
+    expect(days()).toHaveLength(365);
+    expect(days()[0].getAttribute('aria-label')).toMatch(/^Land 2 March 2025, 00:00 UTC/);
+  });
+
   it('names its NASA data at its foot, as every panel does', async () => {
     await openYear(props('de_gerlache_rim_2'));
     const row = screen.getByLabelText('Data sources');

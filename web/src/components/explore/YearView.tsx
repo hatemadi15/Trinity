@@ -56,6 +56,11 @@ interface YearProps {
   onLand: (startUtc: string) => void;
   /** How the days are graded and ranked; the scoring Explore uses when none is given. */
   scoring?: DayScoring;
+  /**
+   * Why the figures cannot support a recommendation (terrain that is not complete, a mast still being worked out), in a
+   * sentence: the year then shows each day's figures but names no best day, as the answer names no better day.
+   */
+  caution?: string | null;
   /** The pause between slices of the work (a test holds it to change the site mid-way). */
   pause?: () => Promise<void>;
 }
@@ -77,7 +82,7 @@ export function YearView(props: YearProps) {
   );
 }
 
-function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = YEAR_SCORING, pause = nextTask }: YearProps) {
+function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = YEAR_SCORING, caution = null, pause = nextTask }: YearProps) {
   const key = JSON.stringify([site.id, site.lat, site.lon, days, params.power, params.minEarthElDeg, startUtc.slice(11)]);
   const [anchor, setAnchor] = useState<Anchor>(() => ({ key, site, mask, startUtc, days, params }));
   // The year stays where it is while a day within it is chosen; anything else (the site, its skyline, the length, the
@@ -122,6 +127,7 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
 
   // Only the year worked out for this very anchor is shown: one for an earlier site or period never is.
   const ready = worked && worked.anchor === anchor ? worked : null;
+  const answer = ready ? (caution ? `${caution} The year shows what each landing day would give, but names no best day.` : headline(ready.year, scoring)) : null;
   // Luna's "show me the year" (spec 22): the year comes into view with its tab stop in focus, and she says its answer.
   // Asked before the year is worked out (she opens the forecast for it), it shows itself once it is.
   const box = useRef<HTMLDivElement>(null);
@@ -133,7 +139,7 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
   useLunaControls({
     year: () => {
       show();
-      if (ready) return headline(ready.year, scoring);
+      if (answer) return answer;
       wanted.current = true;
       return 'Working out every landing day of the next 12 months.';
     },
@@ -162,7 +168,7 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
     >
       {/* One live line: the plain waiting state while the year is worked out, then the year's answer, read out as it comes. */}
       <p role="status" className={`max-w-[46em] text-[17px] leading-relaxed ${ready ? 'font-medium text-ink' : 'text-ink-2'}`}>
-        {ready ? headline(ready.year, scoring) : count > 0 ? `Working out the ${count} landing days…` : 'Working out the landing days…'}
+        {answer ?? (count > 0 ? `Working out the ${count} landing days…` : 'Working out the landing days…')}
       </p>
       {count > 0 && (
         <Fold label="How the days are coloured" className="-mt-2 text-[15px]">
