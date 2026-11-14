@@ -43,3 +43,26 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
 `components/ui/halftone-nebula.tsx` (with `moonstone` and `paper` presets), `MoonNebula`, `SectionHead`, `Reveal`,
 `Tip`, `NavLinks`, `home/EarthriseScene`, `home/ForecastHover`, `luna/LunaPet`, `luna/LunaBot`, `luna/LunaDock`.
 Textures and their credits: `web/public/hero/textures/`.
+
+## 23.1 The descent (replaces the arrival's flight)
+- One WebGL picture (`home/Descent`, `home/DescentScene`) from the first screen to the answer, six screens of scroll:
+  the Moon turns 1¼ times, tips its south pole towards the camera and comes closer on a log scale, from the whole
+  Moon to the polar cap to the site. No stills are swapped: NASA's Moon map, the relief map of the pole and the site's
+  shadow picture lie on the one globe in the pipeline's south polar stereographic projection (`lib/viz/descentPose`,
+  tested against the relief map's own pins), so the view sharpens as it nears.
+- One line of words per stage (the Moon turns; the south pole; the site; the answer), never two at once; names on
+  the polar map; a rail at the side that names the stages and jumps to any of them. No line telling anyone to scroll.
+  "Fly to the south pole" plays it in 11 s; a wheel, a touch or a key stops it. Reduced motion stops at each stage's
+  own view. Without WebGL, the still, the relief map and the site's picture stand in.
+
+## 23.2 Luna's chat
+- Her panel is a chat: her greeting, your lines on the right in blue, hers on the left with her face, three dots
+  while she works, and ready-made messages to start. The conversation lasts from page to page (`lunaStore.messages`).
+- The microphone listens only when pressed, and writes what it hears into the message box as it comes; nothing is
+  sent until the visitor presses Send. A dictated message's reply is also said aloud.
+
+## 23.3 Clearer sections
+- The forecast reads in three steps with room between them: the Sun, Earth, the lander; each row with its own words
+  and key.
+- The three drawings of "Why the south pole is hard" name what is in them where it stands: the Sun, Earth, the
+  Moon's ground and hills, a lander, the shadow of the rim, the radio.

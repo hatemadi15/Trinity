@@ -22,6 +22,8 @@ export function botFace(status: LunaStatus): BotFace {
   switch (status) {
     case 'off':
       return 'idle';
+    case 'ready':
+      return 'happy';
     case 'listening':
       return 'wide';
     case 'thinking':

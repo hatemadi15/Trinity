@@ -31,8 +31,8 @@ class FakeRec implements Recognition {
   abort() {
     this.aborts++;
   }
-  say(text: string) {
-    const result = Object.assign([{ transcript: text }], { isFinal: true });
+  say(text: string, isFinal = true) {
+    const result = Object.assign([{ transcript: text }], { isFinal });
     act(() => this.onresult?.({ resultIndex: 0, results: [result] }));
   }
 }
@@ -55,68 +55,81 @@ function mount(o: { recognition?: () => (new () => Recognition) | null; speak?: 
   return { store, navigate, ...v };
 }
 
+const reset = () => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, messages: [], draft: '', canDictate: false });
+const thread = () => lunaStore.getState().messages.map((m) => [m.from, m.text]);
 beforeEach(() => {
   FakeRec.made = [];
-  lunaStore.setState({ on: false, status: 'off', heard: null, reply: null });
+  reset();
 });
 afterEach(() => {
   cleanup();
-  lunaStore.setState({ on: false, status: 'off', heard: null, reply: null });
+  reset();
 });
 
-describe('Luna’s engine', () => {
-  it('listens only once she is turned on: a continuous English recognition, started', () => {
+describe('Luna’s engine (spec 23.2: a chat, the microphone on request)', () => {
+  it('opens ready to chat, without listening: the microphone starts only on request, an English recognition that stops after a phrase', () => {
     mount();
-    expect(FakeRec.made).toHaveLength(0);
     act(() => lunaStore.getState().setOn(true));
     const rec = FakeRec.made[0];
-    expect([rec.lang, rec.continuous, rec.interimResults]).toEqual(['en-US', true, false]);
-    expect(rec.starts).toBe(1);
-    expect(lunaStore.getState().status).toBe('listening');
+    expect([rec.lang, rec.continuous, rec.interimResults]).toEqual(['en-US', false, true]);
+    expect(rec.starts).toBe(0);
+    expect(lunaStore.getState().status).toBe('ready');
+    expect(lunaStore.getState().canDictate).toBe(true);
   });
 
-  it('acts on what she hears, says her reply without listening meanwhile, then listens again', async () => {
+  it('writes what the microphone hears into the message box as it comes, and sends nothing by itself', () => {
+    const { said } = mount();
+    act(() => lunaStore.getState().setOn(true));
+    act(() => lunaStore.getState().dictate());
+    const rec = FakeRec.made[0];
+    expect(rec.starts).toBe(1);
+    expect(lunaStore.getState().status).toBe('listening');
+    rec.say('compare de', false);
+    expect(lunaStore.getState().draft).toBe('compare de');
+    rec.say('compare de Gerlache Rim 2 and Nobile Rim 2');
+    expect(lunaStore.getState().draft).toBe('compare de Gerlache Rim 2 and Nobile Rim 2');
+    act(() => rec.onend?.());
+    expect(lunaStore.getState().status).toBe('ready');
+    expect(lunaStore.getState().messages).toHaveLength(0);
+    expect(said).toHaveLength(0);
+  });
+
+  it('answers a typed message in the conversation, quietly', async () => {
     const play = vi.fn();
     const off = registerControls({ play });
     const { said } = mount();
     act(() => lunaStore.getState().setOn(true));
-    const rec = FakeRec.made[0];
-    rec.say('Luna, play');
+    act(() => lunaStore.getState().submit('Luna, play'));
     await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(lunaStore.getState().status).toBe('speaking'));
+    await waitFor(() => expect(thread()).toEqual([['you', 'Luna, play'], ['luna', 'Playing.']]));
+    expect(said).toHaveLength(0);
+    expect(lunaStore.getState().status).toBe('ready');
     expect(lunaStore.getState().heard).toBe('Luna, play');
     expect(lunaStore.getState().reply).toBe('Playing.');
-    expect(said[0].text).toBe('Playing.');
-    // While she speaks the recognition is stopped, so she never hears herself.
-    expect(rec.aborts).toBeGreaterThanOrEqual(1);
-    act(() => said[0].done());
-    expect(lunaStore.getState().status).toBe('listening');
-    expect(rec.starts).toBe(2);
     off();
   });
 
-  it('starts listening again when the browser ends its recognition, as Chrome does after a silence', async () => {
-    vi.useFakeTimers();
-    try {
-      mount();
-      act(() => lunaStore.getState().setOn(true));
-      const rec = FakeRec.made[0];
-      act(() => rec.onend?.());
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(400);
-      });
-      expect(rec.starts).toBe(2);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it('lets a stray word go without a reply', async () => {
+  it('says the reply to a dictated message aloud too, with the microphone off meanwhile', async () => {
+    const play = vi.fn();
+    const off = registerControls({ play });
     const { said } = mount();
     act(() => lunaStore.getState().setOn(true));
-    FakeRec.made[0].say('um');
-    await waitFor(() => expect(lunaStore.getState().status).toBe('listening'));
-    expect(lunaStore.getState().heard).toBe('um');
+    act(() => lunaStore.getState().submit('play', true));
+    await waitFor(() => expect(said).toHaveLength(1));
+    expect(said[0].text).toBe('Playing.');
+    expect(lunaStore.getState().status).toBe('speaking');
+    act(() => said[0].done());
+    expect(lunaStore.getState().status).toBe('ready');
+    off();
+  });
+
+  it('says so in the conversation when a message asks for nothing she can do', async () => {
+    const { said } = mount();
+    act(() => lunaStore.getState().setOn(true));
+    act(() => lunaStore.getState().submit('um'));
+    await waitFor(() => expect(thread()).toHaveLength(2));
+    expect(thread()[1][0]).toBe('luna');
+    expect(thread()[1][1]).toMatch(/^I did not catch a request there/);
     expect(lunaStore.getState().reply).toBeNull();
     expect(said).toHaveLength(0);
   });
@@ -124,7 +137,7 @@ describe('Luna’s engine', () => {
   it('says goodbye, then turns herself off, on "stop listening"', async () => {
     const { said } = mount();
     act(() => lunaStore.getState().setOn(true));
-    FakeRec.made[0].say('stop listening');
+    act(() => lunaStore.getState().submit('stop listening'));
     await waitFor(() => expect(said).toHaveLength(1));
     expect(said[0].text).toMatch(/^Luna is off/);
     expect(lunaStore.getState().on).toBe(true);
@@ -133,27 +146,31 @@ describe('Luna’s engine', () => {
     expect(lunaStore.getState().status).toBe('off');
   });
 
-  it('takes typed words where the browser has no voice input, and when the microphone is blocked', async () => {
+  it('takes typed words where the browser has no voice input, and says when the microphone is blocked', async () => {
     const navigate = vi.fn();
     mount({ recognition: () => null, navigate });
     act(() => lunaStore.getState().setOn(true));
     expect(lunaStore.getState().status).toBe('typing');
+    expect(lunaStore.getState().canDictate).toBe(false);
     act(() => lunaStore.getState().submit('go home'));
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
     cleanup();
-    lunaStore.setState({ on: false, status: 'off' });
+    reset();
     mount();
     act(() => lunaStore.getState().setOn(true));
+    act(() => lunaStore.getState().dictate());
     act(() => FakeRec.made.at(-1)!.onerror?.({ error: 'not-allowed' }));
     expect(lunaStore.getState().status).toBe('blocked');
   });
 
-  it('stops listening and speaking when she is turned off', () => {
+  it('stops the microphone and her voice when she is turned off', () => {
     mount();
     act(() => lunaStore.getState().setOn(true));
+    act(() => lunaStore.getState().dictate());
     const rec = FakeRec.made[0];
     act(() => lunaStore.getState().setOn(false));
     expect(rec.aborts).toBeGreaterThanOrEqual(1);
     expect(lunaStore.getState().status).toBe('off');
+    expect(lunaStore.getState().draft).toBe('');
   });
 });

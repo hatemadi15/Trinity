@@ -8,6 +8,8 @@ export function lunaMood(status: LunaStatus): LunaMood {
   switch (status) {
     case 'off':
       return 'sleepy';
+    case 'ready':
+      return 'happy';
     case 'listening':
       return 'listening';
     case 'thinking':

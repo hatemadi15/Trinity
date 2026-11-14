@@ -65,6 +65,7 @@ export default function Home() {
   const siteLink = exploreHref(hero.site_id, sky.start_utc, 30);
   const frameDate = new Date(`${hero.frame_utc}Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   const typical = Math.round(facts.mazarico_median_points);
+  const FORECAST = { startUtc: sky.start_utc, sunEl: sky.sun_el, lit: sky.lit, earthEl: sky.earth_el, earthVisible: sky.earth_visible };
   const better = battery.best_hour !== null && battery.best_hours !== null && battery.best_hours > battery.now_hours ? { hour: battery.best_hour, hours: battery.best_hours } : null;
   /** Each check has the same four attributes, so the three are a table. */
   const checks = [
@@ -92,8 +93,10 @@ export default function Home() {
       <main>
         <Descent words={descentWords()} />
 
-        {/* 01. The forecast runs from edge to edge on a black band, a window onto the Moon in both themes. Its side labels line up with the page gutter. */}
-        <figure aria-labelledby="h-forecast" data-stage="" className="border-y border-stage-edge bg-stage pb-12 pt-20 text-stage-ink [--chart-inset:16px] sm:[--chart-inset:32px]">
+        {/* 01. The forecast, read in three steps with room between them: the Sun, Earth, and what the two mean for a
+            lander. The rows run from edge to edge on a black band, a window onto the Moon in both themes; their side
+            labels line up with the page gutter. */}
+        <figure aria-labelledby="h-forecast" data-stage="" className="border-y border-stage-edge bg-stage pb-16 pt-24 text-stage-ink [--chart-inset:16px] sm:[--chart-inset:32px]">
           <figcaption className="wrap">
             <Reveal>
               <p className="eyebrow flex items-center gap-3 text-[#a8c6ff]">
@@ -104,48 +107,95 @@ export default function Home() {
                 <span className="sr-only">A real forecast: </span>
                 {hero.name}, <em>January 2027</em>
               </p>
-              <p className="mt-4 max-w-[42em] text-lg leading-relaxed text-stage-ink-2">
-                A ridge NASA shortlisted for astronauts. Read it from left to right, a day at a time: heights are angles above the horizon, and 5° is about three fingers at arm&apos;s length.{' '}
-                <span className="text-stage-ink">Point at the chart, or tab to it, to read any hour.</span>
+              <p className="mt-5 max-w-[38em] text-lg leading-relaxed text-stage-ink-2">
+                A ridge NASA shortlisted for astronauts. Here is one month there, read from left to right, a day at a time.{' '}
+                <span className="text-stage-ink">Point at a chart, or tab to it, to read any hour.</span>
               </p>
             </Reveal>
-            <SkyRowKey body="both" className="mt-6 text-stage-ink-2" />
           </figcaption>
-          <div className="mt-4">
-            <ForecastHover series={{ startUtc: sky.start_utc, sunEl: sky.sun_el, lit: sky.lit, earthEl: sky.earth_el, earthVisible: sky.earth_visible }}>
-              <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} ticks={false} fitHills />
-              <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} />
-            </ForecastHover>
+
+          {/* Step 1: the Sun. */}
+          <div className="mt-20">
+            <Reveal className="wrap grid gap-4 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)] md:gap-12">
+              <p className="flex items-baseline gap-3">
+                <span className="pixel text-[20px] text-[#a8c6ff]">1</span>
+                <span className="display text-[32px] leading-none">The Sun</span>
+              </p>
+              <div>
+                <p className="max-w-[40em] text-lg leading-relaxed text-stage-ink-2">
+                  The white line is how high the Sun stands; grey is how high the hills stand in its direction. Where the line drops behind the grey, the site is in night, even with
+                  the Sun up. Heights are angles: 5° is about three fingers at arm&apos;s length.
+                </p>
+                <SkyRowKey body="sun" className="mt-4 text-stage-ink-2" />
+              </div>
+            </Reveal>
+            <div className="mt-6">
+              <ForecastHover series={FORECAST}>
+                <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} fitHills />
+              </ForecastHover>
+            </div>
           </div>
-          {/* What the forecast means for a lander, in three figures: the promise of the headline. */}
-          <div className="wrap mt-10">
+
+          {/* Step 2: Earth. */}
+          <div className="mt-20">
+            <Reveal className="wrap grid gap-4 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)] md:gap-12">
+              <p className="flex items-baseline gap-3">
+                <span className="pixel text-[20px] text-[#a8c6ff]">2</span>
+                <span className="display text-[32px] leading-none">Earth</span>
+              </p>
+              <div>
+                <p className="max-w-[40em] text-lg leading-relaxed text-stage-ink-2">
+                  The blue line is Earth. A lander can only radio home directly while Earth stands above the hills, and Earth hardly moves in the sky, so it can stay hidden for
+                  days.
+                </p>
+                <SkyRowKey body="earth" className="mt-4 text-stage-ink-2" />
+              </div>
+            </Reveal>
+            <div className="mt-6">
+              <ForecastHover series={FORECAST}>
+                <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Contact with Earth" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} />
+              </ForecastHover>
+            </div>
+          </div>
+
+          {/* Step 3: what the forecast means for a lander, in three figures: the promise of the headline. */}
+          <div className="wrap mt-20">
+            <Reveal className="grid gap-4 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)] md:gap-12">
+              <p className="flex items-baseline gap-3">
+                <span className="pixel text-[20px] text-[#a8c6ff]">3</span>
+                <span className="display text-[32px] leading-none">The lander</span>
+              </p>
+              <p className="max-w-[40em] text-lg leading-relaxed text-stage-ink-2">
+                Sunlight charges the battery; night drains it. The landing day decides how long a small solar lander keeps working.
+              </p>
+            </Reveal>
             <p className="sr-only">
               An example lander, not a planned mission: {battery.lander.area_m2} m² of solar panels and a {battery.lander.battery_wh / 1000} kWh battery. Landing on {dateLong(sky.start_utc, 0)}, it keeps power for {spanWords(battery.now_hours)}
               {better ? `; landing on ${dateLong(sky.start_utc, better.hour)}, for ${spanWords(better.hours)}.` : '.'}
             </p>
-            <ul aria-hidden="true" className="grid gap-px overflow-hidden rounded-2xl border border-stage-line bg-stage-line sm:grid-cols-3">
-              <li className="bg-stage p-6">
+            <ul aria-hidden="true" className="mt-8 grid gap-px overflow-hidden rounded-2xl border border-stage-line bg-stage-line sm:grid-cols-3">
+              <li className="bg-stage p-7">
                 <p className="eyebrow text-stage-ink-2">An example lander</p>
-                <p className="display mt-3 text-[34px] leading-none">
+                <p className="display mt-4 text-[38px] leading-none">
                   {battery.lander.area_m2} m² <span className="text-stage-ink-2">·</span> {battery.lander.battery_wh / 1000} kWh
                 </p>
-                <p className="mt-2 text-[15px] text-stage-ink-2">solar panels and battery; not a planned mission</p>
+                <p className="mt-3 text-[15px] text-stage-ink-2">solar panels and battery; not a planned mission</p>
               </li>
-              <li className="bg-stage p-6">
+              <li className="bg-stage p-7">
                 <p className="eyebrow text-stage-ink-2">Landing on {dateLong(sky.start_utc, 0)}</p>
-                <p className="display mt-3 text-[34px] leading-none">{spanShort(Math.round(battery.now_hours))}</p>
-                <p className="mt-2 text-[15px] text-stage-ink-2">of power, then night</p>
+                <p className="display mt-4 text-[38px] leading-none">{spanShort(Math.round(battery.now_hours))}</p>
+                <p className="mt-3 text-[15px] text-stage-ink-2">of power, then night</p>
               </li>
               {better && (
-                <li className="relative bg-stage p-6 shadow-[inset_0_0_0_1px_rgba(127,169,255,0.45),inset_0_0_60px_-20px_rgba(127,169,255,0.5)]">
+                <li className="relative bg-stage p-7 shadow-[inset_0_0_0_1px_rgba(127,169,255,0.45),inset_0_0_60px_-20px_rgba(127,169,255,0.5)]">
                   <p className="eyebrow text-[#a8c6ff]">Landing on {dateLong(sky.start_utc, better.hour)}</p>
-                  <p className="display mt-3 text-[34px] leading-none text-[#cfe0ff] text-glow">{spanShort(Math.round(better.hours))}</p>
-                  <p className="mt-2 text-[15px] text-stage-ink-2">of power: the better landing day</p>
+                  <p className="display mt-4 text-[38px] leading-none text-[#cfe0ff] text-glow">{spanShort(Math.round(better.hours))}</p>
+                  <p className="mt-3 text-[15px] text-stage-ink-2">of power: the better landing day</p>
                 </li>
               )}
             </ul>
           </div>
-          <div className="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 pt-8 text-[15px] text-stage-ink-2">
+          <div className="wrap flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2 pt-10 text-[15px] text-stage-ink-2">
             <p className="max-w-[62em]">Computed from NASA&apos;s elevation map of the Moon and NASA&apos;s positions of the Sun and Earth.</p>
             <Link href={siteLink} className={`${LINK} link-arrow inline-flex items-center gap-2 whitespace-nowrap text-stage-ink`}>
               Open the full forecast

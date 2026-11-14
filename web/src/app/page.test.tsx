@@ -95,15 +95,28 @@ describe('home page', () => {
 
   it("keeps the forecast's explanation to a readable line length", () => {
     render(<Home />);
-    expect(screen.getByText(/Read it from left to right/).className).toMatch(/\bmax-w-\[42em\]/);
+    expect(screen.getByText(/read from left to right, a day at a time/).className).toMatch(/\bmax-w-\[38em\]/);
+    for (const p of screen.getAllByText(/^The (white|blue) line is/)) expect(p.className).toMatch(/\bmax-w-\[40em\]/);
   });
 
-  it('explains how to read the forecast before it starts', () => {
+  it('reads the forecast in three steps with room between them: the Sun, Earth, then what they mean for a lander (spec 23)', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     expect(band.textContent).toMatch(/A ridge NASA shortlisted for astronauts\./);
-    expect(band.textContent).toMatch(/Read it from left to right, a day at a time: heights are angles above the horizon, and 5° is about three fingers at arm's length\. Point at the chart, or tab to it, to read any hour\./);
-    expect(within(band).getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while set', 'the hills in its direction at that time']);
+    const steps = [...band.querySelectorAll('.display.text-\\[32px\\]')].map((el) => el.textContent);
+    expect(steps).toEqual(['The Sun', 'Earth', 'The lander']);
+    expect(band.textContent).toMatch(/The white line is how high the Sun stands; grey is how high the hills stand in its direction\./);
+    expect(band.textContent).toMatch(/5° is about three fingers at arm's length\./);
+    expect(band.textContent).toMatch(/The blue line is Earth\. A lander can only radio home directly while Earth stands above the hills/);
+    // Each row has its own key beside its words.
+    expect(within(band).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      'height of the Sun',
+      'the Sun while set',
+      "hills in the Sun's direction at that time",
+      'height of Earth',
+      'Earth while set',
+      "hills in Earth's direction at that time",
+    ]);
   });
 
   it('says under the forecast where the numbers come from, and links to the site', () => {
@@ -231,7 +244,7 @@ describe('home page', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     expect(within(band).queryByRole('button', { name: /How to read this/ })).toBeNull();
-    const chart = within(band).getByRole('group', { name: /hour by hour/ });
+    const chart = within(band).getAllByRole('group', { name: /hour by hour/ })[0];
     fireEvent.keyDown(chart, { key: 'ArrowRight' });
     const card = band.querySelector('[data-hour-card]')!;
     expect(card.textContent).toMatch(/^1 Jan 2027, 01:00 UTC/);

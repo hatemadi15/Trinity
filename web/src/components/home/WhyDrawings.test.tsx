@@ -25,16 +25,21 @@ describe('WhyDrawings', () => {
 
   it('names the two places on the middle drawing the way the page does, and keeps each number with its unit', () => {
     const first = render(<HillsDecide rimPct={100} sitePct={45} km={12} />);
-    expect(words(first.container)).toEqual(['The same month, 12 km apart', 'rim summit', 'sunlit all month', 'Rim 2: sunlit 45 % of the month']);
+    expect(words(first.container)).toEqual(['The same month, 12 km apart', 'rim summit', 'sunlit all month', 'Sun, low', 'shadow of the rim', 'Rim 2: sunlit 45 % of the month']);
     first.unmount();
     const second = render(<HillsDecide rimPct={83.4} sitePct={20} km={7} />);
-    expect(words(second.container)).toEqual(['The same month, 7 km apart', 'rim summit', 'sunlit 83 % of the month', 'Rim 2: sunlit 20 % of the month']);
+    expect(words(second.container)).toEqual(['The same month, 7 km apart', 'rim summit', 'sunlit 83 % of the month', 'Sun, low', 'shadow of the rim', 'Rim 2: sunlit 20 % of the month']);
     // The two places are big enough to see, each ringed so it shows on black.
     for (const dot of second.container.querySelectorAll('circle[data-place]')) {
       expect(Number(dot.getAttribute('r'))).toBeGreaterThanOrEqual(8);
       expect(dot.getAttribute('stroke')).toBe('var(--stage-ink)');
     }
     expect(second.container.querySelectorAll('circle[data-place]')).toHaveLength(2);
+  });
+
+  it('names what is in each drawing where it stands: the Sun, Earth, the ground and a lander (spec 23)', () => {
+    expect(words(render(<SunNeverClimbs />).container)).toEqual(["The Sun's path over one month", 'a low circle around the horizon', 'Sun', 'a lander at the south pole', "the Moon's ground and hills"]);
+    expect(words(render(<EarthSetsToo />).container)).toEqual(['Earth stays in one direction', 'and bobs above and below the hills', 'Earth', 'lander', 'below the hills: no radio']);
   });
 
   it('is a picture panel hidden from screen readers, because the text beside each drawing says the same', () => {
