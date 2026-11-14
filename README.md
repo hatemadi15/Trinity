@@ -81,8 +81,9 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
 - **The brief** (`/brief`): one printable page with Explore's answer, five numbers, the Sun's and
   Earth's rows over the period, each of its times with its measured margin, the lander and what its
   power figures assume (electrical energy only, not keeping warm through the night or starting
-  again), the method, the ground at the site and the data, and an optional narrated
-  paragraph checked number by number against the figures.
+  again), the method, the ground at the site and the data, and an optional narrated paragraph checked claim by claim against the figures
+  (each number on its measure, unit, site and sign, and no cause or survival claim the figures do
+  not give); when it fails, the app's own paragraph stands and the page says what did not match.
 - **Ask in plain words** (on Explore and Compare): an assistant that turns a typed question
   ("Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "Find the best landing date for 14
   days", "Explain the longest night") into the same controls a person would use. It never computes
