@@ -58,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     en.add_argument("--site", action="append", help="only these polar sites (default: every one)")
     en.add_argument("--versions", type=int, default=32, help="versions per site (default 32)")
     en.add_argument("--seed", type=int, default=20261115)
+    en.add_argument("--index-only", action="store_true", help="only write the index again from the stored versions")
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
     sub.add_parser("home-assets", help="render the home page picture, the relief map and home.json into web/")
@@ -158,9 +159,9 @@ def main(argv: list[str] | None = None) -> None:
         fit()
         print(OUT_DIR / "error_model.json")
     elif args.cmd == "ensemble":
-        from .ensemble import build
+        from .ensemble import build, reindex
 
-        doc = build(site_ids=args.site, n=args.versions, seed=args.seed)
+        doc = reindex() if args.index_only else build(site_ids=args.site, n=args.versions, seed=args.seed)
         print(f"data/ensemble: {len(doc['sites'])} sites, {doc['bytes']} bytes")
     elif args.cmd == "manifest":
         from . import manifest

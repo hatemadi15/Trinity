@@ -102,3 +102,24 @@ def test_spread_says_how_wide_the_versions_are_and_who_falls_inside_them():
     assert s["adjusted_inside_p05_p95"] == pytest.approx(0.75)
     assert s["app_inside_p05_p95"] == pytest.approx(0.5)
     assert s["mean_minus_adjusted_deg"]["p95_abs"] > 0.9  # the versions sit 1.1 degrees above it there
+
+
+def test_the_index_is_written_again_from_the_stored_versions_without_tracing(tmp_path, monkeypatch):
+    import json
+
+    from lunar_pipeline import ensemble, masks
+
+    adjusted = np.zeros(720)
+    versions = np.stack([np.full(720, d) for d in (-0.1, 0.0, 0.1)])
+    (tmp_path / "error_model.json").write_text(json.dumps({"generated_utc": "x", "resolutions": {}}))
+    (tmp_path / "s1.json").write_text(json.dumps({"n_az": 720, "adjusted": encode(adjusted[None, :]), "versions": encode(versions)}))
+    (tmp_path / "index.json").write_text(json.dumps({"versions_per_site": 3, "seed": 1, "sites": [{"site_id": "s1", "site_height_sd_m": 0.4, "seconds": {}}]}))
+    monkeypatch.setattr(masks, "load_mask", lambda site_id: np.full(720, 0.05))
+    monkeypatch.setattr(ensemble, "_stated_sigma", lambda site_id: np.full(720, 0.02))
+    monkeypatch.setattr(ensemble, "_stored_adjusted", lambda site_id: None)
+    monkeypatch.setattr("lunar_pipeline.sites.all_sites", lambda: [SimpleNamespace(id="s1", polar=True)])
+    doc = ensemble.reindex(tmp_path)
+    site = doc["sites"][0]
+    assert site["site_height_sd_m"] == 0.4  # kept from the run that traced the versions
+    assert site["app_inside_p05_p95"] == 1.0 and site["sd_over_stated_sigma"]["median"] == pytest.approx(np.std([-0.1, 0.0, 0.1]) / 0.02, rel=1e-3)
+    assert json.loads((tmp_path / "index.json").read_text())["versions_per_site"] == 3

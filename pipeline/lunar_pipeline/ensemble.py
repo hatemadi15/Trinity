@@ -251,7 +251,7 @@ def load_versions(site_id: str, out_dir: Path = OUT_DIR) -> tuple[np.ndarray, np
 def build(site_ids: list[str] | None = None, n: int = VERSIONS, seed: int = SEED, out_dir: Path = OUT_DIR) -> dict:
     """Terrain versions for every polar site (or `site_ids`), written beside the error model; returns the index."""
     from .masks import load_mask
-    from .pgda90 import CITATION, full_path, grid_from_geotiff
+    from .pgda90 import full_path, grid_from_geotiff
     from .sites import all_sites
 
     model = load_model(out_dir / "error_model.json")
@@ -284,6 +284,14 @@ def build(site_ids: list[str] | None = None, n: int = VERSIONS, seed: int = SEED
             entry["adjusted_matches_budget_deg"] = round(float(np.max(np.abs(result["adjusted"] - stored))), 4)
         entries[site.id] = entry
         print(f"[ensemble] {site.id}: {n} versions in {time.perf_counter() - t:.1f} s, sd median {entry['sd_deg']['median']} deg, app inside {entry.get('app_inside_p05_p95')}", flush=True)
+    return write_index(entries, n, seed, out_dir, model_doc)
+
+
+def write_index(entries: dict, n: int, seed: int, out_dir: Path, model_doc: dict) -> dict:
+    """data/ensemble/index.json: the model in short and each site's entry, in catalogue order."""
+    from .pgda90 import CITATION
+    from .sites import all_sites
+
     order = [s.id for s in all_sites() if s.polar]
     doc = {
         "version": 1,
@@ -302,8 +310,29 @@ def build(site_ids: list[str] | None = None, n: int = VERSIONS, seed: int = SEED
         "sites": [entries[i] for i in order if i in entries],
     }
     doc["bytes"] = int(sum(e["bytes"] for e in doc["sites"]))
-    index_path.write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+    (out_dir / "index.json").write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     return doc
+
+
+def reindex(out_dir: Path = OUT_DIR) -> dict:
+    """The index again from the stored versions, without tracing anything: after the budget has stated skylines for more sites."""
+    from .masks import load_mask
+
+    model_doc = json.loads((out_dir / "error_model.json").read_text(encoding="utf-8"))
+    previous = json.loads((out_dir / "index.json").read_text(encoding="utf-8"))
+    entries = {}
+    for old in previous["sites"]:
+        site_id = old["site_id"]
+        got = load_versions(site_id, out_dir)
+        if got is None:
+            continue
+        adjusted, versions = got
+        stated, stored = _stated_sigma(site_id), _stored_adjusted(site_id)
+        entry = {**old, "bytes": (out_dir / f"{site_id}.json").stat().st_size, **spread(adjusted, versions, load_mask(site_id), stated)}
+        if stored is not None:
+            entry["adjusted_matches_budget_deg"] = round(float(np.max(np.abs(adjusted - stored))), 4)
+        entries[site_id] = entry
+    return write_index(entries, previous["versions_per_site"], previous["seed"], out_dir, model_doc)
 
 
 def _stated_sigma(site_id: str) -> np.ndarray | None:

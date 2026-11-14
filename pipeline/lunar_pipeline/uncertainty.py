@@ -323,31 +323,36 @@ def terrain_offsets(base: dict, others: list[dict], kind: str) -> tuple[np.ndarr
     return np.where(lost, np.nan, worst), int(lost.sum())
 
 
-VERSIONS_LOST_SHARE = 0.05  # an event lost in more than one version in twenty is counted apart, as one a skyline loses
+VERSIONS_LOST_SHARE = 0.05  # an event lost in more than one version in twenty is counted as lost by the versions
 
 
 def version_offsets(base: dict, versions: list[dict], kind: str) -> tuple[np.ndarray, int]:
-    """For each event under the app's skyline, the 95th percentile of its shift over the terrain versions (signed as that
-    version's shift), and how many events more than one version in twenty loses (those are NaN)."""
+    """For each event under the app's skyline, the 95th percentile of its shift over the terrain versions that keep it
+    (signed as that version's shift; NaN when most versions lose it), and how many events more than one version in
+    twenty loses. A lost event is a different outcome, not a shift, so it is counted apart and never narrows a margin."""
     tb, db = _of_kind(base, kind)[:2]
     if not versions or not tb.size:
         return np.zeros(tb.shape), 0
     shifts = np.stack([-match_offsets(tb, db, *_of_kind(v, kind)[:2], TERRAIN_WINDOW_H) for v in versions])  # versions x events
-    lost = np.mean(np.isnan(shifts), axis=0) > VERSIONS_LOST_SHARE
+    gone = np.isnan(shifts)
     out = np.full(tb.shape, np.nan)
-    for j in np.flatnonzero(~lost):
-        s = shifts[:, j][np.isfinite(shifts[:, j])]
+    for j in np.flatnonzero(gone.mean(axis=0) <= 0.5):
+        s = shifts[:, j][~gone[:, j]]
         size = np.percentile(np.abs(s), 95)
-        out[j] = s[np.argmin(np.abs(np.abs(s) - size))] if s.size else 0.0
-    return out, int(lost.sum())
+        out[j] = s[np.argmin(np.abs(np.abs(s) - size))]
+    return out, int(np.sum(gone.mean(axis=0) > VERSIONS_LOST_SHARE))
 
 
-def combine_offsets(a: tuple[np.ndarray, int], b: tuple[np.ndarray, int]) -> tuple[np.ndarray, int]:
-    """Two terrain spreads of the same events: the larger shift of each, NaN where either loses it, and the events either loses."""
-    x, y = a[0], b[0]
-    out = np.where(np.abs(np.nan_to_num(y)) > np.abs(np.nan_to_num(x)), y, x)
-    gone = np.isnan(x) | np.isnan(y)
-    return np.where(gone, np.nan, out), int(gone.sum())
+def combine_offsets(skylines: tuple[np.ndarray, int], versions: tuple[np.ndarray, int]) -> tuple[np.ndarray, int]:
+    """The terrain spread of each event with the versions' added: the versions' shift where it is the larger, the three
+    skylines' everywhere else, so the versions only ever widen it; an event the skylines lose stays lost, and the count
+    of lost events stays theirs (the versions' own count is reported beside it)."""
+    s, lost = skylines
+    v = versions[0]
+    out = np.array(s, dtype=np.float64)
+    take = np.isfinite(s) & np.isfinite(v) & (np.abs(v) > np.abs(s))
+    out[take] = v[take]
+    return out, lost
 
 
 def ephemeris_seconds(rates_per_h: np.ndarray, angle_deg: float) -> dict:
@@ -384,7 +389,7 @@ def event_budget(hourly: dict, fine: dict, others: list[dict], kind: str, angle_
             v_off, v_lost = version_offsets(fine, versions, kind)
             skylines = {**stats(off), "lost": lost}
             off, lost = combine_offsets((off, lost), (v_off, v_lost))
-            terrain = {**stats(off), "lost": lost, "skylines": skylines, "versions": {**stats(v_off), "lost": v_lost}}
+            terrain = {**stats(off), "lost": lost, "skylines": skylines, "versions": {**stats(v_off), "lost": v_lost, "of": len(versions)}}
         else:
             terrain = {**stats(off), "lost": lost}
     flag = EVENT_FLAG[kind][0]
@@ -785,8 +790,9 @@ METHOD = {
         "point that makes the skyline and at the site, over its distance); and the site's terrain versions (data/ensemble), product 90's "
         "models with errors drawn from the model fitted to the app's grids minus product 90's, which differ by several times the stated "
         "error. An event's terrain spread is the larger of its largest shift under those three skylines and the 95th percentile of its "
-        "shifts over the versions; an event that one of the three skylines, or more than one version in twenty, loses is counted apart. "
-        "The raised and lowered skylines stay as a stand-in for the slow, coherent part of the error that the versions leave out."
+        "shifts over the versions that keep it, so the versions only ever widen it; an event one of the three skylines loses is counted "
+        "apart, and the events more than one version in twenty loses are counted beside it. The raised and lowered skylines stay as a "
+        "stand-in for the slow, coherent part of the error that the versions leave out."
     ),
     "ephemeris": (
         "The largest gap to JPL Horizons in height plus direction, for each body, divided by the rate of the body's height above the "

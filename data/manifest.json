@@ -1,8 +1,8 @@
 {
  "format": 1,
- "data_version": "2026-11-14-4878491c",
- "content_sha256": "4878491ca1b4563bbb261b58708dab7fddefac679b5919e3cc8b54215a308904",
- "written_utc": "2026-11-14T15:23:20Z",
+ "data_version": "2026-11-14-c0a28f63",
+ "content_sha256": "c0a28f63b04a0335ffd14932ec83b21aa5c61a2cc809944dda251ae5f4f0c2e3",
+ "written_utc": "2026-11-14T15:41:24Z",
  "about": "Every data file the app reads, as web/public/data lays them out. Check a folder with: uv run python -m lunar_pipeline.cli check-data",
  "groups": [
   {"id": "core", "title": "the site catalogue, the hourly Sun and Earth table and the sites' horizon masks", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "No forecast can be shown: Explore, the site list, Compare and the brief say the data could not be loaded.", "bytes": 2876180, "files": [
@@ -868,7 +868,7 @@
    {"path": "fixtures/sky/stars_at_sites.json", "bytes": 21328, "sha256": "4aef05c6176ade9dd1cf9b5386ecb0d039f9660e2cf2a35fe5a0a085d543877d"},
    {"path": "fixtures/time/utc_et.json", "bytes": 3513, "sha256": "9d12c29501937342eb8ae73a4ae28dbf2f61ccbb76f3aaba9bd8635fcf55d927"}
   ]},
-  {"id": "uncertainty", "title": "the margins and the terrain versions", "required": false, "origin": "committed in data/", "get": ["sync-local"], "without": "Explore, the brief, Compare and the Accuracy page show no margins and no terrain versions; every figure itself is the same.", "bytes": 1783354, "files": [
+  {"id": "uncertainty", "title": "the margins and the terrain versions", "required": false, "origin": "committed in data/", "get": ["sync-local"], "without": "Explore, the brief, Compare and the Accuracy page show no margins and no terrain versions; every figure itself is the same.", "bytes": 1911181, "files": [
    {"path": "ensemble/chandrayaan3_vikram.json", "bytes": 63788, "sha256": "a8ce2915d4ca7f88387bf34a7b28c0c693a73f25921405ec3ce6629faea05976"},
    {"path": "ensemble/connecting_ridge.json", "bytes": 63787, "sha256": "3140722ac08672daaca898d31cc81e7175b0048188d48ffee029ce9f994593af"},
    {"path": "ensemble/cp12_schrodinger.json", "bytes": 63791, "sha256": "b861ff04a107d14a5cd51d0591e77e1f4634f8d5084b090036c74850c418d46b"},
@@ -879,7 +879,7 @@
    {"path": "ensemble/haworth.json", "bytes": 63778, "sha256": "853103a7566a7320d3881e7d7e6c54da34f02e2ecce8df1b4c364eaa68cbd271"},
    {"path": "ensemble/im1_odysseus.json", "bytes": 63783, "sha256": "76e9eebe220c7fde2e279759c0c5cfacaf6d9e9d54eedbc9d28f22837e8f5950"},
    {"path": "ensemble/im2_athena.json", "bytes": 63781, "sha256": "104cfc744fe322c65438a0239f773f423d146ddc1e7524dd1938ed208f33a7dc"},
-   {"path": "ensemble/index.json", "bytes": 18982, "sha256": "184f83870bbe1917286ffc1d8f696c374c30cfe6238eeafc4c14c3b2c5596e66"},
+   {"path": "ensemble/index.json", "bytes": 19459, "sha256": "af0ea163a7408464207fb64694b9211316d7b3c6323fcc57ecd978684d8d1eb8"},
    {"path": "ensemble/luna25_target.json", "bytes": 63782, "sha256": "a04b6f4dd40f46edb59f9ebc8e224af728596f3085fe7d71bb1873ef3aa30649"},
    {"path": "ensemble/malapert_massif.json", "bytes": 63787, "sha256": "89647448def977bb7f54eab7a7390f57c16cb917f44dbfc8f97042c9e057efc6"},
    {"path": "ensemble/mons_mouton.json", "bytes": 63783, "sha256": "8ff3d881eeb553ee2a9fc23411aabd50ebe53f80a4340a63e722145d4ab20ffb"},
@@ -892,14 +892,17 @@
    {"path": "ensemble/shackleton_center_rim_high.json", "bytes": 63797, "sha256": "14e94bbb5836edd11f2ee5dd718cce5617a2b566382ed850d97d5e61abca0709"},
    {"path": "ensemble/slater_plain.json", "bytes": 63775, "sha256": "8dd46f8aa5801353ea1c4864a083a81831d00ff6233071d0cb5e0ccb5391020b"},
    {"path": "ensemble/south_pole.json", "bytes": 63780, "sha256": "9ebcea4230524e4d1a28a14660c59cd283eb58fe01dae78799c5d29c45953163"},
-   {"path": "uncertainty/budget.json", "bytes": 106405, "sha256": "51774fe520fe773a31f895649c68e2e06bc78037e1c70c8a022e694950a949ad"},
+   {"path": "uncertainty/budget.json", "bytes": 187811, "sha256": "91bb22d00923d8d24dc134698c6ef15d1ca0c0c2db0beecf46016db6a4b437a8"},
+   {"path": "uncertainty/skylines/chandrayaan3_vikram.json", "bytes": 15217, "sha256": "55b3d4ced69d1de1ccb0a34bf29a4a0c2bc16efd80b4c55f70b863be4b329805"},
    {"path": "uncertainty/skylines/connecting_ridge.json", "bytes": 16482, "sha256": "8e280eb80e07f0d35242a932e5151df839e0274310ccbc1e04eeb65e353c0442"},
+   {"path": "uncertainty/skylines/cp12_schrodinger.json", "bytes": 15505, "sha256": "2ce2bf676623d34177d2cc76c9d59d499a8ba7f9a6f3e4b1d0925d975543d735"},
    {"path": "uncertainty/skylines/de_gerlache_center.json", "bytes": 15313, "sha256": "8997cc7bf465a99f8265cc41f1da38cfe88b995d98f33032fc6f553e6458719f"},
    {"path": "uncertainty/skylines/de_gerlache_center_rim_high.json", "bytes": 17330, "sha256": "1185dce1fadc7d82c3a722278545ebff413bb753c86d56c3d49b2b076810a468"},
    {"path": "uncertainty/skylines/de_gerlache_rim_2.json", "bytes": 16527, "sha256": "b44bc915f3bc3ada00504075129d6c02cb19b4eefaeeb90f63e10089a3974098"},
    {"path": "uncertainty/skylines/haworth.json", "bytes": 15542, "sha256": "694c02251bc33bb18006580a3ec317291d44b8dd153493150838764509f60261"},
    {"path": "uncertainty/skylines/im1_odysseus.json", "bytes": 15697, "sha256": "3b6fc3d5453111bc7b47541b23e4cd1607fa76d03cd4f58c55ed7e6b53799d4c"},
    {"path": "uncertainty/skylines/im2_athena.json", "bytes": 15771, "sha256": "d235af8283d31a01497946878663df212230a8237d74e0a6215e0879527a3780"},
+   {"path": "uncertainty/skylines/luna25_target.json", "bytes": 15222, "sha256": "911ea9260b29b8fb9d8d05f69267c9282cc8245c4864c0c29a9937fecde4a13f"},
    {"path": "uncertainty/skylines/malapert_massif.json", "bytes": 16063, "sha256": "362a2f687d47167d1ef4da29fad0756b6548c3677f624488d33be5ab9c13be36"},
    {"path": "uncertainty/skylines/mons_mouton.json", "bytes": 16833, "sha256": "d7fa870bc097523fc5df1f70b7af03d081e0c45ba972c1a967ca1caf48f5df79"},
    {"path": "uncertainty/skylines/mons_mouton_plateau.json", "bytes": 15851, "sha256": "299342cffa61c88b43c6dcb871458d04c5cfd0bb3d87de42c1b1789adc0b5df0"},
