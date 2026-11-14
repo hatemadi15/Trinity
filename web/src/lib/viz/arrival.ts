@@ -20,14 +20,14 @@ export const POLE_SENTENCE = 'At the south pole the Sun never climbs: it circles
  */
 export const shortlistedSentence = (name: string) => `NASA has shortlisted ${name}, this ridge, for astronauts to land on.`;
 
-export interface Hero { site: Site; series: Series; power: PowerResult; mask: Float64Array; siteHeightM: number; earthKm: number[]; startUtc: string; days: number }
+export interface Hero { site: Site; series: Series; power: PowerResult; mask: Float64Array; startUtc: string; days: number }
 
-/** The home page's site and month, as the arrival draws it: the pipeline's figures, the engine's power. */
+/** The home page's site and month: the pipeline's figures, the engine's power. */
 export function hero(doc: HomeDoc = HOME): Hero {
   const site = (catalogue.sites as unknown as Site[]).find((s) => s.id === doc.hero.site_id);
   if (!site) throw new Error(`the catalogue has no ${doc.hero.site_id}`);
   const series = heroSeries(doc);
-  return { site, series, power: powerBudget(series, DEFAULT_POWER), mask: heroMask(doc), siteHeightM: doc.hero.site_height_m, earthKm: doc.sky.earth_km, startUtc: doc.sky.start_utc, days: Math.round(doc.sky.hours / 24) };
+  return { site, series, power: powerBudget(series, DEFAULT_POWER), mask: heroMask(doc), startUtc: doc.sky.start_utc, days: Math.round(doc.sky.hours / 24) };
 }
 
 /**
