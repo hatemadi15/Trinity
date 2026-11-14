@@ -204,9 +204,10 @@ const HELLO = /^(?:hello|hi|hey|hello there|hi there|good (?:morning|afternoon|e
 
 /** What Luna does with what she heard: her own command, the planner's, a question for the model, or nothing. */
 export function parseCommand(transcript: string, sites: Site[]): LunaCommand {
-  const said = heard(transcript).text;
+  const { text: said, addressed } = heard(transcript);
   const t = normalize(said);
-  if (!t) return { kind: 'nothing' };
+  // Her name alone is a greeting: she answers.
+  if (!t) return addressed ? { kind: 'hello' } : { kind: 'nothing' };
   if (STOP.test(t)) return { kind: 'stop' };
   if (THANKS.test(t)) return { kind: 'thanks' };
   if (HELLO.test(t)) return { kind: 'hello' };

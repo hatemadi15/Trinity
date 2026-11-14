@@ -84,6 +84,8 @@ describe('Luna’s commands', () => {
     for (const t of ['stop listening', 'goodbye', 'turn off', 'go to sleep', "that's all"]) expect(parse(t), t).toEqual({ kind: 'stop' });
     for (const t of ['thank you', 'thanks']) expect(parse(t), t).toEqual({ kind: 'thanks' });
     for (const t of ['hello', 'hi']) expect(parse(t), t).toEqual({ kind: 'hello' });
+    // Her name alone is a greeting too: she answers rather than wait in silence.
+    for (const t of ['Luna', 'hey Luna', 'Luna?']) expect(parse(t), t).toEqual({ kind: 'hello' });
   });
 
   it('hands the planner’s own phrasings to the planner, sites by their spoken names', () => {
