@@ -1,16 +1,16 @@
 {
  "suite": "Earthrise browser journeys (Playwright, web/e2e)",
- "generated_utc": "2026-11-14T16:35:25Z",
+ "generated_utc": "2026-11-14T17:18:43Z",
  "complete": true,
  "status": "passed",
  "build": {
-  "commit": "eab03707a83418afa8515a226dd4b2d68ad65f3a",
+  "commit": "cee75eb133da672958c069c3bd9c165afcb06099",
   "dirty": false,
   "changed": 0,
-  "branch": "claude/pensive-sagan-usqfey",
-  "server": "next start, production build, at http://127.0.0.1:3032",
-  "next_build_id": "Tz8jHAqVS-knNjSzqWcHE",
-  "built_utc": "2026-11-14T16:35:22Z"
+  "branch": "g-ml",
+  "server": "next start, production build, at http://127.0.0.1:3061",
+  "next_build_id": "If_7NLBH83B36Z79NAiM3",
+  "built_utc": "2026-11-14T17:18:33Z"
  },
  "e2e": {
   "tests": 25,
@@ -18,10 +18,10 @@
   "skipped": 0,
   "failed": 0,
   "flaky": 0,
-  "seconds": 194
+  "seconds": 164
  },
  "data": {
-  "version": "2026-11-14-609589f6",
+  "version": "2026-11-14-57864fc8",
   "parts": {
    "core": "complete",
    "sky": "complete",
@@ -29,7 +29,9 @@
    "tiles": "complete",
    "terrain": "complete",
    "globe": "complete",
-   "fixtures": "complete"
+   "fixtures": "complete",
+   "uncertainty": "complete",
+   "coldtraps": "complete"
   }
  },
  "browser": "Chromium (Playwright 1.56), software WebGL (SwiftShader)",
@@ -38,151 +40,151 @@
    "file": "failures.spec.ts",
    "title": "Without WebGL 2 › the view from the site falls back to the horizon chart with the same words",
    "outcome": "passed",
-   "seconds": 4
+   "seconds": 3.8
   },
   {
    "file": "failures.spec.ts",
    "title": "Without WebGL 2 › Explore keeps its answer and chart, and the 3D ground says it needs WebGL",
    "outcome": "passed",
-   "seconds": 5.4
+   "seconds": 4.4
   },
   {
    "file": "failures.spec.ts",
    "title": "Without WebGL 2 › the home page shows the descent as pictures, with its words, a line that says so and its way to the forecast",
    "outcome": "passed",
-   "seconds": 3.1
+   "seconds": 2.4
   },
   {
    "file": "failures.spec.ts",
    "title": "When the data fails › with the data unreachable, each page that needs it says so plainly, with a way on and no blank screen",
    "outcome": "passed",
-   "seconds": 12.2
+   "seconds": 6
   },
   {
    "file": "failures.spec.ts",
    "title": "When the data fails › with one file missing, the page says which part did not load",
    "outcome": "passed",
-   "seconds": 6.8
+   "seconds": 4.8
   },
   {
    "file": "failures.spec.ts",
    "title": "When the data fails › with the horizon file of the site in a link missing, Explore says so in plain words",
    "outcome": "passed",
-   "seconds": 4.2
+   "seconds": 6.7
   },
   {
    "file": "keyboard.spec.ts",
    "title": "Keyboard only › every step of the planning journey is reached and worked with the keyboard, with the focus in sight",
    "outcome": "passed",
-   "seconds": 31.4
+   "seconds": 25.5
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › The home page fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 16.8
+   "seconds": 10.3
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › Choose a site fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 11.6
+   "seconds": 11.2
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › Explore, with its fields open fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 7.5
+   "seconds": 6.7
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › The view from the site fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 19.4
+   "seconds": 21.8
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › Compare, with the five-day slip example fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 5.1
+   "seconds": 6.2
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › The comparison brief fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 4.1
+   "seconds": 4.4
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › The brief fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 1.7
+   "seconds": 0.7
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › Plan a landing, with its example worked out fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 6.3
+   "seconds": 4.5
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › How it works fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 8.3
+   "seconds": 2.5
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › Accuracy fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 5
+   "seconds": 7.2
   },
   {
    "file": "narrow.spec.ts",
    "title": "Narrow screens › A page that does not exist fits a 390 px phone with no sideways scroll",
    "outcome": "passed",
-   "seconds": 14.4
+   "seconds": 10.2
   },
   {
    "file": "planning.spec.ts",
    "title": "The main planning journey › a planner reads the answer, changes the date and the lander, stands at the site, compares two sites and prints the brief",
    "outcome": "passed",
-   "seconds": 64.3
+   "seconds": 45.8
   },
   {
    "file": "reduced-motion.spec.ts",
    "title": "Reduced motion › Explore turns playback off and says why, while the time still moves by hand",
    "outcome": "passed",
-   "seconds": 7.8
+   "seconds": 6.6
   },
   {
    "file": "reduced-motion.spec.ts",
    "title": "Reduced motion › the view from the site turns playback off, says why, and asks only for a drag",
    "outcome": "passed",
-   "seconds": 48.4
+   "seconds": 41.7
   },
   {
    "file": "reduced-motion.spec.ts",
    "title": "Reduced motion › the home page lands at once when Fly to the south pole is pressed",
    "outcome": "passed",
-   "seconds": 6.3
+   "seconds": 5.8
   },
   {
    "file": "slipped-landing.spec.ts",
    "title": "A landing that slips by five days › Explore shows what the slip changes at the original site and advises a nearby site",
    "outcome": "passed",
-   "seconds": 7
+   "seconds": 8.6
   },
   {
    "file": "slipped-landing.spec.ts",
    "title": "A landing that slips by five days › Compare from here sets the planned landing, five days later and the best place nearby side by side, says what changed and what works better, and its link and brief carry it",
    "outcome": "passed",
-   "seconds": 25.6
+   "seconds": 41.9
   },
   {
    "file": "touch.spec.ts",
    "title": "Touch › on a phone, a planner taps through the forecast and scrubs the time bar with a finger",
    "outcome": "passed",
-   "seconds": 34.2
+   "seconds": 30.1
   }
  ]
 }
