@@ -24,6 +24,8 @@ export interface Provenance {
     mastM: number;
     siteHeightM: number | null;
     missingTiles: number;
+    /** How far the skyline can be trusted, from the terrain report when the store carries one; null without it. */
+    quality: string | null;
   };
   ephemeris: { name: string; firstUtc: string; lastUtc: string; stepH: number };
   /** What the figures take as given, with the settings they ran with. */
@@ -52,13 +54,29 @@ export function lolaGrids(site: Pick<Site, 'lat' | 'polar'>): string[] {
   return ['LOLA LDEM 80 m (ldem_80s_80m) from 40 m to 100 km', 'LOLA LDEM 240 m (ldem_60s_240m) from 100 to 220 km'];
 }
 
+/**
+ * What a terrain report adds to a skyline's provenance (the integrity part's MaskMeta.terrain, when the store carries one):
+ * how far the skyline can be trusted, and when and how it was made. Read by its shape, so a store without one gives none.
+ */
+interface TerrainNote {
+  quality?: string;
+  source?: { kind?: string; generatedUtc?: string | null; method?: string | null; version?: number | null };
+}
+
+const noteOf = (meta: MaskMeta | null): TerrainNote | null => (meta as (MaskMeta & { terrain?: TerrainNote }) | null)?.terrain ?? null;
+
 function maskWords(site: Site, meta: MaskMeta | null, mastM: number): string {
   const missing = meta && meta.failedTiles > 0 ? `; ${meta.failedTiles} tiles could not be loaded, so some hills may be missing` : '';
+  const from = noteOf(meta)?.source;
   switch (meta?.source) {
-    case 'featured':
-      return `the precomputed skyline file masks/${site.id}.json, worked out ahead of time from a ${num(mastM)} m mast in 720 directions${missing}`;
-    case 'computed':
-      return `worked out in the browser from the LOLA tiles from a ${num(mastM)} m mast in 720 directions${missing}`;
+    case 'featured': {
+      const made = from?.generatedUtc ? `, made ${from.generatedUtc.slice(0, 10)}${from.method ? ` by ${from.method}` : ''}` : '';
+      return `the precomputed skyline file masks/${site.id}.json, worked out ahead of time from a ${num(mastM)} m mast in 720 directions${made}${missing}`;
+    }
+    case 'computed': {
+      const set = typeof from?.version === 'number' ? ` (tile set version ${from.version}${from.generatedUtc ? `, cut ${from.generatedUtc.slice(0, 10)}` : ''})` : '';
+      return `worked out in the browser from the LOLA tiles${set} from a ${num(mastM)} m mast in 720 directions${missing}`;
+    }
     case 'flat':
       return 'none: the site lies outside the polar elevation grids, so its horizon is taken as flat';
     default:
@@ -107,6 +125,7 @@ export function collectProvenance(input: ProvenanceInput, versions: { app: AppVe
       mastM,
       siteHeightM: maskMeta ? maskMeta.siteHeightM : null,
       missingTiles: maskMeta?.failedTiles ?? 0,
+      quality: noteOf(maskMeta)?.quality ?? null,
     },
     ephemeris: {
       name: 'JPL DE440 through NAIF SPICE, the Sun and Earth seen from the Moon',
@@ -149,7 +168,7 @@ const minute = (isoZ: string) => isoZ.slice(0, 16).replace('T', ' ');
 export function provenanceLines(p: Provenance): [string, string][] {
   const t = p.terrain;
   const height = t.siteHeightM === null ? '' : `site ${Math.abs(Math.round(t.siteHeightM))} m ${t.siteHeightM < 0 ? 'below' : 'above'} the Moon's mean radius`;
-  const skyline = [t.mask, t.grids.join(', '), height].filter(Boolean).join('; ');
+  const skyline = [t.mask, t.grids.join(', '), height, t.quality && `its terrain record: ${t.quality}`].filter(Boolean).join('; ');
   const v = p.versions;
   const versions = [`Earthrise ${v.app ?? '(a development build)'}${v.commit ? `, commit ${v.commit}` : ''}`, v.data && `data version ${v.data}`, v.sites && `site catalogue ${v.sites}`, v.ephemeris && `Sun and Earth table ${v.ephemeris}`].filter(Boolean).join('; ');
   return [

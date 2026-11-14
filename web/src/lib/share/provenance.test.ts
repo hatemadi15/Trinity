@@ -89,3 +89,28 @@ describe('loadDataVersions', () => {
     expect(await loadDataVersions('/data', get)).toEqual({ data: null, sites: 'sites.json version 1', ephemeris: null });
   });
 });
+
+describe('a skyline with its terrain report', () => {
+  it("adds the report's record when the store carries one: when and how a file was made, the tile set, and how far it can be trusted", () => {
+    const featured = {
+      siteHeightM: 190.33,
+      source: 'featured' as const,
+      failedTiles: 0,
+      mastM: 2,
+      terrain: { quality: 'complete', source: { kind: 'featured', file: 'masks/de_gerlache_rim_2.json', generatedUtc: '2026-09-29T03:52:21+00:00', method: 'Barker et al. 2021 nested-grid horizon' } },
+    };
+    const p = collectProvenance({ site: site('de_gerlache_rim_2'), maskMeta: featured, params: DEFAULT_PARAMS, eph, startUtc: '2027-01-01T00:00:00', days: 30 }, versions);
+    expect(p.terrain.quality).toBe('complete');
+    expect(p.terrain.mask).toBe('the precomputed skyline file masks/de_gerlache_rim_2.json, worked out ahead of time from a 2 m mast in 720 directions, made 2026-09-29 by Barker et al. 2021 nested-grid horizon');
+    expect(Object.fromEntries(provenanceLines(p)).Skyline).toMatch(/; its terrain record: complete$/);
+    const computed = { siteHeightM: 10, source: 'computed' as const, failedTiles: 0, mastM: 5, terrain: { quality: 'degraded', source: { kind: 'computed', version: 1, generatedUtc: '2026-11-12T09:07:07+00:00' } } };
+    const q = collectProvenance({ site: site('haworth'), maskMeta: computed, params: { ...DEFAULT_PARAMS, mastM: 5 }, eph, startUtc: '2027-01-01T00:00:00', days: 30 }, versions);
+    expect(q.terrain.mask).toBe('worked out in the browser from the LOLA tiles (tile set version 1, cut 2026-11-12) from a 5 m mast in 720 directions');
+    expect(q.terrain.quality).toBe('degraded');
+    // Without a report, as before.
+    const r = collectProvenance({ site: site('haworth'), maskMeta: { siteHeightM: 10, source: 'featured', failedTiles: 0, mastM: 2 }, params: DEFAULT_PARAMS, eph, startUtc: '2027-01-01T00:00:00', days: 30 }, versions);
+    expect(r.terrain.quality).toBeNull();
+    expect(Object.fromEntries(provenanceLines(r)).Skyline).not.toMatch(/terrain record/);
+  });
+});
+

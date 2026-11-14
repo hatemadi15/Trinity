@@ -196,6 +196,7 @@ export function numbersCsv(x: ExportInput, provenance: Provenance): CsvFile {
     ['best_landing_earth_fraction', x.best ? fixed(x.best.earthFraction, 4) : '', 'fraction 0 to 1', 'share of those hours with Earth in view'],
     ['skyline', pv.terrain.kind, '', 'featured (precomputed file), computed (in the browser) or flat (outside the polar grids)'],
     ['skyline_missing_tiles', pv.terrain.missingTiles, '', 'elevation tiles that could not be loaded while the skyline was worked out'],
+    ['skyline_quality', pv.terrain.quality ?? '', '', "complete, degraded or incomplete, from the skyline's terrain record (empty when the app has none)"],
   ];
   return { name: `${fileStem(x.site.id, x.startUtc, x.days)}_numbers.csv`, columns: NUMBER_COLUMNS, text: table(NUMBER_COLUMNS, rows) };
 }
