@@ -22,8 +22,9 @@ describe('the site list with the modelled cold traps', () => {
     // A site the model does not reach, and one far from the pole, have no such line.
     expect(rowOf('Chandrayaan-3 Vikram').textContent).not.toMatch(/cold traps/);
     expect(rowOf('Apollo 11').textContent).not.toMatch(/cold traps/);
+    // The first screen as the site list's own test counts it: the title band, the three steps and the map.
     const main = document.querySelector('main')!;
-    const top = [...main.children].filter((el) => el.tagName !== 'DIV' || !el.className.includes('xl:grid-cols'));
+    const top = [...main.children].filter((el) => !el.classList.contains('wrap') || el.tagName === 'OL');
     const map = main.querySelector('section[aria-label="Map of the sites"]')!;
     for (const width of [WIDE, PHONE]) expect([...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(105);
   });
