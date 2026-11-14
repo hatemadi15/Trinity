@@ -3,7 +3,7 @@
 - web/public/hero/de-gerlache-rim-2.jpg: the shadow map of the hero site at one hour (shadow.py).
 - web/public/maps/south-pole-relief.jpg: a relief map of the south pole, 500 km across.
 - web/src/lib/data/home.json: the hero site's month of Sun heights, the validation headline figures,
-  the pin positions on the relief map.
+  the pin positions on the relief map, and the crater rim's month and skyline for the drawing of the hills.
 """
 
 from __future__ import annotations
@@ -96,6 +96,19 @@ def mask_block(elevation_deg) -> dict:
     """The site's skyline for the arrival's standing view: directions from north, clockwise, to 0.01 degrees."""
     el = [round(float(v), 2) for v in elevation_deg]
     return {"az0": 0.0, "step": 360.0 / len(el), "el": el}
+
+
+def rim_block(site: Site, rim_sky: dict, elevation_deg) -> dict:
+    """The crater rim's month beside the hero site's, for the home page's drawing of "the hills decide": the Sun's
+    direction and height there, whether it is sunlit each hour, and its own skyline."""
+    return {
+        "site_id": site.id,
+        "sun_az": rim_sky["sun_az"],
+        "sun_el": rim_sky["sun_el"],
+        "lit": rim_sky["lit"],
+        "sunlit_pct": rim_sky["sunlit_pct"],
+        "mask": mask_block(elevation_deg),
+    }
 
 
 def night(lit) -> dict | None:
@@ -227,6 +240,7 @@ def write_all(web_dir: Path = config.REPO_ROOT / "web") -> list[Path]:
     val = config.DATA_DIR / "validation"
     read = lambda name: json.loads((val / name).read_text(encoding="utf-8"))
     mask_doc = json.loads((config.DATA_DIR / "masks" / f"{site.id}.json").read_text(encoding="utf-8"))
+    rim_mask_doc = json.loads((config.DATA_DIR / "masks" / f"{rim.id}.json").read_text(encoding="utf-8"))
     doc = {
         "generated_utc": datetime.now(UTC).isoformat(timespec="seconds"),
         "hero": {
@@ -245,6 +259,7 @@ def write_all(web_dir: Path = config.REPO_ROOT / "web") -> list[Path]:
             "rim_sun_pct": rim_sky["sunlit_pct"],
             "distance_km": round(distance_km(site.lat, site.lon, rim.lat, rim.lon), 1),
         },
+        "rim": rim_block(rim, rim_sky, rim_mask_doc["elevation_deg"]),
         "facts": facts(read("horizons.json"), read("mazarico.json"), read("backcasts.json")),
         # The series runs a second month past the first, so a landing late in January keeps counting into February (as Explore does).
         "battery": battery_facts(hourly_series(site, load_mask(site.id), table, header, HERO_START, 2 * HERO_HOURS), PowerConfig(), HERO_HOURS),
