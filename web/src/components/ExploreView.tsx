@@ -163,6 +163,9 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               days={s.days}
               maskMeta={s.maskMeta}
               contactHours={answer.contactHours}
+              series={s.series}
+              hour={s.cursorHour}
+              startUtc={s.startUtc}
             />
           </div>
           <TimeChart
