@@ -87,7 +87,6 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
   let runner: PlanRunner | null = null;
   let current: PlanRun | null = null;
   let seq = 0;
-  const masks = new Map<string, Promise<SiteInput>>();
   const sites = () => deps.explore.getState().sites;
   const categories = () => new Set([...Object.keys(CATEGORY_NAMES), ...sites().map((s) => s.category)]);
 
