@@ -26,6 +26,8 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 [Click the "Printable brief" link.] One page, printable: the answer, five numbers, the Sun and Earth over the period, the method, the data. [Point at the paragraph.] Offline, the app writes this from the figures; online a model may write it, and any number not in the figures sends it back to the app's own words.
 
+
+[Optional, if the room is quiet and the laptop online: press Luna in the header and say "stand at the site", then "turn to Earth".] And everything here also answers to plain English: Luna, the app's voice, opens any page, plays the month and turns the view for you; where there is no microphone you can type to her.
 ## 3:00 — Validity (45 s)
 
 [Open Accuracy.] All three checks pass, each against an independent NASA source, each with a pass mark. Where the Sun and Earth are in the sky: our directions against JPL Horizons, worst gap 0.00003 degrees over 300 test cases, and [click "Re-check with JPL now"] this button asks JPL live. How much sunlight a site gets: against NASA's LOLA sunlight map, a typical gap of 2.6 points, eleven of fifteen sites within five. And when night falls on a real mission: Blue Ghost's last signal came 2.4 hours after our predicted sunset. [Click "Show the numbers" under the third check.] Athena and IM-1 ended early, for the reasons written here.
