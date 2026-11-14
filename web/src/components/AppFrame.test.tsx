@@ -31,7 +31,10 @@ describe('AppFrame', () => {
       ['Compare sites', '/compare'],
       ['How it works', '/learn'],
       ['Accuracy', '/validate'],
+      ['Plan a landing', '/plan'],
     ]);
+    // The fifth takes a phone's whole row, so none stands alone in half of one.
+    expect(nav.querySelector('a[href="/plan"]')!.className).toMatch(/\bmax-sm:col-span-2\b/);
     expect(screen.getByRole('group', { name: 'Theme' })).toBeTruthy();
     expect(screen.queryByRole('group', { name: 'Audience' })).toBeNull();
     const footer = screen.getByRole('contentinfo');

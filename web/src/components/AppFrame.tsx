@@ -27,7 +27,7 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           </Link>
           <nav aria-label="Sections" className="order-last flex w-full flex-wrap gap-x-7 gap-y-1 text-[15px] font-medium max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 lg:order-none lg:w-auto lg:flex-nowrap">
             {NAV.map((item) => (
-              <Link key={item.href} href={item.href} className="whitespace-nowrap text-ink-2 hover:text-ink">
+              <Link key={item.href} href={item.href} className={`whitespace-nowrap text-ink-2 hover:text-ink${item.href === '/plan' ? ' max-sm:col-span-2' : ''}`}>
                 {item.label}
               </Link>
             ))}

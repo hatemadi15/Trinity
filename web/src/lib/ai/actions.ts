@@ -6,6 +6,8 @@ import type { ExploreState, WindowDays } from '../store/explore';
 import { EPHEMERIS_YEARS, periodDays, shiftPeriod, shiftWords, snapToHour, startWords, withClock } from '../period';
 import { slipLabel } from '../scenario/scenario';
 import type { ScenarioState } from '../store/scenarios';
+import { KNOWN_CATEGORIES, validateSpecPatch } from '../plan/fields';
+import type { SpecPatch } from '../plan/spec';
 import { explanationFor } from './explanations';
 
 /** The closed set of things the planner may do to the app. Validated on the server and again on the client. */
@@ -23,7 +25,8 @@ export type Action =
   | { type: 'open_page'; page: Page }
   | { type: 'explain'; topic: string }
   /** Compares the landing shown with the same one moved by whole hours, later when positive: a baseline and the moved landing on Compare. */
-  | { type: 'compare_shift'; hours: number };
+  | { type: 'compare_shift'; hours: number }
+  | { type: 'plan_mission'; spec: SpecPatch };
 
 export type Page = 'explore' | 'sites' | 'compare' | 'validate' | 'brief' | 'learn';
 export const PAGES: readonly Page[] = ['explore', 'sites', 'compare', 'validate', 'brief', 'learn'];
@@ -39,6 +42,7 @@ export const ACTION_TYPES: readonly Action['type'][] = [
   'open_page',
   'explain',
   'compare_shift',
+  'plan_mission',
 ];
 /** What each page is called on screen. */
 export const PAGE_NAMES: Record<Page, string> = { explore: 'Explore', sites: 'the site list', compare: 'Compare sites', validate: 'Accuracy', brief: 'the brief', learn: 'How it works' };
@@ -174,6 +178,12 @@ function validateOne(raw: unknown, siteIds: ReadonlySet<string>): One {
       const topic = typeof raw.topic === 'string' ? raw.topic.trim().slice(0, 80) : '';
       return topic ? { action: { type: 'explain', topic } } : { reason: 'explain: missing topic' };
     }
+    case 'plan_mission': {
+      // The planner's specification: fields only, checked here; the numbers are checked against the words when taken.
+      const { patch, dropped } = validateSpecPatch(raw.spec, siteIds, KNOWN_CATEGORIES);
+      if (Object.keys(patch).length === 0) return { reason: dropped[0] ?? 'plan_mission: nothing to fill' };
+      return { action: { type: 'plan_mission', spec: patch } };
+    }
     case 'compare_shift': {
       // Whole hours, either way, no further than the table's own span: a move past its ends stops there anyway.
       const hours = asNumber(raw.hours);
@@ -299,7 +309,13 @@ function setPeriod(store: StoreApi<ExploreState>, startUtc: string, days: number
  * user's words ("Selected Nobile Rim 2."). Page changes go through `navigate` so the caller can use
  * the Next router.
  */
-export async function applyActions(store: StoreApi<ExploreState>, actions: Action[], navigate: (page: string) => void, scenarios?: StoreApi<ScenarioState>): Promise<string[]> {
+export async function applyActions(
+  store: StoreApi<ExploreState>,
+  actions: Action[],
+  navigate: (page: string) => void,
+  scenarios?: StoreApi<ScenarioState>,
+  said?: string,
+): Promise<string[]> {
   const notes: string[] = [];
   const nameOf = (id: string) => store.getState().sites.find((s) => s.id === id)?.name ?? id;
   for (const a of actions) {
@@ -384,6 +400,14 @@ export async function applyActions(store: StoreApi<ExploreState>, actions: Actio
       case 'explain': {
         const e = explanationFor(a.topic);
         notes.push(e ? e.text : `There is no explanation for "${a.topic}" yet; try the longest night, the Earth gap, the best landing date, the hills or the time with power.`);
+        break;
+      }
+      case 'plan_mission': {
+        // Loaded here, as only a mission's specification needs the planner.
+        const { planStore } = await import('../plan/store');
+        const taken = planStore.getState().takeAssistant(a.spec, said ?? '');
+        navigate('/plan');
+        notes.push(taken.fields.length ? 'Opened the planner with the fields read from your words: check them, then search.' : 'Opened the planner: no field could be taken from the words, so set them there.');
         break;
       }
     }

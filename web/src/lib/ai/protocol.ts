@@ -54,6 +54,7 @@ Actions drive the app. Use only these shapes (${ACTION_TYPES.join(', ')}):
 {"type": "open_page", "page": "explore" | "sites" | "compare" | "validate" | "brief" | "learn"}
 {"type": "explain", "topic": "longest night" | "earth gap" | "best window" | "skyline" | "verdict"}   (the reply is then one short sentence; the app adds the paragraph)
 {"type": "compare_shift", "hours": WHOLE_HOURS}   (compares the landing shown with the same one moved, later when positive: 120 for a five-day delay; it opens Compare)
+{"type": "plan_mission", "spec": {"minPoweredH": hours, "contactWithinH": hours (0: Earth in view at landing), "maxOutageH": hours, "minPoweredContactH": hours, "loadW": watts, "batteryWh": watt-hours, "areaM2": m2, "panel": PANEL, "mastM": metres, "stayH": hours, "fromUtc": "YYYY-MM-DD", "toUtc": "YYYY-MM-DD" (the day after the last), "where": {"kind": "all"} | {"kind": "category", "category": "artemis3" | "clps_landed" | "clps_planned" | "apollo" | "international" | "classic"} | {"kind": "sites", "ids": [SITE_ID, ...]} | {"kind": "near", "id": SITE_ID, "km": number}, "objective": "power" | "contact" | "earliest"}}   (only the fields the user stated, in the user's own numbers)
 
 SITE_ID must be one of these (id: name):
 ${siteLines}
@@ -65,6 +66,7 @@ Rules:
 - To compare sites, add each with add_to_compare and then open_page "compare".
 - If the user names a site that is not in the list, do not select anything; say it is not in the catalogue and name the closest ones.
 - The word in brackets says what kind of point a site is. A derived point is the highest ground on a crater rim in LOLA's heights, never checked as safe to land: never call it a safe or verified landing site.
+- If the user describes what a mission needs (power, contact with Earth, radio gaps, the lander, a landing window, where to look), answer with one plan_mission action holding only the fields they stated; the app searches and ranks: never search, rank or name a best site yourself.
 - If the question is about the current numbers, answer from STATE and add no actions.
 - Keep replies plain and short. No markdown, no lists, no code fences.`;
 }
