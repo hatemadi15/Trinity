@@ -285,9 +285,9 @@ function DatesGlance({ shown, spec, requirements, onLand }: { shown: SiteFinding
   const each = bucketKind(spec);
   const weeks = each === 'week';
   return (
-    <table className="w-full border-collapse text-left text-[14px]">
+    <table className="w-full border-collapse text-left text-[14px] sm:max-w-[48em]">
       <caption className="mb-2 text-left text-[15px] text-ink-2">
-        The best landing in each {each} of the window at {sites.length === 1 ? 'the first site' : `the first ${sites.length} sites`}: its time with power from landing{requirements > 0 ? '; ✓ meets every requirement' : ''}. Each opens that landing in Explore.
+        The best landing in each {each} of the window by the ranking above, at {sites.length === 1 ? 'the first site' : `the first ${sites.length} sites`}: its time with power from landing{requirements > 0 ? '; ✓ meets every requirement' : ''}. Each opens that landing in Explore.
       </caption>
       <thead>
         <tr>
@@ -316,8 +316,8 @@ function DatesGlance({ shown, spec, requirements, onLand }: { shown: SiteFinding
                   <button
                     type="button"
                     onClick={() => onLand(i, o.item.utc)}
-                    aria-label={`Plan this landing: ${siteLabel(f.site)}, ${dateTimeUtc(o.item.utc, 0)}`}
-                    className={`min-h-10 text-left tabular-nums underline decoration-line-strong underline-offset-4 hover:decoration-ink ${meets ? 'text-good' : 'text-ink'}`}
+                    aria-label={`Plan this landing: ${siteLabel(f.site)}, ${dateTimeUtc(o.item.utc, 0)}${meets ? ', meets every requirement' : ''}`}
+                    className={`min-h-10 whitespace-nowrap text-left tabular-nums underline decoration-line-strong underline-offset-4 hover:decoration-ink ${meets ? 'text-good' : 'text-ink'}`}
                   >
                     {meets && <span aria-hidden="true">✓ </span>}
                     {spanShort(o.outcome.poweredH)}

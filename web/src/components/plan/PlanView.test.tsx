@@ -78,7 +78,7 @@ describe('PlanView', () => {
     expect(within(table).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['Mar 2027', 'Apr 2027', 'May 2027', 'Jun 2027']);
     const names = within(answer).getAllByRole('listitem', { name: /^\d\. / }).map((li) => li.getAttribute('aria-label')!.replace(/^\d\. /, ''));
     expect(within(table).getAllByRole('columnheader').slice(1).map((h) => h.textContent)).toEqual(names.slice(0, 3));
-    expect(within(table).getByText(/^The best landing in each month of the window at the first \d sites: its time with power from landing; ✓ meets every requirement\./)).toBeTruthy();
+    expect(within(table).getByText(/^The best landing in each month of the window by the ranking above, at the first \d sites: its time with power from landing; ✓ meets every requirement\./)).toBeTruthy();
     const cell = within(table).getAllByRole('button', { name: /^Plan this landing: / })[0];
     fireEvent.click(cell);
     await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.stringMatching(/^\/explore\?site=.+&start=2027-0[3-6]-\d\dT\d\d:00&days=14/)));
