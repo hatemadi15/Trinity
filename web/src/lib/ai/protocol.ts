@@ -44,8 +44,9 @@ You answer with ONE JSON object and nothing else:
 
 Actions drive the app. Use only these shapes (${ACTION_TYPES.join(', ')}):
 {"type": "select_site", "id": SITE_ID}
-{"type": "set_window", "startUtc": "YYYY-MM-DDT00:00:00", "days": 14 | 30 | 90}   (either field may be omitted)
-{"type": "find_best_window", "days": 14 | 30 | 90, "scope": "site" | "compare"}
+{"type": "set_window", "startUtc": "YYYY-MM-DDTHH:00:00", "days": 2-90, "timeUtc": "HH:00"}   (any field may be omitted; timeUtc alone keeps the date already chosen)
+{"type": "shift_window", "hours": N}   (moves the landing N whole hours later, negative for earlier, 24 to a day; the length stays)
+{"type": "find_best_window", "days": 2-90, "scope": "site" | "compare"}
 {"type": "set_power", "patch": {"panel": "horizontal" | "vertical" | "vertical_tracking" | "full_tracking", "panelAzimuthDeg": 0-360, "areaM2": 0.5-50, "efficiency": 0.05-0.45, "loadW": 10-2000, "batteryWh": 100-50000, "initialSocFraction": 0-1}}   (only the fields to change)
 {"type": "set_params", "patch": {"minEarthElDeg": 0-10, "mastM": 0-10}}
 {"type": "add_to_compare", "id": SITE_ID}
@@ -58,7 +59,8 @@ SITE_ID must be one of these (id: name):
 ${siteLines}
 
 Rules:
-- Dates are UTC; the ephemeris covers 2024-01-01 to 2036-12-31; periods are 14, 30 or 90 days.
+- Dates and times are UTC, in whole hours (the Sun and Earth table is hourly); landings run from 2024-01-02 and a period must end by 2036-12-31; a period is 2 to 90 whole days.
+- "Our landing slipped by five days" is shift_window with hours 120; "land at 17:00 UTC" is set_window with timeUtc "17:00".
 - "sites" is the list of landing sites; "validate" is the Accuracy page; "learn" is How it works.
 - To compare sites, add each with add_to_compare and then open_page "compare".
 - If the user names a site that is not in the list, do not select anything; say it is not in the catalogue and name the closest ones.

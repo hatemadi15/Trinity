@@ -213,7 +213,7 @@ describe('SitesView', () => {
 
   it('redoes the figures for another period', async () => {
     const { store } = await ready();
-    fireEvent.click(screen.getByRole('radio', { name: '14 days' }));
+    fireEvent.change(screen.getByLabelText('For'), { target: { value: '14' } });
     expect(store.getState().days).toBe(14);
     await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(34), { timeout: 20_000 });
     await waitFor(() => expect(rowOf('de Gerlache Rim 2').getAttribute('href')).toMatch(/days=14/));

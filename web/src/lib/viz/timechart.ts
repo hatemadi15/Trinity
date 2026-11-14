@@ -58,6 +58,15 @@ export function hourAt(x: number, width: number, hours: number): number {
 }
 
 /** One sentence for the battery row: when the battery first runs out and how long the lander is off. */
+/**
+ * The days from the start that the chart's date row names: every 10 days over more than 45, every 5 down to 11,
+ * every other day down to 5 and every day below, so a week's chart has dates and a long one does not crowd them.
+ */
+export function dayTicks(days: number): number[] {
+  const every = days > 45 ? 10 : days > 10 ? 5 : days > 4 ? 2 : 1;
+  return Array.from({ length: Math.floor((days - 1) / every) + 1 }, (_, k) => k * every);
+}
+
 export function batteryWords(power: PowerResult, startUtc: string, days: number): string {
   if (power.firstBrownoutHour === null) return `The battery never runs out in these ${days} days.`;
   return `The battery first runs out on ${dateLong(startUtc, power.firstBrownoutHour)} and the lander is off for ${spanWords(power.brownoutHours)} of these ${days} days.`;

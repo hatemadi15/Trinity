@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POWER, simulateBattery } from '../engine/power';
-import { batteryWords, chargeArea, hillsToward, hourAt, litRuns, offRuns, runsWhere } from './timechart';
+import { batteryWords, chargeArea, dayTicks, hillsToward, hourAt, litRuns, offRuns, runsWhere } from './timechart';
 
 describe('hillsToward', () => {
   it('reads the height of the hills in the direction of the body, hour by hour', () => {
@@ -68,5 +68,18 @@ describe('batteryWords', () => {
 
   it('says so when it never runs out', () => {
     expect(batteryWords(simulateBattery(new Float64Array(96).fill(500), cfg), '2027-01-01T00:00:00', 4)).toBe('The battery never runs out in these 4 days.');
+  });
+});
+
+describe('dayTicks', () => {
+  it('dates a short period every day or every other day, and keeps 5 and 10 days apart from 11 days to 90', () => {
+    expect(dayTicks(2)).toEqual([0, 1]);
+    expect(dayTicks(4)).toEqual([0, 1, 2, 3]);
+    expect(dayTicks(7)).toEqual([0, 2, 4, 6]);
+    expect(dayTicks(10)).toEqual([0, 2, 4, 6, 8]);
+    expect(dayTicks(14)).toEqual([0, 5, 10]);
+    expect(dayTicks(30)).toEqual([0, 5, 10, 15, 20, 25]);
+    expect(dayTicks(45)).toEqual([0, 5, 10, 15, 20, 25, 30, 35, 40]);
+    expect(dayTicks(90)).toEqual([0, 10, 20, 30, 40, 50, 60, 70, 80]);
   });
 });
