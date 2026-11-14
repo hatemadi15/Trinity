@@ -31,6 +31,8 @@ PowerShell, Command Prompt, bash and zsh; run from elsewhere, Python says
     uv run python -m lunar_pipeline.cli fetch --group globe
     uv run python -m lunar_pipeline.cli globe
     uv run python -m lunar_pipeline.cli sync-local --tiles
+    uv run python -m lunar_pipeline.cli check-data
+    uv run python -m lunar_pipeline.cli manifest
 
 `fetch` downloads each group into `data_raw/<group>`; it skips files it already has and, run again
 after a cut-off download, resumes from the `.part` file. `data_raw/` is gitignored.
@@ -71,6 +73,29 @@ sequence above. If the LOLA sources are already downloaded, start with `tiles`.
 The `--tiles` option also copies terrain and globe assets when they have been
 built with the `terrain` and `globe` commands.
 
+## The asset manifest and the check
+
+`data/manifest.json` lists every data file the app reads, as `web/public/data` lays them out: 839
+files in seven groups (the site catalogue, the hourly table and the masks; the sky; the Accuracy
+page's tables; the LOLA tiles; the terrain; the globe; the test fixtures), each file with its size
+and SHA-256, each group with whether the app needs it, where it comes from, the commands that make
+it and what the app does without it, and a data version (the date and the first eight digits of a
+hash over every file, `2026-11-14-a120b7a9` for the data of 14 November). `sync-local` copies it
+into `web/public/data`, so the published data and the release zip carry it.
+
+- `check-data` compares a folder (`web/public/data`, or `--root <folder>`) with it and says, group by
+  group, what is complete, missing, incomplete or different, what the app does without each group
+  and the commands that get it. It exits with 1 only when a required file (the catalogue, the
+  table, the masks, the sky or the Accuracy tables) is missing or differs; `--json` prints the
+  report with the downloads the tests below read. `npm run data:check` in `web/` runs it too.
+- `manifest` rewrites the list: the committed groups from `data/`, the generated ones as
+  `web/public/data` holds them (`data_out/` where the mirror has none), and a group not built on
+  the computer kept from the manifest before. Rewritten with nothing changed it keeps its version,
+  byte for byte. A test fails when the committed groups no longer match `data/`: after a change to
+  `data/`, run `manifest` and commit `data/manifest.json`. Generated files rebuilt on another
+  computer can differ in their bytes (compression, rounding); `check-data` then says "differs" for
+  that optional group and still exits with 0.
+
 To copy only the committed data without generated tiles, run:
 
 ```powershell
@@ -99,19 +124,14 @@ without it.
 
     uv run pytest -q
 
-The synthetic tests always run; the data tests skip until the files they need are fetched. With
-nothing downloaded, 108 of the 134 tests pass and 26 skip (4 seconds); with
-`fetch --group kernels --group lola --group illumination` (525 MB) all 134 run (14 seconds).
-
-- Partial downloads trip two tests that check for fewer files than they read: with `lola` but not
-  `kernels`, `test_write_all_produces_the_picture_the_map_and_the_facts` fails with
-  `missing kernels`; with `lola` and `kernels` but not `illumination`,
-  `test_metrics_fixture_matches_report` fails with `FileNotFoundError`.
-- With the kernels present, `test_our_azel_matches_horizons_within_tolerance` rewrites
-  `data/fixtures/horizons/summary.json`, and its numbers can differ in the 16th digit from one
-  computer to another; `git restore data/fixtures/horizons/summary.json` before you commit.
-- `test_constants_and_paths` expects the clone's folder to be named `Trinity`, as `git clone`
-  names it; a ZIP download from GitHub unpacks to `Trinity-main` and fails it.
+The synthetic tests always run; the data tests skip until the files they need are fetched. On 14
+November, with nothing downloaded, 121 of the 147 tests passed and 26 skipped (8 seconds, with other
+jobs running); with `fetch --group kernels --group lola --group illumination` (525 MB) all 147
+passed (20 to 32 seconds). Every partial download was run too (lola alone, kernels alone, kernels
+and lola): each test whose files are missing skips, and none fails. The tests write only to
+temporary folders (the Horizons summary and the app's catalogue included), so a run leaves the
+tree as it was, and they pass in a clone of any name (a GitHub ZIP unpacks to `Trinity-main`).
+`npm run validation:tests` in `web/` runs them with the app's and records the counts.
 
 ## Week 1 results (2026-09-28)
 
