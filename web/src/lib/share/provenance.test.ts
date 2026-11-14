@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ENERGY_ONLY, POWER_ASSUMPTIONS } from '@/components/PowerScope';
 import { DEFAULT_PARAMS } from '../store/explore';
 import { eph, sites } from '@/test/file-loaders';
 import { collectProvenance, provenanceLines, settingsLine } from './provenance';
@@ -42,7 +43,10 @@ describe('collectProvenance', () => {
     expect(all).toMatch(/at least 2° above the skyline/);
     expect(all).toMatch(/not a working radio link/);
     expect(all).toMatch(/starts 80 % full/);
-    expect(all).toMatch(/no losses for dust, heat, wiring or ageing/);
+    // The power model's scope in the words the lander dialog, the numbers and the brief use, with its energy-only line.
+    for (const line of POWER_ASSUMPTIONS) expect(p.assumptions).toContain(line);
+    expect(p.assumptions).toContain(ENERGY_ONLY);
+    expect(all).not.toMatch(/dust, heat, wiring|charging losses|survives a night/);
   });
 
   it('says it all in plain lines for the brief and the files', () => {

@@ -1,3 +1,4 @@
+import { ENERGY_ONLY, POWER_ASSUMPTIONS } from '@/components/PowerScope';
 import type { Site } from '../data/loaders';
 import type { Ephemeris } from '../engine/ephemeris';
 import { etToIso, utcToEt } from '../engine/time';
@@ -73,9 +74,11 @@ function assumptions(params: PlannerParams): string[] {
     'The Sun and Earth are placed once an hour, on the hour (UTC); a sunrise or an Earthrise falls within the hour before the first hour that shows it.',
     'The Sun counts as up while any part of its disc clears the skyline, and the panel gets the part in view.',
     `Earth counts as in view while the centre of its disc is ${clear}: a clear line of sight to Earth, not a working radio link, which also needs antennas, power for the radio and a ground station.`,
-    `The panel makes ${Math.round(p.efficiency * 100)} % of the sunlight on its ${num(p.areaM2)} m² (1361 W/m² at 1 au, scaled by the Sun's distance) times the cosine of the Sun's angle to it; no losses for dust, heat, wiring or ageing are taken off.`,
-    `The battery starts ${Math.round(p.initialSocFraction * 100)} % full, charges with the surplus over the ${num(p.loadW)} W load and empties on the deficit, hour by hour, with no charging losses; the lander is off while it is empty and the panel makes less than the load.`,
-    'Whether the lander survives a night without power is not worked out: the hours with power after the first power cut hold only if it does.',
+    `The panel makes ${Math.round(p.efficiency * 100)} % of the sunlight on its ${num(p.areaM2)} m² (1361 W/m² at 1 au, scaled by the Sun's distance) times the cosine of the Sun's angle to it.`,
+    `The battery starts ${Math.round(p.initialSocFraction * 100)} % full, charges with the surplus over the ${num(p.loadW)} W load and empties on the deficit, hour by hour; the lander is off while it is empty and the panel makes less than the load.`,
+    // The power model's scope, in the words the lander dialog, the numbers and the brief use (PowerScope).
+    ...POWER_ASSUMPTIONS,
+    ENERGY_ONLY,
     `The skyline is traced through the LOLA elevation grids from a ${num(params.mastM)} m mast; hills smaller than a grid's spacing and boulders are not in it.`,
   ];
 }
