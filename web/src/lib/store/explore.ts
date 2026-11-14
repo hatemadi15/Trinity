@@ -808,7 +808,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
 
   /** An explicit ask for a site (selecting it, comparing it) tries again what failed before. */
   function forgetFailures(site: Site): void {
-    for (const key of [...failures.keys()]) if (key === keyOf(site, store.getState().params.mastM)) failures.delete(key);
+    failures.delete(keyOf(site, store.getState().params.mastM));
     const problems = store.getState().skylineProblems;
     if (problems[site.id]) {
       const rest = { ...problems };
