@@ -92,11 +92,31 @@ describe('ExploreView', () => {
     expect(within(screen.getByRole('region', { name: 'The ground' })).getByRole('link', { name: 'Stand at the site' }).getAttribute('href')).toBe(stand);
   });
 
-  it('lands on the better date when its button is pressed', async () => {
+  it('lands on the better date when its button is pressed, and the boxes show its hour', async () => {
     const { store } = await open();
     fireEvent.click(screen.getByRole('button', { name: /^Land on 20 January/ }));
     expect(store.getState().startUtc).toBe('2027-01-20T10:00:00');
     await waitFor(() => expect(heading()).toMatch(/12 days 15 hours/));
+    expect([(screen.getByLabelText('From') as HTMLInputElement).value, (screen.getByLabelText('Landing time, UTC') as HTMLInputElement).value]).toEqual(['2027-01-20', '10:00']);
+  });
+
+  it('evaluates seven days from 17:00 UTC through the boxes, shifts it five days, and keeps it all in the address', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30#ask');
+    // The address the visit came with is applied first, then follows the period, its hash kept.
+    expect(window.location.search).toBe('?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    fireEvent.change(screen.getByLabelText('Landing time, UTC'), { target: { value: '17:00' } });
+    fireEvent.change(screen.getByLabelText('For'), { target: { value: '7' } });
+    expect([store.getState().startUtc, store.getState().days, store.getState().series?.hours]).toEqual(['2027-01-01T17:00:00', 7, 7 * 24]);
+    await waitFor(() => expect(window.location.search).toBe('?site=de_gerlache_rim_2&start=2027-01-01T17:00&days=7'));
+    expect(window.location.hash).toBe('#ask');
+    const band = screen.getByRole('region', { name: 'What this forecast is for' });
+    fireEvent.click(within(band).getByRole('button', { name: 'Shift by…' }));
+    fireEvent.change(within(band).getByLabelText('Shift by'), { target: { value: '5' } });
+    fireEvent.click(within(band).getByRole('button', { name: '5 days later' }));
+    expect([store.getState().startUtc, store.getState().days]).toEqual(['2027-01-06T17:00:00', 7]);
+    await waitFor(() => expect(window.location.search).toBe('?site=de_gerlache_rim_2&start=2027-01-06T17:00&days=7'));
+    // The time bar starts at the landing, in UTC.
+    expect(screen.getByRole('region', { name: 'Time' }).textContent).toMatch(/6 Jan 2027, 17:00 UTC/);
   });
 
   it('offers Compare as the gold action when no date in the period does better', async () => {
