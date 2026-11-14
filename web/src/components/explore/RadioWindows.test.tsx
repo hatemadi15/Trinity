@@ -22,7 +22,7 @@ describe('RadioWindows', () => {
 
   it('gives the next opening or closing at the time bar’s hour, with its time in UTC, and follows the hour', () => {
     const { rerender } = show(0);
-    expect(screen.getByTestId('radio-next').textContent).toBe('Next window opens 10 Jan, 03:00 UTC, in 9 d 3 h');
+    expect(screen.getByTestId('radio-next').textContent).toBe('Next window opens 10 Jan, 03:00 UTC, in 9 d 3 h, and lasts 13 d 12 h');
     rerender(<RadioWindows series={h.series} power={h.power} startUtc={h.startUtc} hour={300} />);
     expect(screen.getByTestId('radio-next').textContent).toBe('This window closes 23 Jan, 15:00 UTC, in 10 d 3 h');
     rerender(<RadioWindows series={h.series} power={h.power} startUtc={h.startUtc} hour={600} />);

@@ -174,14 +174,16 @@ export function nextRadioChange(plan: ContactPlan, hour: number): RadioChange | 
 export const whenUtc = (startUtc: string, hour: number) => `${dayMonth(startUtc, hour)}, ${clockUtc(startUtc, hour)} UTC`;
 
 /**
- * The next opening or closing in words, with its time in UTC and how far off it is: "Next window opens 10 Jan, 03:00 UTC,
- * in 9 d 3 h", "This window closes 23 Jan, 15:00 UTC, in 2 d 4 h"; or "This window stays open to the end of the period",
- * "No window opens before the period ends".
+ * The next opening or closing in words, with its time in UTC and how far off it is, and for an opening how long the window
+ * lasts (at least, when it runs to the period's end): "Next window opens 10 Jan, 03:00 UTC, in 9 d 3 h, and lasts 13 d
+ * 12 h", "This window closes 23 Jan, 15:00 UTC, in 2 d 4 h"; or "This window stays open to the end of the period", "No
+ * window opens before the period ends".
  */
 export function radioChangeWords(plan: ContactPlan, hour: number, startUtc: string): string {
   const c = nextRadioChange(plan, hour);
   if (!c) return windowAt(plan, hour) ? 'This window stays open to the end of the period' : 'No window opens before the period ends';
-  return `${c.kind === 'opens' ? 'Next window opens' : 'This window closes'} ${whenUtc(startUtc, c.at)}, in ${spanShort(c.inHours)}`;
+  if (c.kind === 'closes') return `This window closes ${whenUtc(startUtc, c.at)}, in ${spanShort(c.inHours)}`;
+  return `Next window opens ${whenUtc(startUtc, c.at)}, in ${spanShort(c.inHours)}, and lasts ${c.window.toEnd ? 'at least ' : ''}${spanShort(c.window.hours)}`;
 }
 
 /**

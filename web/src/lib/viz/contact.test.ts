@@ -147,9 +147,11 @@ describe('nextRadioChange', () => {
     }
   });
 
-  it('words the change with its time in UTC and how far off it is, or says it does not come in the period', () => {
+  it('words the change with its time in UTC, how far off it is and how long an opening window lasts, or says it does not come in the period', () => {
     const start = '2027-01-01T00:00:00';
-    expect(radioChangeWords(plan, 0, start)).toBe('Next window opens 1 Jan, 01:00 UTC, in 1 h');
+    expect(radioChangeWords(plan, 0, start)).toBe('Next window opens 1 Jan, 01:00 UTC, in 1 h, and lasts 2 h');
+    // A window still open at the end of the period lasts at least as long as the period shows.
+    expect(radioChangeWords(plan, 3, start)).toBe('Next window opens 1 Jan, 05:00 UTC, in 2 h, and lasts at least 2 h');
     expect(radioChangeWords(plan, 1, start)).toBe('This window closes 1 Jan, 03:00 UTC, in 2 h');
     expect(radioChangeWords(plan, 5, start)).toBe('This window stays open to the end of the period');
     expect(radioChangeWords(contactPlan(series([1, 0, 0]), null), 1, start)).toBe('No window opens before the period ends');

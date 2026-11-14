@@ -128,7 +128,7 @@ describe('ExploreView', () => {
     const chart = screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' });
     expect(chart.compareDocumentPosition(radio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(radio.compareDocumentPosition(screen.getByRole('region', { name: 'The ground' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(radio).getByTestId('radio-next').textContent).toBe('Next window opens 10 Jan, 03:00 UTC, in 9 d 3 h');
+    expect(within(radio).getByTestId('radio-next').textContent).toBe('Next window opens 10 Jan, 03:00 UTC, in 9 d 3 h, and lasts 13 d 12 h');
     act(() => store.getState().setCursor(300));
     await waitFor(() => expect(within(radio).getByTestId('radio-next').textContent).toBe('This window closes 23 Jan, 15:00 UTC, in 10 d 3 h'));
   });
