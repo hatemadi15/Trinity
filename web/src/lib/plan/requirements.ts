@@ -128,6 +128,11 @@ export function failedWords(c: Check): string {
   return `${midSentence(c.label)} (${value})`;
 }
 
+/** Whether the share of terrain versions is set but was not checked: no versions were worked out for the choice. */
+export function holdUnchecked(r: Requirements, checks: Check[]): boolean {
+  return (r.minHoldPct ?? null) !== null && !checks.some((c) => c.id === 'holds');
+}
+
 /**
  * What a choice that fails none of its checks meets while a requirement set was not checked for it (the share of terrain
  * versions, where none were worked out): "the requirement checked here", never every requirement.

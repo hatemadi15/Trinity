@@ -1,6 +1,6 @@
 import { spanShort } from '../viz/format';
 import type { Outcome } from './outcome';
-import { checkedHere, checkRequirements, failedWords, midSentence, type Check, type Holds, type Requirements } from './requirements';
+import { checkedHere, checkRequirements, failedWords, holdUnchecked, midSentence, type Check, type Holds, type Requirements } from './requirements';
 
 /** What every recommendation is ranked by, said where the recommendations are. */
 export const OBJECTIVE =
@@ -154,8 +154,7 @@ export interface Option<T> {
  */
 export function optionOf<T>(item: T, outcome: Outcome, req: Requirements, holds?: Holds | null): Option<T> {
   const checks = checkRequirements(outcome, req, holds);
-  const unchecked = (req.minHoldPct ?? null) !== null && !checks.some((c) => c.id === 'holds');
-  return { item, outcome, checks, failed: checks.filter((c) => !c.met).length, holds: holds ?? null, unchecked };
+  return { item, outcome, checks, failed: checks.filter((c) => !c.met).length, holds: holds ?? null, unchecked: holdUnchecked(req, checks) };
 }
 
 /**

@@ -28,6 +28,8 @@ export interface Column {
   terrain?: TerrainReport;
   /** The planner's requirements checked against its figures (lib/plan); empty or absent when none is set. */
   checks?: Check[];
+  /** A requirement set was not checked against it: the share of terrain versions, which Compare does not work out. */
+  unchecked?: boolean;
 }
 
 export type Tone = 'better' | 'worse' | 'same';
@@ -160,7 +162,7 @@ function requirementsRow(cols: Column[]): FigureRow[] {
       means: 'The mission requirements set on Explore (Options), or carried by the link or file, checked against each scenario landing at its own period start: how many it fails and, one tap on the row’s name away, each one met or failed with the value reached and the margin.',
       cells: cols.map((c, i) => {
         if (!c.outcome || !c.checks || c.checks.length === 0) return null;
-        const value = checksShort(c.checks) ?? '';
+        const value = checksShort(c.checks, c.unchecked) ?? '';
         const checks = c.checks.map((x) => ({ met: x.met, words: x.words }));
         if (i === 0) return { value, change: null, tone: null, checks };
         const d = failed(c) - failed(base);

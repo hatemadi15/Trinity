@@ -707,6 +707,18 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().yearPlan).toBeNull();
   });
 
+  it('findBestWindow says the best one meets the requirement checked here, not yours, while the one on terrain versions is set', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init(); // de Gerlache Rim 2, 1 January 2027, 30 days
+    // The 12-month search does not check the share of terrain versions.
+    store.getState().setRequirements({ minPoweredH: 5 * 24, minHoldPct: 90 });
+    await store.getState().findBestWindow(30);
+    const note = store.getState().bestWindowNote!;
+    expect(store.getState().yearPlan!.plan.alternatives[0].failed).toBe(0);
+    expect(note).toMatch(/ Meets the requirement checked here\. Landing times tried every 6 hours, ranked by your requirements, /);
+    expect(note).not.toMatch(/meets your requirement|meets all|every requirement/i);
+  });
+
   it('findBestWindow reports a site that never sees the Sun instead of moving the window', async () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();
