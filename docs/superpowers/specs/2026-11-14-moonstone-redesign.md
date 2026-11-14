@@ -19,7 +19,10 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
 
 ## Pages
 - **Home.** The descent (23.1) from the first screen to the answer: the whole Moon beside the title, Earth beside
-  it (NASA Blue Marble with clouds, night lights, ocean glint and air glow; LRO's Moon with its relief). Then five
+  it (NASA Blue Marble with clouds, night lights, ocean glint and air glow; LRO's Moon with its relief), and under the
+  lede the audience line, "For planners of NASA's commercial Moon landers, teachers (start with How it works) and
+  anyone curious.", with the title in two lines where the first screen is short (a phone, a landscape window under
+  880 px tall) so the buttons stay clear of Luna. Then five
   numbered sections in one line (`SectionHead`): 01 the forecast on black, which reads hour by hour under the
   pointer or the arrow keys (`ForecastHover`), with the lander in three figures; then, on paper in both themes
   (`.theme-light`) after one clean edge with room on both sides of it, 02 why the pole is hard (23.3), 03 real

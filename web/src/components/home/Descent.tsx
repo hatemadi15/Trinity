@@ -46,8 +46,9 @@ const stillStyle = (d: { cx: number; cy: number; r: number }, share: number): CS
  * it). The words are page text in reading order; tabbing to the words of a stage brings its view.
  *
  * On the first screen the Moon stands where the words leave room, measured from the words themselves at every width:
- * right of them on a wide screen, under them on a tall one, never under the title, the sentence or the buttons. Without
- * WebGL the Moon's still stands there, then the relief map and the site's picture, and a line says so.
+ * right of them on a wide screen, under them on a tall one, never under the title, the sentence, the audience line or
+ * the buttons. Without WebGL the Moon's still stands there, then the relief map and the site's picture, and a line says
+ * so.
  */
 export function Descent({ words, Scene = LiveScene }: { words: DescentWords; Scene?: ComponentType<DescentSceneProps> }) {
   const reduced = useReducedMotion();
@@ -359,13 +360,30 @@ export function Descent({ words, Scene = LiveScene }: { words: DescentWords; Sce
                 <span aria-hidden="true" className="inline-block h-2 w-2 animate-[pulse-dot_2.4s_ease-in-out_infinite] rounded-full bg-[#7fa9ff]" />
                 South pole forecast
               </p>
-              <h1 id="h-hero" aria-label="See when a Moon lander has sunlight and a signal." className="display mt-5 animate-[focus-in_1.4s_cubic-bezier(0.16,1,0.3,1)_both] text-balance text-[42px] leading-[0.95] sm:text-[56px] lg:text-[64px] xl:text-[72px] 2xl:text-[84px]">
+              {/* Where the first screen is short (a phone, a landscape window under 880 px tall) the title sets in two
+                  lines, so the audience line fits above Luna. Its longer line is 9.9 em wide at the letter spacing it
+                  fades in with: 9vw fits a phone's column, and 4.8vw up to 64 px the landscape column (48vw, at most
+                  640 px), so it never wraps to three lines as it settles. */}
+              <h1
+                id="h-hero"
+                aria-label="See when a Moon lander has sunlight and a signal."
+                className="display mt-5 animate-[focus-in_1.4s_cubic-bezier(0.16,1,0.3,1)_both] text-balance text-[min(42px,9vw)] leading-[0.95] sm:text-[56px] lg:text-[64px] xl:text-[72px] 2xl:text-[84px] landscape:sm:[@media(max-height:880px)]:text-[min(64px,4.8vw)]"
+              >
                 See when a Moon lander has <em>sunlight</em> and a <span className="pixel text-[0.86em] text-[#a8c6ff] text-glow">signal</span>.
               </h1>
               <p className="mt-6 max-w-[30em] text-lg leading-relaxed text-[#c9cbcf] sm:text-[19px]">
                 A forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth, and how long a lander keeps power.
               </p>
-              <div className="mt-8 flex w-fit flex-wrap gap-3">
+              {/* Who it is for, with the teachers' way in, quieter than the sentence it follows. On a phone it stops short
+                  of the rail's dots. */}
+              <p className="mt-3 max-w-[34em] text-pretty text-[15px] leading-relaxed text-[#c9cbcf] max-sm:pr-8">
+                For planners of NASA&apos;s commercial Moon landers, teachers (start with{' '}
+                <Link href="/learn" className="whitespace-nowrap font-semibold text-[#f5f5f3] underline decoration-[1.5px] underline-offset-4 transition-colors hover:text-accent-ink hover:decoration-accent">
+                  How it works
+                </Link>
+                ) and anyone curious.
+              </p>
+              <div className="mt-7 flex w-fit flex-wrap gap-3">
                 <Link href="/sites" onClick={start} className="btn btn-primary h-[52px] px-[22px] text-[17px]">
                   Fly to the south pole
                   <span aria-hidden="true" className="arrow">

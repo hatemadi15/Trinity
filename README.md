@@ -11,7 +11,9 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
 
 ## A tour of the pages
 
-- **Home** (`/`): what the tool answers, in one real month. It opens with the descent, by scrolling
+- **Home** (`/`): what the tool answers, in one real month, and who it is for, in a line under the
+  first screen's sentence: planners of NASA's commercial Moon landers, teachers (sent to How it works
+  first) and anyone curious. It opens with the descent, by scrolling
   or in 11 seconds with "Fly to the south pole": the whole Moon, beside the title and never under
   it, with Earth beside it, turns, tips its south pole towards you and comes closer, down to the
   500 km relief map of the pole and to de Gerlache Rim 2's 20 km shadow picture, with the answer for
