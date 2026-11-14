@@ -8,8 +8,11 @@ export interface StateSummary {
   site: { id: string; name: string; label: string; lat: number; lon: number };
   window: { startUtc: string; days: WindowDays };
   summary: Summary;
-  /** `poweredHours`: from landing on the period's first day to the first brownout, capped at the period; `contactHours`: how many of them have Earth in view. */
-  power: { socMin: number; brownoutHours: number; survives: boolean; meanPowerW: number; poweredHours: number; contactHours: number };
+  /**
+   * `poweredHours`: from landing on the period's first day to the first brownout, capped at the period; `contactHours`: how many of them have
+   * Earth in view; `endsAtNight`: when power ends, whether no Sun is up at that hour (the verdict's "then night") or some is (too little sunlight).
+   */
+  power: { socMin: number; brownoutHours: number; survives: boolean; meanPowerW: number; poweredHours: number; contactHours: number; endsAtNight?: boolean };
   params: PlannerParams;
   compare: { id: string; name: string; illumFraction: number; earthVisFraction: number; survives: boolean }[];
 }
@@ -42,6 +45,7 @@ export function summarizeState(s: ExploreState): StateSummary | null {
       meanPowerW: r1(s.power.meanPowerW),
       poweredHours,
       contactHours,
+      ...(s.power.firstBrownoutHour !== null && s.series ? { endsAtNight: s.series.sunFraction[s.power.firstBrownoutHour] === 0 } : {}),
     },
     params: { power: { ...s.params.power }, minEarthElDeg: s.params.minEarthElDeg, mastM: s.params.mastM },
     compare: s.compare.map((c) => ({

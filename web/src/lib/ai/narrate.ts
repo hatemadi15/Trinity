@@ -194,6 +194,7 @@ export function isStateSummary(x: unknown): x is StateSummary {
     typeof power.meanPowerW === 'number' &&
     typeof power.poweredHours === 'number' &&
     typeof power.contactHours === 'number' &&
+    (power.endsAtNight === undefined || typeof power.endsAtNight === 'boolean') &&
     typeof site.label === 'string' &&
     typeof cfg?.panel === 'string' &&
     Object.hasOwn(PANEL_LABELS, cfg.panel) &&
