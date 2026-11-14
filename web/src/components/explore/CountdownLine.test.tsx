@@ -34,6 +34,14 @@ describe('CountdownLine', () => {
     expect(visibleWords(line, WIDE).join(' ')).toBe('No sunrise before the end Earth in view to the end');
   });
 
+  it('sets the two parts apart as two columns, with no sign between them to strand across the Sun’s slot, and a pause between them for a screen reader', () => {
+    render(<CountdownLine series={s} hour={0} />);
+    const line = screen.getByTestId('countdown');
+    expect(line.textContent).toBe('Sunset in 1 d 6 h, Earth rises in 5 h');
+    expect(line.querySelector('.sr-only')!.textContent).toBe(', ');
+    expect(line.className).toMatch(/\bgap-x-5\b/);
+  });
+
   it('keeps one width as the hour moves: each part stands over unseen copies of every form its words take in the period, drawn by the stylesheet', () => {
     render(<CountdownLine series={s} hour={0} />);
     const line = screen.getByTestId('countdown');
