@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { DataProblem, SYNC_HINT } from './DataProblem';
+import { SkylineNote } from './SkylineNote';
 import { SkyRow } from './SkyRow';
 import { askNarration, shortModel } from '@/lib/ai/client';
 import { templateBrief } from '@/lib/ai/narrate';
@@ -12,10 +13,11 @@ import { siteLabel } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
 import { landerLine } from '@/lib/lander';
 import { exploreHref } from '@/lib/links';
-import { exploreStore, type ExploreState } from '@/lib/store/explore';
+import { exploreStore, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { hillsToward } from '@/lib/viz/timechart';
+import { provenanceWords, terrainDetails, terrainLimitation, trustedAnswer } from '@/lib/viz/terrain';
 
 type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; message?: string };
 
@@ -75,7 +77,12 @@ export function BriefView({
   }
   const p = s.params.power;
   const name = siteLabel(s.site);
-  const answer = answerFor({ siteName: name, series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: p.loadW, batteryWh: p.batteryWh, best: s.best });
+  // The terrain behind the figures, and whether they are still from another mast height than the one chosen: an
+  // incomplete terrain, or figures still on their way, name no better day (lib/viz/terrain).
+  const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
+  const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
+  const answer = trustedAnswer(answerFor({ siteName: name, series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: p.loadW, batteryWh: p.batteryWh, best: s.best }), terrain, behind);
+  const limitation = terrainLimitation(terrain);
   const hours = s.days * 24;
   const powered = Math.min(hours, timeWithPower(s.power));
   const figures: [string, string][] = [
@@ -85,7 +92,8 @@ export function BriefView({
     ['Time with power', powered >= hours ? `all ${s.days} days` : spanShort(powered)],
     ['Battery when full', `${spanShort(p.loadW > 0 ? p.batteryWh / p.loadW : 0)} at ${p.loadW} W`],
   ];
-  const mast = s.maskMeta?.mastM ?? 2;
+  // The height the hills are seen from: the skyline's own; a flat horizon is the same from the chosen one.
+  const mast = s.maskMeta?.source === 'flat' ? s.params.mastM : (s.maskMeta?.mastM ?? 2);
   const stateSummary = summarizeState(s);
   const template = stateSummary ? templateBrief(stateSummary) : '';
   const shown = narration && narration.source !== 'error' ? narration.text : template;
@@ -102,7 +110,7 @@ export function BriefView({
       setWriting(false);
     }
   }
-  const provenance = s.maskMeta?.source === 'flat' ? 'a flat horizon (no polar height data there)' : s.maskMeta?.source === 'computed' ? 'hills worked out in your browser from NASA elevation data' : 'hills measured from NASA elevation data';
+  const provenance = terrain ? provenanceWords(terrain) : 'hills measured from NASA elevation data';
   const period = `the ${s.days} days from ${dateLong(s.startUtc, 0)}`;
   const every = s.days > 45 ? 10 : 5;
   const ticks = Array.from({ length: Math.floor((s.days - 1) / every) + 1 }, (_, k) => k * every);
@@ -123,6 +131,7 @@ export function BriefView({
           {Math.abs(s.site.lat).toFixed(3)}° {s.site.lat < 0 ? 'S' : 'N'}, {Math.abs(s.site.lon).toFixed(3)}° {s.site.lon < 0 ? 'W' : 'E'}; {period} {s.startUtc.slice(0, 4)}.
         </p>
       </header>
+      <SkylineNote state={s} ids={[s.site.id]} selected />
       <section className="flex flex-col gap-1 text-[15px]">
         <div className="flex items-center justify-between gap-3">
           <h2 className="display text-[18px] font-semibold">Mission summary</h2>
@@ -137,6 +146,7 @@ export function BriefView({
         <h2 id="brief-verdict" className="display text-[20px] font-semibold leading-snug">
           {answer.title}
         </h2>
+        {limitation && <p className="mt-1 text-[15px] font-medium">{limitation}</p>}
         {answer.sentences.map((line) => (
           <p key={line} className="mt-1 text-[15px]">
             {line}
@@ -185,11 +195,11 @@ export function BriefView({
         <p>
           Site height {s.maskMeta?.siteHeightM.toFixed(0)} m with a {mast} m mast; {provenance}
           {s.site.approximate ? '; the site is the centre of a region drawn on NASA’s map (about ±5 km)' : ''}. The Sun&apos;s and Earth&apos;s directions come from the JPL DE440 ephemeris (an hourly table, checked against JPL Horizons to 0.00003°).
-          The hills on the horizon are traced through
-          NASA LRO LOLA elevation grids (20 m within 6 km, 80 m to 100 km, 240 m to 220 km) from a {mast} m mast; the Sun counts as up when any part of it clears the hills. Power is the
+          {s.maskMeta?.source === 'flat' ? 'No hills are traced here: the horizon is taken as flat' : `The hills on the horizon are traced through NASA LRO LOLA elevation grids (20 m within 6 km, 80 m to 100 km, 240 m to 220 km) from a ${mast} m mast`}; the Sun counts as up when any part of it clears the hills. Power is the
           panel&apos;s share of 1361 W/m² at the Moon&apos;s distance from the Sun, times the part of the Sun in view; the battery charges with the surplus and empties on the deficit, hour by hour.
           Errors: directions under 0.01°, the hills 0.05 to 0.15°, times within 15 to 60 minutes near the pole.
         </p>
+        {terrain && terrainDetails(terrain) && <p>{terrainDetails(terrain)}</p>}
       </section>
       <section className="flex flex-col gap-1 text-[15px]">
         <h2 className="display text-[18px] font-semibold">Data</h2>

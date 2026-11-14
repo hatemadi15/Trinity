@@ -37,6 +37,9 @@ export interface MaskDoc {
   elevation_deg: number[];
   bands: { grid: string; r_min_m: number; r_max_m: number; step_m: number }[];
   fallback_bands: { grid: string; r_min_m: number; r_max_m: number; step_m: number }[];
+  /** What made the file and when (UTC), as the pipeline writes them. */
+  method?: string;
+  generated_utc?: string;
 }
 
 export class DataError extends Error {

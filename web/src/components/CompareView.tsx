@@ -6,6 +6,7 @@ import { AppFrame } from './AppFrame';
 import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PeriodControls } from './PeriodControls';
 import { PlannerChat } from './PlannerChat';
+import { SkylineNote } from './SkylineNote';
 import { lolaFor, Sources } from './Sources';
 import { MiniStrip } from './compare/MiniStrip';
 import { LanderDialog } from './explore/LanderDialog';
@@ -15,6 +16,7 @@ import { landerName } from '@/lib/lander';
 import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { bestSentence, compareRow, READY_PAIRS } from '@/lib/viz/compare';
 import { dateLong } from '@/lib/viz/format';
+import { terrainLimitation, terrainTag } from '@/lib/viz/terrain';
 
 const LINK = 'font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink';
 const TAG = 'shrink-0 rounded-full border border-line px-2.5 py-0.5 text-[15px] text-ink-2';
@@ -47,6 +49,12 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
   }
 
   const rows = s.compare.map((c) => compareRow(c, s.startUtc, s.days));
+  // A compared site whose hills for the chosen mast are still on their way keeps its row, without figures.
+  const waiting = s.compareIds.filter((id) => !s.compare.some((c) => c.site.id === id));
+  const limits = s.compare.flatMap((c) => {
+    const words = terrainLimitation(c.terrain);
+    return words ? [`${siteLabel(c.site)}: ${words}`] : [];
+  });
   const full = s.compareIds.length >= COMPARE_MAX;
   const candidates = s.sites.filter((x) => x.category !== 'custom' && !s.compareIds.includes(x.id));
   const period = `the ${s.days} days from ${dateLong(s.startUtc, 0)}`;
@@ -91,8 +99,9 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             {s.error}
           </p>
         )}
+        <SkylineNote state={s} ids={s.compareIds} />
 
-        {rows.length === 0 ? (
+        {s.compareIds.length === 0 ? (
           <section aria-labelledby="h-pairs" className="panel">
             <h2 id="h-pairs" className="display text-[23px] font-semibold">
               Start with a pair
@@ -114,11 +123,12 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             <h2 id="h-table" className="sr-only">
               The sites side by side
             </h2>
-            <p className="max-w-[60em] text-[17px] leading-relaxed text-ink">{bestSentence(s.compare, s.startUtc, s.days)}</p>
+            {/* No best site is named while a compared site still waits for its figures. */}
+            {waiting.length === 0 && <p className="max-w-[60em] text-[17px] leading-relaxed text-ink">{bestSentence(s.compare, s.startUtc, s.days)}</p>}
             {/* How to read the table, before it: a phone shows the strips before anything under them. */}
             <p className="mt-2 max-w-[60em] text-[15px] text-ink-2">
               In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the {s.days} days. Time with power counts from landing on the first day until the battery
-              first runs out; Earth in view counts every hour of the period.
+              first runs out; Earth in view counts every hour of the period. The hills are seen from a {s.params.mastM} m mast at every site.
             </p>
             {/* On a phone each site is a block of labelled figures: no table to scroll sideways. */}
             <table className="mt-4 w-full border-collapse text-left max-sm:block sm:min-w-[900px]">
@@ -138,6 +148,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                       <Link href={r.href} className={LINK}>
                         {r.name}
                       </Link>
+                      {terrainTag(s.compare[i].terrain) && <span className="block text-[15px] font-normal text-warn">{terrainTag(s.compare[i].terrain)}</span>}
                     </th>
                     <td data-label="Sun and Earth" className={`${CELL} ${STACKED}`}>
                       <MiniStrip series={s.compare[i].series} name={r.name} period={period} />
@@ -155,8 +166,32 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                     </td>
                   </tr>
                 ))}
+                {waiting.map((id) => {
+                  const name = siteLabel(s.sites.find((x) => x.id === id) ?? { name: id });
+                  return (
+                    <tr key={id} className="max-sm:block max-sm:border-b max-sm:border-line max-sm:py-2">
+                      <th scope="row" className={`${CELL} font-semibold max-sm:block max-sm:border-0`}>
+                        {name}
+                      </th>
+                      <td colSpan={5} className={`${CELL} text-[15px] text-ink-2 max-sm:block max-sm:border-0`}>
+                        {s.skylineProblems[id] ? 'could not be worked out for this mast height' : 'working it out…'}
+                      </td>
+                      <td className={`${CELL} text-right max-sm:block max-sm:border-0`}>
+                        <button type="button" onClick={() => store.getState().removeFromCompare(id)} aria-label={`Remove ${name}`} className="h-10 rounded-lg border border-line-strong px-3 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+            {/* What limits the terrain behind a row, in plain words, under the table. */}
+            {limits.map((line) => (
+              <p key={line} className="mt-3 max-w-[60em] text-[15px] text-warn">
+                {line}
+              </p>
+            ))}
             {/* DE440 gives every figure, and LOLA the hills on the grids of the sites in the table. */}
             <Sources of={['de440', ...lolaFor(...s.compare.map((c) => c.site))]} />
           </section>
@@ -179,9 +214,9 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
           </button>
           {full && <p className="pb-3 text-[15px] text-ink-2">Four sites is the most this page compares: remove one to add another.</p>}
         </div>
-        {rows.length > 0 && (
+        {s.compareIds.length > 0 && (
           <p className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            {rows.length >= 2 && (
+            {s.compareIds.length >= 2 && (
               <button type="button" onClick={() => void store.getState().findBestWindow(s.days, 'compare')} className="btn h-auto min-h-[48px] max-w-full whitespace-normal py-2.5 text-left">
                 Find the best landing day for these sites in the next 12 months
               </button>

@@ -86,17 +86,18 @@ export function bestSentence(results: SiteResult[], startUtc: string, days: numb
   const sun = best(results, (r) => Math.round(r.summary.illumFraction * 100));
   const earth = best(results, (r) => Math.round(r.summary.earthVisFraction * 100));
   const wins: { names: string[]; words: string }[] = [];
-  // A measure a site with incomplete terrain would win names no site: its figure may be too high. A trusted winner
-  // still wins over an incomplete site whose figure, too high if anything, is lower.
+  // An incomplete terrain can only overstate a figure, so a site with one never wins a measure. A trusted site that
+  // reaches the top still wins (an incomplete one level with it is truly level or lower); a measure whose top only
+  // incomplete sites reach names no site, and the sentence says why.
   const withheld: { names: string[]; measures: string[] } = { names: [], measures: [] };
   const win = (m: { top: number; names: string[]; winners: SiteResult[] }, measure: string, figure: string) => {
     if (m.top <= 0) return;
-    const doubtful = m.winners.filter((r) => !trusted(r));
-    if (doubtful.length === 0) {
-      wins.push({ names: m.names, words: `${measure} (${figure})` });
+    const sure = m.winners.filter(trusted);
+    if (sure.length > 0) {
+      wins.push({ names: sure.map((r) => siteLabel(r.site)), words: `${measure} (${figure})` });
       return;
     }
-    for (const r of doubtful) if (!withheld.names.includes(siteLabel(r.site))) withheld.names.push(siteLabel(r.site));
+    for (const r of m.winners) if (!withheld.names.includes(siteLabel(r.site))) withheld.names.push(siteLabel(r.site));
     withheld.measures.push(measure);
   };
   win(power, 'the longest time with power', power.top >= hours ? `all ${days} days` : spanShort(power.top));

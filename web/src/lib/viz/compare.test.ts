@@ -82,6 +82,9 @@ describe('bestSentence', () => {
     // A site with complete terrain still wins over one whose figures, too high if anything, are lower.
     const shaky = { ...floor, terrain: { quality: 'incomplete' } } as unknown as SiteResult;
     expect(bestSentence([ridge, summit, shaky], START, 30)).toBe(bestSentence([ridge, summit, floor], START, 30));
+    // Level with a trusted site, an incomplete one is truly level or lower: the trusted site alone is named.
+    const twin = { ...result('d', 'Twin', { sun: 1, earth: 0.49, nightH: 0, brownout: null }), terrain: { quality: 'incomplete' } } as unknown as SiteResult;
+    expect(bestSentence([summit, twin], START, 30)).toBe('Landing on 1 January, Summit has the longest time with power (all 30 days), the most sunlight (100\u00a0%) and the most contact with Earth (49\u00a0%).');
     // When every measure is withheld, only the reason is left.
     expect(bestSentence([lost, { ...ridge, terrain: { quality: 'incomplete' } } as unknown as SiteResult], START, 30)).toBe(
       'The terrain at Summit and Ridge is incomplete, so no site is named for the longest time with power, the most sunlight or the most contact with Earth: their figures may be too high.',
