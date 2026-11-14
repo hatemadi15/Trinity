@@ -7,7 +7,7 @@ from lunar_pipeline import home_assets
 from lunar_pipeline.cli import build_parser
 from lunar_pipeline.home_assets import distance_km, facts, night, relief_pins, write_jpeg
 from lunar_pipeline.sites import Site
-from tests.conftest import needs_lola
+from tests.conftest import needs_kernels, needs_lola
 
 
 def _due_north_of_the_pole(el_deg: float, dist_km: float) -> np.ndarray:
@@ -113,6 +113,7 @@ def test_cli_lists_the_home_assets_command():
 
 @pytest.mark.data
 @needs_lola
+@needs_kernels  # the month at the site comes from the ephemeris, which reads the SPICE kernels
 def test_write_all_produces_the_picture_the_map_and_the_facts(tmp_path):
     (tmp_path / "public").mkdir()
     (tmp_path / "src" / "lib" / "data").mkdir(parents=True)
@@ -127,6 +128,9 @@ def test_write_all_produces_the_picture_the_map_and_the_facts(tmp_path):
     assert len(sky["earth_el"]) == 720 and len(sky["earth_hill_el"]) == 720 and len(sky["earth_visible"]) == 720
     assert 0.0 < sky["earth_pct"] < 100.0
     assert doc["pair"]["rim_sun_pct"] == 100.0 and doc["pair"]["distance_km"] == pytest.approx(12.1, abs=0.2)
+    rim = doc["rim"]
+    assert rim["site_id"] == "de_gerlache_center_rim_high" and rim["sunlit_pct"] == 100.0
+    assert len(rim["sun_az"]) == 720 and len(rim["sun_el"]) == 720 and all(rim["lit"]) and len(rim["mask"]["el"]) == 720
     assert 0.3 < doc["hero"]["lit_fraction"] < 0.8
     assert doc["hero"]["frame_utc"] == "2027-01-02T06:00:00"
     ids = {s["id"] for s in doc["relief"]["sites"]}

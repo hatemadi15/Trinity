@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isoAt } from '../viz/format';
+import { dateTimeUtc, isoAt } from '../viz/format';
+import { sliceSeries } from '../engine/metrics';
+import { powerBudget } from '../engine/power';
 import { loadEphemeris, type EphemerisHeader } from '../engine/ephemeris';
-import { createExploreStore, DEFAULT_PARAMS, DEFAULT_START, recompute } from './explore';
+import { createExploreStore, DEFAULT_PARAMS, DEFAULT_START, recompute, scanOf } from './explore';
 import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
 import type { Site } from '../data/loaders';
 import { decodeHeightmap, type HeightmapMeta, type TerrainManifest } from '../data/terrain';
@@ -45,6 +47,16 @@ function fileLoaders(opts: { delayMs?: (id: string) => number; counters?: { mask
 const custom: Site = { id: 'custom', name: 'Custom site', lat: -89.5, lon: 10, category: 'custom', polar: true, source: 'user' };
 
 describe('recompute', () => {
+  it('keeps the series the landing search scanned, which runs a period past the end of the period', () => {
+    const site = sites.find((s) => s.id === 'de_gerlache_rim_2')!;
+    const r = recompute(eph, site, Float64Array.from(maskOf(site.id).elevation_deg), '2027-01-01T00:00:00', 30);
+    const scan = scanOf(r.series);
+    expect(scan.hours).toBe(60 * 24);
+    expect(scan.sunFraction.subarray(0, 720)).toEqual(r.series.sunFraction);
+    // A series no search was run on is its own scan.
+    expect(scanOf(scan)).toBe(scan);
+  });
+
   it('returns a series and summary for a featured site', () => {
     const site = sites.find((s) => s.id === 'shackleton_center_rim_high')!;
     const { series, summary } = recompute(eph, site, Float64Array.from(maskOf(site.id).elevation_deg), '2025-01-01T00:00:00', 30);
@@ -165,10 +177,10 @@ describe('explore store', () => {
     await store.getState().init();
     await store.getState().loadOverview();
     const { series, overview } = store.getState();
-    expect(Object.keys(overview)).toHaveLength(19);
+    expect(Object.keys(overview)).toHaveLength(34);
     store.getState().setWindow('2036-12-20T00:00:00', 30);
     const s = store.getState();
-    expect(s.error).toBe('A 30-day period from 20 December 2036 runs past 31 December 2036, where the Sun and Earth table ends. Choose an earlier date or a shorter period.');
+    expect(s.error).toBe('A 30-day period from 20 December 2036, 00:00 UTC runs past 31 December 2036, where the Sun and Earth table ends. The latest landing for 30 days is 2 December 2036, 00:00 UTC.');
     expect(s.startUtc).toBe(DEFAULT_START);
     expect(s.days).toBe(30);
     expect(s.series).toBe(series);
@@ -180,11 +192,65 @@ describe('explore store', () => {
     store.getState().setWindow('2036-11-01T00:00:00', 30);
     expect(store.getState().error).toBeNull();
     store.getState().setWindow('2036-11-01T00:00:00', 90);
-    expect(store.getState().error).toBe('A 90-day period from 1 November 2036 runs past 31 December 2036, where the Sun and Earth table ends. Choose an earlier date or a shorter period.');
+    expect(store.getState().error).toBe('A 90-day period from 1 November 2036, 00:00 UTC runs past 31 December 2036, where the Sun and Earth table ends. The latest landing for 90 days is 3 October 2036, 00:00 UTC.');
     expect(store.getState().days).toBe(30);
     store.getState().setWindow('2023-12-01T00:00:00', 30);
-    expect(store.getState().error).toBe('A 30-day period from 1 December 2023 starts before 1 January 2024, where the Sun and Earth table begins. Choose a later date.');
+    expect(store.getState().error).toBe('A 30-day period from 1 December 2023, 00:00 UTC starts before 2 January 2024, 00:00 UTC, the first landing the Sun and Earth table allows.');
     expect(store.getState().startUtc).toBe('2036-11-01T00:00:00');
+  });
+  it('lands at 17:00 UTC: the series starts at the 17:00 row, the time bar starts at 17:00 and the battery walk starts with the landing', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    store.getState().setWindow('2027-01-20T17:00:00', 7);
+    const s = store.getState();
+    expect([s.startUtc, s.days, s.error, s.series?.hours]).toEqual(['2027-01-20T17:00:00', 7, null, 7 * 24]);
+    // The same hours as a period from midnight, 17 rows on.
+    const site = s.site!, mask = s.mask!;
+    const fromMidnight = recompute(eph, site, mask, '2027-01-20T00:00:00', 8);
+    expect(s.series!.i0).toBe(fromMidnight.series.i0 + 17);
+    for (const h of [0, 1, 50, 167]) {
+      expect(s.series!.sunEl[h], `hour ${h}`).toBe(fromMidnight.series.sunEl[h + 17]);
+      expect(s.series!.earthVisible[h], `hour ${h}`).toBe(fromMidnight.series.earthVisible[h + 17]);
+    }
+    // Hour zero of the time bar is the landing, written in UTC.
+    expect(dateTimeUtc(s.startUtc, 0)).toBe('20 Jan 2027, 17:00 UTC');
+    // The battery starts at the landing with the lander's charge: the walk is the one over those same hours.
+    expect(s.power).toEqual(powerBudget(sliceSeries(fromMidnight.series, 17, 7 * 24), DEFAULT_PARAMS.power));
+  });
+  it('reads a landing between hours at the nearest whole hour, as the engine reads its hourly table', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    store.getState().setWindow('2027-01-20T17:20:00', 7);
+    expect(store.getState().startUtc).toBe('2027-01-20T17:00:00');
+    store.getState().setWindow('2027-01-20T17:30:00', 7);
+    expect(store.getState().startUtc).toBe('2027-01-20T18:00:00');
+  });
+  it('takes any whole number of days from 2 to 90, and refuses any other length in plain words', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    for (const days of [2, 7, 45, 90]) {
+      store.getState().setWindow('2027-01-20T17:00:00', days);
+      expect([store.getState().days, store.getState().series?.hours, store.getState().error]).toEqual([days, days * 24, null]);
+    }
+    for (const days of [1, 91, 7.5, 0]) {
+      store.getState().setWindow('2027-01-20T17:00:00', days);
+      expect([store.getState().days, store.getState().error], String(days)).toEqual([90, 'A period is 2 to 90 whole days.']);
+    }
+  });
+  it('findBestWindow searches for the length chosen and keeps the landing hour it finds, in the store and in its note', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    store.getState().setWindow('2027-01-20T17:00:00', 7);
+    const r = await store.getState().findBestWindow(7);
+    expect(r).not.toBeNull();
+    const s = store.getState();
+    expect([s.startUtc, s.days, s.series?.hours]).toEqual([r!.startUtc, 7, 7 * 24]);
+    // Landing hours are tried every 6 hours from the landing: 17:00, 23:00, 05:00 and 11:00 UTC.
+    expect(['05', '11', '17', '23']).toContain(r!.startUtc.slice(11, 13));
+    expect(s.bestWindowNote).toContain(`${r!.startUtc.slice(11, 16)} UTC, power for `);
+    expect(r!.poweredHours).toBeLessThanOrEqual(7 * 24);
+    await expect(store.getState().findBestWindow(1)).resolves.toBeNull();
+    expect(store.getState().bestWindowNote).toBe('A period is 2 to 90 whole days.');
   });
   it('applyMask installs a computed mask for a custom site', async () => {
     const store = createExploreStore(fileLoaders());
@@ -581,20 +647,64 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().startUtc).toBe('2027-10-12T18:00:00');
     expect(store.getState().days).toBe(30);
     expect(store.getState().series!.sunFraction[0]).toBeGreaterThan(0); // a lander arrives in daylight
-    expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, power for 13 d 21 h, Earth in view 80 % of that time.');
+    expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, 18:00 UTC, power for 13 d 21 h, Earth in view 80 % of that time. Landing times tried every 6 hours, ranked by time with power from landing, then Earth contact while powered.');
   });
 
-  it('findBestWindow across the compared sites takes the mean time with power and says so', async () => {
+  it('ranks the 12-month search by the priorities a link names, says so in its note, and refuses priorities the rule cannot use', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().applyQuery('?site=de_gerlache_rim_2&start=2027-01-01&days=30&rank=contact');
+    expect(store.getState().rankBy).toEqual({ kind: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } });
+    const result = await store.getState().findBestWindow(30);
+    expect(result).not.toBeNull();
+    expect(store.getState().bestWindowNote).toMatch(/Landing times tried every 6 hours, ranked by your priorities \(power 1, Earth in view 5, shorter gaps 1\)\.$/);
+    // The best the priorities name is the first of the alternatives.
+    expect(store.getState().yearPlan!.plan.alternatives[0].item.startUtc).toBe(result!.startUtc);
+    // Weights that are all zero are refused; a change of ranking drops the note made the old way.
+    store.getState().setRankBy({ kind: 'weighed', priorities: { power: 0, contact: 0, gap: 0 } });
+    expect(store.getState().rankBy).toEqual({ kind: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } });
+    store.getState().setRankBy({ kind: 'power' });
+    expect(store.getState().rankBy).toEqual({ kind: 'power' });
+    expect(store.getState().bestWindowNote).toBeNull();
+  });
+
+  it('findBestWindow across the compared sites ranks by the site that does worst, never the mean, and gives each site its own result', async () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();
     await store.getState().addToCompare('im1_odysseus');
     await store.getState().addToCompare('shackleton_center_rim_high');
     const r = await store.getState().findBestWindow(14, 'compare');
     expect(r).not.toBeNull();
-    expect(r!.poweredHours).toBeGreaterThan(300);
     expect(store.getState().startUtc).toBe(r!.startUtc);
-    expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites: best landing in the next 12 months: .* power for .* on average/);
+    const plan = store.getState().yearPlan!;
+    expect(plan.scope).toBe('compare');
+    expect(plan.siteNames).toEqual(['IM-1 Odysseus', 'Shackleton rim summit']);
+    const best = plan.plan.alternatives[0];
+    // The figure returned is the worst site's, and it is the least of the sites' own.
+    expect(r!.poweredHours).toBe(Math.min(...best.item.perSite.map((o) => o.poweredH)));
+    expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites, ranked by the site that does worst: best landing in the next 12 months: \d+ \w+ \d{4}, \d{2}:\d{2} UTC\. Power for .+ at IM-1 Odysseus and .+ at Shackleton rim summit\. Landing times tried every 6 hours, /);
     for (const c of store.getState().compare) expect(c.series.sunFraction[0]).toBeGreaterThan(0);
+  });
+
+  it('findBestWindow honours the requirements, keeps the alternatives with their checks and says what the best one meets', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init(); // de Gerlache Rim 2, 1 January 2027, 30 days
+    store.getState().setRequirements({ minPoweredH: 5 * 24, maxOutageH: 10 * 24 });
+    expect(store.getState().requirements).toEqual({ minPoweredH: 120, contactWithinH: null, maxOutageH: 240, minPoweredContactH: null });
+    const r = await store.getState().findBestWindow(30);
+    const plan = store.getState().yearPlan!;
+    expect(plan).toMatchObject({ scope: 'site', days: 30, fromUtc: '2027-01-01T00:00:00', stepH: 6 });
+    expect(plan.plan.alternatives).toHaveLength(3);
+    const [best, ...rest] = plan.plan.alternatives;
+    expect(best.item.startUtc).toBe(r!.startUtc.slice(0, 19));
+    // Two weeks apart at least: another lunar day, not the same one again.
+    for (const a of rest) expect(Math.abs(a.item.hour - best.item.hour)).toBeGreaterThanOrEqual(14 * 24);
+    for (const a of plan.plan.alternatives) expect(a.checks.map((c) => c.id)).toEqual(['power', 'outage']);
+    expect(store.getState().bestWindowNote).toMatch(best.failed === 0 ? / Meets all 2 of your requirements\. Landing times tried every 6 hours, ranked by your requirements, / : / None in the next 12 months meets them all\. /);
+    // Setting a requirement again drops the search's note and its alternatives: they were ranked for the old ones.
+    store.getState().setRequirements({ maxOutageH: null });
+    expect(store.getState().bestWindowNote).toBeNull();
+    expect(store.getState().yearPlan).toBeNull();
   });
 
   it('findBestWindow reports a site that never sees the Sun instead of moving the window', async () => {
@@ -653,7 +763,7 @@ describe('best landing date and the overview of all sites', () => {
     await store.getState().init();
     await store.getState().loadOverview();
     const o = store.getState().overview;
-    expect(Object.keys(o)).toHaveLength(19);
+    expect(Object.keys(o)).toHaveLength(34);
     expect(store.getState().overviewBusy).toBe(false);
     expect(o.de_gerlache_rim_2).toEqual({
       sunFraction: expect.closeTo(0.446, 3),
@@ -662,13 +772,19 @@ describe('best landing date and the overview of all sites', () => {
       best: { hour: 466, poweredHours: 303, earthFraction: expect.any(Number) },
       afterSun: expect.closeTo(0.408, 3),
       afterEarth: expect.closeTo(0.543, 3),
+      // What a lander gets from landing at the period start, for ranking the places nearby.
+      now: { hour: 0, stayH: 720, poweredH: 76, sunH: 321, contactH: 324, poweredContactH: 0, outageH: 219, poweredOutageH: 76, firstContactH: 219, sunlitAtLanding: true },
+      // Each row says the height its skyline is seen from and the terrain behind it.
+      mastM: 2,
+      terrain: expect.objectContaining({ quality: 'complete', mastM: 2, source: expect.objectContaining({ kind: 'featured' }) }),
     });
+    expect(o.blue_ghost_m1.terrain).toMatchObject({ quality: 'degraded', reasons: [{ kind: 'flat' }] });
     expect(o.shackleton_center).toMatchObject({ sunFraction: 0, nowHours: 10, best: null });
     expect(o.shackleton_center_rim_high.nowHours).toBe(720);
     expect(o.blue_ghost_m1.sunFraction).toBeGreaterThan(0.3); // a flat horizon, no skyline file
-    expect(counters.masks).toBe(18);
+    expect(counters.masks).toBe(21);
     await store.getState().loadOverview(); // same period and lander: nothing to do
-    expect(counters.masks).toBe(18);
+    expect(counters.masks).toBe(21);
   });
 
   it('loadOverview starts again when the period or the lander changes', async () => {
@@ -681,7 +797,7 @@ describe('best landing date and the overview of all sites', () => {
     expect(store.getState().overview.de_gerlache_rim_2.nowHours).toBeGreaterThan(before);
     store.getState().setWindow('2027-06-01T00:00:00', 14);
     await store.getState().loadOverview();
-    expect(Object.keys(store.getState().overview)).toHaveLength(19);
+    expect(Object.keys(store.getState().overview)).toHaveLength(34);
   });
 
   it('loadOverview leaves a site out when its skyline cannot be loaded, and finishes', async () => {
@@ -696,7 +812,7 @@ describe('best landing date and the overview of all sites', () => {
     await store.getState().init();
     await store.getState().loadOverview();
     expect(store.getState().overview.haworth).toBeUndefined();
-    expect(Object.keys(store.getState().overview)).toHaveLength(18);
+    expect(Object.keys(store.getState().overview)).toHaveLength(33);
     expect(store.getState().overviewBusy).toBe(false);
     expect(store.getState().error).toBeNull();
   });
@@ -745,7 +861,7 @@ describe('best landing date and the overview of all sites', () => {
     store.getState().setWindow('2027-01-20T10:00:00', 30);
     expect(store.getState().series).toBe(before);
     await running;
-    expect(Object.keys(store.getState().overview)).toHaveLength(19);
+    expect(Object.keys(store.getState().overview)).toHaveLength(34);
     expect(store.getState().overviewBusy).toBe(false);
   });
 });

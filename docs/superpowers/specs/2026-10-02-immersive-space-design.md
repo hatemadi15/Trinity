@@ -875,3 +875,30 @@ This replaces 13.1's twelve hours a second and flags, 13.3 and 15.1's keys with 
 - It stands three quarters on (55° round from facing you), its head along its body and a little down, at the dust. Found, it turns its head to look at you: 1.1 s, a gentle start, about 5 % past and back, then still; at once with reduced motion; once a visit, with the line.
 - Cost: no new program. Every material is a `MeshStandardMaterial` with the rocks' program settings (vertex colours, no maps, opaque, smooth shading, the front side), so only uniforms differ (colour, roughness, glow) and three reuses the rocks' program. Five small draw calls (shell, feet, face, eyes, tips), under 2,500 triangles, culled when off screen, no light, no pass. Per frame: the one projection for its spot and, for 1.1 s once found, its head's turn, which keeps the frames coming only while it moves. Its shadow stays one rock sphere.
 - Never in the arrival, with `bare=1` or the capture hook, in demo mode or with `bright=1`, as before. The line is unchanged.
+
+## 22. Amendment: Luna, the voice of the app (14 November 2026)
+
+The owner's ask on the first day of the event: "a voice AI feature that can control the whole application, so you can speak in plain English and it will navigate the application properly; name it Luna, make it a toggle feature, and test it."
+
+### 22.1 What Luna is
+
+- A toggle named Luna, with a crescent, in the header of every page with the frame (before the theme switch), at the end of the view from the site's row from 768 px, and in today's card on a phone. Off at each visit; pressed, she listens; pressed again, she stops.
+- While she is on, the browser's own speech recognition listens (continuous, English; Chrome, Edge and Safari have one, which may use its maker's servers; Firefox has none) and each phrase heard to the end is a command. Her reply is said aloud in the browser's own voice (a clear English one when the system has it) and shown in her panel, read out to screen readers as it comes. The recognition is stopped while she speaks, so she never hears herself, and a time limit stands in for a browser that never says its speech ended.
+- Her panel says what she is doing (listening, working, speaking), what she heard and what she said, gives a box to type to her (her only way in where the browser cannot listen, or the microphone is not allowed, and always there), and examples of what to say. On a phone it spans the screen under the header (or above the bar in the view from the site).
+
+### 22.2 What she understands
+
+In this order, so her own words come before the planner's ("show me the Sun" turns the view; it names no site):
+- **Her own:** any page ("open the forecast", "compare sites", "accuracy", "how it works", "the brief", "go home"), the view from the site ("stand at the site", "land", "3D view"); the player ("play", "pause", "next", "previous", "faster", "slower", "replay"); the view ("turn to the Sun", "show me Earth", "where is the lander", "look up", "look ahead", "show the paths", "hide the words", "brighter picture"); the better day; the home page's flight ("fly to the south pole"); the theme ("dark mode"); help, hello, thanks; "stop listening", after which she says goodbye and turns herself off. "Please", "can you" and her name in front ("Luna, …", "Hey Luna, …") are let go.
+- **The planner's phrasings,** the same the Ask box matches (a site, a comparison, a period, the lander, an explanation), with spoken numbers written as figures ("rim two", "fourteen days", "the twentieth of January twenty twenty seven") and the names speech mishears put right ("the Gerlache", "noble rim").
+- **Anything else of three words or more** goes to the assistant's model, as a question in the Ask box does; a stray word or two is let go, as a room is never quite quiet.
+
+### 22.3 How she does it
+
+- The planner's actions, from the matcher or the model, are validated against the catalogue and applied as the Ask box applies them, and the exchange is logged where the Ask box shows its own. A new site or period on the view from the site lands the view there; from a page other than Explore and Compare it opens Explore on it.
+- The pages lend her their controls while they are mounted (the time bar its player, the view from the site its turns and switches, Explore and the view the better day, the home page its flight), each doing what its own button does and saying what it did where it has something to say ("Next" names the moment; "faster" says "Twice as fast."). A control asked for on a page without it opens the page that has it (the view from the site for the player and the turns, the home page for the flight) and runs there once it is ready, within 15 s.
+- Reduced motion: Play is off there as on its button, and she says why.
+
+### 22.4 Tested
+
+Each part test-first: the commands (every phrasing above, spoken numbers and names), the controls lent and kept for a page about to open, the runner (each command's effect and reply, the planner's actions applied and logged, the model's answer and its failure), the browser's voice (recognition under either name, the voice chosen, the time limit), the engine (listening only when on, acting, speaking without listening, listening again after the browser's silence, goodbye, typed words without voice input and with the microphone blocked), the button and panel, and each page's controls. End to end in the built app, with a stand-in speech recognition that hears scripted phrases and a stand-in voice (headless Chromium has no microphone): 18 checks pass, from turning her on through "open the forecast", a spoken comparison with mis-heard names and spoken numbers, "stand at the site", "turn to Earth", "next", "play", "faster", "pause", the theme, typed "go home" and "fly to the south pole" to "stop listening".

@@ -1,7 +1,7 @@
 import { describeDropped, validateActions } from '@/lib/ai/actions';
 import { cachedAnswer } from '@/lib/ai/cache';
 import { matchIntent } from '@/lib/ai/intents';
-import { checkNumbers, cleanNarration, foreignNumbers, isStateSummary, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from '@/lib/ai/narrate';
+import { cleanNarration, isStateSummary, narrationProblems, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from '@/lib/ai/narrate';
 import { askModel, modelsFromEnv, type ChatMessage } from '@/lib/ai/openrouter';
 import { parseModelReply, systemPrompt, userPrompt, type ChatReason, type ChatReply, type NarrationReply } from '@/lib/ai/protocol';
 import { SlidingWindowLimiter } from '@/lib/ai/rate-limit';
@@ -25,6 +25,10 @@ const MAX_PROMPT_CHARS = 2000;
 const MAX_STATE_CHARS = 16_000;
 const SITES = catalogue.sites as Site[];
 const SITE_IDS: ReadonlySet<string> = new Set(SITES.map((s) => s.id));
+/** Every name and label in the catalogue: the claim check fails figures given for a site outside the state. */
+const SITE_NAMES: readonly string[] = SITES.flatMap((s) => [s.name, s.label ?? '']).filter(Boolean);
+/** How many of the check's findings the retry nudge, the log and the reply carry. */
+const MAX_PROBLEMS = 3;
 const RETRY_NUDGE = 'Answer again with ONE JSON object only, in the form {"actions": [...], "reply": "..."} and no other text.';
 /** Phrasings the app answers without the model, in the words the pages use. */
 const TRY = 'Try: "show me Nobile Rim 2", "compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "find the best landing date for 14 days", "set the load to 300 W" or "explain the longest night".';
@@ -103,7 +107,7 @@ async function fromModel(prompt: string, state: StateSummary | null, apiKey: str
   const { actions, dropped } = validateActions(parsed.actions, SITE_IDS);
   // Every number the user reads must be one the app can vouch for: the state, the user's own figures
   // in the question, or a window length. Sentences with any other number go.
-  const reply = state && isStateSummary(state) ? stripForeignNumbers(parsed.reply, state, [...numbersIn(prompt), '14', '30', '90']) : parsed.reply;
+  const reply = state && isStateSummary(state) ? stripForeignNumbers(parsed.reply, state, [...numbersIn(prompt), '14', '30', '90'], SITE_NAMES) : parsed.reply;
   if (actions.length === 0 && !reply) return null;
   const text = [reply || 'Done.', describeDropped(dropped)].filter(Boolean).join(' ');
   return { source: 'model', model: first.model, actions, reply: text, dropped };
@@ -123,9 +127,17 @@ function fromCache(prompt: string): ChatReply | null {
   return { source: 'cache', actions, reply: t.reply, dropped };
 }
 
-/** The brief's paragraph: the model's words when every number checks out (one retry), else the template with the reason. */
+/**
+ * The brief's paragraph: the model's words when every claim in them holds against the state (one retry, told what
+ * failed), else the template with the reason and, when the check failed it, the first things it found.
+ */
 async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean): Promise<NarrationReply> {
-  const template = (reason: NonNullable<NarrationReply['reason']>): NarrationReply => ({ source: 'template', reason, reply: templateBrief(state) });
+  const template = (reason: NonNullable<NarrationReply['reason']>, problems?: string[]): NarrationReply => ({
+    source: 'template',
+    reason,
+    reply: templateBrief(state),
+    ...(problems?.length ? { problems: problems.slice(0, MAX_PROBLEMS) } : {}),
+  });
   if (cachedMode) return template('cached');
   if (!apiKey) return template('no-key');
   const deadline = Date.now() + modelBudgetMs();
@@ -133,26 +145,31 @@ async function narrate(state: StateSummary, apiKey: string, cachedMode: boolean)
   const first = await askModel({ messages, models: modelsFromEnv(), apiKey, timeoutMs: modelTimeoutMs(), budgetMs: Math.round((deadline - Date.now()) * FIRST_SHARE) });
   if ('error' in first) return template('model-error');
   let text = cleanNarration(first.content);
-  if (!checkNumbers(text, state)) {
-    const bad = foreignNumbers(text, state).join(', ');
-    console.info(`narration by ${first.model} rejected: numbers not in the state: ${bad} — "${text.slice(0, 240)}"`);
-    if (deadline - Date.now() <= MIN_RETRY_MS) return template('numbers');
+  let problems = narrationProblems(text, state, SITE_NAMES);
+  if (problems.length) {
+    const found = problems.slice(0, MAX_PROBLEMS).join('; ');
+    console.info(`narration by ${first.model} rejected: ${found} — "${text.slice(0, 240)}"`);
+    if (deadline - Date.now() <= MIN_RETRY_MS) return template('numbers', problems);
     const second = await askModel({
       messages: [
         ...messages,
         { role: 'assistant', content: first.content },
-        { role: 'user', content: `These numbers are not in STATE: ${bad}. Rewrite the paragraph using only numbers copied from STATE, or leave them out. Paragraph only.` },
+        {
+          role: 'user',
+          content: `These claims do not match STATE: ${found}. Rewrite the paragraph: put each number next to what it measures, with its unit, copied from STATE; give no causes or comparisons STATE does not give; leave out anything you cannot copy. Paragraph only.`,
+        },
       ],
       models: [first.model],
       apiKey,
       timeoutMs: modelTimeoutMs(),
       budgetMs: deadline - Date.now(),
     });
-    if ('error' in second) return template('numbers');
+    if ('error' in second) return template('numbers', problems);
     text = cleanNarration(second.content);
-    if (!checkNumbers(text, state)) {
-      console.info(`narration retry by ${first.model} rejected: numbers not in the state: ${foreignNumbers(text, state).join(', ')}`);
-      return template('numbers');
+    problems = narrationProblems(text, state, SITE_NAMES);
+    if (problems.length) {
+      console.info(`narration retry by ${first.model} rejected: ${problems.slice(0, MAX_PROBLEMS).join('; ')}`);
+      return template('numbers', problems);
     }
   }
   return text ? { source: 'model', model: first.model, reply: text } : template('model-error');
@@ -206,8 +223,9 @@ function safeAnswer(body: Body): ChatReply | NarrationReply {
  * NEXT_PUBLIC_AI_MODE=cached) serves transcripts first and never calls the model. When nothing answers,
  * the reply has no actions, says why in `reason` ("model-busy" when a key is set and every model failed,
  * else "not-understood") and offers five phrasings that work without the model.
- * task "narrate" → { source: "model" | "template", reason?, model?, reply }: the brief's paragraph,
- * checked number by number against the state; the template wins any doubt and says why.
+ * task "narrate" → { source: "model" | "template", reason?, problems?, model?, reply }: the brief's paragraph,
+ * checked claim by claim against the state (each number on its measure, unit, site and sign; states, comparisons
+ * and causes); the template wins any doubt and says why, with the first problems the check found.
  * Never a 500; bad bodies get 400; the 31st request per minute per address gets 429 with Retry-After.
  */
 export async function POST(request: Request): Promise<Response> {

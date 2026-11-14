@@ -9,9 +9,12 @@ import { answerFor } from './answer';
 import { hero } from './arrival';
 import { spanWords } from './format';
 import { groundWords } from './ground';
+import { checkRequirements, NO_REQUIREMENTS, type Requirements } from '@/lib/plan/requirements';
 import {
   betterChip,
   betterLabel,
+  requirementReason,
+  withReason,
   FIRST_STEP,
   FIRST_STEP_PHONE,
   FIRST_STEP_STILL,
@@ -28,6 +31,7 @@ import {
   radioNext,
   RESIDENT_LINE,
   shadowWords,
+  skyCountdown,
   skyLabel,
   standHeadline,
   standingLine,
@@ -168,6 +172,16 @@ describe('the stand view’s words', () => {
   });
 });
 
+describe('the countdown in today’s card', () => {
+  it('gives the time to the next sunset or sunrise and to Earth rising or setting, as Explore’s time bar does, the end of the period named in full', () => {
+    const h = hero();
+    // The Sun sets on 3 January at hour 67 and Earth rises on 10 January at hour 219.
+    expect(skyCountdown(h.series, 10)).toBe('Sunset in 2 d 9 h · Earth rises in 8 d 17 h');
+    expect(skyCountdown(h.series, 300)).toBe('Sunrise in 6 d 22 h · Earth sets in 10 d 3 h');
+    expect(skyCountdown(h.series, h.series.hours - 1)).toBe('No sunset before the end of the period · Earth out of view to the end of the period');
+  });
+});
+
 describe('the lander’s power and radio in one sentence', () => {
   // Power until hour 76 (4 January), none until 466 (20 January), then power to the end. Earth is in view
   // for hours 0-14, 90-149 and 480-549; below the horizon for 15-24 and from 550; behind the hills otherwise.
@@ -249,6 +263,12 @@ describe('why the view looks as it does', () => {
     // Any part of the Sun in view is day, and the north pole has the same lines.
     const sliver = series({ sunEl: [0.2], sunFraction: [0.3] });
     expect(whyLines(85, sliver, 0)).toEqual([poleLine(85), earthMoves, black, 'North and south still work here: the pole itself is 152 km to the north.', radio]);
+  });
+  it('on the far side says Earth never rises, and that Chang’e 4 and Chang’e 6 talked to Earth through a relay', () => {
+    const day = series({ sunEl: [30], sunFraction: [1], earthEl: [-50], earthVisible: [0] });
+    const far = "This is the far side, which always faces away from Earth: Earth never rises here, so a lander talks to Earth only through a relay satellite, as China's Chang'e 4 and Chang'e 6 did.";
+    expect(whyLines(-45.46, day, 0, true)).toEqual([black, far]);
+    expect(whyLines(-45.46, day, 0)).toEqual([black, radio]);
   });
   it('near a pole at night with Earth in view: no twilight, only Earth lights the ground, how big Earth looks, where the pole is, and how cold the night is', () => {
     const night = series({ sunEl: [-3], sunFraction: [0], earthEl: [4], earthVisible: [1] });
@@ -517,6 +537,24 @@ describe('the better landing day’s button', () => {
     expect(betterChip('20 Jan', 303)).toBe(`Try 20 Jan instead: power for ${unbroken('12 days 15 hours')}`);
     expect(betterChip('2 Feb', 20)).toBe(`Try 2 Feb instead: power for ${unbroken('20 hours')}`);
   });
+  it('leads with the requirements when the day is better for them rather than for more power, which its figures alone would not say', () => {
+    // Earth in view at landing, and power for at least 5 days: a landing in view with 22 days of power, one out of view.
+    const at = (firstContactH: number | null, poweredH: number) => ({ hour: 0, stayH: 720, poweredH, sunH: 720, contactH: 322, poweredContactH: 322, outageH: 0, poweredOutageH: 0, firstContactH, sunlitAtLanding: true });
+    const option = (o: ReturnType<typeof at>, req: Requirements = { ...NO_REQUIREMENTS, contactWithinH: 0 }) => {
+      const checks = checkRequirements(o, req);
+      return { checks, failed: checks.filter((c) => !c.met).length };
+    };
+    expect(requirementReason(option(at(0, 544)), option(at(225, 720)))).toBe('meets your requirement');
+    const both = { ...NO_REQUIREMENTS, contactWithinH: 0, minPoweredH: 120 };
+    expect(requirementReason(option(at(0, 544), both), option(at(225, 100), both))).toBe('meets all 2 of your requirements');
+    expect(requirementReason(option(at(0, 100), both), option(at(225, 100), both))).toBe('fails fewer of your requirements (1 of 2)');
+    // A day better for its power alone, or with no requirement set, keeps the power first.
+    expect(requirementReason(option(at(0, 544)), option(at(0, 100)))).toBeNull();
+    expect(requirementReason(option(at(0, 544), NO_REQUIREMENTS), option(at(225, 100), NO_REQUIREMENTS))).toBeNull();
+    expect(withReason(betterLabel('10 January', 544, 322), 'meets your requirement')).toBe(`Try 10 January instead: meets your requirement, power for ${unbroken('22 days 16 hours')}, radio for ${unbroken('13 days 10 hours')}`);
+    expect(withReason(betterChip('10 Jan', 544), 'meets your requirement')).toBe(`Try 10 Jan instead: meets your requirement, power for ${unbroken('22 days 16 hours')}`);
+    expect(withReason(betterChip('10 Jan', 544), null)).toBe(betterChip('10 Jan', 544));
+  });
 });
 
 describe('the note on how we know this', () => {
@@ -649,6 +687,13 @@ describe('what to watch for', () => {
     const mare = { name: 'Blue Ghost', lat: 18.56, lon: 61.81 };
     // A site without a note of its own: the latitude alone.
     expect(standingLine(mare, 'Blue Ghost Mission 1', 'more')).toBe('Blue Ghost Mission 1 lies at 18.6° N.');
+  });
+  // A polar site has NASA heights, but a copy of Earthrise set up with the committed data alone has no terrain files.
+  it('says the ground is drawn flat because the terrain files are missing, where the site has NASA heights', () => {
+    const site = { name: 'de Gerlache Rim 2', lat: -88.28, lon: -64.31 };
+    expect(standingLine(site, 'de Gerlache Rim 2', 'top', 'no-terrain')).toBe(
+      "Standing at de Gerlache Rim 2, near the Moon's south pole. Ground drawn flat: this copy of Earthrise has no terrain files. Small craters and rocks: added to look real.",
+    );
   });
   // Blue Ghost's site has no NASA heights: its ground is drawn flat, under a flat horizon.
   it('says the ground is drawn flat where there are no NASA heights, and claims no hills', () => {

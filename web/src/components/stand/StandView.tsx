@@ -5,24 +5,28 @@ import { useStore, type StoreApi } from 'zustand';
 import { HorizonView } from '@/components/explore/HorizonView';
 import { LanderDialog } from '@/components/explore/LanderDialog';
 import { PLAY_HPS, TimeBar, type Speed } from '@/components/explore/TimeBar';
+import { LunaButton } from '@/components/luna/LunaButton';
+import { LunaControls } from '@/components/luna/LunaControls';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { shadowLevels } from '@/lib/data/terrain';
 import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { exploreHref, standHref } from '@/lib/links';
+import { exploreHref, standHref, withSettings } from '@/lib/links';
+import { useSettingsInAddress } from '@/lib/hooks/useAddressFollows';
 import { NAV } from '@/lib/nav';
 import { earthLitFraction } from '@/lib/sky/earth';
 import { dirAzEl } from '@/lib/sky/frames';
 import { LANDER } from '@/lib/sky/landerShape';
 import { eyeAt, lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
-import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, periodPlan, seenFrom, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
+import { trustedAnswer } from '@/lib/viz/terrain';
 import { dateLong, dayMonth } from '@/lib/viz/format';
-import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
+import { betterChip, betterLabel, requirementReason, withReason, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyCountdown, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
@@ -222,6 +226,12 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     };
   }, [store]);
 
+  // Once the address it opened with is applied, the settings in it follow a change of lander made here, and the
+  // requirements with them.
+  useSettingsInAddress(s.params, openHour !== null, s.requirements, s.rankBy);
+  // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the better day is Explore's.
+  const times = useMemo(() => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy }), [s.series, s.params, s.requirements, s.startUtc, s.rankBy]);
+
   const scene = useMemo<StandScene | null>(() => {
     if (openHour === null || !sky || !s.site || !s.series || !s.mask) return null;
     // Only a polar site stands on NASA heights; elsewhere the ground is drawn flat (and the card says so).
@@ -232,7 +242,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const lander = s.power ? standLander(s.series, s.power, tall(), openHour) : undefined;
     // The key moments' days on the paths: the Sun's leaving and coming back on its path, Earth coming into view on Earth's.
     const marks = pathMarks(keyMoments(s.series, s.power, s.startUtc));
-    return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander, marks, resident };
+    // The eye stands at the height the skyline drawn is seen from, which lags the chosen mast while a new one is worked out.
+    return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: seenFrom(s.maskMeta, s.params.mastM), sky, quality, lander, marks, resident };
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality, resident]);
   // How far below level the lander's nearest foot lies from the eye, and which way: the opening view keeps
   // it in sight while the lander is in view.
@@ -325,7 +336,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     else ((window.innerWidth >= 768 ? hideRef.current : null) ?? moreRef.current)?.focus();
   }, [wordsHidden]);
 
-  if (s.status === 'error') {
+  // Loaded with no site, or with the site but no figures and a problem named, is a failure too: the site's horizon file
+  // did not load, and the ground would never be built.
+  if (s.status === 'error' || (s.status === 'ready' && (!s.site || (!s.series && !!s.error)))) {
     return (
       <main className="theme-dark fixed inset-0 grid place-items-center bg-black p-4 text-[#f2f0ea]">
         <p className="max-w-[520px] text-lg">
@@ -345,25 +358,36 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const site = s.site, series = s.series, power = s.power;
   const hour = Math.min(series.hours - 1, Math.max(0, s.cursorHour));
   const name = siteLabel(site);
-  const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best });
+  // No better day from an incomplete terrain, or from figures still waiting for the chosen mast, as on Explore.
+  const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
+  const answer = trustedAnswer(
+    answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, plan: times, farSide: s.site.far_side, panel: s.params.power.panel }),
+    s.maskMeta ? terrainOf(s.maskMeta) : undefined,
+    behind,
+  );
   // The headline gives both verdicts the challenge asks for, power and radio contact with Earth, and how long
   // the night lasts; the site's name leads the moment's state at the plate's foot and the card's line on where you
   // stand, kept on one line ("de Gerlache Rim 2", never "Rim / 2").
   const title = standHeadline(answer.title, name, series, power, s.startUtc, answer.contactHours, answer.poweredHours);
   const oneLine = name.replace(/ /g, ' ');
-  // Without NASA heights the ground is drawn flat, and the card's line on where you stand says so.
-  const flat = !!scene && scene.field.levels.length === 0;
+  // Without NASA heights the ground is drawn flat, and the card's line on where you stand says so: at a polar site that
+  // has them, flat because this copy of Earthrise lacks the terrain files ('no-terrain').
+  const flat = !!scene && scene.field.levels.length === 0 && (site.polar && s.terrainState === 'unavailable' ? 'no-terrain' : true);
   // With the battery's level while it has power, as the forecast page gives it.
   const lander = statusLine(series, power, s.startUtc, hour, s.params.power.batteryWh);
   // The better landing day opens its own view, from its first hour; the button says why it is better: the power and
-  // the radio, in today's card and in the next step's row alike (18.3); a phone's chip gives the power alone.
+  // the radio from that landing, in today's card and in the next step's row alike (18.3); a phone's chip gives the
+  // power alone.
+  const betterOutcome = answer.better && times?.better ? times.better.outcome : null;
+  // A day better for the requirements than for its power says so first: its figures alone would not say why.
+  const reason = times?.better ? requirementReason(times.better, times.current) : null;
   const better =
-    answer.better && s.best
+    answer.better && betterOutcome
       ? {
-          label: betterLabel(dateLong(s.startUtc, answer.better.hour), s.best.poweredHours, s.best.poweredHours * s.best.earthFraction),
-          chip: betterChip(dayMonth(s.startUtc, answer.better.hour), s.best.poweredHours),
+          label: withReason(betterLabel(dateLong(s.startUtc, answer.better.hour), betterOutcome.poweredH, betterOutcome.poweredContactH), reason),
+          chip: withReason(betterChip(dayMonth(s.startUtc, answer.better.hour), betterOutcome.poweredH), reason),
           startUtc: answer.better.startUtc,
-          href: `${standHref(site.id, answer.better.startUtc, s.days, 0)}${quality === 'fast' ? '&quality=fast' : ''}`,
+          href: `${withSettings(standHref(site.id, answer.better.startUtc, s.days, 0), s.params, s.requirements, s.rankBy)}${quality === 'fast' ? '&quality=fast' : ''}`,
         }
       : null;
   // The better landing day, in place: the same lander and drawing, the new period, and the view opening again
@@ -415,7 +439,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // "Why this happens", one reason a page or all as a list: where the site lies first, then why the light and
   // the sky look as they do (the pole first among them), then the radio story, and how we know last.
   const reasons: { title?: string; text: string }[] = [
-    ...[standingLine(site, name, 'more'), ...whyLines(site.lat, series, hour), radio ?? contact].filter((t): t is string => !!t).map((text) => ({ text })),
+    ...[standingLine(site, name, 'more'), ...whyLines(site.lat, series, hour, site.far_side), radio ?? contact].filter((t): t is string => !!t).map((text) => ({ text })),
     ...(note ? [{ title: 'How we know this', text: note }] : []),
   ];
   const shownPage = Math.min(page, reasons.length - 1);
@@ -489,6 +513,33 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
 
   return (
     <main ref={mainRef} className="theme-dark fixed inset-0 overflow-hidden bg-black text-[#f2f0ea]">
+      {/* Luna's view (spec 22): the row's turns and switches and the better day, each as its own button does it. */}
+      <LunaControls
+        controls={{
+          'turn-sun': byHand(() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)),
+          'turn-earth': byHand(() => {
+            face(series.earthAz[hour], series.earthEl[hour], 16);
+            setCaption(viewCaption('earth', site.lat));
+          }),
+          'turn-lander': byHand(() => {
+            faceLander();
+            setCaption(landerCaption(site.lat, panelBackSeen));
+          }),
+          'look-up': byHand(lookUp),
+          'look-ahead': byHand(() => face(series.sunAz[hour], 0.5, 60)),
+          'paths-on': () => setGuides(true),
+          'paths-off': () => setGuides(false),
+          'words-off': () => pressWords(true),
+          'words-on': () => pressWords(false),
+          'brighter-on': () => setBright(true),
+          'brighter-off': () => setBright(false),
+          'better-day': () => {
+            if (!better) return 'This landing day is already the best one nearby.';
+            land(better.startUtc, better.href);
+            return better.label;
+          },
+        }}
+      />
       {scene && !failed && (
         <StandCanvas
           // A new period opens the view again, as a fresh visit would: from the sky, to its first hour.
@@ -520,6 +571,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           // A key moment's line or a Turn to's keeps the plate: the resident's waits until it has gone.
           lineTaken={!!caption}
           playHps={PLAY_HPS * speed}
+          // Each view of a site and period opens on its landing: the first, and each better day landed on in place, which the
+          // key opens again. In demo mode and with bright=1 too: it is how the view opens, as its tilt is, not a secret to keep
+          // out of the pitch and the video as the resident is.
+          landing
         />
       )}
       {failed && s.mask && (
@@ -585,7 +640,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     Compare sites
                   </button>
                 )}
-                <ChangeWays dateHref={exploreHref(site.id, s.startUtc, s.days)} onLander={openLander} onCompare={better ? compare : undefined} />
+                <ChangeWays dateHref={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy)} onLander={openLander} onCompare={better ? compare : undefined} />
               </div>
               {/* Last, the moment's state: the lander's power and radio for the hour, down by the time it describes at the
                   plate's foot, not in the time bar, which is Explore's too and where 60 to 90 characters beside the date would
@@ -632,6 +687,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <span>{lander.text}</span>
                 </p>
                 <p className="text-[14px] text-[#c3bfb6] md:text-[15px]">{standingLine(site, oneLine, 'top', flat)}</p>
+                {/* What comes next in the sky at the hour, in Explore's time bar's words: lightly, a line of its own. */}
+                <p data-countdown="" className="text-[14px] tabular-nums md:text-[15px]">
+                  {skyCountdown(series, hour)}
+                </p>
                 {/* The whole headline on a phone, the night with it, which the plate's short form leaves out; the heading
                     above says it for screen readers. */}
                 <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px] md:hidden">
@@ -678,7 +737,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
                     Change site
                   </Link>
-                  <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
+                  <Link href={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
                     Change date
                   </Link>
                   <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
@@ -688,6 +747,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => pressWords(true)}>
                     Hide the words
                   </button>
+                  {/* Luna (spec 22), on a phone: her panel stands above the buttons and the time bar. */}
+                  <div className="md:hidden">
+                    <LunaButton
+                      className={`${LOOK} ${PRESSED} flex items-center gap-2`}
+                      panelClassName="fixed inset-x-4 bottom-[calc(var(--bar-h,200px)+var(--look-h,0px)+12px)] z-50 rounded-lg border border-white/20 bg-[#060607] p-4 text-left text-[15px] text-[#f2f0ea]"
+                    />
+                  </div>
                   {/* On a phone the next step's row is not shown: Change lander waits here (18.3). */}
                   <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={(e) => openLander(e.currentTarget)}>
                     Change lander
@@ -802,6 +868,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               <button ref={hideRef} type="button" className={`${LOOK} max-md:hidden`} onClick={() => pressWords(true)}>
                 Hide the words
               </button>
+              {/* Luna (spec 22): her panel opens under the row at the top right from 1280 px, above it over the bar below that. */}
+              <div className="max-md:hidden">
+                <LunaButton
+                  className={`${LOOK} ${PRESSED} flex items-center gap-2`}
+                  panelClassName="absolute right-0 z-50 w-[min(380px,calc(100vw-32px))] rounded-lg border border-white/20 bg-[#060607] p-4 text-left text-[15px] text-[#f2f0ea] xl:top-full xl:mt-2 max-xl:bottom-full max-xl:mb-2"
+                />
+              </div>
             </div>
           )}
         </div>

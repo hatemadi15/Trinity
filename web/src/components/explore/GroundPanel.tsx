@@ -15,6 +15,7 @@ import { standHref } from '@/lib/links';
 import type { Exaggeration, SceneMode, TerrainState } from '@/lib/store/explore';
 import { groundWords } from '@/lib/viz/ground';
 import type { SceneState } from '@/lib/viz/scene-state';
+import { pickProblem } from '@/lib/viz/terrain';
 import { HorizonView } from './HorizonView';
 import { ShadowMap } from './ShadowMap';
 
@@ -110,6 +111,7 @@ export function GroundPanel({
   onPick,
   reducedMotion,
   shadowClient,
+  standLink,
 }: {
   site: Site;
   sites: Site[];
@@ -137,6 +139,8 @@ export function GroundPanel({
   reducedMotion: boolean;
   /** The shadow worker's client; tests pass a stub. */
   shadowClient?: ShadowSource;
+  /** The view from the site's address with the lander's and the radio's settings; without it, the site, period and hour alone. */
+  standLink?: string;
 }) {
   // Until a tab is chosen, a site with no polar terrain opens on the horizon chart: it has no map.
   const [chosen, setChosen] = useState<GroundTab | null>(null);
@@ -169,7 +173,8 @@ export function GroundPanel({
     choose(TABS[to].id);
   };
 
-  const missing = loading ? 'Loading the terrain…' : 'The terrain files are not on this machine.';
+  // Without the terrain files the tab says so and names what works without them (data/manifest.json's terrain part).
+  const missing = loading ? 'Loading the terrain…' : 'This copy of Earthrise has no terrain files, so the ground cannot be drawn here. The Horizon chart tab works without them.';
   // The window's width, for the line under the tabs and the 3D caption alike.
   const windowKm = heightmap ? Math.round((heightmap.meta.width * heightmap.meta.cell_m) / 1000) : null;
   let caption3d: string;
@@ -215,7 +220,7 @@ export function GroundPanel({
         {/* The line on what the button does waits under "About this view" (spec 20.1). While it is in the page it
             still describes the button, folded away or not, so a screen reader hears it without renaming the button. */}
         <div className="mb-1.5 mt-auto">
-          <Link href={standHref(site.id, startUtc, days, cursor)} aria-describedby={mapNotes ? 'ground-stand-note' : undefined} className="btn btn-ink btn-sm">
+          <Link href={standLink ?? standHref(site.id, startUtc, days, cursor)} aria-describedby={mapNotes ? 'ground-stand-note' : undefined} className="btn btn-ink btn-sm">
             Stand at the site
           </Link>
         </div>
@@ -330,7 +335,7 @@ export function GroundPanel({
 
       {customError && (
         <p role="alert" className="mt-1 text-[15px] text-bad">
-          That place cannot be worked out: this tool covers the Moon south of 60° S.
+          {pickProblem(customError)}
         </p>
       )}
       {/* LOLA, on the site's own grid, gives the ground and the hills, and DE440 the light; the sentence for the hour

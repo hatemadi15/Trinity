@@ -4,16 +4,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { earthLitFraction } from '@/lib/sky/earth';
 import { dirAzEl } from '@/lib/sky/frames';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
+import { DataError } from '@/lib/data/loaders';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
 import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
 import { FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, RESIDENT_LINE, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_STILL, watchNext, type MomentKind } from '@/lib/viz/stand';
 import { openingYaw } from '@/lib/viz/standOpening';
 import { fileLoaders, terrainFileLoaders, terrainPresent } from '@/test/file-loaders';
+import { findingsWith, LOST_TILE } from '@/test/terrain';
+import { readJson } from '@/lib/engine/__tests__/helpers';
 import { visibleWords, WIDE } from '@/test/visible-words';
 import type { StandScene } from '@/lib/sky/standRenderer';
 import { pathMarks, StandView } from './StandView';
 import type { RendererLike } from './StandCanvas';
+import { runControl } from '@/lib/luna/controls';
 
 // jsdom has no PointerEvent; this one carries the pointer's id on top of the mouse event's position.
 if (typeof window.PointerEvent === 'undefined') {
@@ -123,6 +127,17 @@ describe('StandView', () => {
     expect(whole.className).toMatch(/\bmd:hidden\b/);
     expect(follows(first, whole)).toBe(true);
   });
+  it('counts down in today’s card to the next sunset or sunrise and to Earth rising or setting, at every width, as the hour moves', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    openCard();
+    const line = () => document.getElementById('stand-card')!.querySelector<HTMLElement>('[data-countdown]')!;
+    expect(line().textContent).toBe('Sunset in 2 d 9 h · Earth rises in 8 d 17 h');
+    expect(line().className).not.toMatch(/hidden/);
+    // Under where you stand, before the line on what to watch.
+    expect(asRead(line().previousElementSibling!.textContent!)).toMatch(/^Standing at de Gerlache Rim 2/);
+    act(() => store.getState().setCursor(300));
+    await waitFor(() => expect(line().textContent).toBe('Sunrise in 6 d 22 h · Earth sets in 10 d 3 h'));
+  });
   it('opens with the guides off, shows the days on the paths and the level horizon on "Show paths", which then reads "Hide paths", and hides them with the words', async () => {
     window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const store = createExploreStore(fileLoaders());
@@ -211,7 +226,8 @@ describe('StandView', () => {
     // One row of buttons.
     const row = screen.getByRole('group', { name: 'Look towards' });
     // Each by its name; the hide button has no other, its visible words being its name, as speech input needs (WCAG 2.5.3).
-    expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide the words']);
+    // Luna's toggle ends it (spec 22).
+    expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide the words', 'Luna']);
     // Read as a verb, not a noun (both readers of read D1).
     expect(within(row).getByText('Turn to')).toBeTruthy();
     for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
@@ -225,8 +241,9 @@ describe('StandView', () => {
     openCard();
     expect(screen.getByRole('button', { name: 'Less' }).getAttribute('aria-expanded')).toBe('true');
     // Where you stand, and what is measured and what is added: "Hills: NASA height data." (or, without NASA
-    // heights, "Ground drawn flat: no NASA heights here.") and "Small craters and rocks: added to look real."
-    expect(screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole\. (Hills: NASA height data|Ground drawn flat: no NASA heights here)\. Small craters and rocks: added to look real\.$/)).toBeTruthy();
+    // heights, "Ground drawn flat: no NASA heights here.", and without the terrain files, "Ground drawn flat: this copy
+    // of Earthrise has no terrain files.") and "Small craters and rocks: added to look real."
+    expect(screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole\. (Hills: NASA height data|Ground drawn flat: this copy of Earthrise has no terrain files)\. Small craters and rocks: added to look real\.$/)).toBeTruthy();
     // What to watch waits while the first step shows, as it says what the first step says (20.1).
     const watch = watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10);
     expect(screen.queryByText(watch)).toBeNull();
@@ -396,6 +413,14 @@ describe('StandView', () => {
     await waitFor(() => expect(scene).not.toBeNull(), { timeout: 30_000 });
     return { store, scene: scene! as StandScene };
   }
+
+  it('says at a polar site whose terrain files are missing that the ground is drawn flat for that reason, not for want of NASA heights', async () => {
+    // The file loaders here have no terrain, as a copy set up with the committed data alone.
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=0');
+    openCard();
+    expect(screen.getByText(/Ground drawn flat: this copy of Earthrise has no terrain files\./)).toBeTruthy();
+    expect(screen.queryByText(/no NASA heights here/)).toBeNull();
+  }, 40_000);
 
   it.skipIf(!terrainPresent)('opens a site far from the pole on flat ground, with the polar terrain loaded too, and says so', async () => {
     const { scene } = await openWithTerrain('?site=blue_ghost_m1&start=2025-03-02T09:00&days=14&hour=0');
@@ -729,6 +754,47 @@ describe('StandView', () => {
     more.focus();
     fireEvent.keyDown(more, { key: ' ', code: 'Space' });
     expect(screen.getByRole('button', { name: /^Play/ })).toBeTruthy();
+  });
+
+  it('lends Luna its turns, its switches and the better day, and has her button in its row (spec 22)', async () => {
+    const r = stub();
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(r.setView).toHaveBeenCalled());
+    const st = store.getState();
+    const off = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+    // Turn to Earth, as the row's button does: the view turns there and says why Earth sits where it does.
+    let said: ReturnType<typeof runControl>;
+    act(() => {
+      said = runControl('turn-earth');
+    });
+    expect(said!.ok).toBe(true);
+    await waitFor(() => expect(off(r.setView.mock.calls.at(-1)![0], st.series!.earthAz[10])).toBeLessThan(1), { timeout: 4000 });
+    // The paths, the words and the brighter picture, each as its own button does.
+    act(() => {
+      runControl('paths-on');
+    });
+    expect(screen.getByRole('button', { name: 'Hide paths' })).toBeTruthy();
+    act(() => {
+      runControl('brighter-on');
+    });
+    // Its button, in today's card, shows it pressed.
+    openCard();
+    expect(screen.getByRole('button', { name: 'Brighter picture' }).getAttribute('aria-pressed')).toBe('true');
+    act(() => {
+      runControl('words-off');
+    });
+    expect(screen.getByRole('button', { name: 'Show the words' })).toBeTruthy();
+    act(() => {
+      runControl('words-on');
+    });
+    // The better day: lands on it in place, and Luna says which.
+    act(() => {
+      said = runControl('better-day');
+    });
+    expect(said!.said).toMatch(/^Try 20 January instead/);
+    await waitFor(() => expect(store.getState().startUtc).toBe('2027-01-20T10:00:00'));
+    // Her button, in the row of the view's buttons.
+    expect(within(screen.getByRole('group', { name: 'Look towards' })).getByRole('button', { name: /^Luna/ })).toBeTruthy();
   });
 
   it('shows the first step over the view on arrival, Play and drag, phone-short below 640 px, until the first drag', async () => {
@@ -1109,6 +1175,44 @@ describe('StandView', () => {
     expect(document.querySelector('a[data-chip]')).toBeTruthy();
   });
 
+  it('names the same better day as Explore when the address sets requirements, with that landing’s own power and radio', async () => {
+    // Shackleton rim summit keeps power all 30 days from 1 January, but Earth is out of view at that landing.
+    await open('?site=shackleton_center_rim_high&start=2027-01-01&days=30&hour=10&earthby=0');
+    await firstStep();
+    openCard();
+    const card = document.getElementById('stand-card')!;
+    // It says first that it meets the requirement: from the 1st the power lasts longer, and the radio as long.
+    const better = within(card).getByRole('link', { name: /^Try 10 January instead: meets your requirement, power for 22\sdays\s16\shours, radio for 13\sdays\s10\shours$/ });
+    // Its view, the way back to Explore and the address keep the requirement.
+    expect(better.getAttribute('href')).toBe('/explore/stand?site=shackleton_center_rim_high&start=2027-01-10T09:00&days=30&hour=0&earthby=0');
+    expect(within(card).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=shackleton_center_rim_high&start=2027-01-01&days=30&earthby=0');
+    expect(window.location.search).toBe('?site=shackleton_center_rim_high&start=2027-01-01&days=30&hour=10&earthby=0');
+  });
+
+  it('holds the better day back while the hills for a new mast are worked out, and from an incomplete terrain, as Explore does', async () => {
+    const rim = Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'masks', 'de_gerlache_rim_2.json').elevation_deg);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    // The worker traces the rim's own skyline from the new mast, but its march loses a tile.
+    const computeMask = async () => {
+      await gate;
+      return { mask: rim, siteHeightM: 190, failedTiles: 7, terrain: findingsWith(LOST_TILE) };
+    };
+    window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const store = createExploreStore(fileLoaders({ computeMask }));
+    render(<StandView store={store} createRenderer={() => stub()} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing on /), { timeout: 20_000 });
+    await firstStep();
+    openCard();
+    const card = () => document.getElementById('stand-card')!;
+    expect(within(card()).getByRole('link', { name: /^Try 20 January instead/ })).toBeTruthy();
+    act(() => store.getState().setParams({ mastM: 5 }));
+    await waitFor(() => expect(within(card()).queryByRole('link', { name: /^Try / })).toBeNull());
+    act(() => release());
+    await waitFor(() => expect(store.getState().maskMeta?.terrain?.quality).toBe('incomplete'), { timeout: 20_000 });
+    expect(within(card()).queryByRole('link', { name: /^Try / })).toBeNull();
+  });
+
   it('shows no chip when no landing day is better', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-20&days=30&hour=10');
     expect(document.querySelector('a[data-chip]')).toBeNull();
@@ -1435,6 +1539,52 @@ describe('StandView', () => {
     }
   }, 60_000);
 
+  it('opens each view of a site and period on its landing: the first, and a better day landed on in place', async () => {
+    const made: (ReturnType<typeof stub> & { land: ReturnType<typeof vi.fn> })[] = [];
+    const landing = () => {
+      const r = { ...stub(), land: vi.fn() };
+      made.push(r);
+      return r;
+    };
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', landing);
+    await waitFor(() => expect(made[0]?.land).toHaveBeenCalledTimes(1));
+    // Another period, landed on in place: its view opens on its own landing.
+    openCard();
+    fireEvent.click(await within(document.getElementById('stand-card')!).findByRole('link', { name: /^Try \d+ January instead/ }));
+    await waitFor(() => expect(store.getState().startUtc.slice(0, 10)).not.toBe('2027-01-01'));
+    await waitFor(() => expect(made.length).toBeGreaterThanOrEqual(2));
+    await waitFor(() => expect(made.at(-1)!.land).toHaveBeenCalledTimes(1));
+    // The first view's landing was not asked for again.
+    expect(made[0].land).toHaveBeenCalledTimes(1);
+  }, 60_000);
+
+  it('lands in demo mode and with bright=1 too, as it opens: the pitch and the video show the landing, unlike the resident', async () => {
+    try {
+      for (const extra of ['&demo=1', '&bright=1']) {
+        const land = vi.fn();
+        const { view } = await open(`?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10${extra}`, () => ({ ...stub(), land }));
+        await waitFor(() => expect(land).toHaveBeenCalledTimes(1));
+        view.unmount();
+      }
+    } finally {
+      window.sessionStorage.removeItem(DEMO_KEY);
+      window.sessionStorage.removeItem('earthrise-bright');
+    }
+  }, 60_000);
+
+  it('does not land with reduced motion: the lander is simply there', async () => {
+    const was = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
+    try {
+      const land = vi.fn(), r = { ...stub(), land };
+      await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+      await waitFor(() => expect(r.render.mock.calls.length).toBeGreaterThan(6));
+      expect(land).not.toHaveBeenCalled();
+    } finally {
+      window.matchMedia = was;
+    }
+  });
+
   it('says it found the resident once, in the line over the view', async () => {
     // Renderers whose labels put the resident's shell in the middle of the view from their second frame on.
     const made: RendererLike[] = [];
@@ -1476,4 +1626,21 @@ describe('StandView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Face the Sun' }));
     await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toBe(RESIDENT_LINE));
   }, 60_000);
+});
+
+describe('StandView when a file is missing', () => {
+  it('says the data did not load, rather than building the ground for ever, when the site’s horizon file is missing', async () => {
+    window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=0');
+    const store = createExploreStore(
+      fileLoaders({
+        loadMask: async (id) => {
+          throw new DataError(`/data/masks/${id}.json`, 404);
+        },
+      }),
+    );
+    render(<StandView store={store} createRenderer={() => stub()} />);
+    expect(await screen.findByText(/The data for this view did not load\./, {}, { timeout: 20_000 })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore');
+    expect(screen.queryByText('Building the ground from NASA heights…')).toBeNull();
+  }, 30_000);
 });

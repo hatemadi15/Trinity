@@ -2,7 +2,6 @@
 import { render } from '@testing-library/react';
 import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
-import { lightWords } from '@/components/home/ArrivalCanvas';
 import { pathMarks } from '@/components/stand/StandView';
 import { pointerWords } from '@/components/stand/StandCanvas';
 import { HorizonView } from '@/components/explore/HorizonView';
@@ -15,11 +14,16 @@ import { DEFAULT_PARAMS } from '@/lib/store/explore';
 import { summarize } from '@/lib/engine/metrics';
 import { DEFAULT_POWER } from '@/lib/engine/power';
 import { HOME } from '@/lib/data/home';
+import { CountdownLine } from '@/components/explore/CountdownLine';
+import { RadioWindows } from '@/components/explore/RadioWindows';
 import { answerFor } from './answer';
+import { contactPlan, outageNote, poweredContactWords, radioChangeWords, windowUseWords } from './contact';
+import { countdown, countdownWords } from './countdown';
 import { arrivalWords, hero } from './arrival';
+import { descentWords } from './descent';
 import { heightWords } from './shadowmap';
 import { statusSentence } from './status';
-import { EARTH_LOOP, keyMoments, liveSentence, momentCaption, poleLine, RESIDENT_LINE, skyLabel, statusLine, viewCaption, watchNext, whyLines, type MomentKind } from './stand';
+import { EARTH_LOOP, keyMoments, liveSentence, momentCaption, poleLine, RESIDENT_LINE, skyCountdown, skyLabel, statusLine, viewCaption, watchNext, whyLines, type MomentKind } from './stand';
 
 /** Other names for an event or stretch that already has one (the plan's vocabulary): each event is named one way. */
 const OTHER_NAMES: [RegExp, string][] = [
@@ -62,7 +66,6 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
       check(`live ${hour}`, liveSentence(s, hour, p.powered[hour] === 1));
       check(`watch ${hour}`, watchNext(s, p, start, hour));
       check(`status ${hour}`, statusLine(s, p, start, hour).text);
-      check(`date bar ${hour}`, lightWords(s, hour));
       for (const line of whyLines(h.site.lat, s, hour)) check(`why ${hour}`, line);
     }
     for (const kind of ['earth', 'up', 'earthlight', 'lander', 'dark'] as const) check(`view ${kind}`, viewCaption(kind, -88.28));
@@ -134,9 +137,29 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
     expect(viewCaption('earth', -88.28)).not.toMatch(/\brock/);
   });
 
+  it('words the countdown, the radio windows and the Sun’s height the same way, at every hour of the month', () => {
+    const plan = contactPlan(s, p);
+    for (let hour = 0; hour < s.hours; hour++) {
+      check(`countdown ${hour}`, countdownWords(countdown(s, 'sun', hour)));
+      check(`countdown ${hour}`, countdownWords(countdown(s, 'earth', hour), 'the end of the period'));
+      check(`radio ${hour}`, radioChangeWords(plan, hour, start));
+      check(`card countdown ${hour}`, skyCountdown(s, hour));
+    }
+    for (const w of plan.windows) check('window', windowUseWords(w));
+    check('powered contact', Object.values(poweredContactWords(plan)).join(' '));
+    check('outage', outageNote(plan.longestOutage, start));
+    for (const el of [createElement(RadioWindows, { series: s, power: p, startUtc: start, hour: 30 }), createElement(CountdownLine, { series: s, hour: 30 })]) {
+      const { container, unmount } = render(el);
+      check('radio windows', textOf(container));
+      unmount();
+    }
+  });
+
   it('words the arrival and the forecast’s answer the same way', () => {
     for (const beat of arrivalWords().beats) check('beat', beat);
     check('proof', arrivalWords().proof);
+    const d = descentWords();
+    for (const line of [d.turn.text, d.pole.text, d.site.text, d.turn.eyebrow, d.pole.eyebrow, d.site.eyebrow]) check('descent', line);
     const b = HOME.battery, best = b.best_hour !== null && b.best_hours !== null ? { hour: b.best_hour, poweredHours: b.best_hours, earthFraction: b.best_earth_fraction ?? 0 } : null;
     const answer = answerFor({ siteName: 'de Gerlache Rim 2', series: s, summary: summarize(s), power: p, startUtc: start, days: h.days, loadW: DEFAULT_POWER.loadW, batteryWh: DEFAULT_POWER.batteryWh, best });
     for (const line of [answer.title, ...answer.sentences]) check('answer', line);

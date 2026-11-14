@@ -20,6 +20,8 @@ import { cachedTexture, releaseCachedTextures } from './textureCache';
 import { placeStars, starColour, starGain, starSize } from './stars';
 import { LANDER } from './landerShape';
 import { buildLander, landerDust } from './landerMesh';
+import { cameraShake, descentHeight, dustLight, LandingClock, landingKey, landingStart, settleSquash } from './landing';
+import { buildLanding } from './landingMesh';
 import { buildGround, STAND_REACH_M } from './groundLevels';
 import { SHADOW, SHADOW_FAST } from './shadowRule';
 import { BOULDERS, boulderMeshes, pebbleMesh, placeBoulders, placePebbles, rockDome, siteSeed, type Boulder } from './boulders';
@@ -705,8 +707,17 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
     }
   }
 
-  // Boulders round the eye, kept clear of the lander, with their shadows on the ground.
+  // The landing (landing.ts), the stand view's opening on a landing: the lander's plume and the dust it blows up, built
+  // with the scene so their one program is compiled before the first frame, and out of the picture until it plays
+  // (land). In the stand view only, with its ground and its lander: the home page's arrival, in flight, never lands.
+  // Where the lander stands, and the box round it there, which the labels' box leaves and comes back to.
   const seed = siteSeed(scene.site.lat, scene.site.lon);
+  const restAt = lander ? lander.group.position.clone() : null, restBox = landerBox.clone();
+  const startM = restAt && ls ? landingStart(eye - restAt.y, ls.distM) : 0;
+  const landing = restAt && !flight ? buildLanding({ spot: restAt, startM, seed, groundAt: (x, z) => meshHeightAt(scene.field, x, z) }) : null;
+  if (landing) root.add(landing.plume, landing.dust);
+
+  // Boulders round the eye, kept clear of the lander, with their shadows on the ground.
   const placed: Boulder[] = hasGround ? placeBoulders(seed, lander ? { x: lander.group.position.x, z: lander.group.position.z } : null) : [];
   const rocks = hasGround ? boulderMeshes(placed, (x, z) => meshHeightAt(scene.field, x, z), seed) : { group: new THREE.Group(), spheres: [] as THREE.Vector4[] };
   root.add(rocks.group);
@@ -811,6 +822,8 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
       u.uNight.value = night;
       u.uBounce.value = bounceNow * eyeOnly;
     }
+    // The dust the landing blows up takes the light as the ground round it does.
+    landing?.light(dustLight(sunFraction, earthshine, night), sunDir);
     // Earth's blue light only while Earth is up; the neutral fill, faint by day, and at night enough for the
     // shapes to show when neither the Sun nor Earth lights them (the ground gets the same).
     earthLight.intensity = 0.5 * earthshine;
@@ -1200,7 +1213,27 @@ export function buildScene(scene: StandScene, opts: { halfFloat?: boolean } = {}
   const aloft = () => !ringNow;
   /** Turns the resident's head `f` of the way to look at you (21.2); nothing without one. */
   const greet = (f: number) => resident?.greet(f);
-  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, aloft, greet, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, keyLight, boulders: rocks.group, pebbles, resident: resident?.group ?? null, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
+  /**
+   * The landing `ms` from its first frame (landing.ts): the lander high over its spot, coming down onto it and settling on
+   * its legs, its pads where they stand; its plume and its dust; its shadow on the ground cast from where it is, so the
+   * shadow runs in along the ground to meet its feet; and its box for the labels with it. From LANDING.MS on it stands as
+   * it stood before and nothing is drawn for the landing. Nothing without a landing (in flight, or with no lander).
+   */
+  const land = (ms: number) => {
+    if (!lander || !landing || !restAt) return;
+    const h = descentHeight(ms, startM), k = 1 - settleSquash(ms);
+    lander.group.position.y = restAt.y + h;
+    lander.group.scale.y = k;
+    lander.group.updateMatrixWorld(true);
+    landerBox.copy(restBox);
+    landerBox.min.y = restAt.y + h + (restBox.min.y - restAt.y) * k;
+    landerBox.max.y = restAt.y + h + (restBox.max.y - restAt.y) * k;
+    for (const g of ground) (g.material as THREE.ShaderMaterial).uniforms.uLanderCenter.value.y = restAt.y + h;
+    landing.apply(ms);
+  };
+  /** Half the drawn picture's height in pixels, which sizes the landing's puffs. */
+  const puffScale = (halfHeightPx: number) => landing?.scale(halfHeightPx);
+  return { root, camera, update, setView, setPose, setGuides, project, labels, exposure, dispose, aloft, greet, land, puffScale, starMaterial: starMat, parts: { guides, rings, markers, ground, stars, earth, sun, glare, cross, lander: lander?.group ?? null, landerLight: lander?.lamp ?? null, landerFill: lander ? fillLight : null, landerDust: lander?.dust ?? null, keyLight, boulders: rocks.group, pebbles, resident: resident?.group ?? null, plume: landing?.plume ?? null, dust: landing?.dust ?? null, globe: globe?.mesh ?? null, sky: skyGroup, ring: skyline } };
 }
 
 /**
@@ -1298,6 +1331,11 @@ export class StandRenderer {
   private greetAtOnce = false;
   /** How far round the resident's head is on the scene shown (NaN until set, as after a new scene). */
   private turned = NaN;
+  /** The landing's clock (landing.ts): it starts at the first frame drawn once the page asks for it (land). */
+  private readonly landing = new LandingClock();
+  /** The landing's time on the scene shown (NaN until set, as after a new scene), and whether its shake moved the last frame's view. */
+  private landed = NaN;
+  private shaken = false;
 
   /** A brighter picture for projectors and bright rooms: three times the exposure (18.3, 19.4), or back to the camera's setting. */
   setBright(on: boolean) {
@@ -1370,6 +1408,16 @@ export class StandRenderer {
     this.greetAtOnce = atOnce;
   }
 
+  /**
+   * The view opens on a landing (landing.ts): from the next frame drawn, the lander comes down out of the sky onto its
+   * spot with its plume and its dust, the touchdown shakes the view a little, and the dust settles. Once only; its frames
+   * are drawn while it plays, and none after. The page never asks with reduced motion, nor does the home page's arrival,
+   * whose scene, in flight, has no landing.
+   */
+  land() {
+    this.landing.ask();
+  }
+
   setView(yawDeg: number, pitchDeg: number, fovDeg: number) {
     this.pose = null;
     this.view = { yaw: yawDeg, pitch: pitchDeg, fov: fovDeg };
@@ -1427,10 +1475,12 @@ export class StandRenderer {
     this.renderPass.scene = this.built.root;
     this.renderPass.camera = this.built.camera;
     this.built.starMaterial.uniforms.uPx.value = this.drawnRatio;
+    this.built.puffScale((this.size.h * this.drawnRatio) / 2);
     this.built.setGuides(this.guides, this.level, this.rings);
     this.built.update(this.hour);
     this.apply();
     this.turned = NaN;
+    this.landed = NaN;
     this.generation++;
   }
 
@@ -1449,6 +1499,7 @@ export class StandRenderer {
   private drawAt(ratio: number) {
     this.drawnRatio = ratio;
     this.built.starMaterial.uniforms.uPx.value = ratio;
+    this.built.puffScale((this.size.h * ratio) / 2);
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(this.size.w, this.size.h, false);
     this.composer.setPixelRatio(ratio);
@@ -1513,7 +1564,18 @@ export class StandRenderer {
       this.built.greet(turn);
       this.turned = turn;
     }
-    const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation} ${this.guides} ${this.level} ${this.rings} ${turn.toFixed(4)}`;
+    // The landing, from the first frame drawn once asked for: it moves the frame while it plays, and is still once over;
+    // a scene with no landing to play (no lander) draws no frames for it.
+    const landed = this.built.parts.plume ? this.landing.frame(now) : null;
+    if (landed !== null && landed !== this.landed) {
+      this.built.land(landed);
+      this.landed = landed;
+    }
+    // The touchdown's shake, over the view the page set (the labels go with the picture); the view as set once it is still.
+    const shake = cameraShake(landed ?? 0), shaking = shake.yaw !== 0 || shake.pitch !== 0;
+    if (!p && (shaking || this.shaken)) this.built.setView(v.yaw + shake.yaw, v.pitch + shake.pitch, v.fov, this.size.w / this.size.h);
+    this.shaken = shaking;
+    const key = `${where} ${this.hour.toFixed(4)} ${this.size.w}x${this.size.h} ${maps} ${this.generation} ${this.guides} ${this.level} ${this.rings} ${turn.toFixed(4)} ${landingKey(landed)}`;
     const busy = this.busy(now);
     // Moving frames aloft have no MSAA: the view at rest there gets its sharp frame, with it.
     const mode = this.pacer.next(key, now, { fullWhileMoving: this.pixelRatio >= this.sharpRatio && !this.built.aloft(), busy });

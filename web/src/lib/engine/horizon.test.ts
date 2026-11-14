@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import { R_MOON_M } from './constants';
-import { bandsForSite, computeSiteMask, horizonMask, type Samplers } from './horizon';
+import { bandsForSite, COVERAGE_CELL_M, computeSiteMask, HIGHEST_TERRAIN_M, horizonMask, horizonMaskWithStats, type Samplers } from './horizon';
 import { LevelSampler, levelById, MemoryTileSource, type TileLevel } from './tiles';
 import { FsTileSource, readManifest } from './tiles.node';
 import { hasFile, readJson, repoPath } from './__tests__/helpers';
@@ -73,7 +73,7 @@ describe.skipIf(!tilesPresent)('mask parity with the Python pipeline', () => {
       L2: new LevelSampler(levelById(manifest, 'L2'), src),
     };
     const files = fs.readdirSync(repoPath('data', 'masks')).filter((f) => f.endsWith('.json'));
-    expect(files.length).toBe(18);
+    expect(files.length).toBe(21);
     for (const f of files) {
       const py = readJson<{ site_id: string; lat: number; lon: number; site_height_m: number; elevation_deg: number[]; fallback_bands: { r_min_m: number }[] }>('data', 'masks', f);
       const ts = await computeSiteMask(py.lat, py.lon, samplers, { mastM: 2 });
@@ -121,4 +121,80 @@ describe.skipIf(!tilesPresent)('mask performance on real tiles', () => {
     }
     expect(warmMs, `warm mask took ${warmMs} ms`).toBeLessThan(3000);
   }, 120_000);
+});
+
+describe('what the march found: coverage, where it is missing, and what that can do to the skyline', () => {
+  /** A flat grid of `size` pixels of `scale` metres centred on the pole, with tiles listed in `missing` absent. */
+  function flat(size: number, scale: number, missing: string[] = [], fill = 0) {
+    const level = { ...syntheticLevel(size, scale), id: `G${scale}` };
+    return new LevelSampler(level, new MemoryTileSource(level, new Int16Array(size * size).fill(fill), new Set(missing)));
+  }
+  const POLE = { lat: -90, lon: 0 };
+
+  it('counts a ray step as covered when any grid has terrain there, so a coarser band that fills a finer one leaves nothing missing', async () => {
+    const fine = flat(256, 20); // 2.5 km out from the site
+    const coarse = flat(512, 40); // 10 km out
+    const bands = [
+      { sampler: fine, rMinM: 40, rMaxM: 8_000, stepM: 10 },
+      { sampler: coarse, rMinM: 2_000, rMaxM: 8_000, stepM: 40 },
+    ];
+    const { coverage } = await horizonMaskWithStats(POLE.lat, POLE.lon, bands, { mastM: 2 });
+    expect(coverage.samples).toBe(720 * Math.ceil(8_000 / COVERAGE_CELL_M));
+    expect(coverage.missing).toBe(0);
+    expect(coverage.openAzimuths).toBe(0);
+    expect(coverage.nearestMissingM).toBeNull();
+    // Without the coarser band, the fine grid runs out 2.5 km away in every direction.
+    const alone = await horizonMaskWithStats(POLE.lat, POLE.lon, bands.slice(0, 1), { mastM: 2 });
+    expect(alone.coverage.missing).toBeGreaterThan(0);
+    // Steps are 120 m long: the first step with no terrain at all starts within a step of the grid's edge.
+    expect(alone.coverage.nearestMissingM).toBeGreaterThan(2_550 - 120);
+    expect(alone.coverage.nearestMissingM).toBeLessThan(2_550 + 120);
+  });
+
+  it('an absent tile within range leaves its ray steps without terrain, and opens the directions where a hill could stand there', async () => {
+    // 1024 px of 20 m in tiles of 512 px: the four tiles meet at the site, and tile 1_1, a quarter of the ground, is absent.
+    const s = flat(1024, 20, ['1_1']);
+    // The site's own height needs all four tiles; it is given, as computeSiteMask would read it from a coarser grid.
+    const { mask, coverage } = await horizonMaskWithStats(POLE.lat, POLE.lon, [{ sampler: s, rMinM: 40, rMaxM: 10_000, stepM: 10 }], { mastM: 2, siteHeightM: 0 });
+    expect(coverage.absentTiles).toEqual(['G20/1_1']);
+    expect(coverage.failedTiles).toEqual([]);
+    expect(coverage.missing).toBeGreaterThan(0);
+    expect(coverage.missing).toBeLessThan(coverage.samples);
+    // The flat ground gives a skyline just below level; any hill in the gap would stand above it.
+    expect(Math.max(...mask)).toBeLessThan(0);
+    // A quarter of the 720 rays, and a few more beside it, whose first steps sample the absent tile's edge pixels.
+    expect(coverage.openAzimuths).toBeGreaterThanOrEqual(180);
+    expect(coverage.openAzimuths).toBeLessThan(220);
+    expect(coverage.nearestMissingM).toBe(0);
+    expect(coverage.ranges.map((r) => [r.fromM, r.toM])).toEqual([
+      [0, 6_000],
+      [6_000, 100_000],
+      [100_000, 220_000],
+    ]);
+    expect(coverage.ranges[0].missing).toBeGreaterThan(0);
+    expect(coverage.ranges[2].samples).toBe(0);
+  });
+
+  it('terrain missing far beyond a high skyline cannot open a direction: no hill there could reach above it', async () => {
+    // A 300 m grid 150 km out from the site with a 1000 m wall 5 km away (an 11 degree skyline); past 150 km there is no map.
+    const level = { ...syntheticLevel(1000, 300), id: 'W' };
+    const grid = new Int16Array(1000 * 1000);
+    const s = new LevelSampler(level, new MemoryTileSource(level, grid));
+    for (let r = 0; r < 1000; r++)
+      for (let c = 0; c < 1000; c++) {
+        const d = Math.hypot(c - 499.5, r - 499.5) * 300;
+        if (d >= 5_000 && d <= 5_700) grid[r * 1000 + c] = 2_000; // DN of 0.5 m
+      }
+    const { mask, coverage } = await horizonMaskWithStats(POLE.lat, POLE.lon, [{ sampler: s, rMinM: 40, rMaxM: 220_000, stepM: 300 }], { mastM: 2 });
+    expect(Math.min(...mask)).toBeGreaterThan(9);
+    expect(coverage.missing).toBeGreaterThan(0);
+    expect(coverage.nearestMissingM).toBeGreaterThanOrEqual(149_000);
+    expect(coverage.openAzimuths).toBe(0);
+    expect(coverage.ranges[2].missing).toBe(coverage.missing);
+  });
+
+  it('bounds a hill it cannot see by the highest ground on the Moon', () => {
+    // LOLA's highest point stands 10,786 m above the 1737.4 km sphere: no lunar hill can stand taller.
+    expect(HIGHEST_TERRAIN_M).toBe(10_786);
+  });
 });

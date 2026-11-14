@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { descentShare } from '@/lib/sky/landing';
 import { crossStars, type StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { heightAt } from '@/lib/sky/terrainField';
 import { compassWord } from '@/lib/viz/ground';
 import { EARTH_LOOP, shadowWords, starLabel } from '@/lib/viz/stand';
 
-export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void; setBright?: (on: boolean) => void; setScene?: (scene: StandScene) => void; greet?: (atOnce: boolean) => void };
+export type RendererLike = Pick<StandRenderer, 'setTime' | 'setView' | 'resize' | 'render' | 'labels' | 'dispose'> & { ready?: Promise<void>; onLost?: (why: string) => void; setGuides?: (on: boolean, level?: boolean, rings?: boolean) => void; setBright?: (on: boolean) => void; setScene?: (scene: StandScene) => void; greet?: (atOnce: boolean) => void; land?: () => void };
 /** Where to turn the view; a new object turns it again, even to the same place. */
 export interface LookTarget {
   yaw: number;
@@ -38,6 +39,15 @@ export function fitPitch(height: number, fovDeg: number, freeBottom: number, elD
   const t = ((height / 2 - (freeBottom - 56)) / (height / 2)) * Math.tan((fovDeg * Math.PI) / 360);
   const p = elDeg - (Math.atan(t) * 180) / Math.PI;
   return p >= pitchDeg ? pitchDeg : Math.max(p, pitchDeg - 10);
+}
+
+/**
+ * How much of the opening view's look down for the lander's feet (`offsetDeg`) it takes `landingMs` into the view's
+ * landing: while the lander comes down its feet are up in the sky with it, so the view looks down for them only as far as
+ * the lander has come down (descentShare), and never tilts away under it; all of it with no landing (null).
+ */
+export function landingFit(offsetDeg: number, landingMs: number | null): number {
+  return landingMs === null ? offsetDeg : offsetDeg * descentShare(landingMs);
 }
 
 /**
@@ -389,8 +399,9 @@ const LABEL = 'pointer-events-none absolute whitespace-nowrap rounded-[5px] bord
  * The sky from the site, full window. Drag, the wheel and the arrow keys look around; `look` turns the
  * view smoothly; the labels follow the Sun and Earth, and a compass strip shows the heading. The shown time glides to the
  * hour at 14 hours a second (faster than Play's 12), so Play sweeps the shadows smoothly; a jump of more
- * than 2 hours is taken at once. On opening, the view settles from the sky down to the horizon in under
- * 4 seconds, unless the system asks for reduced motion. A line says which way the view faces, and when it
+ * than 2 hours is taken at once. On opening, from its first frame drawn, the view settles from the sky down to the
+ * horizon in under 4 seconds, unless the system asks for reduced motion; opening on a landing (`landing`), the lander
+ * comes down out of the sky with it onto its spot (StandRenderer.land). A line says which way the view faces, and when it
  * is zoomed in (on a phone, a small note at the top right); the compass strip marks the Sun, Earth and the
  * lander at their bearings, hollow while below the horizon, or names them at its end when they lie beyond;
  * the bright stars carry their names at night and when the view looks up, each on whichever side keeps it
@@ -424,6 +435,7 @@ export function StandCanvas({
   onFound,
   lineTaken = false,
   playHps = 12,
+  landing = false,
 }: {
   scene: StandScene;
   hour: number;
@@ -468,6 +480,11 @@ export function StandCanvas({
   lineTaken?: boolean;
   /** Play's pace, hours a second (21.1): the view glides between Play's steps at a little more than it (glideStep). */
   playHps?: number;
+  /**
+   * The view opens on a landing: from its first frame the lander comes down out of the sky onto its spot, as the opening
+   * view tilts down with it (StandRenderer.land); read as the view opens, and never with reduced motion.
+   */
+  landing?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const sunRef = useRef<HTMLSpanElement>(null);
@@ -539,6 +556,10 @@ export function StandCanvas({
   const toldRef = useRef(false);
   const takenRef = useRef(lineTaken);
   const playHpsRef = useRef(playHps);
+  const landingRef = useRef(landing);
+  // When the view's landing began, its first frame drawn, as the opening began with it; null with no landing.
+  const landingFrom = useRef<number | null>(null);
+  const landingAsked = useRef(false);
   // Until the first frame is drawn no label shows: none floats over the empty view while it builds.
   const drawnRef = useRef(false);
   const [dragging, setDragging] = useState(false);
@@ -627,6 +648,12 @@ export function StandCanvas({
     r.onLost = fail;
     rendererRef.current = r;
     r.setBright?.(brightRef.current);
+    // The landing, as the view opens (its first renderer, not one built again for a new scene): none with reduced motion,
+    // where the lander is simply there.
+    if (generation === 0 && landingRef.current && !reducedRef.current) {
+      r.land?.();
+      landingAsked.current = true;
+    }
     void Promise.resolve(r.ready).then(
       () => {
         if (!live) return;
@@ -725,8 +752,12 @@ export function StandCanvas({
       const i = intro.current;
       let settled = 1;
       if (i && !drag.current) {
-        if (i.start === 0) i.start = now;
-        const f = Math.min(1, (now - i.start) / 3800);
+        // From the first frame drawn: the shaders may take seconds to build, and a landing comes down with it.
+        if (i.start === 0 && drawnRef.current) {
+          i.start = now;
+          if (landingAsked.current) landingFrom.current = now;
+        }
+        const f = i.start === 0 ? 0 : Math.min(1, (now - i.start) / 3800);
         settled = 1 - Math.pow(1 - f, 3);
         v.pitch = 34 + (2 - 34) * settled;
         if (f >= 1) intro.current = null;
@@ -751,7 +782,7 @@ export function StandCanvas({
         // No lower than keeps what the view opens on in sight under the words, and never higher than it was.
         const subject = subjectRef.current;
         const fitted = subject === null || subject === undefined ? fitPitch(H, v.fov, freeBottom, keep.el, pitch) : Math.min(pitch, Math.max(fitPitch(H, v.fov, freeBottom, keep.el, pitch), subjectFloor(H, v.fov, freeTop, subject)));
-        fitOffset.current = (fitted - pitch) * settled;
+        fitOffset.current = landingFit((fitted - pitch) * settled, landingFrom.current === null ? null : now - landingFrom.current);
         pitch += fitOffset.current;
       }
       const shownPitch = Math.max(-35, Math.min(89, pitch));

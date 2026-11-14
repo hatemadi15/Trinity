@@ -8,10 +8,26 @@ export interface StateSummary {
   site: { id: string; name: string; label: string; lat: number; lon: number };
   window: { startUtc: string; days: WindowDays };
   summary: Summary;
-  /** `poweredHours`: from landing on the period's first day to the first brownout, capped at the period; `contactHours`: how many of them have Earth in view. */
-  power: { socMin: number; brownoutHours: number; survives: boolean; meanPowerW: number; poweredHours: number; contactHours: number };
+  /**
+   * `poweredHours`: from landing on the period's first day to the first brownout, capped at the period; `contactHours`: how many of them have
+   * Earth in view; `endsAtNight`: when power ends, whether no Sun is up at that hour (the verdict's "then night") or some is (too little sunlight).
+   */
+  power: { socMin: number; brownoutHours: number; survives: boolean; meanPowerW: number; poweredHours: number; contactHours: number; endsAtNight?: boolean };
   params: PlannerParams;
   compare: { id: string; name: string; illumFraction: number; earthVisFraction: number; survives: boolean }[];
+}
+
+/**
+ * The summary as a model reads it: the engine's `survives` (no brownout in the period) is named for what it measures,
+ * `powerLastsWholePeriod`, because the figures count electrical energy only and say nothing of the lander surviving.
+ * Tolerates a partial summary, as the planner may send one.
+ */
+export function stateForModel(s: StateSummary): unknown {
+  const rename = <T extends { survives?: boolean }>(x: T) => {
+    const { survives, ...rest } = x;
+    return survives === undefined ? rest : { ...rest, powerLastsWholePeriod: survives };
+  };
+  return { ...s, ...(s.power ? { power: rename(s.power) } : {}), ...(Array.isArray(s.compare) ? { compare: s.compare.map(rename) } : {}) };
 }
 
 const r3 = (x: number) => Math.round(x * 1000) / 1000;
@@ -42,6 +58,7 @@ export function summarizeState(s: ExploreState): StateSummary | null {
       meanPowerW: r1(s.power.meanPowerW),
       poweredHours,
       contactHours,
+      ...(s.power.firstBrownoutHour !== null && s.series ? { endsAtNight: s.series.sunFraction[s.power.firstBrownoutHour] === 0 } : {}),
     },
     params: { power: { ...s.params.power }, minEarthElDeg: s.params.minEarthElDeg, mastM: s.params.mastM },
     compare: s.compare.map((c) => ({

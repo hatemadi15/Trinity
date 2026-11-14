@@ -1,13 +1,15 @@
 import { ACTION_TYPES, type Action } from './actions';
-import type { StateSummary } from './state-summary';
+import { stateForModel, type StateSummary } from './state-summary';
 
 export type ChatSource = 'model' | 'cache' | 'intent' | 'none';
 
-/** The brief's paragraph: the model's words when every number checked out, else the deterministic template. */
+/** The brief's paragraph: the model's words when every claim in them held against the state, else the deterministic template. */
 export interface NarrationReply {
   source: 'model' | 'template';
-  /** Why the template was used: the numbers failed the check, no key is configured, demo mode, or the model did not answer. */
+  /** Why the template was used: the model's claims failed the check ('numbers'), no key is configured, demo mode, or the model did not answer. */
   reason?: 'numbers' | 'no-key' | 'cached' | 'model-error';
+  /** With 'numbers': the first things the check found, in plain words ('"67 %" for sunlight, where the figures say 100 %'). */
+  problems?: string[];
   model?: string;
   reply: string;
 }
@@ -27,10 +29,13 @@ export interface ChatReply {
   reason?: ChatReason;
 }
 
+/** The kind of point each catalogue site is (data/sites.json "kind"), in the words the site list uses. */
+const KIND_WORDS: Record<string, string> = { surveyed: 'surveyed point', target: 'landing target', region_centre: 'centre of a region', derived: 'derived point', reference: 'reference point' };
+
 /** What the model is told about the app, the actions and the rules. Sites are listed so ids are never invented. */
-export function systemPrompt(sites: { id: string; name: string }[]): string {
-  const siteLines = sites.map((s) => `- ${s.id}: ${s.name}`).join('\n');
-  return `You are the planner assistant inside Earthrise, a lunar landing-site and date planner for the Moon's south pole.
+export function systemPrompt(sites: { id: string; name: string; kind?: string }[]): string {
+  const siteLines = sites.map((s) => `- ${s.id}: ${s.name}${s.kind && KIND_WORDS[s.kind] ? ` [${KIND_WORDS[s.kind]}]` : ''}`).join('\n');
+  return `You are the planner assistant inside Earthrise, a lunar landing-site and date planner, mostly for the Moon's south pole.
 The app computes everything itself from NASA data (LOLA terrain, DE440 ephemeris): for one site and period, the share of sunlight, the longest night, how much of the time Earth is in view for radio, and how long a solar lander that lands on the first day keeps power (the time with power, then night); the same for up to four compared sites.
 You never compute, invent or guess numbers. Quote a number only if it appears in the STATE JSON you are given; otherwise say the app shows it on screen.
 
@@ -39,30 +44,36 @@ You answer with ONE JSON object and nothing else:
 
 Actions drive the app. Use only these shapes (${ACTION_TYPES.join(', ')}):
 {"type": "select_site", "id": SITE_ID}
-{"type": "set_window", "startUtc": "YYYY-MM-DDT00:00:00", "days": 14 | 30 | 90}   (either field may be omitted)
-{"type": "find_best_window", "days": 14 | 30 | 90, "scope": "site" | "compare"}
+{"type": "set_window", "startUtc": "YYYY-MM-DDTHH:00:00", "days": 2-90, "timeUtc": "HH:00"}   (any field may be omitted; timeUtc alone keeps the date already chosen)
+{"type": "shift_window", "hours": N}   (moves the landing N whole hours later, negative for earlier, 24 to a day; the length stays)
+{"type": "find_best_window", "days": 2-90, "scope": "site" | "compare"}
 {"type": "set_power", "patch": {"panel": "horizontal" | "vertical" | "vertical_tracking" | "full_tracking", "panelAzimuthDeg": 0-360, "areaM2": 0.5-50, "efficiency": 0.05-0.45, "loadW": 10-2000, "batteryWh": 100-50000, "initialSocFraction": 0-1}}   (only the fields to change)
 {"type": "set_params", "patch": {"minEarthElDeg": 0-10, "mastM": 0-10}}
 {"type": "add_to_compare", "id": SITE_ID}
 {"type": "remove_from_compare", "id": SITE_ID}
 {"type": "open_page", "page": "explore" | "sites" | "compare" | "validate" | "brief" | "learn"}
 {"type": "explain", "topic": "longest night" | "earth gap" | "best window" | "skyline" | "verdict"}   (the reply is then one short sentence; the app adds the paragraph)
+{"type": "compare_shift", "hours": WHOLE_HOURS}   (compares the landing shown with the same one moved, later when positive: 120 for a five-day delay; it opens Compare)
+{"type": "plan_mission", "spec": {"minPoweredH": hours, "contactWithinH": hours (0: Earth in view at landing), "maxOutageH": hours, "minPoweredContactH": hours, "loadW": watts, "batteryWh": watt-hours, "areaM2": m2, "panel": PANEL, "mastM": metres, "stayH": hours, "fromUtc": "YYYY-MM-DD", "toUtc": "YYYY-MM-DD" (the day after the last), "where": {"kind": "all"} | {"kind": "category", "category": "artemis3" | "clps_landed" | "clps_planned" | "apollo" | "international" | "classic"} | {"kind": "sites", "ids": [SITE_ID, ...]} | {"kind": "near", "id": SITE_ID, "km": number}, "objective": "power" | "contact" | "earliest"}}   (only the fields the user stated, in the user's own numbers)
 
 SITE_ID must be one of these (id: name):
 ${siteLines}
 
 Rules:
-- Dates are UTC; the ephemeris covers 2024-01-01 to 2036-12-31; periods are 14, 30 or 90 days.
+- Dates and times are UTC, in whole hours (the Sun and Earth table is hourly); landings run from 2024-01-02 and a period must end by 2036-12-31; a period is 2 to 90 whole days.
+- "Our landing slipped by five days" is shift_window with hours 120; "land at 17:00 UTC" is set_window with timeUtc "17:00".
 - "sites" is the list of landing sites; "validate" is the Accuracy page; "learn" is How it works.
 - To compare sites, add each with add_to_compare and then open_page "compare".
 - If the user names a site that is not in the list, do not select anything; say it is not in the catalogue and name the closest ones.
+- The word in brackets says what kind of point a site is. A derived point is the highest ground on a crater rim in LOLA's heights, never checked as safe to land: never call it a safe or verified landing site.
+- If the user describes what a mission needs (power, contact with Earth, radio gaps, the lander, a landing window, where to look), answer with one plan_mission action holding only the fields they stated; the app searches and ranks: never search, rank or name a best site yourself.
 - If the question is about the current numbers, answer from STATE and add no actions.
 - Keep replies plain and short. No markdown, no lists, no code fences.`;
 }
 
 /** The user turn: the compact app state (or a note that nothing is selected) and the question. */
 export function userPrompt(prompt: string, state: StateSummary | null): string {
-  const stateText = state ? JSON.stringify(state, null, 1) : 'No site is selected yet (the app is still loading or on a page without a site).';
+  const stateText = state ? JSON.stringify(stateForModel(state), null, 1) : 'No site is selected yet (the app is still loading or on a page without a site).';
   return `STATE:\n${stateText}\n\nQUESTION:\n${prompt}`;
 }
 

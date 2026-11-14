@@ -33,6 +33,13 @@ describe('the words a page shows before a tap (spec 20.1)', () => {
     expect(visibleWords(root, PHONE)).toEqual(['Power', 'for', '3', 'days', '4', 'hours', 'Phone', 'only', 'Seen', 'but', 'not', 'read', 'Earthrise', 'Accuracy']);
   });
 
+  it('reads a closed list as it shows before a tap: its chosen option only, whatever the list holds', () => {
+    const root = html('<label>Add a site <select><option value="">Choose a site…</option><optgroup label="Apollo landings"><option value="a">Apollo 11</option><option value="b">Apollo 12</option></optgroup></select></label>');
+    expect(visibleWords(root, WIDE)).toEqual(['Add', 'a', 'site', 'Choose', 'a', 'site…']);
+    (root.querySelector('select') as HTMLSelectElement).value = 'b';
+    expect(visibleWords(root, PHONE)).toEqual(['Add', 'a', 'site', 'Apollo', '12']);
+  });
+
   it('keeps a number and its unit as written, a no-break space between them read as a plain one', () => {
     expect(visibleWords(html('<p>battery 100 %, 2.4° up</p>'), WIDE)).toEqual(['battery', '100', '%,', '2.4°', 'up']);
   });

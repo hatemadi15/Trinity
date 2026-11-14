@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { exploreStore } from '@/lib/store/explore';
 import { AppFrame } from './AppFrame';
@@ -31,8 +31,11 @@ describe('AppFrame', () => {
       ['Compare sites', '/compare'],
       ['How it works', '/learn'],
       ['Accuracy', '/validate'],
+      ['Plan a landing', '/plan'],
     ]);
-    expect(screen.getByRole('group', { name: 'Theme' })).toBeTruthy();
+    // The fifth takes a phone's whole row, so none stands alone in half of one.
+    expect(nav.querySelector('a[href="/plan"]')!.className).toMatch(/\bmax-sm:col-span-2\b/);
+    expect(screen.getByRole('button', { name: /Switch to the (light|dark) theme/ })).toBeTruthy();
     expect(screen.queryByRole('group', { name: 'Audience' })).toBeNull();
     const footer = screen.getByRole('contentinfo');
     expect(footer.textContent).toMatch(/NASA Lunar Reconnaissance Orbiter/);
@@ -52,6 +55,18 @@ describe('AppFrame', () => {
     expect(frame.className).toMatch(/\brelative\b/);
     expect(frame.querySelector('header')!.className).toMatch(/\brelative\b/);
     expect(frame.querySelector('header')!.className).not.toMatch(/\bbg-page\b/);
+  });
+
+  it('has Luna’s toggle in the header, before the theme switch, off at first (spec 22)', () => {
+    render(
+      <AppFrame>
+        <p>page</p>
+      </AppFrame>,
+    );
+    const header = screen.getByRole('banner');
+    const luna = within(header).getByRole('button', { name: /^Luna/ });
+    expect(luna.getAttribute('aria-pressed')).toBe('false');
+    expect(luna.compareDocumentPosition(within(header).getByRole('button', { name: /Switch to the (light|dark) theme/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('keeps instrument names out of the header', () => {

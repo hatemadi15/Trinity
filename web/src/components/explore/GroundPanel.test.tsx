@@ -378,9 +378,14 @@ describe('GroundPanel', () => {
     expect(screen.getByRole('tabpanel', { name: '3D from above' }).textContent).toMatch(/Loading the terrain…/);
   });
 
-  it('says when the terrain files are not on this machine', () => {
+  it('says when the terrain files are missing, and names the tab that works without them', () => {
+    const missing = 'This copy of Earthrise has no terrain files, so the ground cannot be drawn here. The Horizon chart tab works without them.';
     show({ terrainState: 'unavailable' });
-    expect(screen.getByRole('tabpanel', { name: 'Shadow map' }).textContent).toMatch(/The terrain files are not on this machine\./);
+    expect(screen.getByRole('tabpanel', { name: 'Shadow map' }).textContent).toBe(missing);
+    act(() => {
+      fireEvent.click(tab('3D from above'));
+    });
+    expect(screen.getByRole('tabpanel', { name: '3D from above' }).textContent).toContain(missing);
   });
 
   it('waits for the detailed terrain instead of drawing the coarse one first', () => {

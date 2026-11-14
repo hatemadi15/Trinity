@@ -1,19 +1,29 @@
 import { createStore, type StoreApi } from 'zustand';
-import { dataBase, loadEphemerisFromUrl, loadMask, loadSites, type MaskDoc, type Site } from '../data/loaders';
+import { dataBase, loadEphemerisFromUrl, loadMask, loadSites, siteLabel, type MaskDoc, type Site } from '../data/loaders';
 import { contextFileFor, loadHeightmap, loadTerrainManifest, windowFileFor, type Heightmap, type TerrainManifest } from '../data/terrain';
 import { indexForEt, type Ephemeris } from '../engine/ephemeris';
 import { EngineClient } from '../engine-client';
+import type { MaskResult } from '../engine/worker-handler';
 import { normalizeLon } from '../engine/geometry';
-import { bestLanding, bestLandingAcross, landingScores, timeWithPower, YEAR_HOURS, type Landing } from '../engine/landing';
+import { bestLanding, timeWithPower, YEAR_HOURS, type Landing } from '../engine/landing';
 import { contactWindows, headSeries, hourlySeries, sliceSeries, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig, type PowerResult } from '../engine/power';
 import { etToIso, utcToEt } from '../engine/time';
-import { dateLong, dayMonth, pct0, spanShort } from '../viz/format';
+import { periodDays, periodProblem, snapToHour } from '../period';
+import { clockUtc, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
+import { timeOptions, yearOptions, type LandingTime, type Recommendation, type YearChoice } from '../plan/options';
+import { periodOutcome, type Outcome } from '../plan/outcome';
+import { checksWords, NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
+import { BY_POWER, validPriorities, yearRuleWords, type RankBy } from '../plan/rank';
+import { neighbourhoodRadius, ringPoints, type PointResult } from '../plan/neighbourhood';
+import { computedReport, featuredReport, flatReport, unreportedReport, type TerrainFindings, type TerrainReport } from '../engine/completeness';
+import { missingWords } from '../viz/terrain';
 import { customPoint, parseExploreQuery } from './query';
+import { mergeSettings, parseRank, parseRequirements, parseSettings, sameSettings } from '../share/settings';
 
-export const WINDOW_DAYS = [14, 30, 90] as const;
-export type WindowDays = (typeof WINDOW_DAYS)[number];
+/** A period's length in whole days, DAYS_RANGE in planner-ranges.ts: any number reaches the store, which refuses one outside it. */
+export type WindowDays = number;
 export type SceneMode = 'globe' | 'terrain';
 /** Who is looking: planners see every number, Learn mode hides three tiles and adds a guided story. */
 /** Where planner answers come from: the model when a key is set (live), or the rehearsed transcripts (?demo=1). */
@@ -25,6 +35,8 @@ export const DEFAULT_SITE = 'de_gerlache_rim_2';
 export const COMPARE_MAX = 4;
 /** Mast spinner clicks are coalesced for this long before the worker recomputes the skyline. */
 export const MAST_DEBOUNCE_MS = 300;
+/** The mast height featured skylines are made for: a featured file stands for this height only. */
+export const FEATURED_MAST_M = 2;
 
 export interface PlannerParams {
   power: PowerConfig;
@@ -42,12 +54,14 @@ export interface SiteResult {
   summary: Summary;
   power: PowerResult;
   contacts: ContactWindow[];
-  /** Mast height the site's skyline was computed with (m). */
+  /** Mast height the site's skyline is seen from (m): its own for a skyline from the tiles or a file, the chosen one for a flat horizon. */
   mastM: number;
   /** The best landing hour inside the period (hours from its start), or null when no hour is sunlit. */
   best: Landing | null;
   /** The summary of as many days from the best landing hour: what Explore shows when it opens there (the period's own summary when that hour is the start). */
   after: Summary;
+  /** Where the skyline comes from, what of the terrain was found, and how far the result can be trusted. */
+  terrain: TerrainReport;
 }
 
 /** What the site list shows for one site over the chosen period. */
@@ -60,8 +74,43 @@ export interface SiteOverview {
   /** Sunlight and contact with Earth over as many days from the best landing hour (the period's own when there is none, or it is the start). */
   afterSun: number;
   afterEarth: number;
+  /** What a lander gets from landing at the period start: what the places nearby are ranked on. */
+  now?: Outcome;
+  /** Mast height the row's skyline is seen from (m), and the terrain behind it (the store always sets both). */
+  mastM?: number;
+  terrain?: TerrainReport;
 }
 export const DEFAULT_START = '2027-01-01T00:00:00';
+
+/** The same period worked out at points round a site whose position is known only to a few kilometres. */
+export interface Neighbourhood {
+  siteId: string;
+  /** How far out the points are: the radius the catalogue states for the site, or a probe round a derived high point. */
+  radiusKm: number;
+  /** False for a probe round a derived high point, which states no radius. */
+  stated: boolean;
+  /** True while the worker computes the points' skylines. */
+  busy: boolean;
+  points: PointResult[];
+  /** Time from the first skyline asked for to the last result, in ms. */
+  ms: number;
+  /** Time the worker spent on the points' skylines, kept with them for later periods, in ms. */
+  skylineMs: number;
+  mastM: number;
+}
+
+/** The 12-month search's result: the landing times it found, ranked with the requirements, and what it searched. */
+export interface YearPlan {
+  scope: 'site' | 'compare';
+  days: number;
+  /** The start the search began from (UTC): the current choice the alternatives are weighed against. */
+  fromUtc: string;
+  /** The sites searched, in the order of each choice's `perSite`. */
+  siteNames: string[];
+  /** Hours between the landing times tried. */
+  stepH: number;
+  plan: Recommendation<YearChoice>;
+}
 
 export interface Loaders {
   loadSites: () => Promise<Site[]>;
@@ -70,18 +119,31 @@ export interface Loaders {
   /** Optional: when absent the 3D terrain stays empty (globe still works). */
   loadTerrainManifest?: () => Promise<TerrainManifest>;
   loadHeightmap?: (file: string, metaFile: string) => Promise<Heightmap>;
-  /** Optional: worker-backed skyline for custom sites and mast changes. */
-  computeMask?: (lat: number, lon: number, mastM: number) => Promise<{ mask: Float64Array; siteHeightM: number; failedTiles: number }>;
+  /** Optional: worker-backed skyline for custom sites and any mast height but the featured one. */
+  computeMask?: (lat: number, lon: number, mastM: number) => Promise<ComputedSkyline>;
+  /** Names the terrain the worker traces skylines through: a skyline is kept per place, mast height and terrain source. */
+  terrainId?: string;
+}
+
+/** What the worker gives back for one skyline. Without `terrain`, the march's own record, the skyline is never called complete. */
+export interface ComputedSkyline {
+  mask: Float64Array;
+  siteHeightM: number;
+  /** Tiles that failed to load or were absent, as a count. */
+  failedTiles: number;
+  terrain?: TerrainFindings;
 }
 
 export interface MaskMeta {
   siteHeightM: number;
-  /** featured: precomputed 5 m mask; computed: worker skyline; flat: a mare site outside the polar grids (all zeros). */
+  /** featured: a precomputed 2 m file; computed: a worker skyline; flat: a mare site outside the polar grids (all zeros). */
   source: 'featured' | 'computed' | 'flat';
-  /** Tiles that failed to load while computing (0 for precomputed masks). */
+  /** Tiles that failed to load or were absent while computing (0 for precomputed masks). */
   failedTiles: number;
-  /** Mast height the skyline was computed with; absent means the featured 2 m. */
+  /** Mast height the skyline was computed with; absent for a flat horizon, which no height changes. */
   mastM?: number;
+  /** Provenance, coverage and quality of the terrain behind the skyline: the store always sets it (see terrainOf). */
+  terrain?: TerrainReport;
 }
 
 interface CachedMask {
@@ -139,9 +201,31 @@ export interface ExploreState {
   loadOverview: () => Promise<void>;
   compareIds: string[];
   compare: SiteResult[];
-  /** True while the worker computes a skyline (custom site or mast change). */
+  /** True while the worker computes the selected site's skyline (custom site or mast change). */
   maskBusy: boolean;
+  /** Sites whose skyline at the chosen mast height is being worked out, waiting or running in the worker. */
+  pendingSkylines: string[];
+  /** Why a site's skyline at the chosen mast height could not be had, by site id (the engine's or the loader's message). */
+  skylineProblems: Record<string, string>;
   bestWindowNote: string | null;
+  /** The alternatives behind the 12-month search's note: it lives and goes with the note. */
+  yearPlan: YearPlan | null;
+  /** What the mission needs: the recommendations are ranked and checked against it. None set by default. */
+  requirements: Requirements;
+  /** Changes some requirements (null drops one); the 12-month note goes, as it was ranked for the old ones. */
+  setRequirements: (patch: Partial<Requirements>) => void;
+  /** What the recommendations are ranked by after the requirements: the longest time with power by default, or priorities. */
+  rankBy: RankBy;
+  /** Changes the ranking (priorities the rule cannot use are refused); the 12-month note goes, as it was ranked the old way. */
+  setRankBy: (by: RankBy) => void;
+  /** The current period worked out round an approximate site (null for a surveyed one, or before `loadNeighbourhood`). */
+  neighbourhood: Neighbourhood | null;
+  /**
+   * Works out the current period at 8 points round the selected site when the catalogue says its position is known only
+   * to a few kilometres: the skylines in the worker, one at a time, cached by place and mast. A no-op when it is already
+   * there for this site, period and lander; a newer site or period drops a run still going.
+   */
+  loadNeighbourhood: () => Promise<void>;
   setParams: (patch: Partial<PlannerParams>) => void;
   setPower: (patch: Partial<PowerConfig>) => void;
   /** Computes a custom site's skyline in the worker and selects it. */
@@ -149,9 +233,10 @@ export interface ExploreState {
   addToCompare: (id: string) => Promise<void>;
   removeFromCompare: (id: string) => void;
   /**
-   * Searches the next 12 months from the start date for the landing hour with the longest time with
-   * power and moves the period there; null when none fits. Scope 'compare' takes the mean over the
-   * compared sites (and falls back to the selected site when there are none).
+   * Searches the next 12 months from the start date, every 6 hours, for the landing hour that ranks first with the
+   * requirements (then the longest time with power, then Earth contact while powered) and moves the period there;
+   * null when none fits. Scope 'compare' ranks each hour by the compared site that does worst (and falls back to the
+   * selected site when there are none). The best few landing times are kept in `yearPlan`.
    */
   findBestWindow: (days: WindowDays, scope?: 'site' | 'compare') => Promise<{ startUtc: string; poweredHours: number; earthFraction: number } | null>;
   /** Resolves once a pending mast debounce and any in-flight skyline recompute have settled. */
@@ -164,6 +249,23 @@ export interface ExploreState {
   applyQuery: (search: string | URLSearchParams) => Promise<void>;
 }
 
+/** The series each period was cut from by `recompute`: it runs up to a period past the end, for the landing search. */
+const scans = new WeakMap<Series, Series>();
+
+/** The longer series a period's landing search scanned (`recompute` keeps it); a series no search was run on is its own. */
+export function scanOf(series: Series): Series {
+  return scans.get(series) ?? series;
+}
+
+/**
+ * The period's landing times ranked with the requirements (lib/plan `timeOptions`), each tried for a stay as long as
+ * the period: Explore, the brief and the view from the site name their better date from it, so all three name the
+ * same one. Null before a period is worked out.
+ */
+export function periodPlan({ series, params, requirements, startUtc, rankBy = BY_POWER }: Pick<ExploreState, 'series' | 'params' | 'requirements' | 'startUtc'> & { rankBy?: RankBy }): Recommendation<LandingTime> | null {
+  return series ? timeOptions({ scan: scanOf(series), cfg: params.power, req: requirements, hours: series.hours, startUtc, by: rankBy }) : null;
+}
+
 export function recompute(
   eph: Ephemeris,
   site: Site,
@@ -171,7 +273,8 @@ export function recompute(
   startUtc: string,
   days: number,
   params: PlannerParams = DEFAULT_PARAMS,
-  mastM = 2,
+  mastM = FEATURED_MAST_M,
+  terrain: TerrainReport = unreportedReport(mastM),
 ): SiteResult {
   const hours = days * 24;
   const startEt = utcToEt(startUtc);
@@ -181,6 +284,7 @@ export function recompute(
   const raw = hourlySeries(site, mask, eph, startEt, reach);
   const scan = params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
   const series = headSeries(scan, hours);
+  if (series !== scan) scans.set(series, scan);
   const summary = summarize(series);
   const best = bestLanding(scan, params.power, { from: 0, to: hours, step: 1, capHours: hours });
   return {
@@ -192,35 +296,97 @@ export function recompute(
     mastM,
     best,
     after: best && best.hour > 0 ? summarize(sliceSeries(scan, best.hour, hours)) : summary,
+    terrain,
   };
+}
+
+/** Raised for a queued skyline that nobody shown needs any more: the mast height or the site moved on before its turn. */
+class SkylineSuperseded extends Error {
+  constructor() {
+    super('superseded by newer settings');
+  }
+}
+
+/**
+ * The key a skyline is kept under: everything that changes it. A flat horizon is the same from any mast; a featured
+ * file stands for its own site at the featured height only; anything else is traced through the tiles of
+ * `terrainId` from the site's position at that mast height.
+ */
+export function skylineKey(site: Pick<Site, 'id' | 'lat' | 'lon' | 'polar' | 'category'>, mastM: number, terrainId: string): string {
+  if (!site.polar) return `flat|${site.id}`;
+  if (site.category !== 'custom' && mastM === FEATURED_MAST_M) return `featured|${site.id}|${mastM}`;
+  return `${terrainId}|${site.lat.toFixed(6)}|${site.lon.toFixed(6)}|${mastM}`;
+}
+
+/** The mast height a skyline is seen from: its own, or the chosen one for a flat horizon, which no height changes. */
+function heightOf(meta: MaskMeta, chosenM: number): number {
+  return meta.source === 'flat' ? chosenM : (meta.mastM ?? FEATURED_MAST_M);
+}
+
+/** The height the figures shown are seen from: the skyline's own, which lags the chosen one while a new one is worked out. */
+export function seenFrom(meta: MaskMeta | null, chosenM: number): number {
+  return meta ? heightOf(meta, chosenM) : chosenM;
+}
+
+/**
+ * The terrain report behind a mask: its own, or what its source implies when a caller gave none (a featured file is
+ * complete; a computed skyline without the march's record is never called complete; a flat horizon is assumed).
+ */
+export function terrainOf(meta: MaskMeta): TerrainReport {
+  if (meta.terrain) return meta.terrain;
+  if (meta.source === 'flat') return flatReport();
+  if (meta.source === 'featured') return featuredReport({ site_id: 'unknown', mast_m: meta.mastM ?? FEATURED_MAST_M, fallback_bands: [] });
+  return unreportedReport(meta.mastM ?? FEATURED_MAST_M);
 }
 
 function message(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** A date for sentences, with its year: "20 December 2036". */
-const dateWithYear = (iso: string) => `${dateLong(iso, 0)} ${iso.slice(0, 4)}`;
-
 /**
- * Why a period does not fit the Sun and Earth table, in plain words, worked out from the request and the table
- * itself; null when it fits, so a failure of another kind keeps its own message. The engine's words (rows and
- * table indices) are for developers, and a visitor reaches this simply by choosing a late date.
+ * Plain words for a site whose skyline could not be had: a horizon file missing from the server is named as such, and
+ * the page says the other sites still work, so no path or status code reaches a visitor (the raw error goes to the
+ * console). Other failures keep their own words, which the skyline queue already writes plainly.
  */
-function periodRefusal(eph: Ephemeris, startUtc: string, days: number): string | null {
-  const i0 = indexForEt(eph, utcToEt(startUtc));
-  const period = `A ${days}-day period from ${dateWithYear(startUtc)}`;
-  if (i0 + days * 24 > eph.n) {
-    return `${period} runs past ${dateWithYear(etToIso(eph.t0Et + (eph.n - 1) * eph.stepS))}, where the Sun and Earth table ends. Choose an earlier date or a shorter period.`;
+export function siteProblem(site: Pick<Site, 'name' | 'label'>, err: unknown): string {
+  const raw = message(err);
+  const name = site.label ?? site.name;
+  if (/\/masks\/\S+\.json/.test(raw) && /\b404\b/.test(raw)) {
+    return `${name}: its horizon file is not on this server, so its forecast cannot be shown here. The other sites still work.`;
   }
-  if (i0 < 0) return `${period} starts before ${dateWithYear(etToIso(eph.t0Et))}, where the Sun and Earth table begins. Choose a later date.`;
-  return null;
+  return `${name}: ${raw}`;
 }
 
 export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
-  // Masks by site id: precomputed ones are cached after their first fetch, computed ones are
-  // registered by applyMask so custom sites stay selectable without a mask file.
-  const masks = new Map<string, CachedMask>();
+  // Skylines by skylineKey: every parameter that changes one (place, mast height, terrain source) is in its key, so a
+  // skyline made for one height is never used for another. `loading` holds the fetches and computations on their way.
+  const skylines = new Map<string, CachedMask>();
+  const loading = new Map<string, Promise<CachedMask>>();
+  const terrainId = loaders.terrainId ?? 'tiles';
+  // Worker computations, one wanted at a time, the most urgent first (0: the selected site and the year search,
+  // 1: the compared sites, 2: the site list). A job for a height or a site nobody shows any more is dropped before its
+  // turn; one already running is let finish (its skyline is kept for later) and no longer holds up the others.
+  interface Job {
+    key: string;
+    site: Site;
+    mastM: number;
+    rank: number;
+    resolve: (c: CachedMask) => void;
+    reject: (e: unknown) => void;
+  }
+  const queued = new Map<string, Job>();
+  const running = new Set<Job>();
+  /** Featured files on their way, so a selected site waiting for one counts as pending too. */
+  const fetching = new Map<string, { site: Site; mastM: number }>();
+  /** Skylines that could not be had, by key: not asked for again until the mast height changes or the site is asked for anew. */
+  const failures = new Map<string, unknown>();
+  let committing = false;
+  let held = false; // true while mast clicks are being coalesced
+  let pumpQueued = false;
+  let idleWaiters: (() => void)[] = [];
+  /** A custom site on its way to being selected, and the sites the year search is waiting for. */
+  let selecting: Site | null = null;
+  const searching = new Set<string>();
   const windows = new Map<string, Heightmap>();
   /** 80 m context grids by site; null records a site whose window has none. */
   const contexts = new Map<string, Heightmap | null>();
@@ -229,10 +395,13 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   let windowSeq = 0;
   let overviewSeq = 0;
   let overviewKey: string | null = null;
+  /** Skylines of the points round approximate sites, by place and mast; and the run of `loadNeighbourhood` in hand. */
+  const ringMasks = new Map<string, { mask: Float64Array; failedTiles: number; ms: number }>();
+  let neighbourhoodSeq = 0;
+  let neighbourhoodKey: string | null = null;
   let initPromise: Promise<void> | null = null;
   let terrainPromise: Promise<void> = Promise.resolve();
   let windowPromise: Promise<void> = Promise.resolve();
-  let maskPromise: Promise<void> = Promise.resolve();
   let debouncePromise: Promise<void> = Promise.resolve();
   let mastTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -269,7 +438,13 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     compareIds: [],
     compare: [],
     maskBusy: false,
+    pendingSkylines: [],
+    skylineProblems: {},
     bestWindowNote: null,
+    yearPlan: null,
+    requirements: NO_REQUIREMENTS,
+    rankBy: BY_POWER,
+    neighbourhood: null,
     aiMode: process.env.NEXT_PUBLIC_AI_MODE === 'cached' ? 'cached' : 'live',
 
     init() {
@@ -289,13 +464,17 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         return;
       }
       const seq = ++selectSeq;
+      selecting = null;
+      forgetFailures(site);
       try {
-        const cached = await ensureMask(site);
+        // The skyline for the chosen settings when it is at hand; else the quickest stand-in, shown with its own
+        // height while the right one is worked out.
+        const cached = skylines.get(keyOf(site, get().params.mastM)) ?? (await standIn(site));
         if (seq !== selectSeq) return; // a newer selection won
         const { startUtc, days, params } = get(); // re-read: the window may have changed while loading
         const { mode, modeAuto } = viewFor(site, get().terrainManifest, get().mode, get().modeAuto);
-        const r = recompute(eph, site, cached.mask, startUtc, days, params);
-        set({
+        const r = recompute(eph, site, cached.mask, startUtc, days, params, heightOf(cached.meta, params.mastM), terrainOf(cached.meta));
+        commit({
           siteId: id,
           site,
           mode,
@@ -310,40 +489,48 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           cursorHour: 0,
           error: null,
           customError: null,
-          maskBusy: false,
           bestWindowNote: null,
           heightmap: windows.get(id) ?? null,
           contextHeightmap: contexts.get(id) ?? null,
         });
         void loadWindow(id);
-        if ((cached.meta.mastM ?? 2) !== params.mastM) void recomputeMask();
       } catch (err) {
-        if (seq === selectSeq) set({ error: message(err), maskBusy: false });
+        if (seq !== selectSeq || err instanceof SkylineSuperseded) return;
+        // The site asked for becomes the selected one, with no figures, so nothing of the site before stays on screen
+        // under the new name; the sentence says in plain words what is missing.
+        console.warn(message(err));
+        commit({ siteId: id, site, mask: null, maskMeta: null, series: null, summary: null, power: null, contacts: [], best: null, heightmap: null, contextHeightmap: null, error: siteProblem(site, err) });
       }
     },
 
-    setWindow(startUtc, days) {
+    setWindow(asked, days) {
+      // Every way in (the boxes, a link, the assistant) lands on a whole hour, as the engine reads its hourly table.
+      const startUtc = snapToHour(asked);
       // The window it already has changes nothing: dropping the overview here would cancel one on its way, with nothing to start it again.
       if (startUtc === get().startUtc && days === get().days) return;
-      const { eph, site, mask, cursorHour } = get();
-      if (!eph || !site || !mask) {
+      // A length outside DAYS_RANGE, or a period off the Sun and Earth table, changes nothing: the figures, the boxes
+      // and the overview keep the period still shown, and the reason is said in plain words with the exact limit.
+      const problem = periodProblem(startUtc, days);
+      if (problem) {
+        set({ error: problem });
+        return;
+      }
+      const { eph, site, mask, maskMeta, cursorHour, params } = get();
+      if (!eph || !site || !mask || !maskMeta) {
         dropOverview();
         set({ startUtc, days, bestWindowNote: null });
         return;
       }
       let r: SiteResult;
       try {
-        r = recompute(eph, site, mask, startUtc, days, get().params);
+        r = recompute(eph, site, mask, startUtc, days, params, heightOf(maskMeta, params.mastM), terrainOf(maskMeta));
       } catch (err) {
-        // A refused period changes nothing: the figures, the date box and the overview (the site list, the nearby
-        // line) all keep the period still shown. Only the hourly series throws a RangeError, and only for a span
-        // outside the table, which a visitor reaches by choosing a late date: that one is said in plain words.
-        set({ error: (err instanceof RangeError && periodRefusal(eph, startUtc, days)) || message(err) });
+        // Any other failure changes nothing either, and keeps its own message.
+        set({ error: message(err) });
         return;
       }
       dropOverview();
-      set({ startUtc, days, series: r.series, summary: r.summary, power: r.power, contacts: r.contacts, best: r.best, cursorHour: Math.min(cursorHour, days * 24 - 1), error: null, bestWindowNote: null });
-      recomputeCompare();
+      commit({ startUtc, days, series: r.series, summary: r.summary, power: r.power, contacts: r.contacts, best: r.best, cursorHour: Math.min(cursorHour, days * 24 - 1), error: null, bestWindowNote: null }, { compare: true });
     },
 
     setCursor(hour) {
@@ -352,16 +539,19 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       set({ cursorHour: Math.max(0, Math.min(max, Math.round(hour))) });
     },
 
-    applyMask(site, mask, meta) {
-      const { eph, startUtc, days, sites } = get();
+    applyMask(site, mask, metaIn) {
+      const { eph, startUtc, days, sites, params } = get();
       if (!eph) return;
+      const meta: MaskMeta = { ...metaIn, terrain: terrainOf(metaIn) };
       try {
-        const r = recompute(eph, site, mask, startUtc, days, get().params);
-        masks.set(site.id, { mask, meta });
+        const r = recompute(eph, site, mask, startUtc, days, params, heightOf(meta, params.mastM), terrainOf(meta));
+        const cached = { mask, meta };
+        skylines.set(keyOf(site, heightOf(meta, params.mastM)), cached);
         selectSeq++; // invalidate any in-flight selectSite
         windowSeq++; // and any in-flight window load
+        selecting = null;
         const known = sites.some((s) => s.id === site.id) ? sites : [...sites, site];
-        set({
+        commit({
           sites: known,
           siteId: site.id,
           site,
@@ -377,9 +567,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           customError: null,
           heightmap: windows.get(site.id) ?? null,
           contextHeightmap: contexts.get(site.id) ?? null,
-        });
+        }, { compare: get().compareIds.includes(site.id) });
         void loadWindow(site.id);
-        if (get().compareIds.includes(site.id)) recomputeCompare();
       } catch (err) {
         set({ error: message(err) });
       }
@@ -387,23 +576,93 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
 
     setParams(patch) {
       dropOverview();
-      const params: PlannerParams = { ...get().params, ...patch };
-      set({ params, bestWindowNote: null });
-      const { eph, site, mask, startUtc, days, cursorHour } = get();
-      if (eph && site && mask) {
+      const before = get().params;
+      const params: PlannerParams = { ...before, ...patch };
+      const mastChanged = params.mastM !== before.mastM;
+      if (mastChanged) {
+        failures.clear();
+        holdForMast();
+      }
+      // A new mast height starts over: the problems of the old height say nothing about the new one.
+      let change: Partial<ExploreState> = { params, bestWindowNote: null, ...(mastChanged ? { skylineProblems: {} } : {}) };
+      const { eph, site, mask, maskMeta, startUtc, days, cursorHour } = get();
+      if (eph && site && mask && maskMeta) {
         try {
-          const r = recompute(eph, site, mask, startUtc, days, params);
-          set({ series: r.series, summary: r.summary, power: r.power, contacts: r.contacts, best: r.best, cursorHour: Math.min(cursorHour, r.series.hours - 1), error: null });
+          // The skyline shown keeps its own height until the one for the new height lands; the lander's figures change now.
+          const r = recompute(eph, site, mask, startUtc, days, params, heightOf(maskMeta, params.mastM), terrainOf(maskMeta));
+          change = { ...change, series: r.series, summary: r.summary, power: r.power, contacts: r.contacts, best: r.best, cursorHour: Math.min(cursorHour, r.series.hours - 1), error: null };
         } catch (err) {
-          set({ error: message(err) });
+          change = { ...change, error: message(err) };
         }
       }
-      recomputeCompare();
-      if (patch.mastM !== undefined) scheduleMaskRecompute();
+      commit(change, { compare: true });
     },
 
     setPower(patch) {
       get().setParams({ power: { ...get().params.power, ...patch } });
+    },
+
+    setRequirements(patch) {
+      set({ requirements: { ...get().requirements, ...patch }, bestWindowNote: null });
+    },
+
+    setRankBy(by) {
+      if (by.kind === 'weighed' && !validPriorities(by.priorities)) return;
+      set({ rankBy: by.kind === 'weighed' ? { kind: 'weighed', priorities: { ...by.priorities } } : BY_POWER, bestWindowNote: null });
+    },
+
+    async loadNeighbourhood() {
+      const { site, eph, startUtc, days, params } = get();
+      const ring = site ? neighbourhoodRadius(site) : null;
+      if (!site || !eph || !loaders.computeMask || ring === null) {
+        neighbourhoodKey = null;
+        neighbourhoodSeq++;
+        if (get().neighbourhood) set({ neighbourhood: null });
+        return;
+      }
+      const key = JSON.stringify([site.id, startUtc, days, params]);
+      if (key === neighbourhoodKey) return; // already there, or on its way, for this site, period and lander
+      neighbourhoodKey = key;
+      const seq = ++neighbourhoodSeq;
+      const t0 = Date.now();
+      const radiusKm = ring.km;
+      const base = { siteId: site.id, radiusKm, stated: ring.stated, mastM: params.mastM };
+      set({ neighbourhood: { ...base, busy: true, points: [], ms: 0, skylineMs: 0 } });
+      const points: PointResult[] = [];
+      let skylineMs = 0;
+      for (const p of ringPoints(site, radiusKm)) {
+        const id = `${p.lat.toFixed(4)}_${p.lon.toFixed(4)}_${params.mastM}`;
+        let got: { mask: Float64Array; failedTiles: number; ms: number } | { error: string } | undefined = ringMasks.get(id);
+        if (!got) {
+          const t1 = Date.now();
+          try {
+            const r = await loaders.computeMask(p.lat, p.lon, params.mastM);
+            // A skyline the terrain model calls incomplete counts as one with holes: its figures could be too high.
+            const incomplete = r.terrain ? computedReport(r.terrain, params.mastM).quality === 'incomplete' : false;
+            got = { mask: r.mask, failedTiles: incomplete ? Math.max(1, r.failedTiles) : r.failedTiles, ms: Date.now() - t1 };
+            // A skyline with holes is not kept: the tiles may load next time.
+            if (r.failedTiles === 0) ringMasks.set(id, got);
+          } catch (err) {
+            got = { error: message(err) };
+          }
+          if (seq !== neighbourhoodSeq) return;
+        }
+        if (!('error' in got)) skylineMs += got.ms;
+        if ('error' in got) {
+          points.push({ ...p, outcome: null, missing: /no DEM coverage/i.test(got.error) ? 'no elevation data here' : `an error (${got.error})` });
+        } else if (got.failedTiles > 0) {
+          points.push({ ...p, outcome: null, missing: 'elevation tiles that failed to load' });
+        } else {
+          try {
+            const r = recompute(eph, { ...site, lat: p.lat, lon: p.lon }, got.mask, startUtc, days, params, params.mastM);
+            points.push({ ...p, outcome: periodOutcome(r.series, r.power), missing: null });
+          } catch (err) {
+            points.push({ ...p, outcome: null, missing: `an error (${message(err)})` });
+          }
+        }
+      }
+      if (seq !== neighbourhoodSeq) return;
+      set({ neighbourhood: { ...base, busy: false, points, ms: Date.now() - t0, skylineMs } });
     },
 
     async selectCustom(lat, lon) {
@@ -414,30 +673,29 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       const lonN = normalizeLon(lon);
       const seq = ++selectSeq;
       const mastM = get().params.mastM;
-      set({ maskBusy: true, customError: null });
-      let superseded = false;
+      const site: Site = {
+        id: `custom_${lat.toFixed(4)}_${lonN.toFixed(4)}`,
+        name: `Custom site ${lat.toFixed(3)}°, ${lonN.toFixed(3)}°`,
+        lat,
+        lon: lonN,
+        category: 'custom',
+        polar: true,
+        source: 'user',
+      };
+      selecting = site;
+      forgetFailures(site);
+      commit({ customError: null });
       try {
-        const res = await loaders.computeMask(lat, lonN, mastM);
-        superseded = seq !== selectSeq;
-        if (superseded) return; // the user moved on while the worker was busy
-        get().applyMask(
-          {
-            id: `custom_${lat.toFixed(4)}_${lonN.toFixed(4)}`,
-            name: `Custom site ${lat.toFixed(3)}°, ${lonN.toFixed(3)}°`,
-            lat,
-            lon: lonN,
-            category: 'custom',
-            polar: true,
-            source: 'user',
-          },
-          res.mask,
-          { siteHeightM: res.siteHeightM, source: 'computed', failedTiles: res.failedTiles, mastM },
-        );
+        const cached = await skylineFor(site, mastM, 0);
+        if (seq !== selectSeq) return; // the user moved on while the worker was busy
+        selecting = null;
+        get().applyMask(site, cached.mask, cached.meta);
       } catch (err) {
-        superseded = seq !== selectSeq;
-        if (!superseded) set({ customError: message(err) });
+        if (seq !== selectSeq) return;
+        selecting = null;
+        if (!(err instanceof SkylineSuperseded)) set({ customError: message(err) });
       } finally {
-        if (!superseded) set({ maskBusy: false });
+        updatePending();
       }
     },
 
@@ -446,32 +704,54 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       if (compareIds.includes(id) || compareIds.length >= COMPARE_MAX) return;
       const site = sites.find((s) => s.id === id);
       if (!site) return;
+      // The row is there at once; its figures come when its skyline for the chosen settings does.
+      forgetFailures(site);
+      commit({ compareIds: [...compareIds, id] }, { compare: true });
       try {
-        await ensureMask(site);
+        await skylineFor(site, get().params.mastM, 1);
       } catch (err) {
-        set({ error: message(err) });
-        return;
+        if (err instanceof SkylineSuperseded || !get().compareIds.includes(id)) return;
+        // A skyline that cannot be had leaves the site out, as before, and says why.
+        commit({ compareIds: get().compareIds.filter((x) => x !== id), error: message(err) }, { compare: true });
       }
-      if (get().compareIds.includes(id) || get().compareIds.length >= COMPARE_MAX) return;
-      set({ compareIds: [...get().compareIds, id] });
-      recomputeCompare();
     },
 
     removeFromCompare(id) {
-      set({ compareIds: get().compareIds.filter((x) => x !== id) });
-      recomputeCompare();
+      commit({ compareIds: get().compareIds.filter((x) => x !== id) }, { compare: true });
     },
 
     async findBestWindow(days, scope = 'site') {
-      const { eph, site, mask, startUtc, params, compareIds, sites } = get();
+      const { eph, site, startUtc, params, compareIds, sites, requirements, rankBy } = get();
       if (!eph) return null;
-      const compared = compareIds.flatMap((id) => {
-        const s = sites.find((x) => x.id === id);
-        const c = masks.get(id);
-        return s && c ? [{ site: s, mask: c.mask }] : [];
-      });
-      const targets = scope === 'compare' && compared.length > 0 ? compared : site && mask ? [{ site, mask }] : [];
+      if (periodDays(days) === null) {
+        set({ bestWindowNote: periodProblem(startUtc, days) });
+        return null;
+      }
+      const compared = compareIds.flatMap((id) => sites.filter((x) => x.id === id));
+      const targets = scope === 'compare' && compared.length > 0 ? compared : site ? [site] : [];
       if (targets.length === 0) return null;
+      // Every target's skyline for the chosen settings, worked out first when it is not at hand.
+      for (const t of targets) searching.add(t.id);
+      let masks: CachedMask[];
+      try {
+        masks = await Promise.all(targets.map((t) => skylineFor(t, params.mastM, 0)));
+      } catch (err) {
+        if (!(err instanceof SkylineSuperseded)) set({ bestWindowNote: `No best date can be named: ${message(err)}.` });
+        return null;
+      } finally {
+        for (const t of targets) searching.delete(t.id);
+        schedulePump();
+      }
+      // Settings that moved on while the skylines were worked out: the newer request is the one to answer.
+      const now = get();
+      if (now.params !== params || now.startUtc !== startUtc || (scope === 'site' && now.site !== site) || now.compareIds !== compareIds || now.rankBy !== rankBy) return null;
+      const incomplete = targets.flatMap((t, i) => (terrainOf(masks[i].meta).quality === 'incomplete' ? [{ name: t.label ?? t.name, missing: missingWords(terrainOf(masks[i].meta)) }] : []));
+      if (incomplete.length > 0) {
+        // A missing step can only lower a skyline, so an incomplete one can only overstate the power: no date is named.
+        const at = incomplete.map((t) => (t.missing ? `${t.name} is incomplete (${t.missing})` : `${t.name} is incomplete`)).join(' and the terrain at ');
+        set({ bestWindowNote: `No best date is named: the terrain at ${at}, so ${incomplete.length > 1 ? 'their' : 'its'} figures may be too high.` });
+        return null;
+      }
       const windowHours = days * 24;
       const startEt = utcToEt(startUtc);
       const lastEt = eph.t0Et + (eph.n - 1) * eph.stepS;
@@ -483,27 +763,36 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       }
       // Only landing hours that leave room for the whole period are candidates.
       const scan = { from: 0, to: Math.min(YEAR_HOURS, scanHours - windowHours + 1), step: 6, capHours: windowHours };
-      const best = bestLandingAcross(
-        targets.map((t) => {
-          const raw = hourlySeries(t.site, t.mask, eph, startEt, scanHours);
-          return landingScores(params.minEarthElDeg > 0 ? withCommsThreshold(raw, t.mask, params.minEarthElDeg) : raw, params.power, scan);
-        }),
-      );
-      if (!best) {
+      const series = targets.map((t, i) => {
+        const mask = masks[i].mask;
+        const raw = hourlySeries(t, mask, eph, startEt, scanHours);
+        return params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
+      });
+      const plan = yearOptions({ scans: series, cfg: params.power, req: requirements, scan, startUtc, by: rankBy });
+      const top = plan.alternatives[0];
+      if (!top) {
         set({ bestWindowNote: targets.length > 1 ? 'No hour in the next 12 months has sunlight at every compared site.' : 'No hour in the next 12 months has sunlight here.' });
         return null;
       }
-      const newStart = etToIso(startEt + best.hour * 3600).slice(0, 13) + ':00:00';
+      const newStart = etToIso(startEt + top.item.hour * 3600).slice(0, 13) + ':00:00';
       get().setWindow(newStart, days);
-      const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}`;
-      const lasting = spanShort(Math.round(best.poweredHours));
+      // The landing hour is part of the answer: the search tries every sixth hour from the landing.
+      const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}, ${clockUtc(newStart, 0)} UTC`;
+      const best = top.outcome;
+      const earthFraction = best.poweredH > 0 ? best.poweredContactH / best.poweredH : 0;
+      const names = targets.map((t) => siteLabel(t));
+      const each = top.item.perSite.map((o, i) => `${spanShort(o.poweredH)} at ${names[i]}`);
+      const found =
+        targets.length > 1
+          ? `Across ${targets.length} compared sites, ranked by the site that does worst: best landing in the next 12 months: ${when}. Power for ${each.slice(0, -1).join(', ')} and ${each[each.length - 1]}.`
+          : `Best landing in the next 12 months: ${when}, power for ${spanShort(best.poweredH)}, Earth in view ${pct0(earthFraction)} of that time.`;
+      const checks = checksWords(top.checks);
+      const rule = yearRuleWords(scan.step, top.checks.length > 0, rankBy);
       set({
-        bestWindowNote:
-          targets.length > 1
-            ? `Across ${targets.length} compared sites: best landing in the next 12 months: ${when}, power for ${lasting} on average.`
-            : `Best landing in the next 12 months: ${when}, power for ${lasting}, Earth in view ${pct0(best.earthFraction)} of that time.`,
+        bestWindowNote: checks ? `${found} ${checks}${top.failed > 0 ? ' None in the next 12 months meets them all.' : ''} ${rule}` : `${found} ${rule}`,
+        yearPlan: { scope: targets.length > 1 ? 'compare' : 'site', days, fromUtc: startUtc, siteNames: names, stepH: scan.step, plan },
       });
-      return { startUtc: newStart, poweredHours: best.poweredHours, earthFraction: best.earthFraction };
+      return { startUtc: newStart, poweredHours: best.poweredH, earthFraction };
     },
 
     async loadOverview() {
@@ -513,13 +802,15 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       if (key === overviewKey) return; // already there, or on its way, for this period and lander
       overviewKey = key;
       const seq = ++overviewSeq;
-      set({ overview: {}, overviewBusy: true });
-      for (const site of sites) {
-        if (site.category === 'custom') continue;
+      // Every skyline is asked for at once, so the pending line counts them all; the worker still takes them one at a time.
+      store.setState({ overview: {}, overviewBusy: true });
+      const asks = sites.filter((site) => site.category !== 'custom').map((site) => ({ site, ask: skylineFor(site, params.mastM, 2) }));
+      commit({});
+      for (const { site, ask } of asks) {
         try {
-          const cached = await ensureMask(site);
+          const cached = await ask;
           if (seq !== overviewSeq) return;
-          const r = recompute(eph, site, cached.mask, startUtc, days, params);
+          const r = recompute(eph, site, cached.mask, startUtc, days, params, heightOf(cached.meta, params.mastM), terrainOf(cached.meta));
           set({
             overview: {
               ...get().overview,
@@ -530,21 +821,26 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
                 best: r.best,
                 afterSun: r.after.illumFraction,
                 afterEarth: r.after.earthVisFraction,
+                now: periodOutcome(r.series, r.power),
+                mastM: r.mastM,
+                terrain: r.terrain,
               },
             },
           });
         } catch {
-          // a skyline that fails to load, or a period outside the table, leaves this row empty
+          // a skyline that cannot be had (its reason is in skylineProblems), or a period outside the table, leaves this row empty
+          if (seq !== overviewSeq) return;
         }
         await new Promise((resolve) => setTimeout(resolve, 0)); // let the page paint between sites
         if (seq !== overviewSeq) return;
       }
-      set({ overviewBusy: false });
+      commit({ overviewBusy: false });
     },
 
     async waitForMask() {
       await debouncePromise;
-      await maskPromise;
+      if (!busyWithWanted()) return;
+      await new Promise<void>((resolve) => idleWaiters.push(resolve));
     },
 
     async waitForDebounce() {
@@ -554,6 +850,17 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     async applyQuery(search) {
       const q = parseExploreQuery(search);
       if (q.startUtc || q.days) get().setWindow(q.startUtc ?? get().startUtc, q.days ?? get().days);
+      // The lander's and the radio's settings the link names come before its site, so the site's skyline is asked for
+      // at the mast the link names; those it does not name keep the values the visit has.
+      const asked = mergeSettings(get().params, parseSettings(search));
+      if (!sameSettings(asked, get().params)) get().setParams(asked);
+      // A link that names the mission's requirements, which rank the better date, sets them as it names them, the ones it
+      // leaves out as none; a link that names none (every link inside the app but Explore's own) keeps the visit's.
+      const req = parseRequirements(search);
+      if (Object.keys(req).length > 0) get().setRequirements({ ...NO_REQUIREMENTS, ...req });
+      // The ranking the link names, beside the settings; a link that names none keeps the visit's own.
+      const rank = parseRank(search);
+      if (rank) get().setRankBy(rank);
       if (!q.site || q.site === get().siteId) return;
       if (get().sites.some((s) => s.id === q.site)) {
         await get().selectSite(q.site);
@@ -610,19 +917,245 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     }
   }
 
-  /** The skyline of a catalogue site: from the cache, flat for a mare site, or fetched once. */
-  async function ensureMask(site: Site): Promise<CachedMask> {
-    let cached = masks.get(site.id);
-    if (cached) return cached;
-    if (!site.polar) {
-      // Mare sites lie outside the LOLA polar grids: a flat horizon is the honest skyline there.
-      cached = { mask: new Float64Array(720), meta: { siteHeightM: 0, source: 'flat', failedTiles: 0, mastM: store.getState().params.mastM } };
-    } else {
-      const doc = await loaders.loadMask(site.id);
-      cached = { mask: Float64Array.from(doc.elevation_deg), meta: { siteHeightM: doc.site_height_m, source: 'featured', failedTiles: 0, mastM: doc.mast_m } };
+  const keyOf = (site: Site, mastM: number) => skylineKey(site, mastM, terrainId);
+
+  /**
+   * The skyline of a site seen from `mastM`: from the cache, flat for a mare site, the featured file at the featured
+   * height, or worked out in the worker. Asking again for one on its way joins it (and makes it as urgent as the
+   * most urgent asker). Rejects with SkylineSuperseded when the settings move on before its turn.
+   */
+  function skylineFor(site: Site, mastM: number, rank: number): Promise<CachedMask> {
+    const key = keyOf(site, mastM);
+    const done = skylines.get(key);
+    if (done) return Promise.resolve(done);
+    const job = queued.get(key);
+    if (job) job.rank = Math.min(job.rank, rank);
+    const onWay = loading.get(key);
+    if (onWay) return onWay;
+    if (failures.has(key)) {
+      const known = Promise.reject(failures.get(key));
+      known.catch(() => {});
+      return known;
     }
-    masks.set(site.id, cached);
-    return cached;
+    if (!site.polar) {
+      // Mare sites lie outside the LOLA polar grids: a flat horizon, assumed and said to be, is the skyline there.
+      const flat = { mask: new Float64Array(720), meta: { siteHeightM: 0, source: 'flat' as const, failedTiles: 0, terrain: flatReport() } };
+      skylines.set(key, flat);
+      return Promise.resolve(flat);
+    }
+    let ask: Promise<CachedMask>;
+    if (key.startsWith('featured|')) {
+      fetching.set(key, { site, mastM });
+      ask = loaders.loadMask(site.id).then(
+        (doc) => {
+          fetching.delete(key);
+          const cached = {
+            mask: Float64Array.from(doc.elevation_deg),
+            meta: { siteHeightM: doc.site_height_m, source: 'featured' as const, failedTiles: 0, mastM: doc.mast_m, terrain: featuredReport(doc) },
+          };
+          settle(key, site, mastM, cached);
+          return cached;
+        },
+        (err: unknown) => {
+          fetching.delete(key);
+          unsettle(key, site, mastM, err);
+          throw err;
+        },
+      );
+    } else if (loaders.computeMask) {
+      ask = new Promise<CachedMask>((resolve, reject) => {
+        queued.set(key, { key, site, mastM, rank, resolve, reject });
+      });
+      if (!committing) updatePending(); // a commit publishes the pending sites itself, with the rest of its change
+      schedulePump();
+    } else {
+      ask = Promise.reject(new Error(`the skyline at ${mastM} m is worked out in the browser, which is not available here`));
+      ask.catch((err: unknown) => unsettle(key, site, mastM, err));
+    }
+    ask.catch(() => {}); // every asker handles the outcome its own way; none must go unheard
+    loading.set(key, ask);
+    return ask;
+  }
+
+  /** A skyline arrived: kept under its key, and shown at once wherever it is the one for the chosen settings. */
+  function settle(key: string, site: Site, mastM: number, cached: CachedMask): void {
+    loading.delete(key);
+    skylines.set(key, cached);
+    landed(site, mastM);
+  }
+
+  /** A skyline that could not be had: its reason is noted and kept, so nothing asks for it again in a loop. */
+  function unsettle(key: string, site: Site, mastM: number, err: unknown): void {
+    loading.delete(key);
+    if (!(err instanceof SkylineSuperseded)) failures.set(key, err);
+    noteProblem(site, mastM, err);
+  }
+
+  /** An explicit ask for a site (selecting it, comparing it) tries again what failed before. */
+  function forgetFailures(site: Site): void {
+    failures.delete(keyOf(site, store.getState().params.mastM));
+    const problems = store.getState().skylineProblems;
+    if (problems[site.id]) {
+      const rest = { ...problems };
+      delete rest[site.id];
+      store.setState({ skylineProblems: rest });
+    }
+  }
+
+  /** The quickest skyline to show a site with while the one for the chosen settings is worked out. */
+  function standIn(site: Site): Promise<CachedMask> {
+    const mastM = store.getState().params.mastM;
+    const key = keyOf(site, mastM);
+    if (!key.startsWith(`${terrainId}|`)) return skylineFor(site, mastM, 0);
+    // A catalogue site has its featured file; a custom site, any height it was already worked out for.
+    if (site.category !== 'custom') return skylineFor(site, FEATURED_MAST_M, 0);
+    const prefix = key.slice(0, key.lastIndexOf('|') + 1);
+    for (const [k, c] of skylines) if (k.startsWith(prefix)) return Promise.resolve(c);
+    return skylineFor(site, mastM, 0);
+  }
+
+  /** Whether anything shown in `s` still needs a job: the selected site, a compared one, the year search, or the site list. */
+  function wantedIn(job: { site: Site; mastM: number }, s: ExploreState): boolean {
+    if (job.mastM !== s.params.mastM) return false;
+    const id = job.site.id;
+    if (s.site?.id === id || selecting?.id === id || searching.has(id) || s.compareIds.includes(id)) return true;
+    return overviewKey !== null && s.overviewBusy && job.site.category !== 'custom';
+  }
+
+  function busyWithWanted(): boolean {
+    const s = store.getState();
+    for (const j of running) if (wantedIn(j, s)) return true;
+    for (const j of queued.values()) if (wantedIn(j, s)) return true;
+    return held && queued.size > 0;
+  }
+
+  /** Runs the queue once the current change is committed, so it judges what is wanted by the new state. */
+  function schedulePump(): void {
+    if (pumpQueued) return;
+    pumpQueued = true;
+    queueMicrotask(() => {
+      pumpQueued = false;
+      pump();
+    });
+  }
+
+  /** Starts the most urgent wanted job when no wanted one is running; drops the jobs nobody wants. */
+  function pump(): void {
+    const s = store.getState();
+    for (const [key, job] of queued) {
+      if (wantedIn(job, s)) continue;
+      queued.delete(key);
+      loading.delete(key);
+      job.reject(new SkylineSuperseded());
+    }
+    if (!held && ![...running].some((j) => wantedIn(j, s)) && queued.size > 0 && loaders.computeMask) {
+      const job = [...queued.values()].sort((a, b) => a.rank - b.rank)[0];
+      queued.delete(job.key);
+      running.add(job);
+      loaders.computeMask(job.site.lat, job.site.lon, job.mastM).then(
+        (res) => {
+          running.delete(job);
+          const terrain = res.terrain ? computedReport(res.terrain, job.mastM) : unreportedReport(job.mastM);
+          const cached: CachedMask = { mask: res.mask, meta: { siteHeightM: res.siteHeightM, source: 'computed', failedTiles: res.failedTiles, mastM: job.mastM, terrain } };
+          settle(job.key, job.site, job.mastM, cached);
+          job.resolve(cached);
+          pump();
+        },
+        (err: unknown) => {
+          running.delete(job);
+          unsettle(job.key, job.site, job.mastM, err);
+          job.reject(err);
+          pump();
+        },
+      );
+    }
+    updatePending();
+    if (!busyWithWanted()) {
+      const waiters = idleWaiters;
+      idleWaiters = [];
+      for (const w of waiters) w();
+    }
+  }
+
+  /** Coalesces mast clicks: jobs wait until the height has held still for MAST_DEBOUNCE_MS. */
+  function holdForMast(): void {
+    held = true;
+    if (mastTimer) clearTimeout(mastTimer);
+    let fired!: () => void;
+    debouncePromise = new Promise<void>((r) => {
+      fired = r;
+    });
+    mastTimer = setTimeout(() => {
+      mastTimer = null;
+      held = false;
+      pump();
+      fired();
+    }, MAST_DEBOUNCE_MS);
+  }
+
+  /** The sites in `s` still waiting for a skyline at its chosen height, the most urgent first, and whether the selected one is among them. */
+  function pendingIn(s: ExploreState): Pick<ExploreState, 'pendingSkylines' | 'maskBusy'> {
+    const waiting = [...running, ...queued.values()].filter((j) => wantedIn(j, s)).sort((a, b) => a.rank - b.rank);
+    const ids: string[] = [];
+    for (const j of waiting) if (!ids.includes(j.site.id)) ids.push(j.site.id);
+    const busy = (s.site !== null && ids.includes(s.site.id)) || (selecting !== null && ids.includes(selecting.id));
+    // A featured file on its way for the selected site: quick, but the site waits for it all the same.
+    for (const f of fetching.values()) if (f.site.id === s.site?.id && f.mastM === s.params.mastM && !ids.includes(f.site.id)) ids.unshift(f.site.id);
+    const same = ids.length === s.pendingSkylines.length && ids.every((id, i) => s.pendingSkylines[i] === id);
+    return { pendingSkylines: same ? s.pendingSkylines : ids, maskBusy: busy };
+  }
+
+  function updatePending(): void {
+    const s = store.getState();
+    const p = pendingIn(s);
+    if (p.pendingSkylines !== s.pendingSkylines || p.maskBusy !== s.maskBusy) store.setState(p);
+  }
+
+  /**
+   * Sets `change` and, in the same update, what follows from it: the selected site's skyline for the chosen settings
+   * when it is at hand (asked for when it is not), the compared results when `compare` (recomputed from the skylines
+   * for the chosen settings; a site still waiting is asked for and left out), and the sites still pending. One update,
+   * so no state, however brief, shows a result from other settings than the ones it holds.
+   */
+  function commit(change: Partial<ExploreState>, opts: { compare?: boolean } = {}): void {
+    committing = true;
+    try {
+      let next: ExploreState = { ...store.getState(), ...change };
+      const patch: Partial<ExploreState> = { ...change, ...selectedIn(next) };
+      next = { ...next, ...patch };
+      if (opts.compare) {
+        patch.compare = compareIn(next);
+        next = { ...next, compare: patch.compare };
+      }
+      Object.assign(patch, pendingIn(next));
+      store.setState(patch);
+    } finally {
+      committing = false;
+    }
+    schedulePump();
+  }
+
+  /** A skyline arrived: it changes what is shown only where it is the one for the chosen settings. */
+  function landed(site: Site, mastM: number): void {
+    const s = store.getState();
+    if (keyOf(site, s.params.mastM) !== keyOf(site, mastM)) {
+      updatePending(); // made for another height: kept for later
+      return;
+    }
+    const change: Partial<ExploreState> = {};
+    if (s.skylineProblems[site.id]) {
+      const rest = { ...s.skylineProblems };
+      delete rest[site.id];
+      change.skylineProblems = rest;
+    }
+    commit(change, { compare: s.compareIds.includes(site.id) });
+  }
+
+  /** Records why a skyline for the chosen settings could not be had; work dropped for newer settings is no problem. */
+  function noteProblem(site: Site, mastM: number, err: unknown): void {
+    const s = store.getState();
+    if (!(err instanceof SkylineSuperseded) && keyOf(site, s.params.mastM) === keyOf(site, mastM)) commit({ skylineProblems: { ...s.skylineProblems, [site.id]: message(err) } });
+    else updatePending();
   }
 
   /** The overview belongs to one period and one lander: forget it, and stop a run still in flight. */
@@ -633,67 +1166,44 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     if (overviewBusy || Object.keys(overview).length > 0) store.setState({ overview: {}, overviewBusy: false });
   }
 
-  /** Recomputes every compared site for the current window and parameters from the mask cache. */
-  function recomputeCompare(): void {
-    const { eph, compareIds, startUtc, days, params, sites } = store.getState();
-    if (!eph) return;
+  /** What shows the selected site with its skyline for the chosen settings, once that is at hand; asks for it when it is not. */
+  function selectedIn(s: ExploreState): Partial<ExploreState> {
+    const { eph, site, mask, params, startUtc, days, cursorHour } = s;
+    if (!eph || !site || !mask) return {};
+    const cached = skylines.get(keyOf(site, params.mastM));
+    if (!cached) {
+      if (site.polar) skylineFor(site, params.mastM, 0).catch(() => {}); // settle() shows it; noteProblem says why not
+      return {};
+    }
+    if (cached.mask === mask) return {};
+    try {
+      const r = recompute(eph, site, cached.mask, startUtc, days, params, heightOf(cached.meta, params.mastM), terrainOf(cached.meta));
+      return { mask: cached.mask, maskMeta: cached.meta, series: r.series, summary: r.summary, power: r.power, contacts: r.contacts, best: r.best, cursorHour: Math.min(cursorHour, r.series.hours - 1), error: null };
+    } catch (err) {
+      return { error: message(err) };
+    }
+  }
+
+  /** Every compared site in `s`, from its skyline for the chosen settings; a site still waiting is asked for and left out. */
+  function compareIn(s: ExploreState): SiteResult[] {
+    const { eph, compareIds, startUtc, days, params, sites } = s;
+    if (!eph) return [];
     const compare: SiteResult[] = [];
     for (const id of compareIds) {
-      const cached = masks.get(id);
-      const site = sites.find((s) => s.id === id);
-      if (!cached || !site) continue;
+      const site = sites.find((x) => x.id === id);
+      if (!site) continue;
+      const cached = skylines.get(keyOf(site, params.mastM));
+      if (!cached) {
+        skylineFor(site, params.mastM, 1).catch(() => {});
+        continue;
+      }
       try {
-        compare.push(recompute(eph, site, cached.mask, startUtc, days, params, cached.meta.mastM ?? 2));
+        compare.push(recompute(eph, site, cached.mask, startUtc, days, params, heightOf(cached.meta, params.mastM), terrainOf(cached.meta)));
       } catch {
         // window outside the table: leave this site out until the window moves back
       }
     }
-    store.setState({ compare });
-  }
-
-  /** Coalesces mast changes; when the timer fires and the cached skyline's mast differs, recomputes once. */
-  function scheduleMaskRecompute(): void {
-    if (mastTimer) clearTimeout(mastTimer);
-    let fired!: () => void;
-    debouncePromise = new Promise<void>((r) => {
-      fired = r;
-    });
-    mastTimer = setTimeout(() => {
-      mastTimer = null;
-      const { site, params, maskMeta } = store.getState();
-      if (site && maskMeta && (maskMeta.mastM ?? 2) !== params.mastM) void recomputeMask();
-      fired();
-    }, MAST_DEBOUNCE_MS);
-  }
-
-  /** Recomputes the selected site's skyline with the current mast height through the worker loader. */
-  function recomputeMask(): Promise<void> {
-    maskPromise = recomputeMaskNow();
-    return maskPromise;
-  }
-
-  async function recomputeMaskNow(): Promise<void> {
-    const { site, params, maskMeta } = store.getState();
-    if (!site || !loaders.computeMask) return;
-    if (!site.polar) {
-      // A flat horizon is flat from any mast; only the label changes.
-      if (maskMeta) store.setState({ maskMeta: { ...maskMeta, mastM: params.mastM } });
-      return;
-    }
-    const seq = ++selectSeq;
-    store.setState({ maskBusy: true });
-    let superseded = false;
-    try {
-      const res = await loaders.computeMask(site.lat, site.lon, params.mastM);
-      superseded = seq !== selectSeq || store.getState().params.mastM !== params.mastM;
-      if (superseded) return;
-      store.getState().applyMask(site, res.mask, { siteHeightM: res.siteHeightM, source: 'computed', failedTiles: res.failedTiles, mastM: params.mastM });
-    } catch (err) {
-      superseded = seq !== selectSeq;
-      if (!superseded) store.setState({ customError: message(err) });
-    } finally {
-      if (!superseded) store.setState({ maskBusy: false });
-    }
+    return compare;
   }
 
   /**
@@ -772,12 +1282,28 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     if (seq === windowSeq && store.getState().siteId === siteId) store.setState({ heightmap: hm, contextHeightmap: cm ?? null });
   }
 
+  // The 12-month alternatives belong to the note that reports them: whatever drops the note (a new site, period, lander
+  // or requirement) drops them too.
+  store.subscribe((state) => {
+    if (state.bestWindowNote === null && state.yearPlan !== null) store.setState({ yearPlan: null });
+  });
+
   return store;
 }
 
 let engineClient: EngineClient | null = null;
 
-const browserLoaders: Loaders = {
+/** The worker's answer as the store keeps it: the skyline and the march's record of what it found. */
+export function skylineFromWorker(r: MaskResult): ComputedSkyline {
+  return {
+    mask: r.mask,
+    siteHeightM: r.siteHeightM,
+    failedTiles: r.failedTiles.length + r.absentTiles.length,
+    terrain: { coverage: r.coverage, fallbackBands: r.fallbackBands, siteGrid: r.siteGrid, plannedSiteGrid: r.bands[0]?.grid ?? r.siteGrid, terrain: r.terrain },
+  };
+}
+
+export const browserLoaders: Loaders = {
   loadSites: () => loadSites(dataBase()),
   loadEphemeris: () => loadEphemerisFromUrl(dataBase()),
   loadMask: (id) => loadMask(dataBase(), id),
@@ -786,8 +1312,11 @@ const browserLoaders: Loaders = {
   computeMask: async (lat, lon, mastM) => {
     if (typeof window === 'undefined') throw new Error('the skyline worker only runs in the browser');
     engineClient ??= new EngineClient(dataBase());
-    const r = await engineClient.computeMask(lat, lon, { mastM });
-    return { mask: r.mask, siteHeightM: r.siteHeightM, failedTiles: r.failedTiles.length };
+    return skylineFromWorker(await engineClient.computeMask(lat, lon, { mastM }));
+  },
+  // One page reads one tile set, from the data base: the skylines it works out are kept for that set.
+  get terrainId() {
+    return `tiles@${dataBase()}`;
   },
 };
 

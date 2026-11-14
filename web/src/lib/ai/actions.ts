@@ -1,28 +1,38 @@
 import type { StoreApi } from 'zustand';
-import type { Site } from '../data/loaders';
 import { PANEL_LABELS, type PanelModel, type PowerConfig } from '../engine/power';
-import { clampTo, PANEL_MODELS, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
+import { clampTo, DAYS_RANGE, PANEL_MODELS, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
 import type { ExploreState, WindowDays } from '../store/explore';
-import { dateLong } from '../viz/format';
+import { EPHEMERIS_YEARS, periodDays, shiftPeriod, shiftWords, snapToHour, startWords, withClock } from '../period';
+import { slipLabel } from '../scenario/scenario';
+import type { ScenarioState } from '../store/scenarios';
+import { KNOWN_CATEGORIES, validateSpecPatch } from '../plan/fields';
+import type { SpecPatch } from '../plan/spec';
 import { explanationFor } from './explanations';
 
 /** The closed set of things the planner may do to the app. Validated on the server and again on the client. */
 export type Action =
   | { type: 'select_site'; id: string }
-  | { type: 'set_window'; startUtc?: string; days?: WindowDays }
+  /** `timeUtc` ("17:00") moves the landing to that hour on its date: the given start's, else the one already chosen. */
+  | { type: 'set_window'; startUtc?: string; days?: WindowDays; timeUtc?: string }
+  /** The landing moved by whole hours, later when positive, keeping the length; it stops at the ends of the table. */
+  | { type: 'shift_window'; hours: number }
   | { type: 'find_best_window'; days: WindowDays; scope?: 'site' | 'compare' }
   | { type: 'set_power'; patch: Partial<PowerConfig> }
   | { type: 'set_params'; patch: { minEarthElDeg?: number; mastM?: number } }
   | { type: 'add_to_compare'; id: string }
   | { type: 'remove_from_compare'; id: string }
   | { type: 'open_page'; page: Page }
-  | { type: 'explain'; topic: string };
+  | { type: 'explain'; topic: string }
+  /** Compares the landing shown with the same one moved by whole hours, later when positive: a baseline and the moved landing on Compare. */
+  | { type: 'compare_shift'; hours: number }
+  | { type: 'plan_mission'; spec: SpecPatch };
 
 export type Page = 'explore' | 'sites' | 'compare' | 'validate' | 'brief' | 'learn';
 export const PAGES: readonly Page[] = ['explore', 'sites', 'compare', 'validate', 'brief', 'learn'];
 export const ACTION_TYPES: readonly Action['type'][] = [
   'select_site',
   'set_window',
+  'shift_window',
   'find_best_window',
   'set_power',
   'set_params',
@@ -30,22 +40,27 @@ export const ACTION_TYPES: readonly Action['type'][] = [
   'remove_from_compare',
   'open_page',
   'explain',
+  'compare_shift',
+  'plan_mission',
 ];
 /** What each page is called on screen. */
 export const PAGE_NAMES: Record<Page, string> = { explore: 'Explore', sites: 'the site list', compare: 'Compare sites', validate: 'Accuracy', brief: 'the brief', learn: 'How it works' };
 
-/** The period in the words of its controls ("From", "For"): "Period: from 1 March 2027 for 14 days." */
+/** The period in the words of its controls ("From", "For"), the landing with its hour: "Period: from 1 March 2027, 17:00 UTC, for 14 days." */
 export function periodNote(startUtc: string, days?: number): string {
-  return `Period: from ${dateLong(startUtc, 0)} ${startUtc.slice(0, 4)}${days ? ` for ${days} days` : ''}.`;
+  return `Period: from ${startWords(startUtc)}${days ? `, for ${days} days` : ''}.`;
 }
-const DAYS: readonly WindowDays[] = [14, 30, 90];
+/** The longest shift the assistant asks for, either way: the table's span, which a shift stops at anyway. */
+const SHIFT_MAX_HOURS = 13 * 366 * 24;
 /**
  * How many sites Compare holds: the store's COMPARE_MAX, repeated here because the chat route loads this
  * module on the server and must not load the browser store with it. A test keeps the two equal.
  */
 export const COMPARE_LIMIT = 4;
+/** The longest move of a landing the assistant compares, either way: the table's span. */
+const COMPARE_SHIFT_MAX_H = 13 * 366 * 24;
 /** The hourly ephemeris table spans these years; a window outside it cannot be computed. */
-export const EPHEMERIS_YEARS = { first: 2024, last: 2036 };
+export { EPHEMERIS_YEARS };
 
 type Raw = Record<string, unknown>;
 type One = { action: Action } | { reason: string };
@@ -59,11 +74,14 @@ function asNumber(x: unknown): number | null {
 }
 
 function parseDays(x: unknown): WindowDays | null {
-  const n = asNumber(x);
-  return n !== null && (DAYS as readonly number[]).includes(n) ? (n as WindowDays) : null;
+  return periodDays(asNumber(x));
 }
+const BAD_DAYS = `days must be a whole number from ${DAYS_RANGE.min} to ${DAYS_RANGE.max}`;
 
-/** Accepts `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` or `YYYY-MM-DDTHH:MM:SS` (optional Z) inside the ephemeris years; returns the full form. */
+/**
+ * Accepts `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` or `YYYY-MM-DDTHH:MM:SS` (optional Z) inside the ephemeris years; returns
+ * the full form at the nearest whole hour, as the engine reads its hourly table (a date alone is 00:00 UTC).
+ */
 export function normalizeUtc(x: unknown): string | null {
   if (typeof x !== 'string') return null;
   const m = x.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?Z?$/);
@@ -72,7 +90,7 @@ export function normalizeUtc(x: unknown): string | null {
   if (y < EPHEMERIS_YEARS.first || y > EPHEMERIS_YEARS.last) return null;
   const t = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
   const same = t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d && t.getUTCHours() === h && t.getUTCMinutes() === mi && t.getUTCSeconds() === s;
-  return same ? t.toISOString().slice(0, 19) : null;
+  return same ? snapToHour(t.toISOString().slice(0, 19)) : null;
 }
 
 function siteAction(raw: Raw, type: 'select_site' | 'add_to_compare' | 'remove_from_compare', siteIds: ReadonlySet<string>): One {
@@ -119,15 +137,25 @@ function validateOne(raw: unknown, siteIds: ReadonlySet<string>): One {
       }
       if (raw.days !== undefined) {
         const days = parseDays(raw.days);
-        if (!days) return { reason: `set_window: days must be 14, 30 or 90 (got ${String(raw.days)})` };
+        if (!days) return { reason: `set_window: ${BAD_DAYS} (got ${String(raw.days)})` };
         action.days = days;
       }
-      if (action.startUtc === undefined && action.days === undefined) return { reason: 'set_window: nothing to set' };
+      if (raw.timeUtc !== undefined) {
+        const time = typeof raw.timeUtc === 'string' ? raw.timeUtc.trim() : '';
+        if (!/^\d{2}:\d{2}$/.test(time) || !withClock('2027-01-01T00:00:00', time)) return { reason: `set_window: bad time "${String(raw.timeUtc)}"` };
+        action.timeUtc = time;
+      }
+      if (action.startUtc === undefined && action.days === undefined && action.timeUtc === undefined) return { reason: 'set_window: nothing to set' };
       return { action };
+    }
+    case 'shift_window': {
+      const hours = asNumber(raw.hours);
+      if (hours === null || !Number.isInteger(hours) || hours === 0 || Math.abs(hours) > SHIFT_MAX_HOURS) return { reason: `shift_window: hours must be a whole number other than 0 (got ${String(raw.hours)})` };
+      return { action: { type: 'shift_window', hours } };
     }
     case 'find_best_window': {
       const days = parseDays(raw.days);
-      if (!days) return { reason: `find_best_window: days must be 14, 30 or 90 (got ${String(raw.days)})` };
+      if (!days) return { reason: `find_best_window: ${BAD_DAYS} (got ${String(raw.days)})` };
       const scope = raw.scope === 'compare' ? 'compare' : 'site';
       return { action: { type: 'find_best_window', days, scope } };
     }
@@ -148,6 +176,18 @@ function validateOne(raw: unknown, siteIds: ReadonlySet<string>): One {
     case 'explain': {
       const topic = typeof raw.topic === 'string' ? raw.topic.trim().slice(0, 80) : '';
       return topic ? { action: { type: 'explain', topic } } : { reason: 'explain: missing topic' };
+    }
+    case 'plan_mission': {
+      // The planner's specification: fields only, checked here; the numbers are checked against the words when taken.
+      const { patch, dropped } = validateSpecPatch(raw.spec, siteIds, KNOWN_CATEGORIES);
+      if (Object.keys(patch).length === 0) return { reason: dropped[0] ?? 'plan_mission: nothing to fill' };
+      return { action: { type: 'plan_mission', spec: patch } };
+    }
+    case 'compare_shift': {
+      // Whole hours, either way, no further than the table's own span: a move past its ends stops there anyway.
+      const hours = asNumber(raw.hours);
+      if (hours === null || !Number.isInteger(hours) || hours === 0 || Math.abs(hours) > COMPARE_SHIFT_MAX_H) return { reason: `compare_shift: hours must be a whole number other than 0 (got ${String(raw.hours)})` };
+      return { action: { type: 'compare_shift', hours } };
     }
     default:
       return { reason: `unknown action "${raw.type}"` };
@@ -175,57 +215,8 @@ export function describeDropped(dropped: string[]): string {
   return `One step was skipped (${dropped[0]}).`;
 }
 
-// ---- site matching ---------------------------------------------------------------------------
-
-/** Words that appear in many catalogue names and count for half a match; connectives count for nothing. */
-const GENERIC = new Set([
-  'site', 'sites', 'region', 'landing', 'crater', 'rim', 'point', 'highest', 'artemis', 'iii', 'centre', 'center', 'reference', 'lunar',
-  'south', 'pole', 'mission', 'km', 'ridge', 'plateau', 'peak', 'near', 'massif', 'plain', 'mare', 'high',
-]);
-const STOP = new Set(['the', 'a', 'an', 'to', 'and', 'with', 'on', 'in', 'for', 'of', 'me', 'please', 'at', 'from']);
-
-/** Lower-case ASCII tokens with accents and punctuation stripped and letter/digit boundaries split ("IM-2" → im, 2). */
-export function tokens(text: string): string[] {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/([a-z])(\d)/g, '$1 $2')
-    .replace(/(\d)([a-z])/g, '$1 $2')
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean);
-}
-
-const weightOf = (t: string) => (STOP.has(t) ? 0 : GENERIC.has(t) ? 0.5 : 1);
-
-/**
- * Finds the catalogue site a phrase refers to: an exact id, or the site sharing the most (weighted)
- * words with the phrase, needing at least one distinctive word or two generic ones. Ties go to the
- * site whose name is covered best by the phrase, so "Shackleton crater" picks the crater centre over
- * its rim.
- */
-export function siteByName(sites: Site[], text: string): Site | null {
-  const phrase = text.trim().toLowerCase();
-  if (!phrase) return null;
-  const exact = sites.find((s) => s.id === phrase);
-  if (exact) return exact;
-  const query = Array.from(new Set(tokens(phrase)));
-  let best: { site: Site; score: number; coverage: number; size: number } | null = null;
-  for (const site of sites) {
-    const own = new Set([...tokens(site.name), ...tokens(site.id)]);
-    const hits = query.filter((t) => own.has(t));
-    // A digit alone ("show me 2") names nothing; it counts fully only next to a matched word.
-    const hasWord = hits.some((t) => /[a-z]/.test(t) && weightOf(t) === 1);
-    const score = hits.reduce((sum, t) => sum + (/^\d+$/.test(t) && !hasWord ? 0.25 : weightOf(t)), 0);
-    const matched = hits.length;
-    if (score < 1) continue;
-    const coverage = matched / own.size;
-    if (!best || score > best.score || (score === best.score && (coverage > best.coverage || (coverage === best.coverage && own.size < best.size)))) {
-      best = { site, score, coverage, size: own.size };
-    }
-  }
-  return best?.site ?? null;
-}
+// ---- site matching: in ./site-match, re-exported here for the actions' existing importers ----
+export { siteByName, tokens } from './site-match';
 
 // ---- applying actions to the store -----------------------------------------------------------
 
@@ -249,11 +240,29 @@ function describeParams(patch: { minEarthElDeg?: number; mastM?: number }): stri
 }
 
 /**
+ * Sets the period and says what was set, in the words of its controls, with `extra` after it. The store refuses a
+ * period that runs off its Sun and Earth table, keeps the one it had and says why in its error: the note gives that
+ * reason rather than claim a period that was never set.
+ */
+function setPeriod(store: StoreApi<ExploreState>, startUtc: string, days: number, extra = ''): string {
+  store.getState().setWindow(startUtc, days);
+  const now = store.getState();
+  const refused = now.startUtc !== startUtc || now.days !== days;
+  return refused ? (now.error ?? 'That period could not be set.') : `${periodNote(startUtc, days)}${extra}`;
+}
+
+/**
  * Applies validated actions to the Explore store in order and returns one note per action, in the
  * user's words ("Selected Nobile Rim 2."). Page changes go through `navigate` so the caller can use
  * the Next router.
  */
-export async function applyActions(store: StoreApi<ExploreState>, actions: Action[], navigate: (page: string) => void): Promise<string[]> {
+export async function applyActions(
+  store: StoreApi<ExploreState>,
+  actions: Action[],
+  navigate: (page: string) => void,
+  scenarios?: StoreApi<ScenarioState>,
+  said?: string,
+): Promise<string[]> {
   const notes: string[] = [];
   const nameOf = (id: string) => store.getState().sites.find((s) => s.id === id)?.name ?? id;
   for (const a of actions) {
@@ -270,20 +279,25 @@ export async function applyActions(store: StoreApi<ExploreState>, actions: Actio
         break;
       }
       case 'set_window': {
-        const startUtc = a.startUtc ?? s.startUtc;
+        // A time alone keeps the date; minutes round to the nearest hour, as the engine reads its hourly table.
+        const timed = a.timeUtc ? withClock(a.startUtc ?? s.startUtc, a.timeUtc) : null;
+        const startUtc = snapToHour(timed?.startUtc ?? a.startUtc ?? s.startUtc);
         const days = a.days ?? s.days;
-        s.setWindow(startUtc, days);
-        // The store refuses a period that runs off its Sun and Earth table, keeps the one it had and says why in
-        // its error: the note gives that reason rather than claim a period that was never set.
-        const now = store.getState();
-        const refused = now.startUtc !== startUtc || now.days !== days;
-        notes.push(refused ? (now.error ?? 'That period could not be set.') : periodNote(startUtc, days));
+        notes.push(setPeriod(store, startUtc, days, timed?.rounded ? ` The Sun and Earth table is hourly, so ${a.timeUtc} is read as ${startUtc.slice(11, 16)} UTC.` : ''));
+        break;
+      }
+      case 'shift_window': {
+        // The length stays; a shift past either end of the table stops there, and the note says so.
+        const r = shiftPeriod(s.startUtc, s.days, a.hours);
+        const moved = r.note ? ` ${r.note}` : '';
+        const note = setPeriod(store, r.startUtc, s.days, moved);
+        notes.push(note.startsWith('Period:') && !r.note ? `Landing ${shiftWords(a.hours)} ${a.hours > 0 ? 'later' : 'earlier'}. ${note}` : note);
         break;
       }
       case 'find_best_window': {
         const scope = a.scope ?? 'site';
         const r = await s.findBestWindow(a.days, scope);
-        notes.push(r ? `Moved to the best landing date for ${a.days} days: ${r.startUtc.slice(0, 10)}.` : (store.getState().bestWindowNote ?? `No ${a.days}-day period fits after the start date.`));
+        notes.push(r ? `Moved to the best landing for ${a.days} days: ${startWords(r.startUtc)}.` : (store.getState().bestWindowNote ?? `No ${a.days}-day period fits after the start date.`));
         break;
       }
       case 'set_power':
@@ -317,9 +331,30 @@ export async function applyActions(store: StoreApi<ExploreState>, actions: Actio
         navigate(`/${a.page}`);
         notes.push(`Opened ${PAGE_NAMES[a.page]}.`);
         break;
+      case 'compare_shift': {
+        // The comparison is a page's store: a caller without it (the chat route, a test) gets the way to it instead.
+        const site = s.sites.find((x) => x.id === s.siteId);
+        const base = scenarios && site ? scenarios.getState().startFrom(s) : null;
+        const moved = base ? scenarios!.getState().slip(base, a.hours) : null;
+        if (!site || !moved) {
+          notes.push('A comparison can be made on Compare: open it and slip the landing there.');
+          break;
+        }
+        navigate('/compare');
+        notes.push(`Comparing the landing at ${site.label ?? site.name} on ${startWords(s.startUtc)} with the same landing ${slipLabel(a.hours)}.`);
+        break;
+      }
       case 'explain': {
         const e = explanationFor(a.topic);
         notes.push(e ? e.text : `There is no explanation for "${a.topic}" yet; try the longest night, the Earth gap, the best landing date, the hills or the time with power.`);
+        break;
+      }
+      case 'plan_mission': {
+        // Loaded here, as only a mission's specification needs the planner.
+        const { planStore } = await import('../plan/store');
+        const taken = planStore.getState().takeAssistant(a.spec, said ?? '');
+        navigate('/plan');
+        notes.push(taken.fields.length ? 'Opened the planner with the fields read from your words: check them, then search.' : 'Opened the planner: no field could be taken from the words, so set them there.');
         break;
       }
     }

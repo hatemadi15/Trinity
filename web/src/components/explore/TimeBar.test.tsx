@@ -8,6 +8,8 @@ import type { Series } from '@/lib/engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '@/lib/engine/power';
 import { PLOT_GRID } from './TimeChart';
 import { dotShifts, PLAY_HPS, SPEEDS, TimeBar } from './TimeBar';
+import { runControl } from '@/lib/luna/controls';
+import { visibleWords, WIDE } from '@/test/visible-words';
 
 // jsdom has no PointerEvent; this one carries the pointer's id and its kind (mouse, touch or pen) on top of the mouse
 // event's position.
@@ -245,6 +247,54 @@ describe('TimeBar', () => {
     show(6);
     expect(screen.getByTestId('when').textContent).toBe('1 Jan 2027, 06:00 UTC');
     expect(screen.getByTestId('status').textContent).toBe('Sun up, Earth behind a hill, battery 100 %');
+  });
+
+  it('counts down to the next sunset or sunrise and to Earth rising or setting, at the hour it shows, as the hour moves', () => {
+    const { rerender } = show(6);
+    const words = () => visibleWords(screen.getByTestId('countdown'), WIDE).join(' ');
+    // The Sun sets and Earth rises at hour 24.
+    expect(words()).toBe('Sunset in 18 h Earth rises in 18 h');
+    rerender(<TimeBar series={series} power={power} startUtc={START} cursor={7} hoverHour={null} batteryWh={CFG.batteryWh} onCursor={vi.fn()} />);
+    expect(words()).toBe('Sunset in 17 h Earth rises in 17 h');
+    // The hour under the pointer on the chart, as the date and the sentence beside it give it.
+    rerender(<TimeBar series={series} power={power} startUtc={START} cursor={7} hoverHour={40} batteryWh={CFG.batteryWh} onCursor={vi.fn()} />);
+    expect(words()).toBe('Sunrise in 8 h Earth sets in 8 h');
+    expect(screen.getByTestId('status').textContent).toBe('Sun behind a hill, Earth in view but the lander is off, battery empty');
+    // At the last hour nothing changes before the period ends, and the bar says so rather than guess.
+    rerender(<TimeBar series={series} power={power} startUtc={START} cursor={71} hoverHour={null} batteryWh={CFG.batteryWh} onCursor={vi.fn()} />);
+    expect(words()).toBe('No sunset before the end Earth out of view to the end');
+  });
+
+  it('keeps the bar one height while the countdown and the sentence change: the countdown a slot on the date’s line, the sentence on a line of its own', () => {
+    const { container } = show(6, { moments: [{ label: 'Sunset, 2 Jan', hour: 24 }] });
+    const line = container.querySelector<HTMLElement>('[data-part="line"]')!;
+    const countdown = screen.getByTestId('countdown');
+    const status = screen.getByTestId('status');
+    expect(line.contains(countdown)).toBe(true);
+    // After Next, before the sentence, in the order they are read.
+    const next = screen.getByRole('button', { name: /^Next:/ });
+    expect(next.compareDocumentPosition(countdown) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(countdown.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // From 640 px up an empty break of the line's whole width puts the sentence and the key on the next line, so a
+    // sentence that grows never pushes the key or the countdown onto another.
+    const gap = container.querySelector<HTMLElement>('[data-part="break"]')!;
+    expect(gap.textContent).toBe('');
+    for (const c of ['hidden', 'sm:block', 'sm:basis-full', 'sm:h-0']) expect(gap.classList.contains(c)).toBe(true);
+    expect(countdown.compareDocumentPosition(gap) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(gap.compareDocumentPosition(status) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // On a phone the countdown is a row of the bar's width, at 14 px so its two parts keep one line, and the sentence
+    // keeps two lines whether it needs them or not, with the key always under it.
+    for (const c of ['max-sm:col-span-3', 'text-[15px]', 'max-sm:text-[14px]']) expect(countdown.classList.contains(c)).toBe(true);
+    for (const c of ['max-sm:basis-full', 'max-sm:min-h-[2lh]']) expect(status.classList.contains(c)).toBe(true);
+  });
+
+  it('leaves the countdown to the page when compact or bare, as it does the sentence', () => {
+    show(6, { dates: true, powered: power.powered, compact: true });
+    expect(screen.queryByTestId('countdown')).toBeNull();
+    cleanup();
+    show(6, { dates: true, bare: true });
+    expect(screen.queryByTestId('countdown')).toBeNull();
+    expect(document.querySelector('[data-part="break"]')).toBeNull();
   });
 
   it("lines its track up under the chart's plot: the chart's grid, inset by the chart panel's edge, Play in the column of the row names", () => {
@@ -1670,6 +1720,74 @@ describe('dotShifts', () => {
       for (let k = 1; k < centres.length; k++) expect(centres[k] - centres[k - 1]).toBeGreaterThanOrEqual(24 - 1e-9);
       expect(centres[0]).toBeGreaterThanOrEqual(-1e-9);
       expect(centres[centres.length - 1]).toBeLessThanOrEqual(trackPx + 1e-9);
+    }
+  });
+});
+
+describe('the time bar as Luna’s player (spec 22)', () => {
+  it('lends Luna its player while it is on the page: Play, Pause, the next and the previous moment, the speed and Replay', () => {
+    const page = playPage(steady(30), 60, { dates: true, moments: STAND_MOMENTS });
+    // Next and previous: the moment's name is what Luna says.
+    let r: ReturnType<typeof runControl>;
+    act(() => {
+      r = runControl('next');
+    });
+    expect(r!).toEqual({ ok: true, said: 'Battery runs out, 4 Jan' });
+    expect(page.onCursor).toHaveBeenLastCalledWith(76);
+    act(() => {
+      r = runControl('previous');
+    });
+    expect(r!).toEqual({ ok: true, said: 'Sunset, 3 Jan' });
+    // Play and Pause, as the button does.
+    act(() => {
+      runControl('play');
+    });
+    expect(screen.getByRole('button', { name: /^Pause/ })).toBeTruthy();
+    act(() => {
+      runControl('pause');
+    });
+    expect(screen.getByRole('button', { name: /^Play/ })).toBeTruthy();
+    // The speed, up and down, said in words.
+    act(() => {
+      r = runControl('faster');
+    });
+    expect(r!.said).toBe('Twice as fast.');
+    expect(screen.getByRole('button', { name: /^Speed 2×/ })).toBeTruthy();
+    act(() => {
+      r = runControl('slower');
+    });
+    expect(r!.said).toBe('Normal speed.');
+    act(() => {
+      r = runControl('slower');
+    });
+    expect(r!.said).toBe('Already at normal speed.');
+    // Replay: from the first hour, playing.
+    act(() => {
+      runControl('replay');
+    });
+    expect(page.onCursor).toHaveBeenLastCalledWith(0);
+    expect(screen.getByRole('button', { name: /^Pause/ })).toBeTruthy();
+    page.unmount();
+    expect(runControl('play')).toEqual({ ok: false });
+  });
+
+  it('tells Luna why it does not play under reduced motion, and when there is no moment either way', () => {
+    const was = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
+    try {
+      const page = playPage(steady(30), 700, { dates: true, moments: STAND_MOMENTS });
+      let r: ReturnType<typeof runControl>;
+      act(() => {
+        r = runControl('play');
+      });
+      expect(r!.said).toMatch(/reduced motion/);
+      act(() => {
+        r = runControl('next');
+      });
+      expect(r!.said).toBe('There is no moment after this one.');
+      page.unmount();
+    } finally {
+      window.matchMedia = was;
     }
   });
 });

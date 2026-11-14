@@ -11,6 +11,7 @@ import { LANDER, LEG_ENDS } from './landerShape';
 import { BOULDERS, placeBoulders, rockDome, siteSeed } from './boulders';
 import { dirAzEl, enuBasis, type Vec3 } from './frames';
 import { standResident } from '@/lib/viz/standOpening';
+import { descentHeight, LANDING, landingStart, settleSquash } from './landing';
 import { bounceShare, buildScene, lookUpTarget, movingRatio, RESIDENT_SHADOW, RESIDENT_TURN_MS, residentTurn, shadowOnGround, threesOwnTextures, toneExposure, toTextureHeights, type StandScene } from './standRenderer';
 import { flatField, heightAt, meshHeightAt, terrainField } from './terrainField';
 
@@ -1619,5 +1620,116 @@ describe('the resident (spec 20.2)', () => {
     s.setView(265, 2, 60, 16 / 9);
     expect(s.labels().resident!.visible).toBe(false);
     expect(buildScene(flat({ lander })).labels().resident).toBeNull();
+  });
+});
+
+describe('the landing (the stand view’s opening)', () => {
+  // The lander as standLander places it for the first hour: 40° left of the Sun at 300°.
+  const lander = { azDeg: 260, distM: 16, powered: Uint8Array.from([1, 1, 1]) };
+  /** Ground rising 20 % towards the east, a plane, so every triangle the mesh draws lies in it: the lander stands 3 m below the eye's ground. */
+  const slope = () => {
+    const n = 1024, cell = 20, mid = (n - 1) / 2, heights = new Float32Array(n * n);
+    for (let row = 0; row < n; row++) for (let col = 0; col < n; col++) heights[row * n + col] = 100 + 0.2 * cell * (col - mid);
+    return terrainField([{ heights, width: n, height: n, pxM: cell, siteCol: mid, siteRow: mid }], 0, 100);
+  };
+  const centres = (s: ReturnType<typeof buildScene>) => s.parts.ground.map((g) => (g.material as THREE.ShaderMaterial).uniforms.uLanderCenter.value.clone() as THREE.Vector3);
+
+  it('builds the plume and the dust with the scene, out of the picture until the landing plays, in the stand view only', () => {
+    const s = buildScene(flat({ lander }));
+    for (const p of [s.parts.plume!, s.parts.dust!]) {
+      expect(p).toBeInstanceOf(THREE.Points);
+      expect(p.parent).toBe(s.root);
+      expect(p.visible).toBe(false);
+    }
+    // One program between them, and no light added for them, which would change the lander's and the rocks' programs:
+    // the scene keeps its five (the Sun, the dust's light from below, Earth's, the fill and the night's key).
+    expect((s.parts.plume!.material as THREE.ShaderMaterial).vertexShader).toBe((s.parts.dust!.material as THREE.ShaderMaterial).vertexShader);
+    for (const p of [s.parts.plume!, s.parts.dust!]) expect(p.children).toHaveLength(0);
+    let lights = 0;
+    s.root.traverse((o) => {
+      if ((o as THREE.Light).isLight) lights++;
+    });
+    expect(lights).toBe(5);
+    // Never in flight (the home page's arrival), before the ground has loaded, or with no lander to land.
+    for (const o of [flat({ lander, globe, siteHeightM: 100 }), flat({ lander, ground: false }), flat()]) {
+      const none = buildScene(o);
+      expect(none.parts.plume).toBeNull();
+      expect(none.parts.dust).toBeNull();
+      expect(() => none.land(1000)).not.toThrow();
+    }
+  });
+
+  it('brings the lander down out of the black sky onto its spot, its shadow cast from where it is, on a slope as on the level', () => {
+    for (const field of [flatField(-64.31), slope()]) {
+      const s = buildScene(flat({ field, lander }));
+      const g = s.parts.lander!, rest = g.position.clone(), eye = s.camera.position.y;
+      expect(centres(s).every((c) => c.equals(rest))).toBe(true);
+      // High in the black sky as it starts: its middle 42° up from the eye, the opening view looking 34° up.
+      s.land(0);
+      const middle = new THREE.Vector3(g.position.x, g.position.y + LANDING.MID_M - eye, g.position.z);
+      expect(elevationDeg(middle)).toBeCloseTo(LANDING.START_EL_DEG, 6);
+      expect(g.position.y - rest.y).toBeCloseTo(landingStart(eye - rest.y, 16), 9);
+      expect([g.position.x, g.position.z]).toEqual([rest.x, rest.z]);
+      // The ground's shadow of it from where it is, so its shadow runs in along the ground to meet its feet.
+      for (const c of centres(s)) expect(c.toArray()).toEqual(g.position.toArray());
+      // On its way down, and on its spot at touchdown.
+      s.land(LANDING.DESCENT_MS / 2);
+      expect(g.position.y - rest.y).toBeCloseTo(descentHeight(LANDING.DESCENT_MS / 2, landingStart(eye - rest.y, 16)), 9);
+      s.land(LANDING.DESCENT_MS);
+      expect(g.position.y).toBe(rest.y);
+      // Over, it stands as it stood before, and nothing is drawn for the landing.
+      s.land(LANDING.MS);
+      expect(g.position.toArray()).toEqual(rest.toArray());
+      expect(g.scale.toArray()).toEqual([1, 1, 1]);
+      for (const c of centres(s)) expect(c.toArray()).toEqual(rest.toArray());
+      expect([s.parts.plume!.visible, s.parts.dust!.visible]).toEqual([false, false]);
+    }
+  });
+
+  it('settles the lander on its legs at touchdown, its pads staying on the ground, then stands it as before', () => {
+    const s = buildScene(flat({ lander }));
+    const g = s.parts.lander!, rest = g.position.clone();
+    s.land(LANDING.DESCENT_MS + 120);
+    expect(g.position.y).toBe(rest.y);
+    expect(g.scale.y).toBeCloseTo(1 - settleSquash(LANDING.DESCENT_MS + 120), 12);
+    expect(g.scale.y).toBeLessThan(0.985);
+    expect(g.scale.x).toBe(1);
+    expect(g.scale.z).toBe(1);
+    s.land(LANDING.DESCENT_MS + LANDING.SETTLE_MS);
+    expect(g.scale.y).toBe(1);
+  });
+
+  it('names the lander where it is as it comes down, and keeps the other labels off its body there', () => {
+    const s = buildScene(flat({ lander }));
+    s.update(0);
+    // The opening view, 35° left of the Sun, as it starts: 34° up.
+    s.setView(265, 34, 60, 16 / 9);
+    s.land(0);
+    const high = s.labels();
+    expect(high.lander!.visible).toBe(true);
+    expect(high.landerBox).not.toBeNull();
+    s.land(LANDING.MS);
+    const landed = s.labels();
+    // Higher on the screen as it comes down than where it stands after (its foot is out of this view, below it).
+    expect(high.lander!.y).toBeLessThan(landed.lander!.y);
+    expect(high.landerBox!.bottom).toBeLessThan(1);
+  });
+
+  it('gives the dust the light at the hour: the Sun’s by day, Earth’s and the night’s at night', () => {
+    const s = buildScene(flat({ lander }));
+    const m = s.parts.dust!.material as THREE.ShaderMaterial, lum = (c: THREE.Color) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    // The first hour, the Sun up; the last, set.
+    s.update(0);
+    expect(lum(m.uniforms.uSunlit.value)).toBeGreaterThan(0.1);
+    s.update(2);
+    expect(lum(m.uniforms.uSunlit.value)).toBe(0);
+    expect(lum(m.uniforms.uColor.value)).toBeGreaterThan(0);
+  });
+
+  it('sizes the puffs for the picture it is drawn in', () => {
+    const s = buildScene(flat({ lander }));
+    s.puffScale(450);
+    for (const p of [s.parts.plume!, s.parts.dust!]) expect((p.material as THREE.ShaderMaterial).uniforms.uScale.value).toBe(450);
+    expect(() => buildScene(flat()).puffScale(450)).not.toThrow();
   });
 });

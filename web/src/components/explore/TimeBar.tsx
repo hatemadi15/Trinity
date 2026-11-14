@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useLunaControls } from '@/lib/luna/controls';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { useElementWidth } from '@/lib/hooks/useElementWidth';
@@ -7,6 +8,7 @@ import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { clockUtc, dateTimeUtc, dayMonth } from '@/lib/viz/format';
 import { statusSentence } from '@/lib/viz/status';
 import { litRuns, offRuns, runsWhere } from '@/lib/viz/timechart';
+import { CountdownLine } from './CountdownLine';
 import { PLOT_GRID } from './TimeChart';
 
 /** Steps Play takes each second, whatever its speed. */
@@ -361,6 +363,51 @@ export function TimeBar({
   useEffect(() => {
     live.current = { last, speed, marks, holdMs, reduced, onCursor, onArrive, toggle };
   });
+  // Luna's player (spec 22): the bar's own steps, said in words where they have some to say.
+  const setSpeed = (to: Speed) => {
+    if (givenSpeed === undefined) setOwnSpeed(to);
+    onSpeed?.(to);
+  };
+  const SPEED_SAID: Record<Speed, string> = { 1: 'Normal speed.', 2: 'Twice as fast.', 4: 'Four times as fast.' };
+  const OFF = 'Playback is off because your system asks for reduced motion.';
+  useLunaControls({
+    play: () => {
+      if (reduced) return OFF;
+      if (!playing) start();
+    },
+    pause,
+    next: () => {
+      const m = after(marks, cursor);
+      if (!m) return 'There is no moment after this one.';
+      jump(m);
+      return m.label;
+    },
+    previous: () => {
+      const m = before(marks, cursor);
+      if (!m) return 'There is no moment before this one.';
+      jump(m);
+      return m.label;
+    },
+    faster: () => {
+      const i = SPEEDS.indexOf(speed);
+      if (i === SPEEDS.length - 1) return 'Already at the fastest.';
+      setSpeed(SPEEDS[i + 1]);
+      return SPEED_SAID[SPEEDS[i + 1]];
+    },
+    slower: () => {
+      const i = SPEEDS.indexOf(speed);
+      if (i === 0) return 'Already at normal speed.';
+      setSpeed(SPEEDS[i - 1]);
+      return SPEED_SAID[SPEEDS[i - 1]];
+    },
+    replay: () => {
+      if (reduced) return OFF;
+      onCursor(0);
+      cursorRef.current = 0;
+      onPlay?.();
+      setWantsPlay(true);
+    },
+  });
 
   useEffect(() => {
     if (!wantsPlay) return;
@@ -476,10 +523,21 @@ export function TimeBar({
       style={{ '--sizer': cssString(`Next: ${m.label} ›`) } as CSSProperties}
     />
   ));
+  // On a phone the sentence keeps two lines and the key goes under it, so the bar keeps one height as the words change.
   const status = !compact && !bare && (
-    <span data-testid="status" className="text-pretty text-[15px] text-ink-2">
+    <span data-testid="status" className="text-pretty text-[15px] text-ink-2 max-sm:min-h-[2lh] max-sm:basis-full">
       {statusSentence(series, power, shown, batteryWh)}
     </span>
+  );
+  // With the sentence, the time to the next sunset or sunrise and to Earth's next rising or setting: a slot as wide as the
+  // widest it gets in the period, on the date's line after Next from 640 px up, and a row of its own on a phone, at 14 px
+  // there so its two parts keep one line. From 640 px up an empty break of the line's width then puts the sentence and the
+  // key on the next line, so a sentence that grows pushes nothing about.
+  const countdown = !compact && !bare && (
+    <>
+      <CountdownLine series={series} hour={shown} className="text-[15px] text-ink max-sm:col-span-3 max-sm:text-[14px]" />
+      <span data-part="break" aria-hidden="true" className="hidden sm:block sm:h-0 sm:basis-full" />
+    </>
   );
   const reducedLine = reduced && !bare && <span className="text-[15px] text-ink-2">Playback is off because your system asks for reduced motion.</span>;
   const keyLine: ReactNode = bare ? null : keys ? (
@@ -595,11 +653,7 @@ export function TimeBar({
                 type="button"
                 disabled={reduced}
                 aria-label={`Speed ${speed}×: ${SPEED_WORDS[speed]}`}
-                onClick={() => {
-                  const to = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
-                  if (givenSpeed === undefined) setOwnSpeed(to);
-                  onSpeed?.(to);
-                }}
+                onClick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length])}
                 className="btn h-10 w-11 shrink-0 px-0 text-[15px]"
               >
                 {speed}×
@@ -658,6 +712,7 @@ export function TimeBar({
                 )}
               </div>
             )}
+            {countdown}
             {(status || reducedLine || keyLine) && (
               <div className="contents max-sm:col-span-3 max-sm:flex max-sm:flex-wrap max-sm:items-baseline max-sm:gap-x-3">
                 {/* Compact, the page says it in its own words; the slider still reads it. Bare, the date and hour are all. */}

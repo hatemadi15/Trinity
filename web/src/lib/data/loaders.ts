@@ -15,6 +15,12 @@ export interface Site {
   source: string;
   /** True when the coordinate is a digitised region centre, not a surveyed point. */
   approximate?: boolean;
+  /** What kind of point the coordinate is (lib/data/kind.ts words it): surveyed, target, region_centre, derived or reference. */
+  kind?: 'surveyed' | 'target' | 'region_centre' | 'derived' | 'reference';
+  /** Radius of the uncertainty the source states for the point (km); absent or null when it states none. */
+  uncertainty_km?: number | null;
+  /** On the far side Earth never rises: no direct radio contact, ever. */
+  far_side?: boolean;
   landed_utc?: string;
   /** Reported end of a landed mission (UTC) and where the date comes from. */
   mission_end_utc?: string;
@@ -37,6 +43,9 @@ export interface MaskDoc {
   elevation_deg: number[];
   bands: { grid: string; r_min_m: number; r_max_m: number; step_m: number }[];
   fallback_bands: { grid: string; r_min_m: number; r_max_m: number; step_m: number }[];
+  /** What made the file and when (UTC), as the pipeline writes them. */
+  method?: string;
+  generated_utc?: string;
 }
 
 export class DataError extends Error {

@@ -6,17 +6,17 @@ import { siteLabel, type Site } from '@/lib/data/loaders';
 import type { PowerConfig } from '@/lib/engine/power';
 import { landerName, presetOf } from '@/lib/lander';
 import type { WindowDays } from '@/lib/store/explore';
-import { dateLong } from '@/lib/viz/format';
+import { startWords } from '@/lib/period';
 
 const TAG = 'shrink-0 rounded-full border border-line px-2.5 py-0.5 text-[15px] text-ink-2';
 
 /**
- * The band on one line, as a phone shows it (spec 6): "de Gerlache Rim 2, 30 days from 1 January 2027, small
- * lander". A ready-made lander by its size; any other is a custom lander.
+ * The band on one line, as a phone shows it (spec 6): "de Gerlache Rim 2, 30 days from 1 January 2027, 00:00 UTC,
+ * small lander". A ready-made lander by its size; any other is a custom lander.
  */
 export function periodLine(label: string, startUtc: string, days: number, power: PowerConfig): string {
   const preset = presetOf(power);
-  return `${label}, ${days} days from ${dateLong(startUtc, 0)} ${startUtc.slice(0, 4)}, ${preset ? `${preset.id} lander` : 'custom lander'}`;
+  return `${label}, ${days} days from ${startWords(startUtc)}, ${preset ? `${preset.id} lander` : 'custom lander'}`;
 }
 
 /** The four things a forecast is for, in one row: the landing site, the start, the length and the lander. */
@@ -58,16 +58,18 @@ export function PeriodBand({
             <span className={TAG}>change site</span>
           </Link>
         </div>
-        <PeriodControls startUtc={startUtc} days={days} onChange={onWindow} />
-        <div className="flex min-w-0 flex-[1.8_1_250px] flex-col gap-1.5 text-[15px] text-ink-2">
-          <span aria-hidden="true">Lander</span>
-          <button ref={landerRef} type="button" onClick={onLander} aria-haspopup="dialog" aria-label={`${lander}. Change`} className="field flex h-auto min-h-[52px] min-w-0 items-center gap-3 py-2 text-left text-base text-ink">
-            {/* The name wraps at every width, not only on a phone: it now carries the lander's name and its numbers, and a cut name would hide the battery.
-                A no-break space keeps each number with its unit, as it keeps "30 %" together, so a line never ends on "200" with the "W" on the next. */}
-            <span className="grow">{lander.replace(/(\d) /g, '$1\u00a0')}</span>
-            <span className={TAG}>change</span>
-          </button>
-        </div>
+        {/* The lander is the period controls' next field, so the row they end with (the shift) comes after it. */}
+        <PeriodControls startUtc={startUtc} days={days} onChange={onWindow}>
+          <div className="flex min-w-0 flex-[1.8_1_250px] flex-col gap-1.5 text-[15px] text-ink-2">
+            <span aria-hidden="true">Lander</span>
+            <button ref={landerRef} type="button" onClick={onLander} aria-haspopup="dialog" aria-label={`${lander}. Change`} className="field flex h-auto min-h-[52px] min-w-0 items-center gap-3 py-2 text-left text-base text-ink">
+              {/* The name wraps at every width, not only on a phone: it now carries the lander's name and its numbers, and a cut name would hide the battery.
+                  A no-break space keeps each number with its unit, as it keeps "30 %" together, so a line never ends on "200" with the "W" on the next. */}
+              <span className="grow">{lander.replace(/(\d) /g, '$1\u00a0')}</span>
+              <span className={TAG}>change</span>
+            </button>
+          </div>
+        </PeriodControls>
       </div>
     </section>
   );

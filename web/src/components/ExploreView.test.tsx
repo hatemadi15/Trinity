@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NO_REQUIREMENTS } from '@/lib/plan/requirements';
+import { comparisonHref } from '@/lib/scenario/codec';
 import { createExploreStore } from '@/lib/store/explore';
+import { createScenarioStore } from '@/lib/store/scenarios';
 import { fileLoaders } from '@/test/file-loaders';
 import { ExploreView } from './ExploreView';
+import { runControl } from '@/lib/luna/controls';
 
 /** The page with the real catalogue and sky; `search` is the address it opens with. */
 async function open(search = '', navigate: (href: string) => void = () => {}) {
@@ -36,7 +40,7 @@ describe('ExploreView', () => {
     await open();
     const panel = screen.getByRole('region', { name: 'The answer' });
     expect(panel.textContent).toMatch(/No radio contact: Earth is out of view for all 3 days 4 hours with power\./);
-    await waitFor(() => expect(panel.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days from the same landing day\./), { timeout: 20_000 });
+    await waitFor(() => expect(panel.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away, unchecked for landing\) keeps power for all 30 days from the same landing day\./), { timeout: 20_000 });
     expect(within(panel).getByRole('link', { name: 'Explore de Gerlache rim summit' }).getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
   });
 
@@ -91,11 +95,45 @@ describe('ExploreView', () => {
     expect(within(screen.getByRole('region', { name: 'The ground' })).getByRole('link', { name: 'Stand at the site' }).getAttribute('href')).toBe(stand);
   });
 
-  it('lands on the better date when its button is pressed', async () => {
+  it('lands on the better date when its button is pressed, and the boxes show its hour', async () => {
     const { store } = await open();
     fireEvent.click(screen.getByRole('button', { name: /^Land on 20 January/ }));
     expect(store.getState().startUtc).toBe('2027-01-20T10:00:00');
     await waitFor(() => expect(heading()).toMatch(/12 days 15 hours/));
+    expect([(screen.getByLabelText('From') as HTMLInputElement).value, (screen.getByLabelText('Landing time, UTC') as HTMLInputElement).value]).toEqual(['2027-01-20', '10:00']);
+  });
+
+  it('evaluates seven days from 17:00 UTC through the boxes, shifts it five days, and keeps it all in the address', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30#ask');
+    // The address the visit came with is applied first, then follows the period, its hash kept.
+    expect(window.location.search).toBe('?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    fireEvent.change(screen.getByLabelText('Landing time, UTC'), { target: { value: '17:00' } });
+    fireEvent.change(screen.getByLabelText('For'), { target: { value: '7' } });
+    expect([store.getState().startUtc, store.getState().days, store.getState().series?.hours]).toEqual(['2027-01-01T17:00:00', 7, 7 * 24]);
+    await waitFor(() => expect(window.location.search).toBe('?site=de_gerlache_rim_2&start=2027-01-01T17:00&days=7'));
+    expect(window.location.hash).toBe('#ask');
+    const band = screen.getByRole('region', { name: 'What this forecast is for' });
+    fireEvent.click(within(band).getByRole('button', { name: 'Shift by…' }));
+    fireEvent.change(within(band).getByLabelText('Shift by'), { target: { value: '5' } });
+    fireEvent.click(within(band).getByRole('button', { name: '5 days later' }));
+    expect([store.getState().startUtc, store.getState().days]).toEqual(['2027-01-06T17:00:00', 7]);
+    await waitFor(() => expect(window.location.search).toBe('?site=de_gerlache_rim_2&start=2027-01-06T17:00&days=7'));
+    // The time bar starts at the landing, in UTC.
+    expect(screen.getByRole('region', { name: 'Time' }).textContent).toMatch(/6 Jan 2027, 17:00 UTC/);
+  });
+
+  it('shows every landing day of the next 12 months after the chart, and lands the period on a day pressed there', async () => {
+    const { store } = await open();
+    const year = screen.getByRole('region', { name: 'Every landing day of the next 12 months' });
+    // After the hour-by-hour chart and before the ground, so the first screen keeps the answer and the chart's title.
+    expect(screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' }).compareDocumentPosition(year) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(year.compareDocumentPosition(screen.getByRole('region', { name: 'The ground' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(await within(year).findByRole('button', { name: /^Land 14 March 2027, 00:00 UTC/ }, { timeout: 20_000 }));
+    expect(store.getState().startUtc).toBe('2027-03-14T00:00:00');
+    await waitFor(() => expect(heading()).toMatch(/ on 14 March: /));
+    // The year stays where it was, with the day now shown marked, and the page keeps its one gold action.
+    expect(within(year).getByRole('button', { current: 'date' }).getAttribute('aria-label')).toMatch(/^Land 14 March 2027/);
+    expect(screen.getByRole('main').querySelectorAll('.btn-primary')).toHaveLength(1);
   });
 
   it('offers Compare as the gold action when no date in the period does better', async () => {
@@ -110,6 +148,23 @@ describe('ExploreView', () => {
     expect(store.getState().compareIds).toContain('shackleton_center_rim_high');
   });
 
+  it('compares from here: the landing shown, with every setting, becomes a comparison’s baseline and Compare opens on it', async () => {
+    const navigate = vi.fn();
+    window.history.replaceState({}, '', '/explore');
+    const loaders = fileLoaders();
+    const store = createExploreStore(loaders);
+    const scenarios = createScenarioStore(store, loaders);
+    render(<ExploreView store={store} scenarios={scenarios} navigate={navigate} />);
+    await waitFor(() => expect(heading()).toMatch(/de Gerlache Rim\s2 on 1 January/), { timeout: 20_000 });
+    fireEvent.click(screen.getByRole('button', { name: 'Compare from here' }));
+    expect(scenarios.getState().scenarios).toMatchObject([{ label: 'Original landing', siteId: 'de_gerlache_rim_2', startUtc: '2027-01-01T00:00:00', days: 30, mastM: 2, minEarthElDeg: 0 }]);
+    expect(navigate).toHaveBeenCalledWith(comparisonHref(scenarios.getState().scenarios));
+    // With requirements set, Compare opens on a link that carries them, so its address can be sent on as it is.
+    act(() => store.getState().setRequirements({ minPoweredH: 120 }));
+    fireEvent.click(screen.getByRole('button', { name: 'Compare from here' }));
+    expect(navigate).toHaveBeenLastCalledWith(comparisonHref(scenarios.getState().scenarios, '/compare', { ...NO_REQUIREMENTS, minPoweredH: 120 }));
+  });
+
   it('puts the answer first and the time bar last, and names every region', async () => {
     await open();
     const names = ['Why: the 30 days, hour by hour', 'The ground', 'Where on the Moon', 'Ask in plain words'];
@@ -119,6 +174,17 @@ describe('ExploreView', () => {
     }
     const slider = screen.getByRole('slider', { name: 'Time' });
     expect(regions[regions.length - 1].compareDocumentPosition(slider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('puts the radio windows after the chart and before the ground, following the time bar’s hour', async () => {
+    const { store } = await open();
+    const radio = screen.getByRole('region', { name: 'Radio windows' });
+    const chart = screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' });
+    expect(chart.compareDocumentPosition(radio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(radio.compareDocumentPosition(screen.getByRole('region', { name: 'The ground' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(radio).getByTestId('radio-next').textContent).toBe('Next window opens 10 Jan, 03:00 UTC, in 9 d 3 h, and lasts 13 d 12 h');
+    act(() => store.getState().setCursor(300));
+    await waitFor(() => expect(within(radio).getByTestId('radio-next').textContent).toBe('This window closes 23 Jan, 15:00 UTC, in 10 d 3 h'));
   });
 
   it('moves the time from the keyboard and says what is happening at that hour', async () => {
@@ -142,6 +208,16 @@ describe('ExploreView', () => {
     fireEvent.click(within(bar).getByRole('button', { name: /^Next: Sunset, 3 Jan/ }));
     expect(store.getState().cursorHour).toBe(67);
     await waitFor(() => expect(bar.textContent).toMatch(/Sun behind a hill/));
+  });
+
+  it('lends Luna the better day, which lands there as the gold button does (spec 22)', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    let said: ReturnType<typeof runControl>;
+    act(() => {
+      said = runControl('better-day');
+    });
+    expect(said!.said).toBe('Land on 20 January instead');
+    await waitFor(() => expect(store.getState().startUtc).toBe('2027-01-20T10:00:00'));
   });
 
   it('opens the lander settings from the band and applies a preset', async () => {
