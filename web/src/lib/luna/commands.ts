@@ -139,7 +139,7 @@ const SPOKEN_NAMES: [RegExp, string][] = [
 ];
 
 /** "the 20th of January" and "January the 20th", as the planner's dates read: "20th January", "January 20th". */
-function tidyDates(t: string): string {
+export function tidyDates(t: string): string {
   return t.replace(/\b(?:the )?(\d{1,2}(?:st|nd|rd|th)) of ([a-z]+)/g, '$1 $2').replace(/\b([a-z]+) the (\d{1,2}(?:st|nd|rd|th))\b/g, '$1 $2');
 }
 
