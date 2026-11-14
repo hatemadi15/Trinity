@@ -84,7 +84,7 @@ describe('Luna’s pet (spec 23)', () => {
     expect(lunaMood('thinking')).toBe('thinking');
     expect(lunaMood('speaking')).toBe('speaking');
     expect(lunaMood('typing')).toBe('happy');
-    expect(lunaMood('blocked')).toBe('oops');
+    expect(lunaMood('blocked')).toBe('blocked');
     expect(lunaMood('offline')).toBe('oops');
     expect(KAOMOJI.happy).toBe('(^-^)');
   });

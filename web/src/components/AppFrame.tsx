@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { BrandMark } from './BrandMark';
 import { DemoModeGate } from './DemoModeGate';
 import { LunaButton } from './luna/LunaButton';
+import { LunaDock } from './luna/LunaDock';
 import { NavLinks } from './NavLinks';
 import { StarBand } from './StarBand';
 import { ThemeSwitch } from './ThemeSwitch';
@@ -48,6 +49,8 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           <p>Terrain: NASA Lunar Reconnaissance Orbiter laser altimeter (LOLA). Sun and Earth positions: NASA JPL DE440. Cross-check: JPL Horizons.</p>
         </div>
       </footer>
+      {/* Luna's 3D self, at the lower left of every page with this frame (spec 23). */}
+      <LunaDock />
     </div>
   );
 }
