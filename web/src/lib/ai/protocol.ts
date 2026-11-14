@@ -1,13 +1,15 @@
 import { ACTION_TYPES, type Action } from './actions';
-import type { StateSummary } from './state-summary';
+import { stateForModel, type StateSummary } from './state-summary';
 
 export type ChatSource = 'model' | 'cache' | 'intent' | 'none';
 
-/** The brief's paragraph: the model's words when every number checked out, else the deterministic template. */
+/** The brief's paragraph: the model's words when every claim in them held against the state, else the deterministic template. */
 export interface NarrationReply {
   source: 'model' | 'template';
-  /** Why the template was used: the numbers failed the check, no key is configured, demo mode, or the model did not answer. */
+  /** Why the template was used: the model's claims failed the check ('numbers'), no key is configured, demo mode, or the model did not answer. */
   reason?: 'numbers' | 'no-key' | 'cached' | 'model-error';
+  /** With 'numbers': the first things the check found, in plain words ('"67 %" for sunlight, where the figures say 100 %'). */
+  problems?: string[];
   model?: string;
   reply: string;
 }
@@ -66,7 +68,7 @@ Rules:
 
 /** The user turn: the compact app state (or a note that nothing is selected) and the question. */
 export function userPrompt(prompt: string, state: StateSummary | null): string {
-  const stateText = state ? JSON.stringify(state, null, 1) : 'No site is selected yet (the app is still loading or on a page without a site).';
+  const stateText = state ? JSON.stringify(stateForModel(state), null, 1) : 'No site is selected yet (the app is still loading or on a page without a site).';
   return `STATE:\n${stateText}\n\nQUESTION:\n${prompt}`;
 }
 

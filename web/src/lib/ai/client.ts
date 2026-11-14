@@ -55,7 +55,7 @@ export async function askPlanner(prompt: string, state: StateSummary | null, mod
   };
 }
 
-/** Asks for the brief's narrated paragraph; the server returns the template when the model's numbers do not check out. */
+/** Asks for the brief's narrated paragraph; the server returns the template, and what failed, when the model's claims do not check out. */
 export async function askNarration(state: StateSummary, mode: AiMode, fetchImpl: typeof fetch = fetch): Promise<NarrationReply> {
   const { res, json: body } = await post({ task: 'narrate', prompt: 'Write the mission brief', state, mode }, fetchImpl);
   if (res.status === 429) {
@@ -67,5 +67,6 @@ export async function askNarration(state: StateSummary, mode: AiMode, fetchImpl:
     throw new Error('The planner gave an unexpected answer');
   }
   const reason = body.reason === 'numbers' || body.reason === 'no-key' || body.reason === 'cached' || body.reason === 'model-error' ? body.reason : undefined;
-  return { source: body.source, reason, model: typeof body.model === 'string' ? body.model : undefined, reply: body.reply };
+  const problems = Array.isArray(body.problems) ? body.problems.filter((p): p is string => typeof p === 'string').slice(0, 3) : undefined;
+  return { source: body.source, reason, model: typeof body.model === 'string' ? body.model : undefined, reply: body.reply, ...(problems?.length ? { problems } : {}) };
 }
