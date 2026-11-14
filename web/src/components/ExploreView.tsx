@@ -181,7 +181,6 @@ export function ExploreView({
               standLink={standHref(site.id, s.startUtc, s.days, s.cursorHour)}
               onLand={(start) => s.setWindow(start, s.days)}
               onCompare={onCompare}
-              onScenario={onScenario}
               onYear={() => void store.getState().findBestWindow(s.days)}
               yearNote={s.bestWindowNote}
               sure={sure}
@@ -199,6 +198,12 @@ export function ExploreView({
               startUtc={s.startUtc}
             />
           </div>
+          {/* This landing, every setting with it, as a comparison's baseline: under the answer, outside its word cap. */}
+          <p className="-mt-2">
+            <button type="button" onClick={onScenario} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+              Compare from here
+            </button>
+          </p>
           <TimeChart
             site={site}
             series={s.series}
