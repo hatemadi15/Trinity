@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { summarize, type Series } from '../engine/metrics';
 import { answerFor } from './answer';
 import { hero } from './arrival';
-import { contactPlan, nextRadioChange, outageWords, radioChangeWords, windowUse, windowUseWords } from './contact';
+import { contactPlan, nextRadioChange, outageNote, outageWords, poweredContactWords, radioChangeWords, windowsCountWords, windowUse, windowUseWords } from './contact';
 import { countdown } from './countdown';
 
 /** A series with Earth in view where `earth` says so (the Sun up throughout: only Earth matters here). */
@@ -153,6 +153,45 @@ describe('nextRadioChange', () => {
     expect(radioChangeWords(plan, 1, start)).toBe('This window closes 1 Jan, 03:00 UTC, in 2 h');
     expect(radioChangeWords(plan, 5, start)).toBe('This window stays open to the end of the period');
     expect(radioChangeWords(contactPlan(series([1, 0, 0]), null), 1, start)).toBe('No window opens before the period ends');
+  });
+});
+
+describe('poweredContactWords', () => {
+  it('gives the powered contact from landing, as the answer counts it, and apart from it the hours that need the lander to survive the cold', () => {
+    // The home page's month: none before the battery runs out; 3 d 5 h after the power comes back, if it does.
+    const h = hero();
+    expect(poweredContactWords(contactPlan(h.series, h.power))).toEqual({ value: 'none', note: 'until the battery runs out; 3 d 5 h after, if the lander survives the cold' });
+    // Some before the cut and some after.
+    const s = series([0, 1, 1, 1, 0, 0, 1, 1, 1, 1]);
+    expect(poweredContactWords(contactPlan(s, power([1, 1, 1, 0, 0, 0, 0, 1, 1, 1])))).toEqual({ value: '2 h', note: 'until the battery runs out; 3 h more after, if the lander survives the cold' });
+    // A cut with no power back in the period.
+    expect(poweredContactWords(contactPlan(s, power([1, 1, 0, 0, 0, 0, 0, 0, 0, 0])))).toEqual({ value: '1 h', note: 'until the battery runs out' });
+  });
+
+  it('says when the power never fails, and when Earth is never in view while the lander has power', () => {
+    const s = series([0, 1, 1, 0]);
+    expect(poweredContactWords(contactPlan(s, power([1, 1, 1, 1])))).toEqual({ value: '2 h', note: 'every hour Earth is in view' });
+    expect(poweredContactWords(contactPlan(series([0, 0, 0]), power([1, 1, 1])))).toEqual({ value: 'none', note: 'Earth is never in view' });
+    expect(poweredContactWords(contactPlan(s, power([1, 0, 0, 0])))).toEqual({ value: 'none', note: 'until the battery runs out' });
+  });
+});
+
+describe('windowsCountWords', () => {
+  it('counts the windows; which of them the lander has power in, and on what condition, the list of windows says', () => {
+    expect(windowsCountWords(contactPlan(series([1, 0, 1, 0, 1]), null))).toBe('in 3 windows');
+    expect(windowsCountWords(contactPlan(series([0, 1, 0]), null))).toBe('in 1 window');
+    expect(windowsCountWords(contactPlan(series([0, 0]), null))).toBe('in no window');
+  });
+});
+
+describe('outageNote', () => {
+  it('says where the longest time without Earth lies, and when an edge of the period cuts it short', () => {
+    const start = '2027-01-01T00:00:00';
+    expect(outageNote(contactPlan(series([1, ...new Array<number>(48).fill(0), 1]), null).longestOutage, start)).toBe('1 Jan to 3 Jan');
+    expect(outageNote(contactPlan(series([0, 0, 1]), null).longestOutage, start)).toBe('from the start of the period');
+    expect(outageNote(contactPlan(series([1, 0, 0]), null).longestOutage, start)).toBe('to the end of the period');
+    expect(outageNote(contactPlan(series([0, 0]), null).longestOutage, start)).toBe('the whole period');
+    expect(outageNote(null, start)).toBe('Earth never leaves the view');
   });
 });
 

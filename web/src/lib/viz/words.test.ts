@@ -15,7 +15,11 @@ import { DEFAULT_PARAMS } from '@/lib/store/explore';
 import { summarize } from '@/lib/engine/metrics';
 import { DEFAULT_POWER } from '@/lib/engine/power';
 import { HOME } from '@/lib/data/home';
+import { CountdownLine } from '@/components/explore/CountdownLine';
+import { RadioWindows } from '@/components/explore/RadioWindows';
 import { answerFor } from './answer';
+import { contactPlan, outageNote, poweredContactWords, radioChangeWords, windowUseWords } from './contact';
+import { countdown, countdownWords } from './countdown';
 import { arrivalWords, hero } from './arrival';
 import { heightWords } from './shadowmap';
 import { statusSentence } from './status';
@@ -132,6 +136,23 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
       expect(momentCaption(k, h2.series, at, h2.site.lat)).not.toMatch(/\brock/);
     }
     expect(viewCaption('earth', -88.28)).not.toMatch(/\brock/);
+  });
+
+  it('words the countdown, the radio windows and the Sun’s height the same way, at every hour of the month', () => {
+    const plan = contactPlan(s, p);
+    for (let hour = 0; hour < s.hours; hour++) {
+      check(`countdown ${hour}`, countdownWords(countdown(s, 'sun', hour)));
+      check(`countdown ${hour}`, countdownWords(countdown(s, 'earth', hour), 'the end of the period'));
+      check(`radio ${hour}`, radioChangeWords(plan, hour, start));
+    }
+    for (const w of plan.windows) check('window', windowUseWords(w));
+    check('powered contact', Object.values(poweredContactWords(plan)).join(' '));
+    check('outage', outageNote(plan.longestOutage, start));
+    for (const el of [createElement(RadioWindows, { series: s, power: p, startUtc: start, hour: 30 }), createElement(CountdownLine, { series: s, hour: 30 })]) {
+      const { container, unmount } = render(el);
+      check('radio windows', textOf(container));
+      unmount();
+    }
   });
 
   it('words the arrival and the forecast’s answer the same way', () => {

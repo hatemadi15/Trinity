@@ -51,6 +51,8 @@ export interface ContactPlan {
   sureHours: number;
   /** The first hour with power again after the first power cut; null when the power never fails, or never comes back. */
   ifSurvivesFrom: number | null;
+  /** The first hour without power (the battery's first run-out); null when the power never fails or is not known. */
+  firstCut: number | null;
 }
 
 /** The first hour with power again after the first power cut, or null. */
@@ -92,7 +94,27 @@ export function contactPlan(series: Series, power: Pick<PowerResult, 'powered' |
     if (to > from && (!longestOutage || to - from > longestOutage.hours)) longestOutage = { start: from, end: to, hours: to - from, fromStart: from === 0, toEnd: to === n };
     from = next;
   }
-  return { hours: n, windows, totalHours: windows.reduce((sum, w) => sum + w.hours, 0), longestOutage, poweredHours, sureHours, ifSurvivesFrom: revived };
+  return { hours: n, windows, totalHours: windows.reduce((sum, w) => sum + w.hours, 0), longestOutage, poweredHours, sureHours, ifSurvivesFrom: revived, firstCut: power?.firstBrownoutHour ?? null };
+}
+
+/**
+ * The powered contact for a figure: the value is the hours with Earth in view from landing until the battery first runs
+ * out (the answer's and the numbers card's "radio contact while it has power"), the note what bounds it and, apart from
+ * it, the hours after the power comes back, which hold only if the lander survives the cold: "none", "until the battery
+ * runs out; 3 d 5 h after, if the lander survives the cold".
+ */
+export function poweredContactWords(plan: ContactPlan): { value: string; note: string } {
+  const value = plan.sureHours > 0 ? spanShort(plan.sureHours) : 'none';
+  if (plan.totalHours === 0) return { value, note: 'Earth is never in view' };
+  if (plan.firstCut === null) return { value, note: 'every hour Earth is in view' };
+  const later = plan.poweredHours - plan.sureHours;
+  return { value, note: later > 0 ? `until the battery runs out; ${spanShort(later)} ${plan.sureHours > 0 ? 'more ' : ''}after, if the lander survives the cold` : 'until the battery runs out' };
+}
+
+/** How many windows the period's hours with Earth in view fall in, for the note under their total: "in 3 windows". */
+export function windowsCountWords(plan: ContactPlan): string {
+  const n = plan.windows.length;
+  return n === 0 ? 'in no window' : `in ${n} window${n === 1 ? '' : 's'}`;
 }
 
 /** How much of a window the lander has power for: all of it, part, only if it survives the cold after a power cut, or none. */
@@ -160,6 +182,18 @@ export function radioChangeWords(plan: ContactPlan, hour: number, startUtc: stri
   const c = nextRadioChange(plan, hour);
   if (!c) return windowAt(plan, hour) ? 'This window stays open to the end of the period' : 'No window opens before the period ends';
   return `${c.kind === 'opens' ? 'Next window opens' : 'This window closes'} ${whenUtc(startUtc, c.at)}, in ${spanShort(c.inHours)}`;
+}
+
+/**
+ * Where the longest time without Earth lies, for the note under it: its days ("4 Jan to 10 Jan"), or, when an edge of the
+ * period cuts it, that edge, as it may have begun earlier or go on later.
+ */
+export function outageNote(o: Outage | null, startUtc: string): string {
+  if (!o) return 'Earth never leaves the view';
+  if (o.fromStart && o.toEnd) return 'the whole period';
+  if (o.fromStart) return 'from the start of the period';
+  if (o.toEnd) return 'to the end of the period';
+  return `${dayMonth(startUtc, o.start)} to ${dayMonth(startUtc, o.end)}`;
 }
 
 /** The longest time without Earth for a card: "16 d 12 h", "at least 9 d 3 h" when an edge of the period cuts it, or "none". */
