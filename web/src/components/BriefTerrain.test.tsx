@@ -35,6 +35,7 @@ describe('the brief says what the terrain behind it is', () => {
     await waitFor(() => expect(store.getState().maskMeta?.mastM).toBe(5), { timeout: 20_000 });
     await waitFor(() => expect(method()).toMatch(/^How this was computedSite height 190 m with a 5 m mast; hills worked out in your browser from NASA elevation data, from a 5 m mast \(tiles cut 12 November 2026\)/));
     expect(method()).toMatch(/Terrain complete: terrain found at every step along 720 directions out to 220 km\./);
+    expect(method()).toMatch(/to 0\.00003°\)\. The hills on the horizon are traced through NASA LRO LOLA elevation grids/);
     expect(verdict()).toMatch(/From 20 January, 10:00 UTC: power for 12 days 15 hours in a row\./);
   });
 

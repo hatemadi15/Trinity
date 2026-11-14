@@ -195,6 +195,7 @@ export function BriefView({
         <p>
           Site height {s.maskMeta?.siteHeightM.toFixed(0)} m with a {mast} m mast; {provenance}
           {s.site.approximate ? '; the site is the centre of a region drawn on NASA’s map (about ±5 km)' : ''}. The Sun&apos;s and Earth&apos;s directions come from the JPL DE440 ephemeris (an hourly table, checked against JPL Horizons to 0.00003°).
+          {' '}
           {s.maskMeta?.source === 'flat' ? 'No hills are traced here: the horizon is taken as flat' : `The hills on the horizon are traced through NASA LRO LOLA elevation grids (20 m within 6 km, 80 m to 100 km, 240 m to 220 km) from a ${mast} m mast`}; the Sun counts as up when any part of it clears the hills. Power is the
           panel&apos;s share of 1361 W/m² at the Moon&apos;s distance from the Sun, times the part of the Sun in view; the battery charges with the surplus and empties on the deficit, hour by hour.
           Errors: directions under 0.01°, the hills 0.05 to 0.15°, times within 15 to 60 minutes near the pole.
