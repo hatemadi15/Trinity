@@ -14,6 +14,7 @@ import { ScenarioTable } from './compare/ScenarioTable';
 import { columnsOf } from './compare/columns';
 import { LanderDialog } from './explore/LanderDialog';
 import { siteLabel } from '@/lib/data/loaders';
+import type { VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { comparisonHref, readComparison, SCENARIO_MAX } from '@/lib/scenario/codec';
 import { fileName, scenarioFile } from '@/lib/scenario/file';
@@ -33,7 +34,16 @@ const EXAMPLE_SLIP_H = 5 * 24;
  * the alternative that works better and its trade-offs, the scenarios, then every setting and figure side by side with
  * the change from the baseline. The address carries the whole comparison.
  */
-export function CompareView({ store = exploreStore, scenarios = scenarioStore }: { store?: StoreApi<ExploreState>; scenarios?: StoreApi<ScenarioState> }) {
+export function CompareView({
+  store = exploreStore,
+  scenarios = scenarioStore,
+  terrainVersions,
+}: {
+  store?: StoreApi<ExploreState>;
+  scenarios?: StoreApi<ScenarioState>;
+  /** Injected in tests; by default each site's data/ensemble file and the versions' worker. */
+  terrainVersions?: VersionsDeps;
+}) {
   const s = useStore(store);
   const sc = useStore(scenarios);
   useDemoMode(store);
@@ -186,7 +196,7 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
                 ))}
               </div>
               <div className="panel">
-                <ScenarioTable cols={cols} runs={sc.runs} onUseBest={(id) => act.useSiteBest(id)} requirements={s.requirements} />
+                <ScenarioTable cols={cols} runs={sc.runs} onUseBest={(id) => act.useSiteBest(id)} requirements={s.requirements} versions={terrainVersions} />
                 {/* DE440 gives every figure, and LOLA the hills on the grids of the sites compared. */}
                 <Sources of={['de440', ...lolaFor(...cols.map((c) => c.site))]} />
               </div>

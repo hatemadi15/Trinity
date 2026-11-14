@@ -48,8 +48,9 @@ function Figure({ value, change, tone, checks, checksId, checksOpen }: Cell & { 
 }
 
 /**
- * The name of the row of your requirements, as the switch that opens each scenario's checks in its column: the count
- * of those failed shows first, the checks themselves one tap away, so the full comparison keeps to its words.
+ * The name of a row, as the switch that opens what each scenario's cell keeps one tap away: in the row of your
+ * requirements, the count of those failed shows first and the checks open; the terrain versions' row opens whole. So
+ * the full comparison keeps to its words.
  */
 function ChecksSwitch({ name, open, controls, onToggle }: { name: string; open: boolean; controls: string; onToggle: () => void }) {
   return (
@@ -86,6 +87,9 @@ export function ScenarioTable({
   const id = useId();
   const [checksOpen, setChecksOpen] = useState(false);
   const checksId = (i: number) => `${id}-checks-${i}`;
+  // The terrain versions' row shows its name only: each scenario's versions are one tap on it away.
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const versionsId = (i: number) => `${id}-versions-${i}`;
   const pending = (i: number) => {
     const r = runs[cols[i].scenario.id];
     return r?.status === 'error' ? 'cannot be worked out' : 'working out…';
@@ -155,11 +159,13 @@ export function ScenarioTable({
             ))}
             <tr>
               <th scope="row" className={HEAD}>
-                Terrain versions
+                <ChecksSwitch name="Terrain versions" open={versionsOpen} controls={cols.map((_, i) => versionsId(i)).join(' ')} onToggle={() => setVersionsOpen((v) => !v)} />
               </th>
-              {cols.map((c) => (
+              {cols.map((c, i) => (
                 <td key={c.scenario.id} className={`${CELL} text-[15px]`}>
-                  <VersionsCell col={c} run={runs[c.scenario.id]} requirements={requirements} deps={versions} />
+                  <div id={versionsId(i)} hidden={!versionsOpen}>
+                    <VersionsCell col={c} run={runs[c.scenario.id]} requirements={requirements} deps={versions} />
+                  </div>
                 </td>
               ))}
             </tr>

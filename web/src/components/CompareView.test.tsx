@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { VersionsClient } from '@/lib/ensemble/client';
+import { readJson } from '@/lib/engine/__tests__/helpers';
 import { NO_REQUIREMENTS } from '@/lib/plan/requirements';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { scenarioFile } from '@/lib/scenario/file';
@@ -305,6 +307,29 @@ describe('CompareView', () => {
     const main = screen.getByRole('main');
     // Three scenarios side by side, with the kind of every point and the caveat on the alternative: the rest is folded.
     for (const width of [WIDE, PHONE]) expect(visibleWords(main, width).length).toBeLessThanOrEqual(750);
+  });
+
+  it('keeps each scenario’s terrain versions one tap on the row’s name away', async () => {
+    const st = stores();
+    // Three versions of each site's ground, each the site's own skyline: every version gives the app's own verdict.
+    const mask = (id: string) => Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'masks', `${id}.json`).elevation_deg);
+    const versions = { load: async (id: string) => ({ siteId: id, mastM: 2, adjusted: mask(id), masks: [mask(id), mask(id), mask(id)] }), runner: new VersionsClient() };
+    render(<CompareView store={st.explore} scenarios={st.scenarios} terrainVersions={versions} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeTruthy(), { timeout: 20_000 });
+    fireEvent.click(screen.getByRole('button', { name: /Our landing slipped by five days/ }));
+    await waitFor(() => expect(st.scenarios.getState().scenarios).toHaveLength(3), { timeout: 20_000 });
+    await st.scenarios.getState().settle();
+    await screen.findByRole('table');
+    const cells = () => Array.from(within(table()).getByRole('rowheader', { name: 'Terrain versions' }).parentElement!.querySelectorAll('td')).map((td) => visibleWords(td, WIDE).join(' '));
+    // Closed, the row gives its name only, so the comparison keeps to its words.
+    expect(cells()).toEqual(['', '', '']);
+    const toggle = within(table()).getByRole('button', { name: 'Terrain versions' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    await waitFor(() => expect(cells()).toEqual(['3 of 3 keep its verdict power 3 d 4 h', '3 of 3 keep its verdict power 10 h', '3 of 3 keep its verdict power all 30 days']), { timeout: 20_000 });
+    fireEvent.click(toggle);
+    expect(cells()).toEqual(['', '', '']);
   });
 
   it('names its NASA data', async () => {
