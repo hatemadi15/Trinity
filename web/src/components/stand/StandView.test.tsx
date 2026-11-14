@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { earthLitFraction } from '@/lib/sky/earth';
 import { dirAzEl } from '@/lib/sky/frames';
 import type { SkyLabels } from '@/lib/sky/standRenderer';
+import { DataError } from '@/lib/data/loaders';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
 import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
@@ -1519,4 +1520,21 @@ describe('StandView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Face the Sun' }));
     await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toBe(RESIDENT_LINE));
   }, 60_000);
+});
+
+describe('StandView when a file is missing', () => {
+  it('says the data did not load, rather than building the ground for ever, when the site’s horizon file is missing', async () => {
+    window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=0');
+    const store = createExploreStore(
+      fileLoaders({
+        loadMask: async (id) => {
+          throw new DataError(`/data/masks/${id}.json`, 404);
+        },
+      }),
+    );
+    render(<StandView store={store} createRenderer={() => stub()} />);
+    expect(await screen.findByText(/The data for this view did not load\./, {}, { timeout: 20_000 })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore');
+    expect(screen.queryByText('Building the ground from NASA heights…')).toBeNull();
+  }, 30_000);
 });
