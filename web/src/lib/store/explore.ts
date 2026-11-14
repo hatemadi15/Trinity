@@ -12,7 +12,7 @@ import { etToIso, utcToEt } from '../engine/time';
 import { periodDays, periodProblem, snapToHour } from '../period';
 import { clockUtc, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
-import { yearOptions, type Recommendation, type YearChoice } from '../plan/options';
+import { timeOptions, yearOptions, type LandingTime, type Recommendation, type YearChoice } from '../plan/options';
 import { periodOutcome, type Outcome } from '../plan/outcome';
 import { checksWords, NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
 import { yearRuleWords } from '../plan/rank';
@@ -251,6 +251,15 @@ const scans = new WeakMap<Series, Series>();
 /** The longer series a period's landing search scanned (`recompute` keeps it); a series no search was run on is its own. */
 export function scanOf(series: Series): Series {
   return scans.get(series) ?? series;
+}
+
+/**
+ * The period's landing times ranked with the requirements (lib/plan `timeOptions`), each tried for a stay as long as
+ * the period: Explore, the brief and the view from the site name their better date from it, so all three name the
+ * same one. Null before a period is worked out.
+ */
+export function periodPlan({ series, params, requirements, startUtc }: Pick<ExploreState, 'series' | 'params' | 'requirements' | 'startUtc'>): Recommendation<LandingTime> | null {
+  return series ? timeOptions({ scan: scanOf(series), cfg: params.power, req: requirements, hours: series.hours, startUtc }) : null;
 }
 
 export function recompute(

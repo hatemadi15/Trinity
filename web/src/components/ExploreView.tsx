@@ -27,9 +27,9 @@ import { briefHref, standHref, withSettings } from '@/lib/links';
 import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
 import { useDataVersions } from '@/lib/hooks/useDataVersions';
 import { appVersion } from '@/lib/share/versions';
-import { COMPARE_MAX, exploreStore, scanOf, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, periodPlan, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { neighbourhoodRange, rangeWords } from '@/lib/plan/neighbourhood';
-import { placeOptions, timeOptions } from '@/lib/plan/options';
+import { placeOptions } from '@/lib/plan/options';
 import { periodOutcome } from '@/lib/plan/outcome';
 import { requirementCount } from '@/lib/plan/requirements';
 import { answerFor, nearbyWords, planView, spotSite } from '@/lib/viz/answer';
@@ -144,10 +144,10 @@ export function ExploreView({
   // The terrain behind the figures, and whether they are still from another mast height than the one chosen.
   const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
   const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
-  // The period's landing times, ranked with the requirements: the better date comes from here.
+  // The period's landing times, ranked with the requirements: the better date comes from here, as on the brief and the view from the site.
   const times = useMemo(
-    () => (s.series && s.site ? timeOptions({ scan: scanOf(s.series), cfg: s.params.power, req: s.requirements, hours: s.series.hours, startUtc: s.startUtc }) : null),
-    [s.series, s.site, s.params.power, s.requirements, s.startUtc],
+    () => (s.site ? periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc }) : null),
+    [s.series, s.site, s.params, s.requirements, s.startUtc],
   );
   const current = useMemo(() => (s.series && s.power ? periodOutcome(s.series, s.power) : null), [s.series, s.power]);
   const hood = s.neighbourhood && s.site && s.neighbourhood.siteId === s.site.id ? s.neighbourhood : null;

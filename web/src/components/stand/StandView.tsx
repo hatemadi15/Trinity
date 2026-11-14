@@ -21,9 +21,10 @@ import { dirAzEl } from '@/lib/sky/frames';
 import { LANDER } from '@/lib/sky/landerShape';
 import { eyeAt, lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
-import { COMPARE_MAX, exploreStore, seenFrom, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, periodPlan, seenFrom, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
+import { trustedAnswer } from '@/lib/viz/terrain';
 import { dateLong, dayMonth } from '@/lib/viz/format';
 import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyCountdown, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
@@ -225,8 +226,11 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     };
   }, [store]);
 
-  // Once the address it opened with is applied, the settings in it follow a change of lander made here.
-  useSettingsInAddress(s.params, openHour !== null);
+  // Once the address it opened with is applied, the settings in it follow a change of lander made here, and the
+  // requirements with them.
+  useSettingsInAddress(s.params, openHour !== null, s.requirements);
+  // The period's landing times ranked with the requirements, as Explore ranks them, so the better day is Explore's.
+  const times = useMemo(() => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc }), [s.series, s.params, s.requirements, s.startUtc]);
 
   const scene = useMemo<StandScene | null>(() => {
     if (openHour === null || !sky || !s.site || !s.series || !s.mask) return null;
@@ -352,7 +356,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const site = s.site, series = s.series, power = s.power;
   const hour = Math.min(series.hours - 1, Math.max(0, s.cursorHour));
   const name = siteLabel(site);
-  const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, farSide: s.site.far_side, panel: s.params.power.panel });
+  // No better day from an incomplete terrain, or from figures still waiting for the chosen mast, as on Explore.
+  const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
+  const answer = trustedAnswer(
+    answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, plan: times, farSide: s.site.far_side, panel: s.params.power.panel }),
+    s.maskMeta ? terrainOf(s.maskMeta) : undefined,
+    behind,
+  );
   // The headline gives both verdicts the challenge asks for, power and radio contact with Earth, and how long
   // the night lasts; the site's name leads the moment's state at the plate's foot and the card's line on where you
   // stand, kept on one line ("de Gerlache Rim 2", never "Rim / 2").
@@ -364,14 +374,16 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // With the battery's level while it has power, as the forecast page gives it.
   const lander = statusLine(series, power, s.startUtc, hour, s.params.power.batteryWh);
   // The better landing day opens its own view, from its first hour; the button says why it is better: the power and
-  // the radio, in today's card and in the next step's row alike (18.3); a phone's chip gives the power alone.
+  // the radio from that landing, in today's card and in the next step's row alike (18.3); a phone's chip gives the
+  // power alone.
+  const betterOutcome = answer.better && times?.better ? times.better.outcome : null;
   const better =
-    answer.better && s.best
+    answer.better && betterOutcome
       ? {
-          label: betterLabel(dateLong(s.startUtc, answer.better.hour), s.best.poweredHours, s.best.poweredHours * s.best.earthFraction),
-          chip: betterChip(dayMonth(s.startUtc, answer.better.hour), s.best.poweredHours),
+          label: betterLabel(dateLong(s.startUtc, answer.better.hour), betterOutcome.poweredH, betterOutcome.poweredContactH),
+          chip: betterChip(dayMonth(s.startUtc, answer.better.hour), betterOutcome.poweredH),
           startUtc: answer.better.startUtc,
-          href: `${withSettings(standHref(site.id, answer.better.startUtc, s.days, 0), s.params)}${quality === 'fast' ? '&quality=fast' : ''}`,
+          href: `${withSettings(standHref(site.id, answer.better.startUtc, s.days, 0), s.params, s.requirements)}${quality === 'fast' ? '&quality=fast' : ''}`,
         }
       : null;
   // The better landing day, in place: the same lander and drawing, the new period, and the view opening again
@@ -624,7 +636,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     Compare sites
                   </button>
                 )}
-                <ChangeWays dateHref={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params)} onLander={openLander} onCompare={better ? compare : undefined} />
+                <ChangeWays dateHref={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements)} onLander={openLander} onCompare={better ? compare : undefined} />
               </div>
               {/* Last, the moment's state: the lander's power and radio for the hour, down by the time it describes at the
                   plate's foot, not in the time bar, which is Explore's too and where 60 to 90 characters beside the date would
@@ -721,7 +733,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
                     Change site
                   </Link>
-                  <Link href={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
+                  <Link href={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
                     Change date
                   </Link>
                   <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">

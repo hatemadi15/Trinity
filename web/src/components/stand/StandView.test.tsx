@@ -1172,6 +1172,19 @@ describe('StandView', () => {
     expect(document.querySelector('a[data-chip]')).toBeTruthy();
   });
 
+  it('names the same better day as Explore when the address sets requirements, with that landing’s own power and radio', async () => {
+    // Shackleton rim summit keeps power all 30 days from 1 January, but Earth is out of view at that landing.
+    await open('?site=shackleton_center_rim_high&start=2027-01-01&days=30&hour=10&earthby=0');
+    await firstStep();
+    openCard();
+    const card = document.getElementById('stand-card')!;
+    const better = within(card).getByRole('link', { name: /^Try 10 January instead: power for 22\sdays\s16\shours, radio for 13\sdays\s10\shours$/ });
+    // Its view, the way back to Explore and the address keep the requirement.
+    expect(better.getAttribute('href')).toBe('/explore/stand?site=shackleton_center_rim_high&start=2027-01-10T09:00&days=30&hour=0&earthby=0');
+    expect(within(card).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=shackleton_center_rim_high&start=2027-01-01&days=30&earthby=0');
+    expect(window.location.search).toBe('?site=shackleton_center_rim_high&start=2027-01-01&days=30&hour=10&earthby=0');
+  });
+
   it('shows no chip when no landing day is better', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-20&days=30&hour=10');
     expect(document.querySelector('a[data-chip]')).toBeNull();
