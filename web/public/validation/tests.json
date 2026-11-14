@@ -1,10 +1,41 @@
 {
- "generated_utc": "2026-11-12T11:47:57Z",
+ "generated_utc": "2026-11-14T12:06:05Z",
+ "build": {
+  "commit": "77ca0ec3aa11af0e881e1a502cdeb6bd737c1992",
+  "dirty": false,
+  "changed": 0
+ },
  "web": {
-  "files": 138,
-  "tests": 1514
+  "files": 146,
+  "tests": 1583,
+  "passed": 1583,
+  "skipped": 0,
+  "failed": 0,
+  "seconds": 165
  },
  "pipeline": {
-  "tests": 134
- }
+  "tests": 147,
+  "passed": 147,
+  "skipped": 0,
+  "failed": 0,
+  "seconds": 19.916
+ },
+ "data": {
+  "version": "2026-11-14-a120b7a9",
+  "parts": {
+   "core": "complete",
+   "sky": "complete",
+   "validation": "complete",
+   "tiles": "complete",
+   "terrain": "complete",
+   "globe": "complete",
+   "fixtures": "complete"
+  },
+  "downloads": {
+   "kernels": true,
+   "lola": true,
+   "illumination": true
+  }
+ },
+ "node": "v22.22.0"
 }
