@@ -15,7 +15,7 @@ async function setup(at = '/explore') {
   const store = createExploreStore(fileLoaders());
   await store.getState().init();
   const plan = createPlanStore({ explore: store, masks: createMaskSource(fileLoaders()), client: () => new PlanClient() });
-  const deps: LunaDeps = { store, plan, navigate: vi.fn(), path: () => at, ask: vi.fn(async () => ({ source: 'none' as const, actions: [], reply: '' })), setTheme: vi.fn(), turnOff: vi.fn() };
+  const deps: LunaDeps = { store, plan, navigate: vi.fn(), path: () => at, ask: vi.fn(async () => ({ source: 'none' as const, actions: [], reply: '' })), setTheme: vi.fn(), turnOff: vi.fn(), setVoice: vi.fn() };
   return { store, plan, deps };
 }
 

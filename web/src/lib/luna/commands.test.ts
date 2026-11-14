@@ -93,6 +93,20 @@ describe('Luna’s commands', () => {
     for (const t of ['Luna', 'hey Luna', 'Luna?']) expect(parse(t), t).toEqual({ kind: 'hello' });
   });
 
+  it('turns her voice off and on again, as the switch in her panel does', () => {
+    for (const t of ['be quiet', 'mute', 'Luna, be quiet', 'please be quiet', 'can you be quiet', 'keep quiet', 'mute yourself', 'stop talking', 'stop speaking', 'turn off your voice', 'voice off']) {
+      expect(parse(t), t).toEqual({ kind: 'voice', on: false });
+    }
+    for (const t of ['speak again', 'unmute', 'hey Luna, speak again', 'unmute yourself', 'talk again', 'you can speak again', 'turn on your voice', 'voice on']) {
+      expect(parse(t), t).toEqual({ kind: 'voice', on: true });
+    }
+    // The words she knew mean what they meant: "stop" pauses, "stop listening" and "turn off" turn her off.
+    expect(parse('stop')).toEqual(control('pause'));
+    for (const t of ['stop listening', 'turn off', 'switch off', 'stop luna']) expect(parse(t), t).toEqual({ kind: 'stop' });
+    // A question that holds the words is still a question for the model.
+    for (const t of ['speak again about the battery', 'why is it so quiet at the pole']) expect(parse(t), t).toEqual({ kind: 'ask', prompt: t });
+  });
+
   it('hands the planner’s own phrasings to the planner, sites by their spoken names', () => {
     const show = parse('show me nobile rim two');
     expect(show.kind).toBe('planner');

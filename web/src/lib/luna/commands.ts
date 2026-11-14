@@ -9,9 +9,9 @@ export { spokenToDigits, tidyDates } from './words';
 
 /**
  * Luna, the voice of the app (spec 22): what she hears, turned into one command. Her own words come first (the
- * player, the view from the site, the pages, the theme, help); then the planner's phrasings (a site, a comparison, a
- * period, the lander, an explanation), the same the "Ask in plain words" box matches; anything else of three words or
- * more is a question for the model, and a stray word or two is let go, as a room is never quite quiet.
+ * player, the view from the site, the pages, the theme, her voice, help); then the planner's phrasings (a site, a
+ * comparison, a period, the lander, an explanation), the same the "Ask in plain words" box matches; anything else of
+ * three words or more is a question for the model, and a stray word or two is let go, as a room is never quite quiet.
  */
 
 /** A control on a page: the time bar's (play, pause, next, …), the view from the site's (turn to, look up, …), the home page's flight. */
@@ -47,6 +47,7 @@ export type LunaCommand =
   | { kind: 'theme'; theme: 'light' | 'dark' }
   | { kind: 'help' }
   | { kind: 'stop' }
+  | { kind: 'voice'; on: boolean }
   | { kind: 'thanks' }
   | { kind: 'hello' }
   | { kind: 'sky'; question: SkyQuestion }
@@ -147,6 +148,9 @@ const THEME: [RegExp, 'light' | 'dark'][] = [
 
 const HELP = /^(?:help|help me|what can you do|what can i say|what can i ask|what do you do|how do i use (?:this|you)|commands)$/;
 const STOP = /^(?:stop listening|goodbye|good bye|bye|bye bye|turn off|turn yourself off|switch off|go to sleep|sleep|that's all|that is all|luna off|stop luna)$/;
+/** Her voice off and on again, as the switch in her panel turns it: she keeps listening either way. */
+const MUTE = /^(?:be quiet|keep quiet|mute|mute yourself|stop (?:talking|speaking)|(?:turn|switch) off (?:your|the) voice|voice off)$/;
+const UNMUTE = /^(?:unmute|unmute yourself|speak again|talk again|you can (?:speak|talk) again|(?:turn|switch) on (?:your|the) voice|voice on)$/;
 const THANKS = /^(?:thank you|thanks|thank you very much|thanks a lot|cheers)$/;
 const HELLO = /^(?:hello|hi|hey|hello there|hi there|good (?:morning|afternoon|evening))$/;
 
@@ -170,6 +174,8 @@ export function parseCommand(transcript: string, sites: Site[], context: { plann
   // Her name alone is a greeting: she answers.
   if (!t) return addressed ? { kind: 'hello' } : { kind: 'nothing' };
   if (STOP.test(t)) return { kind: 'stop' };
+  if (MUTE.test(t)) return { kind: 'voice', on: false };
+  if (UNMUTE.test(t)) return { kind: 'voice', on: true };
   if (THANKS.test(t)) return { kind: 'thanks' };
   if (HELLO.test(t)) return { kind: 'hello' };
   if (HELP.test(t)) return { kind: 'help' };

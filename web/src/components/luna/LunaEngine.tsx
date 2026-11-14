@@ -94,6 +94,7 @@ export function LunaEngine({
       turnOff: () => {
         turnOff = true;
       },
+      setVoice: (v) => lunaStore.getState().setVoice(v),
       scenarios: scenarioStore,
     };
     const add = (line: LunaMessage) => lunaStore.setState((s) => ({ messages: [...s.messages, line].slice(-KEPT) }));

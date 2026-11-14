@@ -58,7 +58,7 @@ describe('what Luna answers on the sky', () => {
 
   it('answers through her runner, on any page', async () => {
     const store = await loaded(10);
-    const deps: LunaDeps = { store, navigate: vi.fn(), path: () => '/explore', ask: vi.fn(), setTheme: vi.fn(), turnOff: vi.fn() };
+    const deps: LunaDeps = { store, navigate: vi.fn(), path: () => '/explore', ask: vi.fn(), setTheme: vi.fn(), turnOff: vi.fn(), setVoice: vi.fn() };
     expect(await runCommand({ kind: 'sky', question: 'sun' }, deps)).toBe('Sunset in 2 days 9 hours, on 3 January at 19:00 UTC.');
     expect(deps.navigate).not.toHaveBeenCalled();
     expect(deps.ask).not.toHaveBeenCalled();

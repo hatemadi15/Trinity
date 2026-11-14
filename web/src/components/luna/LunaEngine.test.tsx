@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
 import { registerControls } from '@/lib/luna/controls';
+import { MUTE_REPLY, UNMUTE_REPLY } from '@/lib/luna/run';
 import type { Recognition } from '@/lib/luna/speech';
-import { lunaStore } from '@/lib/luna/store';
+import { LUNA_VOICE_KEY, lunaStore } from '@/lib/luna/store';
 import { LunaEngine } from './LunaEngine';
 
 /** A speech recognition that hears what the test says. */
@@ -337,5 +338,25 @@ describe('Luna’s engine, with her replies said aloud or not (the switch in her
       delete w.SpeechSynthesisUtterance;
       off();
     }
+  });
+
+  it('is muted by voice and confirms it in the chat only, then speaks again when asked', async () => {
+    const { said } = mount();
+    act(() => lunaStore.getState().setOn(true));
+    const rec = FakeRec.made[0];
+    rec.say('Luna, be quiet');
+    await waitFor(() => expect(thread()).toHaveLength(2));
+    await waitFor(() => expect(lunaStore.getState().status).toBe('listening'));
+    expect(lunaStore.getState().voice).toBe(false);
+    expect(thread()[1]).toEqual(['luna', MUTE_REPLY]);
+    expect(said).toHaveLength(0);
+    expect(rec.aborts).toBe(0);
+    rec.say('speak again');
+    await waitFor(() => expect(said).toHaveLength(1));
+    expect(lunaStore.getState().voice).toBe(true);
+    expect(said[0].text).toBe(UNMUTE_REPLY);
+    expect(thread()[3]).toEqual(['luna', UNMUTE_REPLY]);
+    // Kept for the next visit, as the switch keeps it.
+    expect(window.localStorage.getItem(LUNA_VOICE_KEY)).toBe('on');
   });
 });
