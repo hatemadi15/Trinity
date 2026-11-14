@@ -19,7 +19,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("sky", help="build data/sky: stars, the Moon's orientation, Earth maps")
     sub.add_parser("globe", help="resample the CGI Moon Kit into data_out/globe for the home page's arrival")
     sub.add_parser("tiles", help="cut DEM tiles into data_out/tiles")
-    sub.add_parser("terrain", help="cut 3D terrain rasters into data_out/terrain")
+    te = sub.add_parser("terrain", help="cut 3D terrain rasters into data_out/terrain")
+    te.add_argument("--site", action="append", help="only these polar sites, added to the existing manifest")
     sub.add_parser("sites-derive", help="derive crater-rim high points")
     m = sub.add_parser("masks", help="compute per-site horizon masks")
     m.add_argument("--site", action="append")
@@ -46,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
     fl.add_argument("--days", type=int, default=30)
     sub.add_parser("fixture-shadow", help="write golden shadow-sweep fixtures for the TS port")
     sub.add_parser("fixture-sky", help="write SPICE fixtures for the web's sky maths")
-    sub.add_parser("validate", help="write validation tables (Horizons, Mazarico, backcasts) into data/validation")
+    sub.add_parser("validate", help="write the evidence tables (Horizons, LOLA maps, power sums, mission context) into data/validation")
     sub.add_parser("pgda90-fetch", help="download PGDA product 90's adjusted 80 m and 240 m models and their height errors")
     un = sub.add_parser("uncertainty", help="write the uncertainty budget (sampling, terrain, ephemeris) into data/uncertainty")
     un.add_argument("--site", action="append", help="only these sites (default: every featured site)")
@@ -99,8 +100,9 @@ def main(argv: list[str] | None = None) -> None:
         for path in sky.fixtures(sites):
             print(path)
     elif args.cmd == "terrain":
-        from .terrain3d import write_all
-        print(write_all())
+        from . import terrain3d
+
+        print(terrain3d.write_sites(args.site) if args.site else terrain3d.write_all())
     elif args.cmd == "sites-derive":
         from .sites import write_derived
         print(write_derived())

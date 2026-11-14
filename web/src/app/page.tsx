@@ -39,24 +39,27 @@ export default function Home() {
   const siteLink = exploreHref(hero.site_id, sky.start_utc, 30);
   const frameDate = new Date(`${hero.frame_utc}Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
   const typical = Math.round(facts.mazarico_median_points);
-  /** Each check has the same four attributes, so the three are a table. */
+  /** Each row has the same four attributes, so the three are a table; the mission is context, so it has no check mark. */
   const checks = [
     {
+      check: true,
       what: 'Where the Sun and Earth are in the sky',
       gap: degreesText(facts.horizons_worst_el_deg),
       against: `NASA's own position calculator, ${facts.horizons_rows} test cases; the largest gap.`,
       scale: `The Sun's disc is ${thousandsText(facts.sun_disc_ratio)} times wider.`,
     },
     {
+      check: true,
       what: 'How much sunlight a site gets',
       gap: `${facts.mazarico_median_points.toFixed(1)} points`,
-      against: `NASA's sunlight map over 13 years, at ${facts.mazarico_sites} sites; the typical gap, in percentage points.`,
+      against: `NASA's sunlight map, an 18.6-year average, at ${facts.mazarico_sites} sites; the typical gap from the app's own numbers, in percentage points.`,
       scale: `Where NASA's map says ${pct(60)}, ours typically says ${60 - typical} to ${pct(60 + typical)}.`,
     },
     {
+      check: false,
       what: 'When night falls on a real mission',
       gap: `${Math.abs(facts.blue_ghost_end_minus_sunset_h).toFixed(1)} hours`,
-      against: 'The last signal of the Blue Ghost lander, March 2025.',
+      against: "Blue Ghost's last reported signal after our predicted sunset, March 2025: context, not a test.",
       scale: 'The mission ran for 14 days.',
     },
   ];
@@ -147,7 +150,7 @@ export default function Home() {
           <h2 id="h-proof" className={H2}>
             Checked against NASA
           </h2>
-          <p className="mt-2.5 max-w-[46em] text-lg text-ink-2">Each step is compared with an independent NASA source. The smaller the gap, the better.</p>
+          <p className="mt-2.5 max-w-[46em] text-lg text-ink-2">Two steps are compared with independent NASA sources, and a real mission gives context. The smaller the gap, the better.</p>
           {/* Under 768 px each row becomes a block and the column heads stay for screen readers only. */}
           <table className="mt-7 w-full border-collapse border-t-2 border-ink text-left max-md:block">
             <thead className="max-md:sr-only">
@@ -166,7 +169,7 @@ export default function Home() {
                     {c.what}
                   </th>
                   <td className={`${CELL} display whitespace-nowrap text-[34px] max-md:py-2 md:w-[20%]`}>
-                    <Check />
+                    {c.check && <Check />}
                     {c.gap}
                   </td>
                   <td className={`${CELL} text-ink-2`}>{c.against}</td>

@@ -263,3 +263,36 @@ describe('siteByName digits', () => {
     expect(siteByName(sites, 'IM-2')?.id).toBe('im2_athena');
   });
 });
+
+describe('siteByName for the Apollo landings, other countries’ landers and the coming landings', () => {
+  it.each([
+    ['Apollo 11', 'apollo_11'],
+    ['apollo 17', 'apollo_17'],
+    ['Apollo 12 landing site', 'apollo_12'],
+    ['Chandrayaan-3', 'chandrayaan3_vikram'],
+    ['chandrayaan 3', 'chandrayaan3_vikram'],
+    ['Vikram', 'chandrayaan3_vikram'],
+    ["Chang'e 4", 'change4'],
+    ['Chang’e 6', 'change6'],
+    ['change 5', 'change5'],
+    ['chang e 3', 'change3'],
+    ['SLIM', 'slim'],
+    ['Luna 25', 'luna25_target'],
+    ['IM-3', 'im3_reiner_gamma'],
+    ['Reiner Gamma', 'im3_reiner_gamma'],
+    ['CP-12', 'cp12_schrodinger'],
+    ['Schrödinger basin', 'cp12_schrodinger'],
+    ['schrodinger', 'cp12_schrodinger'],
+    ['schroedinger', 'cp12_schrodinger'],
+    ['the Apollo basin', 'change6'],
+  ])('matches %s', (text, id) => {
+    expect(siteByName(sites, text)?.id).toBe(id);
+  });
+
+  it('keeps the older names to their own sites', () => {
+    expect(siteByName(sites, 'IM-2')?.id).toBe('im2_athena');
+    expect(siteByName(sites, 'IM-1')?.id).toBe('im1_odysseus');
+    expect(siteByName(sites, 'the south pole')?.id).toBe('south_pole');
+    expect(siteByName(sites, 'lunar south pole')?.id).toBe('south_pole');
+  });
+});

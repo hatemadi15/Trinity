@@ -59,6 +59,8 @@ describe('How it works', () => {
     expect(steps[3].textContent).toMatch(/shadow map/);
     expect(steps[0].textContent).toMatch(/Picking a site opens Explore on that day\./);
     expect(steps[1].textContent).toMatch(/lands on the first day of the period/);
+    // Accuracy holds checks and context, not one NASA source for every step.
+    expect(steps[4].textContent).toMatch(/Accuracy shows what each check establishes, what it was tested on and what it leaves out, with past missions as context, and lets you rerun one check live\./);
     // The ground's tabs by the names they carry on the page.
     expect(steps[3].textContent).toMatch(/The 3D view from above shows the same light on the hills\./);
     expect(steps[3].textContent).toMatch(/The horizon chart unrolls the horizon/);

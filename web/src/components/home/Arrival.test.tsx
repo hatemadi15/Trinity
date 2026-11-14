@@ -60,7 +60,7 @@ describe('the arrival', () => {
   it("names NASA's data and the check on the first screen, for a wider screen only", () => {
     render(<Arrival words={words} Stage={Stage} />);
     const proof = screen.getByText(/^Built on NASA LRO LOLA terrain and JPL DE440;/);
-    expect(proof.textContent).toBe('Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to 0.00003° and against real landers. See the checks');
+    expect(proof.textContent).toBe("Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to 0.00003° and LOLA sunlight maps. See the checks");
     const link = within(proof).getByRole('link', { name: 'See the checks' });
     expect(link.getAttribute('href')).toBe('/validate');
     expect(link.className).toMatch(/(^| )underline( |$)/);

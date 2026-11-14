@@ -1,10 +1,208 @@
 {
- "generated_utc": "2026-09-29T09:55:46+00:00",
+ "generated_utc": "2026-11-14T12:02:43+00:00",
  "period": [
   "2024-01-01T00:00:00",
   "2036-12-31T23:00:00"
  ],
  "product": "avgvisib_85s_060m_201608",
+ "evidence": {
+  "kind": "check",
+  "title": "Terrain illumination against the LOLA average-visibility maps",
+  "establishes": "With the definitions matched (an observer on the ground, any part of the disc counting, hourly over a full 18.6-year cycle, 60 m terrain read at the map's pixel centres), our skyline method and geometry reproduce the LOLA team's average Sun and Earth visibility at the covered polar sites.",
+  "criteria": {
+   "rule": "The median gap over the covered sites is 5 percentage points or less, for the Sun map and for the Earth map; a site agrees when its gap is 5 points or less.",
+   "max_median_abs_gap_points": 5.0,
+   "site_agreement_points": 5.0
+  },
+  "limitations": [
+   "Both sides are models built from LOLA altimetry with similar skyline methods, so errors the two share (in the elevation data, for example) cancel; agreement is not a ground observation.",
+   "Averages over 18.6 years can hide errors in the hour of single sunrises and sunsets.",
+   "The app's own numbers use a 2 m mast, finer terrain and 2024 to 2036; the matched comparison changes these on purpose, and the rows show how much each one moves the result.",
+   "The map is a square around the pole that reaches 85 degrees south on every side (about 83 at its corners): IM-1, Nobile Rim 2 and the peak near Cabeus B lie outside it and are not compared."
+  ],
+  "coverage": {
+   "sites": 15,
+   "polar_sites": 18,
+   "outside_map": [
+    "peak_near_cabeus_b",
+    "nobile_rim_2",
+    "im1_odysseus"
+   ],
+   "app_span": [
+    "2024-01-01T00:00:00",
+    "2036-12-31T23:00:00"
+   ],
+   "app_hours": 113976,
+   "matched_span": [
+    "2024-01-01T00:00:00",
+    "2042-08-11T23:00:00"
+   ],
+   "matched_hours": 163152,
+   "points_per_site": 4
+  },
+  "meets_criteria": true,
+  "unmatched": [
+   "Averaging window: the map averages hourly steps over 18.6 years, but its dates are not stated; ours runs hourly from 2024-01-01T00:00:00 to 2042-08-11T23:00:00 UTC (6798 days). The app's own 2024 to 2036 span (13 years, two thirds of the cycle) moves the shares by at most 0.3 points at these sites.",
+   "Terrain: the map was computed on LDEM_85S_060M, which the archive no longer holds; we use 60 m posts made from 3 x 3 means of today's LDEM_85S_20M, then LOLA 80 m where the 60 m map ends and 240 m from 100 to 220 km. How far the map's skylines reach beyond its own grid is not stated.",
+   "Frame (matched): the label names the MEAN EARTH/POLAR AXIS OF DE421 frame; our MOON_ME is MOON_ME_DE440_ME421, which NAIF's frame kernel aligns with it to 5.8e-7 rad (about 1 m on the ground) over 1900 to 2051. Ephemeris (not matched): the map's is not stated; ours is DE440, whose Sun and Earth directions differ from DE421's by far less than the width of their discs.",
+   "Skyline method: both take 720 directions (0.5 degrees) and cut the disc with a straight skyline at its centre's direction (Barker et al. 2021 describe the map's method); our march starts one 60 m post from the observer in 30 m steps, and the map's own steps are not described at that level.",
+   "Limb darkening: the map's team models it; for 'any part of the disc' it does not matter, for the mean visible fraction of the disc it does, and we do not model it.",
+   "Earth: any part of a 6,371 km sphere's disc; the product page says any part of the disc counts but not which radius.",
+   "Sampling: ours at the map's four pixel centres around each site, combined with the map's bilinear weights; on steep rims one 60 m pixel can differ from the next by tens of points, so a site's value depends on its exact position.",
+   "Map artefacts: within about 1 km of the pole the map has zero pixels next to lit ones (the release notes warn of artefacts from the elevation data); the row of the pole says what this does there.",
+   "Label metadata: START_TIME and STOP_TIME (2009-07-13 to 2013-07-18) are the span of the altimetry, not the averaging period; the Earth label gives MINIMUM_LATITUDE as 90 for a south polar map and says 'sunlit' for Earth; the 2016 release label gave CENTER_LONGITUDE as 180 and INT32, corrected to 0 and INT16 in the label read here."
+  ],
+  "command": "cd pipeline && uv run python -m lunar_pipeline.cli validate"
+ },
+ "reference": {
+  "sun": {
+   "file": "AVGVISIB_85S_060M_201608.LBL",
+   "url": "http://imbrium.mit.edu/EXTRAS/ILLUMINATION/IMG/AVGVISIB_85S_060M_201608.LBL",
+   "product_id": "AVGVISIB_85S_060M_201608",
+   "product_version_id": "V1.05",
+   "product_creation_time": "2016-09-15T00:00:00",
+   "data_set_id": "LRO-L-LOLA-4-GDR-V1.0",
+   "start_time": "2009-07-13T17:33:17.246",
+   "stop_time": "2013-07-18T14:12:13",
+   "description": "This data product is a map of the average illumination by the solar disc of the Lunar South Pole at a resolution of 60 m/pix by 60 m/pix, true at the pole in polar stereographic (spherical) projection. The calculations are based on the LOLA elevation map LDEM_85S_060M and are described in [MAZARICOETAL2011]. The values are continuous between 0 (permanent shadow) and 1, and indicate the percentage of timesteps where each pixel was sunlit (by any fraction of the solar disc). Note a scaling was applied to fit the data in the INT16 value range. This label describes an IMG file in the form of a binary resampling with pixel registration.",
+   "image_name": "AVERAGE_VISIBILITY",
+   "image_description": "Each sample is a binary value that indicates whether that location is in permanent shadow (DN=0, scaling to 0) or its average solar disc visibility (DN up to 25000, scaling to 1).",
+   "lines": "5058",
+   "line_samples": "5058",
+   "sample_type": "LSB_INTEGER",
+   "scaling_factor": "0.00004",
+   "offset": "0.0",
+   "derived_maximum": "22111",
+   "map_projection_type": "POLAR STEREOGRAPHIC",
+   "map_scale": "60 <m/pix>",
+   "map_resolution": "505.389 <pix/deg>",
+   "center_latitude": "-90 <deg>",
+   "center_longitude": "0 <deg>",
+   "maximum_latitude": "-82.9 <deg>",
+   "minimum_latitude": "-90 <deg>",
+   "line_projection_offset": "2528.5 <pix>",
+   "sample_projection_offset": "2528.5 <pix>",
+   "a_axis_radius": "1737.4 <km>",
+   "keyword_latitude_type": "PLANETOCENTRIC",
+   "coordinate_system_name": "MEAN EARTH/POLAR AXIS OF DE421",
+   "label_sha256": "33decce957d5d4d9608557d8d969d1e1b94056a159b2563624ade4b528a0c917",
+   "image_sha256": "82dadf321dee28f1947c1fed81858d4cf50fe8eb2aa405aae114e8ab21c1efe1"
+  },
+  "earth": {
+   "file": "AVGVISIB_85S_060M_201608_EARTH.LBL",
+   "url": "http://imbrium.mit.edu/EXTRAS/ILLUMINATION/IMG/AVGVISIB_85S_060M_201608_EARTH.LBL",
+   "product_id": "AVGVISIB_85S_060M_201608_EARTH",
+   "product_version_id": "V1.05",
+   "product_creation_time": "2016-09-15T00:00:00",
+   "data_set_id": "LRO-L-LOLA-4-GDR-V1.0",
+   "start_time": "2009-07-13T17:33:17.246",
+   "stop_time": "2013-07-18T14:12:13",
+   "description": "This data product is a map of the average illumination by the Earth disc of the Lunar South Pole at a resolution of 60 m/pix by 60 m/pix, true at the pole in polar stereographic (spherical) projection. The calculations are based on the LOLA elevation map LDEM_85S_060M and are described in [MAZARICOETAL2011]. The values are continuous between 0 (permanent shadow) and 1, and indicate the percentage of timesteps where each pixel was sunlit (by any fraction of the Earth disc). Note a scaling was applied to fit the data in the INT16 value range. This label describes an IMG file in the form of a binary resampling with pixel registration.",
+   "image_name": "AVERAGE_VISIBILITY",
+   "image_description": "Each sample is a binary value that indicates whether that location is in permanent shadow (DN=0, scaling to 0) or its average Earth disc visibility (DN up to 25000, scaling to 1).",
+   "lines": "5058",
+   "line_samples": "5058",
+   "sample_type": "LSB_INTEGER",
+   "scaling_factor": "0.00004",
+   "offset": "0.0",
+   "derived_maximum": "25000",
+   "map_projection_type": "POLAR STEREOGRAPHIC",
+   "map_scale": "60 <m/pix>",
+   "map_resolution": "505.389 <pix/deg>",
+   "center_latitude": "-90 <deg>",
+   "center_longitude": "0 <deg>",
+   "maximum_latitude": "-82.9 <deg>",
+   "minimum_latitude": "90 <deg>",
+   "line_projection_offset": "2528.5 <pix>",
+   "sample_projection_offset": "2528.5 <pix>",
+   "a_axis_radius": "1737.4 <km>",
+   "keyword_latitude_type": "PLANETOCENTRIC",
+   "coordinate_system_name": "MEAN EARTH/POLAR AXIS OF DE421",
+   "label_sha256": "45a61697d779fdb9170bca2553f9e0188aeda1159811d3531c348df8f57f68bd",
+   "image_sha256": "0958313069d6039b2474c875ff662f28dbcba2bd853d9ea458aa807b7948c11f"
+  },
+  "definition": "The share of hourly steps in which any part of the disc is above the terrain skyline (the label's DESCRIPTION; the product page says the same for Earth).",
+  "averaging": "Hourly steps over 18.6 years, one lunar precession cycle (PGDA product 69; the 2014 release notes say the same of the earlier 240 m maps); the dates are not stated. The 2011 paper's abstract also describes runs over several cycles at 6 h steps.",
+  "observer": "On the lunar surface (the 2014 release notes, of the earlier 240 m maps); the product page leaves height above the surface to further analysis.",
+  "terrain": "LDEM_85S_060M, 60 m per pixel (the label).",
+  "method": "Mazarico et al. 2011: skyline elevations in 720 directions; the disc cut by a straight skyline at its centre's direction (as Barker et al. 2021 describe it).",
+  "sources": [
+   "https://pgda.gsfc.nasa.gov/products/69",
+   "http://imbrium.mit.edu/EXTRAS/ILLUMINATION/README_ILLUMINATION_2016.TXT",
+   "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/extras/illumination/release_2014/readme_illumination_2014.txt",
+   "Mazarico et al. 2011, Icarus 211, 1066-1081, doi:10.1016/j.icarus.2010.10.030",
+   "Barker et al. 2021, Planetary and Space Science 203, 105119, doi:10.1016/j.pss.2020.105119"
+  ]
+ },
+ "configurations": {
+  "app": {
+   "observer_m": 2.0,
+   "terrain": "LOLA 20 m to 6 km south of 87.55 S (80 m from 40 m elsewhere), 80 m to 100 km, 240 m to 220 km, at the site",
+   "span": [
+    "2024-01-01T00:00:00",
+    "2036-12-31T23:00:00"
+   ],
+   "hours": 113976,
+   "sun_rule": "any part of the disc above the skyline",
+   "earth_rule": "Earth's centre above the skyline"
+  },
+  "surface": {
+   "observer_m": 0.0,
+   "terrain": "as the app",
+   "span": [
+    "2024-01-01T00:00:00",
+    "2036-12-31T23:00:00"
+   ],
+   "hours": 113976,
+   "sun_rule": "any part of the disc"
+  },
+  "cycle": {
+   "observer_m": 0.0,
+   "terrain": "as the app",
+   "span": [
+    "2024-01-01T00:00:00",
+    "2042-08-11T23:00:00"
+   ],
+   "hours": 163152,
+   "sun_rule": "any part of the disc"
+  },
+  "matched": {
+   "observer_m": 0.0,
+   "terrain": "60 m posts (3 x 3 means of LDEM_85S_20M) from 60 m in 30 m steps; LOLA 80 m where they end; 240 m from 100 to 220 km",
+   "span": [
+    "2024-01-01T00:00:00",
+    "2042-08-11T23:00:00"
+   ],
+   "hours": 163152,
+   "sun_rule": "any part of the disc above the skyline (also given: the mean visible fraction of the disc)",
+   "earth_rule": "any part of Earth's disc (6,371 km) above the skyline (also given: its centre)",
+   "sampling": "at the map's four pixel centres around the site, combined with the map's bilinear weights"
+  }
+ },
+ "summary": {
+  "sites": 15,
+  "sun": {
+   "median_abs_gap_points": 0.9329576173554011,
+   "within_agreement": 14,
+   "within_2_points": 12,
+   "worst_site_id": "south_pole",
+   "worst_gap_points": 7.00138182798862,
+   "app_median_abs_gap_points": 2.633625073174184,
+   "disc_mean_median_gap_points": -3.0017948562752554,
+   "span_effect_max_points": 0.2569291774530691,
+   "mast_effect_median_points": 1.422229241243772
+  },
+  "earth": {
+   "median_abs_gap_points": 0.19890869741933104,
+   "within_agreement": 14,
+   "within_2_points": 13,
+   "worst_site_id": "south_pole",
+   "worst_gap_points": 6.134082475237812,
+   "app_median_abs_gap_points": 4.0848911082905115,
+   "centre_median_gap_points": -4.569439835858938
+  },
+  "meets_criteria": true
+ },
  "rows": [
   {
    "site_id": "south_pole",
@@ -14,7 +212,61 @@
    "covered": true,
    "ours_fraction": 0.28125219344423386,
    "map_fraction": 0.21201,
-   "delta_points": 6.924219344423385
+   "delta_points": 6.924219344423385,
+   "sun": {
+    "app": 0.28125219344423386,
+    "surface": 0.2665999859619569,
+    "cycle": 0.26691061096400903,
+    "matched": 0.2820238182798862,
+    "matched_disc_mean": 0.2520158634260879,
+    "map": 0.21201,
+    "gap_points": 7.00138182798862,
+    "app_gap_points": 6.924219344423385,
+    "map_pixels": [
+     0.0,
+     0.26984,
+     0.30300000000000005,
+     0.2752
+    ],
+    "matched_pixels": [
+     0.28948465234873,
+     0.2648573109738158,
+     0.3028954594488575,
+     0.27085785034814164
+    ]
+   },
+   "earth": {
+    "app_centre": 0.2738558994876114,
+    "matched_any": 0.28622082475237814,
+    "matched_centre": 0.21382667696381288,
+    "map": 0.22488000000000002,
+    "gap_points": 6.134082475237812,
+    "app_gap_points": 4.897589948761139,
+    "map_pixels": [
+     0.0,
+     0.23832000000000003,
+     0.34632,
+     0.31488000000000005
+    ],
+    "matched_pixels": [
+     0.2100127488477003,
+     0.25148940864960284,
+     0.36477027557124647,
+     0.31861086594096305
+    ]
+   },
+   "pixel_weights": [
+    0.25,
+    0.25,
+    0.25,
+    0.25
+   ],
+   "zero_pixel": {
+    "corner": 0,
+    "sun_gap_points": -0.3143126409728414,
+    "earth_gap_points": 1.178351672060407
+   },
+   "note": "One of the four map pixels here reads 0 % where its neighbours read 27 to 30 % and we find 29 %, in the Earth map as in the Sun map; near the pole the maps have such zero pixels next to lit ones. Leaving that pixel out, the gap is \u22120.3 points for sunlight and +1.2 for Earth."
   },
   {
    "site_id": "shackleton_center",
@@ -24,7 +276,55 @@
    "covered": true,
    "ours_fraction": 0.0,
    "map_fraction": 0.0,
-   "delta_points": 0.0
+   "delta_points": 0.0,
+   "sun": {
+    "app": 0.0,
+    "surface": 0.0,
+    "cycle": 0.0,
+    "matched": 0.0,
+    "matched_disc_mean": 0.0,
+    "map": 0.0,
+    "gap_points": 0.0,
+    "app_gap_points": 0.0,
+    "map_pixels": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "matched_pixels": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "earth": {
+    "app_centre": 0.0,
+    "matched_any": 0.0,
+    "matched_centre": 0.0,
+    "map": 0.0,
+    "gap_points": 0.0,
+    "app_gap_points": 0.0,
+    "map_pixels": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "matched_pixels": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "pixel_weights": [
+    0.3040445494903387,
+    0.5925759585420174,
+    0.03505604743618923,
+    0.06832344453145461
+   ]
   },
   {
    "site_id": "de_gerlache_center",
@@ -34,7 +334,55 @@
    "covered": true,
    "ours_fraction": 0.0013774829788727452,
    "map_fraction": 0.0012892475400105288,
-   "delta_points": 0.008823543886221641
+   "delta_points": 0.008823543886221641,
+   "sun": {
+    "app": 0.0013774829788727452,
+    "surface": 0.0012897452095177932,
+    "cycle": 0.0012871432774345397,
+    "matched": 0.0012896351731371254,
+    "matched_disc_mean": 0.00017051865477199767,
+    "map": 0.0012892475400105288,
+    "gap_points": 3.87633126596636e-05,
+    "app_gap_points": 0.008823543886221641,
+    "map_pixels": [
+     0.00124,
+     0.0014000000000000002,
+     0.0012000000000000001,
+     0.00136
+    ],
+    "matched_pixels": [
+     0.0012381092478179856,
+     0.0013913405903697167,
+     0.001225850740413847,
+     0.0013913405903697167
+    ]
+   },
+   "earth": {
+    "app_centre": 0.0,
+    "matched_any": 0.0,
+    "matched_centre": 0.0,
+    "map": 0.0,
+    "gap_points": 0.0,
+    "app_gap_points": 0.0,
+    "map_pixels": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "matched_pixels": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "pixel_weights": [
+    0.5616026503812297,
+    0.29427437330334055,
+    0.09456948047410903,
+    0.04955349584132067
+   ]
   },
   {
    "site_id": "connecting_ridge",
@@ -44,7 +392,55 @@
    "covered": true,
    "ours_fraction": 0.5830525724713975,
    "map_fraction": 0.48206992617051286,
-   "delta_points": 10.098264630088465
+   "delta_points": 10.098264630088465,
+   "sun": {
+    "app": 0.5830525724713975,
+    "surface": 0.39396890573454063,
+    "cycle": 0.3965381975090713,
+    "matched": 0.4992649457000477,
+    "matched_disc_mean": 0.4519789278312223,
+    "map": 0.48206992617051286,
+    "gap_points": 1.7195019529534838,
+    "app_gap_points": 10.098264630088465,
+    "map_pixels": [
+     0.43956000000000006,
+     0.47516,
+     0.53808,
+     0.5808000000000001
+    ],
+    "matched_pixels": [
+     0.4543677061880945,
+     0.5009561635775228,
+     0.5586263116602922,
+     0.5725335883102873
+    ]
+   },
+   "earth": {
+    "app_centre": 0.48405804730820523,
+    "matched_any": 0.5166868880459246,
+    "matched_centre": 0.4713520904314313,
+    "map": 0.5137607194372057,
+    "gap_points": 0.292616860871886,
+    "app_gap_points": -2.9702672129000462,
+    "map_pixels": [
+     0.5146000000000001,
+     0.52148,
+     0.51244,
+     0.52144
+    ],
+    "matched_pixels": [
+     0.5185838972246739,
+     0.5264967637540453,
+     0.5140605079925469,
+     0.5112349220358929
+    ]
+   },
+   "pixel_weights": [
+    0.5665759916474911,
+    0.006151682453369832,
+    0.42268298302484775,
+    0.0045893428742913595
+   ]
   },
   {
    "site_id": "peak_near_shackleton",
@@ -54,7 +450,55 @@
    "covered": true,
    "ours_fraction": 0.325708921176388,
    "map_fraction": 0.29937267044464616,
-   "delta_points": 2.633625073174184
+   "delta_points": 2.633625073174184,
+   "sun": {
+    "app": 0.325708921176388,
+    "surface": 0.13270337614936478,
+    "cycle": 0.13298028832009415,
+    "matched": 0.3125382444833885,
+    "matched_disc_mean": 0.24527855857561784,
+    "map": 0.29937267044464616,
+    "gap_points": 1.3165574038742356,
+    "app_gap_points": 2.633625073174184,
+    "map_pixels": [
+     0.35508,
+     0.30404000000000003,
+     0.22648000000000001,
+     0.21996000000000002
+    ],
+    "matched_pixels": [
+     0.346315092674316,
+     0.2621175345689909,
+     0.27226757869961754,
+     0.19668162204569972
+    ]
+   },
+   "earth": {
+    "app_centre": 0.45301642451042323,
+    "matched_any": 0.4895859703578381,
+    "matched_centre": 0.44376025661862456,
+    "map": 0.4820603336439717,
+    "gap_points": 0.7525636713866357,
+    "app_gap_points": -2.9043909133548484,
+    "map_pixels": [
+     0.515,
+     0.48212000000000005,
+     0.43876000000000004,
+     0.44580000000000003
+    ],
+    "matched_pixels": [
+     0.5159605766401882,
+     0.4601782386976562,
+     0.4563658428949691,
+     0.4487104050210846
+    ]
+   },
+   "pixel_weights": [
+    0.5579291193623768,
+    0.01571889062074022,
+    0.4146692504616503,
+    0.01168273955523275
+   ]
   },
   {
    "site_id": "peak_near_cabeus_b",
@@ -71,7 +515,55 @@
    "covered": true,
    "ours_fraction": 0.3275075454481645,
    "map_fraction": 0.3192777084591823,
-   "delta_points": 0.822983698898222
+   "delta_points": 0.822983698898222,
+   "sun": {
+    "app": 0.3275075454481645,
+    "surface": 0.319365480452025,
+    "cycle": 0.3204251250367755,
+    "matched": 0.3149687405992267,
+    "matched_disc_mean": 0.29563903362190946,
+    "map": 0.3192777084591823,
+    "gap_points": -0.43089678599556036,
+    "app_gap_points": 0.822983698898222,
+    "map_pixels": [
+     0.29976,
+     0.30296,
+     0.32720000000000005,
+     0.32964000000000004
+    ],
+    "matched_pixels": [
+     0.29905854663136217,
+     0.30326321467098166,
+     0.3211606354810238,
+     0.3224968127880749
+    ]
+   },
+   "earth": {
+    "app_centre": 0.5256720713132589,
+    "matched_any": 0.5670503280002501,
+    "matched_centre": 0.5214202285450928,
+    "map": 0.566520982396164,
+    "gap_points": 0.052934560408612885,
+    "app_gap_points": -4.0848911082905115,
+    "map_pixels": [
+     0.5550400000000001,
+     0.55876,
+     0.5684400000000001,
+     0.5719200000000001
+    ],
+    "matched_pixels": [
+     0.5568059233107777,
+     0.5608818770226537,
+     0.5680714916151809,
+     0.5715161321957438
+    ]
+   },
+   "pixel_weights": [
+    0.048507934362473686,
+    0.32667785446534725,
+    0.08078250202112502,
+    0.544031709151054
+   ]
   },
   {
    "site_id": "malapert_massif",
@@ -81,7 +573,55 @@
    "covered": true,
    "ours_fraction": 0.40769109286165506,
    "map_fraction": 0.371433923294137,
-   "delta_points": 3.6257169567518064
+   "delta_points": 3.6257169567518064,
+   "sun": {
+    "app": 0.40769109286165506,
+    "surface": 0.37086755106338176,
+    "cycle": 0.37156148867313915,
+    "matched": 0.380763499467691,
+    "matched_disc_mean": 0.33794355251702457,
+    "map": 0.371433923294137,
+    "gap_points": 0.9329576173554011,
+    "app_gap_points": 3.6257169567518064,
+    "map_pixels": [
+     0.35768000000000005,
+     0.39608000000000004,
+     0.30804000000000004,
+     0.35632
+    ],
+    "matched_pixels": [
+     0.3728608904579778,
+     0.39575365303520643,
+     0.34231269000686476,
+     0.3681291065999804
+    ]
+   },
+   "earth": {
+    "app_centre": 0.35448690952481227,
+    "matched_any": 0.33653873874723994,
+    "matched_centre": 0.2798307785068086,
+    "map": 0.3406485970302173,
+    "gap_points": -0.41098582829773855,
+    "app_gap_points": 1.383831249459494,
+    "map_pixels": [
+     0.32656,
+     0.40084000000000003,
+     0.04408,
+     0.30492
+    ],
+    "matched_pixels": [
+     0.34920197116799057,
+     0.35006006668628026,
+     0.24175615377071688,
+     0.2425897322741983
+    ]
+   },
+   "pixel_weights": [
+    0.43908191604180047,
+    0.43908191604180047,
+    0.06091808395819953,
+    0.06091808395819953
+   ]
   },
   {
    "site_id": "mons_mouton_plateau",
@@ -91,7 +631,55 @@
    "covered": true,
    "ours_fraction": 0.0,
    "map_fraction": 0.0,
-   "delta_points": 0.0
+   "delta_points": 0.0,
+   "sun": {
+    "app": 0.0,
+    "surface": 0.0,
+    "cycle": 0.0,
+    "matched": 0.0,
+    "matched_disc_mean": 0.0,
+    "map": 0.0,
+    "gap_points": 0.0,
+    "app_gap_points": 0.0,
+    "map_pixels": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "matched_pixels": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "earth": {
+    "app_centre": 0.0,
+    "matched_any": 0.07695458353898313,
+    "matched_centre": 0.0,
+    "map": 0.08774048155650276,
+    "gap_points": -1.0785898017519626,
+    "app_gap_points": -8.774048155650275,
+    "map_pixels": [
+     0.07188,
+     0.13244,
+     0.00864,
+     0.12048
+    ],
+    "matched_pixels": [
+     0.08357237422771403,
+     0.07661567127586545,
+     0.014526331273904089,
+     0.12486515641855447
+    ]
+   },
+   "pixel_weights": [
+    0.5204600890685923,
+    0.31764255496023003,
+    0.100537938770458,
+    0.061359417200719614
+   ]
   },
   {
    "site_id": "mons_mouton",
@@ -101,7 +689,55 @@
    "covered": true,
    "ours_fraction": 0.35448690952481227,
    "map_fraction": 0.3147385276604018,
-   "delta_points": 3.9748381864410485
+   "delta_points": 3.9748381864410485,
+   "sun": {
+    "app": 0.35448690952481227,
+    "surface": 0.34026461711237455,
+    "cycle": 0.3407742473276454,
+    "matched": 0.3290682211819364,
+    "matched_disc_mean": 0.29195892640781945,
+    "map": 0.3147385276604018,
+    "gap_points": 1.4329693521534625,
+    "app_gap_points": 3.9748381864410485,
+    "map_pixels": [
+     0.34832,
+     0.34116,
+     0.34144,
+     0.28696000000000005
+    ],
+    "matched_pixels": [
+     0.35419731293517703,
+     0.33581568108267135,
+     0.34372241835834066,
+     0.31400166715700695
+    ]
+   },
+   "earth": {
+    "app_centre": 0.0,
+    "matched_any": 0.0,
+    "matched_centre": 0.0,
+    "map": 0.0,
+    "gap_points": 0.0,
+    "app_gap_points": 0.0,
+    "map_pixels": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "matched_pixels": [
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "pixel_weights": [
+    0.03762838661708222,
+    0.043916858196387035,
+    0.42381343875428434,
+    0.4946413164322464
+   ]
   },
   {
    "site_id": "nobile_rim_1",
@@ -111,7 +747,55 @@
    "covered": true,
    "ours_fraction": 0.4269758545658735,
    "map_fraction": 0.39376644116716325,
-   "delta_points": 3.320941339871025
+   "delta_points": 3.320941339871025,
+   "sun": {
+    "app": 0.4269758545658735,
+    "surface": 0.40359373903277884,
+    "cycle": 0.4044694517995489,
+    "matched": 0.38176197611496643,
+    "matched_disc_mean": 0.3555787433101389,
+    "map": 0.39376644116716325,
+    "gap_points": -1.2004465052196822,
+    "app_gap_points": 3.320941339871025,
+    "map_pixels": [
+     0.42340000000000005,
+     0.40784000000000004,
+     0.39932,
+     0.38684
+    ],
+    "matched_pixels": [
+     0.42573183289202704,
+     0.41202682161420023,
+     0.40248970285378055,
+     0.3667868000392272
+    ]
+   },
+   "earth": {
+    "app_centre": 0.6500228118200323,
+    "matched_any": 0.7016442753831503,
+    "matched_centre": 0.6484009141821947,
+    "map": 0.7023950327823443,
+    "gap_points": -0.07507573991939465,
+    "app_gap_points": -5.237222096231198,
+    "map_pixels": [
+     0.7028000000000001,
+     0.70096,
+     0.7042400000000001,
+     0.7028000000000001
+    ],
+    "matched_pixels": [
+     0.7020753653035207,
+     0.7005491811317054,
+     0.7035463861920173,
+     0.7019098754535648
+    ]
+   },
+   "pixel_weights": [
+    0.020963351586110086,
+    0.2617214972805555,
+    0.05319467870860127,
+    0.6641204724247332
+   ]
   },
   {
    "site_id": "nobile_rim_2",
@@ -128,7 +812,55 @@
    "covered": true,
    "ours_fraction": 0.3808959781006528,
    "map_fraction": 0.3835829299345644,
-   "delta_points": -0.26869518339115994
+   "delta_points": -0.26869518339115994,
+   "sun": {
+    "app": 0.3808959781006528,
+    "surface": 0.3778953463887134,
+    "cycle": 0.3791372462488967,
+    "matched": 0.38093714869319023,
+    "matched_disc_mean": 0.3678660820484092,
+    "map": 0.3835829299345644,
+    "gap_points": -0.26457812413741566,
+    "app_gap_points": -0.26869518339115994,
+    "map_pixels": [
+     0.37876000000000004,
+     0.38016000000000005,
+     0.38592000000000004,
+     0.38880000000000003
+    ],
+    "matched_pixels": [
+     0.3775558987937629,
+     0.37614004118858485,
+     0.3826922133960969,
+     0.3848435814455232
+    ]
+   },
+   "earth": {
+    "app_centre": 0.5169246157085702,
+    "matched_any": 0.5628752896735647,
+    "matched_centre": 0.5168569586491553,
+    "map": 0.5616902261771908,
+    "gap_points": 0.11850634963739282,
+    "app_gap_points": -4.476561046862059,
+    "map_pixels": [
+     0.5613600000000001,
+     0.56188,
+     0.5618000000000001,
+     0.56228
+    ],
+    "matched_pixels": [
+     0.562585809551829,
+     0.5630884083553986,
+     0.5629658232813572,
+     0.5634193880553103
+    ]
+   },
+   "pixel_weights": [
+    0.3235097800218613,
+    0.034641494051545645,
+    0.579767140767633,
+    0.06208158515895996
+   ]
   },
   {
    "site_id": "slater_plain",
@@ -138,7 +870,55 @@
    "covered": true,
    "ours_fraction": 0.27630378325261457,
    "map_fraction": 0.2763342862462963,
-   "delta_points": -0.0030502993681735813
+   "delta_points": -0.0030502993681735813,
+   "sun": {
+    "app": 0.27630378325261457,
+    "surface": 0.268231908471959,
+    "cycle": 0.26830808080808083,
+    "matched": 0.2712087688496741,
+    "matched_disc_mean": 0.24638938746008177,
+    "map": 0.2763342862462963,
+    "gap_points": -0.5125517396622203,
+    "app_gap_points": -0.0030502993681735813,
+    "map_pixels": [
+     0.27836,
+     0.27068000000000003,
+     0.27624000000000004,
+     0.28432
+    ],
+    "matched_pixels": [
+     0.2731318034716093,
+     0.2659421888790821,
+     0.26800774737667943,
+     0.27915073060704126
+    ]
+   },
+   "earth": {
+    "app_centre": 0.3946708078893802,
+    "matched_any": 0.4416802092419294,
+    "matched_centre": 0.3947653512206666,
+    "map": 0.4410533940867742,
+    "gap_points": 0.06268151551552248,
+    "app_gap_points": -4.6382586197394,
+    "map_pixels": [
+     0.44176000000000004,
+     0.43904000000000004,
+     0.44312,
+     0.4414
+    ],
+    "matched_pixels": [
+     0.4423114641561243,
+     0.4398781504364029,
+     0.44367828773168577,
+     0.4418456408747671
+    ]
+   },
+   "pixel_weights": [
+    0.723961800433773,
+    0.26382534309588535,
+    0.008950958328040158,
+    0.003261898142301491
+   ]
   },
   {
    "site_id": "im1_odysseus",
@@ -155,7 +935,55 @@
    "covered": true,
    "ours_fraction": 0.467186074261248,
    "map_fraction": 0.45990347016083966,
-   "delta_points": 0.7282604100408319
+   "delta_points": 0.7282604100408319,
+   "sun": {
+    "app": 0.467186074261248,
+    "surface": 0.4625271987085,
+    "cycle": 0.4629425321172894,
+    "matched": 0.4641351856313128,
+    "matched_disc_mean": 0.4478018259907035,
+    "map": 0.45990347016083966,
+    "gap_points": 0.42317154704731297,
+    "app_gap_points": 0.7282604100408319,
+    "map_pixels": [
+     0.46424000000000004,
+     0.46552000000000004,
+     0.46648000000000006,
+     0.45104000000000005
+    ],
+    "matched_pixels": [
+     0.4625870354025694,
+     0.46390482494851426,
+     0.4654003628518192,
+     0.4641193488280867
+    ]
+   },
+   "earth": {
+    "app_centre": 0.8098547062539482,
+    "matched_any": 0.9254320218223754,
+    "matched_centre": 0.8085037142345437,
+    "map": 0.9234429348481821,
+    "gap_points": 0.19890869741933104,
+    "app_gap_points": -11.35882285942339,
+    "map_pixels": [
+     0.9220400000000001,
+     0.92256,
+     0.9299600000000001,
+     0.9208000000000001
+    ],
+    "matched_pixels": [
+     0.9181622045699716,
+     0.9215761988820241,
+     0.9301632833186231,
+     0.9278035206433265
+    ]
+   },
+   "pixel_weights": [
+    0.1406459318100265,
+    0.2471918187184069,
+    0.22199522836170715,
+    0.39016702110985946
+   ]
   },
   {
    "site_id": "shackleton_center_rim_high",
@@ -165,7 +993,55 @@
    "covered": true,
    "ours_fraction": 0.9037341194637467,
    "map_fraction": 0.795650762852215,
-   "delta_points": 10.808335661153167
+   "delta_points": 10.808335661153167,
+   "sun": {
+    "app": 0.9037341194637467,
+    "surface": 0.8546887063943286,
+    "cycle": 0.8549205648720212,
+    "matched": 0.8224509256131535,
+    "matched_disc_mean": 0.7642028659940238,
+    "map": 0.795650762852215,
+    "gap_points": 2.680016276093844,
+    "app_gap_points": 10.808335661153167,
+    "map_pixels": [
+     0.43176000000000003,
+     0.6838000000000001,
+     0.06256,
+     0.8519200000000001
+    ],
+    "matched_pixels": [
+     0.486013043051878,
+     0.7529604295380995,
+     0.09515053447092282,
+     0.857733892321271
+    ]
+   },
+   "earth": {
+    "app_centre": 0.521100933529866,
+    "matched_any": 0.5543529021285318,
+    "matched_centre": 0.5087209080131759,
+    "map": 0.5333695652051561,
+    "gap_points": 2.098333692337573,
+    "app_gap_points": -1.2268631675290131,
+    "map_pixels": [
+     0.5,
+     0.49972000000000005,
+     0.29308,
+     0.55028
+    ],
+    "matched_pixels": [
+     0.5114433166617632,
+     0.5406492105521232,
+     0.37449127194272824,
+     0.5613354417966069
+    ]
+   },
+   "pixel_weights": [
+    0.0003283470477599018,
+    0.3307616126817648,
+    0.0006633684607023191,
+    0.6682466718097729
+   ]
   },
   {
    "site_id": "de_gerlache_center_rim_high",
@@ -175,7 +1051,55 @@
    "covered": true,
    "ours_fraction": 0.8386239208254369,
    "map_fraction": 0.7812703983977307,
-   "delta_points": 5.735352242770619
+   "delta_points": 5.735352242770619,
+   "sun": {
+    "app": 0.8386239208254369,
+    "surface": 0.8197076577525093,
+    "cycle": 0.8212464450328528,
+    "matched": 0.7379926220053915,
+    "matched_disc_mean": 0.7086902303667937,
+    "map": 0.7812703983977307,
+    "gap_points": -4.32777763923392,
+    "app_gap_points": 5.735352242770619,
+    "map_pixels": [
+     0.43356000000000006,
+     0.59436,
+     0.6911600000000001,
+     0.8269200000000001
+    ],
+    "matched_pixels": [
+     0.06913185250563891,
+     0.6095849269392959,
+     0.5829288025889967,
+     0.8164411101304305
+    ]
+   },
+   "earth": {
+    "app_centre": 0.5671106197796028,
+    "matched_any": 0.591063509332089,
+    "matched_centre": 0.5441605429429668,
+    "map": 0.6106567700189375,
+    "gap_points": -1.9593260686848524,
+    "app_gap_points": -4.354615023933473,
+    "map_pixels": [
+     0.5221600000000001,
+     0.61412,
+     0.60368,
+     0.6142000000000001
+    ],
+    "matched_pixels": [
+     0.37172084926939297,
+     0.614990928704521,
+     0.5434747965087771,
+     0.6151012552711582
+    ]
+   },
+   "pixel_weights": [
+    0.0002256576085658478,
+    0.00044783280826388844,
+    0.3348312384168691,
+    0.6644952711663011
+   ]
   }
  ]
 }

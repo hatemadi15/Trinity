@@ -28,7 +28,8 @@ TEXTURE_CREDIT = (
     "https://svs.gsfc.nasa.gov/4720"
 )
 DEEP_SOUTH_LAT_DEG = -87.55  # south of this the 20 m grid covers the site (same rule as masks)
-WINDOW_PX = {"L0": 1024, "L1": 512}  # 20.48 km at 20 m; 40.96 km at 80 m
+EDGE_80M_LAT_DEG = -80.0  # the 80 m grid stops at 80 S: north of it only the 240 m grid reaches a site
+WINDOW_PX = {"L0": 1024, "L1": 512, "L2": 256}  # 20.48 km at 20 m; 40.96 km at 80 m; 61.44 km at 240 m
 CAP_FACTOR = 4  # ldem_60s_240m block-averaged 4x -> 1940 x 1940 cells of 960 m
 CONTEXT_PX = 512  # 40.96 km at 80 m around a 20 m window: hills beyond the window still cast their shadows into it
 FLIGHT_PX = 1024  # 245.76 km at 240 m round the arrival's site: from 900 to 90 km up the measured ground stays sharp
@@ -61,13 +62,16 @@ def encode_u16(heights_m: np.ndarray) -> tuple[bytes, dict]:
 
 
 def level_for_site(site: Site) -> str:
-    return "L0" if site.lat <= DEEP_SOUTH_LAT_DEG else "L1"
+    if site.lat <= DEEP_SOUTH_LAT_DEG:
+        return "L0"
+    return "L1" if site.lat <= EDGE_80M_LAT_DEG else "L2"
 
 
 def window_for_site(site: Site, grids: dict[str, LolaGrid]) -> tuple[LolaGrid, int, int, int]:
     """Grid and top-left source pixel (row0, col0) of the square window centred on the site.
 
-    20 m / 1024 px south of 87.55 S, else 80 m / 512 px. The window is not clamped to the grid:
+    20 m / 1024 px south of 87.55 S, 80 m / 512 px to 80 S, else 240 m / 256 px (the 240 m grid alone reaches
+    from 80 S to 60 S, so a window there is that grid at its own cell size). The window is not clamped to the grid:
     write_site_window fills cells outside it from the next coarser grid, so the site stays at the
     centre cell (size // 2, size // 2).
     """
@@ -256,49 +260,77 @@ def write_south_cap(out_dir: Path, factor: int = CAP_FACTOR, grid: LolaGrid | No
     return _write_raster(out_dir / "south_cap.u16", block, meta)
 
 
+def window_entry(site: Site, grids: dict[str, LolaGrid], out_dir: Path) -> dict:
+    """Writes a site's window (and its context and flight levels where it has them) and returns its manifest entry."""
+    print(f"[terrain] {site.id}", flush=True)
+    path = write_site_window(site, grids, out_dir)
+    meta = json.loads(path.with_suffix(".json").read_text())
+    entry = {
+        "site_id": site.id,
+        "lat": site.lat,
+        "lon": site.lon,
+        "file": path.name,
+        "meta": path.with_suffix(".json").name,
+        "level": meta["level"],
+        "cell_m": meta["cell_m"],
+        "width": meta["width"],
+        "height": meta["height"],
+        "bytes": meta["bytes"],
+    }
+    context = write_site_context(site, grids, out_dir)
+    if context is not None:
+        cmeta = json.loads(context.with_suffix(".json").read_text())
+        entry["context"] = {
+            "file": context.name,
+            "meta": context.with_suffix(".json").name,
+            "cell_m": cmeta["cell_m"],
+            "width": cmeta["width"],
+            "height": cmeta["height"],
+        }
+    if site.id in FLIGHT_SITES:
+        flight = write_site_flight(site, grids, out_dir)
+        fmeta = json.loads(flight.with_suffix(".json").read_text())
+        entry["flight"] = {
+            "file": flight.name,
+            "meta": flight.with_suffix(".json").name,
+            "cell_m": fmeta["cell_m"],
+            "width": fmeta["width"],
+            "height": fmeta["height"],
+        }
+    return entry
+
+
+def write_sites(
+    site_ids: list[str],
+    out_dir: Path = config.OUT_DIR / "terrain",
+    grids: dict[str, LolaGrid] | None = None,
+    sites: list[Site] | None = None,
+) -> Path:
+    """Windows for the named polar sites only, merged into the existing manifest (an entry already there is replaced).
+
+    Every other site's files, the cap and the globe texture stay as they are, so a catalogue that gains a few sites
+    needs only their windows, not a rebuild of the whole set.
+    """
+    path = out_dir / "manifest.json"
+    if not path.exists():
+        raise FileNotFoundError(f"{path} missing; run the terrain command without --site first")
+    polar = {s.id: s for s in (sites if sites is not None else all_sites()) if s.polar}
+    unknown = sorted(set(site_ids) - set(polar))
+    if unknown:
+        raise ValueError(f"no polar site {unknown}: only sites on the LOLA grids have terrain; polar sites: {sorted(polar)}")
+    grids = grids if grids is not None else load_grids()
+    manifest = json.loads(path.read_text())
+    fresh = {sid: window_entry(polar[sid], grids, out_dir) for sid in site_ids}
+    kept = [fresh.pop(w["site_id"], w) for w in manifest["windows"]]
+    manifest["windows"] = kept + list(fresh.values())
+    path.write_text(json.dumps(manifest, indent=1) + "\n")
+    return path
+
+
 def write_all(out_dir: Path = config.OUT_DIR / "terrain") -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     grids = load_grids()
-    windows = []
-    for site in all_sites():
-        if not site.polar:
-            continue
-        print(f"[terrain] {site.id}", flush=True)
-        path = write_site_window(site, grids, out_dir)
-        meta = json.loads(path.with_suffix(".json").read_text())
-        entry = {
-            "site_id": site.id,
-            "lat": site.lat,
-            "lon": site.lon,
-            "file": path.name,
-            "meta": path.with_suffix(".json").name,
-            "level": meta["level"],
-            "cell_m": meta["cell_m"],
-            "width": meta["width"],
-            "height": meta["height"],
-            "bytes": meta["bytes"],
-        }
-        context = write_site_context(site, grids, out_dir)
-        if context is not None:
-            cmeta = json.loads(context.with_suffix(".json").read_text())
-            entry["context"] = {
-                "file": context.name,
-                "meta": context.with_suffix(".json").name,
-                "cell_m": cmeta["cell_m"],
-                "width": cmeta["width"],
-                "height": cmeta["height"],
-            }
-        if site.id in FLIGHT_SITES:
-            flight = write_site_flight(site, grids, out_dir)
-            fmeta = json.loads(flight.with_suffix(".json").read_text())
-            entry["flight"] = {
-                "file": flight.name,
-                "meta": flight.with_suffix(".json").name,
-                "cell_m": fmeta["cell_m"],
-                "width": fmeta["width"],
-                "height": fmeta["height"],
-            }
-        windows.append(entry)
+    windows = [window_entry(site, grids, out_dir) for site in all_sites() if site.polar]
     print("[terrain] south_cap", flush=True)
     cap = write_south_cap(out_dir, grid=grids["L2"])
     texture = config.RAW_DIR / "textures" / TEXTURE_FILE

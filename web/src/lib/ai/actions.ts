@@ -212,6 +212,9 @@ export function tokens(text: string): string[] {
 
 const weightOf = (t: string) => (STOP.has(t) ? 0 : GENERIC.has(t) ? 0.5 : 1);
 
+/** Other spellings of the catalogue's names, as people type them: the German "oe" for "ö", a single "a". */
+const ALIASES: Record<string, string> = { schroedinger: 'schrodinger', shrodinger: 'schrodinger', chandrayan: 'chandrayaan' };
+
 /**
  * Finds the catalogue site a phrase refers to: an exact id, or the site sharing the most (weighted)
  * words with the phrase, needing at least one distinctive word or two generic ones. Ties go to the
@@ -223,7 +226,7 @@ export function siteByName(sites: Site[], text: string): Site | null {
   if (!phrase) return null;
   const exact = sites.find((s) => s.id === phrase);
   if (exact) return exact;
-  const query = Array.from(new Set(tokens(phrase)));
+  const query = Array.from(new Set(tokens(phrase).map((w) => ALIASES[w] ?? w)));
   let best: { site: Site; score: number; coverage: number; size: number } | null = null;
   for (const site of sites) {
     const own = new Set([...tokens(site.name), ...tokens(site.id)]);
