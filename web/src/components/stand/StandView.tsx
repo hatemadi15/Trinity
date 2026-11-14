@@ -332,13 +332,18 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     else ((window.innerWidth >= 768 ? hideRef.current : null) ?? moreRef.current)?.focus();
   }, [wordsHidden]);
 
-  // Loaded with no site is a failure too: the site's horizon file did not load, and the ground would never be built.
-  if (s.status === 'error' || (s.status === 'ready' && !s.site)) {
+  // Loaded with no site, or with the site asked for but no figures and the reason why (the store keeps a site whose horizon
+  // file is missing, with the reason in plain words), is a failure too: the ground would never be built.
+  const missing = s.status === 'ready' && (!s.site || (!s.series && s.error !== null));
+  if (s.status === 'error' || missing) {
     return (
       <main className="theme-dark fixed inset-0 grid place-items-center bg-black p-4 text-[#f2f0ea]">
-        <p className="max-w-[520px] text-lg">
-          The data for this view did not load. <Link href="/explore" className="underline underline-offset-4">Back to Explore</Link>
-        </p>
+        <div className="max-w-[520px] text-lg">
+          <p>
+            The data for this view did not load. <Link href="/explore" className="underline underline-offset-4">Back to Explore</Link>
+          </p>
+          {missing && s.site && s.error && <p className="mt-3 text-[17px] text-[#c3bfb6]">{s.error}</p>}
+        </div>
       </main>
     );
   }
