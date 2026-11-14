@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { Requirements } from '@/lib/plan/requirements';
 import type { OptionView, PlanView } from '@/lib/viz/answer';
 
@@ -22,7 +22,7 @@ function RequirementField({ label, unit, scale, max, hours, onChange }: { label:
   return (
     <label className="flex flex-col gap-1.5 text-[15px] text-ink-2">
       <span>
-        {label} <span className="whitespace-nowrap">({unit})</span>
+        {label} ({unit})
       </span>
       <input
         type="number"
@@ -74,6 +74,35 @@ function Checks({ checks }: { checks: { met: boolean; words: string }[] }) {
   );
 }
 
+/** One option: named by its title (its other words are read as its content), with its checks, trade-offs, reason and action. */
+function OptionItem({ o, against, onLand }: { o: OptionView; against: string; onLand: (startUtc: string) => void }) {
+  const id = useId();
+  return (
+    <li aria-labelledby={id} className="border-t border-line pt-2.5">
+      <p id={id} className="font-medium text-ink">
+        {o.title}
+      </p>
+      {o.summary && <p>{o.summary}</p>}
+      <Checks checks={o.checks} />
+      <p className="mt-1 text-ink-2">
+        {against}: {o.trade}
+      </p>
+      {o.perSite && <p className="text-ink-2">{o.perSite}</p>}
+      {o.why && <p className="mt-1">{o.why}</p>}
+      {o.land && (
+        <button type="button" onClick={() => onLand(o.land!)} className="btn btn-sm mt-2">
+          {o.action}
+        </button>
+      )}
+      {o.href && (
+        <Link href={o.href} className="mt-1 inline-flex min-h-10 items-center font-medium underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+          {o.action}
+        </Link>
+      )}
+    </li>
+  );
+}
+
 function Options({ title, search, against, options, onLand }: { title: string; search: string; against: string; options: OptionView[]; onLand: (startUtc: string) => void }) {
   return (
     <section aria-label={title} className="flex flex-col gap-2">
@@ -84,26 +113,7 @@ function Options({ title, search, against, options, onLand }: { title: string; s
       ) : (
         <ol className="flex flex-col gap-3">
           {options.map((o) => (
-            <li key={o.key} aria-label={o.title} className="border-t border-line pt-2.5">
-              <p className="font-medium text-ink">{o.title}</p>
-              {o.summary && <p>{o.summary}</p>}
-              <Checks checks={o.checks} />
-              <p className="mt-1 text-ink-2">
-                {against}: {o.trade}
-              </p>
-              {o.perSite && <p className="text-ink-2">{o.perSite}</p>}
-              {o.why && <p className="mt-1">{o.why}</p>}
-              {o.land && (
-                <button type="button" onClick={() => onLand(o.land!)} className="btn btn-sm mt-2">
-                  {o.action}
-                </button>
-              )}
-              {o.href && (
-                <Link href={o.href} className="mt-1 inline-flex min-h-10 items-center font-medium underline decoration-line-strong underline-offset-4 hover:decoration-ink">
-                  {o.action}
-                </Link>
-              )}
-            </li>
+            <OptionItem key={o.key} o={o} against={against} onLand={onLand} />
           ))}
         </ol>
       )}
