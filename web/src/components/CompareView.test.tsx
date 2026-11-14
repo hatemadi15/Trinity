@@ -37,7 +37,7 @@ describe('CompareView', () => {
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
     const heads = within(table).getAllByRole('columnheader').map((h) => h.textContent);
     // What happens to the lander is one phrase, in colour, under "Time with power": no separate verdict repeating it.
-    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Remove']);
+    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Radio contact while it has power', 'Longest without Earth', 'Remove']);
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows[0].textContent).toMatch(/de Gerlache Rim 2/);
     expect(rows[1].textContent).toMatch(/de Gerlache rim summit/);
@@ -49,6 +49,12 @@ describe('CompareView', () => {
     expect(rows[0].textContent).toMatch(/3 d 4 h, then off until 20 Jan/);
     expect(within(rows[0]).getByText('3 d 4 h, then off until 20 Jan').className).toMatch(/\btext-bad\b/);
     expect(within(rows[1]).getByText('all 30 days').className).toMatch(/\btext-good\b/);
+    // Radio contact in the time with power, and the longest time without Earth, as Explore's radio windows give them: the
+    // ridge's battery runs out before Earth rises; at both sites the period starts without Earth, so at least that long.
+    const cell = (row: HTMLElement, label: string) => row.querySelector(`td[data-label="${label}"]`)!.textContent;
+    expect([cell(rows[0], 'Radio contact while it has power'), cell(rows[0], 'Longest without Earth')]).toEqual(['none', 'at least 9 d 3 h']);
+    expect([cell(rows[1], 'Radio contact while it has power'), cell(rows[1], 'Longest without Earth')]).toEqual(['14 d 15 h', 'at least 8 d 23 h']);
+    expect(screen.getByRole('main').textContent).toMatch(/Radio contact counts the hours with Earth in view in that time with power; the longest time without Earth is at least as long where the period’s start or end cuts it\./);
   });
 
   it('says above the table which site is best for each measure', async () => {
