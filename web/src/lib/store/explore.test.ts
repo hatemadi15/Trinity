@@ -700,7 +700,11 @@ describe('best landing date and the overview of all sites', () => {
       afterEarth: expect.closeTo(0.543, 3),
       // What a lander gets from landing at the period start, for ranking the places nearby.
       now: { hour: 0, stayH: 720, poweredH: 76, sunH: 321, contactH: 324, poweredContactH: 0, outageH: 219, poweredOutageH: 76, firstContactH: 219, sunlitAtLanding: true },
+      // Each row says the height its skyline is seen from and the terrain behind it.
+      mastM: 2,
+      terrain: expect.objectContaining({ quality: 'complete', mastM: 2, source: expect.objectContaining({ kind: 'featured' }) }),
     });
+    expect(o.blue_ghost_m1.terrain).toMatchObject({ quality: 'degraded', reasons: [{ kind: 'flat' }] });
     expect(o.shackleton_center).toMatchObject({ sunFraction: 0, nowHours: 10, best: null });
     expect(o.shackleton_center_rim_high.nowHours).toBe(720);
     expect(o.blue_ghost_m1.sunFraction).toBeGreaterThan(0.3); // a flat horizon, no skyline file
