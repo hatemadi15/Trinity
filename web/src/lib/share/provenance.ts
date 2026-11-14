@@ -135,19 +135,23 @@ export function settingsLine(params: PlannerParams): string {
   return `panel ${PANEL_WORDS[p.panel](p.panelAzimuthDeg)}, ${num(p.areaM2)} m², ${num(p.efficiency * 100)} % efficient; load ${num(p.loadW)} W; battery ${num(p.batteryWh)} Wh, ${num(p.initialSocFraction * 100)} % full at landing; mast ${num(params.mastM)} m; ${earth}`;
 }
 
+/** "88.2800° S, 64.3100° W", as the brief's header writes a place. */
+const latLon = (lat: number, lon: number) => `${Math.abs(lat).toFixed(4)}° ${lat < 0 ? 'S' : 'N'}, ${Math.abs(lon).toFixed(4)}° ${lon < 0 ? 'W' : 'E'}`;
+
 /** "2027-01-01 00:00" from "2027-01-01T00:00:00Z". */
 const minute = (isoZ: string) => isoZ.slice(0, 16).replace('T', ' ');
 
 /** The provenance as named lines, for the brief's list and the head of the settings file. */
 export function provenanceLines(p: Provenance): [string, string][] {
   const t = p.terrain;
-  const skyline = [t.mask, t.grids.join(', '), t.siteHeightM !== null ? `site ${Math.round(t.siteHeightM)} m above the Moon's mean radius` : ''].filter(Boolean).join('; ');
+  const height = t.siteHeightM === null ? '' : `site ${Math.abs(Math.round(t.siteHeightM))} m ${t.siteHeightM < 0 ? 'below' : 'above'} the Moon's mean radius`;
+  const skyline = [t.mask, t.grids.join(', '), height].filter(Boolean).join('; ');
   const v = p.versions;
   const versions = [`Earthrise ${v.app ?? '(a development build)'}${v.commit ? `, commit ${v.commit}` : ''}`, v.sites && `site catalogue ${v.sites}`, v.ephemeris && `Sun and Earth table ${v.ephemeris}`].filter(Boolean).join('; ');
   return [
     ['Period (UTC)', `${minute(p.period.startUtc)} to ${minute(p.period.endUtc)} UTC, ${p.period.days} days, one value per hour`],
     ['Settings', settingsLine(p.settings)],
-    ['Site', `${p.site.name} (${p.site.id}), ${p.site.lat.toFixed(4)}°, ${p.site.lon.toFixed(4)}°: ${p.site.catalogue}${p.site.approximate ? '; the centre of a region drawn on NASA’s map, to about 5 km' : ''}`],
+    ['Site', `${p.site.name} (${p.site.id}) at ${latLon(p.site.lat, p.site.lon)}: ${p.site.catalogue}${p.site.approximate && !/digitised/.test(p.site.catalogue) ? '; the centre of a region drawn on NASA’s map, to about 5 km' : ''}`],
     ['Skyline', skyline],
     ['Sun and Earth', `${p.ephemeris.name}, hourly from ${minute(p.ephemeris.firstUtc)} to ${minute(p.ephemeris.lastUtc)} UTC`],
     ['Versions', versions],

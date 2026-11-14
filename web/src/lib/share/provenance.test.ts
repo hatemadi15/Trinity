@@ -53,6 +53,13 @@ describe('collectProvenance', () => {
       'panel upright, facing 90° from north (vertical), 4 m², 33.3 % efficient; load 200 W; battery 2000 Wh, 100 % full at landing; mast 5 m; Earth counts from 1.5° above the skyline',
     );
     expect(lines.Skyline).toMatch(/^the precomputed skyline file masks\/de_gerlache_rim_2\.json.*; LOLA LDEM 20 m/);
+    // The catalogue says how near a region's centre is; the line does not say it twice.
+    expect(lines.Site).toBe(`de Gerlache Rim 2 (de_gerlache_rim_2) at 88.2800° S, 64.3100° W: ${sites.find((x) => x.id === 'de_gerlache_rim_2')!.source}`);
+    expect(lines.Skyline).toMatch(/; site 190 m above the Moon's mean radius$/);
+    const low = collectProvenance({ site: custom, maskMeta: { siteHeightM: -334.4, source: 'computed', failedTiles: 0, mastM: 5 }, params: DEFAULT_PARAMS, eph, startUtc: '2027-03-01T00:00:00', days: 14 }, versions);
+    const lowLines = Object.fromEntries(provenanceLines(low));
+    expect(lowLines.Site).toBe('Custom site -89.500°, 10.000° (custom_-89.5000_10.0000) at 89.5000° S, 10.0000° E: coordinates picked on the Earthrise map');
+    expect(lowLines.Skyline).toMatch(/; site 334 m below the Moon's mean radius$/);
     expect(lines['Sun and Earth']).toBe('JPL DE440 through NAIF SPICE, the Sun and Earth seen from the Moon, hourly from 2024-01-01 00:00 to 2036-12-31 23:00 UTC');
     expect(lines.Versions).toBe('Earthrise 0.1.0, commit abc123def456; site catalogue sites.json version 1, sites_derived.json version 1; Sun and Earth table made 2026-09-28T20:53:33+00:00, SHA-256 279fad83a151');
   });
