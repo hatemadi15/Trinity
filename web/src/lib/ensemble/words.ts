@@ -55,6 +55,8 @@ export function versionsView(r: VersionsSummary, { startUtc, days }: { startUtc:
   const line = (name: string, s: Span | null, here: number | null, f: (h: number) => string, extra = '', unit = '') => {
     const out = here !== null && s !== null && (here < s[0] || here > s[1]);
     outside ||= out;
+    // Every version gives the app's own figure: said once.
+    if (s !== null && here !== null && s[0] === here && s[1] === here && !extra) return `${name}: ${f(here)}${unit} in every version, as here.`;
     const range = s === null ? 'none in any version' : `${s[0] === s[1] ? f(s[0]) : `${f(s[0])} to ${f(s[1])}`}${unit}`;
     return `${name}: ${range}${extra} (here ${here === null ? 'none' : `${f(here)}${unit}`}${out ? ', outside every version' : ''}).`;
   };

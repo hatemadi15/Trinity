@@ -193,7 +193,7 @@ export const EVENT_NAMES: Record<EventKind, string> = {
 };
 
 const BASIS_WORDS: Record<Basis, string> = {
-  site: 'Measured at this site: the hourly steps against one-minute steps, the elevation data against NASA’s adjusted south-pole model and its stated height error, and the planets’ positions against JPL Horizons.',
+  site: 'Measured at this site: the hourly steps against one-minute steps, the elevation data against NASA’s adjusted south-pole model, its stated height error and the terrain versions, and the planets’ positions against JPL Horizons.',
   'polar-sites': 'Not measured at this point: each margin is the largest found at the featured sites near the pole.',
   flat: 'A flat horizon is assumed here: at Blue Ghost’s site the Sun set about 2.5 h before a flat horizon’s sunset, and the margin allows for that.',
 };

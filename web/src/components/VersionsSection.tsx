@@ -16,6 +16,8 @@ const defaultLoad = () => loadEnsembleIndex(dataBase());
 const m = (x: number) => `${x.toFixed(x < 1 ? 2 : 1)} m`;
 const deg = (x: number) => `${x < 0.1 ? x.toFixed(3) : x.toFixed(2)}°`;
 const share = (x: number | undefined) => (x === undefined ? '—' : `${Math.round(x * 100)} %`);
+/** A ratio to the stated error; past a hundred the stated error is a few ten-thousandths of a degree and the ratio says little more. */
+const ratioWords = (x: number | undefined) => (x === undefined ? '—' : x > 100 ? 'over 100×' : `${x.toFixed(1)}×`);
 const days = (h: number) => (h >= 48 ? `${(h / 24).toFixed(1)} d` : `${h.toFixed(0)} h`);
 
 /** A table that moves sideways inside its own box on a phone, so the page never does, and says so there. */
@@ -151,7 +153,7 @@ export function VersionsSection({ load = defaultLoad, uncertainty }: { load?: ()
                   <td className={TD}>{b?.label ?? b?.name ?? s.site_id}</td>
                   <td className={NUM}>{deg(s.sd_deg.median)}</td>
                   <td className={NUM}>{deg(s.sd_deg.p95)}</td>
-                  <td className={NUM}>{s.sd_over_stated_sigma ? `${s.sd_over_stated_sigma.median.toFixed(1)}×` : '—'}</td>
+                  <td className={NUM}>{ratioWords(s.sd_over_stated_sigma?.median)}</td>
                   <td className={NUM}>{share(s.app_inside_p05_p95)}</td>
                   <td className={NUM}>{night === undefined ? '—' : days(night)}</td>
                   <td className={NUM}>{v ? (Math.abs(v.p95 - v.p05) < 0.5 ? days(v.median) : `${days(v.p05)} to ${days(v.p95)}`) : '—'}</td>

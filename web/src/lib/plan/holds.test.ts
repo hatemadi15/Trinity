@@ -10,7 +10,7 @@ const req = (r: Partial<Requirements>): Requirements => ({ ...NO_REQUIREMENTS, .
 
 describe('holding across the terrain versions, an optional requirement', () => {
   it('sets no share by default, and counts the share as a requirement once one is set', () => {
-    expect(NO_REQUIREMENTS.minHoldPct).toBeNull();
+    expect(NO_REQUIREMENTS.minHoldPct ?? null).toBeNull();
     expect(requirementCount(req({ minHoldPct: 90 }))).toBe(1);
     expect(requirementCount(req({ minHoldPct: 90, minPoweredH: 120 }))).toBe(2);
   });

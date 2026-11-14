@@ -46,6 +46,12 @@ describe('the terrain versions in words', () => {
     );
   });
 
+  it('says a figure once when every version gives the app’s own', () => {
+    const v = versionsView(summary({ poweredH: [76, 76], firstSunsetH: [67, 67] }), { startUtc: START, days: 30 });
+    expect(v.ranges[0]).toBe('Time with power: 3 d 4 h in every version, as here.');
+    expect(v.ranges[1]).toBe('First sunset: 3 Jan 19:00 UTC in every version, as here.');
+  });
+
   it('says when the app’s own figure lies outside every version, and when some versions have no sunset', () => {
     const v = versionsView(summary({ longestNightH: [500, 510], firstSunsetH: [66, 69], noSunset: 3, poweredH: [74, 720] }), { startUtc: START, days: 30 });
     expect(v.ranges[1]).toBe('First sunset: 3 Jan 18:00 to 3 Jan 21:00 UTC, none in the period in 3 versions (here 3 Jan 19:00 UTC).');

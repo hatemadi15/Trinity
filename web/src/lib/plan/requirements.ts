@@ -23,7 +23,7 @@ export interface Requirements {
   minHoldPct?: number | null;
 }
 
-export const NO_REQUIREMENTS: Requirements = { minPoweredH: null, contactWithinH: null, maxOutageH: null, minPoweredContactH: null, minHoldPct: null };
+export const NO_REQUIREMENTS: Requirements = { minPoweredH: null, contactWithinH: null, maxOutageH: null, minPoweredContactH: null };
 
 export type RequirementId = 'power' | 'contact-at-landing' | 'outage' | 'powered-contact' | 'holds';
 
