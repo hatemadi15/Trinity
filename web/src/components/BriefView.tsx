@@ -12,6 +12,7 @@ import { siteLabel } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
 import { landerLine } from '@/lib/lander';
 import { exploreHref } from '@/lib/links';
+import { periodWords } from '@/lib/period';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth, pct0, spanShort } from '@/lib/viz/format';
@@ -120,7 +121,8 @@ export function BriefView({
         <p className="text-[15px] text-ink-2">Earthrise mission brief</p>
         <h1 className="display text-[30px] leading-tight">{name}</h1>
         <p className="text-[15px] text-ink-2">
-          {Math.abs(s.site.lat).toFixed(3)}° {s.site.lat < 0 ? 'S' : 'N'}, {Math.abs(s.site.lon).toFixed(3)}° {s.site.lon < 0 ? 'W' : 'E'}; {period} {s.startUtc.slice(0, 4)}.
+          {/* The period as a planner copies it: the landing with its hour in UTC, then the length. */}
+          {Math.abs(s.site.lat).toFixed(3)}° {s.site.lat < 0 ? 'S' : 'N'}, {Math.abs(s.site.lon).toFixed(3)}° {s.site.lon < 0 ? 'W' : 'E'}; {periodWords(s.startUtc, s.days)}.
         </p>
       </header>
       <section className="flex flex-col gap-1 text-[15px]">
