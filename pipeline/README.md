@@ -36,6 +36,7 @@ PowerShell, Command Prompt, bash and zsh; run from elsewhere, Python says
     uv run python -m lunar_pipeline.cli ensemble
     uv run python -m lunar_pipeline.cli uncertainty
     uv run python -m lunar_pipeline.cli ensemble --index-only
+    uv run python -m lunar_pipeline.cli images
     uv run python -m lunar_pipeline.cli check-data
     uv run python -m lunar_pipeline.cli manifest
 
@@ -54,13 +55,21 @@ march and writes `data/ensemble/<site>.json` and `index.json` (1.38 MB in all). 
 terrain part reads the versions, and `ensemble --index-only` after it, so the index takes the budget's stated skyline
 errors. The method and the fit are in `docs/method.md`, "Terrain versions".
 
+`images` (needs the kernels, the LOLA grids and the two product 90 models above) checks the app's terrain shadows
+against LRO camera pictures: it asks ODE (oderest.rsl.wustl.edu) which LROC Wide Angle Camera polar movie frames of
+September and October 2009 cover each of eight featured sites, reads each picked frame's window round the site with
+one HTTP byte range (pds.mcp.nasa.gov), reads product 90's two NAC pictures beside Connecting Ridge, and writes
+`data/validation/images.json`. Everything it reads is cached in `data_raw/images` (35 MB with three product 90
+windows; about 10 minutes the first time, 16 seconds from the cache). The method, the results and every download
+are in `docs/method.md`, Validation, item 5.
+
 `fetch` downloads each group into `data_raw/<group>`; it skips files it already has and, run again
 after a cut-off download, resumes from the `.part` file. `data_raw/` is gitignored.
 
 | Group | Size | What | Read by |
 |---|---|---|---|
-| `kernels` | 44 MB | NAIF SPICE kernels: leap seconds, the Moon's orientation and frame, DE440s | `ephemeris`, `sky`, `horizons-compare`, `report`, `validate`, `home-assets`, `fixture-time`, `fixture-metrics`, `fixture-power`, `fixture-landing`, `fixture-sky` |
-| `lola` | 335 MB | LOLA heights of the south pole at 20, 80 and 240 m, over HTTP from imbrium.mit.edu | `tiles`, `terrain`, `masks`, `sites-derive`, `home-assets` |
+| `kernels` | 44 MB | NAIF SPICE kernels: leap seconds, the Moon's orientation and frame, DE440s | `ephemeris`, `sky`, `horizons-compare`, `report`, `validate`, `images`, `home-assets`, `fixture-time`, `fixture-metrics`, `fixture-power`, `fixture-landing`, `fixture-sky` |
+| `lola` | 335 MB | LOLA heights of the south pole at 20, 80 and 240 m, over HTTP from imbrium.mit.edu | `tiles`, `terrain`, `masks`, `sites-derive`, `home-assets`, `images` |
 | `illumination` | 147 MB | the LOLA illumination maps (Mazarico) | `report`, `validate` |
 | `textures` | 0.45 MB | the LROC colour map, for Explore's 3D globe | `terrain` (without it the globe is plain grey) |
 | `sky` | not measured | the Yale Bright Star Catalogue and two Blue Marble maps of Earth, only to rebuild `data/sky` | `sky` |

@@ -11,8 +11,11 @@ describe('loadValidation', () => {
   beforeAll(async () => {
     const root = repoPath('data');
     server = http.createServer((req, res) => {
-      const file = path.join(root, decodeURIComponent((req.url ?? '/').split('?')[0]));
-      if (!fs.existsSync(file)) {
+      // Under /without-pictures the pictures' table is missing, as in a data folder made before it.
+      const url = decodeURIComponent((req.url ?? '/').split('?')[0]);
+      const bare = url.replace(/^\/without-pictures/, '');
+      const file = path.join(root, bare);
+      if (!fs.existsSync(file) || (bare !== url && bare.endsWith('/images.json'))) {
         res.statusCode = 404;
         res.end('missing');
         return;
@@ -45,6 +48,22 @@ describe('loadValidation', () => {
     for (const doc of [v.horizons, v.mazarico, v.power]) expect(doc.evidence.criteria?.rule).toBeTruthy();
     expect(v.backcasts.evidence.kind).toBe('context');
     expect(v.backcasts.evidence.criteria).toBeNull();
+  });
+
+  it('loads the check of shadows against camera pictures beside them', async () => {
+    const v = await loadValidation(base);
+    expect(v.images).toBeDefined();
+    expect(v.images!.evidence.kind).toBe('check');
+    expect(v.images!.evidence.command).toMatch(/lunar_pipeline\.cli images/);
+    expect(v.images!.evidence.criteria.rule).toBeTruthy();
+    expect(v.images!.rows.length).toBe(v.images!.evidence.coverage.pictures);
+    expect(v.images!.rows.every((r) => r.agree > 0 && r.agree <= 1)).toBe(true);
+  });
+
+  it('leaves the pictures out, rather than fail, where their table is missing', async () => {
+    const v = await loadValidation(`${base}/without-pictures`);
+    expect(v.images).toBeUndefined();
+    expect(v.horizons.n_rows).toBeGreaterThan(0);
   });
 
   it('fails with a DataError naming the missing file', async () => {

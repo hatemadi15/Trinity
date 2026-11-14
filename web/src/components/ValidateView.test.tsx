@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { BackcastsDoc, HorizonsDoc, MazaricoDoc, PowerDoc, ValidationDocs } from '@/lib/data/validation';
+import type { BackcastsDoc, HorizonsDoc, MazaricoDoc, PicturesDoc, PowerDoc, ValidationDocs } from '@/lib/data/validation';
 import { readJson } from '@/lib/engine/__tests__/helpers';
 import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { ValidateView } from './ValidateView';
@@ -14,6 +14,8 @@ const docs: ValidationDocs = {
 };
 const TITLES = ['Where the Sun and Earth are in the sky', 'How much sunlight a site gets', 'The power and battery sums', 'When night falls on a real mission'];
 const CHECKS = TITLES.slice(0, 3);
+const pictures = readJson<PicturesDoc>('data', 'validation', 'images.json');
+const PICTURES = 'Where shadows fall in pictures from orbit';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -53,6 +55,7 @@ describe('ValidateView', () => {
       if (url.endsWith('/validation/mazarico.json')) return jsonResponse(docs.mazarico);
       if (url.endsWith('/validation/power.json')) return jsonResponse(docs.power);
       if (url.endsWith('/validation/backcasts.json')) return jsonResponse(docs.backcasts);
+      if (url.endsWith('/validation/images.json')) return jsonResponse(pictures);
       if (url.endsWith('/validation/tests.json')) return jsonResponse({ generated_utc: '2026-10-02T05:48:59Z', web: { files: 102, tests: 714 }, pipeline: { tests: 114 } });
       return new Response('missing', { status: 404 });
     });
@@ -60,8 +63,9 @@ describe('ValidateView', () => {
     render(<ValidateView />);
     await waitFor(() => expect(screen.getByRole('region', { name: TITLES[0] })).toBeTruthy());
     await new Promise((r) => setTimeout(r, 400));
-    // Four tables and the test badge, once each; the header's band of stars fetches its catalogue besides.
-    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('/validation/')).length).toBe(5);
+    // Five tables and the test badge, once each; the header's band of stars fetches its catalogue besides.
+    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('/validation/')).length).toBe(6);
+    expect(screen.getByRole('region', { name: PICTURES })).toBeTruthy();
     expect(screen.getByRole('main').textContent).toMatch(/714 automated tests in the app and 114 in the data pipeline/);
   });
 
@@ -124,6 +128,31 @@ describe('ValidateView', () => {
       const passing = CHECKS.filter((name) => /^Passes/.test(screen.getByRole('region', { name }).querySelector('[data-part="mark"]')!.textContent ?? ''));
       expect(passing).toHaveLength(3 - which.length);
     }
+  });
+
+  it('checks the shadows against pictures from orbit as a fourth check, after sunlight, counted in the verdict', async () => {
+    await open(undefined, { ...docs, images: pictures });
+    const region = screen.getByRole('region', { name: PICTURES });
+    expect(partsOf(region).map(([label]) => label)).toEqual(['What it shows', 'Passes when', 'Tested on', 'What it leaves out']);
+    const mark = region.querySelector('[data-part="mark"]')!;
+    expect(mark.textContent).toBe('Misses: 3 of 20 pictures fall short');
+    expect(mark.className).toMatch(/text-bad/);
+    expect(screen.getByText('Three of four checks meet their criteria; past missions are context, not a check.')).toBeTruthy();
+    // After the sunlight check, before the sums.
+    const at = (name: string) => screen.getByRole('region', { name });
+    expect(at(TITLES[1]).compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(region.compareDocumentPosition(at(TITLES[2])) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(region).queryByRole('table')).toBeNull();
+    fireEvent.click(within(region).getByRole('button', { name: 'Show the numbers' }));
+    expect(within(region).getByRole('table', { name: 'Every picture against the app' })).toBeTruthy();
+    // Still one gold action on the page.
+    expect(screen.getByRole('main').querySelectorAll('.btn-primary')).toHaveLength(1);
+  });
+
+  it('shows the four other kinds of evidence as before where the pictures’ table is missing', async () => {
+    await open();
+    expect(screen.queryByRole('region', { name: PICTURES })).toBeNull();
+    expect(screen.getByText('Three checks meet their criteria; past missions are context, not a check.')).toBeTruthy();
   });
 
   it('shows the sunlight comparison step by step from the app’s own share to the map’s way, with both Earth rules and what could not be matched', async () => {

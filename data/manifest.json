@@ -1,8 +1,8 @@
 {
  "format": 1,
- "data_version": "2026-11-14-c0a28f63",
- "content_sha256": "c0a28f63b04a0335ffd14932ec83b21aa5c61a2cc809944dda251ae5f4f0c2e3",
- "written_utc": "2026-11-14T15:41:24Z",
+ "data_version": "2026-11-14-c9e51db2",
+ "content_sha256": "c9e51db2cb561705a30b54190f1372a56e55da7a29c2cb69fc499c65a8d0a28d",
+ "written_utc": "2026-11-14T16:43:21Z",
  "about": "Every data file the app reads, as web/public/data lays them out. Check a folder with: uv run python -m lunar_pipeline.cli check-data",
  "groups": [
   {"id": "core", "title": "the site catalogue, the hourly Sun and Earth table and the sites' horizon masks", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "No forecast can be shown: Explore, the site list, Compare and the brief say the data could not be loaded.", "bytes": 2876180, "files": [
@@ -42,9 +42,10 @@
    {"path": "sky/stars.bin", "bytes": 168080, "sha256": "a35bad0d01c5d7f630a53e101c115b4a643ce9f0e4237de60ef3e83ba324e0c5"},
    {"path": "sky/stars.json", "bytes": 367, "sha256": "0cb31c542ab8e3c2516b12623c60c9a5ac57deed48c0b6bb294f82a45b63e811"}
   ]},
-  {"id": "validation", "title": "the Accuracy page's tables", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "The Accuracy page says the checks could not be loaded.", "bytes": 108928, "files": [
+  {"id": "validation", "title": "the Accuracy page's tables", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "The Accuracy page says the checks could not be loaded.", "bytes": 141107, "files": [
    {"path": "validation/backcasts.json", "bytes": 4168, "sha256": "d92ed31e6fda202062a2e10e216f3a3b6ae1be3865c0109eeab64e712931b2c7"},
    {"path": "validation/horizons.json", "bytes": 56459, "sha256": "ccd8ba98bab47e58fae3afa91006344fd52baed255abf0294d79f411efb1c7d1"},
+   {"path": "validation/images.json", "bytes": 32179, "sha256": "4615c9140ea1647fa20255bbd77c3b24b5027c194debf2888fc86dc6501b815e"},
    {"path": "validation/mazarico.json", "bytes": 33250, "sha256": "f50fe698bf930a0931f0209356b27f6edcd05120a7431e8e941be4383aff0b31"},
    {"path": "validation/power.json", "bytes": 15051, "sha256": "cd7d8efaaffd7b2e8330400850e81aa64f6214790534e5e12d8db7b2419b35a3"}
   ]},
