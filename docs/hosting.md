@@ -108,7 +108,7 @@ Release assets may be up to 2 GB each; the zip is about 250 MB.
 
 ## 4. Offline venue mode
 
-The venue may have no usable Wi-Fi. Prepare two laptops (and a USB stick with the zip) like this:
+The venue may have no usable Wi-Fi. Prepare two laptops (and a USB stick with the zip) like this, with a connection for the build (a first build downloads the fonts). On a fresh clone `sync-local --tiles` stops with `data_out/tiles missing`: download and build the data first (the README's "Run it on your computer", step 3), or unzip the release's zip into `web/public` and run `cd web` in place of the first line.
 
 ```powershell
 cd pipeline; uv run python -m lunar_pipeline.cli sync-local --tiles; cd ../web
@@ -117,7 +117,7 @@ npm run build
 npm start                              # serves http://localhost:3000 with /data from public/data
 ```
 
-If `web/.env.local` exists on the laptop, make sure it does not say `NEXT_PUBLIC_AI_MODE=live`; the file wins over the shell at build time. `?demo=1` in the URL also switches the planner to rehearsed answers for the tab, whatever the build says.
+A value set in the shell wins over `web/.env.local` at build time (checked with Next 16.3.6: a shell set to `cached` built `cached` over a file that said `live`, and a shell set to `live` built `live` over a file that said `cached`). Without one in the shell, the file's value is built in, so a `web/.env.local` copied from `.env.example`, which says `live`, gives a live build unless the shell sets `cached` as above. `?demo=1` in the URL also switches the planner to rehearsed answers for the tab, whatever the build says.
 
 Open `http://localhost:3000/explore?demo=1`. The Accuracy page's live re-check needs the internet; without it the page shows the stored comparison and says so. The Horizons fixtures and the validation tables are in the data mirror, so every table renders offline.
 
