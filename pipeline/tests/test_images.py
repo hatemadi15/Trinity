@@ -231,3 +231,126 @@ def test_a_sites_map_runs_half_a_pixel_beyond_its_outer_pixel_centres():
     x_min, x_max, y_min, y_max = im.level_box(level, site_x_m=1000.0, site_y_m=-500.0)
     assert (x_min, x_max) == (1000.0 - 60.0, 1000.0 + 60.0)
     assert (y_min, y_max) == (-500.0 - 40.0, -500.0 + 40.0)
+
+
+def test_flat_ground_meets_the_sun_at_its_height_and_higher_towards_it_as_the_moon_curves_away():
+    level = Level(np.zeros((3, 201)), 20.0, 100.0, 1.0)
+    d = im.direct_cosine(level, bearing_deg=90.0, el_deg=1.0)  # the Sun to the right
+    assert d[1, 100] == pytest.approx(np.sin(np.radians(1.0)), rel=1e-9)
+    # 2 km towards the Sun the ground's own horizon has tipped 2000 / 1737400 rad towards it
+    assert d[1, 200] == pytest.approx(np.sin(np.radians(1.0) + 2000.0 / 1737400.0), rel=1e-9)
+    assert d[1, 0] < d[1, 100] < d[1, 200]
+
+
+def test_a_slope_facing_away_from_a_low_sun_gets_no_direct_light():
+    z = np.tile(np.arange(10, dtype=np.float64) * 20.0 * np.tan(np.radians(10.0)), (3, 1))  # rises to the right
+    level = Level(z, 20.0, 4.5, 1.0)
+    assert (im.direct_cosine(level, bearing_deg=90.0, el_deg=2.0)[:, 1:-1] == 0.0).all()  # the Sun to the right, behind the rise
+    assert (im.direct_cosine(level, bearing_deg=270.0, el_deg=2.0)[:, 1:-1] > 0.2).all()
+
+
+def test_a_pixel_counts_as_lit_when_at_least_half_as_bright_as_sunlight_would_make_it():
+    # Sunlit pixels give 0.2 of brightness per unit of the Sun's cosine, shadowed ones a hundredth of that; one pixel
+    # is three quarters lit, one a third, and one faces the Sun too obliquely to tell.
+    expected = np.array([0.1, 0.2, 0.05, 0.3, 0.1, 0.2, 0.05, 0.1, 0.1, 0.001])
+    per_unit = np.array([0.2, 0.2, 0.2, 0.2, 0.002, 0.002, 0.003, 0.15, 0.0667, 0.2])
+    seen, ratio, usable, k = im.classify_by_ratio(expected * per_unit, expected, min_expected=0.01)
+    assert k == pytest.approx(0.2)
+    assert usable.tolist() == [True] * 9 + [False]
+    assert ratio[:9] == pytest.approx([1.0, 1.0, 1.0, 1.0, 0.01, 0.01, 0.015, 0.75, 0.3335])
+    assert seen.tolist() == [True, True, True, True, False, False, False, True, False, False]
+
+
+def test_the_scale_of_sunlight_can_be_taken_from_ground_known_to_be_sunlit():
+    # Faint light from the slopes around a deep shadow (0.01 a unit) outnumbers the sunlit ground (0.15): told which
+    # pixels are sunlit, the scale is theirs whatever the rest look like.
+    expected = np.full(10, 0.05)
+    per_unit = np.array([0.15, 0.14, 0.16, 0.01, 0.012, 0.011, 0.009, 0.01, 0.0005, 0.0004])
+    sunlit = np.array([1, 1, 1, 0, 0, 0, 0, 0, 0, 0], dtype=bool)
+    seen, _, _, k = im.classify_by_ratio(expected * per_unit, expected, min_expected=0.01, sunlit=sunlit)
+    assert k == pytest.approx(0.15)
+    assert seen.tolist() == [True] * 3 + [False] * 7
+
+
+def test_the_scale_of_sunlight_comes_from_the_bright_group_even_when_most_ground_is_dark():
+    # A low Sun: three sunlit pixels against seven in shadow lit faintly by the slopes around them.
+    expected = np.full(10, 0.05)
+    per_unit = np.array([0.15, 0.14, 0.16, 0.01, 0.012, 0.011, 0.009, 0.01, 0.013, 0.008])
+    seen, _, _, k = im.classify_by_ratio(expected * per_unit, expected, min_expected=0.01)
+    assert k == pytest.approx(0.15)
+    assert seen.sum() == 3
+
+
+def test_an_edge_pixel_has_both_lit_and_dark_ground_next_to_it():
+    m = np.zeros((5, 5), dtype=bool)
+    m[:, 3:] = True
+    e = im.edge_pixels(m)
+    assert e[:, 2].all() and e[:, 3].all()
+    assert not e[:, 0].any() and not e[:, 4].any()
+
+
+def test_the_comparison_also_says_how_much_of_the_lit_ground_the_app_finds():
+    pred = np.array([1, 1, 1, 0, 0, 0, 1, 1], dtype=bool)
+    seen = np.array([1, 1, 0, 0, 0, 1, 1, 1], dtype=bool)
+    assert im.compare_masks(pred, seen)["light_found"] == pytest.approx(4 / 5)
+
+
+def test_disagreement_next_to_a_shadows_edge_is_told_apart_from_disagreement_inside_one():
+    # The app's shadow edge one column out: every pixel they disagree on sits on an edge.
+    pred = np.zeros((6, 6), dtype=bool)
+    pred[:, 3:] = True
+    seen = pred.copy()
+    seen[:, 2] = True
+    usable = np.ones_like(pred)
+    assert im.near_edge_share(pred, seen, usable) == pytest.approx(1.0)
+    # A band two pixels wide lit in the picture, deep inside the app's shadow: its inner column touches the band's own
+    # edge in the picture, its outer column touches no edge at all.
+    pred = np.zeros((6, 8), dtype=bool)
+    pred[:, 6:] = True
+    seen = pred.copy()
+    seen[:, 0:2] = True
+    usable = np.ones_like(pred)
+    assert im.near_edge_share(pred, seen, usable) == pytest.approx(6 / 12)
+    assert im.near_edge_share(pred, seen, usable, picture_edges=False) == pytest.approx(0.0)
+
+
+def test_the_movie_listing_gives_the_frame_names_in_a_month():
+    xml = (
+        "<ListBucketResult><Contents><Key>a/WAC_POLE_MOVIE_SOUTH/WAC_MOVIE_S20090920T0850.IMG</Key></Contents>"
+        "<Contents><Key>a/WAC_POLE_MOVIE_SOUTH/WAC_MOVIE_S20090920T0850.xml</Key></Contents>"
+        "<Contents><Key>a/WAC_POLE_MOVIE_SOUTH/WAC_MOVIE_S20090920T1237.IMG</Key></Contents></ListBucketResult>"
+    )
+    assert im.frames_in_listing(xml) == ["S20090920T0850", "S20090920T1237"]
+
+
+def test_a_picture_meets_the_rule_with_enough_agreement_and_enough_of_both_kinds_of_ground_found():
+    good = {"agree": 0.9, "light_found": 0.85, "shadow_found": 0.95}
+    assert im.passes(good)
+    assert not im.passes({**good, "agree": 0.84})
+    assert not im.passes({**good, "light_found": 0.79})
+    assert not im.passes({**good, "shadow_found": 0.5})
+    # a picture with no dark ground in it is judged on the rest
+    assert im.passes({**good, "shadow_found": None})
+
+
+def _row(site, agree, light, shadow, el=1.0, camera="WAC"):
+    return {
+        "site_id": site, "camera": camera, "mid_utc": "2009-09-20T08:54:02", "sun_el_deg": el, "pixels": 100, "km2": 1.0,
+        "agree": agree, "light_found": light, "shadow_found": shadow, "shadow_confirmed": 0.8, "majority": 0.6,
+        "disagree_on_edges": 0.95, "agree_sun_turned_90": 0.5,
+    }
+
+
+def test_the_table_says_whether_every_picture_meets_the_rule_and_counts_what_it_covers():
+    sites = [{"site_id": "a"}, {"site_id": "b"}, {"site_id": "c"}]
+    rows = [_row("a", 0.9, 0.9, 0.99), _row("b", 0.95, 0.95, 0.97, el=4.0), _row("a", 0.86, 0.74, 0.96, el=0.54, camera="NAC")]
+    doc = im.build_doc(rows, sites, {})
+    ev = doc["evidence"]
+    assert ev["kind"] == "check" and ev["meets_criteria"] is False
+    assert ev["coverage"]["sites"] == ["a", "b"]
+    assert (ev["coverage"]["pictures"], ev["coverage"]["wac_pictures"], ev["coverage"]["nac_pictures"]) == (3, 2, 1)
+    assert ev["coverage"]["sun_el_deg"] == [0.54, 4.0]
+    assert doc["summary"]["pictures_meeting_rule"] == 2
+    assert doc["summary"]["median_agree"] == 0.9
+    assert ev["criteria"]["min_agree"] == im.RULE_AGREE and ev["criteria"]["min_found"] == im.RULE_FOUND
+    assert im.build_doc(rows[:2], sites, {})["evidence"]["meets_criteria"] is True
