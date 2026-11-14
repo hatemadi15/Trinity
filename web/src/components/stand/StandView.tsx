@@ -24,7 +24,7 @@ import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explor
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth } from '@/lib/viz/format';
-import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
+import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyCountdown, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
@@ -550,6 +550,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           // A key moment's line or a Turn to's keeps the plate: the resident's waits until it has gone.
           lineTaken={!!caption}
           playHps={PLAY_HPS * speed}
+          // Each view of a site and period opens on its landing: the first, and each better day landed on in place, which the
+          // key opens again. In demo mode and with bright=1 too: it is how the view opens, as its tilt is, not a secret to keep
+          // out of the pitch and the video as the resident is.
+          landing
         />
       )}
       {failed && s.mask && (
@@ -662,6 +666,10 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <span>{lander.text}</span>
                 </p>
                 <p className="text-[14px] text-[#c3bfb6] md:text-[15px]">{standingLine(site, oneLine, 'top', flat)}</p>
+                {/* What comes next in the sky at the hour, in Explore's time bar's words: lightly, a line of its own. */}
+                <p data-countdown="" className="text-[14px] tabular-nums md:text-[15px]">
+                  {skyCountdown(series, hour)}
+                </p>
                 {/* The whole headline on a phone, the night with it, which the plate's short form leaves out; the heading
                     above says it for screen readers. */}
                 <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px] md:hidden">

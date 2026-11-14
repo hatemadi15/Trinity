@@ -8,6 +8,7 @@ import { DEFAULT_SITE, type AiMode, type ExploreState } from '../store/explore';
 import { plannerLog } from '../store/planner-log';
 import type { Control, LunaCommand, Place } from './commands';
 import { queueControl, runControl } from './controls';
+import { skyAnswer } from './sky';
 
 /** What Luna's commands reach: the app's store and router, the planner, the theme, and Luna herself. */
 export interface LunaDeps {
@@ -140,6 +141,8 @@ export async function runCommand(cmd: LunaCommand, deps: LunaDeps, said = ''): P
       }
       return 'The better day is on Explore and in the view from the site: open one of them first.';
     }
+    case 'sky':
+      return skyAnswer(cmd.question, deps.store.getState());
     case 'planner':
       return plan(cmd.actions, cmd.reply, 'intent', undefined, said || cmd.reply, deps);
     case 'ask': {

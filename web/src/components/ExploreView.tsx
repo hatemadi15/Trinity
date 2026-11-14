@@ -8,6 +8,7 @@ import { GroundPanel } from './explore/GroundPanel';
 import { LanderDialog } from './explore/LanderDialog';
 import { NumbersCard } from './explore/NumbersCard';
 import { PeriodBand } from './explore/PeriodBand';
+import { RadioWindows } from './explore/RadioWindows';
 import { exploreHref } from './sites/SitesView';
 import { TimeBar } from './explore/TimeBar';
 import { LunaControls } from './luna/LunaControls';
@@ -27,14 +28,26 @@ import { dateTimeUtc } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 import { sceneStateAt } from '@/lib/viz/scene-state';
 import { keyMoments } from '@/lib/viz/stand';
+import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
+import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
 
 /**
  * Explore: the answer for one site and period first (in words, with the better landing date), then why
  * (the Sun, Earth and the battery hour by hour), then the ground, where the site is, and the assistant.
  * The time bar stays pinned to the bottom of the window.
  */
-export function ExploreView({ store = exploreStore, navigate }: { store?: StoreApi<ExploreState>; navigate?: (href: string) => void }) {
+export function ExploreView({
+  store = exploreStore,
+  navigate,
+  uncertainty,
+}: {
+  store?: StoreApi<ExploreState>;
+  navigate?: (href: string) => void;
+  /** Injected in tests; by default the app's data/uncertainty/budget.json. */
+  uncertainty?: () => Promise<UncertaintyDoc>;
+}) {
   const s = useStore(store);
+  const budget = useUncertainty(uncertainty);
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
   const [hoverHour, setHoverHour] = useState<number | null>(null);
@@ -103,6 +116,12 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
     return advice ? { words: nearbyWords(advice, s.days), name: siteLabel(advice.site), href: exploreHref(advice.site.id, s.startUtc, s.days) } : null;
   }, [s.site, s.sites, s.overview, s.power, s.days, s.startUtc]);
 
+  // The verdict's times with their supported margins (data/uncertainty), and the ground at a measured site.
+  const sure = useMemo(
+    () => (s.series && s.power && s.site ? sureLines({ doc: budget, site: { id: s.site.id, polar: s.site.polar }, series: s.series, power: s.power, startUtc: s.startUtc }) : null),
+    [budget, s.site, s.series, s.power, s.startUtc],
+  );
+
   if (s.status === 'loading' || s.status === 'idle') {
     return (
       <AppFrame>
@@ -154,6 +173,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               onCompare={onCompare}
               onYear={() => void store.getState().findBestWindow(s.days)}
               yearNote={s.bestWindowNote}
+              sure={sure}
             />
             <NumbersCard
               site={site}
@@ -163,6 +183,9 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               days={s.days}
               maskMeta={s.maskMeta}
               contactHours={answer.contactHours}
+              series={s.series}
+              hour={s.cursorHour}
+              startUtc={s.startUtc}
             />
           </div>
           <TimeChart
@@ -178,6 +201,8 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             onCursor={s.setCursor}
             onHover={setHoverHour}
           />
+          {/* When Earth is in view for radio, and when the lander has power to use it, at the time bar's hour. */}
+          <RadioWindows series={s.series} power={s.power} startUtc={s.startUtc} hour={s.cursorHour} />
           <GroundPanel
             site={site}
             sites={s.sites}
@@ -203,7 +228,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             onPick={onPick}
             reducedMotion={reducedMotion}
           />
-          <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide />
+          <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} />
           <PlannerChat store={store} navigate={go} />
         </div>
         {/* The period's key moments as dots with Next, as on the stand view, so Play and Next show what happens on the first

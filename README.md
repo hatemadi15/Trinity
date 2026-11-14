@@ -27,39 +27,51 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   with their sunlight and contact with Earth, on a relief map of the pole. Any other point south of
   60° S can be worked out in the browser.
 - **Explore** (`/explore`): the answer for one site and one landing date, first. "Landing at de
-  Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, the time
+  Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, how sure its
+  times are ("Times ±4.5 h", one tap away), the time
   Earth is in view while the lander has power, a better landing day inside the period ("Land on 20
   January instead") or a better place nearby, and a search of the next 12 months. Below it: the
-  numbers (every figure under "All numbers"), a chart of the Sun, Earth and the battery hour by
-  hour with the hills in each direction, the ground at the time bar's hour (three tabs: a north-up
+  numbers, with the Sun's height at the time bar's hour and its highest (every figure under "All numbers"), a chart of the Sun,
+  Earth and the battery hour by hour with the hills in each direction, the radio windows (each
+  stretch with Earth in view, in UTC, which of them the lander has power for, and the longest time
+  without Earth: geometric visibility, not a scheduled contact), the ground at the time bar's hour (three tabs: a north-up
   shadow map, the same light in 3D from above, and a horizon chart), and where the site lies with
-  its nearest neighbours. The time bar at the bottom plays the period hour by hour. The period is 14,
+  its nearest neighbours. The time bar at the bottom plays the period hour by hour and counts down to the next sunset or
+  sunrise and to Earth's next rising or setting. The period is 14,
   30 or 90 days from a date you choose; the Lander dialog offers three ready-made landers or your
   own panel, load, battery and mast. `/explore?site=&start=&days=` links to one forecast.
 - **Stand on the Moon** (`/explore/stand`, "Stand at the site" on Explore): the view from the landing
-  site, full window, for Explore's site, period and hour. NASA's ground out to 125 km, lit by the hour's
+  site, full window, for Explore's site, period and hour. It opens with the lander coming down in
+  front of you (an eased descent, its plume and dust, touchdown), except with reduced motion. NASA's ground out to 125 km, lit by the hour's
   Sun with the shadows worked out from those heights; the Sun small and white in a black sky; Earth
   from NASA's Blue Marble, turned for the hour; the real stars, placed for the site and hour (by day
   they show once you look up, away from the bright ground). A lander stands 16 m away, with rocks and
   small craters around you: these are drawn, not measured, and the view says so. A plate at the top
   gives the answer first (power, radio contact, the days without power), the next step under it and
-  the lander's state for the hour at its foot; "More" opens today's card; the time bar below plays the period at a day a second (2× and 4× on its speed button), stops on each
+  the lander's state for the hour at its foot; "More" opens today's card, which counts down to the next sunset or sunrise and to Earth's next
+  rising or setting; the time bar below plays the period at a day a second (2× and 4× on its speed button), stops on each
   of its key moments and turns the view there (the Sun going behind the hills, the battery running out,
   Earth coming into view, the Sun coming back), which show as dots on the bar, and Next steps to them.
   `?hour=` sets the hour and `?quality=fast` lightens the drawing for weaker graphics; without WebGL 2
   the horizon chart stands in, with the same words.
 - **Compare sites** (`/compare`): up to four sites in one table for the same days and lander:
-  sunlight, Earth in view, longest night and time with power (and when the power comes back), with a small Sun and
+  sunlight, Earth in view, longest night, time with power (and when the power comes back), radio contact while
+  it has power and the longest time without Earth, with a small Sun and
   Earth strip per site and one sentence naming the best site for each measure. Empty, it offers two
   ready pairs that show how much a few kilometres change.
 - **Accuracy** (`/validate`): three checks, each with its pass mark, its headline figure and its
   full table on request: the Sun's and Earth's directions against JPL Horizons (with a live
   re-check), sunlight against NASA's LOLA illumination map, and predicted sunsets against how three
-  real missions ended. All three checks pass. Also the error budget and the count of automated tests.
+  real missions ended. All three checks pass. Then how sure the times are: the margin each event carries at four kinds of site,
+  measured against one-minute steps, NASA's adjusted south-pole maps (PGDA product 90) and JPL
+  Horizons, with each source apart and the ground at each site; then the error budget and the count
+  of automated tests.
 - **How it works** (`/learn`): the three drawings, the science behind them for a class (the Moon's
   small tilt, libration, how to read the charts, the battery sum) and five steps through the pages, then how to run it offline.
 - **The brief** (`/brief`): one printable page with Explore's answer, five numbers, the Sun's and
-  Earth's rows over the period, the lander, the method and the data, and an optional narrated
+  Earth's rows over the period, each of its times with its measured margin, the lander and what its
+  power figures assume (electrical energy only, not keeping warm through the night or starting
+  again), the method, the ground at the site and the data, and an optional narrated
   paragraph checked number by number against the figures.
 - **Ask in plain words** (on Explore and Compare): an assistant that turns a typed question
   ("Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "Find the best landing date for 14
@@ -213,8 +225,8 @@ page. More resources may be added before the hackathon begins.
 |---|---|
 | Site selection and comparison | A catalogue of 19 places near the south pole (the nine Artemis III candidate regions, the landing spots of three commercial landers, crater-rim high points and crater floors) on a relief map of the pole, and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts up to four sites side by side for the same days and lander. |
 | Dates and times | Any landing date the ephemeris covers (2024 to 2036), with a period of 14, 30 or 90 days; a better landing day inside the period, and a search of the next 12 months for the best one. |
-| The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments: the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back. |
-| Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; hours of sunlight; the time Earth is in view while the lander has power; the longest night; every figure under "All numbers". |
+| The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments (the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back) and counts down to the next sunset or sunrise and to Earth's next rising or setting. |
+| Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; the Sun's height above the horizon at any hour and its highest; hours of sunlight; the radio windows with their UTC times, which of them the lander has power to use, and the longest time without Earth (geometric direct-to-Earth visibility, not a booked antenna); the longest night; every figure under "All numbers". |
 | Several ways to see it | A relief map of the pole, a north-up shadow map and the same light in 3D from above, the horizon chart, an hour-by-hour chart of the Sun, Earth and the battery, the view from the site, and the arrival from the whole Moon on the home page. |
 | Time and change | The time bar plays the period hour by hour at a day a second (2× and 4× on its speed button), with dots for the key moments and Next to step between them; the chart and every view follow it. |
 | Every skill level | Plain words first and every number a click away; a Learn mode with a guided story for classes; the printable brief; an assistant for typed questions and Luna for spoken ones; keyboard use, phone layouts, light and dark themes, and an offline mode for the venue. |
@@ -753,7 +765,8 @@ kill 12345
   illumination maps), the reference implementation of the science; it writes `data/`. The commands
   are in `pipeline/lunar_pipeline/cli.py` and [pipeline/README.md](pipeline/README.md).
 - `data/`: the committed outputs (the site catalogue, the hourly Sun and Earth table, the horizon
-  masks of the catalogue sites, the sky, the validation tables and the golden fixtures).
+  masks of the catalogue sites, the sky, the validation tables, the uncertainty budget with each polar site's skylines
+  from NASA's adjusted maps, and the golden fixtures).
   `data_raw/` (downloads) and `data_out/` (generated files) appear beside it once you run the
   pipeline; both are gitignored.
 - Tests: the web's sit beside the code as `*.test.ts` and `*.test.tsx` (vitest; shared helpers in

@@ -8,6 +8,7 @@ import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { clockUtc, dateTimeUtc, dayMonth } from '@/lib/viz/format';
 import { statusSentence } from '@/lib/viz/status';
 import { litRuns, offRuns, runsWhere } from '@/lib/viz/timechart';
+import { CountdownLine } from './CountdownLine';
 import { PLOT_GRID } from './TimeChart';
 
 /** Steps Play takes each second, whatever its speed. */
@@ -522,10 +523,21 @@ export function TimeBar({
       style={{ '--sizer': cssString(`Next: ${m.label} ›`) } as CSSProperties}
     />
   ));
+  // On a phone the sentence keeps two lines and the key goes under it, so the bar keeps one height as the words change.
   const status = !compact && !bare && (
-    <span data-testid="status" className="text-pretty text-[15px] text-ink-2">
+    <span data-testid="status" className="text-pretty text-[15px] text-ink-2 max-sm:min-h-[2lh] max-sm:basis-full">
       {statusSentence(series, power, shown, batteryWh)}
     </span>
+  );
+  // With the sentence, the time to the next sunset or sunrise and to Earth's next rising or setting: a slot as wide as the
+  // widest it gets in the period, on the date's line after Next from 640 px up, and a row of its own on a phone, at 14 px
+  // there so its two parts keep one line. From 640 px up an empty break of the line's width then puts the sentence and the
+  // key on the next line, so a sentence that grows pushes nothing about.
+  const countdown = !compact && !bare && (
+    <>
+      <CountdownLine series={series} hour={shown} className="text-[15px] text-ink max-sm:col-span-3 max-sm:text-[14px]" />
+      <span data-part="break" aria-hidden="true" className="hidden sm:block sm:h-0 sm:basis-full" />
+    </>
   );
   const reducedLine = reduced && !bare && <span className="text-[15px] text-ink-2">Playback is off because your system asks for reduced motion.</span>;
   const keyLine: ReactNode = bare ? null : keys ? (
@@ -700,6 +712,7 @@ export function TimeBar({
                 )}
               </div>
             )}
+            {countdown}
             {(status || reducedLine || keyLine) && (
               <div className="contents max-sm:col-span-3 max-sm:flex max-sm:flex-wrap max-sm:items-baseline max-sm:gap-x-3">
                 {/* Compact, the page says it in its own words; the slider still reads it. Bare, the date and hour are all. */}

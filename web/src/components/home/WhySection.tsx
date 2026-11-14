@@ -20,7 +20,7 @@ export function WhySection({ teaching = true, intro = true }: { teaching?: boole
         Why the south pole is hard
       </h2>
       {/* How it works leaves the intro out: the three headings, the drawings and the science below carry it. */}
-      {intro && <p className="mt-2.5 max-w-[46em] text-lg text-ink-2">The Moon&apos;s water ice is there, and so is its hardest lighting. Three facts decide whether a lander lives.</p>}
+      {intro && <p className="mt-2.5 max-w-[46em] text-lg text-ink-2">The Moon&apos;s water ice is there, and so is its hardest lighting. Three facts decide whether a lander has power and a signal.</p>}
       {teaching && (
         <p className="mt-3 text-lg text-ink-2">
           Teaching this?{' '}

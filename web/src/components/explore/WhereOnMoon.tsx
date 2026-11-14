@@ -8,6 +8,8 @@ import { siteLabel, type Site } from '@/lib/data/loaders';
 import type { SiteOverview } from '@/lib/store/explore';
 import { pct0 } from '@/lib/viz/format';
 import { nearestSites, reliefUV } from '@/lib/viz/relief';
+import type { TerrainQuality } from '@/lib/uncertainty/budget';
+import { groundWords } from './GroundQuality';
 
 /** Farther than this, another site is not "nearby": a mare lander's nearest neighbour is thousands of km away. */
 const NEAR_KM = 300;
@@ -20,6 +22,7 @@ export function WhereOnMoon({
   startUtc,
   days,
   wide = false,
+  ground = null,
 }: {
   site: Site;
   sites: Site[];
@@ -28,6 +31,8 @@ export function WhereOnMoon({
   days: number;
   /** The panel has the whole row: the map sits beside the words instead of above them. */
   wide?: boolean;
+  /** The ground at the site from NASA's adjusted south-pole maps, when the uncertainty budget measured it. */
+  ground?: TerrainQuality | null;
 }) {
   const half = HOME.relief.half_km;
   const onMap = (uv: { u: number; v: number }) => uv.u > 0.02 && uv.u < 0.98 && uv.v > 0.02 && uv.v < 0.98;
@@ -53,6 +58,7 @@ export function WhereOnMoon({
         <p className={`mt-2 text-ink-2 ${wide ? 'md:col-start-2 md:row-start-1' : ''}`}>
           <b className="font-semibold text-ink">{siteLabel(site)}.</b> {site.blurb ? `${site.blurb}.` : `A place at ${Math.abs(site.lat).toFixed(2)}° ${site.lat < 0 ? 'S' : 'N'}.`}
           {!here && ' It lies far outside this map of the south pole.'}
+          {ground && <span className="mt-1 block text-[15px]">{groundWords(ground)}</span>}
         </p>
         <div className={`mt-3 ${wide ? 'md:col-start-1 md:row-span-3 md:row-start-1 md:mt-0' : ''}`}>
           <ReliefMap pins={pins} selectedId={site.id} />

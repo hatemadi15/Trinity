@@ -6,7 +6,8 @@ import type { Series } from '@/lib/engine/metrics';
 import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
 import { EARTH_LOOP, starLabel } from '@/lib/viz/stand';
-import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, glideStep, fitPitch, horizonLift, inflate, labelSides, letterShown, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, STRIP_H, subjectFloor, withBody, zoomedOnLander, type RendererLike } from './StandCanvas';
+import { descentShare, LANDING } from '@/lib/sky/landing';
+import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, glideStep, fitPitch, horizonLift, inflate, labelSides, landingFit, letterShown, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, STRIP_H, subjectFloor, withBody, zoomedOnLander, type RendererLike } from './StandCanvas';
 
 describe('the pointers on a phone', () => {
   it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
@@ -885,5 +886,64 @@ describe('finding the resident (spec 20.2)', () => {
     await waitFor(() => expect(onFound).toHaveBeenCalledTimes(1));
     await frames(r);
     expect(onFound).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the landing', () => {
+  const scene: StandScene = { field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series: northSeries, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky: noStars, lander: { azDeg: 320, distM: 16, powered: Uint8Array.from([1, 1, 1]) } };
+  const plain = () => ({ setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels: (): SkyLabels => ({ sun: { x: 0.5, y: 0.45, visible: true }, earth: { x: 0, y: 0, visible: false }, stars: [], lander: null }), dispose: vi.fn() });
+  const props = (r: RendererLike, o: { landing?: boolean; reducedMotion?: boolean } = {}) => ({ scene, hour: 0, look: null, startYaw: 325, reducedMotion: false, createRenderer: () => r, sunLabel: 'Sun 2.0° up', earthLabel: 'Earth 3.0° up', night: false, onFail: vi.fn(), ...o });
+  /** Waits for `n` more frames to be drawn. */
+  const frames = async (r: RendererLike, n = 6) => {
+    const drawn = (r.render as ReturnType<typeof vi.fn>).mock.calls.length;
+    await waitFor(() => expect((r.render as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThanOrEqual(drawn + n));
+  };
+
+  it('asks the renderer once for the landing as the view opens on one, and not with reduced motion or when the page does not ask', async () => {
+    for (const [landing, reducedMotion, asked] of [[true, false, 1], [true, true, 0], [false, false, 0], [undefined, false, 0]] as const) {
+      const land = vi.fn(), r = { ...plain(), land };
+      const view = render(createElement(StandCanvas, props(r, { landing, reducedMotion })));
+      await frames(r);
+      expect(land, `landing ${landing}, reduced motion ${reducedMotion}`).toHaveBeenCalledTimes(asked);
+      view.unmount();
+    }
+  });
+
+  it('looks down for the lander’s feet only as the lander comes down to them, opening on a landing', () => {
+    // Without a landing, all of the look down the opening asks for.
+    expect(landingFit(-10, null)).toBe(-10);
+    // On one, none of it while the lander starts high in the sky, and all of it once it stands on its spot.
+    expect(landingFit(-10, 0)).toBeCloseTo(0, 12);
+    expect(landingFit(-10, LANDING.DESCENT_MS / 2)).toBeCloseTo(-10 * descentShare(LANDING.DESCENT_MS / 2), 12);
+    expect(landingFit(-10, LANDING.DESCENT_MS)).toBe(-10);
+    expect(landingFit(-10, LANDING.MS)).toBe(-10);
+  });
+
+  it('keeps the opening view higher while the lander comes down than without a landing, so it never tilts away under the lander', async () => {
+    /** The opening's pitch at its 30th frame, the lander's feet 25° below level, with or without a landing. */
+    const at30 = async (landing: boolean) => {
+      const r = { ...plain(), land: vi.fn() };
+      const view = render(createElement(StandCanvas, { ...props(r, { landing }), keepInView: { el: -25, az: 325 } }));
+      await waitFor(() => expect(r.setView.mock.calls.length).toBeGreaterThanOrEqual(30));
+      const pitch = r.setView.mock.calls[29][1] as number;
+      view.unmount();
+      return pitch;
+    };
+    const [landing, plainOpening] = [await at30(true), await at30(false)];
+    expect(landing - plainOpening).toBeGreaterThan(1);
+  });
+
+  it('starts the opening move with the first frame drawn, not before, so the landing comes down in view from the start', async () => {
+    let built!: () => void;
+    const r = { ...plain(), land: vi.fn(), ready: new Promise<void>((done) => (built = done)) };
+    const view = render(createElement(StandCanvas, props(r, { landing: true })));
+    const pitches = () => r.setView.mock.calls.map((c) => c[1] as number);
+    // While the shaders build nothing is drawn, and the view waits where it opens, 34° up.
+    await waitFor(() => expect(pitches().length).toBeGreaterThan(8));
+    expect(new Set(pitches())).toEqual(new Set([34]));
+    // From the first frame drawn it tilts down towards the horizon.
+    built();
+    await waitFor(() => expect(pitches().at(-1)!).toBeLessThan(33));
+    view.unmount();
   });
 });
