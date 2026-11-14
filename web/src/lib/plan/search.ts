@@ -4,7 +4,7 @@ import type { Ephemeris } from '../engine/ephemeris';
 import { hourlySeries, withCommsThreshold } from '../engine/metrics';
 import { DEFAULT_POWER, type PowerConfig } from '../engine/power';
 import { utcToEt } from '../engine/time';
-import { dateTimeUtc, isoAt, spanShort, spanWords } from '../viz/format';
+import { dateTimeUtc, dayMonth, isoAt, spanShort, spanWords } from '../viz/format';
 import { compareOptions, failedWords, FAIL_RULE, objectiveWords, optionOf, outcomeScanner, scoreAbove, weighedScore, type Option, type Priorities, type RankBy, type RequirementId } from './judge';
 import { objectivePhrase, type MissionSpec, type Objective } from './spec';
 
@@ -54,6 +54,8 @@ export interface SiteFinding {
   /** Of the sunlit ones, how many meet every requirement. */
   meeting: number;
   reach: Partial<Record<RequirementId, Reach>>;
+  /** The best landing time in each part of the window (bucketsOf: months, or weeks of a short window); null where none is sunlit. */
+  byDate?: (Option<Landing> | null)[];
   error?: string;
 }
 
@@ -71,6 +73,40 @@ export function planStep(spec: MissionSpec, siteCount: number): { stepH: number;
   const need = Math.ceil((siteCount * hours) / MAX_CANDIDATES);
   const stepH = STEPS.find((s) => s >= Math.max(spec.stepH, need)) ?? 24;
   return { stepH, coarsened: stepH > spec.stepH };
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** A part of the landing window for the dates at a glance: a calendar month, or a week of a short window, from `fromHour`. */
+export interface Bucket {
+  label: string;
+  fromHour: number;
+}
+
+/** How the window is cut for the dates at a glance: into calendar months from eight weeks on, into weeks below. */
+export function bucketKind(spec: Pick<MissionSpec, 'fromUtc' | 'toUtc'>): 'month' | 'week' {
+  return windowHours(spec) >= 56 * 24 ? 'month' : 'week';
+}
+
+/** The window's parts: calendar months for a window of eight weeks or more ("Mar 2027"), weeks from its first day otherwise ("8 Mar"). */
+export function bucketsOf(spec: Pick<MissionSpec, 'fromUtc' | 'toUtc'>): Bucket[] {
+  const hours = windowHours(spec);
+  const out: Bucket[] = [];
+  if (bucketKind(spec) === 'month') {
+    const start = Date.parse(`${spec.fromUtc}Z`);
+    const d = new Date(start);
+    let y = d.getUTCFullYear();
+    let m = d.getUTCMonth();
+    for (let from = 0; from < hours; ) {
+      out.push({ label: `${MONTHS[m]} ${y}`, fromHour: from });
+      m = (m + 1) % 12;
+      if (m === 0) y++;
+      from = Math.round((Date.UTC(y, m, 1) - start) / 3_600_000);
+    }
+  } else {
+    for (let from = 0; from < hours; from += 7 * 24) out.push({ label: dayMonth(spec.fromUtc, from), fromHour: from });
+  }
+  return out;
 }
 
 /** The lander's power settings, the rest as Explore's defaults. */
@@ -127,12 +163,18 @@ export function searchSite(eph: Ephemeris, input: SiteInput, spec: MissionSpec, 
   }
   const at = outcomeScanner(series, powerOf(spec));
   const rank = rankWith(spec.objective, spec.priorities);
+  const buckets = bucketsOf(spec);
+  const byDate: (Option<Landing> | null)[] = buckets.map(() => null);
+  finding.byDate = byDate;
+  let b = 0;
   for (let h = 0; h < hours; h += stepH) {
     finding.tried++;
     const o = at(h, spec.stayH);
     if (!o.sunlitAtLanding) continue;
     finding.sunlit++;
     const opt = optionOf<Landing>({ hour: h, utc: isoAt(spec.fromUtc, h) }, o, spec.req);
+    while (b + 1 < buckets.length && h >= buckets[b + 1].fromHour) b++;
+    if (!byDate[b] || rank(opt, byDate[b]!) < 0) byDate[b] = opt;
     if (opt.failed === 0) finding.meeting++;
     for (const c of opt.checks) {
       const r = (finding.reach[c.id] ??= { met: false, best: null });

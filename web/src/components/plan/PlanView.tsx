@@ -17,7 +17,7 @@ import { useNavigate } from '@/lib/hooks/useNavigate';
 import { assistSpec } from '@/lib/plan/assist';
 import { midSentence } from '@/lib/plan/judge';
 import { partsWords, profileOf, weighedScore } from '@/lib/plan/rank';
-import { planRuleWords, powerOf, type SiteFinding, type SiteInput } from '@/lib/plan/search';
+import { bucketKind, bucketsOf, planRuleWords, powerOf, type SiteFinding, type SiteInput } from '@/lib/plan/search';
 import { CATEGORY_NAMES, PANEL_SHORT, PANELS, specLines, whereSites, windowWords, type MissionSpec, type SpecField, type SpecPatch, type Sources } from '@/lib/plan/spec';
 import { planStore, type PlanState } from '@/lib/plan/store';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
@@ -275,6 +275,64 @@ function Result({ f, i, why, spec, input, eph, doc, onLand }: { f: SiteFinding; 
 }
 
 /**
+ * The dates at a glance: the best landing in each month of the window (each week of a short one) at the first three
+ * sites shown, as the time with power from landing and whether it meets every requirement, each opening that landing in
+ * Explore. It shows what the year view of one site does not: several sites against the dates.
+ */
+function DatesGlance({ shown, spec, requirements, onLand }: { shown: SiteFinding[]; spec: MissionSpec; requirements: number; onLand: (index: number, utc: string) => void }) {
+  const buckets = bucketsOf(spec);
+  const sites = shown.slice(0, 3);
+  const each = bucketKind(spec);
+  const weeks = each === 'week';
+  return (
+    <table className="w-full border-collapse text-left text-[14px]">
+      <caption className="mb-2 text-left text-[15px] text-ink-2">
+        The best landing in each {each} of the window at {sites.length === 1 ? 'the first site' : `the first ${sites.length} sites`}: its time with power from landing{requirements > 0 ? '; ✓ meets every requirement' : ''}. Each opens that landing in Explore.
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col" className="py-1 pr-2 font-medium text-ink-2">
+            {weeks ? 'Week of' : 'Month'}
+          </th>
+          {sites.map((f) => (
+            <th key={f.site.id} scope="col" className="px-1 py-1 font-medium text-ink">
+              {siteLabel(f.site)}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {buckets.map((b, k) => (
+          <tr key={b.fromHour} className="border-t border-line">
+            <th scope="row" className="whitespace-nowrap py-1 pr-2 font-normal text-ink-2">
+              {b.label}
+            </th>
+            {sites.map((f, i) => {
+              const o = f.byDate?.[k] ?? null;
+              if (!o) return <td key={f.site.id} className="px-1 py-1 text-ink-3">no sunlit landing</td>;
+              const meets = requirements > 0 && o.failed === 0;
+              return (
+                <td key={f.site.id} className="px-1 py-1">
+                  <button
+                    type="button"
+                    onClick={() => onLand(i, o.item.utc)}
+                    aria-label={`Plan this landing: ${siteLabel(f.site)}, ${dateTimeUtc(o.item.utc, 0)}`}
+                    className={`min-h-10 text-left tabular-nums underline decoration-line-strong underline-offset-4 hover:decoration-ink ${meets ? 'text-good' : 'text-ink'}`}
+                  >
+                    {meets && <span aria-hidden="true">✓ </span>}
+                    {spanShort(o.outcome.poweredH)}
+                  </button>
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/**
  * The planner (spec 23): say or type what the mission needs, see it read back as fields to check and change, search every
  * allowed site and landing time, and read the ranked answer with its reasons and limits; then plan the chosen landing in
  * Explore, or compare the best few. The search runs off the main thread with progress and a cancel.
@@ -444,7 +502,7 @@ export function PlanView({
                 </button>
               </p>
             )}
-            <Fold label="How these are ranked" className="mt-3">
+            <Fold label="Ranking and dates" className="mt-3">
               <p className="max-w-[60em] text-[15px] text-ink-2">{planRuleWords(searched, p.answer.requirements)}</p>
               {searched.objective === 'weighed' && p.answer.shown.length > 0 && (
                 <ul className="mt-2 flex flex-col gap-1 text-[15px] text-ink-2">
@@ -457,6 +515,11 @@ export function PlanView({
                     );
                   })}
                 </ul>
+              )}
+              {p.answer.shown.length > 0 && (
+                <div className="mt-4">
+                  <DatesGlance shown={p.answer.shown} spec={searched} requirements={p.answer.requirements} onLand={(i, utc) => void plan.getState().land(i, go, utc)} />
+                </div>
               )}
             </Fold>
             <p className="mt-4 max-w-[60em] text-[15px] text-ink-2">

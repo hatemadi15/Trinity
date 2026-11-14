@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readJson } from '@/lib/engine/__tests__/helpers';
 import { eph, sites } from '@/test/file-loaders';
-import { answerOf, planRankWords, planStep, searchSite, spokenSummary, type SiteInput } from './search';
+import { answerOf, bucketsOf, planRankWords, planStep, rankWith, searchSite, spokenSummary, type SiteInput } from './search';
 import { weighedScore } from './rank';
 import { applyPatch, DEFAULT_SPEC, hearSpec, mergeHeard, whereSites } from './spec';
 
@@ -87,5 +87,36 @@ describe('the search over sites and landing times', () => {
     expect(planRankWords(DEFAULT_SPEC)).toBe('Ranked by the longest continuous time with power from landing; ties go to more Earth contact while powered, then to the earlier landing.');
     // Priorities the rule cannot use are not taken: the ones before stay.
     expect(applyPatch(contact, {}, { priorities: { power: 0, contact: 0, gap: 0 } }, 'edited').spec.priorities).toEqual({ power: 1, contact: 5, gap: 1 });
+  });
+
+  it('keeps each site’s best landing in every month of the window, ranked as the site’s best is, for the dates at a glance', () => {
+    const { spec, findings } = run(EXAMPLE);
+    const rank = rankWith(spec.objective, spec.priorities);
+    // March to June 2027: four months, each from its first day (the window's first hour for the first).
+    expect(bucketsOf(spec)).toEqual([
+      { label: 'Mar 2027', fromHour: 0 },
+      { label: 'Apr 2027', fromHour: 31 * 24 },
+      { label: 'May 2027', fromHour: 61 * 24 },
+      { label: 'Jun 2027', fromHour: 92 * 24 },
+    ]);
+    for (const f of findings) {
+      expect(f.byDate).toHaveLength(4);
+      const bests = f.byDate!.filter((m) => m !== null);
+      for (const [i, m] of f.byDate!.entries()) {
+        if (!m) continue;
+        // Inside its own month, and sunlit at landing as every candidate is.
+        expect(m.item.hour).toBeGreaterThanOrEqual(bucketsOf(spec)[i].fromHour);
+        if (i < 3) expect(m.item.hour).toBeLessThan(bucketsOf(spec)[i + 1].fromHour);
+        expect(m.outcome.sunlitAtLanding).toBe(true);
+      }
+      // The site's best landing is the best of its months'.
+      if (f.best) expect(bests.some((m) => m!.item.hour === f.best!.item.hour && rank(m!, f.best!) === 0)).toBe(true);
+    }
+    // A window of a few weeks is cut into weeks instead, from its first day.
+    expect(bucketsOf({ fromUtc: '2027-03-01T00:00:00', toUtc: '2027-03-22T00:00:00' })).toEqual([
+      { label: '1 Mar', fromHour: 0 },
+      { label: '8 Mar', fromHour: 168 },
+      { label: '15 Mar', fromHour: 336 },
+    ]);
   });
 });

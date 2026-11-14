@@ -64,6 +64,26 @@ describe('PlanView', () => {
     expect(explore.getState().params.power.loadW).toBe(300);
   });
 
+  it('shows the best landing of each month at the first three sites one tap away, under the rule, each opening that landing in Explore', async () => {
+    const { navigate } = await open();
+    fireEvent.click(screen.getByRole('button', { name: 'Try the example' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Search 9 sites/ }));
+    const answer = await screen.findByRole('region', { name: 'The answer' }, { timeout: 20_000 });
+    // One tap away, under the rule the results are ranked by.
+    expect(answer.querySelector('table')!.closest('[hidden]')).not.toBeNull();
+    fireEvent.click(within(answer).getByRole('button', { name: 'Ranking and dates' }));
+    const table = within(answer).getByRole('table');
+    expect(table.closest('[hidden]')).toBeNull();
+    // March to June 2027, a row a month; a column for each of the first three sites, named as the results are.
+    expect(within(table).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['Mar 2027', 'Apr 2027', 'May 2027', 'Jun 2027']);
+    const names = within(answer).getAllByRole('listitem', { name: /^\d\. / }).map((li) => li.getAttribute('aria-label')!.replace(/^\d\. /, ''));
+    expect(within(table).getAllByRole('columnheader').slice(1).map((h) => h.textContent)).toEqual(names.slice(0, 3));
+    expect(within(table).getByText(/^The best landing in each month of the window at the first \d sites: its time with power from landing; ✓ meets every requirement\./)).toBeTruthy();
+    const cell = within(table).getAllByRole('button', { name: /^Plan this landing: / })[0];
+    fireEvent.click(cell);
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.stringMatching(/^\/explore\?site=.+&start=2027-0[3-6]-\d\dT\d\d:00&days=14/)));
+  });
+
   it('ranks by priorities when picked, gives every result its score and parts, and states the rule one tap away', async () => {
     const { plan } = await open();
     fireEvent.click(screen.getByRole('button', { name: 'Try the example' }));
@@ -94,7 +114,7 @@ describe('PlanView', () => {
     // Still one gold action, and still within the page's words once the answer is in.
     expect(screen.getByRole('main').querySelectorAll('.btn-primary')).toHaveLength(1);
     for (const width of [WIDE, PHONE]) expect(visibleWords(screen.getByRole('main'), width).length).toBeLessThanOrEqual(500);
-    const how = within(answer).getByRole('button', { name: 'How these are ranked' });
+    const how = within(answer).getByRole('button', { name: 'Ranking and dates' });
     fireEvent.click(how);
     expect(answer.textContent).toMatch(/Ranked by your priorities: power 1, Earth in view 6, shorter gaps 1\. .*0\.55x \+ 0\.30√x \+ 0\.15x².*A choice that fails a requirement ranks below every choice that meets them all/);
     // One tap away with the rule: each result's score and its three parts.

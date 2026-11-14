@@ -48,8 +48,8 @@ export interface PlanState {
   setAssistant: (state: PlanState['assistant']['state']) => void;
   search: () => Promise<PlanAnswer | null>;
   cancel: () => void;
-  /** Sets Explore to a shown result's site, landing time, stay and lander; returns what Luna says. */
-  land: (index: number, navigate: (href: string) => void) => Promise<string>;
+  /** Sets Explore to a shown result's site, landing time (its best, or `utc`), stay and lander; returns what Luna says. */
+  land: (index: number, navigate: (href: string) => void, utc?: string) => Promise<string>;
   /** Opens Compare with the shown results; returns what Luna says. */
   compareTop: (navigate: (href: string) => void) => Promise<string>;
   /** The read-back of the specification as it stands. */
@@ -213,17 +213,18 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
       set({ status: 'cancelled', progress: null });
     },
 
-    async land(index, navigate) {
+    async land(index, navigate, utc) {
       const { answer, searched } = get();
       const f = answer?.shown[index];
       if (!f?.best || !searched) return 'There is no landing to plan yet: say search first.';
+      const at = utc ?? f.best.item.utc;
       const ex = deps.explore.getState();
       const days = exploreDays(searched.stayH);
       ex.setParams({ power: { ...ex.params.power, ...powerOf(searched), efficiency: ex.params.power.efficiency }, mastM: searched.lander.mastM, minEarthElDeg: searched.lander.earthClearanceDeg });
       await deps.explore.getState().selectSite(f.site.id);
-      deps.explore.getState().setWindow(f.best.item.utc, days);
-      navigate(exploreHref(f.site.id, f.best.item.utc, days));
-      return `Explore is on ${siteLabel(f.site)}, landing ${dateTimeUtc(f.best.item.utc, 0)}, for ${days} days with this lander.`;
+      deps.explore.getState().setWindow(at, days);
+      navigate(exploreHref(f.site.id, at, days));
+      return `Explore is on ${siteLabel(f.site)}, landing ${dateTimeUtc(at, 0)}, for ${days} days with this lander.`;
     },
 
     async compareTop(navigate) {
