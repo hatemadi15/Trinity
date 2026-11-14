@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
 import { Fold } from '@/components/Fold';
 import { lolaFor, Sources } from '@/components/Sources';
 import type { Site } from '@/lib/data/loaders';
 import type { Ephemeris } from '@/lib/engine/ephemeris';
+import { useLunaControls } from '@/lib/luna/controls';
 import { nextTask, runSliced, yearDayCount, yearSteps, type YearOfLandings } from '@/lib/engine/year';
 import type { PlannerParams } from '@/lib/store/explore';
 import { isoAt } from '@/lib/viz/format';
@@ -121,10 +122,20 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
 
   // Only the year worked out for this very anchor is shown: one for an earlier site or period never is.
   const ready = worked && worked.anchor === anchor ? worked : null;
+  // Luna's "show me the year" (spec 22): the year comes into view with its tab stop in focus, and she says its answer.
+  const box = useRef<HTMLDivElement>(null);
+  useLunaControls({
+    year: () => {
+      box.current?.scrollIntoView?.({ block: 'start' });
+      box.current?.querySelector<HTMLButtonElement>('button[data-day][tabindex="0"]')?.focus({ preventScroll: true });
+      return ready ? headline(ready.year, scoring) : 'Working out every landing day of the next 12 months.';
+    },
+  });
   const months = yearMonths(anchor.startUtc, count);
   const chosenDay = same && chosen !== null && chosen < count ? chosen : null;
   return (
     <div
+      ref={box}
       className="flex flex-col gap-3"
       data-busy-ms={ready ? Math.round(ready.busyMs) : undefined}
       data-slice-ms={ready ? Math.round(ready.sliceMs) : undefined}
@@ -177,17 +188,21 @@ function BestDot() {
  */
 interface Pointer {
   value: number | null;
-  listeners: Set<(k: number | null) => void>;
   set: (k: number | null) => void;
+  subscribe: (listener: () => void) => () => void;
 }
 function createPointer(): Pointer {
+  const listeners = new Set<() => void>();
   const p: Pointer = {
     value: null,
-    listeners: new Set(),
     set(k) {
       if (p.value === k) return;
       p.value = k;
-      for (const l of p.listeners) l(k);
+      for (const l of listeners) l();
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
   };
   return p;
@@ -293,13 +308,7 @@ function Day({ k, year, scoring, chosen, tabStop, onLand }: { k: number; year: Y
 
 /** The figures of the day under the pointer or the focus, in words, the day shown above saying so; how to use the year when there is none. */
 function Readout({ year, scoring, chosenDay, pointer }: { year: YearOfLandings; scoring: DayScoring; chosenDay: number | null; pointer: Pointer }) {
-  const [k, setK] = useState<number | null>(null);
-  useEffect(() => {
-    pointer.listeners.add(setK);
-    return () => {
-      pointer.listeners.delete(setK);
-    };
-  }, [pointer]);
+  const k = useSyncExternalStore(pointer.subscribe, () => pointer.value, () => null);
   const day = k !== null && k < year.count ? k : null;
   const words = day === null ? 'Press a day to land on it.' : `${day === chosenDay ? 'Now shown: ' : ''}${dayFiguresWords(year, day, scoring)}`;
   return (

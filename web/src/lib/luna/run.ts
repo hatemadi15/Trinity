@@ -41,6 +41,7 @@ export const REPLIES: Record<Control, string> = {
   'brighter-on': 'Brighter picture.',
   'brighter-off': 'Normal brightness.',
   'better-day': 'Landing on the better day.',
+  year: 'Every landing day of the next 12 months.',
   fly: 'Flying to the south pole.',
 };
 
@@ -132,6 +133,11 @@ export async function runCommand(cmd: LunaCommand, deps: LunaDeps, said = ''): P
         queueControl(cmd.control);
         deps.navigate(placeHref('stand', deps.store.getState()));
         return `${GO_REPLIES.stand} ${REPLIES[cmd.control]}`;
+      }
+      if (cmd.control === 'year') {
+        queueControl('year');
+        deps.navigate(placeHref('explore', deps.store.getState()));
+        return 'Opening the forecast, with every landing day of the next 12 months.';
       }
       if (cmd.control === 'fly') {
         queueControl('fly');

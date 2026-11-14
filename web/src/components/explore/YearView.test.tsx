@@ -5,6 +5,7 @@ import { readJson } from '@/lib/engine/__tests__/helpers';
 import { DEFAULT_PARAMS } from '@/lib/store/explore';
 import { eph, sites } from '@/test/file-loaders';
 import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
+import { runControl } from '@/lib/luna/controls';
 import { legendWords } from '@/lib/viz/year';
 import { YearView } from './YearView';
 
@@ -21,6 +22,8 @@ const days = () => screen.queryAllByRole('button', { name: /^Land / });
 async function openYear(p: Props) {
   const view = render(<YearView {...p} />);
   await waitFor(() => expect(days().length).toBeGreaterThan(0), { timeout: 20_000 });
+  // The year's last render has run its effects, as a page has long before anyone presses a key or speaks.
+  await act(async () => {});
   return view;
 }
 
@@ -157,5 +160,17 @@ describe('YearView', () => {
     await openYear(props('de_gerlache_rim_2'));
     const row = screen.getByLabelText('Data sources');
     expect([...row.querySelectorAll('li')].map((li) => li.textContent)).toEqual(['JPL DE440', 'NASA LRO LOLA 20 m']);
+  });
+
+  it('lends Luna the year: it comes into view with the day shown in focus, and she says its answer (spec 22)', async () => {
+    await openYear(props('de_gerlache_rim_2', { startUtc: '2027-01-20T00:00:00' }));
+    let said: ReturnType<typeof runControl> = { ok: false };
+    act(() => {
+      said = runControl('year');
+    });
+    expect(said.ok).toBe(true);
+    expect(said.said).toBe(screen.getByRole('status').textContent);
+    expect(said.said).toMatch(/^No landing day keeps power all 30 days\. The best: /);
+    expect(document.activeElement!.getAttribute('aria-label')).toMatch(/^Land 20 January 2027/);
   });
 });
