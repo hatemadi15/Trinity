@@ -63,3 +63,13 @@ def test_site_near_grid_edge_gets_coarser_fallback_band():
 def test_write_masks_rejects_unknown_site(tmp_path):
     with pytest.raises(ValueError, match="no_such_site"):
         write_masks(["no_such_site"], out_dir=tmp_path)
+
+
+@pytest.mark.data
+@needs_lola
+def test_a_site_north_of_80_s_takes_its_whole_skyline_from_the_240_m_grid():
+    # Chandrayaan-3 lies at 69 S, outside the 80 m grid: the march re-runs every distance on the 240 m grid, as the
+    # browser's engine does for a point it computes there.
+    doc = mask_for_site(_site("chandrayaan3_vikram"), load_grids())
+    assert doc["fallback_bands"] == [{"grid": "ldem_60s_240m", "r_min_m": 40.0, "r_max_m": 100000.0, "step_m": 120.0}]
+    assert np.isfinite(doc["site_height_m"]) and min(doc["elevation_deg"]) > -1.0

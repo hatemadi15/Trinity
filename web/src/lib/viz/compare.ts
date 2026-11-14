@@ -1,3 +1,4 @@
+import { pointKind } from '../data/kind';
 import { siteLabel } from '../data/loaders';
 import { timeWithPower } from '../engine/landing';
 import { exploreHref } from '../links';
@@ -8,6 +9,8 @@ import { dateLong, dayMonth, pct0, spanShort } from './format';
 export interface CompareRow {
   id: string;
   name: string;
+  /** What kind of point the site is, in a few words: "Surveyed point, ±20 m". */
+  kind: string;
   /** Explore on the same site and period. */
   href: string;
   sunlight: string;
@@ -47,9 +50,11 @@ export function compareRow(r: SiteResult, startUtc: string, days: number): Compa
   return {
     id: r.site.id,
     name: siteLabel(r.site),
+    kind: pointKind(r.site).short,
     href: exploreHref(r.site.id, startUtc, days),
     sunlight: pct0(r.summary.illumFraction),
-    earth: pct0(r.summary.earthVisFraction),
+    // On the far side Earth never rises: no period gives it a share.
+    earth: r.site.far_side ? 'never: far side' : pct0(r.summary.earthVisFraction),
     longestNight: r.summary.longestDarkH > 0 ? spanShort(r.summary.longestDarkH) : 'none',
     power: powerWords(r, startUtc, days, powered),
     tone: lit && all ? 'good' : 'bad',

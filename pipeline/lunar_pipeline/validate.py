@@ -125,8 +125,20 @@ def backcast_row_for(site_id: str, days: int = 45) -> dict:
     }
 
 
+def backcast_sites(days: int = 45) -> list[Site]:
+    """Landed missions with a reported end whose landing and the `days` after it lie inside the Sun and Earth table."""
+    _, header = load_table()
+    first = datetime.fromisoformat(header["t0_utc"])
+    last = first + timedelta(hours=int(header["n"]) - 1 - days * 24)
+
+    def inside(utc: str) -> bool:
+        return first <= datetime.fromisoformat(utc.replace("Z", "")) <= last
+
+    return [s for s in all_sites() if s.landed_utc and s.mission_end_utc and inside(s.landed_utc)]
+
+
 def backcasts_doc() -> dict:
-    return {"generated_utc": _now(), "rows": [backcast_row_for(s.id) for s in all_sites() if s.landed_utc]}
+    return {"generated_utc": _now(), "rows": [backcast_row_for(s.id) for s in backcast_sites()]}
 
 
 def write_all(out_dir: Path = OUT_DIR) -> list[Path]:

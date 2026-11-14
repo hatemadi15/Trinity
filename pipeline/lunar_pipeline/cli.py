@@ -15,7 +15,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("sky", help="build data/sky: stars, the Moon's orientation, Earth maps")
     sub.add_parser("globe", help="resample the CGI Moon Kit into data_out/globe for the home page's arrival")
     sub.add_parser("tiles", help="cut DEM tiles into data_out/tiles")
-    sub.add_parser("terrain", help="cut 3D terrain rasters into data_out/terrain")
+    te = sub.add_parser("terrain", help="cut 3D terrain rasters into data_out/terrain")
+    te.add_argument("--site", action="append", help="only these polar sites, added to the existing manifest")
     sub.add_parser("sites-derive", help="derive crater-rim high points")
     m = sub.add_parser("masks", help="compute per-site horizon masks")
     m.add_argument("--site", action="append")
@@ -86,8 +87,9 @@ def main(argv: list[str] | None = None) -> None:
         for path in sky.fixtures(sites):
             print(path)
     elif args.cmd == "terrain":
-        from .terrain3d import write_all
-        print(write_all())
+        from . import terrain3d
+
+        print(terrain3d.write_sites(args.site) if args.site else terrain3d.write_all())
     elif args.cmd == "sites-derive":
         from .sites import write_derived
         print(write_derived())

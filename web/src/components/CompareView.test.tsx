@@ -51,6 +51,20 @@ describe('CompareView', () => {
     expect(within(rows[1]).getByText('all 30 days').className).toMatch(/\btext-good\b/);
   });
 
+  it('says under each name what kind of point the site is, and groups the sites to add by kind of place', async () => {
+    const store = await open();
+    await store.getState().addToCompare('apollo_11');
+    await store.getState().addToCompare('shackleton_center_rim_high');
+    const table = await screen.findByRole('table', {}, { timeout: 20_000 });
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
+    const [apollo, rim] = within(table).getAllByRole('row').slice(1);
+    expect(within(apollo).getByRole('rowheader').textContent).toBe('Apollo 11Surveyed point');
+    expect(within(rim).getByRole('rowheader').textContent).toBe('Shackleton rim summitDerived high point, not checked as safe to land');
+    const groups = [...document.querySelectorAll<HTMLOptGroupElement>('#compare-add optgroup')].map((g) => g.label);
+    expect(groups).toEqual(['Artemis III regions', 'Commercial landers', 'Coming commercial landings', "Other countries' landers", 'Apollo landings', 'High points and crater floors']);
+    expect(document.querySelectorAll('#compare-add option[value]:not([value=""])')).toHaveLength(32);
+  });
+
   it('says above the table which site is best for each measure', async () => {
     const store = await open();
     await store.getState().addToCompare('de_gerlache_rim_2');

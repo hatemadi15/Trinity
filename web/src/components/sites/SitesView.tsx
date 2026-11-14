@@ -9,6 +9,7 @@ import { PeriodControls } from '@/components/PeriodControls';
 import { ReliefMap, type MapPin } from '@/components/ReliefMap';
 import { Sources } from '@/components/Sources';
 import { HOME } from '@/lib/data/home';
+import { pointKind } from '@/lib/data/kind';
 import { siteLabel, type Site } from '@/lib/data/loaders';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { landerLine } from '@/lib/lander';
@@ -26,6 +27,13 @@ const GROUPS: { title: string; note: string; categories: string[] }[] = [
     categories: ['artemis3'],
   },
   { title: 'Where commercial landers touched down', note: 'The landing spots of three real missions, for the same days as the rest of the list.', categories: ['clps_landed'] },
+  { title: 'Where commercial landers are to land next', note: 'Two landings NASA has ordered, at the places announced so far.', categories: ['clps_planned'] },
+  { title: 'Landers from other countries', note: "The landers of India, China and Japan, and the place Russia's Luna 25 was aiming for when it crashed.", categories: ['international'] },
+  {
+    title: 'Where the Apollo crews landed',
+    note: 'The six crewed landings of 1969 to 1972, near the equator. Like every row here, the figures are for the days chosen above and the same lander, whose upright panel catches little of a Sun almost overhead.',
+    categories: ['apollo'],
+  },
   { title: 'High points and crater floors', note: 'The extremes: rims that almost never lose the Sun, floors that never see it.', categories: ['classic', 'reference'] },
 ];
 
@@ -43,6 +51,8 @@ function siteHref(siteId: string, o: SiteOverview | undefined, startUtc: string,
 const rank = (o: SiteOverview | undefined) => (o ? (o.best?.poweredHours ?? -1) * 10 + o.afterSun : -1e7);
 /** A place that never sees Earth in its first days after landing: a lander there cannot send home what it finds. */
 const noContact = (o: SiteOverview | undefined) => o !== undefined && o.afterEarth === 0;
+/** On the far side Earth never rises at all (data/sites.json "far_side", checked against every hour of the table). */
+const farSide = (site: Site) => site.far_side === true;
 
 function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; o: SiteOverview | undefined; href: string; startUtc: string; days: number; active: boolean; onActive: (id: string | null) => void }) {
   const capped = o?.best ? o.best.poweredHours >= days * 24 : false;
@@ -67,6 +77,11 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
             </span>
           )}
           <span className="mt-0.5 block text-[15px] text-ink-2">{site.blurb}</span>
+          {/* What kind of point the coordinate is, so a region's centre or a derived high point never reads as a surveyed landing spot. */}
+          <span className="mt-0.5 block text-[15px] text-ink-2">
+            <span className="sr-only">, </span>
+            {pointKind(site).short}
+          </span>
         </span>
         {!o ? (
           <span className="col-span-3 text-[15px] text-ink-2">working it out…</span>
@@ -95,7 +110,7 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
                   <b className="w-12 text-right font-semibold">{pct0(o.afterEarth)}</b>
                 </>
               ) : (
-                <span className="text-[15px] text-ink-2">No contact with Earth</span>
+                <span className="text-[15px] text-ink-2">{farSide(site) ? 'Never: far side' : 'No contact with Earth'}</span>
               )}
             </span>
             <span>
@@ -187,16 +202,20 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
   const groups = useMemo(() => {
     const settled = !s.overviewBusy && Object.keys(s.overview).length > 0;
     return GROUPS.map((g) => {
-      const rows = catalogue.filter((x) => g.categories.includes(x.category));
+      const all = catalogue.filter((x) => g.categories.includes(x.category));
+      // The far side never sees Earth, whatever the period: its rows have a heading of their own from the start.
+      const rows = all.filter((x) => !farSide(x));
+      const far = all.filter(farSide);
       // The order changes once, when every figure is in: rows must not jump under the pointer while they load.
-      if (!settled) return { ...g, rows, without: [] as Site[] };
-      const sorted = [...rows].sort((a, b) => rank(s.overview[b.id]) - rank(s.overview[a.id]));
-      return { ...g, rows: sorted.filter((x) => !noContact(s.overview[x.id])), without: sorted.filter((x) => noContact(s.overview[x.id])) };
+      if (!settled) return { ...g, rows, without: [] as Site[], far };
+      const byRank = (list: Site[]) => [...list].sort((a, b) => rank(s.overview[b.id]) - rank(s.overview[a.id]));
+      const sorted = byRank(rows);
+      return { ...g, rows: sorted.filter((x) => !noContact(s.overview[x.id])), without: sorted.filter((x) => noContact(s.overview[x.id])), far: byRank(far) };
     });
   }, [catalogue, s.overview, s.overviewBusy]);
   const pins: MapPin[] = useMemo(() => {
     // The pole first, as the map's landmark, then in the order of the list, so the names written on the map are those of the rows at the top.
-    const order = ['south_pole', ...groups.flatMap((g) => [...g.rows, ...g.without].map((r) => r.id))];
+    const order = ['south_pole', ...groups.flatMap((g) => [...g.rows, ...g.without, ...g.far].map((r) => r.id))];
     return HOME.relief.sites
       .flatMap((p) => {
         const site = catalogue.find((x) => x.id === p.id);
@@ -216,7 +235,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
     }
     return found;
   }, [catalogue, s.overview, s.overviewBusy]);
-  const offMap = catalogue.filter((x) => !HOME.relief.sites.some((p) => p.id === x.id)).map(siteLabel);
+  const offMap = catalogue.filter((x) => !HOME.relief.sites.some((p) => p.id === x.id)).length;
 
   if (s.status === 'idle' || s.status === 'loading') {
     return (
@@ -274,7 +293,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
             </p>
             <ReliefMap pins={pins} activeId={active} onActive={setActive} nameAll />
             <p className="mt-3 text-[15px] text-ink-2">
-              The south pole is at the centre of the map. Point at a row to find its site on the map.{offMap.length > 0 ? ` ${offMap.join(' and ')} lie outside this map.` : ''}
+              The south pole is at the centre of the map. Point at a row to find its site on the map.{offMap > 0 ? ` ${offMap} places lie farther from the pole, outside this map.` : ''}
             </p>
           </section>
 
@@ -318,11 +337,27 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                     </ul>
                   </>
                 )}
+                {/* The far side always faces away from Earth: no period changes that, so these rows say "never" and why. */}
+                {g.far.length > 0 && (
+                  <div>
+                    <h3 className="mt-7 px-3 text-[17px] font-semibold text-ink">On the far side: Earth never rises</h3>
+                    <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">
+                      The far side always faces away from Earth, so a lander there can talk to Earth only through a relay satellite, as Chang&apos;e 4 and Chang&apos;e 6 did through China&apos;s Queqiao
+                      satellites.
+                    </p>
+                    <ul className="divide-y divide-line-strong">
+                      {g.far.map((site) => (
+                        <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </section>
             ))}
-            {/* The figures come from horizons on LOLA's 20 m grid near the pole and its 80 m grid farther out, with DE440.
-                The places are NASA's Artemis III regions and the CLPS landings, the first two groups. */}
-            <Sources of={['lola', 'lola80', 'de440', 'artemis', 'clps']} />
+            {/* The figures come from horizons on LOLA's 20 m grid near the pole, its 80 m grid farther out and its 240 m grid
+                north of 80° S, with DE440. The places are NASA's Artemis III regions, the CLPS landings and the landers LROC
+                and NSSDCA have located. */}
+            <Sources of={['lola', 'lola80', 'lola240', 'de440', 'artemis', 'clps', 'landers']} />
             <Elsewhere store={store} navigate={go} />
           </div>
         </div>

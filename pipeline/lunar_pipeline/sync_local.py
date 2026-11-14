@@ -13,7 +13,7 @@ SMALL_DIRS = ["ephemeris", "masks", "fixtures", "validation", "sky"]
 SMALL_FILES = ["sites.json", "sites_derived.json"]
 # Compact catalogue copy bundled into the web app (the chat route cannot read data/ at runtime on Vercel).
 CATALOGUE = config.REPO_ROOT / "web" / "src" / "lib" / "data" / "catalogue.json"
-CATALOGUE_FIELDS = ("id", "name", "label", "blurb", "lat", "lon", "category", "polar")
+CATALOGUE_FIELDS = ("id", "name", "label", "blurb", "lat", "lon", "category", "polar", "kind")
 
 
 def write_catalogue(path: Path = CATALOGUE) -> Path:

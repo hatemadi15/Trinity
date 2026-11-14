@@ -9,6 +9,7 @@ import { PlannerChat } from './PlannerChat';
 import { lolaFor, Sources } from './Sources';
 import { MiniStrip } from './compare/MiniStrip';
 import { LanderDialog } from './explore/LanderDialog';
+import { CATEGORY_GROUPS } from '@/lib/data/kind';
 import { siteLabel } from '@/lib/data/loaders';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { landerName } from '@/lib/lander';
@@ -138,6 +139,8 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                       <Link href={r.href} className={LINK}>
                         {r.name}
                       </Link>
+                      {/* What kind of point it is, so a region's centre or a derived high point never reads as a surveyed spot. */}
+                      <span className="mt-0.5 block text-[15px] font-normal text-ink-2">{r.kind}</span>
                     </th>
                     <td data-label="Sun and Earth" className={`${CELL} ${STACKED}`}>
                       <MiniStrip series={s.compare[i].series} name={r.name} period={period} />
@@ -167,11 +170,19 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             <label htmlFor="compare-add">Add a site</label>
             <select id="compare-add" value={adding} disabled={full} onChange={(e) => setAdding(e.target.value)} className="field w-[300px] max-w-full disabled:opacity-60">
               <option value="">{full ? 'Four sites already' : 'Choose a site…'}</option>
-              {candidates.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {siteLabel(x)}
-                </option>
-              ))}
+              {/* The sites in the site list's groups, so a long list reads by kind of place. */}
+              {CATEGORY_GROUPS.map((g) => {
+                const inGroup = candidates.filter((x) => g.categories.includes(x.category));
+                return inGroup.length === 0 ? null : (
+                  <optgroup key={g.name} label={g.name}>
+                    {inGroup.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {siteLabel(x)}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           </div>
           <button type="button" onClick={add} disabled={full || !adding} className="btn">

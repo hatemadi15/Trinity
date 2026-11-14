@@ -49,3 +49,9 @@ def test_backcast_rows_carry_mission_notes():
     for sid in ("im1_odysseus", "im2_athena", "blue_ghost_m1"):
         row = va.backcast_row_for(sid)
         assert isinstance(row["mission_note"], str) and len(row["mission_note"]) > 20
+
+
+def test_backcasts_take_only_landings_inside_the_table_that_have_a_reported_end():
+    # Apollo and the landers before 2024 landed outside the 2024 to 2036 table, so no sunset can be worked out for them;
+    # SLIM and Chang'e 6 landed inside it but have no reported end to compare a sunset with.
+    assert {s.id for s in va.backcast_sites()} == {"im1_odysseus", "im2_athena", "blue_ghost_m1"}
