@@ -1,8 +1,65 @@
 {
- "generated_utc": "2026-09-29T09:55:46+00:00",
+ "generated_utc": "2026-11-14T11:57:59+00:00",
  "n_rows": 300,
  "max_abs_delta_el_deg": 2.6986460404998525e-05,
  "max_abs_delta_az_cos_el_deg": 2.554060548486218e-06,
+ "evidence": {
+  "kind": "check",
+  "title": "Sun and Earth directions against JPL Horizons",
+  "establishes": "Our hourly DE440 table (MOON_ME frame, light time and stellar aberration) and our conversion to azimuth and elevation reproduce JPL Horizons' apparent, airless azimuth and elevation of the Sun and Earth for the same surface coordinates.",
+  "criteria": {
+   "rule": "Every row within 0.01 degrees in elevation and in azimuth times cos(elevation).",
+   "max_abs_delta_el_deg": 0.01,
+   "max_abs_delta_az_cos_el_deg": 0.01
+  },
+  "limitations": [
+   "Geometry only: no terrain, no skyline and no sunlight are involved.",
+   "Both sides rest on JPL's DE4xx ephemerides and lunar orientation, so this checks how we use them, not the ephemerides themselves.",
+   "Every stored moment falls on a whole hour of the table, so interpolation between hours is not exercised here; the pipeline's tests check it against SPICE at half hours (under 0.0001 degrees).",
+   "Observers sit at 0 m on the 1737.4 km sphere; terrain height enters only the skyline.",
+   "Six sites and 2025 to 2026 only, while the table runs from 2024 to 2036."
+  ],
+  "coverage": {
+   "rows": 300,
+   "sites": [
+    "blue_ghost_m1",
+    "de_gerlache_center",
+    "im1_odysseus",
+    "im2_athena",
+    "shackleton_center",
+    "south_pole"
+   ],
+   "bodies": [
+    "EARTH",
+    "SUN"
+   ],
+   "epochs": 25,
+   "first_utc": "2025-01-01T00:00:00",
+   "last_utc": "2026-12-22T00:00:00",
+   "step": "30 days, at 00:00 UTC",
+   "on_whole_hours": true
+  },
+  "meets_criteria": true,
+  "reference": {
+   "name": "JPL Horizons API",
+   "url": "https://ssd.jpl.nasa.gov/api/horizons.api",
+   "settings": "CENTER=coord@301, COORD_TYPE=GEODETIC at 0 km, QUANTITIES=4 (apparent azimuth and elevation), APPARENT=AIRLESS, TIME_TYPE=UT"
+  },
+  "ours": {
+   "table": "data/ephemeris/moon_me_2024_2036_1h.f32",
+   "frame": "MOON_ME",
+   "abcorr": "LT+S",
+   "kernels": [
+    "naif0012.tls",
+    "pck00011.tpc",
+    "moon_pa_de440_200625.bpc",
+    "moon_de440_250416.tf",
+    "de440s.bsp"
+   ],
+   "interpolation": "cubic Catmull-Rom on the hourly grid"
+  },
+  "command": "cd pipeline && uv run python -m lunar_pipeline.cli validate"
+ },
  "sites": [
   {
    "site_id": "blue_ghost_m1",
@@ -388,7 +445,7 @@
    "body": "SUN",
    "query_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40301%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%271.44%2C-80.13%2C0.0%27&START_TIME=%272025-01-01%27&STOP_TIME=%272027-01-01%27&STEP_SIZE=%2730d%27&QUANTITIES=%274%27&APPARENT=%27AIRLESS%27&CSV_FORMAT=%27YES%27&TIME_TYPE=%27UT%27",
    "n_rows": 25,
-   "max_abs_delta_el_deg": 4.864434601792311e-07,
+   "max_abs_delta_el_deg": 4.864434610674095e-07,
    "max_abs_delta_az_cos_el_deg": 2.554060548486218e-06,
    "rows": [
     {
@@ -576,7 +633,7 @@
    "body": "SUN",
    "query_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40301%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%2729.1957%2C-84.7906%2C0.0%27&START_TIME=%272025-01-01%27&STOP_TIME=%272027-01-01%27&STEP_SIZE=%2730d%27&QUANTITIES=%274%27&APPARENT=%27AIRLESS%27&CSV_FORMAT=%27YES%27&TIME_TYPE=%27UT%27",
    "n_rows": 25,
-   "max_abs_delta_el_deg": 5.750174154606214e-07,
+   "max_abs_delta_el_deg": 5.750174163487998e-07,
    "max_abs_delta_az_cos_el_deg": 2.2479044199360973e-06,
    "rows": [
     {
@@ -764,7 +821,7 @@
    "body": "SUN",
    "query_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=%2710%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27OBSERVER%27&CENTER=%27coord%40301%27&COORD_TYPE=%27GEODETIC%27&SITE_COORD=%27129.2%2C-89.66%2C0.0%27&START_TIME=%272025-01-01%27&STOP_TIME=%272027-01-01%27&STEP_SIZE=%2730d%27&QUANTITIES=%274%27&APPARENT=%27AIRLESS%27&CSV_FORMAT=%27YES%27&TIME_TYPE=%27UT%27",
    "n_rows": 25,
-   "max_abs_delta_el_deg": 5.516686709672314e-07,
+   "max_abs_delta_el_deg": 5.51668671189276e-07,
    "max_abs_delta_az_cos_el_deg": 1.9447112155701653e-06,
    "rows": [
     {

@@ -13,7 +13,7 @@ SMALL_DIRS = ["ephemeris", "masks", "fixtures", "validation", "sky", "uncertaint
 SMALL_FILES = ["sites.json", "sites_derived.json"]
 # Compact catalogue copy bundled into the web app (the chat route cannot read data/ at runtime on Vercel).
 CATALOGUE = config.REPO_ROOT / "web" / "src" / "lib" / "data" / "catalogue.json"
-CATALOGUE_FIELDS = ("id", "name", "label", "blurb", "lat", "lon", "category", "polar")
+CATALOGUE_FIELDS = ("id", "name", "label", "blurb", "lat", "lon", "category", "polar", "kind")
 
 
 def write_catalogue(path: Path = CATALOGUE) -> Path:
@@ -29,7 +29,7 @@ def write_catalogue(path: Path = CATALOGUE) -> Path:
     return path
 
 
-def sync(web_data: Path = WEB_DATA, tiles: bool = False) -> list[Path]:
+def sync(web_data: Path = WEB_DATA, tiles: bool = False, catalogue: Path = CATALOGUE) -> list[Path]:
     copied: list[Path] = []
     web_data.mkdir(parents=True, exist_ok=True)
     for rel in SMALL_DIRS:
@@ -42,7 +42,11 @@ def sync(web_data: Path = WEB_DATA, tiles: bool = False) -> list[Path]:
         if src.exists():
             shutil.copy2(src, web_data / name)
             copied.append(web_data / name)
-    copied.append(write_catalogue())
+    manifest = config.DATA_DIR / "manifest.json"
+    if manifest.exists():  # the list of every data file, so a copy of the folder can be checked on its own (check-data)
+        shutil.copy2(manifest, web_data / "manifest.json")
+        copied.append(web_data / "manifest.json")
+    copied.append(write_catalogue(catalogue))
     if tiles:
         src = config.OUT_DIR / "tiles"
         if not src.exists():

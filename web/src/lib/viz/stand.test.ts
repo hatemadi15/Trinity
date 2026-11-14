@@ -261,6 +261,12 @@ describe('why the view looks as it does', () => {
     const sliver = series({ sunEl: [0.2], sunFraction: [0.3] });
     expect(whyLines(85, sliver, 0)).toEqual([poleLine(85), earthMoves, black, 'North and south still work here: the pole itself is 152 km to the north.', radio]);
   });
+  it('on the far side says Earth never rises, and that Chang’e 4 and Chang’e 6 talked to Earth through a relay', () => {
+    const day = series({ sunEl: [30], sunFraction: [1], earthEl: [-50], earthVisible: [0] });
+    const far = "This is the far side, which always faces away from Earth: Earth never rises here, so a lander talks to Earth only through a relay satellite, as China's Chang'e 4 and Chang'e 6 did.";
+    expect(whyLines(-45.46, day, 0, true)).toEqual([black, far]);
+    expect(whyLines(-45.46, day, 0)).toEqual([black, radio]);
+  });
   it('near a pole at night with Earth in view: no twilight, only Earth lights the ground, how big Earth looks, where the pole is, and how cold the night is', () => {
     const night = series({ sunEl: [-3], sunFraction: [0], earthEl: [4], earthVisible: [1] });
     expect(whyLines(-88.28, night, 0)).toEqual([pole, earthMoves, noTwilight, earthLight, earthSize, south, cold, radio]);
@@ -660,6 +666,13 @@ describe('what to watch for', () => {
     const mare = { name: 'Blue Ghost', lat: 18.56, lon: 61.81 };
     // A site without a note of its own: the latitude alone.
     expect(standingLine(mare, 'Blue Ghost Mission 1', 'more')).toBe('Blue Ghost Mission 1 lies at 18.6° N.');
+  });
+  // A polar site has NASA heights, but a copy of Earthrise set up with the committed data alone has no terrain files.
+  it('says the ground is drawn flat because the terrain files are missing, where the site has NASA heights', () => {
+    const site = { name: 'de Gerlache Rim 2', lat: -88.28, lon: -64.31 };
+    expect(standingLine(site, 'de Gerlache Rim 2', 'top', 'no-terrain')).toBe(
+      "Standing at de Gerlache Rim 2, near the Moon's south pole. Ground drawn flat: this copy of Earthrise has no terrain files. Small craters and rocks: added to look real.",
+    );
   });
   // Blue Ghost's site has no NASA heights: its ground is drawn flat, under a flat horizon.
   it('says the ground is drawn flat where there are no NASA heights, and claims no hills', () => {

@@ -55,6 +55,13 @@ describe('askNarration', () => {
     expect(JSON.parse(String(init.body))).toMatchObject({ task: 'narrate', state, mode: 'live' });
   });
 
+  it("passes on what the claim check found in the model's paragraph, strings only, at most three", async () => {
+    const body = { source: 'template', reason: 'numbers', problems: ['"67 %" for sunlight, where the figures say 100 %', 5, 'b', 'c', 'd'], reply: 'T' };
+    const r = await askNarration({} as never, 'live', async () => json(body));
+    expect(r.problems).toEqual(['"67 %" for sunlight, where the figures say 100 %', 'b', 'c']);
+    expect((await askNarration({} as never, 'live', async () => json({ ...body, problems: 'nope' }))).problems).toBeUndefined();
+  });
+
   it('rejects on failures', async () => {
     await expect(askNarration({} as never, 'live', async () => new Response('busy', { status: 429, headers: { 'Retry-After': '12' } }))).rejects.toThrow(/try again in 12 s/);
     await expect(askNarration({} as never, 'live', async () => json({ nope: true }))).rejects.toThrow(/unexpected/i);

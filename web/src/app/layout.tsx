@@ -1,16 +1,35 @@
 import type { Metadata } from 'next';
-import { Bricolage_Grotesque, IBM_Plex_Sans } from 'next/font/google';
+import localFont from 'next/font/local';
 import { DEFAULT_THEME, THEME_SCRIPT } from '@/lib/theme';
 import { LunaEngine } from '@/components/luna/LunaEngine';
 import './globals.css';
 
-// The optical-size axis gives headlines their display cut; the width axis lets them be set at 87.5 % (class `display`).
-const bricolage = Bricolage_Grotesque({
-  subsets: ['latin'],
+/*
+ * The two faces are files in the repository, so a build needs no network: the prepared offline laptop builds with the
+ * Wi-Fi off. Each is Google Fonts' latin cut, the same bytes the build used to download from Google, declared as Google
+ * declares them; the app's copy uses no letter outside it. Both are under the SIL Open Font License (the licences are
+ * beside the files).
+ * The display face is variable: its optical-size axis gives headlines their display cut, and its width range lets them
+ * be set at 87.5 % (class `display`).
+ */
+const bricolage = localFont({
+  src: './fonts/BricolageGrotesque-latin.woff2',
   variable: '--font-bricolage',
-  axes: ['opsz', 'wdth'],
+  weight: '200 800',
+  display: 'swap',
+  declarations: [{ prop: 'font-stretch', value: '75% 100%' }],
 });
-const plex = IBM_Plex_Sans({ subsets: ['latin'], variable: '--font-plex', weight: ['400', '500', '600'] });
+// One variable file, declared at the three weights the app uses, as Google Fonts serves it. Next reads these options
+// at build time, so they are written out rather than worked out.
+const plex = localFont({
+  src: [
+    { path: './fonts/IBMPlexSans-latin.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/IBMPlexSans-latin.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/IBMPlexSans-latin.woff2', weight: '600', style: 'normal' },
+  ],
+  variable: '--font-plex',
+  display: 'swap',
+});
 
 const TITLE = 'Earthrise: sunlight and signal forecast for the Moon';
 const DESCRIPTION =

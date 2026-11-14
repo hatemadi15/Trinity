@@ -28,3 +28,15 @@ def test_uncertainty_takes_sites_and_a_span_and_pgda90_fetch_needs_nothing():
     assert args.cmd == "uncertainty" and args.site == ["connecting_ridge", "im2_athena"] and args.days == 30
     assert args.start == "2025-01-01T00:00:00"
     assert build_parser().parse_args(["pgda90-fetch"]).cmd == "pgda90-fetch"
+
+
+def test_terrain_takes_named_sites_and_runs_them_alone(monkeypatch):
+    from lunar_pipeline import cli, terrain3d
+
+    assert build_parser().parse_args(["terrain"]).site is None
+    assert build_parser().parse_args(["terrain", "--site", "a", "--site", "b"]).site == ["a", "b"]
+    called = {}
+    monkeypatch.setattr(terrain3d, "write_sites", lambda ids: called.setdefault("ids", ids))
+    monkeypatch.setattr(terrain3d, "write_all", lambda: called.setdefault("all", True))
+    cli.main(["terrain", "--site", "chandrayaan3_vikram"])
+    assert called == {"ids": ["chandrayaan3_vikram"]}

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from lunar_pipeline import config
-from lunar_pipeline.terrain3d import encode_u16, window_for_site, write_all, write_site_window, write_south_cap
+from lunar_pipeline.terrain3d import encode_u16, level_for_site, window_for_site, write_all, write_site_window, write_sites, write_south_cap
 from lunar_pipeline.sites import Site, all_sites
 from tests.conftest import needs_lola
 
@@ -125,3 +125,45 @@ def test_write_all_names_the_flight_level_of_the_arrivals_site(tmp_path):
     assert hero["flight"]["file"] == "de_gerlache_rim_2.flight.u16"
     assert hero["flight"]["cell_m"] == 240.0
     assert all("flight" not in w for w in manifest["windows"] if w["site_id"] != "de_gerlache_rim_2")
+
+
+def _grids(synthetic_grid_factory):
+    """Three synthetic grids in the real ones' projection: 20 m and 80 m round the pole, 240 m out to 79 S and beyond."""
+    return {"L0": synthetic_grid_factory(size=64, scale_m=20.0), "L1": synthetic_grid_factory(size=64, scale_m=80.0), "L2": synthetic_grid_factory(size=3000, scale_m=240.0, fill_dn=1000)}
+
+
+def test_a_site_north_of_the_80_m_grid_takes_a_240_m_window():
+    site = lambda lat: Site(id="s", name="s", lat=lat, lon=32.0, category="test", polar=True, source="test")
+    assert level_for_site(site(-89.0)) == "L0"
+    assert level_for_site(site(-80.13)) == "L1"  # IM-1, 4 km inside the 80 m grid
+    assert level_for_site(site(-69.37)) == "L2"  # Chandrayaan-3: only the 240 m grid reaches it
+
+
+def test_a_240_m_window_is_centred_on_the_site_with_its_height_from_that_grid(synthetic_grid_factory, tmp_path):
+    grids = _grids(synthetic_grid_factory)
+    site = Site(id="north", name="North", lat=-79.5, lon=32.0, category="test", polar=True, source="test")
+    meta = json.loads(write_site_window(site, grids, tmp_path).with_suffix(".json").read_text())
+    assert meta["level"] == "L2" and meta["cell_m"] == 240.0 and meta["width"] == 256 and meta["source"] == "ldem_60s_240m.img"
+    assert meta["site_height_m"] == 500.0  # DN 1000 at 0.5 m each, never NaN
+    assert abs(meta["site_col_px"] - 128) <= 1 and abs(meta["site_row_px"] - 128) <= 1
+    assert meta["fill_source"] is None
+
+
+def test_terrain_for_named_sites_adds_them_to_the_manifest_and_leaves_every_other_file_alone(synthetic_grid_factory, tmp_path):
+    other = {"site_id": "old", "lat": -89.0, "lon": 0.0, "file": "old.u16", "meta": "old.json", "level": "L0", "cell_m": 20.0, "width": 1024, "height": 1024, "bytes": 1}
+    (tmp_path / "manifest.json").write_text(json.dumps({"version": 3, "windows": [other], "cap": {"file": "south_cap.u16", "meta": "south_cap.json"}}))
+    (tmp_path / "old.u16").write_bytes(b"old")
+    site = Site(id="north", name="North", lat=-79.5, lon=32.0, category="test", polar=True, source="test")
+    flat = Site(id="mare", name="Mare", lat=18.0, lon=61.0, category="test", polar=False, source="test")
+    write_sites(["north"], out_dir=tmp_path, grids=_grids(synthetic_grid_factory), sites=[site, flat])
+    manifest = json.loads((tmp_path / "manifest.json").read_text())
+    assert manifest["windows"][0] == other and manifest["windows"][1]["site_id"] == "north"
+    assert manifest["windows"][1]["level"] == "L2" and manifest["windows"][1]["file"] == "north.u16"
+    assert manifest["cap"] == {"file": "south_cap.u16", "meta": "south_cap.json"}
+    assert (tmp_path / "old.u16").read_bytes() == b"old"
+    # Run again, it replaces its own entry rather than adding a second.
+    write_sites(["north"], out_dir=tmp_path, grids=_grids(synthetic_grid_factory), sites=[site, flat])
+    assert [w["site_id"] for w in json.loads((tmp_path / "manifest.json").read_text())["windows"]] == ["old", "north"]
+    # A site with a flat horizon has no terrain to cut.
+    with pytest.raises(ValueError, match="mare"):
+        write_sites(["mare"], out_dir=tmp_path, grids=_grids(synthetic_grid_factory), sites=[site, flat])

@@ -12,7 +12,8 @@
    "lat": -90.0,
    "lon": 0.0,
    "category": "reference",
-   "polar": true
+   "polar": true,
+   "kind": "reference"
   },
   {
    "id": "shackleton_center",
@@ -22,7 +23,8 @@
    "lat": -89.66,
    "lon": 129.2,
    "category": "classic",
-   "polar": true
+   "polar": true,
+   "kind": "reference"
   },
   {
    "id": "de_gerlache_center",
@@ -32,7 +34,8 @@
    "lat": -88.5,
    "lon": -87.1,
    "category": "classic",
-   "polar": true
+   "polar": true,
+   "kind": "reference"
   },
   {
    "id": "connecting_ridge",
@@ -42,7 +45,8 @@
    "lat": -89.53432,
    "lon": -150.05233,
    "category": "classic",
-   "polar": true
+   "polar": true,
+   "kind": "target"
   },
   {
    "id": "peak_near_shackleton",
@@ -52,7 +56,8 @@
    "lat": -89.01701,
    "lon": 126.27302,
    "category": "classic",
-   "polar": true
+   "polar": true,
+   "kind": "target"
   },
   {
    "id": "peak_near_cabeus_b",
@@ -62,7 +67,8 @@
    "lat": -83.78,
    "lon": -68.72,
    "category": "artemis3",
-   "polar": true
+   "polar": true,
+   "kind": "region_centre"
   },
   {
    "id": "haworth",
@@ -72,7 +78,8 @@
    "lat": -86.84,
    "lon": -22.59,
    "category": "artemis3",
-   "polar": true
+   "polar": true,
+   "kind": "region_centre"
   },
   {
    "id": "malapert_massif",
@@ -82,7 +89,8 @@
    "lat": -86.0,
    "lon": 0.0,
    "category": "artemis3",
-   "polar": true
+   "polar": true,
+   "kind": "region_centre"
   },
   {
    "id": "mons_mouton_plateau",
@@ -92,7 +100,8 @@
    "lat": -84.46,
    "lon": 30.66,
    "category": "artemis3",
-   "polar": true
+   "polar": true,
+   "kind": "region_centre"
   },
   {
    "id": "mons_mouton",
@@ -102,7 +111,8 @@
    "lat": -85.53,
    "lon": 31.77,
    "category": "artemis3",
-   "polar": true
+   "polar": true,
+   "kind": "region_centre"
   },
   {
    "id": "nobile_rim_1",
@@ -112,7 +122,8 @@
    "lat": -85.54,
    "lon": 37.39,
    "category": "artemis3",
-   "polar": true
+   "polar": true,
+   "kind": "region_centre"
   },
   {
    "id": "nobile_rim_2",
@@ -122,7 +133,8 @@
    "lat": -84.20156,
    "lon": 60.69989,
    "category": "artemis3",
-   "polar": true
+   "polar": true,
+   "kind": "target"
   },
   {
    "id": "de_gerlache_rim_2",
@@ -132,7 +144,8 @@
    "lat": -88.28,
    "lon": -64.31,
    "category": "artemis3",
-   "polar": true
+   "polar": true,
+   "kind": "region_centre"
   },
   {
    "id": "slater_plain",
@@ -142,7 +155,8 @@
    "lat": -87.23,
    "lon": 125.37,
    "category": "artemis3",
-   "polar": true
+   "polar": true,
+   "kind": "region_centre"
   },
   {
    "id": "im1_odysseus",
@@ -152,7 +166,8 @@
    "lat": -80.13,
    "lon": 1.44,
    "category": "clps_landed",
-   "polar": true
+   "polar": true,
+   "kind": "surveyed"
   },
   {
    "id": "im2_athena",
@@ -162,7 +177,8 @@
    "lat": -84.7906,
    "lon": 29.1957,
    "category": "clps_landed",
-   "polar": true
+   "polar": true,
+   "kind": "surveyed"
   },
   {
    "id": "blue_ghost_m1",
@@ -172,7 +188,173 @@
    "lat": 18.562,
    "lon": 61.81,
    "category": "clps_landed",
-   "polar": false
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "im3_reiner_gamma",
+   "name": "IM-3 landing target (Reiner Gamma)",
+   "label": "IM-3 Reiner Gamma",
+   "blurb": "Where Intuitive Machines' third lander is to land, on a bright swirl",
+   "lat": 7.585,
+   "lon": -58.725,
+   "category": "clps_planned",
+   "polar": false,
+   "kind": "target"
+  },
+  {
+   "id": "cp12_schrodinger",
+   "name": "CP-12 landing region (Schrödinger basin, far side)",
+   "label": "CP-12 Schrödinger",
+   "blurb": "Where Draper's mission is to land, in a far side basin near the pole",
+   "lat": -74.73,
+   "lon": 132.93,
+   "category": "clps_planned",
+   "polar": true,
+   "kind": "region_centre"
+  },
+  {
+   "id": "apollo_11",
+   "name": "Apollo 11 landing site (Mare Tranquillitatis)",
+   "label": "Apollo 11",
+   "blurb": "Where Eagle landed with the first people on the Moon, July 1969",
+   "lat": 0.67416,
+   "lon": 23.47314,
+   "category": "apollo",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "apollo_12",
+   "name": "Apollo 12 landing site (Oceanus Procellarum)",
+   "label": "Apollo 12",
+   "blurb": "Where Intrepid landed beside the Surveyor 3 probe, November 1969",
+   "lat": -3.0128,
+   "lon": -23.4219,
+   "category": "apollo",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "apollo_14",
+   "name": "Apollo 14 landing site (Fra Mauro)",
+   "label": "Apollo 14",
+   "blurb": "Where Antares landed in the Fra Mauro highlands, February 1971",
+   "lat": -3.64589,
+   "lon": -17.47194,
+   "category": "apollo",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "apollo_15",
+   "name": "Apollo 15 landing site (Hadley-Apennine)",
+   "label": "Apollo 15",
+   "blurb": "Where Falcon landed beside Hadley Rille, July 1971",
+   "lat": 26.13239,
+   "lon": 3.6333,
+   "category": "apollo",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "apollo_16",
+   "name": "Apollo 16 landing site (Descartes highlands)",
+   "label": "Apollo 16",
+   "blurb": "Where Orion landed in the Descartes highlands, April 1972",
+   "lat": -8.9734,
+   "lon": 15.5011,
+   "category": "apollo",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "apollo_17",
+   "name": "Apollo 17 landing site (Taurus-Littrow)",
+   "label": "Apollo 17",
+   "blurb": "Where Challenger landed in the Taurus-Littrow valley, December 1972",
+   "lat": 20.1911,
+   "lon": 30.7723,
+   "category": "apollo",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "chandrayaan3_vikram",
+   "name": "Chandrayaan-3 Vikram landing site (Statio Shiv Shakti)",
+   "label": "Chandrayaan-3 Vikram",
+   "blurb": "Where India's Vikram lander touched down in August 2023",
+   "lat": -69.3741,
+   "lon": 32.32,
+   "category": "international",
+   "polar": true,
+   "kind": "surveyed"
+  },
+  {
+   "id": "change3",
+   "name": "Chang'e 3 landing site (Mare Imbrium)",
+   "label": "Chang'e 3",
+   "blurb": "Where China's first Moon lander touched down, December 2013",
+   "lat": 44.1214,
+   "lon": -19.5116,
+   "category": "international",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "change4",
+   "name": "Chang'e 4 landing site (Von Kármán crater, far side)",
+   "label": "Chang'e 4",
+   "blurb": "The first landing on the far side, January 2019",
+   "lat": -45.457,
+   "lon": 177.589,
+   "category": "international",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "change5",
+   "name": "Chang'e 5 landing site (Oceanus Procellarum)",
+   "label": "Chang'e 5",
+   "blurb": "Where China's lander gathered rock to bring home, December 2020",
+   "lat": 43.0576,
+   "lon": -51.9161,
+   "category": "international",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "change6",
+   "name": "Chang'e 6 landing site (Apollo basin, far side)",
+   "label": "Chang'e 6",
+   "blurb": "Where China's lander gathered the first far side rock, June 2024",
+   "lat": -41.6385,
+   "lon": -153.9852,
+   "category": "international",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "slim",
+   "name": "SLIM landing site (near Shioli crater)",
+   "label": "SLIM",
+   "blurb": "Where Japan's lander came to rest on its nose, January 2024",
+   "lat": -13.316,
+   "lon": 25.251,
+   "category": "international",
+   "polar": false,
+   "kind": "surveyed"
+  },
+  {
+   "id": "luna25_target",
+   "name": "Luna 25 planned landing site (north of Boguslawsky)",
+   "label": "Luna 25 target",
+   "blurb": "Where Russia's Luna 25 was to land; it crashed on the way, August 2023",
+   "lat": -69.545,
+   "lon": 43.544,
+   "category": "international",
+   "polar": true,
+   "kind": "target"
   },
   {
    "id": "shackleton_center_rim_high",
@@ -182,7 +364,8 @@
    "lat": -89.78131,
    "lon": -156.25683,
    "category": "classic",
-   "polar": true
+   "polar": true,
+   "kind": "derived"
   },
   {
    "id": "de_gerlache_center_rim_high",
@@ -192,7 +375,8 @@
    "lat": -88.66401,
    "lon": -68.40606,
    "category": "classic",
-   "polar": true
+   "polar": true,
+   "kind": "derived"
   }
  ]
 }

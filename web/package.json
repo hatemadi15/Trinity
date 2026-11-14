@@ -15,12 +15,13 @@
     "e2e": "next build && playwright test",
     "e2e:run": "playwright test",
     "engine:demo": "tsx scripts/engine-demo.ts",
-    "validation:tests": "node scripts/test-summary.mjs"
+    "validation:tests": "tsx scripts/test-summary.ts",
+    "data:check": "uv run --directory ../pipeline python -m lunar_pipeline.cli check-data"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
-    "next": "16.3.6",
+    "next": "16.4.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "three": "^0.186.1",

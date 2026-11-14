@@ -30,6 +30,14 @@ class Site:
     # Short display name for lists, titles and map pins, and one plain line that says what the place is.
     label: str | None = None
     blurb: str | None = None
+    # What kind of point the coordinate is: "surveyed" (hardware located in orbital images), "target" (a planned or
+    # attempted landing point), "region_centre" (the rough centre of a wider region), "derived" (worked out here from
+    # LOLA heights, not a checked landing spot) or "reference" (the pole, a crater's centre).
+    kind: str | None = None
+    # Radius of the uncertainty the source states for the point (km), or None when it states none.
+    uncertainty_km: float | None = None
+    # True on the far side, where Earth never rises above the horizon: no direct radio contact, ever.
+    far_side: bool = False
 
 
 def load_sites(path: Path = config.DATA_DIR / "sites.json") -> list[Site]:
@@ -70,6 +78,7 @@ def derive_rim_points(grid: LolaGrid, sites: list[Site]) -> list[Site]:
                 source=f"derived: argmax LOLA {grid.label.map_scale_m:.0f} m height in annulus around {s.id}",
                 label=s.derive_rim.get("label"),
                 blurb=s.derive_rim.get("blurb"),
+                kind="derived",
             )
         )
     return out

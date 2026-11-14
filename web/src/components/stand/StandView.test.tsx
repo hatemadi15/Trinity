@@ -239,8 +239,9 @@ describe('StandView', () => {
     openCard();
     expect(screen.getByRole('button', { name: 'Less' }).getAttribute('aria-expanded')).toBe('true');
     // Where you stand, and what is measured and what is added: "Hills: NASA height data." (or, without NASA
-    // heights, "Ground drawn flat: no NASA heights here.") and "Small craters and rocks: added to look real."
-    expect(screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole\. (Hills: NASA height data|Ground drawn flat: no NASA heights here)\. Small craters and rocks: added to look real\.$/)).toBeTruthy();
+    // heights, "Ground drawn flat: no NASA heights here.", and without the terrain files, "Ground drawn flat: this copy
+    // of Earthrise has no terrain files.") and "Small craters and rocks: added to look real."
+    expect(screen.getByText(/^Standing at de\sGerlache\sRim\s2, near the Moon's south pole\. (Hills: NASA height data|Ground drawn flat: this copy of Earthrise has no terrain files)\. Small craters and rocks: added to look real\.$/)).toBeTruthy();
     // What to watch waits while the first step shows, as it says what the first step says (20.1).
     const watch = watchNext(st.series!, st.power, '2027-01-01T00:00:00', 10);
     expect(screen.queryByText(watch)).toBeNull();
@@ -410,6 +411,14 @@ describe('StandView', () => {
     await waitFor(() => expect(scene).not.toBeNull(), { timeout: 30_000 });
     return { store, scene: scene! as StandScene };
   }
+
+  it('says at a polar site whose terrain files are missing that the ground is drawn flat for that reason, not for want of NASA heights', async () => {
+    // The file loaders here have no terrain, as a copy set up with the committed data alone.
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=0');
+    openCard();
+    expect(screen.getByText(/Ground drawn flat: this copy of Earthrise has no terrain files\./)).toBeTruthy();
+    expect(screen.queryByText(/no NASA heights here/)).toBeNull();
+  }, 40_000);
 
   it.skipIf(!terrainPresent)('opens a site far from the pole on flat ground, with the polar terrain loaded too, and says so', async () => {
     const { scene } = await openWithTerrain('?site=blue_ghost_m1&start=2025-03-02T09:00&days=14&hour=0');

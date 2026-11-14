@@ -1,0 +1,825 @@
+{
+ "generated_utc": "2026-11-14T12:02:43+00:00",
+ "evidence": {
+  "kind": "check",
+  "title": "Numerical verification of the power model",
+  "establishes": "The power and battery arithmetic (panel geometry, irradiance, the hourly battery walk, brownouts) gives the answers worked out by hand formula, in the pipeline's model and in the app's own engine.",
+  "criteria": {
+   "rule": "Every worked case within 0.000001 W and 0.000001 Wh, with brownout hours and the first brownout hour exactly equal.",
+   "tolerance_w": 1e-06,
+   "tolerance_wh": 1e-06
+  },
+  "limitations": [
+   "It checks the sums, not real hardware: no panel heating, dust, ageing, wiring or battery losses, no heaters and no real lander's loads.",
+   "The worked answers come from the same documented formulas, so a wrong formula would pass; the formulas themselves are a model choice, stated in docs/method.md.",
+   "The inputs are made-up hours; the recorded site runs only show that the pipeline and the app still agree on real skylines."
+  ],
+  "coverage": {
+   "cases": 9,
+   "case_hours": 37,
+   "panels": [
+    "full_tracking",
+    "horizontal",
+    "vertical",
+    "vertical_tracking"
+   ],
+   "recorded_runs": 5,
+   "recorded_sites": [
+    "im1_odysseus",
+    "shackleton_center_rim_high"
+   ],
+   "recorded_hours": 6480,
+   "app_tests": [
+    "web/src/lib/engine/power.test.ts: the app's engine against the recorded runs, to 0.000001 W",
+    "web/src/lib/viz/checks.ts: the app's engine against the worked cases, in the browser"
+   ]
+  },
+  "meets_criteria": true,
+  "command": "cd pipeline && uv run python -m lunar_pipeline.cli validate"
+ },
+ "summary": {
+  "cases_agreeing": 9,
+  "runs_agreeing": 5,
+  "max_abs_diff_w": 0.0,
+  "max_abs_diff_wh": 0.0
+ },
+ "cases": [
+  {
+   "id": "full_sun",
+   "words": "A two-axis panel in full sunshine at 1 AU.",
+   "hand": "0.3 x 4 m2 x 1361 W/m2 = 1633.2 W",
+   "inputs": {
+    "hours": 3,
+    "sun_az": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "sun_el": [
+     10.0,
+     10.0,
+     10.0
+    ],
+    "sun_fraction": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "sun_au": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "config": {
+     "panel": "full_tracking",
+     "panel_azimuth_deg": 0.0,
+     "area_m2": 4.0,
+     "efficiency": 0.3,
+     "load_w": 200.0,
+     "battery_wh": 2000.0,
+     "initial_soc_fraction": 1.0
+    }
+   },
+   "expected": {
+    "power_w": [
+     1633.2,
+     1633.2,
+     1633.2
+    ],
+    "energy_wh": [
+     2000.0,
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 1.0
+   },
+   "pipeline": {
+    "power_w": [
+     1633.2,
+     1633.2,
+     1633.2
+    ],
+    "energy_wh": [
+     2000.0,
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 1.0
+   },
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "agrees": true
+  },
+  {
+   "id": "half_disc",
+   "words": "Half of the Sun's disc above the hills.",
+   "hand": "1633.2 W x 0.5 = 816.6 W",
+   "inputs": {
+    "hours": 3,
+    "sun_az": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "sun_el": [
+     10.0,
+     10.0,
+     10.0
+    ],
+    "sun_fraction": [
+     0.5,
+     0.5,
+     0.5
+    ],
+    "sun_au": [
+     1.0,
+     1.0,
+     1.0
+    ],
+    "config": {
+     "panel": "full_tracking",
+     "panel_azimuth_deg": 0.0,
+     "area_m2": 4.0,
+     "efficiency": 0.3,
+     "load_w": 200.0,
+     "battery_wh": 2000.0,
+     "initial_soc_fraction": 1.0
+    }
+   },
+   "expected": {
+    "power_w": [
+     816.6,
+     816.6,
+     816.6
+    ],
+    "energy_wh": [
+     2000.0,
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 1.0
+   },
+   "pipeline": {
+    "power_w": [
+     816.6,
+     816.6,
+     816.6
+    ],
+    "energy_wh": [
+     2000.0,
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 1.0
+   },
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "agrees": true
+  },
+  {
+   "id": "near_perihelion",
+   "words": "The Sun 0.983 AU away.",
+   "hand": "1633.2 W / 0.983^2 = 1690.2 W",
+   "inputs": {
+    "hours": 2,
+    "sun_az": [
+     0.0,
+     0.0
+    ],
+    "sun_el": [
+     10.0,
+     10.0
+    ],
+    "sun_fraction": [
+     1.0,
+     1.0
+    ],
+    "sun_au": [
+     0.983,
+     0.983
+    ],
+    "config": {
+     "panel": "full_tracking",
+     "panel_azimuth_deg": 0.0,
+     "area_m2": 4.0,
+     "efficiency": 0.3,
+     "load_w": 200.0,
+     "battery_wh": 2000.0,
+     "initial_soc_fraction": 1.0
+    }
+   },
+   "expected": {
+    "power_w": [
+     1690.177576273765,
+     1690.177576273765
+    ],
+    "energy_wh": [
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 1.0
+   },
+   "pipeline": {
+    "power_w": [
+     1690.177576273765,
+     1690.177576273765
+    ],
+    "energy_wh": [
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 1.0
+   },
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "agrees": true
+  },
+  {
+   "id": "vertical_side_on",
+   "words": "A vertical panel facing east, the Sun 60 degrees round from it and 5 degrees up.",
+   "hand": "1633.2 W x cos 5 x cos 60 = 813.5 W",
+   "inputs": {
+    "hours": 2,
+    "sun_az": [
+     150.0,
+     150.0
+    ],
+    "sun_el": [
+     5.0,
+     5.0
+    ],
+    "sun_fraction": [
+     1.0,
+     1.0
+    ],
+    "sun_au": [
+     1.0,
+     1.0
+    ],
+    "config": {
+     "panel": "vertical",
+     "panel_azimuth_deg": 90.0,
+     "area_m2": 4.0,
+     "efficiency": 0.3,
+     "load_w": 200.0,
+     "battery_wh": 2000.0,
+     "initial_soc_fraction": 1.0
+    }
+   },
+   "expected": {
+    "power_w": [
+     813.4925904617196,
+     813.4925904617196
+    ],
+    "energy_wh": [
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 1.0
+   },
+   "pipeline": {
+    "power_w": [
+     813.4925904617196,
+     813.4925904617196
+    ],
+    "energy_wh": [
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 1.0
+   },
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "agrees": true
+  },
+  {
+   "id": "vertical_from_behind",
+   "words": "A vertical panel facing east with the Sun behind it.",
+   "hand": "cos 180 is below 0, so 0 W",
+   "inputs": {
+    "hours": 2,
+    "sun_az": [
+     270.0,
+     270.0
+    ],
+    "sun_el": [
+     5.0,
+     5.0
+    ],
+    "sun_fraction": [
+     1.0,
+     1.0
+    ],
+    "sun_au": [
+     1.0,
+     1.0
+    ],
+    "config": {
+     "panel": "vertical",
+     "panel_azimuth_deg": 90.0,
+     "area_m2": 4.0,
+     "efficiency": 0.3,
+     "load_w": 200.0,
+     "battery_wh": 2000.0,
+     "initial_soc_fraction": 1.0
+    }
+   },
+   "expected": {
+    "power_w": [
+     0.0,
+     0.0
+    ],
+    "energy_wh": [
+     1800.0,
+     1600.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 0.8
+   },
+   "pipeline": {
+    "power_w": [
+     0.0,
+     0.0
+    ],
+    "energy_wh": [
+     1800.0,
+     1600.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 0.8
+   },
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "agrees": true
+  },
+  {
+   "id": "horizontal_low_sun",
+   "words": "A flat panel with the Sun 3 degrees up.",
+   "hand": "1633.2 W x sin 3 = 85.5 W",
+   "inputs": {
+    "hours": 2,
+    "sun_az": [
+     0.0,
+     0.0
+    ],
+    "sun_el": [
+     3.0,
+     3.0
+    ],
+    "sun_fraction": [
+     1.0,
+     1.0
+    ],
+    "sun_au": [
+     1.0,
+     1.0
+    ],
+    "config": {
+     "panel": "horizontal",
+     "panel_azimuth_deg": 0.0,
+     "area_m2": 4.0,
+     "efficiency": 0.3,
+     "load_w": 200.0,
+     "battery_wh": 2000.0,
+     "initial_soc_fraction": 1.0
+    }
+   },
+   "expected": {
+    "power_w": [
+     85.47508373597587,
+     85.47508373597587
+    ],
+    "energy_wh": [
+     1885.4750837359759,
+     1770.9501674719518
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 0.8854750837359758
+   },
+   "pipeline": {
+    "power_w": [
+     85.47508373597587,
+     85.47508373597587
+    ],
+    "energy_wh": [
+     1885.4750837359759,
+     1770.9501674719518
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 0.8854750837359758
+   },
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "agrees": true
+  },
+  {
+   "id": "below_flat_horizon",
+   "words": "A panel turning to the Sun, which is 1 degree below the flat horizon but above a lower skyline.",
+   "hand": "1633.2 W x cos 1 = 1633.0 W",
+   "inputs": {
+    "hours": 2,
+    "sun_az": [
+     0.0,
+     0.0
+    ],
+    "sun_el": [
+     -1.0,
+     -1.0
+    ],
+    "sun_fraction": [
+     1.0,
+     1.0
+    ],
+    "sun_au": [
+     1.0,
+     1.0
+    ],
+    "config": {
+     "panel": "vertical_tracking",
+     "panel_azimuth_deg": 0.0,
+     "area_m2": 4.0,
+     "efficiency": 0.3,
+     "load_w": 200.0,
+     "battery_wh": 2000.0,
+     "initial_soc_fraction": 1.0
+    }
+   },
+   "expected": {
+    "power_w": [
+     1632.9512557294183,
+     1632.9512557294183
+    ],
+    "energy_wh": [
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 1.0
+   },
+   "pipeline": {
+    "power_w": [
+     1632.9512557294183,
+     1632.9512557294183
+    ],
+    "energy_wh": [
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 1.0
+   },
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "agrees": true
+  },
+  {
+   "id": "night_on_a_full_battery",
+   "words": "Twelve hours of night on a full 2000 Wh battery with a 200 W load.",
+   "hand": "2000 Wh / 200 W = 10 h, then two hours without power",
+   "inputs": {
+    "hours": 12,
+    "sun_az": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "sun_el": [
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0
+    ],
+    "sun_fraction": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "sun_au": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0
+    ],
+    "config": {
+     "panel": "full_tracking",
+     "panel_azimuth_deg": 0.0,
+     "area_m2": 4.0,
+     "efficiency": 0.3,
+     "load_w": 200.0,
+     "battery_wh": 2000.0,
+     "initial_soc_fraction": 1.0
+    }
+   },
+   "expected": {
+    "power_w": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "energy_wh": [
+     1800.0,
+     1600.0,
+     1400.0,
+     1200.0,
+     1000.0,
+     800.0,
+     600.0,
+     400.0,
+     200.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "brownout_hours": 2,
+    "first_brownout_hour": 10,
+    "soc_min": 0.0
+   },
+   "pipeline": {
+    "power_w": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "energy_wh": [
+     1800.0,
+     1600.0,
+     1400.0,
+     1200.0,
+     1000.0,
+     800.0,
+     600.0,
+     400.0,
+     200.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "brownout_hours": 2,
+    "first_brownout_hour": 10,
+    "soc_min": 0.0
+   },
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "agrees": true
+  },
+  {
+   "id": "recharge_from_half",
+   "words": "A half-full battery charging with 133.2 W to spare until it is full.",
+   "hand": "1000 Wh + 7 x 133.2 Wh = 1932.4 Wh, then full at 2000 Wh",
+   "inputs": {
+    "hours": 9,
+    "sun_az": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "sun_el": [
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0,
+     10.0
+    ],
+    "sun_fraction": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0
+    ],
+    "sun_au": [
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0,
+     1.0
+    ],
+    "config": {
+     "panel": "full_tracking",
+     "panel_azimuth_deg": 0.0,
+     "area_m2": 4.0,
+     "efficiency": 0.3,
+     "load_w": 1500.0,
+     "battery_wh": 2000.0,
+     "initial_soc_fraction": 0.5
+    }
+   },
+   "expected": {
+    "power_w": [
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2
+    ],
+    "energy_wh": [
+     1133.2,
+     1266.4,
+     1399.6000000000001,
+     1532.8000000000002,
+     1666.0000000000002,
+     1799.2000000000003,
+     1932.4000000000003,
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 0.5
+   },
+   "pipeline": {
+    "power_w": [
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2,
+     1633.2
+    ],
+    "energy_wh": [
+     1133.2,
+     1266.4,
+     1399.6000000000001,
+     1532.8000000000002,
+     1666.0000000000002,
+     1799.2000000000003,
+     1932.4000000000003,
+     2000.0,
+     2000.0
+    ],
+    "brownout_hours": 0,
+    "first_brownout_hour": null,
+    "soc_min": 0.5
+   },
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "agrees": true
+  }
+ ],
+ "recorded_runs": [
+  {
+   "file": "im1_odysseus_2025-01-01_60d_full_tracking.json",
+   "site_id": "im1_odysseus",
+   "start_utc": "2025-01-01T00:00:00",
+   "days": 60,
+   "hours": 1440,
+   "panel": "full_tracking",
+   "sample_hours": 11,
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "brownouts_equal": true,
+   "agrees": true
+  },
+  {
+   "file": "shackleton_center_rim_high_2025-01-01_60d_horizontal.json",
+   "site_id": "shackleton_center_rim_high",
+   "start_utc": "2025-01-01T00:00:00",
+   "days": 60,
+   "hours": 1440,
+   "panel": "horizontal",
+   "sample_hours": 11,
+   "max_abs_diff_w": 7.105427357601002e-15,
+   "max_abs_diff_wh": 0.0,
+   "brownouts_equal": true,
+   "agrees": true
+  },
+  {
+   "file": "shackleton_center_rim_high_2025-01-01_60d_vertical.json",
+   "site_id": "shackleton_center_rim_high",
+   "start_utc": "2025-01-01T00:00:00",
+   "days": 60,
+   "hours": 1440,
+   "panel": "vertical",
+   "sample_hours": 11,
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "brownouts_equal": true,
+   "agrees": true
+  },
+  {
+   "file": "shackleton_center_rim_high_2025-01-01_60d_vertical_tracking.json",
+   "site_id": "shackleton_center_rim_high",
+   "start_utc": "2025-01-01T00:00:00",
+   "days": 60,
+   "hours": 1440,
+   "panel": "vertical_tracking",
+   "sample_hours": 11,
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 0.0,
+   "brownouts_equal": true,
+   "agrees": true
+  },
+  {
+   "file": "shackleton_center_rim_high_2027-02-01_30d_vertical_tracking.json",
+   "site_id": "shackleton_center_rim_high",
+   "start_utc": "2027-02-01T00:00:00",
+   "days": 30,
+   "hours": 720,
+   "panel": "vertical_tracking",
+   "sample_hours": 8,
+   "max_abs_diff_w": 0.0,
+   "max_abs_diff_wh": 2.2737367544323206e-13,
+   "brownouts_equal": true,
+   "agrees": true
+  }
+ ]
+}

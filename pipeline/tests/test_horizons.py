@@ -38,12 +38,17 @@ def test_horizons_url_encodes_site_and_body():
 @pytest.mark.data
 @needs_kernels
 @needs_fixtures
-def test_our_azel_matches_horizons_within_tolerance():
-    summary = compare_all()
+def test_our_azel_matches_horizons_within_tolerance(tmp_path):
+    committed = config.DATA_DIR / "fixtures" / "horizons" / "summary.json"
+    before = committed.read_bytes()
+    out = tmp_path / "summary.json"
+    summary = compare_all(out=out)
     assert summary["n_rows"] >= 100
     # Achieved ~3e-5 deg; 0.002 deg still catches a UTC-as-TDB slip (9e-3) or dropped aberration (6e-3).
     assert summary["max_abs_delta_el_deg"] < 0.002
     assert summary["max_abs_delta_az_cos_el_deg"] < 0.002
-    path = config.DATA_DIR / "fixtures" / "horizons" / "summary.json"
-    assert path.exists()
-    assert b"\r\n" not in path.read_bytes()  # LF on every platform, so pytest never dirties the tree
+    # The test writes its summary to a temporary folder: the committed one, whose numbers can differ in the 16th
+    # digit from one computer to another, stays as it was, so a test run never dirties the tree.
+    assert json.loads(out.read_text(encoding="utf-8"))["n_rows"] == summary["n_rows"]
+    assert b"\r\n" not in out.read_bytes()  # LF on every platform, as the command writes the committed copy
+    assert committed.read_bytes() == before
