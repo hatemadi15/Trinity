@@ -3,6 +3,7 @@ import { timeWithPower } from '../engine/landing';
 import { exploreHref } from '../links';
 import type { SiteResult } from '../store/explore';
 import { dateLong, dayMonth, pct0, spanShort } from './format';
+import { withheldNote } from './terrain';
 
 /** One row of the comparison table: what it says about a site, ready to print. */
 export interface CompareRow {
@@ -62,10 +63,14 @@ function list(words: string[]): string {
 }
 
 /** The best score among the sites and every site that reaches it. */
-function best(results: SiteResult[], score: (r: SiteResult) => number): { top: number; names: string[] } {
+function best(results: SiteResult[], score: (r: SiteResult) => number): { top: number; names: string[]; winners: SiteResult[] } {
   const top = Math.max(...results.map(score));
-  return { top, names: results.filter((r) => score(r) === top).map((r) => siteLabel(r.site)) };
+  const winners = results.filter((r) => score(r) === top);
+  return { top, names: winners.map((r) => siteLabel(r.site)), winners };
 }
+
+/** A site may win a measure unless its terrain is incomplete: then its figures can only be too high. */
+const trustedTerrain = (r: SiteResult) => r.terrain?.quality !== 'incomplete';
 
 /**
  * One sentence over the table: for a lander landing on the period's first day, the site with the
@@ -73,7 +78,7 @@ function best(results: SiteResult[], score: (r: SiteResult) => number): { top: n
  * compared as the table prints them), each site named once with everything it wins. A measure where
  * every site scores nothing names no site and is said to be missing everywhere.
  */
-export function bestSentence(results: SiteResult[], startUtc: string, days: number): string {
+export function bestSentence(results: SiteResult[], startUtc: string, days: number, trusted: (r: SiteResult) => boolean = trustedTerrain): string {
   if (results.length === 0) return '';
   if (results.length === 1) return `Add another site to compare it with ${siteLabel(results[0].site)}.`;
   const hours = days * 24;
@@ -81,9 +86,22 @@ export function bestSentence(results: SiteResult[], startUtc: string, days: numb
   const sun = best(results, (r) => Math.round(r.summary.illumFraction * 100));
   const earth = best(results, (r) => Math.round(r.summary.earthVisFraction * 100));
   const wins: { names: string[]; words: string }[] = [];
-  if (power.top > 0) wins.push({ names: power.names, words: `the longest time with power (${power.top >= hours ? `all ${days} days` : spanShort(power.top)})` });
-  if (sun.top > 0) wins.push({ names: sun.names, words: `the most sunlight (${sun.top} %)` });
-  if (earth.top > 0) wins.push({ names: earth.names, words: `the most contact with Earth (${earth.top} %)` });
+  // A measure a site with incomplete terrain would win names no site: its figure may be too high. A trusted winner
+  // still wins over an incomplete site whose figure, too high if anything, is lower.
+  const withheld: { names: string[]; measures: string[] } = { names: [], measures: [] };
+  const win = (m: { top: number; names: string[]; winners: SiteResult[] }, measure: string, figure: string) => {
+    if (m.top <= 0) return;
+    const doubtful = m.winners.filter((r) => !trusted(r));
+    if (doubtful.length === 0) {
+      wins.push({ names: m.names, words: `${measure} (${figure})` });
+      return;
+    }
+    for (const r of doubtful) if (!withheld.names.includes(siteLabel(r.site))) withheld.names.push(siteLabel(r.site));
+    withheld.measures.push(measure);
+  };
+  win(power, 'the longest time with power', power.top >= hours ? `all ${days} days` : spanShort(power.top));
+  win(sun, 'the most sunlight', `${sun.top} %`);
+  win(earth, 'the most contact with Earth', `${earth.top} %`);
   const bySites = new Map<string, { names: string[]; words: string[] }>();
   for (const w of wins) {
     const key = w.names.join('\n');
@@ -98,5 +116,7 @@ export function bestSentence(results: SiteResult[], startUtc: string, days: numb
   else if (sun.top === 0) lacks.push('sees the Sun');
   else if (earth.top === 0) lacks.push('sees Earth');
   if (lacks.length > 0) clauses.push(`none of these sites ${lacks.join(' or ')}`);
-  return `Landing on ${dateLong(startUtc, 0)}, ${clauses.join('; ')}.`;
+  const note = withheld.measures.length > 0 ? withheldNote(withheld.names, withheld.measures) : '';
+  if (clauses.length === 0) return note;
+  return `Landing on ${dateLong(startUtc, 0)}, ${clauses.join('; ')}.${note ? ` ${note}` : ''}`;
 }

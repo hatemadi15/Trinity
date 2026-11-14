@@ -3,6 +3,7 @@ import { dataBase, loadEphemerisFromUrl, loadMask, loadSites, type MaskDoc, type
 import { contextFileFor, loadHeightmap, loadTerrainManifest, windowFileFor, type Heightmap, type TerrainManifest } from '../data/terrain';
 import { indexForEt, type Ephemeris } from '../engine/ephemeris';
 import { EngineClient } from '../engine-client';
+import type { MaskResult } from '../engine/worker-handler';
 import { normalizeLon } from '../engine/geometry';
 import { bestLanding, bestLandingAcross, landingScores, timeWithPower, YEAR_HOURS, type Landing } from '../engine/landing';
 import { contactWindows, headSeries, hourlySeries, sliceSeries, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
@@ -1101,6 +1102,16 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
 
 let engineClient: EngineClient | null = null;
 
+/** The worker's answer as the store keeps it: the skyline and the march's record of what it found. */
+export function skylineFromWorker(r: MaskResult): ComputedSkyline {
+  return {
+    mask: r.mask,
+    siteHeightM: r.siteHeightM,
+    failedTiles: r.failedTiles.length + r.absentTiles.length,
+    terrain: { coverage: r.coverage, fallbackBands: r.fallbackBands, siteGrid: r.siteGrid, plannedSiteGrid: r.bands[0]?.grid ?? r.siteGrid, terrain: r.terrain },
+  };
+}
+
 const browserLoaders: Loaders = {
   loadSites: () => loadSites(dataBase()),
   loadEphemeris: () => loadEphemerisFromUrl(dataBase()),
@@ -1110,13 +1121,7 @@ const browserLoaders: Loaders = {
   computeMask: async (lat, lon, mastM) => {
     if (typeof window === 'undefined') throw new Error('the skyline worker only runs in the browser');
     engineClient ??= new EngineClient(dataBase());
-    const r = await engineClient.computeMask(lat, lon, { mastM });
-    return {
-      mask: r.mask,
-      siteHeightM: r.siteHeightM,
-      failedTiles: r.failedTiles.length + r.absentTiles.length,
-      terrain: { coverage: r.coverage, fallbackBands: r.fallbackBands, siteGrid: r.siteGrid, plannedSiteGrid: r.bands[0]?.grid ?? r.siteGrid, terrain: r.terrain },
-    };
+    return skylineFromWorker(await engineClient.computeMask(lat, lon, { mastM }));
   },
   // One page reads one tile set, from the data base: the skylines it works out are kept for that set.
   get terrainId() {

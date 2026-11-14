@@ -15,6 +15,7 @@ import { standHref } from '@/lib/links';
 import type { Exaggeration, SceneMode, TerrainState } from '@/lib/store/explore';
 import { groundWords } from '@/lib/viz/ground';
 import type { SceneState } from '@/lib/viz/scene-state';
+import { pickProblem } from '@/lib/viz/terrain';
 import { HorizonView } from './HorizonView';
 import { ShadowMap } from './ShadowMap';
 
@@ -330,7 +331,7 @@ export function GroundPanel({
 
       {customError && (
         <p role="alert" className="mt-1 text-[15px] text-bad">
-          That place cannot be worked out: this tool covers the Moon south of 60° S.
+          {pickProblem(customError)}
         </p>
       )}
       {/* LOLA, on the site's own grid, gives the ground and the hills, and DE440 the light; the sentence for the hour

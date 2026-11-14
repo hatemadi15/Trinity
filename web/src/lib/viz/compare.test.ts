@@ -73,6 +73,21 @@ describe('bestSentence', () => {
     expect(bestSentence([blind, floor], START, 30)).toBe('Landing on 1 January, Blind has the longest time with power (1 d 16 h) and the most sunlight (50 %); none of these sites sees Earth.');
   });
 
+  it('names no site for a measure that a site with incomplete terrain would win, and says why', () => {
+    // A missing piece of map counts as no hill, so an incomplete site's figures can only be too high: it cannot win.
+    const lost = { ...summit, terrain: { quality: 'incomplete' } } as unknown as SiteResult;
+    expect(bestSentence([ridge, lost, floor], START, 30)).toBe(
+      'Landing on 1 January, Ridge has the most contact with Earth (54 %). The terrain at Summit is incomplete, so no site is named for the longest time with power or the most sunlight: its figures may be too high.',
+    );
+    // A site with complete terrain still wins over one whose figures, too high if anything, are lower.
+    const shaky = { ...floor, terrain: { quality: 'incomplete' } } as unknown as SiteResult;
+    expect(bestSentence([ridge, summit, shaky], START, 30)).toBe(bestSentence([ridge, summit, floor], START, 30));
+    // When every measure is withheld, only the reason is left.
+    expect(bestSentence([lost, { ...ridge, terrain: { quality: 'incomplete' } } as unknown as SiteResult], START, 30)).toBe(
+      'The terrain at Summit and Ridge is incomplete, so no site is named for the longest time with power, the most sunlight or the most contact with Earth: their figures may be too high.',
+    );
+  });
+
   it('asks for a second site when there is one', () => {
     expect(bestSentence([ridge], START, 30)).toBe('Add another site to compare it with Ridge.');
     expect(bestSentence([], START, 30)).toBe('');

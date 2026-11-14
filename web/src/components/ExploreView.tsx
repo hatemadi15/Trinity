@@ -4,6 +4,7 @@ import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
 import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PlannerChat } from './PlannerChat';
+import { SkylineNote } from './SkylineNote';
 import { GroundPanel } from './explore/GroundPanel';
 import { LanderDialog } from './explore/LanderDialog';
 import { NumbersCard } from './explore/NumbersCard';
@@ -20,10 +21,11 @@ import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { standHref } from '@/lib/links';
-import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { timeWithPower } from '@/lib/engine/landing';
 import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
 import { dateTimeUtc } from '@/lib/viz/format';
+import { terrainLimitation, trustedAnswer, trustedOverview } from '@/lib/viz/terrain';
 import { checkPick } from '@/lib/viz/pick';
 import { sceneStateAt } from '@/lib/viz/scene-state';
 import { keyMoments } from '@/lib/viz/stand';
@@ -92,16 +94,22 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   }, [store, go]);
 
   const scene = useMemo(() => (s.eph && s.series && s.mask ? sceneStateAt(s.eph, s.series, s.mask, s.cursorHour) : null), [s.eph, s.series, s.mask, s.cursorHour]);
-  const answer = useMemo(
+  // The terrain behind the figures, and whether they are still from another mast height than the one chosen.
+  const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
+  const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
+  const told = useMemo(
     () => (s.series && s.summary && s.power && s.site ? answerFor({ siteName: siteLabel(s.site), series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best }) : null),
     [s.site, s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.best],
   );
-  // A nearby site that keeps power clearly longer from the same landing day, once the overview has its figures.
+  // No better day from an incomplete terrain, or from figures still waiting for the chosen mast (lib/viz/terrain).
+  const answer = useMemo(() => (told ? trustedAnswer(told, terrain, behind) : null), [told, terrain, behind]);
+  // A nearby site that keeps power clearly longer from the same landing day, once the overview has its figures: only
+  // from figures for the chosen mast, and never to or from a place whose terrain is incomplete.
   const nearby = useMemo(() => {
-    if (!s.site || !s.power) return null;
-    const advice = nearbyAdvice(s.site, s.sites, s.overview, timeWithPower(s.power));
+    if (!s.site || !s.power || behind || terrain?.quality === 'incomplete') return null;
+    const advice = nearbyAdvice(s.site, s.sites, trustedOverview(s.overview, s.params.mastM), timeWithPower(s.power));
     return advice ? { words: nearbyWords(advice, s.days), name: siteLabel(advice.site), href: exploreHref(advice.site.id, s.startUtc, s.days) } : null;
-  }, [s.site, s.sites, s.overview, s.power, s.days, s.startUtc]);
+  }, [s.site, s.sites, s.overview, s.power, s.days, s.startUtc, s.params.mastM, behind, terrain]);
 
   if (s.status === 'loading' || s.status === 'idle') {
     return (
@@ -131,7 +139,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
         <LunaControls
           controls={{
             'better-day': () => {
-              if (!better) return 'This landing day is already the best one nearby.';
+              if (!better) return told?.better ? (answer.hint ?? 'No better landing day is named.') : 'This landing day is already the best one nearby.';
               s.setWindow(better.startUtc, s.days);
               return better.label;
             },
@@ -139,6 +147,8 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
         />
         <div className="wrap flex w-full min-w-0 flex-col gap-6 pb-10 pt-6">
           <PeriodBand site={site} startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} power={s.params.power} onLander={() => setLanderOpen(true)} landerRef={landerRef} />
+          {/* The selected site and the places the nearby search reads, while their hills are worked out for the chosen mast. */}
+          <SkylineNote state={s} ids={[site.id, ...s.sites.filter((x) => x.category !== 'custom' && x.id !== site.id).map((x) => x.id)]} selected />
           {s.error && (
             <p role="status" className="text-[15px] text-bad">
               {s.error}
@@ -147,6 +157,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
           <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
             <VerdictPanel
               answer={answer}
+              limitation={terrainLimitation(terrain)}
               site={site}
               nearby={nearby}
               standLink={standHref(site.id, s.startUtc, s.days, s.cursorHour)}
