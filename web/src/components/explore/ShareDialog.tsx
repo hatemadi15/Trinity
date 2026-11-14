@@ -14,6 +14,7 @@ import type { AppVersion, DataVersions } from '@/lib/share/versions';
 export function ShareDialog({
   input,
   link,
+  requirements = false,
   versions,
   onClose,
   returnFocus,
@@ -23,6 +24,8 @@ export function ShareDialog({
   input: ExportInput;
   /** The full address of Explore on this site, period and settings. */
   link: string;
+  /** Whether the link carries the mission's requirements too (any is set). */
+  requirements?: boolean;
   versions: { app: AppVersion; data: DataVersions };
   onClose: () => void;
   returnFocus?: RefObject<HTMLElement | null>;
@@ -41,7 +44,7 @@ export function ShareDialog({
   return (
     <Modal title="Share and download" onClose={onClose} returnFocus={returnFocus} wide>
       <h3 className="mt-4 font-semibold">Link</h3>
-      <p className="mt-1 text-[15px] text-ink-2">Opens this site, period, lander, mast and radio clearance on the same figures, in any browser.</p>
+      <p className="mt-1 text-[15px] text-ink-2">Opens this site, period, lander, mast{requirements ? ', radio clearance and your requirements' : ' and radio clearance'} on the same figures, in any browser.</p>
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
         <input readOnly value={link} aria-label="Link to these figures" onFocus={(e) => e.currentTarget.select()} className="field min-w-0 flex-1 basis-64 text-[15px]" />
         <button type="button" onClick={onCopy} className="btn shrink-0">

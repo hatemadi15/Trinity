@@ -31,6 +31,7 @@ import { COMPARE_MAX, exploreStore, scanOf, terrainOf, type ExploreState } from 
 import { neighbourhoodRange, rangeWords } from '@/lib/plan/neighbourhood';
 import { placeOptions, timeOptions } from '@/lib/plan/options';
 import { periodOutcome } from '@/lib/plan/outcome';
+import { requirementCount } from '@/lib/plan/requirements';
 import { answerFor, nearbyWords, planView, spotSite } from '@/lib/viz/answer';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
@@ -84,9 +85,9 @@ export function ExploreView({
       .then(() => store.getState().applyQuery(search))
       .then(() => setLinked(true));
   }, [store]);
-  // From then on the address follows the site, the period (its landing hour and length included) and every setting the
-  // figures depend on, so a reload or a copied address opens the same forecast.
-  const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params) : null;
+  // From then on the address follows the site, the period (its landing hour and length included), every setting the
+  // figures depend on and the requirements set, so a reload or a copied address opens the same forecast and better date.
+  const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements) : null;
   useAddressFollows(link, linked && s.status === 'ready');
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
@@ -222,7 +223,7 @@ export function ExploreView({
   const site = s.site;
   const better = answer?.better;
   // The view from the site and the brief work their figures out from the same settings.
-  const standLink = withSettings(standHref(site.id, s.startUtc, s.days, s.cursorHour), s.params);
+  const standLink = withSettings(standHref(site.id, s.startUtc, s.days, s.cursorHour), s.params, s.requirements);
   return (
     <AppFrame>
       <main className="flex flex-col">
@@ -273,7 +274,7 @@ export function ExploreView({
               series={s.series}
               hour={s.cursorHour}
               startUtc={s.startUtc}
-              briefLink={withSettings(briefHref(site.id, s.startUtc, s.days), s.params)}
+              briefLink={withSettings(briefHref(site.id, s.startUtc, s.days), s.params, s.requirements)}
               onShare={() => setShareOpen(true)}
               shareRef={shareRef}
             />
@@ -348,6 +349,7 @@ export function ExploreView({
           <ShareDialog
             input={{ site, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph, series: s.series, power: s.power, summary: s.summary, maskMeta: s.maskMeta, best: s.best }}
             link={new URL(link, window.location.origin).href}
+            requirements={requirementCount(s.requirements) > 0}
             versions={{ app: appVersion(), data: dataVersions ?? { data: null, sites: null, ephemeris: null, terrain: null } }}
             onClose={() => setShareOpen(false)}
             returnFocus={shareRef}
