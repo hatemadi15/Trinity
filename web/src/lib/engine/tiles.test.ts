@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import zlib from 'node:zlib';
-import { decodeTile, LevelSampler, levelById, MemoryTileSource, type TileLevel, type TileManifest } from './tiles';
+import { decodeTile, LevelSampler, levelById, MemoryTileSource, newTally, type TileLevel, type TileManifest } from './tiles';
 import { FsTileSource, readManifest } from './tiles.node';
 import { hasFile, readJson, repoPath } from './__tests__/helpers';
 
@@ -110,5 +110,51 @@ describe('LevelSampler failure handling and residency', () => {
     s.clear();
     expect(s.tileCount()).toBe(0);
     expect(() => s.dn(10, 10)).toThrow(/not loaded/);
+  });
+});
+
+describe('the tiles a sampling pass could not use', () => {
+  // A 4 x 4 grid of tiles: 0_1 is absent (the source has no such tile) and 1_0 fails to load.
+  function sampler() {
+    const level = syntheticLevel(1600, 20);
+    const good = new MemoryTileSource(level, new Int16Array(1600 * 1600).fill(100), new Set(['0_1']));
+    const flaky = {
+      async getTileBytes(l: TileLevel, ty: number, tx: number) {
+        if (ty === 1 && tx === 0) throw new Error('tile T 1_0: HTTP 500');
+        return good.getTileBytes(l, ty, tx);
+      },
+    };
+    return new LevelSampler(level, flaky);
+  }
+
+  it('tallies the absent and the failed tiles a pass sampled, and only those', async () => {
+    const s = sampler();
+    const cols = new Float64Array([100, 700, 100, 700]);
+    const rows = new Float64Array([100, 100, 700, 700]);
+    await s.ensureForPixels(cols, rows);
+    const tally = newTally();
+    const out = new Float64Array(4);
+    s.valueBilinearInto(cols, rows, out, tally);
+    expect(out[0]).toBe(50);
+    expect(Number.isNaN(out[1]) && Number.isNaN(out[2])).toBe(true);
+    expect(s.tallyKeys(tally)).toEqual({ absent: ['T/0_1'], failed: ['T/1_0'] });
+    expect(s.absentTiles()).toEqual(['0_1']);
+    // A pass that samples only tiles with data tallies nothing, whatever the sampler met before.
+    const clean = newTally();
+    s.valueBilinearInto(new Float64Array([100]), new Float64Array([100]), out, clean);
+    expect(s.tallyKeys(clean)).toEqual({ absent: [], failed: [] });
+  });
+
+  it('tallies an absent tile met by a sample on a tile edge, whose neighbours lie in two tiles', async () => {
+    const s = sampler();
+    // Column 511.5 needs columns 511 (tile 0_0) and 512 (tile 0_1, absent).
+    const cols = new Float64Array([511.5]);
+    const rows = new Float64Array([100]);
+    await s.ensureForPixels(cols, rows);
+    const tally = newTally();
+    const out = new Float64Array(1);
+    s.valueBilinearInto(cols, rows, out, tally);
+    expect(Number.isNaN(out[0])).toBe(true);
+    expect(s.tallyKeys(tally)).toEqual({ absent: ['T/0_1'], failed: [] });
   });
 });

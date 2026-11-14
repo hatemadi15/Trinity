@@ -5,6 +5,7 @@ import { useStore, type StoreApi } from 'zustand';
 import { DataProblem, SYNC_HINT } from './DataProblem';
 import { groundWords } from './explore/GroundQuality';
 import { ENERGY_ONLY, POWER_SCOPE_LINE } from './PowerScope';
+import { SkylineNote } from './SkylineNote';
 import { SkyRow } from './SkyRow';
 import { askNarration, shortModel } from '@/lib/ai/client';
 import { templateBrief } from '@/lib/ai/narrate';
@@ -15,12 +16,13 @@ import { siteLabel, type Site } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
 import { landerLine } from '@/lib/lander';
 import { exploreHref } from '@/lib/links';
-import { exploreStore, type ExploreState } from '@/lib/store/explore';
+import { exploreStore, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { hillsToward } from '@/lib/viz/timechart';
 import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
+import { provenanceWords, terrainDetails, terrainLimitation, trustedAnswer } from '@/lib/viz/terrain';
 
 type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; problems?: string[]; message?: string };
 
@@ -113,7 +115,12 @@ export function BriefView({
   // Each time with its supported margin (data/uncertainty), printed in full; the ground where the budget measured it.
   const sure = sureLines({ doc: budget, site: { id: s.site.id, polar: s.site.polar }, series: s.series, power: s.power, startUtc: s.startUtc });
   const ground = siteBudget(budget, s.site.id)?.terrain_quality ?? null;
-  const answer = answerFor({ siteName: name, series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: p.loadW, batteryWh: p.batteryWh, best: s.best, farSide: s.site.far_side, panel: p.panel });
+  // The terrain behind the figures, and whether they are still from another mast height than the one chosen: an
+  // incomplete terrain, or figures still on their way, name no better day (lib/viz/terrain).
+  const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
+  const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
+  const answer = trustedAnswer(answerFor({ siteName: name, series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: p.loadW, batteryWh: p.batteryWh, best: s.best, farSide: s.site.far_side, panel: p.panel }), terrain, behind);
+  const limitation = terrainLimitation(terrain);
   const hours = s.days * 24;
   const powered = Math.min(hours, timeWithPower(s.power));
   const figures: [string, string][] = [
@@ -123,7 +130,8 @@ export function BriefView({
     ['Time with power', powered >= hours ? `all ${s.days} days` : spanShort(powered)],
     ['Battery when full', `${spanShort(p.loadW > 0 ? p.batteryWh / p.loadW : 0)} at ${p.loadW} W`],
   ];
-  const mast = s.maskMeta?.mastM ?? 2;
+  // The height the hills are seen from: the skyline's own; a flat horizon is the same from the chosen one.
+  const mast = s.maskMeta?.source === 'flat' ? s.params.mastM : (s.maskMeta?.mastM ?? 2);
   const stateSummary = summarizeState(s);
   const template = stateSummary ? templateBrief(stateSummary) : '';
   const shown = narration && narration.source !== 'error' ? narration.text : template;
@@ -140,7 +148,7 @@ export function BriefView({
       setWriting(false);
     }
   }
-  const provenance = s.maskMeta?.source === 'flat' ? 'a flat horizon (no polar height data there)' : s.maskMeta?.source === 'computed' ? 'hills worked out in your browser from NASA elevation data' : 'hills measured from NASA elevation data';
+  const provenance = terrain ? provenanceWords(terrain) : 'hills measured from NASA elevation data';
   const period = `the ${s.days} days from ${dateLong(s.startUtc, 0)}`;
   const every = s.days > 45 ? 10 : 5;
   const ticks = Array.from({ length: Math.floor((s.days - 1) / every) + 1 }, (_, k) => k * every);
@@ -163,6 +171,7 @@ export function BriefView({
         {/* What kind of point the coordinate is, so a region's centre or a derived high point never reads as a surveyed landing spot. */}
         <p className="text-[15px] text-ink-2">{pointWords(s.site)}</p>
       </header>
+      <SkylineNote state={s} ids={[s.site.id]} selected />
       <section className="flex flex-col gap-1 text-[15px]">
         <div className="flex items-center justify-between gap-3">
           <h2 className="display text-[18px] font-semibold">Mission summary</h2>
@@ -177,6 +186,7 @@ export function BriefView({
         <h2 id="brief-verdict" className="display text-[20px] font-semibold leading-snug">
           {answer.title}
         </h2>
+        {limitation && <p className="mt-1 text-[15px] font-medium">{limitation}</p>}
         {answer.sentences.map((line) => (
           <p key={line} className="mt-1 text-[15px]">
             {line}
@@ -248,6 +258,7 @@ export function BriefView({
           {sure.lines.length > 0 ? 'each time above carries its own margin.' : 'the times are hourly, so each change falls in the hour before the one given, and the hills can move them by more (see the Accuracy page).'}
         </p>
         {ground && <p className="text-ink-2">{groundWords(ground)}</p>}
+        {terrain && terrainDetails(terrain) && <p>{terrainDetails(terrain)}</p>}
       </section>
       <section className="flex flex-col gap-1 text-[15px]">
         <h2 className="display text-[18px] font-semibold">Data</h2>

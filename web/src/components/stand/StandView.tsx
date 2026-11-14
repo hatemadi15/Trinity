@@ -20,7 +20,7 @@ import { dirAzEl } from '@/lib/sky/frames';
 import { LANDER } from '@/lib/sky/landerShape';
 import { eyeAt, lookUpTarget, StandRenderer, type StandScene } from '@/lib/sky/standRenderer';
 import { flatField, meshHeightAt, terrainField } from '@/lib/sky/terrainField';
-import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, seenFrom, type ExploreState } from '@/lib/store/explore';
 import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth } from '@/lib/viz/format';
@@ -234,7 +234,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     const lander = s.power ? standLander(s.series, s.power, tall(), openHour) : undefined;
     // The key moments' days on the paths: the Sun's leaving and coming back on its path, Earth coming into view on Earth's.
     const marks = pathMarks(keyMoments(s.series, s.power, s.startUtc));
-    return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: s.params.mastM, sky, quality, lander, marks, resident };
+    // The eye stands at the height the skyline drawn is seen from, which lags the chosen mast while a new one is worked out.
+    return { field, mask: { az0: 0, step: 360 / s.mask.length, el: s.mask }, series: s.series, startUtc: s.startUtc, site: s.site, mastM: seenFrom(s.maskMeta, s.params.mastM), sky, quality, lander, marks, resident };
   }, [openHour, sky, s.site, s.series, s.mask, s.heightmap, s.contextHeightmap, s.capHeightmap, s.maskMeta, s.params.mastM, s.startUtc, s.power, quality, resident]);
   // How far below level the lander's nearest foot lies from the eye, and which way: the opening view keeps
   // it in sight while the lander is in view.

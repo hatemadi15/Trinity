@@ -20,6 +20,8 @@ export interface TileLevel {
 
 export interface TileManifest {
   version: number;
+  /** When the pipeline cut the tiles (UTC). */
+  generated_utc?: string;
   reference_radius_m: number;
   levels: TileLevel[];
 }
@@ -95,6 +97,18 @@ export function zlibStored(raw: Uint8Array): Uint8Array {
 }
 
 const DEG = Math.PI / 180;
+
+/**
+ * The tiles one sampling pass needed and could not use, by tile id: absent (the source has no such tile, an HTTP
+ * 404 or a missing file) or failed (its load threw). A pass gets its own tally, so tiles another site's pass met
+ * are never charged to this one.
+ */
+export interface TileTally {
+  absent: Set<number>;
+  failed: Set<number>;
+}
+
+export const newTally = (): TileTally => ({ absent: new Set(), failed: new Set() });
 
 /**
  * Bilinear sampler over one tile level. Load tiles with ensure*() before sampling.
@@ -241,8 +255,8 @@ export class LevelSampler {
     return out;
   }
 
-  /** Same as valueBilinear but writes into `out` (length >= cols.length). */
-  valueBilinearInto(cols: ArrayLike<number>, rows: ArrayLike<number>, out: Float64Array): void {
+  /** Same as valueBilinear but writes into `out` (length >= cols.length); with a tally, records the tiles that left a sample without data. */
+  valueBilinearInto(cols: ArrayLike<number>, rows: ArrayLike<number>, out: Float64Array, tally?: TileTally): void {
     const scale = this.level.dn_scale_m, W = this.level.samples - 1, H = this.level.lines - 1;
     const T = this.level.tile_size, tilesX = this.level.tiles_x, nodata = this.level.nodata;
     const tiles = this.tiles, failures = this.failures;
@@ -261,10 +275,10 @@ export class LevelSampler {
         const id = ty * tilesX + tx;
         const tile = tiles[id];
         if (tile === undefined) {
-          if (failures.has(id)) { out[i] = NaN; continue; }
+          if (failures.has(id)) { tally?.failed.add(id); out[i] = NaN; continue; }
           throw new Error(`tile ${ty}_${tx} of ${this.level.id} not loaded; call ensureTiles first`);
         }
-        if (tile === null) { out[i] = NaN; continue; }
+        if (tile === null) { tally?.absent.add(id); out[i] = NaN; continue; }
         const o = ly * T + lx;
         const a = tile[o], b = tile[o + 1], c = tile[o + T], d = tile[o + T + 1];
         if (a === nodata || b === nodata || c === nodata || d === nodata) { out[i] = NaN; continue; }
@@ -273,7 +287,24 @@ export class LevelSampler {
       }
       const a = this.dn(r0, c0), b = this.dn(r0, c0 + 1), c = this.dn(r0 + 1, c0), d = this.dn(r0 + 1, c0 + 1);
       out[i] = ((a * (1 - fc) + b * fc) * (1 - fr) + (c * (1 - fc) + d * fc) * fr) * scale;
+      if (tally && out[i] !== out[i]) for (const [r, c] of [[r0, c0], [r0, c0 + 1], [r0 + 1, c0], [r0 + 1, c0 + 1]]) this.tallyPixel(r, c, tally);
     }
+  }
+
+  /** Records the tile under an integer pixel in the tally when it is absent or failed. */
+  private tallyPixel(row: number, col: number, tally: TileTally): void {
+    const T = this.level.tile_size;
+    const id = ((row / T) | 0) * this.level.tiles_x + ((col / T) | 0);
+    const tile = this.tiles[id];
+    if (tile === null) tally.absent.add(id);
+    else if (tile === undefined && this.failures.has(id)) tally.failed.add(id);
+  }
+
+  /** A tally's tiles as sorted keys with the level: "L1/3_4". */
+  tallyKeys(tally: TileTally): { absent: string[]; failed: string[] } {
+    const key = (id: number) => `${this.level.id}/${(id / this.level.tiles_x) | 0}_${id % this.level.tiles_x}`;
+    const keys = (ids: Set<number>) => [...ids].sort((a, b) => a - b).map(key);
+    return { absent: keys(tally.absent), failed: keys(tally.failed) };
   }
 
   async valueAt(latDeg: number, lonDeg: number): Promise<number> {
@@ -286,6 +317,15 @@ export class LevelSampler {
   /** Number of decoded tiles currently resident (each tile_size² × 2 bytes). */
   tileCount(): number {
     return this.resident;
+  }
+
+  /** Tiles the source reported absent (an HTTP 404 or a missing file), as "ty_tx" keys; they are never asked for again. */
+  absentTiles(): string[] {
+    const tilesX = this.level.tiles_x, out: string[] = [];
+    this.tiles.forEach((t, id) => {
+      if (t === null) out.push(`${(id / tilesX) | 0}_${id % tilesX}`);
+    });
+    return out;
   }
 
   /** Tiles whose last load attempt threw, as "ty_tx" keys (they are retried on the next ensure). */

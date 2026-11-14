@@ -67,6 +67,10 @@ describe('Luna’s commands', () => {
     for (const t of ['fly to the south pole', 'take off', 'start the flight']) expect(parse(t), t).toEqual(control('fly'));
   });
 
+  it('shows the year: every landing day of the next 12 months', () => {
+    for (const t of ['show me the year', 'show the whole year', 'the year', 'year at a glance', 'every landing day', 'show me every landing day', 'all the landing days']) expect(parse(t), t).toEqual(control('year'));
+  });
+
   it('goes to every page, the view from the site and home among them', () => {
     for (const t of ['stand at the site', 'open the stand view', 'stand on the moon', 'show me the view from the ground', 'land', 'land there', 'take me to the surface', '3D view']) expect(parse(t), t).toEqual(go('stand'));
     for (const t of ['go home', 'home page', 'go to the start page', 'back to the start']) expect(parse(t), t).toEqual(go('home'));
