@@ -9,7 +9,7 @@
 - [ ] Record the 30-second video v1 (`docs/video-storyboard.md`).
 - [ ] Rehearse the pitch five times against the clock (`docs/pitch.md`); log the times.
 - [ ] Test the live URL on a phone and on a laptop you did not develop on.
-- [ ] Refresh the validation tables (`validate`, `sync-local`) and the test badge (`npm run validation:tests`, with `web/public/data` present: without it 27 tests skip but still count); update the numbers in `docs/submission.md`.
+- [ ] Refresh the validation tables (`validate`, `sync-local`) and the test badge (`npm run validation:tests`, with `web/public/data` present: without it 23 tests skip but still count); update the numbers in `docs/submission.md`.
 
 ## The night before
 
