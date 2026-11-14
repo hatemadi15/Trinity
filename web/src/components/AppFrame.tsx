@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { NAV } from '@/lib/nav';
 import { BrandMark } from './BrandMark';
 import { DemoModeGate } from './DemoModeGate';
 import { LunaButton } from './luna/LunaButton';
+import { LunaDock } from './luna/LunaDock';
+import { NavLinks } from './NavLinks';
 import { StarBand } from './StarBand';
 import { ThemeSwitch } from './ThemeSwitch';
 
@@ -21,16 +22,15 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       <StarBand />
       <header className="relative border-b border-line">
         <div className="wrap flex flex-wrap items-center gap-x-9 gap-y-2 py-3 lg:h-[68px] lg:flex-nowrap lg:py-0">
-          <Link href="/" className="flex items-center gap-2.5 font-display text-[21px] font-bold tracking-tight text-ink">
+          {/* The wordmark: the Moon that turns as the page scrolls, and the name with its stress on "rise". */}
+          <Link href="/" aria-label="Earthrise, home" className="group flex items-center gap-2.5 text-ink">
             <BrandMark />
-            Earthrise
+            <span className="display text-[27px] leading-none">
+              Earth<em>rise</em>
+            </span>
           </Link>
           <nav aria-label="Sections" className="order-last flex w-full flex-wrap gap-x-7 gap-y-1 text-[15px] font-medium max-sm:grid max-sm:grid-cols-2 max-sm:gap-x-4 lg:order-none lg:w-auto lg:flex-nowrap">
-            {NAV.map((item) => (
-              <Link key={item.href} href={item.href} className={`whitespace-nowrap text-ink-2 hover:text-ink${item.href === '/plan' ? ' max-sm:col-span-2' : ''}`}>
-                {item.label}
-              </Link>
-            ))}
+            <NavLinks />
           </nav>
           <div className="ml-auto flex items-center gap-4">
             <DemoModeGate />
@@ -42,13 +42,15 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
       </header>
       <div className="relative flex-1">{children}</div>
       <footer className="relative border-t border-line">
-        <div className="wrap flex flex-wrap justify-between gap-x-8 gap-y-2 py-7 text-[15px] text-ink-2">
+        <div className="wrap flex flex-wrap justify-between gap-x-8 gap-y-2 py-8 text-[14px] leading-relaxed text-ink-3">
           <p>
             Made by team Astroy/Ed for NASA Space Apps 2026, challenge “CLPS Lunar Mission Browser” (CLPS: NASA&apos;s Commercial Lunar Payload Services). Not an official NASA product.
           </p>
           <p>Terrain: NASA Lunar Reconnaissance Orbiter laser altimeter (LOLA). Sun and Earth positions: NASA JPL DE440. Cross-check: JPL Horizons.</p>
         </div>
       </footer>
+      {/* Luna's 3D self, at the lower left of every page with this frame (spec 23). */}
+      <LunaDock />
     </div>
   );
 }

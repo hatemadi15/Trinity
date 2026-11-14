@@ -31,10 +31,11 @@ describe('SitesView', () => {
   it('titles the page, says what the figures assume and groups the catalogue in plain words', async () => {
     await ready();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Choose a landing site');
-    expect(screen.getByText(/34 places on the Moon/).textContent).toBe('34 places on the Moon, most of them near the south pole. Pick one to see its forecast.');
+    expect(screen.getByText(/34 places on the Moon/).textContent).toBe('34 places on the Moon, most near the south pole.');
     // What the figures count from, the lander and the order, in plain sentences rather than a list of terms (both
-    // readers, part C read 1: the figures differ from Explore's, and this says why).
-    expect(screen.getByText(/^Each site's figures are for landing on its best day/).textContent).toBe(
+    // readers, part C read 1: the figures differ from Explore's, and this says why), one point away on step 2.
+    fireEvent.click(screen.getByRole('button', { name: 'How these figures are counted' }));
+    expect(screen.getByRole('tooltip').textContent).toBe(
       "Each site's figures are for landing on its best day of the 30 days from 1 January 2027, the day under its name, and the 30 days after it, for one lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, the hills seen from a 2 m mast. Explore and Compare start on the first day, so their figures can differ. In each group, the longest time with power comes first.",
     );
     expect(document.querySelector('main dl')).toBeNull();
@@ -129,7 +130,7 @@ describe('SitesView', () => {
     // The pole is the map's landmark: its name is written before any other.
     expect(within(map).getByRole('link', { name: 'Lunar south pole' }).querySelector('[data-side]')!.className).not.toMatch(/\bhidden\b/);
     // Names are written on the map where they fit, the rows at the top of the list first.
-    const top = screen.getAllByRole('list')[0].querySelector<HTMLElement>('a[data-row]')!;
+    const top = document.querySelector<HTMLElement>('main ul a[data-row]')!;
     const pin = within(map).getByRole('link', { name: top.querySelector('span span')!.textContent! });
     expect(pin.querySelector('[data-side]')!.className).not.toMatch(/\bhidden\b/);
   });
@@ -144,26 +145,33 @@ describe('SitesView', () => {
     expect(rowOf('Slater Plain').getAttribute('data-active')).toBe('true');
   });
 
-  it('folds the method paragraph behind one tap, as one paragraph (spec 15.1, 20.1)', async () => {
+  it('says what the page does in three steps on the page itself, with the method one point away (spec 23)', async () => {
     await ready();
-    const method = screen.getByText(/^Each site's figures are for landing on its best day/);
-    const fold = screen.getByRole('button', { name: /How these figures are counted/ });
-    const panel = document.getElementById(fold.getAttribute('aria-controls')!)!;
-    expect(panel.contains(method)).toBe(true);
-    expect(panel.hidden).toBe(true);
-    fireEvent.click(fold);
-    expect(panel.hidden).toBe(false);
+    const steps = screen.getByRole('list', { name: 'How to choose' });
+    expect(within(steps).getAllByRole('listitem').map((li) => li.querySelector('.display')!.textContent)).toEqual(['Pick the dates', 'Compare the places', 'Open one']);
+    // The dates are chosen in step 1 itself.
+    expect(within(steps).getByLabelText('For')).toBeTruthy();
+    // No fold: the method is a tip, shown while the pointer or the focus is on its "i", or after a tap, and gone on Escape.
+    expect(screen.queryByRole('button', { name: /How these figures are counted/, expanded: true })).toBeNull();
+    const tip = screen.getByRole('button', { name: 'How these figures are counted' });
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    fireEvent.mouseEnter(tip.parentElement!);
+    expect(screen.getByRole('tooltip').textContent).toMatch(/^Each site's figures are for landing on its best day/);
+    fireEvent.keyDown(tip, { key: 'Escape' });
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    // Each column says what it means the same way, in each of the six groups.
+    for (const name of ['What Sunlight means', 'What Earth in view means', 'What Longest time with power means']) expect(screen.getAllByRole('button', { name }).length).toBe(6);
   });
 
-  it('keeps the first screen to 105 words before a tap, at 1440 and on a phone (spec 20.1)', async () => {
+  it('keeps the first screen to 105 words before a tap, at 1440 and on a phone (spec 20.1; spec 23 says on the page in three steps what the fold hid)', async () => {
     await ready();
-    // From the heading down to the map, the part a first screen shows.
+    // From the heading down to the map, the part a first screen shows: the title band, the three steps and the map.
     const main = document.querySelector('main')!;
-    const top = [...main.children].filter((el) => el.tagName !== 'DIV' || !el.className.includes('xl:grid-cols'));
+    const top = [...main.children].filter((el) => !el.classList.contains('wrap') || el.tagName === 'OL');
     const map = main.querySelector('section[aria-label="Map of the sites"]')!;
     for (const width of [WIDE, PHONE]) {
       const n = [...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0);
-      expect(n).toBeLessThanOrEqual(105);
+      expect(n, `${width} px`).toBeLessThanOrEqual(105);
     }
   });
 
@@ -217,7 +225,8 @@ describe('SitesView', () => {
     expect(store.getState().days).toBe(14);
     await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(34), { timeout: 20_000 });
     await waitFor(() => expect(rowOf('de Gerlache Rim 2').getAttribute('href')).toMatch(/days=14/));
-    expect(screen.getByText(/^Each site's figures/).textContent).toMatch(/best day of the 14 days from 1 January 2027, the day under its name, and the 14 days after it/);
+    fireEvent.click(screen.getByRole('button', { name: 'How these figures are counted' }));
+    expect(screen.getByRole('tooltip').textContent).toMatch(/best day of the 14 days from 1 January 2027, the day under its name, and the 14 days after it/);
   });
 
   it('shows the rows before the figures arrive', async () => {

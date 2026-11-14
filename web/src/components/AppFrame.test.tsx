@@ -35,7 +35,7 @@ describe('AppFrame', () => {
     ]);
     // The fifth takes a phone's whole row, so none stands alone in half of one.
     expect(nav.querySelector('a[href="/plan"]')!.className).toMatch(/\bmax-sm:col-span-2\b/);
-    expect(screen.getByRole('group', { name: 'Theme' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Switch to the (light|dark) theme/ })).toBeTruthy();
     expect(screen.queryByRole('group', { name: 'Audience' })).toBeNull();
     const footer = screen.getByRole('contentinfo');
     expect(footer.textContent).toMatch(/NASA Lunar Reconnaissance Orbiter/);
@@ -66,7 +66,7 @@ describe('AppFrame', () => {
     const header = screen.getByRole('banner');
     const luna = within(header).getByRole('button', { name: /^Luna/ });
     expect(luna.getAttribute('aria-pressed')).toBe('false');
-    expect(luna.compareDocumentPosition(within(header).getByRole('group', { name: 'Theme' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(luna.compareDocumentPosition(within(header).getByRole('button', { name: /Switch to the (light|dark) theme/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('keeps instrument names out of the header', () => {

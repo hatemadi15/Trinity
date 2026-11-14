@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SitesView } from '@/components/sites/SitesView';
 import { readJson } from '@/lib/engine/__tests__/helpers';
@@ -38,15 +38,17 @@ describe('the site list shows only figures from the chosen mast, and what limits
     expect(rowOf('Haworth').textContent).toMatch(/working it out/);
     // The line sits over the rows that wait, so the first screen keeps to its 105 words (spec 20.1).
     const main = document.querySelector('main')!;
-    const top = [...main.children].filter((el) => el.tagName !== 'DIV' || !el.className.includes('xl:grid-cols'));
+    // The title band, the three steps and the map: the part a first screen shows (spec 23's layout).
+    const top = [...main.children].filter((el) => !el.classList.contains('wrap') || el.tagName === 'OL');
     const map = main.querySelector('section[aria-label="Map of the sites"]')!;
     for (const width of [WIDE, PHONE]) expect([...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(105);
     act(() => release());
     await waitFor(() => expect(screen.queryByRole('status', { name: 'The hills behind these figures' })).toBeNull(), { timeout: 30_000 });
     await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 30_000 });
     for (const o of Object.values(store.getState().overview)) expect(o.mastM).toBe(5);
-    // The method, one tap away, names the height the hills are seen from.
-    expect(screen.getByText(/^Each site's figures/).textContent).toMatch(/, the hills seen from a 5 m mast\./);
+    // The method, one point away, names the height the hills are seen from.
+    fireEvent.click(screen.getByRole('button', { name: 'How these figures are counted' }));
+    expect(screen.getByRole('tooltip').textContent).toMatch(/, the hills seen from a 5 m mast\./);
     expect(rowOf('Blue Ghost').textContent).toMatch(/flat horizon assumed/);
   });
 
