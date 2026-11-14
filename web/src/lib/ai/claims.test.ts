@@ -138,6 +138,43 @@ describe('checkClaims: wrong claims fail', () => {
     fails('The lander keeps power for all 30 days because the battery is large.', SR, /because/);
   });
 
+  it('reads a leading "As" and a trailing ", making" as causes', () => {
+    fails('As the site sits high on the crater rim, Earth is in view 45 % of the time.', DG, /As/);
+    fails('The Sun never sets, making the summit an ideal landing site.', SR, /making/);
+    passes('As the Sun never sets, the lander keeps power for all 30 days.', SR);
+  });
+
+  it('rejects judgements and times the figures do not give', () => {
+    fails('Shackleton rim summit is an ideal landing site.', SR, /ideal/);
+    fails('The Sun sets in the second week.', DG, /second week/);
+    fails('Earth rises late in the period.', DG, /late in the period/);
+  });
+
+  it('reads coordinates without degree signs after the site, with their signs, and survival in other words', () => {
+    passes('de Gerlache Rim 2 (-88.28, -64.31) sees the Sun 44.6 % of the time.', DG);
+    fails('de Gerlache Rim 2 (88.28, -64.31) sees the Sun 44.6 % of the time.', DG, /88\.28/);
+    fails('The lander lasts the whole period.', DG, /lasts the whole period/);
+    passes('The lander lasts the whole period.', SR);
+    fails('The lander keeps power for the entire 30-day window.', DG, /keeps power for the entire/);
+    passes('The lander keeps power for the entire 30-day window.', SR);
+    fails('Earth is in view for the whole period.', SR, /in view for the whole/);
+  });
+
+  it('reads a word between a number and its unit, solar power as sunlight, and the share of time Earth is out of view', () => {
+    passes('It has Earth in view for 322 of its 720 powered hours.', SR);
+    fails('It has Earth in view for 322 of its 700 powered hours.', SR, /700 powered hours/);
+    passes('Solar power is available 100 % of the time.', SR);
+    passes('Earth is below the horizon 55.3 % of the time.', SR);
+    fails('Earth is below the horizon 44.7 % of the time.', SR, /44\.7 %/);
+  });
+
+  it('reads "while it has power" as the hours with power, and an empty battery as time without power', () => {
+    passes('Earth is never in view while it has power.', DG);
+    fails('Earth is never in view while it has power.', SR, /never in view/);
+    passes('The battery is empty for 390 hours in all.', DG);
+    fails('The battery is empty for 76 hours in all.', DG, /hours without power/);
+  });
+
   it('accepts only the causes the figures give', () => {
     passes('The lander keeps power for all 30 days because the Sun never sets.', SR);
     passes('The lander runs out of power after 3 days 4 hours because the night is longer than the battery lasts.', DG);

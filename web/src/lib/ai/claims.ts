@@ -65,6 +65,7 @@ function siteFields(s: StateSummary): Fields {
     longestDark: { unit: 'h', values: [m.longestDarkH], tol: 0, what: 'the longest night' },
     earthVis: { unit: 'pct', values: [m.earthVisFraction * 100], tol: f3, what: 'Earth in view' },
     earthVisH: { unit: 'h', values: [m.earthVisFraction * H], tol: hTol, what: 'the hours with Earth in view' },
+    earthOutFrac: { unit: 'pct', values: [(1 - m.earthVisFraction) * 100], tol: f3, what: 'Earth out of view' },
     longestGap: { unit: 'h', values: [m.longestEarthGapH], tol: 0, what: 'the longest gap without Earth in view' },
     joint: { unit: 'pct', values: [m.jointFraction * 100], tol: f3, what: 'the Sun and Earth in view together' },
     jointH: { unit: 'h', values: [m.jointFraction * H], tol: hTol, what: 'the hours with the Sun and Earth in view together' },
@@ -105,7 +106,7 @@ function compareFields(row: StateSummary['compare'][number]): Fields {
   };
 }
 
-const SITE_SCOPED = new Set(['illum', 'meanSun', 'darkFrac', 'sunlitH', 'longestDark', 'earthVis', 'earthVisH', 'longestGap', 'joint', 'jointH', 'socMin', 'brownoutH', 'meanPower', 'poweredH', 'contactH', 'contactFrac', 'lat', 'lon']);
+const SITE_SCOPED = new Set(['illum', 'meanSun', 'darkFrac', 'sunlitH', 'longestDark', 'earthVis', 'earthVisH', 'earthOutFrac', 'longestGap', 'joint', 'jointH', 'socMin', 'brownoutH', 'meanPower', 'poweredH', 'contactH', 'contactFrac', 'lat', 'lon']);
 
 /**
  * The words that tie a number to a measure, by the number's unit. `before`: the word comes before the
@@ -120,12 +121,12 @@ const CUES: Cue[] = [
   { re: /\b(?:both|simultaneous(?:ly)?|at the same time|at once|together|jointly)\b|\bsun and earth\b|\bearth and (?:the )?sun\b/g, keys: { pct: ['joint'], h: ['jointH'] } },
   { re: /\bmean\b|\baverag\w*|\bon average\b|\b(?:mean|average) (?:panel |solar )?power\b/g, keys: { pct: ['meanSun'], W: ['meanPower'] } },
   { re: /\bdis[ck]\b/g, keys: { pct: ['meanSun'] } },
-  { re: /\bsun(?:light|lit|shine|'s)?\b|\billuminat\w*|\bdaylight\b|\blit\b/g, keys: { pct: ['illum'], h: ['sunlitH'] } },
+  { re: /\bsun(?:light|lit|shine|'s)?\b|\billuminat\w*|\bdaylight\b|\blit\b|\bsolar (?:power|energy|input|illumination)\b/g, keys: { pct: ['illum'], h: ['sunlitH'] } },
   { re: /\bnights?\b|\bdark(?:ness)?\b|\bshadow(?:ed|s)?\b/g, keys: { h: ['longestDark'], pct: ['darkFrac'] } },
   { re: /\bearth(?:'s)?\b|\bradio\b|\bcontact\b|\bcommunicat\w*|\bline of sight\b|\bdirect[- ]to[- ]earth\b/g, keys: { pct: ['earthVis'], h: ['earthVisH'] } },
-  { re: /\bgaps?\b|\bout of view\b|\bblackouts?\b|\boutages?\b|\bwithout (?:radio )?contact\b|\bno (?:radio )?contact\b|\bout of (?:touch|contact|sight)\b|\bwithout earth\b|\babsences?\b|\bhidden\b|\bbelow the horizon\b/g, keys: { h: ['longestGap'] } },
-  { re: /\bof (?:that|this|the powered) time\b|\bof those hours\b|\bof them\b|\bwhile (?:it )?(?:has|had|keeps|kept) power\b|\bwhile (?:it is |it's )?powered\b|\bwith power\b|\bin that time\b|\bduring that time\b/g, keys: { h: ['contactH'], pct: ['contactFrac'] }, dir: 'after' },
-  { re: /\bwithout power\b|\bno power\b|\bunpowered\b|\bbrown-?outs?\b|\bpower(?:ed)? off\b|\bswitched off\b/g, keys: { h: ['brownoutH'] } },
+  { re: /\bgaps?\b|\bout of view\b|\bblackouts?\b|\boutages?\b|\bwithout (?:radio )?contact\b|\bno (?:radio )?contact\b|\bout of (?:touch|contact|sight)\b|\bwithout earth\b|\babsences?\b|\bhidden\b|\bbelow the horizon\b/g, keys: { h: ['longestGap'], pct: ['earthOutFrac'] } },
+  { re: /\bof (?:that|this) time\b|\bof (?:the|its|that) (?:powered|power-on) (?:time|hours|period)\b|\bof those hours\b|\bof them\b|\bwhile (?:it |the lander )?(?:has|had|keeps|kept) power\b|\bwhile (?:it is |it's |the lander is )?powered\b|\bwith power\b|\bin that time\b|\bduring that time\b/g, keys: { h: ['contactH'], pct: ['contactFrac'] }, dir: 'after' },
+  { re: /\bwithout power\b|\bno power\b|\bunpowered\b|\bbrown-?outs?\b|\bpower(?:ed)? off\b|\bswitched off\b|\b(?:is|stays|remains|sits|goes) (?:empty|flat|drained|off)\b/g, keys: { h: ['brownoutH'] } },
   { re: /\bpower(?:ed)?\b|\bsurviv\w*|\boperat\w*|\bruns? (?:out|for|dry|flat)\b|\bstays? (?:on|powered|alive)\b|\bempty\b|\bempties\b/g, keys: { h: ['poweredH'], W: ['meanPower'] } },
   { re: /\bloads?\b|\buses\b|\bdraws?\b|\bconsum\w*|\bdemand\b|\bneeds\b|\brequires?\b/g, keys: { W: ['load'] } },
   // "lasts 10 hours at 200 W": the load the battery carries.
@@ -135,7 +136,7 @@ const CUES: Cue[] = [
   { re: /\bfull\b|\bcharged\b|\bstart(?:s|ing)?\b|\binitial(?:ly)?\b|\bat landing\b/g, keys: { pct: ['initialSoc'] } },
   { re: /\bminimum\b|\blowest\b|\bmin\b|\bbottoms? out\b|\bnever (?:drops|falls|dips) below\b|\bdrops? to\b|\bfalls? to\b/g, keys: { pct: ['socMin'] } },
   { re: /\befficien\w*|\bconversion\b|\bcells?\b/g, keys: { pct: ['efficiency'] } },
-  { re: /\bpanels?\b|\barray\b|\bsolar\b/g, keys: { pct: ['efficiency'], m2: ['area'] } },
+  { re: /\bpanels?\b|\barray\b/g, keys: { pct: ['efficiency'], m2: ['area'] } },
   { re: /\bazimuth\b|\bfac(?:es|ing)\b|\bpoint(?:s|ed|ing)?\b|\boriented\b|\borientation\b|\bheading\b/g, keys: { deg: ['azimuth'] } },
   { re: /\bclears?\b|\bclearance\b|\bthreshold\b|\belevation\b|\babove the (?:hills|horizon|skyline)\b|\bmask\b/g, keys: { deg: ['minEarthEl'] } },
   { re: /\bmast\b|\bantenna\b/g, keys: { m: ['mast'] } },
@@ -162,8 +163,14 @@ const SPELLED: Record<string, number> = {
 const SPELLED_RE = new RegExp(`\\b(?:a |one )?(${Object.keys(SPELLED).join('|')})(?:-(one|two|three|four|five|six|seven|eight|nine))?\\b`, 'g');
 const FRACTIONS: Record<string, number> = { half: 50, third: 100 / 3, thirds: 100 / 3, quarter: 25, quarters: 25 };
 
+/**
+ * The unit after a number: group 1 is a word a reader may put between them ("720 powered hours"), which for
+ * "powered" and "sunlit" also says what the hours measure; group 2 is the unit.
+ */
 const UNIT_RE =
-  /^(?:\s|-)?\s*(%|per ?cent\b|kwh\b|kilowatt[- ]hours?\b|wh\b|watt[- ]hours?\b|kw\b|kilowatts?\b|w\b|watts?\b|m²|m2\b|m\^2|sq\.? ?m\b|square met(?:re|er)s?\b|km\b|kilomet(?:re|er)s?\b|m\b|met(?:re|er)s?\b|°|deg\b|degrees?\b|hours?\b|hrs?\b|h\b|days?\b|d\b|weeks?\b|months?\b|years?\b|minutes?\b|mins?\b|sites?\b|places\b|locations\b|regions\b|candidates\b|nights?\b|times\b|x\b)/i;
+  /^(?:\s|-)?\s*(?:(powered|sunlit|lit|full|whole|consecutive|straight|continuous)\s+)?(%|per ?cent\b|kwh\b|kilowatt[- ]hours?\b|wh\b|watt[- ]hours?\b|kw\b|kilowatts?\b|w\b|watts?\b|m²|m2\b|m\^2|sq\.? ?m\b|square met(?:re|er)s?\b|km\b|kilomet(?:re|er)s?\b|m\b|met(?:re|er)s?\b|°|deg\b|degrees?\b|hours?\b|hrs?\b|h\b|days?\b|d\b|weeks?\b|months?\b|years?\b|minutes?\b|mins?\b|sites?\b|places\b|locations\b|regions\b|candidates\b|nights?\b|times\b|x\b)/i;
+/** The measure a word before the unit names: "powered hours" are the time with power, "sunlit hours" the hours of sunlight. */
+const ADJ_KEYS: Record<string, string[]> = { powered: ['poweredH'], sunlit: ['sunlitH'], lit: ['sunlitH'] };
 
 /** A unit as written, as the figure's unit and the factor to it; null for a unit no figure is measured in. */
 function unitOf(word: string): { unit: Unit; k: number; days?: boolean } | null {
@@ -210,6 +217,8 @@ interface NumClaim {
   raw: string;
   /** "5 days later": a time from an event the sentence must name. */
   relative?: boolean;
+  /** "720 powered hours": the measure the word before the unit names. */
+  adjKeys?: string[];
 }
 
 interface DateClaim {
@@ -281,9 +290,11 @@ function numberClaims(t: string, used: boolean[]): NumClaim[] {
     let floorOk = false;
     let hemi: NumClaim['hemi'];
     let bad: string | undefined;
+    let adjKeys: string[] | undefined;
     const u = tail.match(UNIT_RE);
     if (u) {
-      const known = unitOf(u[1]);
+      const known = unitOf(u[2]);
+      if (u[1] && known?.unit === 'h') adjKeys = ADJ_KEYS[u[1].toLowerCase()];
       end = b + u[0].length;
       if (!known) unit = 'other';
       else {
@@ -312,7 +323,7 @@ function numberClaims(t: string, used: boolean[]): NumClaim[] {
       }
     } else {
       // "225 of the 336 hours": the first number borrows the second one's unit.
-      const of = tail.match(/^\s+of (?:the |its |these |those )?(?:\d[\d,.]*\s*)?(hours?|h|days?|d)\b/i);
+      const of = tail.match(/^\s+of (?:the |its |these |those )?(?:\d[\d,.]*\s*)?(?:(?:powered|sunlit|lit|full|whole)\s+)?(hours?|h|days?|d)\b/i);
       if (of) {
         const known = unitOf(of[1])!;
         unit = known.unit;
@@ -330,7 +341,7 @@ function numberClaims(t: string, used: boolean[]): NumClaim[] {
     const relative = unit === 'h' && /^\s*(?:later|earlier|afterwards?|ago|sooner)\b/i.test(after);
     const start = q ? q.start : a - sign.length;
     for (let i = start; i < end; i++) used[i] = true;
-    out.push({ start, end, unit, value, tol, floorOk, rel, hemi, bad, raw: canonNumber(sign + digits), relative });
+    out.push({ start, end, unit, value, tol, floorOk, rel, hemi, bad, raw: canonNumber(sign + digits), relative, adjKeys });
   };
   for (const m of t.matchAll(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?/g)) {
     const a = m.index!;
@@ -558,11 +569,11 @@ interface Quality {
 }
 
 const BODY_VERB_RE =
-  /\b(never sets|never goes down|never rises|(?:is |stays |remains )?never (?:up|in view|visible|above (?:the )?(?:horizon|hills))|(?:is |stays |remains )?(?:always|constantly|continuously|permanently) (?:up|in view|visible|above (?:the )?(?:horizon|hills))|sets|rises)\b/g;
+  /\b(never sets|never goes down|never rises|(?:is |stays |remains )?never (?:up|in view|visible|above (?:the )?(?:horizon|hills))|(?:is |stays |remains )?(?:always|constantly|continuously|permanently) (?:up|in view|visible|above (?:the )?(?:horizon|hills))|(?:up|in view|visible|above (?:the )?(?:horizon|hills)) (?:for|through(?:out)?) (?:all|the (?:whole|entire|full))(?: (?:time|period|window|stay|month))?|sets|rises)\b/g;
 /** "in that time", "while it has power": the hours with power, not the whole period. */
 const WHILE_POWERED = /\b(?:in|during|of) (?:that|the powered) (?:time|period)\b|\bwhile (?:the lander |it )?(?:has|had|keeps|kept) power\b|\bwhile (?:it is )?powered\b|\bwith power\b|\bduring the powered (?:period|time|hours)\b/;
 const NEGATION_RE = /\b(?:not|never|no|cannot|can't|doesn't|don't|isn't|won't|wouldn't|didn't|does not|fails? to|unable to)\s+(?:\S+\s+){0,1}$/;
-const SURVIVE_RE = /\bsurviv(?:es|e|ed|ing)\b|\bkeeps? (?:its )?power\b(?!\s+for\s+(?!all\b))|\bpower for all\b|\bpowered (?:for all|throughout)\b|\bstays? powered\b(?!\s+for\s+(?!all\b))|\bnever (?:runs? out|loses? power|browns? out)\b|\bno brown-?outs?\b/g;
+const SURVIVE_RE = /\bsurviv(?:es|e|ed|ing)\b|\b(?:keeps?|has|have|stays?|remains?) (?:its )?(?:power|powered)\s+(?:for|through(?:out)?)\s+(?:all|the (?:whole|entire|full))\b|\bkeeps? (?:its )?power\b(?!\s+for\s+(?!all\b))|\bpower for all\b|\bpowered (?:for all|throughout)\b|\bstays? powered\b(?!\s+for\s+(?!all\b))|\bnever (?:runs? out|loses? power|browns? out)\b|\bno brown-?outs?\b|\b(?:lasts?|operates?|works?|keeps? going|stays? on)\s+(?:the (?:whole|entire|full) (?:period|window|stay|mission|month)|throughout|to the end)\b/g;
 const END_RE =
   /\bruns? out\b|\bloses? (?:its )?power\b|\bshuts? down\b|\bpower (?:ends|fails|runs out|cuts out|is lost)\b|\bgoes (?:dark|dead|silent)\b|\b(?:battery|batteries) (?:is |are |goes |runs )?(?:empty|drained|depleted|flat|exhausted|dry)\b|\b(?:a|the|first|suffers? a|hits? a) brown-?out\b/g;
 
@@ -581,7 +592,7 @@ function qualities(t: string): Quality[] {
     const body = bodies[bodies.length - 1][1];
     const v = m[1];
     const never = /never/.test(v);
-    const always = /always|constantly|continuously|permanently/.test(v);
+    const always = /always|constantly|continuously|permanently|for all|for the|through/.test(v);
     const rises = /rises/.test(v);
     const kind =
       body === 'sun'
@@ -603,7 +614,9 @@ function qualities(t: string): Quality[] {
             : rises
               ? 'earthRises'
               : 'earthSets';
-    push(kind, m, !never);
+    // "Earth is never in view while it has power": the hours with power, not the period.
+    const scoped = body === 'earth' && WHILE_POWERED.test(t.slice(a + m[0].length).split(/[,;:.—]/)[0]);
+    push(scoped ? (kind === 'earthNever' ? 'noContactPowered' : kind === 'earthAlways' ? 'contactAllPowered' : kind) : kind, m, !never);
   }
   for (const m of t.matchAll(/\bno nights?\b|\bwithout (?:a |any )?night\b|\bno sunsets?\b|\bnever (?:gets |goes )?dark\b|\b(?:constant|continuous|uninterrupted|permanent|unbroken) (?:sun(?:light)?|daylight|illumination)\b|\b(?:in )?sun(?:light|lit)? (?:the whole time|all the time|the entire time|at all times|throughout)\b/g)) push('noNight', m, false);
   for (const m of t.matchAll(/(?<!\bno |\bwithout (?:a |any )?)\b(?:the|a|each|every) nights?\b(?! of)|\bnights\b|\bsunsets?\b|\bnightfall\b/g)) push('night', m);
@@ -662,6 +675,7 @@ function qualityHolds(kind: string, s: StateSummary, site: SiteRef): boolean | u
     noContactPowered: p.contactHours === 0,
     contact: m.earthVisFraction > 0,
     contactPowered: p.contactHours > 0,
+    contactAllPowered: p.poweredHours > 0 && p.contactHours >= p.poweredHours,
     batteryCovers: p.survives && m.longestDarkH > 0,
     survives: p.survives,
     powerEnds: !p.survives,
@@ -700,6 +714,7 @@ function qualityDetail(kind: string, s: StateSummary, site: SiteRef): string {
     case 'contact':
       return `where the figures give Earth in view ${round(m.earthVisFraction * 100)} % of the time`;
     case 'contactPowered':
+    case 'contactAllPowered':
     case 'noContactPowered':
       return `where the figures give Earth in view for ${spanWords(p.contactHours)} while it has power`;
     case 'batteryCovers':
@@ -780,18 +795,25 @@ function topicsOf(seg: string): { topics: Set<string>; rest: string } {
 }
 
 const CONNECTIVE_RE =
-  /\b(because(?: of)?|due to|owing to|thanks to|as a result of|caused by|given (?:that|its)|since)\b(?!\s+(?:\d|landing|then|the start|arrival|it landed))|(?:^|[,;]\s*|\band\s+)(so)\b(?!\s+(?:far|much|many|long|little|few)\b)|\b(so that|therefore|thus|hence|consequently|which means|this means|that means|meaning(?: that)?|as a result|results? in|resulting in|leads? to|leading to|allow(?:s|ing)|enabl(?:es|ing)|ensur(?:es|ing))\b/g;
+  /\b(because(?: of)?|due to|owing to|thanks to|as a result of|(?:the|a) result of|caused by|given (?:that|its)|since|(?<=^\s*)as(?!\s+(?:a result|well|long|much|many|soon|of|for|to|seen|shown|expected|noted|per)\b))\b(?!\s+(?:\d|landing|then|the start|arrival|it landed))|(?:^|[,;]\s*|\band\s+)(so)\b(?!\s+(?:far|much|many|long|little|few)\b)|\b(so that|therefore|thus|hence|consequently|which means|this means|that means|meaning(?: that)?|as a result|results? in|resulting in|leads? to|leading to|allow(?:s|ing)|enabl(?:es|ing)|ensur(?:es|ing)|making|which makes|that makes)\b/g;
+
+/** Quotes the sentence from `a` to `b` in its own case. */
+type Quote = (a: number, b: number) => string;
 
 /** A cause in the sentence that the figures do not give, or null when every cause in it is one of theirs. */
-function causeProblem(t: string, s: StateSummary, site: SiteRef | 'ambiguous'): string | null {
+function causeProblem(t: string, s: StateSummary, site: SiteRef | 'ambiguous', quote: Quote): string | null {
   const links = [...t.matchAll(CONNECTIVE_RE)];
   if (!links.length) return null;
-  if (links.length > 1) return `"${links[1][0].trim()}", a second cause in one sentence`;
   const m = links[0];
   const word = (m[1] ?? m[2] ?? m[3]).trim();
-  if (site !== 'ambiguous' && site.kind !== 'selected') return `"${word}", a cause for a site the figures give no reasons for`;
-  const effectFirst = Boolean(m[1]);
   const a = m.index! + m[0].indexOf(word);
+  const said = quote(a, a + word.length);
+  if (links.length > 1) {
+    const second = links[1], w2 = (second[1] ?? second[2] ?? second[3]).trim(), a2 = second.index! + second[0].indexOf(w2);
+    return `${quote(a2, a2 + w2.length)}, a second cause in one sentence`;
+  }
+  if (site !== 'ambiguous' && site.kind !== 'selected') return `${said}, a cause for a site the figures give no reasons for`;
+  const effectFirst = Boolean(m[1]);
   const left = t.slice(0, a), right = t.slice(a + word.length);
   // "Because the night is long, power ends": a leading cause runs to the first comma.
   let cause = effectFirst ? right : left;
@@ -803,7 +825,7 @@ function causeProblem(t: string, s: StateSummary, site: SiteRef | 'ambiguous'): 
   }
   const c = topicsOf(cause);
   const e = topicsOf(effect);
-  const unsupported = `"${word}", a cause the figures do not give`;
+  const unsupported = `${said}, a cause the figures do not give`;
   if (!c.topics.size || !e.topics.size) return unsupported;
   for (const eff of e.topics) {
     if (!REASONS.some((r) => r.effect === eff && c.topics.has(r.cause) && r.holds(s))) return unsupported;
@@ -837,7 +859,7 @@ function fieldsFor(s: StateSummary, site: SiteRef): Fields | null {
 }
 
 /** A comparison between two sites, or two figures of one site, that the figures do not bear out; null when they do. */
-function comparisonProblems(t: string, s: StateSummary, mentions: Mention[], subject: SiteRef | 'ambiguous'): string[] {
+function comparisonProblems(t: string, s: StateSummary, mentions: Mention[], subject: SiteRef | 'ambiguous', quote: Quote): string[] {
   const out: string[] = [];
   for (const m of t.matchAll(COMPARATIVE_RE)) {
     const thanAt = m.index! + m[0].length;
@@ -869,15 +891,15 @@ function comparisonProblems(t: string, s: StateSummary, mentions: Mention[], sub
         what = `${fa.what} (${show(fa, metricL)}) against ${fb.what} (${show(fb, metricR)})`;
       }
     }
-    const said = `"${m[0].trim()}"`;
+    const said = quote(m.index!, m.index! + m[0].length);
     if (a === undefined || b === undefined) out.push(`${said}, a comparison the figures do not make`);
     else if (more ? !(a > b) : !(a < b)) out.push(`${said}, where the figures give ${what}`);
   }
   for (const m of t.matchAll(/\b(?:the )?(?:most|least|best|worst|sunniest|brightest|darkest|highest|lowest)\b(?!\s+(?:of the time|than))/g)) {
     if (/\bat (?:least|most)\b/.test(t.slice(Math.max(0, m.index! - 3), m.index! + m[0].length))) continue;
-    out.push(`"${m[0].trim()}", a ranking the figures do not make`);
+    out.push(`${quote(m.index!, m.index! + m[0].length)}, a ranking the figures do not make`);
   }
-  for (const m of t.matchAll(/\b(?:twice|double|triple|three times|half as)\b/g)) out.push(`"${m[0]}", a ratio the figures do not give`);
+  for (const m of t.matchAll(/\b(?:twice|double|triple|three times|half as)\b/g)) out.push(`${quote(m.index!, m.index! + m[0].length)}, a ratio the figures do not give`);
   return out;
 }
 
@@ -893,6 +915,12 @@ function dateProblem(d: DateClaim, s: StateSummary, said: string): string | null
   const long = (x: Date) => `${x.getUTCDate()} ${MONTHS[x.getUTCMonth()][0].toUpperCase()}${MONTHS[x.getUTCMonth()].slice(1)} ${x.getUTCFullYear()}`;
   return `${said}, outside the period's dates (${long(days[0])} to ${long(days[2])})`;
 }
+
+/** A judgement of worth the figures do not make ("an ideal landing site"); ranks are the comparisons' to check. */
+const JUDGEMENT_RE =
+  /\b(?:ideal|excellent|good|great|poor|bad|suitable|unsuitable|favou?rable|unfavou?rable|promising|attractive|recommended|recommend|challenging|risky|safe|unsafe|optimal|perfect|well suited|ill suited|strong candidate|harsh|benign|viable|feasible)\b/g;
+/** A time inside the period the figures do not give ("in the second week", "late in the period"). */
+const TIMING_RE = /\b(?:first|second|third|fourth|last|final)\s+(?:week|fortnight|half)\b|\b(?:early|late|midway|halfway)\s+(?:in|through|into)\s+the\s+(?:period|window|month|stay|mission)\b|\bmid-(?:month|period|window)\b/g;
 
 /** The problems with one sentence, and the subject it leaves for the next. */
 function checkSentence(
@@ -916,7 +944,11 @@ function checkSentence(
   const distinct = new Map(mentions.map((m) => [siteKey(m.ref), m.ref]));
   const nextSubject: SiteRef | 'ambiguous' = distinct.size === 1 ? [...distinct.values()][0] : distinct.size > 1 ? 'ambiguous' : subject;
 
-  if (mode === 'narration') for (const m of mentions) if (m.ref.kind === 'other') problems.push(`"${m.name}", a site the figures do not cover`);
+  if (mode === 'narration') {
+    for (const m of mentions) if (m.ref.kind === 'other') problems.push(`"${m.name}", a site the figures do not cover`);
+    for (const m of t.matchAll(JUDGEMENT_RE)) problems.push(`${quote(m.index!, m.index! + m[0].length)}, a judgement the figures do not make`);
+    for (const m of t.matchAll(TIMING_RE)) problems.push(`${quote(m.index!, m.index! + m[0].length)}, a time the figures do not give`);
+  }
 
   for (const d of dates) {
     const p = dateProblem(d, s, quote(d.start, d.end));
@@ -952,6 +984,18 @@ function checkSentence(
         unit = pu;
       }
     }
+    // "de Gerlache Rim 2 (-88.28, -64.31)": a bare pair in brackets after a site is its latitude and longitude.
+    if (!keys && c.unit === 'none') {
+      const i = nums.indexOf(c);
+      const next = nums[i + 1], last = nums[i - 1];
+      if (next?.unit === 'none' && /[\uE100-\uE1FF]\s*\(\s*$/.test(t.slice(0, c.start)) && /^\s*,\s*$/.test(t.slice(c.end, next.start)) && /^\s*\)/.test(t.slice(next.end))) {
+        keys = ['lat'];
+        unit = 'deg';
+      } else if (last?.unit === 'none' && /[\uE100-\uE1FF]\s*\(\s*$/.test(t.slice(0, last.start)) && /^\s*,\s*$/.test(t.slice(last.end, c.start)) && /^\s*\)/.test(t.slice(c.end))) {
+        keys = ['lon'];
+        unit = 'deg';
+      }
+    }
     if (!keys) {
       if (unit === 'none') {
         for (const u of ['pct', 'h', 'W', 'Wh', 'deg'] as Unit[]) {
@@ -963,7 +1007,7 @@ function checkSentence(
           }
         }
       } else {
-        keys = bind(t, c, unit, hits) ?? DEFAULT_KEYS[unit] ?? null;
+        keys = c.adjKeys ?? bind(t, c, unit, hits) ?? DEFAULT_KEYS[unit] ?? null;
       }
     }
     if (unit === 'deg' && c.hemi) keys = [c.hemi === 'NS' ? 'lat' : 'lon'];
@@ -980,7 +1024,7 @@ function checkSentence(
     }
     let value = c.value;
     let tol = c.tol;
-    if (c.unit === 'none') {
+    if (c.unit === 'none' && unit !== 'deg') {
       // A bare share, "0.45", read as a fraction of the time.
       if (unit !== 'pct' || Math.abs(c.value) > 1) {
         problems.push(`${said}, with no unit`);
@@ -1036,9 +1080,9 @@ function checkSentence(
   }
 
   const causeSite = siteAt(t, 0, mentions, subject);
-  const cause = causeProblem(t, s, mentions.length ? causeSite : subject);
-  if (cause) problems.push(unmask(cause));
-  for (const p of comparisonProblems(t, s, mentions, subject)) problems.push(unmask(p));
+  const cause = causeProblem(t, s, mentions.length ? causeSite : subject, quote);
+  if (cause) problems.push(cause);
+  problems.push(...comparisonProblems(t, s, mentions, subject, quote));
   return { problems, subject: nextSubject };
 }
 
