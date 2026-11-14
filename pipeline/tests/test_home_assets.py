@@ -29,9 +29,9 @@ def test_sky_series_carries_earth_against_the_hills_in_its_direction():
     assert sky["earth_pct"] == pytest.approx(33.3, abs=0.05)
     assert len(sky["earth_az"]) == 3
     assert sky["lit"] == [1, 1, 1]
-    # The Sun's distance in AU and Earth's in km, hour by hour, for the arrival's light and Earth's place.
+    # The Sun's distance in AU, hour by hour, as the engine's sunAu; Earth's distance went with the old arrival.
     assert sky["sun_au"] == pytest.approx([1.496e8 / 149_597_870.7] * 3, abs=1e-5)
-    assert sky["earth_km"] == [384400, 384400, 384400]
+    assert "earth_km" not in sky
 
 
 def test_battery_facts_give_the_time_with_power_now_and_on_the_best_day():

@@ -14,10 +14,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="lunar_pipeline")
     sub = p.add_subparsers(dest="cmd", required=True)
     f = sub.add_parser("fetch", help="download NASA source files")
-    f.add_argument("--group", action="append", choices=["kernels", "lola", "illumination", "textures", "sky", "globe"])
+    f.add_argument("--group", action="append", choices=["kernels", "lola", "illumination", "textures", "sky"])
     sub.add_parser("ephemeris", help="build the hourly MOON_ME Sun/Earth table")
     sub.add_parser("sky", help="build data/sky: stars, the Moon's orientation, Earth maps")
-    sub.add_parser("globe", help="resample the CGI Moon Kit into data_out/globe for the home page's arrival")
     sub.add_parser("tiles", help="cut DEM tiles into data_out/tiles")
     te = sub.add_parser("terrain", help="cut 3D terrain rasters into data_out/terrain")
     te.add_argument("--site", action="append", help="only these polar sites, added to the existing manifest")
@@ -89,10 +88,6 @@ def main(argv: list[str] | None = None) -> None:
 
         for path in sky.build():
             print(path)
-    elif args.cmd == "globe":
-        from . import globe
-
-        print(globe.build())
     elif args.cmd == "tiles":
         from .tiles import write_all
         print(write_all())

@@ -68,6 +68,9 @@ def test_write_all_manifest(tmp_path):
     assert {"shackleton_center", "im1_odysseus", "south_pole"} <= ids
     assert manifest["cap"]["file"] == "south_cap.u16"
     assert manifest["globe_texture"] == "lroc_color_2k.jpg"
+    # No 240 m flight level any more: only the old arrival flew over one.
+    assert all("flight" not in w for w in manifest["windows"])
+    assert not list(tmp_path.glob("*.flight.*"))
 
 
 def test_write_site_context_cuts_80_m_around_a_20_m_site(synthetic_grid_factory, tmp_path):
@@ -89,42 +92,6 @@ def test_write_site_context_is_none_for_an_80_m_site(synthetic_grid_factory, tmp
     grids = {"L0": synthetic_grid_factory(256, 20.0), "L1": synthetic_grid_factory(256, 80.0), "L2": synthetic_grid_factory(256, 240.0)}
     site = Site(id="far", name="Far", lat=-85.0, lon=10.0, category="test", polar=True, source="test")
     assert write_site_context(site, grids, tmp_path) is None
-
-
-def test_write_site_flight_cuts_240_m_round_the_site(synthetic_grid_factory, tmp_path):
-    from lunar_pipeline.terrain3d import FLIGHT_PX, write_site_flight
-
-    grids = {"L0": synthetic_grid_factory(256, 20.0), "L1": synthetic_grid_factory(256, 80.0), "L2": synthetic_grid_factory(2048, 240.0, fill_dn=300)}
-    site = Site(id="hero", name="Hero", lat=-88.28, lon=-64.31, category="test", polar=True, source="test")
-    path = write_site_flight(site, grids, tmp_path)
-    assert path.name == "hero.flight.u16"
-    meta = json.loads(path.with_suffix(".json").read_text())
-    assert meta["kind"] == "flight" and meta["level"] == "L2" and meta["cell_m"] == 240.0
-    assert meta["width"] == meta["height"] == FLIGHT_PX
-    assert abs(meta["site_col_px"] - FLIGHT_PX // 2) <= 1 and abs(meta["site_row_px"] - FLIGHT_PX // 2) <= 1
-    heights = np.frombuffer(zlib.decompress(path.read_bytes()), dtype="<u2")
-    assert heights.size == FLIGHT_PX * FLIGHT_PX
-    # 300 DN at 0.5 m a unit: the whole cut lies inside the synthetic grid, so every cell is measured.
-    assert meta["fill_px"] == 0
-    assert meta["min_m"] == pytest.approx(150.0) and meta["max_m"] == pytest.approx(150.0)
-
-
-def test_flight_sites_are_the_arrivals():
-    from lunar_pipeline.home_assets import HERO_SITE
-    from lunar_pipeline.terrain3d import FLIGHT_SITES
-
-    assert FLIGHT_SITES == (HERO_SITE,)
-
-
-@pytest.mark.data
-@needs_lola
-def test_write_all_names_the_flight_level_of_the_arrivals_site(tmp_path):
-    manifest = json.loads(write_all(tmp_path).read_text())
-    assert manifest["version"] == 3
-    hero = next(w for w in manifest["windows"] if w["site_id"] == "de_gerlache_rim_2")
-    assert hero["flight"]["file"] == "de_gerlache_rim_2.flight.u16"
-    assert hero["flight"]["cell_m"] == 240.0
-    assert all("flight" not in w for w in manifest["windows"] if w["site_id"] != "de_gerlache_rim_2")
 
 
 def _grids(synthetic_grid_factory):

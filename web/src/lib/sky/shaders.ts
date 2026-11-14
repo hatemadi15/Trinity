@@ -77,8 +77,8 @@ void main() {
 export const GROUND_FRAG = /* glsl */ `
 precision highp float;
 varying vec3 vWorld; varying vec3 vNormal;
-uniform vec3 uSun, uEarth, uEdge; uniform float uEarthshine, uDetail, uFarDetail, uSunPower, uHoleR, uNextStep;
-uniform float uLanderOn, uSunUp, uBounce, uNight, uFarCut, uPixel, uRingShadows; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
+uniform vec3 uSun, uEarth, uEdge; uniform float uEarthshine, uDetail, uFarDetail, uSunPower, uHoleR;
+uniform float uLanderOn, uSunUp, uBounce, uNight; uniform vec3 uLanderCenter; uniform vec2 uLanderCS; uniform vec3 uViewer;
 ${SHADOW_GLSL}
 ${HIDE_GLSL}
 ${BOULDER_GLSL}
@@ -175,10 +175,10 @@ float detailRise(vec2 p, float h0, vec2 d, float px) {
   for (int i = 0; i < 12 * uOne; i++) { rise = max(rise, (bigH(p + d * t, px) - h0) / t); t *= 1.24; }
   return rise;
 }
-// The far ground's craters: fewer than the near ground's (a quarter of the cells hold one), so from the air the
-// ground reads as cratered rather than stamped, or as bubble wrap.
+// The far ground's craters: fewer than the near ground's (a quarter of the cells hold one), so the far ground reads
+// as cratered rather than stamped, or as bubble wrap.
 float farCraters(vec2 p, float cell) { return craterField(p, cell, 0.25, 7.0); }
-// Seen from afar (the flight over the cap, the far hills from the eye): craters from about 20 m to about 1.5 km
+// Seen from afar (the far hills from the eye): craters from about 20 m to about 1.5 km
 // across, drawn too, below what the measured cells show (960 m on the cap). Each size fades in once it spans a few
 // pixels, so nothing sparkles, and they only shade: the shadows still come from the measured ground.
 float farH(vec2 p, float px) {
@@ -255,13 +255,10 @@ void main() {
   // Round: a finer level draws inside the hole, the next level beyond the cut (groundLevels.ts edgeOf).
   float rr = length(m);
   if (rr < uHoleR || rr > uEdge.z) discard;
-  if (dot(m, m) > uFarCut * uFarCut) discard; // beyond this the globe, or the far skyline, draws
   vec3 N0 = normalize(vNormal), Nn = N0;
-  // The flight level's light from its own heights, per pixel: its mesh, at every other cell, would soften the relief.
-  if (uPixel > 0.5) N0 = slopeNormal(uH0, uL0, uS0, m, 1.0);
-  // Over the ring inside the cut the light fades into the next level's, slope by slope, so no edge shows from the air.
+  // Over the ring inside the cut the light fades into the next level's, slope by slope, so no edge shows.
   float edge = smoothstep(uEdge.x, uEdge.y, rr);
-  if (edge > 0.0) N0 = normalize(mix(N0, slopeNormal(uH1, uL1, uS1, m, uNextStep), edge));
+  if (edge > 0.0) N0 = normalize(mix(N0, slopeNormal(uH1, uL1, uS1, m, 2.0), edge));
   Nn = N0;
   vec3 Ls = normalize(uSun), V = normalize(cameraPosition - vWorld);
   float dist = length(vWorld - cameraPosition);
@@ -272,13 +269,9 @@ void main() {
   bool facing = dot(N0, Ls) > 0.0;
   if (facing) {
     // The shadows fade the same way: the next level's from its own ground, mixed in over the ring. The ray starts on
-    // the mesh's own ground: for the flight level, drawn at every other cell, on its 240 m heights, which its mesh can
-    // miss by tens of metres at a crater's rim.
+    // the mesh's own ground.
     vec3 ray0 = vWorld + N0 * 0.4;
-    if (uPixel > 0.5) ray0.y = heightAt(vWorld.xz, 0) + 0.4 * N0.y;
-    // Only near the ground (uRingShadows): from the air the rings cover much of the view, and the second march made
-    // the flight stutter; there the handoff at a cut is a pixel or two.
-    bool both = edge > 0.0 && uRingShadows > 0.5;
+    bool both = edge > 0.0;
     vec2 mt = sunMargins(ray0, uSun, both);
     mTerrain = mix(mt.x, mt.y, both ? edge : 0.0);
     if (uLanderOn > 0.5) mLander = landerClearance(toLander(vWorld + N0 * 0.05 - uLanderCenter), toLander(Ls));
@@ -295,7 +288,7 @@ void main() {
   float cosPlan = dot(vAlong, sAlong) / max(length(vAlong) * length(sAlong), 1.0e-5);
   float hide = hiddenShadowShare(ss / max(length(sAlong), 1.0e-5), sv / max(length(vAlong), 1.0e-5), cosPlan) * smoothstep(0.0, ${HIDE_FADE.toFixed(2)}, cosPlan);
   if (uDetail > 0.5) {
-    // Near the eye only, and not seen from above (the flight's last metres), where they read as bubble wrap.
+    // Near the eye only, and not seen from 20 m or more above, where they read as bubble wrap.
     float w = (1.0 - smoothstep(250.0, 1600.0, dist)) * (1.0 - smoothstep(20.0, 120.0, cameraPosition.y - vWorld.y));
     if (w > 0.0) {
       // The drawn ground here, a step east and a step south (its slope), and at night six points round it, ${f3(NIGHT.NEAR_M)} and

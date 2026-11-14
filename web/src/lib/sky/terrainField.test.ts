@@ -27,17 +27,6 @@ describe('the terrain field', () => {
     expect(heightAt(f, 9e5, 0)).toBe(-1e6); // outside every level
   });
 
-  it('keeps the flight level apart: it is converted like the levels, and no height is read from it', () => {
-    const coarse = level(41, 41, 100, () => 500);
-    const fine = level(21, 21, 20, () => 510);
-    const flight = level(31, 31, 240, () => 900);
-    const f = terrainField([coarse, fine], 0, 500, flight);
-    expect(f.flight).toMatchObject({ cols: 31, rows: 31, cell: 240 });
-    expect(f.flight!.heights[15 * 31 + 15]).toBeCloseTo(400, 3); // 900 m less the site's 500, at the site
-    expect(heightAt(f, 1500, 0)).toBeCloseTo(0 - 1500 ** 2 / (2 * 1737400), 3); // still the coarse level
-    expect(terrainField([coarse, fine], 0, 500).flight).toBeUndefined();
-  });
-
   it('is flat ground on the curved Moon at a site without terrain', () => {
     expect(heightAt(flatField(18), 0, 0)).toBeCloseTo(0, 9);
     expect(heightAt(flatField(18), 10000, 0)).toBeCloseTo(-(10000 ** 2) / (2 * 1737400), 6);

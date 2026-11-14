@@ -10,9 +10,6 @@ import certifi
 import requests
 
 from . import config
-from .globe import COLOR_SRC, LDEM_SRC
-from .globe import RAW as GLOBE_RAW
-from .globe import SVS as GLOBE_SVS
 from .sky import BSC5P_URL, EARTH_CLOUDS_URL, EARTH_DAY_URL
 
 NAIF = "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/"
@@ -94,8 +91,6 @@ def assets() -> list[Asset]:
         out.append(Asset(name, SVS + name, config.RAW_DIR / "textures", "textures"))
     for name, url in SKY:
         out.append(Asset(name, url, config.RAW_DIR / "sky", "sky"))
-    for name in (COLOR_SRC, LDEM_SRC):
-        out.append(Asset(name, GLOBE_SVS + name, GLOBE_RAW, "globe"))
     return out
 
 

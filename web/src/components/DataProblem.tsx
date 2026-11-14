@@ -23,8 +23,8 @@ export function DataProblem({ error, what = 'data', hint }: { error: string | nu
 
 /**
  * The way out on every page that reads the Explore store's files: `sync-local` copies the committed data into
- * `web/public/data`, which is all these pages need, and works on a fresh clone; `--tiles` adds the tiles, the terrain
- * and the globe once the pipeline has built them (it stops without the tiles), so it comes second.
+ * `web/public/data`, which is all these pages need, and works on a fresh clone; `--tiles` adds the tiles and the
+ * terrain once the pipeline has built them (it stops without the tiles), so it comes second.
  */
 export const SYNC_HINT = (
   <>

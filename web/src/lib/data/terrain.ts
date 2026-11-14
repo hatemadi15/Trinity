@@ -12,7 +12,7 @@ export interface HeightmapMeta {
   site_id: string;
   lat: number;
   lon: number;
-  kind: 'window' | 'cap' | 'context' | 'flight';
+  kind: 'window' | 'cap' | 'context';
   source: string;
   level: string;
   /** Cell size in metres (for the cap: the downsampled cell). */
@@ -60,8 +60,6 @@ export interface TerrainWindowEntry {
   bytes: number;
   /** For a 20 m window: the 80 m grid around it (manifest version 2), so hills beyond the window still shade it. */
   context?: { file: string; meta: string; cell_m: number; width: number; height: number };
-  /** For the home page's arrival site: the 240 m flight level round it (manifest version 3), sharp from 900 to 90 km up. */
-  flight?: { file: string; meta: string; cell_m: number; width: number; height: number };
 }
 
 export interface TerrainManifest {
@@ -122,18 +120,6 @@ export function contextFileFor(manifest: TerrainManifest, siteId: string): { fil
   return context ? { file: context.file, meta: context.meta } : null;
 }
 
-/** Raster and sidecar file names of the 240 m flight level round a site, or null when there is none (all but the arrival's site). */
-export function flightFileFor(manifest: TerrainManifest, siteId: string): { file: string; meta: string } | null {
-  const flight = manifest.windows.find((w) => w.site_id === siteId)?.flight;
-  return flight ? { file: flight.file, meta: flight.meta } : null;
-}
-
-/** The flight level, or null without one or when it fails to load: a mirror without the file draws the arrival as before. */
-export async function loadFlight(base: string, manifest: TerrainManifest, siteId: string): Promise<Heightmap | null> {
-  const f = flightFileFor(manifest, siteId);
-  return f ? loadHeightmap(base, f.file, f.meta).catch(() => null) : null;
-}
-
 /** Half-size of the cap crop the shadow sweep starts from: ±240 cells of 960 m, about ±230 km, the farthest hills that can still shade a polar site in grazing light. */
 export const CAP_SHADOW_HALF_PX = 240;
 
@@ -142,24 +128,20 @@ export const CAP_SITE_HALF_PX = 25;
 
 const toLevel = (hm: Heightmap): Level => ({ heights: hm.heightsM, width: hm.meta.width, height: hm.meta.height, pxM: hm.meta.cell_m, siteCol: hm.meta.site_col_px, siteRow: hm.meta.site_row_px });
 
-/** A loaded flight level as a shadow level with its own site pixel, or null. */
-export const flightLevel = (flight: Heightmap | null): Level | null => (flight ? toLevel(flight) : null);
-
 /**
  * A site's terrain as shadow levels, coarse to fine: a crop of the south cap around the site, the 80 m
  * context (20 m sites only) and the window. Each keeps its own site pixel, so all share the site-centred
  * map metres the sweep chains them by. Missing grids are left out, and so is the cap for a site off it (far
  * from the pole), which then has no levels; a site without a window ends on the 48 km of the cap around it,
- * the ground the 3D view shows for it. `capHalfPx` widens the cap's crop: the home page's arrival flies over
- * 200 km of it, whose shadows need the hills beyond.
+ * the ground the 3D view shows for it.
  */
-export function shadowLevels(site: { lat: number; lon: number }, window: Heightmap | null, context: Heightmap | null, cap: Heightmap | null, capHalfPx = CAP_SHADOW_HALF_PX): Level[] {
+export function shadowLevels(site: { lat: number; lon: number }, window: Heightmap | null, context: Heightmap | null, cap: Heightmap | null): Level[] {
   const levels: Level[] = [];
   // A site off the cap (one far from the pole) gets none of it: a crop would clamp to the cap's edge and put the
   // site's own pixel outside the ground.
   const at = cap ? latLonToPixel(cap.meta, site.lat, site.lon) : null;
   const px = cap && at && at.col >= 0 && at.row >= 0 && at.col <= cap.meta.width - 1 && at.row <= cap.meta.height - 1 ? at : null;
-  if (cap && px) levels.push(toLevel(cropHeightmap(cap, px, capHalfPx)));
+  if (cap && px) levels.push(toLevel(cropHeightmap(cap, px, CAP_SHADOW_HALF_PX)));
   if (context) levels.push(toLevel(context));
   if (window) levels.push(toLevel(window));
   else if (cap && px) levels.push(toLevel(cropHeightmap(cap, px, CAP_SITE_HALF_PX)));

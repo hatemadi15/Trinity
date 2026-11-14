@@ -74,7 +74,7 @@ export function dataParts(check: CheckData | null): TestRun['data'] {
   return { version: check.data_version, parts: Object.fromEntries(check.groups.map((g) => [g.id, g.state])), downloads: check.sources ?? null };
 }
 
-const PART_NAMES: Record<string, string> = { core: 'the site data', sky: 'the sky', validation: 'the check tables', tiles: 'the height tiles', terrain: 'the terrain', globe: 'the globe', fixtures: 'the test fixtures' };
+const PART_NAMES: Record<string, string> = { core: 'the site data', sky: 'the sky', validation: 'the check tables', tiles: 'the height tiles', terrain: 'the terrain', fixtures: 'the test fixtures' };
 const DOWNLOAD_NAMES: Record<string, string> = { kernels: 'the kernels', lola: 'the LOLA heights', illumination: 'the illumination maps' };
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 

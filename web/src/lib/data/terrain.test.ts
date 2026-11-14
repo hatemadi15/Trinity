@@ -8,10 +8,7 @@ import {
   CAP_SITE_HALF_PX,
   contextFileFor,
   decodeHeightmap,
-  flightFileFor,
-  flightLevel,
   latLonToPixel,
-  loadFlight,
   shadowLevels,
   loadHeightmap,
   loadTerrainManifest,
@@ -75,31 +72,6 @@ describe('contextFileFor', () => {
   });
 });
 
-describe('flightFileFor', () => {
-  const manifest = {
-    version: 3,
-    windows: [
-      { site_id: 'hero', lat: -88.28, lon: -64.31, file: 'hero.u16', meta: 'hero.json', level: 'L0', cell_m: 20, width: 4, height: 4, bytes: 1, flight: { file: 'hero.flight.u16', meta: 'hero.flight.json', cell_m: 240, width: 4, height: 4 } },
-      { site_id: 'deep', lat: -89.5, lon: 0, file: 'deep.u16', meta: 'deep.json', level: 'L0', cell_m: 20, width: 4, height: 4, bytes: 1 },
-    ],
-    cap: { file: 'south_cap.u16', meta: 'south_cap.json' },
-    globe_texture: 'lroc_color_2k.jpg',
-  } satisfies TerrainManifest;
-  it('names the flight level of the arrival’s site, and nothing for any other site', () => {
-    expect(flightFileFor(manifest, 'hero')).toEqual({ file: 'hero.flight.u16', meta: 'hero.flight.json' });
-    expect(flightFileFor(manifest, 'deep')).toBeNull();
-    expect(flightFileFor(manifest, 'nowhere')).toBeNull();
-  });
-  it('turns a loaded flight level into a shadow level with its own site pixel, and nothing into nothing', () => {
-    const hm: Heightmap = {
-      meta: { site_id: 'hero', lat: -88.28, lon: -64.31, kind: 'flight', source: 's', level: 'L2', cell_m: 240, width: 4, height: 4, row0: 0, col0: 0, min_m: 0, max_m: 0, scale_m_per_unit: 1, site_height_m: 0, line_offset_px: 0, sample_offset_px: 0, site_row_px: 1.5, site_col_px: 2.25 },
-      heightsM: new Float32Array(16).fill(7),
-    };
-    expect(flightLevel(hm)).toMatchObject({ width: 4, height: 4, pxM: 240, siteCol: 2.25, siteRow: 1.5 });
-    expect(flightLevel(null)).toBeNull();
-  });
-});
-
 describe('shadowLevels', () => {
   const grid = (kind: HeightmapMeta['kind'], size: number, cell: number, siteCol: number, siteRow: number, value = 0): Heightmap => ({
     meta: { site_id: 'x', lat: -89, lon: 0, kind, source: 's', level: 'L', cell_m: cell, width: size, height: size, row0: 0, col0: 0, min_m: 0, max_m: 0, scale_m_per_unit: 1, site_height_m: 0, line_offset_px: (size - 1) / 2, sample_offset_px: (size - 1) / 2, site_row_px: siteRow, site_col_px: siteCol },
@@ -136,13 +108,6 @@ describe('shadowLevels', () => {
     expect(levels.map((l) => l.pxM)).toEqual([960, 960]);
     const px = latLonToPixel(cap.meta, -89.5, 0);
     expect(levels[1].siteRow).toBeCloseTo(px.row - (Math.round(px.row) - CAP_SITE_HALF_PX), 9);
-  });
-
-  it('crops the cap wider on request: the arrival flies over 200 km of it, whose shadows need the hills beyond', () => {
-    const cap = grid('cap', 1000, 960, 499.5, 499.5, 7);
-    const levels = shadowLevels({ lat: -89.5, lon: 0 }, null, null, cap, 480);
-    expect(levels[0].width).toBe(961);
-    expect(levels[0].pxM).toBe(960);
   });
 
   it('leaves out what is missing: no context for an 80 m window, no cap when it failed to load', () => {
@@ -237,22 +202,6 @@ describe.skipIf(!present)('terrain loaders over HTTP', () => {
     expect(hm.meta.site_id).toBe('im2_athena');
     expect(hm.heightsM.length).toBe(hm.meta.width * hm.meta.height);
     await expect(loadHeightmap(base, 'nope.u16', 'nope.json')).rejects.toMatchObject({ name: 'DataError', status: 404 });
-  });
-
-  it('loads the arrival’s flight level when the data has it, and gives null for a mirror without the file', async () => {
-    const manifest = await loadTerrainManifest(base);
-    const hero = manifest.windows.find((w) => w.site_id === 'de_gerlache_rim_2');
-    if (hero?.flight) {
-      const hm = await loadFlight(base, manifest, 'de_gerlache_rim_2');
-      expect(hm?.meta.kind).toBe('flight');
-      expect(hm?.meta.cell_m).toBe(240);
-      const { lat, lon } = pixelToLatLon(hm!.meta, hm!.meta.site_col_px, hm!.meta.site_row_px);
-      expect(Math.abs(lat - hm!.meta.lat)).toBeLessThan(1e-3);
-      expect(Math.abs(lon - hm!.meta.lon)).toBeLessThan(1e-3);
-    }
-    const missing = { ...manifest, windows: manifest.windows.map((w) => (w.site_id === 'de_gerlache_rim_2' ? { ...w, flight: { file: 'gone.u16', meta: 'gone.json', cell_m: 240, width: 1, height: 1 } } : w)) };
-    await expect(loadFlight(base, missing, 'de_gerlache_rim_2')).resolves.toBeNull();
-    await expect(loadFlight(base, manifest, 'shackleton_center')).resolves.toBeNull();
   });
 });
 

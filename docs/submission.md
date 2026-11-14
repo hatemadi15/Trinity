@@ -84,7 +84,7 @@ The engine, pipeline and app in the repository were built by the team from 24 Se
 | LRO LROC Wide Angle Camera south polar movie (18 frames of September and October 2009) and two Narrow Angle Camera pictures from PGDA product 90 | the Accuracy page's check of the app's shadows against pictures from orbit |
 | LRO Diviner Polar Resource Product (Paige et al. 2010), with the permanent shadow and slope maps of NASA Goddard's adjusted south-pole models (PGDA product 90) | the modelled cold traps near each polar site and the shadow map's layer of cold ground |
 | JPL Horizons API | the Accuracy page's directions check and its live re-check |
-| NASA CGI Moon Kit (colour, with the poles filled, and LOLA heights at 16 pixels per degree) | the globe in the 3D view, and the Moon of the home page's descent (resized copies) |
+| NASA CGI Moon Kit (LRO LROC colour and LOLA elevation) | the globe in the 3D view, and the Moon of the home page's descent (resized copies) |
 | NASA Blue Marble (land, shallow water and topography; clouds), NASA Goddard | Earth in the stand view, turned for the hour |
 | Yale Bright Star Catalogue, 5th revised edition, through NASA HEASARC | the 8,404 stars in the stand view's night sky, with their colours |
 | NASA Artemis III candidate landing regions (October 2024) | site catalogue |

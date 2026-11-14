@@ -480,16 +480,15 @@ the assistant. What needs the full data:
 The home page needs none of it: the descent's pictures ship with the app. The browser's console
 then lists 404s for `/data/terrain/manifest.json`; they are expected.
 
-#### The full data (380 MB to download, 650 MB on disk)
+#### The full data (335 MB to download, 600 MB on disk)
 
 Any shell, from the repository's root, after the block above:
 
 ```
 cd pipeline
-uv run python -m lunar_pipeline.cli fetch --group lola --group textures --group globe
+uv run python -m lunar_pipeline.cli fetch --group lola --group textures
 uv run python -m lunar_pipeline.cli tiles
 uv run python -m lunar_pipeline.cli terrain
-uv run python -m lunar_pipeline.cli globe
 uv run python -m lunar_pipeline.cli sync-local --tiles
 cd ..
 ```
@@ -498,22 +497,19 @@ cd ..
 |---|---|---|---|---|
 | `fetch --group lola` | 335 MB: LOLA heights of the south pole at 20, 80 and 240 m | `data_raw/lola` | 9 s | the input of `tiles` and `terrain` |
 | `fetch --group textures` | 0.45 MB: the LROC colour map of the Moon | `data_raw/textures` | 1 s | the colour of Explore's 3D globe |
-| `fetch --group globe` | 44 MB: NASA's CGI Moon Kit colour map and heights | `data_raw/globe` | 3 s | the input of `globe` |
 | `tiles` | `data_raw/lola` | `data_out/tiles`: 706 tiles, 238 MB | 12 s | "Somewhere else" and other mast heights |
-| `terrain` | `data_raw/lola`, `data_raw/textures` | `data_out/terrain`: 29 MB | 2 s | the shadow map, the 3D view, the stand view's ground |
-| `globe` | `data_raw/globe` | `data_out/globe`: 5.3 MB | 3 s | no page now: the old arrival's Moon from space |
-| `sync-local --tiles` | `data/`, `data_out/` | `web/public/data`: 290 MB, 898 files | under 1 s | all of the above, in the app |
+| `terrain` | `data_raw/lola`, `data_raw/textures` | `data_out/terrain`: 27 MB | 2 s | the shadow map, the 3D view, the stand view's ground |
+| `sync-local --tiles` | `data/`, `data_out/` | `web/public/data`: 282 MB, 889 files | under 1 s | all of the above, in the app |
 
-`globe` needs about 1.1 GB of memory and `terrain` 0.5 GB. `globe` prints a few
-`NotGeoreferencedWarning` lines; they are harmless.
+`terrain` needs about 0.5 GB of memory.
 
 `sync-local --tiles` copies what the other commands made; it does not generate tiles. The
 downloaded sources in `data_raw/` and the generated files in `data_out/` are gitignored, so they are
 absent from a fresh checkout. If you see `data_out/tiles missing; run the tiles command first`, run
 the `fetch` and `tiles` commands above before syncing. If the sources are already downloaded, start
 with `tiles`: `fetch` skips files it already has, and run again after a cut-off download it resumes
-where it stopped. The `--tiles` option also copies the terrain and the globe when the `terrain` and
-`globe` commands have made them. Run `sync-local` (with `--tiles` once you have built them) again
+where it stopped. The `--tiles` option also copies the terrain when the `terrain` command has made
+it. Run `sync-local` (with `--tiles` once you have built them) again
 after a `git pull` that changes `data/`. Every pipeline command is in
 [pipeline/README.md](pipeline/README.md).
 
@@ -534,15 +530,20 @@ uv run python -m lunar_pipeline.cli check-data
 ```
 
 It compares `web/public/data` with `data/manifest.json`, the list of every data file the app reads
-(897 files in nine parts, each file with its size and SHA-256, under a data version such as
-`2026-11-14-57864fc8`), and says part by part what is complete, missing, incomplete or different,
+(888 files in eight parts, each file with its size and SHA-256, under a data version such as
+`2026-11-14-730a29df`), and says part by part what is complete, missing, incomplete or different,
 what the app does without each part and the commands that get it. With the committed data alone it
-names the tiles, the terrain and the globe and ends "Every page opens: the required files are all
-here. 3 optional parts are not complete; the pages named above fall back."; with the full data it
+names the tiles and the terrain and ends "Every page opens: the required files are all here. 2
+optional parts are not complete; the pages named above fall back."; with the full data it
 ends "The full demo is here." It exits with 1 only when a required file is missing or differs (run
 `sync-local` again). `--root <folder>` checks another copy, such as an unzipped data release, and
 `--json` prints the report for scripts. After a change to `data/`, `uv run python -m
-lunar_pipeline.cli manifest` rewrites the manifest; a pipeline test fails until it is in step.
+lunar_pipeline.cli manifest` rewrites the manifest; a pipeline test fails until it is in step. An
+older copy may still hold the globe that the home page's arrival drew until 14 November
+(`data_raw/globe`, `data_out/globe`, `web/public/data/globe`) and that arrival's 240 m flight level
+(`de_gerlache_rim_2.flight.u16` and `.json` in `data_out/terrain` and `web/public/data/terrain`).
+Nothing reads them now, `check-data` lists the copies in `web/public/data` as not in the manifest,
+and all of them can be deleted.
 
 ### 4. The environment file (optional)
 
@@ -872,10 +873,10 @@ kill 12345
 ### Disk space and long paths
 
 - The full setup takes about 3 GB: `web/node_modules` 860 MB, `web/.next` up to 420 MB,
-  `pipeline/.venv` 250 MB, the data about 940 MB (`data_raw/` 380 MB, `data_out/` 272 MB,
-  `web/public/data` 290 MB), plus npm's and uv's caches (about 300 and 250 MB) and uv's Python
-  (about 100 MB). After `sync-local --tiles`, deleting `data_out/` frees 272 MB (later syncs then
-  run without `--tiles`; the tiles already copied stay in `web/public/data`), and `data_raw/` 380 MB
+  `pipeline/.venv` 250 MB, the data about 890 MB (`data_raw/` 335 MB, `data_out/` 275 MB,
+  `web/public/data` 282 MB), plus npm's and uv's caches (about 300 and 250 MB) and uv's Python
+  (about 100 MB). After `sync-local --tiles`, deleting `data_out/` frees 275 MB (later syncs then
+  run without `--tiles`; the tiles already copied stay in `web/public/data`), and `data_raw/` 335 MB
   more if you will not build again; `npm cache clean --force` and `uv cache clean` empty the
   caches.
 - Windows limits paths to 260 characters unless long paths are turned on, and the deepest file the

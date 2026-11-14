@@ -5,8 +5,8 @@ import doc from './home.json';
 /** Written by `uv run python -m lunar_pipeline.cli home-assets` (pipeline/lunar_pipeline/home_assets.py). */
 export interface HomeDoc {
   generated_utc: string;
-  /** The hero site and its picture; `site_height_m` is its ground above the Moon's reference sphere (m), from its skyline's file. */
-  hero: { site_id: string; name: string; image: string; frame_utc: string; window_km: number; sun_bearing_deg: number; lit_fraction: number; site_height_m: number };
+  /** The hero site and its picture. */
+  hero: { site_id: string; name: string; image: string; frame_utc: string; window_km: number; sun_bearing_deg: number; lit_fraction: number };
   sky: {
     start_utc: string;
     hours: number;
@@ -23,8 +23,6 @@ export interface HomeDoc {
     night: { sunset_hour: number; sunrise_hour: number; hours: number } | null;
     /** The Sun's distance from the Moon's centre (AU), hour by hour, as the engine's sunAu. */
     sun_au: number[];
-    /** Earth's distance from the site (km), hour by hour, as its directions are from the site. */
-    earth_km: number[];
   };
   /** The hero site's skyline: the hills' height (degrees, to 0.01°) in each direction from `az0` (north), clockwise, `step` degrees apart. */
   mask: { az0: number; step: number; el: number[] };
@@ -59,8 +57,8 @@ export interface HomeDoc {
 export const HOME = doc as HomeDoc;
 
 /**
- * The hero month as the engine's hourly series, from the pipeline's figures (angles to 0.01°): the arrival's
- * standing view draws it. Whether any of the Sun shows is the pipeline's flag, as it is for Earth: rounded to
+ * The hero month as the engine's hourly series, from the pipeline's figures (angles to 0.01°): the home page's
+ * answer is worked out from it. Whether any of the Sun shows is the pipeline's flag, as it is for Earth: rounded to
  * 0.01°, the angles alone would leave a sliver of the Sun in the hour it goes behind the hills. How much of its
  * disc shows over the hills is the engine's own rule.
  */

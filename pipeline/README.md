@@ -28,8 +28,6 @@ PowerShell, Command Prompt, bash and zsh; run from elsewhere, Python says
     uv run python -m lunar_pipeline.cli horizons-fetch
     uv run python -m lunar_pipeline.cli horizons-compare
     uv run python -m lunar_pipeline.cli report --site shackleton_center_rim_high
-    uv run python -m lunar_pipeline.cli fetch --group globe
-    uv run python -m lunar_pipeline.cli globe
     uv run python -m lunar_pipeline.cli sync-local --tiles
     uv run python -m lunar_pipeline.cli pgda90-fetch
     uv run python -m lunar_pipeline.cli error-model
@@ -82,16 +80,12 @@ after a cut-off download, resumes from the `.part` file. `data_raw/` is gitignor
 | `illumination` | 147 MB | the LOLA illumination maps (Mazarico) | `report`, `validate` |
 | `textures` | 0.45 MB | the LROC colour map, for Explore's 3D globe | `terrain` (without it the globe is plain grey) |
 | `sky` | not measured | the Yale Bright Star Catalogue and two Blue Marble maps of Earth, only to rebuild `data/sky` | `sky` |
-| `globe` | 44 MB | the CGI Moon Kit colour map and heights | `globe` |
 
-`fetch --group globe` downloads two files of NASA's CGI Moon Kit (Scientific Visualization Studio,
-https://svs.gsfc.nasa.gov/4720) into `data_raw/globe`, 44 MB in all: `lroc_color_poles_4k.tif` (the LROC WAC
-colour map with its poles filled, 4096 × 2048) and `ldem_16_uint.tif` (LOLA's heights at 16 pixels a degree).
-`globe` resamples them into `data_out/globe` (the old arrival's Moon; no page reads it now), about 5.3 MB: colour and normal maps
-at 1K and 4K, heights at 4 pixels a degree (`moon_heights_1440.u16` and its `.json`) and `manifest.json` (the
-files, their layout, the albedo scale that matches the south cap to the stand view's ground, and the credit).
-`sync-local --tiles` copies the set into `web/public/data/globe`, and `publish-r2` uploads it with the rest of
-`web/public/data`.
+The `globe` command and `fetch --group globe` went on 14 November with the globe they made for the home page's
+arrival (two files of NASA's CGI Moon Kit, resampled into `data_out/globe`), and so did the 240 m flight level
+that `terrain` cut round the arrival's site (`de_gerlache_rim_2.flight.u16` and `.json`). Nothing reads them now:
+an older copy's `data_raw/globe`, `data_out/globe`, `web/public/data/globe` and the two flight files in
+`data_out/terrain` and `web/public/data/terrain` can be deleted.
 
 ## Syncing data for local development
 
@@ -108,18 +102,18 @@ uv run python -m lunar_pipeline.cli sync-local --tiles
 
 If syncing reports `data_out/tiles missing; run the tiles command first`, use the
 sequence above. If the LOLA sources are already downloaded, start with `tiles`.
-The `--tiles` option also copies terrain and globe assets when they have been
-built with the `terrain` and `globe` commands.
+The `--tiles` option also copies the terrain assets when they have been
+built with the `terrain` command.
 
 ## The asset manifest and the check
 
-`data/manifest.json` lists every data file the app reads, as `web/public/data` lays them out: 897
-files in nine groups (the site catalogue, the hourly table and the masks; the sky; the Accuracy
-page's tables; the LOLA tiles; the terrain; the globe; the test fixtures; the margins and the terrain
+`data/manifest.json` lists every data file the app reads, as `web/public/data` lays them out: 888
+files in eight groups (the site catalogue, the hourly table and the masks; the sky; the Accuracy
+page's tables; the LOLA tiles; the terrain; the test fixtures; the margins and the terrain
 versions; the modelled cold traps), each file with its size
 and SHA-256, each group with whether the app needs it, where it comes from, the commands that make
 it and what the app does without it, and a data version (the date and the first eight digits of a
-hash over every file, `2026-11-14-57864fc8` for the data of 14 November). `sync-local` copies it
+hash over every file, `2026-11-14-730a29df` for the data of 14 November). `sync-local` copies it
 into `web/public/data`, so the published data and the release zip carry it.
 
 - `check-data` compares a folder (`web/public/data`, or `--root <folder>`) with it and says, group by
@@ -142,20 +136,18 @@ uv run python -m lunar_pipeline.cli sync-local
 ```
 
 These lines are the same in Command Prompt, bash and zsh. The app's full data adds the terrain
-(the shadow map, the 3D view, the stand view's ground) and the globe (which no page reads now) to
-the tiles:
+(the shadow map, the 3D view, the stand view's ground) to the tiles:
 
 ```
-uv run python -m lunar_pipeline.cli fetch --group lola --group textures --group globe
+uv run python -m lunar_pipeline.cli fetch --group lola --group textures
 uv run python -m lunar_pipeline.cli tiles
 uv run python -m lunar_pipeline.cli terrain
-uv run python -m lunar_pipeline.cli globe
 uv run python -m lunar_pipeline.cli sync-local --tiles
 ```
 
-On a 4-core Linux computer with a fast connection, the downloads (380 MB) took 11 seconds, `tiles`
-12 seconds (238 MB in `data_out/tiles`), `terrain` 2 seconds (29 MB, 0.5 GB of memory), `globe` 3
-seconds (5.3 MB, 1.1 GB of memory) and `sync-local --tiles` under a second (276 MB in
+On a 4-core Linux computer with a fast connection, `fetch` took 9 seconds for LOLA's heights (335 MB)
+and 1 second for the colour map, `tiles` 12 seconds (238 MB in `data_out/tiles`), `terrain` 2
+seconds (27 MB, 0.5 GB of memory) and `sync-local --tiles` under a second (269 MB in
 `web/public/data`). The root README's step 3 says what each one adds to the app and what works
 without it.
 
