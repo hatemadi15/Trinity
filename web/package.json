@@ -16,6 +16,7 @@
     "e2e:run": "playwright test",
     "engine:demo": "tsx scripts/engine-demo.ts",
     "validation:tests": "tsx scripts/test-summary.ts",
+    "check:voice": "node scripts/check-voice.mjs",
     "data:check": "uv run --directory ../pipeline python -m lunar_pipeline.cli check-data"
   },
   "dependencies": {
