@@ -135,7 +135,12 @@ async function fromModel(prompt: string, state: StateSummary | null, keys: Keys,
     { role: 'user', content: userPrompt(prompt, state) },
   ];
   const first = await firstAnswer(keys, from, messages, true, deadline);
-  if ('error' in first) return 'busy';
+  if ('error' in first) {
+    // Why each model gave no answer (its name and HTTP status or message), so the deployment's logs say what to fix.
+    // The errors name models and statuses only; no key is ever part of them.
+    console.warn(`chat: no model answered: ${first.error}`);
+    return 'busy';
+  }
   let parsed = parseModelReply(first.content);
   if (!parsed && deadline - Date.now() > MIN_RETRY_MS) {
     // One retry on the model that answered, with a nudge back to the contract.

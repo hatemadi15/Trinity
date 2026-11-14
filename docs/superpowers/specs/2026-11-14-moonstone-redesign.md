@@ -63,6 +63,10 @@ Textures and their credits: `web/public/hero/textures/`.
   line of words, with the audience line, both themes: 107–124 px at 1920, 58 at 1440, 97–99 at 1280, 47 at 1024, 31
   at 768, 24 at 390; no width
   scrolls sideways. The first paint and browsers without WebGL show cut-outs of the Moon and Earth in the same places.
+- **Arriving at the site.** The turn settles before the site's picture comes in (at 60 % of the scroll), so the
+  picture arrives upright, as on the site map; its edge is soft, so it never reads as a square pasted on the map. The
+  camera reaches the site where the site's words begin to show, and the 20 km picture then covers the whole view,
+  a tenth to spare, so no frame of blurred map is left round it (14 November, after a look at the live site).
 - **Easing.** Every move eases in and out, the spin included. The Moon holds its place and size until the first
   screen's words have gone; the picture glides after the scroll, so wheel steps do not jolt it; the idle spin slows
   to a stop as the page starts to scroll. Under reduced motion nothing glides or turns. The rail's dots stand in one

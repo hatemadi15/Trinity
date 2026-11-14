@@ -42,8 +42,8 @@ export const STAGES = [
   { id: 'moon', label: 'The Moon', from: 0, to: 0.07, stop: 0 },
   { id: 'turn', label: 'It turns', from: 0.15, to: 0.34, stop: 0.25 },
   { id: 'pole', label: 'The south pole', from: 0.44, to: 0.62, stop: 0.54 },
-  { id: 'site', label: 'The site', from: 0.72, to: 0.84, stop: 0.79 },
-  { id: 'answer', label: 'The answer', from: 0.92, to: 1, stop: 1 },
+  { id: 'site', label: 'The site', from: 0.8, to: 0.87, stop: 0.83 },
+  { id: 'answer', label: 'The answer', from: 0.95, to: 1, stop: 1 },
 ] as const;
 export type StageId = (typeof STAGES)[number]['id'];
 
@@ -85,8 +85,13 @@ const between = (p: number, a: number, b: number) => ease((p - a) / (b - a));
 
 /** Full turns the Moon makes as it comes down, settling on the site. */
 export const TURNS = 1.25;
-/** How far the descent runs to its last view, the site, as a share of the scroll. */
-const AT_SITE = 0.82;
+/** How far the descent runs to its last view, the site, as a share of the scroll: where the site's words start to come in. */
+const AT_SITE = 0.76;
+/**
+ * The turn has settled here, before the site's picture comes in (it shows from 0.6), so the picture arrives upright,
+ * as on the Choose a site map, and never as a tilted square.
+ */
+export const SPIN_DONE = 0.6;
 /**
  * The first screen's words are gone here (their stage ends at 0.07 and fades out over 0.04): the Moon keeps its first
  * place and size until then, so it never moves under the words while they still show.
@@ -150,13 +155,14 @@ export interface DescentPose {
  * screen's Moon where `first` puts it (beside or under the words, measured by the page). The zoom is eased on a log
  * scale between its stops, so each doubling of the closeness takes as long as the last and each move starts and ends
  * gently: from the whole Moon (it fills four fifths of the view's shorter side) to the polar cap (the 500 km map fills
- * it) to the site (its 20 km picture fills nine tenths of it). Nothing moves before the first screen's words have gone.
+ * it) to the site (its 20 km picture covers the whole view, a tenth to spare, so no frame of blurred map is left
+ * round it). Nothing moves before the first screen's words have gone.
  */
 export function descentPose(p: number, aspect: number, sizes: { reliefHalfKm: number; windowKm: number }, first: FirstScreen = defaultFirst(aspect)): DescentPose {
   const short = Math.min(1, aspect);
   const zMoon = 0.78 * short;
   const zPole = (2 * short) / ((2 * sizes.reliefHalfKm) / R_MOON_KM);
-  const zSite = (0.92 * 2 * short) / (sizes.windowKm / R_MOON_KM);
+  const zSite = (1.1 * 2 * Math.max(1, aspect)) / (sizes.windowKm / R_MOON_KM);
   // Never closer and then farther: a first screen with a big Moon holds its size until the pole comes nearer.
   const z0 = Math.min(first.zoom, zPole);
   const keys: [number, number][] = [
@@ -178,14 +184,14 @@ export function descentPose(p: number, aspect: number, sizes: { reliefHalfKm: nu
   const offset = 1 - between(p, WORDS_GONE, CENTRED);
   return {
     tilt: -0.32 - (Math.PI / 2 - 0.32) * between(p, 0.08, 0.42),
-    spin: -TURNS * 2 * Math.PI * (1 - ease(p / AT_SITE)),
+    spin: -TURNS * 2 * Math.PI * (1 - ease(p / SPIN_DONE)),
     zoom,
-    toSite: between(p, 0.5, 0.78),
+    toSite: between(p, 0.5, 0.74),
     offset,
     shiftX: first.nx * offset,
     shiftY: first.ny * offset,
     relief: between(p, 0.3, 0.44),
-    site: between(p, 0.6, 0.7),
+    site: between(p, 0.6, 0.68),
     earth: 1 - between(p, 0.12, 0.32),
   };
 }

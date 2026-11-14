@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { HOME } from '../data/home';
 import catalogue from '../data/catalogue.json';
-import { descentPose, earthSpot, ease, firstFromDisc, firstMoon, globePoint, psSouthKm, psSouthLatLon, reliefKm, STAGES, stageAt, stageOpacity, WORDS_GONE, type Box } from './descentPose';
+import { descentPose, earthSpot, ease, firstFromDisc, firstMoon, globePoint, psSouthKm, psSouthLatLon, reliefKm, SPIN_DONE, STAGES, stageAt, stageOpacity, WORDS_GONE, type Box } from './descentPose';
 
 const sizes = { reliefHalfKm: HOME.relief.half_km, windowKm: HOME.hero.window_km };
 
@@ -47,13 +47,40 @@ describe('the descent’s pose', () => {
     expect(end.toSite).toBe(1);
     expect(end.site).toBe(1);
     expect(end.earth).toBe(0);
-    // The site's 20 km picture fills nine tenths of the shorter side when the descent reaches it.
-    const atSite = descentPose(0.82, 1.6, sizes);
-    expect((HOME.hero.window_km / 1737.4) * atSite.zoom / 2).toBeCloseTo(0.92, 2);
+    // The site's 20 km picture covers the whole view when the descent reaches it, with room to spare, on a wide
+    // view and on a tall one: no frame of blurred map round it.
+    for (const aspect of [1.6, 0.46]) {
+      const atSite = descentPose(STAGES.find((s) => s.id === 'site')!.from, aspect, sizes);
+      const picture = HOME.hero.window_km / 1737.4, viewH = 2 / atSite.zoom, viewW = aspect * viewH;
+      expect(picture / Math.max(viewW, viewH), `aspect ${aspect}`).toBeGreaterThan(1.05);
+    }
   });
 
-  it('turns the Moon as it comes closer, one and a quarter turns that settle as it reaches the site', () => {
-    const spins = [0, 0.2, 0.4, 0.6, 0.82].map((p) => descentPose(p, 1.6, sizes).spin);
+  it('shows the site’s words only once its picture is upright and covers the whole view', () => {
+    const site = STAGES.find((s) => s.id === 'site')!;
+    for (const aspect of [1.6, 1, 0.46]) {
+      for (let p = 0; p <= 1; p += 0.0025) {
+        if (stageOpacity(site, p) === 0) continue;
+        const pose = descentPose(p, aspect, sizes);
+        const picture = HOME.hero.window_km / 1737.4, viewH = 2 / pose.zoom, viewW = aspect * viewH;
+        expect(picture / Math.max(viewW, viewH), `p = ${p.toFixed(4)}, aspect ${aspect}`).toBeGreaterThan(1);
+        expect(pose.site, `p = ${p.toFixed(4)}`).toBe(1);
+        expect(pose.spin, `p = ${p.toFixed(4)}`).toBeCloseTo(0, 9);
+        expect(pose.toSite, `p = ${p.toFixed(4)}`).toBe(1);
+      }
+    }
+  });
+
+  it('settles the turn before the site’s picture comes in, so the picture arrives upright', () => {
+    for (let p = 0; p <= 1; p += 0.0025) {
+      const pose = descentPose(p, 1.6, sizes);
+      if (pose.site > 0) expect(pose.spin, `p = ${p.toFixed(4)}`).toBeCloseTo(0, 9);
+    }
+    expect(descentPose(SPIN_DONE, 1.6, sizes).spin).toBeCloseTo(0, 9);
+  });
+
+  it('turns the Moon as it comes closer, one and a quarter turns that settle before the site comes in', () => {
+    const spins = [0, 0.15, 0.3, 0.45, SPIN_DONE].map((p) => descentPose(p, 1.6, sizes).spin);
     expect(spins[0]).toBeCloseTo(-1.25 * 2 * Math.PI, 9);
     for (let i = 1; i < spins.length; i++) expect(spins[i]).toBeGreaterThan(spins[i - 1]);
     expect(spins[4]).toBeCloseTo(0, 9);
@@ -90,7 +117,7 @@ describe('the descent’s pose', () => {
     // The turn starts and settles gently: no sudden spin on the first scroll.
     const spin = (p: number) => descentPose(p, 1.6, sizes).spin;
     expect(Math.abs(spin(0.01) - spin(0))).toBeLessThan(0.01);
-    expect(Math.abs(spin(0.82) - spin(0.81))).toBeLessThan(0.01);
+    expect(Math.abs(spin(SPIN_DONE) - spin(SPIN_DONE - 0.01))).toBeLessThan(0.01);
     expect(Math.abs(spin(0.42) - spin(0.41))).toBeGreaterThan(0.1);
     // Each step of the scroll moves the zoom by a little, never by a jump.
     let worst = 0;
