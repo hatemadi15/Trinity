@@ -9,7 +9,9 @@ import { loadValidation, type BackcastRow, type ValidationDocs } from '@/lib/dat
 import { PANEL_LABELS, type PanelModel } from '@/lib/engine/power';
 import type { HorizonsBody } from '@/lib/horizons/query';
 import { recheckSite, type RecheckResult } from '@/lib/horizons/recheck';
-import { evidenceCards, sumsResults, type EvidenceCard } from '@/lib/viz/checks';
+import { checksVerdict, evidenceCards, sumsResults, type EvidenceCard } from '@/lib/viz/checks';
+import { picturesCard } from '@/lib/viz/pictures';
+import { PicturesNumbers } from './PicturesNumbers';
 import { UncertaintySection } from './UncertaintySection';
 import { testRunWords, type TestRun } from '@/lib/report/testRun';
 
@@ -49,8 +51,6 @@ const TD = 'border-b border-line py-2 pr-4 text-[15px]';
 const NUM = `${TD} text-right tabular-nums`;
 const H3 = 'mt-6 text-[17px] font-semibold text-ink';
 const NOTE = 'mt-3 max-w-[62em] break-words text-[15px] leading-relaxed text-ink-2';
-/** The page's verdict in one line, by how many of the three checks meet their criteria: the count of the panels' own pass marks, never worked out again. */
-const VERDICT = ['No check meets its criteria', 'One of three checks meets its criteria', 'Two of three checks meet their criteria', 'Three checks meet their criteria'];
 
 function Mark({ pass }: { pass: boolean }) {
   return (
@@ -104,10 +104,10 @@ function EvidencePanel({ card, extra, children }: { card: EvidenceCard; extra?: 
 }
 
 /**
- * Accuracy: four kinds of evidence. Three checks (the Sun's and Earth's directions against JPL Horizons, sunlight
- * against NASA's LOLA maps worked out the map's way, the power sums against worked answers), each with its pass
- * mark, what it shows, its rule, what it was tested on and what it leaves out; then past missions as context, with
- * no pass mark. The live re-check with JPL sits in the first.
+ * Accuracy: five kinds of evidence. Four checks (the Sun's and Earth's directions against JPL Horizons, sunlight
+ * against NASA's LOLA maps worked out the map's way, shadows against pictures from LRO's cameras where that table
+ * is present, the power sums against worked answers), each with its pass mark, what it shows, its rule, what it was
+ * tested on and what it leaves out; then past missions as context, with no pass mark. The live re-check with JPL sits in the first.
  * Then how sure the times are, the error budget and the automated tests' last run: what passed, was skipped
  * and failed, when, on which commit, with which data.
  */
@@ -168,7 +168,11 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
   const { horizons, mazarico, power, backcasts } = docs;
   const cards = evidenceCards(docs);
   const [directions, sunlight, sums, missions] = cards;
-  const verdict = `${VERDICT[cards.filter((card) => card.kind === 'check' && card.pass).length]}; past missions are context, not a check.`;
+  // Shadows against pictures from orbit, a fourth check where its table is present.
+  const pictures = docs.images ? picturesCard(docs.images) : null;
+  // The page's verdict in one line: the count of the panels' own pass marks, never worked out again.
+  const checks = [...cards, ...(pictures ? [pictures] : [])].filter((card) => card.kind === 'check');
+  const verdict = `${checksVerdict(checks.filter((card) => card.pass).length, checks.length)}; past missions are context, not a check.`;
   const liveSite = horizons.sites.find((s) => s.site_id === 'shackleton_center') ?? horizons.sites[0];
   const ref = mazarico.reference;
   const names = new Map(mazarico.rows.map((r) => [r.site_id, r.name]));
@@ -332,6 +336,12 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             <code>{mazarico.evidence.command}</code>.
           </p>
         </EvidencePanel>
+
+        {pictures && docs.images && (
+          <EvidencePanel card={pictures}>
+            <PicturesNumbers doc={docs.images} />
+          </EvidencePanel>
+        )}
 
         <EvidencePanel card={sums}>
           <table className="w-full min-w-[720px] border-collapse">
