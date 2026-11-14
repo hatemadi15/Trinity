@@ -49,6 +49,14 @@ describe('templateBrief', () => {
     expect(checkNumbers(a, summary)).toBe(true);
   });
 
+  it('names a landing that is not at midnight with its hour in UTC, and a narration may quote that hour', () => {
+    const late: StateSummary = { ...summary, window: { ...summary.window, startUtc: '2027-03-01T17:00:00' } };
+    const c = templateBrief(late);
+    expect(c).toMatch(/^Nobile Rim 2 \(84\.202°S, 60\.700°E\), 14 days from 1 March 2027 at 17:00 UTC: /);
+    expect(checkNumbers(c, late)).toBe(true);
+    expect(checkNumbers('From 1 March 2027 at 17:00 UTC, Nobile Rim 2 keeps power for all 14 days.', late)).toBe(true);
+  });
+
   it('says when the power ends and when there is no radio contact', () => {
     const dark: StateSummary = { ...summary, power: { socMin: 0, brownoutHours: 37, survives: false, meanPowerW: 40.2, poweredHours: 37, contactHours: 0 } };
     const b = templateBrief(dark);

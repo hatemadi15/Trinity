@@ -14,7 +14,7 @@ import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { landerName } from '@/lib/lander';
 import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { bestSentence, compareRow, READY_PAIRS } from '@/lib/viz/compare';
-import { dateLong } from '@/lib/viz/format';
+import { landingWords } from '@/lib/period';
 
 const LINK = 'font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink';
 const TAG = 'shrink-0 rounded-full border border-line px-2.5 py-0.5 text-[15px] text-ink-2';
@@ -49,7 +49,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
   const rows = s.compare.map((c) => compareRow(c, s.startUtc, s.days));
   const full = s.compareIds.length >= COMPARE_MAX;
   const candidates = s.sites.filter((x) => x.category !== 'custom' && !s.compareIds.includes(x.id));
-  const period = `the ${s.days} days from ${dateLong(s.startUtc, 0)}`;
+  const period = `the ${s.days} days from ${landingWords(s.startUtc)}`;
   const add = () => {
     if (!adding) return;
     void store.getState().addToCompare(adding);

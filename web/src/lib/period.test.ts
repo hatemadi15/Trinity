@@ -5,6 +5,7 @@ import { utcToEt } from './engine/time';
 import { DAYS_RANGE } from './planner-ranges';
 import {
   FIRST_START,
+  landingWords,
   lastStart,
   periodDays,
   periodProblem,
@@ -127,5 +128,12 @@ describe('the period in words', () => {
     expect(startWords('2027-01-01T00:00:00')).toBe('1 January 2027, 00:00 UTC');
     expect(periodWords('2027-01-20T17:00:00', 7)).toBe('20 Jan 2027, 17:00 UTC, 7 days');
     expect(periodWords('2027-01-01T00:00:00', 30)).toBe('1 Jan 2027, 00:00 UTC, 30 days');
+  });
+
+  it('names a landing in a sentence by its day, and by its hour too when it is not at midnight', () => {
+    expect(landingWords('2027-01-20T00:00:00')).toBe('20 January');
+    expect(landingWords('2027-01-20T17:00:00')).toBe('20 January at 17:00 UTC');
+    expect(landingWords('2027-01-20T17:00:00', true)).toBe('20 January 2027 at 17:00 UTC');
+    expect(landingWords('2027-01-20T00:00:00', true)).toBe('20 January 2027');
   });
 });

@@ -47,6 +47,16 @@ export function startWords(startUtc: string): string {
   return `${dateLong(startUtc, 0)} ${year(startUtc)}, ${startUtc.slice(11, 16)} UTC`;
 }
 
+/**
+ * A landing in a sentence: its day, and its hour in UTC too when it is not at midnight ("20 January at 17:00 UTC"),
+ * as the better landing's note names it; with `year`, the year after the day ("20 January 2027 at 17:00 UTC").
+ */
+export function landingWords(startUtc: string, year = false): string {
+  const day = `${dateLong(startUtc, 0)}${year ? ` ${startUtc.slice(0, 4)}` : ''}`;
+  const clock = startUtc.slice(11, 16);
+  return clock === '00:00' ? day : `${day} at ${clock} UTC`;
+}
+
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** The period as the brief prints it and a planner copies it: "20 Jan 2027, 17:00 UTC, 7 days". */

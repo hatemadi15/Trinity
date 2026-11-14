@@ -53,6 +53,10 @@ describe('bestSentence', () => {
     );
   });
 
+  it('names a landing that is not at midnight with its hour, in UTC', () => {
+    expect(bestSentence([ridge, floor], '2027-01-01T17:00:00', 30)).toMatch(/^Landing on 1 January at 17:00 UTC, Ridge has the longest time with power/);
+  });
+
   it('names every site that ties', () => {
     const twin = result('d', 'Twin', { sun: 1, earth: 0.49, nightH: 0, brownout: null });
     expect(bestSentence([summit, twin], START, 30)).toBe(

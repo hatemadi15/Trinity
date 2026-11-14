@@ -6,7 +6,8 @@ import { lolaFor, Sources, type SourceKey } from '@/components/Sources';
 import type { Site } from '@/lib/data/loaders';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
-import { dateLong, dayMonth } from '@/lib/viz/format';
+import { landingWords } from '@/lib/period';
+import { dayMonth } from '@/lib/viz/format';
 import { compassTicks } from '@/lib/viz/skyrow';
 import { batteryWords, chargeArea, dayTicks, hillsToward, hourAt, offRuns } from '@/lib/viz/timechart';
 import { DottedSwatch, HillSwatch, Swatch } from './Swatches';
@@ -82,7 +83,7 @@ export function TimeChart({
     return Array.from(mask).some((v) => v !== 0) ? ['lola'] : [];
   }, [site, mask]);
   const pct = (hour: number) => ((hour + 0.5) / hours) * 100;
-  const period = `the ${days} days from ${dateLong(startUtc, 0)}`;
+  const period = `the ${days} days from ${landingWords(startUtc)}`;
 
   const compass = spaced(compassTicks(series.sunAz), pct, 3, 97, 9);
   const ticks = dayTicks(days);

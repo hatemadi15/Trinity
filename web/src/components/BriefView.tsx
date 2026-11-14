@@ -12,10 +12,10 @@ import { siteLabel } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
 import { landerLine } from '@/lib/lander';
 import { exploreHref } from '@/lib/links';
-import { periodWords } from '@/lib/period';
+import { landingWords, periodWords } from '@/lib/period';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
-import { dateLong, dayMonth, pct0, spanShort } from '@/lib/viz/format';
+import { dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { dayTicks, hillsToward } from '@/lib/viz/timechart';
 
 type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; message?: string };
@@ -104,7 +104,7 @@ export function BriefView({
     }
   }
   const provenance = s.maskMeta?.source === 'flat' ? 'a flat horizon (no polar height data there)' : s.maskMeta?.source === 'computed' ? 'hills worked out in your browser from NASA elevation data' : 'hills measured from NASA elevation data';
-  const period = `the ${s.days} days from ${dateLong(s.startUtc, 0)}`;
+  const period = `the ${s.days} days from ${landingWords(s.startUtc)}`;
   const ticks = dayTicks(s.days);
   return (
     <main className="brief mx-auto flex max-w-[190mm] flex-col gap-5 px-8 py-8">

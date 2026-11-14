@@ -1,4 +1,5 @@
 import { PANEL_LABELS, type PanelModel } from '../engine/power';
+import { landingWords } from '../period';
 import { dateLong, pct0, spanWords } from '../viz/format';
 import type { ChatMessage } from './openrouter';
 import { completeSentences, extractJsonDetailed } from './protocol';
@@ -46,6 +47,9 @@ export function allowedNumbers(s: StateSummary): Set<string> {
   add([String(s.window.days)]);
   const start = s.window.startUtc.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (start) add([start[1], canon(start[2]), canon(start[3])]);
+  // The landing hour, "17:00 UTC": its hour and minutes are figures a reader writes.
+  const clock = s.window.startUtc.match(/T(\d{2}):(\d{2})/);
+  if (clock) add([canon(clock[1]), canon(clock[2])]);
   const startDate = new Date(`${s.window.startUtc}Z`);
   if (!Number.isNaN(startDate.getTime())) {
     // "from 1 to 15 March": the window's last day is a number a reader will write.
@@ -128,7 +132,7 @@ export function templateBrief(s: StateSummary): string {
   const powerWords = power.poweredHours >= days * 24 ? `keeps power for all ${days} days` : `has power for ${spanWords(power.poweredHours)}, then night`;
   const contactWords = power.contactHours > 0 ? `with Earth in view for ${spanWords(power.contactHours)} of that time` : 'with no radio contact in that time';
   return (
-    `${s.site.label} (${hemi(s.site.lat, 'N', 'S')}, ${hemi(s.site.lon, 'E', 'W')}), ${days} days from ${date} ${s.window.startUtc.slice(0, 4)}: ` +
+    `${s.site.label} (${hemi(s.site.lat, 'N', 'S')}, ${hemi(s.site.lon, 'E', 'W')}), ${days} days from ${landingWords(s.window.startUtc, true)}: ` +
     `sunlight ${pct0(summary.illumFraction)} of the time and ${night}; Earth in view ${pct0(summary.earthVisFraction)} of the time. ` +
     `A lander with a ${p.areaM2} m² ${PANEL_WORDS[p.panel]} (${Math.round(p.efficiency * 100)} % efficiency), a ${p.loadW} W load and a ${kwh(p.batteryWh)} battery starting ${Math.round(p.initialSocFraction * 100)} % full, ` +
     `landing on ${date}, ${powerWords}, ${contactWords}.`

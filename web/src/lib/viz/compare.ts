@@ -1,8 +1,9 @@
 import { siteLabel } from '../data/loaders';
 import { timeWithPower } from '../engine/landing';
 import { exploreHref } from '../links';
+import { landingWords } from '../period';
 import type { SiteResult } from '../store/explore';
-import { dateLong, dayMonth, pct0, spanShort } from './format';
+import { dayMonth, pct0, spanShort } from './format';
 
 /** One row of the comparison table: what it says about a site, ready to print. */
 export interface CompareRow {
@@ -98,5 +99,5 @@ export function bestSentence(results: SiteResult[], startUtc: string, days: numb
   else if (sun.top === 0) lacks.push('sees the Sun');
   else if (earth.top === 0) lacks.push('sees Earth');
   if (lacks.length > 0) clauses.push(`none of these sites ${lacks.join(' or ')}`);
-  return `Landing on ${dateLong(startUtc, 0)}, ${clauses.join('; ')}.`;
+  return `Landing on ${landingWords(startUtc)}, ${clauses.join('; ')}.`;
 }
