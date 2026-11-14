@@ -21,6 +21,16 @@ describe('Sources', () => {
     expect(within(row()).getAllByRole('link')).toHaveLength(1);
   });
 
+  it('names the Diviner temperature model behind the cold traps, linked to its data at NASA’s Planetary Data System', () => {
+    render(<Sources of={['lola', 'diviner']} />);
+    expect(pills()).toEqual(['NASA LRO LOLA 20 m', 'LRO Diviner temperature model']);
+    // The link of the cold-traps work (docs/data-credits.md, the Diviner row), opened beside the page so the planner keeps their place.
+    const link = within(row()).getByRole('link', { name: 'LRO Diviner temperature model' });
+    expect(link.getAttribute('href')).toBe('https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_prp/');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noreferrer');
+  });
+
   it('draws no pill for an unknown key, one pill for a key named twice, and no row when no pill is left', () => {
     const { unmount } = render(<Sources of={['lola80', 'nasa' as SourceKey, 'toString' as SourceKey, 'lola80']} />);
     expect(pills()).toEqual(['NASA LRO LOLA 80 m']);
@@ -29,20 +39,23 @@ describe('Sources', () => {
     expect(screen.queryByLabelText('Data sources')).toBeNull();
   });
 
-  it('keeps the row quiet: outline pills of 14 px grey words with no fill, the link underlined only on hover', () => {
+  it('keeps the row quiet: outline pills of 14 px grey words with no fill, the links underlined only on hover', () => {
     render(<Sources of={Object.keys(SOURCE_LABELS) as SourceKey[]} />);
     expect(row().className).toMatch(/(^|\s)text-\[14px\](\s|$)/);
     expect(row().className).toMatch(/(^|\s)text-ink-2(\s|$)/);
     const shown = within(row()).getAllByRole('listitem').map((li) => li.firstElementChild as HTMLElement);
-    expect(shown).toHaveLength(12);
+    expect(shown).toHaveLength(13);
     for (const pill of shown) {
       expect(pill.className).toMatch(/(^|\s)rounded-full(\s|$)/);
       expect(pill.className).toMatch(/(^|\s)border(\s|$)/);
       expect(pill.className).not.toMatch(/(^|\s)(hover:)?bg-/);
     }
-    const link = within(row()).getByRole('link');
-    expect(link.className).toMatch(/(^|\s)hover:underline(\s|$)/);
-    expect(link.className).not.toMatch(/(^|\s)underline(\s|$)/);
+    const links = within(row()).getAllByRole('link');
+    expect(links).toHaveLength(2);
+    for (const link of links) {
+      expect(link.className).toMatch(/(^|\s)hover:underline(\s|$)/);
+      expect(link.className).not.toMatch(/(^|\s)underline(\s|$)/);
+    }
   });
 
   it('names the LOLA grid a site’s hills start on, as the engine reads them: 20 m near the pole, 80 m farther out, none off the polar grids', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Outcome } from './outcome';
-import { optionOf, rankOptions } from './rank';
-import { checkRequirements, checksWords, failedWords, holdsIn, NO_REQUIREMENTS, requirementCount, type Requirements } from './requirements';
+import { optionOf, rankOptions, whyAbove } from './rank';
+import { checkRequirements, checksShort, checksWords, failedWords, holdsIn, NO_REQUIREMENTS, requirementCount, type Requirements } from './requirements';
 
 function outcome(o: Partial<Outcome>): Outcome {
   return { hour: 0, stayH: 720, poweredH: 100, sunH: 300, contactH: 200, poweredContactH: 50, outageH: 100, poweredOutageH: 50, firstContactH: 0, sunlitAtLanding: true, ...o };
@@ -37,6 +37,28 @@ describe('holding across the terrain versions, an optional requirement', () => {
     expect(checksWords([short])).toBe('Fails your requirement: holds in at least 90 % of terrain versions (78 %).');
     // No versions here (a point outside the catalogue, a site far from the pole): nothing to check it against.
     expect(checkRequirements(outcome({ poweredH: 130 }), r).map((c) => c.id)).toEqual(['power']);
+  });
+
+  it('never counts the share as met where no versions were worked out: a choice meets the requirements checked here', () => {
+    const r = req({ minPoweredH: 120, minHoldPct: 90 });
+    // No versions here: the choice is marked as having a requirement set that was not checked.
+    const left = optionOf('no versions', outcome({ poweredH: 130 }), r);
+    expect(left.unchecked).toBe(true);
+    expect(optionOf('with versions', outcome({ poweredH: 130 }), r, { held: 30, of: 32 }).unchecked).toBe(false);
+    expect(optionOf('no share set', outcome({ poweredH: 130 }), req({ minPoweredH: 120 })).unchecked).toBe(false);
+    expect(checksWords(left.checks, left.unchecked)).toBe('Meets the requirement checked here.');
+    expect(checksShort(left.checks, left.unchecked)).toBe('Meets the requirement checked here.');
+    const two = req({ minPoweredH: 120, contactWithinH: 0, minHoldPct: 90 });
+    expect(checksShort(checkRequirements(outcome({ poweredH: 130 }), two), true)).toBe('Meets the requirements checked here.');
+    // A failed check is said as before, and with the versions in a choice meets them all.
+    expect(checksShort(checkRequirements(outcome({ poweredH: 110 }), r), true)).toBe('Fails your requirement.');
+    expect(checksWords(checkRequirements(outcome({ poweredH: 130 }), r, { held: 30, of: 32 }))).toBe('Meets all 2 of your requirements.');
+    // Why one ranks first says what was checked, never every requirement.
+    const late = optionOf('fails power', outcome({ poweredH: 110 }), r);
+    expect(whyAbove(left, late, 'time', 'landing at the period start')).toBe('It meets the requirement checked here; landing at the period start fails one: power for at least 5 d (4 d 14 h).');
+    const both = optionOf('fails both', outcome({ poweredH: 110, firstContactH: 30 }), two);
+    expect(whyAbove(optionOf('meets both', outcome({ poweredH: 130 }), two), both, 'time')).toMatch(/^It meets the requirements checked here; the next fails 2: /);
+    expect(whyAbove(optionOf('a', outcome({ poweredH: 130 }), r, { held: 30, of: 32 }), optionOf('b', outcome({ poweredH: 110 }), r, { held: 30, of: 32 }), 'time')).toMatch(/^It meets every requirement; the next fails one: /);
   });
 
   it('ranks a choice that holds in too few versions below every choice that meets them all, as any failed requirement', () => {

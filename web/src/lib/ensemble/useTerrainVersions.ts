@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { dataBase, type Site } from '../data/loaders';
 import type { Series } from '../engine/metrics';
-import type { Holds, Requirements } from '../plan/requirements';
+import { midSentence, type Holds, type Requirements } from '../plan/requirements';
 import type { PlannerParams } from '../store/explore';
 import { versionsRunner, type VersionsRunner } from './client';
 import type { VersionsResult } from './figures';
@@ -95,12 +95,29 @@ export function useTerrainVersions(ask: VersionsAsk, deps: VersionsDeps = {}): V
 /**
  * With the requirement on the terrain versions set, in how many versions each landing time of the period holds, worked
  * out as Explore works it out, so the brief and the view from the site rank their better date as Explore does; null
- * while that requirement is not set and until the versions are worked out. Nothing runs while it is not set.
+ * while that requirement is not set and until the versions are worked out. Nothing runs while it is not set. With the
+ * state of the work, so the brief can say why the requirement is not checked (holdUncheckedWords).
  */
-export function useHoldsByHour(ask: Omit<VersionsAsk, 'byHour'>, deps?: VersionsDeps): (Holds | null)[] | null {
+export function useHoldCheck(ask: Omit<VersionsAsk, 'byHour'>, deps?: VersionsDeps): { holds: (Holds | null)[] | null; state: VersionsState } {
   const asked = (ask.requirements.minHoldPct ?? null) !== null;
   const state = useTerrainVersions({ ...ask, site: asked ? ask.site : null, byHour: true }, deps);
-  return asked && state.status === 'ready' ? state.result.holdsByHour : null;
+  return { holds: asked && state.status === 'ready' ? state.result.holdsByHour : null, state };
+}
+
+/** The holds alone, for the view from the site (useHoldCheck). */
+export function useHoldsByHour(ask: Omit<VersionsAsk, 'byHour'>, deps?: VersionsDeps): (Holds | null)[] | null {
+  return useHoldCheck(ask, deps).holds;
+}
+
+/**
+ * The requirement on the terrain versions where it is set but not checked, after its label in a list of the
+ * requirements: why not, with the reason the note under it in Explore gives (holdNoteFor), or that the work is under way.
+ */
+export function holdUncheckedWords(state: VersionsState): string {
+  if (state.status === 'working') return 'checking the terrain versions…';
+  if (state.status === 'error') return `not checked here (the versions could not be worked out: ${state.message})`;
+  if (state.status === 'none' && state.reason) return `not checked here (${midSentence(state.reason).replace(/\.$/, '')})`;
+  return 'not checked here';
 }
 
 /**

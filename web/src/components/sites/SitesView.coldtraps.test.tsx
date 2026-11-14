@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
 import { readJson } from '@/lib/engine/__tests__/helpers';
@@ -27,6 +27,19 @@ describe('the site list with the modelled cold traps', () => {
     const top = [...main.children].filter((el) => !el.classList.contains('wrap') || el.tagName === 'OL');
     const map = main.querySelector('section[aria-label="Map of the sites"]')!;
     for (const width of [WIDE, PHONE]) expect([...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(105);
+  });
+
+  it('names the model the line comes from in the row of sources at the foot of the list, below the first screen', async () => {
+    const store = createExploreStore(fileLoaders());
+    render(<SitesView store={store} navigate={() => {}} coldTraps={layer} />);
+    await waitFor(() => expect(rowOf('Shackleton rim summit').textContent).toMatch(/Modelled cold traps/), { timeout: 20_000 });
+    const row = screen.getByLabelText('Data sources');
+    expect(within(row).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'NASA LRO LOLA 240 m', 'LRO Diviner temperature model', 'JPL DE440', 'Artemis III regions', 'CLPS mission records', 'LROC and NSSDCA lander positions']);
+    expect(within(row).getByRole('link', { name: 'LRO Diviner temperature model' }).getAttribute('href')).toBe('https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_prp/');
+    // The row is not part of the first screen the site list counts to 105 words.
+    const main = document.querySelector('main')!;
+    const top = [...main.children].filter((el) => !el.classList.contains('wrap') || el.tagName === 'OL');
+    expect(top.some((el) => el.contains(row))).toBe(false);
   });
 });
 

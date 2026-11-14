@@ -794,7 +794,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         targets.length > 1
           ? `Across ${targets.length} compared sites, ranked by the site that does worst: best landing in the next 12 months: ${when}. Power for ${each.slice(0, -1).join(', ')} and ${each[each.length - 1]}.`
           : `Best landing in the next 12 months: ${when}, power for ${spanShort(best.poweredH)}, Earth in view ${pct0(earthFraction)} of that time.`;
-      const checks = checksWords(top.checks);
+      // The search works out no terrain versions: with the share of them set, the best meets only the requirements checked here.
+      const checks = checksWords(top.checks, top.unchecked);
       const rule = yearRuleWords(scan.step, top.checks.length > 0, rankBy);
       set({
         bestWindowNote: checks ? `${found} ${checks}${top.failed > 0 ? ' None in the next 12 months meets them all.' : ''} ${rule}` : `${found} ${rule}`,

@@ -146,8 +146,9 @@ export function WhereOnMoon({
       </div>
       {/* The relief is LOLA's 80 m grid. The sunlight figures and the pins' colours come from horizons on the 20 m grid
           near the pole and the 80 m grid farther out, with DE440. The pins are NASA's Artemis III regions and the CLPS
-          landings: IM-2 Athena is always on the map. A site north of 80° S reads its skyline from the 240 m grid. */}
-      <Sources of={['lola', 'lola80', ...lolaFor(site).filter((k) => k === 'lola240'), 'de440', 'artemis', 'clps']} />
+          landings: IM-2 Athena is always on the map. A site north of 80° S reads its skyline from the 240 m grid. The
+          cold-trap line, where the layer reaches the site, comes from Diviner's model. */}
+      <Sources of={['lola', 'lola80', ...lolaFor(site).filter((k) => k === 'lola240'), ...(coldTraps?.covered ? (['diviner'] as const) : []), 'de440', 'artemis', 'clps']} />
     </section>
   );
 }

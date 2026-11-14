@@ -70,7 +70,7 @@ function betterOf(plan: Recommendation<LandingTime>, startUtc: string, days: num
     startUtc: b.item.startUtc,
     label: `Land on ${dateLong(startUtc, b.item.hour)} instead`,
     note: n >= hours ? `From ${when}, the lander keeps power for all ${days} days.` : `From ${when}: power for ${spanWords(n)} in a row.`,
-    checks: checksShort(b.checks),
+    checks: checksShort(b.checks, b.unchecked),
     why: plan.betterWhy,
   };
 }
@@ -200,7 +200,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
   const hint = better
     ? null
     : meets
-      ? `This landing ${midSentence(checksShort(plan.current.checks) ?? '').replace(/\.$/, '')}, and no landing time in these ${days} days does better.`
+      ? `This landing ${midSentence(checksShort(plan.current.checks, plan.current.unchecked) ?? '').replace(/\.$/, '')}, and no landing time in these ${days} days does better.`
       : plan && plan.current.checks.length > 0
         ? `No landing time in these ${days} days does better against your requirements. Try a bigger battery (Lander, above), a shorter stay or another site.`
         : overhead
@@ -301,7 +301,7 @@ const checkList = <T,>(o: Option<T>) => o.checks.map((c) => ({ met: c.met, words
 
 function viewOf<T>(row: Row<T>, key: string, title: string, extra: Partial<OptionView> & { action: string }, by: RankBy): OptionView {
   const score = by.kind === 'weighed' ? { score: scoreWords(row.outcome, by.priorities) } : {};
-  return { key, title, summary: checksShort(row.checks), checks: checkList(row), trade: tradeOffWords(row.trade), why: row.why, ...score, ...extra };
+  return { key, title, summary: checksShort(row.checks, row.unchecked), checks: checkList(row), trade: tradeOffWords(row.trade), why: row.why, ...score, ...extra };
 }
 
 /**
@@ -356,7 +356,7 @@ export function planView({
   return {
     objective: objectiveWords(by),
     rule: requirementCount(req) > 0 ? FAIL_RULE : null,
-    current: { title: `Landing at the period start, ${timeTitle(startUtc, 0)}`, summary: checksShort(times.current.checks), checks: checkList(times.current), ...currentScore },
+    current: { title: `Landing at the period start, ${timeTitle(startUtc, 0)}`, summary: checksShort(times.current.checks, times.current.unchecked), checks: checkList(times.current), ...currentScore },
     times: {
       search: searchWords({ kind: 'period', days }),
       options: times.alternatives.map((r) => viewOf(r, `time-${r.item.hour}`, timeTitle(startUtc, r.item.hour), { action: landWords(startUtc, r.item.hour), land: r.item.startUtc }, by)),

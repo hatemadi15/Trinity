@@ -20,10 +20,14 @@ describe('WhereOnMoon with the modelled cold traps', () => {
     const ground_ = within(panel).getByText(/^The ground here/);
     expect(ground_.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(line).getByRole('link', { name: 'What a cold trap is' }).getAttribute('href')).toBe('/learn#cold-traps');
+    // The row of sources names the model the line comes from.
+    const sources = within(within(panel).getByLabelText('Data sources')).getAllByRole('listitem').map((li) => li.textContent);
+    expect(sources).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'LRO Diviner temperature model', 'JPL DE440', 'Artemis III regions', 'CLPS mission records']);
   });
 
-  it('says nothing of cold traps without the layer', () => {
+  it('says nothing of cold traps without the layer, and its row of sources leaves the model out', () => {
     render(<WhereOnMoon site={site} sites={[site]} overview={{}} startUtc="2027-01-01T00:00:00" days={30} wide ground={ground} />);
     expect(screen.queryByText(/cold traps/)).toBeNull();
+    expect(screen.getByLabelText('Data sources').textContent).not.toMatch(/Diviner/);
   });
 });

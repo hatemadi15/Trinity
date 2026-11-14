@@ -23,14 +23,14 @@ import { collectProvenance, provenanceLines } from '@/lib/share/provenance';
 import { appVersion } from '@/lib/share/versions';
 import { landingWords, periodWords } from '@/lib/period';
 import { FAIL_RULE, OBJECTIVE } from '@/lib/plan/rank';
-import type { Check } from '@/lib/plan/requirements';
+import { holdLabel, type Check } from '@/lib/plan/requirements';
 import { exploreStore, periodPlan, scanOf, seenFrom, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateTimeUtc, dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { dayTicks, hillsToward } from '@/lib/viz/timechart';
 import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
-import { useHoldsByHour, type VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
+import { holdUncheckedWords, useHoldCheck, type VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
 import { BriefVersions } from './BriefVersions';
 import { coldTrapSite, coldTrapWords, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
 import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
@@ -84,8 +84,11 @@ function pointWords(site: Site): string {
   return `${pointKind(site).sentence}${when}`;
 }
 
-/** Each requirement met or failed, with the value reached and the margin, as a printed list. */
-function CheckList({ checks }: { checks: Check[] }) {
+/**
+ * Each requirement met or failed, with the value reached and the margin, as a printed list; last, one set but not checked
+ * here (the share of terrain versions, where none were worked out), with why.
+ */
+function CheckList({ checks, unchecked = null }: { checks: Check[]; unchecked?: string | null }) {
   return (
     <ul className="list-disc pl-5">
       {checks.map((c) => (
@@ -93,6 +96,7 @@ function CheckList({ checks }: { checks: Check[] }) {
           {c.met ? 'Meets' : 'Fails'} {c.words}
         </li>
       ))}
+      {unchecked && <li key="holds">{unchecked}</li>}
     </ul>
   );
 }
@@ -139,7 +143,7 @@ export function BriefView({
   const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : '/explore';
   // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the brief names the
   // same better date: with the requirement on the terrain versions set, by how many versions each landing time holds in.
-  const holds = useHoldsByHour({ site: s.site, series: s.series ? scanOf(s.series) : null, hours: s.series?.hours ?? 0, params: s.params, requirements: s.requirements, mastM: seenFrom(s.maskMeta, s.params.mastM) }, versions);
+  const { holds, state: holdState } = useHoldCheck({ site: s.site, series: s.series ? scanOf(s.series) : null, hours: s.series?.hours ?? 0, params: s.params, requirements: s.requirements, mastM: seenFrom(s.maskMeta, s.params.mastM) }, versions);
   const times = useMemo(
     () => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy, holds }),
     [s.series, s.params, s.requirements, s.startUtc, s.rankBy, holds],
@@ -174,8 +178,11 @@ export function BriefView({
   const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
   const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
   const answer = trustedAnswer(answerFor({ siteName: name, series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: p.loadW, batteryWh: p.batteryWh, best: s.best, plan: times, farSide: s.site.far_side, panel: p.panel }), terrain, behind);
-  // With requirements set, the brief says why the better date ranks first and how each landing does against them.
-  const checked = times && times.current.checks.length > 0 ? times : null;
+  // With requirements set, the brief says why the better date ranks first and how each landing does against them; one set
+  // but not checked here (the share of terrain versions, where none were worked out) is listed with why, never as met.
+  const checked = times && (times.current.checks.length > 0 || times.current.unchecked) ? times : null;
+  const holdPct = s.requirements.minHoldPct ?? null;
+  const notChecked = (o: { unchecked?: boolean }) => (o.unchecked && holdPct !== null ? `${holdLabel(holdPct)}: ${holdUncheckedWords(holdState)}` : null);
   const limitation = terrainLimitation(terrain);
   const hours = s.days * 24;
   const powered = Math.min(hours, timeWithPower(s.power));
@@ -261,11 +268,11 @@ export function BriefView({
             Your requirements
           </h2>
           <p>Landing at the period start, {dateTimeUtc(s.startUtc, 0)}:</p>
-          <CheckList checks={checked.current.checks} />
+          <CheckList checks={checked.current.checks} unchecked={notChecked(checked.current)} />
           {answer.better && checked.better && (
             <>
               <p>Landing on {dateTimeUtc(s.startUtc, checked.better.item.hour)}, the better date above:</p>
-              <CheckList checks={checked.better.checks} />
+              <CheckList checks={checked.better.checks} unchecked={notChecked(checked.better)} />
             </>
           )}
           <p className="text-ink-2">

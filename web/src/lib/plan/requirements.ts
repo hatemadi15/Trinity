@@ -66,6 +66,11 @@ function atLeast(id: RequirementId, label: string, value: number, limit: number)
   return { id, label, met: margin >= 0, value, limit, margin, words: `${label}: ${spanShort(value)}, ${margin >= 0 ? `${spanShort(margin)} to spare` : `${spanShort(-margin)} short`}` };
 }
 
+/** The requirement on the terrain versions in words: "Holds in at least 90 % of terrain versions". */
+export function holdLabel(pct: number): string {
+  return `Holds in at least ${pct} % of terrain versions`;
+}
+
 /**
  * Each requirement set, checked against the outcome, always in the same order: power, contact at landing, outage, contact
  * while powered, and last the share of terrain versions it holds in, which is checked only where `holds` was worked out.
@@ -94,7 +99,7 @@ export function checkRequirements(o: Outcome, r: Requirements, holds?: Holds | n
   if (r.minPoweredContactH !== null) checks.push(atLeast('powered-contact', `Earth contact while powered at least ${spanShort(r.minPoweredContactH)}`, o.poweredContactH, r.minPoweredContactH));
   const pct = r.minHoldPct ?? null;
   if (pct !== null && holds && holds.of > 0) {
-    const label = `Holds in at least ${pct} % of terrain versions`;
+    const label = holdLabel(pct);
     const share = Math.round((100 * holds.held) / holds.of);
     const met = 100 * holds.held >= pct * holds.of;
     const need = Math.ceil((pct * holds.of) / 100) - holds.held;
@@ -123,19 +128,36 @@ export function failedWords(c: Check): string {
   return `${midSentence(c.label)} (${value})`;
 }
 
-/** The checks summed up in one sentence; null when no requirement is set. */
-export function checksWords(checks: Check[]): string | null {
+/** Whether the share of terrain versions is set but was not checked: no versions were worked out for the choice. */
+export function holdUnchecked(r: Requirements, checks: Check[]): boolean {
+  return (r.minHoldPct ?? null) !== null && !checks.some((c) => c.id === 'holds');
+}
+
+/**
+ * What a choice that fails none of its checks meets while a requirement set was not checked for it (the share of terrain
+ * versions, where none were worked out): "the requirement checked here", never every requirement.
+ */
+export function checkedHere(checks: Check[]): string {
+  return checks.length === 1 ? 'the requirement checked here' : 'the requirements checked here';
+}
+
+/**
+ * The checks summed up in one sentence; null when none was checked. `unchecked`: a requirement set was not checked (the
+ * share of terrain versions, where none were worked out), so a choice that fails none meets only those checked here.
+ */
+export function checksWords(checks: Check[], unchecked = false): string | null {
   if (checks.length === 0) return null;
   const failed = checks.filter((c) => !c.met);
+  if (failed.length === 0 && unchecked) return `Meets ${checkedHere(checks)}.`;
   if (failed.length === 0) return checks.length === 1 ? 'Meets your requirement.' : `Meets all ${checks.length} of your requirements.`;
   const of = checks.length === 1 ? 'your requirement' : `${failed.length} of your ${checks.length} requirements`;
   return `Fails ${of}: ${failed.map(failedWords).join('; ')}.`;
 }
 
 /** The checks in a few words for a first screen, the details left to the list of options: "Fails 1 of your 2 requirements."; null when none is set. */
-export function checksShort(checks: Check[]): string | null {
+export function checksShort(checks: Check[], unchecked = false): string | null {
   if (checks.length === 0) return null;
   const failed = checks.filter((c) => !c.met).length;
-  if (failed === 0) return checksWords(checks);
+  if (failed === 0) return checksWords(checks, unchecked);
   return checks.length === 1 ? 'Fails your requirement.' : `Fails ${failed} of your ${checks.length} requirements.`;
 }
