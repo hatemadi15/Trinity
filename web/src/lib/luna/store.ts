@@ -45,6 +45,11 @@ export interface LunaState {
   submit: (text: string) => void;
   /** Pauses the microphone while she listens, or starts it again (also after it was blocked). Set by her engine. */
   toggleMic: () => void;
+  /**
+   * Readies her voice during the press that turns her on, for browsers that play sound only during a press (Safari),
+   * so Gemini's audio for her replies can play later. Set by her engine.
+   */
+  prime: () => void;
 }
 
 /** Where this browser keeps whether she says her replies aloud: "off" once turned off, "on" once turned on again. */
@@ -88,4 +93,5 @@ export const lunaStore = createStore<LunaState>()((set) => ({
   },
   submit: () => {},
   toggleMic: () => {},
+  prime: () => {},
 }));

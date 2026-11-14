@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GEMINI_API, GEMINI_DEFAULTS, geminiFromEnv, geminiText, geminiUnavailable } from './gemini';
+import { GEMINI_API, GEMINI_DEFAULTS, geminiFromEnv, geminiSpeech, geminiText, geminiUnavailable, SPEECH_STYLE } from './gemini';
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const answer = (...texts: string[]) => json({ candidates: [{ content: { role: 'model', parts: texts.map((text) => ({ text })) }, finishReason: 'STOP' }] });
@@ -115,5 +115,36 @@ describe('Gemini’s settings, from the server’s environment only', () => {
     expect(geminiUnavailable({ NEXT_PUBLIC_AI_MODE: 'live' })).toBe('no-key');
     expect(geminiUnavailable({ GEMINI_API_KEY: 'k', NEXT_PUBLIC_AI_MODE: 'live' })).toBeNull();
     expect(geminiUnavailable({ GEMINI_API_KEY: 'k' })).toBeNull();
+  });
+});
+
+describe('Gemini’s speech (generateContent with audio out)', () => {
+  const pcm = new Uint8Array([0, 0, 1, 0, 255, 255, 255, 127]);
+  const audio = (mimeType = 'audio/L16;codec=pcm;rate=24000') =>
+    json({ candidates: [{ content: { role: 'model', parts: [{ inlineData: { mimeType, data: Buffer.from(pcm).toString('base64') } }] }, finishReason: 'STOP' }] });
+
+  it('asks the speech model for audio in the named prebuilt voice, the reply after a short direction', async () => {
+    const fetchImpl = vi.fn(async () => audio());
+    const r = await geminiSpeech({ model: 'gemini-3.8-flash-tts', apiKey: 'AIza-test', voice: 'Leda', text: 'Opening the forecast.', fetchImpl });
+    expect(r).toEqual({ audio: pcm, mimeType: 'audio/L16;codec=pcm;rate=24000' });
+    const { url, headers, body } = sent(fetchImpl);
+    expect(url).toBe(`${GEMINI_API}/models/gemini-3.8-flash-tts:generateContent`);
+    expect(headers['x-goog-api-key']).toBe('AIza-test');
+    expect(body).toEqual({
+      contents: [{ role: 'user', parts: [{ text: `${SPEECH_STYLE}Opening the forecast.` }] }],
+      generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Leda' } } } },
+    });
+    expect(SPEECH_STYLE).toMatch(/^Say .*: $/);
+  });
+
+  it('reports an answer without audio, an HTTP error and a transport failure as errors, with the status when there is one', async () => {
+    const text = vi.fn(async () => answer('I would rather chat.'));
+    expect(await geminiSpeech({ model: 'm', apiKey: 'k', voice: 'Leda', text: 'Hi.', fetchImpl: text })).toEqual({ error: 'm: no audio in the answer (STOP)' });
+    const missing = vi.fn(async () => json({ error: { code: 404, message: 'models/m is not found', status: 'NOT_FOUND' } }, 404));
+    expect(await geminiSpeech({ model: 'm', apiKey: 'k', voice: 'Leda', text: 'Hi.', fetchImpl: missing })).toEqual({ error: 'm: HTTP 404 NOT_FOUND', status: 404 });
+    const down = vi.fn(async () => {
+      throw new Error('socket hang up');
+    });
+    expect(await geminiSpeech({ model: 'm', apiKey: 'k', voice: 'Leda', text: 'Hi.', fetchImpl: down })).toEqual({ error: 'm: socket hang up' });
   });
 });

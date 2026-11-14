@@ -5,8 +5,9 @@ import { askLuna } from '@/lib/ai/client';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { parseCommand } from '@/lib/luna/commands';
 import { runCommand, type LunaDeps } from '@/lib/luna/run';
-import { hush as browserHush, recognitionCtor, speak as browserSpeak, type Recognition, type RecognitionCtor } from '@/lib/luna/speech';
+import { recognitionCtor, type Recognition, type RecognitionCtor } from '@/lib/luna/speech';
 import { lunaStore, message, type LunaMessage } from '@/lib/luna/store';
+import { lunaVoice } from '@/lib/luna/voice';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { scenarioStore } from '@/lib/store/scenarios';
 import { applyTheme } from '@/lib/theme';
@@ -22,7 +23,8 @@ export const NOT_CAUGHT = 'I did not catch a request there. Try one of the examp
  * Luna's engine (spec 22), once for the whole app, in the root layout, so she keeps listening from page to page and her
  * conversation lasts (spec 23.2). While she is on, the browser's speech recognition runs (continuous, English); each
  * phrase it hears to the end is a command (parseCommand) carried out on the page (runCommand), and her reply is said
- * aloud, with the recognition stopped meanwhile so she never hears herself. With the switch in her panel off ("Say
+ * aloud (in Gemini's voice where the app may use it, else the browser's: lunaVoice, spec 22.5), with the recognition
+ * stopped meanwhile so she never hears herself. With the switch in her panel off ("Say
  * replies aloud", `lunaStore.voice`) no reply is said aloud: it shows in the conversation only, and the listening goes
  * on; turned off while she speaks, she stops at once. Typed words (`lunaStore.submit`) are commands too: her only way
  * in without voice input or with the microphone blocked. Each exchange goes into her conversation as two lines; a stray
@@ -34,16 +36,20 @@ export function LunaEngine({
   store = exploreStore,
   ask = askLuna,
   recognition = recognitionCtor,
-  speak = browserSpeak,
-  hush = browserHush,
+  speak = lunaVoice.speak,
+  hush = lunaVoice.hush,
+  prime = lunaVoice.prime,
   navigate,
 }: {
   store?: StoreApi<ExploreState>;
   ask?: LunaDeps['ask'];
   recognition?: () => RecognitionCtor | null;
-  speak?: (text: string, done: () => void) => boolean;
+  /** Says a reply; `gemini` when the app may use Gemini's voice (not cached mode). */
+  speak?: (text: string, done: () => void, opts?: { gemini?: boolean }) => boolean;
   /** Stops whatever she is saying. */
   hush?: () => void;
+  /** Readies her voice during a press (lunaStore.prime). */
+  prime?: () => void;
   navigate?: (href: string) => void;
 }) {
   const routerNavigate = useNavigate();
@@ -52,6 +58,12 @@ export function LunaEngine({
     go.current = navigate ?? routerNavigate;
   });
   const on = useStore(lunaStore, (s) => s.on);
+
+  // Her buttons ready her voice during the press that turns her on.
+  useEffect(() => {
+    lunaStore.setState({ prime });
+    return () => lunaStore.setState({ prime: () => {} });
+  }, [prime]);
 
   useEffect(() => {
     if (!on) return;
@@ -140,9 +152,14 @@ export function LunaEngine({
       speaking = true;
       rec?.abort();
       const mine = ++utterance;
-      speak(reply, () => {
-        if (mine === utterance) over();
-      });
+      speak(
+        reply,
+        () => {
+          if (mine === utterance) over();
+        },
+        // Never Gemini's voice in cached mode: the offline build or ?demo=1.
+        { gemini: store.getState().aiMode !== 'cached' },
+      );
     };
     // The switch turned off while she speaks: she stops at once.
     const unsubscribe = lunaStore.subscribe((s, was) => {

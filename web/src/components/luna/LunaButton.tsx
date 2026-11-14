@@ -206,6 +206,8 @@ export function LunaButton({ className, panelClassName }: { className?: string; 
         aria-pressed={on}
         onClick={() => {
           lunaPlace.setState({ at: 'header' });
+          // During the press, so a browser that wants one first lets her voice play later.
+          if (!on) lunaStore.getState().prime();
           lunaStore.getState().setOn(!on);
         }}
         className={

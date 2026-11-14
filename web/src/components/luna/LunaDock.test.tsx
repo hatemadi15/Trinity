@@ -15,7 +15,7 @@ vi.mock('./LunaBot', () => ({
 
 afterEach(() => {
   cleanup();
-  act(() => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, voice: true }));
+  act(() => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, voice: true, prime: () => {} }));
   lunaPlace.setState({ at: 'header' });
   window.localStorage.clear();
 });
@@ -55,6 +55,21 @@ describe('Luna’s 3D self (spec 23)', () => {
     expect(lunaPlace.getState().at).toBe('dock');
     expect(within(dock).getByRole('region', { name: 'Luna' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /^Luna is on/ }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('readies her voice during the press that turns her on, by pointer or keyboard', () => {
+    const prime = vi.fn();
+    lunaStore.setState({ prime });
+    render(<LunaDock />);
+    const me = screen.getByRole('button', { name: 'Talk to Luna' });
+    fireEvent.pointerDown(me);
+    fireEvent.pointerUp(me);
+    expect(prime).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(screen.getByRole('button', { name: /^Luna is on/ }), { key: 'Enter' });
+    expect(lunaStore.getState().on).toBe(false);
+    expect(prime).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Talk to Luna' }), { key: ' ' });
+    expect(prime).toHaveBeenCalledTimes(2);
   });
 
   it('turns Luna on and off from the keyboard too', () => {

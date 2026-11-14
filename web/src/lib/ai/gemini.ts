@@ -206,3 +206,45 @@ export async function geminiText(opts: {
     .trim();
   return text ? { content: text } : { error: emptyReason(model, r.json) };
 }
+
+/**
+ * The direction in front of a reply for Gemini's speech models, which take a short spoken direction before the words
+ * to say, as Google's own example ("Say cheerfully: Have a wonderful day!") shows; it also keeps a reply that reads
+ * like a question from being answered instead of said.
+ */
+export const SPEECH_STYLE = 'Say in a friendly, clear voice: ';
+
+/** Bytes from base64, as Gemini sends inline data. */
+const fromBase64 = (data: string) => new Uint8Array(Buffer.from(data, 'base64'));
+
+/**
+ * A reply in Gemini's voice: the speech model asked for audio only (responseModalities ["AUDIO"]) in one prebuilt
+ * voice (speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName). Returns the audio's bytes and type (raw 16-bit PCM,
+ * "audio/L16;codec=pcm;rate=24000", from today's models), or why there is none; never throws.
+ */
+export async function geminiSpeech(opts: {
+  model: string;
+  apiKey: string;
+  voice: string;
+  text: string;
+  signal?: AbortSignal;
+  fetchImpl?: typeof fetch;
+}): Promise<{ audio: Uint8Array; mimeType: string } | { error: string; status?: number }> {
+  const { model, apiKey, voice, text, signal, fetchImpl } = opts;
+  const r = await generateContent(
+    model,
+    {
+      contents: [{ role: 'user', parts: [{ text: `${SPEECH_STYLE}${text}` }] }],
+      generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
+    },
+    apiKey,
+    { signal, fetchImpl },
+  );
+  if ('error' in r) return r;
+  const part = answerParts(r.json).find((p) => typeof p.inlineData?.data === 'string' && p.inlineData.data.length > 0);
+  if (!part?.inlineData?.data) {
+    const finish = r.json.candidates?.[0]?.finishReason;
+    return { error: r.json.promptFeedback?.blockReason ? `${model}: blocked (${r.json.promptFeedback.blockReason})` : `${model}: no audio in the answer${finish ? ` (${finish})` : ''}` };
+  }
+  return { audio: fromBase64(part.inlineData.data), mimeType: part.inlineData.mimeType ?? 'audio/L16;codec=pcm;rate=24000' };
+}

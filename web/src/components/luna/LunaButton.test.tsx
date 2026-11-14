@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lunaStore } from '@/lib/luna/store';
 import { LunaButton } from './LunaButton';
 
-const reset = () => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, messages: [], canListen: false, voice: true, submit: () => {}, toggleMic: () => {} });
+const reset = () => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, messages: [], canListen: false, voice: true, submit: () => {}, toggleMic: () => {}, prime: () => {} });
 beforeEach(reset);
 afterEach(() => {
   cleanup();
@@ -19,6 +19,16 @@ describe('Luna’s button', () => {
     const b = screen.getByRole('button', { name: /^Luna/ });
     expect(b.getAttribute('aria-pressed')).toBe('false');
     expect(screen.queryByRole('region', { name: 'Luna' })).toBeNull();
+  });
+
+  it('readies her voice during the press that turns her on, and not the one that turns her off', () => {
+    const prime = vi.fn();
+    lunaStore.setState({ prime });
+    render(createElement(LunaButton));
+    fireEvent.click(screen.getByRole('button', { name: /^Luna/ }));
+    expect(prime).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: /^Luna/ }));
+    expect(prime).toHaveBeenCalledTimes(1);
   });
 
   it('turns Luna on and off, her panel shown while she is on', () => {
