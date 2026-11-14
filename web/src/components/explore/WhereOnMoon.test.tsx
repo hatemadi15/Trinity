@@ -62,7 +62,7 @@ describe('WhereOnMoon', () => {
   it('says what kind of point the site is, after what the place is', () => {
     const { unmount } = render(<WhereOnMoon site={site('haworth')} sites={sites} overview={{}} startUtc="2027-01-01T00:00:00" days={30} />);
     const line = () => screen.getByText(/^Haworth\./).closest('p')!;
-    expect(line().textContent).toMatch(/Beside a crater that is always in shadow\. The rough centre of a wider region, give or take 5 km, not a chosen landing point\./);
+    expect(line().textContent).toMatch(/Beside a crater that is always in shadow\. The rough centre of a wider region, give or take 5\u00a0km, not a chosen landing point\./);
     unmount();
     render(<WhereOnMoon site={site('shackleton_center_rim_high')} sites={sites} overview={{}} startUtc="2027-01-01T00:00:00" days={30} />);
     expect(screen.getByRole('region', { name: 'Where on the Moon' }).textContent).toMatch(/It has not been checked as a safe place to land\./);

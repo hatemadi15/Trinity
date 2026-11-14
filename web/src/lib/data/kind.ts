@@ -19,9 +19,9 @@ export interface PointKindWords {
   sentence: string;
 }
 
-/** A radius as a reader takes it in: metres below a kilometre, whole kilometres above. */
+/** A radius as a reader takes it in: metres below a kilometre, whole kilometres above, a no-break space before the unit. */
 export function radiusText(km: number): string {
-  return km < 1 ? `${Math.round(km * 1000)} m` : `${Math.round(km)} km`;
+  return km < 1 ? `${Math.round(km * 1000)}\u00a0m` : `${Math.round(km)}\u00a0km`;
 }
 
 /** The kind of point a site is, in words for the public and with the radius a planner needs. */

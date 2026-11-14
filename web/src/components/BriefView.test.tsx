@@ -88,7 +88,7 @@ describe('BriefView', () => {
     expect(kind.textContent).toBe("A derived point: the highest ground on the crater rim in NASA's height data, worked out by this app. It has not been checked as a safe place to land.");
     await act(() => store.getState().selectSite('haworth'));
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Haworth'));
-    expect(screen.getByRole('heading', { level: 1 }).nextElementSibling!.nextElementSibling!.textContent).toBe('The rough centre of a wider region, give or take 5 km, not a chosen landing point.');
+    expect(screen.getByRole('heading', { level: 1 }).nextElementSibling!.nextElementSibling!.textContent).toBe('The rough centre of a wider region, give or take 5\u00a0km, not a chosen landing point.');
   });
 
   it('gives an Apollo landing its date, says the table cannot reach it, and reads its flat horizon in the method', async () => {

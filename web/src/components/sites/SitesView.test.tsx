@@ -166,9 +166,9 @@ describe('SitesView', () => {
   it('says on every row what kind of point the site is, with the radius where it is known', async () => {
     await ready();
     expect(rowOf('Apollo 11').textContent).toMatch(/Surveyed point/);
-    expect(rowOf("Chang'e 4").textContent).toMatch(/Surveyed point, ±20 m/);
-    expect(rowOf('Haworth').textContent).toMatch(/Centre of a region, ±5 km/);
-    expect(rowOf('Luna 25 target').textContent).toMatch(/Landing target, ±15 km/);
+    expect(rowOf("Chang'e 4").textContent).toMatch(/Surveyed point, ±20\u00a0m/);
+    expect(rowOf('Haworth').textContent).toMatch(/Centre of a region, ±5\u00a0km/);
+    expect(rowOf('Luna 25 target').textContent).toMatch(/Landing target, ±15\u00a0km/);
     expect(rowOf('IM-3 Reiner Gamma').textContent).toMatch(/Landing target/);
     expect(rowOf('Lunar south pole').textContent).toMatch(/Reference point/);
     // A high point worked out from the heights is never offered as a checked place to land.

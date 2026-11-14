@@ -25,14 +25,14 @@ describe('the kind of point a site is', () => {
       short: 'Surveyed point',
       sentence: 'A surveyed point: the lander has been found in images taken from orbit.',
     });
-    expect(pointKind(byId('change4')).short).toBe('Surveyed point, ±20 m');
-    expect(pointKind(byId('change4')).sentence).toBe('A surveyed point: the lander has been found in images taken from orbit, to within 20 m.');
-    expect(pointKind(byId('luna25_target')).short).toBe('Landing target, ±15 km');
-    expect(pointKind(byId('luna25_target')).sentence).toBe('A landing target: a point chosen in advance, give or take 15 km, not a place where a lander stands.');
-    expect(pointKind(byId('haworth')).short).toBe('Centre of a region, ±5 km');
-    expect(pointKind(byId('haworth')).sentence).toBe('The rough centre of a wider region, give or take 5 km, not a chosen landing point.');
+    expect(pointKind(byId('change4')).short).toBe('Surveyed point, ±20\u00a0m');
+    expect(pointKind(byId('change4')).sentence).toBe('A surveyed point: the lander has been found in images taken from orbit, to within 20\u00a0m.');
+    expect(pointKind(byId('luna25_target')).short).toBe('Landing target, ±15\u00a0km');
+    expect(pointKind(byId('luna25_target')).sentence).toBe('A landing target: a point chosen in advance, give or take 15\u00a0km, not a place where a lander stands.');
+    expect(pointKind(byId('haworth')).short).toBe('Centre of a region, ±5\u00a0km');
+    expect(pointKind(byId('haworth')).sentence).toBe('The rough centre of a wider region, give or take 5\u00a0km, not a chosen landing point.');
     expect(pointKind(byId('malapert_massif')).short).toBe('Centre of a region');
-    expect(pointKind(byId('cp12_schrodinger')).short).toBe('Centre of a region, ±158 km');
+    expect(pointKind(byId('cp12_schrodinger')).short).toBe('Centre of a region, ±158\u00a0km');
     expect(pointKind(byId('south_pole')).sentence).toBe('A reference point to compare with, not a landing site.');
   });
 
@@ -50,11 +50,12 @@ describe('the kind of point a site is', () => {
     expect(pointKind(custom)).toMatchObject({ kind: 'picked', radiusKm: null, short: 'Point you chose' });
   });
 
-  it('writes a radius in metres below a kilometre and in kilometres above', () => {
-    expect(radiusText(0.02)).toBe('20 m');
-    expect(radiusText(0.03)).toBe('30 m');
-    expect(radiusText(5)).toBe('5 km');
-    expect(radiusText(158)).toBe('158 km');
+  it('writes a radius in metres below a kilometre and in kilometres above, the number kept with its unit', () => {
+    // A no-break space: on a phone "±20" never ends a line with its "m" on the next.
+    expect(radiusText(0.02)).toBe('20\u00a0m');
+    expect(radiusText(0.03)).toBe('30\u00a0m');
+    expect(radiusText(5)).toBe('5\u00a0km');
+    expect(radiusText(158)).toBe('158\u00a0km');
   });
 });
 
