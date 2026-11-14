@@ -174,6 +174,8 @@ describe('BriefView narration labels', () => {
     await waitFor(() =>
       expect(screen.getByText(/^the model's paragraph did not match the figures \("67 %" for sunlight, where the figures say 100 %\); written by the app from the figures below$/)).toBeTruthy(),
     );
+    // A number and its unit stay on one line, as everywhere on the page (the matcher above folds the no-break space).
+    expect(screen.getByText(/did not match the figures/).textContent).toContain('say 100\u00a0%)');
     expect(screen.getByTestId('narration').textContent).toBe('T2');
     fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByText(/try again in 12 s/)).toBeTruthy());

@@ -19,6 +19,9 @@ import { hillsToward } from '@/lib/viz/timechart';
 
 type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; problems?: string[]; message?: string };
 
+/** A number and its unit on one line, as the page writes them ("100 %"). */
+const keepUnits = (text: string) => text.replace(/(\d) (?=%|°|k?Wh?\b|m²)/g, '$1\u00a0');
+
 /** The line under the summary paragraph: who wrote it, or why the template stands. */
 function narrationLabelFor(n: Narration | null): string {
   if (!n) return 'written by the app from the figures below';
@@ -32,7 +35,7 @@ function narrationLabelFor(n: Narration | null): string {
     case 'model-error':
       return 'the model did not answer; written by the app from the figures below';
     default:
-      return `the model's paragraph did not match the figures${n.problems?.length ? ` (${n.problems[0]})` : ''}; written by the app from the figures below`;
+      return `the model's paragraph did not match the figures${n.problems?.length ? ` (${keepUnits(n.problems[0])})` : ''}; written by the app from the figures below`;
   }
 }
 

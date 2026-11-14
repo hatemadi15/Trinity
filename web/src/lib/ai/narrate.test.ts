@@ -53,7 +53,10 @@ describe('templateBrief', () => {
     expect(a).not.toMatch(/\d\.\d\s?%/);
     expect(a).toMatch(/a 2 kWh battery/);
     expect(a).not.toMatch(/surviv|skyline|window/);
-    expect(a).toMatch(new RegExp(`A lander with a ${DEFAULT_POWER.areaM2} m² upright panel that turns to the Sun \\(${Math.round(DEFAULT_POWER.efficiency * 100)} % efficiency\\), a ${DEFAULT_POWER.loadW} W load`));
+    // Every percent keeps its sign on the same line, as pct0 writes it.
+    expect(a).toMatch(new RegExp(`A lander with a ${DEFAULT_POWER.areaM2} m² upright panel that turns to the Sun \\(${Math.round(DEFAULT_POWER.efficiency * 100)}\u00a0% efficiency\\), a ${DEFAULT_POWER.loadW} W load`));
+    expect(a).toMatch(/starting 100\u00a0% full/);
+    expect(a).not.toMatch(/\d %/);
     expect(checkNumbers(a, summary)).toBe(true);
   });
 
