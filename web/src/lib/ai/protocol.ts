@@ -47,6 +47,7 @@ Actions drive the app. Use only these shapes (${ACTION_TYPES.join(', ')}):
 {"type": "remove_from_compare", "id": SITE_ID}
 {"type": "open_page", "page": "explore" | "sites" | "compare" | "validate" | "brief" | "learn"}
 {"type": "explain", "topic": "longest night" | "earth gap" | "best window" | "skyline" | "verdict"}   (the reply is then one short sentence; the app adds the paragraph)
+{"type": "compare_shift", "hours": WHOLE_HOURS}   (compares the landing shown with the same one moved, later when positive: 120 for a five-day delay; it opens Compare)
 
 SITE_ID must be one of these (id: name):
 ${siteLines}

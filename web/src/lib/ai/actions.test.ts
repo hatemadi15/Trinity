@@ -5,6 +5,7 @@ import { readJson } from '../engine/__tests__/helpers';
 import { COMPARE_MAX, createExploreStore, type ExploreState } from '../store/explore';
 import { fileLoaders } from '../../test/file-loaders';
 import { applyActions, COMPARE_LIMIT, siteByName, validateActions, type Action } from './actions';
+import { createScenarioStore } from '../store/scenarios';
 import { explanationFor } from './explanations';
 
 const sites = [
@@ -187,6 +188,31 @@ describe('applyActions', () => {
     expect(notes[6]).toBe('Moved to the best landing date for 14 days: 2027-03-04.');
     expect(notes[7]).toBe('Opened Compare sites.');
     expect(notes[8]).toMatch(/longest night/i);
+  });
+
+  it('compares the landing shown with the same one moved: the baseline and the moved landing, then Compare', async () => {
+    const loaders = fileLoaders();
+    const store = createExploreStore(loaders);
+    await store.getState().init();
+    const scenarios = createScenarioStore(store, loaders);
+    const navigate = vi.fn();
+    const [note] = await applyActions(store, [{ type: 'compare_shift', hours: 120 }], navigate, scenarios);
+    expect(scenarios.getState().scenarios.map((s) => [s.label, s.siteId, s.startUtc])).toEqual([
+      ['Original landing', 'de_gerlache_rim_2', '2027-01-01T00:00:00'],
+      ['5 days later', 'de_gerlache_rim_2', '2027-01-06T00:00:00'],
+    ]);
+    expect(navigate).toHaveBeenCalledWith('/compare');
+    expect(note).toBe('Comparing the landing at de Gerlache Rim 2 on 1 January 2027, 00:00 UTC with the same landing 5 days later.');
+    // Without the comparison to hand, the note says so rather than claim it.
+    const [none] = await applyActions(store, [{ type: 'compare_shift', hours: 120 }], vi.fn());
+    expect(none).toBe('A comparison can be made on Compare: open it and slip the landing there.');
+  });
+
+  it('keeps a moved landing to whole hours, other than none, within the table', () => {
+    const ids = new Set(sites.map((s) => s.id));
+    expect(validateActions([{ type: 'compare_shift', hours: 120 }], ids).actions).toEqual([{ type: 'compare_shift', hours: 120 }]);
+    expect(validateActions([{ type: 'compare_shift', hours: '-6' }], ids).actions).toEqual([{ type: 'compare_shift', hours: -6 }]);
+    for (const hours of [0, 1.5, 200_000, 'soon']) expect(validateActions([{ type: 'compare_shift', hours }], ids).actions).toEqual([]);
   });
 
   it('names, for a topic it cannot explain, only topics it can, in the words the pages use', async () => {

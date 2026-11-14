@@ -4,6 +4,7 @@ import { clampTo, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
 import type { WindowDays } from '../store/explore';
 import { PAGE_NAMES, periodNote, siteByName, type Action, type Page } from './actions';
 import { EXPLANATIONS, explanationFor } from './explanations';
+import { slipLabel } from '../scenario/scenario';
 
 export { EXPLANATIONS };
 
@@ -68,8 +69,33 @@ function panelFor(words: string): PanelModel | null {
   return null;
 }
 
-/** The twelve rehearsed phrasings, most specific first. Matching is case-insensitive on a trimmed prompt without its final punctuation. */
+/** A count written in figures or words, one to thirty: "5", "five", "twelve"; null otherwise. */
+const COUNT_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+function countOf(text: string): number | null {
+  const t = text.trim().toLowerCase();
+  if (/^\d{1,4}$/.test(t)) return Number(t);
+  const i = COUNT_WORDS.indexOf(t);
+  return i >= 0 ? i + 1 : t === 'thirty' ? 30 : null;
+}
+const COUNT = '(\\d{1,4}|[a-z]+)';
+
+/** The thirteen rehearsed phrasings, most specific first. Matching is case-insensitive on a trimmed prompt without its final punctuation. */
 export const INTENTS: Intent[] = [
+  {
+    // Before "compare A and B": "compare with a five-day delay" is the landing shown against the same landing moved.
+    name: 'compare_shift',
+    pattern: new RegExp(
+      `^compare(?: it| this(?: landing)?| the landing)? (?:with|against|to) (?:(?:a|an) )?(?:(?:landing )?${COUNT}[- ](days?|hours?)(?:[- ](delay|slip|later|earlier|sooner))?|(?:delay|slip) of ${COUNT} (days?|hours?))$`,
+      'i',
+    ),
+    build(m) {
+      const n = countOf(m[1] ?? m[4]);
+      const unit = (m[2] ?? m[5]).toLowerCase();
+      if (n === null || n === 0) return null;
+      const hours = n * (unit.startsWith('day') ? 24 : 1) * (/^(earlier|sooner)$/i.test(m[3] ?? '') ? -1 : 1);
+      return { actions: [{ type: 'compare_shift', hours }], reply: `Comparing this landing with the same one ${slipLabel(hours)}.` };
+    },
+  },
   {
     name: 'compare',
     pattern: /^compare (.+?) (?:and|with|vs\.?|versus|against) (.+?)(?: (?:for|over) (\d+)[- ]?days?)?$/i,

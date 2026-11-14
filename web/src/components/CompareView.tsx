@@ -218,7 +218,7 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
             </button>
           </p>
         )}
-        <PlannerChat store={store} />
+        <PlannerChat store={store} scenarios={scenarios} />
       </main>
       {editingScenario && (
         <ScenarioEditor

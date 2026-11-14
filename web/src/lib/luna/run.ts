@@ -6,6 +6,7 @@ import { summarizeState, type StateSummary } from '../ai/state-summary';
 import { exploreHref, standHref } from '../links';
 import { DEFAULT_SITE, type AiMode, type ExploreState } from '../store/explore';
 import { plannerLog } from '../store/planner-log';
+import type { ScenarioState } from '../store/scenarios';
 import type { Control, LunaCommand, Place } from './commands';
 import { queueControl, runControl } from './controls';
 import { skyAnswer } from './sky';
@@ -19,6 +20,8 @@ export interface LunaDeps {
   ask: (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
   setTheme: (theme: 'light' | 'dark') => void;
   turnOff: () => void;
+  /** The comparison a planner answer may start ("compare with a five-day delay"). */
+  scenarios?: StoreApi<ScenarioState>;
 }
 
 /** What Luna says for each control, when the page says nothing of its own. */
@@ -86,10 +89,15 @@ async function plan(actions: unknown[], reply: string, source: ChatSource, model
   let opened = false;
   let notes: string[];
   try {
-    notes = await applyActions(store, valid, (href) => {
-      opened = true;
-      deps.navigate(href);
-    });
+    notes = await applyActions(
+      store,
+      valid,
+      (href) => {
+        opened = true;
+        deps.navigate(href);
+      },
+      deps.scenarios,
+    );
   } catch (err) {
     notes = [`One step could not be applied: ${err instanceof Error ? err.message : String(err)}.`];
   }

@@ -10,6 +10,9 @@ import { matchIntent } from '@/lib/ai/intents';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import type { AiMode, ExploreState } from '@/lib/store/explore';
 import { plannerLog } from '@/lib/store/planner-log';
+import { createExploreStore } from '@/lib/store/explore';
+import { createScenarioStore } from '@/lib/store/scenarios';
+import { fileLoaders } from '@/test/file-loaders';
 import { EXAMPLE_PROMPTS, PlannerChat } from './PlannerChat';
 
 const sites = [
@@ -388,4 +391,21 @@ describe('PlannerChat opens when it has something to show', () => {
       expect(ask).not.toHaveBeenCalled();
       expect(document.activeElement).toBe(box);
     });
+
+  it('starts a comparison when an answer compares the landing with a delay, in the comparison it is given', async () => {
+    const loaders = fileLoaders();
+    const explore = createExploreStore(loaders);
+    await explore.getState().init();
+    const scenarios = createScenarioStore(explore, loaders);
+    const navigate = vi.fn();
+    const ask = async () => answer({ source: 'intent', actions: [{ type: 'compare_shift', hours: 120 }], reply: 'Comparing this landing with the same one 5 days later.' });
+    render(<PlannerChat store={explore} scenarios={scenarios} ask={ask} navigate={navigate} />);
+    fireEvent.change(screen.getByLabelText('Ask the assistant'), { target: { value: 'Compare with a five-day delay' } });
+    fireEvent.submit(screen.getByLabelText('Ask the assistant').closest('form')!);
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/compare'));
+    expect(scenarios.getState().scenarios.map((x) => [x.label, x.startUtc])).toEqual([
+      ['Original landing', '2027-01-01T00:00:00'],
+      ['5 days later', '2027-01-06T00:00:00'],
+    ]);
+  });
 });

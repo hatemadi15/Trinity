@@ -240,7 +240,7 @@ export function ExploreView({
             reducedMotion={reducedMotion}
           />
           <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} />
-          <PlannerChat store={store} navigate={go} />
+          <PlannerChat store={store} scenarios={scenarios} navigate={go} />
         </div>
         {/* The period's key moments as dots with Next, as on the stand view, so Play and Next show what happens on the first
             screen (21.1); a preview on the bar moves the chart's time line and the date, as the chart's own does. */}
