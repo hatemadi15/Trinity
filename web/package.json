@@ -16,7 +16,8 @@
     "e2e:run": "playwright test",
     "engine:demo": "tsx scripts/engine-demo.ts",
     "validation:tests": "tsx scripts/test-summary.ts",
-    "data:check": "uv run --directory ../pipeline python -m lunar_pipeline.cli check-data"
+    "data:check": "uv run --directory ../pipeline python -m lunar_pipeline.cli check-data",
+    "recommendation:train": "tsx scripts/recommendation-data.ts && python3 scripts/train_recommender.py"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
