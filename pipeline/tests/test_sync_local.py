@@ -36,3 +36,13 @@ def test_sync_with_tiles_copies_the_globe_when_it_was_built(tmp_path: Path, monk
     (out / "globe" / "manifest.json").write_text('{"version": 1}')
     assert web / "globe" in sync(web, tiles=True, catalogue=catalogue)
     assert (web / "globe" / "manifest.json").read_text() == '{"version": 1}'
+
+
+def test_sync_copies_the_asset_manifest_beside_the_data(tmp_path: Path, monkeypatch):
+    data, web = tmp_path / "data", tmp_path / "web"
+    data.mkdir()
+    (data / "manifest.json").write_text('{"format": 1}')
+    monkeypatch.setattr(config, "DATA_DIR", data)
+    # The published data and the release zip then carry the list of files they should hold.
+    assert web / "manifest.json" in sync(web, catalogue=tmp_path / "catalogue.json")
+    assert (web / "manifest.json").read_text() == '{"format": 1}'

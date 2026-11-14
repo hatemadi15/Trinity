@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "engine:demo": "tsx scripts/engine-demo.ts",
-    "validation:tests": "node scripts/test-summary.mjs"
+    "validation:tests": "node scripts/test-summary.mjs",
+    "data:check": "uv run --directory ../pipeline python -m lunar_pipeline.cli check-data"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
