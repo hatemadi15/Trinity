@@ -70,7 +70,7 @@ The challenge asks for an easy way to compare landing places and dates using sun
 
 - Share: a link with every setting and the ranking, the figures as files to download, and a one-page brief; Compare’s scenarios have a link and a brief of their own.
 
-- Check the evidence: on the Accuracy page three checks meet their criteria: the directions to the Sun and Earth against JPL Horizons, sunlight and Earth in view against NASA’s LOLA maps, and the power sums. Past missions’ endings are shown as context, not as a check.
+- Check the evidence: on the Accuracy page three of four checks meet their criteria: the directions to the Sun and Earth against JPL Horizons, sunlight and Earth in view against NASA’s LOLA maps, and the power sums. The fourth, where shadows fall in 20 pictures from NASA’s lunar orbiter, misses its own mark: 3 of the pictures fall short, all taken with the Sun 1.1° up or less. Past missions’ endings are shown as context, not as a check.
 
 The home page introduces the project with a flight to the south pole. Moon and Earth imagery use NASA’s CGI Moon Kit and Blue Marble. Large terrain shapes come from data; decorative rocks and small craters are illustrations. Forecasts work offline when the app and data are stored locally. Live AI and the live Horizons check need internet.
 

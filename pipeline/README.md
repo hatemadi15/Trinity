@@ -37,6 +37,7 @@ PowerShell, Command Prompt, bash and zsh; run from elsewhere, Python says
     uv run python -m lunar_pipeline.cli uncertainty
     uv run python -m lunar_pipeline.cli ensemble --index-only
     uv run python -m lunar_pipeline.cli images
+    uv run python -m lunar_pipeline.cli coldtraps
     uv run python -m lunar_pipeline.cli check-data
     uv run python -m lunar_pipeline.cli manifest
 
@@ -62,6 +63,14 @@ one HTTP byte range (pds.mcp.nasa.gov), reads product 90's two NAC pictures besi
 `data/validation/images.json`. Everything it reads is cached in `data_raw/images` (35 MB with three product 90
 windows; about 10 minutes the first time, 16 seconds from the cache). The method, the results and every download
 are in `docs/method.md`, Validation, item 5.
+
+`coldtraps` (about 40 seconds; needs product 90's slope and permanent-shadow windows, which it reads over HTTP and
+caches in `data_raw/pgda90/windows`) writes the modelled cold traps near each polar catalogue site south of 80° S
+into `data/coldtraps`: the ground within 5 km whose annual maximum surface temperature stays below 110 K in LRO
+Diviner's Polar Resource Product, the nearest such ground and the steepest slope on a straight line to it, and the
+shadow map's layer. It downloads the 117 MB Diviner zip (`dlre_prp_south.zip`, from pds-geosciences.wustl.edu)
+into `data_raw/diviner` when it is absent. These are modelled conditions where ice could last, not a finding of ice.
+The method and the figures are in `docs/method.md`, "Modelled cold traps".
 
 `fetch` downloads each group into `data_raw/<group>`; it skips files it already has and, run again
 after a cut-off download, resumes from the `.part` file. `data_raw/` is gitignored.
@@ -104,12 +113,13 @@ built with the `terrain` and `globe` commands.
 
 ## The asset manifest and the check
 
-`data/manifest.json` lists every data file the app reads, as `web/public/data` lays them out: 839
-files in seven groups (the site catalogue, the hourly table and the masks; the sky; the Accuracy
-page's tables; the LOLA tiles; the terrain; the globe; the test fixtures), each file with its size
+`data/manifest.json` lists every data file the app reads, as `web/public/data` lays them out: 897
+files in nine groups (the site catalogue, the hourly table and the masks; the sky; the Accuracy
+page's tables; the LOLA tiles; the terrain; the globe; the test fixtures; the margins and the terrain
+versions; the modelled cold traps), each file with its size
 and SHA-256, each group with whether the app needs it, where it comes from, the commands that make
 it and what the app does without it, and a data version (the date and the first eight digits of a
-hash over every file, `2026-11-14-a120b7a9` for the data of 14 November). `sync-local` copies it
+hash over every file, `2026-11-14-57864fc8` for the data of 14 November). `sync-local` copies it
 into `web/public/data`, so the published data and the release zip carry it.
 
 - `check-data` compares a folder (`web/public/data`, or `--root <folder>`) with it and says, group by
@@ -154,10 +164,11 @@ without it.
     uv run pytest -q
 
 The synthetic tests always run; the data tests skip until the files they need are fetched. On 14
-November, with nothing downloaded, 121 of the 147 tests passed and 26 skipped (8 seconds, with other
-jobs running); with `fetch --group kernels --group lola --group illumination` (525 MB) all 147
-passed (20 to 32 seconds). Every partial download was run too (lola alone, kernels alone, kernels
-and lola): each test whose files are missing skips, and none fails. The tests write only to
+November, with the terrain versions, the pictures check and the cold traps merged, 234 of the 266
+tests passed and 32 skipped with nothing downloaded (5 seconds), and all 266 passed with every
+download the commands above make (about 40 seconds). Earlier that day, with 147 tests, every partial
+download was run too (lola alone, kernels alone, kernels and lola): each test whose files are
+missing skips, and none fails. The tests write only to
 temporary folders (the Horizons summary and the app's catalogue included), so a run leaves the
 tree as it was, and they pass in a clone of any name (a GitHub ZIP unpacks to `Trinity-main`).
 `npm run validation:tests` in `web/` runs them with the app's and records the counts.

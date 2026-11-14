@@ -72,10 +72,13 @@ traps").
 
 - **The uncertainty budget** (`data/uncertainty/budget.json`, method in `docs/method.md`, "Uncertainty
   budget"): per site and event, the sampling, terrain and ephemeris errors and their sum, shown as
-  "Times ±3.5 h" on Explore, in the brief and on the Accuracy page. Its terrain part traces three other
+  "Times ±N h" on Explore, in the brief and on the Accuracy page. Its terrain part traces three other
   skylines per polar site (`data/uncertainty/skylines/<site>.json`): product 90's adjusted skyline, and the
   same skyline raised and lowered by one stated error in every direction at once. A point not in the
-  catalogue gets the largest margin found at the featured polar sites.
+  catalogue gets the largest margin found at the featured polar sites. (Since 14 November the terrain part
+  also takes the 32 terrain versions of each polar site; 68 margins grew and none shrank, and the
+  default landing, de Gerlache Rim 2 on 1 January 2027, now shows "Times ±8 h", where it showed ±4.5 h.
+  `docs/method.md`, "Terrain versions".)
 - **The ground at each site** (`terrain_quality`): height error, effective resolution, slope and its
   error, roughness at 100 m, and the nearest permanently shadowed pixel of `LPSR_80S_20MPP_ADJ` within
   10 km. At all 18 polar sites that pixel is within 1.05 km (from 6 m to 1.05 km), so the distance alone
@@ -467,8 +470,9 @@ emulator of step 5 was not built.)
 3. Check skylines against product 90's NAC images at the sites they cover. *Done on 14 November 2026, ahead of the
    deadline at the team's request:* product 90's pictures reach only one featured site, so LROC's WAC polar movie
    frames were added (`docs/method.md`, Validation, item 5; `data/validation/images.json`). The app's shadows and
-   20 pictures agree on a median 92 % of the ground, nearly all disagreement on shadows' edges; with the Sun 1.1° up
-   or less the app puts a fifth to a quarter of the sunlit ground in shadow, and product 90's terrain does much the same.
+   20 pictures agree on a median 92 % of the ground, nearly all disagreement on shadows' edges; 17 of the 20 meet the
+   check's own mark, so it misses: in the three that do not, all with the Sun 1.1° up or less, the app puts a fifth to a
+   quarter of the sunlit ground in shadow, and product 90's terrain does much the same.
 4. Build the cold-trap layer as a transparent index (Diviner, product 90 shadow and slope), with per-site
    summaries next to power and radio contact, and strict wording. (Built on 14 November, ahead of this
    order, at the user's request: `data/coldtraps`, `docs/method.md`, "Modelled cold traps".)
