@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "engine:demo": "tsx scripts/engine-demo.ts",
-    "validation:tests": "node scripts/test-summary.mjs",
+    "validation:tests": "tsx scripts/test-summary.ts",
     "data:check": "uv run --directory ../pipeline python -m lunar_pipeline.cli check-data"
   },
   "dependencies": {
