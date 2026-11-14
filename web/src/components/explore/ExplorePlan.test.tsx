@@ -11,8 +11,8 @@ import { ExploreView } from '../ExploreView';
 const mask = Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'masks', 'de_gerlache_rim_2.json').elevation_deg);
 const computeMask = async () => ({ mask, siteHeightM: 1, failedTiles: 0 });
 
-async function open() {
-  window.history.replaceState({}, '', '/explore');
+async function open(search = '') {
+  window.history.replaceState({}, '', `/explore${search}`);
   const store = createExploreStore(fileLoaders({ computeMask }));
   render(<ExploreView store={store} navigate={() => {}} />);
   await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy(), { timeout: 20_000 });
@@ -47,6 +47,12 @@ describe('Explore’s recommendations, with the requirements and the range round
     expect(text()).toContain('Fails Longest time without Earth while powered at most 3 d: 9 d 10 h, 6 d 10 h too long');
     expect(text()).toContain('Ranked by the longest continuous time with power from landing');
     expect(text()).toContain('Landing times tried every hour of these 30 days (UTC), each for a 30-day stay.');
+  });
+
+  it('names a date that meets the requirements even where the power already lasts all period, as the brief and the view from the site do', async () => {
+    // Shackleton rim summit keeps power all 30 days from 1 January, but Earth is out of view at that landing.
+    await open('?site=shackleton_center_rim_high&earthby=0');
+    await waitFor(() => expect(panel().querySelector('.btn-primary')?.textContent).toBe('Land on 10 January instead'), { timeout: 20_000 });
   });
 
   it('lists the places nearby, the rim summit among them, with their trade-offs against this site', async () => {

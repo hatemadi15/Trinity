@@ -12,7 +12,7 @@ import { etToIso, utcToEt } from '../engine/time';
 import { periodDays, periodProblem, snapToHour } from '../period';
 import { clockUtc, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
-import { yearOptions, type Recommendation, type YearChoice } from '../plan/options';
+import { timeOptions, yearOptions, type LandingTime, type Recommendation, type YearChoice } from '../plan/options';
 import { periodOutcome, type Outcome } from '../plan/outcome';
 import { checksWords, NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
 import { BY_POWER, validPriorities, yearRuleWords, type RankBy } from '../plan/rank';
@@ -20,7 +20,7 @@ import { neighbourhoodRadius, ringPoints, type PointResult } from '../plan/neigh
 import { computedReport, featuredReport, flatReport, unreportedReport, type TerrainFindings, type TerrainReport } from '../engine/completeness';
 import { missingWords } from '../viz/terrain';
 import { customPoint, parseExploreQuery } from './query';
-import { mergeSettings, parseRank, parseSettings, sameSettings } from '../share/settings';
+import { mergeSettings, parseRank, parseRequirements, parseSettings, sameSettings } from '../share/settings';
 
 /** A period's length in whole days, DAYS_RANGE in planner-ranges.ts: any number reaches the store, which refuses one outside it. */
 export type WindowDays = number;
@@ -255,6 +255,15 @@ const scans = new WeakMap<Series, Series>();
 /** The longer series a period's landing search scanned (`recompute` keeps it); a series no search was run on is its own. */
 export function scanOf(series: Series): Series {
   return scans.get(series) ?? series;
+}
+
+/**
+ * The period's landing times ranked with the requirements (lib/plan `timeOptions`), each tried for a stay as long as
+ * the period: Explore, the brief and the view from the site name their better date from it, so all three name the
+ * same one. Null before a period is worked out.
+ */
+export function periodPlan({ series, params, requirements, startUtc, rankBy = BY_POWER }: Pick<ExploreState, 'series' | 'params' | 'requirements' | 'startUtc'> & { rankBy?: RankBy }): Recommendation<LandingTime> | null {
+  return series ? timeOptions({ scan: scanOf(series), cfg: params.power, req: requirements, hours: series.hours, startUtc, by: rankBy }) : null;
 }
 
 export function recompute(
@@ -845,6 +854,10 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       // at the mast the link names; those it does not name keep the values the visit has.
       const asked = mergeSettings(get().params, parseSettings(search));
       if (!sameSettings(asked, get().params)) get().setParams(asked);
+      // A link that names the mission's requirements, which rank the better date, sets them as it names them, the ones it
+      // leaves out as none; a link that names none (every link inside the app but Explore's own) keeps the visit's.
+      const req = parseRequirements(search);
+      if (Object.keys(req).length > 0) get().setRequirements({ ...NO_REQUIREMENTS, ...req });
       // The ranking the link names, beside the settings; a link that names none keeps the visit's own.
       const rank = parseRank(search);
       if (rank) get().setRankBy(rank);

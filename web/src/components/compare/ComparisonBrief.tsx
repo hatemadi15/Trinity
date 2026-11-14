@@ -54,13 +54,15 @@ export function ComparisonBrief({ store = exploreStore, scenarios = scenarioStor
         setOrigin(window.location.origin);
         const r = readComparison(window.location.search);
         if (r.found) scenarios.getState().load(r.scenarios, r.problem);
+        if (r.requirements) store.getState().setRequirements(r.requirements);
       });
     return () => {
       live = false;
     };
   }, [store, scenarios]);
 
-  const back = comparisonHref(sc.scenarios);
+  // Back to the same comparison, checked against the same requirements; the brief's last line gives the same address.
+  const back = comparisonHref(sc.scenarios, '/compare', s.requirements);
   const head = (
     <div className="no-print flex items-center justify-between gap-4">
       <Link href={back} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
@@ -81,7 +83,7 @@ export function ComparisonBrief({ store = exploreStore, scenarios = scenarioStor
       </main>
     );
   }
-  const cols = columnsOf(sc.scenarios, sc.runs, s.sites);
+  const cols = columnsOf(sc.scenarios, sc.runs, s.sites, s.requirements);
   if (cols.length === 0) {
     return (
       <main className="brief mx-auto max-w-[190mm] px-8 py-8">
@@ -175,6 +177,11 @@ export function ComparisonBrief({ store = exploreStore, scenarios = scenarioStor
                         <>
                           <span className="font-semibold">{cell.value}</span>
                           {cell.change && cell.change !== 'no change' && <span className="block text-ink-2">{cell.change} against the baseline{cell.tone && cell.tone !== 'same' ? `, ${cell.tone}` : ''}</span>}
+                          {cell.checks?.map((c) => (
+                            <span key={c.words} className="block">
+                              {c.met ? 'Meets' : 'Fails'} {c.words}
+                            </span>
+                          ))}
                         </>
                       ) : (
                         '…'

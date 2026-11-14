@@ -11,6 +11,8 @@ import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
 import { FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, RESIDENT_LINE, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_STILL, watchNext, type MomentKind } from '@/lib/viz/stand';
 import { openingYaw } from '@/lib/viz/standOpening';
 import { fileLoaders, terrainFileLoaders, terrainPresent } from '@/test/file-loaders';
+import { findingsWith, LOST_TILE } from '@/test/terrain';
+import { readJson } from '@/lib/engine/__tests__/helpers';
 import { visibleWords, WIDE } from '@/test/visible-words';
 import type { StandScene } from '@/lib/sky/standRenderer';
 import { pathMarks, StandView } from './StandView';
@@ -1171,6 +1173,44 @@ describe('StandView', () => {
     expect(within(card).getByRole('button', { name: 'Compare sites' }).className).toMatch(/\bmd:hidden\b/);
     fireEvent.click(screen.getByRole('button', { name: 'Less' }));
     expect(document.querySelector('a[data-chip]')).toBeTruthy();
+  });
+
+  it('names the same better day as Explore when the address sets requirements, with that landing’s own power and radio', async () => {
+    // Shackleton rim summit keeps power all 30 days from 1 January, but Earth is out of view at that landing.
+    await open('?site=shackleton_center_rim_high&start=2027-01-01&days=30&hour=10&earthby=0');
+    await firstStep();
+    openCard();
+    const card = document.getElementById('stand-card')!;
+    // It says first that it meets the requirement: from the 1st the power lasts longer, and the radio as long.
+    const better = within(card).getByRole('link', { name: /^Try 10 January instead: meets your requirement, power for 22\sdays\s16\shours, radio for 13\sdays\s10\shours$/ });
+    // Its view, the way back to Explore and the address keep the requirement.
+    expect(better.getAttribute('href')).toBe('/explore/stand?site=shackleton_center_rim_high&start=2027-01-10T09:00&days=30&hour=0&earthby=0');
+    expect(within(card).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=shackleton_center_rim_high&start=2027-01-01&days=30&earthby=0');
+    expect(window.location.search).toBe('?site=shackleton_center_rim_high&start=2027-01-01&days=30&hour=10&earthby=0');
+  });
+
+  it('holds the better day back while the hills for a new mast are worked out, and from an incomplete terrain, as Explore does', async () => {
+    const rim = Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'masks', 'de_gerlache_rim_2.json').elevation_deg);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    // The worker traces the rim's own skyline from the new mast, but its march loses a tile.
+    const computeMask = async () => {
+      await gate;
+      return { mask: rim, siteHeightM: 190, failedTiles: 7, terrain: findingsWith(LOST_TILE) };
+    };
+    window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    const store = createExploreStore(fileLoaders({ computeMask }));
+    render(<StandView store={store} createRenderer={() => stub()} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^Landing on /), { timeout: 20_000 });
+    await firstStep();
+    openCard();
+    const card = () => document.getElementById('stand-card')!;
+    expect(within(card()).getByRole('link', { name: /^Try 20 January instead/ })).toBeTruthy();
+    act(() => store.getState().setParams({ mastM: 5 }));
+    await waitFor(() => expect(within(card()).queryByRole('link', { name: /^Try / })).toBeNull());
+    act(() => release());
+    await waitFor(() => expect(store.getState().maskMeta?.terrain?.quality).toBe('incomplete'), { timeout: 20_000 });
+    expect(within(card()).queryByRole('link', { name: /^Try / })).toBeNull();
   });
 
   it('shows no chip when no landing day is better', async () => {

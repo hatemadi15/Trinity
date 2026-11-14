@@ -22,9 +22,11 @@ import { useDataVersions } from '@/lib/hooks/useDataVersions';
 import { collectProvenance, provenanceLines } from '@/lib/share/provenance';
 import { appVersion } from '@/lib/share/versions';
 import { landingWords, periodWords } from '@/lib/period';
-import { exploreStore, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { FAIL_RULE, OBJECTIVE } from '@/lib/plan/rank';
+import type { Check } from '@/lib/plan/requirements';
+import { exploreStore, periodPlan, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
-import { dayMonth, pct0, spanShort } from '@/lib/viz/format';
+import { dateTimeUtc, dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { dayTicks, hillsToward } from '@/lib/viz/timechart';
 import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
@@ -78,6 +80,19 @@ function pointWords(site: Site): string {
   return `${pointKind(site).sentence}${when}`;
 }
 
+/** Each requirement met or failed, with the value reached and the margin, as a printed list. */
+function CheckList({ checks }: { checks: Check[] }) {
+  return (
+    <ul className="list-disc pl-5">
+      {checks.map((c) => (
+        <li key={c.id}>
+          {c.met ? 'Meets' : 'Fails'} {c.words}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
  * One printable page for the selected site and period: a summary paragraph, the verdict in Explore's
  * words, five figures, the Sun's and Earth's rows of the time chart, the lander, the method and the data.
@@ -108,9 +123,11 @@ export function BriefView({
       .then(() => store.getState().applyQuery(search))
       .then(() => setLinked(true));
   }, [store]);
-  useAddressFollows(s.site ? withSettings(briefHref(s.site.id, s.startUtc, s.days), s.params, s.rankBy) : null, linked && s.status === 'ready');
-  // Back to Explore on the same site, period and settings.
-  const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.rankBy) : '/explore';
+  useAddressFollows(s.site ? withSettings(briefHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : null, linked && s.status === 'ready');
+  // Back to Explore on the same site, period, settings and requirements.
+  const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : '/explore';
+  // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the brief names the same better date.
+  const times = useMemo(() => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy }), [s.series, s.params, s.requirements, s.startUtc, s.rankBy]);
   const dataVersions = useDataVersions();
   const sunHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.sunAz) : null), [s.mask, s.series]);
   const earthHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.earthAz) : null), [s.mask, s.series]);
@@ -137,7 +154,9 @@ export function BriefView({
   // incomplete terrain, or figures still on their way, name no better day (lib/viz/terrain).
   const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
   const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
-  const answer = trustedAnswer(answerFor({ siteName: name, series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: p.loadW, batteryWh: p.batteryWh, best: s.best, farSide: s.site.far_side, panel: p.panel }), terrain, behind);
+  const answer = trustedAnswer(answerFor({ siteName: name, series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: p.loadW, batteryWh: p.batteryWh, best: s.best, plan: times, farSide: s.site.far_side, panel: p.panel }), terrain, behind);
+  // With requirements set, the brief says why the better date ranks first and how each landing does against them.
+  const checked = times && times.current.checks.length > 0 ? times : null;
   const limitation = terrainLimitation(terrain);
   const hours = s.days * 24;
   const powered = Math.min(hours, timeWithPower(s.power));
@@ -214,8 +233,27 @@ export function BriefView({
           </p>
         ))}
         {answer.better && <p className="mt-1 text-[15px]">{answer.better.note}</p>}
+        {checked && answer.better?.why && <p className="mt-1 text-[15px]">{answer.better.why}</p>}
         {answer.hint && <p className="mt-1 text-[15px] text-ink-2">{answer.hint}</p>}
       </section>
+      {checked && (
+        <section aria-labelledby="brief-requirements" className="flex flex-col gap-1 text-[15px]">
+          <h2 id="brief-requirements" className="display text-[18px] font-semibold">
+            Your requirements
+          </h2>
+          <p>Landing at the period start, {dateTimeUtc(s.startUtc, 0)}:</p>
+          <CheckList checks={checked.current.checks} />
+          {answer.better && checked.better && (
+            <>
+              <p>Landing on {dateTimeUtc(s.startUtc, checked.better.item.hour)}, the better date above:</p>
+              <CheckList checks={checked.better.checks} />
+            </>
+          )}
+          <p className="text-ink-2">
+            {OBJECTIVE} {FAIL_RULE}
+          </p>
+        </section>
+      )}
       {sure.lines.length > 0 && (
         <section aria-labelledby="brief-sure" className="flex flex-col gap-1 text-[15px]">
           <h2 id="brief-sure" className="display text-[18px] font-semibold">

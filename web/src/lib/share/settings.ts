@@ -1,5 +1,6 @@
 import { DEFAULT_POWER, type PanelModel, type PowerConfig } from '../engine/power';
 import { PRIORITY_PROFILES, profileOf, validPriorities, type RankBy } from '../plan/rank';
+import type { Requirements } from '../plan/requirements';
 import { PANEL_MODELS, PARAM_RANGES, POWER_RANGES, type NumberRange } from '../planner-ranges';
 import type { PlannerParams } from '../store/explore';
 
@@ -78,17 +79,49 @@ export function parseRank(search: string | URLSearchParams): RankBy | null {
 }
 
 /**
- * The address with the settings that differ from the defaults after its own parameters: Explore's, the view from the
- * site's or the brief's, so the page it opens works the figures out from the same lander, mast and radio threshold, and
- * ranks its recommendations the same way.
+ * The name each of the mission's requirements has in a link, its value in hours as the store keeps it: power for at
+ * least so many hours, Earth in view by so many hours after landing, the longest time without Earth while powered,
+ * and Earth contact while powered. They rank the recommendations rather than change the figures, and a link names only
+ * those set.
  */
-export function withSettings(href: string, params: PlannerParams, by?: RankBy): string {
+export const REQUIREMENT_NAMES: Record<keyof Requirements, string> = {
+  minPoweredH: 'minpower',
+  contactWithinH: 'earthby',
+  maxOutageH: 'maxgap',
+  minPoweredContactH: 'mincontact',
+};
+
+/** The requirements in the order a link writes them, the order every list of checks gives them. */
+const REQUIREMENT_KEYS: (keyof Requirements)[] = ['minPoweredH', 'contactWithinH', 'maxOutageH', 'minPoweredContactH'];
+
+/** What a requirement may be: none to 90 days in hours, as the boxes on Explore and in the planner take them. */
+const REQUIREMENT_RANGE: NumberRange = { min: 0, max: 90 * 24, step: 1 };
+
+/** The requirements that are set, as a link's names and values; none when none is set. */
+export function requirementEntries(req: Requirements): [string, string][] {
+  return REQUIREMENT_KEYS.flatMap((key) => {
+    const v = req[key];
+    return v === null ? [] : [[REQUIREMENT_NAMES[key], write(v)] as [string, string]];
+  });
+}
+
+/** The query of a link's settings, requirements and ranking, without the question mark; empty when it names none. */
+function queryOf(params: PlannerParams, req: Requirements | null, by?: RankBy): string {
   const rank = rankEntry(by);
-  const entries = rank ? [...settingsEntries(params), rank] : settingsEntries(params);
-  if (entries.length === 0) return href;
+  return [...settingsEntries(params), ...(req ? requirementEntries(req) : []), ...(rank ? [rank] : [])].map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+}
+
+/**
+ * The address with the settings that differ from the defaults after its own parameters: Explore's, the view from the
+ * site's or the brief's, so the page it opens works the figures out from the same lander, mast and radio threshold;
+ * with `req`, the requirements that are set after them, so it names the same better date; with `by`, the ranking after
+ * those, so it ranks its recommendations the same way.
+ */
+export function withSettings(href: string, params: PlannerParams, req: Requirements | null = null, by?: RankBy): string {
+  const query = queryOf(params, req, by);
+  if (query === '') return href;
   const hash = href.indexOf('#');
   const [path, tail] = hash < 0 ? [href, ''] : [href.slice(0, hash), href.slice(hash)];
-  const query = entries.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
   return `${path}${path.includes('?') ? '&' : '?'}${query}${tail}`;
 }
 
@@ -130,6 +163,21 @@ export function parseSettings(search: string | URLSearchParams): SettingsPatch {
   return out;
 }
 
+/**
+ * Reads the requirements a link names, each in hours. A value a requirement's box could not take (malformed, negative or
+ * over 90 days) is left out, as a bad setting is. The requirements are one set: a link that names any of them stands for
+ * all four, those it leaves out as none (Explore's store applies it so).
+ */
+export function parseRequirements(search: string | URLSearchParams): Partial<Requirements> {
+  const q = typeof search === 'string' ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search) : search;
+  const out: Partial<Requirements> = {};
+  for (const key of REQUIREMENT_KEYS) {
+    const v = readNumber(q.get(REQUIREMENT_NAMES[key]), REQUIREMENT_RANGE);
+    if (v !== null) out[key] = v;
+  }
+  return out;
+}
+
 /** The settings a link asks for over the current ones: what it does not name stays as it is. */
 export function mergeSettings(params: PlannerParams, patch: SettingsPatch): PlannerParams {
   const { power, ...rest } = patch;
@@ -142,16 +190,16 @@ export function sameSettings(a: PlannerParams, b: PlannerParams): boolean {
 }
 
 /**
- * An address's query with the settings it names replaced by `params`' (those that differ from the defaults), every other
- * parameter kept as it was and where it was: for a page whose address carries more than a link builder writes (the view
- * from the site's hour and drawing switches), so only its settings follow a change of lander.
+ * An address's query with the settings it names replaced by `params`' (those that differ from the defaults), and with
+ * `req` its requirements by those set, every other parameter kept as it was and where it was: for a page whose address
+ * carries more than a link builder writes (the view from the site's hour and drawing switches), so only its settings
+ * follow a change of lander.
  */
-export function replaceSettings(search: string, params: PlannerParams, by?: RankBy): string {
-  const names = new Set([...Object.values(SETTING_NAMES), RANK_NAME]);
+export function replaceSettings(search: string, params: PlannerParams, req: Requirements | null = null, by?: RankBy): string {
+  const names = new Set([...Object.values(SETTING_NAMES), ...(req ? Object.values(REQUIREMENT_NAMES) : []), ...(by ? [RANK_NAME] : [])]);
   const raw = search.startsWith('?') ? search.slice(1) : search;
   const kept = raw === '' ? [] : raw.split('&').filter((part) => part !== '' && !names.has(decodeURIComponent(part.split('=')[0])));
-  const rank = rankEntry(by);
-  const added = [...settingsEntries(params), ...(rank ? [rank] : [])].map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
-  const all = [...kept, ...added];
+  const added = queryOf(params, req, by);
+  const all = [...kept, ...(added === '' ? [] : [added])];
   return all.length === 0 ? '' : `?${all.join('&')}`;
 }

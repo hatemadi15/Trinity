@@ -50,6 +50,22 @@ describe("Explore's own address", () => {
     expect(screen.getByRole('link', { name: 'Printable brief' }).getAttribute('href')).toBe('/brief?site=haworth&start=2027-01-01&days=30&load=400&earthmin=2');
   });
 
+  it('carries the requirements set in its address, and in the links to the view from the site, the brief and the share dialog', async () => {
+    const { store } = await open('?site=haworth&minpower=120&earthby=0');
+    await waitFor(() => expect(store.getState().siteId).toBe('haworth'));
+    expect(store.getState().requirements).toMatchObject({ minPoweredH: 120, contactWithinH: 0 });
+    await waitFor(() => expect(window.location.search).toBe('?site=haworth&start=2027-01-01&days=30&minpower=120&earthby=0'));
+    act(() => store.getState().setRequirements({ contactWithinH: null, maxOutageH: 72 }));
+    await waitFor(() => expect(window.location.search).toBe('?site=haworth&start=2027-01-01&days=30&minpower=120&maxgap=72'));
+    act(() => store.getState().setCursor(66));
+    expect(within(screen.getByRole('region', { name: 'The answer' })).getByRole('link', { name: 'Stand at the site' }).getAttribute('href')).toBe('/explore/stand?site=haworth&start=2027-01-01&days=30&hour=66&minpower=120&maxgap=72');
+    expect(screen.getByRole('link', { name: 'Printable brief' }).getAttribute('href')).toBe('/brief?site=haworth&start=2027-01-01&days=30&minpower=120&maxgap=72');
+    fireEvent.click(within(screen.getByRole('region', { name: 'The numbers' })).getByRole('button', { name: 'Share' }));
+    const dialog = screen.getByRole('dialog', { name: 'Share and download' });
+    expect(within(dialog).getByRole('textbox', { name: 'Link to these figures' })).toHaveProperty('value', `${window.location.origin}/explore?site=haworth&start=2027-01-01&days=30&minpower=120&maxgap=72`);
+    expect(dialog.textContent).toContain('Opens this site, period, lander, mast, radio clearance and your requirements on the same figures, in any browser.');
+  });
+
   it('shares the same link from the numbers card, with the figures to download, and keeps the card to 40 words', async () => {
     const { store } = await open('?site=haworth&load=400&earthmin=2');
     await waitFor(() => expect(store.getState().siteId).toBe('haworth'));
