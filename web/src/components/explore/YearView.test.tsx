@@ -176,4 +176,22 @@ describe('YearView', () => {
     expect(said.said).toMatch(/^No landing day keeps power all 30 days\. The best: /);
     expect(document.activeElement!.getAttribute('aria-label')).toMatch(/^Land 20 January 2027/);
   });
+
+  it('shows itself once worked out when Luna asks for the year before it is ready, as when she opens the forecast for it', async () => {
+    const waiting: (() => void)[] = [];
+    const pause = () => new Promise<void>((resolve) => waiting.push(resolve));
+    render(<YearView {...props('de_gerlache_rim_2', { pause })} />);
+    await waitFor(() => expect(waiting.length).toBeGreaterThan(0));
+    let said: ReturnType<typeof runControl> = { ok: false };
+    act(() => {
+      said = runControl('year');
+    });
+    expect(said.said).toBe('Working out every landing day of the next 12 months.');
+    while (waiting.length) {
+      await act(async () => {
+        waiting.splice(0).forEach((go) => go());
+      });
+    }
+    await waitFor(() => expect(document.activeElement!.getAttribute('aria-label')).toMatch(/^Land 1 January 2027/));
+  });
 });

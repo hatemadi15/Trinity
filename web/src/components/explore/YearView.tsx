@@ -123,14 +123,26 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
   // Only the year worked out for this very anchor is shown: one for an earlier site or period never is.
   const ready = worked && worked.anchor === anchor ? worked : null;
   // Luna's "show me the year" (spec 22): the year comes into view with its tab stop in focus, and she says its answer.
+  // Asked before the year is worked out (she opens the forecast for it), it shows itself once it is.
   const box = useRef<HTMLDivElement>(null);
+  const wanted = useRef(false);
+  const show = useCallback(() => {
+    box.current?.scrollIntoView?.({ block: 'start' });
+    box.current?.querySelector<HTMLButtonElement>('button[data-day][tabindex="0"]')?.focus({ preventScroll: true });
+  }, []);
   useLunaControls({
     year: () => {
-      box.current?.scrollIntoView?.({ block: 'start' });
-      box.current?.querySelector<HTMLButtonElement>('button[data-day][tabindex="0"]')?.focus({ preventScroll: true });
-      return ready ? headline(ready.year, scoring) : 'Working out every landing day of the next 12 months.';
+      show();
+      if (ready) return headline(ready.year, scoring);
+      wanted.current = true;
+      return 'Working out every landing day of the next 12 months.';
     },
   });
+  useEffect(() => {
+    if (!ready || !wanted.current) return;
+    wanted.current = false;
+    show();
+  }, [ready, show]);
   const months = useMemo(() => yearMonths(anchor.startUtc, count), [anchor.startUtc, count]);
   // Explore hands a new arrow each time it redraws (a dozen times a second during Play): the grid gets one that stays.
   const landRef = useRef(onLand);
