@@ -1,6 +1,7 @@
 import type { Series } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
 import { parseExploreQuery, type ExploreQuery } from '../store/query';
+import { countdown, countdownWords } from './countdown';
 import { dateLong, dayMonth, pct0, spanWords } from './format';
 import { compassWord, degrees, groundWords } from './ground';
 
@@ -459,6 +460,16 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
   // The radio hours are those with Earth in view and the lander powered: a relay satellite would change them.
   lines.push("The radio forecast is for a link straight to Earth; a relay satellite, as China's Chang'e 4 used, would change it.");
   return lines;
+}
+
+/**
+ * Today's card's line on what comes next in the sky: the time to the next sunset or sunrise and to Earth's next rising or
+ * setting, in the words of Explore's time bar (countdownWords), with the end of the period named in full, as the card is
+ * not beside the bar: "Sunset in 2 d 9 h · Earth rises in 8 d 17 h".
+ */
+export function skyCountdown(s: Series, hour: number): string {
+  const end = 'the end of the period';
+  return `${countdownWords(countdown(s, 'sun', hour), end)} · ${countdownWords(countdown(s, 'earth', hour), end)}`;
 }
 
 /** What the lander's line says while its power is still being worked out. */

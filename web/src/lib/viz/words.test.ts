@@ -23,7 +23,7 @@ import { countdown, countdownWords } from './countdown';
 import { arrivalWords, hero } from './arrival';
 import { heightWords } from './shadowmap';
 import { statusSentence } from './status';
-import { EARTH_LOOP, keyMoments, liveSentence, momentCaption, poleLine, RESIDENT_LINE, skyLabel, statusLine, viewCaption, watchNext, whyLines, type MomentKind } from './stand';
+import { EARTH_LOOP, keyMoments, liveSentence, momentCaption, poleLine, RESIDENT_LINE, skyCountdown, skyLabel, statusLine, viewCaption, watchNext, whyLines, type MomentKind } from './stand';
 
 /** Other names for an event or stretch that already has one (the plan's vocabulary): each event is named one way. */
 const OTHER_NAMES: [RegExp, string][] = [
@@ -144,6 +144,7 @@ describe('one name for each event (spec 13.3, 14.3)', () => {
       check(`countdown ${hour}`, countdownWords(countdown(s, 'sun', hour)));
       check(`countdown ${hour}`, countdownWords(countdown(s, 'earth', hour), 'the end of the period'));
       check(`radio ${hour}`, radioChangeWords(plan, hour, start));
+      check(`card countdown ${hour}`, skyCountdown(s, hour));
     }
     for (const w of plan.windows) check('window', windowUseWords(w));
     check('powered contact', Object.values(poweredContactWords(plan)).join(' '));
