@@ -1,8 +1,10 @@
 {
- "generated_utc": "2026-11-12T11:47:57Z",
+ "generated_utc": "2026-11-14T12:47:51Z",
  "web": {
-  "files": 138,
-  "tests": 1514
+  "files": 143,
+  "tests": 1541,
+  "passed": 1526,
+  "skipped": 15
  },
  "pipeline": {
   "tests": 134

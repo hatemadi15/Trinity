@@ -107,7 +107,7 @@ describe('StandView', () => {
     expect(state.parentElement!.className).toMatch(/\bmax-md:hidden\b/);
     // On a phone the plate leads with the headline's short form, More beside it; the page's heading keeps it whole.
     const short = within(plate).getByText(asRead(phoneHeadline(heading)), { selector: 'p' });
-    expect(asRead(short.textContent!)).toBe('1 January: power for 3 days 4 hours, no radio');
+    expect(asRead(short.textContent!)).toBe('1 January: power for 3 days 4 hours, Earth hidden');
     expect(short.className).toMatch(/\bmd:hidden\b/);
     expect(short.parentElement).toBe(more.parentElement);
     expect(follows(short, more)).toBe(true);
@@ -196,12 +196,12 @@ describe('StandView', () => {
     // The headline is the page's heading for screen readers while the card is folded: both verdicts the challenge
     // asks for, and a night whose length adds up to the day the power comes back, each span on one line.
     const h1 = screen.getByRole('heading', { level: 1 });
-    expect(h1.textContent).toBe('Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power');
+    expect(h1.textContent).toBe('Landing on 1 January: power for 3 days 4 hours, Earth out of view, then 16 days without power');
     expect(h1.classList.contains('sr-only')).toBe(true);
     // At the plate's foot: the site's name (on one line, and waiting for a wider screen on a phone), then the
     // lander's power, its battery's level and its radio.
     const line = statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh);
-    expect(line.text).toMatch(/^Power on, battery 100 %\. No radio: Earth is (below the horizon|behind a hill)\.$/);
+    expect(line.text).toMatch(/^Power on, battery 100 %\. Earth is (below the horizon|behind a hill)\.$/);
     const status = screen.getByText(asRead(line.text));
     // Its dot is amber, power without radio: green is kept for radio contact, as on the time bar.
     expect(status.closest('[data-plate]')!.querySelector('[data-tone]')!.getAttribute('data-tone')).toBe('power');
@@ -233,10 +233,10 @@ describe('StandView', () => {
     // The better landing day says why, as a comparison: the power and the radio from that landing, to the hour, as
     // the headline gives its spans and the home page's forecast gives this landing ("12 days 15 hours").
     // In the card (the next step's row on the plate carries the same words from 768 px, 18.3).
-    const better = within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, radio for 3\sdays\s5\shours$/ });
+    const better = within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, Earth in view for 3\sdays\s5\shours$/ });
     // Each span on one line, as the headline's (no-break spaces), so "hours" never wraps onto a line of its own; a chevron
     // ends it, as the row's from 768 px (19.4), out of its name.
-    expect(better.textContent).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours ›');
+    expect(better.textContent).toBe('Try 20 January instead: power for 12 days 15 hours, Earth in view for 3 days 5 hours ›');
     expect(better.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
     expect(within(document.getElementById('stand-card')!).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     // So does the help line.
@@ -248,10 +248,10 @@ describe('StandView', () => {
     // No chart above it here: the time bar carries the dates, the hours the lander is off, and those it can radio home.
     expect(screen.getByTestId('dates').querySelectorAll('[data-date]').length).toBeGreaterThan(3);
     expect(screen.getByText('lander off')).toBeTruthy();
-    // The key names only what the bar draws: here no radio contact while the lander has power, only the
+    // The key names only what the bar draws: here Earth out of view while the lander has power, only the
     // contact after the night, if it survives it.
     expect(screen.queryByText('radio contact')).toBeNull();
-    expect(screen.getByText('radio, if the lander survives the cold')).toBeTruthy();
+    expect(screen.getByText('Earth view, if the lander survives')).toBeTruthy();
     // The key moments are flags on the time bar, not a panel of their own.
     expect(screen.queryByRole('group', { name: 'Key moments' })).toBeNull();
     for (const m of keyMoments(st.series!, st.power, st.startUtc)) expect(screen.getByRole('button', { name: `${m.label}, ${m.day}` })).toBeTruthy();
@@ -371,7 +371,7 @@ describe('StandView', () => {
   it('opens a site without polar terrain on flat ground, and says so', async () => {
     await open('?site=blue_ghost_m1&start=2025-03-02T09:00&days=14&hour=0');
     openCard();
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Landing on 2 March: power for all 14\u00a0days, radio all the while');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Landing on 2 March: power for all 14\u00a0days, Earth in view throughout');
     fireEvent.click(screen.getByRole('button', { name: /^Why this happens/ }));
     // How we know comes last among the reasons.
     while (!(screen.getByRole('button', { name: 'Next reason' }) as HTMLButtonElement).disabled) fireEvent.click(screen.getByRole('button', { name: 'Next reason' }));
@@ -923,7 +923,7 @@ describe('StandView', () => {
     // Inside the status's plate, under its line.
     expect(row.closest('[data-plate]')).toBe(screen.getByRole('button', { name: 'More' }).closest('[data-plate]'));
     // The radio as today's card gives it (18.3): the desktop and the card say the same.
-    const gold = within(row).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, (radio for \d+\sdays\s\d+\shours|no radio contact)$/ });
+    const gold = within(row).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, (Earth in view for \d+\sdays\s\d+\shours|Earth out of view)$/ });
     expect(gold.className).toContain('text-[#f6d48a]');
     // A chevron, as the phone's chip has, so the gold reads as a way on (read D3: the judge took it for a line of text).
     expect(gold.querySelector('[aria-hidden="true"]')!.textContent!.trim()).toBe('›');
@@ -937,7 +937,7 @@ describe('StandView', () => {
     // One gold action on the screen: from 768 px the card's own better day and way on are hidden.
     openCard();
     const card = document.getElementById('stand-card')!;
-    expect(within(card).getByRole('link', { name: /radio for/ }).closest('div')!.className).toMatch(/\bmd:hidden\b/);
+    expect(within(card).getByRole('link', { name: /Earth in view for/ }).closest('div')!.className).toMatch(/\bmd:hidden\b/);
     expect(within(card).getByRole('link', { name: 'Change date' }).className).toMatch(/\bmd:hidden\b/);
     expect(within(card).getByRole('button', { name: 'Change lander' }).className).toMatch(/\bmd:hidden\b/);
   });
@@ -1356,7 +1356,7 @@ describe('StandView', () => {
   it('marks the radio contact after the night as only if the lander survives it, and says the clock is Earth’s', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The battery runs out on 4 January; the contact from 20 January needs the lander to live through the night.
-    await waitFor(() => expect(screen.getByText('radio, if the lander survives the cold')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Earth view, if the lander survives')).toBeTruthy());
     expect(screen.getByText(/\(Earth time\)/)).toBeTruthy();
   });
 

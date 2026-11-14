@@ -185,7 +185,7 @@ describe('ValidateView', () => {
     await open();
     const budget = screen.getByRole('region', { name: 'How far off the forecast can be' });
     expect(budget.textContent).toMatch(/under 0\.01° \(the first check finds 0\.00003°\)/);
-    expect(budget.querySelector('li')!.textContent).toMatch(/^Sunrise, sunset and Earth rising or setting: within 15 to 60 minutes/);
+    expect(budget.querySelector('li')!.textContent).toMatch(/^Sunrise, sunset and Earth rising or setting: estimated hourly/);
     const gold = screen.getByRole('main').querySelectorAll('.btn-primary');
     expect(gold).toHaveLength(1);
     expect(gold[0].textContent).toMatch(/Re-check with JPL now/);

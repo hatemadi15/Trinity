@@ -11,6 +11,7 @@ async function ready() {
   const view = render(<SitesView store={store} navigate={() => {}} />);
   await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 20_000 });
   await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(19), { timeout: 20_000 });
+  fireEvent.click(screen.getByRole('radio', { name: 'Best date per site' }));
   return { store, ...view };
 }
 const rowOf = (name: string) => screen.getAllByRole('link').find((a) => a.dataset.row && a.textContent?.startsWith(name))!;
@@ -33,9 +34,7 @@ describe('SitesView', () => {
     expect(screen.getByText(/19 places on the Moon/).textContent).toBe('19 places on the Moon, most of them near the south pole. Pick one to see its forecast.');
     // What the figures count from, the lander and the order, in plain sentences rather than a list of terms (both
     // readers, part C read 1: the figures differ from Explore's, and this says why).
-    expect(screen.getByText(/^Each site's figures are for landing on its best day/).textContent).toBe(
-      "Each site's figures are for landing on its best day of the 30 days from 1 January 2027, the day under its name, and the 30 days after it, for one lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery. Explore and Compare start on the first day, so their figures can differ. In each group, the longest time with power comes first.",
-    );
+    expect(screen.getByText(/^Each site's figures are for its best sampled arrival/).textContent).toMatch(/Each row states its own arrival in UTC/);
     expect(document.querySelector('main dl')).toBeNull();
     expect(screen.getByText(/three real missions, for the same days as the rest of the list/)).toBeTruthy();
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
@@ -46,6 +45,22 @@ describe('SitesView', () => {
     ]);
     expect(screen.getByText(/Each figure is for the centre of the region/)).toBeTruthy();
     expect(document.querySelectorAll('main .btn-primary')).toHaveLength(0);
+  });
+
+  it('defaults to a fair same-arrival comparison and switches every row and map link together', async () => {
+    const { store } = await ready();
+    fireEvent.click(screen.getByRole('radio', { name: 'Same landing date' }));
+    const row = rowOf('de Gerlache Rim 2');
+    expect(row.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    expect(row.textContent).toContain('Arrival: 1 Jan 2027, 00:00 UTC');
+    const current = store.getState().overview.de_gerlache_rim_2;
+    expect(row.textContent).toContain(`${Math.round(current.sunFraction * 100)} %`);
+    expect(row.textContent).toContain('3 d 4 h');
+    expect(screen.getByText(/^Every site uses the same arrival/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Best date per site' }));
+    expect(row.getAttribute('href')).toContain('start=2027-01-20T10:00');
+    const map = screen.getByRole('region', { name: 'Map of the sites' });
+    expect(within(map).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('href')).toBe(row.getAttribute('href'));
   });
 
   it('gives each site its sunlight, its contact with Earth and its longest time with power', async () => {
@@ -59,7 +74,7 @@ describe('SitesView', () => {
     expect(row.textContent).toMatch(/Sunlight 41 %/);
     expect(row.textContent).toMatch(/Earth in view 54 %/);
     // The landing day comes first, under the name: every figure to its right counts from it.
-    expect(row.textContent).toMatch(/de Gerlache Rim 2, Best landing day: 20 Jan/);
+    expect(row.textContent).toMatch(/de Gerlache Rim 2, Best sampled arrival: 20 Jan/);
     expect(row.textContent).toMatch(/Longest time with power 12 d 15 h/);
     expect(row.textContent).not.toMatch(/if it lands on/);
   });
@@ -68,7 +83,7 @@ describe('SitesView', () => {
     await ready();
     expect(rowOf('Shackleton crater floor').textContent).toMatch(/No sunlight/);
     expect(rowOf('Shackleton crater floor').textContent).toMatch(/No power from the Sun/);
-    expect(rowOf('Mons Mouton').textContent).toMatch(/No contact with Earth/);
+    expect(rowOf('Mons Mouton').textContent).toMatch(/Earth out of view/);
     expect(rowOf('Shackleton rim summit').textContent).toMatch(/all 30 days/);
   });
 
@@ -83,8 +98,8 @@ describe('SitesView', () => {
     expect(a).toEqual([...a].sort((x, y) => y - x));
     expect(b).toEqual([...b].sort((x, y) => y - x));
     // Mons Mouton keeps power for 13 d 7 h but never sees Earth in its first 30 days: it sits under the heading, not among the others.
-    expect(within(group).getByRole('heading', { level: 3 }).textContent).toBe('No contact with Earth in the first 30 days');
-    expect(group.textContent).toMatch(/These places keep power for a while but cannot reach Earth by radio then\./);
+    expect(within(group).getByRole('heading', { level: 3 }).textContent).toBe('Earth out of view in the first 30 days');
+    expect(group.textContent).toMatch(/Earth stays behind the horizon throughout this forecast, even if power is available\./);
     expect(within(without).getByText('Mons Mouton')).toBeTruthy();
     expect(without.compareDocumentPosition(withContact) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
@@ -139,7 +154,7 @@ describe('SitesView', () => {
 
   it('folds the method paragraph behind one tap, as one paragraph (spec 15.1, 20.1)', async () => {
     await ready();
-    const method = screen.getByText(/^Each site's figures are for landing on its best day/);
+    const method = screen.getByText(/^Each site's figures are for its best sampled arrival/);
     const fold = screen.getByRole('button', { name: /How these figures are counted/ });
     const panel = document.getElementById(fold.getAttribute('aria-controls')!)!;
     expect(panel.contains(method)).toBe(true);
@@ -148,7 +163,7 @@ describe('SitesView', () => {
     expect(panel.hidden).toBe(false);
   });
 
-  it('keeps the first screen to 105 words before a tap, at 1440 and on a phone (spec 20.1)', async () => {
+  it('keeps the first screen to 120 words including UTC and arrival-mode controls, at 1440 and on a phone (spec 20.1)', async () => {
     await ready();
     // From the heading down to the map, the part a first screen shows.
     const main = document.querySelector('main')!;
@@ -156,7 +171,7 @@ describe('SitesView', () => {
     const map = main.querySelector('section[aria-label="Map of the sites"]')!;
     for (const width of [WIDE, PHONE]) {
       const n = [...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0);
-      expect(n).toBeLessThanOrEqual(105);
+      expect(n).toBeLessThanOrEqual(120);
     }
   });
 
@@ -166,7 +181,7 @@ describe('SitesView', () => {
     expect(store.getState().days).toBe(14);
     await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(19), { timeout: 20_000 });
     await waitFor(() => expect(rowOf('de Gerlache Rim 2').getAttribute('href')).toMatch(/days=14/));
-    expect(screen.getByText(/^Each site's figures/).textContent).toMatch(/best day of the 14 days from 1 January 2027, the day under its name, and the 14 days after it/);
+    expect(screen.getByText(/^Each site's figures/).textContent).toMatch(/best sampled arrival within the 14 days from 1 January 2027, followed by a full 14-day forecast/);
   });
 
   it('shows the rows before the figures arrive', async () => {

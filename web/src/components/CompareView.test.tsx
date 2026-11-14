@@ -37,7 +37,7 @@ describe('CompareView', () => {
     await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
     const heads = within(table).getAllByRole('columnheader').map((h) => h.textContent);
     // What happens to the lander is one phrase, in colour, under "Time with power": no separate verdict repeating it.
-    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Remove']);
+    expect(heads).toEqual(['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Earth in view while powered', 'Longest Earth gap', 'Longest night', 'Time with power', 'Remove']);
     const rows = within(table).getAllByRole('row').slice(1);
     expect(rows[0].textContent).toMatch(/de Gerlache Rim 2/);
     expect(rows[1].textContent).toMatch(/de Gerlache rim summit/);
@@ -45,7 +45,7 @@ describe('CompareView', () => {
     expect(within(rows[0]).getByRole('img', { name: /^The Sun and Earth at de Gerlache Rim 2 over the 30 days/ })).toBeTruthy();
     // The strips' colours are explained under the table.
     expect(screen.getByRole('main').textContent).toMatch(/In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the 30 days\./);
-    expect(screen.getByRole('main').textContent).toMatch(/Time with power counts from landing on the first day until the battery first runs out; Earth in view counts every hour of the period\./);
+    expect(screen.getByRole('main').textContent).toMatch(/Time with power counts from landing until the battery first runs out\. Earth visibility while powered counts only before that first loss of power;/);
     expect(rows[0].textContent).toMatch(/3 d 4 h, then off until 20 Jan/);
     expect(within(rows[0]).getByText('3 d 4 h, then off until 20 Jan').className).toMatch(/\btext-bad\b/);
     expect(within(rows[1]).getByText('all 30 days').className).toMatch(/\btext-good\b/);

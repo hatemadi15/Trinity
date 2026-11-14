@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "id": "earthrise-pairwise-v1",
+  "algorithm": "Nonnegative pairwise logistic ranker; 9 nonlinear metric features",
+  "weights": [
+    3.610608460916,
+    2.855342459006,
+    1.598603607029,
+    3.814984400333,
+    2.568357075167,
+    1.919829324934,
+    3.191779048635,
+    3.062700531609,
+    1.765960183171
+  ],
+  "seed": 20261114,
+  "provenance": "DE440/LOLA engine simulations with synthetic, rule-generated preference labels. No expert-rated or flight-outcome labels.",
+  "policy": "priority-weighted sum of 0.55*x + 0.30*sqrt(x) + 0.15*x^2 for power fraction, powered Earth-view fraction and 1-Earth-gap fraction",
+  "data_sha256": "1ce8167b47302bd0b04504356e0df744caeb7585c0b027ffc029fc76a2ae329e",
+  "scenario_count": 3888,
+  "scenario_splits": {
+    "train": 1404,
+    "site_validation": 540,
+    "temporal_test": 1944
+  },
+  "training_year": 2027,
+  "temporal_test_year": 2028,
+  "validation": {
+    "train": {
+      "pairs": 18000,
+      "synthetic_policy_agreement": 1.0,
+      "cross_entropy": 0.42736244698847353
+    },
+    "held_out_sites_2027": {
+      "pairs": 3000,
+      "synthetic_policy_agreement": 1.0,
+      "cross_entropy": 0.3932443222181948
+    },
+    "held_out_year_2028": {
+      "pairs": 5000,
+      "synthetic_policy_agreement": 1.0,
+      "cross_entropy": 0.3798171834463007
+    }
+  },
+  "score_meaning": "Relative mission preference utility, not a probability of mission success."
+}

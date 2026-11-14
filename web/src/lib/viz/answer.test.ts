@@ -50,13 +50,13 @@ describe('answerFor', () => {
     const a = answer(rep(1, 96), 2);
     expect(a).toMatchObject({ tone: 'good', kind: 'all', title: 'Landing at Alpha Ridge on 1 January: power for all 2 days', better: null, hint: null });
     // Contact with Earth comes first: the lander is no use if it cannot send home what it sees.
-    expect(a.sentences).toEqual(['No radio contact: Earth is out of view for all 2 days.', 'The Sun never sets in these 2 days.']);
+    expect(a.sentences).toEqual(['No direct Earth visibility: Earth is out of view for all 2 days.', 'The Sun never sets in these 2 days.']);
   });
 
   it('names the longest night when the battery covers it', () => {
     const a = answer([...rep(1, 20), ...rep(0, 8), ...rep(1, 68)], 2);
     expect(a.title).toBe('Landing at Alpha Ridge on 1 January: power for all 2 days');
-    expect(a.sentences).toEqual(['No radio contact: Earth is out of view for all 2 days.', 'The Sun is up 83 % of the time. The longest night lasts 8 hours, and the battery covers it.']);
+    expect(a.sentences).toEqual(['No direct Earth visibility: Earth is out of view for all 2 days.', 'The Sun is up 83 % of the time. The longest night lasts 8 hours, and the battery covers it.']);
   });
 
   it('says how long the power lasts, when the Sun sets, what the battery covers and when power comes back', () => {
@@ -64,9 +64,9 @@ describe('answerFor', () => {
     const a = answer([...rep(1, 30), ...rep(0, 40), ...rep(1, 122)], 4);
     expect(a).toMatchObject({ tone: 'bad', kind: 'night', title: 'Landing at Alpha Ridge on 1 January: power for 1 day 16 hours, then night' });
     expect(a.sentences).toEqual([
-      'No radio contact: Earth is out of view for all 1 day 16 hours with power.',
+      'No direct Earth visibility: Earth is out of view for all 1 day 16 hours with power.',
       'The Sun sets behind the hills on 2 January, and the night lasts 1 day 16 hours.',
-      'The battery covers the first 10 hours of the night; power comes back on 3 January.',
+      'The battery covers the first 10 hours of the night; power becomes available again in this model on 3 January.',
     ]);
     expect(a.better).toEqual({
       hour: 70,
@@ -81,9 +81,9 @@ describe('answerFor', () => {
     // A thin last sliver of Sun gives 68 W against the 100 W load: the battery is down 32 Wh when the night starts.
     const a = answer([...rep(1, 30), 0.05, ...rep(0, 40), ...rep(1, 121)], 4);
     expect(a.sentences).toEqual([
-      'No radio contact: Earth is out of view for all 1 day 16 hours with power.',
+      'No direct Earth visibility: Earth is out of view for all 1 day 16 hours with power.',
       'The Sun sets behind the hills on 2 January, and the night lasts 1 day 16 hours.',
-      'As the Sun set, the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power comes back on 3 January.',
+      'As the Sun set, the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power becomes available again in this model on 3 January.',
     ]);
   });
 
@@ -123,9 +123,9 @@ describe('answerFor', () => {
     const a = answer([...rep(0, 30), ...rep(1, 20), ...rep(0, 142)], 2);
     expect(a.title).toBe('Landing at Alpha Ridge on 1 January: power for 10 hours, then night');
     expect(a.sentences).toEqual([
-      'No radio contact: Earth is out of view for all 10 hours with power.',
+      'No direct Earth visibility: Earth is out of view for all 10 hours with power.',
       'The period starts at night: the Sun is set behind the hills until it rises on 2 January.',
-      'The battery covers the first 10 hours of the night; power comes back on 2 January.',
+      'The battery covers the first 10 hours of the night; power becomes available again in this model on 2 January.',
     ]);
     expect(a.better?.label).toBe('Land on 2 January instead');
     expect(a.better?.note).toBe('From 2 January, 06:00 UTC: power for 1 day 6 hours in a row.');
@@ -135,9 +135,9 @@ describe('answerFor', () => {
     const a = answer([...rep(1, 20), ...rep(0, 172)], 2);
     expect(a.title).toBe('Landing at Alpha Ridge on 1 January: power for 1 day 6 hours, then night');
     expect(a.sentences).toEqual([
-      'No radio contact: Earth is out of view for all 1 day 6 hours with power.',
+      'No direct Earth visibility: Earth is out of view for all 1 day 6 hours with power.',
       'The Sun sets behind the hills on 1 January, and the night lasts the rest of the period.',
-      'The battery covers the first 10 hours of the night, and the lander stays off for the rest of the period.',
+      'The battery covers the first 10 hours of the night, and modeled power remains insufficient for the rest of the period.',
     ]);
     expect(a.better).toBeNull();
     expect(a.hint).toBe('No landing date in these 2 days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.');
@@ -155,14 +155,14 @@ describe('answerFor', () => {
   it('says so when there is no sunlight at all', () => {
     const a = answer(rep(0, 96), 2);
     expect(a).toMatchObject({ tone: 'bad', kind: 'no-sun', title: 'No sunlight at Alpha Ridge in these 2 days', better: null });
-    expect(a.sentences).toEqual(['This spot stays in shadow for the whole period. A solar lander cannot work here.']);
+    expect(a.sentences).toEqual(['This spot stays in shadow for the whole period. The configured battery cannot support the load for the full stay.']);
     expect(a.hint).toBe('Try another site, or another month.');
   });
 
   it('credits the battery when it alone carries a period without sunlight', () => {
     const a = answer(rep(0, 96), 2, { ...CFG, batteryWh: 10_000 });
     expect(a).toMatchObject({ tone: 'good', kind: 'all', title: 'Landing at Alpha Ridge on 1 January: power for all 2 days' });
-    expect(a.sentences).toEqual(['No radio contact: Earth is out of view for all 2 days.', 'There is no sunlight in these 2 days: the battery alone carries the lander.']);
+    expect(a.sentences).toEqual(['No direct Earth visibility: Earth is out of view for all 2 days.', 'There is no sunlight in these 2 days: the battery alone carries the lander.']);
   });
 
   it('never writes "undefined", "NaN" or a zero duration in a sentence', () => {
@@ -219,9 +219,9 @@ describe('answerFor on real data', () => {
     });
     expect(a.title).toBe('Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night');
     // Earth stays below the horizon until 10 January: the three days with power have no contact at all.
-    expect(a.sentences[0]).toBe('No radio contact: Earth is out of view for all 3 days 4 hours with power.');
+    expect(a.sentences[0]).toBe('No direct Earth visibility: Earth is out of view for all 3 days 4 hours with power.');
     expect(a.sentences[1]).toBe('The Sun sets behind the hills on 3 January, and the night lasts 16 days 15 hours.');
-    expect(a.sentences[2]).toBe('As the Sun set, the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power comes back on 20 January.');
+    expect(a.sentences[2]).toBe('As the Sun set, the panel already gave less than the lander uses, so the battery covers only the first 9 hours of the night; power becomes available again in this model on 20 January.');
     expect(a.better?.label).toBe('Land on 20 January instead');
     expect(a.better?.note).toBe('From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.');
     expect(a.better?.startUtc).toBe('2027-01-20T10:00:00');

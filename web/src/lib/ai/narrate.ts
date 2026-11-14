@@ -126,7 +126,7 @@ export function templateBrief(s: StateSummary): string {
   const date = dateLong(s.window.startUtc, 0);
   const night = summary.longestDarkH > 0 ? `a longest night of ${spanWords(summary.longestDarkH)}` : 'no night';
   const powerWords = power.poweredHours >= days * 24 ? `keeps power for all ${days} days` : `has power for ${spanWords(power.poweredHours)}, then night`;
-  const contactWords = power.contactHours > 0 ? `with Earth in view for ${spanWords(power.contactHours)} of that time` : 'with no radio contact in that time';
+  const contactWords = power.contactHours > 0 ? `with Earth in view for ${spanWords(power.contactHours)} of that time` : 'with Earth out of view in that time';
   return (
     `${s.site.label} (${hemi(s.site.lat, 'N', 'S')}, ${hemi(s.site.lon, 'E', 'W')}), ${days} days from ${date} ${s.window.startUtc.slice(0, 4)}: ` +
     `sunlight ${pct0(summary.illumFraction)} of the time and ${night}; Earth in view ${pct0(summary.earthVisFraction)} of the time. ` +

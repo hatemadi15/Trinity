@@ -55,9 +55,9 @@ export function groundWords(series: Series, hour: number): { sun: string; earth:
   const earthToward = compassWord(series.earthAz[hour]);
   let earth: string;
   if (series.earthVisible[hour] === 1)
-    earth = earthEl < 0.05 ? `Earth is in view on the horizon to the ${earthToward}: radio contact is possible.` : `Earth is in view ${degrees(earthEl)} above the horizon to the ${earthToward}: radio contact is possible.`;
-  else if (earthEl < 0) earth = 'Earth is below the horizon: no radio contact.';
-  else earth = `Earth has set behind the hills to the ${earthToward}: no radio contact.`;
+    earth = earthEl < 0.05 ? `Earth is in view on the horizon to the ${earthToward}: geometric line of sight toward Earth.` : `Earth is in view ${degrees(earthEl)} above the horizon to the ${earthToward}: geometric line of sight toward Earth.`;
+  else if (earthEl < 0) earth = 'Earth is below the horizon: no direct Earth visibility.';
+  else earth = `Earth has set behind the hills to the ${earthToward}: no direct Earth visibility.`;
   const earthHidden: Hidden = series.earthVisible[hour] !== 1 && earthEl >= 0 ? 'yes' : 'no';
   return { sun, earth, siteState, sunHidden, earthHidden };
 }

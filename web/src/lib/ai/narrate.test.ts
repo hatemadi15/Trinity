@@ -52,7 +52,7 @@ describe('templateBrief', () => {
   it('says when the power ends and when there is no radio contact', () => {
     const dark: StateSummary = { ...summary, power: { socMin: 0, brownoutHours: 37, survives: false, meanPowerW: 40.2, poweredHours: 37, contactHours: 0 } };
     const b = templateBrief(dark);
-    expect(b).toMatch(/has power for 1 day 13 hours, then night, with no radio contact in that time\.$/);
+    expect(b).toMatch(/has power for 1 day 13 hours, then night, with Earth out of view in that time\.$/);
     expect(checkNumbers(b, dark)).toBe(true);
   });
 });

@@ -72,7 +72,7 @@ export function NumbersCard({
   const rows: [string, string, string][] = [
     ['Sunlight', pct(summary.illumFraction), 'share of the hours with any part of the Sun above the hills'],
     ['Longest night', spanShort(summary.longestDarkH), 'the longest stretch with the Sun set'],
-    ['Contact with Earth', pct(summary.earthVisFraction), 'share of the hours with Earth in view for a direct radio link'],
+    ['Earth visibility', pct(summary.earthVisFraction), 'share of the hours with geometric line of sight toward Earth'],
     ['Longest time without Earth', spanShort(summary.longestEarthGapH), 'the longest stretch with Earth set'],
     ['Sunlight and Earth together', pct(summary.jointFraction), 'share of the hours with both'],
     ['Time with power from the start', withPower >= summary.hours ? `all ${days} days` : spanShort(withPower), 'until the battery first runs out'],
@@ -80,7 +80,7 @@ export function NumbersCard({
     ['Lowest battery', `${Math.round(power.socMin * 100)} %`, 'the lowest charge in the period'],
     ['Average power from the panel', `${Math.round(power.meanPowerW)} W`, landerLine(params.power)],
     ['Mast', `${params.mastM} m`, 'the height the Sun and Earth are seen from'],
-    ['Earth counts as in view', `${params.minEarthElDeg}° or more above the hills`, 'a radio needs a little clearance'],
+    ['Earth counts as in view', `${params.minEarthElDeg}° or more above the hills`, 'geometric clearance; a radio link also needs suitable antennas and ground stations'],
     ['Height of the hills', hills, maskMeta && maskMeta.failedTiles > 0 ? `${maskMeta.failedTiles} pieces of the elevation map could not be loaded; some hills may be missing` : 'in 720 directions around the site'],
     [
       'Where',
@@ -107,7 +107,7 @@ export function NumbersCard({
             <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
           </svg>
         }
-        title="Radio contact while it has power"
+        title="Earth in view while powered"
         // The one note the card keeps: it says why the contact can be "none" while the chart shows Earth in view, which a
         // reader took for a contradiction.
         note={

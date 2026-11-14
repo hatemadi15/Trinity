@@ -80,7 +80,7 @@ export function BriefView({
   const powered = Math.min(hours, timeWithPower(s.power));
   const figures: [string, string][] = [
     ['Sunlight', `${pct0(s.summary.illumFraction)} of the ${s.days} days`],
-    ['Radio contact while it has power', answer.contactHours > 0 ? spanShort(answer.contactHours) : 'none'],
+    ['Earth in view while powered', answer.contactHours > 0 ? spanShort(answer.contactHours) : 'none'],
     ['Longest night', s.summary.longestDarkH > 0 ? spanShort(s.summary.longestDarkH) : 'none'],
     ['Time with power', powered >= hours ? `all ${s.days} days` : spanShort(powered)],
     ['Battery when full', `${spanShort(p.loadW > 0 ? p.batteryWh / p.loadW : 0)} at ${p.loadW} W`],
@@ -188,8 +188,9 @@ export function BriefView({
           The hills on the horizon are traced through
           NASA LRO LOLA elevation grids (20 m within 6 km, 80 m to 100 km, 240 m to 220 km) from a {mast} m mast; the Sun counts as up when any part of it clears the hills. Power is the
           panel&apos;s share of 1361 W/m² at the Moon&apos;s distance from the Sun, times the part of the Sun in view; the battery charges with the surplus and empties on the deficit, hour by hour.
-          Errors: directions under 0.01°, the hills 0.05 to 0.15°, times within 15 to 60 minutes near the pole.
+          Events are estimated hourly; terrain uncertainty can shift them further, especially at grazing crossings. Direction agreement does not establish terrain or power accuracy.
         </p>
+      <p>Energy and Earth visibility are preliminary screening estimates. Thermal survival, restart, radio link budget and ground-station availability are not modeled.</p>
       </section>
       <section className="flex flex-col gap-1 text-[15px]">
         <h2 className="display text-[18px] font-semibold">Data</h2>

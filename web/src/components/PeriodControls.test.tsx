@@ -15,15 +15,17 @@ describe('PeriodControls', () => {
     expect((screen.getByRole('radio', { name: '30 days' }) as HTMLInputElement).checked).toBe(true);
   });
 
-  it('reports a new date at midnight UTC and a new length with the same start', () => {
+  it('preserves the UTC hour when changing date and lets the arrival hour change independently', () => {
     const onChange = vi.fn();
     render(<PeriodControls startUtc="2027-01-20T10:00:00" days={30} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '2027-03-05' } });
-    expect(onChange).toHaveBeenLastCalledWith('2027-03-05T00:00:00', 30);
+    expect(onChange).toHaveBeenLastCalledWith('2027-03-05T10:00:00', 30);
+    fireEvent.change(screen.getByLabelText('Arrival hour (UTC)'), { target: { value: '18' } });
+    expect(onChange).toHaveBeenLastCalledWith('2027-01-20T18:00:00', 30);
     fireEvent.click(screen.getByRole('radio', { name: '90 days' }));
     expect(onChange).toHaveBeenLastCalledWith('2027-01-20T10:00:00', 90);
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '' } });
-    expect(onChange).toHaveBeenCalledTimes(2); // an emptied date field changes nothing
+    expect(onChange).toHaveBeenCalledTimes(3); // an emptied date field changes nothing
   });
 
   it('lets a year be typed digit by digit: the box keeps each partial year, and only the whole date moves the period', () => {
@@ -71,8 +73,8 @@ describe('PeriodControls', () => {
     // The table's end, worked out from its header: hourly rows from its first hour, so a period must end by the hour after the last.
     const header = readJson<{ t0_utc: string; step_s: number; n: number }>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
     const end = Date.parse(`${header.t0_utc}Z`) + header.n * header.step_s * 1000;
-    const lastStart = (days: number) => new Date(end - days * 86_400_000).toISOString().slice(0, 10);
-    expect(lastStart(90)).toBe('2036-10-03');
+    const lastStart = (days: number) => new Date(end - days * 86_400_000 - 10 * 3_600_000).toISOString().slice(0, 10);
+    expect(lastStart(90)).toBe('2036-10-02');
     const onChange = vi.fn();
     const { rerender } = render(<PeriodControls startUtc="2027-01-20T10:00:00" days={90} onChange={onChange} />);
     const from = screen.getByLabelText('From') as HTMLInputElement;
@@ -81,12 +83,12 @@ describe('PeriodControls', () => {
     // A year typed digit by digit passes through dates outside the table (0002, 0020, 0202 on the way to 2025): none moves the period.
     for (const value of ['0002-01-15', '0202-01-15', '2023-12-31', '2036-10-04', '2037-01-01', '20300-01-15']) fireEvent.change(from, { target: { value } });
     expect(onChange).not.toHaveBeenCalled();
-    fireEvent.change(from, { target: { value: '2036-10-03' } });
-    expect(onChange).toHaveBeenLastCalledWith('2036-10-03T00:00:00', 90);
+    fireEvent.change(from, { target: { value: '2036-10-02' } });
+    expect(onChange).toHaveBeenLastCalledWith('2036-10-02T10:00:00', 90);
     for (const days of [14, 30] as const) {
       rerender(<PeriodControls startUtc="2027-01-20T10:00:00" days={days} onChange={onChange} />);
       expect(from.max).toBe(lastStart(days));
     }
-    expect(from.max).toBe('2036-12-02');
+    expect(from.max).toBe('2036-12-01');
   });
 });

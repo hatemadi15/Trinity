@@ -1,3 +1,12 @@
+## Decision workflow checks
+
+- [ ] Run the three-person tasks in `docs/usability-test.md`; record observations rather than claiming unperformed testing.
+- [ ] Prepare `/plan` with original arrival, seven-day delay and a nearby alternative at the delayed arrival; use the same duration and lander for the first comparison.
+- [ ] Confirm UTC arrival times, lander settings, mast and clearance match after opening the full share link in a fresh browser session.
+- [ ] Confirm requirement reasons and deltas reflect the currently computed scenarios; no fixed pitch numbers are substituted.
+- [ ] Print the comparison and record the same decision workflow as the backup video.
+- [ ] Rehearse `docs/pitch.md` three times, including model limits and the measured validation gaps.
+
 # Demo checklist — Earthrise at the Beirut event (14–15 November 2026)
 
 ## The week before

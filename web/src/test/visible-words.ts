@@ -72,6 +72,7 @@ export function visibleWords(root: Element, width: number): string[] {
   while (walk.nextNode()) {
     const text = walk.currentNode as Text;
     const parent = text.parentElement;
+    if (parent?.closest('option') && !(parent.closest('option') as HTMLOptionElement).selected) continue;
     if (!parent || parent.closest('script, style, svg title') || !shown(parent, root, width)) continue;
     for (const w of (text.textContent ?? '').replace(/ /g, ' ').split(/\s+/)) if (w && !SIGNS.test(w)) words.push(w);
   }

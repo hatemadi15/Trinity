@@ -213,3 +213,15 @@ describe('VerdictPanel', () => {
     expect(screen.getByRole('status').textContent).toMatch(/12 Oct 2027/);
   });
 });
+
+
+describe('forecast interpretation', () => {
+  it('shows region coordinate uncertainty beside the verdict rather than hiding it in details', () => {
+    render(<VerdictPanel answer={good} onLand={vi.fn()} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} site={{ lat: -88.28, polar: true, approximate: true }} />);
+    const answer = screen.getByRole('region', { name: 'The answer' });
+    expect(answer.textContent).toContain('coordinates are approximate to about 5 km');
+    expect(answer.textContent).toContain('Nearby terrain can give a different answer');
+    expect(answer.textContent).toContain('Thermal survival and restart are not modeled');
+    expect(answer.textContent).toContain('Earth in view does not guarantee a working radio link');
+  });
+});

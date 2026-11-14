@@ -12,17 +12,17 @@ const TABLE_END_MS = Date.UTC(EPHEMERIS_YEARS.last + 1, 0, 1);
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The last start whose period of `days` still ends inside the table: "2036-10-03" for 90 days. */
-function lastStart(days: number): string {
-  return new Date(TABLE_END_MS - days * 86_400_000).toISOString().slice(0, 10);
+function lastStart(days: number, hour = 0): string {
+  return new Date(TABLE_END_MS - days * 86_400_000 - hour * 3_600_000).toISOString().slice(0, 10);
 }
 
 /**
- * The period every figure on a page is for: "From" (a date, midnight UTC) and "For" (14, 30 or 90
+ * The period every figure on a page is for: an arrival date and hour in UTC, and 14, 30 or 90
  * days). Renders two labelled controls; the caller lays them out in a row.
  */
 export function PeriodControls({ startUtc, days, onChange }: { startUtc: string; days: WindowDays; onChange: (startUtc: string, days: WindowDays) => void }) {
   const id = useId();
-  const max = lastStart(days);
+  const max = lastStart(days, Number(startUtc.slice(11, 13) || 0));
   // The box shows what is being typed. The browser reports a year after each digit (0002, 0020 and 0202 on the way
   // to 2027), and a box that went back to the period's date on each of them could never reach the year typed.
   const [draft, setDraft] = useState<string | null>(null);
@@ -52,12 +52,21 @@ export function PeriodControls({ startUtc, days, onChange }: { startUtc: string;
             // Only a whole date whose period fits the table moves the period; a partial year or an emptied box waits.
             const value = e.target.value;
             setDraft(value);
-            if (DATE.test(value) && value >= FIRST_START && value <= max) onChange(`${value}T00:00:00`, days);
+            if (DATE.test(value) && value >= FIRST_START && value <= max) onChange(`${value}T${startUtc.slice(11, 13) || '00'}:00:00`, days);
           }}
           // A date the period could not take is undone once the box is left, so the box shows the period's date again.
           onBlur={() => setDraft(null)}
           className="field w-[170px]"
         />
+      </div>
+      <div className="flex flex-col gap-1.5 text-[15px] text-ink-2">
+        <label htmlFor={`${id}-hour`}>Arrival hour (UTC)</label>
+        <select id={`${id}-hour`} className="field w-32" value={startUtc.slice(11, 13) || '00'} onChange={(e) => onChange(`${startUtc.slice(0, 10)}T${e.target.value}:00:00`, days)}>
+          {Array.from({ length: 24 }, (_, hour) => {
+            const value = String(hour).padStart(2, '0');
+            return <option key={value} value={value}>{value}:00</option>;
+          })}
+        </select>
       </div>
       <div className="flex flex-col gap-1.5 text-[15px] text-ink-2">
         <span id={`${id}-for`}>For</span>

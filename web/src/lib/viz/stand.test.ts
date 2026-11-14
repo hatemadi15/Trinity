@@ -110,11 +110,11 @@ describe('the stand view’s words', () => {
   });
   it('joins the ground panel’s two sentences, in total darkness too', () => {
     const s = series({ sunEl: [-0.5], sunFraction: [0], earthEl: [-3], earthVisible: [0] });
-    expect(liveSentence(s, 0)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is below the horizon: no radio contact.');
+    expect(liveSentence(s, 0)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is below the horizon: no direct Earth visibility.');
   });
   it('does not promise radio contact while the lander has no power', () => {
     const s = series({ sunEl: [-0.5], sunFraction: [0], earthEl: [4.2], earthVisible: [1] });
-    expect(liveSentence(s, 0, true)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is in view 4.2° above the horizon to the east: radio contact is possible.');
+    expect(liveSentence(s, 0, true)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is in view 4.2° above the horizon to the east: geometric line of sight toward Earth.');
     expect(liveSentence(s, 0, false)).toBe('It is night at the site: the Sun is below the horizon, to the north-west. Earth is in view 4.2° above the horizon to the east, but the lander has no power for its radio.');
   });
 
@@ -183,16 +183,16 @@ describe('the lander’s power and radio in one sentence', () => {
   const start = '2027-01-01T00:00:00';
 
   it('says the lander can radio Earth while it has power and Earth is in view', () => {
-    expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'radio', text: 'Power on. Radio contact: Earth is in view.' });
+    expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'radio', text: 'Power on. Earth is in view; radio performance is not modeled.' });
   });
   it('says why the lander cannot radio home while Earth is out of view', () => {
-    expect(statusLine(s, p, start, 20)).toEqual({ on: true, tone: 'power', text: 'Power on. No radio: Earth is below the horizon.' });
+    expect(statusLine(s, p, start, 20)).toEqual({ on: true, tone: 'power', text: 'Power on. Earth is below the horizon.' });
     // Hidden while above the horizon: "behind a hill", one name for it (15.1).
-    expect(statusLine(s, p, start, 30)).toEqual({ on: true, tone: 'power', text: 'Power on. No radio: Earth is behind a hill.' });
+    expect(statusLine(s, p, start, 30)).toEqual({ on: true, tone: 'power', text: 'Power on. Earth is behind a hill.' });
   });
   it('says since when the lander has had power again after a power cut, and only if it survived', () => {
-    expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'Power on again since 20 January, if the lander survived the night. Radio contact: Earth is in view.' });
-    expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'Power on again since 20 January, if the lander survived the night. No radio: Earth is below the horizon.' });
+    expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'Power on again since 20 January, if the lander survived the night. Earth is in view; radio performance is not modeled.' });
+    expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'Power on again since 20 January, if the lander survived the night. Earth is below the horizon.' });
   });
   it('does not promise radio contact while the lander is off, even with Earth in view', () => {
     expect(statusLine(s, p, start, 100)).toEqual({ on: false, tone: 'off', text: 'Power off: the battery ran out on 4 January. Earth is in view, but the radio has no power.' });
@@ -241,7 +241,7 @@ describe('why the view looks as it does', () => {
   const south = 'North and south still work here: the pole itself is 52 km to the south.';
   const cold = 'The night here is colder than −170 °C. Most landers are not built to survive it, which is why the forecast says "if".';
   // What the radio forecast takes for granted, said at every hour.
-  const radio = "The radio forecast is for a link straight to Earth; a relay satellite, as China's Chang'e 4 used, would change it.";
+  const radio = "Earth visibility means geometric line of sight only. Antennas, link budget and ground-station availability are not modeled; a relay satellite would change the opportunities.";
 
   it('near a pole by day: why the Sun stays low, why Earth rises and sets, why the sky is black, and where the pole is', () => {
     const day = series({ sunEl: [2.4], sunFraction: [1], earthEl: [-3], earthVisible: [0] });
@@ -414,67 +414,67 @@ describe('the stand view’s headline', () => {
     // comes back with the Sun at 3 January 22:00.
     expect(headline([...rep(1, 30), ...rep(0, 40), ...rep(1, 26)])).toEqual({
       title: 'Landing at Alpha Ridge on 1 January: power for 1 day 16 hours, then night',
-      headline: `Landing on 1 January: power for ${unbroken('1 day 16 hours')}, no radio contact, then ${unbroken('1 day')} without power`,
+      headline: `Landing on 1 January: power for ${unbroken('1 day 16 hours')}, Earth out of view, then ${unbroken('1 day')} without power`,
     });
     // The power does not come back in the period.
-    expect(headline([...rep(1, 20), ...rep(0, 28)]).headline).toBe(`Landing on 1 January: power for ${unbroken('1 day 6 hours')}, no radio contact, then no power to the end of the period`);
+    expect(headline([...rep(1, 20), ...rep(0, 28)]).headline).toBe(`Landing on 1 January: power for ${unbroken('1 day 6 hours')}, Earth out of view, then no power to the end of the period`);
     // The period starts in the dark.
-    expect(headline([...rep(0, 30), ...rep(1, 18)]).headline).toBe(`Landing on 1 January: power for ${unbroken('10 hours')}, no radio contact, then ${unbroken('1 day')} without power`);
+    expect(headline([...rep(0, 30), ...rep(1, 18)]).headline).toBe(`Landing on 1 January: power for ${unbroken('10 hours')}, Earth out of view, then ${unbroken('1 day')} without power`);
   });
   // A span broken across two lines ("3 days" at the end of one, "4 hours" at the start of the next) reads as
   // two figures: every span of the headline keeps to one line. Only the headline: spanWords keeps plain
   // spaces for every other caller, and the date may still wrap.
   it('keeps each span of the headline on one line, and lets the rest wrap', () => {
     const { headline: h } = headline([...rep(1, 30), ...rep(0, 40), ...rep(1, 26)], CFG, rep(1, 12));
-    expect(h).toBe(`Landing on 1 January: power for ${unbroken('1 day 16 hours')}, radio for ${unbroken('12 hours')}, then ${unbroken('1 day')} without power`);
+    expect(h).toBe(`Landing on 1 January: power for ${unbroken('1 day 16 hours')}, Earth in view for ${unbroken('12 hours')}, then ${unbroken('1 day')} without power`);
     expect(h).not.toMatch(/\d+ (day|hour)/);
     expect(h.startsWith('Landing on 1 January: ')).toBe(true);
     expect(spanWords(40)).toBe('1 day 16 hours');
   });
   it('keeps the words of every other title but the site’s name', () => {
     // Power all the while, with Earth in view for a day of the two.
-    expect(headline(rep(1, 48), CFG, rep(1, 24))).toEqual({ title: 'Landing at Alpha Ridge on 1 January: power for all 2 days', headline: `Landing on 1 January: power for all ${unbroken('2 days')}, radio for ${unbroken('1 day')}` });
+    expect(headline(rep(1, 48), CFG, rep(1, 24))).toEqual({ title: 'Landing at Alpha Ridge on 1 January: power for all 2 days', headline: `Landing on 1 January: power for all ${unbroken('2 days')}, Earth in view for ${unbroken('1 day')}` });
     // A panel of 68 W against a 100 W load runs the battery down in 31 hours, with the Sun up.
     const weak = { ...CFG, areaM2: 0.05 };
     expect(headline(rep(1, 48), weak, rep(1, 25))).toEqual({
       title: 'Landing at Alpha Ridge on 1 January: power for 1 day 7 hours, then too little sunlight',
-      headline: `Landing on 1 January: power for ${unbroken('1 day 7 hours')}, radio for ${unbroken('1 day 1 hour')}, then too little sunlight`,
+      headline: `Landing on 1 January: power for ${unbroken('1 day 7 hours')}, Earth in view for ${unbroken('1 day 1 hour')}, then too little sunlight`,
     });
     // No power from the first hour: no radio to speak of.
     expect(headline([...rep(0, 30), ...rep(1, 18)], { ...CFG, batteryWh: 0 }).headline).toBe('Landing on 1 January: no power, it is night');
     expect(headline(rep(1, 48), { ...weak, batteryWh: 0 }).headline).toBe('Landing on 1 January: too little sunlight from the first hour');
   });
   it('drops the name from a period without sunlight too, and adds no radio verdict to a title that says nothing of the power', () => {
-    // The battery's ten hours all have Earth in view: "radio all the while" would read as the whole period.
+    // The battery's ten hours all have Earth in view: "Earth in view throughout" would read as the whole period.
     expect(headline(rep(0, 48), CFG, rep(1, 48))).toEqual({ title: 'No sunlight at Alpha Ridge in these 2 days', headline: `No sunlight in these ${unbroken('2 days')}` });
   });
   it('drops only the site’s own name', () => {
     const s = series({ sunEl: rep(5, 48), sunFraction: rep(1, 48) });
     const p = powerBudget(s, CFG);
-    expect(standHeadline('Landing at Alpha Ridge on 1 January: power for all 2 days', 'Alpha', s, p, start, 0, 48)).toBe(`Landing at Alpha Ridge on 1 January: power for all ${unbroken('2 days')}, no radio contact`);
+    expect(standHeadline('Landing at Alpha Ridge on 1 January: power for all 2 days', 'Alpha', s, p, start, 0, 48)).toBe(`Landing at Alpha Ridge on 1 January: power for all ${unbroken('2 days')}, Earth out of view`);
   });
 });
 
 describe('the headline’s radio', () => {
   it('says the radio’s verdict straight after the power’s, before what ends the power', () => {
-    expect(radioHeadline('Landing on 1 January: power for 3 days 4 hours, then 16 days without power', 0, 76)).toBe('Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power');
+    expect(radioHeadline('Landing on 1 January: power for 3 days 4 hours, then 16 days without power', 0, 76)).toBe('Landing on 1 January: power for 3 days 4 hours, Earth out of view, then 16 days without power');
     expect(radioHeadline('Landing at Alpha Ridge on 1 January: power for 1 day 16 hours, then 2 days without power', 12, 40)).toBe(
-      'Landing at Alpha Ridge on 1 January: power for 1 day 16 hours, radio for 12 hours, then 2 days without power',
+      'Landing at Alpha Ridge on 1 January: power for 1 day 16 hours, Earth in view for 12 hours, then 2 days without power',
     );
     expect(radioHeadline('Landing at Alpha Ridge on 1 January: power for 1 day 16 hours, then 2 days without power', 40, 40)).toBe(
-      'Landing at Alpha Ridge on 1 January: power for 1 day 16 hours, radio all the while, then 2 days without power',
+      'Landing at Alpha Ridge on 1 January: power for 1 day 16 hours, Earth in view throughout, then 2 days without power',
     );
     expect(radioHeadline('Landing at Alpha Ridge on 1 January: power for 1 day 7 hours, then too little sunlight', 25, 31)).toBe(
-      'Landing at Alpha Ridge on 1 January: power for 1 day 7 hours, radio for 1 day 1 hour, then too little sunlight',
+      'Landing at Alpha Ridge on 1 January: power for 1 day 7 hours, Earth in view for 1 day 1 hour, then too little sunlight',
     );
     expect(radioHeadline('Landing at Alpha Ridge on 1 January: power for 1 day 6 hours, then no power to the end of the period', 0, 30)).toBe(
-      'Landing at Alpha Ridge on 1 January: power for 1 day 6 hours, no radio contact, then no power to the end of the period',
+      'Landing at Alpha Ridge on 1 January: power for 1 day 6 hours, Earth out of view, then no power to the end of the period',
     );
   });
   it('says it at the end when the power lasts the whole period', () => {
-    expect(radioHeadline('Landing at Alpha Ridge on 1 January: power for all 30 days', 291, 720)).toBe('Landing at Alpha Ridge on 1 January: power for all 30 days, radio for 12 days 3 hours');
-    expect(radioHeadline('Landing at Alpha Ridge on 1 January: power for all 30 days', 0, 720)).toBe('Landing at Alpha Ridge on 1 January: power for all 30 days, no radio contact');
-    expect(radioHeadline('Landing at Alpha Ridge on 1 January: power for all 30 days', 720, 720)).toBe('Landing at Alpha Ridge on 1 January: power for all 30 days, radio all the while');
+    expect(radioHeadline('Landing at Alpha Ridge on 1 January: power for all 30 days', 291, 720)).toBe('Landing at Alpha Ridge on 1 January: power for all 30 days, Earth in view for 12 days 3 hours');
+    expect(radioHeadline('Landing at Alpha Ridge on 1 January: power for all 30 days', 0, 720)).toBe('Landing at Alpha Ridge on 1 January: power for all 30 days, Earth out of view');
+    expect(radioHeadline('Landing at Alpha Ridge on 1 January: power for all 30 days', 720, 720)).toBe('Landing at Alpha Ridge on 1 January: power for all 30 days, Earth in view throughout');
   });
   it('leaves the headline as it is when the lander has no power from the landing', () => {
     expect(radioHeadline('Landing at Alpha Ridge on 1 January: no power, it is night', 0, 0)).toBe('Landing at Alpha Ridge on 1 January: no power, it is night');
@@ -491,27 +491,27 @@ describe('the better landing day’s button', () => {
   it('says what it does, and the power and the radio from that day to the hour, as the headline and the forecast say them', () => {
     // 12 days 15 hours of power, 3 days 3 hours of it with Earth in view: the home page's forecast says "12 days
     // 15 hours" for this landing, and the button must not say 13 days.
-    expect(betterLabel('20 January', 303, 75)).toBe(`Try 20 January instead: power for ${unbroken('12 days 15 hours')}, radio for ${unbroken('3 days 3 hours')}`);
+    expect(betterLabel('20 January', 303, 75)).toBe(`Try 20 January instead: power for ${unbroken('12 days 15 hours')}, Earth in view for ${unbroken('3 days 3 hours')}`);
     // A whole period's power, as the page passes it.
-    expect(betterLabel('13 January 2028', 720, 720)).toBe(`Try 13 January 2028 instead: power for ${unbroken('30 days')}, radio for ${unbroken('30 days')}`);
+    expect(betterLabel('13 January 2028', 720, 720)).toBe(`Try 13 January 2028 instead: power for ${unbroken('30 days')}, Earth in view for ${unbroken('30 days')}`);
     // The page passes the hours with Earth in view as a share of the hours with power, not always whole: they read
     // as the whole hours they were counted in.
-    expect(betterLabel('20 January', 303, 303 * (77 / 303))).toBe(`Try 20 January instead: power for ${unbroken('12 days 15 hours')}, radio for ${unbroken('3 days 5 hours')}`);
-    expect(betterLabel('20 January', 303, 75.6)).toBe(`Try 20 January instead: power for ${unbroken('12 days 15 hours')}, radio for ${unbroken('3 days 4 hours')}`);
+    expect(betterLabel('20 January', 303, 303 * (77 / 303))).toBe(`Try 20 January instead: power for ${unbroken('12 days 15 hours')}, Earth in view for ${unbroken('3 days 5 hours')}`);
+    expect(betterLabel('20 January', 303, 75.6)).toBe(`Try 20 January instead: power for ${unbroken('12 days 15 hours')}, Earth in view for ${unbroken('3 days 4 hours')}`);
   });
   it('keeps each span on one line, as the headline does, so "hours" never stands alone on the next: the rest may wrap', () => {
-    expect(betterLabel('20 January', 303, 77)).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours');
+    expect(betterLabel('20 January', 303, 77)).toBe('Try 20 January instead: power for 12 days 15 hours, Earth in view for 3 days 5 hours');
   });
   it('gives a stretch shorter than a day in hours', () => {
-    expect(betterLabel('2 January', 5, 3)).toBe(`Try 2 January instead: power for ${unbroken('5 hours')}, radio for ${unbroken('3 hours')}`);
-    expect(betterLabel('2 January', 30, 1)).toBe(`Try 2 January instead: power for ${unbroken('1 day 6 hours')}, radio for ${unbroken('1 hour')}`);
+    expect(betterLabel('2 January', 5, 3)).toBe(`Try 2 January instead: power for ${unbroken('5 hours')}, Earth in view for ${unbroken('3 hours')}`);
+    expect(betterLabel('2 January', 30, 1)).toBe(`Try 2 January instead: power for ${unbroken('1 day 6 hours')}, Earth in view for ${unbroken('1 hour')}`);
   });
   it('says so when Earth is never in view in that time', () => {
-    expect(betterLabel('20 January', 303, 0)).toBe(`Try 20 January instead: power for ${unbroken('12 days 15 hours')}, no radio contact`);
+    expect(betterLabel('20 January', 303, 0)).toBe(`Try 20 January instead: power for ${unbroken('12 days 15 hours')}, Earth out of view`);
   });
   it('shortens the better day for the row under the status line: the power alone, the radio left to today’s card', () => {
     expect(betterLabel('20 January', 303, 77, true).replace(/\u00a0/g, ' ')).toBe('Try 20 January instead: power for 12 days 15 hours');
-    expect(betterLabel('20 January', 303, 77).replace(/\u00a0/g, ' ')).toBe('Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours');
+    expect(betterLabel('20 January', 303, 77).replace(/\u00a0/g, ' ')).toBe('Try 20 January instead: power for 12 days 15 hours, Earth in view for 3 days 5 hours');
   });
   it('gives a phone its chip: the day short, the power alone, each span on one line', () => {
     expect(betterChip('20 Jan', 303)).toBe(`Try 20 Jan instead: power for ${unbroken('12 days 15 hours')}`);
@@ -960,22 +960,22 @@ describe('captions of two lines, the whys where they happen, and the battery’s
   });
   it('sets the level after the power, and gives none while the lander is off or without the battery’s size', () => {
     const s = series({ sunEl: [1, 1, 1, 1, 1] });
-    expect(statusLine(s, power(), START, 1, 2000)).toEqual({ on: true, tone: 'power', text: 'Power on, battery 75\u00a0%. No radio: Earth is behind a hill.' });
+    expect(statusLine(s, power(), START, 1, 2000)).toEqual({ on: true, tone: 'power', text: 'Power on, battery 75\u00a0%. Earth is behind a hill.' });
     const seen = series({ sunEl: [1, 1, 1, 1, 1], earthEl: [4, 4, 4, 4, 4], earthVisible: [1, 1, 1, 1, 1] });
-    expect(statusLine(seen, power(), START, 3, 2000)).toEqual({ on: true, tone: 'radio', text: 'Power on, battery 25\u00a0%. Radio contact: Earth is in view.' });
+    expect(statusLine(seen, power(), START, 3, 2000)).toEqual({ on: true, tone: 'radio', text: 'Power on, battery 25\u00a0%. Earth is in view; radio performance is not modeled.' });
     // Off: when the battery ran out, as before.
     expect(statusLine(s, power(), START, 4, 2000).text).toBe('Power off: the battery ran out on 1 January. Power does not come back in this period.');
     // Without the battery's size, or with none, no level.
-    expect(statusLine(s, power(), START, 1).text).toBe('Power on. No radio: Earth is behind a hill.');
-    expect(statusLine(s, power(), START, 1, 0).text).toBe('Power on. No radio: Earth is behind a hill.');
+    expect(statusLine(s, power(), START, 1).text).toBe('Power on. Earth is behind a hill.');
+    expect(statusLine(s, power(), START, 1, 0).text).toBe('Power on. Earth is behind a hill.');
   });
   it('gives the level after a power cut beside the condition', () => {
     const back = { powered: Uint8Array.from([1, 0, 0, 1]), energyWh: Float64Array.from([2000, 0, 0, 800]), firstBrownoutHour: 1 } as unknown as PowerResult;
-    expect(statusLine(series({ sunEl: [1, 1, 1, 1] }), back, START, 3, 2000).text).toBe('Power on again since 1 January, if the lander survived the night; battery 40\u00a0%. No radio: Earth is behind a hill.');
+    expect(statusLine(series({ sunEl: [1, 1, 1, 1] }), back, START, 3, 2000).text).toBe('Power on again since 1 January, if the lander survived the night; battery 40\u00a0%. Earth is behind a hill.');
     // A battery run down by day, the Sun still up: no night to survive, only the time without power. Short either way,
     // so the line stays within a phone's room (the final review found the long form five lines tall there).
     const day = series({ sunEl: [1, 1, 1, 1], sunFraction: [1, 1, 1, 1] });
-    expect(statusLine(day, back, START, 3, 2000).text).toBe('Power on again since 1 January, if the lander survived without power; battery 40\u00a0%. No radio: Earth is behind a hill.');
+    expect(statusLine(day, back, START, 3, 2000).text).toBe('Power on again since 1 January, if the lander survived without power; battery 40\u00a0%. Earth is behind a hill.');
   });
 });
 
@@ -1072,11 +1072,11 @@ describe('the bright stars’ names', () => {
 
 describe('the headline’s short form on a phone (19.1)', () => {
   it('keeps the day, the power and the radio, and leaves the night to today’s card', () => {
-    const short = phoneHeadline('Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power');
-    expect(short).toBe('1 January: power for 3 days 4 hours, no radio');
+    const short = phoneHeadline('Landing on 1 January: power for 3 days 4 hours, Earth out of view, then 16 days without power');
+    expect(short).toBe('1 January: power for 3 days 4 hours, Earth hidden');
     // Two 15 px lines beside More on a phone 360 px wide.
     expect(short.length).toBeLessThanOrEqual(60);
-    expect(phoneHeadline('Landing on 2 March: power for all 14 days, radio all the while')).toBe('2 March: power for all 14 days, radio all the while');
+    expect(phoneHeadline('Landing on 2 March: power for all 14 days, Earth in view throughout')).toBe('2 March: power for all 14 days, Earth in view throughout');
     expect(phoneHeadline('Landing on 1 January: too little sunlight from the first hour')).toBe('1 January: too little sunlight from the first hour');
   });
   it('leaves any other title its words', () => {
@@ -1113,12 +1113,12 @@ describe('the stand view’s words on real data', () => {
     // the flags for the battery (4 January) and the power back (20 January) are 16 days apart too.
     expect(nightHeadline('Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night', s, p, start)).toBe('Landing at de Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then 16 days without power');
     // The headline from the verdict, as the page builds it: Earth stays below the horizon until 10 January, so
-    // the three days with power have no radio contact at all. The better landing day plays no part in it.
+    // the three days with power have Earth out of view at all. The better landing day plays no part in it.
     // The site's name is in the line above.
     const a = answerFor({ siteName: 'de Gerlache Rim 2', series: s, summary: summarize(s), power: p, startUtc: start, days: 30, loadW: DEFAULT_POWER.loadW, batteryWh: DEFAULT_POWER.batteryWh, best: null });
-    expect(standHeadline(a.title, 'de Gerlache Rim 2', s, p, start, a.contactHours, a.poweredHours)).toBe(`Landing on 1 January: power for ${unbroken('3 days 4 hours')}, no radio contact, then ${unbroken('16 days')} without power`);
+    expect(standHeadline(a.title, 'de Gerlache Rim 2', s, p, start, a.contactHours, a.poweredHours)).toBe(`Landing on 1 January: power for ${unbroken('3 days 4 hours')}, Earth out of view, then ${unbroken('16 days')} without power`);
     // A phone's plate leads with the short form, each span still on one line; the night waits in today's card (19.1).
-    expect(phoneHeadline(standHeadline(a.title, 'de Gerlache Rim 2', s, p, start, a.contactHours, a.poweredHours))).toBe(`1 January: power for ${unbroken('3 days 4 hours')}, no radio`);
+    expect(phoneHeadline(standHeadline(a.title, 'de Gerlache Rim 2', s, p, start, a.contactHours, a.poweredHours))).toBe(`1 January: power for ${unbroken('3 days 4 hours')}, Earth hidden`);
     expect(standingLine(site, 'de Gerlache Rim 2', 'top')).toBe("Standing at de Gerlache Rim 2, near the Moon's south pole. Hills: NASA height data. Small craters and rocks: added to look real.");
     // Under More, only what the line above does not say: the latitude and the site's own note.
     expect(standingLine(site, 'de Gerlache Rim 2', 'more')).toBe('de Gerlache Rim 2 lies at 88.3° S. A ridge on a crater rim, 52 km from the pole.');
@@ -1149,7 +1149,7 @@ describe('the stand view’s words on real data', () => {
       'With no air there is no twilight: once the Sun has set, it is night.',
       'North and south still work here: the pole itself is 52 km to the south.',
       'The night here is colder than −170 °C. Most landers are not built to survive it, which is why the forecast says "if".',
-      "The radio forecast is for a link straight to Earth; a relay satellite, as China's Chang'e 4 used, would change it.",
+      "Earth visibility means geometric line of sight only. Antennas, link budget and ground-station availability are not modeled; a relay satellite would change the opportunities.",
     ]);
     // The view opens on the landing: the Sun in view 2.46° up, Earth 5.7° below the horizon, out of view.
     expect(skyLabel('sun', s, 0)).toBe('Sun 2.5° up');
@@ -1172,9 +1172,9 @@ describe('the stand view’s words on real data', () => {
     // on 3 January.
     expect(watchNext(s, p, start, 219)).toBe(`${WATCH_LEAD} the Sun rises on 20 January, and the power with it, if the lander survives 16 days without power at night, colder than −170 °C.`);
     expect(radioNext(s, p, start)).toBe('The first day the lander has both power and a view of Earth is 20 January.');
-    expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'power', text: 'Power on. No radio: Earth is below the horizon.' });
+    expect(statusLine(s, p, start, 10)).toEqual({ on: true, tone: 'power', text: 'Power on. Earth is below the horizon.' });
     // With the battery's size, as the page gives it: still full at hour 10, with the Sun up.
-    expect(statusLine(s, p, start, 10, DEFAULT_POWER.batteryWh).text).toBe('Power on, battery 100\u00a0%. No radio: Earth is below the horizon.');
+    expect(statusLine(s, p, start, 10, DEFAULT_POWER.batteryWh).text).toBe('Power on, battery 100\u00a0%. Earth is below the horizon.');
     expect(statusLine(s, p, start, 219)).toEqual({ on: false, tone: 'off', text: 'Power off: the battery ran out on 4 January. Earth is in view, but the radio has no power.' });
     // Off with Earth out of view: the flags say when the power comes back.
     expect(statusLine(s, p, start, 200)).toEqual({ on: false, tone: 'off', text: 'Power off: the battery ran out on 4 January.' });

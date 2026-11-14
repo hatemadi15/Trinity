@@ -183,7 +183,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
       <main className="wrap flex flex-col gap-6 pb-14 pt-8">
         <div>
           <h1 data-band-end="" className="display text-[44px] leading-tight sm:text-[56px]">Accuracy</h1>
-          <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">Each step of the forecast is checked against an independent NASA source. The smaller the gap, the better.</p>
+          <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">Directions and sunlight are compared with NASA references. Mission endings provide context; the full mission is not validated.</p>
         </div>
 
         <p className="text-base font-semibold text-ink">{verdict}</p>
@@ -300,9 +300,9 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             How far off the forecast can be
           </h2>
           <ul className="mt-3 flex max-w-[62em] flex-col gap-2 leading-relaxed text-ink-2">
-            <li>Sunrise, sunset and Earth rising or setting: within 15 to 60 minutes near the pole, where the Sun moves half a degree an hour along the horizon and the forecast is hourly.</li>
+            <li>Sunrise, sunset and Earth rising or setting: estimated hourly. Terrain uncertainty can shift events further, especially when a body grazes the skyline; no universal minute-level timing bound has been established.</li>
             <li>Directions to the Sun and Earth: under 0.01° (the first check finds {degreesText(horizons.max_abs_delta_el_deg)}).</li>
-            <li>The height of the hills around a site: 0.05 to 0.15°, because NASA&apos;s elevation maps are 1 to 2 m uncertain; the app follows them to 0.01°.</li>
+            <li>Terrain horizon uncertainty depends on elevation resolution, local slope and observer location. The 0.05 to 0.15° estimate is illustrative, not a guaranteed bound; agreement between our Python and browser engines tests consistency rather than independent terrain accuracy.</li>
           </ul>
           {badge && (
             <p className="mt-4 text-[15px] text-ink-2">

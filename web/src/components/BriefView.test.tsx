@@ -41,7 +41,7 @@ describe('BriefView', () => {
     expect(screen.getByRole('heading', { level: 2, name: /^Landing at Shackleton rim summit on 1 January: power for all 30 days$/ })).toBeTruthy();
     expect(screen.getByRole('region', { name: /^Landing at Shackleton rim summit/ }).textContent).toMatch(/Earth is in view for/);
     const figures = [...document.querySelectorAll('dt')].map((d) => d.textContent);
-    expect(figures).toEqual(['Sunlight', 'Radio contact while it has power', 'Longest night', 'Time with power', 'Battery when full']);
+    expect(figures).toEqual(['Sunlight', 'Earth in view while powered', 'Longest night', 'Time with power', 'Battery when full']);
     expect(document.querySelector('dl')!.className).toMatch(/\bgrid-cols-2\b.*\bsm:grid-cols-3\b/);
     // The lander once, in words, and Earth's threshold in words.
     expect(screen.getByRole('heading', { name: 'The lander' }).nextElementSibling!.textContent).toBe(

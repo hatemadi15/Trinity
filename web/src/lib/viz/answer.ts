@@ -53,7 +53,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     powered === 0
       ? null
       : contact === 0
-        ? `No radio contact: Earth is out of view for all ${spanOf(powered)}.`
+        ? `No direct Earth visibility: Earth is out of view for all ${spanOf(powered)}.`
         : contact >= powered
           ? `Earth is in view for all ${spanOf(powered)}.`
           : `Earth is in view for ${spanWords(contact)} of the ${spanOf(powered)}.`;
@@ -74,7 +74,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
       tone: 'bad',
       kind: 'no-sun',
       title: `No sunlight at ${siteName} in these ${days} days`,
-      sentences: ['This spot stays in shadow for the whole period. A solar lander cannot work here.'],
+      sentences: ['This spot stays in shadow for the whole period. The configured battery cannot support the load for the full stay.'],
       better: null,
       hint: 'Try another site, or another month.',
       poweredHours: powered,
@@ -82,10 +82,10 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     };
   }
 
-  // The lander is back at the first hour with power after the brownout.
+  // Energy availability can return; thermal survival and restart are not modeled.
   let back = first;
   while (back < hours && power.powered[back] === 0) back++;
-  const backPart = back < hours ? `; power comes back on ${dateLong(startUtc, back)}.` : ', and the lander stays off for the rest of the period.';
+  const backPart = back < hours ? `; power becomes available again in this model on ${dateLong(startUtc, back)}.` : ', and modeled power remains insufficient for the rest of the period.';
   const lead = `power for ${spanWords(first)}`;
 
   let kind: AnswerKind;
@@ -95,7 +95,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     kind = 'low-sun';
     title = first === 0 ? `${landing}: too little sunlight from the first hour` : `${landing}: ${lead}, then too little sunlight`;
     sentences = [`The Sun is up, but the panel makes about ${Math.round(power.powerW[first])} W and the lander uses ${loadW} W.`];
-    sentences.push(back < hours ? `The lander is back on ${dateLong(startUtc, back)}.` : 'The lander stays off for the rest of the period.');
+    sentences.push(back < hours ? `Power becomes available again in this model on ${dateLong(startUtc, back)}.` : 'Modeled power remains insufficient for the rest of the period.');
   } else {
     kind = 'night';
     title = first === 0 ? `${landing}: no power, it is night` : `${landing}: ${lead}, then night`;

@@ -68,7 +68,7 @@ function widestDates(startUtc: string, last: number): string[] {
 const cssString = (words: string) => `"${words.replace(/["\\]/g, '\\$&').replace(/\s+/g, ' ')}"`;
 
 /**
- * Diagonal stripes of the radio band's green at 45°, the ground between them clear: radio contact that comes
+ * Diagonal stripes of the radio band's green at 45°, the ground between them clear: powered Earth view that comes
  * only if the lander lives through the cold of the night. The class is written out whole so that Tailwind
  * generates it.
  */
@@ -173,15 +173,15 @@ type Peek = { share: number; hour: number; moment?: KeyMoment };
  * Once the battery has run out in the night, what the lander does after the power comes back holds only if
  * it survives the cold of that night, which the forecast does not work out (it counts energy only): from
  * `ifSurvivesFrom` on, the radio band is hatched in its green rather than solid, and the key names it "radio,
- * if the lander survives the cold" (18.2), after "radio contact" when some of the band is still solid, the
+ * if the lander survives the cold" (18.2), after "powered Earth view" when some of the band is still solid, the
  * hatching named so that the words never read as a fragment.
  *
  * The key names only what the bar draws for the period shown, so no reader goes looking for a band that is
  * not there: each entry comes only with at least one hour of its own band, in its usual place among the
  * others. "in sunlight" needs an hour with some of the Sun, "night" one with none of it, "lander off" one
- * without power, "Earth in view" one with Earth in view, "radio contact" one of solid green and "radio, if the
+ * without power, "Earth in view" one with Earth in view, "powered Earth view" one of solid green and "radio, if the
  * lander survives the cold" one of hatched green. So where the battery runs out before Earth comes into view,
- * all the radio contact comes after the night and the key names only the hatched band; and on Explore, whose
+ * all the powered Earth view comes after the night and the key names only the hatched band; and on Explore, whose
  * key names the yellow alone, a period with no sunlight has no key at all. On a phone a key of more than the
  * yellow folds behind a "Key ▾" button after the date, and opens under it.
  *
@@ -271,7 +271,7 @@ export function TimeBar({
   /**
    * The hour from which the bar's marks that need power hold only if the lander survives the cold of the night:
    * the first hour with power again after the first power cut, or null when it never needs to. From that hour on
-   * the radio band is hatched rather than solid, and named "radio, if the lander survives the cold" in the key;
+   * the radio band is hatched rather than solid, and named "Earth view, if the lander survives" in the key;
    * only with `dates`.
    */
   ifSurvivesFrom?: number | null;
@@ -312,7 +312,7 @@ export function TimeBar({
           ],
   );
   // The key names each kind of green only when some hour of it is drawn: a band all hatched, as when the battery
-  // runs out before Earth comes into view, has no solid "radio contact" to name.
+  // runs out before Earth comes into view, has no solid "powered Earth view" to name.
   const solid = contactRuns.some((r) => !r.ifSurvives);
   const ifSurvives = contactRuns.some((r) => r.ifSurvives);
   // The strip is grey wherever the yellow leaves a gap: by its own rule, an hour with any part of the Sun is yellow.
@@ -445,7 +445,7 @@ export function TimeBar({
     const words = [series.sunFraction[h] > 0 ? 'in sunlight' : 'night'];
     if (powered?.[h] === 0) words.push('lander off');
     if (series.earthVisible[h] === 1) words.push('Earth in view');
-    if (powered?.[h] === 1 && series.earthVisible[h] === 1) words.push(h >= survives ? 'radio, if the lander survives the cold' : 'radio contact');
+    if (powered?.[h] === 1 && series.earthVisible[h] === 1) words.push(h >= survives ? 'Earth view, if the lander survives' : 'powered Earth view');
     return words;
   };
 
@@ -526,7 +526,7 @@ export function TimeBar({
       {solid && (
         <span data-part="key-contact" className="flex items-center gap-2 text-[15px] text-ink-2">
           <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border-y-2 border-transparent bg-good bg-clip-padding" />
-          radio contact
+          powered Earth view
         </span>
       )}
       {ifSurvives && (
@@ -537,10 +537,10 @@ export function TimeBar({
               line from the scene (18.3), so a shorter copy shows there (display: none keeps the other out of the
               accessibility tree). */}
           <span data-wide="" className="max-sm:hidden">
-            radio, if the lander survives the cold
+            Earth view, if the lander survives
           </span>
           <span data-phone="" className="sm:hidden">
-            radio if it survives the cold
+            Earth view if it survives the cold
           </span>
         </span>
       )}

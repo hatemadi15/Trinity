@@ -5,10 +5,13 @@ the Moon's south pole: for each one it works out, hour by hour, when the Sun cle
 when Earth is in view for radio, and how long a solar lander keeps power there. NASA Space Apps
 2026, challenge "CLPS Lunar Mission Browser", team Astroy/Ed.
 
-Everything is computed in the browser from NASA data (LRO LOLA elevation grids, the JPL DE440
-ephemeris), so the app also runs on a laptop without Wi-Fi.
+The physical forecast is computed in the browser from NASA data (LRO LOLA elevation grids, the JPL DE440
+ephemeris), so the app can also run on a laptop without Wi-Fi when its assets and data are available locally.
 
 ## A tour of the pages
+
+- **Plan a landing** (`/plan`): save independent scenarios with their location, exact UTC arrival, duration and complete lander settings. Compare the original arrival, a delay and a nearby alternative; inspect powered hours and Earth visibility while powered, screen selected operating and visibility requirements, and share or print the full comparison. These are preliminary energy and geometric visibility estimates: thermal survival, restart, actual radio link performance and ground-station availability are not modeled.
+  An experimental trained recommendation model ranks eligible saved plans using mission priorities for power, powered Earth visibility and shorter Earth-hidden gaps. Requirements and terrain checks are enforced before ranking. Training uses simulated forecasts and synthetic preference labels, not expert mission decisions; see [the model card](docs/recommendation-model.md) for data, evaluation and reproduction instructions.
 
 - **Home** (`/`): what the tool answers, in one real month. It opens with the arrival, by scrolling
   or in 21 seconds with "Fly to the south pole": the whole Moon with Earth beyond its south pole,
@@ -23,15 +26,14 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   plain words, print the brief, run it offline.
 - **Choose a landing site** (`/sites`): the 19 places in the catalogue (the nine Artemis III
   candidate regions, the landing spots of three commercial landers, and high points and crater
-  floors), sorted by how long a lander keeps power from its best landing day in the chosen period,
-  with their sunlight and contact with Earth, on a relief map of the pole. Any other point south of
+  floors), compared on the same UTC arrival by default, with an explicit switch to each site's best sampled arrival. Rows show sunlight, Earth visibility and modeled powered duration on a relief map of the pole. Any other point south of
   60° S can be worked out in the browser.
 - **Explore** (`/explore`): the answer for one site and one landing date, first. "Landing at de
   Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, the time
   Earth is in view while the lander has power, a better landing day inside the period ("Land on 20
   January instead") or a better place nearby, and a search of the next 12 months. Below it: the
   numbers (every figure under "All numbers"), a chart of the Sun, Earth and the battery hour by
-  hour with the hills in each direction, the ground at the time bar's hour (three tabs: a north-up
+  hour with the hills in each direction, an on-demand grid of three sites across seven weekly arrivals, a mast-height sensitivity comparison, the ground at the time bar's hour (three tabs: a north-up
   shadow map, the same light in 3D from above, and a horizon chart), and where the site lies with
   its nearest neighbours. The time bar at the bottom plays the period hour by hour. The period is 14,
   30 or 90 days from a date you choose; the Lander dialog offers three ready-made landers or your
@@ -42,7 +44,7 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   from NASA's Blue Marble, turned for the hour; the real stars, placed for the site and hour (by day
   they show once you look up, away from the bright ground). A lander stands 16 m away, with rocks and
   small craters around you: these are drawn, not measured, and the view says so. A plate at the top
-  gives the answer first (power, radio contact, the days without power), the next step under it and
+  gives the answer first (power, Earth visibility, the days without power), the next step under it and
   the lander's state for the hour at its foot; "More" opens today's card; the time bar below plays the period at a day a second (2× and 4× on its speed button), stops on each
   of its key moments and turns the view there (the Sun going behind the hills, the battery running out,
   Earth coming into view, the Sun coming back), which show as dots on the bar, and Next steps to them.

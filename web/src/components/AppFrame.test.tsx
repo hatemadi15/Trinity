@@ -16,7 +16,7 @@ describe('AppFrame', () => {
     expect(header.textContent).toMatch(/^Earthrise/);
   });
 
-  it('renders the wordmark, the four sections in plain words, the theme switch and the footer credits', () => {
+  it('renders the wordmark, the planning and learning sections in plain words, the theme switch and the footer credits', () => {
     render(
       <AppFrame>
         <p>hello</p>
@@ -27,6 +27,7 @@ describe('AppFrame', () => {
     expect(nav.className).toMatch(/\bmax-sm:grid\b.*\bmax-sm:grid-cols-2\b/); // two by two on a phone, none alone on a line
     const links = [...nav.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
     expect(links).toEqual([
+      ['Plan a landing', '/plan'],
       ['Choose a site', '/sites'],
       ['Compare sites', '/compare'],
       ['How it works', '/learn'],

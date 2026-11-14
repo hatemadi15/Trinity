@@ -1,0 +1,37 @@
+@media print {
+  body:has(.planning-workbench) header,
+  body:has(.planning-workbench) footer {
+    display: none !important;
+  }
+  .planning-workbench {
+    --page: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #f4f4f4;
+    --ink: #111111;
+    --ink-2: #333333;
+    --ink-3: #555555;
+    --line: #cccccc;
+    --line-strong: #999999;
+    --good: #126541;
+    --bad: #a02828;
+    --good-bg: #ffffff;
+    --bad-bg: #ffffff;
+    --good-line: #999999;
+    --bad-line: #999999;
+    background: #ffffff;
+    color: #111111;
+    max-width: none;
+    padding: 0;
+  }
+  .planning-workbench .scenario-card {
+    break-inside: avoid;
+  }
+  .planning-workbench details > * {
+    display: block !important;
+  }
+  .planning-workbench .scenario-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+}

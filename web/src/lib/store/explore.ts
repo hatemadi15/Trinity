@@ -11,6 +11,7 @@ import { etToIso, utcToEt } from '../engine/time';
 import { dateLong, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
 import { customPoint, parseExploreQuery } from './query';
+import { parsePlan, validateScenario, type Scenario } from '../planner/scenarios';
 
 export const WINDOW_DAYS = [14, 30, 90] as const;
 export type WindowDays = (typeof WINDOW_DAYS)[number];
@@ -162,6 +163,8 @@ export interface ExploreState {
   setAiMode: (mode: AiMode) => void;
   /** Applies ?site=&start=&days= from a URL once the store is ready; unknown ids and bad dates are ignored. */
   applyQuery: (search: string | URLSearchParams) => Promise<void>;
+  /** Computes an independent plan with its own settings without changing the selected forecast. */
+  evaluateScenario: (scenario: Scenario) => Promise<SiteResult & { maskMeta: MaskMeta }>;
 }
 
 export function recompute(
@@ -221,6 +224,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   // Masks by site id: precomputed ones are cached after their first fetch, computed ones are
   // registered by applyMask so custom sites stay selectable without a mask file.
   const masks = new Map<string, CachedMask>();
+  const scenarioMasks = new Map<string, Promise<CachedMask>>();
   const windows = new Map<string, Heightmap>();
   /** 80 m context grids by site; null records a site whose window has none. */
   const contexts = new Map<string, Heightmap | null>();
@@ -228,6 +232,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   let selectSeq = 0;
   let windowSeq = 0;
   let overviewSeq = 0;
+  let compareSeq = 0;
   let overviewKey: string | null = null;
   let initPromise: Promise<void> | null = null;
   let terrainPromise: Promise<void> = Promise.resolve();
@@ -470,7 +475,14 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         const c = masks.get(id);
         return s && c ? [{ site: s, mask: c.mask }] : [];
       });
-      const targets = scope === 'compare' && compared.length > 0 ? compared : site && mask ? [{ site, mask }] : [];
+      const initialTargets = scope === 'compare' && compared.length > 0 ? compared : site && mask ? [{ site, mask }] : [];
+      let targets: { site: Site; mask: Float64Array }[];
+      try {
+        targets = await Promise.all(initialTargets.map(async (target) => ({ site: target.site, mask: (await scenarioMask(target.site, params.mastM)).mask })));
+      } catch (err) {
+        set({ bestWindowNote: `The landing-date search could not load the terrain: ${message(err)}` });
+        return null;
+      }
       if (targets.length === 0) return null;
       const windowHours = days * 24;
       const startEt = utcToEt(startUtc);
@@ -494,14 +506,15 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         return null;
       }
       const newStart = etToIso(startEt + best.hour * 3600).slice(0, 13) + ':00:00';
+      if (get().params !== params || get().startUtc !== startUtc || (scope === 'compare' && get().compareIds.join(',') !== compareIds.join(','))) return null;
       get().setWindow(newStart, days);
-      const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}`;
+      const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}, ${newStart.slice(11, 16)} UTC`;
       const lasting = spanShort(Math.round(best.poweredHours));
       set({
         bestWindowNote:
           targets.length > 1
-            ? `Across ${targets.length} compared sites: best landing in the next 12 months: ${when}, power for ${lasting} on average.`
-            : `Best landing in the next 12 months: ${when}, power for ${lasting}, Earth in view ${pct0(best.earthFraction)} of that time.`,
+            ? `Across ${targets.length} compared sites: best sampled landing in the next 12 months: ${when}, power for ${lasting} on average. Search interval: 6 hours; maximizes average continuous powered time, then Earth visibility while powered.`
+            : `Best sampled landing in the next 12 months: ${when}, power for ${lasting}, Earth in view ${pct0(best.earthFraction)} of that time. Search interval: 6 hours; maximizes continuous powered time, then Earth visibility while powered.`,
       });
       return { startUtc: newStart, poweredHours: best.poweredHours, earthFraction: best.earthFraction };
     },
@@ -517,7 +530,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       for (const site of sites) {
         if (site.category === 'custom') continue;
         try {
-          const cached = await ensureMask(site);
+          const cached = await scenarioMask(site, params.mastM);
           if (seq !== overviewSeq) return;
           const r = recompute(eph, site, cached.mask, startUtc, days, params);
           set({
@@ -552,6 +565,40 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     },
 
     async applyQuery(search) {
+      const seq = ++selectSeq;
+      const previous = get();
+      const requestIsCurrent = () => seq === selectSeq && get().params === previous.params && get().startUtc === previous.startUtc && get().days === previous.days;
+      const query = typeof search === 'string' ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search) : search;
+      const shared = query.get('scenario');
+      if (shared !== null) {
+        const plan = parsePlan(shared);
+        if (!plan || plan.scenarios.length !== 1) {
+          set({ error: 'This shared scenario is invalid or uses unsupported settings.' });
+          return;
+        }
+        try {
+          const scenario = plan.scenarios[0];
+          const site = scenarioSite(scenario);
+          const cached = await scenarioMask(site, scenario.params.mastM);
+          if (!requestIsCurrent()) return;
+          const eph = get().eph;
+          if (!eph) throw new Error('Load NASA data before opening a shared scenario.');
+          const r = recompute(eph, site, cached.mask, scenario.startUtc, scenario.days, scenario.params, scenario.params.mastM);
+          dropOverview();
+          selectSeq++;
+          windowSeq++;
+          masks.set(site.id, cached);
+          const { mode, modeAuto } = viewFor(site, get().terrainManifest, get().mode, get().modeAuto);
+          set({ site, siteId: site.id, sites: get().sites.some((s) => s.id === site.id) ? get().sites.map((s) => s.id === site.id ? site : s) : [...get().sites, site],
+            startUtc: scenario.startUtc, days: scenario.days, params: scenario.params, mask: cached.mask, maskMeta: cached.meta,
+            series: r.series, summary: r.summary, power: r.power, contacts: r.contacts, best: r.best, cursorHour: 0,
+            heightmap: windows.get(site.id) ?? null, contextHeightmap: contexts.get(site.id) ?? null, mode, modeAuto,
+            error: null, customError: null, maskBusy: false, bestWindowNote: null });
+          recomputeCompare();
+          void loadWindow(site.id);
+        } catch (err) { if (requestIsCurrent()) set({ error: message(err) }); }
+        return;
+      }
       const q = parseExploreQuery(search);
       if (q.startUtc || q.days) get().setWindow(q.startUtc ?? get().startUtc, q.days ?? get().days);
       if (!q.site || q.site === get().siteId) return;
@@ -565,6 +612,16 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       const point = customPoint(q.site);
       const pick = point ? checkPick(point.lat, point.lon) : null;
       if (pick?.ok) await get().selectCustom(pick.lat, pick.lon);
+    },
+
+    async evaluateScenario(input) {
+      const scenario = validateScenario(input);
+      if (!scenario) throw new Error('The scenario contains unsupported coordinates, dates or lander settings.');
+      const eph = get().eph;
+      if (!eph) throw new Error('Load NASA data before evaluating a scenario.');
+      const site = scenarioSite(scenario);
+      const cached = await scenarioMask(site, scenario.params.mastM);
+      return { ...recompute(eph, site, cached.mask, scenario.startUtc, scenario.days, scenario.params, scenario.params.mastM), maskMeta: { ...cached.meta } };
     },
 
     setAiMode(mode) {
@@ -589,6 +646,39 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       await windowPromise;
     },
   }));
+
+  function scenarioSite(scenario: Scenario): Site {
+    if (scenario.site.category === 'custom') {
+      if (store.getState().sites.some((site) => site.id === scenario.site.id && site.category !== 'custom')) throw new Error('A custom point cannot replace a NASA catalogue site.');
+      return { ...scenario.site };
+    }
+    const site = store.getState().sites.find((s) => s.id === scenario.site.id);
+    if (!site || Math.abs(site.lat - scenario.site.lat) > 1e-7 || Math.abs(site.lon - scenario.site.lon) > 1e-7) throw new Error('The shared landing site does not match the NASA catalogue.');
+    return site;
+  }
+
+  /** Coordinates and mast are part of the cache key; a pinned plan never borrows another mast's skyline. */
+  async function scenarioMask(site: Site, mastM: number): Promise<CachedMask> {
+    const key = JSON.stringify([site.id, site.lat, site.lon, mastM]);
+    let pending = scenarioMasks.get(key);
+    if (!pending) {
+      pending = (async () => {
+        if (!site.polar) return { mask: new Float64Array(720), meta: { siteHeightM: 0, source: 'flat' as const, failedTiles: 0, mastM } };
+        const known = masks.get(site.id);
+        if (known && (known.meta.mastM ?? 2) === mastM && store.getState().sites.some((s) => s.id === site.id && s.lat === site.lat && s.lon === site.lon)) return known;
+        if (site.category !== 'custom' && mastM === 2) {
+          const doc = await loaders.loadMask(site.id);
+          if (doc.mast_m === mastM) return { mask: Float64Array.from(doc.elevation_deg), meta: { siteHeightM: doc.site_height_m, source: 'featured' as const, failedTiles: 0, mastM } };
+        }
+        if (!loaders.computeMask) throw new Error('This scenario needs the terrain worker to compute its mast height or custom coordinates.');
+        const res = await loaders.computeMask(site.lat, site.lon, mastM);
+        return { mask: res.mask, meta: { siteHeightM: res.siteHeightM, source: 'computed' as const, failedTiles: res.failedTiles, mastM } };
+      })();
+      scenarioMasks.set(key, pending);
+      pending.catch(() => { scenarioMasks.delete(key); });
+    }
+    return pending;
+  }
 
   /** The catalogue, the Sun and Earth table and the first site's figures; once loaded, only the status is set again. */
   async function loadAll(): Promise<void> {
@@ -637,11 +727,17 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   function recomputeCompare(): void {
     const { eph, compareIds, startUtc, days, params, sites } = store.getState();
     if (!eph) return;
+    const seq = ++compareSeq;
     const compare: SiteResult[] = [];
+    const pending: Promise<SiteResult>[] = [];
     for (const id of compareIds) {
       const cached = masks.get(id);
       const site = sites.find((s) => s.id === id);
       if (!cached || !site) continue;
+      if ((cached.meta.mastM ?? 2) !== params.mastM) {
+        pending.push(scenarioMask(site, params.mastM).then((correct) => recompute(eph, site, correct.mask, startUtc, days, params, params.mastM)));
+        continue;
+      }
       try {
         compare.push(recompute(eph, site, cached.mask, startUtc, days, params, cached.meta.mastM ?? 2));
       } catch {
@@ -649,6 +745,13 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       }
     }
     store.setState({ compare });
+    if (pending.length > 0) {
+      void Promise.all(pending).then((resolved) => {
+        if (seq !== compareSeq) return;
+        const byId = new Map([...compare, ...resolved].map((r) => [r.site.id, r]));
+        store.setState({ compare: compareIds.flatMap((id) => byId.has(id) ? [byId.get(id)!] : []) });
+      }).catch((err) => { if (seq === compareSeq) store.setState({ error: message(err) }); });
+    }
   }
 
   /** Coalesces mast changes; when the timer fires and the cached skyline's mast differs, recomputes once. */

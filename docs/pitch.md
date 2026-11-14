@@ -1,64 +1,66 @@
-# Pitch script — Earthrise (5:00)
+# Earthrise pitch — one planning decision (4:30, plus 30 seconds reserve)
 
-Setup before walking up: laptop on `http://localhost:3000/?demo=1` (offline build, rehearsed assistant answers), browser in kiosk mode, second laptop on the same URL as backup, the recorded demo video open in another tab. Speaker lines are in plain text; clicks are in brackets. Times are cumulative.
+Prepare `/plan` with the original site and arrival, a seven-day delay, and a nearby alternative on the delayed date. Keep the mission duration and lander the same. Set explicit operating-hour, powered Earth-visibility-hour and maximum Earth-gap requirements. Read out only the numbers computed by the current build; rehearse the actual case before using it. Do not promise every alternative improves every metric.
 
-## 0:00 — Hook (30 s)
+## 0:00–0:30 — The problem
 
-[Home page at the top. Click "Fly to the south pole" as you begin.] In March 2025 two landers reached the Moon four days apart. Blue Ghost, on a flat plain in Mare Crisium, worked for fourteen days and switched off a few hours after sunset, as planned. Athena, near a mountain close to the south pole, was dead within a day: it came to rest on its side in a crater with the Sun low on the horizon, and its batteries never charged. Same Moon, same month. The difference was light and line of sight to Earth.
+[Open the saved comparison, not the cinematic arrival.]
 
-[On screen: the headline "See when a Moon lander has sunlight and a signal." over the whole Moon, Earth just beyond its south pole; then the arrival plays for 21 seconds: over the pole from 900 km, the polar cap, the ridge, landing beside a lander at de Gerlache Rim 2, and its January sped up (the Sun sets behind a hill on 3 January, the battery runs out on 4 January, Earth rises on 10 January, the Sun rises again on 20 January), ending on the answer "Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power". It holds there to the end of the hook.]
+“Our lunar landing date moved seven days. Can we still operate at our original site, or should we choose another location? Near the south pole, the Sun stays low, hills can block it, and Earth can disappear behind the terrain. A good monthly sunlight percentage does not tell us whether our battery lasts until Earth is in view.”
 
-## 0:30 — Problem (30 s)
+## 0:30–2:00 — Make the decision
 
-Everyone who plans a south-pole mission has to answer two questions: when is the Sun above the local horizon, and when can a radio see Earth? The answers depend on terrain a few kilometres away and change hour by hour. The tools that answer them exactly, SPICE and GIS stacks, take a specialist a day per site. Earthrise answers in a minute, in a browser, and shows its checks.
+[Point to the original and delayed scenarios.]
 
-## 1:00 — Live demo (2:00)
+“Earthrise preserves the original plan while we change the arrival. Each scenario keeps its coordinates, UTC arrival, mission duration, panel, load, battery, mast and Earth-clearance assumptions.”
 
-[Click "Open the full forecast" under the arrival's answer.] This ridge is one of the nine regions NASA shortlisted for the first crewed Artemis landing. The page opens on the answer, in one sentence: a small solar lander landing on 1 January has power for 3 days 4 hours, then night. [Point at the chart "Why: the 30 days, hour by hour".] Here is why: the gold line is the Sun, skimming the hills; on 3 January it drops behind them and stays there for more than two weeks, and the battery runs out. [Press Play on the time bar.] The shadow map is computed from NASA's elevation data for each hour, with north up: watch the ridge go dark. [Press Pause once the ridge is dark, then drag the time bar's handle back to the start.]
+[Read the computed change in continuous powered duration and Earth visibility while powered.]
 
-[Click "Stand at the site".] And this is the same hour standing on the ridge: NASA's ground out to 125 kilometres, the shadows worked out from those heights, a small white Sun low in a black sky, and a lander beside you for scale. The plate at the top says it first, as the forecast did: landing on 1 January, power for 3 days 4 hours, no radio contact, then 16 days without power. Earth is below the horizon; the pointer at the edge of the screen says by how much. [Press Play.] Watch the shadows sweep across the ground; Play stops on each key moment and turns to it. The Sun drops behind the hills on 3 January; the battery runs out the next day; and on 10 January Earth comes over the hills, but by then the lander has no power to call it. [Press Pause.] [Click "Change", then "Change date", under the answer.]
+“These are the hours before the first modeled power loss, and the hours within that time when Earth is in view. The longest Earth-visibility gap is separate: a large total can still hide a long interruption.”
 
-[Point at the line under the answer.] Twelve kilometres away, the rim summit keeps power for all 30 days from the same landing day. [Click "Explore de Gerlache rim summit".] Green. A few kilometres decide whether a lander lives.
+[Point to the nearby candidate on the delayed arrival.]
 
-[Click "Or ask in plain words" under the answer; the box takes the cursor. Type "compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days". Enter.] The assistant turned that sentence into actions and opened Compare sites. [Compare page.] Two candidates, same days, same lander, one row each: sunlight, Earth in view, longest night, time with power, and a sentence that names the best site for each. [Click "Find the best landing day for these sites in the next 12 months".] It searches the year and moves the period to the landing day that keeps them powered longest on average.
+“Here is another location for the same delayed arrival. The comparison shows which selected requirements each option meets, with reasons. These are screening requirements, not a flight-safety approval.”
 
-[Type "explain the longest night".] The assistant explains, but it never computes: every number on these pages comes from the engine, and the line under each answer says who answered.
+## 2:00–2:45 — Explain why
 
-[Click the "Printable brief" link.] One page, printable: the answer, five numbers, the Sun and Earth over the period, the method, the data. [Point at the paragraph.] Offline, the app writes this from the figures; online a model may write it, and any number not in the figures sends it back to the app's own words.
+[Open the relevant scenario in Explore and show the horizon or shadow map; optionally enter Stand at the site if it loads promptly.]
 
-## 3:00 — Validity (45 s)
+“The Sun and Earth follow these paths against the hills in their directions. This terrain is why nearby locations can behave differently. Change the hour to see the battery, sunlight and Earth visibility together.”
 
-[Open Accuracy.] All three checks pass, each against an independent NASA source, each with a pass mark. Where the Sun and Earth are in the sky: our directions against JPL Horizons, worst gap 0.00003 degrees over 300 test cases, and [click "Re-check with JPL now"] this button asks JPL live. How much sunlight a site gets: against NASA's LOLA sunlight map, a typical gap of 2.6 points, eleven of fifteen sites within five. And when night falls on a real mission: Blue Ghost's last signal came 2.4 hours after our predicted sunset. [Click "Show the numbers" under the third check.] Athena and IM-1 ended early, for the reasons written here.
+“If this is an approximate Artemis region coordinate, it is an illustrative point within that region, not a forecast for every landing spot in it.”
 
-## 3:45 — Impact and next (35 s)
+## 2:45–3:30 — Show the evidence and limits
 
-Planners get a first answer in a minute and a brief they can hand to engineering. Students and the public get the same pages in plain words, and How it works gives teachers the science behind them, with sums a class can check. Anyone can replay real missions from the home page. Next: NAC imagery per site, the arrival from orbit for every site, relay passes, and a public API for the tables.
+[Open Accuracy.]
 
-## 4:20 — Data and team (20 s)
+“Our celestial directions are compared with JPL Horizons: the stored table reports a worst elevation difference of about 0.00003 degrees across 300 cases. That checks directions, not the complete mission prediction.”
 
-NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and about 1,600 automated tests keep the two in step. Team Astroy/Ed.
+“Our illumination comparison has 11 of 15 sites within five percentage points, with a largest difference of 10.8 points. Resolution, mast height and averaging dates differ. We show those differences rather than calling them an exact validation.”
 
-[The Accuracy page shows the exact count: 1,514 tests in the web app and 134 in the pipeline on 12 November; refresh it with `npm run validation:tests` before the pitch.]
+“Events are estimated hourly, and terrain uncertainty can shift them further. The battery calculation does not model thermal survival or restart. Earth visibility is geometric line of sight; antennas, radio link budget and ground-station availability remain separate.”
 
-## 4:40 — Close (20 s)
+## 3:30–4:00 — Share the decision
 
-When is the Sun up, and can Earth hear you? Earthrise answers in a minute, shows its checks, and runs on this laptop with the Wi-Fi off. Thank you.
+[Return to Plan, copy the full comparison link, or show its printable comparison.]
 
-## If something breaks
+“Science and engineering teams can inspect the same scenarios and assumptions. Students can follow the same answer back to the horizon and the NASA data.”
 
-- The assistant does not answer: the page falls back to rehearsed answers on its own; say "rehearsed answer" and continue.
-- The 3D view is black: stay on the Shadow map tab; it shows the same light from above.
-- The stand view is slow or black: add `&quality=fast` to its address, or skip it and stay on Explore's shadow map.
-- The arrival stutters: press "Skip to the answer" to land on the answer, or reload `/?demo=1&quality=fast`. If its live view cannot draw, the page shows its stills on its own.
-- Page does not load: switch to the backup laptop (same URL), or play the recorded demo from the second tab and narrate over it.
-- JPL re-check fails (no internet): the page says so and keeps the stored comparison; the point stands.
+## 4:00–4:30 — Close
 
-## Timing rehearsal log
+“Earthrise helps you compare how a change in lunar landing location or arrival time affects sunlight, modeled power, and direct visibility to Earth. NASA LRO LOLA terrain and JPL DE440 positions drive the calculations in the browser. The next step is testing this workflow with planners and educators and improving terrain validation under matched conditions.”
 
-| Run | Date | Time | Notes |
+## Rehearsal and fallback
+
+- Time three runs; aim for 4:30 so a slow page does not consume the close.
+- Test the exact shared comparison URL in a fresh browser tab. Confirm all lander and mast settings match.
+- Keep a recording of this same case, a printable comparison, and a screenshot of the validation table.
+- Cache the required data on the presentation laptop and test without Wi-Fi. Offline use depends on assets being locally available.
+- If the immersive view fails, use the horizon chart. If the live JPL check is unavailable, show the stored comparison and say so. Never debug during the pitch.
+- State only measured results. Do not claim a speed advantage over other tools without a recorded comparison task.
+
+| Run | Date | Duration | Confusing step or failure |
 |---|---|---|---|
 | 1 | | | |
 | 2 | | | |
 | 3 | | | |
-| 4 | | | |
-| 5 | | | |

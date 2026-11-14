@@ -22,11 +22,13 @@ Irradiance on a Sun-facing surface is 1361 W/m² · (1 AU / d)² · f, where d i
 
 ## Direct-to-Earth contact (Week 4)
 
-Earth is in view when its elevation exceeds the skyline at its azimuth by the minimum elevation the planner sets (0–10°). Contact windows are maximal runs of visible hours. Mast height changes the skyline itself: the browser worker recomputes the selected site's skyline with the new mast; featured skylines are computed with a 2 m mast.
+Earth is in view when its elevation exceeds the skyline at its azimuth by the minimum elevation the planner sets (0–10°). Visibility windows are maximal runs of visible hours. This is geometric Earth-centre line of sight, not a radio link-budget or ground-station availability calculation. Mast height changes the skyline itself: the browser worker recomputes the selected site's skyline with the new mast; featured skylines are computed with a 2 m mast.
 
 ## Best window (Week 4)
 
-The finder scans the 365 days after the chosen start date (clamped to the ephemeris table) in 6-hour steps and scores every window of the chosen length as sunlit fraction + Earth-visible fraction − (longest night + longest Earth gap) / (2 × window hours). Only sunlit start hours are candidates, because a lander arrives in daylight; a site that never sees the Sun in the scan falls back to every start. Without this rule a window that begins mid-night wins by truncating the night at its edge.
+The year finder scans up to 365 days after the chosen start in six-hour arrival steps, limited to arrivals for which the whole requested stay fits in the ephemeris table. It maximizes continuous powered hours from arrival to first brownout, then the fraction of those hours with Earth in view, then chooses the earliest tie. Across several sites it maximizes mean powered duration; this may hide a weak individual site, so inspect the per-site rows. Only arrivals with some visible Sun at every target site are candidates. “Best sampled” refers to this objective and sampling, not a global optimum or a mission-feasibility guarantee.
+
+The Plan workbench stores independent site/date/lander scenarios and screens them against explicit continuous-operation, powered Earth-visibility and maximum Earth-gap requirements. Requirements do not change the physical simulation or establish flight safety. Shared comparisons preserve the full input assumptions.
 
 ## Validation (Week 5)
 
@@ -36,4 +38,10 @@ The finder scans the 365 days after the chosen start date (clamped to the epheme
 - `mazarico.json`: our sunlit fraction (hourly 2024-2036, 2 m mast) against the LOLA average-visibility map `avgvisib_85s_060m_201608` (60 m/px, south of 85°S) at the 15 covered sites; within 5 points at 11 of them, worst +10.8 points at the Shackleton rim high point. High points read a few points brighter here because the map sees no mast and averages other years.
 - `backcasts.json`: the predicted local sunset after each CLPS landing (LOLA skyline, or a flat horizon for the mare site) against the reported end of the mission: Blue Ghost Mission 1 lasted 2.4 h past our predicted sunset (Firefly reported about 5 h), IM-2 died 299 h before its sunset on its side in a crater, IM-1 lost power about three days before its sunset with tilted panels.
 
-Error budget: Sun and Earth directions under 0.01° (measured 3e-5°); terrain skyline 0.05-0.15° (LOLA posts of 20-240 m, 1-2 m height noise, reproduced by the browser engine to 0.01°); event timing ±15-60 minutes near the pole (hourly series, the Sun moves 0.5° per hour along the horizon).
+Uncertainty: direction agreement is measured against the Horizons fixtures (worst elevation gap about 3e-5°). The quoted 0.05–0.15° terrain-horizon estimate is illustrative, not an established bound at every location. Matching Python and TypeScript validates implementation consistency rather than independent terrain truth. Events are estimated hourly; terrain error can shift them further, particularly at grazing crossings. No universal ±15–60-minute timing bound has been established.
+
+## Model scope and interpretation
+
+Power uses a constant load and fixed efficiency, with idealized charging and no thermal model, battery-temperature effects or restart energy. Power becoming available after a brownout does not establish vehicle survival or restart. Earth visibility checks the Earth centre against the terrain skyline plus the selected clearance; antennas, link budget, Earth ground-station coverage and scheduling are not modeled. Region-centre coordinates can be approximate by about 5 km; a single-point result must not be interpreted as the whole region.
+
+The Mazarico comparison uses different terrain resolution, observer height and date coverage. These are possible explanations for discrepancies, not a measured allocation of error. A stronger independent validation would match coordinates, observer height, averaging interval and illumination definition, compare terrain resolutions explicitly, and validate event times using finer temporal samples. Mission-end comparisons are illustrations: Blue Ghost uses a flat mare horizon, and the early IM-1/IM-2 endings do not validate a polar skyline.

@@ -69,7 +69,7 @@ export function checkCards({ horizons, mazarico, backcasts }: ValidationDocs): C
       mark: dirPass ? 'Passes: under the 0.01° target' : 'Misses the 0.01° target',
       figure: degreesText(horizons.max_abs_delta_el_deg),
       figureWords: `the largest gap in ${horizons.n_rows} test cases`,
-      sentence: `Our directions to the Sun and Earth against JPL Horizons, NASA's own position calculator, from six sites every 30 days in 2025 and 2026. The Sun's disc is ${thousandsText(HOME.facts.sun_disc_ratio)} times wider than the largest gap.`,
+      sentence: `Our directions to the Sun and Earth against JPL Horizons, NASA's own position calculator, from six sites every 30 days in 2025 and 2026. The Sun's disc is ${thousandsText(HOME.facts.sun_disc_ratio)} times wider than the largest gap. This tests celestial directions, not terrain shadows or battery lifetime.`,
     },
     {
       id: 'sunlight',
@@ -78,7 +78,7 @@ export function checkCards({ horizons, mazarico, backcasts }: ValidationDocs): C
       mark: sunPass ? `Passes: the typical gap is under ${SUNLIGHT_POINTS} points` : `Misses: the typical gap is over ${SUNLIGHT_POINTS} points`,
       figure: `${typical.toFixed(1)} points`,
       figureWords: `the typical gap at ${covered.length} sites; 72 % against 70 % is a gap of 2 points`,
-      sentence: `Our share of sunlight against NASA's sunlight map from the LOLA laser altimeter, averaged over 13 years, at the ${covered.length} sites it covers: ${within} of ${covered.length} sites are within ${SUNLIGHT_POINTS} points. The two largest misses, at ${worstTwo.map(placeName).join(' and ')}, are narrow high features; NASA's map averages the ground over 60 m squares, wider than they are.`,
+      sentence: `Our share of sunlight against NASA's sunlight map from the LOLA laser altimeter, averaged over 13 years, at the ${covered.length} sites it covers: ${within} of ${covered.length} sites are within ${SUNLIGHT_POINTS} points. The two largest misses are at ${worstTwo.map(placeName).join(' and ')}. Terrain resolution, mast height and averaging dates differ; these are possible causes, not a measured allocation of the error.`,
     },
     {
       id: 'nights',
@@ -87,7 +87,7 @@ export function checkCards({ horizons, mazarico, backcasts }: ValidationDocs): C
       mark: nightPass ? `Passes: within ${SUNSET_AGREEMENT_H} hours of sunset` : `Misses: more than ${SUNSET_AGREEMENT_H} hours from sunset`,
       figure: Number.isFinite(ghostGap) ? `${ghostGap.toFixed(1)} hours` : 'no end yet',
       figureWords: "between Blue Ghost's last signal and our predicted sunset",
-      sentence: `Our predicted sunset after each landing against the reported end of the mission. ${backcastSentence(backcasts.rows)}`,
+      sentence: `Illustrative comparison of predicted sunset and reported mission end. ${backcastSentence(backcasts.rows)} Blue Ghost uses a flat mare horizon; the early endings of IM-1 and IM-2 do not validate polar horizon accuracy.`,
     },
   ];
 }

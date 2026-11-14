@@ -76,10 +76,10 @@ describe('the arrival', () => {
     expect(proof.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('names the second action for the section it jumps to, so only the link to /learn says how it works', () => {
+  it('opens the delay comparison directly and keeps a separate flight and learning link', () => {
     render(<Arrival words={words} Stage={Stage} />);
-    // The three drawings of why the pole is hard, on the home page itself.
-    expect(screen.getByRole('link', { name: 'See why the pole is hard' }).getAttribute('href')).toBe('#why');
+    expect(screen.getByRole('link', { name: 'Compare a delayed landing' }).getAttribute('href')).toBe('/plan?delay=7');
+    expect(screen.getByRole('link', { name: 'Fly to the south pole' }).className).not.toContain('btn-primary');
     // The old name read as a twin of the link two lines below it, which goes to a page of its own.
     expect(screen.queryByRole('link', { name: /see how it works/i })).toBeNull();
     expect(screen.getAllByRole('link', { name: /how it works/i }).map((a) => a.getAttribute('href'))).toEqual(['/learn']);
@@ -200,7 +200,7 @@ describe('the arrival', () => {
     render(<Arrival words={words} Stage={Stage} />);
     // The sentence that repeats the flight's first lines is gone, not hidden.
     expect(document.body.textContent).not.toMatch(/one hill can keep them out of sight for weeks/);
-    const product = screen.getByText(/^Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth and how long a lander keeps power, for ready-made landers or your own\.$/);
+    const product = screen.getByText(/^Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, Earth visibility and how long a lander keeps power, for ready-made landers or your own\.$/);
     expect(product.className).not.toMatch(/\bmax-sm:hidden\b/);
     expect(screen.getByText(/^Scroll to fly down/).className).toMatch(/\bmax-sm:hidden\b/);
   });

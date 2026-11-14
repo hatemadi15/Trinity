@@ -13,7 +13,7 @@ import { siteLabel, type Site } from '@/lib/data/loaders';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { landerLine } from '@/lib/lander';
 import { exploreStore, type ExploreState, type SiteOverview } from '@/lib/store/explore';
-import { dateLong, dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
+import { dateLong, dateTimeUtc, isoAt, pct0, spanShort } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 import { exploreHref } from '@/lib/links';
 
@@ -44,7 +44,7 @@ const rank = (o: SiteOverview | undefined) => (o ? (o.best?.poweredHours ?? -1) 
 /** A place that never sees Earth in its first days after landing: a lander there cannot send home what it finds. */
 const noContact = (o: SiteOverview | undefined) => o !== undefined && o.afterEarth === 0;
 
-function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; o: SiteOverview | undefined; href: string; startUtc: string; days: number; active: boolean; onActive: (id: string | null) => void }) {
+function Row({ site, o, href, startUtc, days, active, onActive, optimized }: { optimized: boolean; site: Site; o: SiteOverview | undefined; href: string; startUtc: string; days: number; active: boolean; onActive: (id: string | null) => void }) {
   const capped = o?.best ? o.best.poweredHours >= days * 24 : false;
   return (
     <li>
@@ -63,7 +63,7 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
           {/* The day every figure of the row counts from, before the figures. */}
           {o?.best && (
             <span className="mt-0.5 block text-[15px] font-medium text-ink">
-              <span className="sr-only">, </span>Best landing day: {dayMonth(startUtc, o.best.hour)}
+              <span className="sr-only">, </span>{optimized ? 'Best sampled arrival' : 'Arrival'}: {dateTimeUtc(startUtc, o.best.hour)}
             </span>
           )}
           <span className="mt-0.5 block text-[15px] text-ink-2">{site.blurb}</span>
@@ -95,7 +95,7 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
                   <b className="w-12 text-right font-semibold">{pct0(o.afterEarth)}</b>
                 </>
               ) : (
-                <span className="text-[15px] text-ink-2">No contact with Earth</span>
+                <span className="text-[15px] text-ink-2">Earth out of view</span>
               )}
             </span>
             <span>
@@ -175,6 +175,10 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
   const [active, setActive] = useState<string | null>(null);
+  const [optimized, setOptimized] = useState(false);
+  const overview = useMemo<Record<string, SiteOverview>>(() => optimized ? s.overview : Object.fromEntries(Object.entries(s.overview).map(([id, o]) => [id, {
+    ...o, best: { hour: 0, poweredHours: o.nowHours, earthFraction: o.earthFraction }, afterSun: o.sunFraction, afterEarth: o.earthFraction,
+  }])), [s.overview, optimized]);
 
   useEffect(() => {
     void store.getState().init();
@@ -185,15 +189,15 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
 
   const catalogue = useMemo(() => s.sites.filter((x) => x.category !== 'custom'), [s.sites]);
   const groups = useMemo(() => {
-    const settled = !s.overviewBusy && Object.keys(s.overview).length > 0;
+    const settled = !s.overviewBusy && Object.keys(overview).length > 0;
     return GROUPS.map((g) => {
       const rows = catalogue.filter((x) => g.categories.includes(x.category));
       // The order changes once, when every figure is in: rows must not jump under the pointer while they load.
       if (!settled) return { ...g, rows, without: [] as Site[] };
-      const sorted = [...rows].sort((a, b) => rank(s.overview[b.id]) - rank(s.overview[a.id]));
-      return { ...g, rows: sorted.filter((x) => !noContact(s.overview[x.id])), without: sorted.filter((x) => noContact(s.overview[x.id])) };
+      const sorted = [...rows].sort((a, b) => rank(overview[b.id]) - rank(overview[a.id]));
+      return { ...g, rows: sorted.filter((x) => !noContact(overview[x.id])), without: sorted.filter((x) => noContact(overview[x.id])) };
     });
-  }, [catalogue, s.overview, s.overviewBusy]);
+  }, [catalogue, overview, s.overviewBusy]);
   const pins: MapPin[] = useMemo(() => {
     // The pole first, as the map's landmark, then in the order of the list, so the names written on the map are those of the rows at the top.
     const order = ['south_pole', ...groups.flatMap((g) => [...g.rows, ...g.without].map((r) => r.id))];
@@ -201,21 +205,21 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
       .flatMap((p) => {
         const site = catalogue.find((x) => x.id === p.id);
         if (!site) return [];
-        const best = s.overview[p.id]?.best;
-        return [{ id: p.id, u: p.u, v: p.v, label: siteLabel(site), href: siteHref(p.id, s.overview[p.id], s.startUtc, s.days), tone: best && best.poweredHours >= TWO_WEEKS_H ? ('good' as const) : ('plain' as const) }];
+        const best = overview[p.id]?.best;
+        return [{ id: p.id, u: p.u, v: p.v, label: siteLabel(site), href: siteHref(p.id, overview[p.id], s.startUtc, s.days), tone: best && best.poweredHours >= TWO_WEEKS_H ? ('good' as const) : ('plain' as const) }];
       })
       .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-  }, [groups, catalogue, s.overview, s.startUtc, s.days]);
+  }, [groups, catalogue, overview, s.startUtc, s.days]);
   const top = useMemo(() => {
     if (s.overviewBusy) return null;
     let found: { site: Site; o: SiteOverview } | null = null;
     for (const site of catalogue) {
-      const o = s.overview[site.id];
+      const o = overview[site.id];
       if (!o?.best || o.afterEarth === 0) continue;
       if (!found || o.best.poweredHours > found.o.best!.poweredHours || (o.best.poweredHours === found.o.best!.poweredHours && o.afterEarth > found.o.afterEarth)) found = { site, o };
     }
     return found;
-  }, [catalogue, s.overview, s.overviewBusy]);
+  }, [catalogue, overview, s.overviewBusy]);
   const offMap = catalogue.filter((x) => !HOME.relief.sites.some((p) => p.id === x.id)).map(siteLabel);
 
   if (s.status === 'idle' || s.status === 'loading') {
@@ -242,15 +246,17 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
       <main className="wrap pb-16 pt-10">
         <h1 data-band-end="" className="display text-[40px] leading-tight">Choose a landing site</h1>
         <p className="mt-3 max-w-[46em] text-lg text-ink-2">{catalogue.length} places on the Moon, most of them near the south pole. Pick one to see its forecast.</p>
-        {/* What a row counts from, the lander, the order, in plain sentences: the figures of a row differ from Explore's
-            first day, and this says why (both readers, part C read 1). It is one tap away, since it is read once. */}
-        <Fold label="How these figures are counted" className="mt-3">
-          <p className="max-w-[52em] text-[15px] text-ink-2">
-            Each site&apos;s figures are for landing on its best day of the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, the day under its name, and the{' '}
-            {s.days} days after it, for one lander: {landerLine(s.params.power)}. Explore and Compare start on the first day, so their figures can differ. In each group, the
-            longest time with power comes first.
-          </p>
-        </Fold>
+<Fold label="How these figures are counted" className="mt-3">
+          <p className=" max-w-[52em] text-[15px] text-ink-2">
+          {optimized ? `Each site's figures are for its best sampled arrival within the ${s.days} days from ${dateLong(s.startUtc, 0)} ${s.startUtc.slice(0, 4)}, followed by a full ${s.days}-day forecast. Each row states its own arrival in UTC.` : `Every site uses the same arrival: ${dateTimeUtc(s.startUtc, 0)}, followed by ${s.days} days. This makes the sites directly comparable.`}{' '}
+          One lander: {landerLine(s.params.power)}. In each group, the longest time with power comes first. Earth visibility is geometric and does not guarantee radio contact.
+        </p>
+</Fold>
+        <fieldset className="mt-4 flex flex-wrap gap-4">
+          <legend className="mb-2 text-[15px] font-semibold">Compare arrivals</legend>
+          <label className="flex min-h-11 items-center gap-2"><input type="radio" name="site-arrivals" checked={!optimized} onChange={() => setOptimized(false)} />Same landing date</label>
+          <label className="flex min-h-11 items-center gap-2"><input type="radio" name="site-arrivals" checked={optimized} onChange={() => setOptimized(true)} />Best date per site</label>
+        </fieldset>
         <div className="mt-6 flex flex-wrap items-end gap-4">
           <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
         </div>
@@ -285,7 +291,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                 <Link href={siteHref(top.site.id, top.o, s.startUtc, s.days)} className="font-semibold underline decoration-line-strong underline-offset-4 hover:decoration-ink">
                   {siteLabel(top.site)}
                 </Link>
-                , {top.o.best!.poweredHours >= s.days * 24 ? `all ${s.days} days` : spanShort(Math.round(top.o.best!.poweredHours))} if it lands on {dayMonth(s.startUtc, top.o.best!.hour)}.
+                , {top.o.best!.poweredHours >= s.days * 24 ? `all ${s.days} days` : spanShort(Math.round(top.o.best!.poweredHours))} if it lands on {dateTimeUtc(s.startUtc, top.o.best!.hour)}.
               </p>
             )}
             {groups.map((g, i) => (
@@ -297,23 +303,23 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                 <div aria-hidden="true" className={`${COLUMNS} mt-4 border-b-2 border-ink px-3 pb-2 text-[15px] font-semibold text-ink-2`}>
                   <span>Site</span>
                   <span>Sunlight</span>
-                  <span>Earth in view (radio)</span>
+                  <span>Earth in view</span>
                   <span>Longest time with power</span>
                   <span />
                 </div>
                 <ul className="divide-y divide-line-strong">
                   {g.rows.map((site) => (
-                    <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
+                    <Row key={site.id} site={site} o={overview[site.id]} href={siteHref(site.id, overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} optimized={optimized} />
                   ))}
                 </ul>
                 {/* Places that never see Earth get a heading of their own, so their place in the order explains itself. */}
                 {g.without.length > 0 && (
                   <>
-                    <h3 className="mt-7 px-3 text-[17px] font-semibold text-ink">No contact with Earth in the first {s.days} days</h3>
-                    <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">These places keep power for a while but cannot reach Earth by radio then.</p>
+                    <h3 className="mt-7 px-3 text-[17px] font-semibold text-ink">Earth out of view in the first {s.days} days</h3>
+                    <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">Earth stays behind the horizon throughout this forecast, even if power is available.</p>
                     <ul className="divide-y divide-line-strong">
                       {g.without.map((site) => (
-                        <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
+                        <Row key={site.id} site={site} o={overview[site.id]} href={siteHref(site.id, overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} optimized={optimized} />
                       ))}
                     </ul>
                   </>

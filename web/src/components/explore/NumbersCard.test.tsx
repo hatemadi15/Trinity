@@ -51,7 +51,7 @@ describe('NumbersCard', () => {
     // the sunlight's definition and the lander's whole line. Contact is counted in the hours the lander has power, the
     // figure the verdict gives; its note stays, since it says why Earth can be in view with no contact.
     expect(visibleWords(numbers, WIDE).join(' ')).toBe(
-      'Sunlight 45 % Radio contact while it has power Earth is in view 45 % of the 30 days, but not while the lander has power none Lander 10 h of battery when full All numbers Printable brief',
+      'Sunlight 45 % Earth in view while powered Earth is in view 45 % of the 30 days, but not while the lander has power none Lander 10 h of battery when full All numbers Printable brief',
     );
     expect(numbers.textContent).not.toMatch(/share of the 30 days|4 m² panel/);
     // The card's words stay plain: it names no dataset.
@@ -60,7 +60,7 @@ describe('NumbersCard', () => {
 
   it('gives the hours of contact while the lander has power', () => {
     show({ contactHours: 77 });
-    expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/Radio contact while it has power.*3 d 5 h/);
+    expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/Earth in view while powered.*3 d 5 h/);
   });
 
   it('opens every number in a dialog, in plain words', () => {
@@ -72,7 +72,7 @@ describe('NumbersCard', () => {
     // What the card's figures measure, one tap from the card: the sunlight's definition and the lander's whole line.
     expect(row('Sunlight')).toMatch(/44\.6 %.*share of the hours with any part of the Sun above the hills/);
     expect(row('Longest night')).toMatch(/16 d 15 h/);
-    expect(row('Contact with Earth')).toMatch(/45\.0 %/);
+    expect(row('Earth visibility')).toMatch(/45\.0 %/);
     expect(row('Longest time without Earth')).toMatch(/16 d 12 h/);
     expect(row('Sunlight and Earth together')).toMatch(/20\.0 %/);
     expect(row('Time with power from the start')).toMatch(/3 d 4 h/);

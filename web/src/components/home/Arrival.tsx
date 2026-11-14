@@ -194,7 +194,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             </h1>
             {/* One sentence says what this is and what it gives; the flight just below says why the pole is hard. */}
             <p data-words="" className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
-              Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth and how long a lander keeps power, for ready-made landers or your own.
+              Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, Earth visibility and how long a lander keeps power, for ready-made landers or your own.
             </p>
             {/* Where the numbers come from and how they were checked, for a reader who weighs a forecast by its sources. Like the
                 first sentence it waits for a wider screen, so the phone's first screen stays short. */}
@@ -205,13 +205,12 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
               </Link>
             </p>
             <div data-words="" className="mt-7 flex w-fit flex-wrap gap-3">
-              <Link href="/sites" onClick={start} className="btn btn-primary h-[52px] px-[22px] text-[17px]">
+              <Link href="/plan?delay=7" className="btn btn-primary h-[52px] px-[22px] text-[17px]">
+                Compare a delayed landing
+              </Link>
+              <Link href="/sites" onClick={start} className="btn h-[52px] px-[22px] text-[17px]">
                 Fly to the south pole
               </Link>
-              {/* Named for the section it jumps to, whose heading is "Why the south pole is hard"; the link just below the buttons goes to How it works. */}
-              <a href="#why" className="btn h-[52px] px-[22px] text-[17px]">
-                See why the pole is hard
-              </a>
             </div>
             <p data-words="" className="mt-3 w-fit text-base text-[#c6c5c0]">
               For planners of NASA&apos;s commercial Moon landers, teachers (start with{' '}

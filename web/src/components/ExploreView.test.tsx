@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SearchParamsContext } from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
+import { parsePlan, scenarioHref, snapshotScenario } from '@/lib/planner/scenarios';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
 import { ExploreView } from './ExploreView';
@@ -23,6 +25,25 @@ afterEach(() => {
 });
 
 describe('ExploreView', () => {
+  it('restores same-route shared queries and hides a share link when assumptions change', async () => {
+    const store = createExploreStore(fileLoaders());
+    const view = render(<SearchParamsContext.Provider value={new URLSearchParams()}><ExploreView store={store} navigate={() => {}} /></SearchParamsContext.Provider>);
+    await waitFor(() => expect(store.getState().status).toBe('ready'));
+    fireEvent.click(screen.getByRole('button', { name: 'Share this forecast' }));
+    const input = screen.getByLabelText(/Share link/) as HTMLInputElement;
+    const encoded = new URL(input.value).searchParams.get('scenario')!;
+    expect(parsePlan(encoded)?.scenarios[0].params).toEqual(store.getState().params);
+    const alternative = snapshotScenario(store.getState());
+    alternative.startUtc = '2027-02-01T12:00:00';
+    alternative.params.power.batteryWh = 12000;
+    const query = new URL(scenarioHref(alternative), 'http://localhost').searchParams;
+    view.rerender(<SearchParamsContext.Provider value={query}><ExploreView store={store} navigate={() => {}} /></SearchParamsContext.Provider>);
+    await waitFor(() => expect(store.getState().startUtc).toBe(alternative.startUtc));
+    expect(store.getState().params.power.batteryWh).toBe(12000);
+    expect(screen.queryByLabelText(/Share link/)).toBeNull();
+    expect((screen.getByLabelText('Arrival hour (UTC)') as HTMLSelectElement).value).toBe('12');
+  });
+
   it("shows the answer for the default site as the page's heading, with one gold action", async () => {
     await open();
     expect(heading()).toMatch(/de Gerlache Rim\s2/);
@@ -35,7 +56,7 @@ describe('ExploreView', () => {
   it('says in the verdict that contact with Earth is lost, and offers the nearby rim summit once the figures are in', async () => {
     await open();
     const panel = screen.getByRole('region', { name: 'The answer' });
-    expect(panel.textContent).toMatch(/No radio contact: Earth is out of view for all 3 days 4 hours with power\./);
+    expect(panel.textContent).toMatch(/No direct Earth visibility: Earth is out of view for all 3 days 4 hours with power\./);
     await waitFor(() => expect(panel.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days from the same landing day\./), { timeout: 20_000 });
     expect(within(panel).getByRole('link', { name: 'Explore de Gerlache rim summit' }).getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
   });

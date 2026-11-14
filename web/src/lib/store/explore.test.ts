@@ -581,7 +581,7 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().startUtc).toBe('2027-10-12T18:00:00');
     expect(store.getState().days).toBe(30);
     expect(store.getState().series!.sunFraction[0]).toBeGreaterThan(0); // a lander arrives in daylight
-    expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, power for 13 d 21 h, Earth in view 80 % of that time.');
+    expect(store.getState().bestWindowNote).toBe('Best sampled landing in the next 12 months: 12 Oct 2027, 18:00 UTC, power for 13 d 21 h, Earth in view 80 % of that time. Search interval: 6 hours; maximizes continuous powered time, then Earth visibility while powered.');
   });
 
   it('findBestWindow across the compared sites takes the mean time with power and says so', async () => {
@@ -593,7 +593,7 @@ describe('planner parameters, compare and best window', () => {
     expect(r).not.toBeNull();
     expect(r!.poweredHours).toBeGreaterThan(300);
     expect(store.getState().startUtc).toBe(r!.startUtc);
-    expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites: best landing in the next 12 months: .* power for .* on average/);
+    expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites: best sampled landing in the next 12 months: .*UTC, power for .* on average/);
     for (const c of store.getState().compare) expect(c.series.sunFraction[0]).toBeGreaterThan(0);
   });
 

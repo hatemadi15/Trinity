@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
+import { useSearchParams } from 'next/navigation';
 import { AppFrame } from './AppFrame';
 import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PlannerChat } from './PlannerChat';
@@ -11,6 +12,8 @@ import { PeriodBand } from './explore/PeriodBand';
 import { exploreHref } from './sites/SitesView';
 import { TimeBar } from './explore/TimeBar';
 import { TimeChart } from './explore/TimeChart';
+import { DateHeatmap } from './analysis/DateHeatmap';
+import { SensitivityCard } from './analysis/SensitivityCard';
 import { VerdictPanel } from './explore/VerdictPanel';
 import { WhereOnMoon } from './explore/WhereOnMoon';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
@@ -19,6 +22,7 @@ import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { standHref } from '@/lib/links';
+import { scenarioHref, snapshotScenario } from '@/lib/planner/scenarios';
 import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { timeWithPower } from '@/lib/engine/landing';
 import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
@@ -34,10 +38,14 @@ import { keyMoments } from '@/lib/viz/stand';
  */
 export function ExploreView({ store = exploreStore, navigate }: { store?: StoreApi<ExploreState>; navigate?: (href: string) => void }) {
   const s = useStore(store);
+  const search = useSearchParams()?.toString();
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
   const [hoverHour, setHoverHour] = useState<number | null>(null);
   const [landerOpen, setLanderOpen] = useState(false);
+  const [share, setShare] = useState<{ url: string; settings: string } | null>(null);
+  const settings = JSON.stringify([s.site, s.startUtc, s.days, s.params]);
+  const shareUrl = share?.settings === settings ? share.url : null;
   const landerRef = useRef<HTMLButtonElement>(null);
   const reducedMotion = useReducedMotion();
   useDemoMode(store);
@@ -46,8 +54,8 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
     void store
       .getState()
       .init()
-      .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search));
-  }, [store]);
+      .then(() => store.getState().applyQuery(search ?? (typeof window === 'undefined' ? '' : window.location.search)));
+  }, [store, search]);
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
   // itself, once, and puts the cursor in its box, as "Or ask in plain words" does.
@@ -127,6 +135,17 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
       <main className="flex flex-col">
         <div className="wrap flex w-full min-w-0 flex-col gap-6 pb-10 pt-6">
           <PeriodBand site={site} startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} power={s.params.power} onLander={() => setLanderOpen(true)} landerRef={landerRef} />
+          <div className="no-print flex flex-wrap items-center gap-3">
+            <button type="button" className="btn" disabled={s.maskBusy} onClick={() => go('/plan?pin=1')}>Pin this scenario</button>
+            <button type="button" className="btn" disabled={s.maskBusy} onClick={() => go('/plan?delay=7')}>Landing delayed?</button>
+            <button type="button" className="btn" disabled={s.maskBusy} onClick={() => {
+              const href = scenarioHref(snapshotScenario(store.getState()));
+              setShare({ url: new URL(href, window.location.origin).href, settings });
+            }}>Share this forecast</button>
+          </div>
+          {shareUrl && <label className="no-print flex flex-col gap-2 text-[15px] text-ink-2">Share link (includes location, arrival and all lander settings)
+            <input className="field w-full" readOnly value={shareUrl} onFocus={(event) => event.target.select()} />
+          </label>}
           {s.error && (
             <p role="status" className="text-[15px] text-bad">
               {s.error}
@@ -192,6 +211,8 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             reducedMotion={reducedMotion}
           />
           <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide />
+          <DateHeatmap store={store} />
+          <SensitivityCard store={store} />
           <PlannerChat store={store} navigate={go} />
         </div>
         {/* The period's key moments as dots with Next, as on the stand view, so Play and Next show what happens on the first

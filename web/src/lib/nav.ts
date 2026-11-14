@@ -3,6 +3,7 @@
  * Accuracy (19.3), which has no header. "Choose a site" opens the site list, as its heading says.
  */
 export const NAV = [
+  { href: '/plan', label: 'Plan a landing' },
   { href: '/sites', label: 'Choose a site' },
   { href: '/compare', label: 'Compare sites' },
   { href: '/learn', label: 'How it works' },

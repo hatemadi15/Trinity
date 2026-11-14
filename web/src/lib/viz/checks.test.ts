@@ -32,7 +32,7 @@ describe('checkCards', () => {
       .slice(0, 2)
       .map((r) => r.name);
     for (const name of worst) expect(c.sentence).toContain(name.replace(/\s*\(.*\)$/, '').split(',')[0]);
-    expect(c.sentence).toMatch(/are narrow high features; NASA's map averages the ground over 60 m squares, wider than they are\./);
+    expect(c.sentence).toMatch(/Terrain resolution, mast height and averaging dates differ/);
     expect(c.sentence).not.toMatch(/highest point|sampling/);
   });
 

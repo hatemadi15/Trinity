@@ -19,12 +19,12 @@ describe('home page', () => {
     // down to the site, then the site's full forecast.
     const gold = hero.querySelectorAll('.btn-primary');
     expect([...gold].map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-      ['Fly to the south pole', '/sites'],
+      ['Compare a delayed landing', '/plan?delay=7'],
       ['Open the full forecast', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
     ]);
     for (const beat of hero.querySelectorAll('[data-beat]')) expect(beat.querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
     // The challenge in plain words on the first screen: a forecast for landing sites and dates (spec 18.2), for more than two landers.
-    expect(hero.textContent).toMatch(/Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth and how long a lander keeps power, for ready-made landers or your own\./);
+    expect(hero.textContent).toMatch(/Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, Earth visibility and how long a lander keeps power, for ready-made landers or your own\./);
     // Who it is for, with the teachers' way in on the same line.
     const audience = within(hero).getByText(/^For planners of NASA's commercial Moon landers, teachers/);
     expect(audience.textContent).toBe("For planners of NASA's commercial Moon landers, teachers (start with How it works) and anyone curious.");
@@ -43,14 +43,10 @@ describe('home page', () => {
     expect(row.textContent).toContain(degreesText(HOME.facts.horizons_worst_el_deg));
   });
 
-  it('names the first screen’s second action for the section it opens, the three drawings of why the south pole is hard', () => {
+  it('opens the landing planner directly from the home page', () => {
     render(<Home />);
-    const jump = screen.getByRole('link', { name: 'See why the pole is hard' });
-    const target = document.getElementById(jump.getAttribute('href')!.slice(1))!;
-    expect(within(target).getByRole('heading', { level: 2 }).textContent).toBe('Why the south pole is hard');
-    expect(within(target).getAllByRole('heading', { level: 3 })).toHaveLength(3);
-    // Only the pages of How it works say so: no second name for the one thing.
-    expect(screen.queryByRole('link', { name: /see how it works/i })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Compare a delayed landing' }).getAttribute('href')).toBe('/plan?delay=7');
+    expect(screen.getByRole('link', { name: 'Fly to the south pole' })).toBeTruthy();
   });
 
   it('opens on a real forecast: the Sun and Earth over one month at the site, each with the hidden stretch in words', () => {

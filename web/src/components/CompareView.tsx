@@ -67,6 +67,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
         <div>
           <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">Compare sites</h1>
           <p className="mt-2 max-w-[46em] text-lg text-ink-2">Up to four sites side by side, for the same days and the same lander.</p>
+          <Link href="/plan" className={`${LINK} mt-3 inline-flex min-h-11 items-center`}>Compare dates and landers</Link>
         </div>
         <section aria-label="What this comparison is for" className="flex flex-wrap items-end gap-4">
           <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
@@ -117,14 +118,14 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             <p className="max-w-[60em] text-[17px] leading-relaxed text-ink">{bestSentence(s.compare, s.startUtc, s.days)}</p>
             {/* How to read the table, before it: a phone shows the strips before anything under them. */}
             <p className="mt-2 max-w-[60em] text-[15px] text-ink-2">
-              In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the {s.days} days. Time with power counts from landing on the first day until the battery
-              first runs out; Earth in view counts every hour of the period.
+              In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the {s.days} days. Time with power counts from landing until the battery
+              first runs out. Earth visibility while powered counts only before that first loss of power; total Earth visibility and the longest gap cover the full period. Visibility does not guarantee a radio link.
             </p>
             {/* On a phone each site is a block of labelled figures: no table to scroll sideways. */}
             <table className="mt-4 w-full border-collapse text-left max-sm:block sm:min-w-[900px]">
               <thead className="max-sm:sr-only">
                 <tr className="text-[15px] text-ink-2">
-                  {['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', ''].map((h, i) => (
+                  {['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Earth in view while powered', 'Longest Earth gap', 'Longest night', 'Time with power', ''].map((h, i) => (
                     <th key={i} scope="col" className="border-b-2 border-ink py-2 pr-4 font-semibold">
                       {h || <span className="sr-only">Remove</span>}
                     </th>
@@ -144,6 +145,8 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                     </td>
                     <td data-label="Sunlight" className={`${CELL} ${STACKED} tabular-nums`}>{r.sunlight}</td>
                     <td data-label="Earth in view" className={`${CELL} ${STACKED} tabular-nums`}>{r.earth}</td>
+                    <td data-label="Earth in view while powered" className={`${CELL} ${STACKED} tabular-nums`}>{r.poweredContact}</td>
+                    <td data-label="Longest Earth gap" className={`${CELL} ${STACKED} tabular-nums`}>{r.longestEarthGap}</td>
                     <td data-label="Longest night" className={`${CELL} ${STACKED} tabular-nums`}>{r.longestNight}</td>
                     <td data-label="Time with power" className={`${CELL} ${STACKED} tabular-nums`}>
                       <span className={`font-medium ${r.tone === 'good' ? 'text-good' : 'text-bad'}`}>{r.power}</span>

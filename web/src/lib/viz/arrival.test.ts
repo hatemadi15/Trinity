@@ -33,7 +33,7 @@ describe('the arrival', () => {
     const w = arrivalWords(), { site, r } = engine();
     const a = answerFor({ siteName: 'de Gerlache Rim 2', series: r.series, summary: r.summary, power: r.power, startUtc: '2027-01-01T00:00:00', days: 30, loadW: 200, batteryWh: 2000, best: r.best });
     expect(w.answer).toBe(standHeadline(a.title, 'de Gerlache Rim 2', r.series, r.power, '2027-01-01T00:00:00', a.contactHours, a.poweredHours));
-    expect(plain(w.answer)).toBe('Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power');
+    expect(plain(w.answer)).toBe('Landing on 1 January: power for 3 days 4 hours, Earth out of view, then 16 days without power');
     // To the hour, as the headline above it says its spans: the forecast below it and the stand view's better day
     // give this landing the same length, so the page never gives one landing two.
     expect(plain(w.better ?? '')).toBe('Land on 20 January instead: power for 12 days 15 hours in a row.');

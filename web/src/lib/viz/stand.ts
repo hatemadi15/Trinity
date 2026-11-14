@@ -125,7 +125,7 @@ export function measuredNote(cellsM: number[], starCount: number): string {
  */
 export function liveSentence(s: Series, hour: number, powered?: boolean): string {
   const w = groundWords(s, hour);
-  const earth = powered === false && s.earthVisible[hour] === 1 ? w.earth.replace(': radio contact is possible.', ', but the lander has no power for its radio.') : w.earth;
+  const earth = powered === false && s.earthVisible[hour] === 1 ? w.earth.replace(': geometric line of sight toward Earth.', ', but the lander has no power for its radio.') : w.earth;
   return `${w.sun} ${earth}`;
 }
 
@@ -457,7 +457,7 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
   if (pole) lines.push(`North and south still work here: the pole itself is ${Math.round((90 - Math.abs(lat)) * KM_PER_DEGREE)} km to the ${lat < 0 ? 'south' : 'north'}.`);
   if (!lit) lines.push('The night here is colder than −170 °C. Most landers are not built to survive it, which is why the forecast says "if".');
   // The radio hours are those with Earth in view and the lander powered: a relay satellite would change them.
-  lines.push("The radio forecast is for a link straight to Earth; a relay satellite, as China's Chang'e 4 used, would change it.");
+  lines.push("Earth visibility means geometric line of sight only. Antennas, link budget and ground-station availability are not modeled; a relay satellite would change the opportunities.");
   return lines;
 }
 
@@ -482,7 +482,7 @@ export function landerState(p: PowerResult | null, startUtc: string, hour: numbe
  * the line keeps to a phone's room (the headline and the flags give the stretch's length): "Power on again since 20
  * January, if the lander survived the night; battery 40 %.", or "if the lander survived without power" when the
  * battery ran down with the Sun still up (as offWords tells the two apart). Then the radio:
- * "Radio contact: Earth is in view.", "No radio: Earth is below the horizon." or "No radio: Earth is behind a hill."
+ * "Earth is in view; radio performance is not modeled.", "Earth is below the horizon." or "Earth is behind a hill."
  * Without power: "Power off: the battery ran out on 4 January.", then "Earth is in view, but the radio has no
  * power." with Earth in view, and "Power does not come back in this period." when it does not; when it does, the
  * flags on the time bar say when. `on` is whether it has power; true until that is worked out. `tone` is for the
@@ -503,7 +503,7 @@ export function statusLine(s: Series, p: PowerResult | null, startUtc: string, h
     from === 0
       ? `Power on${level ? `, ${level}` : ''}.`
       : `Power on again since ${dateLong(startUtc, from)}, if the lander survived ${s.sunFraction[stretchStart(p.powered, from - 1)] === 0 ? 'the night' : 'without power'}${level ? `; ${level}` : ''}.`;
-  const radio = seen ? 'Radio contact: Earth is in view.' : `No radio: Earth is ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind a hill'}.`;
+  const radio = seen ? 'Earth is in view; radio performance is not modeled.' : `Earth is ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind a hill'}.`;
   return { on: true, tone: seen ? 'radio' : 'power', text: `${power} ${radio}` };
 }
 
@@ -536,7 +536,7 @@ export function phoneHeadline(title: string): string {
   const landing = 'Landing on ';
   const day = title.startsWith(landing) ? title.slice(landing.length) : title;
   const then = day.indexOf(', then ');
-  return (then < 0 ? day : day.slice(0, then)).replace('no radio contact', 'no radio');
+  return (then < 0 ? day : day.slice(0, then)).replace('Earth out of view', 'Earth hidden');
 }
 
 /**
@@ -562,25 +562,25 @@ export function nightHeadline(title: string, s: Series, p: PowerResult, startUtc
 
 /**
  * The headline, after nightHeadline, with the radio's verdict beside the power's, as the challenge asks
- * about both: of the hours with power from the landing, those with Earth in view, as "no radio contact",
- * "radio all the while" or "radio for 12 days 3 hours". It goes straight after the power, before the first
- * ", then" when the title has one, else at the end: "...: power for 3 days 4 hours, no radio contact, then
- * 16 days without power", "...: power for all 30 days, radio for 12 days 3 hours". Without power from the
+ * about both: of the hours with power from the landing, those with Earth in view, as "Earth out of view",
+ * "Earth in view throughout" or "Earth in view for 12 days 3 hours". It goes straight after the power, before the first
+ * ", then" when the title has one, else at the end: "...: power for 3 days 4 hours, Earth out of view, then
+ * 16 days without power", "...: power for all 30 days, Earth in view for 12 days 3 hours". Without power from the
  * landing the title comes back as it is, and so does a title that says nothing of the power, as "No
- * sunlight in these 30 days": there is no power for the verdict to follow, and "radio all the while" for
+ * sunlight in these 30 days": there is no power for the verdict to follow, and "Earth in view throughout" for
  * the battery's few hours would read as the whole period.
  */
 export function radioHeadline(title: string, contactHours: number, poweredHours: number): string {
   if (poweredHours <= 0 || !title.includes(': power for ')) return title;
-  const radio = contactHours <= 0 ? 'no radio contact' : contactHours >= poweredHours ? 'radio all the while' : `radio for ${spanWords(contactHours)}`;
+  const radio = contactHours <= 0 ? 'Earth out of view' : contactHours >= poweredHours ? 'Earth in view throughout' : `Earth in view for ${spanWords(contactHours)}`;
   const then = title.indexOf(', then ');
   return then < 0 ? `${title}, ${radio}` : `${title.slice(0, then)}, ${radio}${title.slice(then)}`;
 }
 
 /**
  * The better landing day's button, a suggestion that says what it does, to the hour as the headline says its
- * spans: "Try 20 January instead: power for 12 days 15 hours, radio for 3 days 5 hours", or "...: power for 12
- * days 15 hours, no radio contact" when Earth is never in view in that time. The home page's forecast and the
+ * spans: "Try 20 January instead: power for 12 days 15 hours, Earth in view for 3 days 5 hours", or "...: power for 12
+ * days 15 hours, Earth out of view" when Earth is never in view in that time. The home page's forecast and the
  * arrival give that landing the same "12 days 15 hours", so no page gives one landing two lengths. `dayLong` is
  * the day as dateLong writes it; the hours are those with power from that day, and those of them with Earth in
  * view, which the page passes as a share of the hours with power: both read as the whole hours they were
@@ -589,7 +589,7 @@ export function radioHeadline(title: string, contactHours: number, poweredHours:
  * `short`: the power alone, for the row under the status line; today's card gives the radio too.
  */
 export function betterLabel(dayLong: string, poweredHours: number, radioHours: number, short = false): string {
-  const radio = Math.round(radioHours) <= 0 ? 'no radio contact' : `radio for ${spanWords(radioHours)}`;
+  const radio = Math.round(radioHours) <= 0 ? 'Earth out of view' : `Earth in view for ${spanWords(radioHours)}`;
   return unbrokenSpans(`Try ${dayLong} instead: power for ${spanWords(poweredHours)}${short ? '' : `, ${radio}`}`);
 }
 

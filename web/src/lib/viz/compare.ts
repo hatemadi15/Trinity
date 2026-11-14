@@ -12,6 +12,8 @@ export interface CompareRow {
   href: string;
   sunlight: string;
   earth: string;
+  poweredContact: string;
+  longestEarthGap: string;
   longestNight: string;
   /** What happens to a lander that lands on the first day: "all 30 days", or "3 d 4 h, then off until 20 Jan". */
   power: string;
@@ -34,7 +36,7 @@ function powerWords(r: SiteResult, startUtc: string, days: number, powered: numb
   if (powered >= hours) return `all ${days} days`;
   let back = powered;
   while (back < hours && r.power.powered[back] === 0) back++;
-  if (powered === 0) return back < hours ? `none at landing; on from ${dayMonth(startUtc, back)}` : 'none';
+  if (powered === 0) return back < hours ? `none at landing; modeled power from ${dayMonth(startUtc, back)}` : 'none';
   return `${spanShort(powered)}, then off ${back < hours ? `until ${dayMonth(startUtc, back)}` : 'to the end'}`;
 }
 
@@ -44,12 +46,16 @@ export function compareRow(r: SiteResult, startUtc: string, days: number): Compa
   const powered = poweredHours(r, hours);
   const lit = r.summary.illumFraction > 0;
   const all = powered >= hours;
+  let contact = 0;
+  for (let h = 0; h < powered; h++) contact += r.series.earthVisible[h];
   return {
     id: r.site.id,
     name: siteLabel(r.site),
     href: exploreHref(r.site.id, startUtc, days),
     sunlight: pct0(r.summary.illumFraction),
     earth: pct0(r.summary.earthVisFraction),
+    poweredContact: contact > 0 ? spanShort(contact) : 'none',
+    longestEarthGap: r.summary.longestEarthGapH > 0 ? spanShort(r.summary.longestEarthGapH) : 'none',
     longestNight: r.summary.longestDarkH > 0 ? spanShort(r.summary.longestDarkH) : 'none',
     power: powerWords(r, startUtc, days, powered),
     tone: lit && all ? 'good' : 'bad',
@@ -83,7 +89,7 @@ export function bestSentence(results: SiteResult[], startUtc: string, days: numb
   const wins: { names: string[]; words: string }[] = [];
   if (power.top > 0) wins.push({ names: power.names, words: `the longest time with power (${power.top >= hours ? `all ${days} days` : spanShort(power.top)})` });
   if (sun.top > 0) wins.push({ names: sun.names, words: `the most sunlight (${sun.top} %)` });
-  if (earth.top > 0) wins.push({ names: earth.names, words: `the most contact with Earth (${earth.top} %)` });
+  if (earth.top > 0) wins.push({ names: earth.names, words: `the most Earth visibility (${earth.top} %)` });
   const bySites = new Map<string, { names: string[]; words: string[] }>();
   for (const w of wins) {
     const key = w.names.join('\n');

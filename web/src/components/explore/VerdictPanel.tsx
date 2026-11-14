@@ -40,7 +40,7 @@ export function VerdictPanel({
   /** The stand view for this site, period and hour. */
   standLink?: string;
   /** The site, for the grid its hills are read from in the row of data sources; without it the row names no grid. */
-  site?: { lat: number; polar: boolean };
+  site?: { lat: number; polar: boolean; approximate?: boolean };
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -54,6 +54,7 @@ export function VerdictPanel({
         {/* The site's number stays with its name: "Rim 2" never breaks across two lines. */}
         <h1 className="display text-balance text-[24px] leading-[1.12] sm:text-[32px]">{answer.title.replace(/ (\d+) on /, '\u00a0$1 on ')}</h1>
       </div>
+      {site?.approximate && <p className="mt-3 text-[15px] text-ink-2">Illustrative point within this landing region: its coordinates are approximate to about 5 km. Nearby terrain can give a different answer.</p>}
       {/* The first sentence leads on a line of its own. The reasons wait one tap away under the stand view's words for
           them, since the first screen keeps one short answer (spec 20.1); an answer of one sentence has none to fold. */}
       <p className="mt-2.5 max-w-[42em] text-[17px] font-medium leading-relaxed text-ink">{answer.sentences[0]}</p>
@@ -121,6 +122,7 @@ export function VerdictPanel({
           {yearNote}
         </p>
       )}
+      <Fold label="Model assumptions" className="mt-3"><p className="text-[15px] text-ink-2">Modeled energy and Earth visibility only. Thermal survival and restart are not modeled. Earth in view does not guarantee a working radio link: antennas, link budget and ground stations also matter.</p></Fold>
       {/* The answer's figures come from the positions and the hills, and were checked against Horizons: named last, as on every panel. */}
       <Sources of={['de440', ...lolaFor(...(site ? [site] : [])), 'horizons']} />
     </section>
