@@ -16,8 +16,8 @@ import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { landerName } from '@/lib/lander';
 import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { bestSentence, compareRow, READY_PAIRS } from '@/lib/viz/compare';
-import { dateLong } from '@/lib/viz/format';
 import { terrainLimitation, terrainTag } from '@/lib/viz/terrain';
+import { landingWords } from '@/lib/period';
 
 const LINK = 'font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink';
 const TAG = 'shrink-0 rounded-full border border-line px-2.5 py-0.5 text-[15px] text-ink-2';
@@ -58,7 +58,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
   });
   const full = s.compareIds.length >= COMPARE_MAX;
   const candidates = s.sites.filter((x) => x.category !== 'custom' && !s.compareIds.includes(x.id));
-  const period = `the ${s.days} days from ${dateLong(s.startUtc, 0)}`;
+  const period = `the ${s.days} days from ${landingWords(s.startUtc)}`;
   const add = () => {
     if (!adding) return;
     void store.getState().addToCompare(adding);
@@ -78,7 +78,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
           <p className="mt-2 max-w-[46em] text-lg text-ink-2">Up to four sites side by side, for the same days and the same lander.</p>
         </div>
         <section aria-label="What this comparison is for" className="flex flex-wrap items-end gap-4">
-          <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
+          <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow}>
           <div className="flex min-w-0 flex-[1_1_250px] flex-col gap-1.5 text-[15px] text-ink-2">
             <span aria-hidden="true">Lander</span>
             <button
@@ -94,6 +94,7 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
               <span className={TAG}>change</span>
             </button>
           </div>
+          </PeriodControls>
         </section>
         {s.error && (
           <p role="status" className="text-[15px] text-bad">

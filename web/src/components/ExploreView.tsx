@@ -66,7 +66,8 @@ export function ExploreView({
   const reducedMotion = useReducedMotion();
   useDemoMode(store);
 
-  // The address it opened with is read before the data loads, and the page writes its own only once that is applied.
+  // The address the visit came with is read before the data loads and applied once it is in; only then does the page
+  // write its own, so its defaults never replace a shared link before it is read.
   const [linked, setLinked] = useState(false);
   useEffect(() => {
     const search = typeof window === 'undefined' ? '' : window.location.search;
@@ -76,7 +77,8 @@ export function ExploreView({
       .then(() => store.getState().applyQuery(search))
       .then(() => setLinked(true));
   }, [store]);
-  // The address follows the site, the period and every setting the figures depend on: a reload or a copied address opens the same figures.
+  // From then on the address follows the site, the period (its landing hour and length included) and every setting the
+  // figures depend on, so a reload or a copied address opens the same forecast.
   const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params) : null;
   useAddressFollows(link, linked && s.status === 'ready');
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks

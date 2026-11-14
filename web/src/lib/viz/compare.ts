@@ -2,9 +2,10 @@ import { pointKind } from '../data/kind';
 import { siteLabel } from '../data/loaders';
 import { timeWithPower } from '../engine/landing';
 import { exploreHref } from '../links';
+import { landingWords } from '../period';
 import type { SiteResult } from '../store/explore';
 import { contactPlan, outageWords, poweredContactWords } from './contact';
-import { dateLong, dayMonth, pct0, spanShort } from './format';
+import { dayMonth, pct0, spanShort } from './format';
 import { withheldNote } from './terrain';
 
 /** One row of the comparison table: what it says about a site, ready to print. */
@@ -136,5 +137,5 @@ export function bestSentence(results: SiteResult[], startUtc: string, days: numb
   if (lacks.length > 0) clauses.push(`none of these sites ${lacks.join(' or ')}`);
   const note = withheld.measures.length > 0 ? withheldNote(withheld.names, withheld.measures) : '';
   if (clauses.length === 0) return note;
-  return `Landing on ${dateLong(startUtc, 0)}, ${clauses.join('; ')}.${note ? ` ${note}` : ''}`;
+  return `Landing on ${landingWords(startUtc)}, ${clauses.join('; ')}.${note ? ` ${note}` : ''}`;
 }

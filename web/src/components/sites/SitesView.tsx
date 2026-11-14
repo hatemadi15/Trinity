@@ -16,7 +16,8 @@ import { siteLabel, type Site } from '@/lib/data/loaders';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { landerLine } from '@/lib/lander';
 import { exploreStore, type ExploreState, type SiteOverview } from '@/lib/store/explore';
-import { dateLong, dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
+import { landingWords } from '@/lib/period';
+import { dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
 import { missingWords, pickProblem, terrainTag } from '@/lib/viz/terrain';
 import { exploreHref } from '@/lib/links';
@@ -280,7 +281,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
             first day, and this says why (both readers, part C read 1). It is one tap away, since it is read once. */}
         <Fold label="How these figures are counted" className="mt-3">
           <p className="max-w-[52em] text-[15px] text-ink-2">
-            Each site&apos;s figures are for landing on its best day of the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, the day under its name, and the{' '}
+            Each site&apos;s figures are for landing on its best day of the {s.days} days from {landingWords(s.startUtc, true)}, the day under its name, and the{' '}
             {s.days} days after it, for one lander: {landerLine(s.params.power)}, the hills seen from a {s.params.mastM} m mast. Explore and Compare start on the first day, so their figures can differ. In each group, the
             longest time with power comes first.
           </p>

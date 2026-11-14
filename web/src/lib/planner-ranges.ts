@@ -27,6 +27,15 @@ export const PARAM_RANGES: Record<'minEarthElDeg' | 'mastM', NumberRange> = {
   mastM: { min: 0, max: 10, step: 1 },
 };
 
+/**
+ * The period's length in whole days, for the period controls, links and the assistant alike. At most 90: the
+ * figures are worked out hour by hour, and the cost grows with the length (the site list works out every site for
+ * up to twice the period, the 12-month search a year and a period at each site), so 90 days is the longest the app
+ * is timed at. At least 2: every sentence of a forecast counts its days and nights in the plural ("these 7 days");
+ * a shorter stay is one stretch of the time bar, which shows any hour of any period.
+ */
+export const DAYS_RANGE: NumberRange = { min: 2, max: 90, step: 1 };
+
 export function clampTo(range: NumberRange, value: number): number {
   return Math.min(range.max, Math.max(range.min, value));
 }

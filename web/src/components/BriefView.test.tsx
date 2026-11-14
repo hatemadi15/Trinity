@@ -75,7 +75,7 @@ describe('BriefView', () => {
     render(<BriefView store={store} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
     const meta = screen.getByRole('heading', { level: 1 }).nextElementSibling!;
-    expect(meta.textContent).toMatch(/^\d+\.\d{3}° [NS], \d+\.\d{3}° [EW]; the 30 days from 1 January 2027\.$/);
+    expect(meta.textContent).toMatch(/^\d+\.\d{3}° [NS], \d+\.\d{3}° [EW]; 1 Jan 2027, 00:00 UTC, 30 days\.$/);
     const method = screen.getByRole('heading', { name: 'How this was computed' }).nextElementSibling!;
     expect(method.textContent).toMatch(/^Site height \d+ m with a 2 m mast; hills measured from NASA elevation data/);
     expect(method.closest('.no-print')).toBeNull();
@@ -116,6 +116,16 @@ describe('BriefView', () => {
     const method = screen.getByRole('heading', { name: 'How this was computed' }).nextElementSibling!;
     expect(method.textContent).toMatch(/NASA LRO LOLA's 240 m elevation grid out to 220 km \(the finer grids stop at 80° S\)/);
     expect(screen.getByRole('main').textContent).not.toMatch(/NaN/);
+  });
+
+  it('prints the landing hour in UTC and any length, as a planner copies the period, and its way back keeps them', async () => {
+    const store = await storeWithFiles();
+    store.getState().setWindow('2027-01-20T17:00:00', 7);
+    render(<BriefView store={store} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
+    expect(screen.getByRole('heading', { level: 1 }).nextElementSibling!.textContent).toMatch(/; 20 Jan 2027, 17:00 UTC, 7 days\.$/);
+    expect(screen.getByText('Sunlight').nextElementSibling!.textContent).toMatch(/of the 7 days$/);
+    expect(screen.getByRole('link', { name: 'Back to Explore' }).getAttribute('href')).toBe('/explore?site=shackleton_center_rim_high&start=2027-01-20T17:00&days=7');
   });
 
   it('renders a custom site with its computed provenance', async () => {
