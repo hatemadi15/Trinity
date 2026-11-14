@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { Summary } from '@/lib/engine/metrics';
+import type { Series, Summary } from '@/lib/engine/metrics';
 import { DEFAULT_POWER, simulateBattery } from '@/lib/engine/power';
 import { DEFAULT_PARAMS } from '@/lib/store/explore';
 import type { Answer } from '@/lib/viz/answer';
@@ -13,6 +13,18 @@ const site = { id: 'de_gerlache_rim_2', name: 'de Gerlache Rim 2 (Artemis III re
 const summary: Summary = { hours: 720, illumFraction: 0.4458, meanSunFraction: 0.44, longestDarkH: 399, earthVisFraction: 0.45, longestEarthGapH: 396, jointFraction: 0.2 };
 // 66 lit hours, then darkness: the default battery carries the next ten, so the power lasts 76 hours.
 const power = simulateBattery(Float64Array.from({ length: 720 }, (_, h) => (h < 66 ? 1600 : 0)), DEFAULT_POWER);
+/** The Sun at its highest, 2.46°, at the first hour, 1.6° up until it sets at hour 66, then 1.2° below the horizon. */
+const series: Series = {
+  i0: 0,
+  hours: 720,
+  sunAz: new Float64Array(720),
+  sunEl: Float64Array.from({ length: 720 }, (_, h) => (h === 0 ? 2.46 : h < 66 ? 1.6 : -1.2)),
+  earthAz: new Float64Array(720),
+  earthEl: new Float64Array(720),
+  sunFraction: Float64Array.from({ length: 720 }, (_, h) => (h < 66 ? 1 : 0)),
+  earthVisible: new Uint8Array(720),
+  sunAu: new Float64Array(720).fill(1),
+};
 /** The answer the card sits beside on the page, as Explore lays them out in one row. */
 const answer: Answer = {
   tone: 'bad',
@@ -26,7 +38,7 @@ const answer: Answer = {
 };
 
 function card(extra: Partial<Parameters<typeof NumbersCard>[0]> = {}) {
-  return <NumbersCard site={site} summary={summary} power={power} params={DEFAULT_PARAMS} days={30} maskMeta={{ siteHeightM: 1432, source: 'featured', failedTiles: 0 }} contactHours={0} {...extra} />;
+  return <NumbersCard site={site} summary={summary} power={power} params={DEFAULT_PARAMS} days={30} maskMeta={{ siteHeightM: 1432, source: 'featured', failedTiles: 0 }} contactHours={0} series={series} hour={30} startUtc="2027-01-01T00:00:00" {...extra} />;
 }
 
 function show(extra: Partial<Parameters<typeof NumbersCard>[0]> = {}) {
@@ -44,18 +56,37 @@ function beside(extra: Partial<Parameters<typeof NumbersCard>[0]> = {}) {
 }
 
 describe('NumbersCard', () => {
-  it('gives the three numbers behind the answer and the radio contact’s note before a tap; what the others measure waits in All numbers (spec 20.1)', () => {
+  it('gives the numbers behind the answer, the Sun’s height and the radio contact’s note before a tap; what the others measure waits in All numbers (spec 20.1)', () => {
     show();
     const numbers = screen.getByRole('region', { name: 'The numbers' });
     // The sunlight's share and the battery's hours, plain: the band above names the lander, and All numbers gives
     // the sunlight's definition and the lander's whole line. Contact is counted in the hours the lander has power, the
     // figure the verdict gives; its note stays, since it says why Earth can be in view with no contact.
     expect(visibleWords(numbers, WIDE).join(' ')).toBe(
-      'Sunlight 45 % Radio contact while it has power Earth is in view 45 % of the 30 days, but not while the lander has power none Lander 10 h of battery when full All numbers Printable brief',
+      'Sunlight 45 % Sun’s height now 1.6° highest 2.5° Radio contact while it has power Earth in view only after the battery runs out none Lander 10 h of battery when full All numbers Printable brief',
     );
     expect(numbers.textContent).not.toMatch(/share of the 30 days|4 m² panel/);
     // The card's words stay plain: it names no dataset.
     expect(numbers.textContent).not.toMatch(/skyline|LOLA|DE440|Horizons|brownout/i);
+  });
+
+  it('gives the Sun’s height at the time bar’s hour and its highest in the period, in degrees, as a figure of its own (the brief: solar elevation, prominently)', () => {
+    const { rerender } = render(card());
+    const line = () => screen.getByText('Sun’s height now').closest('div')!;
+    expect(visibleWords(line(), WIDE).join(' ')).toBe('Sun’s height now 1.6° highest 2.5°');
+    // As the time moves the height follows it; below the horizon it takes a minus sign.
+    rerender(card({ hour: 100 }));
+    expect(visibleWords(line(), WIDE).join(' ')).toBe('Sun’s height now \u22121.2° highest 2.5°');
+    // The figure is as large as the others on the card.
+    expect(within(line()).getByText('\u22121.2°').className).toMatch(/text-\[28px\]/);
+  });
+
+  it('says when Earth comes only after the battery has run out, and how much of the time it is in view otherwise', () => {
+    show();
+    expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/Earth in view only after the battery runs out/);
+    cleanup();
+    show({ contactHours: 77 });
+    expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/Earth in view 45\u00a0% of the time(?!,)/);
   });
 
   it('gives the hours of contact while the lander has power', () => {
@@ -79,6 +110,9 @@ describe('NumbersCard', () => {
     expect(row('Time without power')).toMatch(/26 d 20 h/);
     expect(row('Lowest battery')).toMatch(/0 %/);
     expect(row('Average power from the panel')).toMatch(/147 W.*4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery/);
+    // The Sun's elevation above the level horizon, at the time bar's hour and at its highest, each with its time in UTC.
+    expect(row('Sun’s height now')).toMatch(/1\.6°.*the Sun’s elevation above the level horizon at the time bar’s hour, 2 Jan 2027, 06:00 UTC/);
+    expect(row('Sun’s highest')).toMatch(/2\.5°.*the highest the Sun climbs in the period, on 1 Jan 2027, 00:00 UTC/);
     expect(row('Mast')).toMatch(/2 m/);
     expect(row('Earth counts as in view')).toMatch(/0° or more above the hills/);
     expect(row('Height of the hills')).toMatch(/NASA elevation data, worked out ahead of time/);
