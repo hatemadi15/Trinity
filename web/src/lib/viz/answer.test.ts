@@ -327,6 +327,16 @@ describe('answerFor with the ranked landing times and the requirements', () => {
     expect(a.hint).toBe('This landing meets your requirement, and no landing time in these 2 days does better.');
   });
 
+  it('says what was checked, never that a landing meets your requirements, while the one on terrain versions was not checked', () => {
+    // As above, with 90 % of terrain versions asked for too, which nothing works out here: no versions were given.
+    const period = series(rep(1, 48).map((v, h) => (h < 30 ? v : 0)));
+    const plan = timeOptions({ scan: period, cfg: CFG, req: { ...NO_REQUIREMENTS, minPoweredH: 30, minHoldPct: 90 }, hours: 48, startUtc: START });
+    const a = answerFor({ siteName: 'Alpha Ridge', series: period, summary: summarize(period), power: powerBudget(period, CFG), startUtc: START, days: 2, loadW: CFG.loadW, batteryWh: CFG.batteryWh, best: null, plan });
+    expect(a.hint).toBe('This landing meets the requirement checked here, and no landing time in these 2 days does better.');
+    // The better date says the same of itself.
+    expect(withPlan({ ...NO_REQUIREMENTS, maxOutageH: 12, minHoldPct: 90 }).better).toMatchObject({ hour: 12, checks: 'Meets the requirement checked here.' });
+  });
+
   it('says plainly when no date in the period does better against the requirements', () => {
     // Sun for 30 hours, then night: the battery runs out at hour 40. Earth is never in view, so no date can meet a
     // contact requirement, and none keeps power longer than landing at the start.
@@ -385,6 +395,14 @@ describe('planView: every option for the panel, in words', () => {
     for (const o of v.times.options) expect(o.score).toMatch(/^Score \d+\.\d of 100: /);
     // Ranked the default way there is no score to give.
     expect(planView({ times, places, year: null, req, startUtc: START, days: 2, hrefFor: (id) => id }).times.options[0].score).toBeUndefined();
+  });
+
+  it('says each option meets the requirement checked here, not your requirement, while the one on terrain versions was not checked', () => {
+    const asked = { ...req, minHoldPct: 90 };
+    const t = timeOptions({ scan: series(sun, earth), cfg: CFG, req: asked, hours: 48, startUtc: START, apartH: 6 });
+    const v = planView({ times: t, places: null, year: null, req: asked, startUtc: START, days: 2, hrefFor: () => '' });
+    expect(v.current.summary).toBe('Meets the requirement checked here.');
+    expect(v.times.options[0].summary).toBe('Meets the requirement checked here.');
   });
 
   it('says why the places nearby are not ranked yet, and names any left out with the reason', () => {

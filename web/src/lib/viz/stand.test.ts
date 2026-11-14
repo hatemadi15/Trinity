@@ -9,6 +9,7 @@ import { answerFor } from './answer';
 import { hero } from './arrival';
 import { spanWords } from './format';
 import { groundWords } from './ground';
+import { optionOf } from '@/lib/plan/rank';
 import { checkRequirements, NO_REQUIREMENTS, type Requirements } from '@/lib/plan/requirements';
 import {
   betterChip,
@@ -548,6 +549,10 @@ describe('the better landing day’s button', () => {
     const both = { ...NO_REQUIREMENTS, contactWithinH: 0, minPoweredH: 120 };
     expect(requirementReason(option(at(0, 544), both), option(at(225, 100), both))).toBe('meets all 2 of your requirements');
     expect(requirementReason(option(at(0, 100), both), option(at(225, 100), both))).toBe('fails fewer of your requirements (1 of 2)');
+    // With 90 % of terrain versions asked for too and none worked out (a point picked on the map), it says what was checked.
+    const asked = { ...NO_REQUIREMENTS, contactWithinH: 0, minHoldPct: 90 };
+    expect(requirementReason(optionOf('day', at(0, 544), asked), optionOf('now', at(225, 720), asked))).toBe('meets the requirement checked here');
+    expect(requirementReason(optionOf('day', at(0, 544), { ...both, minHoldPct: 90 }), optionOf('now', at(225, 100), { ...both, minHoldPct: 90 }))).toBe('meets the requirements checked here');
     // A day better for its power alone, or with no requirement set, keeps the power first.
     expect(requirementReason(option(at(0, 544)), option(at(0, 100)))).toBeNull();
     expect(requirementReason(option(at(0, 544), NO_REQUIREMENTS), option(at(225, 100), NO_REQUIREMENTS))).toBeNull();

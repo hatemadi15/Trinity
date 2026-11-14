@@ -6,7 +6,7 @@ import { NO_REQUIREMENTS } from '../plan/requirements';
 import { DEFAULT_PARAMS, recompute, scanOf } from '../store/explore';
 import { eph, sites } from '@/test/file-loaders';
 import { VersionsClient } from './client';
-import { useHoldsByHour, useTerrainVersions, versionsProblem, type VersionsAsk } from './useTerrainVersions';
+import { holdUncheckedWords, useHoldCheck, useHoldsByHour, useTerrainVersions, versionsProblem, type VersionsAsk } from './useTerrainVersions';
 
 const site = sites.find((s) => s.id === 'de_gerlache_rim_2')!;
 const mask = Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'masks', 'de_gerlache_rim_2.json').elevation_deg);
@@ -48,6 +48,22 @@ describe('useTerrainVersions', () => {
     expect(asked.result.current).toBeNull();
     await waitFor(() => expect(asked.result.current?.length).toBe(720));
     expect(loads).toBe(1);
+  });
+
+  it('gives the brief the state of the work with the holds, so it can say why the requirement on them is not checked', async () => {
+    const custom = { ...site, id: 'custom_-89.5000_-150.0000', category: 'custom' };
+    const { result } = renderHook(() => useHoldCheck({ ...ask, site: custom, requirements: { ...NO_REQUIREMENTS, minHoldPct: 90 } }, { load: async () => versions, runner: new VersionsClient() }));
+    await waitFor(() => expect(result.current.state).toEqual({ status: 'none', reason: versionsProblem(custom, 2) }));
+    expect(result.current.holds).toBeNull();
+  });
+
+  it('words the requirement on them, set but not checked, as the note under it in Explore gives the reason', () => {
+    expect(holdUncheckedWords({ status: 'none', reason: versionsProblem({ polar: true, category: 'custom' }, 2) })).toBe('not checked here (terrain versions are drawn for the polar catalogue sites; a point picked on the map has none)');
+    expect(holdUncheckedWords({ status: 'none', reason: versionsProblem({ polar: true, category: 'classic' }, 5) })).toBe('not checked here (terrain versions are traced from a 2 m mast; with the mast at 5 m they would not match the figures shown)');
+    expect(holdUncheckedWords({ status: 'none', reason: 'No terrain versions were drawn for this site.' })).toBe('not checked here (no terrain versions were drawn for this site)');
+    expect(holdUncheckedWords({ status: 'none', reason: null })).toBe('not checked here');
+    expect(holdUncheckedWords({ status: 'working' })).toBe('checking the terrain versions…');
+    expect(holdUncheckedWords({ status: 'error', message: 'HTTP 500' })).toBe('not checked here (the versions could not be worked out: HTTP 500)');
   });
 
   it('says plainly when a site has no versions, and nothing on a flat horizon', async () => {
