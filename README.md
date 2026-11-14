@@ -142,7 +142,8 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   ("Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "Find the best landing date for 14
   days", "Explain the longest night") into the same controls a person would use. It never computes
   a number itself, and every answer says where it came from: a model on OpenRouter's free tier, a
-  rehearsed answer, or a matched phrase. `?demo=1` uses the rehearsed answers only, for the pitch.
+  rehearsed answer, or a matched phrase; with a Gemini key on the server, Google's Gemini is asked last,
+  after OpenRouter's models. `?demo=1` uses the rehearsed answers only, for the pitch.
 - **Luna** (the "Luna" button in the header, or the robot rabbit at the lower left of every page, and in the row of the view from the site): a voice
   assistant, off until you turn it on. Say what you want to see ("open the view from the site",
   "play", "next", "turn to Earth", "compare de Gerlache Rim 2 and Nobile Rim 2 for fourteen days", "compare with a five-day delay",
@@ -153,6 +154,13 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   pauses and restarts the listening, and its "Say replies aloud" switch (on at first, remembered in the
   browser) keeps her answers to the chat when off; "be quiet" and "speak again" do the same by voice.
   What she does not know goes to the same assistant as "Ask in plain words".
+  With a Gemini key on the server (`GEMINI_API_KEY`), she asks Gemini first, says her replies in
+  Gemini's voice (in the browser's own when that fails or takes more than 4 s), and, in browsers
+  without speech recognition such as Firefox, her microphone records a phrase from one press to the
+  next (at most 15 s) for Gemini to write down; never in demo mode or the offline build.
+  What goes to Google then: the text of her replies, to be said aloud; her recordings, in browsers
+  without speech recognition; and the questions she and "Ask in plain words" pass to the assistant,
+  with the app's summary of the site and figures on screen (spec 22.5).
   The code is in `web/src/lib/luna` and `web/src/components/luna`.
 - **Plan a landing** (`/plan`, "Plan a landing" in the header): say or type what the mission needs,
   for example "at least five days of power, Earth in view when we land, no radio gap longer than three
@@ -576,6 +584,7 @@ cp web/.env.example web/.env.local
 |---|---|---|
 | `OPENROUTER_API_KEY` | The OpenRouter key for the assistant and the brief's narrated paragraph. Read by the server only (`web/src/app/api/chat/route.ts`); the browser never sees it. A free key from https://openrouter.ai is enough: the models below are its free ones. | empty: no model |
 | `OPENROUTER_MODELS` | The models asked in turn, comma-separated; the first good answer wins. | the four free models in `web/src/lib/ai/openrouter.ts` |
+| `GEMINI_API_KEY` | The Gemini API key for Luna's voice, her listening in browsers without speech recognition, and the assistant (first for Luna, last for "Ask in plain words"). Server only; the models and the voice are in `docs/hosting.md`. | empty: no Gemini |
 | `AI_MODEL_TIMEOUT_MS` | How long one model may take before the next is asked. | 10000 |
 | `AI_MODEL_BUDGET_MS` | The total model time for one question, a retry included, kept under the browser's 30 s wait. | 24000 |
 | `AI_RATE_LIMIT_PER_MIN` | Questions per minute from one address before the server answers 429. | 30 |

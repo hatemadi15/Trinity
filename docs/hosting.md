@@ -1,6 +1,6 @@
 # Hosting Earthrise
 
-Earthrise is a static-first Next.js app with two small server routes (`/api/chat`, `/api/horizons`) and about 282 MB of data files (ephemeris table, horizon masks, DEM tiles, terrain rasters, validation tables, the margins and terrain versions, the modelled cold traps), listed file by file, with sizes and SHA-256 hashes, in `data/manifest.json`. The app is meant to run on Vercel's free Hobby plan, with the data in a Cloudflare R2 bucket (free tier, no egress fees) that the browser reads from `NEXT_PUBLIC_DATA_BASE`. The same build runs without a network on a prepared laptop with the data mirrored into `web/public/data` (section 4).
+Earthrise is a static-first Next.js app with four small server routes (`/api/chat`, `/api/horizons`, and Luna's `/api/speak` and `/api/transcribe`) and about 282 MB of data files (ephemeris table, horizon masks, DEM tiles, terrain rasters, validation tables, the margins and terrain versions, the modelled cold traps), listed file by file, with sizes and SHA-256 hashes, in `data/manifest.json`. The app is meant to run on Vercel's free Hobby plan, with the data in a Cloudflare R2 bucket (free tier, no egress fees) that the browser reads from `NEXT_PUBLIC_DATA_BASE`. The same build runs without a network on a prepared laptop with the data mirrored into `web/public/data` (section 4).
 
 Two ways to run it, which differ offline:
 
@@ -97,17 +97,29 @@ One rule first: every `NEXT_PUBLIC_*` variable is inlined into the client and se
    |---|---|
    | `OPENROUTER_API_KEY` | the OpenRouter key (server only; never exposed) |
    | `OPENROUTER_MODELS` | `qwen/qwen3.8-27b:free,nvidia/nemotron-3-super-120b-a12b:free,google/gemma-4-31b-it:free,nvidia/nemotron-3.5-lightning:free` |
+   | `GEMINI_API_KEY` | the Gemini API key from Google AI Studio (server only; never exposed, never a `NEXT_PUBLIC_` variable). It gives Luna Gemini's voice (`/api/speak`), her listening in browsers without speech recognition (`/api/transcribe`), and the assistant's Gemini: first for Luna, last for "Ask in plain words" and the brief. Unset, those routes answer 503 at once and Luna falls back without a word: the browser's voice, typed words, OpenRouter alone |
+   | `GEMINI_TEXT_MODEL` | `gemini-2.5-flash` (optional; the model the assistant asks) |
+   | `GEMINI_TRANSCRIBE_MODEL` | `gemini-2.5-flash` (optional; the model that writes down Luna's recordings) |
+   | `GEMINI_TTS_MODEL` | `gemini-3.8-flash-tts` (optional; the speech model for her replies) |
+   | `GEMINI_VOICE` | `Leda` (optional; one of Gemini's prebuilt voices, such as `Aoede`, `Zephyr` or `Kore`) |
    | `NEXT_PUBLIC_AI_MODE` | `live` (`cached` turns the planner into rehearsed answers only) |
-   | `AI_RATE_LIMIT_PER_MIN` | `30` |
+   | `AI_RATE_LIMIT_PER_MIN` | `30` (requests per minute from one address, for `/api/chat` and for each of Luna's two voice routes) |
    | `AI_MODEL_BUDGET_MS` | `24000` (optional; total model time per `/api/chat` request in milliseconds, first answer plus one retry, kept under the browser's 30 s wait) |
    | `AI_MODEL_TIMEOUT_MS` | `10000` (optional; how long one model in the chain may take, in milliseconds, before the next one is asked; all of them stay inside `AI_MODEL_BUDGET_MS`) |
    | `NEXT_PUBLIC_DATA_BASE` | `https://<data host>/data-2026-11-14-730a29df`, the prefix the data was published under (no trailing slash; the app strips one and reads an empty value as `/data`) |
    | `NEXT_PUBLIC_SITE_URL` | the project's own address, for example `https://<project>.vercel.app` (the address people open, which the share image's link is built on). Set it: unset or empty, the app falls back to `https://earthrise.vercel.app`, which is an unrelated site |
 
+   Google renames its models: the three model names may need updating to the current ones (Google's model list). The official SDK's list of November 2026 names `gemini-2.5-flash`, `gemini-3.8-flash` and the speech models `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts` and `gemini-3.1-flash-tts-preview`, and no longer `gemini-2.5-flash-preview-tts`. A name Gemini does not know makes the voice routes answer 502 (the check in step 7 says so), and Luna falls back as without a key.
+
 4. `web/vercel.json` adds the immutable cache header for `/data/*` (only used if the data is ever served by the app) and a one-hour header for the test badge. `web/.vercelignore` keeps the local data mirror out of CLI deployments; Git deployments never see it because `public/data` is gitignored.
 5. Region: leave the default (`iad1`); the routes are light and JPL Horizons sits in the same region.
-6. Limits to keep in mind on Hobby: 100 GB of transfer per month (the data does not count, it comes from R2), 100 MB of source per deployment. Function duration needs no change: Hobby with Fluid compute allows up to 300 s, the chat route caps itself at 60 s (`maxDuration`) and keeps its model time under 24 s per request so the browser's 30 s wait is never exceeded.
-7. After the first deployment, open `/validate` (the Accuracy page), press **Re-check with JPL now**, and ask the assistant one question on `/explore` to confirm both routes and the key.
+6. Limits to keep in mind on Hobby: 100 GB of transfer per month (the data does not count, it comes from R2), 100 MB of source per deployment. Function duration needs no change: Hobby with Fluid compute allows up to 300 s, the chat route caps itself at 60 s (`maxDuration`) and keeps its model time under 24 s per request so the browser's 30 s wait is never exceeded; Luna's voice routes cap themselves at 30 s and give Gemini at most `AI_MODEL_TIMEOUT_MS`. A recording is at most 1 MB and a WAV reply about 50 KB a second, under Vercel's 4.5 MB for a request or a response.
+7. After the first deployment, open `/validate` (the Accuracy page), press **Re-check with JPL now**, and ask the assistant one question on `/explore` to confirm both routes and the key. Then check Gemini's help for Luna, which was built and tested with Gemini stood in, since the machine it was built on could not reach Google:
+   1. From `web/` in a checkout of the repository, with Node 20 or later and no key on that computer: `npm run check:voice -- https://<the deployment>`. It asks both voice routes whether Gemini is available, has `/api/speak` say a sentence (saved to `web/luna-check.wav`, with how long it took against Luna's 4 s wait), has `/api/transcribe` write that WAV back down, and asks `/api/chat` once as Luna (Gemini should answer) and once as "Ask in plain words" (OpenRouter first). Every line should say PASS; a FAIL says what to fix (no key, a model name Gemini does not know, a refused key, a spent quota). A deployment behind Vercel's protection needs `VERCEL_AUTOMATION_BYPASS_SECRET` set in the shell.
+   2. Listen to `web/luna-check.wav`: one friendly voice saying "Opening the forecast for de Gerlache Rim 2."
+   3. In Chrome or Edge, turn Luna on, say "open the forecast": the reply should come in Gemini's voice. Turn "Say replies aloud" off while she speaks: she stops at once.
+   4. In Firefox (and Safari, if it offers no speech recognition), turn Luna on: her panel says "Press the microphone and speak; press it again when you have finished." Press, say "compare de Gerlache Rim 2 and Nobile Rim 2", press again: Compare should open, and her reply be said aloud.
+   5. Open `/explore?demo=1` and ask Luna something: in demo mode the browser's network panel shows no request to `/api/speak` or `/api/transcribe`.
 
 ## 3. GitHub Release mirror
 
@@ -134,7 +146,7 @@ npm start                              # serves http://localhost:3000 with /data
 
 A value set in the shell wins over `web/.env.local` at build time (checked with Next 16.3.6: a shell set to `cached` built `cached` over a file that said `live`, and a shell set to `live` built `live` over a file that said `cached`). Without one in the shell, the file's value is built in, so a `web/.env.local` copied from `.env.example`, which says `live`, gives a live build unless the shell sets `cached` as above. `?demo=1` in the URL also switches the planner to rehearsed answers for the tab, whatever the build says.
 
-`check-data` should end with "The full demo is here." Open `http://localhost:3000/explore?demo=1`. Three things still need the internet and say so without it: the Accuracy page's live re-check (the page keeps the stored comparison), the assistant's model (`cached` and `?demo=1` use the rehearsed answers instead), and Luna's speech recognition in Chrome and Edge (her panel takes typed words). The validation tables are in the data mirror, so every table renders offline.
+`check-data` should end with "The full demo is here." Open `http://localhost:3000/explore?demo=1`. Three things still need the internet and say so without it: the Accuracy page's live re-check (the page keeps the stored comparison), the assistant's model (`cached` and `?demo=1` use the rehearsed answers instead), and Luna's speech recognition in Chrome and Edge (her panel takes typed words). Gemini is never called in a `cached` build or with `?demo=1`: Luna uses the browser's own voice, and in a browser without speech recognition she takes typed words. The validation tables are in the data mirror, so every table renders offline.
 
 ## 5. Plan B: Cloudflare Pages
 
