@@ -8,7 +8,7 @@ import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { dateLong, dayMonth } from '@/lib/viz/format';
 import { compassTicks } from '@/lib/viz/skyrow';
-import { batteryWords, chargeArea, hillsToward, hourAt, offRuns } from '@/lib/viz/timechart';
+import { batteryWords, chargeArea, dayTicks, hillsToward, hourAt, offRuns } from '@/lib/viz/timechart';
 import { DottedSwatch, HillSwatch, Swatch } from './Swatches';
 
 const SUN_H = 110;
@@ -85,8 +85,7 @@ export function TimeChart({
   const period = `the ${days} days from ${dateLong(startUtc, 0)}`;
 
   const compass = spaced(compassTicks(series.sunAz), pct, 3, 97, 9);
-  const every = days > 45 ? 10 : 5;
-  const dayTicks = Array.from({ length: Math.floor((days - 1) / every) + 1 }, (_, k) => k * every);
+  const ticks = dayTicks(days);
   const off = power ? offRuns(power.powered) : [];
   const longestOff = off.reduce<{ from: number; to: number } | null>((best, r) => (!best || r.to - r.from > best.to - best.from ? r : best), null);
 
@@ -218,7 +217,7 @@ export function TimeChart({
       <div className={`${GRID} mt-1`}>
         <span className="max-sm:hidden" />
         <div data-testid="days" aria-hidden="true" className="relative h-6 text-[15px] text-ink-2">
-          {dayTicks.map((d, i) => (
+          {ticks.map((d, i) => (
             <span key={d} data-day="" className={`absolute whitespace-nowrap ${i % 2 === 1 ? 'max-sm:hidden' : ''}`} style={d === 0 ? { left: 0 } : { left: `${((d * 24) / hours) * 100}%`, transform: 'translateX(-50%)' }}>
               {dayMonth(startUtc, d * 24)}
             </span>
