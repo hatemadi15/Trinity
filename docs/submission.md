@@ -78,7 +78,7 @@ The engine, pipeline and app in the repository were built by the team from 24 Se
 | LRO LOLA average illumination and Earth-visibility maps (Mazarico et al.), 60 m/px south of 85°S, and the LOLA 20 m elevation model to 85°S | the Accuracy page's terrain check (sunlight and Earth in view) |
 | JPL DE440 planetary ephemeris and NAIF SPICE kernels (MOON_ME frame) | hourly Sun and Earth table |
 | JPL Horizons API | the Accuracy page's directions check and its live re-check |
-| NASA CGI Moon Kit (colour, with the poles filled, and LOLA heights at 16 pixels per degree) | the globe in the 3D view, and the Moon of the home page's descent (resized copies) |
+| NASA CGI Moon Kit (LRO LROC colour and LOLA elevation) | the globe in the 3D view, and the Moon of the home page's descent (resized copies) |
 | NASA Blue Marble (land, shallow water and topography; clouds), NASA Goddard | Earth in the stand view, turned for the hour |
 | Yale Bright Star Catalogue, 5th revised edition, through NASA HEASARC | the 8,404 stars in the stand view's night sky, with their colours |
 | NASA Artemis III candidate landing regions (October 2024) | site catalogue |
