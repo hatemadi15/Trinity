@@ -27,11 +27,13 @@ import { briefHref, standHref, withSettings } from '@/lib/links';
 import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
 import { useDataVersions } from '@/lib/hooks/useDataVersions';
 import { appVersion } from '@/lib/share/versions';
-import { COMPARE_MAX, exploreStore, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, scanOf, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { neighbourhoodRange, rangeWords } from '@/lib/plan/neighbourhood';
+import { placeOptions, timeOptions } from '@/lib/plan/options';
+import { periodOutcome } from '@/lib/plan/outcome';
+import { answerFor, nearbyWords, planView, spotSite } from '@/lib/viz/answer';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
-import { timeWithPower } from '@/lib/engine/landing';
-import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
 import { dateTimeUtc } from '@/lib/viz/format';
 import { trustedAnswer, trustedOverview, verdictLimitation } from '@/lib/viz/terrain';
 import { checkPick } from '@/lib/viz/pick';
@@ -103,6 +105,10 @@ export function ExploreView({
   useEffect(() => {
     if (s.status === 'ready') void store.getState().loadOverview();
   }, [store, s.status, s.startUtc, s.days, s.params]);
+  // A site known only to a few kilometres: the same period at points round it, in the worker, after the main result.
+  useEffect(() => {
+    if (s.status === 'ready') void store.getState().loadNeighbourhood();
+  }, [store, s.status, s.siteId, s.startUtc, s.days, s.params]);
 
   const onPick = useCallback(
     (lat: number, lon: number) => {
@@ -137,19 +143,56 @@ export function ExploreView({
   // The terrain behind the figures, and whether they are still from another mast height than the one chosen.
   const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
   const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
+  // The period's landing times, ranked with the requirements: the better date comes from here.
+  const times = useMemo(
+    () => (s.series && s.site ? timeOptions({ scan: scanOf(s.series), cfg: s.params.power, req: s.requirements, hours: s.series.hours, startUtc: s.startUtc }) : null),
+    [s.series, s.site, s.params.power, s.requirements, s.startUtc],
+  );
+  const current = useMemo(() => (s.series && s.power ? periodOutcome(s.series, s.power) : null), [s.series, s.power]);
+  const hood = s.neighbourhood && s.site && s.neighbourhood.siteId === s.site.id ? s.neighbourhood : null;
+  // The places nearby from the same landing day, once the overview has their figures, and the spots round an approximate
+  // site: only from figures for the chosen mast, and never to or from a place whose terrain is incomplete.
+  const places = useMemo(() => {
+    if (!s.site || !current || behind || terrain?.quality === 'incomplete') return null;
+    const centre = s.site;
+    const outcomes = Object.fromEntries(Object.entries(trustedOverview(s.overview, s.params.mastM)).map(([id, o]) => [id, o.now]));
+    const extra = hood && !hood.busy ? hood.points.flatMap((p) => (p.outcome ? [{ place: { site: spotSite(centre, p), km: p.km }, outcome: p.outcome }] : [])) : [];
+    return placeOptions({ site: centre, sites: s.sites, outcomes, extra, current, req: s.requirements });
+  }, [s.site, s.sites, s.overview, current, hood, s.requirements, s.params.mastM, behind, terrain]);
   const told = useMemo(
-    () => (s.series && s.summary && s.power && s.site ? answerFor({ siteName: siteLabel(s.site), series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, farSide: s.site.far_side, panel: s.params.power.panel }) : null),
-    [s.site, s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.params.power.panel, s.best],
+    () => (s.series && s.summary && s.power && s.site ? answerFor({ siteName: siteLabel(s.site), series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, plan: times, farSide: s.site.far_side, panel: s.params.power.panel }) : null),
+    [s.site, s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.params.power.panel, s.best, times],
   );
   // No better day from an incomplete terrain, or from figures still waiting for the chosen mast (lib/viz/terrain).
   const answer = useMemo(() => (told ? trustedAnswer(told, terrain, behind) : null), [told, terrain, behind]);
-  // A nearby site that keeps power clearly longer from the same landing day, once the overview has its figures: only
-  // from figures for the chosen mast, and never to or from a place whose terrain is incomplete.
+  // A nearby place that does clearly better from the same landing day: more power by a day, or fewer requirements failed.
   const nearby = useMemo(() => {
-    if (!s.site || !s.power || behind || terrain?.quality === 'incomplete') return null;
-    const advice = nearbyAdvice(s.site, s.sites, trustedOverview(s.overview, s.params.mastM), timeWithPower(s.power));
-    return advice ? { words: nearbyWords(advice, s.days), name: siteLabel(advice.site), href: exploreHref(advice.site.id, s.startUtc, s.days) } : null;
-  }, [s.site, s.sites, s.overview, s.power, s.days, s.startUtc, s.params.mastM, behind, terrain]);
+    const b = places?.better;
+    return b ? { words: nearbyWords({ site: b.item.site, km: b.item.km, hours: b.outcome.poweredH, earthNever: b.outcome.contactH === 0 }, s.days), name: siteLabel(b.item.site), href: exploreHref(b.item.site.id, s.startUtc, s.days) } : null;
+  }, [places, s.days, s.startUtc]);
+  // Every option behind the recommendations, for the panel's fold.
+  const plan = useMemo(
+    () =>
+      times
+        ? planView({
+            times,
+            places,
+            year: s.yearPlan,
+            req: s.requirements,
+            startUtc: s.startUtc,
+            days: s.days,
+            hrefFor: (id) => exploreHref(id, s.startUtc, s.days),
+            spots: hood && !hood.busy ? { count: hood.points.filter((p) => p.outcome).length, km: hood.radiusKm } : null,
+          })
+        : null,
+    [times, places, hood, s.yearPlan, s.requirements, s.startUtc, s.days],
+  );
+  // The same result round an approximate point, next to the result.
+  const range = useMemo(() => {
+    if (!hood || !current) return null;
+    if (hood.busy) return { words: `Working out the results within ${hood.radiusKm} km…` };
+    return rangeWords(neighbourhoodRange(current, hood.points), { radiusKm: hood.radiusKm, ms: hood.skylineMs, mastM: hood.mastM, stated: hood.stated });
+  }, [hood, current]);
 
   // The verdict's times with their supported margins (data/uncertainty), and the ground at a measured site.
   const sure = useMemo(
@@ -213,6 +256,10 @@ export function ExploreView({
               onCompare={onCompare}
               onYear={() => void store.getState().findBestWindow(s.days)}
               yearNote={s.bestWindowNote}
+              plan={plan}
+              requirements={s.requirements}
+              onRequirements={s.setRequirements}
+              range={range}
               sure={sure}
             />
             <NumbersCard

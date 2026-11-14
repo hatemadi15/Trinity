@@ -3,7 +3,7 @@ import { dateTimeUtc, isoAt } from '../viz/format';
 import { sliceSeries } from '../engine/metrics';
 import { powerBudget } from '../engine/power';
 import { loadEphemeris, type EphemerisHeader } from '../engine/ephemeris';
-import { createExploreStore, DEFAULT_PARAMS, DEFAULT_START, recompute } from './explore';
+import { createExploreStore, DEFAULT_PARAMS, DEFAULT_START, recompute, scanOf } from './explore';
 import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
 import type { Site } from '../data/loaders';
 import { decodeHeightmap, type HeightmapMeta, type TerrainManifest } from '../data/terrain';
@@ -47,6 +47,16 @@ function fileLoaders(opts: { delayMs?: (id: string) => number; counters?: { mask
 const custom: Site = { id: 'custom', name: 'Custom site', lat: -89.5, lon: 10, category: 'custom', polar: true, source: 'user' };
 
 describe('recompute', () => {
+  it('keeps the series the landing search scanned, which runs a period past the end of the period', () => {
+    const site = sites.find((s) => s.id === 'de_gerlache_rim_2')!;
+    const r = recompute(eph, site, Float64Array.from(maskOf(site.id).elevation_deg), '2027-01-01T00:00:00', 30);
+    const scan = scanOf(r.series);
+    expect(scan.hours).toBe(60 * 24);
+    expect(scan.sunFraction.subarray(0, 720)).toEqual(r.series.sunFraction);
+    // A series no search was run on is its own scan.
+    expect(scanOf(scan)).toBe(scan);
+  });
+
   it('returns a series and summary for a featured site', () => {
     const site = sites.find((s) => s.id === 'shackleton_center_rim_high')!;
     const { series, summary } = recompute(eph, site, Float64Array.from(maskOf(site.id).elevation_deg), '2025-01-01T00:00:00', 30);
@@ -637,22 +647,46 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().startUtc).toBe('2027-10-12T18:00:00');
     expect(store.getState().days).toBe(30);
     expect(store.getState().series!.sunFraction[0]).toBeGreaterThan(0); // a lander arrives in daylight
-    expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, 18:00 UTC, power for 13 d 21 h, Earth in view 80 % of that time.');
+    expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, 18:00 UTC, power for 13 d 21 h, Earth in view 80 % of that time. Landing times tried every 6 hours, ranked by time with power from landing, then Earth contact while powered.');
   });
 
-  it('findBestWindow across the compared sites takes the mean time with power and says so', async () => {
+  it('findBestWindow across the compared sites ranks by the site that does worst, never the mean, and gives each site its own result', async () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();
     await store.getState().addToCompare('im1_odysseus');
     await store.getState().addToCompare('shackleton_center_rim_high');
     const r = await store.getState().findBestWindow(14, 'compare');
     expect(r).not.toBeNull();
-    expect(r!.poweredHours).toBeGreaterThan(300);
     expect(store.getState().startUtc).toBe(r!.startUtc);
-    expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites: best landing in the next 12 months: .* power for .* on average/);
-    // Each site's own result at that landing, not only the mean (technical review, P1).
-    expect(store.getState().bestWindowNote).toMatch(/; at each site: IM-1 Odysseus [\d dh]+, Shackleton rim summit (all 14 days|[\d dh]+)\.$/);
+    const plan = store.getState().yearPlan!;
+    expect(plan.scope).toBe('compare');
+    expect(plan.siteNames).toEqual(['IM-1 Odysseus', 'Shackleton rim summit']);
+    const best = plan.plan.alternatives[0];
+    // The figure returned is the worst site's, and it is the least of the sites' own.
+    expect(r!.poweredHours).toBe(Math.min(...best.item.perSite.map((o) => o.poweredH)));
+    expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites, ranked by the site that does worst: best landing in the next 12 months: \d+ \w+ \d{4}, \d{2}:\d{2} UTC\. Power for .+ at IM-1 Odysseus and .+ at Shackleton rim summit\. Landing times tried every 6 hours, /);
     for (const c of store.getState().compare) expect(c.series.sunFraction[0]).toBeGreaterThan(0);
+  });
+
+  it('findBestWindow honours the requirements, keeps the alternatives with their checks and says what the best one meets', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init(); // de Gerlache Rim 2, 1 January 2027, 30 days
+    store.getState().setRequirements({ minPoweredH: 5 * 24, maxOutageH: 10 * 24 });
+    expect(store.getState().requirements).toEqual({ minPoweredH: 120, contactWithinH: null, maxOutageH: 240, minPoweredContactH: null });
+    const r = await store.getState().findBestWindow(30);
+    const plan = store.getState().yearPlan!;
+    expect(plan).toMatchObject({ scope: 'site', days: 30, fromUtc: '2027-01-01T00:00:00', stepH: 6 });
+    expect(plan.plan.alternatives).toHaveLength(3);
+    const [best, ...rest] = plan.plan.alternatives;
+    expect(best.item.startUtc).toBe(r!.startUtc.slice(0, 19));
+    // Two weeks apart at least: another lunar day, not the same one again.
+    for (const a of rest) expect(Math.abs(a.item.hour - best.item.hour)).toBeGreaterThanOrEqual(14 * 24);
+    for (const a of plan.plan.alternatives) expect(a.checks.map((c) => c.id)).toEqual(['power', 'outage']);
+    expect(store.getState().bestWindowNote).toMatch(best.failed === 0 ? / Meets all 2 of your requirements\. Landing times tried every 6 hours, ranked by your requirements, / : / None in the next 12 months meets them all\. /);
+    // Setting a requirement again drops the search's note and its alternatives: they were ranked for the old ones.
+    store.getState().setRequirements({ maxOutageH: null });
+    expect(store.getState().bestWindowNote).toBeNull();
+    expect(store.getState().yearPlan).toBeNull();
   });
 
   it('findBestWindow reports a site that never sees the Sun instead of moving the window', async () => {
@@ -720,6 +754,8 @@ describe('best landing date and the overview of all sites', () => {
       best: { hour: 466, poweredHours: 303, earthFraction: expect.any(Number) },
       afterSun: expect.closeTo(0.408, 3),
       afterEarth: expect.closeTo(0.543, 3),
+      // What a lander gets from landing at the period start, for ranking the places nearby.
+      now: { hour: 0, stayH: 720, poweredH: 76, sunH: 321, contactH: 324, poweredContactH: 0, outageH: 219, poweredOutageH: 76, firstContactH: 219, sunlitAtLanding: true },
       // Each row says the height its skyline is seen from and the terrain behind it.
       mastM: 2,
       terrain: expect.objectContaining({ quality: 'complete', mastM: 2, source: expect.objectContaining({ kind: 'featured' }) }),

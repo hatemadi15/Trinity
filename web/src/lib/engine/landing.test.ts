@@ -77,11 +77,11 @@ describe('bestLanding', () => {
     expect(landingScores(series(rep(1, 10)), CFG, { from: 20, to: 30, step: 1, capHours: 5 }).hours).toHaveLength(0);
   });
 
-  it('across several sites takes the mean and only hours at which every site is sunlit', () => {
+  it('across several sites takes the site that does worst, never the mean, and only hours at which every site is sunlit', () => {
     const a = landingScores(series([...rep(1, 10), ...rep(0, 30)]), CFG, { from: 0, to: 40, step: 5, capHours: 40 });
     const b = landingScores(series([...rep(0, 5), ...rep(1, 25), ...rep(0, 10)]), CFG, { from: 0, to: 40, step: 5, capHours: 40 });
-    // Hour 0: a sunlit, b dark, so not a candidate. Hour 5: a keeps power 15 h, b 35 h (to the end of the table).
-    expect(bestLandingAcross([a, b])).toEqual({ hour: 5, poweredHours: 25, earthFraction: 0 });
+    // Hour 0: a sunlit, b dark, so not a candidate. Hour 5: a keeps power 15 h, b 35 h (to the end of the table): a's 15 h counts.
+    expect(bestLandingAcross([a, b])).toEqual({ hour: 5, poweredHours: 15, earthFraction: 0 });
     expect(bestLandingAcross([])).toBeNull();
   });
 });

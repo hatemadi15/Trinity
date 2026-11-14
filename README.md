@@ -35,8 +35,10 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
 - **Explore** (`/explore`): the answer for one site and one landing date, first. "Landing at de
   Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, how sure its
   times are ("Times ±4.5 h", one tap away), the time
-  Earth is in view while the lander has power, a better landing day inside the period ("Land on 20
-  January instead") or a better place nearby, and a search of the next 12 months. Below it: the
+  Earth is in view while the lander has power, a better landing day or a better place nearby, ranked against
+  mission requirements you can set, with every option's checks, trade-offs and reason under
+  "Options"; a search of the next 12 months every 6 hours; and, for a region centre known to about
+  5 km, the same result at 8 points round it. Below it: the
   numbers, with the Sun's height at the time bar's hour and its highest (every figure under "All numbers"), a chart of the Sun,
   Earth and the battery hour by hour with the hills in each direction, the radio windows (each
   stretch with Earth in view, in UTC, which of them the lander has power for, and the longest time
@@ -253,7 +255,7 @@ page. More resources may be added before the hackathon begins.
 | The brief asks for | How Earthrise answers it |
 |---|---|
 | Site selection and comparison | A catalogue of 34 places: the south pole's nine Artemis III candidate regions, crater-rim high points and floors, three CLPS landers that landed and two coming ones, the six Apollo landings, and the landers of India, China and Japan and Luna 25's target, each saying what kind of point it is (surveyed, a target, a region's centre with its radius, or a derived high point never checked for landing), with the polar ones on a relief map of the pole; and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts a baseline and up to three scenarios side by side, each with its own site, landing hour, stay and lander, with the change from the baseline: the original landing, the same site five days later and a nearby alternative, in three presses. |
-| Dates and times | Any landing date and hour (UTC) the ephemeris covers (2024 to 2036), for 2 to 90 days, with steps and shifts by hours or days; a better landing day inside the period, a search of the next 12 months for the best one, and a year at a glance: every landing day of the next 12 months coloured by power and radio contact, one press to land on it. |
+| Dates and times | Any landing date and hour (UTC) the ephemeris covers (2024 to 2036), for 2 to 90 days, with steps and shifts by hours or days; a better landing day inside the period and a search of the next 12 months, both ranked by the longest time with power from landing (ties: Earth contact while powered) and by any requirements you set, and a year at a glance: every landing day of the next 12 months coloured by power and radio contact, one press to land on it. |
 | The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments (the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back) and counts down to the next sunset or sunrise and to Earth's next rising or setting. |
 | Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; the Sun's height above the horizon at any hour and its highest; hours of sunlight; the radio windows with their UTC times, which of them the lander has power to use, and the longest time without Earth (geometric direct-to-Earth visibility, not a booked antenna); the longest night; every figure under "All numbers". |
 | Several ways to see it | A relief map of the pole, a north-up shadow map and the same light in 3D from above, the horizon chart, an hour-by-hour chart of the Sun, Earth and the battery, the view from the site, and the arrival from the whole Moon on the home page. |

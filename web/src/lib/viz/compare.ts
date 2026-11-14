@@ -1,4 +1,5 @@
 import type { Site } from '../data/loaders';
+import { checksWords, type Check } from '../plan/requirements';
 import { pointKind } from '../data/kind';
 import type { TerrainReport } from '../engine/completeness';
 import { landerName } from '../lander';
@@ -25,6 +26,8 @@ export interface Column {
   outcome: Outcome | null;
   /** What was found of the terrain behind its skyline, once worked out. */
   terrain?: TerrainReport;
+  /** The planner's requirements checked against its figures (lib/plan); empty or absent when none is set. */
+  checks?: Check[];
 }
 
 export type Tone = 'better' | 'worse' | 'same';
@@ -36,7 +39,7 @@ export interface Cell {
   tone: Tone | null;
 }
 export interface FigureRow {
-  id: 'power' | 'sun' | 'earth' | 'contact' | 'outage' | 'sunset' | 'earthset' | 'night' | 'verdict';
+  id: 'power' | 'sun' | 'earth' | 'contact' | 'outage' | 'sunset' | 'earthset' | 'night' | 'verdict' | 'requirements';
   name: string;
   /** What the figure means, for the fold under the table. */
   means: string;
@@ -136,6 +139,28 @@ export function figureRows(cols: Column[]): FigureRow[] {
       (o, base) => ({ value: o.verdict, change: null, tone: o.verdict === base.verdict ? 'same' : toneOf(o.poweredH - base.poweredH, true) }),
       (o) => o.verdict,
     ),
+    ...requirementsRow(cols),
+  ];
+}
+
+/** The planner's requirements, each scenario's checks in a sentence and how many fewer or more it fails than the baseline; no row when none is set. */
+function requirementsRow(cols: Column[]): FigureRow[] {
+  if (!cols.some((c) => c.checks && c.checks.length > 0)) return [];
+  const failed = (c: Column) => (c.checks ?? []).filter((x) => !x.met).length;
+  const base = cols[0];
+  return [
+    {
+      id: 'requirements',
+      name: 'Your requirements',
+      means: 'The mission requirements set on Explore (Options), checked against each scenario: each met or failed, with its value.',
+      cells: cols.map((c, i) => {
+        if (!c.outcome || !c.checks || c.checks.length === 0) return null;
+        const value = checksWords(c.checks) ?? '';
+        if (i === 0) return { value, change: null, tone: null };
+        const d = failed(c) - failed(base);
+        return { value, change: d === 0 ? 'same' : d < 0 ? `${-d} fewer failed` : `${d} more failed`, tone: d === 0 ? 'same' : d < 0 ? 'better' : 'worse' };
+      }),
+    },
   ];
 }
 

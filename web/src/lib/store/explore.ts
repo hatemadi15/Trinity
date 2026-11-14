@@ -5,13 +5,18 @@ import { indexForEt, type Ephemeris } from '../engine/ephemeris';
 import { EngineClient } from '../engine-client';
 import type { MaskResult } from '../engine/worker-handler';
 import { normalizeLon } from '../engine/geometry';
-import { bestLanding, bestLandingAcross, landingScores, timeWithPower, YEAR_HOURS, type Landing } from '../engine/landing';
+import { bestLanding, timeWithPower, YEAR_HOURS, type Landing } from '../engine/landing';
 import { contactWindows, headSeries, hourlySeries, sliceSeries, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig, type PowerResult } from '../engine/power';
 import { etToIso, utcToEt } from '../engine/time';
 import { periodDays, periodProblem, snapToHour } from '../period';
 import { clockUtc, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
+import { yearOptions, type Recommendation, type YearChoice } from '../plan/options';
+import { periodOutcome, type Outcome } from '../plan/outcome';
+import { checksWords, NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
+import { yearRuleWords } from '../plan/rank';
+import { neighbourhoodRadius, ringPoints, type PointResult } from '../plan/neighbourhood';
 import { computedReport, featuredReport, flatReport, unreportedReport, type TerrainFindings, type TerrainReport } from '../engine/completeness';
 import { missingWords } from '../viz/terrain';
 import { customPoint, parseExploreQuery } from './query';
@@ -69,11 +74,43 @@ export interface SiteOverview {
   /** Sunlight and contact with Earth over as many days from the best landing hour (the period's own when there is none, or it is the start). */
   afterSun: number;
   afterEarth: number;
+  /** What a lander gets from landing at the period start: what the places nearby are ranked on. */
+  now?: Outcome;
   /** Mast height the row's skyline is seen from (m), and the terrain behind it (the store always sets both). */
   mastM?: number;
   terrain?: TerrainReport;
 }
 export const DEFAULT_START = '2027-01-01T00:00:00';
+
+/** The same period worked out at points round a site whose position is known only to a few kilometres. */
+export interface Neighbourhood {
+  siteId: string;
+  /** How far out the points are: the radius the catalogue states for the site, or a probe round a derived high point. */
+  radiusKm: number;
+  /** False for a probe round a derived high point, which states no radius. */
+  stated: boolean;
+  /** True while the worker computes the points' skylines. */
+  busy: boolean;
+  points: PointResult[];
+  /** Time from the first skyline asked for to the last result, in ms. */
+  ms: number;
+  /** Time the worker spent on the points' skylines, kept with them for later periods, in ms. */
+  skylineMs: number;
+  mastM: number;
+}
+
+/** The 12-month search's result: the landing times it found, ranked with the requirements, and what it searched. */
+export interface YearPlan {
+  scope: 'site' | 'compare';
+  days: number;
+  /** The start the search began from (UTC): the current choice the alternatives are weighed against. */
+  fromUtc: string;
+  /** The sites searched, in the order of each choice's `perSite`. */
+  siteNames: string[];
+  /** Hours between the landing times tried. */
+  stepH: number;
+  plan: Recommendation<YearChoice>;
+}
 
 export interface Loaders {
   loadSites: () => Promise<Site[]>;
@@ -171,6 +208,20 @@ export interface ExploreState {
   /** Why a site's skyline at the chosen mast height could not be had, by site id (the engine's or the loader's message). */
   skylineProblems: Record<string, string>;
   bestWindowNote: string | null;
+  /** The alternatives behind the 12-month search's note: it lives and goes with the note. */
+  yearPlan: YearPlan | null;
+  /** What the mission needs: the recommendations are ranked and checked against it. None set by default. */
+  requirements: Requirements;
+  /** Changes some requirements (null drops one); the 12-month note goes, as it was ranked for the old ones. */
+  setRequirements: (patch: Partial<Requirements>) => void;
+  /** The current period worked out round an approximate site (null for a surveyed one, or before `loadNeighbourhood`). */
+  neighbourhood: Neighbourhood | null;
+  /**
+   * Works out the current period at 8 points round the selected site when the catalogue says its position is known only
+   * to a few kilometres: the skylines in the worker, one at a time, cached by place and mast. A no-op when it is already
+   * there for this site, period and lander; a newer site or period drops a run still going.
+   */
+  loadNeighbourhood: () => Promise<void>;
   setParams: (patch: Partial<PlannerParams>) => void;
   setPower: (patch: Partial<PowerConfig>) => void;
   /** Computes a custom site's skyline in the worker and selects it. */
@@ -178,9 +229,10 @@ export interface ExploreState {
   addToCompare: (id: string) => Promise<void>;
   removeFromCompare: (id: string) => void;
   /**
-   * Searches the next 12 months from the start date for the landing hour with the longest time with
-   * power and moves the period there; null when none fits. Scope 'compare' takes the mean over the
-   * compared sites (and falls back to the selected site when there are none).
+   * Searches the next 12 months from the start date, every 6 hours, for the landing hour that ranks first with the
+   * requirements (then the longest time with power, then Earth contact while powered) and moves the period there;
+   * null when none fits. Scope 'compare' ranks each hour by the compared site that does worst (and falls back to the
+   * selected site when there are none). The best few landing times are kept in `yearPlan`.
    */
   findBestWindow: (days: WindowDays, scope?: 'site' | 'compare') => Promise<{ startUtc: string; poweredHours: number; earthFraction: number } | null>;
   /** Resolves once a pending mast debounce and any in-flight skyline recompute have settled. */
@@ -191,6 +243,14 @@ export interface ExploreState {
   setAiMode: (mode: AiMode) => void;
   /** Applies ?site=&start=&days= from a URL once the store is ready; unknown ids and bad dates are ignored. */
   applyQuery: (search: string | URLSearchParams) => Promise<void>;
+}
+
+/** The series each period was cut from by `recompute`: it runs up to a period past the end, for the landing search. */
+const scans = new WeakMap<Series, Series>();
+
+/** The longer series a period's landing search scanned (`recompute` keeps it); a series no search was run on is its own. */
+export function scanOf(series: Series): Series {
+  return scans.get(series) ?? series;
 }
 
 export function recompute(
@@ -211,6 +271,7 @@ export function recompute(
   const raw = hourlySeries(site, mask, eph, startEt, reach);
   const scan = params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
   const series = headSeries(scan, hours);
+  if (series !== scan) scans.set(series, scan);
   const summary = summarize(series);
   const best = bestLanding(scan, params.power, { from: 0, to: hours, step: 1, capHours: hours });
   return {
@@ -307,6 +368,10 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   let windowSeq = 0;
   let overviewSeq = 0;
   let overviewKey: string | null = null;
+  /** Skylines of the points round approximate sites, by place and mast; and the run of `loadNeighbourhood` in hand. */
+  const ringMasks = new Map<string, { mask: Float64Array; failedTiles: number; ms: number }>();
+  let neighbourhoodSeq = 0;
+  let neighbourhoodKey: string | null = null;
   let initPromise: Promise<void> | null = null;
   let terrainPromise: Promise<void> = Promise.resolve();
   let windowPromise: Promise<void> = Promise.resolve();
@@ -349,6 +414,9 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     pendingSkylines: [],
     skylineProblems: {},
     bestWindowNote: null,
+    yearPlan: null,
+    requirements: NO_REQUIREMENTS,
+    neighbourhood: null,
     aiMode: process.env.NEXT_PUBLIC_AI_MODE === 'cached' ? 'cached' : 'live',
 
     init() {
@@ -502,6 +570,64 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       get().setParams({ power: { ...get().params.power, ...patch } });
     },
 
+    setRequirements(patch) {
+      set({ requirements: { ...get().requirements, ...patch }, bestWindowNote: null });
+    },
+
+    async loadNeighbourhood() {
+      const { site, eph, startUtc, days, params } = get();
+      const ring = site ? neighbourhoodRadius(site) : null;
+      if (!site || !eph || !loaders.computeMask || ring === null) {
+        neighbourhoodKey = null;
+        neighbourhoodSeq++;
+        if (get().neighbourhood) set({ neighbourhood: null });
+        return;
+      }
+      const key = JSON.stringify([site.id, startUtc, days, params]);
+      if (key === neighbourhoodKey) return; // already there, or on its way, for this site, period and lander
+      neighbourhoodKey = key;
+      const seq = ++neighbourhoodSeq;
+      const t0 = Date.now();
+      const radiusKm = ring.km;
+      const base = { siteId: site.id, radiusKm, stated: ring.stated, mastM: params.mastM };
+      set({ neighbourhood: { ...base, busy: true, points: [], ms: 0, skylineMs: 0 } });
+      const points: PointResult[] = [];
+      let skylineMs = 0;
+      for (const p of ringPoints(site, radiusKm)) {
+        const id = `${p.lat.toFixed(4)}_${p.lon.toFixed(4)}_${params.mastM}`;
+        let got: { mask: Float64Array; failedTiles: number; ms: number } | { error: string } | undefined = ringMasks.get(id);
+        if (!got) {
+          const t1 = Date.now();
+          try {
+            const r = await loaders.computeMask(p.lat, p.lon, params.mastM);
+            // A skyline the terrain model calls incomplete counts as one with holes: its figures could be too high.
+            const incomplete = r.terrain ? computedReport(r.terrain, params.mastM).quality === 'incomplete' : false;
+            got = { mask: r.mask, failedTiles: incomplete ? Math.max(1, r.failedTiles) : r.failedTiles, ms: Date.now() - t1 };
+            // A skyline with holes is not kept: the tiles may load next time.
+            if (r.failedTiles === 0) ringMasks.set(id, got);
+          } catch (err) {
+            got = { error: message(err) };
+          }
+          if (seq !== neighbourhoodSeq) return;
+        }
+        if (!('error' in got)) skylineMs += got.ms;
+        if ('error' in got) {
+          points.push({ ...p, outcome: null, missing: /no DEM coverage/i.test(got.error) ? 'no elevation data here' : `an error (${got.error})` });
+        } else if (got.failedTiles > 0) {
+          points.push({ ...p, outcome: null, missing: 'elevation tiles that failed to load' });
+        } else {
+          try {
+            const r = recompute(eph, { ...site, lat: p.lat, lon: p.lon }, got.mask, startUtc, days, params, params.mastM);
+            points.push({ ...p, outcome: periodOutcome(r.series, r.power), missing: null });
+          } catch (err) {
+            points.push({ ...p, outcome: null, missing: `an error (${message(err)})` });
+          }
+        }
+      }
+      if (seq !== neighbourhoodSeq) return;
+      set({ neighbourhood: { ...base, busy: false, points, ms: Date.now() - t0, skylineMs } });
+    },
+
     async selectCustom(lat, lon) {
       if (!loaders.computeMask) {
         set({ customError: 'custom sites need the skyline worker' });
@@ -558,7 +684,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     },
 
     async findBestWindow(days, scope = 'site') {
-      const { eph, site, startUtc, params, compareIds, sites } = get();
+      const { eph, site, startUtc, params, compareIds, sites, requirements } = get();
       if (!eph) return null;
       if (periodDays(days) === null) {
         set({ bestWindowNote: periodProblem(startUtc, days) });
@@ -600,31 +726,36 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       }
       // Only landing hours that leave room for the whole period are candidates.
       const scan = { from: 0, to: Math.min(YEAR_HOURS, scanHours - windowHours + 1), step: 6, capHours: windowHours };
-      const scores = targets.map((t, i) => {
+      const series = targets.map((t, i) => {
         const mask = masks[i].mask;
         const raw = hourlySeries(t, mask, eph, startEt, scanHours);
-        return landingScores(params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw, params.power, scan);
+        return params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
       });
-      const best = bestLandingAcross(scores);
-      if (!best) {
+      const plan = yearOptions({ scans: series, cfg: params.power, req: requirements, scan, startUtc });
+      const top = plan.alternatives[0];
+      if (!top) {
         set({ bestWindowNote: targets.length > 1 ? 'No hour in the next 12 months has sunlight at every compared site.' : 'No hour in the next 12 months has sunlight here.' });
         return null;
       }
-      const newStart = etToIso(startEt + best.hour * 3600).slice(0, 13) + ':00:00';
+      const newStart = etToIso(startEt + top.item.hour * 3600).slice(0, 13) + ':00:00';
       get().setWindow(newStart, days);
       // The landing hour is part of the answer: the search tries every sixth hour from the landing.
       const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}, ${clockUtc(newStart, 0)} UTC`;
-      const lasting = spanShort(Math.round(best.poweredHours));
-      // A mean hides the site that does worst: the note gives each site's own time with power from that landing too.
-      const k = scores[0].hours.indexOf(best.hour);
-      const each = targets.map((t, i) => `${siteLabel(t)} ${scores[i].powered[k] >= windowHours ? `all ${days} days` : spanShort(scores[i].powered[k])}`).join(', ');
+      const best = top.outcome;
+      const earthFraction = best.poweredH > 0 ? best.poweredContactH / best.poweredH : 0;
+      const names = targets.map((t) => siteLabel(t));
+      const each = top.item.perSite.map((o, i) => `${spanShort(o.poweredH)} at ${names[i]}`);
+      const found =
+        targets.length > 1
+          ? `Across ${targets.length} compared sites, ranked by the site that does worst: best landing in the next 12 months: ${when}. Power for ${each.slice(0, -1).join(', ')} and ${each[each.length - 1]}.`
+          : `Best landing in the next 12 months: ${when}, power for ${spanShort(best.poweredH)}, Earth in view ${pct0(earthFraction)} of that time.`;
+      const checks = checksWords(top.checks);
+      const rule = yearRuleWords(scan.step, top.checks.length > 0);
       set({
-        bestWindowNote:
-          targets.length > 1
-            ? `Across ${targets.length} compared sites: best landing in the next 12 months: ${when}, power for ${lasting} on average; at each site: ${each}.`
-            : `Best landing in the next 12 months: ${when}, power for ${lasting}, Earth in view ${pct0(best.earthFraction)} of that time.`,
+        bestWindowNote: checks ? `${found} ${checks}${top.failed > 0 ? ' None in the next 12 months meets them all.' : ''} ${rule}` : `${found} ${rule}`,
+        yearPlan: { scope: targets.length > 1 ? 'compare' : 'site', days, fromUtc: startUtc, siteNames: names, stepH: scan.step, plan },
       });
-      return { startUtc: newStart, poweredHours: best.poweredHours, earthFraction: best.earthFraction };
+      return { startUtc: newStart, poweredHours: best.poweredH, earthFraction };
     },
 
     async loadOverview() {
@@ -653,6 +784,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
                 best: r.best,
                 afterSun: r.after.illumFraction,
                 afterEarth: r.after.earthVisFraction,
+                now: periodOutcome(r.series, r.power),
                 mastM: r.mastM,
                 terrain: r.terrain,
               },
@@ -1105,6 +1237,12 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     }
     if (seq === windowSeq && store.getState().siteId === siteId) store.setState({ heightmap: hm, contextHeightmap: cm ?? null });
   }
+
+  // The 12-month alternatives belong to the note that reports them: whatever drops the note (a new site, period, lander
+  // or requirement) drops them too.
+  store.subscribe((state) => {
+    if (state.bestWindowNote === null && state.yearPlan !== null) store.setState({ yearPlan: null });
+  });
 
   return store;
 }
