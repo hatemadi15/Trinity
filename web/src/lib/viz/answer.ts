@@ -181,7 +181,9 @@ export interface NearbyAdvice {
 /** The nearby advice in one sentence: where, how far, and how long the power lasts there. */
 export function nearbyWords(a: NearbyAdvice, days: number): string {
   const lasting = a.hours >= days * 24 ? `all ${days} days` : spanWords(a.hours);
-  return `Nearby, ${siteLabel(a.site)} (${Math.round(a.km)} km away) keeps power for ${lasting} from the same landing day.`;
+  // A high point worked out from the heights is said to be one: never offered as a checked place to land.
+  const derived = a.site.kind === 'derived' ? ', unchecked for landing' : '';
+  return `Nearby, ${siteLabel(a.site)} (${Math.round(a.km)} km away${derived}) keeps power for ${lasting} from the same landing day.`;
 }
 
 /**

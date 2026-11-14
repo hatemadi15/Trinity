@@ -101,6 +101,9 @@ describe('SitesView', () => {
     const best = Math.max(...Object.values(o).filter((x) => x.afterEarth > 0).map((x) => x.best?.poweredHours ?? -1));
     expect(o[id].best?.poweredHours).toBe(best);
     expect(o[id].afterEarth).toBeGreaterThan(0);
+    // A high point worked out from the heights is named as one, never as a checked place to land.
+    if (id.endsWith('_rim_high')) expect(line.textContent).toMatch(/, a derived high point not checked as safe to land, /);
+    else expect(line.textContent).not.toMatch(/derived/);
   });
 
   it('draws a bar for contact with Earth as it does for sunlight', async () => {

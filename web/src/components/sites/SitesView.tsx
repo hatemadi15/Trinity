@@ -304,7 +304,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                 <Link href={siteHref(top.site.id, top.o, s.startUtc, s.days)} className="font-semibold underline decoration-line-strong underline-offset-4 hover:decoration-ink">
                   {siteLabel(top.site)}
                 </Link>
-                , {top.o.best!.poweredHours >= s.days * 24 ? `all ${s.days} days` : spanShort(Math.round(top.o.best!.poweredHours))} if it lands on {dayMonth(s.startUtc, top.o.best!.hour)}.
+                {pointKind(top.site).kind === 'derived' && ', a derived high point not checked as safe to land'}, {top.o.best!.poweredHours >= s.days * 24 ? `all ${s.days} days` : spanShort(Math.round(top.o.best!.poweredHours))} if it lands on {dayMonth(s.startUtc, top.o.best!.hour)}.
               </p>
             )}
             {groups.map((g, i) => (

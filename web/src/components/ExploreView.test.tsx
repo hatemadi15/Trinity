@@ -37,7 +37,7 @@ describe('ExploreView', () => {
     await open();
     const panel = screen.getByRole('region', { name: 'The answer' });
     expect(panel.textContent).toMatch(/No radio contact: Earth is out of view for all 3 days 4 hours with power\./);
-    await waitFor(() => expect(panel.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days from the same landing day\./), { timeout: 20_000 });
+    await waitFor(() => expect(panel.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away, unchecked for landing\) keeps power for all 30 days from the same landing day\./), { timeout: 20_000 });
     expect(within(panel).getByRole('link', { name: 'Explore de Gerlache rim summit' }).getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
   });
 

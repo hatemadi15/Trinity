@@ -96,4 +96,10 @@ describe('WhereOnMoon', () => {
     // The row is the panel's foot, away from its heading.
     expect(panel.lastElementChild).toBe(row);
   });
+
+  it('names the 240 m grid too for a site north of 80° S, whose skyline is read from it', () => {
+    render(<WhereOnMoon site={site('chandrayaan3_vikram')} sites={sites} overview={{}} startUtc="2027-01-01T00:00:00" days={30} wide />);
+    const row = within(screen.getByRole('region', { name: 'Where on the Moon' })).getByLabelText('Data sources');
+    expect(within(row).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'NASA LRO LOLA 240 m', 'JPL DE440', 'Artemis III regions', 'CLPS mission records']);
+  });
 });

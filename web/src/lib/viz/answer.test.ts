@@ -250,6 +250,13 @@ describe('nearbyAdvice', () => {
     expect(nearbyWords({ site: summit, km: 4.04, hours: 300 }, 30)).toBe('Nearby, Summit (4 km away) keeps power for 12 days 12 hours from the same landing day.');
   });
 
+  it('never offers a derived high point as a checked place to land', () => {
+    const derived = { ...summit, kind: 'derived' as const };
+    expect(nearbyWords({ site: derived, km: 12.3, hours: 720 }, 30)).toBe(
+      'Nearby, Summit (12 km away, unchecked for landing) keeps power for all 30 days from the same landing day.',
+    );
+  });
+
   it('says nothing when no site nearby does clearly better, or before their figures are in', () => {
     expect(nearbyAdvice(here, sites, { summit: o(80), step: o(90), far: o(720) }, 76)).toBeNull();
     expect(nearbyAdvice(here, sites, {}, 76)).toBeNull();
