@@ -33,7 +33,8 @@ export function periodDays(x: unknown): number | null {
  * row nearest the start (indexForEt rounds), and its rows fall on whole UTC hours.
  */
 export function snapToHour(iso: string): string {
-  return isoOf(Math.round(msOf(iso) / HOUR_MS) * HOUR_MS);
+  const ms = msOf(iso);
+  return Number.isNaN(ms) ? iso : isoOf(Math.round(ms / HOUR_MS) * HOUR_MS);
 }
 
 /** The latest landing from which a period of `days` still ends inside the table: "2036-10-03T00:00:00" for 90 days. */
@@ -66,6 +67,7 @@ export function shiftWords(hours: number): string {
 export function periodProblem(startUtc: string, days: number): string | null {
   if (periodDays(days) === null) return `A period is ${DAYS_RANGE.min} to ${DAYS_RANGE.max} whole days.`;
   const start = msOf(startUtc);
+  if (Number.isNaN(start)) return 'A landing needs a date and a time.';
   const period = `A ${days}-day period from ${startWords(startUtc)}`;
   if (start + days * DAY_MS > TABLE_END_MS) {
     return `${period} runs past 31 December ${EPHEMERIS_YEARS.last}, where the Sun and Earth table ends. The latest landing for ${days} days is ${startWords(lastStart(days))}.`;

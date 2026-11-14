@@ -37,6 +37,9 @@ describe('the landing hour', () => {
     expect(snapToHour('2027-01-20T17:29:59')).toBe('2027-01-20T17:00:00');
     expect(snapToHour('2027-01-20T17:30:00')).toBe('2027-01-20T18:00:00');
     expect(snapToHour('2027-01-20T23:40:00')).toBe('2027-01-21T00:00:00');
+    // Something that is no time at all is left as it is, for periodProblem to refuse.
+    expect(snapToHour('soon')).toBe('soon');
+    expect(periodProblem('soon', 7)).toBe('A landing needs a date and a time.');
     // The engine takes the row nearest the start (indexForEt rounds): the snapped hour is that row's hour.
     const eph = { t0Et: header.t0_et, stepS: header.step_s, n: header.n, data: new Float32Array(0) };
     for (const raw of ['2027-01-20T17:20:00', '2027-01-20T17:30:00', '2027-01-20T17:45:00', '2030-06-30T23:31:00']) {

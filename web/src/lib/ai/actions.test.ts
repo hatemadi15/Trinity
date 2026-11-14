@@ -214,7 +214,7 @@ describe('applyActions', () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();
     const notes = await applyActions(store, [{ type: 'set_window', startUtc: '2036-12-20T00:00:00' }, { type: 'set_window', startUtc: '2036-12-01T00:00:00' }], vi.fn());
-    expect(notes[0]).toBe('A 30-day period from 20 December 2036 runs past 31 December 2036, where the Sun and Earth table ends. Choose an earlier date or a shorter period.');
+    expect(notes[0]).toBe('A 30-day period from 20 December 2036, 00:00 UTC runs past 31 December 2036, where the Sun and Earth table ends. The latest landing for 30 days is 2 December 2036, 00:00 UTC.');
     // One that fits is set and said as before.
     expect(notes[1]).toBe('Period: from 1 December 2036 for 30 days.');
     expect(store.getState().startUtc).toBe('2036-12-01T00:00:00');
