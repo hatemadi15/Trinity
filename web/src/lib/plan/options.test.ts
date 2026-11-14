@@ -43,6 +43,15 @@ describe('better landing times inside the period', () => {
     expect(p.betterWhy).toBe('Power lasts 1 d longer than landing at the period start.');
   });
 
+  it('ranks by the priorities picked, mostly Earth in view taking the landing with Earth in view throughout, and says why with the scores', () => {
+    const p = timeOptions({ scan, cfg: CFG, req: NO_REQUIREMENTS, hours: 48, startUtc: '2027-01-01T00:00:00', apartH: 6, by: { kind: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } } });
+    expect(p.better?.item.hour).toBe(12);
+    expect(p.betterWhy).toMatch(/^It scores \d+\.\d against \d+\.\d for landing at the period start: power \d+\.\d against \d+\.\d, Earth in view /);
+    expect(p.alternatives[0].why).toMatch(/^It scores \d+\.\d against \d+\.\d for the next: /);
+    // Mostly power keeps the longest time with power, as the default ranking does.
+    expect(timeOptions({ scan, cfg: CFG, req: NO_REQUIREMENTS, hours: 48, startUtc: '2027-01-01T00:00:00', apartH: 6, by: { kind: 'weighed', priorities: { power: 5, contact: 1, gap: 1 } } }).better?.item.hour).toBe(36);
+  });
+
   it('recommends a time that meets every requirement over a longer one that fails one, and says why', () => {
     const p = plan(req({ maxOutageH: 12 }));
     expect(p.better?.item.hour).toBe(12);

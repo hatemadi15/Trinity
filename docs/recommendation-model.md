@@ -1,77 +1,78 @@
-# Mission recommendation model
+# The ranking rule
 
-The Plan page now ranks saved scenarios using three metrics: continuous powered hours,
-powered hours with Earth in view, and the longest Earth-hidden gap. A user chooses a mission
-priority or adjusts the three weights. Must-have requirements remain separate.
+Earthrise ranks every recommendation with one rule, in `web/src/lib/plan/rank.ts`: the better landing time in a
+period and the better place nearby on Explore (and every option under "Options"), the 12-month search, the
+nearby alternative in Compare, and the sites and landing times the planner at `/plan` finds.
 
-## How to use it
+1. **The mission's requirements first.** A choice that meets every requirement the planner set ranks above any
+   choice that fails one; among those that fail, fewer failures rank first. The requirements are the planner's
+   own four: power for at least so long, Earth in view at landing or within so many hours of it, the longest time
+   without Earth while powered at most so long, and Earth contact while powered at least so long
+   (`web/src/lib/plan/requirements.ts`).
+2. **Then the objective the user picks.** By default, the longest continuous time with power from landing, with
+   ties going to more Earth contact while powered. The planner also offers the most Earth contact while powered
+   and the earliest landing. Or the user weighs three measures by priority, with the rule below.
+3. **Ties** go to the earlier time or the nearer place, and the page says the two tie.
 
-1. Open `/plan`, save the original arrival and alternatives, and select the lander settings.
-2. Set the minimum powered hours, minimum powered Earth-visible hours and maximum Earth-hidden gap.
-3. Choose balanced priorities, powered operation, Earth-visible time, shorter gaps, or custom weights.
-4. Read the recommendation, score contributions and exclusion reasons. Open the recommended forecast
-   to see the physical explanation. Shared links and local storage retain the priorities.
+The rule in use is stated wherever recommendations appear: in Explore's Options fold, in the 12-month search's
+note, and in the planner's read-back and answer.
 
-Only complete polar-terrain forecasts of the same duration as the first saved scenario are ranked.
-Every candidate must pass the must-have requirements. A pending forecast prevents a final recommendation;
-an unavailable forecast is listed as excluded. The system can return no eligible plan or joint top choices.
-It recommends among saved plans, not every possible coordinate/date combination.
+## Weighed by priorities
 
-## What is trained
+The user picks priorities for three measures, each from 0 to 100 with at least one above 0: balanced (1, 1, 1),
+mostly power (5, 1, 1), mostly Earth in view (1, 5, 1), mostly shorter gaps (1, 1, 5), or weights of their own.
+For a landing with a stay of S hours:
 
-This is a small supervised pairwise logistic ranking model, not an LLM and not a manually assigned
-score presented as a trained model. Nine nonnegative coefficients are fitted by minimizing pairwise
-cross-entropy with Adam and projected nonnegative updates. Inference runs locally in the browser.
-There are no new runtime dependencies, API keys or model downloads.
+| Measure | Share x of the stay |
+|---|---|
+| Power | hours with power in a row from landing, to the first hour the battery cannot cover, over S |
+| Earth in view | hours with Earth in view while the lander has power, before that first power cut, over S |
+| Shorter gaps | one minus the longest stretch of the stay without Earth in view, over S |
 
-For each metric, three increasing features are used: x, sqrt(x), and x². Here x is the powered
-fraction of the forecast, the powered Earth-view fraction, or one minus the Earth-hidden gap fraction.
-Each feature is multiplied by that metric's normalized user priority. Nonnegative learned weights
-ensure that improving a metric cannot lower a score when other inputs are fixed. Scores are normalized
-against an ideal feature vector for the same priorities, rather than against the candidates present.
-The 0–100 score is preference utility, **not a probability of success**.
+Each share counts as f(x) = 0.55x + 0.30√x + 0.15x². f runs from 0 (none of the stay) to 1 (all of it), rises
+with x, gives most for the first hours (the square root) and still rewards the last ones (the square). The score is
 
-## Training data and its limits
+    score = 100 × (w_power f(x_power) + w_earth f(x_earth) + w_gap f(x_gap)) / (w_power + w_earth + w_gap)
 
-`data/recommendation/metrics.json` contains 3,888 engine-generated forecasts: 18 polar catalogue
-points, 12 monthly arrivals, three durations, three illustrative landers and two years (2027–2028).
-They use the committed DE440 ephemeris and LOLA terrain masks, a 2 m mast and zero Earth-clearance margin.
-They are simulations, not measured mission outcomes.
+so 100 means power and Earth contact for the whole stay and Earth never out of view, and 0 means none of the three.
+Each measure's part of the score is its own term of that sum; the options show the score and the three parts, and
+"why it ranks above the next" gives both scores and their parts. The gap counts over the whole stay, not only while
+the lander has power: counted only while powered, a lander that lost power early would score well on gaps for being
+off.
 
-No expert-rated recommendation dataset is supplied. Pairwise preference labels therefore come from
-an explicitly declared bootstrap policy: for each normalized benefit x, use
-0.55x + 0.30sqrt(x) + 0.15x², weighted by the user's priorities. Soft pairwise labels use
-sigmoid(8 × utility difference). Balanced, single-priority and random custom priorities are sampled.
-Pairs whose utility difference is below 0.02 are omitted from training/evaluation.
+The score is a preference between choices under the stated priorities. It is not a probability that a landing
+works, and it knows only these three measures: not the terrain's hazards, the science at a site, the cold of the
+night, the radio link itself or a ground station's schedule. The engine's figures behind it (the time with power,
+the Earth contact, the longest gap) are what the forecast is; the rule only orders choices by them.
 
-Training uses 1,404 forecasts from 13 catalogue points in 2027. Five other catalogue points supply
-540 validation forecasts in 2027. All 1,944 forecasts from 2028 are held out as a temporal test.
-Pairs never cross the train/validation/test split and compare equal forecast durations. The training
-seed is fixed; the exported artifact records the input SHA-256, weights, policy, split sizes and results.
+The weights and the curve are a stated choice, not a fitted or validated one: they came with the mission planning
+work on Maroun's branch, and anyone can change them in `rank.ts`. The tests (`rank.test.ts`) hold the rule to its
+statement: 100 at the best and 0 at none, never lower when one measure improves and the others stay, the order
+changing with the priorities, requirements still deciding first, ties within a billionth, and priorities outside
+0 to 100 or all zero refused.
 
-The evaluation checks agreement with this synthetic policy, not agreement with engineers or flight
-outcomes. Because the teacher policy uses the same feature family, very high agreement is expected.
-It does not show that ML improves on implementing that policy directly, nor that the policy represents
-every mission. Other dates, hardware, mast heights and custom points are outside the training configurations.
-Features remain bounded and eligibility checks still apply, but no expert accuracy is established there.
+## Why there is no trained model
 
-## Reproduce and inspect
+Maroun's branch also trained a model for this ranking: a pairwise logistic ranker, nine nonnegative weights over
+x, √x and x² of the three shares, fitted on 3,888 simulated forecasts (18 polar sites, a landing on the first of
+every month, stays of 14, 30 and 90 days, three ready-made landers, 2027 and 2028). There are no expert-rated
+mission preferences and no flight outcomes to learn from, so its labels were made by this very rule: for each pair
+of forecasts, the sigmoid of eight times the difference of their scores. It then agreed with the rule on 100 % of
+the pairs it was tested on: 18,000 in training, 3,000 at five sites held out, and 5,000 in the year 2028 held out.
 
-From `web/`, run:
+That is what a model learns from labels a formula wrote in its own terms: the formula back. It would add a
+training step, a 38,900-line data file and a second source of truth that could only drift from the rule, and it
+would lend a trained model's authority to what is a stated choice. So the app uses the rule directly, says what it
+is, and never calls it AI, machine learning or a trained recommendation. The model, its training data and its
+scripts are kept only in the history of Maroun's branch (commit `b91ba4f`).
 
-```sh
-npm run recommendation:train
-npm test -- src/lib/planner/recommendation.test.ts src/components/planner
-```
+## What would justify a learned ranker later
 
-The TypeScript generator uses the production physics functions without the expensive landing-date
-search. The Python trainer uses only the standard library. It writes
-`web/src/lib/planner/model/ranker.json` (browser artifact) and
-`data/recommendation/evaluation.json` (report). Repeating training with unchanged inputs and code
-produces the same artifact. Unit and integration tests separately exercise hard exclusions, priority
-changes, monotonicity, tied choices, pending results, invalid inputs and shared-plan restoration.
-
-The next useful improvement is a separate expert-reviewed dataset of mission priorities and candidate
-preferences, with a truly untouched evaluation set. The interface already keeps physical forecasts,
-must-have checks and learned preferences separate so those labels can replace the bootstrap policy.
-Science value, landing hazards, thermal survival and actual radio-link performance are not model inputs.
+- Preferences that do not come from a formula: real candidate landings that mission planners compared, with the
+  choice made and the reason, collected before any model is fitted.
+- A held-out set that stays untouched until the end: other planners, other missions or other years than the ones
+  trained on.
+- A measured gain: the model must order the held-out choices better than this rule and better than a plain
+  weighted sum of the three shares. Without that, the rule stays.
+- Measures a rule cannot weigh well, with data behind them, such as terrain hazards, thermal limits or
+  ground-station time, which these three shares leave out.
