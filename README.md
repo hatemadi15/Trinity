@@ -11,17 +11,19 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
 
 ## A tour of the pages
 
-- **Home** (`/`): what the tool answers, in one real month. It opens with the arrival, by scrolling
-  or in 21 seconds with "Fly to the south pole": the whole Moon with Earth beyond its south pole,
-  the pole from 900 km, the polar cap and the ridge, then landing beside a lander at de Gerlache
-  Rim 2 and its January sped up (the Sun sets behind a hill, the battery runs out, Earth rises too
-  late, the Sun rises again), with the answer for the site. The forecast band
-  shows the Sun and Earth over de Gerlache Rim 2 in January 2027 and what that means for a small
-  lander. Three drawings explain why the south pole is hard (the Sun never climbs, the hills decide,
-  Earth sets too). "Start from a real place" pairs a computed shadow picture of the ridge with three
+- **Home** (`/`): what the tool answers, in one real month. It opens with the descent, by scrolling
+  or in 11 seconds with "Fly to the south pole": the whole Moon, beside the title and never under
+  it, with Earth beside it, turns, tips its south pole towards you and comes closer, down to the
+  500 km relief map of the pole and to de Gerlache Rim 2's 20 km shadow picture, with the answer for
+  the site; a rail at the side jumps to any stage. Then five numbered sections: 01 the Sun and Earth
+  over de Gerlache Rim 2 in January 2027, read in three steps and hour by hour under the pointer,
+  and what that means for a small lander; then on paper, 02 three drawings of that month that play
+  and explain why the south pole is hard (the Sun never climbs, the hills decide, Earth sets too).
+  03 "Start from a real place" pairs a computed shadow picture of the ridge with three
   places to open: the ridge, and the Athena and Blue Ghost landers of March 2025, which open Explore
-  at the first whole hour after each one landed. The page ends with two checks against NASA and one real mission as context, then the ways on: compare sites, ask in
-  plain words, print the brief, run it offline.
+  at the first whole hour after each one landed. 04 gives two checks against NASA and one real
+  mission as context, and 05 the ways on: compare sites, ask in plain words, print the brief, run it
+  offline.
 - **Choose a landing site** (`/sites`): the 34 places in the catalogue (the nine Artemis III candidate regions, the landing
   spots of three commercial landers and two coming ones, the six Apollo landings, the landers of
   India, China and Japan and Luna 25's target, and high points and crater floors), each marked with
@@ -115,13 +117,14 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   days", "Explain the longest night") into the same controls a person would use. It never computes
   a number itself, and every answer says where it came from: a model on OpenRouter's free tier, a
   rehearsed answer, or a matched phrase. `?demo=1` uses the rehearsed answers only, for the pitch.
-- **Luna** (the "Luna" button in the header, and in the row of the view from the site): a voice
+- **Luna** (the "Luna" button in the header, or the robot rabbit at the lower left of every page, and in the row of the view from the site): a voice
   assistant, off until you turn it on. Say what you want to see ("open the view from the site",
   "play", "next", "turn to Earth", "compare de Gerlache Rim 2 and Nobile Rim 2 for fourteen days", "compare with a five-day delay",
   "dark mode") and she does it and answers aloud; she knows the site names as speech tends to write
   them. She uses the browser's own speech recognition: Chrome and Edge send the sound to their
-  makers' servers, so voice needs the internet there, and Firefox has none. Her panel always takes
-  typed words instead. What she does not know goes to the same assistant as "Ask in plain words".
+  makers' servers, so voice needs the internet there, and Firefox has none. Her panel is a chat that
+  keeps the conversation from page to page; it always takes typed words, and its microphone button
+  pauses and restarts the listening. What she does not know goes to the same assistant as "Ask in plain words".
   The code is in `web/src/lib/luna` and `web/src/components/luna`.
 - **Plan a landing** (`/plan`, "Plan a landing" in the header): say or type what the mission needs,
   for example "at least five days of power, Earth in view when we land, no radio gap longer than three
@@ -278,7 +281,7 @@ page. More resources may be added before the hackathon begins.
 | Dates and times | Any landing date and hour (UTC) the ephemeris covers (2024 to 2036), for 2 to 90 days, with steps and shifts by hours or days; a better landing day inside the period and a search of the next 12 months, both ranked by any requirements you set and then by the longest time with power from landing (ties: Earth contact while powered) or by priorities you choose, weighed by a stated rule; the planner's months of the window for its best sites; and a year at a glance: every landing day of the next 12 months coloured by power and radio contact, one press to land on it. |
 | The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments (the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back) and counts down to the next sunset or sunrise and to Earth's next rising or setting. |
 | Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; the Sun's height above the horizon at any hour and its highest; hours of sunlight; the radio windows with their UTC times, which of them the lander has power to use, and the longest time without Earth (geometric direct-to-Earth visibility, not a booked antenna); the longest night; every figure under "All numbers". |
-| Several ways to see it | A relief map of the pole, a north-up shadow map and the same light in 3D from above, the horizon chart, an hour-by-hour chart of the Sun, Earth and the battery, the view from the site, and the arrival from the whole Moon on the home page. |
+| Several ways to see it | A relief map of the pole, a north-up shadow map and the same light in 3D from above, the horizon chart, an hour-by-hour chart of the Sun, Earth and the battery, the view from the site, and the descent from the whole Moon on the home page. |
 | Time and change | The time bar plays the period hour by hour at a day a second (2× and 4× on its speed button), with dots for the key moments and Next to step between them; the chart and every view follow it. |
 | Every skill level | Plain words first and every number a click away; a Learn mode with a guided story for classes; the printable brief; an assistant for typed questions and Luna for spoken ones; keyboard use, phone layouts, light and dark themes, and an offline mode for the venue. |
 | Ephemeris data | The Sun's and Earth's positions are pre-computed hourly for 2024 to 2036 from JPL's DE440 ephemeris with NASA's SPICE toolkit, in the Moon's own frame (MOON_ME), and checked against JPL Horizons on the Accuracy page; every event time carries a measured margin (hourly steps, terrain and ephemeris kept apart). |
@@ -435,8 +438,6 @@ With this data every page opens and works for the 34 places in the catalogue: th
 Explore's answer, numbers, chart and horizon chart, Compare, Accuracy, How it works, the brief and
 the assistant. What needs the full data:
 
-- Home: the arrival shows its still pictures instead of the live flight from space to the site,
-  and says "Still pictures: this copy has no globe files."
 - Explore: the "Shadow map" and "3D from above" tabs say "This copy of Earthrise has no terrain
   files, so the ground cannot be drawn here. The Horizon chart tab works without them."
 - Stand on the Moon: the view draws flat ground under the real skyline, with the lander, instead of
@@ -449,8 +450,8 @@ the assistant. What needs the full data:
   the featured 2 m skylines, says the elevation map tiles are not on this server, and the figures
   stay at 2 m.
 
-The browser's console then lists 404s for `/data/terrain/manifest.json` (and, on the home page,
-`/data/globe/manifest.json`); they are expected.
+The home page needs none of it: the descent's pictures ship with the app. The browser's console
+then lists 404s for `/data/terrain/manifest.json`; they are expected.
 
 #### The full data (380 MB to download, 650 MB on disk)
 
@@ -472,8 +473,8 @@ cd ..
 | `fetch --group textures` | 0.45 MB: the LROC colour map of the Moon | `data_raw/textures` | 1 s | the colour of Explore's 3D globe |
 | `fetch --group globe` | 44 MB: NASA's CGI Moon Kit colour map and heights | `data_raw/globe` | 3 s | the input of `globe` |
 | `tiles` | `data_raw/lola` | `data_out/tiles`: 706 tiles, 238 MB | 12 s | "Somewhere else" and other mast heights |
-| `terrain` | `data_raw/lola`, `data_raw/textures` | `data_out/terrain`: 29 MB | 2 s | the shadow map, the 3D view, the stand view's ground, the arrival's ground |
-| `globe` | `data_raw/globe` | `data_out/globe`: 5.3 MB | 3 s | the arrival's Moon from space |
+| `terrain` | `data_raw/lola`, `data_raw/textures` | `data_out/terrain`: 29 MB | 2 s | the shadow map, the 3D view, the stand view's ground |
+| `globe` | `data_raw/globe` | `data_out/globe`: 5.3 MB | 3 s | no page now: the old arrival's Moon from space |
 | `sync-local --tiles` | `data/`, `data_out/` | `web/public/data`: 276 MB, 840 files | under 1 s | all of the above, in the app |
 
 `globe` needs about 1.1 GB of memory and `terrain` 0.5 GB. `globe` prints a few
@@ -852,11 +853,11 @@ kill 12345
 - `web/`: the Next.js app. `src/app/` holds the pages and the two server routes (`api/chat`, the
   assistant; `api/horizons`, the JPL re-check), `src/components/` the pages' parts,
   `src/lib/engine/` the TypeScript port of the pipeline's science (pinned to it by golden
-  fixtures), `src/lib/sky/` the stand view and the arrival, `src/lib/ai/` the assistant,
+  fixtures), `src/lib/sky/` the stand view, `src/lib/ai/` the assistant,
   `src/lib/store/` the state the pages share, `src/workers/` the web workers, and `scripts/` the
   engine demo and the test count. `public/` holds the static files; `public/data` is the data
   mirror, filled by `sync-local` and gitignored. [web/README.md](web/README.md) explains the
-  engine, the routes, the stand view, the arrival, the themes and the assistant.
+  engine, the routes, the stand view, the descent, the themes and the assistant.
 - `pipeline/`: the offline Python pipeline (NASA SPICE kernels, LOLA elevation grids and
   illumination maps), the reference implementation of the science; it writes `data/`. The commands
   are in `pipeline/lunar_pipeline/cli.py` and [pipeline/README.md](pipeline/README.md).
@@ -874,8 +875,10 @@ kill 12345
   storyboard; `handouts/` holds a two-page guide for visitors as Markdown and Word
   (`python3 docs/handouts/create_project_guide.py` writes both). The
   spec is in `docs/superpowers/specs/`: the first plan (2026-09-28), the UI redesign (2026-10-01),
-  the immersive design that the stand view and the arrival follow, with its amendments (2026-10-02;
-  the section numbers the code and `web/README.md` cite), and a C++ core design that was not built.
+  the immersive design that the stand view follows, with its amendments (2026-10-02;
+  the section numbers the code and `web/README.md` cite), Moonstone, the redesign of the look, the
+  home page's descent and Luna's chat (spec 23, 2026-11-14), and a C++ core design that was not
+  built.
   The implementation plans and their ledgers are in `docs/superpowers/plans/`, the design mockups in
   `docs/design/`.
 

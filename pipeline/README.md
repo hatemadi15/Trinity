@@ -59,7 +59,7 @@ after a cut-off download, resumes from the `.part` file. `data_raw/` is gitignor
 `fetch --group globe` downloads two files of NASA's CGI Moon Kit (Scientific Visualization Studio,
 https://svs.gsfc.nasa.gov/4720) into `data_raw/globe`, 44 MB in all: `lroc_color_poles_4k.tif` (the LROC WAC
 colour map with its poles filled, 4096 × 2048) and `ldem_16_uint.tif` (LOLA's heights at 16 pixels a degree).
-`globe` resamples them into `data_out/globe` for the home page's arrival, about 5.3 MB: colour and normal maps
+`globe` resamples them into `data_out/globe` (the old arrival's Moon; no page reads it now), about 5.3 MB: colour and normal maps
 at 1K and 4K, heights at 4 pixels a degree (`moon_heights_1440.u16` and its `.json`) and `manifest.json` (the
 files, their layout, the albedo scale that matches the south cap to the stand view's ground, and the credit).
 `sync-local --tiles` copies the set into `web/public/data/globe`, and `publish-r2` uploads it with the rest of
@@ -113,7 +113,7 @@ uv run python -m lunar_pipeline.cli sync-local
 ```
 
 These lines are the same in Command Prompt, bash and zsh. The app's full data adds the terrain
-(the shadow map, the 3D view, the stand view's ground) and the globe (the home page's arrival) to
+(the shadow map, the 3D view, the stand view's ground) and the globe (which no page reads now) to
 the tiles:
 
 ```

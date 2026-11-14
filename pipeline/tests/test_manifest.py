@@ -125,8 +125,8 @@ def test_check_names_a_missing_optional_part_and_its_fallback_and_still_passes(s
     assert globe["state"] == "missing" and globe["missing"] == 2
     assert report["ok"] is True
     words = manifest.words(report)
-    assert "Missing (optional): the Moon from space for the home page's arrival" in words
-    assert "still pictures" in words  # what the app does without it
+    assert "Missing (optional): the Moon from space, which no page reads now" in words
+    assert "the home page's descent ships its own pictures" in words  # what the app does without it
     # And how to get it: the commands in order, each a line that pastes into any shell.
     cli = "    uv run python -m lunar_pipeline.cli"
     assert f"To get it, from pipeline/:\n{cli} fetch --group lola --group globe\n{cli} tiles\n{cli} globe\n{cli} sync-local --tiles\n" in words
