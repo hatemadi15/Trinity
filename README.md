@@ -36,15 +36,18 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, how sure its
   times are ("Times ±4.5 h", one tap away), the time
   Earth is in view while the lander has power, a better landing day or a better place nearby, ranked against
-  mission requirements you can set, with every option's checks, trade-offs and reason under
-  "Options"; a search of the next 12 months every 6 hours; and, for a region centre known to about
+  mission requirements you can set and then by the longest time with power, or by priorities you choose
+  under "Then rank by" (balanced, mostly power, mostly Earth in view, mostly shorter gaps, or your own
+  weights, weighed by the stated rule in [docs/recommendation-model.md](docs/recommendation-model.md)), with
+  every option's checks, trade-offs, score and reason under "Options", and the places nearby saying when
+  they are still being worked out or which were left out and why; a search of the next 12 months every 6 hours; and, for a region centre known to about
   5 km, the same result at 8 points round it. Below it: the
   numbers, with the Sun's height at the time bar's hour and its highest (every figure under "All numbers"), a chart of the Sun,
   Earth and the battery hour by hour with the hills in each direction, the radio windows (each
   stretch with Earth in view, in UTC, which of them the lander has power for, and the longest time
   without Earth: geometric visibility, not a scheduled contact), every landing day of the
   next 12 months (a calendar coloured by power, then radio contact, the order the best-date search
-  uses; pressing a day lands the period there; Luna opens it with "show me the year"), the ground at the time bar's hour (three tabs: a north-up
+  uses by default; pressing a day lands the period there; Luna opens it with "show me the year"), the ground at the time bar's hour (three tabs: a north-up
   shadow map, the same light in 3D from above, and a horizon chart), and where the site lies with
   its nearest neighbours. The time bar at the bottom plays the period hour by hour and counts down to the next sunset or
   sunrise and to Earth's next rising or setting. The period is a landing date and hour in UTC (whole hours, as the Sun and Earth table
@@ -123,9 +126,14 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   regions". The planner shows what it heard as fields you can change, then tries every site and every
   hour of the window with the app's own engine. It ranks the landings that meet every requirement
   first and gives each one's landing time (UTC), its margins, why it ranks above the next, and how
-  sure it is; the result is the best among the sites and times tried, under those settings. "Plan
-  this landing" sets Explore; "Compare these sites" opens them as scenarios. Luna does the same by
-  voice: say "plan a landing", then the specification, then "search".
+  sure it is; the result is the best among the sites and times tried, under those settings. After the
+  requirements it ranks by the longest time with power (the default), the most Earth contact while
+  powered, the earliest landing, or your priorities, by the same rule as Explore. "Ranking and dates"
+  states the rule, gives each result's score and its three parts when ranked by priorities, and the
+  best landing in each month of the window (each week of a short one) at the first three sites, each
+  opening that landing in Explore: several sites against the dates, which the year view of one site
+  does not show. "Plan this landing" sets Explore; "Compare these sites" opens them as scenarios. Luna
+  does the same by voice: say "plan a landing", then the specification, then "search".
 
 ## The challenge
 
@@ -264,7 +272,7 @@ page. More resources may be added before the hackathon begins.
 | The brief asks for | How Earthrise answers it |
 |---|---|
 | Site selection and comparison | A catalogue of 34 places: the south pole's nine Artemis III candidate regions, crater-rim high points and floors, three CLPS landers that landed and two coming ones, the six Apollo landings, and the landers of India, China and Japan and Luna 25's target, each saying what kind of point it is (surveyed, a target, a region's centre with its radius, or a derived high point never checked for landing), with the polar ones on a relief map of the pole; and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts a baseline and up to three scenarios side by side, each with its own site, landing hour, stay and lander, with the change from the baseline: the original landing, the same site five days later and a nearby alternative, in three presses. |
-| Dates and times | Any landing date and hour (UTC) the ephemeris covers (2024 to 2036), for 2 to 90 days, with steps and shifts by hours or days; a better landing day inside the period and a search of the next 12 months, both ranked by the longest time with power from landing (ties: Earth contact while powered) and by any requirements you set, and a year at a glance: every landing day of the next 12 months coloured by power and radio contact, one press to land on it. |
+| Dates and times | Any landing date and hour (UTC) the ephemeris covers (2024 to 2036), for 2 to 90 days, with steps and shifts by hours or days; a better landing day inside the period and a search of the next 12 months, both ranked by any requirements you set and then by the longest time with power from landing (ties: Earth contact while powered) or by priorities you choose, weighed by a stated rule; the planner's months of the window for its best sites; and a year at a glance: every landing day of the next 12 months coloured by power and radio contact, one press to land on it. |
 | The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments (the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back) and counts down to the next sunset or sunrise and to Earth's next rising or setting. |
 | Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; the Sun's height above the horizon at any hour and its highest; hours of sunlight; the radio windows with their UTC times, which of them the lander has power to use, and the longest time without Earth (geometric direct-to-Earth visibility, not a booked antenna); the longest night; every figure under "All numbers". |
 | Several ways to see it | A relief map of the pole, a north-up shadow map and the same light in 3D from above, the horizon chart, an hour-by-hour chart of the Sun, Earth and the battery, the view from the site, and the arrival from the whole Moon on the home page. |
@@ -857,8 +865,11 @@ kill 12345
 - Tests: the web's sit beside the code as `*.test.ts` and `*.test.tsx` (vitest; shared helpers in
   `web/src/test/`, the engine's parity tests in `web/src/lib/engine/__tests__/`); the pipeline's are
   in `pipeline/tests/` (pytest).
-- `docs/`: `method.md` (the science), `data-credits.md`, `hosting.md` (Vercel, Cloudflare R2, the
-  offline venue mode), `demo-checklist.md`, the pitch, the submission and the video storyboard. The
+- `docs/`: `method.md` (the science), `recommendation-model.md` (the ranking rule, and why there is no
+  trained model), `ml-feasibility.md`, `data-credits.md`, `hosting.md` (Vercel, Cloudflare R2, the
+  offline venue mode), `demo-checklist.md`, `usability-tasks.md`, the pitch, the submission and the video
+  storyboard; `handouts/` holds a two-page guide for visitors as Markdown and Word
+  (`python3 docs/handouts/create_project_guide.py` writes both). The
   spec is in `docs/superpowers/specs/`: the first plan (2026-09-28), the UI redesign (2026-10-01),
   the immersive design that the stand view and the arrival follow, with its amendments (2026-10-02;
   the section numbers the code and `web/README.md` cite), and a C++ core design that was not built.

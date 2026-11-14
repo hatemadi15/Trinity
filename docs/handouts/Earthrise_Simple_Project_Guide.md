@@ -48,27 +48,29 @@ The challenge asks for an easy way to compare landing places and dates using sun
 
 | The challenge asks for… | Earthrise lets you… |
 | --- | --- |
-| Choose and compare locations | Pick from 19 locations or enter a point south of 60° S. Compare up to four sites with the same settings, or save up to six separate plans with their own dates and landers. |
-| Change dates and times | Choose the arrival date and UTC hour, then look ahead 14, 30 or 90 days. Keep the original plan beside a delayed arrival or a nearby alternative. Position data cover 2024–2036. |
+| Choose and compare locations | Pick from the 34 places in the catalogue (the Artemis III regions, landers’ sites, the Apollo landings, other countries’ landers, high points and crater floors), each marked with what kind of point it is, or enter a point south of 60° S. Compare up to four scenarios side by side: several sites on the same date with the same lander, or one plan beside a slipped landing or a nearby alternative, each with its own date and lander. |
+| Change dates and times | Choose the landing date and hour in UTC and a length of 2 to 90 days; step it by an hour or a day, or shift it by any number of days or hours. In Compare, keep the original plan as the baseline beside a slipped landing. Position data cover 2024–2036. |
 | See the Sun and Earth against the horizon | See their paths against the surrounding hills. Check the horizon chart and timeline to find when the Sun or Earth goes out of view. |
-| Assess power and communication opportunities | Check the battery, hours with power, Earth-visible hours and longest gaps. Set the operating time and Earth visibility you need; see which plans meet those needs and why others do not. |
+| Assess power and communication opportunities | Check the battery, the hours with power, the hours with Earth in view while powered and the longest time without Earth, with each window of Earth in view in UTC. Set what the mission needs in Explore’s Options or in the planner; see which choices meet it and why others do not. |
 | Use different views | Switch between a shadow map, 3D ground and horizon chart. “Stand on the Moon” shows the view from the site, including the Sun, Earth and stars. |
 | Watch conditions change over time | Move the time bar or press Play. Follow the shadows, Sun, Earth and battery together. Markers highlight important changes. |
 | Help beginners and experienced users | Start with a short answer, then open the detailed numbers. “How it works” explains the science. The layout works on phones and computers, with light and dark themes and simpler graphics when needed. |
 
 ## A few other useful features
 
-- Find another arrival: search the next 12 months for a better sampled date. The search checks six-hour steps, favouring longer powered operation, then Earth visibility while powered. Across several sites, it first compares average powered time.
+- Plan a landing: say or type what the mission needs. The planner tries every site and landing time you allow and ranks them: the requirements first, then the longest time with power, or your priorities for power, Earth in view and shorter gaps, weighed by a stated rule rather than a trained model.
 
-- See dates side by side: a grid compares three locations at seven weekly arrivals. Open a cell to see its forecast.
+- Find another landing time: search the next 12 months, every sixth hour, ranked by your requirements and then by the longest time with power or your priorities; across several sites, each time is judged by the site that does worst.
 
-- Try a different lander: choose an example or change the panel, battery and electricity use. Compare mast heights to see how the view over the hills changes.
+- See dates at a glance: Explore’s year view colours every landing day of the next 12 months at one site, and the planner’s “Ranking and dates” gives the best landing in each month at its first three sites. Open a day or a cell to see that forecast.
+
+- Try a different lander: choose an example or change the panel, battery and electricity use, and the height of the mast the hills are seen from.
 
 - Ask in plain words: the assistant can select sites or change settings for you. The calculation engine supplies the numbers, not the AI.
 
-- Share the plan: save it in your browser, send a link with its settings, or print a comparison. A one-page brief is available for a single forecast.
+- Share: a link with every setting and the ranking, the figures as files to download, and a one-page brief; Compare’s scenarios have a link and a brief of their own.
 
-- Check the evidence: the Accuracy page shows comparisons with JPL Horizons and published LOLA sunlight maps. It also compares predicted sunsets with real mission endings, with explanations of their limits.
+- Check the evidence: on the Accuracy page three checks meet their criteria: the directions to the Sun and Earth against JPL Horizons, sunlight and Earth in view against NASA’s LOLA maps, and the power sums. Past missions’ endings are shown as context, not as a check.
 
 The home page introduces the project with a flight to the south pole. Moon and Earth imagery use NASA’s CGI Moon Kit and Blue Marble. Large terrain shapes come from data; decorative rocks and small craters are illustrations. Forecasts work offline when the app and data are stored locally. Live AI and the live Horizons check need internet.
 

@@ -1,6 +1,6 @@
 # Pitch script — Earthrise (5:00)
 
-Setup before walking up: laptop on `http://localhost:3000/?demo=1` (offline build, rehearsed assistant answers), browser in kiosk mode, second laptop on the same URL as backup, the recorded demo video open in another tab. Speaker lines are in plain text; clicks are in brackets. Times are cumulative.
+Setup before walking up: laptop on `http://localhost:3000/?demo=1` (offline build, rehearsed assistant answers), browser in kiosk mode, second laptop on the same URL as backup, the recorded demo video open in another tab. Speaker lines are in plain text; clicks are in brackets. Times are cumulative. Say only what has been measured: no claim that Earthrise is faster than other tools (no timed comparison has been run), and a ranking score is a stated preference between choices, not a chance that a landing works.
 
 ## 0:00 — Hook (30 s)
 
@@ -10,7 +10,7 @@ Setup before walking up: laptop on `http://localhost:3000/?demo=1` (offline buil
 
 ## 0:30 — Problem (30 s)
 
-Everyone who plans a south-pole mission has to answer two questions: when is the Sun above the local horizon, and when can a radio see Earth? The answers depend on terrain a few kilometres away and change hour by hour. The tools that answer them exactly, SPICE and GIS stacks, take a specialist a day per site. Earthrise answers in a minute, in a browser, and shows its checks.
+Everyone who plans a south-pole mission has to answer two questions: when is the Sun above the local horizon, and when can a radio see Earth? The answers depend on terrain a few kilometres away and change hour by hour. The tools that answer them exactly, SPICE and GIS stacks, are slow to set up and run once for every site and date. Earthrise answers in seconds, in a browser, and shows its checks.
 
 ## 1:00 — Live demo (2:00)
 
@@ -28,6 +28,9 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 
 [Optional, if the room is quiet and the laptop online: press Luna in the header and say "stand at the site", then "turn to Earth".] And everything here also answers to plain English: Luna, the app's voice, opens any page, plays the month and turns the view for you; where there is no microphone you can type to her.
+
+[Optional, if the time allows: open Plan a landing, press "Try the example", then "Search 9 sites".] The planner tries every site and every hour of the landing window and ranks them, the ones that meet every requirement first, and says why each comes before the next.
+
 ## 3:00 — Validity (45 s)
 
 [Open Accuracy.] Three checks meet their criteria, and each says what it leaves out. Where the Sun and Earth are in the sky: our directions against JPL Horizons, worst gap 0.00003 degrees over 300 test cases, and [click "Re-check with JPL now"] this button asks JPL live. How much sunlight a site gets: against NASA's LOLA sunlight maps worked out their way, a typical gap of 0.9 points at fifteen sites; the power sums are checked in this browser. And, as context, not a check, when night falls on a real mission: Blue Ghost's last signal came 2.4 hours after our predicted sunset. [Click "Show the numbers" under the missions.] Athena and IM-1 ended early, for the reasons written here.
@@ -40,7 +43,7 @@ Planners get a first answer in a minute and a brief they can hand to engineering
 
 NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and about 1,600 automated tests keep the two in step. Team Astroy/Ed.
 
-[The Accuracy page shows the exact count: 1,514 tests in the web app and 134 in the pipeline on 12 November; refresh it with `npm run validation:tests` before the pitch.]
+[The Accuracy page shows the last recorded run of the tests; refresh it with `npm run validation:tests` before the pitch and say the number it shows, if it is not about 1,600.]
 
 ## 4:40 — Close (20 s)
 
