@@ -118,13 +118,14 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
             {/* How to read the table, before it: a phone shows the strips before anything under them. */}
             <p className="mt-2 max-w-[60em] text-[15px] text-ink-2">
               In each strip, gold marks the hours with the Sun up and blue the hours with Earth in view, from left to right over the {s.days} days. Time with power counts from landing on the first day until the battery
-              first runs out; Earth in view counts every hour of the period.
+              first runs out; Earth in view counts every hour of the period. Radio contact counts the hours with Earth in view in that time with power; the longest time without Earth is at least as long where the
+              period’s start or end cuts it.
             </p>
             {/* On a phone each site is a block of labelled figures: no table to scroll sideways. */}
             <table className="mt-4 w-full border-collapse text-left max-sm:block sm:min-w-[900px]">
               <thead className="max-sm:sr-only">
                 <tr className="text-[15px] text-ink-2">
-                  {['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', ''].map((h, i) => (
+                  {['Site', 'Sun and Earth', 'Sunlight', 'Earth in view', 'Longest night', 'Time with power', 'Radio contact while it has power', 'Longest without Earth', ''].map((h, i) => (
                     <th key={i} scope="col" className="border-b-2 border-ink py-2 pr-4 font-semibold">
                       {h || <span className="sr-only">Remove</span>}
                     </th>
@@ -148,6 +149,8 @@ export function CompareView({ store = exploreStore }: { store?: StoreApi<Explore
                     <td data-label="Time with power" className={`${CELL} ${STACKED} tabular-nums`}>
                       <span className={`font-medium ${r.tone === 'good' ? 'text-good' : 'text-bad'}`}>{r.power}</span>
                     </td>
+                    <td data-label="Radio contact while it has power" className={`${CELL} ${STACKED} tabular-nums`}>{r.contact}</td>
+                    <td data-label="Longest without Earth" className={`${CELL} ${STACKED} tabular-nums`}>{r.longestOutage}</td>
                     <td data-label="" className={`${CELL} ${STACKED} text-right`}>
                       <button type="button" onClick={() => store.getState().removeFromCompare(r.id)} aria-label={`Remove ${r.name}`} className="h-10 rounded-lg border border-line-strong px-3 text-[15px] text-ink-2 hover:bg-surface-2 hover:text-ink">
                         Remove
