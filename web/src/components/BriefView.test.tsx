@@ -102,7 +102,7 @@ describe('BriefView', () => {
       'A surveyed point: the lander has been found in images taken from orbit. It landed on 20 July 1969, before the years this app covers (2024 to 2036), so the figures are for the period above.',
     );
     const method = screen.getByRole('heading', { name: 'How this was computed' }).nextElementSibling!;
-    expect(method.textContent).toMatch(/a flat horizon \(no polar height data there\)/);
+    expect(method.textContent).toMatch(/a flat horizon, assumed: no polar height data there/);
     expect(method.textContent).toMatch(/There are no hills on this horizon: the place lies outside NASA's polar elevation grids, so the horizon is taken as flat; the Sun counts as up when any part of it clears the horizon\./);
     expect(method.textContent).not.toMatch(/20 m within 6 km/);
   });
