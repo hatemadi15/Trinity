@@ -18,10 +18,11 @@ const pct = (x: number | undefined) => (x === undefined ? '—' : `${x.toFixed(1
 const span = (h: number | undefined) => (h === undefined ? '—' : h >= 48 ? `${(h / 24).toFixed(1)} d` : `${h.toFixed(1)} h`);
 const defaultLoad = () => loadUncertainty(dataBase());
 
-/** A table that moves sideways inside its own box on a phone, so the page never does. */
+/** A table that moves sideways inside its own box on a phone, so the page never does, and says so there. */
 function Table({ label, minW, children }: { label: string; minW: number; children: React.ReactNode }) {
   return (
     <div className="mt-3 overflow-x-auto">
+      <p className="mb-2 text-[15px] text-ink-2 sm:hidden">Swipe the table sideways to see every column.</p>
       <table aria-label={label} className="w-full border-collapse" style={{ minWidth: minW }}>
         {children}
       </table>
@@ -67,8 +68,7 @@ export function UncertaintySection({ load = defaultLoad }: { load?: () => Promis
     <section id="sure" aria-labelledby="h-sure" className="panel">
       {heading}
       <p className="mt-3 max-w-[46em] leading-relaxed text-ink-2">
-        Each time was found again with one-minute steps and with NASA&apos;s adjusted elevation maps, at every featured site through {years}. A margin adds three sources of error and
-        covers 95 % of the events.
+        Each time was found again at one-minute steps and with NASA&apos;s adjusted elevation maps, through {years}. Margins add three sources of error and cover 95 % of events.
       </p>
       <Table label="Margins at four kinds of site" minW={680}>
         <thead>
@@ -84,7 +84,7 @@ export function UncertaintySection({ load = defaultLoad }: { load?: () => Promis
         <tbody>
           {four.map((s) => (
             <tr key={s.site_id}>
-              <th scope="row" className={`${TD} font-medium text-ink`}>
+              <th scope="row" className={`${TD} text-left font-medium text-ink`}>
                 {nameOf(s)}: {s.condition}
               </th>
               {TABLE_KINDS.map((k) => (

@@ -48,6 +48,8 @@ describe('BriefView with the uncertainty budget', () => {
     const method = screen.getByRole('heading', { name: 'How this was computed' }).parentElement!;
     expect(method.textContent).toMatch(/The ground here, from NASA’s adjusted south-pole maps: slope/);
     expect(method.textContent).not.toMatch(/times within 15 to 60 minutes/);
+    const data = screen.getByRole('heading', { name: 'Data' }).parentElement!;
+    expect(data.textContent).toMatch(/NASA PGDA product 90 \(Barker et al\. 2023\)/);
   });
 
   it('without the budget still states the scope, and claims no margin', async () => {

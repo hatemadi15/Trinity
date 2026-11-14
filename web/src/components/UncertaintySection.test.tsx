@@ -31,6 +31,9 @@ describe('UncertaintySection', () => {
     expect(within(rows[0]).getAllByRole('cell')[0].textContent).toBe(`±${ridge.events.sunset.shown_h} h`);
     // Earth never sets at Blue Ghost's site.
     expect(within(rows[3]).getAllByRole('cell')[2].textContent).toBe('none');
+    // The names read from the left, and a phone is told the table moves sideways.
+    expect(rows[0].querySelector('th')!.className).toMatch(/\btext-left\b/);
+    expect(within(region).getAllByText('Swipe the table sideways to see every column.')[0].className).toMatch(/\bsm:hidden\b/);
   });
 
   it('keeps each source apart one tap away: the hourly steps, the terrain data and the planets’ positions', async () => {
