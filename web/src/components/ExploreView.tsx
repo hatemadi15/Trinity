@@ -333,6 +333,7 @@ export function ExploreView({
             onPick={onPick}
             reducedMotion={reducedMotion}
             standLink={standLink}
+            coldLayer={coldTrapSite(cold, site.id)?.covered === true}
           />
           <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} coldTraps={coldTrapSite(cold, site.id)} />
           <PlannerChat store={store} scenarios={scenarios} navigate={go} />
