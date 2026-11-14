@@ -167,10 +167,21 @@ describe('YearView', () => {
 
   it('lends Luna the year: it comes into view with the day shown in focus, and she says its answer (spec 22)', async () => {
     await openYear(props('de_gerlache_rim_2', { startUtc: '2027-01-20T00:00:00' }));
+    // jsdom has no scrollIntoView: a recorder stands in for it, and goes after.
+    const scrolled: Element[] = [];
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this);
+    };
     let said: ReturnType<typeof runControl> = { ok: false };
-    act(() => {
-      said = runControl('year');
-    });
+    try {
+      act(() => {
+        said = runControl('year');
+      });
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
+    // The whole panel, its heading with it.
+    expect(scrolled).toEqual([screen.getByRole('region', { name: 'Every landing day of the next 12 months' })]);
     expect(said.ok).toBe(true);
     expect(said.said).toBe(screen.getByRole('status').textContent);
     expect(said.said).toMatch(/^No landing day keeps power all 30 days\. The best: /);

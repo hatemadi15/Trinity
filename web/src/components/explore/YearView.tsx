@@ -127,7 +127,7 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
   const box = useRef<HTMLDivElement>(null);
   const wanted = useRef(false);
   const show = useCallback(() => {
-    box.current?.scrollIntoView?.({ block: 'start' });
+    box.current?.closest('section')?.scrollIntoView?.({ block: 'start' });
     box.current?.querySelector<HTMLButtonElement>('button[data-day][tabindex="0"]')?.focus({ preventScroll: true });
   }, []);
   useLunaControls({
