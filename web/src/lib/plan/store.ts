@@ -5,6 +5,7 @@ import { createMaskSource, type MaskSource } from '../scenario/masks';
 import type { Scenario } from '../scenario/scenario';
 import { scenarioStore, type ScenarioState } from '../store/scenarios';
 import { exploreHref, withSettings } from '../links';
+import { BY_POWER } from './rank';
 import { DAYS_RANGE, clampTo } from '../planner-ranges';
 import { FEATURED_MAST_M, browserLoaders, exploreStore, type ExploreState, type WindowDays } from '../store/explore';
 import { dateTimeUtc } from '../viz/format';
@@ -48,8 +49,8 @@ export interface PlanState {
   setAssistant: (state: PlanState['assistant']['state']) => void;
   search: () => Promise<PlanAnswer | null>;
   cancel: () => void;
-  /** Sets Explore to a shown result's site, landing time, stay and lander; returns what Luna says. */
-  land: (index: number, navigate: (href: string) => void) => Promise<string>;
+  /** Sets Explore to a shown result's site, landing time (its best, or `utc`), stay and lander; returns what Luna says. */
+  land: (index: number, navigate: (href: string) => void, utc?: string) => Promise<string>;
   /** Opens Compare with the shown results; returns what Luna says. */
   compareTop: (navigate: (href: string) => void) => Promise<string>;
   /** The read-back of the specification as it stands. */
@@ -213,21 +214,24 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
       set({ status: 'cancelled', progress: null });
     },
 
-    async land(index, navigate) {
+    async land(index, navigate, utc) {
       const { answer, searched } = get();
       const f = answer?.shown[index];
       if (!f?.best || !searched) return 'There is no landing to plan yet: say search first.';
+      const at = utc ?? f.best.item.utc;
       const ex = deps.explore.getState();
       const days = exploreDays(searched.stayH);
       ex.setParams({ power: { ...ex.params.power, ...powerOf(searched), efficiency: ex.params.power.efficiency }, mastM: searched.lander.mastM, minEarthElDeg: searched.lander.earthClearanceDeg });
       // The requirements the landing was chosen by, as one set, so Explore checks it and ranks its better date by them.
       ex.setRequirements(searched.req);
+      // And the ranking, where Explore has it: the priorities, or else the longest time with power.
+      ex.setRankBy(searched.objective === 'weighed' ? { kind: 'weighed', priorities: searched.priorities } : BY_POWER);
       await deps.explore.getState().selectSite(f.site.id);
-      deps.explore.getState().setWindow(f.best.item.utc, days);
-      // The link names the lander and the requirements too, so it opens the same landing in a new tab or a colleague's browser.
+      deps.explore.getState().setWindow(at, days);
+      // The link names the lander, the requirements and the ranking too, so it opens the same landing in a new tab or a colleague's browser.
       const now = deps.explore.getState();
-      navigate(withSettings(exploreHref(f.site.id, f.best.item.utc, days), now.params, now.requirements));
-      return `Explore is on ${siteLabel(f.site)}, landing ${dateTimeUtc(f.best.item.utc, 0)}, for ${days} days with this lander.`;
+      navigate(withSettings(exploreHref(f.site.id, at, days), now.params, now.requirements, now.rankBy));
+      return `Explore is on ${siteLabel(f.site)}, landing ${dateTimeUtc(at, 0)}, for ${days} days with this lander.`;
     },
 
     async compareTop(navigate) {

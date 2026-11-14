@@ -53,7 +53,25 @@ Countdown (`web/src/lib/viz/countdown.ts`): at an hour of the period, whether th
 
 A period is a landing on a whole UTC hour and a length of 2 to 90 whole days. The table's rows fall on whole UTC hours and the engine reads the row nearest the landing, so a landing given with minutes is read at the nearest hour, half an hour and more rounding up; the period boxes, links, the assistant and Luna all do the same (`web/src/lib/period.ts`). The first landing offered is 2 January 2024, 00:00 UTC, and a period must end by 1 January 2037, 00:00 UTC, the hour after the table's last row: a 90-day period can start no later than 3 October 2036, a 7-day one no later than 25 December 2036. Moving the landing by hours or days keeps the length and stops at either end with a plain sentence. The length stops at 90 days because the cost grows with it (the site list works out every site for up to twice the period, the 12-month search a year and a period at each site); it starts at 2 days because every sentence of a forecast counts its days in the plural.
 
-The better landing inside a period is the sunlit hour, tried every hour, that gives the longest time with power, more contact with Earth breaking ties. The 12-month search tries every sixth hour from the landing over the next 365 days (clamped to the table), keeps only landings that leave room for the whole period, scores them the same way, and moves the period to the best one with its hour. Only sunlit landing hours are candidates, because a lander arrives in daylight; a site with no sunlit hour in the scan is reported, not moved.
+The better landing inside a period is the sunlit hour, tried every hour, that gives the longest time with power, more contact with Earth breaking ties (or that ranks first by the priorities chosen; see Ranking, below). The 12-month search tries every sixth hour from the landing over the next 365 days (clamped to the table), keeps only landings that leave room for the whole period, scores them the same way, and moves the period to the best one with its hour. Only sunlit landing hours are candidates, because a lander arrives in daylight; a site with no sunlit hour in the scan is reported, not moved.
+
+## Ranking: requirements, then the objective
+
+Every recommendation (the better landing inside a period, the places nearby, the 12-month search, Compare's
+nearby alternative and the planner's sites) is ranked by one rule, `web/src/lib/plan/rank.ts`. A choice that
+meets every requirement the planner set ranks above any that fails one, fewer failures first; then the
+objective. By default that is the longest time with power in a row from landing, ties to more Earth contact
+while powered. The user may instead weigh three measures by priority (balanced 1:1:1, mostly power 5:1:1, mostly
+Earth in view 1:5:1, mostly shorter gaps 1:1:5, or weights of their own): each measure is a share x of the stay
+(the time with power from landing; the Earth contact while powered; one minus the longest stretch of the stay
+without Earth in view), counted as f(x) = 0.55x + 0.30√x + 0.15x², and the score is 100 Σ w f(x) / Σ w. It is a
+stated preference between choices, not a probability that a landing works and not a fitted model; a trained ranker
+on Maroun's branch only learned this formula back (100 % agreement with it on held-out sites and a held-out year),
+so the app uses the formula itself. `docs/recommendation-model.md` gives the whole rule, why there is no trained
+model and what would justify one.
+
+The planner keeps, at each site, the best landing in every calendar month of its window (every week of a window
+under eight weeks), ranked the same way, and shows them for its first three sites under "Ranking and dates".
 
 ## Validation
 

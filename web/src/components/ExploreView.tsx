@@ -35,7 +35,8 @@ import { neighbourhoodRange, rangeWords } from '@/lib/plan/neighbourhood';
 import { placeOptions } from '@/lib/plan/options';
 import { periodOutcome } from '@/lib/plan/outcome';
 import { requirementCount } from '@/lib/plan/requirements';
-import { answerFor, nearbyWords, planView, spotSite } from '@/lib/viz/answer';
+import { answerFor, nearbyWords, placesNoteWords, planView, spotSite } from '@/lib/viz/answer';
+import { nearestSites } from '@/lib/viz/relief';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
 import { dateTimeUtc } from '@/lib/viz/format';
@@ -98,8 +99,8 @@ export function ExploreView({
       .then(() => setLinked(true));
   }, [store]);
   // From then on the address follows the site, the period (its landing hour and length included), every setting the
-  // figures depend on and the requirements set, so a reload or a copied address opens the same forecast and better date.
-  const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements) : null;
+  // figures depend on, the requirements set and the ranking, so a reload or a copied address opens the same forecast and better date.
+  const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : null;
   useAddressFollows(link, linked && s.status === 'ready');
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
@@ -166,8 +167,8 @@ export function ExploreView({
   const holds = holdAsked && versionsState.status === 'ready' ? versionsState.result.holdsByHour : null;
   // The period's landing times, ranked with the requirements: the better date comes from here, as on the brief and the view from the site.
   const times = useMemo(
-    () => (s.site ? periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, holds }) : null),
-    [s.series, s.site, s.params, s.requirements, s.startUtc, holds],
+    () => (s.site ? periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy, holds }) : null),
+    [s.series, s.site, s.params, s.requirements, s.startUtc, s.rankBy, holds],
   );
   const current = useMemo(() => (s.series && s.power ? periodOutcome(s.series, s.power) : null), [s.series, s.power]);
   const hood = s.neighbourhood && s.site && s.neighbourhood.siteId === s.site.id ? s.neighbourhood : null;
@@ -178,8 +179,21 @@ export function ExploreView({
     const centre = s.site;
     const outcomes = Object.fromEntries(Object.entries(trustedOverview(s.overview, s.params.mastM)).map(([id, o]) => [id, o.now]));
     const extra = hood && !hood.busy ? hood.points.flatMap((p) => (p.outcome ? [{ place: { site: spotSite(centre, p), km: p.km }, outcome: p.outcome }] : [])) : [];
-    return placeOptions({ site: centre, sites: s.sites, outcomes, extra, current, req: s.requirements });
-  }, [s.site, s.sites, s.overview, current, hood, s.requirements, s.params.mastM, behind, terrain]);
+    return placeOptions({ site: centre, sites: s.sites, outcomes, extra, current, req: s.requirements, by: s.rankBy });
+  }, [s.site, s.sites, s.overview, current, hood, s.requirements, s.params.mastM, behind, terrain, s.rankBy]);
+  // Why the places nearby are not ranked yet, or which of those within reach are left out, by name.
+  const placesNote = useMemo(() => {
+    if (!s.site) return null;
+    const leftOut = nearestSites(s.site, s.sites, s.sites.length)
+      .filter((x) => x.km <= 30 && x.site.category !== 'custom')
+      .flatMap((x): { name: string; why: 'incomplete' | 'mast' }[] => {
+        const o = s.overview[x.site.id];
+        if (!o) return [];
+        if (o.terrain?.quality === 'incomplete') return [{ name: siteLabel(x.site), why: 'incomplete' }];
+        return o.mastM !== s.params.mastM ? [{ name: siteLabel(x.site), why: 'mast' }] : [];
+      });
+    return placesNoteWords({ busy: s.overviewBusy, behind, incompleteHere: terrain?.quality === 'incomplete', mastM: s.params.mastM, leftOut });
+  }, [s.site, s.sites, s.overview, s.overviewBusy, s.params.mastM, behind, terrain]);
   const told = useMemo(
     () => (s.series && s.summary && s.power && s.site ? answerFor({ siteName: siteLabel(s.site), series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, plan: times, farSide: s.site.far_side, panel: s.params.power.panel }) : null),
     [s.site, s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.params.power.panel, s.best, times],
@@ -204,9 +218,11 @@ export function ExploreView({
             days: s.days,
             hrefFor: (id) => exploreHref(id, s.startUtc, s.days),
             spots: hood && !hood.busy ? { count: hood.points.filter((p) => p.outcome).length, km: hood.radiusKm } : null,
+            by: s.rankBy,
+            placesNote,
           })
         : null,
-    [times, places, hood, s.yearPlan, s.requirements, s.startUtc, s.days],
+    [times, places, hood, s.yearPlan, s.requirements, s.startUtc, s.days, s.rankBy, placesNote],
   );
   // The same result round an approximate point, next to the result.
   const range = useMemo(() => {
@@ -262,7 +278,7 @@ export function ExploreView({
   const site = s.site;
   const better = answer?.better;
   // The view from the site and the brief work their figures out from the same settings.
-  const standLink = withSettings(standHref(site.id, s.startUtc, s.days, s.cursorHour), s.params, s.requirements);
+  const standLink = withSettings(standHref(site.id, s.startUtc, s.days, s.cursorHour), s.params, s.requirements, s.rankBy);
   return (
     <AppFrame>
       <main className="flex flex-col">
@@ -299,6 +315,8 @@ export function ExploreView({
               plan={plan}
               requirements={s.requirements}
               onRequirements={s.setRequirements}
+              rankBy={s.rankBy}
+              onRankBy={s.setRankBy}
               range={range}
               sure={sure}
               versions={<VersionsFold state={versionsState} startUtc={s.startUtc} days={s.days} />}
@@ -315,7 +333,7 @@ export function ExploreView({
               series={s.series}
               hour={s.cursorHour}
               startUtc={s.startUtc}
-              briefLink={withSettings(briefHref(site.id, s.startUtc, s.days), s.params, s.requirements)}
+              briefLink={withSettings(briefHref(site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy)}
               onShare={() => setShareOpen(true)}
               shareRef={shareRef}
             />

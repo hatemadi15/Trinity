@@ -23,6 +23,7 @@ const FIELD_NAMES: Record<SpecField, string> = {
   where: 'where',
   stepH: 'landing times tried',
   objective: 'ranked by',
+  priorities: 'priorities',
   top: 'how many to show',
 };
 

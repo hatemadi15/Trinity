@@ -4,7 +4,7 @@ import { DEFAULT_POWER, type PanelModel } from '../engine/power';
 import { spokenToDigits, tidyDates } from '../luna/words';
 import { PANEL_MODELS, PARAM_RANGES, POWER_RANGES, clampTo } from '../planner-ranges';
 import { dateLong, spanShort, spanWords } from '../viz/format';
-import { NO_REQUIREMENTS, type Requirements } from './judge';
+import { NO_REQUIREMENTS, priorityWords, validPriorities, type Priorities, type Requirements } from './judge';
 
 /**
  * A mission's specification for the planner: what the landing must give (the requirements), the lander, how long it
@@ -15,8 +15,11 @@ import { NO_REQUIREMENTS, type Requirements } from './judge';
 /** Where to look: every catalogue site, one category, named sites, or the sites within some kilometres of one. */
 export type Where = { kind: 'all' } | { kind: 'category'; category: string } | { kind: 'sites'; ids: string[] } | { kind: 'near'; id: string; km: number };
 
-/** What ranks the landings that meet every requirement: the longest time with power, the most contact while powered, or the earliest. */
-export type Objective = 'power' | 'contact' | 'earliest';
+/**
+ * What ranks the landings that meet every requirement: the longest time with power, the most contact while powered, the
+ * earliest, or the priorities weighed by the objectives' rule (lib/plan/rank).
+ */
+export type Objective = 'power' | 'contact' | 'earliest' | 'weighed';
 
 export interface SpecLander {
   loadW: number;
@@ -41,6 +44,8 @@ export interface MissionSpec {
   /** Landing times are tried every this many hours. */
   stepH: number;
   objective: Objective;
+  /** The weights the 'weighed' objective ranks by: power, Earth in view while powered, shorter gaps. */
+  priorities: Priorities;
   /** How many sites the answer shows at most. */
   top: number;
 }
@@ -63,6 +68,7 @@ export interface SpecPatch {
   where?: Where;
   stepH?: number;
   objective?: Objective;
+  priorities?: Priorities;
   top?: number;
 }
 export type SpecField = keyof SpecPatch;
@@ -86,6 +92,7 @@ export const DEFAULT_SPEC: MissionSpec = {
   where: { kind: 'all' },
   stepH: 1,
   objective: 'power',
+  priorities: { power: 1, contact: 1, gap: 1 },
   top: 3,
 };
 
@@ -401,6 +408,12 @@ export function applyPatch(spec: MissionSpec, from: Sources, patch: SpecPatch, s
       case 'objective':
         next.objective = raw as Objective;
         break;
+      case 'priorities':
+        // Weights the rule cannot use (all zero, or out of 0 to 100) are not taken: the ones before stay.
+        if (validPriorities(raw)) next.priorities = { power: raw.power, contact: raw.contact, gap: raw.gap };
+        else if (from.priorities) marks.priorities = from.priorities;
+        else delete marks.priorities;
+        break;
     }
   }
   return { spec: next, from: marks };
@@ -445,7 +458,12 @@ const kwh = (wh: number) => `${Number.isInteger(wh / 1000) ? wh / 1000 : (wh / 1
 const PANEL_SHORT: Record<PanelModel, string> = { horizontal: 'flat panel', vertical: 'fixed upright panel', vertical_tracking: 'panel that turns to the Sun', full_tracking: 'two-axis tracking panel' };
 /** What a panel does, after its area: "4 m², turns to the Sun". */
 const PANEL_KIND: Record<PanelModel, string> = { horizontal: 'flat', vertical: 'fixed upright', vertical_tracking: 'turns to the Sun', full_tracking: 'two-axis tracking' };
-const OBJECTIVE_WORDS: Record<Objective, string> = { power: 'longest time with power from landing', contact: 'most Earth contact while powered', earliest: 'earliest landing' };
+const OBJECTIVE_WORDS: Record<Objective, string> = { power: 'longest time with power from landing', contact: 'most Earth contact while powered', earliest: 'earliest landing', weighed: 'priorities' };
+
+/** The objective as a sentence names it: "the longest time with power from landing", "your priorities (power 1, …)". */
+export function objectivePhrase(spec: Pick<MissionSpec, 'objective' | 'priorities'>): string {
+  return spec.objective === 'weighed' ? `your priorities (${priorityWords(spec.priorities)})` : `the ${OBJECTIVE_WORDS[spec.objective]}`;
+}
 
 /** One line of the specification for the page: its label, its value, and whether it is the default. */
 export interface SpecLine {
@@ -471,7 +489,7 @@ export function specLines(spec: MissionSpec, from: Sources, sites: Site[]): Spec
     { label: 'Landing window', value: windowWords(spec), isDefault: !said('fromUtc', 'toUtc') },
     { label: 'Landing times tried', value: spec.stepH === 1 ? 'every hour' : `every ${spec.stepH} hours`, isDefault: !said('stepH') },
     { label: 'Where', value: `${whereWords(spec.where, sites)} (${whereSites(spec.where, sites).length} sites)`, isDefault: !said('where') },
-    { label: 'Ranked by', value: `requirements met first, then the ${OBJECTIVE_WORDS[spec.objective]}`, isDefault: !said('objective') },
+    { label: 'Ranked by', value: `requirements met first, then ${objectivePhrase(spec)}`, isDefault: !said('objective', 'priorities') },
   ];
 }
 
@@ -497,7 +515,7 @@ export function spokenReadBack(spec: MissionSpec, from: Sources, sites: Site[]):
   if (from.stayH) parts.push(`a stay of ${spanWords(spec.stayH)}`);
   if (from.fromUtc || from.toUtc) parts.push(`landing from ${windowWords(spec).replace(', UTC', ' UTC')}`);
   if (from.where) parts.push(`at ${whereWords(spec.where, sites)}`);
-  if (from.objective) parts.push(`ranked by the ${OBJECTIVE_WORDS[spec.objective]}`);
+  if (from.objective) parts.push(`ranked by ${objectivePhrase(spec)}`);
   const rest: string[] = [];
   if (!from.stayH) rest.push(`a stay of ${spanWords(spec.stayH)}`);
   if (!from.fromUtc && !from.toUtc) rest.push(`landing from ${windowWords(spec).replace(', UTC', ' UTC')}`);

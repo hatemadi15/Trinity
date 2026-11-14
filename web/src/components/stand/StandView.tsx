@@ -228,9 +228,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
 
   // Once the address it opened with is applied, the settings in it follow a change of lander made here, and the
   // requirements with them.
-  useSettingsInAddress(s.params, openHour !== null, s.requirements);
-  // The period's landing times ranked with the requirements, as Explore ranks them, so the better day is Explore's.
-  const times = useMemo(() => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc }), [s.series, s.params, s.requirements, s.startUtc]);
+  useSettingsInAddress(s.params, openHour !== null, s.requirements, s.rankBy);
+  // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the better day is Explore's.
+  const times = useMemo(() => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy }), [s.series, s.params, s.requirements, s.startUtc, s.rankBy]);
 
   const scene = useMemo<StandScene | null>(() => {
     if (openHour === null || !sky || !s.site || !s.series || !s.mask) return null;
@@ -387,7 +387,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           label: withReason(betterLabel(dateLong(s.startUtc, answer.better.hour), betterOutcome.poweredH, betterOutcome.poweredContactH), reason),
           chip: withReason(betterChip(dayMonth(s.startUtc, answer.better.hour), betterOutcome.poweredH), reason),
           startUtc: answer.better.startUtc,
-          href: `${withSettings(standHref(site.id, answer.better.startUtc, s.days, 0), s.params, s.requirements)}${quality === 'fast' ? '&quality=fast' : ''}`,
+          href: `${withSettings(standHref(site.id, answer.better.startUtc, s.days, 0), s.params, s.requirements, s.rankBy)}${quality === 'fast' ? '&quality=fast' : ''}`,
         }
       : null;
   // The better landing day, in place: the same lander and drawing, the new period, and the view opening again
@@ -640,7 +640,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     Compare sites
                   </button>
                 )}
-                <ChangeWays dateHref={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements)} onLander={openLander} onCompare={better ? compare : undefined} />
+                <ChangeWays dateHref={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy)} onLander={openLander} onCompare={better ? compare : undefined} />
               </div>
               {/* Last, the moment's state: the lander's power and radio for the hour, down by the time it describes at the
                   plate's foot, not in the time bar, which is Explore's too and where 60 to 90 characters beside the date would
@@ -737,7 +737,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
                     Change site
                   </Link>
-                  <Link href={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
+                  <Link href={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
                     Change date
                   </Link>
                   <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">

@@ -64,6 +64,24 @@ describe('the planner’s store', () => {
     expect(navigate.mock.calls[0][0]).toMatch(/&days=14&load=300&battery=3000&minpower=120&earthby=0&maxgap=72$/);
   });
 
+  it('takes the planner’s priorities to Explore with the landing, and a month’s own best landing when one is asked for', async () => {
+    const { plan, explore } = await stores();
+    plan.getState().hear(EXAMPLE);
+    plan.getState().edit({ objective: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } });
+    const answer = (await plan.getState().search())!;
+    const month = answer.shown[0].byDate!.find((o) => o !== null)!;
+    const navigate = vi.fn();
+    await plan.getState().land(0, navigate, month.item.utc);
+    expect(explore.getState().rankBy).toEqual({ kind: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } });
+    expect(explore.getState().startUtc).toBe(month.item.utc);
+    expect(navigate.mock.calls[0][0]).toMatch(/&rank=contact$/);
+    // A plain objective leaves Explore on its own default ranking, the longest time with power.
+    plan.getState().edit({ objective: 'power' });
+    await plan.getState().search();
+    await plan.getState().land(0, vi.fn());
+    expect(explore.getState().rankBy).toEqual({ kind: 'power' });
+  });
+
   it('opens Compare with the top results as scenarios, each at its own best landing time', async () => {
     const { plan, scenarios, explore } = await stores();
     plan.getState().hear(EXAMPLE);

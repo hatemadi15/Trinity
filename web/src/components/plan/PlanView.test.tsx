@@ -64,6 +64,64 @@ describe('PlanView', () => {
     expect(explore.getState().params.power.loadW).toBe(300);
   });
 
+  it('shows the best landing of each month at the first three sites one tap away, under the rule, each opening that landing in Explore', async () => {
+    const { navigate } = await open();
+    fireEvent.click(screen.getByRole('button', { name: 'Try the example' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Search 9 sites/ }));
+    const answer = await screen.findByRole('region', { name: 'The answer' }, { timeout: 20_000 });
+    // One tap away, under the rule the results are ranked by.
+    expect(answer.querySelector('table')!.closest('[hidden]')).not.toBeNull();
+    fireEvent.click(within(answer).getByRole('button', { name: 'Ranking and dates' }));
+    const table = within(answer).getByRole('table');
+    expect(table.closest('[hidden]')).toBeNull();
+    // March to June 2027, a row a month; a column for each of the first three sites, named as the results are.
+    expect(within(table).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['Mar 2027', 'Apr 2027', 'May 2027', 'Jun 2027']);
+    const names = within(answer).getAllByRole('listitem', { name: /^\d\. / }).map((li) => li.getAttribute('aria-label')!.replace(/^\d\. /, ''));
+    expect(within(table).getAllByRole('columnheader').slice(1).map((h) => h.textContent)).toEqual(names.slice(0, 3));
+    expect(within(table).getByText(/^The best landing in each month of the window by the ranking above, at the first \d sites: its time with power from landing; ✓ meets every requirement\./)).toBeTruthy();
+    const cell = within(table).getAllByRole('button', { name: /^Plan this landing: / })[0];
+    fireEvent.click(cell);
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith(expect.stringMatching(/^\/explore\?site=.+&start=2027-0[3-6]-\d\dT\d\d:00&days=14/)));
+  });
+
+  it('ranks by priorities when picked, gives every result its score and parts, and states the rule one tap away', async () => {
+    const { plan } = await open();
+    fireEvent.click(screen.getByRole('button', { name: 'Try the example' }));
+    const heard = await screen.findByRole('region', { name: 'I heard' });
+    fireEvent.click(within(heard).getByRole('button', { name: 'More settings' }));
+    const rank = within(heard).getByRole('combobox', { name: /Then rank by/ }) as HTMLSelectElement;
+    expect([...rank.options].map((o) => o.textContent)).toEqual([
+      'Longest time with power',
+      'Most Earth contact while powered',
+      'Earliest landing',
+      'Priorities: balanced (1, 1, 1)',
+      'Priorities: mostly power (5, 1, 1)',
+      'Priorities: mostly Earth in view (1, 5, 1)',
+      'Priorities: mostly shorter gaps (1, 1, 5)',
+      'Priorities: your own weights',
+    ]);
+    fireEvent.change(rank, { target: { value: 'weighed:custom' } });
+    fireEvent.change(within(heard).getByRole('spinbutton', { name: 'Earth in view' }), { target: { value: '6' } });
+    expect(plan.getState().spec).toMatchObject({ objective: 'weighed', priorities: { power: 1, contact: 6, gap: 1 } });
+    expect(heard.textContent).toContain('Ranked by: requirements met first, then your priorities (power 1, Earth in view 6, shorter gaps 1)');
+    // The settings fold closed again, as a planner leaves it once the ranking is set.
+    fireEvent.click(within(heard).getByRole('button', { name: 'More settings' }));
+    fireEvent.click(within(heard).getByRole('button', { name: /^Search 9 sites/ }));
+    const answer = await screen.findByRole('region', { name: 'The answer' }, { timeout: 20_000 });
+    const items = within(answer).getAllByRole('listitem', { name: /^\d\. / });
+    // The reason each ranks above the next, in view.
+    expect(items[0].textContent).toMatch(/It scores \d+\.\d against \d+\.\d for .+: |It meets every requirement|It ties with/);
+    // Still one gold action, and still within the page's words once the answer is in.
+    expect(screen.getByRole('main').querySelectorAll('.btn-primary')).toHaveLength(1);
+    for (const width of [WIDE, PHONE]) expect(visibleWords(screen.getByRole('main'), width).length).toBeLessThanOrEqual(500);
+    const how = within(answer).getByRole('button', { name: 'Ranking and dates' });
+    fireEvent.click(how);
+    expect(answer.textContent).toMatch(/Ranked by your priorities: power 1, Earth in view 6, shorter gaps 1\. .*0\.55x \+ 0\.30√x \+ 0\.15x².*A choice that fails a requirement ranks below every choice that meets them all/);
+    // One tap away with the rule: each result's score and its three parts.
+    const parts = within(answer).getAllByText(/^\d\. .+ scores \d+\.\d of 100: power \d+\.\d, Earth in view \d+\.\d, shorter gaps \d+\.\d\.$/);
+    expect(parts).toHaveLength(items.length);
+  });
+
   it('says which requirement fails everywhere when nothing meets them all', async () => {
     await open();
     fireEvent.change(screen.getByRole('textbox', { name: 'What does the mission need?' }), { target: { value: 'at least 60 days of power, a 2 kWh battery, a 500 watt load, landing in March 2027, at the Artemis III regions' } });

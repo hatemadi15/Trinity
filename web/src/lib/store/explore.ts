@@ -15,12 +15,12 @@ import { checkPick } from '../viz/pick';
 import { timeOptions, yearOptions, type LandingTime, type Recommendation, type YearChoice } from '../plan/options';
 import { periodOutcome, type Outcome } from '../plan/outcome';
 import { checksWords, NO_REQUIREMENTS, type Holds, type Requirements } from '../plan/requirements';
-import { yearRuleWords } from '../plan/rank';
+import { BY_POWER, validPriorities, yearRuleWords, type RankBy } from '../plan/rank';
 import { neighbourhoodRadius, ringPoints, type PointResult } from '../plan/neighbourhood';
 import { computedReport, featuredReport, flatReport, unreportedReport, type TerrainFindings, type TerrainReport } from '../engine/completeness';
 import { missingWords } from '../viz/terrain';
 import { customPoint, parseExploreQuery } from './query';
-import { mergeSettings, parseRequirements, parseSettings, sameSettings } from '../share/settings';
+import { mergeSettings, parseRank, parseRequirements, parseSettings, sameSettings } from '../share/settings';
 
 /** A period's length in whole days, DAYS_RANGE in planner-ranges.ts: any number reaches the store, which refuses one outside it. */
 export type WindowDays = number;
@@ -214,6 +214,10 @@ export interface ExploreState {
   requirements: Requirements;
   /** Changes some requirements (null drops one); the 12-month note goes, as it was ranked for the old ones. */
   setRequirements: (patch: Partial<Requirements>) => void;
+  /** What the recommendations are ranked by after the requirements: the longest time with power by default, or priorities. */
+  rankBy: RankBy;
+  /** Changes the ranking (priorities the rule cannot use are refused); the 12-month note goes, as it was ranked the old way. */
+  setRankBy: (by: RankBy) => void;
   /** The current period worked out round an approximate site (null for a surveyed one, or before `loadNeighbourhood`). */
   neighbourhood: Neighbourhood | null;
   /**
@@ -264,9 +268,10 @@ export function periodPlan({
   params,
   requirements,
   startUtc,
+  rankBy = BY_POWER,
   holds = null,
-}: Pick<ExploreState, 'series' | 'params' | 'requirements' | 'startUtc'> & { holds?: (Holds | null)[] | null }): Recommendation<LandingTime> | null {
-  return series ? timeOptions({ scan: scanOf(series), cfg: params.power, req: requirements, hours: series.hours, startUtc, holds }) : null;
+}: Pick<ExploreState, 'series' | 'params' | 'requirements' | 'startUtc'> & { rankBy?: RankBy; holds?: (Holds | null)[] | null }): Recommendation<LandingTime> | null {
+  return series ? timeOptions({ scan: scanOf(series), cfg: params.power, req: requirements, hours: series.hours, startUtc, by: rankBy, holds }) : null;
 }
 
 export function recompute(
@@ -446,6 +451,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     bestWindowNote: null,
     yearPlan: null,
     requirements: NO_REQUIREMENTS,
+    rankBy: BY_POWER,
     neighbourhood: null,
     aiMode: process.env.NEXT_PUBLIC_AI_MODE === 'cached' ? 'cached' : 'live',
 
@@ -608,6 +614,11 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       set({ requirements: { ...get().requirements, ...patch }, bestWindowNote: null });
     },
 
+    setRankBy(by) {
+      if (by.kind === 'weighed' && !validPriorities(by.priorities)) return;
+      set({ rankBy: by.kind === 'weighed' ? { kind: 'weighed', priorities: { ...by.priorities } } : BY_POWER, bestWindowNote: null });
+    },
+
     async loadNeighbourhood() {
       const { site, eph, startUtc, days, params } = get();
       const ring = site ? neighbourhoodRadius(site) : null;
@@ -718,7 +729,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     },
 
     async findBestWindow(days, scope = 'site') {
-      const { eph, site, startUtc, params, compareIds, sites, requirements } = get();
+      const { eph, site, startUtc, params, compareIds, sites, requirements, rankBy } = get();
       if (!eph) return null;
       if (periodDays(days) === null) {
         set({ bestWindowNote: periodProblem(startUtc, days) });
@@ -741,7 +752,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       }
       // Settings that moved on while the skylines were worked out: the newer request is the one to answer.
       const now = get();
-      if (now.params !== params || now.startUtc !== startUtc || (scope === 'site' && now.site !== site) || now.compareIds !== compareIds) return null;
+      if (now.params !== params || now.startUtc !== startUtc || (scope === 'site' && now.site !== site) || now.compareIds !== compareIds || now.rankBy !== rankBy) return null;
       const incomplete = targets.flatMap((t, i) => (terrainOf(masks[i].meta).quality === 'incomplete' ? [{ name: t.label ?? t.name, missing: missingWords(terrainOf(masks[i].meta)) }] : []));
       if (incomplete.length > 0) {
         // A missing step can only lower a skyline, so an incomplete one can only overstate the power: no date is named.
@@ -765,7 +776,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         const raw = hourlySeries(t, mask, eph, startEt, scanHours);
         return params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
       });
-      const plan = yearOptions({ scans: series, cfg: params.power, req: requirements, scan, startUtc });
+      const plan = yearOptions({ scans: series, cfg: params.power, req: requirements, scan, startUtc, by: rankBy });
       const top = plan.alternatives[0];
       if (!top) {
         set({ bestWindowNote: targets.length > 1 ? 'No hour in the next 12 months has sunlight at every compared site.' : 'No hour in the next 12 months has sunlight here.' });
@@ -784,7 +795,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           ? `Across ${targets.length} compared sites, ranked by the site that does worst: best landing in the next 12 months: ${when}. Power for ${each.slice(0, -1).join(', ')} and ${each[each.length - 1]}.`
           : `Best landing in the next 12 months: ${when}, power for ${spanShort(best.poweredH)}, Earth in view ${pct0(earthFraction)} of that time.`;
       const checks = checksWords(top.checks);
-      const rule = yearRuleWords(scan.step, top.checks.length > 0);
+      const rule = yearRuleWords(scan.step, top.checks.length > 0, rankBy);
       set({
         bestWindowNote: checks ? `${found} ${checks}${top.failed > 0 ? ' None in the next 12 months meets them all.' : ''} ${rule}` : `${found} ${rule}`,
         yearPlan: { scope: targets.length > 1 ? 'compare' : 'site', days, fromUtc: startUtc, siteNames: names, stepH: scan.step, plan },
@@ -855,6 +866,9 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       // leaves out as none; a link that names none (every link inside the app but Explore's own) keeps the visit's.
       const req = parseRequirements(search);
       if (Object.keys(req).length > 0) get().setRequirements({ ...NO_REQUIREMENTS, ...req });
+      // The ranking the link names, beside the settings; a link that names none keeps the visit's own.
+      const rank = parseRank(search);
+      if (rank) get().setRankBy(rank);
       if (!q.site || q.site === get().siteId) return;
       if (get().sites.some((s) => s.id === q.site)) {
         await get().selectSite(q.site);

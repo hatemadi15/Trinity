@@ -14,8 +14,15 @@
 ## The browser journeys
 
 - [ ] From `web/`, run `npm run e2e`: it builds, starts the build on port 3032, runs the journeys in Chromium and stops the server. `npm run e2e:run` runs them against the last build. Once per machine first: `npx playwright install chromium`. Stop `npm start` before `npm run e2e`, since the build rewrites `.next`.
-- [ ] Every journey passes; the one skipped journey says why (a known bug: a missing horizon file for the site in a link is shown as a raw address). The results go to `web/public/validation/e2e.json` (commit it with the test report), the screenshots to `web/test-results/shots/`, and a failure's picture and error to `web/test-results/e2e/`.
+- [ ] Every journey passes, the one for a missing horizon file included (it was skipped until the page said so in plain words). The results go to `web/public/validation/e2e.json` (commit it with the test report), the screenshots to `web/test-results/shots/`, and a failure's picture and error to `web/test-results/e2e/`.
 - [ ] The usability tasks in `docs/usability-tasks.md` stay marked pending until they are run with real people; never present them as done.
+- [ ] If there is time for people before the deadline, run the short three-person check in `docs/usability-tasks.md` (P2, P4, P5, E3 and the two questions on what the figures assume) and record what happened, with the number of people; three people are not a validation.
+
+## The planner and the ranking
+
+- [ ] On `/plan`, "Try the example" then "Search 9 sites": the answer lists the sites that meet every requirement, each with its landing time in UTC and why it comes before the next; "Ranking and dates" states the rule and shows the best landing in each month (March to June 2027) at the first three sites, and a cell opens that landing in Explore. Check it at 390 px wide: no sideways scroll.
+- [ ] Under More settings, set "Then rank by" to "Priorities: mostly Earth in view" and search again: the reasons give two scores and the main gain, and "Ranking and dates" gives each result's score and its three parts. Say "a preference between choices", never "a chance of success", and never call it AI or a trained model: it is the stated rule in `docs/recommendation-model.md`.
+- [ ] On Explore, under Options, set "Then rank by" to a priority: the options show their scores, the better landing day follows the rule, and the address gains `rank=`; open that address in a fresh private window and check the ranking, the lander and the period came through.
 
 ## The night before
 

@@ -650,6 +650,24 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, 18:00 UTC, power for 13 d 21 h, Earth in view 80 % of that time. Landing times tried every 6 hours, ranked by time with power from landing, then Earth contact while powered.');
   });
 
+  it('ranks the 12-month search by the priorities a link names, says so in its note, and refuses priorities the rule cannot use', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().applyQuery('?site=de_gerlache_rim_2&start=2027-01-01&days=30&rank=contact');
+    expect(store.getState().rankBy).toEqual({ kind: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } });
+    const result = await store.getState().findBestWindow(30);
+    expect(result).not.toBeNull();
+    expect(store.getState().bestWindowNote).toMatch(/Landing times tried every 6 hours, ranked by your priorities \(power 1, Earth in view 5, shorter gaps 1\)\.$/);
+    // The best the priorities name is the first of the alternatives.
+    expect(store.getState().yearPlan!.plan.alternatives[0].item.startUtc).toBe(result!.startUtc);
+    // Weights that are all zero are refused; a change of ranking drops the note made the old way.
+    store.getState().setRankBy({ kind: 'weighed', priorities: { power: 0, contact: 0, gap: 0 } });
+    expect(store.getState().rankBy).toEqual({ kind: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } });
+    store.getState().setRankBy({ kind: 'power' });
+    expect(store.getState().rankBy).toEqual({ kind: 'power' });
+    expect(store.getState().bestWindowNote).toBeNull();
+  });
+
   it('findBestWindow across the compared sites ranks by the site that does worst, never the mean, and gives each site its own result', async () => {
     const store = createExploreStore(fileLoaders());
     await store.getState().init();

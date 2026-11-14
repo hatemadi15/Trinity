@@ -1,5 +1,6 @@
 import { createStore, type StoreApi } from 'zustand';
 import { siteLabel, type Site } from '../data/loaders';
+import { priorityWords } from '../plan/rank';
 import { SCENARIO_MAX } from '../scenario/codec';
 import { createMaskSource, type MaskLoaders, type MaskSource } from '../scenario/masks';
 import { bestNearbyFor, nearbyCandidates, NEARBY_KM } from '../scenario/nearby';
@@ -177,8 +178,8 @@ export function createScenarioStore(explore: StoreApi<ExploreState>, loaders: Ma
               // a skyline that fails to load leaves that site out of the search
             }
           }
-          // Ranked with the planner's requirements, as Explore's places nearby are (lib/plan).
-          const best = bestNearbyFor(site, periodOutcome(ownResult.series, ownResult.power), tried, explore.getState().requirements);
+          // Ranked with the planner's requirements and Explore's ranking, as Explore's places nearby are (lib/plan).
+          const best = bestNearbyFor(site, periodOutcome(ownResult.series, ownResult.power), tried, explore.getState().requirements, explore.getState().rankBy);
           // The scenario may have changed or gone while the search ran.
           if (find(id) !== s) return null;
           if (!best) {
@@ -186,7 +187,11 @@ export function createScenarioStore(explore: StoreApi<ExploreState>, loaders: Ma
             return null;
           }
           const made: Scenario = { ...s, id: newId(), siteId: best.site.id, label: `Nearby: ${siteLabel(best.site)}`, from: s.id };
-          return append([made]) ? made.id : null;
+          if (!append([made])) return null;
+          // Ranked by priorities, the page says so: the comparison shows no other trace of how the pick was made.
+          const by = explore.getState().rankBy;
+          if (by.kind === 'weighed') set({ note: `The nearby alternative is ranked by your requirements, then your priorities (${priorityWords(by.priorities)}), as set under Explore’s Options.` });
+          return made.id;
         } finally {
           set({ searching: null });
         }

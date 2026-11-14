@@ -10,6 +10,8 @@ Repeatable tasks for testing Earthrise with real people. The browser journeys (`
 - **Setup:** a laptop with Chrome or Edge at 100 % zoom and the production build (`npm run build`, then `npm start`) or the live URL. Use a fresh tab without `?demo=1`. For the phone task, use a phone, or Chrome's device toolbar at 390 × 844. Before each person, set the period to 1 January 2027 for 30 days and the lander to the small one, and empty Compare.
 - **Script:** read the goal aloud, in the words below, and say nothing else about the app. Ask the person to think aloud. Give help only when they are stuck for two minutes, and note the help.
 - **Record:** the time from the first click to success (or to giving up), whether they succeeded without help, the help given, and every wrong turn: a page they opened by mistake, a control they tried that did nothing, or a word they misread. At the end, ask "What did the page tell you?" and write down the answer in their words. Then ask them to rate how easy the task was from 1 (very hard) to 5 (very easy).
+- **Two questions on what the figures assume,** asked of everyone at the end, whatever the tasks: "Does Earth in view mean the lander can talk to Earth?" and "When the power comes back after a night, does that mean the lander survived it?" Note the answer in their words. The app says no to both (Earth in view is a clear line of sight, not a working link; the figures count energy only), so a yes is a problem with the page, not with the person.
+- **What to look for first:** problems that would reverse a decision, lose a setting, hide a failure or confuse what the model assumes, before problems of taste. After a change, repeat only the tasks it touches.
 - **Success:** each task names what success looks like. A task counts as a success only if the person reaches it and can say the answer back correctly.
 
 ## Mission planner
@@ -34,6 +36,20 @@ Repeatable tasks for testing Earthrise with real people. The browser journeys (`
 - **Start:** Explore, as left at the end of P2.
 - **Success:** they choose the medium lander (or enter the numbers under Custom), see that the figures change, and open the printable brief. The brief shows the right site, period and lander.
 - **Time and note:** whether they found the lander control; whether they trusted the ready-made lander or entered the numbers themselves; what they expected the brief to contain that it did not.
+
+### P4. Send the forecast to a colleague
+
+- **Goal, in their words:** "Send this forecast, with our lander and the way you ranked the options, to a colleague, and check that it opens the same for them."
+- **Start:** Explore, as left at the end of P3, with "Then rank by" set to a priority under Options.
+- **Success:** they copy the share link (Share, or the address bar), open it in a fresh private window, and confirm the site, the landing date and hour, the length, the lander (panel, load, battery), the mast, Earth's clearance and the ranking are the same.
+- **Time and note:** which setting they checked and which they did not; any setting that did not come through.
+
+### P5. Rank the candidates by what matters most
+
+- **Goal, in their words:** "We land between March and June 2027 near the Artemis III regions and need at least five days of power. Earth in view matters most to us. Which site comes first, when, and why?"
+- **Start:** Plan a landing (`/plan`).
+- **Success:** they enter the specification (typed or spoken), set "Then rank by" to "Priorities: mostly Earth in view" under More settings, search, and name the first site, its landing time and the reason the page gives; under "Ranking and dates" they can say whether the same site also does well in the other months.
+- **Time and note:** whether they found the ranking under More settings; whether they read the score as a chance of success (it is not: it is a preference between choices); whether "Ranking and dates" made sense.
 
 ## Educator
 
@@ -81,6 +97,10 @@ Repeatable tasks for testing Earthrise with real people. The browser journeys (`
 - **Success:** they find "Or ask in plain words" and get an answer that names a date, which they can check against the time bar.
 - **Time and note:** what they typed; whether the reply answered the question; whether they noticed the line saying who wrote the reply.
 
+## A short run of three people
+
+When there is not time for the full study: three people who have not used Earthrise (a technical person, an educator and a newcomer), one at a time, each in a fresh browser session, one on a phone and the others on a laptop. Give each the same prepared case and no explanation of the controls. Run P2, P4, P5 and E3, and the two questions on what the figures assume. Record each in the table below like any other session. Three people find the worst problems; they are not a validation of the planner, and the submission must report how many people took part and what happened, not more.
+
 ## Results
 
 Pending: no session has been run. Fill in one row per person and task, and keep the notes from each session beside this file.
@@ -96,6 +116,8 @@ Pending: no session has been run. Fill in one row per person and task, and keep 
 | P1 | pending | | | | |
 | P2 | pending | | | | |
 | P3 | pending | | | | |
+| P4 | pending | | | | |
+| P5 | pending | | | | |
 | E1 | pending | | | | |
 | E2 | pending | | | | |
 | E3 | pending | | | | |

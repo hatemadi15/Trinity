@@ -5,6 +5,7 @@ import { AppFrame } from '@/components/AppFrame';
 import { DataProblem, SYNC_HINT } from '@/components/DataProblem';
 import { Fold } from '@/components/Fold';
 import { ENERGY_ONLY } from '@/components/PowerScope';
+import { PRIORITY_CHOICES, PriorityBoxes } from '@/components/explore/PlanParts';
 import { askPlanner } from '@/lib/ai/client';
 import { pointKind } from '@/lib/data/kind';
 import { siteLabel, type Site } from '@/lib/data/loaders';
@@ -15,7 +16,8 @@ import { utcToEt } from '@/lib/engine/time';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { assistSpec } from '@/lib/plan/assist';
 import { midSentence } from '@/lib/plan/judge';
-import { powerOf, type SiteFinding, type SiteInput } from '@/lib/plan/search';
+import { partsWords, profileOf, weighedScore } from '@/lib/plan/rank';
+import { bucketKind, bucketsOf, planRuleWords, powerOf, type SiteFinding, type SiteInput } from '@/lib/plan/search';
 import { CATEGORY_NAMES, PANEL_SHORT, PANELS, specLines, whereSites, windowWords, type MissionSpec, type SpecField, type SpecPatch, type Sources } from '@/lib/plan/spec';
 import { planStore, type PlanState } from '@/lib/plan/store';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
@@ -66,7 +68,11 @@ const lastDay = (toUtc: string) => new Date(Date.parse(`${toUtc}Z`) - 86_400_000
 
 /** The heard specification as fields to check and change; a change counts as said. The rarer ones fold. */
 function SpecFields({ spec, from, sites, onEdit }: { spec: MissionSpec; from: Sources; sites: Site[]; onEdit: (p: SpecPatch) => void }) {
+  const [own, setOwn] = useState(false);
   const said = (...f: SpecField[]) => f.some((x) => from[x]);
+  // The ranking's choice: one of the plain objectives, or the priorities by name or as weights of one's own.
+  const named = profileOf(spec.priorities);
+  const rankValue = spec.objective !== 'weighed' ? spec.objective : own || named === 'custom' ? 'weighed:custom' : `weighed:${named}`;
   const categories = [...new Set(sites.map((s) => s.category))].filter((c) => CATEGORY_NAMES[c]);
   const whereValue = spec.where.kind === 'category' ? `category:${spec.where.category}` : spec.where.kind === 'near' ? 'near' : spec.where.kind;
   const nearId = spec.where.kind === 'near' ? spec.where.id : spec.where.kind === 'sites' ? spec.where.ids[0] : 'shackleton_center';
@@ -164,13 +170,36 @@ function SpecFields({ spec, from, sites, onEdit }: { spec: MissionSpec; from: So
           </label>
           <label className={LABEL}>
             <span>Then rank by{tag('objective')}</span>
-            <select value={spec.objective} onChange={(e) => onEdit({ objective: e.target.value as MissionSpec['objective'] })} className="field w-full min-w-0">
+            <select
+              value={rankValue}
+              onChange={(e) => {
+                const v = e.target.value;
+                setOwn(v === 'weighed:custom');
+                if (v === 'weighed:custom') onEdit({ objective: 'weighed' });
+                else if (v.startsWith('weighed:')) {
+                  const p = PRIORITY_CHOICES.find((c) => c.value === v);
+                  if (p) onEdit({ objective: 'weighed', priorities: { ...p.priorities } });
+                } else onEdit({ objective: v as MissionSpec['objective'] });
+              }}
+              className="field w-full min-w-0"
+            >
               <option value="power">Longest time with power</option>
               <option value="contact">Most Earth contact while powered</option>
               <option value="earliest">Earliest landing</option>
+              {PRIORITY_CHOICES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+              <option value="weighed:custom">Priorities: your own weights</option>
             </select>
           </label>
         </div>
+        {rankValue === 'weighed:custom' && (
+          <div className="mt-4 max-w-[30em]">
+            <PriorityBoxes value={spec.priorities} onChange={(priorities) => onEdit({ objective: 'weighed', priorities })} />
+          </div>
+        )}
       </Fold>
     </>
   );
@@ -242,6 +271,64 @@ function Result({ f, i, why, spec, input, eph, doc, onLand }: { f: SiteFinding; 
         </Fold>
       </div>
     </li>
+  );
+}
+
+/**
+ * The dates at a glance: the best landing in each month of the window (each week of a short one) at the first three
+ * sites shown, as the time with power from landing and whether it meets every requirement, each opening that landing in
+ * Explore. It shows what the year view of one site does not: several sites against the dates.
+ */
+function DatesGlance({ shown, spec, requirements, onLand }: { shown: SiteFinding[]; spec: MissionSpec; requirements: number; onLand: (index: number, utc: string) => void }) {
+  const buckets = bucketsOf(spec);
+  const sites = shown.slice(0, 3);
+  const each = bucketKind(spec);
+  const weeks = each === 'week';
+  return (
+    <table className="w-full border-collapse text-left text-[14px] sm:max-w-[48em]">
+      <caption className="mb-2 text-left text-[15px] text-ink-2">
+        The best landing in each {each} of the window by the ranking above, at {sites.length === 1 ? 'the first site' : `the first ${sites.length} sites`}: its time with power from landing{requirements > 0 ? '; ✓ meets every requirement' : ''}. Each opens that landing in Explore.
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col" className="py-1 pr-2 font-medium text-ink-2">
+            {weeks ? 'Week of' : 'Month'}
+          </th>
+          {sites.map((f) => (
+            <th key={f.site.id} scope="col" className="px-1 py-1 font-medium text-ink">
+              {siteLabel(f.site)}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {buckets.map((b, k) => (
+          <tr key={b.fromHour} className="border-t border-line">
+            <th scope="row" className="whitespace-nowrap py-1 pr-2 font-normal text-ink-2">
+              {b.label}
+            </th>
+            {sites.map((f, i) => {
+              const o = f.byDate?.[k] ?? null;
+              if (!o) return <td key={f.site.id} className="px-1 py-1 text-ink-3">no sunlit landing</td>;
+              const meets = requirements > 0 && o.failed === 0;
+              return (
+                <td key={f.site.id} className="px-1 py-1">
+                  <button
+                    type="button"
+                    onClick={() => onLand(i, o.item.utc)}
+                    aria-label={`Plan this landing: ${siteLabel(f.site)}, ${dateTimeUtc(o.item.utc, 0)}${meets ? ', meets every requirement' : ''}`}
+                    className={`min-h-10 whitespace-nowrap text-left tabular-nums underline decoration-line-strong underline-offset-4 hover:decoration-ink ${meets ? 'text-good' : 'text-ink'}`}
+                  >
+                    {meets && <span aria-hidden="true">✓ </span>}
+                    {spanShort(o.outcome.poweredH)}
+                  </button>
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -415,6 +502,26 @@ export function PlanView({
                 </button>
               </p>
             )}
+            <Fold label="Ranking and dates" className="mt-3">
+              <p className="max-w-[60em] text-[15px] text-ink-2">{planRuleWords(searched, p.answer.requirements)}</p>
+              {searched.objective === 'weighed' && p.answer.shown.length > 0 && (
+                <ul className="mt-2 flex flex-col gap-1 text-[15px] text-ink-2">
+                  {p.answer.shown.map((f, i) => {
+                    const sc = weighedScore(f.best!.outcome, searched.priorities);
+                    return (
+                      <li key={f.site.id}>
+                        {i + 1}. {siteLabel(f.site)} scores {sc.score.toFixed(1)} of 100: {partsWords(sc)}.
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {p.answer.shown.length > 0 && (
+                <div className="mt-4">
+                  <DatesGlance shown={p.answer.shown} spec={searched} requirements={p.answer.requirements} onLand={(i, utc) => void plan.getState().land(i, go, utc)} />
+                </div>
+              )}
+            </Fold>
             <p className="mt-4 max-w-[60em] text-[15px] text-ink-2">
               Best among the {p.stats.sites} sites and {p.stats.landingTimes.toLocaleString('en-GB')} landing times tried ({p.stats.stepH === 1 ? 'every hour' : `every ${p.stats.stepH} hours`}, {windowWords(searched)}), for this lander and a{' '}
               {spanShort(searched.stayH)} stay, in {(p.stats.ms / 1000).toFixed(1)} s.

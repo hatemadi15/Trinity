@@ -32,7 +32,7 @@
    {"path": "sites.json", "bytes": 15328, "sha256": "e5702ab79a5fac021b011ec12d0825620c9cb035293fa57abf276d2fa05821d2"},
    {"path": "sites_derived.json", "bytes": 1376, "sha256": "19f479d74339a3080232c379d7d564f0858bc5e9f97602c93d0d5134be72bc52"}
   ]},
-  {"id": "sky", "title": "the sky: the stars, the Moon's turning and Earth's maps", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "The view from the site cannot open, the home page's arrival shows its still pictures and the header's band of stars stays empty.", "bytes": 1543157, "files": [
+  {"id": "sky", "title": "the sky: the stars, the Moon's turning and Earth's maps", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "The view from the site cannot open and the header's band of stars stays empty.", "bytes": 1543157, "files": [
    {"path": "sky/credits.json", "bytes": 472, "sha256": "ee6f584666254164c78a384fbc031b8fbe656bb1aee0caa2dc19cd0c1e454b82"},
    {"path": "sky/earth_clouds_2048.jpg", "bytes": 829367, "sha256": "daddaad84d7a33bbbc86cdda3f591099f57cee8607b7bcf3b67eb7e4f7a1c793"},
    {"path": "sky/earth_day_2048.jpg", "bytes": 238676, "sha256": "5b54cc586c6cbf2b28762ef4d4011f6cf4227a8b93a637b818a0c54090ce6c2c"},
@@ -761,7 +761,7 @@
    {"path": "tiles/L2/level.json", "bytes": 4802, "sha256": "3980a27af0d360ab98e98e139495dd3d840952b025dd61f7e10ee4ec168cb676"},
    {"path": "tiles/manifest.json", "bytes": 15330, "sha256": "a43ef3a46cf03db5265098cece74daef01dd7351808ef78e5016ac2e1eda5f1b"}
   ]},
-  {"id": "terrain", "title": "the terrain around the sites", "required": false, "origin": "made by the pipeline", "get": ["fetch --group lola --group textures", "tiles", "terrain", "sync-local --tiles"], "without": "Explore's Shadow map and 3D from above tabs say the terrain is missing and the Horizon chart stands in; the view from the site draws flat ground under the real skyline, and the home page's arrival lands on flat ground.", "bytes": 29332068, "files": [
+  {"id": "terrain", "title": "the terrain around the sites", "required": false, "origin": "made by the pipeline", "get": ["fetch --group lola --group textures", "tiles", "terrain", "sync-local --tiles"], "without": "Explore's Shadow map and 3D from above tabs say the terrain is missing and the Horizon chart stands in, and the view from the site draws flat ground under the real skyline.", "bytes": 29332068, "files": [
    {"path": "terrain/chandrayaan3_vikram.json", "bytes": 658, "sha256": "381283bbcd8274cfa03784fe31cdbd8754d3e63fd70e2501ae9fdac5a39586c3"},
    {"path": "terrain/chandrayaan3_vikram.u16", "bytes": 110718, "sha256": "d152e0eec346ef6e293f7cb53e94eca066aaac08c5c52238c93a33b9c7c611a5"},
    {"path": "terrain/connecting_ridge.context.json", "bytes": 661, "sha256": "c92eb11f71071fe15947681ff43bbf290a4c02a7067537c9fb2ebafb58f8b7b4"},
@@ -826,7 +826,7 @@
    {"path": "terrain/south_pole.json", "bytes": 611, "sha256": "2ffb4ebde4e8afef53b00eb7419de714f83fb6e413434c6d6a4be488b30b6612"},
    {"path": "terrain/south_pole.u16", "bytes": 1544883, "sha256": "5416f26c2a5273bcece492d918c3a237fe21bcc666ffab20ddc4939722897246"}
   ]},
-  {"id": "globe", "title": "the Moon from space for the home page's arrival", "required": false, "origin": "made by the pipeline", "get": ["fetch --group lola --group globe", "tiles", "globe", "sync-local --tiles"], "without": "The home page's arrival shows its still pictures in place of the live flight from space.", "bytes": 5514021, "files": [
+  {"id": "globe", "title": "the Moon from space, which no page reads now", "required": false, "origin": "made by the pipeline", "get": ["fetch --group lola --group globe", "tiles", "globe", "sync-local --tiles"], "without": "Nothing: the home page's descent ships its own pictures.", "bytes": 5514021, "files": [
    {"path": "globe/manifest.json", "bytes": 970, "sha256": "d3971466585f07d260387f4c0a08ab371f094709a32ce2789404ca9c91e55d7c"},
    {"path": "globe/moon_color_1k.jpg", "bytes": 111423, "sha256": "a5e62538258f04b34a51770b8878d10662f72bc2715bfa96ff14eb771d42cf16"},
    {"path": "globe/moon_color_4k.jpg", "bytes": 1786643, "sha256": "27d8244c01cabc1b43678b7f87b210c1e1c76bc0fa71dffc7efe312f2218ba03"},

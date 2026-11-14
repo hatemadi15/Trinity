@@ -5,7 +5,7 @@ import type { PowerConfig } from '../engine/power';
 import { isoAt } from '../viz/format';
 import { nearestSites } from '../viz/relief';
 import { outcomeScanner, worstOf, type Outcome } from './outcome';
-import { compareOptions, optionOf, pickApart, rankOptions, tradeOffs, whyAbove, type Option, type TradeOff } from './rank';
+import { BY_POWER, compareOptions, optionOf, pickApart, rankOptions, tradeOffs, whyAbove, type Option, type RankBy, type TradeOff } from './rank';
 import type { Holds, Requirements } from './requirements';
 
 /** An alternative to the current choice: its checks, what it gains and loses against the current one, and why it ranks above the next. */
@@ -26,18 +26,23 @@ export interface Recommendation<T> {
   betterWhy: string | null;
 }
 
-function recommend<T>(kind: 'time' | 'place', current: Option<T>, picks: Option<T>[], top: number, currentName: string, gives: (a: Option<T>, cur: Option<T>) => boolean): Recommendation<T> {
-  const alternatives = picks.slice(0, top).map((o, i) => ({ ...o, trade: tradeOffs(o.outcome, current.outcome), why: picks[i + 1] ? whyAbove(o, picks[i + 1], kind) : null }));
+function recommend<T>(kind: 'time' | 'place', current: Option<T>, picks: Option<T>[], top: number, currentName: string, gives: (a: Option<T>, cur: Option<T>) => boolean, by: RankBy): Recommendation<T> {
+  const alternatives = picks.slice(0, top).map((o, i) => ({ ...o, trade: tradeOffs(o.outcome, current.outcome), why: picks[i + 1] ? whyAbove(o, picks[i + 1], kind, 'the next', by) : null }));
   const first = alternatives[0];
-  const better = first && compareOptions(first, current) < 0 && gives(first, current) ? first : null;
-  return { current, alternatives, better, betterWhy: better ? whyAbove(better, current, kind, currentName) : null };
+  const better = first && compareOptions(first, current, by) < 0 && gives(first, current) ? first : null;
+  return { current, alternatives, better, betterWhy: better ? whyAbove(better, current, kind, currentName, by) : null };
 }
 
-/** Fewer failed requirements, or more power in a row by at least `marginH`. */
+/**
+ * Fewer failed requirements, or a gain of at least `marginH` hours: in power in a row by default; weighed by priorities,
+ * in power, in Earth contact while powered, or as a shorter longest time without Earth.
+ */
 const givesMore =
-  (marginH: number) =>
+  (marginH: number, by: RankBy) =>
   <T>(a: Option<T>, cur: Option<T>) =>
-    a.failed < cur.failed || a.outcome.poweredH >= cur.outcome.poweredH + marginH;
+    a.failed < cur.failed ||
+    a.outcome.poweredH >= cur.outcome.poweredH + marginH ||
+    (by.kind === 'weighed' && (a.outcome.poweredContactH >= cur.outcome.poweredContactH + marginH || a.outcome.outageH <= cur.outcome.outageH - marginH));
 
 /** A landing time: hours from the period start, and the UTC instant. */
 export interface LandingTime {
@@ -51,7 +56,27 @@ export interface LandingTime {
  * Alternatives are kept `apartH` hours apart. `holds`, by landing hour, is in how many terrain versions each holds, for
  * the optional requirement on them (lib/ensemble); without it that requirement is not checked.
  */
-export function timeOptions({ scan, cfg, req, hours, startUtc, top = 3, apartH = 72, holds = null }: { scan: Series; cfg: PowerConfig; req: Requirements; hours: number; startUtc: string; top?: number; apartH?: number; holds?: (Holds | null)[] | null }): Recommendation<LandingTime> {
+export function timeOptions({
+  scan,
+  cfg,
+  req,
+  hours,
+  startUtc,
+  top = 3,
+  apartH = 72,
+  by = BY_POWER,
+  holds = null,
+}: {
+  scan: Series;
+  cfg: PowerConfig;
+  req: Requirements;
+  hours: number;
+  startUtc: string;
+  top?: number;
+  apartH?: number;
+  by?: RankBy;
+  holds?: (Holds | null)[] | null;
+}): Recommendation<LandingTime> {
   const at = outcomeScanner(scan, cfg);
   const current = optionOf({ hour: 0, startUtc }, at(0, hours), req, holds?.[0]);
   const candidates: Option<LandingTime>[] = [];
@@ -59,7 +84,7 @@ export function timeOptions({ scan, cfg, req, hours, startUtc, top = 3, apartH =
     const o = at(h, hours);
     if (o.sunlitAtLanding) candidates.push(optionOf({ hour: h, startUtc: isoAt(startUtc, h) }, o, req, holds?.[h]));
   }
-  return recommend('time', current, pickApart(rankOptions(candidates), apartH, top + 1), top, 'landing at the period start', givesMore(1));
+  return recommend('time', current, pickApart(rankOptions(candidates, by), apartH, top + 1), top, 'landing at the period start', givesMore(1, by), by);
 }
 
 /** A catalogue site near the current one. */
@@ -84,6 +109,7 @@ export function placeOptions({
   maxKm = 30,
   top = 3,
   marginH = 24,
+  by = BY_POWER,
 }: {
   site: Site;
   sites: Site[];
@@ -94,13 +120,14 @@ export function placeOptions({
   maxKm?: number;
   top?: number;
   marginH?: number;
+  by?: RankBy;
 }): Recommendation<NearbyPlace> {
   const catalogue = nearestSites(site, sites, sites.length).flatMap((x) => {
     const o = outcomes[x.site.id];
     return x.km <= maxKm && o ? [{ place: x, outcome: o }] : [];
   });
   const candidates = [...extra.filter((x) => x.place.km <= maxKm), ...catalogue].sort((a, b) => a.place.km - b.place.km).map((x) => optionOf<NearbyPlace>(x.place, x.outcome, req));
-  return recommend('place', optionOf<NearbyPlace>({ site, km: 0 }, current, req), rankOptions(candidates).slice(0, top + 1), top, 'this site', givesMore(marginH));
+  return recommend('place', optionOf<NearbyPlace>({ site, km: 0 }, current, req), rankOptions(candidates, by).slice(0, top + 1), top, 'this site', givesMore(marginH, by), by);
 }
 
 /** A landing time of the 12-month search, with each site's own outcome (one for one site). */
@@ -116,7 +143,7 @@ export interface YearChoice {
  * apart (two weeks by default, so each is another lunar day or month rather than the same one again). The current
  * choice is landing at the scan's first hour.
  */
-export function yearOptions({ scans, cfg, req, scan, startUtc, top = 3, apartH = 14 * 24 }: { scans: Series[]; cfg: PowerConfig; req: Requirements; scan: LandingScan; startUtc: string; top?: number; apartH?: number }): Recommendation<YearChoice> {
+export function yearOptions({ scans, cfg, req, scan, startUtc, top = 3, apartH = 14 * 24, by = BY_POWER }: { scans: Series[]; cfg: PowerConfig; req: Requirements; scan: LandingScan; startUtc: string; top?: number; apartH?: number; by?: RankBy }): Recommendation<YearChoice> {
   const at = scans.map((s) => outcomeScanner(s, cfg));
   const choice = (hour: number): Option<YearChoice> => {
     const perSite = at.map((f) => f(hour, scan.capHours));
@@ -128,5 +155,5 @@ export function yearOptions({ scans, cfg, req, scan, startUtc, top = 3, apartH =
     const c = choice(h);
     if (c.item.perSite.every((o) => o.sunlitAtLanding)) candidates.push(c);
   }
-  return recommend('time', choice(scan.from), pickApart(rankOptions(candidates), apartH, top + 1), top, 'the date you started from', () => true);
+  return recommend('time', choice(scan.from), pickApart(rankOptions(candidates, by), apartH, top + 1), top, 'the date you started from', () => true, by);
 }

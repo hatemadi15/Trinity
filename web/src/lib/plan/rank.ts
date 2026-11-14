@@ -6,6 +6,112 @@ import { checkRequirements, failedWords, midSentence, type Check, type Holds, ty
 export const OBJECTIVE =
   'Ranked by the longest continuous time with power from landing; ties go to more Earth contact while powered, then to the earlier time or the nearer place.';
 
+/**
+ * What a mission weighs once its requirements are counted, each from 0 to 100 and at least one above 0: the time with
+ * power from landing, the Earth contact while powered, and shorter gaps without Earth over the stay.
+ */
+export interface Priorities {
+  power: number;
+  contact: number;
+  gap: number;
+}
+
+/** The priorities offered by name; any other weights are the planner's own. */
+export const PRIORITY_PROFILES: { id: 'balanced' | 'power' | 'contact' | 'gap'; label: string; priorities: Priorities }[] = [
+  { id: 'balanced', label: 'Balanced', priorities: { power: 1, contact: 1, gap: 1 } },
+  { id: 'power', label: 'Mostly power', priorities: { power: 5, contact: 1, gap: 1 } },
+  { id: 'contact', label: 'Mostly Earth in view', priorities: { power: 1, contact: 5, gap: 1 } },
+  { id: 'gap', label: 'Mostly shorter gaps', priorities: { power: 1, contact: 1, gap: 5 } },
+];
+
+/** How choices are ranked after the requirements: by the longest time with power (the default), or weighed by priorities. */
+export type RankBy = { kind: 'power' } | { kind: 'weighed'; priorities: Priorities };
+export const BY_POWER: RankBy = { kind: 'power' };
+
+/** Priorities the rule can use: three numbers from 0 to 100, at least one above 0. */
+export function validPriorities(p: unknown): p is Priorities {
+  if (!p || typeof p !== 'object') return false;
+  const { power, contact, gap } = p as Record<string, unknown>;
+  const ok = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100;
+  return ok(power) && ok(contact) && ok(gap) && (power as number) + (contact as number) + (gap as number) > 0;
+}
+
+/** The profile whose weights these are, or "custom". */
+export function profileOf(p: Priorities): (typeof PRIORITY_PROFILES)[number]['id'] | 'custom' {
+  return PRIORITY_PROFILES.find((x) => x.priorities.power === p.power && x.priorities.contact === p.contact && x.priorities.gap === p.gap)?.id ?? 'custom';
+}
+
+/** The weights in words: "power 5, Earth in view 1, shorter gaps 1". */
+export function priorityWords(p: Priorities): string {
+  return `power ${p.power}, Earth in view ${p.contact}, shorter gaps ${p.gap}`;
+}
+
+/**
+ * How the rule counts a share x of the stay, from 0 to 1: 0.55x + 0.30√x + 0.15x². It rises with x, gives most for the
+ * first hours (the square root) and still rewards the last ones (the square), and is 1 for the whole stay.
+ */
+export function curve(x: number): number {
+  const v = Math.min(1, Math.max(0, x));
+  return 0.55 * v + 0.3 * Math.sqrt(v) + 0.15 * v * v;
+}
+
+/** A weighed score out of 100 and each measure's part of it (the parts add up to the score). */
+export interface WeighedScore {
+  score: number;
+  parts: { power: number; contact: number; gap: number };
+}
+
+/**
+ * The weighed rule: the three shares of the stay (the time with power in a row from landing, the Earth contact while
+ * powered, and one minus the longest stretch of the stay without Earth in view), each counted by `curve`, weighted by
+ * its priority and scaled to 100. The gap is over the whole stay, not only while powered, so a lander that loses power
+ * early never scores well on gaps for being off. A preference between choices, not a chance that a landing works.
+ */
+export function weighedScore(o: Outcome, p: Priorities): WeighedScore {
+  const stay = o.stayH > 0 ? o.stayH : 1;
+  const total = p.power + p.contact + p.gap;
+  const part = (w: number, x: number) => (total > 0 ? (100 * w * curve(x)) / total : 0);
+  const parts = { power: part(p.power, o.poweredH / stay), contact: part(p.contact, o.poweredContactH / stay), gap: part(p.gap, 1 - o.outageH / stay) };
+  return { score: parts.power + parts.contact + parts.gap, parts };
+}
+
+/** Scores closer than this are a tie, which the order the choices came in settles. */
+const TIE = 1e-9;
+const pts = (v: number) => v.toFixed(1);
+
+/** A choice's score in one line, each measure's part after it: "Score 72.4 of 100: power 40.1, Earth in view 20.0, shorter gaps 12.3." */
+export function scoreWords(o: Outcome, p: Priorities): string {
+  const s = weighedScore(o, p);
+  return `Score ${pts(s.score)} of 100: ${partsWords(s)}.`;
+}
+
+const GAINS: Record<keyof WeighedScore['parts'], string> = { power: 'more power', contact: 'more Earth in view', gap: 'shorter gaps' };
+
+/**
+ * Why a higher weighed score ranks first, with the measure that gains it most: "It scores 58.2 against 51.0 for the
+ * next: more Earth in view." Each score's three parts are given with the choice itself (scoreWords).
+ */
+export function scoreAbove(a: WeighedScore, b: WeighedScore, other: string): string {
+  const keys: (keyof WeighedScore['parts'])[] = ['power', 'contact', 'gap'];
+  const main = keys.reduce((m, k) => (a.parts[k] - b.parts[k] > a.parts[m] - b.parts[m] ? k : m), keys[0]);
+  return `It scores ${pts(a.score)} against ${pts(b.score)} for ${other}: ${GAINS[main]}.`;
+}
+
+/** A score's three parts in words: "power 40.1, Earth in view 20.0, shorter gaps 12.3". */
+export function partsWords(s: WeighedScore): string {
+  return `power ${pts(s.parts.power)}, Earth in view ${pts(s.parts.contact)}, shorter gaps ${pts(s.parts.gap)}`;
+}
+
+/** What the recommendations are ranked by, in words, for where they appear; the weighed rule with its formula. */
+export function objectiveWords(by: RankBy): string {
+  if (by.kind === 'power') return OBJECTIVE;
+  return (
+    `Ranked by your priorities: ${priorityWords(by.priorities)}. Each measure is a share x of the stay (the time with power from landing, the Earth contact while powered, ` +
+    'and one minus the longest time without Earth) counted as 0.55x + 0.30√x + 0.15x², weighted by its priority, out of 100: a preference between choices, not a chance that a landing works. ' +
+    'Ties go to the earlier time or the nearer place.'
+  );
+}
+
 /** How a choice that fails a requirement is treated. */
 export const FAIL_RULE = 'A choice that fails a requirement ranks below every choice that meets them all; among those, fewer failures rank first.';
 
@@ -21,8 +127,9 @@ export function searchWords(s: SearchScope): string {
 }
 
 /** The 12-month search's note says how finely it looked and what it ranked by. */
-export function yearRuleWords(stepH: number, requirements: boolean): string {
-  return `Landing times tried every ${stepH === 1 ? 'hour' : `${stepH} hours`}, ranked by ${requirements ? 'your requirements, then ' : ''}time with power from landing, then Earth contact while powered.`;
+export function yearRuleWords(stepH: number, requirements: boolean, by: RankBy = BY_POWER): string {
+  const objective = by.kind === 'weighed' ? `your priorities (${priorityWords(by.priorities)})` : 'time with power from landing, then Earth contact while powered';
+  return `Landing times tried every ${stepH === 1 ? 'hour' : `${stepH} hours`}, ranked by ${requirements ? 'your requirements, then ' : ''}${objective}.`;
 }
 
 /** A choice (a landing time or a place) with its outcome and its requirement checks. */
@@ -50,20 +157,24 @@ export function optionOf<T>(item: T, outcome: Outcome, req: Requirements, holds?
 
 /**
  * Negative when `a` ranks above `b`: fewer failed requirements first (so every choice that meets them all comes before
- * any that fails one), then the longer time with power in a row, then more Earth contact while powered; zero for a tie,
- * which the caller's order settles (the earlier time, the nearer place).
+ * any that fails one), then the objective: by default the longer time with power in a row, then more Earth contact while
+ * powered; or the higher weighed score. Zero for a tie, which the caller's order settles (the earlier time, the nearer place).
  */
-export function compareOptions<T>(a: Option<T>, b: Option<T>): number {
+export function compareOptions<T>(a: Option<T>, b: Option<T>, by: RankBy = BY_POWER): number {
   if (a.failed !== b.failed) return a.failed - b.failed;
+  if (by.kind === 'weighed') {
+    const d = weighedScore(b.outcome, by.priorities).score - weighedScore(a.outcome, by.priorities).score;
+    return Math.abs(d) < TIE ? 0 : d;
+  }
   if (a.outcome.poweredH !== b.outcome.poweredH) return b.outcome.poweredH - a.outcome.poweredH;
   return b.outcome.poweredContactH - a.outcome.poweredContactH;
 }
 
 /** The choices best first; a tie keeps the order they came in. */
-export function rankOptions<T>(options: Option<T>[]): Option<T>[] {
+export function rankOptions<T>(options: Option<T>[], by: RankBy = BY_POWER): Option<T>[] {
   return options
     .map((o, i) => ({ o, i }))
-    .sort((x, y) => compareOptions(x.o, y.o) || x.i - y.i)
+    .sort((x, y) => compareOptions(x.o, y.o, by) || x.i - y.i)
     .map((x) => x.o);
 }
 
@@ -81,13 +192,19 @@ export function pickApart<T>(ranked: Option<T>[], apartH: number, top: number): 
 }
 
 /** Why `a` ranks above `b`, in one plain sentence; `other` names `b` ("the next", "landing at the period start"). */
-export function whyAbove<T>(a: Option<T>, b: Option<T>, kind: 'time' | 'place', other = 'the next'): string {
+export function whyAbove<T>(a: Option<T>, b: Option<T>, kind: 'time' | 'place', other = 'the next', by: RankBy = BY_POWER): string {
   if (a.failed < b.failed) {
     if (a.failed === 0) {
       const fails = b.checks.filter((c) => !c.met);
       return `It meets every requirement; ${other} fails ${fails.length === 1 ? 'one' : fails.length}: ${fails.map(failedWords).join('; ')}.`;
     }
     return `It fails fewer requirements than ${other}: ${a.failed} against ${b.failed}.`;
+  }
+  if (by.kind === 'weighed') {
+    const A = weighedScore(a.outcome, by.priorities);
+    const B = weighedScore(b.outcome, by.priorities);
+    if (A.score - B.score < TIE) return `It ties with ${other} on your priorities and comes first as the ${kind === 'time' ? 'earlier time' : 'nearer place'}.`;
+    return scoreAbove(A, B, other);
   }
   const dp = a.outcome.poweredH - b.outcome.poweredH;
   if (dp > 0) return `Power lasts ${spanShort(dp)} longer than ${other}.`;

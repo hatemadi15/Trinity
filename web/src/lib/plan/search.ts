@@ -4,9 +4,9 @@ import type { Ephemeris } from '../engine/ephemeris';
 import { hourlySeries, withCommsThreshold } from '../engine/metrics';
 import { DEFAULT_POWER, type PowerConfig } from '../engine/power';
 import { utcToEt } from '../engine/time';
-import { dateTimeUtc, isoAt, spanShort, spanWords } from '../viz/format';
-import { compareOptions, failedWords, optionOf, outcomeScanner, type Option, type RequirementId } from './judge';
-import { OBJECTIVE_WORDS, type MissionSpec, type Objective } from './spec';
+import { dateTimeUtc, dayMonth, isoAt, spanShort, spanWords } from '../viz/format';
+import { compareOptions, failedWords, FAIL_RULE, objectiveWords, optionOf, outcomeScanner, scoreAbove, weighedScore, type Option, type Priorities, type RankBy, type RequirementId } from './judge';
+import { objectivePhrase, type MissionSpec, type Objective } from './spec';
 
 /**
  * The planner's search: for each candidate site, every landing time in the window at the stated step, worked out with
@@ -54,6 +54,8 @@ export interface SiteFinding {
   /** Of the sunlit ones, how many meet every requirement. */
   meeting: number;
   reach: Partial<Record<RequirementId, Reach>>;
+  /** The best landing time in each part of the window (bucketsOf: months, or weeks of a short window); null where none is sunlit. */
+  byDate?: (Option<Landing> | null)[];
   error?: string;
 }
 
@@ -73,20 +75,71 @@ export function planStep(spec: MissionSpec, siteCount: number): { stepH: number;
   return { stepH, coarsened: stepH > spec.stepH };
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** A part of the landing window for the dates at a glance: a calendar month, or a week of a short window, from `fromHour`. */
+export interface Bucket {
+  label: string;
+  fromHour: number;
+}
+
+/** How the window is cut for the dates at a glance: into calendar months from eight weeks on, into weeks below. */
+export function bucketKind(spec: Pick<MissionSpec, 'fromUtc' | 'toUtc'>): 'month' | 'week' {
+  return windowHours(spec) >= 56 * 24 ? 'month' : 'week';
+}
+
+/** The window's parts: calendar months for a window of eight weeks or more ("Mar 2027"), weeks from its first day otherwise ("8 Mar"). */
+export function bucketsOf(spec: Pick<MissionSpec, 'fromUtc' | 'toUtc'>): Bucket[] {
+  const hours = windowHours(spec);
+  const out: Bucket[] = [];
+  if (bucketKind(spec) === 'month') {
+    const start = Date.parse(`${spec.fromUtc}Z`);
+    const d = new Date(start);
+    let y = d.getUTCFullYear();
+    let m = d.getUTCMonth();
+    for (let from = 0; from < hours; ) {
+      out.push({ label: `${MONTHS[m]} ${y}`, fromHour: from });
+      m = (m + 1) % 12;
+      if (m === 0) y++;
+      from = Math.round((Date.UTC(y, m, 1) - start) / 3_600_000);
+    }
+  } else {
+    for (let from = 0; from < hours; from += 7 * 24) out.push({ label: dayMonth(spec.fromUtc, from), fromHour: from });
+  }
+  return out;
+}
+
 /** The lander's power settings, the rest as Explore's defaults. */
 export function powerOf(spec: MissionSpec): PowerConfig {
   const l = spec.lander;
   return { ...DEFAULT_POWER, loadW: l.loadW, batteryWh: l.batteryWh, areaM2: l.areaM2, panel: l.panel };
 }
 
+/** The objectives' ranking for a specification: the priorities for 'weighed', the longest time with power otherwise. */
+const byOf = (objective: Objective, priorities?: Priorities): RankBy => (objective === 'weighed' && priorities ? { kind: 'weighed', priorities } : { kind: 'power' });
+
 /** Negative when `a` ranks above `b`, by the requirements and then the objective; ties go to the earlier landing. */
-export function rankWith(objective: Objective) {
+export function rankWith(objective: Objective, priorities?: Priorities) {
+  const by = byOf(objective, priorities);
   return (a: Option<Landing>, b: Option<Landing>): number => {
     if (a.failed !== b.failed) return a.failed - b.failed;
     if (objective === 'earliest') return a.item.hour - b.item.hour || b.outcome.poweredH - a.outcome.poweredH;
     if (objective === 'contact') return b.outcome.poweredContactH - a.outcome.poweredContactH || b.outcome.poweredH - a.outcome.poweredH || a.item.hour - b.item.hour;
-    return compareOptions(a, b) || a.item.hour - b.item.hour;
+    return compareOptions(a, b, by) || a.item.hour - b.item.hour;
   };
+}
+
+/** What the planner's answer is ranked by, in words, for where its recommendations appear. */
+export function planRankWords(spec: Pick<MissionSpec, 'objective' | 'priorities'>): string {
+  if (spec.objective === 'weighed') return objectiveWords({ kind: 'weighed', priorities: spec.priorities }).replace('Ties go to the earlier time or the nearer place.', 'Ties go to the earlier landing.');
+  if (spec.objective === 'contact') return 'Ranked by the most Earth contact while powered; ties go to the longer time with power, then to the earlier landing.';
+  if (spec.objective === 'earliest') return 'Ranked by the earliest landing; ties go to the longer time with power.';
+  return 'Ranked by the longest continuous time with power from landing; ties go to more Earth contact while powered, then to the earlier landing.';
+}
+
+/** The ranking's words with the rule for a failed requirement, when one is set. */
+export function planRuleWords(spec: Pick<MissionSpec, 'objective' | 'priorities'>, requirements: number): string {
+  return requirements > 0 ? `${planRankWords(spec)} ${FAIL_RULE}` : planRankWords(spec);
 }
 
 /** The value a check reached, for "the best reached": more is better for power and contact, less for the rest. */
@@ -109,13 +162,19 @@ export function searchSite(eph: Ephemeris, input: SiteInput, spec: MissionSpec, 
     return { ...finding, error: err instanceof Error ? err.message : String(err) };
   }
   const at = outcomeScanner(series, powerOf(spec));
-  const rank = rankWith(spec.objective);
+  const rank = rankWith(spec.objective, spec.priorities);
+  const buckets = bucketsOf(spec);
+  const byDate: (Option<Landing> | null)[] = buckets.map(() => null);
+  finding.byDate = byDate;
+  let b = 0;
   for (let h = 0; h < hours; h += stepH) {
     finding.tried++;
     const o = at(h, spec.stayH);
     if (!o.sunlitAtLanding) continue;
     finding.sunlit++;
     const opt = optionOf<Landing>({ hour: h, utc: isoAt(spec.fromUtc, h) }, o, spec.req);
+    while (b + 1 < buckets.length && h >= buckets[b + 1].fromHour) b++;
+    if (!byDate[b] || rank(opt, byDate[b]!) < 0) byDate[b] = opt;
     if (opt.failed === 0) finding.meeting++;
     for (const c of opt.checks) {
       const r = (finding.reach[c.id] ??= { met: false, best: null });
@@ -159,7 +218,7 @@ const REACH_WORDS: Record<RequirementId, (v: number | null) => string> = {
 };
 
 /** Why `a` ranks above `b`, in one plain sentence, by the requirements and then the objective. */
-export function whyFirst(a: SiteFinding, b: SiteFinding | undefined, objective: Objective): string | null {
+export function whyFirst(a: SiteFinding, b: SiteFinding | undefined, objective: Objective, priorities?: Priorities): string | null {
   if (!b) return null;
   const next = siteLabel(b.site);
   if (!a.best) return null;
@@ -173,6 +232,12 @@ export function whyFirst(a: SiteFinding, b: SiteFinding | undefined, objective: 
     }
     return `It fails fewer requirements than ${next}: ${A.failed} against ${B.failed}.`;
   }
+  if (objective === 'weighed' && priorities) {
+    const sa = weighedScore(A.outcome, priorities);
+    const sb = weighedScore(B.outcome, priorities);
+    if (sa.score - sb.score < 1e-9) return `It ties with ${next} on your priorities and comes first as the earlier landing.`;
+    return scoreAbove(sa, sb, next);
+  }
   const dh = B.item.hour - A.item.hour;
   const dp = A.outcome.poweredH - B.outcome.poweredH;
   const dc = A.outcome.poweredContactH - B.outcome.poweredContactH;
@@ -185,7 +250,7 @@ export function whyFirst(a: SiteFinding, b: SiteFinding | undefined, objective: 
 
 /** The answer from the sites' findings: ranked, the few to show, and the words for it. */
 export function answerOf(findings: SiteFinding[], spec: MissionSpec): PlanAnswer {
-  const rank = rankWith(spec.objective);
+  const rank = rankWith(spec.objective, spec.priorities);
   const ranked = findings
     .map((f, i) => ({ f, i }))
     .sort((x, y) => {
@@ -219,7 +284,7 @@ export function answerOf(findings: SiteFinding[], spec: MissionSpec): PlanAnswer
     headline = `No landing time in the window has the Sun up at any ${n === 1 ? 'site' : `of the ${n} sites`}: a lander lands in daylight.`;
   } else if (requirements === 0) {
     shown = withBest.slice(0, spec.top);
-    headline = `No requirement was set, so the sites are ranked by the ${OBJECTIVE_WORDS[spec.objective]} alone. The best ${shown.length === 1 ? 'one' : shown.length} ${of} ${shown.length === 1 ? 'is' : 'are'} shown.`;
+    headline = `No requirement was set, so the sites are ranked by ${objectivePhrase(spec)} alone. The best ${shown.length === 1 ? 'one' : shown.length} ${of} ${shown.length === 1 ? 'is' : 'are'} shown.`;
   } else if (meeting.length > 0) {
     shown = meeting.slice(0, spec.top);
     const m = meeting.length;
@@ -230,7 +295,7 @@ export function answerOf(findings: SiteFinding[], spec: MissionSpec): PlanAnswer
     const fails = failsEverywhere.map((f) => `${f.label} fails at every site and landing time: ${f.best}.`).join(' ');
     headline = `No site meets every requirement at any landing time tried.${fails ? ` ${fails}` : ''} The closest ${shown.length === 1 ? 'is' : `${shown.length} are`} shown.`;
   }
-  const why = shown.map((f) => whyFirst(f, ranked[ranked.indexOf(f) + 1], spec.objective));
+  const why = shown.map((f) => whyFirst(f, ranked[ranked.indexOf(f) + 1], spec.objective, spec.priorities));
   return { ranked, shown, meetingSites: meeting.length, requirements, failsEverywhere, headline, why };
 }
 

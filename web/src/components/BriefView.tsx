@@ -134,11 +134,11 @@ export function BriefView({
       .then(() => store.getState().applyQuery(search))
       .then(() => setLinked(true));
   }, [store]);
-  useAddressFollows(s.site ? withSettings(briefHref(s.site.id, s.startUtc, s.days), s.params, s.requirements) : null, linked && s.status === 'ready');
+  useAddressFollows(s.site ? withSettings(briefHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : null, linked && s.status === 'ready');
   // Back to Explore on the same site, period, settings and requirements.
-  const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements) : '/explore';
-  // The period's landing times ranked with the requirements, as Explore ranks them, so the brief names the same better date.
-  const times = useMemo(() => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc }), [s.series, s.params, s.requirements, s.startUtc]);
+  const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : '/explore';
+  // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the brief names the same better date.
+  const times = useMemo(() => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy }), [s.series, s.params, s.requirements, s.startUtc, s.rankBy]);
   const dataVersions = useDataVersions();
   const sunHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.sunAz) : null), [s.mask, s.series]);
   const earthHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.earthAz) : null), [s.mask, s.series]);

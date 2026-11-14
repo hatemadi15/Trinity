@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { RankBy } from '@/lib/plan/rank';
 import type { Answer, PlanView } from '@/lib/viz/answer';
 import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { PlannerChat } from '../PlannerChat';
@@ -260,6 +261,7 @@ describe('VerdictPanel with requirements and the options behind its recommendati
       search: 'Catalogue sites within 30 km tried from the same landing hour, each for a 30-day stay.',
       options: [{ key: 'place-summit', title: 'de Gerlache rim summit, 12 km away', action: 'Explore de Gerlache rim summit', summary: 'Fails 1 of your 2 requirements.', checks: [], trade: 'Power +26 d 20 h', why: 'Power lasts 29 d 14 h longer than the next.', href: '/explore?site=de_gerlache_center_rim_high' }],
     },
+    placesNote: null,
     year: null,
   };
   const requirements = { minPoweredH: 120, contactWithinH: null, maxOutageH: 72, minPoweredContactH: null };
@@ -267,11 +269,12 @@ describe('VerdictPanel with requirements and the options behind its recommendati
   // How sure the times are, as the uncertainty part gives it: one more fold on the first screen.
   const sure = { lines: ['Sunset 3 Jan 14:00 UTC, within about 1.5 h.'], basis: 'From the measured skylines.', widest: 1.5 };
 
-  function showAll(answer: Answer = ranked) {
+  function showAll(answer: Answer = ranked, rankBy: RankBy = { kind: 'power' }, shown: PlanView = plan) {
     const onLand = vi.fn();
     const onRequirements = vi.fn();
-    render(<VerdictPanel answer={answer} onLand={onLand} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} nearby={summit} standLink={stand} site={{ lat: -88.28, polar: true }} plan={plan} requirements={requirements} onRequirements={onRequirements} range={range} sure={sure} />);
-    return { onLand, onRequirements };
+    const onRankBy = vi.fn();
+    render(<VerdictPanel answer={answer} onLand={onLand} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} nearby={summit} standLink={stand} site={{ lat: -88.28, polar: true }} plan={shown} requirements={requirements} onRequirements={onRequirements} rankBy={rankBy} onRankBy={onRankBy} range={range} sure={sure} />);
+    return { onLand, onRequirements, onRankBy };
   }
 
   it('keeps the better date the one gold action on the first screen, its note, checks and reason one tap away under "Options"', () => {
@@ -344,6 +347,53 @@ describe('VerdictPanel with requirements and the options behind its recommendati
     // A value out of range is not taken until it is a number the search can use.
     fireEvent.change(power, { target: { value: '-2' } });
     expect(onRequirements).toHaveBeenLastCalledWith({ contactWithinH: 0 });
+  });
+
+  it('lets the options be ranked by priorities beside the requirements, the weights of one’s own in three boxes', () => {
+    const { onRankBy } = showAll();
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    const rank = screen.getByRole('combobox', { name: 'Then rank by' }) as HTMLSelectElement;
+    expect(rank.value).toBe('power');
+    expect([...rank.options].map((o) => o.textContent)).toEqual([
+      'The longest time with power',
+      'Priorities: balanced (1, 1, 1)',
+      'Priorities: mostly power (5, 1, 1)',
+      'Priorities: mostly Earth in view (1, 5, 1)',
+      'Priorities: mostly shorter gaps (1, 1, 5)',
+      'Priorities: your own weights',
+    ]);
+    fireEvent.change(rank, { target: { value: 'weighed:contact' } });
+    expect(onRankBy).toHaveBeenLastCalledWith({ kind: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } });
+    // Weights of one's own: three boxes, each taken as typed while the rule can use it, never all three at 0.
+    cleanup();
+    const own = showAll(ranked, { kind: 'weighed', priorities: { power: 1, contact: 7, gap: 3 } }).onRankBy;
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    expect((screen.getByRole('combobox', { name: 'Then rank by' }) as HTMLSelectElement).value).toBe('weighed:custom');
+    const gap = screen.getByRole('spinbutton', { name: 'Shorter gaps' }) as HTMLInputElement;
+    expect(gap.value).toBe('3');
+    fireEvent.change(gap, { target: { value: '9' } });
+    expect(own).toHaveBeenLastCalledWith({ kind: 'weighed', priorities: { power: 1, contact: 7, gap: 9 } });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Power' }), { target: { value: '400' } });
+    expect(own).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives each option its score and parts when ranked by priorities, and says why places nearby are missing', () => {
+    const weighedPlan: PlanView = {
+      ...plan,
+      objective: 'Ranked by your priorities: power 1, Earth in view 5, shorter gaps 1.',
+      current: { ...plan.current, score: 'Score 31.0 of 100: power 9.0, Earth in view 12.0, shorter gaps 10.0.' },
+      times: { ...plan.times, options: plan.times.options.map((o) => ({ ...o, score: 'Score 58.2 of 100: power 20.1, Earth in view 30.0, shorter gaps 8.1.' })) },
+      places: null,
+      placesNote: 'Places nearby wait for the skylines from the 5 m mast.',
+    };
+    showAll(ranked, { kind: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } }, weighedPlan);
+    fireEvent.click(screen.getByRole('button', { name: 'Options' }));
+    const first = screen.getByRole('listitem', { name: '20 January, 10:00 UTC' });
+    expect(first.textContent).toContain('Score 58.2 of 100: power 20.1, Earth in view 30.0, shorter gaps 8.1.');
+    expect(screen.getByText('Score 31.0 of 100: power 9.0, Earth in view 12.0, shorter gaps 10.0.')).toBeTruthy();
+    const places = screen.getByRole('region', { name: 'Places nearby' });
+    expect(places.textContent).toContain('Places nearby wait for the skylines from the 5 m mast.');
+    expect(places.textContent).not.toContain('None found.');
   });
 
   it('shows the range of results near an approximate point next to the result', () => {

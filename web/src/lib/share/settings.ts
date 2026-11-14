@@ -1,4 +1,5 @@
 import { DEFAULT_POWER, type PanelModel, type PowerConfig } from '../engine/power';
+import { PRIORITY_PROFILES, profileOf, validPriorities, type RankBy } from '../plan/rank';
 import type { Requirements } from '../plan/requirements';
 import { PANEL_MODELS, PARAM_RANGES, POWER_RANGES, type NumberRange } from '../planner-ranges';
 import type { PlannerParams } from '../store/explore';
@@ -52,6 +53,34 @@ export function settingsEntries(params: PlannerParams, defaults: PlannerParams =
 /** The requirements a link carries: the four in hours. */
 type LinkRequirement = Exclude<keyof Requirements, 'minHoldPct'>;
 
+/** The name the ranking has in a link. */
+export const RANK_NAME = 'rank';
+
+/**
+ * How the recommendations are ranked, as a link writes it: nothing for the default (the longest time with power), a
+ * profile's name ("balanced", "power", "contact", "gap"), or one's own weights as power, Earth in view and shorter gaps.
+ */
+export function rankEntry(by: RankBy | undefined): [string, string] | null {
+  if (!by || by.kind === 'power') return null;
+  const profile = profileOf(by.priorities);
+  const p = by.priorities;
+  return [RANK_NAME, profile === 'custom' ? `${write(p.power)},${write(p.contact)},${write(p.gap)}` : profile];
+}
+
+/** The ranking a link asks for; null when it names none, or one the rule cannot use (the ranking then stays as it is). */
+export function parseRank(search: string | URLSearchParams): RankBy | null {
+  const q = typeof search === 'string' ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search) : search;
+  const raw = q.get(RANK_NAME);
+  if (raw === null) return null;
+  const named = PRIORITY_PROFILES.find((x) => x.id === raw);
+  if (named) return { kind: 'weighed', priorities: { ...named.priorities } };
+  const parts = raw.split(',');
+  if (parts.length !== 3 || !parts.every((v) => NUMBER.test(v.trim()))) return null;
+  const [power, contact, gap] = parts.map(Number);
+  const priorities = { power, contact, gap };
+  return validPriorities(priorities) ? { kind: 'weighed', priorities } : null;
+}
+
 /**
  * The name each of the mission's requirements has in a link, its value in hours as the store keeps it: power for at
  * least so many hours, Earth in view by so many hours after landing, the longest time without Earth while powered,
@@ -79,18 +108,20 @@ export function requirementEntries(req: Requirements): [string, string][] {
   });
 }
 
-/** The query of a link's settings and requirements, without the question mark; empty when it names none. */
-function queryOf(params: PlannerParams, req: Requirements | null): string {
-  return [...settingsEntries(params), ...(req ? requirementEntries(req) : [])].map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+/** The query of a link's settings, requirements and ranking, without the question mark; empty when it names none. */
+function queryOf(params: PlannerParams, req: Requirements | null, by?: RankBy): string {
+  const rank = rankEntry(by);
+  return [...settingsEntries(params), ...(req ? requirementEntries(req) : []), ...(rank ? [rank] : [])].map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
 }
 
 /**
  * The address with the settings that differ from the defaults after its own parameters: Explore's, the view from the
  * site's or the brief's, so the page it opens works the figures out from the same lander, mast and radio threshold;
- * with `req`, the requirements that are set after them, so it names the same better date.
+ * with `req`, the requirements that are set after them, so it names the same better date; with `by`, the ranking after
+ * those, so it ranks its recommendations the same way.
  */
-export function withSettings(href: string, params: PlannerParams, req: Requirements | null = null): string {
-  const query = queryOf(params, req);
+export function withSettings(href: string, params: PlannerParams, req: Requirements | null = null, by?: RankBy): string {
+  const query = queryOf(params, req, by);
   if (query === '') return href;
   const hash = href.indexOf('#');
   const [path, tail] = hash < 0 ? [href, ''] : [href.slice(0, hash), href.slice(hash)];
@@ -167,11 +198,11 @@ export function sameSettings(a: PlannerParams, b: PlannerParams): boolean {
  * carries more than a link builder writes (the view from the site's hour and drawing switches), so only its settings
  * follow a change of lander.
  */
-export function replaceSettings(search: string, params: PlannerParams, req: Requirements | null = null): string {
-  const names = new Set([...Object.values(SETTING_NAMES), ...(req ? Object.values(REQUIREMENT_NAMES) : [])]);
+export function replaceSettings(search: string, params: PlannerParams, req: Requirements | null = null, by?: RankBy): string {
+  const names = new Set([...Object.values(SETTING_NAMES), ...(req ? Object.values(REQUIREMENT_NAMES) : []), ...(by ? [RANK_NAME] : [])]);
   const raw = search.startsWith('?') ? search.slice(1) : search;
   const kept = raw === '' ? [] : raw.split('&').filter((part) => part !== '' && !names.has(decodeURIComponent(part.split('=')[0])));
-  const added = queryOf(params, req);
+  const added = queryOf(params, req, by);
   const all = [...kept, ...(added === '' ? [] : [added])];
   return all.length === 0 ? '' : `?${all.join('&')}`;
 }
