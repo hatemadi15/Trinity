@@ -217,11 +217,11 @@ const FILLER = new Set(
 export function hearSpec(text: string, sites: Site[], fallbackYear = Number(DEFAULT_SPEC.fromUtc.slice(0, 4))): Heard {
   let t = ` ${tidySpec(text)} `;
   const patch: SpecPatch = {};
-  /** Takes the first match of a phrase that `use` accepts, leaving a stop in its place. */
-  const take = (re: RegExp, use: (m: RegExpMatchArray) => boolean | void) => {
+  /** Takes the first match of a phrase that `accept` takes, leaving a stop in its place. */
+  const take = (re: RegExp, accept: (m: RegExpMatchArray) => boolean | void) => {
     const m = t.match(re);
     if (!m || m.index === undefined) return;
-    if (use(m) === false) return;
+    if (accept(m) === false) return;
     t = `${t.slice(0, m.index)} ; ${t.slice(m.index + m[0].length)}`;
   };
 
