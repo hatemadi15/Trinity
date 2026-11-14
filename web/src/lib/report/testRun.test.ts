@@ -8,7 +8,7 @@ const RUN: TestRun = {
   pipeline: { tests: 147, passed: 147, skipped: 0, failed: 0 },
   data: {
     version: '2026-11-14-a120b7a9',
-    parts: { core: 'complete', sky: 'complete', validation: 'complete', tiles: 'complete', terrain: 'complete', globe: 'complete', fixtures: 'complete' },
+    parts: { core: 'complete', sky: 'complete', validation: 'complete', tiles: 'complete', terrain: 'complete', fixtures: 'complete' },
     downloads: { kernels: true, lola: true, illumination: true },
   },
 };
@@ -56,11 +56,11 @@ describe('the Accuracy page’s words for the test run', () => {
       ...RUN,
       build: { commit: RUN.build.commit, dirty: true, changed: 3 },
       web: { files: 144, tests: 1563, passed: 1531, skipped: 30, failed: 2 },
-      data: { version: RUN.data.version, parts: { ...RUN.data.parts!, terrain: 'missing', globe: 'partial' }, downloads: { kernels: true, lola: false, illumination: false } },
+      data: { version: RUN.data.version, parts: { ...RUN.data.parts!, tiles: 'partial', terrain: 'missing' }, downloads: { kernels: true, lola: false, illumination: false } },
     });
     expect(words[0]).toMatch(/^The automated tests last ran on 14 November 2026 at 11:47 UTC, on commit 916aa96 with uncommitted changes: in the app 1,531 passed, 30 skipped and 2 failed;/);
     // A part missing or incomplete reads the same: not all of it was there.
-    expect(words[1]).toBe('Data present: the app’s data, but not all of the terrain or the globe; of the pipeline’s NASA downloads, the kernels but not the LOLA heights or the illumination maps.');
+    expect(words[1]).toBe('Data present: the app’s data, but not all of the height tiles or the terrain; of the pipeline’s NASA downloads, the kernels but not the LOLA heights or the illumination maps.');
   });
 
   it('says when the pipeline’s tests did not run and when the copy has no git history', () => {

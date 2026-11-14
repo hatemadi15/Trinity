@@ -9,23 +9,13 @@ describe('the ground shader', () => {
     expect(GROUND_FRAG).not.toContain('0.12 * (vnoise(vWorld.xz * 0.21) - 0.5)');
   });
 
-  it('marches the next level\u2019s shadows on a ring only near the ground: from the air the rings cover much of the view, and the second march made the flight stutter', () => {
-    expect(GROUND_FRAG).toMatch(/uniform float [^;]*uRingShadows/);
-    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
-    expect(main).toContain('bool both = edge > 0.0 && uRingShadows > 0.5;');
-    expect(main).toContain('vec2 mt = sunMargins(ray0, uSun, both);');
-    expect(main).toContain('mTerrain = mix(mt.x, mt.y, both ? edge : 0.0);');
-  });
-
-  it('marches the next level at its own mesh\u2019s steps, and starts the flight level\u2019s ray on its own heights (the final review)', () => {
+  it('marches the next level at its own mesh\u2019s steps (the final review)', () => {
     // In step: the next level's samples run from its first step at the same growth, not at the finer mesh's steps.
     expect(SHADOW_GLSL).toContain('tb = tB;');
     expect(SHADOW_GLSL).toContain('heightAt(p.xz + dir * tb, 1)');
     expect(SHADOW_GLSL).toContain('tb *= uGrowth;');
-    // The flight level's mesh, at every other cell, can miss its 240 m heights by tens of metres: the ray starts on them.
     const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
     expect(main).toContain('vec3 ray0 = vWorld + N0 * 0.4;');
-    expect(main).toContain('if (uPixel > 0.5) ray0.y = heightAt(vWorld.xz, 0) + 0.4 * N0.y;');
     expect(main).toContain('sunMargins(ray0, uSun, both)');
   });
 
@@ -47,22 +37,24 @@ describe('the ground shader', () => {
     const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
     expect(main).toMatch(/if \(rr < uHoleR \|\| rr > uEdge\.z\) discard;/);
     expect(main).toContain('float edge = smoothstep(uEdge.x, uEdge.y, rr);');
-    expect(main).toContain('if (edge > 0.0) N0 = normalize(mix(N0, slopeNormal(uH1, uL1, uS1, m, uNextStep), edge));');
+    expect(main).toContain('if (edge > 0.0) N0 = normalize(mix(N0, slopeNormal(uH1, uL1, uS1, m, 2.0), edge));');
     expect(main.match(/sunMargins\(/g)).toHaveLength(1);
+    expect(main).toContain('bool both = edge > 0.0;');
+    expect(main).toContain('vec2 mt = sunMargins(ray0, uSun, both);');
     expect(main).toContain('mTerrain = mix(mt.x, mt.y, both ? edge : 0.0);');
+    // The old arrival's uniforms are gone: the far cut, the flight level's per-pixel light and the rings' switch aloft.
+    expect(GROUND_FRAG).not.toMatch(/uFarCut|uPixel|uRingShadows|uNextStep/);
     expect(GROUND_FRAG).not.toMatch(/uHole\b/);
     expect(SHADOW_GLSL).toMatch(/vec2 sunMargins\(vec3 p, vec3 sun, bool both\)/);
     expect(SHADOW_GLSL).not.toMatch(/float sunMargin\(|float sunFraction\(/);
     expect(SHADOW_GLSL.match(/for \(int /g)).toHaveLength(1);
   });
 
-  it('reads heights from a slot on, each mesh from its own, and takes the flight level’s light from per-pixel slopes of its heights', () => {
+  it('reads heights from a slot on, each mesh from its own', () => {
     expect(SHADOW_GLSL).toMatch(/float heightAt\(vec2 xz, int from\)/);
     expect(SHADOW_GLSL).toMatch(/float cellAt\(vec2 xz, int from\)/);
     expect(SHADOW_GLSL).toMatch(/vec3 slopeNormal\(sampler2D t, vec3 L, vec2 S, vec2 m, float k\)/);
     expect(SHADOW_GLSL).not.toContain('uMinLevel');
-    const main = GROUND_FRAG.slice(GROUND_FRAG.indexOf('void main()'));
-    expect(main).toContain('if (uPixel > 0.5) N0 = slopeNormal(uH0, uL0, uS0, m, 1.0);');
   });
   it('fades each size of drawn crater by how many pixels it covers, so craters smaller than a pixel never sparkle', () => {
     // The footprint is taken once, outside every branch (derivatives are undefined in non-uniform flow).
