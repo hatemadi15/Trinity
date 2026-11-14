@@ -4,6 +4,7 @@ import { systemPrompt } from '@/lib/ai/protocol';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders, sites } from '@/test/file-loaders';
 import { assistSpec } from './assist';
+import { createMaskSource } from '@/lib/scenario/masks';
 import { PlanClient } from './search-client';
 import { createPlanStore } from './store';
 
@@ -28,7 +29,7 @@ describe('the model fills what the parser could not read', () => {
   it('asks the model only about words the parser left, and keeps the fields whose numbers were said', async () => {
     const explore = createExploreStore(fileLoaders());
     await explore.getState().init();
-    const plan = createPlanStore({ explore, loadMask: fileLoaders().loadMask, client: () => new PlanClient() });
+    const plan = createPlanStore({ explore, masks: createMaskSource(fileLoaders()), client: () => new PlanClient() });
     const text = 'at least 5 days of power, and keep talking to mission control for a day while the batteries last';
     plan.getState().hear(text);
     expect(plan.getState().leftover.length).toBeGreaterThan(0);

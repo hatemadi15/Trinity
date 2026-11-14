@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readComparison } from '@/lib/scenario/codec';
+import { createMaskSource } from '@/lib/scenario/masks';
 import { createExploreStore } from '@/lib/store/explore';
+import { createScenarioStore } from '@/lib/store/scenarios';
 import { fileLoaders } from '@/test/file-loaders';
 import { PlanClient } from './search-client';
 import { createPlanStore } from './store';
@@ -10,8 +13,9 @@ const EXAMPLE =
 async function stores() {
   const explore = createExploreStore(fileLoaders());
   await explore.getState().init();
-  const plan = createPlanStore({ explore, loadMask: fileLoaders().loadMask, client: () => new PlanClient() });
-  return { explore, plan };
+  const scenarios = createScenarioStore(explore, fileLoaders());
+  const plan = createPlanStore({ explore, masks: createMaskSource(fileLoaders()), scenarios, client: () => new PlanClient() });
+  return { explore, plan, scenarios };
 }
 
 describe('the planner’s store', () => {
@@ -57,14 +61,18 @@ describe('the planner’s store', () => {
     expect(said).toMatch(/^Explore is on /);
   });
 
-  it('opens Compare with the top results', async () => {
-    const { plan, explore } = await stores();
+  it('opens Compare with the top results as scenarios, each at its own best landing time', async () => {
+    const { plan, scenarios } = await stores();
     plan.getState().hear(EXAMPLE);
     const answer = (await plan.getState().search())!;
     const navigate = vi.fn();
     await plan.getState().compareTop(navigate);
-    expect(explore.getState().compareIds).toEqual(answer.shown.map((f) => f.site.id));
-    expect(navigate).toHaveBeenCalledWith('/compare');
+    const href: string = navigate.mock.calls[0][0];
+    expect(href).toMatch(/^\/compare\?v=1&s=/);
+    const read = readComparison(href.slice(href.indexOf('?')));
+    expect(read.scenarios.map((x) => [x.siteId, x.startUtc, x.days, x.timing])).toEqual(answer.shown.map((f) => [f.site.id, f.best!.item.utc, 14, 'site-best']));
+    expect(read.scenarios[0].power).toMatchObject({ loadW: 300, batteryWh: 3000 });
+    expect(scenarios.getState().scenarios.map((x) => x.siteId)).toEqual(answer.shown.map((f) => f.site.id));
   });
 
   it('takes the model’s fields only where the words did not give them, and only numbers found in the words', async () => {

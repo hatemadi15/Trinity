@@ -1,4 +1,5 @@
 import { siteLabel, type Site } from '../data/loaders';
+import type { TerrainReport } from '../engine/completeness';
 import type { Ephemeris } from '../engine/ephemeris';
 import { hourlySeries, withCommsThreshold } from '../engine/metrics';
 import { DEFAULT_POWER, type PowerConfig } from '../engine/power';
@@ -25,6 +26,8 @@ export interface SkylineInfo {
   source: 'featured' | 'flat' | 'computed';
   mastM: number;
   failedTiles?: number;
+  /** What the terrain behind the skyline holds (the integrity part's report): an incomplete one ranks last. */
+  terrain?: TerrainReport;
 }
 
 export interface SiteInput {
@@ -186,7 +189,9 @@ export function answerOf(findings: SiteFinding[], spec: MissionSpec): PlanAnswer
     .map((f, i) => ({ f, i }))
     .sort((x, y) => {
       if (!x.f.best || !y.f.best) return (x.f.best ? 0 : 1) - (y.f.best ? 0 : 1) || x.i - y.i;
-      return rank(x.f.best, y.f.best) || x.i - y.i;
+      // A skyline with terrain missing may show more Sun and Earth than there is: it ranks after every complete one.
+      const gap = (f: SiteFinding) => (f.skyline.terrain?.quality === 'incomplete' ? 1 : 0);
+      return gap(x.f) - gap(y.f) || rank(x.f.best, y.f.best) || x.i - y.i;
     })
     .map((x) => x.f);
   const n = findings.length;

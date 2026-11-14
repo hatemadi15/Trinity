@@ -1,8 +1,12 @@
 import { createStore, type StoreApi } from 'zustand';
-import { dataBase, loadMask, siteLabel, type MaskDoc, type Site } from '../data/loaders';
+import { siteLabel, type Site } from '../data/loaders';
+import { comparisonHref } from '../scenario/codec';
+import { createMaskSource, type MaskSource } from '../scenario/masks';
+import type { Scenario } from '../scenario/scenario';
+import { scenarioStore, type ScenarioState } from '../store/scenarios';
 import { exploreHref } from '../links';
 import { DAYS_RANGE, clampTo } from '../planner-ranges';
-import { exploreStore, type ExploreState, type WindowDays } from '../store/explore';
+import { FEATURED_MAST_M, browserLoaders, exploreStore, type ExploreState, type WindowDays } from '../store/explore';
 import { dateTimeUtc } from '../viz/format';
 import { groundPatch, numbersOf, validateSpecPatch } from './fields';
 import { answerOf, planStep, powerOf, spokenSummary, type PlanAnswer, type SearchStats, type SiteInput } from './search';
@@ -57,9 +61,15 @@ export interface PlanState {
 
 export interface PlanDeps {
   explore: StoreApi<ExploreState>;
-  loadMask: (siteId: string) => Promise<MaskDoc>;
+  /** Skylines by site and mast height, with what the terrain behind each holds (the integrity part's source). */
+  masks: MaskSource;
+  /** The comparison "compare these" fills (the scenarios part's store); the app's own by default. */
+  scenarios?: StoreApi<ScenarioState>;
   client: () => PlanRunner;
 }
+
+/** Skylines traced in the browser for a mast other than the precomputed one, at most this many in a search: each takes seconds. */
+export const MAX_TRACED = 8;
 
 /** Explore's period for a stay: its whole days, within the 2 to 90 days a period may last. */
 export function exploreDays(stayH: number): WindowDays {
@@ -81,18 +91,18 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
   const sites = () => deps.explore.getState().sites;
   const categories = () => new Set([...Object.keys(CATEGORY_NAMES), ...sites().map((s) => s.category)]);
 
-  /** A site's skyline: the precomputed one near the pole, a flat horizon outside the polar grids. */
-  function inputFor(site: Site, mastM: number): Promise<SiteInput> {
-    const key = site.id;
-    let p = masks.get(key);
-    if (!p) {
-      p = site.polar
-        ? deps.loadMask(site.id).then((doc) => ({ site, mask: Float64Array.from(doc.elevation_deg), skyline: { source: 'featured' as const, mastM: doc.mast_m } }))
-        : Promise.resolve({ site, mask: new Float64Array(720), skyline: { source: 'flat' as const, mastM } });
-      p.catch(() => masks.delete(key));
-      masks.set(key, p);
-    }
-    return p;
+  /**
+   * A site's skyline from the mast asked for, through the integrity part's source: the precomputed file at its own
+   * height, a trace in the browser's worker for any other, a flat horizon outside the polar grids. A trace that cannot
+   * be had falls back to the precomputed height, which the answer then says.
+   */
+  async function inputFor(site: Site, mastM: number): Promise<SiteInput> {
+    const at = async (m: number) => {
+      const { mask, meta } = await deps.masks.get(site, m);
+      return { site, mask, skyline: { source: meta.source, mastM: meta.mastM ?? m, failedTiles: meta.failedTiles, terrain: meta.terrain } };
+    };
+    if (mastM === FEATURED_MAST_M || !site.polar) return at(mastM);
+    return at(mastM).catch(() => at(FEATURED_MAST_M));
   }
 
   return createStore<PlanState>((set, get) => ({
@@ -155,7 +165,10 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
       }
       const id = ++seq;
       set({ status: 'searching', progress: { done: 0, total: list.length, site: '' }, error: null });
-      const settled = await Promise.allSettled(list.map((s) => inputFor(s, spec.lander.mastM)));
+      // A mast other than the precomputed one is traced site by site, bounded; beyond the bound the precomputed height is used, and said.
+      const traced = list.filter((x) => x.polar).length <= MAX_TRACED;
+      const mastM = spec.lander.mastM === FEATURED_MAST_M || traced ? spec.lander.mastM : FEATURED_MAST_M;
+      const settled = await Promise.allSettled(list.map((x) => inputFor(x, mastM)));
       const inputs = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
       const skipped = list.filter((_, i) => settled[i].status === 'rejected').map(siteLabel);
       if (id !== seq) return null;
@@ -219,14 +232,22 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
       const shown = answer?.shown.filter((f) => f.best) ?? [];
       if (!shown.length || !searched) return 'There is nothing to compare yet: say search first.';
       const ex = deps.explore.getState();
-      for (const id of ex.compareIds) deps.explore.getState().removeFromCompare(id);
-      ex.setParams({ power: { ...ex.params.power, ...powerOf(searched), efficiency: ex.params.power.efficiency }, mastM: searched.lander.mastM, minEarthElDeg: searched.lander.earthClearanceDeg });
-      for (const f of shown.slice(0, 4)) await deps.explore.getState().addToCompare(f.site.id);
-      const first = shown[0].best!;
       const days = exploreDays(searched.stayH);
-      deps.explore.getState().setWindow(first.item.utc, days);
-      navigate('/compare');
-      return `Compare shows the ${shown.length === 1 ? 'site' : `${shown.length} sites`} from the first one's landing time, ${dateTimeUtc(first.item.utc, 0)}, for ${days} days. Each site's own best time is on the planner.`;
+      // Each result as a scenario of its own: its site at its own best landing time, the same lander, mast and stay.
+      const list: Scenario[] = shown.slice(0, 4).map((f, i) => ({
+        id: `plan${i + 1}`,
+        label: `${i + 1}. ${siteLabel(f.site)}`,
+        siteId: f.site.id,
+        startUtc: f.best!.item.utc,
+        days,
+        power: { ...ex.params.power, ...powerOf(searched), efficiency: ex.params.power.efficiency },
+        mastM: searched.lander.mastM,
+        minEarthElDeg: searched.lander.earthClearanceDeg,
+        timing: 'site-best',
+      }));
+      (deps.scenarios ?? scenarioStore).getState().load(list);
+      navigate(comparisonHref(list));
+      return `Compare shows the ${list.length === 1 ? 'best site' : `best ${list.length} sites`}, each at its own best landing time, for ${days} days with this lander.`;
     },
 
     readBack() {
@@ -249,4 +270,4 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
   }));
 }
 
-export const planStore = createPlanStore({ explore: exploreStore, loadMask: (id) => loadMask(dataBase(), id), client: () => new PlanClient() });
+export const planStore = createPlanStore({ explore: exploreStore, masks: createMaskSource(browserLoaders), client: () => new PlanClient() });

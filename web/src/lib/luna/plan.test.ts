@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '../store/explore';
+import { createMaskSource } from '@/lib/scenario/masks';
 import { PlanClient } from '../plan/search-client';
 import { createPlanStore } from '../plan/store';
 import { fileLoaders, sites } from '@/test/file-loaders';
@@ -13,7 +14,7 @@ const EXAMPLE =
 async function setup(at = '/explore') {
   const store = createExploreStore(fileLoaders());
   await store.getState().init();
-  const plan = createPlanStore({ explore: store, loadMask: fileLoaders().loadMask, client: () => new PlanClient() });
+  const plan = createPlanStore({ explore: store, masks: createMaskSource(fileLoaders()), client: () => new PlanClient() });
   const deps: LunaDeps = { store, plan, navigate: vi.fn(), path: () => at, ask: vi.fn(async () => ({ source: 'none' as const, actions: [], reply: '' })), setTheme: vi.fn(), turnOff: vi.fn() };
   return { store, plan, deps };
 }

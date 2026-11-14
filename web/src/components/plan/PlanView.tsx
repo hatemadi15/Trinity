@@ -21,6 +21,7 @@ import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
 import { dateTimeUtc, spanShort } from '@/lib/viz/format';
+import { terrainLimitation } from '@/lib/viz/terrain';
 
 /** The example the page offers, the one the brief gives. */
 export const EXAMPLE_SPEC =
@@ -198,8 +199,9 @@ function Limits({ f, spec, input, eph, doc }: { f: SiteFinding; spec: MissionSpe
       <p>
         {sky.source === 'flat'
           ? 'A flat horizon is assumed: the site lies outside the polar terrain grids.'
-          : `Skyline from NASA LOLA heights at a ${sky.mastM} m mast.${sky.mastM !== spec.lander.mastM ? ` The search used it for your ${spec.lander.mastM} m mast; Explore works the ${spec.lander.mastM} m mast out when you plan this landing.` : ''}`}
+          : `Skyline from NASA LOLA heights, seen from a ${sky.mastM} m mast.${sky.mastM !== spec.lander.mastM ? ` The search used it for your ${spec.lander.mastM} m mast, as tracing every site from that height would take minutes; Explore traces the ${spec.lander.mastM} m mast when you plan this landing.` : ''}`}
       </p>
+      {terrainLimitation(sky.terrain) && sky.source !== 'flat' && <p className="text-ink">{terrainLimitation(sky.terrain)}</p>}
       <p>{pointKind(f.site).sentence}</p>
       {f.site.far_side && <p>On the far side Earth never rises: no direct radio contact with Earth.</p>}
       <p>{ENERGY_ONLY}</p>

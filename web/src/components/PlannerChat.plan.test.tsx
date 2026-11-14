@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createMaskSource } from '@/lib/scenario/masks';
 import { PlanClient } from '@/lib/plan/search-client';
 import { createPlanStore } from '@/lib/plan/store';
 import { createExploreStore } from '@/lib/store/explore';
@@ -17,7 +18,7 @@ describe('the typed assistant takes a mission’s specification', () => {
   it('reads a specification itself, before any model, and opens the planner with it', async () => {
     const explore = createExploreStore(fileLoaders());
     await explore.getState().init();
-    const plan = createPlanStore({ explore, loadMask: fileLoaders().loadMask, client: () => new PlanClient() });
+    const plan = createPlanStore({ explore, masks: createMaskSource(fileLoaders()), client: () => new PlanClient() });
     const ask = vi.fn();
     const navigate = vi.fn();
     render(<PlannerChat store={explore} plan={plan} ask={ask} navigate={navigate} />);

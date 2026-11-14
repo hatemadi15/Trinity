@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
+import { createMaskSource } from '@/lib/scenario/masks';
 import { PlanClient } from '@/lib/plan/search-client';
 import { createPlanStore } from '@/lib/plan/store';
 import { fileLoaders } from '@/test/file-loaders';
@@ -12,7 +13,7 @@ afterEach(cleanup);
 
 async function open(ask = vi.fn(async () => ({ source: 'none' as const, actions: [], reply: '' }))) {
   const explore = createExploreStore(fileLoaders());
-  const plan = createPlanStore({ explore, loadMask: fileLoaders().loadMask, client: () => new PlanClient() });
+  const plan = createPlanStore({ explore, masks: createMaskSource(fileLoaders()), client: () => new PlanClient() });
   const navigate = vi.fn();
   render(<PlanView store={explore} plan={plan} navigate={navigate} ask={ask} uncertainty={async () => { throw new Error('none'); }} />);
   await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Plan a landing' })).toBeTruthy(), { timeout: 20_000 });
