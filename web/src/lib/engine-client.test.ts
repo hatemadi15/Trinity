@@ -9,11 +9,14 @@ const publicData = repoPath('web', 'public', 'data');
 const present = hasFile('web', 'public', 'data', 'tiles', 'manifest.json');
 let server: http.Server;
 let base = '';
+/** Tiles the server answers with a 404 although it has them, as a host that lost a file would. */
+const dropped = new Set<string>();
 
 beforeAll(async () => {
   server = http.createServer((req, res) => {
-    const file = path.join(publicData, decodeURIComponent((req.url ?? '/').split('?')[0]));
-    if (!file.startsWith(publicData) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+    const url = decodeURIComponent((req.url ?? '/').split('?')[0]);
+    const file = path.join(publicData, url);
+    if (dropped.has(url) || !file.startsWith(publicData) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
       res.writeHead(404).end('not found');
       return;
     }
@@ -37,6 +40,22 @@ describe.skipIf(!present)('EngineClient inline fallback (no Worker in Node)', ()
     expect(res.failedTiles).toEqual([]);
     expect(res.coverage.samples).toBeGreaterThan(0);
     client.dispose();
+  }, 120_000);
+  it('names a tile the server answers with a 404 as absent, and counts the ray steps it leaves without terrain', async () => {
+    // The 240 m tile under the Shackleton rim summit: no coarser grid can fill it.
+    dropped.add('/tiles/L2/7_7.bin');
+    try {
+      // A base of its own (the same server), so the engine starts without the tiles the first test loaded.
+      const client = new EngineClient(`${base}/.`);
+      const res = await client.computeMask(-89.78131, -156.25683, { mastM: 2 });
+      expect(res.absentTiles).toEqual(['L2/7_7']);
+      expect(res.failedTiles).toEqual([]);
+      expect(res.coverage.missing).toBeGreaterThan(0);
+      expect(res.coverage.openAzimuths).toBeGreaterThan(0);
+      client.dispose();
+    } finally {
+      dropped.clear();
+    }
   }, 120_000);
   it('rejects a site without DEM coverage with the engine message', async () => {
     const client = new EngineClient(base);

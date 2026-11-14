@@ -8,6 +8,7 @@ import { runCommand, type LunaDeps } from '@/lib/luna/run';
 import { hush, recognitionCtor, speak as browserSpeak, type Recognition, type RecognitionCtor } from '@/lib/luna/speech';
 import { lunaStore } from '@/lib/luna/store';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
+import { scenarioStore } from '@/lib/store/scenarios';
 import { applyTheme } from '@/lib/theme';
 
 /** How long after the browser ends its recognition (it does after a silence) Luna listens again, in ms. */
@@ -66,6 +67,7 @@ export function LunaEngine({
       turnOff: () => {
         turnOff = true;
       },
+      scenarios: scenarioStore,
     };
     const handle = async (text: string) => {
       const said = text.trim();

@@ -9,9 +9,10 @@ import { timeWithPower } from '@/lib/engine/landing';
 import type { Series, Summary } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { batteryHours, landerLine } from '@/lib/lander';
-import type { MaskMeta, PlannerParams } from '@/lib/store/explore';
+import { terrainOf, type MaskMeta, type PlannerParams } from '@/lib/store/explore';
 import { sunHeight, sunHeightWords } from '@/lib/viz/countdown';
 import { dateTimeUtc, pct, pct0, spanShort } from '@/lib/viz/format';
+import { terrainLimitation } from '@/lib/viz/terrain';
 
 const ICON = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
 
@@ -83,6 +84,9 @@ export function NumbersCard({
       : maskMeta?.source === 'computed'
         ? 'from NASA elevation data, worked out in your browser'
         : 'from NASA elevation data, worked out ahead of time';
+  // The height the figures are seen from: the skyline's own, which lags the chosen one while the new one is worked out.
+  const seenFrom = maskMeta && maskMeta.source !== 'flat' ? (maskMeta.mastM ?? 2) : params.mastM;
+  const hillsNote = [maskMeta && maskMeta.failedTiles > 0 ? `${maskMeta.failedTiles} pieces of the elevation map could not be loaded` : null, maskMeta ? terrainLimitation(terrainOf(maskMeta)) : null].filter(Boolean).join('. ');
   const rows: [string, string, string][] = [
     ['Sunlight', pct(summary.illumFraction), 'share of the hours with any part of the Sun above the hills'],
     ['Sun’s height now', sunHeightWords(height.deg), `the Sun’s elevation above the level horizon at the time bar’s hour, ${dateTimeUtc(startUtc, hour)}; below it with a minus sign`],
@@ -95,9 +99,9 @@ export function NumbersCard({
     ['Time without power', spanShort(power.brownoutHours), 'hours the lander is off in the period'],
     ['Lowest battery', `${Math.round(power.socMin * 100)} %`, 'the lowest charge in the period'],
     ['Average power from the panel', `${Math.round(power.meanPowerW)} W`, landerLine(params.power)],
-    ['Mast', `${params.mastM} m`, 'the height the Sun and Earth are seen from'],
+    ['Mast', `${seenFrom} m`, seenFrom === params.mastM ? 'the height the Sun and Earth are seen from' : `the height these figures are seen from; the view from ${params.mastM} m is being worked out`],
     ['Earth counts as in view', `${params.minEarthElDeg}° or more above the hills`, 'a radio needs a little clearance'],
-    ['Height of the hills', hills, maskMeta && maskMeta.failedTiles > 0 ? `${maskMeta.failedTiles} pieces of the elevation map could not be loaded; some hills may be missing` : 'in 720 directions around the site'],
+    ['Height of the hills', hills, hillsNote || 'in 720 directions around the site'],
     [
       'Where',
       coordinates(site),

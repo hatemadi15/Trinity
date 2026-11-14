@@ -16,11 +16,12 @@ describe('PeriodBand', () => {
     const siteLink = screen.getByRole('link', { name: 'Landing site: de Gerlache Rim 2. Change site' });
     expect(siteLink.getAttribute('href')).toBe('/sites');
     expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('2027-01-01');
-    expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
+    expect((screen.getByLabelText('For') as HTMLInputElement).value).toBe('30');
+    expect((screen.getByLabelText('Landing time, UTC') as HTMLInputElement).value).toBe('00:00');
     expect(screen.getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' })).toBeTruthy();
     // The lander's name is the longest field: it gets the larger share of the row, and the date box no more than it needs.
     expect(landerControl().parentElement!.className).toMatch(/flex-\[1\.8_1_250px\]/);
-    expect(screen.getByLabelText('From').className).toMatch(/\bw-\[170px\]/);
+    expect(screen.getByLabelText('From').className).toMatch(/\bw-\[144px\]/);
     // The name wraps at every width rather than being cut, as it carries the lander's numbers and a cut name would hide the battery;
     // the fields keep one bottom edge, so a lander on two lines grows upward and pushes no other field off line.
     const landerButton = landerControl();
@@ -40,8 +41,10 @@ describe('PeriodBand', () => {
     render(<PeriodBand site={site} startUtc="2027-01-01T00:00:00" days={30} onWindow={onWindow} power={{ ...DEFAULT_POWER, loadW: 250 }} onLander={onLander} />);
     fireEvent.click(screen.getByRole('button', { name: 'Custom lander. Change' }));
     expect(onLander).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('radio', { name: '14 days' }));
+    fireEvent.change(screen.getByLabelText('For'), { target: { value: '14' } });
     expect(onWindow).toHaveBeenLastCalledWith('2027-01-01T00:00:00', 14);
+    fireEvent.click(screen.getByRole('button', { name: 'One hour later' }));
+    expect(onWindow).toHaveBeenLastCalledWith('2027-01-01T01:00:00', 30);
   });
 
   it('names a custom place by its coordinates', () => {
@@ -74,7 +77,7 @@ describe('PeriodBand', () => {
 
   it('folds the four fields into one line on a phone, so the answer is on the first screen, and opens them on "change" (spec 6)', () => {
     render(<PeriodBand site={site} startUtc="2027-01-01T00:00:00" days={30} onWindow={() => {}} power={DEFAULT_POWER} onLander={() => {}} />);
-    expect(screen.getByText('de Gerlache Rim 2, 30 days from 1 January 2027, small lander:')).toBeTruthy();
+    expect(screen.getByText('de Gerlache Rim 2, 30 days from 1 January 2027, 00:00 UTC, small lander:')).toBeTruthy();
     const change = screen.getByRole('button', { name: 'change' });
     expect(change.getAttribute('aria-expanded')).toBe('false');
     const fields = document.getElementById(change.getAttribute('aria-controls')!)!;
@@ -90,9 +93,9 @@ describe('PeriodBand', () => {
 
   it('says the new length in the folded line after a change, and a lander that is no ready-made one is a custom lander', () => {
     const { rerender } = render(<PeriodBand site={site} startUtc="2027-01-01T00:00:00" days={30} onWindow={() => {}} power={{ ...DEFAULT_POWER, loadW: 250 }} onLander={() => {}} />);
-    expect(screen.getByText('de Gerlache Rim 2, 30 days from 1 January 2027, custom lander:')).toBeTruthy();
-    rerender(<PeriodBand site={site} startUtc="2027-03-05T00:00:00" days={14} onWindow={() => {}} power={{ ...DEFAULT_POWER, loadW: 250 }} onLander={() => {}} />);
-    expect(screen.getByText('de Gerlache Rim 2, 14 days from 5 March 2027, custom lander:')).toBeTruthy();
+    expect(screen.getByText('de Gerlache Rim 2, 30 days from 1 January 2027, 00:00 UTC, custom lander:')).toBeTruthy();
+    rerender(<PeriodBand site={site} startUtc="2027-03-05T17:00:00" days={7} onWindow={() => {}} power={{ ...DEFAULT_POWER, loadW: 250 }} onLander={() => {}} />);
+    expect(screen.getByText('de Gerlache Rim 2, 7 days from 5 March 2027, 17:00 UTC, custom lander:')).toBeTruthy();
   });
 
   it('leaves the stars behind the header alone: on a phone the band is a line of words, which no star may sit behind (part C read 1)', () => {
@@ -101,6 +104,6 @@ describe('PeriodBand', () => {
   });
 
   it('words the folded line from the preset’s size', () => {
-    expect(periodLine('Shackleton rim summit', '2026-06-01T00:00:00', 90, { ...DEFAULT_POWER, areaM2: 20, loadW: 500, batteryWh: 50000 })).toBe('Shackleton rim summit, 90 days from 1 June 2026, large lander');
+    expect(periodLine('Shackleton rim summit', '2026-06-01T00:00:00', 90, { ...DEFAULT_POWER, areaM2: 20, loadW: 500, batteryWh: 50000 })).toBe('Shackleton rim summit, 90 days from 1 June 2026, 00:00 UTC, large lander');
   });
 });

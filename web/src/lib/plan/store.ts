@@ -1,7 +1,8 @@
 import { createStore, type StoreApi } from 'zustand';
 import { dataBase, loadMask, siteLabel, type MaskDoc, type Site } from '../data/loaders';
 import { exploreHref } from '../links';
-import { WINDOW_DAYS, exploreStore, type ExploreState, type WindowDays } from '../store/explore';
+import { DAYS_RANGE, clampTo } from '../planner-ranges';
+import { exploreStore, type ExploreState, type WindowDays } from '../store/explore';
 import { dateTimeUtc } from '../viz/format';
 import { groundPatch, numbersOf, validateSpecPatch } from './fields';
 import { answerOf, planStep, powerOf, spokenSummary, type PlanAnswer, type SearchStats, type SiteInput } from './search';
@@ -60,9 +61,9 @@ export interface PlanDeps {
   client: () => PlanRunner;
 }
 
-/** The shortest of Explore's periods that holds the stay (Explore's periods are 14, 30 or 90 days). */
+/** Explore's period for a stay: its whole days, within the 2 to 90 days a period may last. */
 export function exploreDays(stayH: number): WindowDays {
-  return WINDOW_DAYS.find((d) => d * 24 >= stayH) ?? 90;
+  return clampTo(DAYS_RANGE, Math.ceil(stayH / 24));
 }
 
 const EMPTY = { spec: DEFAULT_SPEC, from: {}, text: '', leftover: [], notes: [], problems: [], status: 'empty' as PlanStatus, progress: null, answer: null, searched: null, stats: null, inputs: {}, skipped: [] as string[], error: null };

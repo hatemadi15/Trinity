@@ -7,6 +7,7 @@ import { DataProblem, SYNC_HINT } from '@/components/DataProblem';
 import { hasNo, missingPart } from '@/lib/data/parts';
 import { Fold } from '@/components/Fold';
 import { PeriodControls } from '@/components/PeriodControls';
+import { SkylineNote } from '@/components/SkylineNote';
 import { ReliefMap, type MapPin } from '@/components/ReliefMap';
 import { Sources } from '@/components/Sources';
 import { HOME } from '@/lib/data/home';
@@ -15,8 +16,10 @@ import { siteLabel, type Site } from '@/lib/data/loaders';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { landerLine } from '@/lib/lander';
 import { exploreStore, type ExploreState, type SiteOverview } from '@/lib/store/explore';
-import { dateLong, dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
+import { landingWords } from '@/lib/period';
+import { dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
 import { checkPick } from '@/lib/viz/pick';
+import { missingWords, pickProblem, terrainTag } from '@/lib/viz/terrain';
 import { exploreHref } from '@/lib/links';
 
 const TWO_WEEKS_H = 14 * 24;
@@ -48,15 +51,16 @@ function siteHref(siteId: string, o: SiteOverview | undefined, startUtc: string,
   return exploreHref(siteId, o?.best && o.best.hour > 0 ? isoAt(startUtc, o.best.hour) : startUtc, days);
 }
 
-/** Rows are ranked by the longest time with power, then by sunlight; a site without figures goes last. */
-const rank = (o: SiteOverview | undefined) => (o ? (o.best?.poweredHours ?? -1) * 10 + o.afterSun : -1e7);
+/** Rows are ranked by the longest time with power, then by sunlight; a site with incomplete terrain after them (its figures may be too high), a site without figures last. */
+const rank = (o: SiteOverview | undefined) => (o ? (o.terrain?.quality === 'incomplete' ? -1e6 : 0) + (o.best?.poweredHours ?? -1) * 10 + o.afterSun : -1e7);
 /** A place that never sees Earth in its first days after landing: a lander there cannot send home what it finds. */
 const noContact = (o: SiteOverview | undefined) => o !== undefined && o.afterEarth === 0;
 /** On the far side Earth never rises at all (data/sites.json "far_side", checked against every hour of the table). */
 const farSide = (site: Site) => site.far_side === true;
 
-function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; o: SiteOverview | undefined; href: string; startUtc: string; days: number; active: boolean; onActive: (id: string | null) => void }) {
+function Row({ site, o, href, startUtc, days, active, onActive, problem = null }: { site: Site; o: SiteOverview | undefined; href: string; startUtc: string; days: number; active: boolean; onActive: (id: string | null) => void; problem?: string | null }) {
   const capped = o?.best ? o.best.poweredHours >= days * 24 : false;
+  const tag = terrainTag(o?.terrain);
   return (
     <li>
       <Link
@@ -83,9 +87,10 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
             <span className="sr-only">, </span>
             {pointKind(site).short}
           </span>
+          {tag && <span className="mt-0.5 block text-[15px] font-medium text-warn">{tag}</span>}
         </span>
         {!o ? (
-          <span className="col-span-3 text-[15px] text-ink-2">working it out…</span>
+          <span className="col-span-3 text-[15px] text-ink-2">{problem ? 'could not be worked out for this mast height' : 'working it out…'}</span>
         ) : (
           <>
             <span className="flex items-center gap-3">
@@ -151,7 +156,7 @@ function Elsewhere({ store, navigate }: { store: StoreApi<ExploreState>; navigat
     // Without the height tiles (a copy set up with the committed data alone) no new place can be traced: say so, and that
     // the list still works, rather than show the file that was not there.
     if (failed && missingPart(failed) === 'tiles') setProblem(`That place cannot be worked out here: ${hasNo('tiles')}. The places in the list work without them.`);
-    else if (failed) setProblem(`That place could not be worked out: ${failed}.`);
+    else if (failed) setProblem(pickProblem(failed));
     else navigate('/explore');
   }
   return (
@@ -231,12 +236,19 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
   }, [groups, catalogue, s.overview, s.startUtc, s.days]);
   const top = useMemo(() => {
     if (s.overviewBusy) return null;
+    const better = (o: SiteOverview, than: SiteOverview) => o.best!.poweredHours > than.best!.poweredHours || (o.best!.poweredHours === than.best!.poweredHours && o.afterEarth > than.afterEarth);
     let found: { site: Site; o: SiteOverview } | null = null;
+    let doubtful: { site: Site; o: SiteOverview } | null = null;
     for (const site of catalogue) {
       const o = s.overview[site.id];
       if (!o?.best || o.afterEarth === 0) continue;
-      if (!found || o.best.poweredHours > found.o.best!.poweredHours || (o.best.poweredHours === found.o.best!.poweredHours && o.afterEarth > found.o.afterEarth)) found = { site, o };
+      // A site with incomplete terrain is never named: its figures can only be too high.
+      if (o.terrain?.quality === 'incomplete') {
+        if (!doubtful || better(o, doubtful.o)) doubtful = { site, o };
+      } else if (!found || better(o, found.o)) found = { site, o };
     }
+    // Named only when no incomplete site could beat it: an incomplete figure, too high if anything, that is no higher cannot.
+    if (doubtful && (!found || better(doubtful.o, found.o))) return { withheld: doubtful };
     return found;
   }, [catalogue, s.overview, s.overviewBusy]);
   const offMap = catalogue.filter((x) => !HOME.relief.sites.some((p) => p.id === x.id)).length;
@@ -269,8 +281,8 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
             first day, and this says why (both readers, part C read 1). It is one tap away, since it is read once. */}
         <Fold label="How these figures are counted" className="mt-3">
           <p className="max-w-[52em] text-[15px] text-ink-2">
-            Each site&apos;s figures are for landing on its best day of the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, the day under its name, and the{' '}
-            {s.days} days after it, for one lander: {landerLine(s.params.power)}. Explore and Compare start on the first day, so their figures can differ. In each group, the
+            Each site&apos;s figures are for landing on its best day of the {s.days} days from {landingWords(s.startUtc, true)}, the day under its name, and the{' '}
+            {s.days} days after it, for one lander: {landerLine(s.params.power)}, the hills seen from a {s.params.mastM} m mast. Explore and Compare start on the first day, so their figures can differ. In each group, the
             longest time with power comes first.
           </p>
         </Fold>
@@ -302,7 +314,14 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
           </section>
 
           <div>
-            {top && (
+            {/* Over the rows that wait for their hills at a new mast height. */}
+            <SkylineNote state={s} ids={catalogue.map((x) => x.id)} className="mb-6" />
+            {top && 'withheld' in top && (
+              <p className="mb-8 text-[17px] text-ink">
+                The longest time with power is not named: the terrain at {siteLabel(top.withheld.site)} is incomplete{missingWords(top.withheld.o.terrain) ? ` (${missingWords(top.withheld.o.terrain)})` : ''}, so its figures may be too high.
+              </p>
+            )}
+            {top && 'o' in top && (
               <p className="mb-8 text-[17px] text-ink">
                 Longest time with power in these days:{' '}
                 <Link href={siteHref(top.site.id, top.o, s.startUtc, s.days)} className="font-semibold underline decoration-line-strong underline-offset-4 hover:decoration-ink">
@@ -326,7 +345,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                 </div>
                 <ul className="divide-y divide-line-strong">
                   {g.rows.map((site) => (
-                    <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
+                    <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} problem={s.skylineProblems[site.id]} />
                   ))}
                 </ul>
                 {/* Places that never see Earth get a heading of their own, so their place in the order explains itself. */}
@@ -336,7 +355,7 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
                     <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">These places keep power for a while but cannot reach Earth by radio then.</p>
                     <ul className="divide-y divide-line-strong">
                       {g.without.map((site) => (
-                        <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
+                        <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} problem={s.skylineProblems[site.id]} />
                       ))}
                     </ul>
                   </>

@@ -8,6 +8,7 @@ import { DEFAULT_SITE, type AiMode, type ExploreState } from '../store/explore';
 import { plannerLog } from '../store/planner-log';
 import { assistSpec } from '../plan/assist';
 import { planStore, type PlanState } from '../plan/store';
+import type { ScenarioState } from '../store/scenarios';
 import type { Control, LunaCommand, Place, PlanStep } from './commands';
 import { queueControl, runControl } from './controls';
 import { skyAnswer } from './sky';
@@ -21,6 +22,8 @@ export interface LunaDeps {
   ask: (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
   setTheme: (theme: 'light' | 'dark') => void;
   turnOff: () => void;
+  /** The comparison a planner answer may start ("compare with a five-day delay"). */
+  scenarios?: StoreApi<ScenarioState>;
   /** The planner's store (spec 23); the app's own by default. */
   plan?: StoreApi<PlanState>;
 }
@@ -46,6 +49,7 @@ export const REPLIES: Record<Control, string> = {
   'brighter-on': 'Brighter picture.',
   'brighter-off': 'Normal brightness.',
   'better-day': 'Landing on the better day.',
+  year: 'Every landing day of the next 12 months.',
   fly: 'Flying to the south pole.',
 };
 
@@ -61,7 +65,7 @@ const GO_REPLIES: Record<Place, string> = {
 };
 
 export const HELP_REPLY =
-  'You can ask me to open a page or the view from the site, to play, pause or go to the next moment, to turn to the Sun, Earth or the lander, to show a site, to compare two sites, or to plan a landing.';
+  'You can ask me to open a page or the view from the site, to play, pause or go to the next moment, to turn to the Sun, Earth or the lander, to show a site, to compare two sites, to plan a landing, or to move the landing, as in "delay the landing by five days".';
 const HELLO_REPLY = 'Hello. Tell me what you would like to see: for example, open the view from the site, or play the month.';
 const OFFLINE_REPLY = 'I cannot reach the assistant right now. I can still open pages, play the month and turn the view.';
 
@@ -97,6 +101,7 @@ async function plan(actions: unknown[], reply: string, source: ChatSource, model
         opened = true;
         deps.navigate(href);
       },
+      deps.scenarios,
       prompt,
     );
   } catch (err) {
@@ -111,8 +116,13 @@ async function plan(actions: unknown[], reply: string, source: ChatSource, model
   const skipped = describeDropped(dropped);
   const fresh = notes.filter((n) => n.trim() !== reply.trim());
   plannerLog.getState().push({ prompt, reply, source, model, notes: skipped ? [...fresh, skipped] : fresh });
-  return reply;
+  // A change of period alone is said as the app set it: the phrasing ("delay by five days") and the model know the
+  // request, not the new landing, nor a stop at the end of the table or a refusal.
+  return valid.length > 0 && valid.every((a) => PERIOD_ACTIONS.has(a.type)) && notes.length > 0 ? notes.join(' ') : reply;
 }
+
+/** The actions that only change the period. */
+const PERIOD_ACTIONS = new Set<string>(['set_window', 'shift_window', 'find_best_window']);
 
 const PLAN_OPEN = 'Opening the planner. Tell me what the mission needs: how long it needs power, whether Earth must be in view at landing, the longest radio gap, the lander, and when and where to land.';
 
@@ -179,6 +189,11 @@ export async function runCommand(cmd: LunaCommand, deps: LunaDeps, said = ''): P
         queueControl(cmd.control);
         deps.navigate(placeHref('stand', deps.store.getState()));
         return `${GO_REPLIES.stand} ${REPLIES[cmd.control]}`;
+      }
+      if (cmd.control === 'year') {
+        queueControl('year');
+        deps.navigate(placeHref('explore', deps.store.getState()));
+        return 'Opening the forecast, with every landing day of the next 12 months.';
       }
       if (cmd.control === 'fly') {
         queueControl('fly');

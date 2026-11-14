@@ -3,16 +3,28 @@ import type { Site } from '../data/loaders';
 import { loadEphemeris, type EphemerisHeader } from '../engine/ephemeris';
 import { hasFile, readBytes, readJson } from '../engine/__tests__/helpers';
 import { createExploreStore } from './explore';
+import { exploreHref } from '../links';
 import { parseExploreQuery } from './query';
 
 describe('parseExploreQuery', () => {
   it('reads site, start and days, and ignores what it cannot use', () => {
     expect(parseExploreQuery('?site=im2_athena&start=2025-03-06&days=14')).toEqual({ site: 'im2_athena', startUtc: '2025-03-06T00:00:00', days: 14 });
     expect(parseExploreQuery(new URLSearchParams('site=nobile_rim_2'))).toEqual({ site: 'nobile_rim_2' });
-    expect(parseExploreQuery('?start=2027-02-30&days=45')).toEqual({});
+    expect(parseExploreQuery('?start=2027-02-30&days=45')).toEqual({ days: 45 });
+    expect(parseExploreQuery('?start=2027-02-30&days=120')).toEqual({});
     expect(parseExploreQuery('?start=2040-01-01')).toEqual({});
     expect(parseExploreQuery('?site=../etc&days=30')).toEqual({ days: 30 });
     expect(parseExploreQuery('')).toEqual({});
+  });
+
+  it('reads a landing hour and any length from 2 to 90 days; an old date-only link lands at 00:00 UTC and 14, 30 and 90 still work', () => {
+    expect(parseExploreQuery('?site=nobile_rim_2&start=2027-01-20T17:00&days=7')).toEqual({ site: 'nobile_rim_2', startUtc: '2027-01-20T17:00:00', days: 7 });
+    expect(parseExploreQuery('?start=2027-01-20&days=14')).toEqual({ startUtc: '2027-01-20T00:00:00', days: 14 });
+    for (const days of [2, 30, 45, 90]) expect(parseExploreQuery(`?days=${days}`)).toEqual({ days });
+    for (const days of ['1', '91', '7.5', '', 'seven', '-7']) expect(parseExploreQuery(`?days=${days}`), days).toEqual({});
+    // Minutes in a link are read at the nearest whole hour, as the engine reads its hourly table.
+    expect(parseExploreQuery('?start=2027-01-20T17:20').startUtc).toBe('2027-01-20T17:00:00');
+    expect(parseExploreQuery('?start=2027-01-20T24:00')).toEqual({});
   });
 
   it("keeps a clicked point's id, as the store writes it, and still leaves out what is neither that nor a catalogue id", () => {
@@ -62,6 +74,15 @@ describe.skipIf(!haveData)('applyQuery', () => {
     expect(s.startUtc).toBe('2025-03-06T00:00:00');
     expect(s.days).toBe(14);
     expect(s.series?.hours).toBe(14 * 24);
+  });
+
+  it('opens a seven-day period landing at 17:00 UTC from its address, and writes the same address back', async () => {
+    const store = createExploreStore(fileLoaders());
+    await store.getState().init();
+    await store.getState().applyQuery('?site=nobile_rim_2&start=2027-01-20T17:00&days=7');
+    const s = store.getState();
+    expect([s.siteId, s.startUtc, s.days, s.series?.hours, s.error]).toEqual(['nobile_rim_2', '2027-01-20T17:00:00', 7, 7 * 24, null]);
+    expect(exploreHref(s.siteId!, s.startUtc, s.days)).toBe('/explore?site=nobile_rim_2&start=2027-01-20T17:00&days=7');
   });
 
   it('ignores unknown sites and bad dates and keeps the defaults', async () => {

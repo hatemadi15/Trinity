@@ -4,6 +4,7 @@ import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
 import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PlannerChat } from './PlannerChat';
+import { SkylineNote } from './SkylineNote';
 import { GroundPanel } from './explore/GroundPanel';
 import { LanderDialog } from './explore/LanderDialog';
 import { NumbersCard } from './explore/NumbersCard';
@@ -15,16 +16,20 @@ import { LunaControls } from './luna/LunaControls';
 import { TimeChart } from './explore/TimeChart';
 import { VerdictPanel } from './explore/VerdictPanel';
 import { WhereOnMoon } from './explore/WhereOnMoon';
+import { YearView } from './explore/YearView';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { globeTextureUrl } from '@/lib/data/terrain';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { standHref } from '@/lib/links';
-import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
+import { COMPARE_MAX, exploreStore, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { comparisonHref } from '@/lib/scenario/codec';
+import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
 import { timeWithPower } from '@/lib/engine/landing';
 import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
 import { dateTimeUtc } from '@/lib/viz/format';
+import { trustedAnswer, trustedOverview, verdictLimitation } from '@/lib/viz/terrain';
 import { checkPick } from '@/lib/viz/pick';
 import { sceneStateAt } from '@/lib/viz/scene-state';
 import { keyMoments } from '@/lib/viz/stand';
@@ -38,10 +43,13 @@ import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
  */
 export function ExploreView({
   store = exploreStore,
+  scenarios = scenarioStore,
   navigate,
   uncertainty,
 }: {
   store?: StoreApi<ExploreState>;
+  /** The comparison "Compare from here" starts; by default the app's. */
+  scenarios?: StoreApi<ScenarioState>;
   navigate?: (href: string) => void;
   /** Injected in tests; by default the app's data/uncertainty/budget.json. */
   uncertainty?: () => Promise<UncertaintyDoc>;
@@ -56,12 +64,21 @@ export function ExploreView({
   const reducedMotion = useReducedMotion();
   useDemoMode(store);
 
+  // The address the visit came with is applied once the data is in; from then on the address follows the site and
+  // the period, landing hour and length included, so a reload or a shared link opens the same forecast.
+  const [addressed, setAddressed] = useState(false);
   useEffect(() => {
     void store
       .getState()
       .init()
-      .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search));
+      .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search))
+      .then(() => setAddressed(true));
   }, [store]);
+  useEffect(() => {
+    if (!addressed || !s.siteId) return;
+    const href = exploreHref(s.siteId, s.startUtc, s.days);
+    if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState(window.history.state, '', `${href}${window.location.hash}`);
+  }, [addressed, s.siteId, s.startUtc, s.days]);
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
   // itself, once, and puts the cursor in its box, as "Or ask in plain words" does.
@@ -104,17 +121,28 @@ export function ExploreView({
     }
   }, [store, go]);
 
+  // "Compare from here": this landing, with every setting, as a comparison's baseline; Compare opens on its link.
+  const onScenario = useCallback(() => {
+    if (scenarios.getState().startFrom(store.getState())) go(comparisonHref(scenarios.getState().scenarios));
+  }, [store, scenarios, go]);
+
   const scene = useMemo(() => (s.eph && s.series && s.mask ? sceneStateAt(s.eph, s.series, s.mask, s.cursorHour) : null), [s.eph, s.series, s.mask, s.cursorHour]);
-  const answer = useMemo(
+  // The terrain behind the figures, and whether they are still from another mast height than the one chosen.
+  const terrain = s.maskMeta ? terrainOf(s.maskMeta) : undefined;
+  const behind = s.maskMeta !== null && s.maskMeta.source !== 'flat' && (s.maskMeta.mastM ?? 2) !== s.params.mastM;
+  const told = useMemo(
     () => (s.series && s.summary && s.power && s.site ? answerFor({ siteName: siteLabel(s.site), series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, farSide: s.site.far_side, panel: s.params.power.panel }) : null),
     [s.site, s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.params.power.panel, s.best],
   );
-  // A nearby site that keeps power clearly longer from the same landing day, once the overview has its figures.
+  // No better day from an incomplete terrain, or from figures still waiting for the chosen mast (lib/viz/terrain).
+  const answer = useMemo(() => (told ? trustedAnswer(told, terrain, behind) : null), [told, terrain, behind]);
+  // A nearby site that keeps power clearly longer from the same landing day, once the overview has its figures: only
+  // from figures for the chosen mast, and never to or from a place whose terrain is incomplete.
   const nearby = useMemo(() => {
-    if (!s.site || !s.power) return null;
-    const advice = nearbyAdvice(s.site, s.sites, s.overview, timeWithPower(s.power));
+    if (!s.site || !s.power || behind || terrain?.quality === 'incomplete') return null;
+    const advice = nearbyAdvice(s.site, s.sites, trustedOverview(s.overview, s.params.mastM), timeWithPower(s.power));
     return advice ? { words: nearbyWords(advice, s.days), name: siteLabel(advice.site), href: exploreHref(advice.site.id, s.startUtc, s.days) } : null;
-  }, [s.site, s.sites, s.overview, s.power, s.days, s.startUtc]);
+  }, [s.site, s.sites, s.overview, s.power, s.days, s.startUtc, s.params.mastM, behind, terrain]);
 
   // The verdict's times with their supported margins (data/uncertainty), and the ground at a measured site.
   const sure = useMemo(
@@ -150,7 +178,7 @@ export function ExploreView({
         <LunaControls
           controls={{
             'better-day': () => {
-              if (!better) return 'This landing day is already the best one nearby.';
+              if (!better) return told?.better ? (answer.hint ?? 'No better landing day is named.') : 'This landing day is already the best one nearby.';
               s.setWindow(better.startUtc, s.days);
               return better.label;
             },
@@ -158,6 +186,8 @@ export function ExploreView({
         />
         <div className="wrap flex w-full min-w-0 flex-col gap-6 pb-10 pt-6">
           <PeriodBand site={site} startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} power={s.params.power} onLander={() => setLanderOpen(true)} landerRef={landerRef} />
+          {/* The selected site and the places the nearby search reads, while their hills are worked out for the chosen mast. */}
+          <SkylineNote state={s} ids={[site.id, ...s.sites.filter((x) => x.category !== 'custom' && x.id !== site.id).map((x) => x.id)]} selected />
           {s.error && (
             <p role="status" className="text-[15px] text-bad">
               {s.error}
@@ -166,6 +196,7 @@ export function ExploreView({
           <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
             <VerdictPanel
               answer={answer}
+              limitation={verdictLimitation(terrain)}
               site={site}
               nearby={nearby}
               standLink={standHref(site.id, s.startUtc, s.days, s.cursorHour)}
@@ -188,6 +219,12 @@ export function ExploreView({
               startUtc={s.startUtc}
             />
           </div>
+          {/* This landing, every setting with it, as a comparison's baseline: under the answer, outside its word cap. */}
+          <p className="-mt-2">
+            <button type="button" onClick={onScenario} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+              Compare from here
+            </button>
+          </p>
           <TimeChart
             site={site}
             series={s.series}
@@ -203,6 +240,9 @@ export function ExploreView({
           />
           {/* When Earth is in view for radio, and when the lander has power to use it, at the time bar's hour. */}
           <RadioWindows series={s.series} power={s.power} startUtc={s.startUtc} hour={s.cursorHour} />
+          {/* Every landing day of the next 12 months, after the chart so the first screen keeps the answer and the chart's
+              title: a day pressed there lands the period on it, as the date box does. */}
+          <YearView eph={s.eph} site={site} mask={s.mask} startUtc={s.startUtc} days={s.days} params={s.params} onLand={(start) => s.setWindow(start, s.days)} />
           <GroundPanel
             site={site}
             sites={s.sites}
@@ -229,7 +269,7 @@ export function ExploreView({
             reducedMotion={reducedMotion}
           />
           <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} />
-          <PlannerChat store={store} navigate={go} />
+          <PlannerChat store={store} scenarios={scenarios} navigate={go} />
         </div>
         {/* The period's key moments as dots with Next, as on the stand view, so Play and Next show what happens on the first
             screen (21.1); a preview on the bar moves the chart's time line and the date, as the chart's own does. */}
