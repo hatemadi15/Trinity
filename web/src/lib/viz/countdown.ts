@@ -78,16 +78,34 @@ export function firstSetAfter(s: Series, body: Body, landing: number): Change {
 /**
  * The countdown in words, each change named as its key moment is ("Sunset", "Sunrise", "Earth sets", "Earth rises"), the
  * hours as the cards write them: "Sunset in 2 d 19 h", "Earth rises in 9 d 3 h". With no change before the period ends it
- * says so, and gives no date it cannot know: "No sunset before the period ends", "Earth does not set before the period
- * ends" (near the equator Earth may never set at all).
+ * says so, and gives no date it cannot know (near the equator Earth may never set at all): "No sunset before the end",
+ * "Earth in view to the end". The Sun's are worded as no sunset or sunrise, never "Sun up", since the status sentence beside
+ * them keeps "Sun up" for the whole disc and calls a sliver "setting". `end` names the end: the time bar's track ends where
+ * the period does, so "the end" there; elsewhere "the end of the period".
  */
-export function countdownWords(c: Countdown): string {
+export function countdownWords(c: Countdown, end = 'the end'): string {
   if (c.inHours === null) {
-    if (c.body === 'sun') return c.up ? 'No sunset before the period ends' : 'No sunrise before the period ends';
-    return c.up ? 'Earth does not set before the period ends' : 'Earth does not rise before the period ends';
+    if (c.body === 'sun') return `${c.up ? 'No sunset' : 'No sunrise'} before ${end}`;
+    return `Earth ${c.up ? 'in view' : 'out of view'} to ${end}`;
   }
   const name = c.body === 'sun' ? (c.up ? 'Sunset' : 'Sunrise') : c.up ? 'Earth sets' : 'Earth rises';
   return `${name} in ${spanShort(c.inHours)}`;
+}
+
+/**
+ * Every form the countdown's words take over the period, each digit written 0: in tabular figures each form is as wide as
+ * any of its words, so a slot as wide as the widest keeps one width while the hour moves. One pass from the end.
+ */
+export function countdownForms(s: Series, body: Body, end?: string): string[] {
+  const forms = new Set<string>();
+  let next = -1;
+  for (let h = s.hours - 1; h >= 0; h--) {
+    const up = isUp(s, body, h);
+    if (h + 1 < s.hours && isUp(s, body, h + 1) !== up) next = h + 1;
+    const c: Countdown = { body, up, next: up ? 'sets' : 'rises', at: next < 0 ? null : next, inHours: next < 0 ? null : next - h, leftHours: s.hours - h };
+    forms.add(countdownWords(c, end).replace(/\d/g, '0'));
+  }
+  return [...forms];
 }
 
 /**

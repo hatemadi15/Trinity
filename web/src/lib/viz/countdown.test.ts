@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Series } from '../engine/metrics';
 import { hero } from './arrival';
-import { countdown, countdownWords, earthInView, firstSetAfter, sunHeight, sunHeightWords, sunUp } from './countdown';
+import { countdown, countdownForms, countdownWords, earthInView, firstSetAfter, sunHeight, sunHeightWords, sunUp } from './countdown';
 import { keyMoments } from './stand';
 import { statusSentence } from './status';
 
@@ -89,11 +89,37 @@ describe('countdownWords', () => {
     expect(countdownWords(countdown(long, 'sun', 1))).toBe('Sunrise in 3 d 7 h');
   });
 
-  it('says plainly that the change does not come before the period ends, with no date it cannot know', () => {
-    expect(countdownWords(countdown(s, 'sun', 4))).toBe('No sunset before the period ends');
-    expect(countdownWords(countdown(series([0, 0], [0, 0]), 'sun', 0))).toBe('No sunrise before the period ends');
-    expect(countdownWords(countdown(series([1, 1], [1, 1]), 'earth', 0))).toBe('Earth does not set before the period ends');
-    expect(countdownWords(countdown(s, 'earth', 3))).toBe('Earth does not rise before the period ends');
+  it('says plainly that the change does not come before the end of the period, with no date it cannot know', () => {
+    expect(countdownWords(countdown(s, 'sun', 4))).toBe('No sunset before the end');
+    expect(countdownWords(countdown(series([0, 0], [0, 0]), 'sun', 0))).toBe('No sunrise before the end');
+    expect(countdownWords(countdown(series([1, 1], [1, 1]), 'earth', 0))).toBe('Earth in view to the end');
+    expect(countdownWords(countdown(s, 'earth', 3))).toBe('Earth out of view to the end');
+    // Away from the time bar, whose track ends where the period does, the end can be named in full.
+    expect(countdownWords(countdown(s, 'sun', 4), 'the end of the period')).toBe('No sunset before the end of the period');
+    expect(countdownWords(countdown(s, 'earth', 3), 'the end of the period')).toBe('Earth out of view to the end of the period');
+  });
+
+  it('keeps the Sun’s words true beside a Sun the status calls setting: a sliver still up is no sunset yet', () => {
+    const setting = series([1, 0.6, 0.2], [0, 0, 0]);
+    expect(statusSentence(setting, null, 1, 0)).toMatch(/^Sun setting/);
+    expect(countdownWords(countdown(setting, 'sun', 1))).toBe('No sunset before the end');
+  });
+});
+
+describe('countdownForms', () => {
+  it('lists every form the words take over the period, each digit a 0, so a slot as wide as the widest never moves', () => {
+    // Up, set for 30 hours, then up to the end.
+    const s = series([1, ...new Array<number>(30).fill(0), 1, 1], new Array<number>(33).fill(0));
+    expect(countdownForms(s, 'sun').sort()).toEqual(['No sunset before the end', 'Sunrise in 0 d 0 h', 'Sunrise in 0 d', 'Sunrise in 0 h', 'Sunrise in 00 h', 'Sunset in 0 h'].sort());
+    expect(countdownForms(s, 'earth')).toEqual(['Earth out of view to the end']);
+  });
+
+  it('covers the words of every hour of the home page’s month', () => {
+    const h = hero();
+    for (const body of ['sun', 'earth'] as const) {
+      const forms = new Set(countdownForms(h.series, body));
+      for (let hour = 0; hour < h.series.hours; hour++) expect(forms.has(countdownWords(countdown(h.series, body, hour)).replace(/\d/g, '0'))).toBe(true);
+    }
   });
 });
 
