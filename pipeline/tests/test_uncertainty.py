@@ -215,3 +215,34 @@ def test_write_doc_puts_the_skylines_beside_the_budget(tmp_path):
     assert json.loads(path.read_text()) == {"version": 1, "sites": []}
     assert json.loads((tmp_path / "skylines" / "x.json").read_text()) == {"site_id": "x"}
     assert path.read_bytes().count(b"\r\n") == 0
+
+
+def _have_product90_for(site_id: str) -> bool:
+    from lunar_pipeline import config
+    from lunar_pipeline.pgda90 import FULL_FILES, PGDA_DIR, WINDOW_DIR
+    from lunar_pipeline.sites import all_sites
+
+    if not (config.KERNEL_DIR / "de440s.bsp").exists() or not all((PGDA_DIR / f).exists() for f in FULL_FILES.values()):
+        return False
+    site = next(s for s in all_sites() if s.id == site_id)
+    return bool(list(WINDOW_DIR.glob(f"*_{site.lat:+.5f}_{site.lon:+.5f}_*.npz")))
+
+
+@pytest.mark.data
+def test_build_measures_a_site_with_the_three_sources_apart():
+    # IM-2 Athena, ten days from 2025-01-01: the cached product 90 windows mean no download.
+    if not _have_product90_for("im2_athena"):
+        pytest.skip("run: uv run python -m lunar_pipeline.cli pgda90-fetch, then the uncertainty command once")
+    from lunar_pipeline.uncertainty import EVENT_KINDS, build
+
+    doc = build(site_ids=["im2_athena"], days=10)
+    site = doc["sites"][0]
+    assert site["site_id"] == "im2_athena" and site["condition"] == "Earth skimming the horizon"
+    assert set(site["events"]) == set(EVENT_KINDS)
+    assert site["hour_agreement"]["lit"] == 1.0
+    assert site["terrain_quality"]["height_error_m"] > 0
+    assert set(doc["skylines"]["im2_athena"]) >= {"adjusted_deg", "raised_deg", "lowered_deg"}
+    for e in site["events"].values():
+        if e["sampling"]["n"]:
+            assert 0.0 <= e["sampling"]["max_abs_h"] <= 1.0
+            assert e["plus_minus_h"] >= e["sampling"]["p95_abs_h"]

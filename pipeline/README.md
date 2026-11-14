@@ -20,6 +20,16 @@ Offline pipeline that converts NASA data into the static artifacts used by the w
     uv run python -m lunar_pipeline.cli fetch --group globe
     uv run python -m lunar_pipeline.cli globe
     uv run python -m lunar_pipeline.cli sync-local --tiles
+    uv run python -m lunar_pipeline.cli pgda90-fetch
+    uv run python -m lunar_pipeline.cli uncertainty
+
+`pgda90-fetch` downloads four files of PGDA product 90 (Barker et al. 2023, https://pgda.gsfc.nasa.gov/products/90)
+into `data_raw/pgda90`, 890 MB in all: the adjusted LOLA models at 80 m and 240 m and their height-error maps.
+`uncertainty` (about 12 minutes; needs the kernels, the LOLA grids and those files) finds every event at one-minute
+SPICE steps for 730 days from 2025-01-01, traces each polar site's skyline through the adjusted models, reads small
+windows of the 20 m and 50 m products around each site over HTTP (cached in `data_raw/pgda90/windows`), and writes
+`data/uncertainty/budget.json` and `data/uncertainty/skylines/`; `sync-local` copies them into the app. The method,
+the results and every download are in `docs/method.md`, "Uncertainty budget".
 
 `fetch --group globe` downloads two files of NASA's CGI Moon Kit (Scientific Visualization Studio,
 https://svs.gsfc.nasa.gov/4720) into `data_raw/globe`, 44 MB in all: `lroc_color_poles_4k.tif` (the LROC WAC
