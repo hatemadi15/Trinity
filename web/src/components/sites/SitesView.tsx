@@ -434,9 +434,9 @@ export function SitesView({ store = exploreStore, navigate, coldTraps }: { store
                 </section>
               ))}
               {/* The figures come from horizons on LOLA's 20 m grid near the pole, its 80 m grid farther out and its 240 m grid
-                  north of 80° S, with DE440. The places are NASA's Artemis III regions, the CLPS landings and the landers LROC
-                  and NSSDCA have located. */}
-              <Sources of={['lola', 'lola80', 'lola240', 'de440', 'artemis', 'clps', 'landers']} />
+                  north of 80° S, with DE440; the polar rows' cold-trap line, once its layer is in, from Diviner's model. The
+                  places are NASA's Artemis III regions, the CLPS landings and the landers LROC and NSSDCA have located. */}
+              <Sources of={['lola', 'lola80', 'lola240', ...(coldDoc ? (['diviner'] as const) : []), 'de440', 'artemis', 'clps', 'landers']} />
               <Elsewhere store={store} navigate={go} />
             </div>
           </div>

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 /** The datasets a panel can draw on, by short key. docs/data-credits.md gives each one's source and citation. */
-export type SourceKey = 'lola' | 'lola80' | 'lola240' | 'illumination' | 'de440' | 'horizons' | 'artemis' | 'clps' | 'landers' | 'moonkit' | 'bluemarble' | 'stars';
+export type SourceKey = 'lola' | 'lola80' | 'lola240' | 'illumination' | 'diviner' | 'de440' | 'horizons' | 'artemis' | 'clps' | 'landers' | 'moonkit' | 'bluemarble' | 'stars';
 
 /**
  * Each dataset in the shortest honest form. LOLA is named by its grid, as a reader can check it: 20 m near
@@ -12,6 +12,7 @@ export const SOURCE_LABELS: Record<SourceKey, string> = {
   lola80: 'NASA LRO LOLA 80 m',
   lola240: 'NASA LRO LOLA 240 m',
   illumination: 'LOLA illumination map',
+  diviner: 'LRO Diviner temperature model',
   de440: 'JPL DE440',
   horizons: 'checked: JPL Horizons',
   artemis: 'Artemis III regions',
@@ -22,8 +23,11 @@ export const SOURCE_LABELS: Record<SourceKey, string> = {
   stars: 'Yale Bright Star Catalogue',
 };
 
-/** The check is a link because the Accuracy page shows it row by row. */
-const HREF: Partial<Record<SourceKey, string>> = { horizons: '/validate' };
+/**
+ * The check is a link because the Accuracy page shows it row by row. The modelled cold traps link to the Diviner product
+ * they are read from, as docs/data-credits.md gives it.
+ */
+const HREF: Partial<Record<SourceKey, string>> = { horizons: '/validate', diviner: 'https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_prp/' };
 
 /** South of this latitude a site's hills start on the 20 m grid, as the engine reads them (bandsForSite in engine/horizon.ts). */
 const FINE_GRID_LAT = -87.55;
@@ -58,11 +62,17 @@ export function Sources({ of }: { of: SourceKey[] }) {
     <ul aria-label="Data sources" className="mt-4 flex flex-wrap gap-2 text-[14px] text-ink-2">
       {keys.map((k) => {
         const href = HREF[k];
+        // A link inside a row of pills is not standalone: it underlines only under the pointer.
+        const linkClass = `${PILL} underline-offset-4 hover:text-ink hover:underline`;
         return (
           <li key={k}>
-            {href ? (
-              // A link inside a row of pills is not standalone: it underlines only under the pointer.
-              <Link href={href} className={`${PILL} underline-offset-4 hover:text-ink hover:underline`}>
+            {href?.startsWith('https://') ? (
+              // Another site's page opens beside this one, so the planner keeps their place.
+              <a href={href} target="_blank" rel="noreferrer" className={linkClass}>
+                {SOURCE_LABELS[k]}
+              </a>
+            ) : href ? (
+              <Link href={href} className={linkClass}>
                 {SOURCE_LABELS[k]}
               </Link>
             ) : (
