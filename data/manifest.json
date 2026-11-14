@@ -1,8 +1,8 @@
 {
  "format": 1,
- "data_version": "2026-11-14-609589f6",
- "content_sha256": "609589f617a19140c8ef5d0a842e84dba05815f4eb74809361ab15485585e1fd",
- "written_utc": "2026-11-14T12:33:35Z",
+ "data_version": "2026-11-14-00915107",
+ "content_sha256": "0091510750e662c9f35a9a70b3c6a09110e5bd0accfc0d93695dd5bf5a304110",
+ "written_utc": "2026-11-14T17:21:25Z",
  "about": "Every data file the app reads, as web/public/data lays them out. Check a folder with: uv run python -m lunar_pipeline.cli check-data",
  "groups": [
   {"id": "core", "title": "the site catalogue, the hourly Sun and Earth table and the sites' horizon masks", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "No forecast can be shown: Explore, the site list, Compare and the brief say the data could not be loaded.", "bytes": 2876180, "files": [
@@ -824,15 +824,6 @@
    {"path": "terrain/south_pole.context.u16", "bytes": 444715, "sha256": "74c1a388084c70afbb045df92bad68ad7f7cf6f6745b2b5e7d2d827e14808e58"},
    {"path": "terrain/south_pole.json", "bytes": 611, "sha256": "2ffb4ebde4e8afef53b00eb7419de714f83fb6e413434c6d6a4be488b30b6612"},
    {"path": "terrain/south_pole.u16", "bytes": 1544883, "sha256": "5416f26c2a5273bcece492d918c3a237fe21bcc666ffab20ddc4939722897246"}
-  ]},
-  {"id": "globe", "title": "the Moon from space, which no page reads now", "required": false, "origin": "made by the pipeline", "get": ["fetch --group lola --group globe", "tiles", "globe", "sync-local --tiles"], "without": "Nothing: the home page's descent ships its own pictures.", "bytes": 5514021, "files": [
-   {"path": "globe/manifest.json", "bytes": 970, "sha256": "d3971466585f07d260387f4c0a08ab371f094709a32ce2789404ca9c91e55d7c"},
-   {"path": "globe/moon_color_1k.jpg", "bytes": 111423, "sha256": "a5e62538258f04b34a51770b8878d10662f72bc2715bfa96ff14eb771d42cf16"},
-   {"path": "globe/moon_color_4k.jpg", "bytes": 1786643, "sha256": "27d8244c01cabc1b43678b7f87b210c1e1c76bc0fa71dffc7efe312f2218ba03"},
-   {"path": "globe/moon_heights_1440.json", "bytes": 230, "sha256": "00a6209a090c301483a0aaa100af3d747b906f90b7544f2aeb68e0885355fb00"},
-   {"path": "globe/moon_heights_1440.u16", "bytes": 1973076, "sha256": "933643e9991e549ed95f3b73dfab7dabe4a0bc88889182ef9b7741af7d6180b0"},
-   {"path": "globe/moon_normal_1k.jpg", "bytes": 82908, "sha256": "aa6e8fd329a65822233e1fdecb9c3379e8cf810a41b70d5460659a0fddec3394"},
-   {"path": "globe/moon_normal_4k.jpg", "bytes": 1558771, "sha256": "7a5b9b24c7fcf34b62964a2a64c93fccc31e103e8784c6ee3e0d0823870a1611"}
   ]},
   {"id": "fixtures", "title": "the test fixtures", "required": false, "origin": "committed in data/", "get": ["sync-local"], "without": "Nothing: the app does not read them (the tests read them from data/fixtures).", "bytes": 231968, "files": [
    {"path": "fixtures/horizons/blue_ghost_m1_earth.json", "bytes": 2558, "sha256": "2170792b7c10ae9f7856460a4cfd0165ba76d658cc4ba2039394da19f56813f2"},

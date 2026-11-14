@@ -1,4 +1,4 @@
-"""Copy committed artifacts (and optionally the DEM tiles, the 3D terrain rasters and the globe) into web/public/data for local development."""
+"""Copy committed artifacts (and optionally the DEM tiles and the 3D terrain rasters) into web/public/data for local development."""
 
 from __future__ import annotations
 
@@ -57,8 +57,4 @@ def sync(web_data: Path = WEB_DATA, tiles: bool = False, catalogue: Path = CATAL
         if terrain.exists():  # heightmap windows, south cap and globe texture from the terrain command
             shutil.copytree(terrain, web_data / "terrain", dirs_exist_ok=True)
             copied.append(web_data / "terrain")
-        globe = config.OUT_DIR / "globe"
-        if globe.exists():  # the Moon from space for the home page's arrival (the globe command)
-            shutil.copytree(globe, web_data / "globe", dirs_exist_ok=True)
-            copied.append(web_data / "globe")
     return copied
