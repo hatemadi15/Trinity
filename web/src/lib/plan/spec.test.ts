@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sites } from '@/test/file-loaders';
-import { DEFAULT_SPEC, hearSpec, mergeHeard, specLines, spokenReadBack, whereSites } from './spec';
+import { applyPatch, DEFAULT_SPEC, hearSpec, mergeHeard, specLines, spokenReadBack, whereSites } from './spec';
 
 const EXAMPLE =
   'We need at least five days of power, Earth in view when we land, no radio gap longer than three days, a 300 watt load and a 3 kilowatt-hour battery, landing between March and June 2027, near the Artemis III regions.';
@@ -73,5 +73,12 @@ describe('the mission specification, heard in plain words', () => {
     expect(near).not.toContain('shackleton_center_rim_high');
     expect(near).not.toContain('nobile_rim_2');
     expect(whereSites({ kind: 'sites', ids: ['shackleton_center_rim_high'] }, sites)).toHaveLength(1);
+  });
+
+  it('reads back a ranking by priorities with its weights, on the page and aloud', () => {
+    const { spec, from } = applyPatch(DEFAULT_SPEC, {}, { objective: 'weighed', priorities: { power: 1, contact: 7, gap: 3 } }, 'edited');
+    expect(specLines(spec, from, sites).find((l) => l.label === 'Ranked by')).toEqual({ label: 'Ranked by', value: 'requirements met first, then your priorities (power 1, Earth in view 7, shorter gaps 3)', isDefault: false });
+    expect(spokenReadBack(spec, from, sites)).toContain('ranked by your priorities (power 1, Earth in view 7, shorter gaps 3)');
+    expect(DEFAULT_SPEC.priorities).toEqual({ power: 1, contact: 1, gap: 1 });
   });
 });

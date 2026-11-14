@@ -82,7 +82,24 @@ const pts = (v: number) => v.toFixed(1);
 /** A choice's score in one line, each measure's part after it: "Score 72.4 of 100: power 40.1, Earth in view 20.0, shorter gaps 12.3." */
 export function scoreWords(o: Outcome, p: Priorities): string {
   const s = weighedScore(o, p);
-  return `Score ${pts(s.score)} of 100: power ${pts(s.parts.power)}, Earth in view ${pts(s.parts.contact)}, shorter gaps ${pts(s.parts.gap)}.`;
+  return `Score ${pts(s.score)} of 100: ${partsWords(s)}.`;
+}
+
+const GAINS: Record<keyof WeighedScore['parts'], string> = { power: 'more power', contact: 'more Earth in view', gap: 'shorter gaps' };
+
+/**
+ * Why a higher weighed score ranks first, with the measure that gains it most: "It scores 58.2 against 51.0 for the
+ * next: more Earth in view." Each score's three parts are given with the choice itself (scoreWords).
+ */
+export function scoreAbove(a: WeighedScore, b: WeighedScore, other: string): string {
+  const keys: (keyof WeighedScore['parts'])[] = ['power', 'contact', 'gap'];
+  const main = keys.reduce((m, k) => (a.parts[k] - b.parts[k] > a.parts[m] - b.parts[m] ? k : m), keys[0]);
+  return `It scores ${pts(a.score)} against ${pts(b.score)} for ${other}: ${GAINS[main]}.`;
+}
+
+/** A score's three parts in words: "power 40.1, Earth in view 20.0, shorter gaps 12.3". */
+export function partsWords(s: WeighedScore): string {
+  return `power ${pts(s.parts.power)}, Earth in view ${pts(s.parts.contact)}, shorter gaps ${pts(s.parts.gap)}`;
 }
 
 /** What the recommendations are ranked by, in words, for where they appear; the weighed rule with its formula. */
@@ -178,7 +195,7 @@ export function whyAbove<T>(a: Option<T>, b: Option<T>, kind: 'time' | 'place', 
     const A = weighedScore(a.outcome, by.priorities);
     const B = weighedScore(b.outcome, by.priorities);
     if (A.score - B.score < TIE) return `It ties with ${other} on your priorities and comes first as the ${kind === 'time' ? 'earlier time' : 'nearer place'}.`;
-    return `It scores ${pts(A.score)} against ${pts(B.score)} for ${other}: power ${pts(A.parts.power)} against ${pts(B.parts.power)}, Earth in view ${pts(A.parts.contact)} against ${pts(B.parts.contact)}, shorter gaps ${pts(A.parts.gap)} against ${pts(B.parts.gap)}.`;
+    return scoreAbove(A, B, other);
   }
   const dp = a.outcome.poweredH - b.outcome.poweredH;
   if (dp > 0) return `Power lasts ${spanShort(dp)} longer than ${other}.`;

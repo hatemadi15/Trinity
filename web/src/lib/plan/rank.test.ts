@@ -92,15 +92,16 @@ describe('the weighed ranking rule', () => {
     expect(whyAbove(a, b, 'place', 'the next', balanced)).toBe('It ties with the next on your priorities and comes first as the nearer place.');
   });
 
-  it('says why a choice ranks above the next with both scores and each measure’s part', () => {
+  it('says why a choice ranks above the next with both scores and the measure that gains it most', () => {
     const a = optionOf('a', outcome(720, 360, 100), NO_REQUIREMENTS);
     const b = optionOf('b', outcome(360, 360, 100), NO_REQUIREMENTS);
     const A = weighedScore(a.outcome, { power: 1, contact: 1, gap: 1 });
     const B = weighedScore(b.outcome, { power: 1, contact: 1, gap: 1 });
     const why = whyAbove(a, b, 'time', 'landing at the period start', balanced);
-    expect(why).toBe(
-      `It scores ${A.score.toFixed(1)} against ${B.score.toFixed(1)} for landing at the period start: power ${A.parts.power.toFixed(1)} against ${B.parts.power.toFixed(1)}, Earth in view ${A.parts.contact.toFixed(1)} against ${B.parts.contact.toFixed(1)}, shorter gaps ${A.parts.gap.toFixed(1)} against ${B.parts.gap.toFixed(1)}.`,
-    );
+    // Twice the power, the same Earth in view and gaps: the power gains it.
+    expect(why).toBe(`It scores ${A.score.toFixed(1)} against ${B.score.toFixed(1)} for landing at the period start: more power.`);
+    const c = optionOf('c', outcome(360, 360, 10), NO_REQUIREMENTS);
+    expect(whyAbove(c, b, 'time', 'the next', balanced)).toMatch(/ for the next: shorter gaps\.$/);
     // A failed requirement still decides first, in the same words as the default ranking.
     const req = { ...NO_REQUIREMENTS, minPoweredH: 500 };
     expect(whyAbove(optionOf('a', a.outcome, req), optionOf('b', b.outcome, req), 'time', 'the next', balanced)).toMatch(/^It meets every requirement; the next fails one: power for at least 20 d/);

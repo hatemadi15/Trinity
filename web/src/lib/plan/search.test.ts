@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readJson } from '@/lib/engine/__tests__/helpers';
 import { eph, sites } from '@/test/file-loaders';
-import { answerOf, planStep, searchSite, spokenSummary, type SiteInput } from './search';
-import { DEFAULT_SPEC, hearSpec, mergeHeard, whereSites } from './spec';
+import { answerOf, planRankWords, planStep, searchSite, spokenSummary, type SiteInput } from './search';
+import { weighedScore } from './rank';
+import { applyPatch, DEFAULT_SPEC, hearSpec, mergeHeard, whereSites } from './spec';
 
 const EXAMPLE =
   'We need at least five days of power, Earth in view when we land, no radio gap longer than three days, a 300 watt load and a 3 kilowatt-hour battery, landing between March and June 2027, near the Artemis III regions.';
@@ -69,5 +70,22 @@ describe('the search over sites and landing times', () => {
     expect(said).toMatch(/^I searched 9 sites and 26,352 landing times in 0\.4 seconds\. The best is /);
     expect(said).toMatch(/UTC/);
     expect(said).toMatch(/Say plan this landing/);
+  });
+
+  it('ranks by the priorities picked when asked, gives each site’s score and parts in why it comes first, and states the rule', () => {
+    const heard = mergeHeard(DEFAULT_SPEC, {}, hearSpec('a 300 watt load, landing between March and June 2027, near the Artemis III regions', sites));
+    const contact = applyPatch(heard.spec, heard.from, { objective: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } }, 'edited').spec;
+    const list = inputs(whereSites(contact.where, sites).map((s) => s.id));
+    const findings = list.map((x) => searchSite(eph, x, contact, 6));
+    const answer = answerOf(findings, contact);
+    const scores = answer.shown.map((f) => weighedScore(f.best!.outcome, contact.priorities).score);
+    // Best first by the score, every site's best landing time the best it found by the same rule.
+    expect([...scores].sort((a, b) => b - a)).toEqual(scores);
+    expect(answer.headline).toMatch(/ranked by your priorities \(power 1, Earth in view 5, shorter gaps 1\) alone/);
+    expect(answer.why[0]).toMatch(/^It scores \d+\.\d against \d+\.\d for .+: (more power|more Earth in view|shorter gaps)\.$/);
+    expect(planRankWords(contact)).toMatch(/^Ranked by your priorities: power 1, Earth in view 5, shorter gaps 1\. .*0\.55x \+ 0\.30√x \+ 0\.15x²/);
+    expect(planRankWords(DEFAULT_SPEC)).toBe('Ranked by the longest continuous time with power from landing; ties go to more Earth contact while powered, then to the earlier landing.');
+    // Priorities the rule cannot use are not taken: the ones before stay.
+    expect(applyPatch(contact, {}, { priorities: { power: 0, contact: 0, gap: 0 } }, 'edited').spec.priorities).toEqual({ power: 1, contact: 5, gap: 1 });
   });
 });
