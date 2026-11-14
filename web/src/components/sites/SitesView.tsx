@@ -383,15 +383,15 @@ export function SitesView({ store = exploreStore, navigate, coldTraps }: { store
                   {/* The column heads, each with what it means one point away. The rows say their own heads to a screen reader. */}
                   <div className={`${COLUMNS} mt-5 border-b border-ink px-3 pb-2 text-[15px] font-semibold text-ink-2`}>
                     <span aria-hidden="true">Site</span>
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex flex-wrap items-center gap-x-1.5">
                       <span aria-hidden="true">Sunlight</span>
                       <Tip label="What Sunlight means">The share of the days after landing when the Sun stands above the hills around the site, so its panels get light.</Tip>
                     </span>
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex flex-wrap items-center gap-x-1.5">
                       <span aria-hidden="true">Earth in view (radio)</span>
                       <Tip label="What Earth in view means">The share of those days when Earth stands above the hills, so the lander can talk to Earth directly by radio.</Tip>
                     </span>
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex flex-wrap items-center gap-x-1.5">
                       <span aria-hidden="true">Longest time with power</span>
                       <Tip label="What Longest time with power means" side="right">
                         How long the example lander keeps its battery up, landing on the site&apos;s best day. Green: two weeks or more.
