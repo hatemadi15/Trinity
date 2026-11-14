@@ -43,6 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("fixture-shadow", help="write golden shadow-sweep fixtures for the TS port")
     sub.add_parser("fixture-sky", help="write SPICE fixtures for the web's sky maths")
     sub.add_parser("validate", help="write validation tables (Horizons, Mazarico, backcasts) into data/validation")
+    sub.add_parser("pgda90-fetch", help="download PGDA product 90's adjusted 80 m and 240 m models and their height errors")
+    un = sub.add_parser("uncertainty", help="write the uncertainty budget (sampling, terrain, ephemeris) into data/uncertainty")
+    un.add_argument("--site", action="append", help="only these sites (default: every featured site)")
+    un.add_argument("--start", default="2025-01-01T00:00:00")
+    un.add_argument("--days", type=int, default=730)
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
     sub.add_parser("home-assets", help="render the home page picture, the relief map and home.json into web/")
@@ -123,6 +128,15 @@ def main(argv: list[str] | None = None) -> None:
 
         for path in write_all():
             print(path)
+    elif args.cmd == "pgda90-fetch":
+        from .pgda90 import fetch_full
+
+        for path in fetch_full():
+            print(path)
+    elif args.cmd == "uncertainty":
+        from .uncertainty import build, write_doc
+
+        print(write_doc(build(site_ids=args.site, start_utc=args.start, days=args.days)))
     elif args.cmd == "publish-r2":
         from .publish_r2 import publish
         publish(prefix=args.prefix, dry_run=args.dry_run)
