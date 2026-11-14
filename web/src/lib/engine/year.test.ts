@@ -6,7 +6,7 @@ import { hourlySeries } from './metrics';
 import { DEFAULT_PARAMS, recompute } from '../store/explore';
 import { isoAt } from '../viz/format';
 import { utcToEt } from './time';
-import { runAll, runSliced, YEAR_DAYS, yearDayCount, yearSteps, type YearInput } from './year';
+import { nextTask, runAll, runSliced, YEAR_DAYS, yearDayCount, yearSteps, type YearInput } from './year';
 
 const site = sites.find((s) => s.id === 'de_gerlache_rim_2')!;
 const mask = Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'masks', 'de_gerlache_rim_2.json').elevation_deg);
@@ -70,7 +70,8 @@ describe('the year of landing days', () => {
       pauses++;
       next = steps.next();
     }
-    expect(pauses).toBeGreaterThanOrEqual(12);
+    // Two months of hours a slice: the year and a 90-day period after its last day take eight.
+    expect(pauses).toBe(8);
     const whole = landingScores(hourlySeries(site, mask, eph, utcToEt('2027-01-01T00:00:00'), 364 * 24 + 90 * 24), DEFAULT_PARAMS.power, { from: 0, to: 364 * 24 + 1, step: 24, capHours: 90 * 24 });
     expect(Array.from(next.value.powered)).toEqual(Array.from(whole.powered));
     expect(Array.from(next.value.contact)).toEqual(Array.from(whole.contact));
@@ -82,11 +83,26 @@ describe('the year of landing days', () => {
       paints++;
     });
     expect(done?.count).toBe(365);
-    expect(paints).toBeGreaterThanOrEqual(12);
+    expect(paints).toBe(7);
     let checks = 0;
     const stale = await runSliced(yearSteps(eph, input({ days: 14 })), () => ++checks > 2, async () => {});
     expect(stale).toBeNull();
     expect(checks).toBe(3);
+  });
+
+  it('pauses with the browser\'s own yield where there is one, else with a timer', async () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'scheduler');
+    const yielded: string[] = [];
+    Object.defineProperty(globalThis, 'scheduler', { configurable: true, value: { yield: async () => void yielded.push('yield') } });
+    try {
+      await nextTask();
+      expect(yielded).toEqual(['yield']);
+    } finally {
+      if (original) Object.defineProperty(globalThis, 'scheduler', original);
+      else delete (globalThis as { scheduler?: unknown }).scheduler;
+    }
+    await nextTask();
+    expect(yielded).toEqual(['yield']);
   });
 
   it('gives an empty year when not one period fits before the table ends', () => {

@@ -6,8 +6,8 @@ import { utcToEt } from './time';
 
 /** The landing days of the year a best-date search covers. */
 export const YEAR_DAYS = YEAR_HOURS / 24;
-/** Hours of the hourly series worked out between two pauses: a month, a few milliseconds. */
-export const SLICE_HOURS = 30 * 24;
+/** Hours of the hourly series worked out between two pauses: two months, a few milliseconds even on a slow phone. */
+export const SLICE_HOURS = 61 * 24;
 
 /** What the year is worked out for: the site, its skyline, the first landing, the period's length and the lander. */
 export interface YearInput {
@@ -99,8 +99,14 @@ export function runAll<T>(steps: Generator<void, T, void>): T {
   }
 }
 
-/** A pause that lets the page paint and answer a key before the next slice. */
-export const nextTask = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+/**
+ * A pause that lets the page paint and answer a key before the next slice: the browser's own yield where it has one,
+ * which picks the work up again first and skips a timer's 4 ms floor, else a timer.
+ */
+export function nextTask(): Promise<void> {
+  const scheduler = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler;
+  return scheduler?.yield ? scheduler.yield() : new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
 
 /**
  * Runs the steps with a pause after each, as the site list is worked out site by site; null as soon as `stale` says
