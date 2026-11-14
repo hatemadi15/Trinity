@@ -5,7 +5,7 @@ import pytest
 from lunar_pipeline import config
 from lunar_pipeline.fixtures import metrics_fixture, time_pairs, write_metrics_fixture, write_time_fixture
 from lunar_pipeline.sync_local import sync
-from tests.conftest import needs_kernels, needs_lola
+from tests.conftest import needs_illum, needs_kernels, needs_lola
 
 
 @needs_kernels
@@ -31,6 +31,7 @@ def test_write_time_fixture(tmp_path):
 @pytest.mark.data
 @needs_kernels
 @needs_lola
+@needs_illum  # report() reads the LOLA illumination maps beside our own sums
 def test_metrics_fixture_matches_report(tmp_path):
     from lunar_pipeline.illumination import report
 
