@@ -44,7 +44,7 @@ export interface ArrivalWords { beats: string[]; siteLine: string; answer: strin
  * disagree. It is worded here, on the server, because the arrival is a client component and must not carry the home
  * page's data file to the browser for one number.
  */
-const proofSentence = (doc: HomeDoc) => `Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to ${degreesText(doc.facts.horizons_worst_el_deg)} and against real landers.`;
+const proofSentence = (doc: HomeDoc) => `Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to ${degreesText(doc.facts.horizons_worst_el_deg)} and LOLA sunlight maps.`;
 
 /**
  * The arrival's words, worked out on the server so they are page text: the beats, then standing at the site

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+from pathlib import Path
+
+from . import config
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -42,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     fl.add_argument("--days", type=int, default=30)
     sub.add_parser("fixture-shadow", help="write golden shadow-sweep fixtures for the TS port")
     sub.add_parser("fixture-sky", help="write SPICE fixtures for the web's sky maths")
-    sub.add_parser("validate", help="write validation tables (Horizons, Mazarico, backcasts) into data/validation")
+    sub.add_parser("validate", help="write the evidence tables (Horizons, LOLA maps, power sums, mission context) into data/validation")
     sub.add_parser("pgda90-fetch", help="download PGDA product 90's adjusted 80 m and 240 m models and their height errors")
     un = sub.add_parser("uncertainty", help="write the uncertainty budget (sampling, terrain, ephemeris) into data/uncertainty")
     un.add_argument("--site", action="append", help="only these sites (default: every featured site)")
@@ -51,6 +55,10 @@ def build_parser() -> argparse.ArgumentParser:
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
     sub.add_parser("home-assets", help="render the home page picture, the relief map and home.json into web/")
+    sub.add_parser("manifest", help="write data/manifest.json: every data file the app reads, with its size and SHA-256")
+    cd = sub.add_parser("check-data", help="check a data folder against data/manifest.json and say what is complete or missing")
+    cd.add_argument("--root", type=Path, default=config.REPO_ROOT / "web" / "public" / "data", help="the folder to check (default: web/public/data)")
+    cd.add_argument("--json", action="store_true", help="print the report as JSON, with the downloads the pipeline's tests read")
     pr = sub.add_parser("publish-r2", help="upload web/public/data to the Cloudflare R2 bucket named by R2_BUCKET")
     pr.add_argument("--dry-run", action="store_true", help="print the upload plan and exit")
     pr.add_argument("--prefix", default="data", help="key prefix inside the bucket (default: data)")
@@ -137,6 +145,21 @@ def main(argv: list[str] | None = None) -> None:
         from .uncertainty import build, write_doc
 
         print(write_doc(build(site_ids=args.site, start_utc=args.start, days=args.days)))
+    elif args.cmd == "manifest":
+        from . import manifest
+
+        path = manifest.write()
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        print(f"{path}: data version {doc['data_version']}, {sum(len(g['files']) for g in doc['groups'])} files")
+    elif args.cmd == "check-data":
+        from . import manifest
+
+        report = manifest.check(args.root)
+        if args.json:
+            print(json.dumps({**report, "sources": manifest.sources_present()}, indent=1))
+        else:
+            print(manifest.words(report))
+        sys.exit(0 if report["ok"] else 1)
     elif args.cmd == "publish-r2":
         from .publish_r2 import publish
         publish(prefix=args.prefix, dry_run=args.dry_run)

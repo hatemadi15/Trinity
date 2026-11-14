@@ -172,7 +172,8 @@ export function GroundPanel({
     choose(TABS[to].id);
   };
 
-  const missing = loading ? 'Loading the terrain…' : 'The terrain files are not on this machine.';
+  // Without the terrain files the tab says so and names what works without them (data/manifest.json's terrain part).
+  const missing = loading ? 'Loading the terrain…' : 'This copy of Earthrise has no terrain files, so the ground cannot be drawn here. The Horizon chart tab works without them.';
   // The window's width, for the line under the tabs and the 3D caption alike.
   const windowKm = heightmap ? Math.round((heightmap.meta.width * heightmap.meta.cell_m) / 1000) : null;
   let caption3d: string;

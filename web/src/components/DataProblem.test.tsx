@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DataProblem } from './DataProblem';
+import { DataProblem, SYNC_HINT } from './DataProblem';
 
 const ERROR = 'could not load /data/sites.json (HTTP 404)';
 const HINT = (
@@ -37,6 +37,14 @@ describe('DataProblem', () => {
   it('gives a developer the error alone when there is no way out to name', () => {
     render(<DataProblem error={ERROR} />);
     expect(lines()[2]).toBe(` (${ERROR})`);
+  });
+
+  it('gives the command that works on a fresh clone first, and the one for the built tiles after it', () => {
+    render(<DataProblem error={ERROR} hint={SYNC_HINT} />);
+    expect(lines()[2]).toBe(
+      `Run uv run python -m lunar_pipeline.cli sync-local inside pipeline/ and reload this page. Once the tiles are built (the full data in the README), sync-local --tiles copies them too. (${ERROR})`,
+    );
+    expect([...screen.getByRole('alert').querySelectorAll('code')].map((c) => c.textContent)).toEqual(['uv run python -m lunar_pipeline.cli sync-local', 'pipeline/', 'sync-local --tiles']);
   });
 
   it('keeps the way out and the error off a public page', () => {

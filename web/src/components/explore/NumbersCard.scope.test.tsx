@@ -10,7 +10,7 @@ import { NumbersCard } from './NumbersCard';
 const site = { id: 'de_gerlache_rim_2', name: 'de Gerlache Rim 2 (Artemis III region)', label: 'de Gerlache Rim 2', lat: -88.28, lon: -64.31, category: 'artemis3', polar: true, source: 'x' };
 const summary: Summary = { hours: 720, illumFraction: 0.4458, meanSunFraction: 0.44, longestDarkH: 399, earthVisFraction: 0.45, longestEarthGapH: 396, jointFraction: 0.2 };
 const power = simulateBattery(Float64Array.from({ length: 720 }, (_, h) => (h < 66 ? 1600 : 0)), DEFAULT_POWER);
-/** The period hour by hour, for the card's line on the Sun's height: up for 66 hours, then set. */
+/** The Sun 1.6° up until it sets at hour 66, then below the horizon; Earth out of view. */
 const series: Series = {
   i0: 0,
   hours: 720,

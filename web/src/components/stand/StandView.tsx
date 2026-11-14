@@ -353,8 +353,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // stand, kept on one line ("de Gerlache Rim 2", never "Rim / 2").
   const title = standHeadline(answer.title, name, series, power, s.startUtc, answer.contactHours, answer.poweredHours);
   const oneLine = name.replace(/ /g, ' ');
-  // Without NASA heights the ground is drawn flat, and the card's line on where you stand says so.
-  const flat = !!scene && scene.field.levels.length === 0;
+  // Without NASA heights the ground is drawn flat, and the card's line on where you stand says so: at a polar site that
+  // has them, flat because this copy of Earthrise lacks the terrain files ('no-terrain').
+  const flat = !!scene && scene.field.levels.length === 0 && (site.polar && s.terrainState === 'unavailable' ? 'no-terrain' : true);
   // With the battery's level while it has power, as the forecast page gives it.
   const lander = statusLine(series, power, s.startUtc, hour, s.params.power.batteryWh);
   // The better landing day opens its own view, from its first hour; the button says why it is better: the power and

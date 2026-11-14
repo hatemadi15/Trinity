@@ -661,6 +661,13 @@ describe('what to watch for', () => {
     // A site without a note of its own: the latitude alone.
     expect(standingLine(mare, 'Blue Ghost Mission 1', 'more')).toBe('Blue Ghost Mission 1 lies at 18.6° N.');
   });
+  // A polar site has NASA heights, but a copy of Earthrise set up with the committed data alone has no terrain files.
+  it('says the ground is drawn flat because the terrain files are missing, where the site has NASA heights', () => {
+    const site = { name: 'de Gerlache Rim 2', lat: -88.28, lon: -64.31 };
+    expect(standingLine(site, 'de Gerlache Rim 2', 'top', 'no-terrain')).toBe(
+      "Standing at de Gerlache Rim 2, near the Moon's south pole. Ground drawn flat: this copy of Earthrise has no terrain files. Small craters and rocks: added to look real.",
+    );
+  });
   // Blue Ghost's site has no NASA heights: its ground is drawn flat, under a flat horizon.
   it('says the ground is drawn flat where there are no NASA heights, and claims no hills', () => {
     const mare = { name: 'Blue Ghost', lat: 18.56, lon: 61.81 };
