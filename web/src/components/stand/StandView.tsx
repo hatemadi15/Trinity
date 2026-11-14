@@ -26,7 +26,7 @@ import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { trustedAnswer } from '@/lib/viz/terrain';
 import { dateLong, dayMonth } from '@/lib/viz/format';
-import { betterChip, betterLabel, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyCountdown, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
+import { betterChip, betterLabel, requirementReason, withReason, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyCountdown, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
@@ -377,11 +377,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // the radio from that landing, in today's card and in the next step's row alike (18.3); a phone's chip gives the
   // power alone.
   const betterOutcome = answer.better && times?.better ? times.better.outcome : null;
+  // A day better for the requirements than for its power says so first: its figures alone would not say why.
+  const reason = times?.better ? requirementReason(times.better, times.current) : null;
   const better =
     answer.better && betterOutcome
       ? {
-          label: betterLabel(dateLong(s.startUtc, answer.better.hour), betterOutcome.poweredH, betterOutcome.poweredContactH),
-          chip: betterChip(dayMonth(s.startUtc, answer.better.hour), betterOutcome.poweredH),
+          label: withReason(betterLabel(dateLong(s.startUtc, answer.better.hour), betterOutcome.poweredH, betterOutcome.poweredContactH), reason),
+          chip: withReason(betterChip(dayMonth(s.startUtc, answer.better.hour), betterOutcome.poweredH), reason),
           startUtc: answer.better.startUtc,
           href: `${withSettings(standHref(site.id, answer.better.startUtc, s.days, 0), s.params, s.requirements)}${quality === 'fast' ? '&quality=fast' : ''}`,
         }

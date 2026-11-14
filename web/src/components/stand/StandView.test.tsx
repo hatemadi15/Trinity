@@ -1180,7 +1180,8 @@ describe('StandView', () => {
     await firstStep();
     openCard();
     const card = document.getElementById('stand-card')!;
-    const better = within(card).getByRole('link', { name: /^Try 10 January instead: power for 22\sdays\s16\shours, radio for 13\sdays\s10\shours$/ });
+    // It says first that it meets the requirement: from the 1st the power lasts longer, and the radio as long.
+    const better = within(card).getByRole('link', { name: /^Try 10 January instead: meets your requirement, power for 22\sdays\s16\shours, radio for 13\sdays\s10\shours$/ });
     // Its view, the way back to Explore and the address keep the requirement.
     expect(better.getAttribute('href')).toBe('/explore/stand?site=shackleton_center_rim_high&start=2027-01-10T09:00&days=30&hour=0&earthby=0');
     expect(within(card).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=shackleton_center_rim_high&start=2027-01-01&days=30&earthby=0');
