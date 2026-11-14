@@ -135,7 +135,7 @@ describe('BriefView narration', () => {
     expect(screen.getByText(/written by the app from the figures below/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByTestId('narration').textContent).toBe('Model paragraph about the rim.'));
-    expect(screen.getByText(/narrated by gemma-4-31b/)).toBeTruthy();
+    expect(screen.getByText(/^narrated by gemma-4-31b; each number, unit and cause checked against the figures below$/)).toBeTruthy();
     expect(narrate).toHaveBeenCalledTimes(1);
     expect((narrate.mock.calls[0] as unknown[])[0]).toMatchObject({ site: { id: 'shackleton_center_rim_high' } });
   });
@@ -163,14 +163,18 @@ describe('BriefView narration labels', () => {
     const narrate = vi
       .fn()
       .mockResolvedValueOnce({ source: 'template', reason: 'cached', reply: 'T1' })
-      .mockResolvedValueOnce({ source: 'template', reason: 'numbers', reply: 'T2' })
+      .mockResolvedValueOnce({ source: 'template', reason: 'numbers', problems: ['"67 %" for sunlight, where the figures say 100 %'], reply: 'T2' })
       .mockRejectedValueOnce(new Error('Too many questions; try again in 12 s.'));
     render(<BriefView store={store} narrate={narrate} />);
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByText(/demo mode; written by the app from the figures below/)).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
-    await waitFor(() => expect(screen.getByText(/did not pass the number check/)).toBeTruthy());
+    // The template stands, and the page says what in the model's paragraph did not match.
+    await waitFor(() =>
+      expect(screen.getByText(/^the model's paragraph did not match the figures \("67 %" for sunlight, where the figures say 100 %\); written by the app from the figures below$/)).toBeTruthy(),
+    );
+    expect(screen.getByTestId('narration').textContent).toBe('T2');
     fireEvent.click(screen.getByRole('button', { name: 'Let the assistant write it' }));
     await waitFor(() => expect(screen.getByText(/try again in 12 s/)).toBeTruthy());
     expect(screen.getByTestId('narration').textContent).toMatch(/keeps power for all 30 days/);

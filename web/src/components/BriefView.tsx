@@ -17,12 +17,12 @@ import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { hillsToward } from '@/lib/viz/timechart';
 
-type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; message?: string };
+type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; problems?: string[]; message?: string };
 
 /** The line under the summary paragraph: who wrote it, or why the template stands. */
 function narrationLabelFor(n: Narration | null): string {
   if (!n) return 'written by the app from the figures below';
-  if (n.source === 'model') return `narrated by ${n.model ? shortModel(n.model) : 'the model'}, checked number by number against the figures below`;
+  if (n.source === 'model') return `narrated by ${n.model ? shortModel(n.model) : 'the model'}; each number, unit and cause checked against the figures below`;
   if (n.source === 'error') return n.message?.startsWith('Too many') ? `${n.message} Written by the app from the figures below.` : 'the assistant is offline; written by the app from the figures below';
   switch (n.reason) {
     case 'cached':
@@ -32,7 +32,7 @@ function narrationLabelFor(n: Narration | null): string {
     case 'model-error':
       return 'the model did not answer; written by the app from the figures below';
     default:
-      return "the model's paragraph did not pass the number check; written by the app from the figures below";
+      return `the model's paragraph did not match the figures${n.problems?.length ? ` (${n.problems[0]})` : ''}; written by the app from the figures below`;
   }
 }
 
@@ -95,7 +95,7 @@ export function BriefView({
     setWriting(true);
     try {
       const r = await (narrate ?? ((st: StateSummary) => askNarration(st, store.getState().aiMode)))(stateSummary);
-      setNarration({ text: r.reply, source: r.source, model: r.model, reason: r.reason });
+      setNarration({ text: r.reply, source: r.source, model: r.model, reason: r.reason, problems: r.problems });
     } catch (err) {
       setNarration({ text: template, source: 'error', message: err instanceof Error ? err.message : String(err) });
     } finally {
