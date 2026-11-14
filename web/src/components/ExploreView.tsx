@@ -46,7 +46,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   const landerRef = useRef<HTMLButtonElement>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const shareRef = useRef<HTMLButtonElement>(null);
-  const dataVersions = useDataVersions();
+  const dataVersions = useDataVersions(shareOpen);
   const reducedMotion = useReducedMotion();
   useDemoMode(store);
 
@@ -243,7 +243,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
           <ShareDialog
             input={{ site, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph, series: s.series, power: s.power, summary: s.summary, maskMeta: s.maskMeta, best: s.best }}
             link={new URL(link, window.location.origin).href}
-            versions={{ app: appVersion(), data: dataVersions ?? { sites: null, ephemeris: null } }}
+            versions={{ app: appVersion(), data: dataVersions ?? { data: null, sites: null, ephemeris: null } }}
             onClose={() => setShareOpen(false)}
             returnFocus={shareRef}
           />

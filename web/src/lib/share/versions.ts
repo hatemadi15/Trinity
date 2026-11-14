@@ -15,6 +15,8 @@ export function appVersion(): AppVersion {
 
 /** The versions the data files give for themselves; each one null when its file does not say or cannot be read. */
 export interface DataVersions {
+  /** The data version of manifest.json beside the data (the pipeline's manifest command): a date and a hash over every file. */
+  data: string | null;
   /** The site catalogue's version: sites.json, and sites_derived.json beside it. */
   sites: string | null;
   /** When the hourly Sun and Earth table was made, and the start of its SHA-256. */
@@ -23,10 +25,11 @@ export interface DataVersions {
 
 type Fetch = <T>(url: string) => Promise<T>;
 
-/** Reads the catalogue's and the ephemeris table's own version lines; the browser has both files cached by then. */
+/** Reads the data manifest's version and the catalogue's and the ephemeris table's own; the browser has the last two cached by then. */
 export async function loadDataVersions(base: string, get: Fetch = fetchJson): Promise<DataVersions> {
   const version = (doc: { version?: unknown } | null) => (doc && (typeof doc.version === 'number' || typeof doc.version === 'string') ? String(doc.version) : null);
-  const [featured, derived, header] = await Promise.all([
+  const [manifest, featured, derived, header] = await Promise.all([
+    get<{ data_version?: unknown }>(`${base}/manifest.json`).catch(() => null),
     get<{ version?: unknown }>(`${base}/sites.json`).catch(() => null),
     get<{ version?: unknown }>(`${base}/sites_derived.json`).catch(() => null),
     get<{ generated_utc?: unknown; table_sha256?: unknown }>(`${base}/ephemeris/moon_me_2024_2036_1h.json`).catch(() => null),
@@ -36,5 +39,6 @@ export async function loadDataVersions(base: string, get: Fetch = fetchJson): Pr
   const sites = a === null ? null : b === null ? `sites.json version ${a}` : `sites.json version ${a}, sites_derived.json version ${b}`;
   const ephemeris =
     header && typeof header.generated_utc === 'string' && typeof header.table_sha256 === 'string' ? { generatedUtc: header.generated_utc, sha256: header.table_sha256.slice(0, 12) } : null;
-  return { sites, ephemeris };
+  const data = manifest && typeof manifest.data_version === 'string' ? manifest.data_version : null;
+  return { data, sites, ephemeris };
 }

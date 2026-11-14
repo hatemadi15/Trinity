@@ -123,7 +123,7 @@ export function BriefView({
   const period = `the ${s.days} days from ${dateLong(s.startUtc, 0)}`;
   const every = s.days > 45 ? 10 : 5;
   const ticks = Array.from({ length: Math.floor((s.days - 1) / every) + 1 }, (_, k) => k * every);
-  const sources = collectProvenance({ site: s.site, maskMeta: s.maskMeta, params: s.params, eph: s.eph, startUtc: s.startUtc, days: s.days }, { app: appVersion(), data: dataVersions ?? { sites: null, ephemeris: null } });
+  const sources = collectProvenance({ site: s.site, maskMeta: s.maskMeta, params: s.params, eph: s.eph, startUtc: s.startUtc, days: s.days }, { app: appVersion(), data: dataVersions ?? { data: null, sites: null, ephemeris: null } });
   // The address that opens these figures on Explore, in full, so the printed page carries it.
   const shareLink = typeof window === 'undefined' ? back : new URL(back, window.location.origin).href;
   return (

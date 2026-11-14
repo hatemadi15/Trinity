@@ -6,7 +6,7 @@ import { loadDataVersions } from './versions';
 
 const site = (id: string) => sites.find((s) => s.id === id)!;
 const custom = { id: 'custom_-89.5000_10.0000', name: 'Custom site -89.500°, 10.000°', lat: -89.5, lon: 10, category: 'custom', polar: true, source: 'user' };
-const versions = { app: { version: '0.1.0', commit: 'abc123def456' }, data: { sites: 'sites.json version 1, sites_derived.json version 1', ephemeris: { generatedUtc: '2026-09-28T20:53:33+00:00', sha256: '279fad83a151' } } };
+const versions = { app: { version: '0.1.0', commit: 'abc123def456' }, data: { data: '2026-11-14-a120b7a9', sites: 'sites.json version 1, sites_derived.json version 1', ephemeris: { generatedUtc: '2026-09-28T20:53:33+00:00', sha256: '279fad83a151' } } };
 
 describe('collectProvenance', () => {
   it('names the precomputed skyline file, the LOLA grids by distance, the mast, the ephemeris and its span, in UTC', () => {
@@ -17,7 +17,7 @@ describe('collectProvenance', () => {
     expect(p.terrain.grids).toEqual(['LOLA LDEM 20 m (ldem_875s_20m) from 40 m to 6 km', 'LOLA LDEM 80 m (ldem_80s_80m) from 6 to 100 km', 'LOLA LDEM 240 m (ldem_60s_240m) from 100 to 220 km']);
     expect(p.terrain.mastM).toBe(2);
     expect(p.ephemeris).toEqual({ name: 'JPL DE440 through NAIF SPICE, the Sun and Earth seen from the Moon', firstUtc: '2024-01-01T00:00:00Z', lastUtc: '2036-12-31T23:00:00Z', stepH: 1 });
-    expect(p.versions).toEqual({ app: '0.1.0', commit: 'abc123def456', sites: 'sites.json version 1, sites_derived.json version 1', ephemeris: 'made 2026-09-28T20:53:33+00:00, SHA-256 279fad83a151' });
+    expect(p.versions).toEqual({ app: '0.1.0', commit: 'abc123def456', data: '2026-11-14-a120b7a9', sites: 'sites.json version 1, sites_derived.json version 1', ephemeris: 'made 2026-09-28T20:53:33+00:00, SHA-256 279fad83a151' });
   });
 
   it('names the coarser grids north of 87.55° S, the browser for a clicked point or another mast, and no grid for a flat horizon', () => {
@@ -28,10 +28,11 @@ describe('collectProvenance', () => {
     const point = collectProvenance({ site: custom, maskMeta: { siteHeightM: 10, source: 'computed', failedTiles: 0, mastM: 2 }, params: DEFAULT_PARAMS, eph, startUtc: '2027-03-01T10:00:00', days: 14 }, versions);
     expect(point.site.catalogue).toBe('coordinates picked on the Earthrise map');
     expect(point.period.startUtc).toBe('2027-03-01T10:00:00Z');
-    const mare = collectProvenance({ site: site('blue_ghost_m1'), maskMeta: { siteHeightM: 0, source: 'flat', failedTiles: 0, mastM: 2 }, params: DEFAULT_PARAMS, eph, startUtc: '2025-03-02T00:00:00', days: 14 }, { app: { version: null, commit: null }, data: { sites: null, ephemeris: null } });
+    const mare = collectProvenance({ site: site('blue_ghost_m1'), maskMeta: { siteHeightM: 0, source: 'flat', failedTiles: 0, mastM: 2 }, params: DEFAULT_PARAMS, eph, startUtc: '2025-03-02T00:00:00', days: 14 }, { app: { version: null, commit: null }, data: { data: null, sites: null, ephemeris: null } });
     expect(mare.terrain.grids).toEqual([]);
     expect(mare.terrain.mask).toBe('none: the site lies outside the polar elevation grids, so its horizon is taken as flat');
-    expect(mare.versions).toEqual({ app: null, commit: null, sites: null, ephemeris: null });
+    expect(mare.versions).toEqual({ app: null, commit: null, data: null, sites: null, ephemeris: null });
+    expect(Object.fromEntries(provenanceLines(mare)).Versions).toBe('Earthrise (a development build)');
   });
 
   it('lists what the model takes as given, with the settings it ran with', () => {
@@ -61,7 +62,7 @@ describe('collectProvenance', () => {
     expect(lowLines.Site).toBe('Custom site -89.500°, 10.000° (custom_-89.5000_10.0000) at 89.5000° S, 10.0000° E: coordinates picked on the Earthrise map');
     expect(lowLines.Skyline).toMatch(/; site 334 m below the Moon's mean radius$/);
     expect(lines['Sun and Earth']).toBe('JPL DE440 through NAIF SPICE, the Sun and Earth seen from the Moon, hourly from 2024-01-01 00:00 to 2036-12-31 23:00 UTC');
-    expect(lines.Versions).toBe('Earthrise 0.1.0, commit abc123def456; site catalogue sites.json version 1, sites_derived.json version 1; Sun and Earth table made 2026-09-28T20:53:33+00:00, SHA-256 279fad83a151');
+    expect(lines.Versions).toBe('Earthrise 0.1.0, commit abc123def456; data version 2026-11-14-a120b7a9; site catalogue sites.json version 1, sites_derived.json version 1; Sun and Earth table made 2026-09-28T20:53:33+00:00, SHA-256 279fad83a151');
   });
 });
 
@@ -71,14 +72,16 @@ describe('loadDataVersions', () => {
       '/data/sites.json': { version: 1 },
       '/data/sites_derived.json': { version: 1 },
       '/data/ephemeris/moon_me_2024_2036_1h.json': { generated_utc: '2026-09-28T20:53:33+00:00', table_sha256: '279fad83a151b69fb446c826719476d99ac671369416dc0c08fef49565642545' },
+      '/data/manifest.json': { format: 1, data_version: '2026-11-14-a120b7a9', groups: [] },
     };
     const get = async <T,>(url: string) => {
       if (!(url in files)) throw new Error(`could not load ${url} (HTTP 404)`);
       return files[url] as T;
     };
-    expect(await loadDataVersions('/data', get)).toEqual({ sites: 'sites.json version 1, sites_derived.json version 1', ephemeris: { generatedUtc: '2026-09-28T20:53:33+00:00', sha256: '279fad83a151' } });
+    expect(await loadDataVersions('/data', get)).toEqual({ data: '2026-11-14-a120b7a9', sites: 'sites.json version 1, sites_derived.json version 1', ephemeris: { generatedUtc: '2026-09-28T20:53:33+00:00', sha256: '279fad83a151' } });
+    delete files['/data/manifest.json'];
     delete files['/data/ephemeris/moon_me_2024_2036_1h.json'];
     delete files['/data/sites_derived.json'];
-    expect(await loadDataVersions('/data', get)).toEqual({ sites: 'sites.json version 1', ephemeris: null });
+    expect(await loadDataVersions('/data', get)).toEqual({ data: null, sites: 'sites.json version 1', ephemeris: null });
   });
 });

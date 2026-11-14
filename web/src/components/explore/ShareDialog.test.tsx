@@ -15,7 +15,7 @@ async function haworth() {
 }
 
 const LINK = 'https://earthrise.example/explore?site=haworth&start=2027-01-01&days=30&earthmin=2';
-const versions = { app: { version: '0.1.0', commit: 'abc123def456' }, data: { sites: 'sites.json version 1', ephemeris: null } };
+const versions = { app: { version: '0.1.0', commit: 'abc123def456' }, data: { data: null, sites: 'sites.json version 1', ephemeris: null } };
 
 describe('ShareDialog', () => {
   it('gives the link to the same figures and copies it', async () => {

@@ -17,7 +17,7 @@ async function explore(id: string, power: Partial<ExploreState['params']['power'
 }
 
 const input = (s: ExploreState): ExportInput => ({ site: s.site!, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph!, series: s.series!, power: s.power!, summary: s.summary!, maskMeta: s.maskMeta, best: s.best });
-const versions = { app: { version: '0.1.0', commit: 'abc123def456' }, data: { sites: 'sites.json version 1', ephemeris: null } };
+const versions = { app: { version: '0.1.0', commit: 'abc123def456' }, data: { data: null, sites: 'sites.json version 1', ephemeris: null } };
 const provenance = (s: ExploreState) => collectProvenance({ site: s.site!, maskMeta: s.maskMeta, params: s.params, eph: s.eph!, startUtc: s.startUtc, days: s.days }, versions);
 
 /** The rows of a CSV as a spreadsheet splits them: a quoted cell may hold commas and doubled quotes. */
@@ -132,7 +132,7 @@ describe.skipIf(!haveData)('the files Explore and the brief save', () => {
     expect(doc.link).toBe('https://earthrise.example/explore?site=haworth&start=2027-01-01&days=30');
     expect(doc.settings).toEqual({ panel: 'vertical_tracking', panel_facing_deg: 0, panel_area_m2: 4, panel_efficiency: 0.3, load_w: 200, battery_wh: 2000, battery_at_landing_fraction: 1, mast_m: 2, earth_min_clearance_deg: 0 });
     expect(doc.period).toEqual({ start_utc: '2027-01-01T00:00:00Z', end_utc: '2027-01-31T00:00:00Z', days: 30, hours: 720 });
-    expect(doc.versions).toEqual({ app: '0.1.0', commit: 'abc123def456', sites: 'sites.json version 1', ephemeris: null });
+    expect(doc.versions).toEqual({ app: '0.1.0', commit: 'abc123def456', data: null, sites: 'sites.json version 1', ephemeris: null });
     expect(doc.skyline.grids[0]).toMatch(/^LOLA LDEM 80 m/);
     expect(doc.files.map((f: { name: string }) => f.name)).toEqual(files.map((f) => f.name));
     expect(doc.files[0].columns[0]).toEqual({ name: 'time_utc', unit: 'UTC', description: expect.stringMatching(/UTC/) });
