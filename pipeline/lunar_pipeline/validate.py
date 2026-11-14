@@ -110,7 +110,7 @@ EVIDENCE: dict[str, dict] = {
             "Both sides are models built from LOLA altimetry with similar skyline methods, so errors the two share (in the elevation data, for example) cancel; agreement is not a ground observation.",
             "Averages over 18.6 years can hide errors in the hour of single sunrises and sunsets.",
             "The app's own numbers use a 2 m mast, finer terrain and 2024 to 2036; the matched comparison changes these on purpose, and the rows show how much each one moves the result.",
-            "Sites north of about 83 degrees south are outside the map: IM-1, Nobile Rim 2 and the peak near Cabeus B are not compared.",
+            "The map is a square around the pole that reaches 85 degrees south on every side (about 83 at its corners): IM-1, Nobile Rim 2 and the peak near Cabeus B lie outside it and are not compared.",
         ],
     },
     "sums": {
@@ -436,6 +436,11 @@ def zero_pixel(map_px: list[float], ours_px: list[float]) -> int | None:
     return None
 
 
+def _signed(x: float) -> str:
+    """A signed figure to one decimal with a true minus sign, as the page writes them."""
+    return f"{x:+.1f}".replace("-", "\u2212")
+
+
 def gap_without(map_px: list[float], ours_px: list[float], weights: list[float], k: int) -> float:
     """Our value minus the map's in points, over the other three corners with their weights scaled back to a whole."""
     w = [x for j, x in enumerate(weights) if j != k]
@@ -528,12 +533,12 @@ def mazarico_rows(days: int | None = None, cycle_days: int = CYCLE_DAYS, site_id
             if zero_pixel(earth_px, row["earth"]["matched_pixels"]) == k:
                 earth_without = gap_without(earth_px, row["earth"]["matched_pixels"], weights, k)
                 row["zero_pixel"]["earth_gap_points"] = earth_without
-                also = f" and {earth_without:+.1f} for Earth"
+                also = f" and {_signed(earth_without)} for Earth"
             row["note"] = (
                 f"One of the four map pixels here reads 0 % where its neighbours read {min(lit) * 100:.0f} to "
                 f"{max(lit) * 100:.0f} % and we find {row['sun']['matched_pixels'][k] * 100:.0f} %"
                 f"{', in the Earth map as in the Sun map' if also else ''}; near the pole the maps have such zero pixels "
-                f"next to lit ones. Leaving that pixel out, the gap is {sun_without:+.1f} points for sunlight{also}."
+                f"next to lit ones. Leaving that pixel out, the gap is {_signed(sun_without)} points for sunlight{also}."
             )
         rows.append(row)
         print(f"[validate] {site.id}: map {map_sun:.3f}, matched {matched_sun:.3f}, app {app_sun:.3f}", flush=True)
@@ -584,7 +589,7 @@ def mazarico_doc(days: int | None = None, cycle_days: int = CYCLE_DAYS) -> dict:
     unmatched = [
         f"Averaging window: the map averages hourly steps over 18.6 years, but its dates are not stated; ours runs hourly from {cycle_span[0]} to {cycle_span[1]} UTC ({cycle_days} days). The app's own 2024 to 2036 span (13 years, two thirds of the cycle) moves the shares by at most {span_effect:.1f} points at these sites.",
         "Terrain: the map was computed on LDEM_85S_060M, which the archive no longer holds; we use 60 m posts made from 3 x 3 means of today's LDEM_85S_20M, then LOLA 80 m where the 60 m map ends and 240 m from 100 to 220 km. How far the map's skylines reach beyond its own grid is not stated.",
-        "Frame and ephemeris: the label names the MEAN EARTH/POLAR AXIS OF DE421 frame; we use DE440 in MOON_ME (DE440), which moves the Sun and Earth by far less than their discs.",
+        "Frame (matched): the label names the MEAN EARTH/POLAR AXIS OF DE421 frame; our MOON_ME is MOON_ME_DE440_ME421, which NAIF's frame kernel aligns with it to 5.8e-7 rad (about 1 m on the ground) over 1900 to 2051. Ephemeris (not matched): the map's is not stated; ours is DE440, whose Sun and Earth directions differ from DE421's by far less than the width of their discs.",
         "Skyline method: both take 720 directions (0.5 degrees) and cut the disc with a straight skyline at its centre's direction (Barker et al. 2021 describe the map's method); our march starts one 60 m post from the observer in 30 m steps, and the map's own steps are not described at that level.",
         "Limb darkening: the map's team models it; for 'any part of the disc' it does not matter, for the mean visible fraction of the disc it does, and we do not model it.",
         f"Earth: any part of a {EARTH_RADIUS_KM:,.0f} km sphere's disc; the product page says any part of the disc counts but not which radius.",
@@ -632,8 +637,8 @@ def mazarico_doc(days: int | None = None, cycle_days: int = CYCLE_DAYS) -> dict:
             "sun": sun_label,
             "earth": earth_label,
             "definition": "The share of hourly steps in which any part of the disc is above the terrain skyline (the label's DESCRIPTION; the product page says the same for Earth).",
-            "averaging": "Hourly steps over 18.6 years, one lunar precession cycle (product page and the 2014 release notes); the dates are not stated.",
-            "observer": "On the lunar surface (the 2014 release notes); the product page leaves height above the surface to further analysis.",
+            "averaging": "Hourly steps over 18.6 years, one lunar precession cycle (PGDA product 69; the 2014 release notes say the same of the earlier 240 m maps); the dates are not stated. The 2011 paper's abstract also describes runs over several cycles at 6 h steps.",
+            "observer": "On the lunar surface (the 2014 release notes, of the earlier 240 m maps); the product page leaves height above the surface to further analysis.",
             "terrain": "LDEM_85S_060M, 60 m per pixel (the label).",
             "method": "Mazarico et al. 2011: skyline elevations in 720 directions; the disc cut by a straight skyline at its centre's direction (as Barker et al. 2021 describe it).",
             "sources": SOURCES,

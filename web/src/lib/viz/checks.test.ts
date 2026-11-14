@@ -57,6 +57,8 @@ describe('evidenceCards', () => {
     expect(c.sentence).not.toMatch(/13 years/);
     expect(part(c, 'What it leaves out')).toContain(`a typical ${app.toFixed(1)} points from the map`);
     expect(part(c, 'What it leaves out')).toMatch(/waits for its centre/);
+    expect(part(c, 'What it leaves out')).toMatch(/^Ours and NASA's both come from the same laser measurements of the ground/);
+    expect(part(c, 'What it leaves out')).toMatch(/, up to 10\.8 at Shackleton crater rim\./);
     expect(part(c, 'Tested on')).toMatch(/^15 of the 18 sites near the south pole/);
     expect(part(c, 'Tested on')).toMatch(/every hour for 18\.6 years from 1 January 2024/);
     // A miss on either map is a miss: forcing every sunlight gap to 9 points, or every Earth gap.

@@ -151,14 +151,14 @@ export function evidenceCards({ horizons, mazarico, power, backcasts }: Validati
         { label: 'Passes when', text: `The typical gap is ${SUNLIGHT_POINTS} points or less, for sunlight and for Earth in view.` },
         {
           label: 'Tested on',
-          text: `${mz.sites} of the ${mz.polar_sites} sites near the south pole (the map stops near 83° S), every hour for 18.6 years from ${dateWords(mz.matched_span[0])}, at the map's four nearest points around each site.`,
+          text: `${mz.sites} of the ${mz.polar_sites} sites near the south pole (the map is a square around the pole that reaches 85° S on every side), every hour for 18.6 years from ${dateWords(mz.matched_span[0])}, at the map's four nearest points around each site.`,
         },
         {
           label: 'What it leaves out',
           text:
-            'Both maps come from the same laser measurements of the ground, so errors they share cancel: this is agreement between two models, not a measurement on the Moon, and a long average can hide a sunrise an hour out. ' +
+            'Ours and NASA\'s both come from the same laser measurements of the ground, so errors they share cancel: this is agreement between two models, not a measurement on the Moon, and a long average can hide a sunrise an hour out. ' +
             `The app's own numbers, from a 2 m mast on finer terrain over 2024 to 2036, sit a typical ${appTypical.toFixed(1)} points from the map` +
-            (appWorst ? `, ${Math.abs(appWorst.sun!.app_gap_points).toFixed(1)} at ${placeName(appWorst)}` : '') +
+            (appWorst ? `, up to ${Math.abs(appWorst.sun!.app_gap_points).toFixed(1)} at ${placeName(appWorst)}` : '') +
             '. For Earth the app waits for its centre to clear the hills, where the map counts any part of it.',
         },
       ],

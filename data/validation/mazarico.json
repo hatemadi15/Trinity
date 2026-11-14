@@ -1,5 +1,5 @@
 {
- "generated_utc": "2026-11-14T11:50:04+00:00",
+ "generated_utc": "2026-11-14T12:02:43+00:00",
  "period": [
   "2024-01-01T00:00:00",
   "2036-12-31T23:00:00"
@@ -18,7 +18,7 @@
    "Both sides are models built from LOLA altimetry with similar skyline methods, so errors the two share (in the elevation data, for example) cancel; agreement is not a ground observation.",
    "Averages over 18.6 years can hide errors in the hour of single sunrises and sunsets.",
    "The app's own numbers use a 2 m mast, finer terrain and 2024 to 2036; the matched comparison changes these on purpose, and the rows show how much each one moves the result.",
-   "Sites north of about 83 degrees south are outside the map: IM-1, Nobile Rim 2 and the peak near Cabeus B are not compared."
+   "The map is a square around the pole that reaches 85 degrees south on every side (about 83 at its corners): IM-1, Nobile Rim 2 and the peak near Cabeus B lie outside it and are not compared."
   ],
   "coverage": {
    "sites": 15,
@@ -44,7 +44,7 @@
   "unmatched": [
    "Averaging window: the map averages hourly steps over 18.6 years, but its dates are not stated; ours runs hourly from 2024-01-01T00:00:00 to 2042-08-11T23:00:00 UTC (6798 days). The app's own 2024 to 2036 span (13 years, two thirds of the cycle) moves the shares by at most 0.3 points at these sites.",
    "Terrain: the map was computed on LDEM_85S_060M, which the archive no longer holds; we use 60 m posts made from 3 x 3 means of today's LDEM_85S_20M, then LOLA 80 m where the 60 m map ends and 240 m from 100 to 220 km. How far the map's skylines reach beyond its own grid is not stated.",
-   "Frame and ephemeris: the label names the MEAN EARTH/POLAR AXIS OF DE421 frame; we use DE440 in MOON_ME (DE440), which moves the Sun and Earth by far less than their discs.",
+   "Frame (matched): the label names the MEAN EARTH/POLAR AXIS OF DE421 frame; our MOON_ME is MOON_ME_DE440_ME421, which NAIF's frame kernel aligns with it to 5.8e-7 rad (about 1 m on the ground) over 1900 to 2051. Ephemeris (not matched): the map's is not stated; ours is DE440, whose Sun and Earth directions differ from DE421's by far less than the width of their discs.",
    "Skyline method: both take 720 directions (0.5 degrees) and cut the disc with a straight skyline at its centre's direction (Barker et al. 2021 describe the map's method); our march starts one 60 m post from the observer in 30 m steps, and the map's own steps are not described at that level.",
    "Limb darkening: the map's team models it; for 'any part of the disc' it does not matter, for the mean visible fraction of the disc it does, and we do not model it.",
    "Earth: any part of a 6,371 km sphere's disc; the product page says any part of the disc counts but not which radius.",
@@ -122,8 +122,8 @@
    "image_sha256": "0958313069d6039b2474c875ff662f28dbcba2bd853d9ea458aa807b7948c11f"
   },
   "definition": "The share of hourly steps in which any part of the disc is above the terrain skyline (the label's DESCRIPTION; the product page says the same for Earth).",
-  "averaging": "Hourly steps over 18.6 years, one lunar precession cycle (product page and the 2014 release notes); the dates are not stated.",
-  "observer": "On the lunar surface (the 2014 release notes); the product page leaves height above the surface to further analysis.",
+  "averaging": "Hourly steps over 18.6 years, one lunar precession cycle (PGDA product 69; the 2014 release notes say the same of the earlier 240 m maps); the dates are not stated. The 2011 paper's abstract also describes runs over several cycles at 6 h steps.",
+  "observer": "On the lunar surface (the 2014 release notes, of the earlier 240 m maps); the product page leaves height above the surface to further analysis.",
   "terrain": "LDEM_85S_060M, 60 m per pixel (the label).",
   "method": "Mazarico et al. 2011: skyline elevations in 720 directions; the disc cut by a straight skyline at its centre's direction (as Barker et al. 2021 describe it).",
   "sources": [
@@ -266,7 +266,7 @@
     "sun_gap_points": -0.3143126409728414,
     "earth_gap_points": 1.178351672060407
    },
-   "note": "One of the four map pixels here reads 0 % where its neighbours read 27 to 30 % and we find 29 %, in the Earth map as in the Sun map; near the pole the maps have such zero pixels next to lit ones. Leaving that pixel out, the gap is -0.3 points for sunlight and +1.2 for Earth."
+   "note": "One of the four map pixels here reads 0 % where its neighbours read 27 to 30 % and we find 29 %, in the Earth map as in the Sun map; near the pole the maps have such zero pixels next to lit ones. Leaving that pixel out, the gap is \u22120.3 points for sunlight and +1.2 for Earth."
   },
   {
    "site_id": "shackleton_center",

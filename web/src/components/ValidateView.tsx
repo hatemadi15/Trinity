@@ -52,7 +52,7 @@ const TH = 'border-b-2 border-ink py-2 pr-4 text-left text-[15px] font-semibold 
 const TD = 'border-b border-line py-2 pr-4 text-[15px]';
 const NUM = `${TD} text-right tabular-nums`;
 const H3 = 'mt-6 text-[17px] font-semibold text-ink';
-const NOTE = 'mt-3 max-w-[62em] text-[15px] leading-relaxed text-ink-2';
+const NOTE = 'mt-3 max-w-[62em] break-words text-[15px] leading-relaxed text-ink-2';
 /** The page's verdict in one line, by how many of the three checks meet their criteria: the count of the panels' own pass marks, never worked out again. */
 const VERDICT = ['No check meets its criteria', 'One of three checks meets its criteria', 'Two of three checks meet their criteria', 'Three checks meet their criteria'];
 
@@ -245,7 +245,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
         </EvidencePanel>
 
         <EvidencePanel card={sunlight}>
-          <p className="mb-3 max-w-[62em] text-[15px] leading-relaxed text-ink-2">
+          <p className="mb-3 max-w-[62em] break-words text-[15px] leading-relaxed text-ink-2">
             NASA&apos;s maps: <code>{ref.sun.product_id}</code> and <code>{ref.earth.product_id}</code> (LOLA team, label {ref.sun.product_version_id}, made {dayWords(ref.sun.product_creation_time)}), 60 m per pixel south of 85° S. {ref.averaging}{' '}
             {ref.observer} Its label: &ldquo;{ref.sun.description}&rdquo;
           </p>
