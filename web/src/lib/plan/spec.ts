@@ -443,6 +443,8 @@ export function windowWords(spec: Pick<MissionSpec, 'fromUtc' | 'toUtc'>): strin
 
 const kwh = (wh: number) => `${Number.isInteger(wh / 1000) ? wh / 1000 : (wh / 1000).toFixed(1)} kWh`;
 const PANEL_SHORT: Record<PanelModel, string> = { horizontal: 'flat panel', vertical: 'fixed upright panel', vertical_tracking: 'panel that turns to the Sun', full_tracking: 'two-axis tracking panel' };
+/** What a panel does, after its area: "4 m², turns to the Sun". */
+const PANEL_KIND: Record<PanelModel, string> = { horizontal: 'flat', vertical: 'fixed upright', vertical_tracking: 'turns to the Sun', full_tracking: 'two-axis tracking' };
 const OBJECTIVE_WORDS: Record<Objective, string> = { power: 'longest time with power from landing', contact: 'most Earth contact while powered', earliest: 'earliest landing' };
 
 /** One line of the specification for the page: its label, its value, and whether it is the default. */
@@ -463,7 +465,7 @@ export function specLines(spec: MissionSpec, from: Sources, sites: Site[]): Spec
     { label: 'Earth contact while powered', value: r.minPoweredContactH === null ? 'no minimum' : `at least ${spanShort(r.minPoweredContactH)}`, isDefault: !said('minPoweredContactH') },
     { label: 'Load', value: `${spec.lander.loadW} W`, isDefault: !said('loadW') },
     { label: 'Battery', value: kwh(spec.lander.batteryWh), isDefault: !said('batteryWh') },
-    { label: 'Panel', value: `${spec.lander.areaM2} m² ${PANEL_SHORT[spec.lander.panel]}`, isDefault: !said('areaM2', 'panel') },
+    { label: 'Panel', value: `${spec.lander.areaM2} m², ${PANEL_KIND[spec.lander.panel]}`, isDefault: !said('areaM2', 'panel') },
     { label: 'Mast', value: `${spec.lander.mastM} m`, isDefault: !said('mastM') },
     { label: 'Stay', value: spanShort(spec.stayH), isDefault: !said('stayH') },
     { label: 'Landing window', value: windowWords(spec), isDefault: !said('fromUtc', 'toUtc') },

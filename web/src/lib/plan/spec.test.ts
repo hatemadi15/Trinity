@@ -55,6 +55,7 @@ describe('the mission specification, heard in plain words', () => {
     const lines = specLines(m.spec, m.from, sites);
     expect(lines.find((l) => l.label === 'Power from landing')).toMatchObject({ value: 'at least 5 d in a row', isDefault: false });
     expect(lines.find((l) => l.label === 'Stay')).toMatchObject({ value: '14 d', isDefault: true });
+    expect(lines.find((l) => l.label === 'Panel')?.value).toBe('4 m², turns to the Sun');
     expect(lines.find((l) => l.label === 'Landing window')?.value).toBe('1 March to 30 June 2027, UTC');
     const said = spokenReadBack(m.spec, m.from, sites);
     expect(said).toMatch(/^I heard: at least 5 days of power, Earth in view at landing, no more than 3 days without Earth while powered, a 300 watt load, a 3 kilowatt-hour battery, landing from 1 March to 30 June 2027 UTC, at the Artemis III regions\./);

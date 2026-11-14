@@ -14,6 +14,7 @@ import { powerBudget } from '@/lib/engine/power';
 import { utcToEt } from '@/lib/engine/time';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { assistSpec } from '@/lib/plan/assist';
+import { midSentence } from '@/lib/plan/judge';
 import { powerOf, type SiteFinding, type SiteInput } from '@/lib/plan/search';
 import { CATEGORY_NAMES, PANEL_SHORT, PANELS, specLines, whereSites, windowWords, type MissionSpec, type SpecField, type SpecPatch, type Sources } from '@/lib/plan/spec';
 import { planStore, type PlanState } from '@/lib/plan/store';
@@ -345,7 +346,7 @@ export function PlanView({
           <section aria-label="I heard" className="panel">
             <h2 className="display text-[23px] font-semibold">I heard</h2>
             <p className="mt-2 max-w-[60em] text-ink">{lines.length ? lines.map((l) => `${l.label}: ${l.value}`).join('; ') : 'No field yet: everything below is the default.'}.</p>
-            {defaults.length > 0 && <p className="mt-2 text-[15px] text-ink-2">Defaults: {defaults.map((l) => `${l.label.toLowerCase()} ${l.value}`).join('; ')}.</p>}
+            {defaults.length > 0 && <p className="mt-2 text-[15px] text-ink-2">Defaults: {defaults.map((l) => `${midSentence(l.label)} ${l.value}`).join('; ')}.</p>}
             {p.leftover.length > 0 && <p className="mt-2 text-[15px] text-ink-2">Not used: {p.leftover.map((l) => `“${l}”`).join(', ')}.</p>}
             {p.assistant.state === 'asking' && (
               <p role="status" className="mt-2 text-[15px] text-ink-2">

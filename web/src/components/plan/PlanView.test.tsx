@@ -37,7 +37,7 @@ describe('PlanView', () => {
     expect(heard.textContent).toMatch(/^I heard/);
     expect((within(heard).getByRole('spinbutton', { name: /Power from landing/ }) as HTMLInputElement).value).toBe('5');
     expect((within(heard).getByRole('spinbutton', { name: /Load/ }) as HTMLInputElement).value).toBe('300');
-    expect(heard.textContent).toMatch(/Defaults: .*stay 14 d/);
+    expect(heard.textContent).toMatch(/Defaults: Earth contact while powered no minimum; panel 4 m², turns to the Sun; .*stay 14 d/);
     expect(within(heard).getByRole('spinbutton', { name: /Load/ }).closest('label')!.textContent).not.toMatch(/default/);
     expect(plan.getState().answer).toBeNull();
     // A field changed here counts as said.
