@@ -448,7 +448,11 @@ Diviner beside each site's power and radio windows, labelled as modelled conditi
 2. Run the Monte Carlo ensemble at the featured sites and compare it with first-order propagation and with
    today's budget; then show ranges and rank options by how often they hold (two to three days with the
    app).
-3. Check skylines against product 90's NAC images at the sites they cover.
+3. Check skylines against product 90's NAC images at the sites they cover. *Done on 14 November 2026, ahead of the
+   deadline at the team's request:* product 90's pictures reach only one featured site, so LROC's WAC polar movie
+   frames were added (`docs/method.md`, Validation, item 5; `data/validation/images.json`). The app's shadows and
+   20 pictures agree on a median 92 % of the ground, nearly all disagreement on shadows' edges; with the Sun 1.1° up
+   or less the app puts a fifth to a quarter of the sunlit ground in shadow, and product 90's terrain does much the same.
 4. Build the cold-trap layer as a transparent index (Diviner, product 90 shadow and slope), with per-site
    summaries next to power and radio contact, and strict wording.
 5. Consider an emulator only if step 2 shows first-order propagation failing often and instant spreads are
