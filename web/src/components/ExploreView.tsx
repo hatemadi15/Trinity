@@ -127,8 +127,8 @@ export function ExploreView({
     return placeOptions({ site: centre, sites: s.sites, outcomes, extra, current, req: s.requirements });
   }, [s.site, s.sites, s.overview, current, hood, s.requirements]);
   const answer = useMemo(
-    () => (s.series && s.summary && s.power && s.site ? answerFor({ siteName: siteLabel(s.site), series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, plan: times }) : null),
-    [s.site, s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.best, times],
+    () => (s.series && s.summary && s.power && s.site ? answerFor({ siteName: siteLabel(s.site), series: s.series, summary: s.summary, power: s.power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, plan: times, farSide: s.site.far_side, panel: s.params.power.panel }) : null),
+    [s.site, s.series, s.summary, s.power, s.startUtc, s.days, s.params.power.loadW, s.params.power.batteryWh, s.params.power.panel, s.best, times],
   );
   // A nearby place that does clearly better from the same landing day: more power by a day, or fewer requirements failed.
   const nearby = useMemo(() => {

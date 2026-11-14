@@ -25,7 +25,7 @@ describe('the points round an approximate site', () => {
   });
 
   it('takes the radius a site states, and none for a surveyed point', () => {
-    const site = (extra: Partial<SitePosition>): Site & SitePosition => ({ id: 'x', name: 'X', lat: -88, lon: 0, category: 'artemis3', polar: true, source: 's', ...extra });
+    const site = (extra: Partial<SitePosition>): Site => ({ id: 'x', name: 'X', lat: -88, lon: 0, category: 'artemis3', polar: true, source: 's', ...extra });
     expect(positionRadiusKm(site({ approximate: true, source: "NASA Artemis III candidate landing regions, 28 Oct 2024; centre digitised from NASA's region map, about ±5 km" }))).toBe(5);
     expect(positionRadiusKm(site({ kind: 'region_centre', uncertainty_km: 5 }))).toBe(5);
     expect(positionRadiusKm(site({ kind: 'target', uncertainty_km: 15 }))).toBe(15);
@@ -36,7 +36,7 @@ describe('the points round an approximate site', () => {
   });
 
   it('works out a ring round a stated radius, or round a derived high point at 1 km to show how much landing on it matters', () => {
-    const site = (extra: Partial<SitePosition>): Site & SitePosition => ({ id: 'x', name: 'X', lat: -88, lon: 0, category: 'artemis3', polar: true, source: 's', ...extra });
+    const site = (extra: Partial<SitePosition>): Site => ({ id: 'x', name: 'X', lat: -88, lon: 0, category: 'artemis3', polar: true, source: 's', ...extra });
     expect(neighbourhoodRadius(site({ kind: 'region_centre', uncertainty_km: 5 }))).toEqual({ km: 5, stated: true });
     expect(neighbourhoodRadius(site({ approximate: true, source: 'derived: argmax LOLA 20 m height in annulus around shackleton_center' }))).toEqual({ km: 1, stated: false });
     expect(neighbourhoodRadius(site({ kind: 'derived', uncertainty_km: null }))).toEqual({ km: 1, stated: false });

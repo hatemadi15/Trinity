@@ -175,7 +175,7 @@ describe('explore store', () => {
     await store.getState().init();
     await store.getState().loadOverview();
     const { series, overview } = store.getState();
-    expect(Object.keys(overview)).toHaveLength(19);
+    expect(Object.keys(overview)).toHaveLength(34);
     store.getState().setWindow('2036-12-20T00:00:00', 30);
     const s = store.getState();
     expect(s.error).toBe('A 30-day period from 20 December 2036 runs past 31 December 2036, where the Sun and Earth table ends. Choose an earlier date or a shorter period.');
@@ -689,7 +689,7 @@ describe('best landing date and the overview of all sites', () => {
     await store.getState().init();
     await store.getState().loadOverview();
     const o = store.getState().overview;
-    expect(Object.keys(o)).toHaveLength(19);
+    expect(Object.keys(o)).toHaveLength(34);
     expect(store.getState().overviewBusy).toBe(false);
     expect(o.de_gerlache_rim_2).toEqual({
       sunFraction: expect.closeTo(0.446, 3),
@@ -704,9 +704,9 @@ describe('best landing date and the overview of all sites', () => {
     expect(o.shackleton_center).toMatchObject({ sunFraction: 0, nowHours: 10, best: null });
     expect(o.shackleton_center_rim_high.nowHours).toBe(720);
     expect(o.blue_ghost_m1.sunFraction).toBeGreaterThan(0.3); // a flat horizon, no skyline file
-    expect(counters.masks).toBe(18);
+    expect(counters.masks).toBe(21);
     await store.getState().loadOverview(); // same period and lander: nothing to do
-    expect(counters.masks).toBe(18);
+    expect(counters.masks).toBe(21);
   });
 
   it('loadOverview starts again when the period or the lander changes', async () => {
@@ -719,7 +719,7 @@ describe('best landing date and the overview of all sites', () => {
     expect(store.getState().overview.de_gerlache_rim_2.nowHours).toBeGreaterThan(before);
     store.getState().setWindow('2027-06-01T00:00:00', 14);
     await store.getState().loadOverview();
-    expect(Object.keys(store.getState().overview)).toHaveLength(19);
+    expect(Object.keys(store.getState().overview)).toHaveLength(34);
   });
 
   it('loadOverview leaves a site out when its skyline cannot be loaded, and finishes', async () => {
@@ -734,7 +734,7 @@ describe('best landing date and the overview of all sites', () => {
     await store.getState().init();
     await store.getState().loadOverview();
     expect(store.getState().overview.haworth).toBeUndefined();
-    expect(Object.keys(store.getState().overview)).toHaveLength(18);
+    expect(Object.keys(store.getState().overview)).toHaveLength(33);
     expect(store.getState().overviewBusy).toBe(false);
     expect(store.getState().error).toBeNull();
   });
@@ -783,7 +783,7 @@ describe('best landing date and the overview of all sites', () => {
     store.getState().setWindow('2027-01-20T10:00:00', 30);
     expect(store.getState().series).toBe(before);
     await running;
-    expect(Object.keys(store.getState().overview)).toHaveLength(19);
+    expect(Object.keys(store.getState().overview)).toHaveLength(34);
     expect(store.getState().overviewBusy).toBe(false);
   });
 });

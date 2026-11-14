@@ -26,6 +26,15 @@ describe('compareRow', () => {
     expect(row.href).toBe('/explore?site=a&start=2027-01-01&days=30');
   });
 
+  it('says what kind of point each compared site is, and never on the far side gives Earth a share', () => {
+    const r = result('h', 'Haworth', { sun: 0.4, earth: 0.3, nightH: 200, brownout: 10 });
+    expect(compareRow({ ...r, site: { ...r.site, kind: 'region_centre', uncertainty_km: 5 } }, START, 30).kind).toBe('Centre of a region, ±5\u00a0km');
+    const far = result('c4', "Chang'e 4", { sun: 0.51, earth: 0, nightH: 354, brownout: 358 });
+    const row = compareRow({ ...far, site: { ...far.site, kind: 'surveyed', uncertainty_km: 0.02, far_side: true } }, START, 30);
+    expect(row.kind).toBe('Surveyed point, ±20\u00a0m');
+    expect(row.earth).toBe('never: far side');
+  });
+
   it('says when the power comes back, or that it does not in the period', () => {
     expect(compareRow(result('n', 'Nobile', { sun: 0.37, earth: 0.23, nightH: 254, brownout: 10 }), START, 30).power).toBe('10 h, then off to the end');
     expect(compareRow(result('d', 'Dusk', { sun: 0.4, earth: 0.3, nightH: 200, brownout: 0, backAt: 300 }), START, 30).power).toBe('none at landing; on from 13 Jan');

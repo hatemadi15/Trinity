@@ -23,7 +23,8 @@ const night: Answer = {
 const good: Answer = { tone: 'good', kind: 'all', title: 'Landing at de Gerlache Rim 2 on 1 January: power for all 30 days', sentences: ['The Sun never sets in these 30 days.'], better: null, hint: null, poweredHours: 720, contactHours: 324 };
 const stuck: Answer = { ...night, better: null, hint: 'No landing date in these 30 days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.' };
 
-const summit = { words: 'Nearby, de Gerlache rim summit (12 km away) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' };
+// The words nearbyWords writes for the rim summit, a derived high point.
+const summit = { words: 'Nearby, de Gerlache rim summit (12 km away, unchecked for landing) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' };
 const stand = '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10';
 
 function show(answer: Answer, yearNote: string | null = null, nearby: Parameters<typeof VerdictPanel>[0]['nearby'] = null, standLink?: string) {
@@ -359,7 +360,7 @@ describe('VerdictPanel with requirements and the options behind its recommendati
   it('still keeps the answer to 110 words before a tap with the requirements, the options, the range and how sure the times are, at 1440 and on a phone (spec 20.1)', () => {
     showAll();
     const panel = screen.getByRole('region', { name: 'The answer' });
-    // Three words to spare for the kind of point a derived high point is, on the nearby line ("unchecked for landing").
-    for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(107);
+    // The nearby line names the rim summit as a derived high point ("unchecked for landing"): still within the cap.
+    for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(110);
   });
 });

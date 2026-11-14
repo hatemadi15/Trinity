@@ -37,7 +37,7 @@ export function ringPoints(site: { lat: number; lon: number }, radiusKm: number)
 }
 
 /** What the catalogue says of a point's position: its kind and the radius its source states (data/sites.json). */
-export type SitePosition = Pick<Site, 'source' | 'polar'> & { approximate?: boolean; kind?: string; uncertainty_km?: number | null };
+export type SitePosition = Pick<Site, 'source' | 'polar' | 'approximate' | 'kind' | 'uncertainty_km'>;
 
 /**
  * How far from its coordinate a site may really be, in km, as the catalogue states it: the radius of a region centre

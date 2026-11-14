@@ -261,6 +261,12 @@ describe('why the view looks as it does', () => {
     const sliver = series({ sunEl: [0.2], sunFraction: [0.3] });
     expect(whyLines(85, sliver, 0)).toEqual([poleLine(85), earthMoves, black, 'North and south still work here: the pole itself is 152 km to the north.', radio]);
   });
+  it('on the far side says Earth never rises, and that Chang’e 4 and Chang’e 6 talked to Earth through a relay', () => {
+    const day = series({ sunEl: [30], sunFraction: [1], earthEl: [-50], earthVisible: [0] });
+    const far = "This is the far side, which always faces away from Earth: Earth never rises here, so a lander talks to Earth only through a relay satellite, as China's Chang'e 4 and Chang'e 6 did.";
+    expect(whyLines(-45.46, day, 0, true)).toEqual([black, far]);
+    expect(whyLines(-45.46, day, 0)).toEqual([black, radio]);
+  });
   it('near a pole at night with Earth in view: no twilight, only Earth lights the ground, how big Earth looks, where the pole is, and how cold the night is', () => {
     const night = series({ sunEl: [-3], sunFraction: [0], earthEl: [4], earthVisible: [1] });
     expect(whyLines(-88.28, night, 0)).toEqual([pole, earthMoves, noTwilight, earthLight, earthSize, south, cold, radio]);

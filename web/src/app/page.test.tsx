@@ -36,7 +36,7 @@ describe('home page', () => {
     render(<Home />);
     const hero = screen.getByRole('region', { name: HEADLINE });
     const proof = within(hero).getByText(/^Built on NASA LRO LOLA terrain and JPL DE440;/);
-    expect(proof.textContent).toBe(`Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to ${degreesText(HOME.facts.horizons_worst_el_deg)} and against real landers. See the checks`);
+    expect(proof.textContent).toBe(`Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to ${degreesText(HOME.facts.horizons_worst_el_deg)} and LOLA sunlight maps. See the checks`);
     expect(within(proof).getByRole('link', { name: 'See the checks' }).getAttribute('href')).toBe('/validate');
     // The first row of "Checked against NASA" gives the same figure, from the same field.
     const row = within(screen.getByRole('region', { name: 'Checked against NASA' })).getAllByRole('row')[1];
@@ -168,11 +168,12 @@ describe('home page', () => {
     for (const a of links) expect(a.className).toMatch(/(^| )btn( |$)/);
   });
 
-  it('gives three checks against NASA as a table: the gap, what it is measured against and a yardstick', () => {
+  it('gives two checks against NASA and one real mission for context as a table: the gap, what it is measured against and a yardstick', () => {
     render(<Home />);
     const proof = screen.getByRole('region', { name: 'Checked against NASA' });
     expect(within(proof).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['What we check', 'Gap', 'Against', 'For scale']);
     expect(within(proof).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['Where the Sun and Earth are in the sky', 'How much sunlight a site gets', 'When night falls on a real mission']);
+    expect(proof.textContent).toMatch(/Two steps are compared with independent NASA sources, and a real mission gives context\./);
     const rows = within(proof).getAllByRole('row').slice(1);
     expect(rows).toHaveLength(3);
     expect(rows[0].textContent).toContain('0.00003°');
@@ -180,10 +181,16 @@ describe('home page', () => {
     expect(rows[0].textContent).toContain('20,000 times wider');
     expect(rows[1].textContent).toContain(`${HOME.facts.mazarico_median_points.toFixed(1)} points`);
     expect(rows[1].textContent).toContain('in percentage points');
+    // The map's own averaging period, not the app's span of years.
+    expect(rows[1].textContent).toContain("NASA's sunlight map, an 18.6-year average,");
+    expect(rows[1].textContent).not.toMatch(/13 years/);
     const typical = Math.round(HOME.facts.mazarico_median_points);
     expect(rows[1].textContent).toContain(`Where NASA's map says ${pct(60)}, ours typically says ${60 - typical} to ${pct(60 + typical)}.`);
     expect(rows[2].textContent).toContain(`${HOME.facts.blue_ghost_end_minus_sunset_h.toFixed(1)} hours`);
     expect(rows[2].textContent).toContain('The mission ran for 14 days.');
+    // A reported end is context, not a check: its row has no check mark.
+    expect(rows[2].textContent).toContain('context, not a test');
+    expect(rows.map((r) => r.querySelectorAll('svg').length)).toEqual([1, 1, 0]);
     expect(within(proof).getByRole('link', { name: /See every check/ }).getAttribute('href')).toBe('/validate');
   });
 
