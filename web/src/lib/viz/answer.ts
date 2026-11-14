@@ -224,6 +224,8 @@ export interface OptionView {
   key: string;
   /** "20 January, 10:00 UTC", "de Gerlache rim summit, 12 km away". */
   title: string;
+  /** The words of its button or link: "Land on 20 January at 10:00 UTC", "Explore de Gerlache rim summit". */
+  action: string;
   /** The checks in short; null when no requirement is set. */
   summary: string | null;
   checks: { met: boolean; words: string }[];
@@ -251,12 +253,13 @@ export interface PlanView {
 
 const checkList = <T,>(o: Option<T>) => o.checks.map((c) => ({ met: c.met, words: c.words }));
 
-function viewOf<T>(row: Row<T>, key: string, title: string, extra: Partial<OptionView> = {}): OptionView {
+function viewOf<T>(row: Row<T>, key: string, title: string, extra: Partial<OptionView> & { action: string }): OptionView {
   return { key, title, summary: checksShort(row.checks), checks: checkList(row), trade: tradeOffWords(row.trade), why: row.why, ...extra };
 }
 
 /** A landing time for a list: "20 January, 10:00 UTC", with the year when it is not the start's. */
 const timeTitle = (startUtc: string, hour: number) => `${dateLong(startUtc, hour)}, ${clockUtc(startUtc, hour)} UTC`;
+const landWords = (startUtc: string, hour: number) => `Land on ${dateLong(startUtc, hour)} at ${clockUtc(startUtc, hour)} UTC`;
 
 /**
  * The options in words for the panel: the period's landing times, the places nearby and, after a 12-month search, its
@@ -285,16 +288,17 @@ export function planView({
     current: { title: `Landing at the period start, ${timeTitle(startUtc, 0)}`, summary: checksShort(times.current.checks), checks: checkList(times.current) },
     times: {
       search: searchWords({ kind: 'period', days }),
-      options: times.alternatives.map((r) => viewOf(r, `time-${r.item.hour}`, timeTitle(startUtc, r.item.hour), { land: r.item.startUtc })),
+      options: times.alternatives.map((r) => viewOf(r, `time-${r.item.hour}`, timeTitle(startUtc, r.item.hour), { action: landWords(startUtc, r.item.hour), land: r.item.startUtc })),
     },
     places: places && {
       search: searchWords({ kind: 'place', days, km: 30 }),
-      options: places.alternatives.map((r) => viewOf(r, `place-${r.item.site.id}`, `${siteLabel(r.item.site)}, ${Math.round(r.item.km)} km away`, { href: hrefFor(r.item.site.id) })),
+      options: places.alternatives.map((r) => viewOf(r, `place-${r.item.site.id}`, `${siteLabel(r.item.site)}, ${Math.round(r.item.km)} km away`, { action: `Explore ${siteLabel(r.item.site)}`, href: hrefFor(r.item.site.id) })),
     },
     year: year && {
       search: searchWords({ kind: 'year', days: year.days, stepH: year.stepH }),
       options: year.plan.alternatives.map((r) =>
         viewOf(r, `year-${r.item.hour}`, timeTitle(year.fromUtc, r.item.hour), {
+          action: landWords(year.fromUtc, r.item.hour),
           land: r.item.startUtc,
           ...(r.item.perSite.length > 1 ? { perSite: `Power for ${r.item.perSite.map((o, i) => `${spanShort(o.poweredH)} at ${year.siteNames[i]}`).join(', ')}` } : {}),
         }),

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { Answer } from '@/lib/viz/answer';
+import type { Answer, PlanView } from '@/lib/viz/answer';
 import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { PlannerChat } from '../PlannerChat';
 import { VerdictPanel } from './VerdictPanel';
@@ -211,5 +211,152 @@ describe('VerdictPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Find the best date in the next 12 months' }));
     expect(onYear).toHaveBeenCalled();
     expect(screen.getByRole('status').textContent).toMatch(/12 Oct 2027/);
+  });
+});
+
+describe('VerdictPanel with requirements and the options behind its recommendations', () => {
+  const ranked: Answer = { ...night, better: { ...night.better!, checks: 'Fails 1 of your 2 requirements.', why: 'It fails fewer requirements than landing at the period start: 1 against 2.' } };
+  const plan: PlanView = {
+    objective: 'Ranked by the longest continuous time with power from landing; ties go to more Earth contact while powered, then to the earlier time or the nearer place.',
+    rule: 'A choice that fails a requirement ranks below every choice that meets them all; among those, fewer failures rank first.',
+    current: {
+      title: 'Landing at the period start, 1 January, 00:00 UTC',
+      summary: 'Fails 2 of your 2 requirements.',
+      checks: [
+        { met: false, words: 'Power for at least 5 d: 3 d 4 h, 1 d 20 h short' },
+        { met: false, words: 'Longest time without Earth while powered at most 3 d: 3 d 4 h, 4 h too long' },
+      ],
+    },
+    times: {
+      search: 'Landing times tried every hour of these 30 days (UTC), each for a 30-day stay.',
+      options: [
+        {
+          key: 'time-466',
+          title: '20 January, 10:00 UTC',
+          action: 'Land on 20 January at 10:00 UTC',
+          summary: 'Fails 1 of your 2 requirements.',
+          checks: [
+            { met: true, words: 'Power for at least 5 d: 12 d 15 h, 7 d 15 h to spare' },
+            { met: false, words: 'Longest time without Earth while powered at most 3 d: 9 d 10 h, 6 d 10 h too long' },
+          ],
+          trade: 'Power +9 d 11 h, sunlight −1 d 3 h, Earth in view +2 d 19 h, contact while powered +3 d 5 h, longest time without Earth while powered +6 d 6 h',
+          why: 'Power lasts 3 d longer than the next.',
+          land: '2027-01-20T10:00:00',
+        },
+        {
+          key: 'time-538',
+          title: '23 January, 10:00 UTC',
+          action: 'Land on 23 January at 10:00 UTC',
+          summary: 'Fails 1 of your 2 requirements.',
+          checks: [{ met: true, words: 'Power for at least 5 d: 9 d 15 h, 4 d 15 h to spare' }],
+          trade: 'Power +6 d 11 h',
+          why: null,
+          land: '2027-01-23T10:00:00',
+        },
+      ],
+    },
+    places: {
+      search: 'Catalogue sites within 30 km tried from the same landing hour, each for a 30-day stay.',
+      options: [{ key: 'place-summit', title: 'de Gerlache rim summit, 12 km away', action: 'Explore de Gerlache rim summit', summary: 'Fails 1 of your 2 requirements.', checks: [], trade: 'Power +26 d 20 h', why: 'Power lasts 29 d 14 h longer than the next.', href: '/explore?site=de_gerlache_center_rim_high' }],
+    },
+    year: null,
+  };
+  const requirements = { minPoweredH: 120, contactWithinH: null, maxOutageH: 72, minPoweredContactH: null };
+  const range = { words: 'Within about 5 km: power for 3 d 4 h to 30 d.', detail: 'Worked out at 8 points round this one, 2.5 and 5 km out, in 2.4 s.' };
+
+  function showAll(answer: Answer = ranked) {
+    const onLand = vi.fn();
+    const onRequirements = vi.fn();
+    render(<VerdictPanel answer={answer} onLand={onLand} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} nearby={summit} standLink={stand} site={{ lat: -88.28, polar: true }} plan={plan} requirements={requirements} onRequirements={onRequirements} range={range} />);
+    return { onLand, onRequirements };
+  }
+
+  it('keeps the better date the one gold action on the first screen, its note, checks and reason one tap away under "Options and why"', () => {
+    showAll();
+    const open = screen.getByRole('button', { name: 'Options and why' });
+    const fold = document.getElementById(open.getAttribute('aria-controls')!)!;
+    expect(fold.hidden).toBe(true);
+    for (const words of ['From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.', 'Fails 1 of your 2 requirements.', 'It fails fewer requirements than landing at the period start: 1 against 2.']) {
+      const found = screen.getAllByText(words);
+      expect(found.every((el) => fold.contains(el))).toBe(true);
+    }
+    // Without the options list the note stays on the first screen, as it always has.
+    cleanup();
+    show(night);
+    expect(screen.getByText('From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.').closest('[hidden]')).toBeNull();
+  });
+
+  it('lists every option with the requirements it meets and fails, its trade-offs and why it ranks above the next, under the objective and the search resolution (review acceptance)', () => {
+    showAll();
+    const open = screen.getByRole('button', { name: 'Options and why' });
+    const list = document.getElementById(open.getAttribute('aria-controls')!)!;
+    fireEvent.click(open);
+    expect(list.hidden).toBe(false);
+    const text = list.textContent!.replace(/\s+/g, ' ');
+    expect(text).toContain(plan.objective);
+    expect(text).toContain(plan.rule!);
+    expect(text).toContain('Landing times tried every hour of these 30 days (UTC), each for a 30-day stay.');
+    expect(text).toContain('Landing at the period start, 1 January, 00:00 UTC: Fails 2 of your 2 requirements.');
+    const first = within(list).getByRole('listitem', { name: '20 January, 10:00 UTC' });
+    expect(first.textContent!.replace(/\s+/g, ' ')).toMatch(/Meets Power for at least 5 d: 12 d 15 h, 7 d 15 h to spare/);
+    expect(first.textContent!.replace(/\s+/g, ' ')).toMatch(/Fails Longest time without Earth while powered at most 3 d: 9 d 10 h, 6 d 10 h too long/);
+    expect(first.textContent).toContain('Against landing at the period start: Power +9 d 11 h, sunlight −1 d 3 h');
+    expect(first.textContent).toContain('Power lasts 3 d longer than the next.');
+    // The better date's own reason, against landing at the start, comes first.
+    expect(text.indexOf('It fails fewer requirements than landing at the period start: 1 against 2.')).toBeLessThan(text.indexOf(plan.objective));
+    expect(within(list).getByRole('listitem', { name: 'de Gerlache rim summit, 12 km away' }).textContent).toContain('Against this site: Power +26 d 20 h');
+    // How the range near the point was found is there too.
+    expect(text).toContain(range.detail);
+  });
+
+  it('keeps every action in the options plain: the better date stays the one gold action', () => {
+    const { onLand } = showAll();
+    fireEvent.click(screen.getByRole('button', { name: 'Options and why' }));
+    expect(document.querySelectorAll('.btn-primary')).toHaveLength(1);
+    const second = screen.getByRole('button', { name: 'Land on 23 January at 10:00 UTC' });
+    expect(second.className).not.toMatch(/btn-primary/);
+    fireEvent.click(second);
+    expect(onLand).toHaveBeenCalledWith('2027-01-23T10:00:00');
+    // The place's link goes where the nearby line's does, by the same name.
+    expect(screen.getAllByRole('link', { name: 'Explore de Gerlache rim summit' }).at(-1)!.getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high');
+  });
+
+  it('keeps the requirements one tap away, every box named, an empty box meaning no requirement', () => {
+    const { onRequirements } = showAll();
+    const open = screen.getByRole('button', { name: 'Options and why' });
+    expect(open.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(open);
+    expect(screen.getByRole('heading', { name: 'Your requirements' })).toBeTruthy();
+    const power = screen.getByRole('spinbutton', { name: 'Power for at least (days)' }) as HTMLInputElement;
+    expect(power.value).toBe('5');
+    expect((screen.getByRole('spinbutton', { name: 'Longest time without Earth while powered at most (days)' }) as HTMLInputElement).value).toBe('3');
+    expect((screen.getByRole('spinbutton', { name: 'Earth in view within (hours of landing; 0 for the landing hour)' }) as HTMLInputElement).value).toBe('');
+    expect((screen.getByRole('spinbutton', { name: 'Earth contact while powered at least (hours)' }) as HTMLInputElement).value).toBe('');
+    fireEvent.change(power, { target: { value: '7.5' } });
+    expect(onRequirements).toHaveBeenLastCalledWith({ minPoweredH: 180 });
+    fireEvent.change(power, { target: { value: '' } });
+    expect(onRequirements).toHaveBeenLastCalledWith({ minPoweredH: null });
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Earth in view within (hours of landing; 0 for the landing hour)' }), { target: { value: '0' } });
+    expect(onRequirements).toHaveBeenLastCalledWith({ contactWithinH: 0 });
+    // A value out of range is not taken until it is a number the search can use.
+    fireEvent.change(power, { target: { value: '-2' } });
+    expect(onRequirements).toHaveBeenLastCalledWith({ contactWithinH: 0 });
+  });
+
+  it('shows the range of results near an approximate point next to the result', () => {
+    showAll();
+    const line = screen.getByText(range.words);
+    expect(line.tagName).toBe('P');
+    // Right under the answer's first sentence and its reasons, before the better date.
+    const gold = screen.getByRole('button', { name: 'Land on 20 January instead' });
+    expect(line.compareDocumentPosition(gold) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(line.closest('[hidden]')).toBeNull();
+    expect(screen.getByText(range.detail).closest('[hidden]')).toBeTruthy();
+  });
+
+  it('still keeps the answer to 110 words before a tap with the requirements, the options and the range, at 1440 and on a phone (spec 20.1)', () => {
+    showAll();
+    const panel = screen.getByRole('region', { name: 'The answer' });
+    for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(110);
   });
 });

@@ -13,6 +13,7 @@ import { checkPick } from '../viz/pick';
 import { yearOptions, type Recommendation, type YearChoice } from '../plan/options';
 import { periodOutcome, type Outcome } from '../plan/outcome';
 import { checksWords, NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
+import { positionRadiusKm, ringPoints, type PointResult } from '../plan/neighbourhood';
 import { customPoint, parseExploreQuery } from './query';
 
 export const WINDOW_DAYS = [14, 30, 90] as const;
@@ -67,6 +68,19 @@ export interface SiteOverview {
   now?: Outcome;
 }
 export const DEFAULT_START = '2027-01-01T00:00:00';
+
+/** The same period worked out at points round a site whose position is known only to a few kilometres. */
+export interface Neighbourhood {
+  siteId: string;
+  /** How far from its coordinate the site may be, as the catalogue states it. */
+  radiusKm: number;
+  /** True while the worker computes the points' skylines. */
+  busy: boolean;
+  points: PointResult[];
+  /** Time from the first skyline asked for to the last result, in ms. */
+  ms: number;
+  mastM: number;
+}
 
 /** The 12-month search's result: the landing times it found, ranked with the requirements, and what it searched. */
 export interface YearPlan {
@@ -166,6 +180,14 @@ export interface ExploreState {
   requirements: Requirements;
   /** Changes some requirements (null drops one); the 12-month note goes, as it was ranked for the old ones. */
   setRequirements: (patch: Partial<Requirements>) => void;
+  /** The current period worked out round an approximate site (null for a surveyed one, or before `loadNeighbourhood`). */
+  neighbourhood: Neighbourhood | null;
+  /**
+   * Works out the current period at 8 points round the selected site when the catalogue says its position is known only
+   * to a few kilometres: the skylines in the worker, one at a time, cached by place and mast. A no-op when it is already
+   * there for this site, period and lander; a newer site or period drops a run still going.
+   */
+  loadNeighbourhood: () => Promise<void>;
   setParams: (patch: Partial<PlannerParams>) => void;
   setPower: (patch: Partial<PowerConfig>) => void;
   /** Computes a custom site's skyline in the worker and selects it. */
@@ -263,6 +285,10 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   let windowSeq = 0;
   let overviewSeq = 0;
   let overviewKey: string | null = null;
+  /** Skylines of the points round approximate sites, by place and mast; and the run of `loadNeighbourhood` in hand. */
+  const ringMasks = new Map<string, { mask: Float64Array; failedTiles: number }>();
+  let neighbourhoodSeq = 0;
+  let neighbourhoodKey: string | null = null;
   let initPromise: Promise<void> | null = null;
   let terrainPromise: Promise<void> = Promise.resolve();
   let windowPromise: Promise<void> = Promise.resolve();
@@ -306,6 +332,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     bestWindowNote: null,
     yearPlan: null,
     requirements: NO_REQUIREMENTS,
+    neighbourhood: null,
     aiMode: process.env.NEXT_PUBLIC_AI_MODE === 'cached' ? 'cached' : 'live',
 
     init() {
@@ -444,6 +471,54 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
 
     setRequirements(patch) {
       set({ requirements: { ...get().requirements, ...patch }, bestWindowNote: null });
+    },
+
+    async loadNeighbourhood() {
+      const { site, eph, startUtc, days, params } = get();
+      const radiusKm = site ? positionRadiusKm(site) : null;
+      if (!site || !eph || !loaders.computeMask || radiusKm === null) {
+        neighbourhoodKey = null;
+        neighbourhoodSeq++;
+        if (get().neighbourhood) set({ neighbourhood: null });
+        return;
+      }
+      const key = JSON.stringify([site.id, startUtc, days, params]);
+      if (key === neighbourhoodKey) return; // already there, or on its way, for this site, period and lander
+      neighbourhoodKey = key;
+      const seq = ++neighbourhoodSeq;
+      const t0 = Date.now();
+      const base = { siteId: site.id, radiusKm, mastM: params.mastM };
+      set({ neighbourhood: { ...base, busy: true, points: [], ms: 0 } });
+      const points: PointResult[] = [];
+      for (const p of ringPoints(site, radiusKm)) {
+        const id = `${p.lat.toFixed(4)}_${p.lon.toFixed(4)}_${params.mastM}`;
+        let got: { mask: Float64Array; failedTiles: number } | { error: string } | undefined = ringMasks.get(id);
+        if (!got) {
+          try {
+            const r = await loaders.computeMask(p.lat, p.lon, params.mastM);
+            got = { mask: r.mask, failedTiles: r.failedTiles };
+            // A skyline with holes is not kept: the tiles may load next time.
+            if (r.failedTiles === 0) ringMasks.set(id, got);
+          } catch (err) {
+            got = { error: message(err) };
+          }
+          if (seq !== neighbourhoodSeq) return;
+        }
+        if ('error' in got) {
+          points.push({ ...p, outcome: null, missing: /no DEM coverage/i.test(got.error) ? 'no elevation data here' : `an error (${got.error})` });
+        } else if (got.failedTiles > 0) {
+          points.push({ ...p, outcome: null, missing: 'elevation tiles that failed to load' });
+        } else {
+          try {
+            const r = recompute(eph, { ...site, lat: p.lat, lon: p.lon }, got.mask, startUtc, days, params, params.mastM);
+            points.push({ ...p, outcome: periodOutcome(r.series, r.power), missing: null });
+          } catch (err) {
+            points.push({ ...p, outcome: null, missing: `an error (${message(err)})` });
+          }
+        }
+      }
+      if (seq !== neighbourhoodSeq) return;
+      set({ neighbourhood: { ...base, busy: false, points, ms: Date.now() - t0 } });
     },
 
     async selectCustom(lat, lon) {

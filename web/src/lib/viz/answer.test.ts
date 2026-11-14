@@ -328,12 +328,13 @@ describe('planView: every option for the panel, in words', () => {
     expect(v.times.options[0]).toEqual({
       key: 'time-12',
       title: '1 January, 12:00 UTC',
+      action: 'Land on 1 January at 12:00 UTC',
       summary: 'Meets your requirement.',
       checks: [{ met: true, words: 'Longest time without Earth while powered at most 12 h: 0 h, 12 h to spare' }],
       trade: 'Power +10 h, sunlight +12 h, Earth in view same, contact while powered +20 h, longest time without Earth while powered −10 h',
       why: 'Power lasts 6 h longer than the next.',
       land: '2027-01-01T12:00:00',
     });
-    expect(v.places?.options[0]).toMatchObject({ key: 'place-summit', title: 'Summit, 12 km away', summary: 'Meets your requirement.', href: '/explore?site=summit' });
+    expect(v.places?.options[0]).toMatchObject({ key: 'place-summit', title: 'Summit, 12 km away', action: 'Explore Summit', summary: 'Meets your requirement.', href: '/explore?site=summit' });
   });
 });
