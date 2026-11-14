@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { PicturesDoc } from '@/lib/data/validation';
 import { readJson } from '@/lib/engine/__tests__/helpers';
-import { PicturesNumbers } from './PicturesNumbers';
+import { cameraWords, PicturesNumbers } from './PicturesNumbers';
 
 const doc = readJson<PicturesDoc>('data', 'validation', 'images.json');
 
@@ -33,6 +33,12 @@ describe('PicturesNumbers', () => {
     expect(row.textContent).toContain(`${(first.agree * 100).toFixed(1)} %`);
     expect(row.textContent).toContain(`${(first.product90.agree * 100).toFixed(1)} %`);
     expect(row.textContent).toContain(`${(first.agree_sun_turned_90 * 100).toFixed(1)} %`);
+  });
+
+  it('tells the narrow-angle pair apart, left and right', () => {
+    const nac = doc.rows.filter((r) => r.camera === 'NAC').map(cameraWords);
+    expect(nac).toEqual(['Narrow angle, left', 'Narrow angle, right']);
+    expect(cameraWords({ camera: 'WAC', picture: 'WAC_MOVIE_S20090920T0850' })).toBe('Wide angle');
   });
 
   it('marks the pictures that fall short, and says which ground the app missed', () => {

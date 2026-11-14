@@ -8,6 +8,12 @@ const NOTE = 'mt-3 max-w-[62em] break-words text-[15px] leading-relaxed text-ink
 const pctOf = (x: number | null) => (x === null ? '—' : `${(x * 100).toFixed(1)} %`);
 const day = (iso: string) => new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 
+/** The camera in words; the Narrow Angle Camera is a pair, left and right, and product 90 gives each its own picture. */
+export function cameraWords(row: Pick<PictureRow, 'camera' | 'picture'>): string {
+  if (row.camera === 'WAC') return 'Wide angle';
+  return /RE_/.test(row.picture) ? 'Narrow angle, right' : /LE_/.test(row.picture) ? 'Narrow angle, left' : 'Narrow angle';
+}
+
 /** Which part of the mark a picture misses: the ground called alike, the lit ground or the dark ground. */
 function shortfall(row: PictureRow, rule: { min_agree: number; min_found: number }): string {
   if (picturePasses(row, rule)) return 'yes';
@@ -55,7 +61,7 @@ export function PicturesNumbers({ doc }: { doc: PicturesDoc }) {
           {doc.rows.map((r) => (
             <tr key={`${r.site_id}-${r.picture}`}>
               <td className={TD}>{names.get(r.site_id) ?? r.site_id}</td>
-              <td className={TD}>{r.camera === 'WAC' ? 'Wide angle' : 'Narrow angle'}</td>
+              <td className={TD}>{cameraWords(r)}</td>
               <td className={`${TD} tabular-nums`}>{r.mid_utc.slice(0, 16).replace('T', ' ')}</td>
               <td className={NUM}>{r.sun_el_deg.toFixed(1)}°</td>
               <td className={NUM}>{pctOf(r.agree)}</td>
