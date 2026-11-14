@@ -70,12 +70,13 @@ test.describe('Without WebGL 2', () => {
     await shot('explore-ground');
   });
 
-  test('the home page shows the arrival as pictures, with its words and its way to the forecast', async ({ page }) => {
+  test('the home page shows the descent as pictures, with its words, a line that says so and its way to the forecast', async ({ page }) => {
     await withoutWebGL(page);
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.locator('[data-arrival] img').first()).toBeVisible();
-    await expect(page.locator('[data-arrival] canvas')).toHaveCount(0);
+    await expect(page.locator('[data-descent] img[data-still="moon"]')).toBeVisible();
+    await expect(page.locator('[data-descent] canvas')).toHaveCount(0);
+    await expect(page.getByRole('status').filter({ hasText: 'Still pictures: this browser cannot draw the live view.' })).toBeVisible();
     await expect(page.getByRole('link', { name: /Open the full forecast/ }).first()).toBeAttached();
   });
 });
