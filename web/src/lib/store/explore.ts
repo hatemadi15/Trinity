@@ -1254,7 +1254,7 @@ export function skylineFromWorker(r: MaskResult): ComputedSkyline {
   };
 }
 
-const browserLoaders: Loaders = {
+export const browserLoaders: Loaders = {
   loadSites: () => loadSites(dataBase()),
   loadEphemeris: () => loadEphemerisFromUrl(dataBase()),
   loadMask: (id) => loadMask(dataBase(), id),
