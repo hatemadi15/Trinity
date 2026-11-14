@@ -12,12 +12,13 @@ const rect = (left: number, top: number, right: number, bottom: number) => ({ le
 
 /**
  * jsdom lays nothing out: this gives the picture a window's size and the first screen's words the boxes a browser gives
- * them at 1440 × 900 (the eyebrow, the title, the sentence and the buttons, from 112 px to 740 px across).
+ * them at 1440 × 900 (the eyebrow, the title, the sentence, the audience line and the buttons, from 112 px to 740 px
+ * across).
  */
 function laidOut() {
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1440);
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(900);
-  const boxes = [rect(112, 64, 330, 85), rect(112, 105, 740, 330), rect(112, 354, 682, 446), rect(112, 478, 591, 530)];
+  const boxes = [rect(112, 64, 330, 85), rect(112, 105, 740, 330), rect(112, 354, 682, 446), rect(112, 458, 592, 506), rect(112, 534, 591, 586)];
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     const parent = this.parentElement;
     if (parent?.hasAttribute('data-opening')) return boxes[[...parent.children].indexOf(this)] ?? rect(0, 0, 0, 0);
@@ -28,13 +29,18 @@ function laidOut() {
 afterEach(() => vi.restoreAllMocks());
 
 describe('the descent (spec 23.1)', () => {
-  it('opens on the headline, one sentence and two actions, with no line telling anyone to scroll', () => {
+  it('opens on the headline, one sentence, who it is for and two actions, with no line telling anyone to scroll', () => {
     render(<Descent words={words} Scene={Scene} />);
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1.textContent).toBe('See when a Moon lander has sunlight and a signal.');
     expect(h1.querySelector('em')!.textContent).toBe('sunlight');
     expect(h1.querySelector('.pixel')!.textContent).toBe('signal');
-    expect(screen.getByText(/^A forecast for Moon landing sites and dates, 2024 to 2036/)).toBeTruthy();
+    const sentence = screen.getByText(/^A forecast for Moon landing sites and dates, 2024 to 2036/);
+    // The audience line follows the sentence, before the actions, and sends teachers to How it works.
+    const audience = sentence.nextElementSibling as HTMLElement;
+    expect(audience.textContent).toMatch(/^For planners of NASA's commercial Moon landers, teachers \(start with How it works\) and anyone curious\.$/);
+    expect(within(audience).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
+    expect(within(audience.nextElementSibling as HTMLElement).getAllByRole('link')).toHaveLength(2);
     expect(screen.getByRole('link', { name: /Fly to the south pole/ }).getAttribute('href')).toBe('/sites');
     expect(screen.getByRole('link', { name: 'See why the pole is hard' }).getAttribute('href')).toBe('#why');
     expect(document.body.textContent).not.toMatch(/scroll/i);
@@ -93,7 +99,7 @@ describe('the descent (spec 23.1)', () => {
     expect(to).toHaveBeenCalled();
   });
 
-  it('stands the first screen’s Moon, still or live, right of the words and clear of them: never under the title, the sentence or the buttons', async () => {
+  it('stands the first screen’s Moon, still or live, right of the words and clear of them: never under the title, the sentence, the audience line or the buttons', async () => {
     laidOut();
     let given: { current: { moon: { cx: number; cy: number; r: number }; earth: { cx: number; cy: number; r: number } } | null } | null = null;
     const Seen = (p: { layout?: typeof given }) => {

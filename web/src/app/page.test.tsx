@@ -11,7 +11,7 @@ const HEADLINE = 'See when a Moon lander has sunlight and a signal.';
 const pct = (n: number) => `${n} %`;
 
 describe('home page', () => {
-  it('says what the product does in the headline and offers one primary action there, named for where it goes', () => {
+  it('says what the product does in the headline, offers one primary action there, named for where it goes, and says who it is for', () => {
     render(<Home />);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(HEADLINE);
     const hero = screen.getByRole('region', { name: HEADLINE });
@@ -26,8 +26,12 @@ describe('home page', () => {
     // The challenge in plain words on the first screen: a forecast for landing sites and dates (spec 18.2), for more than two landers.
     expect(hero.textContent).toMatch(/A forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth, and how long a lander keeps power\./);
     expect(hero.textContent).not.toMatch(/survives the night/);
-    // The first screen is a title card (spec 23): no proof line or audience line to read before the Moon.
-    expect(hero.textContent).not.toMatch(/Built on NASA|For planners of/);
+    // Who it is for, with the teachers' way in on the same line.
+    const audience = within(hero).getByText(/^For planners of NASA's commercial Moon landers, teachers/);
+    expect(audience.textContent).toBe("For planners of NASA's commercial Moon landers, teachers (start with How it works) and anyone curious.");
+    expect(within(audience).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
+    // The first screen is a title card (spec 23): no proof line to read before the Moon.
+    expect(hero.textContent).not.toMatch(/Built on NASA/);
   });
 
   it('gives the check against NASA’s positions in the table of checks, from the same field the data has', () => {
