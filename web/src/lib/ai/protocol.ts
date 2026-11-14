@@ -1,5 +1,5 @@
 import { ACTION_TYPES, type Action } from './actions';
-import type { StateSummary } from './state-summary';
+import { stateForModel, type StateSummary } from './state-summary';
 
 export type ChatSource = 'model' | 'cache' | 'intent' | 'none';
 
@@ -64,7 +64,7 @@ Rules:
 
 /** The user turn: the compact app state (or a note that nothing is selected) and the question. */
 export function userPrompt(prompt: string, state: StateSummary | null): string {
-  const stateText = state ? JSON.stringify(state, null, 1) : 'No site is selected yet (the app is still loading or on a page without a site).';
+  const stateText = state ? JSON.stringify(stateForModel(state), null, 1) : 'No site is selected yet (the app is still loading or on a page without a site).';
   return `STATE:\n${stateText}\n\nQUESTION:\n${prompt}`;
 }
 

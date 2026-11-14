@@ -59,7 +59,7 @@ describe('checkClaims: correct narrations pass', () => {
     passes(
       'de Gerlache Rim 2 (Artemis III region), at 88.28°S, 64.31°W, is examined over a 30-day window beginning 1 January 2027. The Sun is above the horizon 44.6% of the time, on average 42.1% of its disk is visible, and the longest night lasts 399 hours, or 16 days 15 hours. ' +
         'Earth is visible 45.0% of the time, with the longest gap in visibility lasting 219 hours; the Sun and Earth are visible together only 10.7% of the time. ' +
-        'With a 4 m² vertical tracking panel, 30% efficiency, a 200 W load and a 2,000 Wh battery starting fully charged, the lander does not survive: it has power for 76 hours (3 days 4 hours) before the battery runs out, and is without power for 390 hours in total. ' +
+        'With a 4 m² vertical tracking panel, 30% efficiency, a 200 W load and a 2,000 Wh battery starting fully charged, the lander does not keep power for the whole period: it has power for 76 hours (3 days 4 hours) before the battery runs out, and is without power for 390 hours in total. ' +
         'Mean panel output is 708.3 W.',
       DG,
     );
@@ -180,6 +180,28 @@ describe('checkClaims: wrong claims fail', () => {
     passes('The lander runs out of power after 3 days 4 hours because the night is longer than the battery lasts.', DG);
     passes('Earth is out of view for up to 219 hours, so there are gaps in radio contact.', DG);
     fails('The lander keeps power for all 30 days because the Sun never sets.', DG); // there is a night, and power ends
+  });
+});
+
+describe('checkClaims: energy, not survival', () => {
+  it('rejects any claim that the lander or its battery survives, lives or dies, even where power lasts: the figures count electrical energy only', () => {
+    for (const text of [
+      'The battery survives the night.',
+      'The lander survives the 30 days.',
+      'Survival looks likely at this site.',
+      'The lander lives through each night on its battery.',
+      'The lander makes it through the night.',
+      'The lander stays alive for all 30 days.',
+    ])
+      fails(text, SR, /electrical energy only/);
+    fails('The lander dies on the first night.', DG, /electrical energy only/);
+    passes('The lander keeps power for all 30 days.', SR);
+  });
+
+  it('drops a survival claim from a planner reply too', () => {
+    const r = checkClaims('Yes. The lander survives here.', SR, { mode: 'reply' });
+    expect(r.sentences.map((x) => x.ok)).toEqual([true, false]);
+    expect(r.sentences[1].problems.join(' ')).toMatch(/electrical energy only/);
   });
 });
 

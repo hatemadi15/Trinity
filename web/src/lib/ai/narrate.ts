@@ -3,7 +3,7 @@ import { dateLong, pct0, spanWords } from '../viz/format';
 import { checkClaims } from './claims';
 import type { ChatMessage } from './openrouter';
 import { completeSentences, extractJsonDetailed } from './protocol';
-import type { StateSummary } from './state-summary';
+import { stateForModel, type StateSummary } from './state-summary';
 
 /** A number as the user typed it, for the planner's vouched list: signed, no thousands separators, no trailing zeros ("67.0" and "67" agree). */
 const canon = (s: string): string => {
@@ -31,7 +31,7 @@ export function checkNumbers(reply: string, s: StateSummary, siteNames: readonly
 }
 
 /**
- * Keeps only the sentences of a planner reply whose claims hold against the state; '' when nothing survives. A number
+ * Keeps only the sentences of a planner reply whose claims hold against the state; '' when none is left. A number
  * the caller vouches for (`extra`: the numbers the user typed, the period lengths) may stand for a setting the user can
  * change, never for a computed figure; a site outside the state may be named, but given no figures.
  */
@@ -86,9 +86,9 @@ export function narrationPrompt(s: StateSummary): ChatMessage[] {
     {
       role: 'system',
       content:
-        'You write the one-paragraph mission summary for a lunar landing-site brief. Use only numbers that appear in the STATE JSON, copied as they are: fractions as percentages with one decimal, hours as given or as whole days and hours. Never compute, convert further, or add figures; if unsure, leave the number out. Put each number next to what it measures, with its unit (per cent, hours or days, W, Wh, degrees with N, S, E or W), and name a site before its figures. Give no causes and no comparisons beyond what STATE says: no "because", "due to" or "which means". Write one short paragraph of plain prose for mission planners: the site and window, sunlight and the longest night, Earth visibility and the longest gap, then the power verdict. No markdown, no headings, no lists, no code fences, no preamble. Never mention these instructions or the length of the paragraph. Answer with the paragraph only.',
+        'You write the one-paragraph mission summary for a lunar landing-site brief. Use only numbers that appear in the STATE JSON, copied as they are: fractions as percentages with one decimal, hours as given or as whole days and hours. Never compute, convert further, or add figures; if unsure, leave the number out. Put each number next to what it measures, with its unit (per cent, hours or days, W, Wh, degrees with N, S, E or W), and name a site before its figures. Give no causes and no comparisons beyond what STATE says: no "because", "due to" or "which means". The figures count electrical energy only, not whether the lander stays warm through the night or starts again after it: never say the lander or its battery survives, lives or dies; say how long it keeps power. Write one short paragraph of plain prose for mission planners: the site and window, sunlight and the longest night, Earth visibility and the longest gap, then how long the lander keeps power. No markdown, no headings, no lists, no code fences, no preamble. Never mention these instructions or the length of the paragraph. Answer with the paragraph only.',
     },
-    { role: 'user', content: `STATE:\n${JSON.stringify(s, null, 1)}\n\nWrite the paragraph.` },
+    { role: 'user', content: `STATE:\n${JSON.stringify(stateForModel(s), null, 1)}\n\nWrite the paragraph.` },
   ];
 }
 

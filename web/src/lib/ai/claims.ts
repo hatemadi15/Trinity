@@ -127,7 +127,7 @@ const CUES: Cue[] = [
   { re: /\bgaps?\b|\bout of view\b|\bblackouts?\b|\boutages?\b|\bwithout (?:radio )?contact\b|\bno (?:radio )?contact\b|\bout of (?:touch|contact|sight)\b|\bwithout earth\b|\babsences?\b|\bhidden\b|\bbelow the horizon\b/g, keys: { h: ['longestGap'], pct: ['earthOutFrac'] } },
   { re: /\bof (?:that|this) time\b|\bof (?:the|its|that) (?:powered|power-on) (?:time|hours|period)\b|\bof those hours\b|\bof them\b|\bwhile (?:it |the lander )?(?:has|had|keeps|kept) power\b|\bwhile (?:it is |it's |the lander is )?powered\b|\bwith power\b|\bin that time\b|\bduring that time\b/g, keys: { h: ['contactH'], pct: ['contactFrac'] }, dir: 'after' },
   { re: /\bwithout power\b|\bno power\b|\bunpowered\b|\bbrown-?outs?\b|\bpower(?:ed)? off\b|\bswitched off\b|\b(?:is|stays|remains|sits|goes) (?:empty|flat|drained|off)\b/g, keys: { h: ['brownoutH'] } },
-  { re: /\bpower(?:ed)?\b|\bsurviv\w*|\boperat\w*|\bruns? (?:out|for|dry|flat)\b|\bstays? (?:on|powered|alive)\b|\bempty\b|\bempties\b/g, keys: { h: ['poweredH'], W: ['meanPower'] } },
+  { re: /\bpower(?:ed)?\b|\boperat\w*|\bruns? (?:out|for|dry|flat)\b|\bstays? (?:on|powered)\b|\bempty\b|\bempties\b/g, keys: { h: ['poweredH'], W: ['meanPower'] } },
   { re: /\bloads?\b|\buses\b|\bdraws?\b|\bconsum\w*|\bdemand\b|\bneeds\b|\brequires?\b/g, keys: { W: ['load'] } },
   // "lasts 10 hours at 200 W": the load the battery carries.
   { re: /\bat\b(?=\s+\d[\d,.]*\s*(?:w|watts?|kw)\b)/g, keys: { W: ['load'] }, dir: 'before' },
@@ -574,7 +574,8 @@ const BODY_VERB_RE =
 /** "in that time", "while it has power": the hours with power, not the whole period. */
 const WHILE_POWERED = /\b(?:in|during|of) (?:that|the powered) (?:time|period)\b|\bwhile (?:the lander |it )?(?:has|had|keeps|kept) power\b|\bwhile (?:it is )?powered\b|\bwith power\b|\bduring the powered (?:period|time|hours)\b/;
 const NEGATION_RE = /\b(?:not|never|no|cannot|can't|doesn't|don't|isn't|won't|wouldn't|didn't|does not|fails? to|unable to)\s+(?:\S+\s+){0,1}$/;
-const SURVIVE_RE = /\bsurviv(?:es|e|ed|ing)\b|\b(?:keeps?|has|have|stays?|remains?) (?:its )?(?:power|powered)\s+(?:for|through(?:out)?)\s+(?:all|the (?:whole|entire|full))\b|\bkeeps? (?:its )?power\b(?!\s+for\s+(?!all\b))|\bpower for all\b|\bpowered (?:for all|throughout)\b|\bstays? powered\b(?!\s+for\s+(?!all\b))|\bnever (?:runs? out|loses? power|browns? out)\b|\bno brown-?outs?\b|\b(?:lasts?|operates?|works?|keeps? going|stays? on)\s+(?:the (?:whole|entire|full) (?:period|window|stay|mission|month)|throughout|to the end)\b/g;
+/** Power lasting the whole period, in the words of energy ("keeps power for all 30 days", "never runs out"). */
+const LASTS_RE = /\b(?:keeps?|has|have|stays?|remains?) (?:its )?(?:power|powered)\s+(?:for|through(?:out)?)\s+(?:all|the (?:whole|entire|full))\b|\bkeeps? (?:its )?power\b(?!\s+for\s+(?!all\b))|\bpower for all\b|\bpowered (?:for all|throughout)\b|\bstays? powered\b(?!\s+for\s+(?!all\b))|\bnever (?:runs? out|loses? power|browns? out)\b|\bno brown-?outs?\b|\b(?:lasts?|operates?|works?|keeps? going|stays? on)\s+(?:the (?:whole|entire|full) (?:period|window|stay|mission|month)|throughout|to the end)\b/g;
 const END_RE =
   /\bruns? out\b|\bloses? (?:its )?power\b|\bshuts? down\b|\bpower (?:ends|fails|runs out|cuts out|is lost)\b|\bgoes (?:dark|dead|silent)\b|\b(?:battery|batteries) (?:is |are |goes |runs )?(?:empty|drained|depleted|flat|exhausted|dry)\b|\b(?:a|the|first|suffers? a|hits? a) brown-?out\b/g;
 
@@ -632,7 +633,7 @@ function qualities(t: string): Quality[] {
     push(WHILE_POWERED.test(t.slice(m.index! + m[0].length).split(/[,;:.—]/)[0]) ? 'contactPowered' : 'contact', m);
   }
   for (const m of t.matchAll(/\bbattery\b[^.;:]*?\b(?:covers?|carries (?:it |the lander |the load )?(?:through|across)|bridges?|lasts? (?:through|the)|gets? (?:it |the lander )?through|sees? (?:it |the lander )?through)\b(?!\s+the first)[^.;:]*?\bnights?\b/g)) push('batteryCovers', m);
-  for (const m of t.matchAll(SURVIVE_RE)) push('survives', m, !/never|no brown/.test(m[0]));
+  for (const m of t.matchAll(LASTS_RE)) push('powerLasts', m, !/never|no brown/.test(m[0]));
   for (const m of t.matchAll(END_RE)) push('powerEnds', m);
   for (const m of t.matchAll(/\bthen (?:the )?night\b/g)) push('thenNight', m, false);
   for (const m of t.matchAll(/\b(?:then )?too little sun(?:light)?\b/g)) push('thenLowSun', m, false);
@@ -658,7 +659,7 @@ function qualityHolds(kind: string, s: StateSummary, site: SiteRef): boolean | u
     const lit = row.illumFraction, earth = row.earthVisFraction;
     const table: Record<string, boolean> = {
       noNight: lit >= 0.9995, night: lit < 0.9995, noSun: lit === 0, earthAlways: earth >= 0.9995, earthNever: earth === 0,
-      earthSets: earth > 0 && earth < 0.9995, earthRises: earth > 0 && earth < 0.9995, noContact: earth === 0, survives: row.survives, powerEnds: !row.survives,
+      earthSets: earth > 0 && earth < 0.9995, earthRises: earth > 0 && earth < 0.9995, noContact: earth === 0, powerLasts: row.survives, powerEnds: !row.survives,
     };
     return table[kind];
   }
@@ -678,7 +679,7 @@ function qualityHolds(kind: string, s: StateSummary, site: SiteRef): boolean | u
     contactPowered: p.contactHours > 0,
     contactAllPowered: p.poweredHours > 0 && p.contactHours >= p.poweredHours,
     batteryCovers: p.survives && m.longestDarkH > 0,
-    survives: p.survives,
+    powerLasts: p.survives,
     powerEnds: !p.survives,
     thenNight: !p.survives && (p.endsAtNight ?? m.longestDarkH > 0),
     thenLowSun: !p.survives && (p.endsAtNight === undefined ? m.longestDarkH === 0 : !p.endsAtNight),
@@ -720,7 +721,7 @@ function qualityDetail(kind: string, s: StateSummary, site: SiteRef): string {
       return `where the figures give Earth in view for ${spanWords(p.contactHours)} while it has power`;
     case 'batteryCovers':
       return m.longestDarkH > 0 ? powerWords : 'where the figures give no night';
-    case 'survives':
+    case 'powerLasts':
     case 'powerEnds':
       return powerWords;
     case 'thenNight':
@@ -735,8 +736,8 @@ const PANEL_NAMES: Record<string, string> = { horizontal: 'flat, facing up', ver
 
 /** The causes the figures give, each with what makes it hold: the verdict's reasons, read from the state's named fields. */
 const REASONS: { cause: string; effect: string; holds: (s: StateSummary) => boolean }[] = [
-  { cause: 'noNight', effect: 'survives', holds: (s) => s.summary.longestDarkH === 0 && s.power.survives },
-  { cause: 'batteryCovers', effect: 'survives', holds: (s) => s.summary.longestDarkH > 0 && s.power.survives },
+  { cause: 'noNight', effect: 'powerLasts', holds: (s) => s.summary.longestDarkH === 0 && s.power.survives },
+  { cause: 'batteryCovers', effect: 'powerLasts', holds: (s) => s.summary.longestDarkH > 0 && s.power.survives },
   { cause: 'night', effect: 'powerEnds', holds: (s) => nightOutlastsBattery(s) },
   { cause: 'batteryShort', effect: 'powerEnds', holds: (s) => nightOutlastsBattery(s) },
   { cause: 'lowSun', effect: 'powerEnds', holds: (s) => !s.power.survives && (s.power.endsAtNight === undefined ? s.summary.longestDarkH === 0 : !s.power.endsAtNight) },
@@ -765,8 +766,8 @@ const TOPIC_RES: [string, RegExp][] = [
   ['noContact', /\bno (?:radio )?contact\b|\bcannot (?:reach|contact|talk to) earth\b|\bgaps? in (?:radio )?contact\b|\bout of (?:touch|contact)\b|\bradio (?:gaps?|silence|blackouts?)\b/g],
   ['contact', /\b(?:radio )?contact\b|\bcommunicat\w*\b|\btalk to earth\b|\bsend data\b|\bradio link\b/g],
 ];
-const NOT_TOPIC: Record<string, string> = { survives: 'powerEnds', powerEnds: 'survives', night: 'noNight', noNight: 'night', earthIn: 'earthOut', earthOut: 'earthIn' };
-const QUALITY_TOPIC: Record<string, string> = { noNight: 'noNight', night: 'night', thenNight: 'night', thenLowSun: 'lowSun', survives: 'survives', powerEnds: 'powerEnds', earthSets: 'earthOut', noContact: 'noContact', noContactPowered: 'noContact', earthAlways: 'earthIn' };
+const NOT_TOPIC: Record<string, string> = { powerLasts: 'powerEnds', powerEnds: 'powerLasts', night: 'noNight', noNight: 'night', earthIn: 'earthOut', earthOut: 'earthIn' };
+const QUALITY_TOPIC: Record<string, string> = { noNight: 'noNight', night: 'night', thenNight: 'night', thenLowSun: 'lowSun', powerLasts: 'powerLasts', powerEnds: 'powerEnds', earthSets: 'earthOut', noContact: 'noContact', noContactPowered: 'noContact', earthAlways: 'earthIn' };
 
 /** What one side of a cause says, in the reasons' terms, and whatever is left over. */
 function topicsOf(seg: string): { topics: Set<string>; rest: string } {
@@ -917,6 +918,12 @@ function dateProblem(d: DateClaim, s: StateSummary, said: string): string | null
   return `${said}, outside the period's dates (${long(days[0])} to ${long(days[2])})`;
 }
 
+/**
+ * Survival, life and death: the figures count electrical energy only, not whether the lander stays warm enough through
+ * the night or starts again after it, so any such word fails, even where power lasts the whole period.
+ */
+const SURVIVAL_RE = /\bsurviv\w*|\blives? (?:through|on)\b|\bmakes? it through\b|\b(?:stays?|remains?|keeps? (?:it|the lander)) alive\b|\balive\b|\bdies\b|\bdie\b|\bdeath\b|\bdead\b/g;
+
 /** A judgement of worth the figures do not make ("an ideal landing site"); ranks are the comparisons' to check. */
 const JUDGEMENT_RE =
   /\b(?:ideal|excellent|good|great|poor|bad|suitable|unsuitable|favou?rable|unfavou?rable|promising|attractive|recommended|recommend|challenging|risky|safe|unsafe|optimal|perfect|well suited|ill suited|strong candidate|harsh|benign|viable|feasible)\b/g;
@@ -950,6 +957,8 @@ function checkSentence(
     for (const m of t.matchAll(JUDGEMENT_RE)) problems.push(`${quote(m.index!, m.index! + m[0].length)}, a judgement the figures do not make`);
     for (const m of t.matchAll(TIMING_RE)) problems.push(`${quote(m.index!, m.index! + m[0].length)}, a time the figures do not give`);
   }
+
+  for (const m of t.matchAll(SURVIVAL_RE)) problems.push(`${quote(m.index!, m.index! + m[0].length)}, a survival claim: the figures count electrical energy only`);
 
   for (const d of dates) {
     const p = dateProblem(d, s, quote(d.start, d.end));

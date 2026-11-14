@@ -146,7 +146,7 @@ describe('POST /api/chat task narrate', () => {
 
   it('narrates from the model when every number in the paragraph is in the state', async () => {
     vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
-    const text = 'Nobile Rim 2 sees the Sun 100 % of the time over these 14 days; Earth is in view 67 % of the time with a longest gap of 9 d 9 h, and the battery survives.';
+    const text = 'Nobile Rim 2 sees the Sun 100 % of the time over these 14 days; Earth is in view 67 % of the time with a longest gap of 9 d 9 h, and the lander keeps power for all 14 days.';
     const fetchMock = modelAnswer(text);
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ task: 'narrate', prompt: 'write the brief', state: STATE }))).json()) as Reply;
@@ -228,6 +228,20 @@ describe('POST /api/chat narrate: each claim checked against the state', () => {
     const nudge = retry.messages[retry.messages.length - 1].content;
     expect(nudge).toMatch(/"67 %" for sunlight, where the figures say 100 %/);
     expect(nudge).toMatch(/"84\.2°N" for the latitude, where the figures say 84\.202°S/);
+  });
+
+  it('falls back to the template when the paragraph says the battery survives: the figures count electrical energy only', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    const fetchMock = modelAnswer('Nobile Rim 2 sees the Sun 100 % of the time over these 14 days, so the battery survives the night.');
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ task: 'narrate', prompt: 'x', state: STATE }))).json()) as Reply & { problems?: string[] };
+    expect([json.source, json.reason]).toEqual(['template', 'numbers']);
+    expect(json.problems?.[0]).toMatch(/"survives", a survival claim: the figures count electrical energy only/);
+    // The model is told so, and its copy of the state names the flag for power lasting the whole period.
+    const sent = JSON.parse(String((fetchMock.mock.calls as unknown as [string, RequestInit][])[0][1].body)) as { messages: { content: string }[] };
+    expect(sent.messages[0].content).toMatch(/electrical energy only/);
+    expect(sent.messages[1].content).not.toMatch(/surviv/i);
   });
 
   it('names a site outside the state as a failure, from the catalogue', async () => {

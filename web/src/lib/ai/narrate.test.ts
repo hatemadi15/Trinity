@@ -93,6 +93,17 @@ describe('narrationPrompt', () => {
   });
 });
 
+describe('narrationPrompt: energy, not survival', () => {
+  it('tells the model the figures count electrical energy only, and hands it no word for survival', () => {
+    const [system, user] = narrationPrompt({ ...summary, compare: [{ id: 'haworth', name: 'Haworth (Artemis III region)', illumFraction: 0.5, earthVisFraction: 0.5, survives: false }] });
+    expect(system.content).toMatch(/electrical energy only/i);
+    expect(system.content).toMatch(/never say the lander or its battery survives/i);
+    expect(user.content).not.toMatch(/surviv/i);
+    expect(user.content).toContain('"powerLastsWholePeriod": true');
+    expect(user.content).toContain('"powerLastsWholePeriod": false');
+  });
+});
+
 describe('stripForeignNumbers', () => {
   it('drops a sentence whose number is in the state but on another measure', () => {
     // 67 % is Earth in view here, not sunlight.
