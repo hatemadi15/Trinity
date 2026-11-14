@@ -137,14 +137,14 @@ test.describe('When the data fails', () => {
   });
 
   test('with the horizon file of the site in a link missing, Explore says so in plain words', async ({ page }) => {
-    test.fixme(
-      true,
-      'Known bug, reported: Explore keeps the last site that loaded (de Gerlache Rim 2) and prints "could not load /data/masks/nobile_rim_2.json (HTTP 404)" over its answer; Compare and Choose a site print such errors the same way.',
-    );
     await missing(page, '**/data/masks/nobile_rim_2.json');
     await page.goto(exploreUrl('nobile_rim_2'));
-    await expect(answerHeading(page)).toBeVisible({ timeout: 60_000 });
-    expect(await page.locator('main').innerText()).not.toMatch(RAW);
-    await expect(page.getByText(/Nobile Rim 2/).first()).toBeVisible();
+    // The page speaks of the site asked for, names what is missing, and shows nothing of the site before.
+    await expect(page.getByRole('heading', { level: 1, name: 'Nobile Rim 2' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/its horizon file is not on this server, so its forecast cannot be shown here\. The other sites still work\./)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Choose another site' })).toBeVisible();
+    const text = await page.locator('main').innerText();
+    expect(text).not.toMatch(RAW);
+    expect(text).not.toMatch(/de Gerlache/);
   });
 });

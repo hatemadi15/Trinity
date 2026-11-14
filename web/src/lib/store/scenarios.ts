@@ -9,7 +9,7 @@ import { periodProblem } from '../scenario/period';
 import { baselineFrom, duplicateOf, paramsOf, scenarioKey, slipOf, type ExploreSettings, type Scenario } from '../scenario/scenario';
 import { isoAt } from '../viz/format';
 import { checkPick } from '../viz/pick';
-import { browserLoaders, exploreStore, recompute, type ExploreState, type MaskMeta, type SiteResult } from './explore';
+import { browserLoaders, exploreStore, recompute, siteProblem, type ExploreState, type MaskMeta, type SiteResult } from './explore';
 import { customPoint } from './query';
 
 /** One scenario worked out: its site, the result, the figures, the skyline it used; or why it could not be. */
@@ -302,11 +302,14 @@ export function createScenarioStore(explore: StoreApi<ExploreState>, loaders: Ma
     const p = (async () => {
       const busy = { key, status: 'busy' as const, site: null, result: null, outcome: null, mask: null, error: null };
       store.setState({ runs: { ...store.getState().runs, [s.id]: busy } });
+      // Known once found, so a failure further on names the site in plain words (siteProblem).
+      let found: ReturnType<typeof siteFor> = null;
       try {
         await explore.getState().init();
         const { eph, sites } = explore.getState();
         if (!eph) throw new Error('The Sun and Earth table could not be loaded.');
         const site = siteFor(s.siteId, sites);
+        found = site;
         if (!site) throw new Error(`The site “${s.siteId}” is not in this catalogue.`);
         const problem = periodProblem(s.startUtc, s.days);
         if (problem) {
@@ -317,7 +320,7 @@ export function createScenarioStore(explore: StoreApi<ExploreState>, loaders: Ma
         const result = recompute(eph, site, mask, s.startUtc, s.days, paramsOf(s), s.mastM);
         setRun({ status: 'ready', site, result, outcome: outcomeOf(result, s, siteLabel(site)), mask: meta, error: null });
       } catch (err) {
-        setRun({ status: 'error', site: null, result: null, outcome: null, mask: null, error: err instanceof Error ? err.message : String(err) });
+        setRun({ status: 'error', site: null, result: null, outcome: null, mask: null, error: found ? siteProblem(found, err) : err instanceof Error ? err.message : String(err) });
       }
     })();
     pending.add(p);
