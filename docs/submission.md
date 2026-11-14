@@ -56,7 +56,7 @@ Error budget, measured for every featured site over 2025–2026 (docs/method.md,
 
 ### Impact and next steps
 
-On a 4-core Linux computer in Chromium, Explore gave its answer for a catalogue site 3.5 s after the page opened, and 0.7 s for the next site (14 November). How much time that saves a planner against their usual tools has not been measured: no study with planners has been run yet, and that evaluation is still to be done. Planners can hand the brief to an engineering team; educators and the public get the same pages in plain words, a page that explains them in five steps, and real missions to replay. Next: NAC imagery per site, relay-satellite passes, and a public API for the tables.
+On a 4-core Linux computer in Chromium, Explore gave its answer for a catalogue site 3.5 s after the page opened, and 0.7 s for the next site (14 November). How much time that saves a planner against their usual tools has not been measured: no study with planners has been run yet, and that evaluation is still to be done. Planners can hand the brief to an engineering team; educators and the public get the same pages in plain words, a page that explains them in five steps, and real missions to replay. Next: NAC imagery per site, relay-satellite passes, and a public API for the tables. Next, a terrain ensemble from NASA's adjusted south-pole maps, to show how often each landing still works, and a layer of modelled cold traps from LRO Diviner beside each site's power and radio windows, labelled as modelled conditions, not detected ice (docs/ml-feasibility.md).
 
 ## Use of Artificial Intelligence
 
