@@ -25,8 +25,12 @@ export interface OffsetStats {
 export interface EventBudget {
   /** The hourly time minus the one-minute time. */
   sampling: OffsetStats;
-  /** The largest shift under the adjusted terrain model and its stated error, and how many events those skylines lose; null on a flat horizon. */
-  terrain: (OffsetStats & { lost: number }) | null;
+  /**
+   * The terrain spread: each event's larger shift under the adjusted terrain model raised and lowered by its stated error,
+   * or over the terrain versions, and how many events those lose; null on a flat horizon. `skylines` and `versions` keep
+   * the two apart where the site has versions.
+   */
+  terrain: (OffsetStats & { lost: number; skylines?: OffsetStats & { lost: number }; versions?: OffsetStats & { lost: number } }) | null;
   /** The largest gap to JPL Horizons, as time at each crossing. */
   ephemeris: { n: number; p95_s: number | null; max_s: number | null };
   /** The three 95th percentiles added (hours); null when the event never happens in the span. */
@@ -78,7 +82,16 @@ export interface SiteBudget {
   skyline: SkylineCheck | null;
   terrain_quality: TerrainQuality | null;
   events: Record<EventKind, EventBudget>;
-  durations?: { hourly: Durations; fine: Durations; terrain_max_abs?: Durations };
+  durations?: {
+    hourly: Durations;
+    fine: Durations;
+    terrain_max_abs?: Durations;
+    /** Each duration over the terrain versions (data/ensemble): its 5th, 50th and 95th percentiles and the 95th of its change from the app's. */
+    versions?: Record<keyof Durations, { p05: number; median: number; p95: number; p95_abs_change: number }>;
+    versions_count?: number;
+  };
+  /** How many terrain versions the terrain part took (0 where the site has none). */
+  terrain_versions?: number;
 }
 
 export interface UncertaintyDoc {

@@ -34,8 +34,6 @@ export interface VersionsAsk {
   /** The hours over the app's own skyline: the period, or with `byHour` the store's longer scan. */
   series: Series | null;
   hours: number;
-  /** The app's own skyline. */
-  mask: Float64Array | null;
   params: PlannerParams;
   requirements: Requirements;
   /** The height the skyline shown is seen from (m). */
@@ -53,7 +51,7 @@ export interface VersionsDeps {
  * versions have loaded: waiting while they load and run, then the result; nothing for a site without versions.
  */
 export function useTerrainVersions(ask: VersionsAsk, deps: VersionsDeps = {}): VersionsState {
-  const { site, series, mask, hours, params, requirements, mastM, byHour = false } = ask;
+  const { site, params, requirements, mastM, byHour = false, hours } = ask;
   const [state, setState] = useState<VersionsState>({ status: 'none', reason: '' });
   // The settings by value, so a caller that builds them anew on every render does not start the work again.
   const key = JSON.stringify([site?.id, site?.polar, site?.category, hours, params.power, params.minEarthElDeg, requirements, mastM, byHour]);
@@ -64,11 +62,11 @@ export function useTerrainVersions(ask: VersionsAsk, deps: VersionsDeps = {}): V
   });
   useEffect(() => {
     const { ask: a, deps: d } = latest.current;
-    const { site, series, mask, hours, params, requirements, mastM, byHour = false } = a;
+    const { site, series, hours, params, requirements, mastM, byHour = false } = a;
     const { load, runner } = d;
     const power = params.power;
     const minEl = params.minEarthElDeg;
-    if (!site || !series || !mask) return;
+    if (!site || !series) return;
     const problem = versionsProblem(site, mastM);
     if (problem !== null) {
       setState({ status: 'none', reason: problem || null });
@@ -77,7 +75,7 @@ export function useTerrainVersions(ask: VersionsAsk, deps: VersionsDeps = {}): V
     let live = true;
     setState({ status: 'working' });
     (load ?? ((id: string) => loadVersions(dataBase(), id)))(site.id)
-      .then((v) => (runner ?? versionsRunner()).run({ series, hours, mask, masks: v.masks, power, minEarthElDeg: minEl, requirements, byHour }))
+      .then((v) => (runner ?? versionsRunner()).run({ series, hours, masks: v.masks, power, minEarthElDeg: minEl, requirements, byHour }))
       .then(({ result, ms }) => {
         if (live) setState({ status: 'ready', result, ms });
       })
@@ -90,7 +88,7 @@ export function useTerrainVersions(ask: VersionsAsk, deps: VersionsDeps = {}): V
     return () => {
       live = false;
     };
-  }, [key, series, mask]);
+  }, [key, ask.series]);
   return state;
 }
 

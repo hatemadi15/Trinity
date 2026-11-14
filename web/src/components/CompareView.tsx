@@ -183,7 +183,7 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
                 ))}
               </div>
               <div className="panel">
-                <ScenarioTable cols={cols} runs={sc.runs} onUseBest={(id) => act.useSiteBest(id)} />
+                <ScenarioTable cols={cols} runs={sc.runs} onUseBest={(id) => act.useSiteBest(id)} requirements={s.requirements} />
                 {/* DE440 gives every figure, and LOLA the hills on the grids of the sites compared. */}
                 <Sources of={['de440', ...lolaFor(...cols.map((c) => c.site))]} />
               </div>

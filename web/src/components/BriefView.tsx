@@ -28,6 +28,8 @@ import { dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { dayTicks, hillsToward } from '@/lib/viz/timechart';
 import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
+import type { VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
+import { BriefVersions } from './BriefVersions';
 import { provenanceWords, terrainDetails, terrainLimitation, trustedAnswer } from '@/lib/viz/terrain';
 
 type Narration = { text: string; source: 'template' | 'model' | 'error'; model?: string; reason?: NarrationReply['reason']; problems?: string[]; message?: string };
@@ -86,12 +88,15 @@ export function BriefView({
   store = exploreStore,
   narrate,
   uncertainty,
+  versions,
 }: {
   store?: StoreApi<ExploreState>;
   /** Injected in tests; by default asks /api/chat for the paragraph. */
   narrate?: (state: StateSummary) => Promise<NarrationReply>;
   /** Injected in tests; by default the app's data/uncertainty/budget.json. */
   uncertainty?: () => Promise<UncertaintyDoc>;
+  /** Injected in tests; by default the site's data/ensemble file and the versions' worker. */
+  versions?: VersionsDeps;
 }) {
   const s = useStore(store);
   const budget = useUncertainty(uncertainty);
@@ -229,6 +234,7 @@ export function BriefView({
           {sure.basis && <p className="text-ink-2">{sure.basis} The margins add the three sources; the Accuracy page gives each one apart.</p>}
         </section>
       )}
+      <BriefVersions site={s.site} series={s.series} params={s.params} requirements={s.requirements} mastM={mast} startUtc={s.startUtc} days={s.days} deps={versions} />
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-[15px] sm:grid-cols-3">
         {figures.map(([k, v]) => (
           <div key={k}>

@@ -11,6 +11,7 @@ import type { HorizonsBody } from '@/lib/horizons/query';
 import { recheckSite, type RecheckResult } from '@/lib/horizons/recheck';
 import { evidenceCards, sumsResults, type EvidenceCard } from '@/lib/viz/checks';
 import { UncertaintySection } from './UncertaintySection';
+import { VersionsSection } from './VersionsSection';
 import { testRunWords, type TestRun } from '@/lib/report/testRun';
 
 type Recheck = (site: { lat: number; lon: number }, body: HorizonsBody, epochsUtc: string[]) => Promise<RecheckResult>;
@@ -403,6 +404,8 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
         </EvidencePanel>
 
         <UncertaintySection />
+
+        <VersionsSection />
 
         <section aria-labelledby="h-budget" className="panel">
           <h2 id="h-budget" className="display text-[26px] font-semibold">

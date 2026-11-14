@@ -12,7 +12,7 @@ const site = sites.find((s) => s.id === 'de_gerlache_rim_2')!;
 const mask = Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'masks', 'de_gerlache_rim_2.json').elevation_deg);
 const r = recompute(eph, site, mask, '2027-01-01T00:00:00', 30);
 const versions = { siteId: site.id, mastM: 2, adjusted: mask, masks: [mask.map((v) => v - 0.2), mask, mask.map((v) => v + 0.2)] };
-const ask: VersionsAsk = { site, series: scanOf(r.series), hours: 720, mask, params: DEFAULT_PARAMS, requirements: NO_REQUIREMENTS, mastM: 2 };
+const ask: VersionsAsk = { site, series: scanOf(r.series), hours: 720, params: DEFAULT_PARAMS, requirements: NO_REQUIREMENTS, mastM: 2 };
 
 describe('useTerrainVersions', () => {
   it('waits while the versions load and run, then gives every version’s figures for the landing', async () => {

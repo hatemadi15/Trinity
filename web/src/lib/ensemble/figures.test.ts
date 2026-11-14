@@ -62,7 +62,7 @@ describe('every version of a landing, as the worker works it out', () => {
   it('brackets the app’s own figures with versions on either side of its skyline, and counts the holds of every landing hour', () => {
     const req = { ...NO_REQUIREMENTS, minPoweredH: 48 };
     const own = recompute(eph, site, mask, START, 30);
-    const r = versionsResult({ series: scanOf(own.series), hours: 720, mask, masks: [shifted(-0.3), mask, shifted(0.3)], power: DEFAULT_POWER, minEarthElDeg: 0, requirements: req, byHour: true });
+    const r = versionsResult({ series: scanOf(own.series), hours: 720, masks: [shifted(-0.3), mask, shifted(0.3)], power: DEFAULT_POWER, minEarthElDeg: 0, requirements: req, byHour: true });
     expect(r.summary.main.poweredH).toBe(own.power.firstBrownoutHour ?? 720);
     expect(r.summary.versions).toBe(3);
     expect(r.summary.poweredH[0]).toBeLessThanOrEqual(r.summary.main.poweredH);

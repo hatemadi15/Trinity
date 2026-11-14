@@ -152,7 +152,7 @@ export function ExploreView({
   // margins, and, when the requirement on them is set, how many versions each landing time of the period holds in.
   const holdAsked = (s.requirements.minHoldPct ?? null) !== null;
   const versionsState = useTerrainVersions(
-    { site: s.site, series: s.series ? scanOf(s.series) : null, hours: s.series?.hours ?? 0, mask: s.mask, params: s.params, requirements: s.requirements, mastM: seenFrom(s.maskMeta, s.params.mastM), byHour: holdAsked },
+    { site: s.site, series: s.series ? scanOf(s.series) : null, hours: s.series?.hours ?? 0, params: s.params, requirements: s.requirements, mastM: seenFrom(s.maskMeta, s.params.mastM), byHour: holdAsked },
     versions,
   );
   const holds = holdAsked && versionsState.status === 'ready' ? versionsState.result.holdsByHour : null;

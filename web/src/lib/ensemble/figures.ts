@@ -101,8 +101,7 @@ export interface VersionsInput {
   series: Series;
   /** Hours in the period: the stay counted from each landing hour. */
   hours: number;
-  /** The app's own skyline, for the figures the ranges are set against. */
-  mask: ArrayLike<number>;
+  /** Each version's skyline. The app's own figures, the ranges are set against, are read from `series` itself. */
   masks: ArrayLike<number>[];
   power: PowerConfig;
   minEarthElDeg: number;
@@ -125,9 +124,8 @@ export interface VersionsResult {
  * each sunlit landing hour of the period, for a stay as long as the period.
  */
 export function versionsResult(input: VersionsInput): VersionsResult {
-  const { series, hours, mask, masks, power, minEarthElDeg, requirements } = input;
-  const base = seriesWithMask(series, mask, minEarthElDeg);
-  const scans = masks.map((m) => seriesWithMask(series, m, minEarthElDeg));
+  const { series: base, hours, masks, power, minEarthElDeg, requirements } = input;
+  const scans = masks.map((m) => seriesWithMask(base, m, minEarthElDeg));
   const main = figuresOf(headSeries(base, hours), power, requirements);
   const summary = summarizeVersions(
     scans.map((s) => figuresOf(headSeries(s, hours), power, requirements)),
