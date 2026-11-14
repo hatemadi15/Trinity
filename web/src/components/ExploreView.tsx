@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
@@ -205,6 +206,25 @@ export function ExploreView({
       <AppFrame>
         <main className="wrap py-12">
           <p className="text-ink-2">Loading NASA data…</p>
+        </main>
+      </AppFrame>
+    );
+  }
+  // A site whose skyline could not be had (its horizon file missing from the server, say): its name, the reason in plain
+  // words and the way to another site, with nothing of the site shown before.
+  if (s.status === 'ready' && s.site && !s.series && s.error) {
+    return (
+      <AppFrame>
+        <main className="wrap py-12">
+          <h1 className="text-[28px] font-semibold text-ink">{siteLabel(s.site)}</h1>
+          <p role="alert" className="mt-3 max-w-prose text-[17px] text-ink-2">
+            {s.error}
+          </p>
+          <p className="mt-4 text-[15px]">
+            <Link href="/sites" className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+              Choose another site
+            </Link>
+          </p>
         </main>
       </AppFrame>
     );

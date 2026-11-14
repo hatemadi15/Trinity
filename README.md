@@ -668,6 +668,18 @@ uv run pytest -q
   partial download works too: a test whose files are missing skips. The tests write only to
   temporary folders, so a run leaves the tree as it was, and they pass in a clone of any name.
 
+### Browser journeys
+
+From `web/`: `npx playwright install chromium` once, then `npm run e2e`. It builds, serves the build on port
+3032 and runs the journeys in Chromium: the planning journey, a landing slipped by five days, keyboard only,
+touch on a phone, reduced motion, every page at 390 px, no WebGL, and missing data. `npm run e2e:run` reuses
+the last build; to test a server already running, set `E2E_BASE_URL` (bash or zsh:
+`E2E_BASE_URL=http://localhost:3000 npm run e2e:run`; PowerShell:
+`$env:E2E_BASE_URL="http://localhost:3000"; npm run e2e:run`). The results go to
+`web/public/validation/e2e.json` (passed, skipped with reasons, failed, date, commit, build and data). The
+usability tasks for planners, educators and the public are in `docs/usability-tasks.md` and are still
+pending: none has been run with real people yet.
+
 ## When something fails
 
 ### `npm ci` or `npm install`
