@@ -1,4 +1,5 @@
 import { DEFAULT_POWER, type PanelModel, type PowerConfig } from '../engine/power';
+import { PRIORITY_PROFILES, profileOf, validPriorities, type RankBy } from '../plan/rank';
 import { PANEL_MODELS, PARAM_RANGES, POWER_RANGES, type NumberRange } from '../planner-ranges';
 import type { PlannerParams } from '../store/explore';
 
@@ -48,12 +49,42 @@ export function settingsEntries(params: PlannerParams, defaults: PlannerParams =
   return out;
 }
 
+/** The name the ranking has in a link. */
+export const RANK_NAME = 'rank';
+
+/**
+ * How the recommendations are ranked, as a link writes it: nothing for the default (the longest time with power), a
+ * profile's name ("balanced", "power", "contact", "gap"), or one's own weights as power, Earth in view and shorter gaps.
+ */
+export function rankEntry(by: RankBy | undefined): [string, string] | null {
+  if (!by || by.kind === 'power') return null;
+  const profile = profileOf(by.priorities);
+  const p = by.priorities;
+  return [RANK_NAME, profile === 'custom' ? `${write(p.power)},${write(p.contact)},${write(p.gap)}` : profile];
+}
+
+/** The ranking a link asks for; null when it names none, or one the rule cannot use (the ranking then stays as it is). */
+export function parseRank(search: string | URLSearchParams): RankBy | null {
+  const q = typeof search === 'string' ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search) : search;
+  const raw = q.get(RANK_NAME);
+  if (raw === null) return null;
+  const named = PRIORITY_PROFILES.find((x) => x.id === raw);
+  if (named) return { kind: 'weighed', priorities: { ...named.priorities } };
+  const parts = raw.split(',');
+  if (parts.length !== 3 || !parts.every((v) => NUMBER.test(v.trim()))) return null;
+  const [power, contact, gap] = parts.map(Number);
+  const priorities = { power, contact, gap };
+  return validPriorities(priorities) ? { kind: 'weighed', priorities } : null;
+}
+
 /**
  * The address with the settings that differ from the defaults after its own parameters: Explore's, the view from the
- * site's or the brief's, so the page it opens works the figures out from the same lander, mast and radio threshold.
+ * site's or the brief's, so the page it opens works the figures out from the same lander, mast and radio threshold, and
+ * ranks its recommendations the same way.
  */
-export function withSettings(href: string, params: PlannerParams): string {
-  const entries = settingsEntries(params);
+export function withSettings(href: string, params: PlannerParams, by?: RankBy): string {
+  const rank = rankEntry(by);
+  const entries = rank ? [...settingsEntries(params), rank] : settingsEntries(params);
   if (entries.length === 0) return href;
   const hash = href.indexOf('#');
   const [path, tail] = hash < 0 ? [href, ''] : [href.slice(0, hash), href.slice(hash)];
@@ -115,11 +146,12 @@ export function sameSettings(a: PlannerParams, b: PlannerParams): boolean {
  * parameter kept as it was and where it was: for a page whose address carries more than a link builder writes (the view
  * from the site's hour and drawing switches), so only its settings follow a change of lander.
  */
-export function replaceSettings(search: string, params: PlannerParams): string {
-  const names = new Set(Object.values(SETTING_NAMES));
+export function replaceSettings(search: string, params: PlannerParams, by?: RankBy): string {
+  const names = new Set([...Object.values(SETTING_NAMES), RANK_NAME]);
   const raw = search.startsWith('?') ? search.slice(1) : search;
   const kept = raw === '' ? [] : raw.split('&').filter((part) => part !== '' && !names.has(decodeURIComponent(part.split('=')[0])));
-  const added = settingsEntries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
+  const rank = rankEntry(by);
+  const added = [...settingsEntries(params), ...(rank ? [rank] : [])].map(([k, v]) => `${k}=${encodeURIComponent(v)}`);
   const all = [...kept, ...added];
   return all.length === 0 ? '' : `?${all.join('&')}`;
 }

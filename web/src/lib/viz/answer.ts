@@ -3,7 +3,7 @@ import type { Landing } from '../engine/landing';
 import type { Series, Summary } from '../engine/metrics';
 import type { PowerConfig, PowerResult } from '../engine/power';
 import type { LandingTime, NearbyPlace, Recommendation, Row, YearChoice } from '../plan/options';
-import { FAIL_RULE, OBJECTIVE, searchWords, tradeOffWords, type Option } from '../plan/rank';
+import { BY_POWER, FAIL_RULE, objectiveWords, scoreWords, searchWords, tradeOffWords, type Option, type RankBy } from '../plan/rank';
 import { checksShort, midSentence, requirementCount, type Requirements } from '../plan/requirements';
 import { clockUtc, dateLong, isoAt, pct0, spanShort, spanWords } from './format';
 import { nearestSites } from './relief';
@@ -274,6 +274,8 @@ export interface OptionView {
   /** "Power +9 d 11 h, sunlight −1 d 3 h, …", against the current choice. */
   trade: string;
   why: string | null;
+  /** Its weighed score and each measure's part, when the ranking is by priorities: "Score 72.4 of 100: power 40.1, …". */
+  score?: string;
   /** Each compared site's own time with power, when the choice is for several sites. */
   perSite?: string;
   /** The landing time to move the period to (UTC), for a landing time. */
@@ -287,16 +289,33 @@ export interface PlanView {
   objective: string;
   /** How a choice that fails a requirement is treated; null when none is set. */
   rule: string | null;
-  current: { title: string; summary: string | null; checks: { met: boolean; words: string }[] };
+  current: { title: string; summary: string | null; checks: { met: boolean; words: string }[]; score?: string };
   times: { search: string; options: OptionView[] };
   places: { search: string; options: OptionView[] } | null;
+  /** Why the places nearby are not ranked yet, or which were left out and why; null when there is nothing to say. */
+  placesNote: string | null;
   year: { search: string; options: OptionView[] } | null;
 }
 
 const checkList = <T,>(o: Option<T>) => o.checks.map((c) => ({ met: c.met, words: c.words }));
 
-function viewOf<T>(row: Row<T>, key: string, title: string, extra: Partial<OptionView> & { action: string }): OptionView {
-  return { key, title, summary: checksShort(row.checks), checks: checkList(row), trade: tradeOffWords(row.trade), why: row.why, ...extra };
+function viewOf<T>(row: Row<T>, key: string, title: string, extra: Partial<OptionView> & { action: string }, by: RankBy): OptionView {
+  const score = by.kind === 'weighed' ? { score: scoreWords(row.outcome, by.priorities) } : {};
+  return { key, title, summary: checksShort(row.checks), checks: checkList(row), trade: tradeOffWords(row.trade), why: row.why, ...score, ...extra };
+}
+
+/**
+ * Why the places nearby are missing from the options, or which of them were left out: still being worked out, waiting
+ * for the skylines at the chosen mast, an incomplete terrain here, or the sites within reach whose figures cannot be
+ * trusted (an incomplete terrain, or a skyline for another mast), by name. Null when every place within reach is ranked.
+ */
+export function placesNoteWords({ busy = false, behind = false, incompleteHere = false, mastM, leftOut = [] }: { busy?: boolean; behind?: boolean; incompleteHere?: boolean; mastM: number; leftOut?: { name: string; why: 'incomplete' | 'mast' }[] }): string | null {
+  if (incompleteHere) return 'Places nearby are not ranked: the terrain here is incomplete, so these figures may be too high to compare.';
+  if (behind) return `Places nearby wait for the skylines from the ${mastM} m mast.`;
+  if (busy) return 'Working out the sites within 30 km; the list follows when every one is in.';
+  if (leftOut.length === 0) return null;
+  const why = (w: 'incomplete' | 'mast') => (w === 'incomplete' ? 'its terrain is incomplete' : `its skyline is not yet worked out from the ${mastM} m mast`);
+  return `Left out: ${leftOut.map((l) => `${l.name} (${why(l.why)})`).join('; ')}.`;
 }
 
 /** A landing time for a list: "20 January, 10:00 UTC", with the year when it is not the start's. */
@@ -316,6 +335,8 @@ export function planView({
   days,
   hrefFor,
   spots = null,
+  by = BY_POWER,
+  placesNote = null,
 }: {
   times: Recommendation<LandingTime>;
   places: Recommendation<NearbyPlace> | null;
@@ -326,22 +347,28 @@ export function planView({
   hrefFor: (siteId: string) => string;
   /** The spots round an approximate site among the places, and how far out they are. */
   spots?: { count: number; km: number } | null;
+  /** What the options are ranked by after the requirements: the longest time with power by default, or priorities. */
+  by?: RankBy;
+  /** Why the places nearby are not ranked yet, or which were left out (placesNoteWords). */
+  placesNote?: string | null;
 }): PlanView {
+  const currentScore = by.kind === 'weighed' ? { score: scoreWords(times.current.outcome, by.priorities) } : {};
   return {
-    objective: OBJECTIVE,
+    objective: objectiveWords(by),
     rule: requirementCount(req) > 0 ? FAIL_RULE : null,
-    current: { title: `Landing at the period start, ${timeTitle(startUtc, 0)}`, summary: checksShort(times.current.checks), checks: checkList(times.current) },
+    current: { title: `Landing at the period start, ${timeTitle(startUtc, 0)}`, summary: checksShort(times.current.checks), checks: checkList(times.current), ...currentScore },
     times: {
       search: searchWords({ kind: 'period', days }),
-      options: times.alternatives.map((r) => viewOf(r, `time-${r.item.hour}`, timeTitle(startUtc, r.item.hour), { action: landWords(startUtc, r.item.hour), land: r.item.startUtc })),
+      options: times.alternatives.map((r) => viewOf(r, `time-${r.item.hour}`, timeTitle(startUtc, r.item.hour), { action: landWords(startUtc, r.item.hour), land: r.item.startUtc }, by)),
     },
+    placesNote,
     places: places && {
       search: searchWords({ kind: 'place', days, km: 30, ...(spots && spots.count > 0 ? { spots: spots.count, spotKm: spots.km } : {}) }),
       options: places.alternatives.map((r) => {
         const name = siteLabel(r.item.site);
         // A spot round the site is titled by its own name, which has its distance.
         const title = r.item.site.category === 'custom' ? `${name[0].toUpperCase()}${name.slice(1)}` : `${name}, ${Math.round(r.item.km)} km away`;
-        return viewOf(r, `place-${r.item.site.id}`, title, { action: `Explore ${name}`, href: hrefFor(r.item.site.id) });
+        return viewOf(r, `place-${r.item.site.id}`, title, { action: `Explore ${name}`, href: hrefFor(r.item.site.id) }, by);
       }),
     },
     year: year && {
@@ -351,7 +378,7 @@ export function planView({
           action: landWords(year.fromUtc, r.item.hour),
           land: r.item.startUtc,
           ...(r.item.perSite.length > 1 ? { perSite: `Power for ${r.item.perSite.map((o, i) => `${spanShort(o.poweredH)} at ${year.siteNames[i]}`).join(', ')}` } : {}),
-        }),
+        }, by),
       ),
     },
   };

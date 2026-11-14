@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type { RankBy } from '../plan/rank';
 import { replaceSettings } from '../share/settings';
 import type { PlannerParams } from '../store/explore';
 
@@ -37,11 +38,11 @@ export function useAddressFollows(href: string | null, ready: boolean): void {
  * is: the view from the site, whose address also holds its hour and drawing switches, so a reload or a copied address
  * after a change of lander there opens the same figures.
  */
-export function useSettingsInAddress(params: PlannerParams, ready: boolean): void {
+export function useSettingsInAddress(params: PlannerParams, ready: boolean, rankBy?: RankBy): void {
   useEffect(() => {
     if (!ready || typeof window === 'undefined') return;
     const { pathname, search, hash } = window.location;
-    const next = replaceSettings(search, params);
+    const next = replaceSettings(search, params, rankBy);
     if (next !== search) window.history.replaceState(null, '', `${pathname}${next}${hash}`);
-  }, [params, ready]);
+  }, [params, ready, rankBy]);
 }

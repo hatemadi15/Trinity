@@ -177,8 +177,8 @@ export function createScenarioStore(explore: StoreApi<ExploreState>, loaders: Ma
               // a skyline that fails to load leaves that site out of the search
             }
           }
-          // Ranked with the planner's requirements, as Explore's places nearby are (lib/plan).
-          const best = bestNearbyFor(site, periodOutcome(ownResult.series, ownResult.power), tried, explore.getState().requirements);
+          // Ranked with the planner's requirements and Explore's ranking, as Explore's places nearby are (lib/plan).
+          const best = bestNearbyFor(site, periodOutcome(ownResult.series, ownResult.power), tried, explore.getState().requirements, explore.getState().rankBy);
           // The scenario may have changed or gone while the search ran.
           if (find(id) !== s) return null;
           if (!best) {

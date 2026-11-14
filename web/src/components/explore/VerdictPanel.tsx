@@ -1,11 +1,12 @@
 'use client';
 import Link from 'next/link';
+import type { RankBy } from '@/lib/plan/rank';
 import type { Requirements } from '@/lib/plan/requirements';
 import type { SureLines } from '@/lib/uncertainty/budget';
 import type { Answer, PlanView } from '@/lib/viz/answer';
 import { Fold } from '../Fold';
 import { lolaFor, Sources } from '../Sources';
-import { OptionsList, RequirementsFields } from './PlanParts';
+import { OptionsList, RankFields, RequirementsFields } from './PlanParts';
 import { SureFold } from './SureFold';
 
 /** A battery on its side: full for a good answer, down to its last sliver for a bad one. */
@@ -36,6 +37,8 @@ export function VerdictPanel({
   plan = null,
   requirements,
   onRequirements,
+  rankBy,
+  onRankBy,
   range = null,
   sure,
   limitation = null,
@@ -59,6 +62,9 @@ export function VerdictPanel({
   /** The mission's requirements and their boxes, in the same fold; without `onRequirements` there are no boxes. */
   requirements?: Requirements;
   onRequirements?: (patch: Partial<Requirements>) => void;
+  /** What the options are ranked by after the requirements, and its control, in the same fold; without `onRankBy` there is none. */
+  rankBy?: RankBy;
+  onRankBy?: (by: RankBy) => void;
   /** The same result worked out around an approximate point: one line next to the result, how it was found in the fold. */
   range?: { words: string; detail?: string | null } | null;
   /** The verdict's times with their supported margins, and what the power figures leave out (one tap away). */
@@ -150,6 +156,7 @@ export function VerdictPanel({
               </div>
             )}
             {requirements && onRequirements && <RequirementsFields value={requirements} onChange={onRequirements} />}
+            {rankBy && onRankBy && <RankFields value={rankBy} onChange={onRankBy} />}
             <OptionsList plan={plan} onLand={onLand} />
             {range?.detail && <p className="max-w-[46em] text-ink-2">{range.detail}</p>}
           </div>

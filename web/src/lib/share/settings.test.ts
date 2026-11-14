@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_POWER, type PowerConfig } from '../engine/power';
 import { LANDER_PRESETS } from '../lander';
 import { DEFAULT_PARAMS, type PlannerParams } from '../store/explore';
-import { LINK_DEFAULTS, mergeSettings, parseSettings, replaceSettings, SETTING_NAMES, settingsEntries, withSettings } from './settings';
+import { LINK_DEFAULTS, mergeSettings, parseRank, parseSettings, rankEntry, replaceSettings, SETTING_NAMES, settingsEntries, withSettings } from './settings';
 
 const params = (power: Partial<PowerConfig> = {}, rest: Partial<Omit<PlannerParams, 'power'>> = {}): PlannerParams => ({ ...DEFAULT_PARAMS, ...rest, power: { ...DEFAULT_POWER, ...power } });
 
@@ -61,5 +61,23 @@ describe('the settings a link carries', () => {
     expect(replaceSettings('', params({}, { mastM: 5 }))).toBe('?mast=5');
     expect(replaceSettings('?quality=fast', DEFAULT_PARAMS)).toBe('?quality=fast');
     expect(replaceSettings('?mast=5', DEFAULT_PARAMS)).toBe('');
+  });
+
+  it('carries the priorities the recommendations are ranked by beside the other settings, and the default ranking not at all', () => {
+    const href = '/explore?site=haworth&start=2027-01-01&days=30';
+    expect(rankEntry({ kind: 'power' })).toBeNull();
+    expect(withSettings(href, DEFAULT_PARAMS, { kind: 'power' })).toBe(href);
+    // A named profile by its name, weights of one's own as three numbers: power, Earth in view, shorter gaps.
+    expect(withSettings(href, DEFAULT_PARAMS, { kind: 'weighed', priorities: { power: 1, contact: 1, gap: 1 } })).toBe(`${href}&rank=balanced`);
+    expect(withSettings(href, params({ loadW: 400 }), { kind: 'weighed', priorities: { power: 1, contact: 5, gap: 1 } })).toBe(`${href}&load=400&rank=contact`);
+    expect(withSettings(href, DEFAULT_PARAMS, { kind: 'weighed', priorities: { power: 1, contact: 7, gap: 3 } })).toBe(`${href}&rank=1%2C7%2C3`);
+    expect(parseRank('?rank=balanced')).toEqual({ kind: 'weighed', priorities: { power: 1, contact: 1, gap: 1 } });
+    expect(parseRank('?rank=1,7,3')).toEqual({ kind: 'weighed', priorities: { power: 1, contact: 7, gap: 3 } });
+    expect(parseRank('?rank=power')).toEqual({ kind: 'weighed', priorities: { power: 5, contact: 1, gap: 1 } });
+    // None asked for, or one the rule cannot use: the link leaves the ranking as it is.
+    for (const bad of ['', '?rank=', '?rank=0,0,0', '?rank=1,2', '?rank=-1,1,1', '?rank=500,1,1', '?rank=fast', '?rank=0x1,1,1']) expect(parseRank(bad)).toBeNull();
+    // Following a change, the address drops the old ranking and writes the new one.
+    expect(replaceSettings('?site=haworth&rank=gap&hour=3', DEFAULT_PARAMS, { kind: 'weighed', priorities: { power: 5, contact: 1, gap: 1 } })).toBe('?site=haworth&hour=3&rank=power');
+    expect(replaceSettings('?site=haworth&rank=gap', DEFAULT_PARAMS)).toBe('?site=haworth');
   });
 });

@@ -9,7 +9,7 @@ import { placeOptions, timeOptions } from '../plan/options';
 import type { Outcome } from '../plan/outcome';
 import { FAIL_RULE, OBJECTIVE } from '../plan/rank';
 import { NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
-import { answerFor, nearbyAdvice, nearbyWords, planView, spotSite } from './answer';
+import { answerFor, nearbyAdvice, nearbyWords, placesNoteWords, planView, spotSite } from './answer';
 
 // 1361 W while any Sun shows, 100 W load, 1000 Wh battery: ten hours in the dark.
 const CFG: PowerConfig = { ...DEFAULT_POWER, panel: 'full_tracking', areaM2: 1, efficiency: 1, loadW: 100, batteryWh: 1000 };
@@ -375,6 +375,25 @@ describe('planView: every option for the panel, in words', () => {
     const spot = spotSite(here, { lat: -88.32, lon: -64.3, km: 2.5, bearingDeg: 180 });
     const withSpot = placeOptions({ site: here, sites: [here], outcomes: {}, extra: [{ place: { site: spot, km: 2.5 }, outcome: o(48, 6) }], current: o(10, 10), req });
     expect(planView({ times, places: withSpot, year: null, req, startUtc: START, days: 2, hrefFor: (id) => id }).places?.options[0]).toMatchObject({ title: 'The spot 2.5 km south', action: 'Explore the spot 2.5 km south', href: 'custom_-88.3200_-64.3000' });
+  });
+  it('states the weighed rule and gives every option and the current choice its score and each measure’s part, when ranked by priorities', () => {
+    const by = { kind: 'weighed' as const, priorities: { power: 1, contact: 5, gap: 1 } };
+    const weighedTimes = timeOptions({ scan: series(sun, earth), cfg: CFG, req, hours: 48, startUtc: START, apartH: 6, by });
+    const v = planView({ times: weighedTimes, places, year: null, req, startUtc: START, days: 2, hrefFor: (id) => id, by });
+    expect(v.objective).toMatch(/^Ranked by your priorities: power 1, Earth in view 5, shorter gaps 1\. .*0\.55x \+ 0\.30√x \+ 0\.15x²/);
+    expect(v.current.score).toMatch(/^Score \d+\.\d of 100: power \d+\.\d, Earth in view \d+\.\d, shorter gaps \d+\.\d\.$/);
+    for (const o of v.times.options) expect(o.score).toMatch(/^Score \d+\.\d of 100: /);
+    // Ranked the default way there is no score to give.
+    expect(planView({ times, places, year: null, req, startUtc: START, days: 2, hrefFor: (id) => id }).times.options[0].score).toBeUndefined();
+  });
+
+  it('says why the places nearby are not ranked yet, and names any left out with the reason', () => {
+    expect(placesNoteWords({ mastM: 2 })).toBeNull();
+    expect(placesNoteWords({ mastM: 2, busy: true })).toBe('Working out the sites within 30 km; the list follows when every one is in.');
+    expect(placesNoteWords({ mastM: 5, behind: true })).toBe('Places nearby wait for the skylines from the 5 m mast.');
+    expect(placesNoteWords({ mastM: 2, incompleteHere: true })).toBe('Places nearby are not ranked: the terrain here is incomplete, so these figures may be too high to compare.');
+    expect(placesNoteWords({ mastM: 5, leftOut: [{ name: 'Nobile Rim 2', why: 'incomplete' }, { name: 'Haworth', why: 'mast' }] })).toBe('Left out: Nobile Rim 2 (its terrain is incomplete); Haworth (its skyline is not yet worked out from the 5 m mast).');
+    expect(planView({ times, places: null, year: null, req, startUtc: START, days: 2, hrefFor: () => '', placesNote: 'Places nearby wait for the skylines from the 5 m mast.' }).placesNote).toBe('Places nearby wait for the skylines from the 5 m mast.');
   });
 });
 

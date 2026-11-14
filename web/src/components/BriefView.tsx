@@ -108,9 +108,9 @@ export function BriefView({
       .then(() => store.getState().applyQuery(search))
       .then(() => setLinked(true));
   }, [store]);
-  useAddressFollows(s.site ? withSettings(briefHref(s.site.id, s.startUtc, s.days), s.params) : null, linked && s.status === 'ready');
+  useAddressFollows(s.site ? withSettings(briefHref(s.site.id, s.startUtc, s.days), s.params, s.rankBy) : null, linked && s.status === 'ready');
   // Back to Explore on the same site, period and settings.
-  const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params) : '/explore';
+  const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.rankBy) : '/explore';
   const dataVersions = useDataVersions();
   const sunHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.sunAz) : null), [s.mask, s.series]);
   const earthHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.earthAz) : null), [s.mask, s.series]);
