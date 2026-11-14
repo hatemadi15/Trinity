@@ -1,24 +1,24 @@
 {
- "generated_utc": "2026-11-14T18:14:29Z",
+ "generated_utc": "2026-11-14T21:21:39Z",
  "build": {
-  "commit": "eb33875e94c8d88b5ef8336628a0ea08fc3b98dc",
+  "commit": "d90235c3757edd5f248fd5f830798be5baa3e62a",
   "dirty": false,
   "changed": 0
  },
  "web": {
-  "files": 235,
-  "tests": 2248,
-  "passed": 2248,
+  "files": 242,
+  "tests": 2342,
+  "passed": 2342,
   "skipped": 0,
   "failed": 0,
-  "seconds": 192
+  "seconds": 146
  },
  "pipeline": {
   "tests": 257,
   "passed": 257,
   "skipped": 0,
   "failed": 0,
-  "seconds": 44.673
+  "seconds": 83.915
  },
  "data": {
   "version": "2026-11-14-730a29df",
