@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { degreesText, HOME } from '@/lib/data/home';
 import Home from './page';
 
-// The arrival's live stage needs WebGL; the page's words and stills render without it.
-vi.mock('@/components/home/ArrivalCanvas', () => ({ default: () => null }));
+// The descent's picture needs WebGL; the page's words and its still render without it.
+vi.mock('@/components/home/DescentScene', () => ({ default: () => null }));
 
 const HEADLINE = 'See when a Moon lander has sunlight and a signal.';
 const pct = (n: number) => `${n} %`;

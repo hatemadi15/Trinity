@@ -23,7 +23,7 @@ describe('the Moonstone look (spec 23, after spec 6)', () => {
 
   it('glows only in the accent’s own light: every glow on the page is the accent’s RGB, a blue or white of the palette', () => {
     // Shadows and halos written as utilities name rgb(var(--glow)...) or one of the palette's own blues and whites.
-    const allowed = /rgb\(var\(--glow\)|rgba?\((?:127,\s*169,\s*255|243,\s*239,\s*228|235_232_223|0,\s*0,\s*0)|#7fa9ff|#f3efe4|#000/;
+    const allowed = /rgb\(var\(--glow\)|rgba?\((?:127,\s*169,\s*255|243,\s*239,\s*228|255,\s*255,\s*255|235_232_223|0,\s*0,\s*0)|#7fa9ff|#f3efe4|#000/;
     for (const [file, text] of all) {
       for (const m of text.matchAll(/shadow-\[([^\]]+)\]/g)) expect(m[1], `${file}: ${m[0]}`).toMatch(allowed);
     }

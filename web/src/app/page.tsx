@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { AppFrame } from '@/components/AppFrame';
-import { Arrival } from '@/components/home/Arrival';
+import { Descent } from '@/components/home/Descent';
 import { ForecastHover } from '@/components/home/ForecastHover';
 import { WhySection } from '@/components/home/WhySection';
 import { MoonNebula } from '@/components/MoonNebula';
@@ -10,7 +10,7 @@ import { SectionHead } from '@/components/SectionHead';
 import { SkyRow, SkyRowKey } from '@/components/SkyRow';
 import { exploreHref } from '@/lib/links';
 import { degreesText, HOME, PLACES, thousandsText } from '@/lib/data/home';
-import { arrivalWords } from '@/lib/viz/arrival';
+import { descentWords } from '@/lib/viz/descent';
 import { dateLong, spanShort, spanWords } from '@/lib/viz/format';
 
 /** An outcome tag states how a place turned out; it is an outline, so the page stays black and white. */
@@ -57,7 +57,7 @@ function Arrow() {
 }
 
 /**
- * The home page (spec 23): the arrival, then five numbered sections in one line down the page, each opened the same
+ * The home page (spec 23): the descent to the Moon's south pole, then five numbered sections in one line down the page, each opened the same
  * way (SectionHead): the forecast, why the pole is hard, real places, the checks, and where to go next.
  */
 export default function Home() {
@@ -90,7 +90,7 @@ export default function Home() {
   return (
     <AppFrame>
       <main>
-        <Arrival words={arrivalWords()} />
+        <Descent words={descentWords()} />
 
         {/* 01. The forecast runs from edge to edge on a black band, a window onto the Moon in both themes. Its side labels line up with the page gutter. */}
         <figure aria-labelledby="h-forecast" data-stage="" className="border-y border-stage-edge bg-stage pb-12 pt-20 text-stage-ink [--chart-inset:16px] sm:[--chart-inset:32px]">
