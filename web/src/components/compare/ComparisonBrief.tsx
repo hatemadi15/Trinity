@@ -6,6 +6,7 @@ import { DataProblem, SYNC_HINT } from '../DataProblem';
 import { ASSUMPTIONS } from './CompareStory';
 import { useDataVersions } from './ComparisonFiles';
 import { columnsOf } from './columns';
+import { pointKind } from '@/lib/data/kind';
 import { landerLine, presetOf } from '@/lib/lander';
 import { comparisonHref, readComparison } from '@/lib/scenario/codec';
 import { startWords } from '@/lib/scenario/period';
@@ -155,6 +156,7 @@ export function ComparisonBrief({ store = exploreStore, scenarios = scenarioStor
                   {r.cells.map((cell, i) => (
                     <td key={cols[i].scenario.id} className={CELL}>
                       {cell.value}
+                      {cell.kind ? `, ${cell.kind.charAt(0).toLowerCase()}${cell.kind.slice(1)}` : ''}
                       {cell.change ? ` (${cell.change})` : ''}
                       {r.id === 'landing' && cols[i].scenario.timing === 'site-best' ? ', the site’s own best time' : ''}
                     </td>
@@ -199,8 +201,7 @@ export function ComparisonBrief({ store = exploreStore, scenarios = scenarioStor
                 {i === 0 ? 'Baseline' : `Scenario ${i + 1}`}: {c.scenario.label}
               </h3>
               <p>
-                {c.siteName} ({coordinates(c)}
-                {c.site.approximate ? ', the centre of a region drawn on NASA’s map, about ±5 km' : ''}). Landing {startWords(c.scenario.startUtc)}
+                {c.siteName} ({coordinates(c)}). {pointKind(c.site).sentence} Landing {startWords(c.scenario.startUtc)}
                 {c.scenario.timing === 'site-best' ? ', the site’s own best time in its period' : ''}; the stay ends {startWords(isoAt(c.scenario.startUtc, c.scenario.days * 24))}.
               </p>
               <p>

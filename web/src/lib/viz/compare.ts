@@ -1,4 +1,5 @@
 import type { Site } from '../data/loaders';
+import { pointKind } from '../data/kind';
 import { landerName } from '../lander';
 import { outageWords, type Outage } from '../scenario/contact';
 import { rankOutcomes as rank } from '../scenario/nearby';
@@ -98,12 +99,15 @@ function setCell(o: Outcome, b: Outcome, body: 'sun' | 'earth'): Cell {
 /** The figures of each scenario, the change from the baseline (the first column) beside each, better or worse for the lander. */
 export function figureRows(cols: Column[]): FigureRow[] {
   const b = cols[0]?.outcome ?? null;
-  const row = (id: FigureRow['id'], name: string, means: string, cell: (o: Outcome, b: Outcome) => Cell, value: (o: Outcome) => string): FigureRow => ({
+  const row = (id: FigureRow['id'], name: string, means: string, cell: (o: Outcome, b: Outcome, c: Column) => Cell, value: (o: Outcome, c: Column) => string): FigureRow => ({
     id,
     name,
     means,
-    cells: cols.map((c, i) => (!c.outcome ? null : i === 0 || !b ? { value: value(c.outcome), change: null, tone: null } : cell(c.outcome, b))),
+    cells: cols.map((c, i) => (!c.outcome ? null : i === 0 || !b ? { value: value(c.outcome, c), change: null, tone: null } : cell(c.outcome, b, c))),
   });
+  // On the far side Earth never rises: no period gives it a share.
+  const FAR = 'never: far side';
+  const farSide = (cell: (o: Outcome, b: Outcome) => Cell) => (o: Outcome, base: Outcome, c: Column): Cell => (c.site.far_side ? { ...cell(o, base), value: FAR } : cell(o, base));
   const hoursCell = (get: (o: Outcome) => number, value: (o: Outcome) => string, moreIsBetter: boolean) => (o: Outcome, base: Outcome): Cell => {
     const d = get(o) - get(base);
     return { value: value(o), change: signedSpan(d), tone: toneOf(Math.round(d), moreIsBetter) };
@@ -116,7 +120,7 @@ export function figureRows(cols: Column[]): FigureRow[] {
   return [
     row('power', 'Time with power', 'From landing until the battery first runs out, by the power model: the panel, the load and the battery, hour by hour.', hoursCell((o) => o.poweredH, powerValue, true), powerValue),
     row('sun', 'Sunlight', 'The share of the period with any part of the Sun above the hills.', shareCell((o) => o.sunFraction), (o) => pct0(o.sunFraction)),
-    row('earth', 'Earth in view', 'The share of the period with the centre of Earth above the hills by the height set: a clear line to Earth, not a working radio link.', shareCell((o) => o.earthFraction), (o) => pct0(o.earthFraction)),
+    row('earth', 'Earth in view', 'The share of the period with the centre of Earth above the hills by the height set: a clear line to Earth, not a working radio link.', farSide(shareCell((o) => o.earthFraction)), (o, c) => (c.site.far_side ? FAR : pct0(o.earthFraction))),
     row('contact', 'Radio contact while it has power', 'Hours with Earth in view while the lander has power, before the battery first runs out: a clear line to Earth, not a booked antenna.', hoursCell((o) => o.poweredContactH, (o) => spanOrNone(o.poweredContactH), true), (o) => spanOrNone(o.poweredContactH)),
     row('outage', 'Longest time without Earth', 'The longest stretch of the period without Earth in view; "at least" when the start or end of the period cuts it.', hoursCell((o) => outageHours(o.outage), (o) => outageWords(o.outage), false), (o) => outageWords(o.outage)),
     row('sunset', 'First sunset after landing', 'How long after landing the Sun first sets behind the hills.', (o, base) => setCell(o, base, 'sun'), (o) => setValue(o, 'sun').text),
@@ -136,6 +140,8 @@ export interface SettingCell {
   value: string;
   /** How it differs from the baseline, in words; null where it is the same, and for the baseline. */
   change: string | null;
+  /** For the site: what kind of point it is, in a few words ("Centre of a region, ±5 km"). */
+  kind?: string;
 }
 export interface SettingRow {
   id: 'site' | 'landing' | 'period' | 'lander' | 'mast' | 'clearance';
@@ -164,7 +170,7 @@ export function settingRows(cols: Column[]): SettingRow[] {
       cells: cells(
         (c) => c.siteName,
         (c) => (c.scenario.siteId === b.scenario.siteId ? null : `${Math.round(distanceKm(b.site, c.site))} km from ${b.siteName}`),
-      ),
+      ).map((cell, i) => ({ ...cell, kind: pointKind(cols[i].site).short })),
     },
     {
       id: 'landing',

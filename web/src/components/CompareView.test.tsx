@@ -62,7 +62,8 @@ describe('CompareView', () => {
     await example();
     const heads = within(table()).getAllByRole('columnheader').map((h) => h.textContent);
     expect(heads).toEqual(['Scenario', 'BaselineOriginal landing', 'Scenario 25 days later', 'Scenario 3Nearby: de Gerlache rim summit']);
-    expect(row('Site')).toEqual(['de Gerlache Rim 2', 'de Gerlache Rim 2', 'de Gerlache rim summit12 km from de Gerlache Rim 2']);
+    // Each site says what kind of point it is: a region's centre, or a high point worked out from the heights.
+    expect(row('Site')).toEqual(['de Gerlache Rim 2Centre of a region, ±5 km', 'de Gerlache Rim 2Centre of a region, ±5 km', 'de Gerlache rim summitDerived high point, not checked as safe to land12 km from de Gerlache Rim 2']);
     expect(row('Landing (UTC)')).toEqual(['1 Jan 2027, 00:00 UTC', '6 Jan 2027, 00:00 UTC5 days later', '6 Jan 2027, 00:00 UTC5 days later']);
     // Absolute figures, and the change from the baseline under each.
     expect(row('Time with power')).toEqual(['3 d 4 h', '10 h−2 d 18 h, worse', 'all 30 days+26 d 20 h, better']);
@@ -225,10 +226,11 @@ describe('CompareView', () => {
     expect(screen.getByRole('main').querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
   });
 
-  it('keeps the full comparison to 700 words before a tap, at 1440 and on a phone', async () => {
+  it('keeps the full comparison to 750 words before a tap, at 1440 and on a phone', async () => {
     await example();
     const main = screen.getByRole('main');
-    for (const width of [WIDE, PHONE]) expect(visibleWords(main, width).length).toBeLessThanOrEqual(700);
+    // Three scenarios side by side, with the kind of every point and the caveat on the alternative: the rest is folded.
+    for (const width of [WIDE, PHONE]) expect(visibleWords(main, width).length).toBeLessThanOrEqual(750);
   });
 
   it('names its NASA data', async () => {

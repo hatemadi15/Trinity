@@ -66,6 +66,7 @@ export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs:
                 {row.cells.map((cell, i) => (
                   <td key={cols[i].scenario.id} className={`${CELL} text-[15px]`}>
                     <span className="block text-ink">{cell.value}</span>
+                    {cell.kind && <span className="block text-ink-2">{cell.kind}</span>}
                     {cell.change && <span className="block text-ink-2">{cell.change}</span>}
                     {row.id === 'landing' && cols[i].scenario.timing === 'site-best' && <span className="block text-ink-2">the site’s own best time</span>}
                   </td>

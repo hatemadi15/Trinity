@@ -2,6 +2,7 @@
 import { useId, useState } from 'react';
 import { Modal } from '../Modal';
 import { NumberField } from '../NumberField';
+import { CATEGORY_GROUPS } from '@/lib/data/kind';
 import { siteLabel, type Site } from '@/lib/data/loaders';
 import { DAYS, periodProblem } from '@/lib/scenario/period';
 import type { Scenario } from '@/lib/scenario/scenario';
@@ -54,11 +55,26 @@ export function ScenarioEditor({
           Site
           <select value={scenario.siteId} onChange={(e) => onChange({ siteId: e.target.value })} className="field w-full">
             {!known && <option value={scenario.siteId}>{scenario.siteId}</option>}
-            {choices.map((s) => (
-              <option key={s.id} value={s.id}>
-                {siteLabel(s)}
-              </option>
-            ))}
+            {/* The sites in the site list's groups, so a long list reads by kind of place; a clicked point stands alone. */}
+            {choices
+              .filter((s) => s.category === 'custom')
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {siteLabel(s)}
+                </option>
+              ))}
+            {CATEGORY_GROUPS.map((g) => {
+              const inGroup = choices.filter((s) => g.categories.includes(s.category));
+              return inGroup.length === 0 ? null : (
+                <optgroup key={g.name} label={g.name}>
+                  {inGroup.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {siteLabel(s)}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
         </label>
         <div className="flex flex-wrap gap-4">

@@ -48,7 +48,9 @@ describe('ComparisonBrief', () => {
     window.history.replaceState(null, '', comparisonHref([base, later, near], '/compare/brief'));
     await open();
     const each = screen.getByRole('heading', { name: 'Each scenario' }).parentElement!;
-    expect(each.textContent).toMatch(/de Gerlache Rim 2 \(88\.280° S, 64\.310° W, the centre of a region drawn on NASA’s map, about ±5 km\)\. Landing 1 January 2027, 00:00 UTC; the stay ends 31 January 2027, 00:00 UTC\./);
+    expect(each.textContent).toMatch(/de Gerlache Rim 2 \(88\.280° S, 64\.310° W\)\. The rough centre of a wider region, give or take 5\u00a0km, not a chosen landing point\. Landing 1 January 2027, 00:00 UTC; the stay ends 31 January 2027, 00:00 UTC\./);
+    // A high point worked out from the heights says it has not been checked as a place to land.
+    expect(each.textContent).toMatch(/de Gerlache rim summit \(88\.664° S, 68\.406° W\)\. A derived point: .* It has not been checked as a safe place to land\./);
     expect(each.textContent).toMatch(/Small lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, battery 100 % full at landing\./);
     expect(each.textContent).toMatch(/Skyline: hills precomputed from NASA LOLA elevation grids \(20 m within 6 km, 80 m to 100 km, 240 m to 220 km\), from a 2 m mast; site height 190 m\./);
     expect(each.textContent).toMatch(/Landing at de Gerlache Rim 2 on 6 January: power for 10 hours, then night\./);

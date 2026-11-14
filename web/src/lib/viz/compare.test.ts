@@ -123,6 +123,11 @@ describe('the figures side by side', () => {
     expect(row('verdict').cells[2]).toEqual({ value: 'power for all 30 days', change: null, tone: 'better' });
   });
 
+  it('says Earth is never in view on the far side, rather than a share of none', () => {
+    const far = { ...cols[2], site: { ...summit, far_side: true }, outcome: { ...cols[2].outcome!, earthFraction: 0 } };
+    expect(figureRows([cols[0], far]).find((r) => r.id === 'earth')!.cells[1]).toEqual({ value: 'never: far side', change: '\u221245 points', tone: 'worse' });
+  });
+
   it('leaves a scenario still being worked out empty', () => {
     const rows = figureRows([cols[0], { ...cols[1], outcome: null }]);
     expect(rows[0].cells[1]).toBeNull();
@@ -133,6 +138,9 @@ describe('the figures side by side', () => {
     const row = (id: string) => rows.find((r) => r.id === id)!;
     expect(row('site').cells.map((c) => c.value)).toEqual(['Rim', 'Rim', 'Summit']);
     expect(row('site').cells[2].change).toBe('12 km from Rim');
+    // What kind of point each is, so a region's centre or a derived high point never reads as a surveyed spot.
+    const kinds = settingRows([{ ...cols[0], site: { ...rim, kind: 'region_centre', uncertainty_km: 5 } }, { ...cols[2], site: { ...summit, kind: 'derived' } }]).find((r) => r.id === 'site')!;
+    expect(kinds.cells.map((c) => c.kind)).toEqual(['Centre of a region, ±5\u00a0km', 'Derived high point, not checked as safe to land']);
     expect(row('landing').cells.map((c) => c.value)).toEqual(['1 Jan 2027, 00:00 UTC', '6 Jan 2027, 00:00 UTC', '6 Jan 2027, 00:00 UTC']);
     expect(row('landing').cells[1].change).toBe('5 days later');
     expect(row('landing').cells[0].change).toBeNull();
