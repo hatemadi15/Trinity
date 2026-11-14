@@ -117,11 +117,12 @@ describe.skipIf(!haveData)('a shared link in a fresh browser', () => {
     await b.getState().applyQuery(search(link));
     expect(b.getState().requirements).toEqual(sent.requirements);
     expect(figures(b.getState())).toEqual(figures(sent));
-    // A link that names no requirement keeps the ones the visit has; a malformed one is left out.
+    // A link that names no requirement keeps the ones the visit has; one that names some sets those it names, a
+    // malformed one left out, and no others.
     await b.getState().applyQuery('?site=haworth&start=2027-02-01&days=14');
     expect(b.getState().requirements).toEqual(sent.requirements);
     await b.getState().applyQuery('?minpower=lots&mincontact=24');
-    expect(b.getState().requirements).toEqual({ ...sent.requirements, minPoweredContactH: 24 });
+    expect(b.getState().requirements).toEqual({ minPoweredH: null, contactWithinH: null, maxOutageH: null, minPoweredContactH: 24 });
   });
 
   it('keeps the settings a visit already has when a link inside the app names none, and old links still open', async () => {

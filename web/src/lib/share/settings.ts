@@ -134,7 +134,8 @@ export function parseSettings(search: string | URLSearchParams): SettingsPatch {
 
 /**
  * Reads the requirements a link names, each in hours. A value a requirement's box could not take (malformed, negative or
- * over 90 days) is left out, as a bad setting is, and that requirement keeps the value it has.
+ * over 90 days) is left out, as a bad setting is. The requirements are one set: a link that names any of them stands for
+ * all four, those it leaves out as none (Explore's store applies it so).
  */
 export function parseRequirements(search: string | URLSearchParams): Partial<Requirements> {
   const q = typeof search === 'string' ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search) : search;

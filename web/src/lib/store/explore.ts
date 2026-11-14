@@ -817,9 +817,10 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       // at the mast the link names; those it does not name keep the values the visit has.
       const asked = mergeSettings(get().params, parseSettings(search));
       if (!sameSettings(asked, get().params)) get().setParams(asked);
-      // So do the mission's requirements it names, which rank the better date: those it does not name stay as they are.
+      // A link that names the mission's requirements, which rank the better date, sets them as it names them, the ones it
+      // leaves out as none; a link that names none (every link inside the app but Explore's own) keeps the visit's.
       const req = parseRequirements(search);
-      if (Object.keys(req).length > 0) get().setRequirements(req);
+      if (Object.keys(req).length > 0) get().setRequirements({ ...NO_REQUIREMENTS, ...req });
       if (!q.site || q.site === get().siteId) return;
       if (get().sites.some((s) => s.id === q.site)) {
         await get().selectSite(q.site);
