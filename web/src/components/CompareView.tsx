@@ -79,7 +79,8 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
   }
 
   const act = scenarios.getState();
-  const cols = columnsOf(sc.scenarios, sc.runs, s.sites);
+  // Each scenario checked against the requirements set on Explore (Options), when any is set.
+  const cols = columnsOf(sc.scenarios, sc.runs, s.sites, s.requirements);
   const full = sc.scenarios.length >= SCENARIO_MAX;
   // The file's figures are checked only while the page holds the scenarios the file gave, unchanged.
   const unchanged = opened !== null && opened.scenarios.length === sc.scenarios.length && opened.scenarios.every((x, i) => scenarioKey(x) === scenarioKey(sc.scenarios[i]));

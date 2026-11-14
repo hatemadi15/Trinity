@@ -81,7 +81,7 @@ export function ComparisonBrief({ store = exploreStore, scenarios = scenarioStor
       </main>
     );
   }
-  const cols = columnsOf(sc.scenarios, sc.runs, s.sites);
+  const cols = columnsOf(sc.scenarios, sc.runs, s.sites, s.requirements);
   if (cols.length === 0) {
     return (
       <main className="brief mx-auto max-w-[190mm] px-8 py-8">
@@ -175,6 +175,11 @@ export function ComparisonBrief({ store = exploreStore, scenarios = scenarioStor
                         <>
                           <span className="font-semibold">{cell.value}</span>
                           {cell.change && cell.change !== 'no change' && <span className="block text-ink-2">{cell.change} against the baseline{cell.tone && cell.tone !== 'same' ? `, ${cell.tone}` : ''}</span>}
+                          {cell.checks?.map((c) => (
+                            <span key={c.words} className="block">
+                              {c.met ? 'Meets' : 'Fails'} {c.words}
+                            </span>
+                          ))}
                         </>
                       ) : (
                         '…'

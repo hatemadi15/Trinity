@@ -1,8 +1,9 @@
 'use client';
+import { useId, useState } from 'react';
 import { Fold } from '../Fold';
 import { MiniStrip } from './MiniStrip';
 import type { ScenarioRun } from '@/lib/store/scenarios';
-import { figureRows, landingShort, settingRows, type Column, type Tone } from '@/lib/viz/compare';
+import { figureRows, landingShort, settingRows, type Cell, type Column, type Tone } from '@/lib/viz/compare';
 import { isoAt, spanShort } from '@/lib/viz/format';
 
 const TONE: Record<Tone, string> = {
@@ -13,8 +14,11 @@ const TONE: Record<Tone, string> = {
 const HEAD = 'sticky left-0 z-[1] bg-surface border-b border-line py-2.5 pr-4 text-left align-top text-[15px] font-semibold text-ink-2 max-sm:min-w-[118px]';
 const CELL = 'border-b border-line py-2.5 pr-4 align-top';
 
-/** A figure and, under it, its change from the baseline in the colour of better or worse, the word itself for a screen reader. */
-function Figure({ value, change, tone }: { value: string; change: string | null; tone: Tone | null }) {
+/**
+ * A figure and, under it, its change from the baseline in the colour of better or worse, the word itself for a screen
+ * reader; in the row of your requirements, each one met or failed with its value and margin, shown once the row opens.
+ */
+function Figure({ value, change, tone, checks, checksId, checksOpen }: Cell & { checksId?: string; checksOpen?: boolean }) {
   return (
     <>
       <span className="block font-medium tabular-nums text-ink">{value}</span>
@@ -24,7 +28,31 @@ function Figure({ value, change, tone }: { value: string; change: string | null;
           {tone && tone !== 'same' && <span className="sr-only">, {tone}</span>}
         </span>
       )}
+      {checks && checks.length > 0 && (
+        <ul id={checksId} hidden={!checksOpen} className="mt-1 flex flex-col gap-0.5 text-[15px]">
+          {checks.map((c) => (
+            <li key={c.words}>
+              <span className={`font-medium ${c.met ? 'text-good' : 'text-bad'}`}>{c.met ? 'Meets' : 'Fails'}</span> {c.words}
+            </li>
+          ))}
+        </ul>
+      )}
     </>
+  );
+}
+
+/**
+ * The name of the row of your requirements, as the switch that opens each scenario's checks in its column: the count
+ * of those failed shows first, the checks themselves one tap away, so the full comparison keeps to its words.
+ */
+function ChecksSwitch({ name, open, controls, onToggle }: { name: string; open: boolean; controls: string; onToggle: () => void }) {
+  return (
+    <button type="button" aria-expanded={open} aria-controls={controls} onClick={onToggle} className="inline-flex min-h-10 items-center gap-1.5 text-left font-semibold underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+      {name}
+      <span aria-hidden="true" className="no-underline">
+        {open ? '▴' : '▾'}
+      </span>
+    </button>
   );
 }
 
@@ -35,6 +63,9 @@ function Figure({ value, change, tone }: { value: string; change: string | null;
 export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs: Record<string, ScenarioRun>; onUseBest: (id: string) => void }) {
   const settings = settingRows(cols);
   const figures = figureRows(cols);
+  const id = useId();
+  const [checksOpen, setChecksOpen] = useState(false);
+  const checksId = (i: number) => `${id}-checks-${i}`;
   const pending = (i: number) => {
     const r = runs[cols[i].scenario.id];
     return r?.status === 'error' ? 'cannot be worked out' : 'working out…';
@@ -89,11 +120,15 @@ export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs:
             {figures.map((row) => (
               <tr key={row.id}>
                 <th scope="row" className={HEAD}>
-                  {row.name}
+                  {row.id === 'requirements' ? (
+                    <ChecksSwitch name={row.name} open={checksOpen} controls={row.cells.flatMap((c, i) => (c?.checks?.length ? [checksId(i)] : [])).join(' ')} onToggle={() => setChecksOpen((v) => !v)} />
+                  ) : (
+                    row.name
+                  )}
                 </th>
                 {row.cells.map((cell, i) => (
                   <td key={cols[i].scenario.id} className={CELL}>
-                    {cell ? <Figure {...cell} /> : <span className="text-[15px] text-ink-2">{pending(i)}</span>}
+                    {cell ? <Figure {...cell} checksId={checksId(i)} checksOpen={checksOpen} /> : <span className="text-[15px] text-ink-2">{pending(i)}</span>}
                   </td>
                 ))}
               </tr>

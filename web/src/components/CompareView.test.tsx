@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { scenarioFile } from '@/lib/scenario/file';
@@ -224,6 +224,31 @@ describe('CompareView', () => {
     expect(box.getAttribute('tabindex')).toBe('0');
     for (const th of within(table()).getAllByRole('rowheader')) expect(th.className).toMatch(/\bsticky\b.*\bleft-0\b/);
     expect(screen.getByRole('main').querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
+  });
+
+  it('checks every scenario against the requirements set on Explore, each met or failed with its value and margin', async () => {
+    const st = stores();
+    st.explore.getState().setRequirements({ minPoweredH: 120, maxOutageH: 96 });
+    await example(st);
+    const cells = () => Array.from(within(table()).getByRole('rowheader', { name: 'Your requirements' }).parentElement!.querySelectorAll('td'));
+    const shown = () => cells().map((td) => visibleWords(td, WIDE).join(' '));
+    // How many each fails, against the baseline's count; the full comparison keeps to its 750 words with the row.
+    expect(shown()).toEqual(['Fails 1 of your 2 requirements.', 'Fails 1 of your 2 requirements. same', 'Fails 1 of your 2 requirements. same']);
+    const main = screen.getByRole('main');
+    for (const width of [WIDE, PHONE]) expect(visibleWords(main, width).length).toBeLessThanOrEqual(750);
+    // One tap on the row's name opens each requirement, met or failed, with the value reached and the margin.
+    const toggle = within(table()).getByRole('button', { name: 'Your requirements' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(shown()).toEqual([
+      'Fails 1 of your 2 requirements. Fails Power for at least 5 d: 3 d 4 h, 1 d 20 h short Meets Longest time without Earth while powered at most 4 d: 3 d 4 h, 20 h to spare',
+      'Fails 1 of your 2 requirements. same Fails Power for at least 5 d: 10 h, 4 d 14 h short Meets Longest time without Earth while powered at most 4 d: 10 h, 3 d 14 h to spare',
+      'Fails 1 of your 2 requirements. same Meets Power for at least 5 d: 30 d, 25 d to spare Fails Longest time without Earth while powered at most 4 d: 11 d 10 h, 7 d 10 h too long',
+    ]);
+    // Set to none, the row goes, and nothing else shows in its place.
+    act(() => st.explore.getState().setRequirements({ minPoweredH: null, maxOutageH: null }));
+    expect(within(table()).queryByRole('rowheader', { name: 'Your requirements' })).toBeNull();
   });
 
   it('keeps the full comparison to 750 words before a tap, at 1440 and on a phone', async () => {

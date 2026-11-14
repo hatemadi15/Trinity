@@ -1,5 +1,5 @@
 import type { Site } from '../data/loaders';
-import { checksWords, type Check } from '../plan/requirements';
+import { checksShort, type Check } from '../plan/requirements';
 import { pointKind } from '../data/kind';
 import type { TerrainReport } from '../engine/completeness';
 import { landerName } from '../lander';
@@ -37,6 +37,8 @@ export interface Cell {
   change: string | null;
   /** Whether that change is better or worse for the lander; null for the baseline. */
   tone: Tone | null;
+  /** In the row of your requirements: each requirement met or failed, with its value and margin in words. */
+  checks?: { met: boolean; words: string }[];
 }
 export interface FigureRow {
   id: 'power' | 'sun' | 'earth' | 'contact' | 'outage' | 'sunset' | 'earthset' | 'night' | 'verdict' | 'requirements';
@@ -143,7 +145,10 @@ export function figureRows(cols: Column[]): FigureRow[] {
   ];
 }
 
-/** The planner's requirements, each scenario's checks in a sentence and how many fewer or more it fails than the baseline; no row when none is set. */
+/**
+ * The planner's requirements: how many of them each scenario fails, how many fewer or more than the baseline, and each
+ * check met or failed with its value and margin; no row when none is set.
+ */
 function requirementsRow(cols: Column[]): FigureRow[] {
   if (!cols.some((c) => c.checks && c.checks.length > 0)) return [];
   const failed = (c: Column) => (c.checks ?? []).filter((x) => !x.met).length;
@@ -155,10 +160,11 @@ function requirementsRow(cols: Column[]): FigureRow[] {
       means: 'The mission requirements set on Explore (Options), checked against each scenario: each met or failed, with its value.',
       cells: cols.map((c, i) => {
         if (!c.outcome || !c.checks || c.checks.length === 0) return null;
-        const value = checksWords(c.checks) ?? '';
-        if (i === 0) return { value, change: null, tone: null };
+        const value = checksShort(c.checks) ?? '';
+        const checks = c.checks.map((x) => ({ met: x.met, words: x.words }));
+        if (i === 0) return { value, change: null, tone: null, checks };
         const d = failed(c) - failed(base);
-        return { value, change: d === 0 ? 'same' : d < 0 ? `${-d} fewer failed` : `${d} more failed`, tone: d === 0 ? 'same' : d < 0 ? 'better' : 'worse' };
+        return { value, change: d === 0 ? 'same' : d < 0 ? `${-d} fewer failed` : `${d} more failed`, tone: d === 0 ? 'same' : d < 0 ? 'better' : 'worse', checks };
       }),
     },
   ];
