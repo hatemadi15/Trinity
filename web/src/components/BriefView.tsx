@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { DataProblem, SYNC_HINT } from './DataProblem';
+import { downloadNote, Downloads } from './Downloads';
 import { groundWords } from './explore/GroundQuality';
 import { ENERGY_ONLY, POWER_SCOPE_LINE } from './PowerScope';
 import { SkylineNote } from './SkylineNote';
@@ -15,7 +16,11 @@ import { landedWords, pointKind } from '@/lib/data/kind';
 import { siteLabel, type Site } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
 import { landerLine } from '@/lib/lander';
-import { exploreHref } from '@/lib/links';
+import { briefHref, exploreHref, withSettings } from '@/lib/links';
+import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
+import { useDataVersions } from '@/lib/hooks/useDataVersions';
+import { collectProvenance, provenanceLines } from '@/lib/share/provenance';
+import { appVersion } from '@/lib/share/versions';
 import { landingWords, periodWords } from '@/lib/period';
 import { exploreStore, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
@@ -92,18 +97,30 @@ export function BriefView({
   const budget = useUncertainty(uncertainty);
   const [narration, setNarration] = useState<Narration | null>(null);
   const [writing, setWriting] = useState(false);
+  // A brief opened from a link, in a new tab or another browser, shows the site, period and settings its address names;
+  // once that is applied, the address follows what it shows, so the address bar can be copied and sent on.
+  const [linked, setLinked] = useState(false);
   useEffect(() => {
-    void store.getState().init();
+    const search = typeof window === 'undefined' ? '' : window.location.search;
+    void store
+      .getState()
+      .init()
+      .then(() => store.getState().applyQuery(search))
+      .then(() => setLinked(true));
   }, [store]);
+  useAddressFollows(s.site ? withSettings(briefHref(s.site.id, s.startUtc, s.days), s.params) : null, linked && s.status === 'ready');
+  // Back to Explore on the same site, period and settings.
+  const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params) : '/explore';
+  const dataVersions = useDataVersions();
   const sunHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.sunAz) : null), [s.mask, s.series]);
   const earthHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.earthAz) : null), [s.mask, s.series]);
   const sunUp = useMemo(() => (s.series ? Uint8Array.from(s.series.sunFraction, (f) => (f > 0 ? 1 : 0)) : null), [s.series]);
-  if (s.status !== 'ready' || !s.site || !s.series || !s.summary || !s.mask || !s.power || !sunHill || !earthHill || !sunUp) {
+  if (s.status !== 'ready' || !s.site || !s.series || !s.summary || !s.mask || !s.power || !sunHill || !earthHill || !sunUp || !s.eph) {
     return (
       <main className="brief mx-auto max-w-[190mm] px-8 py-8">
         {/* This page has no header, so the way back is here while loading and after a data failure. */}
         <p className="no-print mb-4">
-          <Link href={s.site ? exploreHref(s.site.id, s.startUtc, s.days) : '/explore'} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+          <Link href={back} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
             Back to Explore
           </Link>
         </p>
@@ -152,10 +169,13 @@ export function BriefView({
   const provenance = terrain ? provenanceWords(terrain) : 'hills measured from NASA elevation data';
   const period = `the ${s.days} days from ${landingWords(s.startUtc)}`;
   const ticks = dayTicks(s.days);
+  const sources = collectProvenance({ site: s.site, maskMeta: s.maskMeta, params: s.params, eph: s.eph, startUtc: s.startUtc, days: s.days }, { app: appVersion(), data: dataVersions ?? { data: null, sites: null, ephemeris: null, terrain: null } });
+  // The address that opens these figures on Explore, in full, so the printed page carries it.
+  const shareLink = typeof window === 'undefined' ? back : new URL(back, window.location.origin).href;
   return (
     <main className="brief mx-auto flex max-w-[190mm] flex-col gap-5 px-8 py-8">
       <div className="no-print flex items-center justify-between gap-4">
-        <Link href={exploreHref(s.site.id, s.startUtc, s.days)} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+        <Link href={back} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           Back to Explore
         </Link>
         <button type="button" onClick={() => window.print()} className="btn">
@@ -269,6 +289,43 @@ export function BriefView({
           {budget && <li>NASA PGDA product 90 (Barker et al. 2023): the adjusted LOLA south-pole models, their height error and the ground at each site, for the margins.</li>}
           <li>Site: {s.site.source === 'user' ? 'coordinates picked by the user on the Earthrise map' : s.site.source}.</li>
         </ul>
+      </section>
+      {/* Where the figures come from and what they take as given, printed with them: every setting, the period in UTC, the
+          skyline and its LOLA grids, the ephemeris and its span, the versions, and the link that opens them again. */}
+      <section aria-labelledby="brief-provenance" className="flex flex-col gap-2 text-[15px]">
+        <h2 id="brief-provenance" className="display text-[18px] font-semibold">
+          Settings, sources and versions
+        </h2>
+        <table className="w-full border-collapse text-left">
+          <tbody>
+            {provenanceLines(sources).map(([label, value]) => (
+              <tr key={label} className="border-t border-line align-top">
+                <th scope="row" className="w-[9.5rem] py-1.5 pr-3 font-medium">
+                  {label}
+                </th>
+                <td className="py-1.5 [overflow-wrap:anywhere]">{value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <h3 id="brief-assumptions" className="font-semibold">
+          What the figures take as given
+        </h3>
+        <ul aria-labelledby="brief-assumptions" className="list-disc pl-5">
+          {sources.assumptions.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+        <p>
+          Open these figures again in Earthrise: <span className="[overflow-wrap:anywhere]">{shareLink}</span>
+        </p>
+      </section>
+      <section aria-labelledby="brief-downloads" className="no-print flex flex-col gap-2 text-[15px]">
+        <h2 id="brief-downloads" className="display text-[18px] font-semibold">
+          Download the figures
+        </h2>
+        <p className="max-w-[52em] text-ink-2">{downloadNote('in the section above')}</p>
+        <Downloads input={{ site: s.site, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph, series: s.series, power: s.power, summary: s.summary, maskMeta: s.maskMeta, best: s.best }} provenance={sources} link={shareLink} />
       </section>
       <footer className="text-[14px] text-ink-2">
         Generated {new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC by Earthrise (NASA Space Apps 2026, team Astroy/Ed).

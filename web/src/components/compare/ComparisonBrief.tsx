@@ -242,7 +242,7 @@ export function ComparisonBrief({ store = exploreStore, scenarios = scenarioStor
           <li>NASA LRO LOLA polar elevation models (LDEM 20 m, 80 m and 240 m), PDS Geosciences Node.</li>
           <li>JPL DE440 planetary ephemeris and NAIF SPICE kernels; JPL Horizons for the cross-checks.</li>
           <li>
-            {APP.name} {APP.version}; {[versions.ephemeris, versions.sites, versions.terrain].filter(Boolean).join('; ') || 'data versions not read'}.
+            {APP.name} {APP.version}{APP.commit ? `, commit ${APP.commit}` : ''}; {[versions.data, versions.ephemeris, versions.sites, versions.terrain].filter(Boolean).join('; ') || 'data versions not read'}.
           </li>
           <li>
             The same comparison opens again at <span className="break-all">{`${origin}${back}`}</span>

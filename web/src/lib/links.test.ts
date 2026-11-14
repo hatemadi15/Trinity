@@ -10,6 +10,15 @@ describe('standHref', () => {
   });
 });
 
+describe('briefHref', () => {
+  it("gives the brief Explore's address, and the settings that differ from the defaults after it", async () => {
+    const { briefHref, withSettings } = await import('./links');
+    const { DEFAULT_PARAMS } = await import('./store/explore');
+    expect(briefHref('nobile_rim_1', '2027-01-20T10:00:00', 14)).toBe('/brief?site=nobile_rim_1&start=2027-01-20T10:00&days=14');
+    expect(withSettings(briefHref('nobile_rim_1', '2027-01-01T00:00:00', 30), { ...DEFAULT_PARAMS, mastM: 5 })).toBe('/brief?site=nobile_rim_1&start=2027-01-01&days=30&mast=5');
+  });
+});
+
 describe('exploreHref', () => {
   it('writes a landing hour and any length, and leaves a midnight landing as a date, as old links were', () => {
     expect(exploreHref('nobile_rim_2', '2027-01-20T17:00:00', 7)).toBe('/explore?site=nobile_rim_2&start=2027-01-20T17:00&days=7');

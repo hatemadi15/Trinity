@@ -49,9 +49,12 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   is hourly) and a length of 2 to 90 days, with steps of an hour and a day either way and a shift by
   any number of days or hours ("our landing slipped by five days"); the Lander dialog offers three
   ready-made landers or your own panel, load, battery and mast. A new mast height works out the hills again for every
-  site shown, and each page says which sites are still waiting. `/explore?site=&start=&days=` links to one forecast
-  (for example `start=2027-01-20T17:00&days=7`), and Explore's address follows the period, so a
-  reload or a shared link keeps it.
+  site shown, and each page says which sites are still waiting. Explore's address is its share link: `/explore?site=&start=&days=` (for example
+  `start=2027-01-20T17:00&days=7`) plus every setting that differs from the defaults (`panel`, `facing`,
+  `area`, `efficiency`, `load`, `battery`, `charge`, `mast`, `earthmin`), so a reload or a copied link
+  opens the same figures in any browser. Share, on the numbers card, copies it and downloads the
+  figures: hour by hour, all numbers and the radio windows as CSV, with the settings, versions and
+  sources in a JSON file beside them.
 - **Stand on the Moon** (`/explore/stand`, "Stand at the site" on Explore): the view from the landing
   site, full window, for Explore's site, period and hour. It opens with the lander coming down in
   front of you (an eased descent, its plume and dust, touchdown), except with reduced motion. NASA's ground out to 125 km, lit by the hour's
@@ -93,7 +96,10 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
 - **The brief** (`/brief`): one printable page with Explore's answer, five numbers, the Sun's and
   Earth's rows over the period, each of its times with its measured margin, the lander and what its
   power figures assume (electrical energy only, not keeping warm through the night or starting
-  again), the method, the ground at the site and the data, and an optional narrated paragraph checked claim by claim against the figures
+  again), the method, the ground at the site and the data, the settings, sources and versions behind the figures (every
+  setting, the period in UTC, the skyline and its LOLA grids and mast, the ephemeris and its span,
+  the app's commit and the data version), what the figures take as given, the link that opens them
+  again, and the same downloads as Explore; its address opens the same brief in any browser, and an optional narrated paragraph checked claim by claim against the figures
   (each number on its measure, unit, site and sign, and no cause or survival claim the figures do
   not give); when it fails, the app's own paragraph stands and the page says what did not match.
 - **Ask in plain words** (on Explore and Compare): an assistant that turns a typed question

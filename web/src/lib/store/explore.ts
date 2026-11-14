@@ -20,6 +20,7 @@ import { neighbourhoodRadius, ringPoints, type PointResult } from '../plan/neigh
 import { computedReport, featuredReport, flatReport, unreportedReport, type TerrainFindings, type TerrainReport } from '../engine/completeness';
 import { missingWords } from '../viz/terrain';
 import { customPoint, parseExploreQuery } from './query';
+import { mergeSettings, parseSettings, sameSettings } from '../share/settings';
 
 /** A period's length in whole days, DAYS_RANGE in planner-ranges.ts: any number reaches the store, which refuses one outside it. */
 export type WindowDays = number;
@@ -812,6 +813,10 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     async applyQuery(search) {
       const q = parseExploreQuery(search);
       if (q.startUtc || q.days) get().setWindow(q.startUtc ?? get().startUtc, q.days ?? get().days);
+      // The lander's and the radio's settings the link names come before its site, so the site's skyline is asked for
+      // at the mast the link names; those it does not name keep the values the visit has.
+      const asked = mergeSettings(get().params, parseSettings(search));
+      if (!sameSettings(asked, get().params)) get().setParams(asked);
       if (!q.site || q.site === get().siteId) return;
       if (get().sites.some((s) => s.id === q.site)) {
         await get().selectSite(q.site);

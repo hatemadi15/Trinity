@@ -7,6 +7,7 @@ import { PlannerChat } from './PlannerChat';
 import { SkylineNote } from './SkylineNote';
 import { GroundPanel } from './explore/GroundPanel';
 import { LanderDialog } from './explore/LanderDialog';
+import { ShareDialog } from './explore/ShareDialog';
 import { NumbersCard } from './explore/NumbersCard';
 import { PeriodBand } from './explore/PeriodBand';
 import { RadioWindows } from './explore/RadioWindows';
@@ -22,7 +23,10 @@ import { globeTextureUrl } from '@/lib/data/terrain';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { standHref } from '@/lib/links';
+import { briefHref, standHref, withSettings } from '@/lib/links';
+import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
+import { useDataVersions } from '@/lib/hooks/useDataVersions';
+import { appVersion } from '@/lib/share/versions';
 import { COMPARE_MAX, exploreStore, scanOf, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { neighbourhoodRange, rangeWords } from '@/lib/plan/neighbourhood';
 import { placeOptions, timeOptions } from '@/lib/plan/options';
@@ -63,24 +67,27 @@ export function ExploreView({
   const [hoverHour, setHoverHour] = useState<number | null>(null);
   const [landerOpen, setLanderOpen] = useState(false);
   const landerRef = useRef<HTMLButtonElement>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareRef = useRef<HTMLButtonElement>(null);
+  const dataVersions = useDataVersions(shareOpen);
   const reducedMotion = useReducedMotion();
   useDemoMode(store);
 
-  // The address the visit came with is applied once the data is in; from then on the address follows the site and
-  // the period, landing hour and length included, so a reload or a shared link opens the same forecast.
-  const [addressed, setAddressed] = useState(false);
+  // The address the visit came with is read before the data loads and applied once it is in; only then does the page
+  // write its own, so its defaults never replace a shared link before it is read.
+  const [linked, setLinked] = useState(false);
   useEffect(() => {
+    const search = typeof window === 'undefined' ? '' : window.location.search;
     void store
       .getState()
       .init()
-      .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search))
-      .then(() => setAddressed(true));
+      .then(() => store.getState().applyQuery(search))
+      .then(() => setLinked(true));
   }, [store]);
-  useEffect(() => {
-    if (!addressed || !s.siteId) return;
-    const href = exploreHref(s.siteId, s.startUtc, s.days);
-    if (`${window.location.pathname}${window.location.search}` !== href) window.history.replaceState(window.history.state, '', `${href}${window.location.hash}`);
-  }, [addressed, s.siteId, s.startUtc, s.days]);
+  // From then on the address follows the site, the period (its landing hour and length included) and every setting the
+  // figures depend on, so a reload or a copied address opens the same forecast.
+  const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params) : null;
+  useAddressFollows(link, linked && s.status === 'ready');
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
   // itself, once, and puts the cursor in its box, as "Or ask in plain words" does.
@@ -214,6 +221,8 @@ export function ExploreView({
 
   const site = s.site;
   const better = answer?.better;
+  // The view from the site and the brief work their figures out from the same settings.
+  const standLink = withSettings(standHref(site.id, s.startUtc, s.days, s.cursorHour), s.params);
   return (
     <AppFrame>
       <main className="flex flex-col">
@@ -242,7 +251,7 @@ export function ExploreView({
               limitation={verdictLimitation(terrain)}
               site={site}
               nearby={nearby}
-              standLink={standHref(site.id, s.startUtc, s.days, s.cursorHour)}
+              standLink={standLink}
               onLand={(start) => s.setWindow(start, s.days)}
               onCompare={onCompare}
               onYear={() => void store.getState().findBestWindow(s.days)}
@@ -264,6 +273,9 @@ export function ExploreView({
               series={s.series}
               hour={s.cursorHour}
               startUtc={s.startUtc}
+              briefLink={withSettings(briefHref(site.id, s.startUtc, s.days), s.params)}
+              onShare={() => setShareOpen(true)}
+              shareRef={shareRef}
             />
           </div>
           {/* This landing, every setting with it, as a comparison's baseline: under the answer, outside its word cap. */}
@@ -314,6 +326,7 @@ export function ExploreView({
             onExaggeration={s.setExaggeration}
             onPick={onPick}
             reducedMotion={reducedMotion}
+            standLink={standLink}
           />
           <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} />
           <PlannerChat store={store} scenarios={scenarios} navigate={go} />
@@ -331,6 +344,15 @@ export function ExploreView({
           moments={keyMoments(s.series, s.power, s.startUtc).map((m) => ({ label: `${m.label}, ${m.day}`, hour: m.hour }))}
           onHover={setHoverHour}
         />
+        {shareOpen && s.eph && link && (
+          <ShareDialog
+            input={{ site, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph, series: s.series, power: s.power, summary: s.summary, maskMeta: s.maskMeta, best: s.best }}
+            link={new URL(link, window.location.origin).href}
+            versions={{ app: appVersion(), data: dataVersions ?? { data: null, sites: null, ephemeris: null, terrain: null } }}
+            onClose={() => setShareOpen(false)}
+            returnFocus={shareRef}
+          />
+        )}
         {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
       </main>
     </AppFrame>
