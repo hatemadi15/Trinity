@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { dataBase, type Site } from '../data/loaders';
 import type { Series } from '../engine/metrics';
-import type { Requirements } from '../plan/requirements';
+import type { Holds, Requirements } from '../plan/requirements';
 import type { PlannerParams } from '../store/explore';
 import { versionsRunner, type VersionsRunner } from './client';
 import type { VersionsResult } from './figures';
@@ -93,12 +93,23 @@ export function useTerrainVersions(ask: VersionsAsk, deps: VersionsDeps = {}): V
 }
 
 /**
+ * With the requirement on the terrain versions set, in how many versions each landing time of the period holds, worked
+ * out as Explore works it out, so the brief and the view from the site rank their better date as Explore does; null
+ * while that requirement is not set and until the versions are worked out. Nothing runs while it is not set.
+ */
+export function useHoldsByHour(ask: Omit<VersionsAsk, 'byHour'>, deps?: VersionsDeps): (Holds | null)[] | null {
+  const asked = (ask.requirements.minHoldPct ?? null) !== null;
+  const state = useTerrainVersions({ ...ask, site: asked ? ask.site : null, byHour: true }, deps);
+  return asked && state.status === 'ready' ? state.result.holdsByHour : null;
+}
+
+/**
  * The sentence under the requirement on the terrain versions: what it is checked for and how far the work has got;
  * undefined where the site has no versions to speak of (a flat horizon), so the box is not offered.
  */
 export function holdNoteFor(state: VersionsState, asked: boolean): string | undefined {
   if (state.status === 'none') return state.reason === null || state.reason === '' ? undefined : `${state.reason} The requirement is not checked here.`;
-  const scope = 'It is checked for this site’s landing times in the period; places nearby and the 12-month search do not check it.';
+  const scope = 'It is checked for this site’s landing times in the period, here, on the brief and in the view from the site; places nearby, the 12-month search and Compare do not check it.';
   if (state.status === 'error') return `${scope} The versions could not be worked out (${state.message}).`;
   if (state.status === 'working' && asked) return `${scope} Checking the terrain versions…`;
   if (state.status === 'ready' && asked) return `${scope} Each landing time is checked against ${state.result.summary.versions} versions.`;

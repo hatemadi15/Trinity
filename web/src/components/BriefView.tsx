@@ -24,13 +24,13 @@ import { appVersion } from '@/lib/share/versions';
 import { landingWords, periodWords } from '@/lib/period';
 import { FAIL_RULE, OBJECTIVE } from '@/lib/plan/rank';
 import type { Check } from '@/lib/plan/requirements';
-import { exploreStore, periodPlan, terrainOf, type ExploreState } from '@/lib/store/explore';
+import { exploreStore, periodPlan, scanOf, seenFrom, terrainOf, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateTimeUtc, dayMonth, pct0, spanShort } from '@/lib/viz/format';
 import { dayTicks, hillsToward } from '@/lib/viz/timechart';
 import { siteBudget, sureLines, type UncertaintyDoc } from '@/lib/uncertainty/budget';
 import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
-import type { VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
+import { useHoldsByHour, type VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
 import { BriefVersions } from './BriefVersions';
 import { coldTrapSite, coldTrapWords, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
 import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
@@ -137,8 +137,13 @@ export function BriefView({
   useAddressFollows(s.site ? withSettings(briefHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : null, linked && s.status === 'ready');
   // Back to Explore on the same site, period, settings and requirements.
   const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : '/explore';
-  // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the brief names the same better date.
-  const times = useMemo(() => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy }), [s.series, s.params, s.requirements, s.startUtc, s.rankBy]);
+  // The period's landing times ranked with the requirements and the ranking, as Explore ranks them, so the brief names the
+  // same better date: with the requirement on the terrain versions set, by how many versions each landing time holds in.
+  const holds = useHoldsByHour({ site: s.site, series: s.series ? scanOf(s.series) : null, hours: s.series?.hours ?? 0, params: s.params, requirements: s.requirements, mastM: seenFrom(s.maskMeta, s.params.mastM) }, versions);
+  const times = useMemo(
+    () => periodPlan({ series: s.series, params: s.params, requirements: s.requirements, startUtc: s.startUtc, rankBy: s.rankBy, holds }),
+    [s.series, s.params, s.requirements, s.startUtc, s.rankBy, holds],
+  );
   const dataVersions = useDataVersions();
   const sunHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.sunAz) : null), [s.mask, s.series]);
   const earthHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.earthAz) : null), [s.mask, s.series]);

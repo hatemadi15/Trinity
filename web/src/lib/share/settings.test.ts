@@ -93,8 +93,8 @@ describe('the requirements a link carries', () => {
     expect(withSettings('/explore?site=haworth', DEFAULT_PARAMS, NO_REQUIREMENTS)).toBe('/explore?site=haworth');
     expect(withSettings('/explore?site=haworth', params({ loadW: 400 }), { ...NO_REQUIREMENTS, minPoweredH: 120, contactWithinH: 0 })).toBe('/explore?site=haworth&load=400&minpower=120&earthby=0');
     expect(withSettings('/brief', DEFAULT_PARAMS, all)).toBe('/brief?minpower=120&earthby=0&maxgap=72&mincontact=24');
-    // Every requirement has a name in a link, and none takes a setting's.
-    expect(Object.keys(REQUIREMENT_NAMES).sort()).toEqual(Object.keys(NO_REQUIREMENTS).sort());
+    // Every requirement has a name in a link, the share of terrain versions too, and none takes a setting's.
+    expect(Object.keys(REQUIREMENT_NAMES).sort()).toEqual([...Object.keys(NO_REQUIREMENTS), 'minHoldPct'].sort());
     for (const name of Object.values(REQUIREMENT_NAMES)) expect(Object.values(SETTING_NAMES)).not.toContain(name);
   });
 
@@ -107,6 +107,15 @@ describe('the requirements a link carries', () => {
     // The settings beside them read back as they were.
     const href = withSettings('/explore?site=haworth', params({ batteryWh: 9000 }), all);
     expect(parseSettings(href.slice(href.indexOf('?')))).toEqual({ power: { batteryWh: 9000 } });
+  });
+
+  it('writes the share of terrain versions a choice must hold in, in percent and last, and reads it back', () => {
+    expect(withSettings('/explore?site=haworth', DEFAULT_PARAMS, { ...NO_REQUIREMENTS, minPoweredH: 120, minHoldPct: 90 })).toBe('/explore?site=haworth&minpower=120&minhold=90');
+    expect(requirementEntries({ ...NO_REQUIREMENTS, minHoldPct: null })).toEqual([]);
+    expect(parseRequirements('?minhold=87.5')).toEqual({ minHoldPct: 87.5 });
+    // A share its box could not take is left out, as a bad setting is.
+    expect(parseRequirements('?minhold=101&minpower=24')).toEqual({ minPoweredH: 24 });
+    expect(parseRequirements('?minhold=-5')).toEqual({});
   });
 
   it('leaves out a requirement it cannot use, as a bad setting is left out, and takes the rest', () => {

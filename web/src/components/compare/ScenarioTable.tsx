@@ -16,7 +16,7 @@ const TONE: Record<Tone, string> = {
 };
 /** What the terrain versions' row means, for the table's key. */
 export const VERSIONS_MEANS =
-  'The same scenario over 32 versions of the ground drawn round NASA’s adjusted south-pole map (PGDA product 90) with errors as large as two generations of its maps differ by: how many still meet your requirements, or with none set give the same verdict, and the range of time with power. Only the polar catalogue sites seen from a 2 m mast have versions; a share of versions is not the chance that the landing works.';
+  'The same scenario over 32 versions of the ground drawn round NASA’s adjusted south-pole map (PGDA product 90) with errors as large as two generations of its maps differ by: how many still meet your requirements, or with none set give the same verdict, and the range of time with power. Compare does not check the requirement on a share of versions; this count is the share to read it against. Only the polar catalogue sites seen from a 2 m mast have versions; a share of versions is not the chance that the landing works.';
 const HEAD = 'sticky left-0 z-[1] bg-surface border-b border-line py-2.5 pr-4 text-left align-top text-[15px] font-semibold text-ink-2 max-sm:min-w-[118px]';
 const CELL = 'border-b border-line py-2.5 pr-4 align-top';
 

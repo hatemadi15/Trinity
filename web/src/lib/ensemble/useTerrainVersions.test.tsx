@@ -6,7 +6,7 @@ import { NO_REQUIREMENTS } from '../plan/requirements';
 import { DEFAULT_PARAMS, recompute, scanOf } from '../store/explore';
 import { eph, sites } from '@/test/file-loaders';
 import { VersionsClient } from './client';
-import { useTerrainVersions, versionsProblem, type VersionsAsk } from './useTerrainVersions';
+import { useHoldsByHour, useTerrainVersions, versionsProblem, type VersionsAsk } from './useTerrainVersions';
 
 const site = sites.find((s) => s.id === 'de_gerlache_rim_2')!;
 const mask = Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'masks', 'de_gerlache_rim_2.json').elevation_deg);
@@ -31,6 +31,23 @@ describe('useTerrainVersions', () => {
     const { result } = renderHook(() => useTerrainVersions({ ...ask, byHour: true, requirements: { ...NO_REQUIREMENTS, minHoldPct: 90 } }, { load: async () => versions, runner }));
     await waitFor(() => expect(result.current.status).toBe('ready'));
     expect(result.current.status === 'ready' && result.current.result.holdsByHour?.length).toBe(720);
+  });
+
+  it('works out the holds of every landing hour for the brief and the view from the site only when the requirement is set', async () => {
+    let loads = 0;
+    const load = async () => {
+      loads++;
+      return versions;
+    };
+    const runner = new VersionsClient();
+    const none = renderHook(() => useHoldsByHour(ask, { load, runner }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(none.result.current).toBeNull();
+    expect(loads).toBe(0);
+    const asked = renderHook(() => useHoldsByHour({ ...ask, requirements: { ...NO_REQUIREMENTS, minHoldPct: 90 } }, { load, runner }));
+    expect(asked.result.current).toBeNull();
+    await waitFor(() => expect(asked.result.current?.length).toBe(720));
+    expect(loads).toBe(1);
   });
 
   it('says plainly when a site has no versions, and nothing on a flat horizon', async () => {

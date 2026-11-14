@@ -14,7 +14,7 @@ import { clockUtc, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
 import { timeOptions, yearOptions, type LandingTime, type Recommendation, type YearChoice } from '../plan/options';
 import { periodOutcome, type Outcome } from '../plan/outcome';
-import { checksWords, NO_REQUIREMENTS, type Holds, type Requirements } from '../plan/requirements';
+import { checksWords, NO_REQUIREMENTS, oneSet, type Holds, type Requirements } from '../plan/requirements';
 import { BY_POWER, validPriorities, yearRuleWords, type RankBy } from '../plan/rank';
 import { neighbourhoodRadius, ringPoints, type PointResult } from '../plan/neighbourhood';
 import { computedReport, featuredReport, flatReport, unreportedReport, type TerrainFindings, type TerrainReport } from '../engine/completeness';
@@ -865,7 +865,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       // A link that names the mission's requirements, which rank the better date, sets them as it names them, the ones it
       // leaves out as none; a link that names none (every link inside the app but Explore's own) keeps the visit's.
       const req = parseRequirements(search);
-      if (Object.keys(req).length > 0) get().setRequirements({ ...NO_REQUIREMENTS, ...req });
+      if (Object.keys(req).length > 0) get().setRequirements(oneSet(req));
       // The ranking the link names, beside the settings; a link that names none keeps the visit's own.
       const rank = parseRank(search);
       if (rank) get().setRankBy(rank);

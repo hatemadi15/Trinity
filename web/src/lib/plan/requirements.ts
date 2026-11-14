@@ -25,6 +25,14 @@ export interface Requirements {
 
 export const NO_REQUIREMENTS: Requirements = { minPoweredH: null, contactWithinH: null, maxOutageH: null, minPoweredContactH: null };
 
+/**
+ * The requirements a link, a file or the planner names, as one set that replaces the one in use: each it leaves out is
+ * none, the share of terrain versions included (left undefined, as a set written without it has none).
+ */
+export function oneSet(named: Partial<Requirements>): Requirements {
+  return { ...NO_REQUIREMENTS, minHoldPct: undefined, ...named };
+}
+
 export type RequirementId = 'power' | 'contact-at-landing' | 'outage' | 'powered-contact' | 'holds';
 
 /** In how many terrain versions a choice holds, of how many were worked out for it (lib/ensemble). */

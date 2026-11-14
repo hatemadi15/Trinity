@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { hasFile } from '../engine/__tests__/helpers';
 import { LANDER_PRESETS } from '../lander';
+import { NO_REQUIREMENTS, requirementCount } from '../plan/requirements';
 import { exploreHref, standHref } from '../links';
 import { createExploreStore, DEFAULT_PARAMS, type ExploreState } from '../store/explore';
 import { fileLoaders } from '@/test/file-loaders';
@@ -123,6 +124,21 @@ describe.skipIf(!haveData)('a shared link in a fresh browser', () => {
     expect(b.getState().requirements).toEqual(sent.requirements);
     await b.getState().applyQuery('?minpower=lots&mincontact=24');
     expect(b.getState().requirements).toEqual({ minPoweredH: null, contactWithinH: null, maxOutageH: null, minPoweredContactH: 24 });
+  });
+
+  it('opens the requirement on the terrain versions a link names, and one that names only others leaves it none', async () => {
+    const { store: a } = await freshBrowser();
+    a.getState().setRequirements({ minPoweredH: 120, minHoldPct: 90 });
+    const sent = a.getState();
+    const link = withSettings(exploreHref(sent.siteId!, sent.startUtc, sent.days), sent.params, sent.requirements);
+    expect(link).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30&minpower=120&minhold=90');
+    const { store: b } = await freshBrowser();
+    await b.getState().applyQuery(search(link));
+    expect(b.getState().requirements).toEqual(sent.requirements);
+    // The requirements a link names are one set: the share of versions goes with the others it leaves out.
+    await b.getState().applyQuery('?maxgap=72');
+    expect(b.getState().requirements).toEqual({ ...NO_REQUIREMENTS, maxOutageH: 72 });
+    expect(requirementCount(b.getState().requirements)).toBe(1);
   });
 
   it('keeps the settings a visit already has when a link inside the app names none, and old links still open', async () => {
