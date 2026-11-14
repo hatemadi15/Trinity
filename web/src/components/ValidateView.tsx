@@ -6,9 +6,10 @@ import { dataBase, loadEphemerisFromUrl } from '@/lib/data/loaders';
 import { degreesText } from '@/lib/data/home';
 import { exploreStore } from '@/lib/store/explore';
 import { loadValidation, type BackcastRow, type ValidationDocs } from '@/lib/data/validation';
+import { PANEL_LABELS, type PanelModel } from '@/lib/engine/power';
 import type { HorizonsBody } from '@/lib/horizons/query';
 import { recheckSite, type RecheckResult } from '@/lib/horizons/recheck';
-import { checkCards, type CheckCard } from '@/lib/viz/checks';
+import { evidenceCards, sumsResults, type EvidenceCard } from '@/lib/viz/checks';
 import { UncertaintySection } from './UncertaintySection';
 import { testRunWords, type TestRun } from '@/lib/report/testRun';
 
@@ -36,14 +37,20 @@ function recheckProblem(message: string): string {
 const exp1 = (x: number) => `${x.toExponential(1)}°`;
 /** A gap in the page's five decimals, or "under 0.00001°" where those would read as none: the direction's gap is about 3e-6°. */
 const gapText = (deg: number) => (Math.abs(deg) < 0.000005 ? 'under 0.00001°' : degreesText(deg));
-const pctOf = (x: number) => `${(x * 100).toFixed(1)} %`;
+const pctOf = (x: number) => `${(x * 100).toFixed(1)} %`;
+const signedPoints = (p: number) => `${p >= 0 ? '+' : '−'}${Math.abs(p).toFixed(1)} points`;
 const signedHours = (h: number) => `${h >= 0 ? '+' : '−'}${Math.abs(h).toFixed(1)} h`;
+/** A tiny gap in watts: none at all, or its size in powers of ten. */
+const wattsGap = (w: number) => (w === 0 ? '0 W' : `${w.toExponential(1)} W`);
 const utcShort = (iso: string | null) => (iso ? iso.replace('T', ' ').replace(':00Z', ' UTC').replace('Z', ' UTC') : '—');
+const dayWords = (iso: string) => new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 const TH = 'border-b-2 border-ink py-2 pr-4 text-left text-[15px] font-semibold text-ink-2';
 const TD = 'border-b border-line py-2 pr-4 text-[15px]';
 const NUM = `${TD} text-right tabular-nums`;
-/** The page's verdict in one line, by how many of the three checks pass: the count of the cards' own pass marks, never worked out again. */
-const VERDICT = ['No check passes.', 'One of three checks passes.', 'Two of three checks pass.', 'All three checks pass.'];
+const H3 = 'mt-6 text-[17px] font-semibold text-ink';
+const NOTE = 'mt-3 max-w-[62em] break-words text-[15px] leading-relaxed text-ink-2';
+/** The page's verdict in one line, by how many of the three checks meet their criteria: the count of the panels' own pass marks, never worked out again. */
+const VERDICT = ['No check meets its criteria', 'One of three checks meets its criteria', 'Two of three checks meet their criteria', 'Three checks meet their criteria'];
 
 function Mark({ pass }: { pass: boolean }) {
   return (
@@ -53,17 +60,22 @@ function Mark({ pass }: { pass: boolean }) {
   );
 }
 
-/** One check: its pass mark, figure and sentence, anything it adds (the live re-check), and its numbers on request. */
-function CheckPanel({ card, extra, children }: { card: CheckCard; extra?: ReactNode; children: ReactNode }) {
+/**
+ * One kind of evidence: its mark (a pass mark for a check, neutral words for context), figure and sentence, its
+ * labelled parts (what it shows, when it passes, what it was tested on, what it leaves out), anything it adds (the
+ * live re-check), and its numbers on request.
+ */
+function EvidencePanel({ card, extra, children }: { card: EvidenceCard; extra?: ReactNode; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const id = useId();
+  const tone = card.pass === null ? 'text-ink-2' : card.pass ? 'text-good' : 'text-bad';
   return (
-    <section aria-labelledby={`${id}-h`} className="panel">
+    <section aria-labelledby={`${id}-h`} data-kind={card.kind} className="panel">
       <h2 id={`${id}-h`} className="display text-[26px] font-semibold leading-tight">
         {card.title}
       </h2>
-      <p className={`mt-2 flex items-center gap-2 font-semibold ${card.pass ? 'text-good' : 'text-bad'}`}>
-        <Mark pass={card.pass} />
+      <p data-part="mark" className={`mt-2 flex items-center gap-2 font-semibold ${tone}`}>
+        {card.pass !== null && <Mark pass={card.pass} />}
         {card.mark}
       </p>
       <p className="mt-3 flex flex-wrap items-baseline gap-x-3">
@@ -71,6 +83,14 @@ function CheckPanel({ card, extra, children }: { card: CheckCard; extra?: ReactN
         <span className="text-ink-2">{card.figureWords}</span>
       </p>
       <p data-part="sentence" className="mt-3 max-w-[46em] leading-relaxed text-ink-2">{card.sentence}</p>
+      <dl className="mt-4 grid max-w-[62em] gap-x-6 gap-y-2 text-[15px] leading-relaxed sm:grid-cols-[10.5em_1fr]">
+        {card.parts.map((p) => (
+          <div key={p.label} className="contents">
+            <dt className="font-semibold text-ink">{p.label}</dt>
+            <dd className="text-ink-2 max-sm:mb-1">{p.text}</dd>
+          </div>
+        ))}
+      </dl>
       {extra}
       <button type="button" aria-expanded={open} aria-controls={`${id}-n`} onClick={() => setOpen((v) => !v)} className="btn mt-4">
         {open ? 'Hide the numbers' : 'Show the numbers'}
@@ -84,9 +104,12 @@ function CheckPanel({ card, extra, children }: { card: CheckCard; extra?: ReactN
 }
 
 /**
- * Accuracy: the three checks of the home page's table, each with a pass mark, its headline figure,
- * one plain sentence and the full table on request; the live re-check with JPL sits in the first.
- * Then the error budget and the automated tests' last run: what passed, was skipped and failed, when, on which commit, with which data.
+ * Accuracy: four kinds of evidence. Three checks (the Sun's and Earth's directions against JPL Horizons, sunlight
+ * against NASA's LOLA maps worked out the map's way, the power sums against worked answers), each with its pass
+ * mark, what it shows, its rule, what it was tested on and what it leaves out; then past missions as context, with
+ * no pass mark. The live re-check with JPL sits in the first.
+ * Then how sure the times are, the error budget and the automated tests' last run: what passed, was skipped
+ * and failed, when, on which commit, with which data.
  */
 export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: { load?: () => Promise<ValidationDocs>; recheck?: Recheck }) {
   const [docs, setDocs] = useState<ValidationDocs | null>(null);
@@ -142,10 +165,13 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
       </AppFrame>
     );
   }
-  const { horizons, mazarico, backcasts } = docs;
-  const [directions, sunlight, nights] = checkCards(docs);
-  const verdict = VERDICT[[directions, sunlight, nights].filter((card) => card.pass).length];
+  const { horizons, mazarico, power, backcasts } = docs;
+  const cards = evidenceCards(docs);
+  const [directions, sunlight, sums, missions] = cards;
+  const verdict = `${VERDICT[cards.filter((card) => card.kind === 'check' && card.pass).length]}; past missions are context, not a check.`;
   const liveSite = horizons.sites.find((s) => s.site_id === 'shackleton_center') ?? horizons.sites[0];
+  const ref = mazarico.reference;
+  const names = new Map(mazarico.rows.map((r) => [r.site_id, r.name]));
 
   async function runRecheck() {
     if (!liveSite) return;
@@ -180,12 +206,12 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
       <main className="wrap flex flex-col gap-6 pb-14 pt-8">
         <div>
           <h1 data-band-end="" className="display text-[44px] leading-tight sm:text-[56px]">Accuracy</h1>
-          <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">Each step of the forecast is checked against an independent NASA source. The smaller the gap, the better.</p>
+          <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">What each check shows, how it was tested, and its limits.</p>
         </div>
 
         <p className="text-base font-semibold text-ink">{verdict}</p>
 
-        <CheckPanel card={directions} extra={recheckBlock}>
+        <EvidencePanel card={directions} extra={recheckBlock}>
           <table className="w-full min-w-[640px] border-collapse">
             <thead>
               <tr>
@@ -214,17 +240,26 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
               ))}
             </tbody>
           </table>
-        </CheckPanel>
+          <p className={NOTE}>JPL&apos;s settings: {horizons.evidence.reference.settings}. Ours: {horizons.evidence.ours.frame}, {horizons.evidence.ours.abcorr}, from {horizons.evidence.ours.kernels.join(', ')}.</p>
+        </EvidencePanel>
 
-        <CheckPanel card={sunlight}>
-          <p className="mb-3 text-[15px] text-ink-2">
-            Our sunlit share, hourly {mazarico.period[0].slice(0, 10)} to {mazarico.period[1].slice(0, 10)} with a 2 m mast, against the map <code>{mazarico.product}</code> (60 m per pixel, south of 85° S).
+        <EvidencePanel card={sunlight}>
+          <p className="mb-3 max-w-[62em] break-words text-[15px] leading-relaxed text-ink-2">
+            NASA&apos;s maps: <code>{ref.sun.product_id}</code> and <code>{ref.earth.product_id}</code> (LOLA team, label {ref.sun.product_version_id}, made {dayWords(ref.sun.product_creation_time)}), 60 m per pixel south of 85° S. {ref.averaging}{' '}
+            {ref.observer} Its label: &ldquo;{ref.sun.description}&rdquo;
           </p>
-          <table className="w-full min-w-[520px] border-collapse">
+          <p className="mb-3 max-w-[62em] text-[15px] leading-relaxed text-ink-2">
+            Ours, one change at a time: the app&apos;s own share (2 m mast, LOLA 20 to 240 m terrain, hourly {dayWords(mazarico.period[0])} to {dayWords(mazarico.period[1])}); then from the ground; then hourly over 18.6 years from{' '}
+            {dayWords(mazarico.evidence.coverage.matched_span[0])}; then on 60 m terrain at the map&apos;s four nearest pixels, which is the map&apos;s way. The gap is that last step minus the map.
+          </p>
+          <table className="w-full min-w-[820px] border-collapse">
             <thead>
               <tr>
                 <th className={TH}>Site</th>
-                <th className={`${TH} text-right`}>Ours</th>
+                <th className={`${TH} text-right`}>The app: 2 m mast</th>
+                <th className={`${TH} text-right`}>From the ground</th>
+                <th className={`${TH} text-right`}>Over 18.6 years</th>
+                <th className={`${TH} text-right`}>On 60 m terrain</th>
                 <th className={`${TH} text-right`}>NASA&apos;s map</th>
                 <th className={`${TH} text-right`}>Gap</th>
               </tr>
@@ -233,27 +268,102 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
               {mazarico.rows.map((r) => (
                 <tr key={r.site_id}>
                   <td className={TD}>{r.name}</td>
-                  {r.covered && r.delta_points !== undefined ? (
+                  {r.covered && r.sun ? (
                     <>
-                      <td className={NUM}>{pctOf(r.ours_fraction!)}</td>
-                      <td className={NUM}>{pctOf(r.map_fraction!)}</td>
-                      <td className={NUM}>
-                        {r.delta_points >= 0 ? '+' : '−'}
-                        {Math.abs(r.delta_points).toFixed(1)} points
-                      </td>
+                      <td className={NUM}>{pctOf(r.sun.app)}</td>
+                      <td className={NUM}>{pctOf(r.sun.surface)}</td>
+                      <td className={NUM}>{pctOf(r.sun.cycle)}</td>
+                      <td className={NUM}>{pctOf(r.sun.matched)}</td>
+                      <td className={NUM}>{pctOf(r.sun.map)}</td>
+                      <td className={NUM}>{signedPoints(r.sun.gap_points)}</td>
                     </>
                   ) : (
-                    <td colSpan={3} className={`${TD} text-ink-2`}>
-                      not covered by the 85°S map
+                    <td colSpan={6} className={`${TD} text-ink-2`}>
+                      not covered by the 85° S map
                     </td>
                   )}
                 </tr>
               ))}
             </tbody>
           </table>
-        </CheckPanel>
+          <h3 className={H3}>Earth in view</h3>
+          <p className="mb-3 mt-1 max-w-[62em] text-[15px] leading-relaxed text-ink-2">
+            The app counts Earth as in view when its centre clears the hills; NASA&apos;s map counts any part of its disc, and so does our share worked out the map&apos;s way (from the ground, over 18.6 years, on 60 m terrain).
+          </p>
+          <table className="w-full min-w-[640px] border-collapse">
+            <thead>
+              <tr>
+                <th className={TH}>Site</th>
+                <th className={`${TH} text-right`}>The app: Earth&apos;s centre</th>
+                <th className={`${TH} text-right`}>Ours: any part of Earth</th>
+                <th className={`${TH} text-right`}>NASA&apos;s map</th>
+                <th className={`${TH} text-right`}>Gap</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mazarico.rows
+                .filter((r) => r.covered && r.earth)
+                .map((r) => (
+                  <tr key={r.site_id}>
+                    <td className={TD}>{r.name}</td>
+                    <td className={NUM}>{pctOf(r.earth!.app_centre)}</td>
+                    <td className={NUM}>{pctOf(r.earth!.matched_any)}</td>
+                    <td className={NUM}>{pctOf(r.earth!.map)}</td>
+                    <td className={NUM}>{signedPoints(r.earth!.gap_points)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+          {mazarico.rows
+            .filter((r) => r.note)
+            .map((r) => (
+              <p key={r.site_id} className={NOTE}>
+                {r.name}: {r.note}
+              </p>
+            ))}
+          <h3 className={H3}>What the comparison could not match</h3>
+          <ul className="mt-2 flex max-w-[62em] list-disc flex-col gap-2 pl-5 text-[15px] leading-relaxed text-ink-2">
+            {(mazarico.evidence.unmatched ?? []).map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <p className={NOTE}>
+            Sources: {ref.sources.join('; ')}. Labels read: {ref.sun.file} and {ref.earth.file} (SHA-256 {ref.sun.label_sha256.slice(0, 12)}… and {ref.earth.label_sha256.slice(0, 12)}…). Made by{' '}
+            <code>{mazarico.evidence.command}</code>.
+          </p>
+        </EvidencePanel>
 
-        <CheckPanel card={nights}>
+        <EvidencePanel card={sums}>
+          <table className="w-full min-w-[720px] border-collapse">
+            <thead>
+              <tr>
+                <th className={TH}>Case</th>
+                <th className={TH}>By hand</th>
+                <th className={`${TH} text-right`}>Pipeline: largest gap</th>
+                <th className={`${TH} text-right`}>This browser: largest gap</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sumsResults(power).map((s) => (
+                <tr key={s.id}>
+                  <td className={TD}>{s.words}</td>
+                  <td className={TD}>{s.hand}</td>
+                  <td className={NUM}>{wattsGap(s.pipelineGapW)}</td>
+                  <td className={NUM}>{wattsGap(s.gapW)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className={NOTE}>
+            {power.recorded_runs.length} recorded runs the app&apos;s automated tests compare with the pipeline on every change, rerun by the pipeline today against its record:{' '}
+            {power.recorded_runs
+              .map((r) => `${names.get(r.site_id) ?? r.site_id} from ${dayWords(r.start_utc)}, ${r.days} days, ${(PANEL_LABELS[r.panel as PanelModel] ?? r.panel).toLowerCase()} (${r.agrees ? 'agrees' : 'differs'})`)
+              .join('; ')}
+            .
+          </p>
+        </EvidencePanel>
+
+        <EvidencePanel card={missions}>
           <table className="w-full min-w-[760px] border-collapse">
             <thead>
               <tr>
@@ -290,7 +400,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
               </li>
             ))}
           </ul>
-        </CheckPanel>
+        </EvidencePanel>
 
         <UncertaintySection />
 

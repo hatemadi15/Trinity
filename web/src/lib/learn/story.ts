@@ -23,7 +23,7 @@ export const STORY_STEPS: StoryStep[] = [
   },
   {
     title: 'Compare and check',
-    body: 'Compare puts up to four sites side by side for the same days and lander. Accuracy shows how each step was checked against an independent NASA source, and lets you rerun one check live.',
+    body: 'Compare puts up to four sites side by side for the same days and lander. Accuracy shows what each check establishes, what it was tested on and what it leaves out, with past missions as context, and lets you rerun one check live.',
   },
 ];
 

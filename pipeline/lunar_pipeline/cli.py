@@ -46,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     fl.add_argument("--days", type=int, default=30)
     sub.add_parser("fixture-shadow", help="write golden shadow-sweep fixtures for the TS port")
     sub.add_parser("fixture-sky", help="write SPICE fixtures for the web's sky maths")
-    sub.add_parser("validate", help="write validation tables (Horizons, Mazarico, backcasts) into data/validation")
+    sub.add_parser("validate", help="write the evidence tables (Horizons, LOLA maps, power sums, mission context) into data/validation")
     sub.add_parser("pgda90-fetch", help="download PGDA product 90's adjusted 80 m and 240 m models and their height errors")
     un = sub.add_parser("uncertainty", help="write the uncertainty budget (sampling, terrain, ephemeris) into data/uncertainty")
     un.add_argument("--site", action="append", help="only these sites (default: every featured site)")
