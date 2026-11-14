@@ -14,7 +14,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const SHIFT_MAX = 9999;
 /** A box with a step either side of it, in one frame, as the length used to be: the steps and the box keep their focus ring inside it. */
 const GROUP = 'flex h-[52px] shrink-0 overflow-hidden rounded-lg border border-line-strong bg-surface';
-const STEP = 'flex w-9 shrink-0 items-center justify-center text-[22px] leading-none text-ink hover:bg-surface-2 focus-visible:-outline-offset-2';
+const STEP = 'flex w-8 shrink-0 items-center justify-center text-[22px] leading-none text-ink hover:bg-surface-2 focus-visible:-outline-offset-2';
 const INNER = 'field h-full rounded-none border-0 focus-visible:-outline-offset-2';
 
 /** A box's own text while it is being typed in; a new period from outside, or leaving the box, puts the period's back. */
@@ -119,7 +119,7 @@ export function PeriodControls({ startUtc, days, onChange, children }: { startUt
                   if (r) move(r.startUtc, days, r.rounded ? `The Sun and Earth table is hourly, so ${value.slice(0, 5)} is read as ${r.startUtc.slice(11, 16)} UTC.` : null);
                 }}
                 onBlur={() => draft({ time: undefined })}
-                className={`${INNER} w-[132px] px-3`}
+                className={`${INNER} w-[120px] px-2.5`}
               />
               <button type="button" aria-label="One hour later" onClick={() => shift(1)} className={`${STEP} border-l border-line`}>
                 ›
@@ -164,7 +164,7 @@ export function PeriodControls({ startUtc, days, onChange, children }: { startUt
               if (value !== undefined && value.trim() !== '') say(periodProblem(startUtc, Number(value)));
               draft({ days: undefined });
             }}
-            className="field w-[88px]"
+            className="field w-[72px]"
           />
           <span className="text-base text-ink">days</span>
           {/* The usual lengths, offered as the box is opened; any other whole number of days is typed. */}
