@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useId, useState } from 'react';
-import type { Requirements } from '@/lib/plan/requirements';
+import { requirementCount, type Requirements } from '@/lib/plan/requirements';
 import { comparisonHref } from '@/lib/scenario/codec';
 import { figureDifferences, figuresOf, fileName, readScenarioFile, scenarioFile, type FileColumn, type FileFigures } from '@/lib/scenario/file';
 import { loadDataVersions, UNKNOWN_VERSIONS, type DataVersions } from '@/lib/scenario/versions';
@@ -77,7 +77,7 @@ export function ComparisonFiles({ cols, requirements = null, onOpen, check }: { 
     const url = `${window.location.origin}${href}`;
     try {
       await navigator.clipboard.writeText(url);
-      setCopied('Link copied. It holds every setting of every scenario.');
+      setCopied(`Link copied. It holds every setting of every scenario${requirements && requirementCount(requirements) > 0 ? ', and your requirements' : ''}.`);
     } catch {
       setCopied(`Copy this link: ${url}`);
     }

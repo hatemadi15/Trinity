@@ -157,7 +157,7 @@ function requirementsRow(cols: Column[]): FigureRow[] {
     {
       id: 'requirements',
       name: 'Your requirements',
-      means: 'The mission requirements set on Explore (Options), checked against each scenario: each met or failed, with its value.',
+      means: 'The mission requirements set on Explore (Options), or carried by the link or file, checked against each scenario landing at its own period start: how many it fails and, one tap on the row’s name away, each one met or failed with the value reached and the margin.',
       cells: cols.map((c, i) => {
         if (!c.outcome || !c.checks || c.checks.length === 0) return null;
         const value = checksShort(c.checks) ?? '';

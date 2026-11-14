@@ -109,6 +109,13 @@ describe('CompareView', () => {
     expect(href).toMatch(/&minpower=120$/);
     await waitFor(() => expect(`${window.location.pathname}${window.location.search}`).toBe(href));
     expect(screen.getByRole('link', { name: 'Printable comparison brief' }).getAttribute('href')).toBe(comparisonHref(first.scenarios.getState().scenarios, '/compare/brief', req));
+    // The link copied holds them, and says so.
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    fireEvent.click(screen.getByRole('button', { name: 'Copy the link' }));
+    await waitFor(() => expect(screen.getByRole('main').textContent).toContain('Link copied. It holds every setting of every scenario, and your requirements.'));
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}${href}`);
+    vi.unstubAllGlobals();
     const before = row('Your requirements');
     cleanup();
     // A colleague's browser, with requirements of its own: the link's replace them.
