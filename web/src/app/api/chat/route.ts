@@ -46,7 +46,7 @@ function noAnswer(reason: ChatReason): ChatReply {
   return { source: 'none', actions: [], reply: reason === 'model-busy' ? MODEL_BUSY : NO_ANSWER, reason };
 }
 
-/** Who asks: Luna (spec 22) gets Gemini first; "Ask in plain words", the brief and the planner keep OpenRouter first. */
+/** Who asks: Luna (spec 22) or "Ask in plain words", the brief and the planner. Text goes to OpenRouter first for all of them (spec 22.5); Gemini is kept for speech, and is the last fallback here. */
 type Asker = 'luna' | 'ask';
 
 interface Body {
@@ -109,15 +109,15 @@ function ask(keys: Keys, chain: Candidate[], messages: ChatMessage[], json: bool
 
 /**
  * The first answer, in the asker's order, inside the first answer's share of the budget (the rest is for one retry).
- * Luna: Gemini first, then the OpenRouter chain. Everyone else ("Ask in plain words", the brief): the OpenRouter chain
- * first, as the owner wants, and Gemini last, which may then use what is left of the whole budget, so a chain that
- * hangs still leaves it time.
+ * For every asker, Luna included: the OpenRouter chain first, as the owner wants (text to OpenRouter, so Gemini's
+ * quota is left for Luna's voice), and Gemini last, which may then use what is left of the whole budget, so a chain
+ * that hangs still leaves it time.
  */
 async function firstAnswer(keys: Keys, from: Asker, messages: ChatMessage[], json: boolean, deadline: number) {
   const openrouter: Candidate[] = keys.openrouter ? modelsFromEnv().map((model) => ({ provider: 'openrouter', model })) : [];
   const gemini: Candidate[] = keys.gemini ? [{ provider: 'gemini', model: keys.gemini.textModel }] : [];
   const share = Math.round((deadline - Date.now()) * FIRST_SHARE);
-  if (from === 'luna') return ask(keys, [...gemini, ...openrouter], messages, json, share);
+  void from; // every asker gets the same order (spec 22.5); the field stays so a client can still say who asks
   const first = await ask(keys, openrouter, messages, json, share);
   if (!('error' in first) || gemini.length === 0) return first;
   const last = await ask(keys, gemini, messages, json, deadline - Date.now());
@@ -261,7 +261,7 @@ function safeAnswer(body: Body): ChatReply | NarrationReply {
  * task "plan" (default) → { source, model?, actions, reply, dropped?, reason? }: with a key and live mode a
  * model answers (at most two model answers, inside a 24 s budget), then the intent matcher, then the
  * cached transcripts. The models: Gemini (GEMINI_API_KEY) and OpenRouter's chain (OPENROUTER_API_KEY), in the
- * asker's order: `from: "luna"` asks Gemini first, anyone else OpenRouter first and Gemini last; `model` names the
+ * same order for every asker: OpenRouter first and Gemini last (spec 22.5); `model` names the
  * one that answered. Cached mode (`mode: "cached"`, `?demo=1` on the client, or
  * NEXT_PUBLIC_AI_MODE=cached) serves transcripts first and never calls the model. When nothing answers,
  * the reply has no actions, says why in `reason` ("model-busy" when a key is set and every model failed,

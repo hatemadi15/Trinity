@@ -41,8 +41,8 @@ async function post(body: unknown, fetchImpl: typeof fetch): Promise<{ res: Resp
 /**
  * Posts one question to /api/chat. A 429 comes back as a normal answer that says when to try
  * again; any other failure (network, 4xx, 5xx, malformed body) throws so the strip can show its
- * offline copy. `from: "luna"` says Luna asks, and the server asks Gemini first; without it, OpenRouter's models
- * come first and Gemini last.
+ * offline copy. `from: "luna"` says Luna asks; for every asker the server asks OpenRouter's models first and
+ * Gemini last, keeping Gemini for Luna's voice.
  */
 export async function askPlanner(prompt: string, state: StateSummary | null, mode: AiMode, fetchImpl: typeof fetch = fetch, from?: 'luna'): Promise<PlannerAnswer> {
   const { res, json: body } = await post({ prompt, state, mode, ...(from ? { from } : {}) }, fetchImpl);

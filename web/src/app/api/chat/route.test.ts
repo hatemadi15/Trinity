@@ -468,24 +468,25 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     vi.stubEnv('GEMINI_API_KEY', 'AIza-test');
   };
 
-  it('asks Gemini first for Luna, and names Gemini as the model that answered', async () => {
+  it('asks OpenRouter first for Luna too, as for every text question, and leaves Gemini to her voice', async () => {
     bothKeys();
     const { asked, fetchMock } = network({ gemini: geminiSays(NOBILE), openrouter: openrouterSays(NOBILE) });
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'luna' }))).json()) as Reply;
-    expect(asked).toEqual(['gemini']);
-    expect([json.source, json.model]).toEqual(['model', 'gemini-2.5-flash']);
+    expect(asked).toEqual([CHAIN[0]]);
+    expect([json.source, json.model]).toEqual(['model', 'qwen/qwen3.8-27b:free']);
     expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
     expect(json.reply).toBe('Nobile Rim 2 selected.');
   });
 
-  it('goes on to the OpenRouter chain for Luna when Gemini fails', async () => {
+  it('goes on to Gemini for Luna only when every OpenRouter model failed, and names Gemini as the model that answered', async () => {
     bothKeys();
-    const { asked, fetchMock } = network({ gemini: fails(503), openrouter: openrouterSays(NOBILE) });
+    const { asked, fetchMock } = network({ gemini: geminiSays(NOBILE), openrouter: fails(429) });
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'luna' }))).json()) as Reply;
-    expect(asked).toEqual(['gemini', CHAIN[0]]);
-    expect([json.source, json.model]).toEqual(['model', 'qwen/qwen3.8-27b:free']);
+    expect(asked).toEqual([...CHAIN, 'gemini']);
+    expect([json.source, json.model]).toEqual(['model', 'gemini-2.5-flash']);
+    expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
   });
 
   it('keeps OpenRouter first for "Ask in plain words", and asks Gemini only after every OpenRouter model failed', async () => {
@@ -569,7 +570,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
   });
 
   it('retries Gemini once with the nudge when it answers prose for Luna, its own turn given back as the model’s', async () => {
-    bothKeys();
+    vi.stubEnv('GEMINI_API_KEY', 'AIza-test'); // Gemini alone, so it is the model that answers first
     const { asked, bodies, fetchMock } = network({ gemini: [geminiSays('Sure, Nobile Rim 2 it is!'), geminiSays(NOBILE)] });
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'luna' }))).json()) as Reply;

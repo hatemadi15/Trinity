@@ -154,10 +154,12 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   pauses and restarts the listening, and its "Say replies aloud" switch (on at first, remembered in the
   browser) keeps her answers to the chat when off; "be quiet" and "speak again" do the same by voice.
   What she does not know goes to the same assistant as "Ask in plain words".
-  With a Gemini key on the server (`GEMINI_API_KEY`), she asks Gemini first, says her replies in
+  With a Gemini key on the server (`GEMINI_API_KEY`), she says her replies in
   Gemini's voice (in the browser's own when that fails or takes more than 4 s), and, in browsers
   without speech recognition such as Firefox, her microphone records a phrase from one press to the
-  next (at most 15 s) for Gemini to write down; never in demo mode or the offline build.
+  next (at most 15 s) for Gemini to write down; never in demo mode or the offline build. Her questions
+  go to OpenRouter first, like everyone's, and to Gemini only when every OpenRouter model fails, so
+  Gemini is kept for speech.
   What goes to Google then: the text of her replies, to be said aloud; her recordings, in browsers
   without speech recognition; and the questions she and "Ask in plain words" pass to the assistant,
   with the app's summary of the site and figures on screen (spec 22.5).
@@ -584,7 +586,7 @@ cp web/.env.example web/.env.local
 |---|---|---|
 | `OPENROUTER_API_KEY` | The OpenRouter key for the assistant and the brief's narrated paragraph. Read by the server only (`web/src/app/api/chat/route.ts`); the browser never sees it. A free key from https://openrouter.ai is enough: the models below are its free ones. | empty: no model |
 | `OPENROUTER_MODELS` | The models asked in turn, comma-separated; the first good answer wins. | the four free models in `web/src/lib/ai/openrouter.ts` |
-| `GEMINI_API_KEY` | The Gemini API key for Luna's voice, her listening in browsers without speech recognition, and the assistant (first for Luna, last for "Ask in plain words"). Server only; the models and the voice are in `docs/hosting.md`. | empty: no Gemini |
+| `GEMINI_API_KEY` | The Gemini API key for Luna's voice, her listening in browsers without speech recognition, and the assistant's last fallback (OpenRouter comes first for all text). Server only; the models and the voice are in `docs/hosting.md`. | empty: no Gemini |
 | `AI_MODEL_TIMEOUT_MS` | How long one model may take before the next is asked. | 10000 |
 | `AI_MODEL_BUDGET_MS` | The total model time for one question, a retry included, kept under the browser's 30 s wait. | 24000 |
 | `AI_RATE_LIMIT_PER_MIN` | Questions per minute from one address before the server answers 429. | 30 |
