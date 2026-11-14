@@ -1,0 +1,183 @@
+{
+ "suite": "Earthrise browser journeys (Playwright, web/e2e)",
+ "generated_utc": "2026-11-14T14:00:59Z",
+ "complete": true,
+ "status": "passed",
+ "build": {
+  "commit": "523298a8ffedbbe109f6a7a6b03be34a206c0c8b",
+  "dirty": false,
+  "changed": 0,
+  "branch": "g-e2e",
+  "server": "next start, production build, at http://127.0.0.1:3032",
+  "next_build_id": "ABsl7TIOF8ARLCYQYYOB6",
+  "built_utc": "2026-11-14T13:58:24Z"
+ },
+ "e2e": {
+  "tests": 24,
+  "passed": 23,
+  "skipped": 1,
+  "failed": 0,
+  "flaky": 0,
+  "seconds": 139
+ },
+ "data": {
+  "version": "2026-11-14-609589f6",
+  "parts": {
+   "core": "complete",
+   "sky": "complete",
+   "validation": "complete",
+   "tiles": "complete",
+   "terrain": "incomplete",
+   "globe": "complete",
+   "fixtures": "complete"
+  }
+ },
+ "browser": "Chromium (Playwright 1.56), software WebGL (SwiftShader)",
+ "journeys": [
+  {
+   "file": "failures.spec.ts",
+   "title": "Without WebGL 2 › the view from the site falls back to the horizon chart with the same words",
+   "outcome": "passed",
+   "seconds": 4.6
+  },
+  {
+   "file": "failures.spec.ts",
+   "title": "Without WebGL 2 › Explore keeps its answer and chart, and the 3D ground says it needs WebGL",
+   "outcome": "passed",
+   "seconds": 3.4
+  },
+  {
+   "file": "failures.spec.ts",
+   "title": "Without WebGL 2 › the home page shows the arrival as pictures, with its words and its way to the forecast",
+   "outcome": "passed",
+   "seconds": 1
+  },
+  {
+   "file": "failures.spec.ts",
+   "title": "When the data fails › with the data unreachable, each page that needs it says so plainly, with a way on and no blank screen",
+   "outcome": "passed",
+   "seconds": 3.6
+  },
+  {
+   "file": "failures.spec.ts",
+   "title": "When the data fails › with one file missing, the page says which part did not load",
+   "outcome": "passed",
+   "seconds": 3.1
+  },
+  {
+   "file": "failures.spec.ts",
+   "title": "When the data fails › with the horizon file of the site in a link missing, Explore says so in plain words",
+   "outcome": "skipped",
+   "seconds": 0.2,
+   "reason": "Known bug, reported: Explore keeps the last site that loaded (de Gerlache Rim 2) and prints \"could not load /data/masks/nobile_rim_2.json (HTTP 404)\" over its answer; Compare and Choose a site print such errors the same way."
+  },
+  {
+   "file": "keyboard.spec.ts",
+   "title": "Keyboard only › every step of the planning journey is reached and worked with the keyboard, with the focus in sight",
+   "outcome": "passed",
+   "seconds": 24.6
+  },
+  {
+   "file": "narrow.spec.ts",
+   "title": "Narrow screens › The home page fits a 390 px phone with no sideways scroll",
+   "outcome": "passed",
+   "seconds": 1.2
+  },
+  {
+   "file": "narrow.spec.ts",
+   "title": "Narrow screens › Choose a site fits a 390 px phone with no sideways scroll",
+   "outcome": "passed",
+   "seconds": 2.2
+  },
+  {
+   "file": "narrow.spec.ts",
+   "title": "Narrow screens › Explore, with its fields open fits a 390 px phone with no sideways scroll",
+   "outcome": "passed",
+   "seconds": 2.4
+  },
+  {
+   "file": "narrow.spec.ts",
+   "title": "Narrow screens › The view from the site fits a 390 px phone with no sideways scroll",
+   "outcome": "passed",
+   "seconds": 19.4
+  },
+  {
+   "file": "narrow.spec.ts",
+   "title": "Narrow screens › Compare, with the five-day slip example fits a 390 px phone with no sideways scroll",
+   "outcome": "passed",
+   "seconds": 1.6
+  },
+  {
+   "file": "narrow.spec.ts",
+   "title": "Narrow screens › The comparison brief fits a 390 px phone with no sideways scroll",
+   "outcome": "passed",
+   "seconds": 9
+  },
+  {
+   "file": "narrow.spec.ts",
+   "title": "Narrow screens › The brief fits a 390 px phone with no sideways scroll",
+   "outcome": "passed",
+   "seconds": 0.9
+  },
+  {
+   "file": "narrow.spec.ts",
+   "title": "Narrow screens › How it works fits a 390 px phone with no sideways scroll",
+   "outcome": "passed",
+   "seconds": 0.5
+  },
+  {
+   "file": "narrow.spec.ts",
+   "title": "Narrow screens › Accuracy fits a 390 px phone with no sideways scroll",
+   "outcome": "passed",
+   "seconds": 0.9
+  },
+  {
+   "file": "narrow.spec.ts",
+   "title": "Narrow screens › A page that does not exist fits a 390 px phone with no sideways scroll",
+   "outcome": "passed",
+   "seconds": 0.5
+  },
+  {
+   "file": "planning.spec.ts",
+   "title": "The main planning journey › a planner reads the answer, changes the date and the lander, stands at the site, compares two sites and prints the brief",
+   "outcome": "passed",
+   "seconds": 45.8
+  },
+  {
+   "file": "reduced-motion.spec.ts",
+   "title": "Reduced motion › Explore turns playback off and says why, while the time still moves by hand",
+   "outcome": "passed",
+   "seconds": 2.5
+  },
+  {
+   "file": "reduced-motion.spec.ts",
+   "title": "Reduced motion › the view from the site turns playback off, says why, and asks only for a drag",
+   "outcome": "passed",
+   "seconds": 52.9
+  },
+  {
+   "file": "reduced-motion.spec.ts",
+   "title": "Reduced motion › the home page lands at once when Fly to the south pole is pressed",
+   "outcome": "passed",
+   "seconds": 2
+  },
+  {
+   "file": "slipped-landing.spec.ts",
+   "title": "A landing that slips by five days › Explore shows what the slip changes at the original site and advises a nearby site",
+   "outcome": "passed",
+   "seconds": 10.1
+  },
+  {
+   "file": "slipped-landing.spec.ts",
+   "title": "A landing that slips by five days › Compare from here sets the planned landing, five days later and the best place nearby side by side, says what changed and what works better, and its link and brief carry it",
+   "outcome": "passed",
+   "seconds": 5.3
+  },
+  {
+   "file": "touch.spec.ts",
+   "title": "Touch › on a phone, a planner taps through the forecast and scrubs the time bar with a finger",
+   "outcome": "passed",
+   "seconds": 36.6
+  }
+ ]
+}
