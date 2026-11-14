@@ -32,7 +32,10 @@ PowerShell, Command Prompt, bash and zsh; run from elsewhere, Python says
     uv run python -m lunar_pipeline.cli globe
     uv run python -m lunar_pipeline.cli sync-local --tiles
     uv run python -m lunar_pipeline.cli pgda90-fetch
+    uv run python -m lunar_pipeline.cli error-model
+    uv run python -m lunar_pipeline.cli ensemble
     uv run python -m lunar_pipeline.cli uncertainty
+    uv run python -m lunar_pipeline.cli ensemble --index-only
     uv run python -m lunar_pipeline.cli check-data
     uv run python -m lunar_pipeline.cli manifest
 
@@ -43,6 +46,13 @@ SPICE steps for 730 days from 2025-01-01, traces each polar site's skyline throu
 windows of the 20 m and 50 m products around each site over HTTP (cached in `data_raw/pgda90/windows`), and writes
 `data/uncertainty/budget.json` and `data/uncertainty/skylines/`; `sync-local` copies them into the app. The method,
 the results and every download are in `docs/method.md`, "Uncertainty budget".
+
+`error-model` (36 s) fits an error model to the app's LOLA heights minus product 90's around the polar sites (its size by
+slope and stated error, its correlation length) into `data/ensemble/error_model.json`; `ensemble` (about 22 minutes)
+draws 32 versions of the ground from it for each of the 21 polar sites, traces each to a skyline with the pipeline's own
+march and writes `data/ensemble/<site>.json` and `index.json` (1.38 MB in all). Run them before `uncertainty`, whose
+terrain part reads the versions, and `ensemble --index-only` after it, so the index takes the budget's stated skyline
+errors. The method and the fit are in `docs/method.md`, "Terrain versions".
 
 `fetch` downloads each group into `data_raw/<group>`; it skips files it already has and, run again
 after a cut-off download, resumes from the `.part` file. `data_raw/` is gitignored.
