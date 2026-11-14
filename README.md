@@ -27,7 +27,8 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   with their sunlight and contact with Earth, on a relief map of the pole. Any other point south of
   60° S can be worked out in the browser.
 - **Explore** (`/explore`): the answer for one site and one landing date, first. "Landing at de
-  Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, the time
+  Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, how sure its
+  times are ("Times ±4.5 h", one tap away), the time
   Earth is in view while the lander has power, a better landing day inside the period ("Land on 20
   January instead") or a better place nearby, and a search of the next 12 months. Below it: the
   numbers, with the Sun's height at the time bar's hour and its highest (every figure under "All numbers"), a chart of the Sun,
@@ -40,7 +41,8 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   30 or 90 days from a date you choose; the Lander dialog offers three ready-made landers or your
   own panel, load, battery and mast. `/explore?site=&start=&days=` links to one forecast.
 - **Stand on the Moon** (`/explore/stand`, "Stand at the site" on Explore): the view from the landing
-  site, full window, for Explore's site, period and hour. NASA's ground out to 125 km, lit by the hour's
+  site, full window, for Explore's site, period and hour. It opens with the lander coming down in
+  front of you (an eased descent, its plume and dust, touchdown), except with reduced motion. NASA's ground out to 125 km, lit by the hour's
   Sun with the shadows worked out from those heights; the Sun small and white in a black sky; Earth
   from NASA's Blue Marble, turned for the hour; the real stars, placed for the site and hour (by day
   they show once you look up, away from the bright ground). A lander stands 16 m away, with rocks and
@@ -60,11 +62,16 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
 - **Accuracy** (`/validate`): three checks, each with its pass mark, its headline figure and its
   full table on request: the Sun's and Earth's directions against JPL Horizons (with a live
   re-check), sunlight against NASA's LOLA illumination map, and predicted sunsets against how three
-  real missions ended. All three checks pass. Also the error budget and the count of automated tests.
+  real missions ended. All three checks pass. Then how sure the times are: the margin each event carries at four kinds of site,
+  measured against one-minute steps, NASA's adjusted south-pole maps (PGDA product 90) and JPL
+  Horizons, with each source apart and the ground at each site; then the error budget and the count
+  of automated tests.
 - **How it works** (`/learn`): the three drawings, the science behind them for a class (the Moon's
   small tilt, libration, how to read the charts, the battery sum) and five steps through the pages, then how to run it offline.
 - **The brief** (`/brief`): one printable page with Explore's answer, five numbers, the Sun's and
-  Earth's rows over the period, the lander, the method and the data, and an optional narrated
+  Earth's rows over the period, each of its times with its measured margin, the lander and what its
+  power figures assume (electrical energy only, not keeping warm through the night or starting
+  again), the method, the ground at the site and the data, and an optional narrated
   paragraph checked number by number against the figures.
 - **Ask in plain words** (on Explore and Compare): an assistant that turns a typed question
   ("Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "Find the best landing date for 14
@@ -758,7 +765,8 @@ kill 12345
   illumination maps), the reference implementation of the science; it writes `data/`. The commands
   are in `pipeline/lunar_pipeline/cli.py` and [pipeline/README.md](pipeline/README.md).
 - `data/`: the committed outputs (the site catalogue, the hourly Sun and Earth table, the horizon
-  masks of the catalogue sites, the sky, the validation tables and the golden fixtures).
+  masks of the catalogue sites, the sky, the validation tables, the uncertainty budget with each polar site's skylines
+  from NASA's adjusted maps, and the golden fixtures).
   `data_raw/` (downloads) and `data_out/` (generated files) appear beside it once you run the
   pipeline; both are gitignored.
 - Tests: the web's sit beside the code as `*.test.ts` and `*.test.tsx` (vitest; shared helpers in
