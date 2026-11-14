@@ -117,6 +117,15 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   makers' servers, so voice needs the internet there, and Firefox has none. Her panel always takes
   typed words instead. What she does not know goes to the same assistant as "Ask in plain words".
   The code is in `web/src/lib/luna` and `web/src/components/luna`.
+- **Plan a landing** (`/plan`, "Plan a landing" in the header): say or type what the mission needs,
+  for example "at least five days of power, Earth in view when we land, no radio gap longer than three
+  days, a 300 W load and a 3 kWh battery, landing between March and June 2027, near the Artemis III
+  regions". The planner shows what it heard as fields you can change, then tries every site and every
+  hour of the window with the app's own engine. It ranks the landings that meet every requirement
+  first and gives each one's landing time (UTC), its margins, why it ranks above the next, and how
+  sure it is; the result is the best among the sites and times tried, under those settings. "Plan
+  this landing" sets Explore; "Compare these sites" opens them as scenarios. Luna does the same by
+  voice: say "plan a landing", then the specification, then "search".
 
 ## The challenge
 
