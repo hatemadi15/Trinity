@@ -28,3 +28,14 @@ describe('the site list with the modelled cold traps', () => {
     for (const width of [WIDE, PHONE]) expect([...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(105);
   });
 });
+
+describe('where the cold-trap line sits in a row', () => {
+  it('spans the whole row under the figures, so the narrow site column does not grow', async () => {
+    const store = createExploreStore(fileLoaders());
+    render(<SitesView store={store} navigate={() => {}} coldTraps={layer} />);
+    await waitFor(() => expect(rowOf('Haworth').textContent).toMatch(/Modelled cold traps/), { timeout: 20_000 });
+    const line = [...rowOf('Haworth').children].find((el) => el.textContent?.includes('Modelled cold traps'))!;
+    expect(line.className).toMatch(/(^|\s)col-span-full(\s|$)/);
+    expect(line.parentElement).toBe(rowOf('Haworth'));
+  });
+});

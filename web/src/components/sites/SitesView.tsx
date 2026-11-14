@@ -89,13 +89,6 @@ function Row({ site, o, href, startUtc, days, active, onActive, problem = null, 
             <span className="sr-only">, </span>
             {pointKind(site).short}
           </span>
-          {/* The modelled cold traps near a polar site (data/coldtraps), beside its power and radio figures. */}
-          {cold && (
-            <span className="mt-0.5 block text-[15px] text-ink-2">
-              <span className="sr-only">, </span>
-              {cold}
-            </span>
-          )}
           {tag && <span className="mt-0.5 block text-[15px] font-medium text-warn">{tag}</span>}
         </span>
         {!o ? (
@@ -143,6 +136,14 @@ function Row({ site, o, href, startUtc, days, active, onActive, problem = null, 
         <svg viewBox="0 0 16 16" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="text-ink-3" aria-hidden="true">
           <path d="M6 3l5 5-5 5" />
         </svg>
+        {/* The modelled cold traps near a polar site (data/coldtraps), under its power and radio figures across the whole row,
+            so the narrow site column does not grow on a phone. */}
+        {cold && (
+          <span className="col-span-full mt-1 block text-[15px] text-ink-2">
+            <span className="sr-only">, </span>
+            {cold}
+          </span>
+        )}
       </Link>
     </li>
   );
