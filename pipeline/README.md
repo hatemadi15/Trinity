@@ -30,6 +30,30 @@ files, their layout, the albedo scale that matches the south cap to the stand vi
 `sync-local --tiles` copies the set into `web/public/data/globe`, and `publish-r2` uploads it with the rest of
 `web/public/data`.
 
+## Syncing data for local development
+
+`sync-local --tiles` copies existing artifacts into `web/public/data`; it does not
+generate tiles. The downloaded sources in `data_raw/` and generated tiles in
+`data_out/tiles` are gitignored, so a fresh checkout must download and build them
+before syncing. Run these commands from `pipeline/`, in order:
+
+```powershell
+uv run python -m lunar_pipeline.cli fetch --group lola
+uv run python -m lunar_pipeline.cli tiles
+uv run python -m lunar_pipeline.cli sync-local --tiles
+```
+
+If syncing reports `data_out/tiles missing; run the tiles command first`, use the
+sequence above. If the LOLA sources are already downloaded, start with `tiles`.
+The `--tiles` option also copies terrain and globe assets when they have been
+built with the `terrain` and `globe` commands.
+
+To copy only the committed data without generated tiles, run:
+
+```powershell
+uv run python -m lunar_pipeline.cli sync-local
+```
+
 ## Tests
 
     uv run pytest -q            # synthetic tests always run; data tests skip until fetched
