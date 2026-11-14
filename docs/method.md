@@ -8,6 +8,7 @@
 ## Terrain horizon
 - LOLA polar DEMs (20 m to 6 km, 80 m to 100 km, 240 m to 220 km), 720 azimuths, great-circle march, exact spherical curvature, bilinear sampling. Observer mast 2 m.
 - Where a ring leaves its DEM (sites near a grid edge, e.g. IM-1 at 80.13°S), the missing distances are re-marched on the next coarser DEM instead of being dropped.
+- North of 80°S only the 240 m DEM reaches a site (Chandrayaan-3 at 69.37°S, the Luna 25 target, Schrödinger basin at 74.73°S): the 80 m band finds no data and the whole skyline, from 40 m to 220 km, is marched on the 240 m grid, as the browser engine does (the parity test reproduces these masks to 0.01°). Their 3D terrain is a 240 m window, 61 km across. Sites north of 60°S lie outside the polar DEMs and keep a flat horizon, as Blue Ghost Mission 1 does.
 - Sunlit fraction = fraction of the solar disk (radius 0.267°) above the skyline; Earth visible when the Earth centre is above the skyline.
 
 ## Cross-checks (from `data/fixtures/horizons/summary.json` and the report command)
@@ -37,3 +38,10 @@ The finder scans the 365 days after the chosen start date (clamped to the epheme
 - `backcasts.json`: the predicted local sunset after each CLPS landing (LOLA skyline, or a flat horizon for the mare site) against the reported end of the mission: Blue Ghost Mission 1 lasted 2.4 h past our predicted sunset (Firefly reported about 5 h), IM-2 died 299 h before its sunset on its side in a crater, IM-1 lost power about three days before its sunset with tilted panels.
 
 Error budget: Sun and Earth directions under 0.01° (measured 3e-5°); terrain skyline 0.05-0.15° (LOLA posts of 20-240 m, 1-2 m height noise, reproduced by the browser engine to 0.01°); event timing ±15-60 minutes near the pole (hourly series, the Sun moves 0.5° per hour along the horizon).
+
+## Kinds of point, the far side and the equator (P1)
+
+- Every catalogue site says what kind of point it is (`kind` in `data/sites.json`, worded by `web/src/lib/data/kind.ts`): a surveyed point (lander hardware found in orbital images), a target (chosen in advance: Luna 25's, IM-3's, a study's candidate), the rough centre of a region (the Artemis III regions read off NASA's map, ±5 km; Schrödinger basin for CP-12, ±158 km), a derived point (the highest LOLA height in a ring round a crater, never checked as a safe place to land) or a reference point (the pole, crater centres). The Sites page, Explore, Compare and the brief show it.
+- Far side: Chang'e 4, Chang'e 6 and the centre of Schrödinger basin never see Earth: over every hour of 2024 to 2036 Earth's centre stays at least 2.3° below a flat horizon there (37° and 33° for the Chang'e sites), so even the top of its disc never shows. The app says Earth never rises there, rather than counting hours out of view; Chang'e 4 and 6 talked to Earth through China's Queqiao relay satellites.
+- Near the equator the Sun rises and sets once a lunar day: about 15 days of light, then 15 of night, with Earth always in view on the near side. The default lander's upright panel turns to the Sun but catches the light at the cosine of its height, so at Apollo 11, 0.7° from the equator, its output falls below the 200 W load for hours around noon, with the Sun almost overhead, and the battery runs out then; the verdict says the Sun is too high for the panel, not that there is too little sunlight. A flat panel or one that follows the Sun keeps going.
+- Landings before 2024 (Apollo, Chang'e 3 to 5, Chandrayaan-3) keep their date only: the table starts in 2024, so their figures are for the period chosen and no day before it is offered. Backcasts take only landings inside the table that have a reported end (IM-1, IM-2, Blue Ghost Mission 1).

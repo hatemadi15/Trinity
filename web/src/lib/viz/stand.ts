@@ -432,10 +432,10 @@ const KM_PER_DEGREE = 30.32;
  * in view, how big it looks; near a pole, how far off the pole is and which way, so that north and south
  * still mean something; with none of the Sun in view, how cold the night is, and why the forecast says the
  * power comes back only "if" the lander survives it; and last, at every hour, that the radio forecast is for
- * a link straight to Earth, which a relay satellite such as Chang'e 4's would change. Each line is there only
- * when it applies.
+ * a link straight to Earth, which a relay satellite such as Chang'e 4's would change; on the far side, that Earth
+ * never rises there, so a relay is the only link. Each line is there only when it applies.
  */
-export function whyLines(lat: number, s: Series, hour: number): string[] {
+export function whyLines(lat: number, s: Series, hour: number, farSide = false): string[] {
   const lines: string[] = [];
   const pole = poleLine(lat);
   if (pole) {
@@ -456,8 +456,13 @@ export function whyLines(lat: number, s: Series, hour: number): string[] {
   // At the pole itself every way leads away from it; a site off the pole still has one way towards it.
   if (pole) lines.push(`North and south still work here: the pole itself is ${Math.round((90 - Math.abs(lat)) * KM_PER_DEGREE)} km to the ${lat < 0 ? 'south' : 'north'}.`);
   if (!lit) lines.push('The night here is colder than −170 °C. Most landers are not built to survive it, which is why the forecast says "if".');
-  // The radio hours are those with Earth in view and the lander powered: a relay satellite would change them.
-  lines.push("The radio forecast is for a link straight to Earth; a relay satellite, as China's Chang'e 4 used, would change it.");
+  // The radio hours are those with Earth in view and the lander powered: a relay satellite would change them. On the
+  // far side there are none at all, and a relay is the only way to talk to Earth.
+  lines.push(
+    farSide
+      ? "This is the far side, which always faces away from Earth: Earth never rises here, so a lander talks to Earth only through a relay satellite, as China's Chang'e 4 and Chang'e 6 did."
+      : "The radio forecast is for a link straight to Earth; a relay satellite, as China's Chang'e 4 used, would change it.",
+  );
   return lines;
 }
 

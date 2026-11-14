@@ -417,7 +417,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // "Why this happens", one reason a page or all as a list: where the site lies first, then why the light and
   // the sky look as they do (the pole first among them), then the radio story, and how we know last.
   const reasons: { title?: string; text: string }[] = [
-    ...[standingLine(site, name, 'more'), ...whyLines(site.lat, series, hour), radio ?? contact].filter((t): t is string => !!t).map((text) => ({ text })),
+    ...[standingLine(site, name, 'more'), ...whyLines(site.lat, series, hour, site.far_side), radio ?? contact].filter((t): t is string => !!t).map((text) => ({ text })),
     ...(note ? [{ title: 'How we know this', text: note }] : []),
   ];
   const shownPage = Math.min(page, reasons.length - 1);
