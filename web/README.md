@@ -87,7 +87,7 @@ The look, in short (reasoning in section 15 of the redesign, and sections 6 and 
     # from pipeline/
     uv run python -m lunar_pipeline.cli home-assets
 
-writes `public/hero/de-gerlache-rim-2.jpg` (the shadow map on the home page, computed from three LOLA grids), `public/maps/south-pole-relief.jpg` (the relief map with site positions) and `src/lib/data/home.json` (the month charted on the home page and the headline figures of the three checks; also the site's height, the Sun's and Earth's distances hour by hour, the site's skyline, the share of the best landing day's hours with power that have Earth in view, and the crater rim summit's month and skyline for the drawing of the hills). Run it again after the validation tables or the site catalogue change; `src/lib/data/home.test.ts` fails when `home.json` has drifted from the validation tables.
+writes `public/hero/de-gerlache-rim-2.jpg` (the shadow map on the home page, computed from three LOLA grids), `public/maps/south-pole-relief.jpg` (the relief map with site positions) and `src/lib/data/home.json` (the month charted on the home page and the headline figures of its two checks and of the mission it gives as context; also the site's height, the Sun's and Earth's distances hour by hour, the site's skyline, the share of the best landing day's hours with power that have Earth in view, and the crater rim summit's month and skyline for the drawing of the hills). Run it again after the validation tables or the site catalogue change; `src/lib/data/home.test.ts` fails when `home.json` has drifted from the validation tables.
 
 ## Assistant and narration
 

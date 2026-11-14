@@ -79,6 +79,8 @@ under the real Sun and stars for that hour.
 
 **B:** Every sunset time comes with its error bars.
 
+**A:** And one check misses: our shadows against 20 pictures from orbit, where 17 meet the mark.
+
 **D:** And it never oversells: Earth in view is a line of sight, not a booked antenna. It all runs
 in your browser, even with the Wi-Fi off.
 

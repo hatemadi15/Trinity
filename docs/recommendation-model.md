@@ -8,7 +8,10 @@ nearby alternative in Compare, and the sites and landing times the planner at `/
    choice that fails one; among those that fail, fewer failures rank first. The requirements are the planner's
    own four: power for at least so long, Earth in view at landing or within so many hours of it, the longest time
    without Earth while powered at most so long, and Earth contact while powered at least so long
-   (`web/src/lib/plan/requirements.ts`).
+   (`web/src/lib/plan/requirements.ts`). Explore adds an optional fifth: that a choice still hold in at least a
+   given share of terrain versions (`minHoldPct`). It is checked only where the versions are worked out, for the
+   period's landing times on Explore, the brief and the view from the site, not for places nearby, the 12-month
+   search, Compare or `/plan`; a share of versions is not a probability.
 2. **Then the objective the user picks.** By default, the longest continuous time with power from landing, with
    ties going to more Earth contact while powered. The planner also offers the most Earth contact while powered
    and the earliest landing. Or the user weighs three measures by priority, with the rule below.

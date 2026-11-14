@@ -30,7 +30,7 @@ and try an emulator only if the simple rule is shown to fail.
 
 Update, 14 November: with the user's go-ahead, step 4 of the plan below, the cold-trap layer, was built before
 the deadline as a transparent layer (no score, no classifier): `data/coldtraps`, shown on Explore, in the brief,
-on the site list and as a layer on the shadow map. The -1 value is settled: it is exactly the ground whose annual
+on the site list and as a layer on the shadow map. The -1 value is read from the table itself (not yet confirmed with the Diviner team or the PDS node): it is exactly the ground whose annual
 maximum is below 101.3 K, where ice would be stable at the surface all year (`docs/method.md`, "Modelled cold
 traps").
 
@@ -377,7 +377,7 @@ physical threshold as a learned probability. The value is in a careful, sourced,
   by 11 to 15 %. Ice depth 0 (stable at the surface) covers only 2,341 km², but a value of **-1, which the
   label does not explain**, covers 12,813 km², all of it colder than 101 K: 87 % of the ground colder than
   110 K carries -1 and only 13 % carries 0. A reader that took the label at its word would miss most of the
-  coldest ground. (Settled since: -1 is exactly the ground whose annual maximum is below 101.3 K, the
+  coldest ground. (Read from the table since, not yet confirmed with the Diviner team: -1 is exactly the ground whose annual maximum is below 101.3 K, the
   temperature at which exposed ice sublimates at the product's own rate, Paige et al.'s white "surface cold
   traps"; see `docs/method.md`, "Modelled cold traps".) Buried ice would last within 10 cm of the surface on
   20 % of the cap, between 10 and 50 cm on 13 %, between 0.5 and 2.87 m on 4 %, and deeper (or not at all) on

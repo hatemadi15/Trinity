@@ -43,7 +43,7 @@ Every site in `data/sites.json` carries a `kind`: `surveyed` (hardware located i
 
 ## Mission context (Week 5)
 
-These are the ends the operators reported, shown beside our predicted sunsets as context on the Accuracy page. They are reported events, not observed sunsets, and they are not a test of whether a battery survives the night.
+These are the ends the operators reported, shown beside our predicted sunsets as context on the Accuracy page. They are reported events, not observed sunsets, and they are not a test of whether a battery's charge lasts the night.
 
 
 - IM-1 Odysseus: Intuitive Machines mission update, 29 February 2024 — final transmission as the lunar night began (hour not published; the catalogue uses 00:00 UTC).

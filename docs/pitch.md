@@ -4,7 +4,7 @@ Setup before walking up: laptop on `http://localhost:3000/?demo=1` (offline buil
 
 ## 0:00 — Hook (30 s)
 
-[Home page at the top. Click "Fly to the south pole" as you begin.] In March 2025 two landers reached the Moon four days apart. Blue Ghost, on a flat plain in Mare Crisium, worked for fourteen days and switched off a few hours after sunset, as planned. Athena, near a mountain close to the south pole, was dead within a day: it came to rest on its side in a crater with the Sun low on the horizon, and its batteries never charged. Same Moon, same month. The difference was light and line of sight to Earth.
+[Home page at the top. Click "Fly to the south pole" as you begin.] In March 2025 two landers reached the Moon four days apart. Blue Ghost, on a flat plain in Mare Crisium, worked for fourteen days and switched off a few hours after sunset, as planned. Athena, near a mountain close to the south pole, had lost power within a day: it came to rest on its side in a crater with the Sun low on the horizon, and its batteries never charged. Same Moon, same month. The difference was light and line of sight to Earth.
 
 [On screen: the headline "See when a Moon lander has sunlight and a signal." beside the whole Moon, Earth beside it; then the descent plays for 11 seconds: the Moon turns, tips its south pole towards us and comes closer, down to the pole's relief map and de Gerlache Rim 2's shadow picture, ending on the answer "Landing on 1 January: power for 3 days 4 hours, no radio contact, then 16 days without power". It holds there to the end of the hook.]
 
