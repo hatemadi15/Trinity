@@ -103,7 +103,7 @@ describe('CompareView', () => {
 
   it('keeps the period and the lander, and offers no more than four sites', async () => {
     const store = await open();
-    expect(screen.getByRole('radiogroup', { name: 'For' })).toBeTruthy();
+    expect((screen.getByLabelText('For') as HTMLInputElement).value).toBe('30');
     expect(screen.getByRole('main').textContent).toMatch(/Up to four sites side by side, for the same days and the same lander\./);
     const lander = screen.getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' });
     const nameSpan = lander.querySelector('span')!;

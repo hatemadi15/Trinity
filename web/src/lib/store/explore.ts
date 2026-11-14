@@ -14,7 +14,7 @@ import { checkPick } from '../viz/pick';
 import { customPoint, parseExploreQuery } from './query';
 
 /** Lengths offered as quick picks beside the period's length field, which takes any whole number of days in DAYS_RANGE. */
-export const WINDOW_DAYS = [14, 30, 90] as const;
+export const WINDOW_DAYS = [7, 14, 30, 90] as const;
 /** A period's length in whole days, DAYS_RANGE in planner-ranges.ts: any number reaches the store, which refuses one outside it. */
 export type WindowDays = number;
 export type SceneMode = 'globe' | 'terrain';
