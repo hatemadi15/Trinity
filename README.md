@@ -20,11 +20,15 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   lander. Three drawings explain why the south pole is hard (the Sun never climbs, the hills decide,
   Earth sets too). "Start from a real place" pairs a computed shadow picture of the ridge with three
   places to open: the ridge, and the Athena and Blue Ghost landers of March 2025, which open Explore
-  at the first whole hour after each one landed. The page ends with the three checks against NASA, then the ways on: compare sites, ask in
+  at the first whole hour after each one landed. The page ends with two checks against NASA and one real mission as context, then the ways on: compare sites, ask in
   plain words, print the brief, run it offline.
-- **Choose a landing site** (`/sites`): the 19 places in the catalogue (the nine Artemis III
-  candidate regions, the landing spots of three commercial landers, and high points and crater
-  floors), sorted by how long a lander keeps power from its best landing day in the chosen period,
+- **Choose a landing site** (`/sites`): the 34 places in the catalogue (the nine Artemis III candidate regions, the landing
+  spots of three commercial landers and two coming ones, the six Apollo landings, the landers of
+  India, China and Japan and Luna 25's target, and high points and crater floors), each marked with
+  what kind of point it is (a lander found in orbital images, a landing target, a region's centre
+  with its radius, a derived high point never checked for landing, or a reference); Chang'e 4,
+  Chang'e 6 and CP-12's basin, on the far side, sit under a heading of their own: Earth never rises
+  there, sorted by how long a lander keeps power from its best landing day in the chosen period,
   with their sunlight and contact with Earth, on a relief map of the pole. Any other point south of
   60° S can be worked out in the browser.
 - **Explore** (`/explore`): the answer for one site and one landing date, first. "Landing at de
@@ -60,13 +64,18 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   it has power and the longest time without Earth, with a small Sun and
   Earth strip per site and one sentence naming the best site for each measure. Empty, it offers two
   ready pairs that show how much a few kilometres change.
-- **Accuracy** (`/validate`): three checks, each with its pass mark, its headline figure and its
-  full table on request: the Sun's and Earth's directions against JPL Horizons (with a live
-  re-check), sunlight against NASA's LOLA illumination map, and predicted sunsets against how three
-  real missions ended. All three checks pass. Then how sure the times are: the margin each event carries at four kinds of site,
-  measured against one-minute steps, NASA's adjusted south-pole maps (PGDA product 90) and JPL
-  Horizons, with each source apart and the ground at each site; then the error budget and the automated
-  tests' last run: what passed, was skipped and failed, when, on which commit and with which data.
+- **Accuracy** (`/validate`): four kinds of evidence, each saying what it shows, what it was tested
+  on and what it leaves out, with its full table on request. Three are checks with a pass mark: the
+  Sun's and Earth's directions against JPL Horizons (with a live re-check), sunlight and Earth in
+  view against NASA's LOLA illumination maps worked out the maps' way (from the ground, any part of
+  the disc, hourly over 18.6 years, 60 m terrain), and the power and battery sums against worked
+  answers, run in the browser. The fourth, predicted sunsets beside how three real missions ended,
+  is context, not a check. The page opens with "Three checks meet their criteria; past missions are
+  context, not a check." Then how sure the times are: the margin each event carries at four kinds of
+  site, measured against one-minute steps, NASA's adjusted south-pole maps (PGDA product 90) and JPL
+  Horizons, with each source apart and the ground at each site; then the error budget and the
+  automated tests' last run: what passed, was skipped and failed, when, on which commit and with
+  which data.
 - **How it works** (`/learn`): the three drawings, the science behind them for a class (the Moon's
   small tilt, libration, how to read the charts, the battery sum) and five steps through the pages, then how to run it offline.
 - **The brief** (`/brief`): one printable page with Explore's answer, five numbers, the Sun's and
@@ -224,17 +233,17 @@ page. More resources may be added before the hackathon begins.
 
 | The brief asks for | How Earthrise answers it |
 |---|---|
-| Site selection and comparison | A catalogue of 19 places near the south pole (the nine Artemis III candidate regions, the landing spots of three commercial landers, crater-rim high points and crater floors) on a relief map of the pole, and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts up to four sites side by side for the same days and lander. |
+| Site selection and comparison | A catalogue of 34 places: the south pole's nine Artemis III candidate regions, crater-rim high points and floors, three CLPS landers that landed and two coming ones, the six Apollo landings, and the landers of India, China and Japan and Luna 25's target, each saying what kind of point it is (surveyed, a target, a region's centre with its radius, or a derived high point never checked for landing), with the polar ones on a relief map of the pole; and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts up to four sites side by side for the same days and lander. |
 | Dates and times | Any landing date the ephemeris covers (2024 to 2036), with a period of 14, 30 or 90 days; a better landing day inside the period, and a search of the next 12 months for the best one. |
 | The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments (the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back) and counts down to the next sunset or sunrise and to Earth's next rising or setting. |
 | Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; the Sun's height above the horizon at any hour and its highest; hours of sunlight; the radio windows with their UTC times, which of them the lander has power to use, and the longest time without Earth (geometric direct-to-Earth visibility, not a booked antenna); the longest night; every figure under "All numbers". |
 | Several ways to see it | A relief map of the pole, a north-up shadow map and the same light in 3D from above, the horizon chart, an hour-by-hour chart of the Sun, Earth and the battery, the view from the site, and the arrival from the whole Moon on the home page. |
 | Time and change | The time bar plays the period hour by hour at a day a second (2× and 4× on its speed button), with dots for the key moments and Next to step between them; the chart and every view follow it. |
 | Every skill level | Plain words first and every number a click away; a Learn mode with a guided story for classes; the printable brief; an assistant for typed questions and Luna for spoken ones; keyboard use, phone layouts, light and dark themes, and an offline mode for the venue. |
-| Ephemeris data | The Sun's and Earth's positions are pre-computed hourly for 2024 to 2036 from JPL's DE440 ephemeris with NASA's SPICE toolkit, in the Moon's own frame (MOON_ME), and compared with JPL Horizons on the Accuracy page. |
+| Ephemeris data | The Sun's and Earth's positions are pre-computed hourly for 2024 to 2036 from JPL's DE440 ephemeris with NASA's SPICE toolkit, in the Moon's own frame (MOON_ME), and checked against JPL Horizons on the Accuracy page; every event time carries a measured margin (hourly steps, terrain and ephemeris kept apart). |
 | Topography and the horizon | LOLA elevation grids at 20, 80 and 240 m per pixel. The horizon is the terrain itself over the curved Moon, with no atmosphere to bend the light. |
 | Libration | The ephemeris carries the Moon's real orientation, so Earth wanders in the sky over the month and the year; How it works explains why. |
-| Slopes, craters and shadow | Crater floors in permanent shadow and rim high points are in the catalogue; the shadow map and the view from the site show the shadows the hills cast. |
+| Slopes, craters and shadow | Crater floors in permanent shadow and rim high points are in the catalogue; each polar site shows its slope, how well its heights are known and its distance to permanently shadowed ground, from NASA's adjusted maps (PGDA product 90); the shadow map and the view from the site show the shadows the hills cast. |
 
 ## Run it on your computer
 
@@ -381,7 +390,7 @@ pipeline's packages (65 to 85 MB, by system) into `pipeline/.venv`; it took 5 se
 table, the horizon masks of the catalogue sites, the sky, the validation tables and the test
 fixtures) into `web/public/data` in under a second.
 
-With this data every page opens and works for the 19 places in the catalogue: the site list,
+With this data every page opens and works for the 34 places in the catalogue: the site list,
 Explore's answer, numbers, chart and horizon chart, Compare, Accuracy, How it works, the brief and
 the assistant. What needs the full data:
 
