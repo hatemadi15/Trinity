@@ -98,7 +98,7 @@ const spanText = ([lo, hi]: Span) => (lo === hi ? spanShort(lo) : `${spanShort(l
  * 3.2 to 30 days."), and the detail for planners, with every figure's range in hours, how it was found and what the
  * terrain cannot show.
  */
-export function rangeWords(r: NeighbourhoodRange, { radiusKm, ms, mastM }: { radiusKm: number; ms: number; mastM: number }): { words: string; detail: string } {
+export function rangeWords(r: NeighbourhoodRange, { radiusKm, ms, mastM }: { radiusKm: number; /** The time the points' skylines took to work out. */ ms: number; mastM: number }): { words: string; detail: string } {
   if (r.points === 1) {
     const why = `the points round this one have ${r.reasons.join(' or ')}`;
     return { words: `No range within about ${radiusKm} km: ${why}.`, detail: `Tried at ${r.missing} points ${radiusKm / 2} and ${radiusKm} km away: ${why}.` };
@@ -113,7 +113,7 @@ export function rangeWords(r: NeighbourhoodRange, { radiusKm, ms, mastM }: { rad
   return {
     words: `Within about ${radiusKm} km (${count}): power for ${power}.`,
     detail:
-      `Worked out here and at ${around} points round it, ${radiusKm / 2} and ${radiusKm} km away, with the same lander, period and ${mastM} m mast, in ${(ms / 1000).toFixed(1)} s. ` +
+      `Worked out here and at ${around} points round it, ${radiusKm / 2} and ${radiusKm} km away, with the same lander, period and ${mastM} m mast; their skylines took ${(ms / 1000).toFixed(1)} s to work out. ` +
       `Power ${spanText(r.poweredH)}; sunlight ${spanText(r.sunH)}; Earth in view ${spanText(r.contactH)}; contact while powered ${spanText(r.poweredContactH)}; longest time without Earth while powered ${spanText(r.poweredOutageH)}.${missing} ` +
       'Each point’s hills come from the same NASA elevation grids, which do not show a hill narrower than one grid cell.',
   };

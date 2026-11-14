@@ -46,9 +46,13 @@ describe('the results round an approximate site', () => {
     await store.getState().loadNeighbourhood();
     await store.getState().loadNeighbourhood();
     expect(w.calls).toHaveLength(8);
+    const skylines = store.getState().neighbourhood!.skylineMs;
+    expect(skylines).toBeGreaterThanOrEqual(0);
     store.getState().setWindow('2027-01-20T10:00:00', 30);
     await store.getState().loadNeighbourhood();
     expect(w.calls).toHaveLength(8);
+    // The time the skylines took is kept with them.
+    expect(store.getState().neighbourhood!.skylineMs).toBe(skylines);
     expect(store.getState().neighbourhood!.points.every((p) => p.outcome !== null)).toBe(true);
     // Another mast sees other hills: the skylines are asked for again.
     store.getState().setParams({ mastM: 3 });

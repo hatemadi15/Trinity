@@ -591,7 +591,7 @@ describe('planner parameters, compare and best window', () => {
     expect(store.getState().startUtc).toBe('2027-10-12T18:00:00');
     expect(store.getState().days).toBe(30);
     expect(store.getState().series!.sunFraction[0]).toBeGreaterThan(0); // a lander arrives in daylight
-    expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, power for 13 d 21 h, Earth in view 80 % of that time.');
+    expect(store.getState().bestWindowNote).toBe('Best landing in the next 12 months: 12 Oct 2027, power for 13 d 21 h, Earth in view 80 % of that time. Landing times tried every 6 hours, ranked by time with power from landing, then Earth contact while powered.');
   });
 
   it('findBestWindow across the compared sites ranks by the site that does worst, never the mean, and gives each site its own result', async () => {
@@ -608,7 +608,7 @@ describe('planner parameters, compare and best window', () => {
     const best = plan.plan.alternatives[0];
     // The figure returned is the worst site's, and it is the least of the sites' own.
     expect(r!.poweredHours).toBe(Math.min(...best.item.perSite.map((o) => o.poweredH)));
-    expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites, ranked by the site that does worst: best landing in the next 12 months: \d+ \w+ \d{4}\. Power for .+ at IM-1 Odysseus and .+ at Shackleton rim summit\.$/);
+    expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites, ranked by the site that does worst: best landing in the next 12 months: \d+ \w+ \d{4}\. Power for .+ at IM-1 Odysseus and .+ at Shackleton rim summit\. Landing times tried every 6 hours, /);
     for (const c of store.getState().compare) expect(c.series.sunFraction[0]).toBeGreaterThan(0);
   });
 
@@ -626,7 +626,7 @@ describe('planner parameters, compare and best window', () => {
     // Two weeks apart at least: another lunar day, not the same one again.
     for (const a of rest) expect(Math.abs(a.item.hour - best.item.hour)).toBeGreaterThanOrEqual(14 * 24);
     for (const a of plan.plan.alternatives) expect(a.checks.map((c) => c.id)).toEqual(['power', 'outage']);
-    expect(store.getState().bestWindowNote).toMatch(best.failed === 0 ? / Meets all 2 of your requirements\.$/ : / None in the next 12 months meets them all\.$/);
+    expect(store.getState().bestWindowNote).toMatch(best.failed === 0 ? / Meets all 2 of your requirements\. Landing times tried every 6 hours, ranked by your requirements, / : / None in the next 12 months meets them all\. /);
     // Setting a requirement again drops the search's note and its alternatives: they were ranked for the old ones.
     store.getState().setRequirements({ maxOutageH: null });
     expect(store.getState().bestWindowNote).toBeNull();

@@ -3,7 +3,7 @@ import type { Series } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '../engine/power';
 import { outcomeScanner, periodOutcome, worstOf, type Outcome } from './outcome';
 import { checkRequirements, checksShort, checksWords, NO_REQUIREMENTS, requirementCount, type Requirements } from './requirements';
-import { compareOptions, FAIL_RULE, OBJECTIVE, optionOf, pickApart, rankOptions, searchWords, tradeOffs, tradeOffWords, whyAbove } from './rank';
+import { compareOptions, FAIL_RULE, OBJECTIVE, optionOf, pickApart, rankOptions, searchWords, tradeOffs, tradeOffWords, whyAbove, yearRuleWords } from './rank';
 
 // 1361 W while any Sun shows, 100 W load, 1000 Wh battery: ten hours in the dark.
 const CFG: PowerConfig = { ...DEFAULT_POWER, panel: 'full_tracking', areaM2: 1, efficiency: 1, loadW: 100, batteryWh: 1000 };
@@ -181,5 +181,9 @@ describe('what the ranking is and how finely it searched, said where the recomme
     expect(searchWords({ kind: 'period', days: 30 })).toBe('Landing times tried every hour of these 30 days (UTC), each for a 30-day stay.');
     expect(searchWords({ kind: 'year', days: 30, stepH: 6 })).toBe('Landing times tried every 6 hours over the next 12 months (UTC), each for a 30-day stay.');
     expect(searchWords({ kind: 'place', days: 30, km: 30 })).toBe('Catalogue sites within 30 km tried from the same landing hour, each for a 30-day stay.');
+    expect(searchWords({ kind: 'place', days: 30, km: 30, spots: 8, spotKm: 5 })).toBe('Catalogue sites within 30 km and 8 spots within about 5 km of this one, tried from the same landing hour, each for a 30-day stay.');
+    // The 12-month search's note says how finely it looked and what it ranked by.
+    expect(yearRuleWords(6, false)).toBe('Landing times tried every 6 hours, ranked by time with power from landing, then Earth contact while powered.');
+    expect(yearRuleWords(6, true)).toBe('Landing times tried every 6 hours, ranked by your requirements, then time with power from landing, then Earth contact while powered.');
   });
 });

@@ -13,6 +13,7 @@ import { checkPick } from '../viz/pick';
 import { yearOptions, type Recommendation, type YearChoice } from '../plan/options';
 import { periodOutcome, type Outcome } from '../plan/outcome';
 import { checksWords, NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
+import { yearRuleWords } from '../plan/rank';
 import { positionRadiusKm, ringPoints, type PointResult } from '../plan/neighbourhood';
 import { customPoint, parseExploreQuery } from './query';
 
@@ -79,6 +80,8 @@ export interface Neighbourhood {
   points: PointResult[];
   /** Time from the first skyline asked for to the last result, in ms. */
   ms: number;
+  /** Time the worker spent on the points' skylines, kept with them for later periods, in ms. */
+  skylineMs: number;
   mastM: number;
 }
 
@@ -286,7 +289,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   let overviewSeq = 0;
   let overviewKey: string | null = null;
   /** Skylines of the points round approximate sites, by place and mast; and the run of `loadNeighbourhood` in hand. */
-  const ringMasks = new Map<string, { mask: Float64Array; failedTiles: number }>();
+  const ringMasks = new Map<string, { mask: Float64Array; failedTiles: number; ms: number }>();
   let neighbourhoodSeq = 0;
   let neighbourhoodKey: string | null = null;
   let initPromise: Promise<void> | null = null;
@@ -488,15 +491,17 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       const seq = ++neighbourhoodSeq;
       const t0 = Date.now();
       const base = { siteId: site.id, radiusKm, mastM: params.mastM };
-      set({ neighbourhood: { ...base, busy: true, points: [], ms: 0 } });
+      set({ neighbourhood: { ...base, busy: true, points: [], ms: 0, skylineMs: 0 } });
       const points: PointResult[] = [];
+      let skylineMs = 0;
       for (const p of ringPoints(site, radiusKm)) {
         const id = `${p.lat.toFixed(4)}_${p.lon.toFixed(4)}_${params.mastM}`;
-        let got: { mask: Float64Array; failedTiles: number } | { error: string } | undefined = ringMasks.get(id);
+        let got: { mask: Float64Array; failedTiles: number; ms: number } | { error: string } | undefined = ringMasks.get(id);
         if (!got) {
+          const t1 = Date.now();
           try {
             const r = await loaders.computeMask(p.lat, p.lon, params.mastM);
-            got = { mask: r.mask, failedTiles: r.failedTiles };
+            got = { mask: r.mask, failedTiles: r.failedTiles, ms: Date.now() - t1 };
             // A skyline with holes is not kept: the tiles may load next time.
             if (r.failedTiles === 0) ringMasks.set(id, got);
           } catch (err) {
@@ -504,6 +509,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           }
           if (seq !== neighbourhoodSeq) return;
         }
+        if (!('error' in got)) skylineMs += got.ms;
         if ('error' in got) {
           points.push({ ...p, outcome: null, missing: /no DEM coverage/i.test(got.error) ? 'no elevation data here' : `an error (${got.error})` });
         } else if (got.failedTiles > 0) {
@@ -518,7 +524,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
         }
       }
       if (seq !== neighbourhoodSeq) return;
-      set({ neighbourhood: { ...base, busy: false, points, ms: Date.now() - t0 } });
+      set({ neighbourhood: { ...base, busy: false, points, ms: Date.now() - t0, skylineMs } });
     },
 
     async selectCustom(lat, lon) {
@@ -620,8 +626,9 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
           ? `Across ${targets.length} compared sites, ranked by the site that does worst: best landing in the next 12 months: ${when}. Power for ${each.slice(0, -1).join(', ')} and ${each[each.length - 1]}.`
           : `Best landing in the next 12 months: ${when}, power for ${spanShort(best.poweredH)}, Earth in view ${pct0(earthFraction)} of that time.`;
       const checks = checksWords(top.checks);
+      const rule = yearRuleWords(scan.step, top.checks.length > 0);
       set({
-        bestWindowNote: checks ? `${found} ${checks}${top.failed > 0 ? ' None in the next 12 months meets them all.' : ''}` : found,
+        bestWindowNote: checks ? `${found} ${checks}${top.failed > 0 ? ' None in the next 12 months meets them all.' : ''} ${rule}` : `${found} ${rule}`,
         yearPlan: { scope: targets.length > 1 ? 'compare' : 'site', days, fromUtc: startUtc, siteNames: names, stepH: scan.step, plan },
       });
       return { startUtc: newStart, poweredHours: best.poweredH, earthFraction };

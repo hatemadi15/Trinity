@@ -51,9 +51,10 @@ describe('the range of results round a point', () => {
   it('says the range in a short line for the first screen, the detail in full for planners', () => {
     const r = neighbourhoodRange(o(76), done([90, 120, 720, 76, 80, 400, 300, 100]));
     const w = rangeWords(r, { radiusKm: 5, ms: 2400, mastM: 2 });
+    // The skylines are kept for the next period: their time is what the worker spent on them, not this run's.
     expect(w.words).toBe('Within about 5 km (9 points): power for 3.2 to 30 days.');
     expect(w.detail).toBe(
-      'Worked out here and at 8 points round it, 2.5 and 5 km away, with the same lander, period and 2 m mast, in 2.4 s. Power 3 d 4 h to 30 d; sunlight 12 d 12 h; Earth in view 12 d 12 h; contact while powered 10 h; longest time without Earth while powered 2 d 12 h. Each point’s hills come from the same NASA elevation grids, which do not show a hill narrower than one grid cell.',
+      'Worked out here and at 8 points round it, 2.5 and 5 km away, with the same lander, period and 2 m mast; their skylines took 2.4 s to work out. Power 3 d 4 h to 30 d; sunlight 12 d 12 h; Earth in view 12 d 12 h; contact while powered 10 h; longest time without Earth while powered 2 d 12 h. Each point’s hills come from the same NASA elevation grids, which do not show a hill narrower than one grid cell.',
     );
     expect(rangeWords(neighbourhoodRange(o(720), done(new Array(8).fill(720))), { radiusKm: 5, ms: 900, mastM: 2 }).words).toBe('Within about 5 km (9 points): power for all 30 days at every one.');
     const gaps = rangeWords(neighbourhoodRange(o(76), done([90, 120, 720, 76, 80, 400, 300, 100], [2, 5])), { radiusKm: 5, ms: 2400, mastM: 2 });

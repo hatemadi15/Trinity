@@ -124,14 +124,26 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   }, [places, s.days, s.startUtc]);
   // Every option behind the recommendations, for the panel's fold.
   const plan = useMemo(
-    () => (times ? planView({ times, places, year: s.yearPlan, req: s.requirements, startUtc: s.startUtc, days: s.days, hrefFor: (id) => exploreHref(id, s.startUtc, s.days) }) : null),
-    [times, places, s.yearPlan, s.requirements, s.startUtc, s.days],
+    () =>
+      times
+        ? planView({
+            times,
+            places,
+            year: s.yearPlan,
+            req: s.requirements,
+            startUtc: s.startUtc,
+            days: s.days,
+            hrefFor: (id) => exploreHref(id, s.startUtc, s.days),
+            spots: hood && !hood.busy ? { count: hood.points.filter((p) => p.outcome).length, km: hood.radiusKm } : null,
+          })
+        : null,
+    [times, places, hood, s.yearPlan, s.requirements, s.startUtc, s.days],
   );
   // The same result round an approximate point, next to the result.
   const range = useMemo(() => {
     if (!hood || !current) return null;
     if (hood.busy) return { words: `Working out the results within about ${hood.radiusKm} km…` };
-    return rangeWords(neighbourhoodRange(current, hood.points), { radiusKm: hood.radiusKm, ms: hood.ms, mastM: hood.mastM });
+    return rangeWords(neighbourhoodRange(current, hood.points), { radiusKm: hood.radiusKm, ms: hood.skylineMs, mastM: hood.mastM });
   }, [hood, current]);
 
   if (s.status === 'loading' || s.status === 'idle') {

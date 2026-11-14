@@ -300,6 +300,14 @@ describe('answerFor with the ranked landing times and the requirements', () => {
     expect(a.better).toMatchObject({ hour: 12, label: 'Land on 1 January instead', note: 'From 1 January, 12:00 UTC: power for 20 hours in a row.', checks: 'Meets your requirement.', why: 'Power lasts 10 h longer than landing at the period start.' });
   });
 
+  it('says a landing that meets every requirement needs no change, rather than asking for a bigger battery', () => {
+    // The battery runs out at hour 40 and no later landing keeps power longer; the requirement asks only for 30 hours.
+    const period = series(rep(1, 48).map((v, h) => (h < 30 ? v : 0)));
+    const a = answerFor({ siteName: 'Alpha Ridge', series: period, summary: summarize(period), power: powerBudget(period, CFG), startUtc: START, days: 2, loadW: CFG.loadW, batteryWh: CFG.batteryWh, best: null, plan: timeOptions({ scan: period, cfg: CFG, req: { ...NO_REQUIREMENTS, minPoweredH: 30 }, hours: 48, startUtc: START }) });
+    expect(a.better).toBeNull();
+    expect(a.hint).toBe('This landing meets your requirement, and no landing time in these 2 days does better.');
+  });
+
   it('says plainly when no date in the period does better against the requirements', () => {
     // Sun for 30 hours, then night: the battery runs out at hour 40. Earth is never in view, so no date can meet a
     // contact requirement, and none keeps power longer than landing at the start.

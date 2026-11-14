@@ -4,7 +4,7 @@ import type { Series, Summary } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
 import type { LandingTime, NearbyPlace, Recommendation, Row, YearChoice } from '../plan/options';
 import { FAIL_RULE, OBJECTIVE, searchWords, tradeOffWords, type Option } from '../plan/rank';
-import { checksShort, requirementCount, type Requirements } from '../plan/requirements';
+import { checksShort, midSentence, requirementCount, type Requirements } from '../plan/requirements';
 import { clockUtc, dateLong, isoAt, pct0, spanShort, spanWords } from './format';
 import { nearestSites } from './relief';
 
@@ -176,11 +176,14 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
       note: best.poweredHours >= hours ? `From ${when}, the lander keeps power for all ${days} days.` : `From ${when}: power for ${spanWords(best.poweredHours)} in a row.`,
     };
   }
+  const meets = plan && plan.current.checks.length > 0 && plan.current.failed === 0;
   const hint = better
     ? null
-    : plan && plan.current.checks.length > 0
-      ? `No landing time in these ${days} days does better against your requirements. Try a bigger battery (Lander, above), a shorter stay or another site.`
-      : `No landing date in these ${days} days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.`;
+    : meets
+      ? `This landing ${midSentence(checksShort(plan.current.checks) ?? '').replace(/\.$/, '')}, and no landing time in these ${days} days does better.`
+      : plan && plan.current.checks.length > 0
+        ? `No landing time in these ${days} days does better against your requirements. Try a bigger battery (Lander, above), a shorter stay or another site.`
+        : `No landing date in these ${days} days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.`;
   return { tone: 'bad', kind, title, sentences: withContact(sentences), better, hint, poweredHours: powered, contactHours: contact };
 }
 
@@ -286,6 +289,7 @@ export function planView({
   startUtc,
   days,
   hrefFor,
+  spots = null,
 }: {
   times: Recommendation<LandingTime>;
   places: Recommendation<NearbyPlace> | null;
@@ -294,6 +298,8 @@ export function planView({
   startUtc: string;
   days: number;
   hrefFor: (siteId: string) => string;
+  /** The spots round an approximate site among the places, and how far out they are. */
+  spots?: { count: number; km: number } | null;
 }): PlanView {
   return {
     objective: OBJECTIVE,
@@ -304,7 +310,7 @@ export function planView({
       options: times.alternatives.map((r) => viewOf(r, `time-${r.item.hour}`, timeTitle(startUtc, r.item.hour), { action: landWords(startUtc, r.item.hour), land: r.item.startUtc })),
     },
     places: places && {
-      search: searchWords({ kind: 'place', days, km: 30 }),
+      search: searchWords({ kind: 'place', days, km: 30, ...(spots && spots.count > 0 ? { spots: spots.count, spotKm: spots.km } : {}) }),
       options: places.alternatives.map((r) => {
         const name = siteLabel(r.item.site);
         // A spot round the site is titled by its own name, which has its distance.

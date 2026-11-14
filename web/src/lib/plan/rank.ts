@@ -10,13 +10,19 @@ export const OBJECTIVE =
 export const FAIL_RULE = 'A choice that fails a requirement ranks below every choice that meets them all; among those, fewer failures rank first.';
 
 /** How finely a search looked: every hour of the period, every 6 hours of a year, or the catalogue sites nearby. */
-export type SearchScope = { kind: 'period'; days: number } | { kind: 'year'; days: number; stepH: number } | { kind: 'place'; days: number; km: number };
+export type SearchScope = { kind: 'period'; days: number } | { kind: 'year'; days: number; stepH: number } | { kind: 'place'; days: number; km: number; spots?: number; spotKm?: number };
 
 export function searchWords(s: SearchScope): string {
   const stay = `each for a ${s.days}-day stay`;
   if (s.kind === 'period') return `Landing times tried every hour of these ${s.days} days (UTC), ${stay}.`;
   if (s.kind === 'year') return `Landing times tried every ${s.stepH === 1 ? 'hour' : `${s.stepH} hours`} over the next 12 months (UTC), ${stay}.`;
+  if (s.spots) return `Catalogue sites within ${s.km} km and ${s.spots} spots within about ${s.spotKm} km of this one, tried from the same landing hour, ${stay}.`;
   return `Catalogue sites within ${s.km} km tried from the same landing hour, ${stay}.`;
+}
+
+/** The 12-month search's note says how finely it looked and what it ranked by. */
+export function yearRuleWords(stepH: number, requirements: boolean): string {
+  return `Landing times tried every ${stepH === 1 ? 'hour' : `${stepH} hours`}, ranked by ${requirements ? 'your requirements, then ' : ''}time with power from landing, then Earth contact while powered.`;
 }
 
 /** A choice (a landing time or a place) with its outcome and its requirement checks. */
