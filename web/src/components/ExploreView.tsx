@@ -6,6 +6,7 @@ import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PlannerChat } from './PlannerChat';
 import { GroundPanel } from './explore/GroundPanel';
 import { LanderDialog } from './explore/LanderDialog';
+import { ShareDialog } from './explore/ShareDialog';
 import { NumbersCard } from './explore/NumbersCard';
 import { PeriodBand } from './explore/PeriodBand';
 import { exploreHref } from './sites/SitesView';
@@ -21,6 +22,8 @@ import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { briefHref, standHref, withSettings } from '@/lib/links';
 import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
+import { useDataVersions } from '@/lib/hooks/useDataVersions';
+import { appVersion } from '@/lib/share/versions';
 import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { timeWithPower } from '@/lib/engine/landing';
 import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
@@ -41,6 +44,9 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   const [hoverHour, setHoverHour] = useState<number | null>(null);
   const [landerOpen, setLanderOpen] = useState(false);
   const landerRef = useRef<HTMLButtonElement>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareRef = useRef<HTMLButtonElement>(null);
+  const dataVersions = useDataVersions();
   const reducedMotion = useReducedMotion();
   useDemoMode(store);
 
@@ -174,6 +180,8 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               maskMeta={s.maskMeta}
               contactHours={answer.contactHours}
               briefLink={withSettings(briefHref(site.id, s.startUtc, s.days), s.params)}
+              onShare={() => setShareOpen(true)}
+              shareRef={shareRef}
             />
           </div>
           <TimeChart
@@ -231,6 +239,15 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
           moments={keyMoments(s.series, s.power, s.startUtc).map((m) => ({ label: `${m.label}, ${m.day}`, hour: m.hour }))}
           onHover={setHoverHour}
         />
+        {shareOpen && s.eph && link && (
+          <ShareDialog
+            input={{ site, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph, series: s.series, power: s.power, summary: s.summary, maskMeta: s.maskMeta, best: s.best }}
+            link={new URL(link, window.location.origin).href}
+            versions={{ app: appVersion(), data: dataVersions ?? { sites: null, ephemeris: null } }}
+            onClose={() => setShareOpen(false)}
+            returnFocus={shareRef}
+          />
+        )}
         {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
       </main>
     </AppFrame>

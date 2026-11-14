@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
+import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { ExploreView } from './ExploreView';
 
 /** The page with the real catalogue and sky; `search` is the address it opens with. */
@@ -47,5 +48,18 @@ describe("Explore's own address", () => {
     expect(within(screen.getByRole('region', { name: 'The answer' })).getByRole('link', { name: 'Stand at the site' }).getAttribute('href')).toBe(stand);
     expect(within(screen.getByRole('region', { name: 'The ground' })).getByRole('link', { name: 'Stand at the site' }).getAttribute('href')).toBe(stand);
     expect(screen.getByRole('link', { name: 'Printable brief' }).getAttribute('href')).toBe('/brief?site=haworth&start=2027-01-01&days=30&load=400&earthmin=2');
+  });
+
+  it('shares the same link from the numbers card, with the figures to download, and keeps the card to 40 words', async () => {
+    const { store } = await open('?site=haworth&load=400&earthmin=2');
+    await waitFor(() => expect(store.getState().siteId).toBe('haworth'));
+    const numbers = screen.getByRole('region', { name: 'The numbers' });
+    for (const width of [WIDE, PHONE]) expect(visibleWords(numbers, width).length).toBeLessThanOrEqual(40);
+    fireEvent.click(within(numbers).getByRole('button', { name: 'Share' }));
+    const dialog = screen.getByRole('dialog', { name: 'Share and download' });
+    expect(within(dialog).getByRole('textbox', { name: 'Link to these figures' })).toHaveProperty('value', `${window.location.origin}/explore?site=haworth&start=2027-01-01&days=30&load=400&earthmin=2`);
+    for (const name of ['Hour by hour (CSV)', 'All numbers (CSV)', 'Radio windows (CSV)', 'Settings and sources (JSON)']) expect(within(dialog).getByRole('button', { name })).toBeTruthy();
+    // Still one gold action on the screen.
+    expect(document.querySelectorAll('.btn-primary')).toHaveLength(1);
   });
 });
