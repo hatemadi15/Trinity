@@ -5,8 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // The build swaps next/font/google's loaders for the font files. Outside the build they do not exist, so the layout is imported with stand-ins.
 vi.mock('next/font/google', () => ({
-  Bricolage_Grotesque: () => ({ variable: 'font-bricolage' }),
+  Instrument_Serif: () => ({ variable: 'font-serif' }),
+  Pixelify_Sans: () => ({ variable: 'font-pixelify' }),
   IBM_Plex_Sans: () => ({ variable: 'font-plex' }),
+  IBM_Plex_Mono: () => ({ variable: 'font-plex-mono' }),
 }));
 
 const src = fs.readFileSync(path.resolve(process.cwd(), 'src/app/layout.tsx'), 'utf8');
@@ -28,8 +30,11 @@ afterEach(() => {
 });
 
 describe('root layout', () => {
-  it('loads the display face with its width axis, which the 87.5 % headlines need', () => {
-    expect(src).toMatch(/axes: \['opsz', 'wdth'\]/);
+  it('loads four faces, each with one job: the serif with its italic for titles, the pixel accent, Plex to read and its mono for labels (spec 23)', () => {
+    expect(src).toMatch(/Instrument_Serif\(\{[^)]*variable: '--font-serif'[^)]*style: \['normal', 'italic'\]/);
+    expect(src).toMatch(/Pixelify_Sans\(\{[^)]*variable: '--font-pixelify'/);
+    expect(src).toMatch(/IBM_Plex_Sans\(\{[^)]*variable: '--font-plex'/);
+    expect(src).toMatch(/IBM_Plex_Mono\(\{[^)]*variable: '--font-plex-mono'/);
   });
 
   it('sets a share image base, the Open Graph card and a title template', async () => {

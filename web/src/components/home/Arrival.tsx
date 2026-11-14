@@ -8,13 +8,21 @@ import { useLunaControls } from '@/lib/luna/controls';
 import { BEAT_STOPS, LANDED, LAST, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
 import type { ArrivalWords } from '@/lib/viz/arrival';
 import type { StageProps } from './ArrivalCanvas';
+import type { EarthriseProps } from './EarthriseScene';
 
 // three.js comes with the stage, after the page's words: nothing on this module's import path pulls it in.
 const LiveStage = dynamic(() => import('./ArrivalCanvas'), { ssr: false });
+// The title card's Earth and Moon (spec 23), on the same terms.
+const LiveCard = dynamic(() => import('./EarthriseScene'), { ssr: false });
 /** Screens in the arrival, a beat each: the Moon, the pole, the cap, the ridge, standing, the month at the site, the answer. */
 const BEATS = BEAT_STOPS.length;
-const PLATE = 'rounded-lg border border-white/15 bg-[#060607]/92';
-const SENTENCE = 'display text-balance text-[28px] leading-[1.08] sm:text-[36px]';
+const PLATE = 'rounded-2xl border border-white/12 bg-[#050506]/88 shadow-[0_0_48px_-16px_rgba(127,169,255,0.45)]';
+const SENTENCE = 'display text-balance text-[30px] leading-[1.08] sm:text-[40px]';
+/**
+ * The title card fades as the first screen scrolls away: whole until a twentieth of a screen, gone at 0.55 (spec 23).
+ * Exported for the tests.
+ */
+export const cardOpacity = (screens: number) => 1 - Math.min(1, Math.max(0, (screens - 0.05) / 0.5));
 const still = (k: number, shape: 'wide' | 'tall') => `/arrival/beat-${k}-${shape}.jpg`;
 /**
  * A beat's words fade as they scroll up: whole until `over` px above `gone` px from the top, gone there. Before
@@ -49,9 +57,14 @@ const noSubscribe = () => () => {};
  * motion the flight holds on the beats and "Fly to the south pole" lands at once. Each action is named for where
  * it goes: the flight, the site's full forecast, the list of sites.
  */
-export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Stage?: ComponentType<StageProps> }) {
+export function Arrival({ words, Stage = LiveStage, Card = LiveCard }: { words: ArrivalWords; Stage?: ComponentType<StageProps>; Card?: ComponentType<EarthriseProps> }) {
   const reduced = useReducedMotion();
   const section = useRef<HTMLElement>(null);
+  const card = useRef<HTMLDivElement>(null);
+  // How far the title card has scrolled away, in screens, read by its scene every frame.
+  const cardProgress = useRef(0);
+  const [cardLive, setCardLive] = useState(false);
+  const [cardFailed, setCardFailed] = useState(false);
   const standing = useRef<HTMLHeadingElement>(null);
   const progress = useRef(0);
   const [beat, setBeat] = useState(0);
@@ -87,6 +100,14 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
         plate.style.opacity = String(Math.min(1, Math.max(0, (top - f.gone) / Math.max(1, Math.min(f.over, rest - f.gone)))));
       }
       progress.current = reduced ? BEAT_STOPS[Math.round(s)] : progressFromScroll(s);
+      cardProgress.current = s;
+      if (card.current) {
+        const o = cardOpacity(s);
+        card.current.style.opacity = String(o);
+        card.current.style.visibility = o > 0 ? 'visible' : 'hidden';
+        // It lifts away and comes closer as it goes, as if flown through.
+        if (!reduced) card.current.style.transform = `translateY(${-Math.min(s, 1) * 6}%) scale(${1 + Math.min(s, 1) * 0.12})`;
+      }
       setBeat(Math.round(s));
       setPastFirst(s >= 1);
       setMoving(s > 0.05 && s < BEATS - 1.05);
@@ -181,6 +202,38 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
             </ChunkBoundary>
           </div>
         )}
+        {/* The title card: Earth rising over the Moon's limb, over the flight's first screen, fading as it scrolls away.
+            Its still shows at once; the live scene comes in over it once its pictures have loaded. Stills and the
+            recorded walk (?arrival=) leave it out, so they show the flight itself. */}
+        {!capture && (
+          <div ref={card} data-card="" className="absolute inset-0 bg-black">
+            <picture>
+              <source media="(orientation: portrait)" srcSet="/hero/earthrise-tall.jpg" />
+              <img
+                src="/hero/earthrise-wide.jpg"
+                alt=""
+                className="h-full w-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.visibility = 'hidden';
+                }}
+              />
+            </picture>
+            {!cardFailed && (
+              <div className={`absolute inset-0 transition-opacity duration-1000 ${cardLive ? 'opacity-100' : 'opacity-0'}`}>
+                <ChunkBoundary fallback={null} onError={() => setCardFailed(true)}>
+                  <Card progress={cardProgress} reduced={reduced} onReady={() => setCardLive(true)} onFail={() => setCardFailed(true)} />
+                </ChunkBoundary>
+              </div>
+            )}
+            {/* An instrument's frame: corner marks, as on a camera's screen. */}
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-4 bottom-6 top-6 sm:inset-x-8 sm:bottom-10 sm:top-8">
+              <span className="absolute left-0 top-0 h-6 w-6 border-l border-t border-white/40" />
+              <span className="absolute right-0 top-0 h-6 w-6 border-r border-t border-white/40" />
+              <span className="absolute bottom-0 left-0 h-6 w-6 border-b border-l border-white/40" />
+              <span className="absolute bottom-0 right-0 h-6 w-6 border-b border-r border-white/40" />
+            </div>
+          </div>
+        )}
       </div>
       {(moving || playing) && !capture && (
         // On a phone Skip waits until the first screen has scrolled away whole, so it never covers its words (18.3; at three
@@ -194,45 +247,41 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
         </button>
       )}
       <div className="relative z-10 -mt-[100svh]" hidden={bare}>
-        <div data-beat="0" className="flex h-[100svh] flex-col justify-between pb-8 pt-8 sm:pt-12">
-          {/* On a phone the words stand over the Moon: a dark plate behind them, edge to edge, keeps them easy to read. */}
-          <div className="wrap w-full max-sm:border-b max-sm:border-white/15 max-sm:bg-[#060607]/92 max-sm:pb-6">
-            <h1 id="h-hero" data-words="" className="display max-w-[760px] text-balance text-[44px] leading-[0.98] sm:text-[56px] xl:text-[72px]">
-              See when a Moon lander has sunlight and a signal.
+        <div data-beat="0" className="flex h-[100svh] flex-col justify-between pb-14 pt-12 sm:pb-16 sm:pt-16">
+          {/* The first screen, as a title card (spec 23): a readout, the promise, one sentence, two ways on. On a phone a
+              shade behind the words keeps them easy to read over the Moon. */}
+          <div className="wrap w-full max-sm:bg-linear-to-b max-sm:from-black/85 max-sm:via-black/70 max-sm:to-transparent max-sm:pb-10">
+            <p data-words="" className="eyebrow flex items-center gap-2.5 text-[#a8c6ff]">
+              <span aria-hidden="true" className="inline-block h-2 w-2 animate-[pulse-dot_2.4s_ease-in-out_infinite] rounded-full bg-[#7fa9ff]" />
+              South pole forecast
+            </p>
+            <h1 id="h-hero" data-words="" aria-label="See when a Moon lander has sunlight and a signal." className="display mt-5 max-w-[820px] animate-[focus-in_1.4s_cubic-bezier(0.16,1,0.3,1)_both] text-balance text-[42px] leading-[0.95] sm:text-[68px] xl:text-[88px]">
+              See when a Moon lander has <em>sunlight</em> and a <span className="pixel text-[0.86em] text-[#a8c6ff] text-glow">signal</span>.
             </h1>
             {/* One sentence says what this is and what it gives; the flight just below says why the pole is hard. */}
-            <p data-words="" className="mt-6 max-w-[33em] text-lg leading-relaxed text-[#c6c5c0] sm:text-[19px]">
-              Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth and how long a lander keeps power, for ready-made landers or your own.
+            <p data-words="" className="mt-6 max-w-[34em] text-lg leading-relaxed text-[#c9cbcf] sm:text-[19px]">
+              A forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth, and how long a lander keeps power.
             </p>
-            {/* Where the numbers come from and how they were checked, for a reader who weighs a forecast by its sources. Like the
-                first sentence it waits for a wider screen, so the phone's first screen stays short. */}
-            <p data-words="" className="mt-3 max-w-[39em] text-base text-[#c6c5c0] max-sm:hidden">
-              {words.proof}{' '}
-              <Link href="/validate" className="font-semibold text-[#f2f0ea] underline underline-offset-4">
-                See the checks
-              </Link>
-            </p>
-            <div data-words="" className="mt-7 flex w-fit flex-wrap gap-3">
+            <div data-words="" className="mt-8 flex w-fit flex-wrap gap-3">
               <Link href="/sites" onClick={start} className="btn btn-primary h-[52px] px-[22px] text-[17px]">
                 Fly to the south pole
+                <span aria-hidden="true" className="arrow">
+                  →
+                </span>
               </Link>
-              {/* Named for the section it jumps to, whose heading is "Why the south pole is hard"; the link just below the buttons goes to How it works. */}
-              <a href="#why" className="btn h-[52px] px-[22px] text-[17px]">
+              {/* Named for the section it jumps to, whose heading is "Why the south pole is hard". */}
+              <a href="#why" className="btn h-[52px] border-white/30 px-[22px] text-[17px] text-[#f5f5f3]">
                 See why the pole is hard
               </a>
             </div>
-            <p data-words="" className="mt-3 w-fit text-base text-[#c6c5c0]">
-              For planners of NASA&apos;s commercial Moon landers, teachers (start with{' '}
-              <Link href="/learn" className="font-semibold text-[#f2f0ea] underline underline-offset-4">
-                How it works
-              </Link>
-              ) and anyone curious.
-            </p>
-            {/* With the opening words, so it shows on the first screen and leaves with them, never over the Moon. */}
-            <p data-words="" className="mt-5 w-fit text-[15px] text-[#c6c5c0] max-sm:hidden">
-              Scroll to fly down to the Moon&apos;s south pole <span aria-hidden="true">↓</span>
-            </p>
           </div>
+          {/* With the opening words, so it shows on the first screen and leaves with them. */}
+          <p data-words="" className="flex justify-center max-sm:hidden">
+            <span className="eyebrow flex items-center gap-3 rounded-full border border-white/15 bg-black/70 px-4 py-2 text-[#e6e7ea]">
+              Scroll to fly down to the Moon&apos;s south pole
+              <span aria-hidden="true">↓</span>
+            </span>
+          </p>
         </div>
         {/* Once landed the date bar stands at the top: on a wide screen the words are centred in the room under it, so
             on a short window (a laptop at 150 %) they rest clear of it and whole. On a phone they stand at the foot. */}
@@ -255,7 +304,7 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
               <h2 ref={standing} tabIndex={-1} className="display mt-2 text-pretty text-[24px] leading-tight focus:outline-none sm:text-[30px]">
                 {words.answer}
               </h2>
-              {words.better && <p className="mt-2 text-base text-[#f6d48a]">{words.better}</p>}
+              {words.better && <p className="mt-2 text-base text-[#a8c6ff]">{words.better}</p>}
               <div className="mt-5 flex flex-wrap gap-3">
                 <Link href={words.exploreHref} className="btn btn-primary">
                   Open the full forecast

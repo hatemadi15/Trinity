@@ -7,7 +7,7 @@ import type { ComponentType } from 'react';
 import { BEAT_STOPS, LANDED } from '@/lib/sky/arrivalTiming';
 import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { arrivalWords } from '@/lib/viz/arrival';
-import { Arrival } from './Arrival';
+import { Arrival, cardOpacity } from './Arrival';
 import { runControl } from '@/lib/luna/controls';
 import type { StageProps } from './ArrivalCanvas';
 
@@ -49,32 +49,36 @@ describe('the arrival', () => {
       expect(k, part).toBeGreaterThan(at);
       at = k;
     }
-    // The challenge's landers (NASA's CLPS), named in plain words on the first screen: who it is for.
-    expect(screen.getByText(/^For planners of NASA's commercial Moon landers, teachers/).textContent).toBe("For planners of NASA's commercial Moon landers, teachers (start with How it works) and anyone curious.");
     expect(screen.getByRole('link', { name: 'Open the full forecast' }).getAttribute('href')).toBe(words.exploreHref);
     expect(screen.getByRole('link', { name: 'Choose a landing site' }).getAttribute('href')).toBe('/sites');
     // The headline keeps its spans of days and hours on one line with no-break spaces, as the stand view's does.
     expect(screen.getByRole('heading', { level: 2, name: words.answer })).toBeTruthy();
   });
 
-  it("names NASA's data and the check on the first screen, for a wider screen only", () => {
+  it('opens on a title card (spec 23): a readout, the headline, one sentence and two actions, with no proof line before the Moon', () => {
     render(<Arrival words={words} Stage={Stage} />);
-    const proof = screen.getByText(/^Built on NASA LRO LOLA terrain and JPL DE440;/);
-    expect(proof.textContent).toBe('Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to 0.00003° and against real landers. See the checks');
-    const link = within(proof).getByRole('link', { name: 'See the checks' });
-    expect(link.getAttribute('href')).toBe('/validate');
-    expect(link.className).toMatch(/(^| )underline( |$)/);
-    // On a phone the first screen stays short: like the first sentence, this line waits for a wider screen.
-    expect(proof.className).toMatch(/\bmax-sm:hidden\b/);
-    // 15 to 16 px in the intro's colour, and among the first screen's words, so the stage's labels keep clear of it.
-    expect(proof.className).toMatch(/(^| )text-(base|\[1[56]px\])( |$)/);
-    expect(proof.className).toContain('text-[#c6c5c0]');
-    expect(proof.hasAttribute('data-words')).toBe(true);
-    // Under the intro paragraph and above the actions.
-    const intro = screen.getByText(/^Earthrise is a forecast for Moon landing sites and dates/).closest('p')!;
-    const actions = screen.getByRole('link', { name: 'Fly to the south pole' }).parentElement!;
-    expect(intro.compareDocumentPosition(proof) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(proof.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const first = document.querySelector('[data-beat="0"]')!;
+    expect(first.textContent).not.toMatch(/Built on NASA|LOLA|DE440/);
+    expect(within(first as HTMLElement).getByText('South pole forecast')).toBeTruthy();
+    const intro = within(first as HTMLElement).getByText(/^A forecast for Moon landing sites and dates/);
+    const actions = screen.getByRole('link', { name: /Fly to the south pole/ }).parentElement!;
+    expect(intro.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The headline stresses its two promises: sunlight in the serif's italic, the signal in the pixel face.
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1.querySelector('em')!.textContent).toBe('sunlight');
+    expect(h1.querySelector('.pixel')!.textContent).toBe('signal');
+  });
+
+  it('lays the Earthrise title card over the flight’s first screen, its still at once and the live scene once it is ready, and fades it as the page scrolls', () => {
+    render(<Arrival words={words} Stage={Stage} Card={() => null} />);
+    const card = document.querySelector<HTMLElement>('[data-card]')!;
+    expect(card.querySelector('img')!.getAttribute('src')).toBe('/hero/earthrise-wide.jpg');
+    expect(card.querySelector('source')!.getAttribute('srcset')).toBe('/hero/earthrise-tall.jpg');
+    expect(cardOpacity(0)).toBe(1);
+    expect(cardOpacity(0.05)).toBe(1);
+    expect(cardOpacity(0.3)).toBeCloseTo(0.5, 5);
+    expect(cardOpacity(0.55)).toBe(0);
+    expect(cardOpacity(3)).toBe(0);
   });
 
   it('names the second action for the section it jumps to, so only the link to /learn says how it works', () => {
@@ -83,7 +87,8 @@ describe('the arrival', () => {
     expect(screen.getByRole('link', { name: 'See why the pole is hard' }).getAttribute('href')).toBe('#why');
     // The old name read as a twin of the link two lines below it, which goes to a page of its own.
     expect(screen.queryByRole('link', { name: /see how it works/i })).toBeNull();
-    expect(screen.getAllByRole('link', { name: /how it works/i }).map((a) => a.getAttribute('href'))).toEqual(['/learn']);
+    // The first screen is a title card: How it works is linked from the three drawings, not from here.
+    expect(screen.queryAllByRole('link', { name: /how it works/i })).toHaveLength(0);
   });
 
   /** The beats' plates, each with its beat's screen, before landing and once landed (the date bar shows then). */
@@ -201,9 +206,9 @@ describe('the arrival', () => {
     render(<Arrival words={words} Stage={Stage} />);
     // The sentence that repeats the flight's first lines is gone, not hidden.
     expect(document.body.textContent).not.toMatch(/one hill can keep them out of sight for weeks/);
-    const product = screen.getByText(/^Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth and how long a lander keeps power, for ready-made landers or your own\.$/);
+    const product = screen.getByText(/^A forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth, and how long a lander keeps power\.$/);
     expect(product.className).not.toMatch(/\bmax-sm:hidden\b/);
-    expect(screen.getByText(/^Scroll to fly down/).className).toMatch(/\bmax-sm:hidden\b/);
+    expect(screen.getByText(/^Scroll to fly down/).closest('p')!.className).toMatch(/\bmax-sm:hidden\b/);
   });
 
   it('keeps the first screen to 100 words, at 1440 and on a phone (spec 20.1)', () => {

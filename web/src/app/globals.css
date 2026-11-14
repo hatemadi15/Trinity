@@ -1,46 +1,51 @@
 @import "tailwindcss";
 
-
 /*
- * Dark is the default theme (spec 6); data-theme="light" on <html> swaps the values (set before paint by
- * the inline script in layout.tsx), and the light theme stays for print and classrooms. The palette is the
- * Moon's own three tones: shadow black (the stage), regolith grey (the light page) and sunlit white
- * (panels). Colour is kept for the Sun and Earth, and green and red for the power verdict. Picture panels
- * ("stages": charts, shadow map, 3D, relief maps) keep the same colours in both themes; the sky above an
- * airless world is true black.
+ * Moonstone (spec 23, supersedes the palette of spec 6). Black and white, like a print of the Moon, with one colour
+ * that pops: moonstone blue, the blue of Earth from the Moon. Dark is the default theme; data-theme="light" on <html>
+ * swaps the values (set before paint by the inline script in layout.tsx), and the light theme stays for print and
+ * classrooms: black ink on paper. The Sun is drawn warm white, Earth blue; green and red stay only for the power
+ * verdict. Picture panels ("stages": charts, shadow map, 3D, relief maps) keep the same colours in both themes; the
+ * sky above an airless world is true black. Glows are the accent's own light: `--glow` is its RGB triplet.
  */
 :root {
-  --page: #dedcd6;
+  --page: #eeede9;
   --surface: #ffffff;
-  --surface-2: #eceae5;
-  --line: #c2bfb7;
-  --line-strong: #9f9c94;
-  --ink: #000000;
-  --ink-2: #33353a;
-  --ink-3: #55585e;
-  --sun: #f2b134;
-  --sun-ink: #6f4700;
-  --sun-hover: #e3a323;
-  --earth: #2f6fdd;
-  --earth-ink: #1b4fa8;
+  --surface-2: #f5f5f2;
+  --line: #d6d5d0;
+  --line-strong: #85878c;
+  --ink: #0b0b0c;
+  --ink-2: #2c2e33;
+  --ink-3: #565a61;
+  --primary: #0b0b0c;
+  --primary-on: #ffffff;
+  --primary-hover: #2c2e33;
+  --accent: #2f62e0;
+  --accent-ink: #1f4fc4;
+  --glow: 47 98 224;
+  --glow-strength: 0.28;
+  --sun: #26251f;
+  --sun-ink: #26251f;
+  --sun-hover: #000000;
+  --earth: #2f62e0;
+  --earth-ink: #1f4fc4;
   --good: #0c6a44;
   --good-bg: rgba(12, 106, 68, 0.1);
   --good-line: rgba(12, 106, 68, 0.4);
   --bad: #b02f22;
   --bad-bg: rgba(176, 47, 34, 0.1);
   --bad-line: rgba(176, 47, 34, 0.4);
-  --warn: #6f4700;
-  /* The edge of a picture panel: on the grey page black already stands out; on the dark page it needs a lighter line. */
-  --stage-edge: #33332f;
-  --sun-on: #1a1407;
+  --warn: #6f4f00;
+  /* The edge of a picture panel: on the light page black already stands out; on the dark page it needs a lighter line. */
+  --stage-edge: #2a2c31;
   --stage: #000000;
-  --stage-ink: #f3f2ee;
-  --stage-ink-2: #c6c5c0;
-  --stage-line: #33332f;
-  --stage-sun: #f5b63a;
-  --stage-earth: #6aa9ff;
-  --hill: #6d6962;
-  --hill-edge: #e9e3d7;
+  --stage-ink: #f5f5f3;
+  --stage-ink-2: #c6c8cc;
+  --stage-line: #2b2d33;
+  --stage-sun: #f3efe4;
+  --stage-earth: #7fa9ff;
+  --hill: #55585f;
+  --hill-edge: #dfe1e6;
   color-scheme: light;
 }
 
@@ -52,28 +57,34 @@
   :root[data-theme="dark"],
   .theme-dark {
     /* Near-black, one step above the stages' true black; plates one step above the page, with a hairline edge. */
-    --page: #07080a;
-    --surface: #0f1013;
-    --surface-2: #17181c;
-    --line: #2a2b30;
-    --line-strong: #6b6c71;
-    --stage-edge: #48494e;
-    --ink: #f3f2ee;
-    --ink-2: #c6c5c0;
-    /* Secondary text a step brighter than before, for a classroom's projector (13.3): 8:1 on the plates. */
-    --ink-3: #aeada8;
-    --sun: #f5b63a;
-    --sun-ink: #f5b63a;
-    --sun-hover: #ffc65c;
-    --earth: #6aa9ff;
-    --earth-ink: #8dbdff;
-    --good: #46c98b;
-    --good-bg: rgba(70, 201, 139, 0.1);
-    --good-line: rgba(70, 201, 139, 0.4);
-    --bad: #ff7d72;
-    --bad-bg: rgba(255, 125, 114, 0.09);
-    --bad-line: rgba(255, 125, 114, 0.4);
-    --warn: #f5b63a;
+    --page: #050506;
+    --surface: #0c0d10;
+    --surface-2: #15171b;
+    --line: #2a2d33;
+    --line-strong: #70747c;
+    --stage-edge: #46494f;
+    --ink: #f5f5f3;
+    --ink-2: #c9cbcf;
+    --ink-3: #9fa3aa;
+    --primary: #f5f5f3;
+    --primary-on: #050506;
+    --primary-hover: #ffffff;
+    --accent: #7fa9ff;
+    --accent-ink: #a8c6ff;
+    --glow: 127 169 255;
+    --glow-strength: 0.5;
+    --sun: #ebe8df;
+    --sun-ink: #ebe8df;
+    --sun-hover: #ffffff;
+    --earth: #7fa9ff;
+    --earth-ink: #a8c6ff;
+    --good: #63d39b;
+    --good-bg: rgba(99, 211, 155, 0.1);
+    --good-line: rgba(99, 211, 155, 0.4);
+    --bad: #ff8a80;
+    --bad-bg: rgba(255, 138, 128, 0.09);
+    --bad-line: rgba(255, 138, 128, 0.4);
+    --warn: #e9cf8f;
     color-scheme: dark;
   }
 }
@@ -89,7 +100,10 @@
   --color-ink-3: var(--ink-3);
   --color-sun: var(--sun);
   --color-sun-ink: var(--sun-ink);
-  --color-sun-on: var(--sun-on);
+  --color-primary: var(--primary);
+  --color-primary-on: var(--primary-on);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
   --color-sun-hover: var(--sun-hover);
   --color-earth: var(--earth);
   --color-earth-ink: var(--earth-ink);
@@ -108,8 +122,12 @@
   --color-stage-sun: var(--stage-sun);
   --color-stage-earth: var(--stage-earth);
   --color-hill: var(--hill);
-  --font-display: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
+  /* Titles: a high-contrast serif with a true italic (the Default Lingo look); a pixel face for the odd accent; Plex for reading and its mono for labels. */
+  --font-display: var(--font-serif), "Instrument Serif", Georgia, serif;
+  --font-pixel: var(--font-pixelify), "Pixelify Sans", ui-monospace, monospace;
   --font-text: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 html {
@@ -120,19 +138,89 @@ html {
 }
 
 :focus-visible {
-  outline: 2px solid var(--sun-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-/* On a picture panel the ring is the bright gold in both themes: the dark gold of the light theme would vanish on black. */
+
+::selection {
+  background: rgb(var(--glow) / 0.35);
+  color: var(--ink);
+}
+
+/*
+ * The theme switch (ThemeSwitch): where the browser has view transitions, the new theme opens as a circle from the
+ * switch (lib/theme.ts animates it); the old one stays still beneath it. Without them, colours cross-fade.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+:root.theme-fading,
+:root.theme-fading * {
+  transition:
+    background-color 0.5s var(--ease-out-expo),
+    color 0.5s var(--ease-out-expo),
+    border-color 0.5s var(--ease-out-expo),
+    fill 0.5s var(--ease-out-expo),
+    stroke 0.5s var(--ease-out-expo) !important;
+}
+/* On a picture panel the ring is the bright blue in both themes: the deep blue of the light theme would vanish on black. */
 .stage :focus-visible,
 [data-stage] :focus-visible {
-  outline-color: var(--stage-sun);
+  outline-color: var(--stage-earth);
+}
+
+/* The few things that move by themselves: Luna's pet breathes and blinks, a live dot pulses, a hero title comes into focus. */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgb(var(--glow) / 0.6); }
+  50% { opacity: 0.55; box-shadow: 0 0 0 6px rgb(var(--glow) / 0); }
+}
+@keyframes focus-in {
+  from { opacity: 0; filter: blur(14px); letter-spacing: 0.04em; }
+  to { opacity: 1; filter: blur(0); }
+}
+@keyframes talk {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1.1); }
+}
+@keyframes dash {
+  to { stroke-dashoffset: -36; }
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(60px); }
+}
+/* Round the low circle of "The Sun never climbs": behind, to the left, in front (under the hills), and back. */
+@keyframes orbit-sun {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-128px, -9px); }
+  50% { transform: translate(-256px, 1px); }
+  75% { transform: translate(-128px, 31px); }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
     animation: none !important;
+  }
+  [data-reveal="hidden"] {
+    opacity: 1;
+    transform: none;
+    filter: none;
   }
 }
 
@@ -148,6 +236,7 @@ html {
       padding-inline: 16px;
     }
   }
+  /* Controls: hairline outlines that light up in the accent on hover, and a white (black on paper) primary that glows. */
   .btn {
     display: inline-flex;
     align-items: center;
@@ -162,22 +251,33 @@ html {
     font-size: 16px;
     font-weight: 500;
     white-space: nowrap;
+    cursor: pointer;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.3s ease,
+      color 0.2s ease;
   }
   .btn:hover {
     background: var(--surface-2);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgb(var(--glow) / 0.25), 0 0 22px -6px rgb(var(--glow) / var(--glow-strength));
   }
   .btn:disabled {
     opacity: 0.5;
+    cursor: default;
   }
   .btn-primary {
-    background: var(--sun);
-    border-color: var(--sun);
-    color: var(--sun-on);
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-on);
     font-weight: 600;
   }
   .btn-primary:hover {
-    background: var(--sun-hover);
-    border-color: var(--sun-hover);
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
+    color: var(--primary-on);
+    box-shadow: 0 0 0 1px rgb(var(--glow) / 0.5), 0 0 32px -2px rgb(var(--glow) / var(--glow-strength));
   }
   .btn-ink {
     background: var(--ink);
@@ -194,6 +294,16 @@ html {
     padding: 0 16px;
     font-size: 15px;
   }
+  /* The arrow in a call to action slides on while the pointer is on it. */
+  .btn .arrow,
+  .link-arrow .arrow {
+    transition: transform 0.3s var(--ease-out-expo);
+  }
+  .btn:hover .arrow,
+  .link-arrow:hover .arrow,
+  .group:hover .arrow {
+    transform: translateX(4px);
+  }
   .field {
     height: 52px;
     padding: 0 14px;
@@ -202,6 +312,11 @@ html {
     background: var(--surface);
     color: var(--ink);
     font-size: 16px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgb(var(--glow) / 0.2);
   }
   /* Radii follow the kind of thing: pictures 6 px, panels and controls 8 px, label plates 4 to 5 px. */
   .panel {
@@ -223,13 +338,76 @@ html {
     background: var(--stage);
     color: var(--stage-ink);
   }
-  /* Display type: the grotesque at 87.5 % width, tall and compact with the letters still open. The size comes from utilities. */
+  /*
+   * Display type: the high-contrast serif, its one weight, never thickened by the browser (a "font-semibold" on a
+   * title leaves it as drawn). Its italic carries the stress; the size comes from utilities.
+   */
   .display {
-    font-family: var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif;
-    font-stretch: 87.5%;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: 0;
+    font-family: var(--font-serif), "Instrument Serif", Georgia, serif;
+    font-weight: 400;
+    font-synthesis: none;
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+  }
+  .display em,
+  .display i {
+    font-style: italic;
+  }
+  /* A word set in the pixel face, as Default Lingo sets a letter or two in its pixel cut. */
+  .pixel {
+    font-family: var(--font-pixelify), "Pixelify Sans", ui-monospace, monospace;
+    font-style: normal;
+    letter-spacing: -0.02em;
+  }
+  /* A small label in capitals, spaced like an instrument's readout. */
+  .eyebrow {
+    font-family: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .mono {
+    font-family: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+  }
+  /* The accent's light on a word or a mark. */
+  .text-glow {
+    text-shadow: 0 0 18px rgb(var(--glow) / var(--glow-strength));
+  }
+  .glow {
+    box-shadow: 0 0 0 1px rgb(var(--glow) / 0.3), 0 0 28px -6px rgb(var(--glow) / var(--glow-strength));
+  }
+  /* A faint survey grid behind a section, like the plate of a star chart; it fades out at the edges. */
+  .hud-grid {
+    background-image:
+      linear-gradient(to right, rgb(127 127 140 / 0.07) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(127 127 140 / 0.07) 1px, transparent 1px);
+    background-size: 80px 80px;
+    mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 40%, transparent 100%);
+  }
+  /* A section's heading comes up into place once, as it scrolls into view (Reveal). */
+  [data-reveal] {
+    transition:
+      opacity 0.9s var(--ease-out-expo),
+      transform 0.9s var(--ease-out-expo),
+      filter 0.9s var(--ease-out-expo);
+  }
+  [data-reveal="hidden"] {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(6px);
+  }
+  /* A link that underlines from the left while the pointer is on it. */
+  .link-line {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 0.35s var(--ease-out-expo), color 0.2s ease;
+  }
+  .link-line:hover,
+  .link-line[aria-current="page"] {
+    background-size: 100% 1px;
   }
   /*
    * Centres a chart label on a point; a label too wide for the room there stays inside the picture. Auto
@@ -276,6 +454,7 @@ html {
     border-radius: 7px;
     border: 3px solid var(--ink);
     background: var(--surface);
+    box-shadow: 0 0 12px rgb(var(--glow) / 0.45);
   }
   .time-range::-moz-range-thumb {
     width: 8px;
@@ -298,24 +477,31 @@ html {
 .brief {
   --page: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f1efea;
-  --line: #c8c4bc;
-  --line-strong: #a9a59b;
+  --surface-2: #f3f3f1;
+  --line: #cfcfcb;
+  --line-strong: #a3a5aa;
   --ink: #111111;
   --ink-2: #3a3a3a;
   --ink-3: #6a6a6a;
-  --sun: #a06a00;
-  --sun-ink: #8a5a00;
-  --sun-hover: #8a5a00;
-  --earth: #2f6fdd;
-  --earth-ink: #1f57b8;
+  --primary: #111111;
+  --primary-on: #ffffff;
+  --primary-hover: #3a3a3a;
+  --accent: #2f62e0;
+  --accent-ink: #1f4fc4;
+  --glow: 47 98 224;
+  --glow-strength: 0;
+  --sun: #26251f;
+  --sun-ink: #26251f;
+  --sun-hover: #000000;
+  --earth: #2f62e0;
+  --earth-ink: #1f4fc4;
   --good: #157a55;
   --good-bg: rgba(21, 122, 85, 0.08);
   --good-line: rgba(21, 122, 85, 0.35);
   --bad: #b83c3c;
   --bad-bg: rgba(184, 60, 60, 0.07);
   --bad-line: rgba(184, 60, 60, 0.35);
-  --warn: #8a5a00;
+  --warn: #6f4f00;
   color-scheme: light;
   background: var(--page);
   color: var(--ink);

@@ -13,32 +13,29 @@ function sources(dir = path.resolve(process.cwd(), 'src')): [string, string][] {
   return out;
 }
 
-describe('the space look (spec 6)', () => {
+describe('the Moonstone look (spec 23, after spec 6)', () => {
   const all = sources();
+  const css = fs.readFileSync(path.resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
 
-  it('blurs nothing behind a plate', () => {
-    for (const [file, text] of all) expect(text, file).not.toMatch(/backdrop-blur|backdrop-filter|filter:\s*blur/);
+  it('blurs nothing behind a plate: a backdrop blur over the live scenes would cost every frame', () => {
+    for (const [file, text] of all) expect(text, file).not.toMatch(/backdrop-blur|backdrop-filter/);
   });
 
-  it('paints no gradients; the compass strip fades its ends with a mask and the radio band is striped, both kept', () => {
-    const kept = new Map([
-      ['src/components/stand/StandCanvas.tsx', 1],
-      ['src/components/explore/TimeBar.tsx', 1],
-    ]);
+  it('glows only in the accent’s own light: every glow on the page is the accent’s RGB, a blue or white of the palette', () => {
+    // Shadows and halos written as utilities name rgb(var(--glow)...) or one of the palette's own blues and whites.
+    const allowed = /rgb\(var\(--glow\)|rgba?\((?:127,\s*169,\s*255|243,\s*239,\s*228|235_232_223|0,\s*0,\s*0)|#7fa9ff|#f3efe4|#000/;
     for (const [file, text] of all) {
-      const found = text.match(/bg-linear|bg-gradient|bg-radial|bg-conic|linear-gradient|radial-gradient|conic-gradient/g) ?? [];
-      expect(found.length, file).toBe(kept.get(file) ?? 0);
+      for (const m of text.matchAll(/shadow-\[([^\]]+)\]/g)) expect(m[1], `${file}: ${m[0]}`).toMatch(allowed);
     }
   });
 
-  it('casts no glow or shadow on the page: the Sun’s glare and Earth’s air are drawn in the scenes', () => {
-    // The stand view's star names and its hint keep a black halo for legibility over the sky: an outline, not a glow.
-    for (const [file, text] of all) expect(text, file).not.toMatch(/\bshadow-(?:sm|md|lg|xl|2xl|inner|\[)|drop-shadow|box-shadow|text-shadow:(?!0_0_4px_#000\])/);
-  });
-
-  it('plays nothing by itself outside the arrival: no keyframes, no animation classes (spec 6)', () => {
+  it('defines its motion once, in globals.css, and every keyframe is stopped under reduced motion', () => {
+    for (const [file, text] of all) if (file !== 'src/app/globals.css') expect(text, file).not.toMatch(/@keyframes/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\* \{[^}]*animation: none !important/);
+    // Every animation a component names is one globals.css defines.
+    const defined = new Set([...css.matchAll(/@keyframes ([a-z-]+)/g)].map((m) => m[1]));
     for (const [file, text] of all) {
-      expect(text, file).not.toMatch(/@keyframes|\banimate-[a-z]|\breveal-(?:line|after)\b/);
+      for (const m of text.matchAll(/animate-\[([a-z-]+)_/g)) expect(defined.has(m[1]), `${file}: ${m[1]}`).toBe(true);
     }
   });
 });

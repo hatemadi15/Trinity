@@ -29,8 +29,14 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const THEMED = ['--page', '--surface', '--surface-2', '--line', '--line-strong', '--ink', '--ink-2', '--ink-3', '--sun', '--sun-ink', '--sun-hover', '--earth', '--earth-ink', '--good', '--good-bg', '--good-line', '--bad', '--bad-bg', '--bad-line', '--warn', '--stage-edge'];
-const FIXED = ['--sun-on', '--stage', '--stage-ink', '--stage-ink-2', '--stage-line', '--stage-sun', '--stage-earth', '--hill', '--hill-edge'];
+const THEMED = ['--page', '--surface', '--surface-2', '--line', '--line-strong', '--ink', '--ink-2', '--ink-3', '--primary', '--primary-on', '--primary-hover', '--accent', '--accent-ink', '--glow', '--glow-strength', '--sun', '--sun-ink', '--sun-hover', '--earth', '--earth-ink', '--good', '--good-bg', '--good-line', '--bad', '--bad-bg', '--bad-line', '--warn', '--stage-edge'];
+const FIXED = ['--stage', '--stage-ink', '--stage-ink-2', '--stage-line', '--stage-sun', '--stage-earth', '--hill', '--hill-edge'];
+/** A hex colour's hue saturation: 0 for a grey, so "black and white" can be checked. */
+function chroma(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return (Math.max(...ch) - Math.min(...ch)) / 255;
+}
 
 describe('theme tokens', () => {
   const light = block(':root');
@@ -44,18 +50,32 @@ describe('theme tokens', () => {
     for (const t of FIXED) expect(light[t], t).toBeTruthy();
   });
 
-  it('matches the approved values: the light page, the near-black dark page and its plates, ink, the stage and the two identity colours', () => {
-    expect(light['--page']).toBe('#dedcd6');
-    expect(dark['--page']).toBe('#07080a');
-    expect(dark['--surface']).toBe('#0f1013');
-    expect(dark['--surface-2']).toBe('#17181c');
-    expect(dark['--ink-3']).toBe('#aeada8');
+  it('matches the approved Moonstone values (spec 23): paper and near-black pages, black and white ink, a black stage and one blue', () => {
+    expect(light['--page']).toBe('#eeede9');
+    expect(dark['--page']).toBe('#050506');
+    expect(dark['--surface']).toBe('#0c0d10');
+    expect(dark['--surface-2']).toBe('#15171b');
     expect(light['--surface']).toBe('#ffffff');
-    expect(light['--ink']).toBe('#000000');
-    expect(dark['--ink']).toBe('#f3f2ee');
+    expect(light['--ink']).toBe('#0b0b0c');
+    expect(dark['--ink']).toBe('#f5f5f3');
     expect(light['--stage']).toBe('#000000');
-    expect(light['--sun']).toBe('#f2b134');
-    expect(dark['--earth']).toBe('#6aa9ff');
+    expect(dark['--accent']).toBe('#7fa9ff');
+    expect(dark['--earth']).toBe(dark['--accent']);
+    expect(light['--earth']).toBe(light['--accent']);
+    // The glow is the accent's own light, as an RGB triplet for rgb(var(--glow) / alpha).
+    expect(dark['--glow']).toBe('127 169 255');
+  });
+
+  it('keeps everything but the accent and the power verdict black and white, in both themes (spec 23)', () => {
+    for (const t of [light, dark]) {
+      for (const k of ['--page', '--surface', '--surface-2', '--line', '--line-strong', '--ink', '--ink-2', '--ink-3', '--primary', '--primary-on', '--sun', '--stage-edge']) expect(chroma(t[k]), k).toBeLessThanOrEqual(0.06);
+      expect(chroma(t['--accent'])).toBeGreaterThan(0.3);
+    }
+    for (const k of ['--stage', '--stage-ink', '--stage-ink-2', '--stage-line', '--stage-sun', '--hill', '--hill-edge']) expect(chroma(light[k]), k).toBeLessThanOrEqual(0.06);
+  });
+
+  it('gives the primary action 7:1 for its words on its fill, in both themes', () => {
+    for (const t of [light, dark]) expect(contrast(t['--primary-on'], t['--primary'])).toBeGreaterThanOrEqual(7);
   });
 
   it('gives the dark values to anything inside .theme-dark in either theme, so the time bar under the black sky stays dark', () => {
@@ -79,10 +99,11 @@ describe('theme tokens', () => {
     expect(contrast(dark['--line-strong'], dark['--page'])).toBeGreaterThanOrEqual(3);
   });
 
-  it('draws the focus ring in the bright gold on a picture panel, where the dark gold of the light theme would vanish', () => {
-    expect(contrast(light['--sun-ink'], light['--stage'])).toBeLessThan(3);
-    expect(contrast(light['--stage-sun'], light['--stage'])).toBeGreaterThanOrEqual(3);
-    expect(css).toMatch(/\.stage :focus-visible,\s*\[data-stage\] :focus-visible \{[^}]*outline-color: var\(--stage-sun\)/);
+  it('draws the focus ring in the accent, and the bright blue on a picture panel, where the deep blue of the light theme would fade', () => {
+    expect(css).toMatch(/:focus-visible \{\s*outline: 2px solid var\(--accent\)/);
+    expect(contrast(light['--stage-earth'], light['--stage'])).toBeGreaterThanOrEqual(3);
+    expect(contrast(dark['--accent'], dark['--page'])).toBeGreaterThanOrEqual(3);
+    expect(css).toMatch(/\.stage :focus-visible,\s*\[data-stage\] :focus-visible \{[^}]*outline-color: var\(--stage-earth\)/);
   });
 
   it('gives body text 7:1 and secondary text 4.5:1 on the page and its plates, in both themes (spec 6)', () => {
@@ -96,7 +117,8 @@ describe('theme tokens', () => {
         ['--sun-ink', '--page'], ['--earth-ink', '--page'], ['--good', '--page'], ['--bad', '--page'],
       ];
       for (const [fg, bg] of coloured) expect(contrast(t[fg], t[bg]), `${name} ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(light['--sun-on'], t['--sun']), `${name} text on the Sun fill`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(t['--accent-ink'], t['--page']), `${name} --accent-ink on --page`).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(t['--accent-ink'], t['--surface']), `${name} --accent-ink on --surface`).toBeGreaterThanOrEqual(4.5);
     }
     expect(contrast(light['--stage-ink'], light['--stage'])).toBeGreaterThanOrEqual(7);
     expect(contrast(light['--stage-ink-2'], light['--stage'])).toBeGreaterThanOrEqual(4.5);
@@ -149,14 +171,19 @@ describe('globals.css layering', () => {
     expect(css).toMatch(/\.field \{[^}]*border-radius: 8px/);
   });
 
-  it('sets display type at 87.5 % width and weight 700, without tightening the letters further', () => {
-    expect(css).toMatch(/\.display \{[^}]*font-stretch: 87\.5%/);
-    expect(css).toMatch(/\.display \{[^}]*font-weight: 700/);
-    expect(css).toMatch(/\.display \{[^}]*letter-spacing: 0;/);
+  it('sets display type in the serif at its one weight, never thickened by the browser (spec 23)', () => {
+    expect(css).toMatch(/\.display \{[^}]*font-family: var\(--font-serif\)/);
+    expect(css).toMatch(/\.display \{[^}]*font-weight: 400/);
+    expect(css).toMatch(/\.display \{[^}]*font-synthesis: none/);
   });
 
-  it('declares no motion of its own, and switches every transition off under reduced motion', () => {
-    expect(css).not.toMatch(/@keyframes|\.reveal-/);
-    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\* \{[^}]*animation: none !important/);
+  it('switches every animation and transition off under reduced motion, and shows what Reveal would bring in', () => {
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{\s*\* \{[^}]*transition: none !important;[^}]*animation: none !important/);
+    expect(css).toMatch(/prefers-reduced-motion: reduce\) \{[\s\S]*\[data-reveal="hidden"\] \{\s*opacity: 1;/);
+  });
+
+  it('opens a new theme as a circle where view transitions exist, and cross-fades its colours where they do not', () => {
+    expect(css).toMatch(/::view-transition-old\(root\),\s*::view-transition-new\(root\) \{\s*animation: none;/);
+    expect(css).toMatch(/:root\.theme-fading,\s*:root\.theme-fading \* \{\s*transition:/);
   });
 });

@@ -54,6 +54,46 @@ export function storedTheme(): Theme {
   return resolveTheme(window.location.search, read('sessionStorage', THEME_VISIT_KEY), read('localStorage', THEME_KEY));
 }
 
+/** Where a theme change opens from, in viewport px: the switch that was pressed. */
+export interface ThemeOrigin {
+  x: number;
+  y: number;
+}
+
+type TransitionDoc = Document & { startViewTransition?: (update: () => void) => { ready: Promise<void> } };
+
+/**
+ * Changes the theme smoothly (spec 23). Where the browser has view transitions, the new theme opens as a circle from
+ * `origin` over the old one, in 0.7 s; elsewhere every colour cross-fades in 0.5 s (the `theme-fading` class in
+ * globals.css). With reduced motion, or when nothing would change, it simply switches.
+ */
+export function transitionTheme(theme: Theme, origin?: ThemeOrigin): void {
+  const root = document.documentElement;
+  const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduced || currentTheme() === theme) {
+    applyTheme(theme);
+    return;
+  }
+  const doc = document as TransitionDoc;
+  if (typeof doc.startViewTransition === 'function' && typeof root.animate === 'function') {
+    const x = origin?.x ?? window.innerWidth - 40, y = origin?.y ?? 34;
+    const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    const t = doc.startViewTransition(() => applyTheme(theme));
+    t.ready
+      .then(() => {
+        root.animate(
+          { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
+          { duration: 700, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', pseudoElement: '::view-transition-new(root)' },
+        );
+      })
+      .catch(() => {});
+    return;
+  }
+  root.classList.add('theme-fading');
+  applyTheme(theme);
+  window.setTimeout(() => root.classList.remove('theme-fading'), 550);
+}
+
 /** Switches the page and remembers the choice; storage may be unavailable (private mode), the page still switches. */
 export function applyTheme(theme: Theme, remember = true): void {
   document.documentElement.setAttribute('data-theme', theme);

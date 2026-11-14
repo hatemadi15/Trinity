@@ -4,11 +4,15 @@ import type { CSSProperties, ReactNode } from 'react';
  * Three small drawings for "Why the south pole is hard". Illustrations, not data: they always sit on
  * the black stage, whatever the theme. Their labels are page text laid over the drawing, so the words
  * keep their size when the drawing gets smaller. Every drawing starts with its own title line.
+ *
+ * Each plays what it says while the pointer is on its card (spec 23, a `group` around it): the Sun runs its low
+ * circle, the light runs to the summit, Earth bobs behind the hills. Still otherwise, and with reduced motion.
  */
+const ANT = 'group-hover:animate-[dash_1.4s_linear_infinite]';
 
 function Frame({ children, labels }: { children: ReactNode; labels: ReactNode }) {
   return (
-    <div aria-hidden="true" className="stage">
+    <div aria-hidden="true" className="stage transition-[border-color,box-shadow] duration-500 group-hover:border-[#7fa9ff]/60 group-hover:shadow-[0_0_40px_-14px_rgba(127,169,255,0.7)]">
       <svg viewBox="0 0 380 190" className="block w-full">
         {children}
       </svg>
@@ -36,9 +40,9 @@ export function SunNeverClimbs() {
         </div>
       }
     >
-      <ellipse cx="190" cy="118" rx="150" ry="20" fill="none" stroke="var(--stage-sun)" strokeWidth="2" strokeDasharray="3 6" />
+      <ellipse cx="190" cy="118" rx="150" ry="20" fill="none" stroke="var(--stage-sun)" strokeWidth="2" strokeDasharray="3 6" className={ANT} />
+      <circle cx="318" cy="107" r="11" fill="var(--stage-sun)" className="group-hover:animate-[orbit-sun_6s_ease-in-out_infinite]" style={{ filter: 'drop-shadow(0 0 6px rgba(243,239,228,0.8))' }} />
       <path d="M0 132 C 60 120, 110 138, 170 128 S 290 118, 380 130 L 380 190 L 0 190 Z" fill="var(--hill)" />
-      <circle cx="318" cy="107" r="11" fill="var(--stage-sun)" />
     </Frame>
   );
 }
@@ -66,9 +70,9 @@ export function HillsDecide({ rimPct, sitePct, km, site = 'Rim 2' }: { rimPct: n
       <path d="M0 150 L 70 146 L 130 80 L 176 62 L 214 96 L 262 150 L 380 146 L 380 190 L 0 190 Z" fill="var(--hill)" />
       <path d="M214 96 L 262 150 L 380 146 L 380 190 L 262 190 Z" fill="#17181a" />
       <circle cx="38" cy="96" r="11" fill="var(--stage-sun)" />
-      <line x1="52" y1="94" x2="170" y2="64" stroke="var(--stage-sun)" strokeWidth="1.5" strokeDasharray="4 5" />
-      <circle data-place="rim" cx="176" cy="60" r="8" fill="#46c98b" stroke="var(--stage-ink)" strokeWidth="1.5" />
-      <circle data-place="site" cx="310" cy="146" r="8" fill="#ff7d72" stroke="var(--stage-ink)" strokeWidth="1.5" />
+      <line x1="52" y1="94" x2="170" y2="64" stroke="var(--stage-sun)" strokeWidth="1.5" strokeDasharray="4 5" className={ANT} />
+      <circle data-place="rim" cx="176" cy="60" r="8" fill="#63d39b" stroke="var(--stage-ink)" strokeWidth="1.5" className="origin-center [transform-box:fill-box] transition-transform duration-500 group-hover:scale-125" />
+      <circle data-place="site" cx="310" cy="146" r="8" fill="#ff8a80" stroke="var(--stage-ink)" strokeWidth="1.5" />
     </Frame>
   );
 }
@@ -84,10 +88,10 @@ export function EarthSetsToo() {
         </div>
       }
     >
-      <path d="M0 128 C 70 116, 120 136, 190 122 S 300 110, 380 126 L 380 190 L 0 190 Z" fill="var(--hill)" />
-      <circle cx="250" cy="92" r="13" fill="var(--stage-earth)" />
+      <circle cx="250" cy="92" r="13" fill="var(--stage-earth)" className="group-hover:animate-[bob_3.2s_ease-in-out_infinite]" style={{ filter: 'drop-shadow(0 0 8px rgba(127,169,255,0.8))' }} />
       <path d="M286 150 L 286 86 M 279 95 L 286 86 L 293 95 M 279 141 L 286 150 L 293 141" stroke="var(--stage-ink)" strokeOpacity="0.8" strokeWidth="2" fill="none" />
-      <circle cx="250" cy="152" r="13" fill="none" stroke="var(--stage-earth)" strokeWidth="2" strokeDasharray="3 4" />
+      <path d="M0 128 C 70 116, 120 136, 190 122 S 300 110, 380 126 L 380 190 L 0 190 Z" fill="var(--hill)" />
+      <circle cx="250" cy="152" r="13" fill="none" stroke="var(--stage-earth)" strokeWidth="2" strokeDasharray="3 4" className="transition-opacity duration-300 group-hover:opacity-0" />
     </Frame>
   );
 }

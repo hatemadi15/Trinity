@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from '@/components/AppFrame';
 import { DataProblem, SYNC_HINT } from '@/components/DataProblem';
-import { Fold } from '@/components/Fold';
+import { MoonNebula } from '@/components/MoonNebula';
 import { PeriodControls } from '@/components/PeriodControls';
 import { ReliefMap, type MapPin } from '@/components/ReliefMap';
 import { Sources } from '@/components/Sources';
+import { Tip } from '@/components/Tip';
 import { HOME } from '@/lib/data/home';
 import { siteLabel, type Site } from '@/lib/data/loaders';
 import { useNavigate } from '@/lib/hooks/useNavigate';
@@ -56,10 +57,10 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
         onMouseLeave={() => onActive(null)}
         onFocus={() => onActive(site.id)}
         onBlur={() => onActive(null)}
-        className={`${COLUMNS} rounded-lg px-3 py-3.5 ${active ? 'bg-surface' : 'hover:bg-surface'}`}
+        className={`group ${COLUMNS} rounded-xl px-3 py-4 transition-[background-color,box-shadow] duration-300 ${active ? 'bg-surface shadow-[0_0_0_1px_rgb(var(--glow)/0.3),0_0_32px_-14px_rgb(var(--glow)/var(--glow-strength))]' : 'hover:bg-surface'}`}
       >
         <span>
-          <span className="block text-[17px] font-semibold leading-snug">{siteLabel(site)}</span>
+          <span className="block text-[17px] font-semibold leading-snug transition-colors group-hover:text-accent-ink">{siteLabel(site)}</span>
           {/* The day every figure of the row counts from, before the figures. */}
           {o?.best && (
             <span className="mt-0.5 block text-[15px] font-medium text-ink">
@@ -77,7 +78,7 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
               {o.afterSun > 0 ? (
                 <>
                   <span aria-hidden="true" className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-                    <span data-bar="sun" className="block h-full rounded-full bg-sun" style={{ width: `${Math.round(o.afterSun * 100)}%` }} />
+                    <span data-bar="sun" className="block h-full rounded-full bg-sun shadow-[0_0_8px_rgb(235_232_223/0.5)]" style={{ width: `${Math.round(o.afterSun * 100)}%` }} />
                   </span>
                   <b className="w-12 text-right font-semibold">{pct0(o.afterSun)}</b>
                 </>
@@ -90,7 +91,7 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
               {o.afterEarth > 0 ? (
                 <>
                   <span aria-hidden="true" className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-                    <span data-bar="earth" className="block h-full rounded-full bg-earth" style={{ width: `${Math.round(o.afterEarth * 100)}%` }} />
+                    <span data-bar="earth" className="block h-full rounded-full bg-earth shadow-[0_0_8px_rgb(var(--glow)/0.6)]" style={{ width: `${Math.round(o.afterEarth * 100)}%` }} />
                   </span>
                   <b className="w-12 text-right font-semibold">{pct0(o.afterEarth)}</b>
                 </>
@@ -110,7 +111,7 @@ function Row({ site, o, href, startUtc, days, active, onActive }: { site: Site; 
             </span>
           </>
         )}
-        <svg viewBox="0 0 16 16" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="text-ink-3" aria-hidden="true">
+        <svg viewBox="0 0 16 16" width={16} height={16} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="text-ink-3 transition-[transform,color] duration-300 group-hover:translate-x-1 group-hover:text-accent-ink" aria-hidden="true">
           <path d="M6 3l5 5-5 5" />
         </svg>
       </Link>
@@ -136,8 +137,8 @@ function Elsewhere({ store, navigate }: { store: StoreApi<ExploreState>; navigat
     else navigate('/explore');
   }
   return (
-    <section aria-labelledby="h-elsewhere" className="panel mt-10">
-      <h2 id="h-elsewhere" className="display text-[23px] font-semibold">
+    <section aria-labelledby="h-elsewhere" className="panel mt-12 rounded-2xl">
+      <h2 id="h-elsewhere" className="display text-[32px]">
         Somewhere else
       </h2>
       <p className="mt-1.5 max-w-[46em] text-ink-2">Any point south of 60° S works. The hills around it are read from NASA elevation data in your browser, which takes a few seconds.</p>
@@ -168,6 +169,9 @@ function Elsewhere({ store, navigate }: { store: StoreApi<ExploreState>; navigat
     </section>
   );
 }
+
+/** The title band's sky: the planet and the bright gas stand right, clear of the title at the lower left. */
+const SKY = { planetX: 0.82, planetY: 0.55, planetRadius: 0.12, bandAngle: 0.2, bandOffset: 0.1, sparkles: 6 };
 
 /** "Choose a landing site": every catalogue site with its sunlight, its contact with Earth and its longest time with power. */
 export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi<ExploreState>; navigate?: (href: string) => void }) {
@@ -239,91 +243,134 @@ export function SitesView({ store = exploreStore, navigate }: { store?: StoreApi
 
   return (
     <AppFrame>
-      <main className="wrap pb-16 pt-10">
-        <h1 data-band-end="" className="display text-[40px] leading-tight">Choose a landing site</h1>
-        <p className="mt-3 max-w-[46em] text-lg text-ink-2">{catalogue.length} places on the Moon, most of them near the south pole. Pick one to see its forecast.</p>
-        {/* What a row counts from, the lander, the order, in plain sentences: the figures of a row differ from Explore's
-            first day, and this says why (both readers, part C read 1). It is one tap away, since it is read once. */}
-        <Fold label="How these figures are counted" className="mt-3">
-          <p className="max-w-[52em] text-[15px] text-ink-2">
-            Each site&apos;s figures are for landing on its best day of the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, the day under its name, and the{' '}
-            {s.days} days after it, for one lander: {landerLine(s.params.power)}. Explore and Compare start on the first day, so their figures can differ. In each group, the
-            longest time with power comes first.
-          </p>
-        </Fold>
-        <div className="mt-6 flex flex-wrap items-end gap-4">
-          <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
-        </div>
-        {s.error && (
-          <p role="status" className="mt-3 text-warn">
-            {s.error}
-          </p>
-        )}
-
-        <div className="mt-8 grid items-start gap-10 xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
-          <section aria-label="Map of the sites" className="max-w-[520px] xl:sticky xl:top-6 xl:max-w-none">
-            <p className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
-              <span className="flex items-center gap-2">
-                <i className="h-3 w-3 rounded-full bg-good" />
-                two weeks or more with power
-              </span>
-              <span className="flex items-center gap-2">
-                <i className="h-3 w-3 rounded-full border-2 border-ink-3" />
-                less
-              </span>
+      <main className="pb-16">
+        {/* The page's title over the Moon's sky in halftone (spec 23). */}
+        <MoonNebula height="clamp(280px, 38svh, 380px)" params={SKY} scrim="left">
+          <div className="wrap flex h-full w-full flex-col justify-end pb-10">
+            <p className="eyebrow text-accent-ink">The south pole</p>
+            <h1 data-band-end="" className="display mt-3 text-[48px] leading-none sm:text-[72px]">
+              Choose a <em>landing site</em>
+            </h1>
+            <p className="mt-4 max-w-[46em] text-lg text-ink-2">{catalogue.length} places on the Moon, most of them near the south pole. Pick one to see its forecast.</p>
+          </div>
+        </MoonNebula>
+        {/* What this page does, in three steps, on the page itself rather than behind a tap (spec 23). What the
+            figures count from is one point away, on step 2's "i". */}
+        <ol aria-label="How to choose" className="wrap mt-8 grid gap-6 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)] md:gap-10">
+          <li className="border-t border-ink pt-4">
+            <p className="flex items-baseline gap-3">
+              <span className="pixel text-[20px] text-accent-ink">1</span>
+              <span className="display text-[28px] leading-none">Pick the dates</span>
             </p>
-            <ReliefMap pins={pins} activeId={active} onActive={setActive} nameAll />
-            <p className="mt-3 text-[15px] text-ink-2">
-              The south pole is at the centre of the map. Point at a row to find its site on the map.{offMap.length > 0 ? ` ${offMap.join(' and ')} lie outside this map.` : ''}
+            <p className="mt-2 text-ink-2">When the lander arrives, and for how long.</p>
+            <div className="mt-4 flex flex-wrap items-end gap-4">
+              <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
+            </div>
+          </li>
+          <li className="border-t border-line-strong pt-4">
+            <p className="flex items-baseline gap-3">
+              <span className="pixel text-[20px] text-accent-ink">2</span>
+              <span className="display text-[28px] leading-none">Compare the places</span>
+              <Tip label="How these figures are counted">
+                Each site&apos;s figures are for landing on its best day of the {s.days} days from {dateLong(s.startUtc, 0)} {s.startUtc.slice(0, 4)}, the day under its name, and the {s.days} days
+                after it, for one lander: {landerLine(s.params.power)}. Explore and Compare start on the first day, so their figures can differ. In each group, the longest time with power
+                comes first.
+              </Tip>
             </p>
-          </section>
+            <p className="mt-2 text-ink-2">Sunlight, radio contact with Earth and power, on each site&apos;s best landing day.</p>
+          </li>
+          <li className="border-t border-line-strong pt-4">
+            <p className="flex items-baseline gap-3">
+              <span className="pixel text-[20px] text-accent-ink">3</span>
+              <span className="display text-[28px] leading-none">Open one</span>
+            </p>
+            <p className="mt-2 text-ink-2">Click a row or a pin for its forecast, hour by hour.</p>
+          </li>
+        </ol>
+        <div className="wrap">
+          {s.error && (
+            <p role="status" className="mt-3 text-warn">
+              {s.error}
+            </p>
+          )}
 
-          <div>
-            {top && (
-              <p className="mb-8 text-[17px] text-ink">
-                Longest time with power in these days:{' '}
-                <Link href={siteHref(top.site.id, top.o, s.startUtc, s.days)} className="font-semibold underline decoration-line-strong underline-offset-4 hover:decoration-ink">
-                  {siteLabel(top.site)}
-                </Link>
-                , {top.o.best!.poweredHours >= s.days * 24 ? `all ${s.days} days` : spanShort(Math.round(top.o.best!.poweredHours))} if it lands on {dayMonth(s.startUtc, top.o.best!.hour)}.
+          <div className="mt-12 grid items-start gap-10 xl:grid-cols-[minmax(0,460px)_minmax(0,1fr)]">
+            <section aria-label="Map of the sites" className="max-w-[520px] xl:sticky xl:top-6 xl:max-w-none">
+              <p className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
+                <span className="flex items-center gap-2">
+                  <i className="h-3 w-3 rounded-full bg-good" />
+                  two weeks or more with power
+                </span>
+                <span className="flex items-center gap-2">
+                  <i className="h-3 w-3 rounded-full border-2 border-ink-3" />
+                  less
+                </span>
               </p>
-            )}
-            {groups.map((g, i) => (
-              <section key={g.title} aria-labelledby={`h-group-${i}`} className={i > 0 ? 'mt-10' : ''}>
-                <h2 id={`h-group-${i}`} className="display text-[23px] font-semibold">
-                  {g.title}
-                </h2>
-                <p className="mt-1 text-ink-2">{g.note}</p>
-                <div aria-hidden="true" className={`${COLUMNS} mt-4 border-b-2 border-ink px-3 pb-2 text-[15px] font-semibold text-ink-2`}>
-                  <span>Site</span>
-                  <span>Sunlight</span>
-                  <span>Earth in view (radio)</span>
-                  <span>Longest time with power</span>
-                  <span />
-                </div>
-                <ul className="divide-y divide-line-strong">
-                  {g.rows.map((site) => (
-                    <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
-                  ))}
-                </ul>
-                {/* Places that never see Earth get a heading of their own, so their place in the order explains itself. */}
-                {g.without.length > 0 && (
-                  <>
-                    <h3 className="mt-7 px-3 text-[17px] font-semibold text-ink">No contact with Earth in the first {s.days} days</h3>
-                    <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">These places keep power for a while but cannot reach Earth by radio then.</p>
-                    <ul className="divide-y divide-line-strong">
-                      {g.without.map((site) => (
-                        <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
-                      ))}
-                    </ul>
-                  </>
-                )}
-              </section>
-            ))}
-            {/* The figures come from horizons on LOLA's 20 m grid near the pole and its 80 m grid farther out, with DE440.
-                The places are NASA's Artemis III regions and the CLPS landings, the first two groups. */}
-            <Sources of={['lola', 'lola80', 'de440', 'artemis', 'clps']} />
-            <Elsewhere store={store} navigate={go} />
+              <ReliefMap pins={pins} activeId={active} onActive={setActive} nameAll />
+              <p className="mt-3 text-[15px] text-ink-2">
+                The south pole is at the centre of the map. Point at a row to find its site on the map.{offMap.length > 0 ? ` ${offMap.join(' and ')} lie outside this map.` : ''}
+              </p>
+            </section>
+
+            <div>
+              {top && (
+                <p className="mb-8 text-[17px] text-ink">
+                  Longest time with power in these days:{' '}
+                  <Link href={siteHref(top.site.id, top.o, s.startUtc, s.days)} className="font-semibold underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+                    {siteLabel(top.site)}
+                  </Link>
+                  , {top.o.best!.poweredHours >= s.days * 24 ? `all ${s.days} days` : spanShort(Math.round(top.o.best!.poweredHours))} if it lands on {dayMonth(s.startUtc, top.o.best!.hour)}.
+                </p>
+              )}
+              {groups.map((g, i) => (
+                <section key={g.title} aria-labelledby={`h-group-${i}`} className={i > 0 ? 'mt-10' : ''}>
+                  <h2 id={`h-group-${i}`} className="display text-[32px] leading-tight">
+                    {g.title}
+                  </h2>
+                  <p className="mt-1 text-ink-2">{g.note}</p>
+                  {/* The column heads, each with what it means one point away. The rows say their own heads to a screen reader. */}
+                  <div className={`${COLUMNS} mt-5 border-b border-ink px-3 pb-2 text-[15px] font-semibold text-ink-2`}>
+                    <span aria-hidden="true">Site</span>
+                    <span className="flex items-center gap-1.5">
+                      <span aria-hidden="true">Sunlight</span>
+                      <Tip label="What Sunlight means">The share of the days after landing when the Sun stands above the hills around the site, so its panels get light.</Tip>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span aria-hidden="true">Earth in view (radio)</span>
+                      <Tip label="What Earth in view means">The share of those days when Earth stands above the hills, so the lander can talk to Earth directly by radio.</Tip>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span aria-hidden="true">Longest time with power</span>
+                      <Tip label="What Longest time with power means" side="right">
+                        How long the example lander keeps its battery up, landing on the site&apos;s best day. Green: two weeks or more.
+                      </Tip>
+                    </span>
+                    <span />
+                  </div>
+                  <ul className="divide-y divide-line-strong">
+                    {g.rows.map((site) => (
+                      <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
+                    ))}
+                  </ul>
+                  {/* Places that never see Earth get a heading of their own, so their place in the order explains itself. */}
+                  {g.without.length > 0 && (
+                    <>
+                      <h3 className="mt-7 px-3 text-[17px] font-semibold text-ink">No contact with Earth in the first {s.days} days</h3>
+                      <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">These places keep power for a while but cannot reach Earth by radio then.</p>
+                      <ul className="divide-y divide-line-strong">
+                        {g.without.map((site) => (
+                          <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} />
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </section>
+              ))}
+              {/* The figures come from horizons on LOLA's 20 m grid near the pole and its 80 m grid farther out, with DE440.
+                  The places are NASA's Artemis III regions and the CLPS landings, the first two groups. */}
+              <Sources of={['lola', 'lola80', 'de440', 'artemis', 'clps']} />
+              <Elsewhere store={store} navigate={go} />
+            </div>
           </div>
         </div>
       </main>

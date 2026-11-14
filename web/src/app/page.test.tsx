@@ -11,34 +11,27 @@ const HEADLINE = 'See when a Moon lander has sunlight and a signal.';
 const pct = (n: number) => `${n} %`;
 
 describe('home page', () => {
-  it('says what the product does in the headline, offers one gold action there and says who it is for', () => {
+  it('says what the product does in the headline and offers one primary action there, named for where it goes', () => {
     render(<Home />);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(HEADLINE);
     const hero = screen.getByRole('region', { name: HEADLINE });
     // The arrival's first screen and its last each hold one gold action, each named for where it goes: the flight
     // down to the site, then the site's full forecast.
     const gold = hero.querySelectorAll('.btn-primary');
-    expect([...gold].map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+    expect([...gold].map((a) => [a.textContent!.replace('→', '').trim(), a.getAttribute('href')])).toEqual([
       ['Fly to the south pole', '/sites'],
       ['Open the full forecast', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
     ]);
     for (const beat of hero.querySelectorAll('[data-beat]')) expect(beat.querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
     // The challenge in plain words on the first screen: a forecast for landing sites and dates (spec 18.2), for more than two landers.
-    expect(hero.textContent).toMatch(/Earthrise is a forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth and how long a lander keeps power, for ready-made landers or your own\./);
-    // Who it is for, with the teachers' way in on the same line.
-    const audience = within(hero).getByText(/^For planners of NASA's commercial Moon landers, teachers/);
-    expect(audience.textContent).toBe("For planners of NASA's commercial Moon landers, teachers (start with How it works) and anyone curious.");
-    expect(within(audience).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
+    expect(hero.textContent).toMatch(/A forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth, and how long a lander keeps power\./);
     expect(hero.textContent).not.toMatch(/survives the night/);
+    // The first screen is a title card (spec 23): no proof line or audience line to read before the Moon.
+    expect(hero.textContent).not.toMatch(/Built on NASA|For planners of/);
   });
 
-  it('names the data and the check on the first screen with the figure the table of checks gives, so the page never disagrees with itself', () => {
+  it('gives the check against NASA’s positions in the table of checks, from the same field the data has', () => {
     render(<Home />);
-    const hero = screen.getByRole('region', { name: HEADLINE });
-    const proof = within(hero).getByText(/^Built on NASA LRO LOLA terrain and JPL DE440;/);
-    expect(proof.textContent).toBe(`Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to ${degreesText(HOME.facts.horizons_worst_el_deg)} and against real landers. See the checks`);
-    expect(within(proof).getByRole('link', { name: 'See the checks' }).getAttribute('href')).toBe('/validate');
-    // The first row of "Checked against NASA" gives the same figure, from the same field.
     const row = within(screen.getByRole('region', { name: 'Checked against NASA' })).getAllByRole('row')[1];
     expect(row.textContent).toContain(degreesText(HOME.facts.horizons_worst_el_deg));
   });
@@ -102,16 +95,14 @@ describe('home page', () => {
 
   it("keeps the forecast's explanation to a readable line length", () => {
     render(<Home />);
-    expect(screen.getByText(/^Read it from left to right/).className).toMatch(/\bmax-w-\[42em\]/);
+    expect(screen.getByText(/Read it from left to right/).className).toMatch(/\bmax-w-\[42em\]/);
   });
 
   it('explains how to read the forecast before it starts', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     expect(band.textContent).toMatch(/A ridge NASA shortlisted for astronauts\./);
-    expect(band.textContent).toMatch(
-      /Read it from left to right, one day at a time\. Heights are angles above the horizon: 5° is about the width of three fingers held at arm's length\. The grey is not one mountain: it is how high the hills stand in the direction of the Sun, or of Earth, that day\./,
-    );
+    expect(band.textContent).toMatch(/Read it from left to right, a day at a time: heights are angles above the horizon, and 5° is about three fingers at arm's length\. Point at the chart, or tab to it, to read any hour\./);
     expect(within(band).getAllByRole('listitem').map((li) => li.textContent)).toEqual(["the Sun's height", "Earth's height", 'dotted while set', 'the hills in its direction at that time']);
   });
 
@@ -137,7 +128,7 @@ describe('home page', () => {
     expect(why.textContent).toMatch(/Earth hangs in nearly the same direction in the sky/);
   });
 
-  it('starts from a real place: the computed shadow picture beside three places, each with a button to explore it', () => {
+  it('starts from a real place: the computed shadow picture beside three places, each one link to explore it', () => {
     render(<Home />);
     const places = screen.getByRole('region', { name: 'Start from a real place' });
     expect(places.textContent).toMatch(/A ridge NASA has shortlisted for astronauts, and two landers that reached the Moon in March 2025\. Explore any of them hour by hour\./);
@@ -163,9 +154,10 @@ describe('home page', () => {
     expect(within(places).getByText('Worked all 14 days')).toBeTruthy();
     const links = within(places).getAllByRole('link');
     expect(links.map((a) => a.getAttribute('aria-label'))).toEqual(['Open the forecast: de Gerlache Rim 2', 'Open the forecast: Athena lander, March 2025', 'Open the forecast: Blue Ghost lander, March 2025']);
-    expect(links.map((a) => a.textContent)).toEqual(['Open the forecast', 'Open the forecast', 'Open the forecast']);
+    // The whole row is the link, and says where it goes.
+    for (const a of links) expect(a.textContent).toMatch(/Open the forecast$/);
     expect(links.map((a) => a.getAttribute('href'))).toEqual(['/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30', '/explore?site=im2_athena&start=2025-03-06T18:00&days=30', '/explore?site=blue_ghost_m1&start=2025-03-02T09:00&days=30']);
-    for (const a of links) expect(a.className).toMatch(/(^| )btn( |$)/);
+    for (const a of links) expect(a.className).toMatch(/(^| )group( |$)/);
   });
 
   it('gives three checks against NASA as a table: the gap, what it is measured against and a yardstick', () => {
@@ -187,7 +179,7 @@ describe('home page', () => {
     expect(within(proof).getByRole('link', { name: /See every check/ }).getAttribute('href')).toBe('/validate');
   });
 
-  it('ends with a gold action to choose a landing site, named as the page it opens', () => {
+  it('ends with a primary action to choose a landing site, named as the page it opens', () => {
     render(<Home />);
     const end = screen.getByRole('region', { name: 'Try it on a landing site' });
     const cta = within(end).getByRole('link', { name: 'Choose a landing site' });
@@ -218,8 +210,7 @@ describe('home page', () => {
 
   it('underlines the links that stand alone, so they do not read as plain text', () => {
     render(<Home />);
-    // How it works is linked twice: from the first screen's audience line and from the three facts.
-    for (const name of [/See every check/, 'See the checks', 'How it works', 'compare sites', 'ask in plain words', 'print the brief', 'run it offline']) {
+    for (const name of [/See every check/, 'How it works', 'compare sites', 'ask in plain words', 'print the brief', 'run it offline']) {
       for (const link of within(screen.getByRole('main')).getAllByRole('link', { name })) expect(link.className).toMatch(/(^| )underline( |$)/);
     }
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
@@ -231,26 +222,27 @@ describe('home page', () => {
     expect(screen.getByRole('main').querySelectorAll('.text-ink-3')).toHaveLength(0);
   });
 
-  it('keeps instrument and programme names out of the main copy, but for the one line on the first screen that names the data and the check', () => {
+  it('keeps instrument and programme names out of the main copy: the footer names them', () => {
     render(<Home />);
-    const main = screen.getByRole('main');
-    // That line names the terrain, the positions and the check, for a reader who weighs a forecast by its sources; every other line keeps to plain words.
-    const proof = within(main).getByText(/^Built on NASA LRO LOLA terrain and JPL DE440;/);
-    expect(proof.textContent).toMatch(/LOLA.*DE440.*Horizons/);
-    expect((main.textContent ?? '').replace(proof.textContent ?? '', '')).not.toMatch(/LOLA|DE440|CLPS|Horizons|ephemeris|skyline/);
+    expect(screen.getByRole('main').textContent).not.toMatch(/LOLA|DE440|CLPS|Horizons|ephemeris|skyline/);
   });
 
-  it('folds the guide to reading the band behind "How to read this", one tap away', () => {
+  it('reads the forecast hour by hour, with no fold to open: by pointer or by the arrow keys, out loud to a screen reader (spec 23)', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
-    const toggle = within(band).getByRole('button', { name: /^How to read this/ });
-    expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    const guide = within(band).getByText(/Read it from left to right, one day at a time/, { selector: 'p' });
-    expect(guide.closest('[hidden]')).not.toBeNull();
-    expect(document.getElementById(toggle.getAttribute('aria-controls')!)!.contains(guide)).toBe(true);
-    expect(guide.textContent).toMatch(/5° is about the width of three fingers/);
-    fireEvent.click(toggle);
-    expect(guide.closest('[hidden]')).toBeNull();
+    expect(within(band).queryByRole('button', { name: /How to read this/ })).toBeNull();
+    const chart = within(band).getByRole('group', { name: /hour by hour/ });
+    fireEvent.keyDown(chart, { key: 'ArrowRight' });
+    const card = band.querySelector('[data-hour-card]')!;
+    expect(card.textContent).toMatch(/^1 Jan 2027, 01:00 UTC/);
+    expect(card.textContent).toMatch(/Sun .*up, (shining on the site|behind the hills|below the horizon)/);
+    expect(card.textContent).toMatch(/Earth .*up, (in view for radio|hidden by the hills|below the horizon)/);
+    // Shift steps a day.
+    fireEvent.keyDown(chart, { key: 'ArrowRight', shiftKey: true });
+    expect(band.querySelector('[data-hour-card]')!.textContent).toMatch(/^2 Jan 2027, 01:00 UTC/);
+    expect(within(band).getByText(/^2 Jan 2027, 01:00 UTC\. Sun/).getAttribute('aria-live') ?? within(band).getByText(/^2 Jan 2027, 01:00 UTC\. Sun/).closest('[aria-live]')).toBeTruthy();
+    fireEvent.keyDown(chart, { key: 'Escape' });
+    expect(band.querySelector('[data-hour-card]')).toBeNull();
   });
 
   it('every Explore link on the home page carries its start and its days, so a visit never opens on the period the last one used', () => {

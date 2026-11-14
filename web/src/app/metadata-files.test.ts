@@ -10,19 +10,18 @@ const attr = (source: string, tag: string, name: string) => new RegExp(`<${tag}\
 describe('the tab icon', () => {
   const icon = read('src/app/icon.svg');
 
-  it('is a 32 by 32 drawing of the header mark: Earth over the curved horizon', () => {
-    const mark = read('src/components/BrandMark.tsx');
+  it('is a 32 by 32 drawing of the header mark (spec 23): the Moon, its seas in grey, and Earth beyond it in the accent blue', () => {
     expect(icon).toMatch(/viewBox="0 0 32 32"/);
-    for (const [tag, name] of [['circle', 'cx'], ['circle', 'cy'], ['circle', 'r'], ['path', 'd']]) {
-      expect(attr(icon, tag, name), `${tag} ${name}`).toBeTruthy();
-      expect(attr(icon, tag, name), `${tag} ${name}`).toBe(attr(mark, tag, name));
-    }
+    const fills = [...icon.matchAll(/fill="(#[0-9a-f]{6})"/g)].map((m) => m[1]);
+    expect(fills).toContain('#d7d8da'); // the Moon, as BrandMark draws it
+    expect(fills).toContain('#8e9096'); // its seas
+    expect(fills).toContain('#7fa9ff'); // Earth, the dark theme's accent
+    const mark = read('src/components/BrandMark.tsx');
+    for (const c of ['#d7d8da', '#8e9096']) expect(mark).toContain(c);
   });
 
-  it('sits on the near-black of the immersive plates, in the dark theme’s Earth blue and ink, with no gradient, glow, script or motion', () => {
-    expect(attr(icon, 'rect', 'fill')).toBe('#060607');
-    expect(attr(icon, 'circle', 'fill')).toBe('#6aa9ff');
-    expect(attr(icon, 'path', 'stroke')).toBe('#f3f2ee');
+  it('sits on the near-black of the dark page, with no gradient, glow, script or motion', () => {
+    expect(attr(icon, 'rect', 'fill')).toBe('#050506');
     expect(icon).not.toMatch(/gradient|filter|<animate|<set\b|<script|<style/);
   });
 

@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
-import { Bricolage_Grotesque, IBM_Plex_Sans } from 'next/font/google';
+import { IBM_Plex_Mono, IBM_Plex_Sans, Instrument_Serif, Pixelify_Sans } from 'next/font/google';
 import { DEFAULT_THEME, THEME_SCRIPT } from '@/lib/theme';
 import { LunaEngine } from '@/components/luna/LunaEngine';
 import './globals.css';
 
-// The optical-size axis gives headlines their display cut; the width axis lets them be set at 87.5 % (class `display`).
-const bricolage = Bricolage_Grotesque({
-  subsets: ['latin'],
-  variable: '--font-bricolage',
-  axes: ['opsz', 'wdth'],
-});
+/*
+ * Four faces, each with one job (spec 23): titles in a high-contrast serif with a true italic (class `display`, the
+ * Default Lingo look); the odd word in a pixel face (class `pixel`), as Default Lingo has a pixel cut; reading in
+ * IBM Plex Sans; labels and readouts in IBM Plex Mono (class `eyebrow`). If the licensed Default Lingo files are
+ * added, load them with next/font/local under the same `--font-serif` variable and nothing else changes.
+ */
+const serif = Instrument_Serif({ subsets: ['latin'], variable: '--font-serif', weight: '400', style: ['normal', 'italic'] });
+const pixel = Pixelify_Sans({ subsets: ['latin'], variable: '--font-pixelify', weight: ['400', '500'] });
 const plex = IBM_Plex_Sans({ subsets: ['latin'], variable: '--font-plex', weight: ['400', '500', '600'] });
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], variable: '--font-plex-mono', weight: ['400', '500'] });
 
 const TITLE = 'Earthrise: sunlight and signal forecast for the Moon';
 const DESCRIPTION =
@@ -46,7 +49,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme={DEFAULT_THEME} suppressHydrationWarning className={`${bricolage.variable} ${plex.variable} h-full`}>
+    <html lang="en" data-theme={DEFAULT_THEME} suppressHydrationWarning className={`${serif.variable} ${pixel.variable} ${plex.variable} ${plexMono.variable} h-full`}>
       <head>
         {/* Sets data-theme while the HTML is parsed, before the first paint (Next guide: preventing flash before hydration). */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />

@@ -75,3 +75,17 @@ describe('Luna’s button', () => {
     }
   });
 });
+
+describe('Luna’s pet (spec 23)', () => {
+  it('makes a face for each thing Luna does: asleep while off, all ears while listening, a slip when the microphone is out', async () => {
+    const { lunaMood, KAOMOJI } = await import('./LunaPet');
+    expect(lunaMood('off')).toBe('sleepy');
+    expect(lunaMood('listening')).toBe('listening');
+    expect(lunaMood('thinking')).toBe('thinking');
+    expect(lunaMood('speaking')).toBe('speaking');
+    expect(lunaMood('typing')).toBe('happy');
+    expect(lunaMood('blocked')).toBe('oops');
+    expect(lunaMood('offline')).toBe('oops');
+    expect(KAOMOJI.happy).toBe('(^-^)');
+  });
+});
