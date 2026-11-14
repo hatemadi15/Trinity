@@ -6,7 +6,9 @@ import { summarizeState, type StateSummary } from '../ai/state-summary';
 import { exploreHref, standHref } from '../links';
 import { DEFAULT_SITE, type AiMode, type ExploreState } from '../store/explore';
 import { plannerLog } from '../store/planner-log';
-import type { Control, LunaCommand, Place } from './commands';
+import { assistSpec } from '../plan/assist';
+import { planStore, type PlanState } from '../plan/store';
+import type { Control, LunaCommand, Place, PlanStep } from './commands';
 import { queueControl, runControl } from './controls';
 import { skyAnswer } from './sky';
 
@@ -19,6 +21,8 @@ export interface LunaDeps {
   ask: (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
   setTheme: (theme: 'light' | 'dark') => void;
   turnOff: () => void;
+  /** The planner's store (spec 23); the app's own by default. */
+  plan?: StoreApi<PlanState>;
 }
 
 /** What Luna says for each control, when the page says nothing of its own. */
@@ -57,7 +61,7 @@ const GO_REPLIES: Record<Place, string> = {
 };
 
 export const HELP_REPLY =
-  'You can ask me to open a page or the view from the site, to play, pause or go to the next moment, to turn to the Sun, Earth or the lander, to show a site, or to compare two sites.';
+  'You can ask me to open a page or the view from the site, to play, pause or go to the next moment, to turn to the Sun, Earth or the lander, to show a site, to compare two sites, or to plan a landing.';
 const HELLO_REPLY = 'Hello. Tell me what you would like to see: for example, open the view from the site, or play the month.';
 const OFFLINE_REPLY = 'I cannot reach the assistant right now. I can still open pages, play the month and turn the view.';
 
@@ -86,10 +90,15 @@ async function plan(actions: unknown[], reply: string, source: ChatSource, model
   let opened = false;
   let notes: string[];
   try {
-    notes = await applyActions(store, valid, (href) => {
-      opened = true;
-      deps.navigate(href);
-    });
+    notes = await applyActions(
+      store,
+      valid,
+      (href) => {
+        opened = true;
+        deps.navigate(href);
+      },
+      prompt,
+    );
   } catch (err) {
     notes = [`One step could not be applied: ${err instanceof Error ? err.message : String(err)}.`];
   }
@@ -103,6 +112,43 @@ async function plan(actions: unknown[], reply: string, source: ChatSource, model
   const fresh = notes.filter((n) => n.trim() !== reply.trim());
   plannerLog.getState().push({ prompt, reply, source, model, notes: skipped ? [...fresh, skipped] : fresh });
   return reply;
+}
+
+const PLAN_OPEN = 'Opening the planner. Tell me what the mission needs: how long it needs power, whether Earth must be in view at landing, the longest radio gap, the lander, and when and where to land.';
+
+/** A step of the planner (spec 23), on its page, which she opens when another is showing. */
+async function planStep(step: PlanStep, deps: LunaDeps): Promise<string> {
+  const plan = deps.plan ?? planStore;
+  const s = plan.getState();
+  const onPlanner = deps.path().startsWith('/plan');
+  const open = () => {
+    if (!onPlanner) deps.navigate('/plan');
+  };
+  switch (step) {
+    case 'open':
+      open();
+      return PLAN_OPEN;
+    case 'read':
+      return s.status === 'empty' ? 'I have not heard a specification yet. Tell me what the mission needs.' : s.readBack();
+    case 'search': {
+      if (s.status === 'empty') return 'Tell me what the mission needs first: for example, at least five days of power and Earth in view when we land.';
+      open();
+      const answer = await s.search();
+      if (answer) return plan.getState().summary() ?? answer.headline;
+      const now = plan.getState();
+      return now.status === 'cancelled' ? 'Search cancelled.' : (now.error ?? 'The search could not run.');
+    }
+    case 'cancel':
+      if (s.status !== 'searching') return 'Nothing is being searched.';
+      s.cancel();
+      return 'Search cancelled.';
+    case 'land':
+      if (!s.answer?.shown.length) return s.status === 'empty' ? 'Tell me what the mission needs first, then say search.' : 'There is no landing to plan yet: say search first.';
+      return s.land(0, deps.navigate);
+    case 'compare':
+      if (!s.answer?.shown.length) return 'There is nothing to compare yet: say search first.';
+      return s.compareTop(deps.navigate);
+  }
 }
 
 /** Carries out a command; returns what Luna says, or null when she heard nothing to act on. `said` is what was heard. */
@@ -145,6 +191,16 @@ export async function runCommand(cmd: LunaCommand, deps: LunaDeps, said = ''): P
       return skyAnswer(cmd.question, deps.store.getState());
     case 'planner':
       return plan(cmd.actions, cmd.reply, 'intent', undefined, said || cmd.reply, deps);
+    case 'plan':
+      return planStep(cmd.step, deps);
+    case 'spec': {
+      const plan = deps.plan ?? planStore;
+      const readBack = plan.getState().hear(cmd.text);
+      if (!deps.path().startsWith('/plan')) deps.navigate('/plan');
+      // The model reads any words the parser could not, on the planner, while she speaks.
+      void assistSpec(cmd.text, plan, deps.ask, deps.store.getState().aiMode);
+      return readBack;
+    }
     case 'ask': {
       const s = deps.store.getState();
       let a: PlannerAnswer;

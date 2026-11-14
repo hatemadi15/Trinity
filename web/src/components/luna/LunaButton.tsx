@@ -87,7 +87,7 @@ export function LunaButton({ className, panelClassName }: { className?: string; 
               Send
             </button>
           </form>
-          <p className="mt-3 text-[14px] text-ink-2">Try: “open the view from the site”, “play”, “next”, “turn to Earth”, “compare de Gerlache Rim 2 and Nobile Rim 2”.</p>
+          <p className="mt-3 text-[14px] text-ink-2">Try: “open the view from the site”, “play”, “next”, “turn to Earth”, “compare de Gerlache Rim 2 and Nobile Rim 2”, “plan a landing”.</p>
         </section>
       )}
     </div>

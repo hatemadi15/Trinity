@@ -7,6 +7,8 @@ import { summarizeState, type StateSummary } from '@/lib/ai/state-summary';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { exploreStore, type AiMode, type ExploreState } from '@/lib/store/explore';
 import { plannerLog, type Exchange } from '@/lib/store/planner-log';
+import { hearSpec } from '@/lib/plan/spec';
+import { planStore, type PlanState } from '@/lib/plan/store';
 
 export type Ask = (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
 
@@ -43,10 +45,13 @@ export function PlannerChat({
   store = exploreStore,
   ask = askPlanner,
   navigate,
+  plan = planStore,
 }: {
   store?: StoreApi<ExploreState>;
   ask?: Ask;
   navigate?: (href: string) => void;
+  /** The planner's store (spec 23), which a mission's specification goes to. */
+  plan?: StoreApi<PlanState>;
 }) {
   const aiMode = useStore(store, (s) => s.aiMode);
   const exchanges = useStore(plannerLog, (s) => s.exchanges);
@@ -76,6 +81,14 @@ export function PlannerChat({
       setInput((now) => (now.trim() === q ? '' : now));
       setPending(null);
     };
+    // A mission's specification (two fields or more) is the planner's: read here, before any model, and shown back there.
+    if (Object.keys(hearSpec(q, store.getState().sites).patch).length >= 2) {
+      const reply = plan.getState().hear(q);
+      go('/plan');
+      plannerLog.getState().push({ prompt: q, reply, source: 'intent', notes: ['Opened the planner: check the fields there, then search.'] });
+      done();
+      return;
+    }
     let a: PlannerAnswer;
     try {
       a = await ask(q, summarizeState(store.getState()), store.getState().aiMode);
@@ -88,7 +101,7 @@ export function PlannerChat({
     const { actions, dropped } = validateActions(a.actions, ids);
     let notes: string[];
     try {
-      notes = await applyActions(store, actions, go);
+      notes = await applyActions(store, actions, go, q);
     } catch (err) {
       // The answer stands; only the step failed (for example a window past the end of the table).
       notes = [`One step could not be applied: ${err instanceof Error ? err.message : String(err)}.`];

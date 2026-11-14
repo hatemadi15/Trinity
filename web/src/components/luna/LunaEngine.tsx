@@ -82,7 +82,7 @@ export function LunaEngine({
       if (!alive) return;
       let reply: string | null;
       try {
-        reply = await runCommand(parseCommand(said, store.getState().sites), deps, said);
+        reply = await runCommand(parseCommand(said, store.getState().sites, { planning: window.location.pathname.startsWith('/plan') }), deps, said);
       } catch {
         reply = 'That did not work; please try again.';
       }

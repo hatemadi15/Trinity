@@ -1,6 +1,7 @@
 import type { Site } from '../data/loaders';
 import type { Action } from '../ai/actions';
 import { matchIntent } from '../ai/intents';
+import { hearSpec } from '../plan/spec';
 import { skyQuestion, type SkyQuestion } from './sky';
 
 /**
@@ -47,7 +48,12 @@ export type LunaCommand =
   | { kind: 'sky'; question: SkyQuestion }
   | { kind: 'planner'; actions: Action[]; reply: string }
   | { kind: 'ask'; prompt: string }
+  | { kind: 'plan'; step: PlanStep }
+  | { kind: 'spec'; text: string }
   | { kind: 'nothing' };
+
+/** The planner's steps (spec 23): open it, search, cancel, plan the best landing in Explore, compare the best few, read it back. */
+export type PlanStep = 'open' | 'search' | 'cancel' | 'land' | 'compare' | 'read';
 
 /**
  * Her name at the start of what was said, with a greeting before it and a comma after: "Hey Luna, …", "OK Luna. …".
@@ -212,8 +218,21 @@ const STOP = /^(?:stop listening|goodbye|good bye|bye|bye bye|turn off|turn your
 const THANKS = /^(?:thank you|thanks|thank you very much|thanks a lot|cheers)$/;
 const HELLO = /^(?:hello|hi|hey|hello there|hi there|good (?:morning|afternoon|evening))$/;
 
-/** What Luna does with what she heard: her own command, the planner's, a question for the model, or nothing. */
-export function parseCommand(transcript: string, sites: Site[]): LunaCommand {
+const PLAN: [RegExp, PlanStep][] = [
+  [/^(?:plan (?:a |my |our )?(?:landing|mission)|(?:open|go to|show(?: me)?) (?:the )?(?:mission )?planner|(?:the )?(?:mission )?planner|help me plan (?:a |the )?(?:landing|mission)|find (?:me )?(?:the )?best (?:landing )?sites? for (?:my|a|our|the) mission)$/, 'open'],
+  [/^(?:search|start (?:the )?search|run (?:the )?search|search now|start searching|go ahead|yes search|find (?:them|it|the best sites?))$/, 'search'],
+  [/^(?:cancel(?: the search| it| that)?|stop (?:the )?search(?:ing)?)$/, 'cancel'],
+  [/^(?:plan (?:this|that|the|the first|the best|the top) landing|(?:use|choose|take|pick) (?:this|that|the first|the best|the top) (?:one|site|landing))$/, 'land'],
+  [/^(?:compare (?:them|these|those|the results|these sites|the (?:best|top) (?:sites|ones|results))|open (?:them|these) in compare)$/, 'compare'],
+  [/^(?:read (?:it|that|the specification|the spec)(?: back)?|what did you hear|repeat (?:that|it))$/, 'read'],
+];
+
+/**
+ * What Luna does with what she heard: her own command, the planner's, a question for the model, or nothing. On the
+ * planner (`planning`), words that give any field of a mission's specification are the specification; elsewhere it
+ * takes two fields or more, so a single setting still goes to Explore's lander as before.
+ */
+export function parseCommand(transcript: string, sites: Site[], context: { planning?: boolean } = {}): LunaCommand {
   const { text: said, addressed } = heard(transcript);
   const t = normalize(said);
   // Her name alone is a greeting: she answers.
@@ -225,13 +244,17 @@ export function parseCommand(transcript: string, sites: Site[]): LunaCommand {
   for (const [re, theme] of THEME) if (re.test(t)) return { kind: 'theme', theme };
   for (const [re, control] of CONTROLS) if (re.test(t)) return { kind: 'control', control };
   for (const [re, place] of PLACES) if (re.test(t)) return { kind: 'go', place };
+  for (const [re, step] of PLAN) if (re.test(t)) return { kind: 'plan', step };
+  let planned = tidyDates(spokenToDigits(t));
+  for (const [re, name] of SPOKEN_NAMES) planned = planned.replace(re, name);
+  const fields = Object.keys(hearSpec(planned, sites).patch).length;
+  if (context.planning && fields >= 1) return { kind: 'spec', text: planned };
   // A question on the sky at the time bar's hour, answered from the pages' own countdown and radio windows.
   const sky = skyQuestion(t);
   if (sky) return { kind: 'sky', question: sky };
-  let planned = tidyDates(spokenToDigits(t));
-  for (const [re, name] of SPOKEN_NAMES) planned = planned.replace(re, name);
   const r = matchIntent(planned, sites);
   if (r) return { kind: 'planner', actions: r.actions, reply: r.reply };
+  if (fields >= 2) return { kind: 'spec', text: planned };
   // A question for the model: three words or more, in the words said (the figures as spoken, the name taken off).
   if (t.split(' ').length >= 3) return { kind: 'ask', prompt: said.replace(/\s+/g, ' ').trim() };
   return { kind: 'nothing' };
