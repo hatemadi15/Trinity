@@ -15,6 +15,7 @@ import { LunaControls } from './luna/LunaControls';
 import { TimeChart } from './explore/TimeChart';
 import { VerdictPanel } from './explore/VerdictPanel';
 import { WhereOnMoon } from './explore/WhereOnMoon';
+import { YearView } from './explore/YearView';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { globeTextureUrl } from '@/lib/data/terrain';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
@@ -250,6 +251,9 @@ export function ExploreView({
           />
           {/* When Earth is in view for radio, and when the lander has power to use it, at the time bar's hour. */}
           <RadioWindows series={s.series} power={s.power} startUtc={s.startUtc} hour={s.cursorHour} />
+          {/* Every landing day of the next 12 months, after the chart so the first screen keeps the answer and the chart's
+              title: a day pressed there lands the period on it, as the date box does. */}
+          <YearView eph={s.eph} site={site} mask={s.mask} startUtc={s.startUtc} days={s.days} params={s.params} onLand={(start) => s.setWindow(start, s.days)} />
           <GroundPanel
             site={site}
             sites={s.sites}

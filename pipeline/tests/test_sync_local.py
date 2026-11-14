@@ -43,8 +43,7 @@ def test_sync_copies_the_uncertainty_budget_for_the_app(tmp_path: Path, monkeypa
     (data / "uncertainty").mkdir(parents=True)
     (data / "uncertainty" / "budget.json").write_text('{"version": 1}')
     monkeypatch.setattr(config, "DATA_DIR", data)
-    monkeypatch.setattr(sync_local, "write_catalogue", lambda: write_catalogue(tmp_path / "catalogue.json"))
-    assert web / "uncertainty" in sync(web)
+    assert web / "uncertainty" in sync(web, catalogue=tmp_path / "catalogue.json")
     assert (web / "uncertainty" / "budget.json").read_text() == '{"version": 1}'
 
 def test_sync_copies_the_asset_manifest_beside_the_data(tmp_path: Path, monkeypatch):
