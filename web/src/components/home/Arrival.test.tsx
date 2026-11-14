@@ -361,6 +361,27 @@ describe('the arrival', () => {
     container.remove();
   });
 
+  it('says the pictures are stills, and why, when the globe files are missing: in the scroll hint’s place, within the first screen’s 100 words', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    expect(screen.queryByRole('status')).toBeNull();
+    act(() => stage!.onFail('could not load /data/globe/manifest.json (HTTP 404)'));
+    const first = document.querySelector('[data-beat="0"]')!;
+    const notice = within(first as HTMLElement).getByRole('status');
+    expect(notice.textContent).toBe('Still pictures: this copy has no globe files.');
+    // On a phone too, where the scroll hint waits for a wider screen.
+    expect(notice.className).not.toMatch(/\bmax-sm:hidden\b/);
+    expect(screen.queryByText(/^Scroll to fly down/)).toBeNull();
+    for (const width of [WIDE, PHONE]) expect(visibleWords(first, width).length).toBeLessThanOrEqual(CAP);
+  });
+
+  it('says the pictures are stills when the browser cannot draw the live flight', () => {
+    render(<Arrival words={words} Stage={Stage} />);
+    act(() => stage!.onFail('WebGL 2 is not available'));
+    expect(screen.getByRole('status').textContent).toBe('Still pictures: this browser cannot draw the live flight.');
+    const first = document.querySelector('[data-beat="0"]')!;
+    for (const width of [WIDE, PHONE]) expect(visibleWords(first, width).length).toBeLessThanOrEqual(CAP);
+  });
+
   it('shows the stills when the live view cannot draw, beat by beat', () => {
     const { container } = render(<Arrival words={words} Stage={Stage} />);
     act(() => stage!.onFail('WebGL 2 is not available'));
