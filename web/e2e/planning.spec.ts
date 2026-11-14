@@ -58,7 +58,7 @@ test.describe('The main planning journey', () => {
 
     await test.step('the printable brief holds the site, the period and the lander, and Print opens the print dialog', async () => {
       await page.getByRole('region', { name: 'The numbers' }).getByRole('link', { name: 'Printable brief' }).click();
-      await page.waitForURL(/\/brief$/);
+      await page.waitForURL(/\/brief(\?|$)/);
       await expect(page.getByRole('heading', { level: 1, name: 'de Gerlache Rim 2' })).toBeVisible();
       await expect(page.getByText(/6 Jan 2027, 00:00 UTC, 30 days/)).toBeVisible();
       // The verdict in Explore's words.

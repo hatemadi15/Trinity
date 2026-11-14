@@ -33,6 +33,9 @@ export default defineConfig({
     timezoneId: 'UTC',
     viewport: { width: 1280, height: 800 },
     deviceScaleFactor: 1,
+    // A wait for the wrong page or a missing control fails within a minute or so, not at the end of the journey's time.
+    navigationTimeout: 90_000,
+    actionTimeout: 60_000,
     trace: 'off',
     screenshot: 'only-on-failure',
     launchOptions: {
