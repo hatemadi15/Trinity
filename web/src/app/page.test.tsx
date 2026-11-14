@@ -119,6 +119,21 @@ describe('home page', () => {
     ]);
   });
 
+  it('turns the colours over after the forecast: 01 on the black stage, 02 to 04 on paper, in both themes, with room either side of one clean edge', () => {
+    render(<Home />);
+    const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
+    expect(band.className).toMatch(/(^| )bg-stage( |$)/);
+    // No line along the edge: black meets paper.
+    expect(band.className).not.toMatch(/(^| )border-(y|b)( |$)/);
+    expect(band.className).toMatch(/(^| )pb-24( |$)/);
+    const paper = band.nextElementSibling as HTMLElement;
+    expect(paper.getAttribute('data-band')).toBe('paper');
+    for (const c of ['theme-light', 'bg-page', 'text-ink', 'pt-10']) expect(paper.classList.contains(c), c).toBe(true);
+    // 02, 03 and 04 stand on it; 05 follows the page's theme again.
+    for (const name of ['Why the south pole is hard', 'Start from a real place', 'Checked against NASA']) expect(within(paper).getByRole('region', { name })).toBeTruthy();
+    expect(within(paper).queryByRole('region', { name: 'Try it on a landing site' })).toBeNull();
+  });
+
   it('says under the forecast where the numbers come from, and links to the site', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });

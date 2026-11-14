@@ -99,7 +99,7 @@ export default function Home() {
         {/* 01. The forecast, read in three steps with room between them: the Sun, Earth, and what the two mean for a
             lander. The rows run from edge to edge on a black band, a window onto the Moon in both themes; their side
             labels line up with the page gutter. */}
-        <figure aria-labelledby="h-forecast" data-stage="" className="border-y border-stage-edge bg-stage pb-16 pt-24 text-stage-ink [--chart-inset:16px] sm:[--chart-inset:32px]">
+        <figure aria-labelledby="h-forecast" data-stage="" className="border-t border-stage-edge bg-stage pb-24 pt-24 text-stage-ink [--chart-inset:16px] sm:pb-32 sm:[--chart-inset:32px]">
           <figcaption className="wrap">
             <Reveal>
               <p className="eyebrow flex items-center gap-3 text-[#a8c6ff]">
@@ -207,8 +207,9 @@ export default function Home() {
           </div>
         </figure>
 
-        {/* 02 to 04 stand on a faint survey grid, like a star chart's plate. */}
-        <div className="relative">
+        {/* 02 to 04 stand on paper in both themes, on a faint survey grid like a star chart's plate: after the dark
+            forecast the colours turn over at one clean edge, so the two blocks never read as one. */}
+        <div data-band="paper" className="theme-light relative bg-page pt-10 text-ink sm:pt-16">
           <div aria-hidden="true" className="hud-grid pointer-events-none absolute inset-0" />
           <div className="relative">
             <WhySection n="02" />

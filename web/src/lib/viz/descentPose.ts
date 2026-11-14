@@ -71,18 +71,57 @@ export function stageAt(p: number): StageId {
   return best.id;
 }
 
-const smooth = (t: number) => {
-  const x = Math.min(1, Math.max(0, t));
-  return x * x * (3 - 2 * x);
+/** Clamped to 0..1. */
+const unit = (t: number) => Math.min(1, Math.max(0, t));
+/**
+ * Slow, then faster, fast, then slow: the smootherstep, whose speed and acceleration are both nil at either end, so a
+ * motion never starts or stops with a jolt.
+ */
+export const ease = (t: number) => {
+  const x = unit(t);
+  return x * x * x * (x * (x * 6 - 15) + 10);
 };
-const between = (p: number, a: number, b: number) => smooth((p - a) / (b - a));
-/** Eases out: fast at first, settling at the end. */
-const settle = (t: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+const between = (p: number, a: number, b: number) => ease((p - a) / (b - a));
 
 /** Full turns the Moon makes as it comes down, settling on the site. */
 export const TURNS = 1.25;
 /** How far the descent runs to its last view, the site, as a share of the scroll. */
 const AT_SITE = 0.82;
+/**
+ * The first screen's words are gone here (their stage ends at 0.07 and fades out over 0.04): the Moon keeps its first
+ * place and size until then, so it never moves under the words while they still show.
+ */
+export const WORDS_GONE = 0.11;
+/** Where the Moon has left the first screen's place for the middle of the view. */
+const CENTRED = 0.3;
+
+/**
+ * The first screen's Moon for the camera: the centre of its disc in the view's own measure (−1 to 1 across and up),
+ * and the zoom that gives it its size.
+ */
+export interface FirstScreen {
+  nx: number;
+  ny: number;
+  zoom: number;
+}
+
+/** The first screen when the page has not measured its words yet: right of them on a wide view, under them on a tall one. */
+export function defaultFirst(aspect: number): FirstScreen {
+  const zMoon = 0.78 * Math.min(1, aspect);
+  return aspect >= 1 ? { nx: 0.4, ny: 0, zoom: zMoon * 0.97 } : { nx: 0, ny: -0.46, zoom: zMoon * 0.9 };
+}
+
+/** A disc in the picture's pixels, x right and y down from its top left corner. */
+export interface Disc {
+  cx: number;
+  cy: number;
+  r: number;
+}
+
+/** The first screen's disc as the camera takes it, for a picture `w` by `h` px. */
+export function firstFromDisc(d: Disc, w: number, h: number): FirstScreen {
+  return { nx: (d.cx - w / 2) / (w / 2), ny: (h / 2 - d.cy) / (h / 2), zoom: (2 * d.r) / h };
+}
 
 export interface DescentPose {
   /** The tip of the polar axis towards us, radians: −π/2 has the south pole facing the camera. */
@@ -93,8 +132,11 @@ export interface DescentPose {
   zoom: number;
   /** How far the view has moved from the Moon's centre, through the pole, to the site: 0 the centre, 1 the site. */
   toSite: number;
-  /** The first screen's offset of the Moon, as a share of the half-view: right of the words on a wide screen, under them on a tall one. */
+  /** How much of the first screen's place the Moon keeps: 1 on the first screen, 0 once it is in the middle. */
   offset: number;
+  /** Where the Moon's centre stands in the view (−1 to 1 across and up): the first screen's place, then the middle. */
+  shiftX: number;
+  shiftY: number;
   /** How much of each finer picture shows: the polar relief map, the site's shadow picture. The site's comes in while
    * it is still a small square on the map, so the view dives into it. */
   relief: number;
@@ -104,20 +146,23 @@ export interface DescentPose {
 }
 
 /**
- * Where the camera is and what shows at progress `p` (0 to 1) for a view of `aspect` (width / height). The zoom is
- * eased on a log scale, so each doubling of the closeness takes as long as the last: from the whole Moon (it fills
- * four fifths of the view's shorter side) to the polar cap (the 500 km map fills it) to the site (its 20 km picture
- * fills nine tenths of it).
+ * Where the camera is and what shows at progress `p` (0 to 1) for a view of `aspect` (width / height), with the first
+ * screen's Moon where `first` puts it (beside or under the words, measured by the page). The zoom is eased on a log
+ * scale between its stops, so each doubling of the closeness takes as long as the last and each move starts and ends
+ * gently: from the whole Moon (it fills four fifths of the view's shorter side) to the polar cap (the 500 km map fills
+ * it) to the site (its 20 km picture fills nine tenths of it). Nothing moves before the first screen's words have gone.
  */
-export function descentPose(p: number, aspect: number, sizes: { reliefHalfKm: number; windowKm: number }): DescentPose {
+export function descentPose(p: number, aspect: number, sizes: { reliefHalfKm: number; windowKm: number }, first: FirstScreen = defaultFirst(aspect)): DescentPose {
   const short = Math.min(1, aspect);
-  const zMoon = (0.78 * 2 * short) / 2;
+  const zMoon = 0.78 * short;
   const zPole = (2 * short) / ((2 * sizes.reliefHalfKm) / R_MOON_KM);
   const zSite = (0.92 * 2 * short) / (sizes.windowKm / R_MOON_KM);
-  const z0 = zMoon * (aspect >= 1 ? 0.97 : 0.9);
+  // Never closer and then farther: a first screen with a big Moon holds its size until the pole comes nearer.
+  const z0 = Math.min(first.zoom, zPole);
   const keys: [number, number][] = [
     [0, z0],
-    [0.28, zMoon],
+    [WORDS_GONE, z0],
+    [0.28, Math.max(zMoon, z0)],
     [0.55, zPole],
     [AT_SITE, zSite],
     [1, zSite * 1.12],
@@ -126,19 +171,87 @@ export function descentPose(p: number, aspect: number, sizes: { reliefHalfKm: nu
   for (let i = 0; i < keys.length - 1; i++) {
     const [pa, za] = keys[i], [pb, zb] = keys[i + 1];
     if (p <= pb) {
-      zoom = Math.exp(Math.log(za) + (Math.log(zb) - Math.log(za)) * smooth((p - pa) / (pb - pa)));
+      zoom = Math.exp(Math.log(za) + (Math.log(zb) - Math.log(za)) * ease((p - pa) / (pb - pa)));
       break;
     }
   }
+  const offset = 1 - between(p, WORDS_GONE, CENTRED);
   return {
     tilt: -0.32 - (Math.PI / 2 - 0.32) * between(p, 0.08, 0.42),
-    spin: -TURNS * 2 * Math.PI * (1 - settle(p / AT_SITE)),
+    spin: -TURNS * 2 * Math.PI * (1 - ease(p / AT_SITE)),
     zoom,
     toSite: between(p, 0.5, 0.78),
-    offset: 1 - between(p, 0.04, 0.26),
+    offset,
+    shiftX: first.nx * offset,
+    shiftY: first.ny * offset,
     relief: between(p, 0.3, 0.44),
     site: between(p, 0.6, 0.7),
     earth: 1 - between(p, 0.12, 0.32),
   };
 }
 
+/** A box in the picture's pixels: left, top, right, bottom. */
+export interface Box {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** The free room the first screen's Moon is fitted to. */
+export interface FirstMoon extends Disc {
+  /** Right of the words (a wide view) or under them (a tall one). */
+  side: 'beside' | 'below';
+}
+
+const overlaps = (a: Box, b: Box) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
+/**
+ * Where the first screen's Moon stands, as large as the room allows and never under the words (the eyebrow, the title,
+ * the sentence and the buttons) nor the stages' rail: in the room right of the words, or in the room under them,
+ * whichever holds the larger Moon. Right of the words it keeps to the part of the picture on screen before the page has
+ * scrolled (`seen` px from its top), so it shows whole at once; under them it may run on past the window's foot, a Moon
+ * rising over the edge of a phone. `view` is the picture (the sticky screen) in px; the boxes are in its pixels.
+ */
+export function firstMoon(view: { w: number; h: number; seen: number }, words: Box, rail: Box | null): FirstMoon {
+  const margin = Math.max(16, Math.min(48, view.w * 0.03));
+  const gap = Math.max(24, Math.min(64, view.w * 0.04));
+  /** The right edge of a room spanning `y0` to `y1`: short of the rail where the rail stands beside it. */
+  const rightOf = (y0: number, y1: number) => (rail && rail.y0 < y1 && y0 < rail.y1 ? Math.min(view.w - margin, rail.x0 - gap / 2) : view.w - margin);
+  const seen = Math.max(0, Math.min(view.h, view.seen));
+  const beside = { x0: words.x1 + gap, y0: margin, y1: Math.max(margin, seen - margin), x1: 0 };
+  beside.x1 = rightOf(beside.y0, beside.y1);
+  const below = { x0: margin, y0: words.y1 + gap, y1: view.h - margin, x1: 0 };
+  below.x1 = rightOf(below.y0, below.y1);
+  const size = (b: Box) => Math.max(0, Math.min(b.x1 - b.x0, b.y1 - b.y0));
+  const side = size(below) > size(beside) ? 'below' : 'beside';
+  const room = side === 'below' ? below : beside;
+  // A Moon at least a few pixels across, even in a window too small for one: it never grows into the words.
+  const r = Math.max(4, Math.min(size(room), 0.86 * view.h) / 2);
+  return { cx: (room.x0 + room.x1) / 2, cy: (room.y0 + room.y1) / 2, r, side };
+}
+
+/**
+ * Where Earth stands beside the first screen's Moon: off its lower left limb right of the words, off its upper right
+ * limb under them, else the first spot round it that is clear of the words, the rail, anything else in `avoid` (Luna at
+ * the corner) and the picture's edges.
+ */
+export function earthSpot(view: { w: number; h: number }, moon: FirstMoon, words: Box, rail: Box | null, avoid: Box[] = []): Disc {
+  const r = Math.max(14, Math.min(42, moon.r * 0.13));
+  const d = moon.r + r * 1.5 + 10;
+  // Directions round the Moon, x right and y down, the preferred first.
+  const tries = (moon.side === 'beside' ? [135, 225, 45, 180, 315, 90, 270, 0] : [315, 225, 0, 180, 270, 45, 135, 90]).map((deg) => (deg * Math.PI) / 180);
+  const pad = 12;
+  const clear = (x: number, y: number) => {
+    const b = { x0: x - r - pad, y0: y - r - pad, x1: x + r + pad, y1: y + r + pad };
+    // The rail is a thin line of dots: Earth may come closer to it than to the words.
+    const near = { x0: x - r - 4, y0: y - r - 4, x1: x + r + 4, y1: y + r + 4 };
+    return b.x0 >= 0 && b.y0 >= 0 && b.x1 <= view.w && b.y1 <= view.h && !overlaps(b, words) && !(rail && overlaps(near, rail)) && !avoid.some((a) => overlaps(b, a));
+  };
+  for (const a of tries) {
+    const x = moon.cx + d * Math.cos(a), y = moon.cy + d * Math.sin(a);
+    if (clear(x, y)) return { cx: x, cy: y, r };
+  }
+  const a = tries[0];
+  return { cx: moon.cx + d * Math.cos(a), cy: moon.cy + d * Math.sin(a), r };
+}

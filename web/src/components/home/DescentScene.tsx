@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { descentPose, globePoint, psSouthKm, R_MOON_KM } from '@/lib/viz/descentPose';
+import { descentPose, ease, firstFromDisc, globePoint, psSouthKm, R_MOON_KM, type Disc, type FirstMoon } from '@/lib/viz/descentPose';
 
 /**
  * The descent's picture (spec 23.1): one globe, and the camera coming down to a landing site as the page scrolls.
@@ -9,8 +9,10 @@ import { descentPose, globePoint, psSouthKm, R_MOON_KM } from '@/lib/viz/descent
  * Moon from space, the relief map of the pole and the shadow picture of the site, so the view sharpens as it nears
  * and nothing is swapped. Earth and the stars stand behind it, in a layer of their own that does not zoom.
  *
- * `progress` (0 to 1) is read every frame; the labels in `pins` are moved to their places on the globe. With reduced
- * motion nothing turns by itself, and the picture is drawn again only when the progress changes.
+ * `progress` (0 to 1) is read every frame and followed smoothly, so a wheel's steps or a jerky scroll never jolt the
+ * picture; the labels in `pins` are moved to their places on the globe. The first screen's Moon and Earth stand where
+ * `layout` puts them, clear of the page's words. With reduced motion nothing turns or glides by itself: the picture
+ * shows each stage's own view, drawn again only when the progress or the layout changes.
  */
 export interface DescentHero {
   lat: number;
@@ -21,8 +23,18 @@ export interface DescentHero {
   reliefHalfKm: number;
 }
 
+/** The first screen as the page measured it: the picture's size, and the Moon's and Earth's discs, in px. */
+export interface DescentLayout {
+  w: number;
+  h: number;
+  moon: FirstMoon;
+  earth: Disc;
+}
+
 export interface DescentSceneProps {
   progress: { current: number };
+  /** Where the first screen's Moon and Earth stand (Descent measures the words); unset, the scene's own defaults. */
+  layout?: { current: DescentLayout | null };
   reduced: boolean;
   hero: DescentHero;
   /** Labels to keep on their points of the globe, by pin: the scene sets each one's transform. */
@@ -181,7 +193,10 @@ const SUN = new THREE.Vector3(-0.62, 0.4, 0.68).normalize();
 /** The turn about the polar axis at which, pole towards us, longitude 0 points up, as on the Choose a site map. */
 const REST_SPIN = -Math.PI / 2;
 
-export default function DescentScene({ progress, reduced, hero, pins, onReady, onFail, base = '/hero/textures' }: DescentSceneProps) {
+/** How quickly the picture catches up with the scroll: the time constant of its glide, in seconds. */
+const GLIDE_S = 0.14;
+
+export default function DescentScene({ progress, reduced, hero, pins, layout, onReady, onFail, base = '/hero/textures' }: DescentSceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cb = useRef({ onReady, onFail });
   useEffect(() => {
@@ -284,18 +299,24 @@ export default function DescentScene({ progress, reduced, hero, pins, onReady, o
     };
 
     const t0 = performance.now();
-    let idle = 0, lastNow = t0, lastP = -1, dirty = true, ready = false;
+    let idle = 0, lastNow = t0, lastP = -1, lastLayout: DescentLayout | null = null, dirty = true, ready = false;
+    // The progress the picture shows: it glides after the scroll's, and is the scroll's at once with reduced motion.
+    let shown = Math.min(Math.max(progress.current, 0), 1);
     const world = new THREE.Vector3();
     const draw = (now: number) => {
-      const p = Math.min(Math.max(progress.current, 0), 1);
+      const target = Math.min(Math.max(progress.current, 0), 1);
       const dt = Math.min(0.1, (now - lastNow) / 1000);
       lastNow = now;
-      // While the first screen rests the Moon turns slowly by itself; as the page scrolls that turn winds to a whole
-      // number of turns, so the descent always ends on the same view.
-      if (!reduced && p < 0.02) idle += dt * 0.05;
-      const pose = descentPose(p, aspect, { reliefHalfKm: hero.reliefHalfKm, windowKm: hero.windowKm });
-      const wind = Math.min(1, p / 0.82);
-      const idleNow = idle + (Math.round(idle / (2 * Math.PI)) * 2 * Math.PI - idle) * (1 - Math.pow(1 - wind, 3));
+      shown = reduced ? target : shown + (target - shown) * (1 - Math.exp(-dt / GLIDE_S));
+      if (Math.abs(target - shown) < 1e-5) shown = target;
+      const p = shown;
+      // While the first screen rests the Moon turns slowly by itself, slowing to a stop as the page starts to scroll;
+      // as the descent goes on that turn winds, gently, to a whole number of turns, so it always ends on the same view.
+      if (!reduced) idle += dt * 0.05 * (1 - ease(p / 0.04));
+      const view = layout?.current ?? null;
+      const first = view && view.w > 0 && view.h > 0 ? firstFromDisc(view.moon, view.w, view.h) : undefined;
+      const pose = descentPose(p, aspect, { reliefHalfKm: hero.reliefHalfKm, windowKm: hero.windowKm }, first);
+      const idleNow = idle + (Math.round(idle / (2 * Math.PI)) * 2 * Math.PI - idle) * ease(p / 0.82);
       moon.rotation.set(pose.tilt, REST_SPIN + pose.spin + idleNow, 0);
       moon.updateMatrixWorld();
 
@@ -303,9 +324,9 @@ export default function DescentScene({ progress, reduced, hero, pins, onReady, o
       cam.updateProjectionMatrix();
       world.copy(sitePoint).applyMatrix4(moon.matrixWorld);
       const wide = aspect >= 1;
-      // The first screen: the Moon right of the words on a wide screen, under them on a tall one.
-      const ox = wide ? -pose.offset * 0.4 * (aspect / pose.zoom) : 0;
-      const oy = wide ? 0 : pose.offset * 0.46 * (1 / pose.zoom);
+      // The first screen: the Moon where the page left it room (right of the words, or under them), then the middle.
+      const ox = (-pose.shiftX * aspect) / pose.zoom;
+      const oy = -pose.shiftY / pose.zoom;
       cam.position.x = ox + (world.x - ox) * pose.toSite;
       cam.position.y = oy + (world.y - oy) * pose.toSite;
 
@@ -320,12 +341,16 @@ export default function DescentScene({ progress, reduced, hero, pins, onReady, o
       earthMat.uniforms.fade.value = pose.earth;
       earthMat.uniforms.cloudShift.value = t * 0.0009;
       earth.rotation.y = -1.9 + t * 0.012;
-      const er = wide ? 0.085 : 0.07;
+      // Earth beside the first screen's Moon, where the page found it room (off the lower left limb on a wide screen,
+      // the upper right on a tall one); it drifts away from the Moon as it fades.
+      const spot = view ? { x: (view.earth.cx - w / 2) / (h / 2), y: (h / 2 - view.earth.cy) / (h / 2), r: view.earth.r / (h / 2) } : null;
+      const er = spot ? spot.r : wide ? 0.085 : 0.07;
       earth.scale.setScalar(er);
       earthHalo.scale.setScalar(er * 1.1);
-      // Earth beyond the Moon's lower left limb on a wide screen, beside its upper right on a tall one.
-      const ex = wide ? -0.26 : aspect * 0.62, ey = wide ? -0.62 : -0.12;
-      earth.position.set(ex - (1 - pose.earth) * 0.4, ey + (1 - pose.earth) * 0.5, 0);
+      const ex = spot ? spot.x : wide ? -0.26 : aspect * 0.62, ey = spot ? spot.y : wide ? -0.62 : -0.12;
+      const mx = first ? first.nx * aspect : 0, my = first ? first.ny : 0;
+      const away = Math.hypot(ex - mx, ey - my) || 1;
+      earth.position.set(ex + ((ex - mx) / away) * (1 - pose.earth) * 0.5, ey + ((ey - my) / away) * (1 - pose.earth) * 0.5, 0);
       earthHalo.position.copy(earth.position);
       earth.visible = earthHalo.visible = pose.earth > 0.01;
       (earthHalo.material as THREE.ShaderMaterial).uniforms.strength.value = 1.2 * pose.earth;
@@ -346,14 +371,15 @@ export default function DescentScene({ progress, reduced, hero, pins, onReady, o
         el.style.transform = `translate(${(world.x * halfW + halfW).toFixed(1)}px, ${(-world.y * halfH + halfH).toFixed(1)}px)`;
         el.style.visibility = facing ? 'visible' : 'hidden';
       }
-      lastP = p;
+      lastP = target;
+      lastLayout = view;
       dirty = false;
     };
 
     let raf = 0, visible = true;
     const frame = (now: number) => {
       raf = 0;
-      if (ready && (!reduced || dirty || progress.current !== lastP)) draw(now);
+      if (ready && (!reduced || dirty || progress.current !== lastP || (layout?.current ?? null) !== lastLayout)) draw(now);
       if (visible && !document.hidden) raf = requestAnimationFrame(frame);
     };
     const wake = () => {
@@ -436,7 +462,7 @@ export default function DescentScene({ progress, reduced, hero, pins, onReady, o
       }
       renderer.dispose();
     };
-  }, [progress, reduced, hero, pins, base]);
+  }, [progress, reduced, hero, pins, layout, base]);
 
   return <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 block h-full w-full" />;
 }

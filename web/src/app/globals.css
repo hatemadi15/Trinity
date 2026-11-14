@@ -8,7 +8,12 @@
  * verdict. Picture panels ("stages": charts, shadow map, 3D, relief maps) keep the same colours in both themes; the
  * sky above an airless world is true black. Glows are the accent's own light: `--glow` is its RGB triplet.
  */
-:root {
+/*
+ * The light values also hold inside .theme-light in either theme: on the home page the sections after the forecast stand
+ * on paper in both themes, so the dark forecast and the light sections after it differ at a glance.
+ */
+:root,
+.theme-light {
   --page: #eeede9;
   --surface: #ffffff;
   --surface-2: #f5f5f2;

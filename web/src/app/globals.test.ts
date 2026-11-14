@@ -83,6 +83,13 @@ describe('theme tokens', () => {
     expect(css).toMatch(/\.theme-dark \{[^}]*color-scheme: dark;/);
   });
 
+  it('gives the light values to anything inside .theme-light in either theme, so the home page’s sections after the dark forecast stand on paper', () => {
+    expect(block('.theme-light')).toEqual(block(':root'));
+    expect(block('.theme-light')['--page']).toBe('#eeede9');
+    // The dark block does not name it, so the dark theme leaves it on paper.
+    expect(block('.theme-dark')).not.toHaveProperty('--page', block('.theme-light')['--page']);
+  });
+
   it('makes the dark page near-black but not the stage’s true black, and gives a picture panel an edge that shows on both (spec 6)', () => {
     expect(luminance(dark['--page'])).toBeLessThan(0.005);
     expect(dark['--page']).not.toBe(light['--stage']);
