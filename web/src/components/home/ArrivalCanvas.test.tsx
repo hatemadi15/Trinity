@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { siteLabel } from '@/lib/data/loaders';
+import { DataError, siteLabel } from '@/lib/data/loaders';
 import type { StandScene } from '@/lib/sky/standRenderer';
 import { siteEndHour } from '@/lib/sky/arrivalPath';
 import { HERO_HOUR, hero } from '@/lib/viz/arrival';
@@ -819,5 +819,35 @@ describe('a label moved clear of the beats’ plates', () => {
   it('takes the other way where the shorter move would meet a second plate', () => {
     // Above the first plate it would meet the plate over it, 10 px up; below, it is clear of both.
     expect(clearOfPlates(label, [{ left: 0, top: 520, right: 600, bottom: 700 }, { left: 0, top: 300, right: 600, bottom: 490 }], 0, 1000)).toBe(206);
+  });
+});
+
+describe('the arrival stage without the globe files', () => {
+  it('passes on that the globe files are missing, so the page can say why it shows still pictures', async () => {
+    const onFail = vi.fn();
+    const loaders: ArrivalLoaders = {
+      sky: async () => sky,
+      globe: async () => {
+        throw new DataError('/data/globe/manifest.json', 404);
+      },
+      terrain: async () => {
+        throw new DataError('/data/terrain/manifest.json', 404);
+      },
+    };
+    render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={onFail} loaders={loaders} createRenderer={() => stub().r} />);
+    await waitFor(() => expect(onFail).toHaveBeenCalledWith('could not load /data/globe/manifest.json (HTTP 404)'));
+  });
+
+  it('keeps its own words for a globe that failed for another reason', async () => {
+    const onFail = vi.fn();
+    const loaders: ArrivalLoaders = {
+      sky: async () => sky,
+      globe: async () => {
+        throw new DataError('/data/globe/manifest.json', 503);
+      },
+      terrain: async () => ({ cap: cap() as never, window: null, context: null, flight: null }),
+    };
+    render(<ArrivalCanvas progress={{ current: 0 }} reduced={false} onLive={vi.fn()} onFail={onFail} loaders={loaders} createRenderer={() => stub().r} />);
+    await waitFor(() => expect(onFail).toHaveBeenCalledWith('The Moon did not load'));
   });
 });

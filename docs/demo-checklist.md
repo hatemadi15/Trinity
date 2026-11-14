@@ -3,13 +3,13 @@
 ## The week before
 
 - [ ] Feature freeze on 8 November; only bug fixes after.
-- [ ] Offline build on both laptops. Build with a connection: `next build` downloads the two fonts (`web/src/app/layout.tsx`) and fails offline. Keep `NEXT_PUBLIC_DATA_BASE` unset or `/data` in `.env.local` for the venue build; it is baked in at build time. From `pipeline/` run `uv run python -m lunar_pipeline.cli sync-local --tiles`; from `web/` run `npm run build` and `npm start`; open `http://localhost:3000/?demo=1` with Wi-Fi off and walk the whole pitch.
+- [ ] Offline build on both laptops. The fonts are in the repository (`web/src/app/fonts`), so the build needs no network (checked on 14 November with the network cut off). Keep `NEXT_PUBLIC_DATA_BASE` unset or `/data` in `.env.local` for the venue build; it is baked in at build time. From `pipeline/` run `uv run python -m lunar_pipeline.cli sync-local --tiles`, then `uv run python -m lunar_pipeline.cli check-data`: it must end "The full demo is here." (anything it names as missing, the pitch would show as stills or flat ground). From `web/` run `npm run build` and `npm start`; open `http://localhost:3000/?demo=1` with Wi-Fi off and walk the whole pitch.
 - [ ] Copy the data zip (see `docs/hosting.md`, GitHub Release) to a USB stick as the third copy.
 - [ ] Record the full demo (screen recording of the pitch, 5 minutes) as the backup; keep it on both laptops.
 - [ ] Record the 30-second video v1 (`docs/video-storyboard.md`).
 - [ ] Rehearse the pitch five times against the clock (`docs/pitch.md`); log the times.
 - [ ] Test the live URL on a phone and on a laptop you did not develop on.
-- [ ] Refresh the validation tables (`validate`, `sync-local`) and the test badge (`npm run validation:tests`, with `web/public/data` present: without it 23 tests skip but still count); update the numbers in `docs/submission.md`.
+- [ ] Refresh the validation tables (`validate`, `sync-local`) and the test report (`npm run validation:tests` on a clean tree with the full data: it records passed, skipped and failed, the commit and the data present, and the Accuracy page shows them); commit `web/public/validation/tests.json` and update the numbers in `docs/submission.md`.
 
 ## The night before
 
@@ -40,6 +40,7 @@
 ## Submission (by 15 November, 23:59 local)
 
 - [ ] Submit early in the afternoon, not at the deadline.
-- [ ] Project page: paste `docs/submission.md` sections into the form; fill the live URL, the video URL and the repository link.
+- [ ] Make the repository public (it was private on 14 November), or the judges cannot open the link.
+- [ ] Project page: paste `docs/submission.md` sections into the form; fill the live URL, the video URL and the repository link, and settle its two "To confirm" statements.
 - [ ] Confirm the AI-use and pre-existing-code disclosures are in the page.
 - [ ] Push the final commits; tag the release `spaceapps-2026`.

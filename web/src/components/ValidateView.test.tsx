@@ -176,6 +176,26 @@ describe('ValidateView', () => {
     }
   });
 
+  it('says when the tests last ran, on which commit, what passed, skipped and failed on each side, and with which data', async () => {
+    const run = {
+      generated_utc: '2026-11-14T11:47:57Z',
+      build: { commit: '916aa96f0c2d3e4b5a69788796a5b4c3d2e1f001', dirty: false, changed: 0 },
+      web: { files: 144, tests: 1563, passed: 1558, skipped: 5, failed: 0 },
+      pipeline: { tests: 147, passed: 147, skipped: 0, failed: 0 },
+      data: { version: '2026-11-14-a120b7a9', parts: { core: 'complete', terrain: 'missing' }, downloads: { kernels: true, lola: true, illumination: true } },
+    };
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL) => (String(input).endsWith('/validation/tests.json') ? jsonResponse(run) : new Response('missing', { status: 404 })));
+    await open();
+    const badge = await waitFor(() => screen.getByText(/The automated tests last ran/));
+    expect(badge.textContent).toBe(
+      'The automated tests last ran on 14 November 2026 at 11:47 UTC, on commit 916aa96: in the app 1,558 passed, 5 skipped and 0 failed; in the data pipeline 147 passed, 0 skipped and 0 failed. ' +
+        'Data present: the app’s data, but not all of the terrain; all three of the pipeline’s NASA downloads.',
+    );
+    // Last in the error budget's section, as the count was.
+    const budget = screen.getByRole('heading', { level: 2, name: 'How far off the forecast can be' }).closest('section')!;
+    expect(budget.lastElementChild).toBe(badge);
+  });
+
   it('renders without the re-check button when no site is listed', async () => {
     await open(undefined, { ...docs, horizons: { ...docs.horizons, sites: [] } });
     expect(screen.queryByRole('button', { name: /Re-check with JPL now/ })).toBeNull();
@@ -204,8 +224,10 @@ describe('ValidateView', () => {
     const plain = /The checks could not be loaded\.\s*Reload the page, or try again in a minute\./;
     render(missing());
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
-    // Under next dev, as in tests, the page also names the commands that write and copy the tables, then the error.
-    expect(screen.getByRole('alert').textContent).toMatch(/lunar_pipeline\.cli validate then .*sync-local inside pipeline\/ and reload\. \(could not load .*HTTP 404\)\)/);
+    // Under next dev, as in tests, the page also names the command that copies the committed tables, then the error;
+    // never `validate`, which needs the NASA downloads.
+    expect(screen.getByRole('alert').textContent).toMatch(/Run uv run python -m lunar_pipeline\.cli sync-local inside pipeline\/ and reload: it copies the tables committed in data\/validation\. \(could not load .*HTTP 404\)\)/);
+    expect(screen.getByRole('alert').textContent).not.toMatch(/cli validate/);
     vi.stubEnv('NODE_ENV', 'production');
     cleanup();
     render(missing());
