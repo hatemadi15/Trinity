@@ -15,7 +15,9 @@ nearby alternative in Compare, and the sites and landing times the planner at `/
 3. **Ties** go to the earlier time or the nearer place, and the page says the two tie.
 
 The rule in use is stated wherever recommendations appear: in Explore's Options fold, in the 12-month search's
-note, and in the planner's read-back and answer.
+note, in the planner's read-back and its "Ranking and dates", and, when priorities are chosen, in Compare's note on
+the nearby alternative it finds. Explore's addresses carry the ranking (`rank=balanced`, `power`, `contact`, `gap`,
+or three weights such as `rank=1,7,3`), so a shared link opens with the same order.
 
 ## Weighed by priorities
 
