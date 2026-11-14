@@ -79,7 +79,7 @@
    "id": "open_accuracy",
    "prompt": "Open the accuracy page",
    "actions": [{ "type": "open_page", "page": "validate" }],
-   "reply": "Opening Accuracy: four checks of the app's numbers and one piece of context. The Sun's and Earth's directions against NASA JPL's own calculator, sunlight against NASA's sunlight maps worked out their way, the app's shadows against pictures from NASA's lunar orbiter, and the power sums worked out in your browser; past missions are shown as context, not a check. Each says what it leaves out, and the first has a button that checks against JPL live."
+   "reply": "Opening Accuracy: four checks of the app's numbers and one piece of context. The Sun's and Earth's directions against NASA JPL's own calculator, sunlight against NASA's sunlight maps worked out their way, the app's shadows against pictures from NASA's lunar orbiter, and the power sums worked out in your browser; past missions are shown as context, not a check. Three meet their criteria; the shadows check misses its own: 3 of its 20 pictures fall short, all taken with the Sun 1.1° up or less. Each says what it leaves out, and the first has a button that checks against JPL live."
   },
   {
    "id": "show_site_list",

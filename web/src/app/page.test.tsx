@@ -194,6 +194,8 @@ describe('home page', () => {
     expect(within(proof).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['What we check', 'Gap', 'Against', 'For scale']);
     expect(within(proof).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['Where the Sun and Earth are in the sky', 'How much sunlight a site gets', 'When night falls on a real mission']);
     expect(proof.textContent).toMatch(/Two steps are compared with independent NASA sources, and a real mission gives context\./);
+    // The check that misses its own mark is named, not left to the Accuracy page alone.
+    expect(proof.textContent).toMatch(/A third, where shadows fall in pictures from orbit, misses its own mark; Accuracy shows where\./);
     const rows = within(proof).getAllByRole('row').slice(1);
     expect(rows).toHaveLength(3);
     expect(rows[0].textContent).toContain('0.00003°');
