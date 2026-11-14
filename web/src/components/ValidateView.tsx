@@ -9,6 +9,7 @@ import { loadValidation, type BackcastRow, type ValidationDocs } from '@/lib/dat
 import type { HorizonsBody } from '@/lib/horizons/query';
 import { recheckSite, type RecheckResult } from '@/lib/horizons/recheck';
 import { checkCards, type CheckCard } from '@/lib/viz/checks';
+import { UncertaintySection } from './UncertaintySection';
 
 type Recheck = (site: { lat: number; lon: number }, body: HorizonsBody, epochsUtc: string[]) => Promise<RecheckResult>;
 
@@ -295,14 +296,16 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
           </ul>
         </CheckPanel>
 
+        <UncertaintySection />
+
         <section aria-labelledby="h-budget" className="panel">
           <h2 id="h-budget" className="display text-[26px] font-semibold">
             How far off the forecast can be
           </h2>
           <ul className="mt-3 flex max-w-[62em] flex-col gap-2 leading-relaxed text-ink-2">
-            <li>Sunrise, sunset and Earth rising or setting: within 15 to 60 minutes near the pole, where the Sun moves half a degree an hour along the horizon and the forecast is hourly.</li>
+            <li>Sunrise, sunset and Earth rising or setting: within the margins measured above, site by site. The hourly steps alone put each change up to an hour late; near the pole the terrain data can move it by many hours.</li>
             <li>Directions to the Sun and Earth: under 0.01° (the first check finds {degreesText(horizons.max_abs_delta_el_deg)}).</li>
-            <li>The height of the hills around a site: 0.05 to 0.15°, because NASA&apos;s elevation maps are 1 to 2 m uncertain; the app follows them to 0.01°.</li>
+            <li>The height of the hills around a site: within a degree of NASA&apos;s adjusted south-pole maps in 95 % of directions at every featured site (compared above); the app follows its own maps to 0.01°.</li>
           </ul>
           {badge && (
             <p className="mt-4 text-[15px] text-ink-2">

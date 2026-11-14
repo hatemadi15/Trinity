@@ -135,6 +135,10 @@ describe('the budget the app reads (data/uncertainty/budget.json)', () => {
     }
   });
 
+  it('keeps our hills within a degree of NASA’s adjusted maps in 95 % of directions at every polar site, as the Accuracy page says', () => {
+    for (const s of real.sites.filter((x) => x.polar)) expect(s.skyline?.adjusted_minus_app?.p95_abs_deg, s.site_id).toBeLessThan(1);
+  });
+
   it('describes the ground at every polar site from NASA’s adjusted maps, and at none far from the pole', () => {
     for (const s of real.sites) {
       if (!s.polar) expect(s.terrain_quality).toBeNull();
