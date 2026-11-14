@@ -32,6 +32,7 @@ export function VerdictPanel({
   standLink,
   site,
   sure,
+  limitation = null,
 }: {
   answer: Answer;
   onLand: (startUtc: string) => void;
@@ -46,6 +47,8 @@ export function VerdictPanel({
   site?: { lat: number; polar: boolean };
   /** The verdict's times with their supported margins, and what the power figures leave out (one tap away). */
   sure?: SureLines | null;
+  /** What limits the terrain behind the figures (lib/viz/terrain verdictLimitation): a short line under the first sentence, the whole limit one tap away; null when it is complete. */
+  limitation?: { line: string | null; label: string; detail: string } | null;
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -62,6 +65,12 @@ export function VerdictPanel({
       {/* The first sentence leads on a line of its own. The reasons wait one tap away under the stand view's words for
           them, since the first screen keeps one short answer (spec 20.1); an answer of one sentence has none to fold. */}
       <p className="mt-2.5 max-w-[42em] text-[17px] font-medium leading-relaxed text-ink">{answer.sentences[0]}</p>
+      {limitation?.line && <p className="mt-2 max-w-[42em] text-[15px] font-medium text-warn">{limitation.line}</p>}
+      {limitation && (
+        <Fold label={limitation.label} className="mt-1">
+          <p className="max-w-[42em] text-[15px] text-ink">{limitation.detail}</p>
+        </Fold>
+      )}
       {answer.sentences.length > 1 && (
         <Fold label="Why this happens" className="mt-1">
           <p className="max-w-[42em] text-[17px] leading-relaxed text-ink">{answer.sentences.slice(1).join(' ')}</p>

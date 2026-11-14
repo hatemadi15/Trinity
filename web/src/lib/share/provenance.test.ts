@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ENERGY_ONLY, POWER_ASSUMPTIONS } from '@/components/PowerScope';
+import { featuredReport } from '../engine/completeness';
 import { DEFAULT_PARAMS } from '../store/explore';
 import { eph, sites } from '@/test/file-loaders';
 import { collectProvenance, provenanceLines, settingsLine } from './provenance';
@@ -97,13 +98,19 @@ describe('a skyline with its terrain report', () => {
       source: 'featured' as const,
       failedTiles: 0,
       mastM: 2,
-      terrain: { quality: 'complete', source: { kind: 'featured', file: 'masks/de_gerlache_rim_2.json', generatedUtc: '2026-09-29T03:52:21+00:00', method: 'Barker et al. 2021 nested-grid horizon' } },
+      terrain: featuredReport({ site_id: 'de_gerlache_rim_2', mast_m: 2, fallback_bands: [], generated_utc: '2026-09-29T03:52:21+00:00', method: 'Barker et al. 2021 nested-grid horizon' }),
     };
     const p = collectProvenance({ site: site('de_gerlache_rim_2'), maskMeta: featured, params: DEFAULT_PARAMS, eph, startUtc: '2027-01-01T00:00:00', days: 30 }, versions);
     expect(p.terrain.quality).toBe('complete');
     expect(p.terrain.mask).toBe('the precomputed skyline file masks/de_gerlache_rim_2.json, worked out ahead of time from a 2 m mast in 720 directions, made 2026-09-29 by Barker et al. 2021 nested-grid horizon');
     expect(Object.fromEntries(provenanceLines(p)).Skyline).toMatch(/; its terrain record: complete$/);
-    const computed = { siteHeightM: 10, source: 'computed' as const, failedTiles: 0, mastM: 5, terrain: { quality: 'degraded', source: { kind: 'computed', version: 1, generatedUtc: '2026-11-12T09:07:07+00:00' } } };
+    const computed = {
+      siteHeightM: 10,
+      source: 'computed' as const,
+      failedTiles: 0,
+      mastM: 5,
+      terrain: { source: { kind: 'computed' as const, version: 1, generatedUtc: '2026-11-12T09:07:07+00:00' }, mastM: 5, findings: null, quality: 'degraded' as const, reasons: [{ kind: 'site-grid' as const, grid: 'L1', planned: 'L0' }] },
+    };
     const q = collectProvenance({ site: site('haworth'), maskMeta: computed, params: { ...DEFAULT_PARAMS, mastM: 5 }, eph, startUtc: '2027-01-01T00:00:00', days: 30 }, versions);
     expect(q.terrain.mask).toBe('worked out in the browser from the LOLA tiles (tile set version 1, cut 2026-11-12) from a 5 m mast in 720 directions');
     expect(q.terrain.quality).toBe('degraded');

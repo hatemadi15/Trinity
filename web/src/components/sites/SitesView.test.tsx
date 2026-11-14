@@ -35,7 +35,7 @@ describe('SitesView', () => {
     // What the figures count from, the lander and the order, in plain sentences rather than a list of terms (both
     // readers, part C read 1: the figures differ from Explore's, and this says why).
     expect(screen.getByText(/^Each site's figures are for landing on its best day/).textContent).toBe(
-      "Each site's figures are for landing on its best day of the 30 days from 1 January 2027, the day under its name, and the 30 days after it, for one lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery. Explore and Compare start on the first day, so their figures can differ. In each group, the longest time with power comes first.",
+      "Each site's figures are for landing on its best day of the 30 days from 1 January 2027, the day under its name, and the 30 days after it, for one lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, the hills seen from a 2 m mast. Explore and Compare start on the first day, so their figures can differ. In each group, the longest time with power comes first.",
     );
     expect(document.querySelector('main dl')).toBeNull();
     expect(screen.getByText(/three real missions, for the same days as the rest of the list/)).toBeTruthy();

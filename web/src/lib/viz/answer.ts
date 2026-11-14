@@ -110,7 +110,7 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     sentences = [
       `The Sun stands ${Math.round(series.sunEl[first])}° up, almost overhead, and an upright panel catches little of it: about ${Math.round(power.powerW[first])} W while the lander uses ${loadW} W.`,
     ];
-    sentences.push(back < hours ? `The lander is back on ${dateLong(startUtc, back)}.` : 'The lander stays off for the rest of the period.');
+    sentences.push(back < hours ? `The panel gives enough again on ${dateLong(startUtc, back)}, if the lander starts again.` : 'The lander stays off for the rest of the period.');
   } else if (series.sunFraction[first] > 0) {
     kind = 'low-sun';
     title = first === 0 ? `${landing}: too little sunlight from the first hour` : `${landing}: ${lead}, then too little sunlight`;

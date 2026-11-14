@@ -1,5 +1,6 @@
 import { ENERGY_ONLY, POWER_ASSUMPTIONS } from '@/components/PowerScope';
 import type { Site } from '../data/loaders';
+import type { TerrainReport } from '../engine/completeness';
 import type { Ephemeris } from '../engine/ephemeris';
 import { etToIso, utcToEt } from '../engine/time';
 import type { MaskMeta, PlannerParams } from '../store/explore';
@@ -54,27 +55,19 @@ export function lolaGrids(site: Pick<Site, 'lat' | 'polar'>): string[] {
   return ['LOLA LDEM 80 m (ldem_80s_80m) from 40 m to 100 km', 'LOLA LDEM 240 m (ldem_60s_240m) from 100 to 220 km'];
 }
 
-/**
- * What a terrain report adds to a skyline's provenance (the integrity part's MaskMeta.terrain, when the store carries one):
- * how far the skyline can be trusted, and when and how it was made. Read by its shape, so a store without one gives none.
- */
-interface TerrainNote {
-  quality?: string;
-  source?: { kind?: string; generatedUtc?: string | null; method?: string | null; version?: number | null };
-}
-
-const noteOf = (meta: MaskMeta | null): TerrainNote | null => (meta as (MaskMeta & { terrain?: TerrainNote }) | null)?.terrain ?? null;
+/** The skyline's terrain report, when the store has set one (MaskMeta.terrain: provenance, coverage and quality). */
+const noteOf = (meta: MaskMeta | null): TerrainReport | null => meta?.terrain ?? null;
 
 function maskWords(site: Site, meta: MaskMeta | null, mastM: number): string {
   const missing = meta && meta.failedTiles > 0 ? `; ${meta.failedTiles} tiles could not be loaded, so some hills may be missing` : '';
   const from = noteOf(meta)?.source;
   switch (meta?.source) {
     case 'featured': {
-      const made = from?.generatedUtc ? `, made ${from.generatedUtc.slice(0, 10)}${from.method ? ` by ${from.method}` : ''}` : '';
+      const made = from?.kind === 'featured' && from.generatedUtc ? `, made ${from.generatedUtc.slice(0, 10)}${from.method ? ` by ${from.method}` : ''}` : '';
       return `the precomputed skyline file masks/${site.id}.json, worked out ahead of time from a ${num(mastM)} m mast in 720 directions${made}${missing}`;
     }
     case 'computed': {
-      const set = typeof from?.version === 'number' ? ` (tile set version ${from.version}${from.generatedUtc ? `, cut ${from.generatedUtc.slice(0, 10)}` : ''})` : '';
+      const set = from?.kind === 'computed' && from.version !== null ? ` (tile set version ${from.version}${from.generatedUtc ? `, cut ${from.generatedUtc.slice(0, 10)}` : ''})` : '';
       return `worked out in the browser from the LOLA tiles${set} from a ${num(mastM)} m mast in 720 directions${missing}`;
     }
     case 'flat':

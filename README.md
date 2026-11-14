@@ -39,7 +39,9 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   numbers, with the Sun's height at the time bar's hour and its highest (every figure under "All numbers"), a chart of the Sun,
   Earth and the battery hour by hour with the hills in each direction, the radio windows (each
   stretch with Earth in view, in UTC, which of them the lander has power for, and the longest time
-  without Earth: geometric visibility, not a scheduled contact), the ground at the time bar's hour (three tabs: a north-up
+  without Earth: geometric visibility, not a scheduled contact), every landing day of the
+  next 12 months (a calendar coloured by power, then radio contact, the order the best-date search
+  uses; pressing a day lands the period there; Luna opens it with "show me the year"), the ground at the time bar's hour (three tabs: a north-up
   shadow map, the same light in 3D from above, and a horizon chart), and where the site lies with
   its nearest neighbours. The time bar at the bottom plays the period hour by hour and counts down to the next sunset or
   sunrise and to Earth's next rising or setting. The period is 14,
@@ -235,7 +237,7 @@ page. More resources may be added before the hackathon begins.
 | The brief asks for | How Earthrise answers it |
 |---|---|
 | Site selection and comparison | A catalogue of 34 places: the south pole's nine Artemis III candidate regions, crater-rim high points and floors, three CLPS landers that landed and two coming ones, the six Apollo landings, and the landers of India, China and Japan and Luna 25's target, each saying what kind of point it is (surveyed, a target, a region's centre with its radius, or a derived high point never checked for landing), with the polar ones on a relief map of the pole; and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts up to four sites side by side for the same days and lander. |
-| Dates and times | Any landing date the ephemeris covers (2024 to 2036), with a period of 14, 30 or 90 days; a better landing day inside the period, and a search of the next 12 months for the best one. |
+| Dates and times | Any landing date the ephemeris covers (2024 to 2036), with a period of 14, 30 or 90 days; a better landing day inside the period, a search of the next 12 months for the best one, and a year at a glance: every landing day of the next 12 months coloured by power and radio contact, one press to land on it. |
 | The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments (the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back) and counts down to the next sunset or sunrise and to Earth's next rising or setting. |
 | Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; the Sun's height above the horizon at any hour and its highest; hours of sunlight; the radio windows with their UTC times, which of them the lander has power to use, and the longest time without Earth (geometric direct-to-Earth visibility, not a booked antenna); the longest night; every figure under "All numbers". |
 | Several ways to see it | A relief map of the pole, a north-up shadow map and the same light in 3D from above, the horizon chart, an hour-by-hour chart of the Sun, Earth and the battery, the view from the site, and the arrival from the whole Moon on the home page. |

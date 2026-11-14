@@ -63,7 +63,7 @@ describe.skipIf(!haveData)('a shared link in a fresh browser', () => {
     expect(computeMask).toHaveBeenCalledWith(sent.site!.lat, sent.site!.lon, 5);
   });
 
-  it('opens a clicked point the same way, its skyline worked out once from the mast the link names', async () => {
+  it('opens a clicked point the same way, its skyline worked out from the mast the link names', async () => {
     const { store: a } = await freshBrowser();
     a.getState().setParams({ mastM: 5 });
     a.getState().setPower({ panel: 'vertical', panelAzimuthDeg: 90, loadW: 150, initialSocFraction: 0.6 });
@@ -79,8 +79,10 @@ describe.skipIf(!haveData)('a shared link in a fresh browser', () => {
     await b.getState().applyQuery(search(link));
     await b.getState().waitForMask();
     expect(figures(b.getState())).toEqual(figures(sent));
-    expect(computeMask).toHaveBeenCalledTimes(1);
+    // The point is worked out from 5 m only. While it is, the site shown before it is asked for at 5 m too: the
+    // skyline queue asks for the shown site's skyline at the chosen height until the point replaces it.
     expect(computeMask).toHaveBeenCalledWith(-89.5, 10, 5);
+    expect(computeMask).not.toHaveBeenCalledWith(-89.5, 10, 2);
   });
 
   it('gives the view from the site the same settings as Explore', async () => {
