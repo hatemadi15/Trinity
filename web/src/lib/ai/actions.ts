@@ -4,6 +4,7 @@ import { PANEL_LABELS, type PanelModel, type PowerConfig } from '../engine/power
 import { clampTo, PANEL_MODELS, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
 import type { ExploreState, WindowDays } from '../store/explore';
 import { dateLong } from '../viz/format';
+import { EPHEMERIS_YEARS, snapToHour } from '../period';
 import { explanationFor } from './explanations';
 
 /** The closed set of things the planner may do to the app. Validated on the server and again on the client. */
@@ -45,7 +46,7 @@ const DAYS: readonly WindowDays[] = [14, 30, 90];
  */
 export const COMPARE_LIMIT = 4;
 /** The hourly ephemeris table spans these years; a window outside it cannot be computed. */
-export const EPHEMERIS_YEARS = { first: 2024, last: 2036 };
+export { EPHEMERIS_YEARS };
 
 type Raw = Record<string, unknown>;
 type One = { action: Action } | { reason: string };
@@ -63,7 +64,10 @@ function parseDays(x: unknown): WindowDays | null {
   return n !== null && (DAYS as readonly number[]).includes(n) ? (n as WindowDays) : null;
 }
 
-/** Accepts `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` or `YYYY-MM-DDTHH:MM:SS` (optional Z) inside the ephemeris years; returns the full form. */
+/**
+ * Accepts `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` or `YYYY-MM-DDTHH:MM:SS` (optional Z) inside the ephemeris years; returns
+ * the full form at the nearest whole hour, as the engine reads its hourly table (a date alone is 00:00 UTC).
+ */
 export function normalizeUtc(x: unknown): string | null {
   if (typeof x !== 'string') return null;
   const m = x.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?Z?$/);
@@ -72,7 +76,7 @@ export function normalizeUtc(x: unknown): string | null {
   if (y < EPHEMERIS_YEARS.first || y > EPHEMERIS_YEARS.last) return null;
   const t = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
   const same = t.getUTCFullYear() === y && t.getUTCMonth() === mo - 1 && t.getUTCDate() === d && t.getUTCHours() === h && t.getUTCMinutes() === mi && t.getUTCSeconds() === s;
-  return same ? t.toISOString().slice(0, 19) : null;
+  return same ? snapToHour(t.toISOString().slice(0, 19)) : null;
 }
 
 function siteAction(raw: Raw, type: 'select_site' | 'add_to_compare' | 'remove_from_compare', siteIds: ReadonlySet<string>): One {
