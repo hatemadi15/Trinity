@@ -19,7 +19,8 @@ import { globeTextureUrl } from '@/lib/data/terrain';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { standHref } from '@/lib/links';
+import { briefHref, standHref, withSettings } from '@/lib/links';
+import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
 import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { timeWithPower } from '@/lib/engine/landing';
 import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
@@ -43,12 +44,19 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   const reducedMotion = useReducedMotion();
   useDemoMode(store);
 
+  // The address it opened with is read before the data loads, and the page writes its own only once that is applied.
+  const [linked, setLinked] = useState(false);
   useEffect(() => {
+    const search = typeof window === 'undefined' ? '' : window.location.search;
     void store
       .getState()
       .init()
-      .then(() => store.getState().applyQuery(typeof window === 'undefined' ? '' : window.location.search));
+      .then(() => store.getState().applyQuery(search))
+      .then(() => setLinked(true));
   }, [store]);
+  // The address follows the site, the period and every setting the figures depend on: a reload or a copied address opens the same figures.
+  const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params) : null;
+  useAddressFollows(link, linked && s.status === 'ready');
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
   // itself, once, and puts the cursor in its box, as "Or ask in plain words" does.
@@ -124,6 +132,8 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
 
   const site = s.site;
   const better = answer?.better;
+  // The view from the site and the brief work their figures out from the same settings.
+  const standLink = withSettings(standHref(site.id, s.startUtc, s.days, s.cursorHour), s.params);
   return (
     <AppFrame>
       <main className="flex flex-col">
@@ -149,7 +159,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               answer={answer}
               site={site}
               nearby={nearby}
-              standLink={standHref(site.id, s.startUtc, s.days, s.cursorHour)}
+              standLink={standLink}
               onLand={(start) => s.setWindow(start, s.days)}
               onCompare={onCompare}
               onYear={() => void store.getState().findBestWindow(s.days)}
@@ -163,6 +173,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               days={s.days}
               maskMeta={s.maskMeta}
               contactHours={answer.contactHours}
+              briefLink={withSettings(briefHref(site.id, s.startUtc, s.days), s.params)}
             />
           </div>
           <TimeChart
@@ -202,6 +213,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             onExaggeration={s.setExaggeration}
             onPick={onPick}
             reducedMotion={reducedMotion}
+            standLink={standLink}
           />
           <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide />
           <PlannerChat store={store} navigate={go} />

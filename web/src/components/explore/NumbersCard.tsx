@@ -49,6 +49,7 @@ export function NumbersCard({
   days,
   maskMeta,
   contactHours,
+  briefLink = '/brief',
 }: {
   site: Site;
   summary: Summary;
@@ -58,6 +59,8 @@ export function NumbersCard({
   maskMeta: MaskMeta | null;
   /** Hours with power that have Earth in view: the contact the verdict speaks of. */
   contactHours: number;
+  /** The brief's address for this site, period and settings, so a brief opened in a new tab or sent on shows the same figures. */
+  briefLink?: string;
 }) {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
@@ -137,7 +140,7 @@ export function NumbersCard({
         <button ref={opener} type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className={QUIET}>
           All numbers
         </button>
-        <Link href="/brief" className={`${QUIET} inline-flex items-center`}>
+        <Link href={briefLink} className={`${QUIET} inline-flex items-center`}>
           Printable brief
         </Link>
       </p>

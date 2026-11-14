@@ -31,6 +31,7 @@ async function storeWithFiles() {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  window.history.replaceState({}, '', '/');
 });
 
 describe('BriefView', () => {

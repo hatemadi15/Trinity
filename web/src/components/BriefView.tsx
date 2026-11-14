@@ -11,7 +11,8 @@ import { summarizeState, type StateSummary } from '@/lib/ai/state-summary';
 import { siteLabel } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
 import { landerLine } from '@/lib/lander';
-import { exploreHref } from '@/lib/links';
+import { briefHref, exploreHref, withSettings } from '@/lib/links';
+import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { answerFor } from '@/lib/viz/answer';
 import { dateLong, dayMonth, pct0, spanShort } from '@/lib/viz/format';
@@ -54,9 +55,20 @@ export function BriefView({
   const s = useStore(store);
   const [narration, setNarration] = useState<Narration | null>(null);
   const [writing, setWriting] = useState(false);
+  // A brief opened from a link, in a new tab or another browser, shows the site, period and settings its address names;
+  // once that is applied, the address follows what it shows, so the address bar can be copied and sent on.
+  const [linked, setLinked] = useState(false);
   useEffect(() => {
-    void store.getState().init();
+    const search = typeof window === 'undefined' ? '' : window.location.search;
+    void store
+      .getState()
+      .init()
+      .then(() => store.getState().applyQuery(search))
+      .then(() => setLinked(true));
   }, [store]);
+  useAddressFollows(s.site ? withSettings(briefHref(s.site.id, s.startUtc, s.days), s.params) : null, linked && s.status === 'ready');
+  // Back to Explore on the same site, period and settings.
+  const back = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params) : '/explore';
   const sunHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.sunAz) : null), [s.mask, s.series]);
   const earthHill = useMemo(() => (s.mask && s.series ? hillsToward(s.mask, s.series.earthAz) : null), [s.mask, s.series]);
   const sunUp = useMemo(() => (s.series ? Uint8Array.from(s.series.sunFraction, (f) => (f > 0 ? 1 : 0)) : null), [s.series]);
@@ -65,7 +77,7 @@ export function BriefView({
       <main className="brief mx-auto max-w-[190mm] px-8 py-8">
         {/* This page has no header, so the way back is here while loading and after a data failure. */}
         <p className="no-print mb-4">
-          <Link href={s.site ? exploreHref(s.site.id, s.startUtc, s.days) : '/explore'} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+          <Link href={back} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
             Back to Explore
           </Link>
         </p>
@@ -109,7 +121,7 @@ export function BriefView({
   return (
     <main className="brief mx-auto flex max-w-[190mm] flex-col gap-5 px-8 py-8">
       <div className="no-print flex items-center justify-between gap-4">
-        <Link href={exploreHref(s.site.id, s.startUtc, s.days)} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+        <Link href={back} className="text-[15px] underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           Back to Explore
         </Link>
         <button type="button" onClick={() => window.print()} className="btn">
