@@ -9,9 +9,10 @@ const JSON_TYPE = 'application/json';
 /** Now, as the settings file stamps it: an ISO time in UTC, to the second. */
 const nowUtc = () => `${new Date().toISOString().slice(0, 19)}Z`;
 
-/** Why the tables are plain CSV, and where their settings went: said wherever they are offered. */
-export const DOWNLOAD_NOTE =
-  'Times are in UTC. Each table is a plain CSV whose first row names the columns, so any spreadsheet opens it as it is; the settings, versions and data sources that made them are in the JSON file beside them, and on the printable brief.';
+/** Why the tables are plain CSV, and where their settings went: said wherever they are offered; `also` says where else. */
+export function downloadNote(also: string): string {
+  return `Times are in UTC. Each table is a plain CSV whose first row names the columns, so any spreadsheet opens it as it is; the settings, versions and data sources that made them are in the JSON file beside them, and ${also}.`;
+}
 
 /**
  * The figures as four files, each named for the site and period: three plain CSV tables (hour by hour, all numbers, the

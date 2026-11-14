@@ -39,6 +39,7 @@ describe('the brief from its own address', () => {
     // The files go with it, on the screen only.
     const downloads = screen.getByRole('region', { name: 'Download the figures' });
     expect(downloads.classList.contains('no-print')).toBe(true);
+    expect(downloads.textContent).toMatch(/in the JSON file beside them, and in the section above\./);
     const created = vi.fn(() => 'blob:x');
     const revoke = vi.fn();
     const was = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };

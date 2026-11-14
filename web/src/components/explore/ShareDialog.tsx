@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState, type RefObject } from 'react';
-import { DOWNLOAD_NOTE, Downloads } from '@/components/Downloads';
+import { downloadNote, Downloads } from '@/components/Downloads';
 import { Modal } from '@/components/Modal';
 import type { ExportInput } from '@/lib/share/csv';
 import { copyText, saveFile } from '@/lib/share/download';
@@ -52,7 +52,7 @@ export function ShareDialog({
         {said}
       </p>
       <h3 className="mt-3 font-semibold">Download the figures</h3>
-      <p className="mt-1 mb-3 max-w-[52em] text-[15px] text-ink-2">{DOWNLOAD_NOTE}</p>
+      <p className="mt-1 mb-3 max-w-[52em] text-[15px] text-ink-2">{downloadNote('on the printable brief')}</p>
       <Downloads input={input} provenance={provenance} link={link} save={save} />
     </Modal>
   );

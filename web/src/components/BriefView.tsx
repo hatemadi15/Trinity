@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { DataProblem, SYNC_HINT } from './DataProblem';
-import { DOWNLOAD_NOTE, Downloads } from './Downloads';
+import { downloadNote, Downloads } from './Downloads';
 import { SkyRow } from './SkyRow';
 import { askNarration, shortModel } from '@/lib/ai/client';
 import { templateBrief } from '@/lib/ai/narrate';
@@ -253,7 +253,7 @@ export function BriefView({
         <h2 id="brief-downloads" className="display text-[18px] font-semibold">
           Download the figures
         </h2>
-        <p className="max-w-[52em] text-ink-2">{DOWNLOAD_NOTE}</p>
+        <p className="max-w-[52em] text-ink-2">{downloadNote('in the section above')}</p>
         <Downloads input={{ site: s.site, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph, series: s.series, power: s.power, summary: s.summary, maskMeta: s.maskMeta, best: s.best }} provenance={sources} link={shareLink} />
       </section>
       <footer className="text-[14px] text-ink-2">
