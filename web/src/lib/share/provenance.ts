@@ -31,7 +31,7 @@ export interface Provenance {
   ephemeris: { name: string; firstUtc: string; lastUtc: string; stepH: number };
   /** What the figures take as given, with the settings they ran with. */
   assumptions: string[];
-  versions: { app: string | null; commit: string | null; data: string | null; sites: string | null; ephemeris: string | null };
+  versions: { app: string | null; commit: string | null; data: string | null; sites: string | null; ephemeris: string | null; terrain: string | null };
 }
 
 export interface ProvenanceInput {
@@ -133,6 +133,7 @@ export function collectProvenance(input: ProvenanceInput, versions: { app: AppVe
       data: versions.data.data,
       sites: versions.data.sites,
       ephemeris: versions.data.ephemeris ? `made ${versions.data.ephemeris.generatedUtc}, SHA-256 ${versions.data.ephemeris.sha256}` : null,
+      terrain: versions.data.terrain ? `version ${versions.data.terrain.version}${versions.data.terrain.generatedUtc ? `, made ${versions.data.terrain.generatedUtc.slice(0, 10)}` : ''}` : null,
     },
   };
 }
@@ -163,7 +164,7 @@ export function provenanceLines(p: Provenance): [string, string][] {
   const height = t.siteHeightM === null ? '' : `site ${Math.abs(Math.round(t.siteHeightM))} m ${t.siteHeightM < 0 ? 'below' : 'above'} the Moon's mean radius`;
   const skyline = [t.mask, t.grids.join(', '), height, t.quality && `its terrain record: ${t.quality}`].filter(Boolean).join('; ');
   const v = p.versions;
-  const versions = [`Earthrise ${v.app ?? '(a development build)'}${v.commit ? `, commit ${v.commit}` : ''}`, v.data && `data version ${v.data}`, v.sites && `site catalogue ${v.sites}`, v.ephemeris && `Sun and Earth table ${v.ephemeris}`].filter(Boolean).join('; ');
+  const versions = [`Earthrise ${v.app ?? '(a development build)'}${v.commit ? `, commit ${v.commit}` : ''}`, v.data && `data version ${v.data}`, v.sites && `site catalogue ${v.sites}`, v.ephemeris && `Sun and Earth table ${v.ephemeris}`, v.terrain && `terrain files ${v.terrain}`].filter(Boolean).join('; ');
   return [
     ['Period (UTC)', `${minute(p.period.startUtc)} to ${minute(p.period.endUtc)} UTC, ${p.period.days} days, one value per hour`],
     ['Settings', settingsLine(p.settings)],

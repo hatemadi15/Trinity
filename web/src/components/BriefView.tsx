@@ -169,7 +169,7 @@ export function BriefView({
   const provenance = terrain ? provenanceWords(terrain) : 'hills measured from NASA elevation data';
   const period = `the ${s.days} days from ${landingWords(s.startUtc)}`;
   const ticks = dayTicks(s.days);
-  const sources = collectProvenance({ site: s.site, maskMeta: s.maskMeta, params: s.params, eph: s.eph, startUtc: s.startUtc, days: s.days }, { app: appVersion(), data: dataVersions ?? { data: null, sites: null, ephemeris: null } });
+  const sources = collectProvenance({ site: s.site, maskMeta: s.maskMeta, params: s.params, eph: s.eph, startUtc: s.startUtc, days: s.days }, { app: appVersion(), data: dataVersions ?? { data: null, sites: null, ephemeris: null, terrain: null } });
   // The address that opens these figures on Explore, in full, so the printed page carries it.
   const shareLink = typeof window === 'undefined' ? back : new URL(back, window.location.origin).href;
   return (

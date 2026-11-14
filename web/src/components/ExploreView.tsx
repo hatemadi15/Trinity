@@ -301,7 +301,7 @@ export function ExploreView({
           <ShareDialog
             input={{ site, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph, series: s.series, power: s.power, summary: s.summary, maskMeta: s.maskMeta, best: s.best }}
             link={new URL(link, window.location.origin).href}
-            versions={{ app: appVersion(), data: dataVersions ?? { data: null, sites: null, ephemeris: null } }}
+            versions={{ app: appVersion(), data: dataVersions ?? { data: null, sites: null, ephemeris: null, terrain: null } }}
             onClose={() => setShareOpen(false)}
             returnFocus={shareRef}
           />

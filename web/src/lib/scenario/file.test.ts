@@ -15,7 +15,7 @@ const cols: FileColumn[] = [
   { scenario: base, site: rim, outcome: figures },
   { scenario: later, site: rim, outcome: null },
 ];
-const versions = { ephemeris: 'DE440 table abc', sites: 'catalogue version 1', terrain: null };
+const versions = { data: 'data version 2026-11-14-a120b7a9', ephemeris: 'DE440 table abc', sites: 'sites.json version 1', terrain: null };
 const NOW = new Date('2026-11-14T12:30:00Z');
 
 /** The settings alone: ids are given again on reading. */
@@ -74,10 +74,10 @@ describe('a scenario file', () => {
   it('reads the versions from the data’s own headers', async () => {
     const v = await loadDataVersions(async (path) => readJson('web', 'public', 'data', ...path.split('/')));
     expect(v.ephemeris).toMatch(/^DE440 table [0-9a-f]{12}, made \d{4}-\d{2}-\d{2}$/);
-    expect(v.sites).toBe('catalogue version 1');
+    expect(v.sites).toMatch(/^sites\.json version \d+/);
     const missing = await loadDataVersions(async () => {
       throw new Error('404');
     });
-    expect(missing).toEqual({ ephemeris: null, sites: null, terrain: null });
+    expect(missing).toEqual({ data: null, ephemeris: null, sites: null, terrain: null });
   });
 });
