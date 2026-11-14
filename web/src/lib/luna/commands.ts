@@ -49,8 +49,11 @@ export type LunaCommand =
   | { kind: 'ask'; prompt: string }
   | { kind: 'nothing' };
 
-/** Her name at the start of what was said, with a greeting before it and a comma after: "Hey Luna, …", "OK Luna. …". Never "lunar". */
-const NAME = /^(?:(?:hey|hi|hello|ok|okay)\s+)?(?:luna|loona|lunah)\b[\s,.!:;-]*/i;
+/**
+ * Her name at the start of what was said, with a greeting before it and a comma after: "Hey Luna, …", "OK Luna. …".
+ * Never "lunar", and never the probe Luna 25, a site in the catalogue.
+ */
+const NAME = /^(?:(?:hey|hi|hello|ok|okay)\s+)?(?:luna|loona|lunah)\b(?!\s*(?:25|twenty[\s-]?five)\b)[\s,.!:;-]*/i;
 
 /** What was said with her name taken off the front, and whether it was there: she was spoken to. */
 export function heard(transcript: string): { text: string; addressed: boolean } {
@@ -136,6 +139,11 @@ const SPOKEN_NAMES: [RegExp, string][] = [
   [/\bhay ?worth\b|\bhaworth's\b/g, 'haworth'],
   [/\bmons? mutton\b|\bmon mouton\b/g, 'mons mouton'],
   [/\bshackle ?ton\b/g, 'shackleton'],
+  [/\bchandra ?y?aa?n\b/g, 'chandrayaan'],
+  [/\bchang(?:y|ey|ie|ay)\b/g, "chang'e"],
+  [/\b(?:i|eye) (?:m|em) (\d+)\b/g, 'im $1'],
+  [/\bs?ch?r(?:o|oe|ö)dinger\b/g, 'schrodinger'],
+  [/\brain(?:i?er)? gamma\b/g, 'reiner gamma'],
 ];
 
 /** "the 20th of January" and "January the 20th", as the planner's dates read: "20th January", "January 20th". */

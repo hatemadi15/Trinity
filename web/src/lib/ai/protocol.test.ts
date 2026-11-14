@@ -48,6 +48,19 @@ describe('prompts', () => {
     expect(p.length).toBeLessThan(6000);
   });
 
+  it('says what kind of point each site is, and that a derived point was never checked as safe to land', () => {
+    const p = systemPrompt([
+      { id: 'apollo_11', name: 'Apollo 11 landing site (Mare Tranquillitatis)', kind: 'surveyed' },
+      { id: 'shackleton_center_rim_high', name: 'Shackleton crater rim, highest point 8.5–12.0 km', kind: 'derived' },
+      { id: 'haworth', name: 'Haworth (Artemis III region)' },
+    ]);
+    expect(p).toContain('- apollo_11: Apollo 11 landing site (Mare Tranquillitatis) [surveyed point]');
+    expect(p).toContain('- shackleton_center_rim_high: Shackleton crater rim, highest point 8.5–12.0 km [derived point]');
+    expect(p).toContain('- haworth: Haworth (Artemis III region)\n');
+    expect(p).toMatch(/A derived point is the highest ground on a crater rim in LOLA's heights, never checked as safe to land: never call it a safe or verified landing site\./);
+    expect(p).not.toMatch(/planner for the Moon's south pole\./);
+  });
+
   it('tells the model that an explain step brings its own paragraph, so the reply is one short sentence', () => {
     expect(systemPrompt(sites)).toMatch(/"explain".*one short sentence; the app adds the paragraph/);
   });
@@ -58,6 +71,14 @@ describe('prompts', () => {
     expect(u).toContain('"id": "haworth"');
     expect(u).toContain('what is the longest night?');
     expect(userPrompt('hi', null)).toMatch(/no site is selected/i);
+  });
+
+  it('names the power flag for what it measures, power lasting the whole period, not survival: the figures count electrical energy only', () => {
+    const state = { site: { id: 'haworth' }, power: { poweredHours: 336, survives: true }, compare: [{ id: 'malapert_massif', survives: false }] };
+    const u = userPrompt('will it survive?', state as never);
+    expect(u).toContain('"powerLastsWholePeriod": true');
+    expect(u).toContain('"powerLastsWholePeriod": false');
+    expect(u.replace('will it survive?', '')).not.toMatch(/surviv/i);
   });
 });
 

@@ -1,13 +1,15 @@
 import { ACTION_TYPES, type Action } from './actions';
-import type { StateSummary } from './state-summary';
+import { stateForModel, type StateSummary } from './state-summary';
 
 export type ChatSource = 'model' | 'cache' | 'intent' | 'none';
 
-/** The brief's paragraph: the model's words when every number checked out, else the deterministic template. */
+/** The brief's paragraph: the model's words when every claim in them held against the state, else the deterministic template. */
 export interface NarrationReply {
   source: 'model' | 'template';
-  /** Why the template was used: the numbers failed the check, no key is configured, demo mode, or the model did not answer. */
+  /** Why the template was used: the model's claims failed the check ('numbers'), no key is configured, demo mode, or the model did not answer. */
   reason?: 'numbers' | 'no-key' | 'cached' | 'model-error';
+  /** With 'numbers': the first things the check found, in plain words ('"67 %" for sunlight, where the figures say 100 %'). */
+  problems?: string[];
   model?: string;
   reply: string;
 }
@@ -27,10 +29,13 @@ export interface ChatReply {
   reason?: ChatReason;
 }
 
+/** The kind of point each catalogue site is (data/sites.json "kind"), in the words the site list uses. */
+const KIND_WORDS: Record<string, string> = { surveyed: 'surveyed point', target: 'landing target', region_centre: 'centre of a region', derived: 'derived point', reference: 'reference point' };
+
 /** What the model is told about the app, the actions and the rules. Sites are listed so ids are never invented. */
-export function systemPrompt(sites: { id: string; name: string }[]): string {
-  const siteLines = sites.map((s) => `- ${s.id}: ${s.name}`).join('\n');
-  return `You are the planner assistant inside Earthrise, a lunar landing-site and date planner for the Moon's south pole.
+export function systemPrompt(sites: { id: string; name: string; kind?: string }[]): string {
+  const siteLines = sites.map((s) => `- ${s.id}: ${s.name}${s.kind && KIND_WORDS[s.kind] ? ` [${KIND_WORDS[s.kind]}]` : ''}`).join('\n');
+  return `You are the planner assistant inside Earthrise, a lunar landing-site and date planner, mostly for the Moon's south pole.
 The app computes everything itself from NASA data (LOLA terrain, DE440 ephemeris): for one site and period, the share of sunlight, the longest night, how much of the time Earth is in view for radio, and how long a solar lander that lands on the first day keeps power (the time with power, then night); the same for up to four compared sites.
 You never compute, invent or guess numbers. Quote a number only if it appears in the STATE JSON you are given; otherwise say the app shows it on screen.
 
@@ -56,13 +61,14 @@ Rules:
 - "sites" is the list of landing sites; "validate" is the Accuracy page; "learn" is How it works.
 - To compare sites, add each with add_to_compare and then open_page "compare".
 - If the user names a site that is not in the list, do not select anything; say it is not in the catalogue and name the closest ones.
+- The word in brackets says what kind of point a site is. A derived point is the highest ground on a crater rim in LOLA's heights, never checked as safe to land: never call it a safe or verified landing site.
 - If the question is about the current numbers, answer from STATE and add no actions.
 - Keep replies plain and short. No markdown, no lists, no code fences.`;
 }
 
 /** The user turn: the compact app state (or a note that nothing is selected) and the question. */
 export function userPrompt(prompt: string, state: StateSummary | null): string {
-  const stateText = state ? JSON.stringify(state, null, 1) : 'No site is selected yet (the app is still loading or on a page without a site).';
+  const stateText = state ? JSON.stringify(stateForModel(state), null, 1) : 'No site is selected yet (the app is still loading or on a page without a site).';
   return `STATE:\n${stateText}\n\nQUESTION:\n${prompt}`;
 }
 
