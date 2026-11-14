@@ -148,9 +148,9 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
       {count > 0 && (
         <Fold label="How the days are coloured" className="-mt-2 text-[15px]">
           <p className="max-w-[46em] text-[15px] text-ink">
-            Each square is a landing that day at {anchor.startUtc.slice(11, 16)} UTC, coloured by its {anchor.days} days. Power counts first, then radio contact while
-            the lander has power, as the best date is chosen. A ring marks the landing shown above, a dot the best days; point at a day to see its figures
-            under the year.
+            Each square is a landing that day at {anchor.startUtc.slice(11, 16)} UTC, coloured by its {anchor.days} days with the lander chosen above. Power counts
+            first, then radio contact, as the best date is chosen; radio contact is Earth in view while the lander has power: a clear line home, not a booked
+            link. A ring marks the landing shown above, a dot the best days; point at a day to see its figures under the year.
           </p>
         </Fold>
       )}

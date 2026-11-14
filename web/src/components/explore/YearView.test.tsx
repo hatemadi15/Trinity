@@ -49,7 +49,10 @@ describe('YearView', () => {
     expect(region.textContent).toContain('Each square is a landing that day at 00:00 UTC');
     expect(visibleWords(region, WIDE).join(' ')).not.toContain('Each square');
     fireEvent.click(within(region).getByRole('button', { name: 'How the days are coloured' }));
-    expect(visibleWords(region, WIDE).join(' ')).toContain('Each square is a landing that day at 00:00 UTC, coloured by its 30 days.');
+    const told = visibleWords(region, WIDE).join(' ');
+    expect(told).toContain('Each square is a landing that day at 00:00 UTC, coloured by its 30 days with the lander chosen above.');
+    // What radio contact means here, and what it does not promise.
+    expect(told).toContain('radio contact is Earth in view while the lander has power: a clear line home, not a booked link.');
   });
 
   it('colours each day on one scale with a key in plain words, and marks the best days with a dot as well as their colour', async () => {
