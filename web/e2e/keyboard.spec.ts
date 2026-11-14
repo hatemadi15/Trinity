@@ -38,13 +38,15 @@ test.describe('Keyboard only', () => {
       await expect(answerHeading(page)).toHaveText(/ on 6 January: /);
     });
 
-    await test.step('the period: the arrows move between 14, 30 and 90 days', async () => {
-      await tabTo(page, period.getByRole('radio', { name: '30 days' }));
+    await test.step('the stay: the arrows lengthen and shorten it a day at a time', async () => {
+      const stay = period.getByRole('spinbutton', { name: 'For' });
+      await tabTo(page, stay);
       await expectFocusVisible(page);
-      await page.keyboard.press('ArrowLeft');
-      await expect(period.getByRole('radio', { name: '14 days' })).toBeChecked();
-      await page.keyboard.press('ArrowRight');
-      await expect(period.getByRole('radio', { name: '30 days' })).toBeChecked();
+      await page.keyboard.press('ArrowUp');
+      await expect(stay).toHaveValue('31');
+      await page.keyboard.press('ArrowDown');
+      await expect(stay).toHaveValue('30');
+      await expect(answerHeading(page)).toHaveText(/ on 6 January: /);
     });
 
     await test.step('the lander: Enter opens the dialog, the arrows choose, Escape closes it and gives the focus back', async () => {
@@ -85,7 +87,6 @@ test.describe('Keyboard only', () => {
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');
       await expect(page.locator('[data-caption]')).toContainText('Earth', { timeout: 60_000 });
-      await shot('stand-earth');
       const next = page.getByRole('group', { name: 'Next step' });
       const change = next.getByRole('button', { name: 'Change', exact: true });
       await tabTo(page, change, { back: true });
@@ -95,29 +96,27 @@ test.describe('Keyboard only', () => {
       await tabTo(page, next.getByRole('button', { name: 'Compare sites' }).filter({ visible: true }), { max: 10 });
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');
-      await page.waitForURL(/\/compare$/);
+      await page.waitForURL(/\/compare/);
     });
 
-    await test.step('Compare: a second site chosen in the list by typing its name, and added with Enter', async () => {
-      const table = page.getByRole('table');
-      await expect(table.getByRole('rowheader').getByRole('link')).toHaveText(['de Gerlache Rim 2']);
-      const add = page.getByLabel('Add a site');
-      await tabTo(page, add);
-      await expectFocusVisible(page);
-      await page.keyboard.type('de Gerlache rim');
-      await expect(add).toHaveValue('de_gerlache_center_rim_high');
-      await tabTo(page, page.getByRole('button', { name: 'Add', exact: true }), { max: 5 });
+    await test.step('Compare: a nearby alternative added with Enter, beside the site as the baseline', async () => {
+      const baseline = page.getByRole('group', { name: /^Baseline: / });
+      await expect(baseline).toBeVisible({ timeout: 60_000 });
+      await tabTo(page, baseline.getByRole('button', { name: 'Find a nearby alternative' }));
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');
-      await expect(table.getByRole('rowheader').getByRole('link')).toHaveText(['de Gerlache Rim 2', 'de Gerlache rim summit']);
+      await expect(page.getByRole('group', { name: /^Scenario 2: / })).toBeVisible({ timeout: 120_000 });
+      // The table scrolls inside its own box, which the keyboard reaches too.
+      await tabTo(page, page.getByRole('region', { name: 'The scenarios side by side' }));
+      await expectFocusVisible(page);
     });
 
-    await test.step('the brief: reached by its link and printed with Enter', async () => {
-      await tabTo(page, page.getByRole('link', { name: 'Printable brief for de Gerlache Rim 2' }));
+    await test.step('the comparison brief: reached by its link and printed with Enter', async () => {
+      await tabTo(page, page.getByRole('link', { name: 'Printable comparison brief' }));
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');
-      await page.waitForURL(/\/brief$/);
-      await expect(page.getByRole('heading', { level: 1, name: 'de Gerlache Rim 2' })).toBeVisible();
+      await page.waitForURL(/\/compare\/brief/);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 60_000 });
       await tabTo(page, page.getByRole('button', { name: 'Print or save as PDF' }));
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');

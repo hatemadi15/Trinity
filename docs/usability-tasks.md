@@ -25,8 +25,8 @@ Repeatable tasks for testing Earthrise with real people. The browser journeys (`
 
 - **Goal, in their words:** "Our landing slipped by five days. Show what changed at the original site, which nearby alternative works better, and the sunlight, powered-time and Earth-contact trade-offs behind that recommendation."
 - **Start:** Explore at de Gerlache Rim 2, 1 January 2027, 30 days, small lander.
-- **Success:** they change the date to 6 January 2027, say what changed at the original site, name the nearby site the app advises, and compare the two sites side by side (in Compare, or with the scenario comparison once it is in the app). They can then state one trade-off in each of sunlight, time with power and Earth contact.
-- **Time and note:** the time to each of the four parts; whether they used the nearby advice or searched on their own; whether the trade-offs read as a recommendation or only as numbers.
+- **Success:** they move the landing to 6 January 2027 (in Explore, or with Compare's slip), say what changed at the original site, name the nearby site the app finds, and set the sites side by side in Compare. They can then state one trade-off in each of sunlight, time with power and Earth contact, and say which site they would recommend.
+- **Time and note:** the time to each of the four parts; whether they found "Compare from here" and the slip without help; whether they used the app's nearby alternative or searched on their own; whether "What changed, and what works better" read as a recommendation or only as numbers.
 
 ### P3. Change the lander and keep a record
 

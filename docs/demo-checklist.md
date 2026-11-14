@@ -14,7 +14,7 @@
 ## The browser journeys
 
 - [ ] From `web/`, run `npm run e2e`: it builds, starts the build on port 3032, runs the journeys in Chromium and stops the server. `npm run e2e:run` runs them against the last build. Once per machine first: `npx playwright install chromium`. Stop `npm start` before `npm run e2e`, since the build rewrites `.next`.
-- [ ] Every journey passes; the one skipped journey says why (the scenario comparison, until it lands). The results go to `web/public/validation/e2e.json` (commit it with the test report), the screenshots to `web/test-results/shots/`, and a failure's picture and error to `web/test-results/e2e/`.
+- [ ] Every journey passes; the one skipped journey says why (a known bug: a missing horizon file for the site in a link is shown as a raw address). The results go to `web/public/validation/e2e.json` (commit it with the test report), the screenshots to `web/test-results/shots/`, and a failure's picture and error to `web/test-results/e2e/`.
 - [ ] The usability tasks in `docs/usability-tasks.md` stay marked pending until they are run with real people; never present them as done.
 
 ## The night before

@@ -4,6 +4,13 @@ import { expect, expectNoSideScroll, exploreUrl, standUrl, test } from './fixtur
 /** A phone 390 px wide, held upright, with a touch screen. */
 test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
+/** Compare's example, a landing at de Gerlache Rim 2 slipped by five days with the best place nearby, worked out. */
+async function slipExample(page: Page) {
+  await page.getByRole('button', { name: /Our landing slipped by five days/ }).tap({ timeout: 60_000 });
+  await expect(page.getByRole('group', { name: /^Scenario 3: / })).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText('Working out the figures…')).toHaveCount(0, { timeout: 120_000 });
+}
+
 /** Each page, how to know it has drawn, and what to open on it before measuring, at 390 px. */
 const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> }[] = [
   {
@@ -41,13 +48,23 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> 
     },
   },
   {
-    name: 'Compare, with a pair of sites',
+    name: 'Compare, with the five-day slip example',
     path: '/compare',
     ready: async (page) => {
       await expect(page.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeVisible({ timeout: 60_000 });
       await expectNoSideScroll(page, 'Compare, empty');
-      await page.getByRole('button', { name: /A ridge and the summit 12 km away/ }).tap();
-      await expect(page.getByRole('table').getByRole('rowheader')).toHaveCount(2, { timeout: 60_000 });
+      await slipExample(page);
+    },
+  },
+  {
+    name: 'The comparison brief',
+    path: '/compare',
+    ready: async (page) => {
+      await slipExample(page);
+      await page.getByRole('link', { name: 'Printable comparison brief' }).tap();
+      await page.waitForURL(/\/compare\/brief/);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByText('Working out the figures…')).toBeHidden({ timeout: 120_000 });
     },
   },
   {

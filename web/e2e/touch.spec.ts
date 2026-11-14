@@ -30,17 +30,20 @@ test.describe('Touch', () => {
     // The answer is on the first screen, under the period in one line.
     await expect(answerHeading(page)).toBeInViewport();
     const band = page.getByRole('region', { name: 'What this forecast is for' });
-    await expect(band.getByText(/^de Gerlache Rim 2, 30 days from 1 January 2027, small lander:$/)).toBeVisible();
+    await expect(band.getByText(/^de Gerlache Rim 2, 30 days from 1 January 2027, 00:00 UTC, small lander:$/)).toBeVisible();
 
-    await test.step('tapping change opens the fields; a tap picks 14 days and another lander', async () => {
+    await test.step('tapping change opens the fields; a tap and the number pad set 14 days, a tap picks another lander', async () => {
       // The one button reads "change" while the fields are folded and "done" while they are open.
       const toggle = band.getByRole('button', { name: /^(change|done)$/ });
       await expect(toggle).toHaveText('change');
       await toggle.tap();
       await expect(toggle).toHaveAttribute('aria-expanded', 'true');
       await expect(toggle).toHaveText('done');
-      await band.getByText('14 days', { exact: true }).tap();
-      await expect(band.getByRole('radio', { name: '14 days' })).toBeChecked();
+      // The length of the stay, typed after a tap, as a phone's number pad would.
+      const stay = band.getByRole('spinbutton', { name: 'For' });
+      await stay.tap();
+      await stay.fill('14');
+      await expect(stay).toHaveValue('14');
       await band.getByRole('button', { name: /^Small lander.*\. Change$/ }).tap();
       const dialog = page.getByRole('dialog', { name: 'The lander' });
       await dialog.getByRole('radio', { name: /^Large lander/ }).tap();
@@ -48,7 +51,7 @@ test.describe('Touch', () => {
       await dialog.getByRole('button', { name: 'Close' }).tap();
       await expect(dialog).toBeHidden();
       await toggle.tap();
-      await expect(band.getByText(/^de Gerlache Rim 2, 14 days from 1 January 2027, large lander:$/)).toBeVisible();
+      await expect(band.getByText(/^de Gerlache Rim 2, 14 days from 1 January 2027, 00:00 UTC, large lander:$/)).toBeVisible();
       await expectNoSideScroll(page, 'Explore on a phone');
     });
 
