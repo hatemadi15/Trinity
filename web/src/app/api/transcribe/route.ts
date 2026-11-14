@@ -2,13 +2,16 @@ import { geminiFromEnv, geminiTranscribe, geminiUnavailable } from '@/lib/ai/gem
 import { clientIp, SlidingWindowLimiter } from '@/lib/ai/rate-limit';
 import catalogue from '@/lib/data/catalogue.json';
 import type { Site } from '@/lib/data/loaders';
-import { AUDIO_MAX_BYTES } from '@/lib/luna/limits';
+import { wavSeconds } from '@/lib/audio/wav';
+import { AUDIO_MAX_BYTES, RECORDING_MAX_MS } from '@/lib/luna/limits';
 
 export const dynamic = 'force-dynamic';
 /** Vercel function cap (seconds); Gemini gets at most AI_MODEL_TIMEOUT_MS of it. */
 export const maxDuration = 30;
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+/** The longest WAV taken, in seconds: a recording's cap and a second's grace. */
+const MAX_SECONDS = RECORDING_MAX_MS / 1000 + 1;
 const limiter = new SlidingWindowLimiter(Number(process.env.AI_RATE_LIMIT_PER_MIN) || 30, 60_000);
 const timeoutMs = () => Number(process.env.AI_MODEL_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
 /** The catalogue's names, which Gemini is told it may hear. */
@@ -80,7 +83,7 @@ export async function GET(): Promise<Response> {
  * recognition (Firefox, some Safari), which record a phrase at a press (at most 15 s). 503 at once without a key or in
  * the offline build (cached mode), never reading the audio or calling Gemini; 429 past AI_RATE_LIMIT_PER_MIN from one
  * address, before reading it; 415 for a type that is not audio; 413 past AUDIO_MAX_BYTES, by its Content-Length or as
- * it is read; 400 for an empty body; 502 when Gemini gives no transcript within AI_MODEL_TIMEOUT_MS.
+ * it is read, or for a WAV whose header says it lasts more than 16 s; 400 for an empty body; 502 when Gemini gives no transcript within AI_MODEL_TIMEOUT_MS.
  */
 export async function POST(request: Request): Promise<Response> {
   const why = geminiUnavailable();
@@ -95,6 +98,8 @@ export async function POST(request: Request): Promise<Response> {
   const audio = await readCapped(request, AUDIO_MAX_BYTES);
   if (audio === 'too-big') return tooBig();
   if (audio.byteLength === 0) return Response.json({ error: 'the recording is empty' }, { status: 400 });
+  // A recording lasts 15 s at most; a WAV says how long it lasts, so a longer one is refused before Gemini hears it.
+  if (mimeType === 'audio/wav' && (wavSeconds(audio) ?? 0) > MAX_SECONDS) return Response.json({ error: `the recording is longer than ${RECORDING_MAX_MS / 1000} s` }, { status: 413 });
   const g = geminiFromEnv()!;
   const r = await geminiTranscribe({ model: g.transcribeModel, apiKey: g.apiKey, audio, mimeType, names: NAMES, signal: AbortSignal.timeout(timeoutMs()) });
   if ('error' in r) {

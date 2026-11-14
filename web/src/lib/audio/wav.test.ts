@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { floatToPcm16, pcmRate, pcmToWav, WAV_HEADER_BYTES } from './wav';
+import { floatToPcm16, pcmRate, pcmToWav, WAV_HEADER_BYTES, wavSeconds } from './wav';
 
 const text = (b: Uint8Array, at: number, n: number) => String.fromCharCode(...b.subarray(at, at + n));
 
@@ -36,6 +36,22 @@ describe('WAV for Gemini’s speech and Luna’s recordings', () => {
     const pcm = floatToPcm16(new Float32Array([0, 1, -1, 0.5, 2, -3]));
     const v = new DataView(pcm.buffer);
     expect([0, 1, 2, 3, 4, 5].map((i) => v.getInt16(i * 2, true))).toEqual([0, 32767, -32768, 16384, 32767, -32768]);
+  });
+
+  it('reads how long a WAV lasts from its header, past other chunks, and gives null for what is not a WAV', () => {
+    expect(wavSeconds(pcmToWav(new Uint8Array(32_000), 16_000))).toBe(1);
+    expect(wavSeconds(pcmToWav(new Uint8Array(48_000), 24_000))).toBe(1);
+    // A LIST chunk before the data, as some recorders write.
+    const plain = pcmToWav(new Uint8Array(16_000), 16_000);
+    const list = new Uint8Array([...'LIST'].map((c) => c.charCodeAt(0)).concat([4, 0, 0, 0, 1, 2, 3, 4]));
+    const withList = new Uint8Array([...plain.subarray(0, 36), ...list, ...plain.subarray(36)]);
+    expect(wavSeconds(withList)).toBe(0.5);
+    // A data chunk that claims more than the file holds counts what is there.
+    const short = pcmToWav(new Uint8Array(3200), 16_000);
+    new DataView(short.buffer).setUint32(40, 0xffffffff, true);
+    expect(wavSeconds(short)).toBe(0.1);
+    expect(wavSeconds(new Uint8Array([79, 103, 103, 83, 0, 0, 0, 0, 0, 0, 0, 0]))).toBeNull();
+    expect(wavSeconds(new Uint8Array(10))).toBeNull();
   });
 
   it('reads the sample rate from the type Gemini gives its audio, 24 kHz when it gives none', () => {

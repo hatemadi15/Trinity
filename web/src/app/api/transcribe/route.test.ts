@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUDIO_MAX_BYTES } from '@/lib/luna/limits';
+import { pcmToWav } from '@/lib/audio/wav';
+import { AUDIO_MAX_BYTES, RECORDING_MAX_MS } from '@/lib/luna/limits';
 import { GET, maxDuration, POST } from './route';
 
 let ipCounter = 0;
@@ -113,6 +114,16 @@ describe('POST /api/transcribe: words from a recording, for browsers without spe
     expect((await POST(request(new Uint8Array(AUDIO_MAX_BYTES)))).status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(AUDIO_MAX_BYTES).toBe(1_000_000);
+  });
+
+  it('refuses a WAV longer than a recording may last with 413, by its header', async () => {
+    const fetchMock = heard('play');
+    vi.stubGlobal('fetch', fetchMock);
+    const seconds = (s: number) => pcmToWav(new Uint8Array(s * 32_000), 16_000);
+    expect((await POST(request(seconds(17)))).status).toBe(413);
+    expect((await POST(request(seconds(15)))).status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(RECORDING_MAX_MS).toBe(15_000);
   });
 
   it('answers 502 when Gemini fails, without the key, and logs why', async () => {

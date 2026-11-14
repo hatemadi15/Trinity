@@ -52,3 +52,22 @@ export function pcmRate(mimeType: string | undefined): number {
   const rate = Number(/(?:^|;)\s*rate=(\d+)/i.exec(mimeType ?? '')?.[1]);
   return Number.isInteger(rate) && rate > 0 ? rate : GEMINI_SPEECH_RATE;
 }
+
+/**
+ * How long a WAV lasts, from its header: the data chunk's size over the fmt chunk's bytes a second, other chunks
+ * stepped over; a data chunk that claims more than the file holds counts what is there. Null for what is not a WAV.
+ */
+export function wavSeconds(bytes: Uint8Array): number | null {
+  if (bytes.byteLength < 12) return null;
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const id = (at: number) => String.fromCharCode(bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]);
+  if (id(0) !== 'RIFF' || id(8) !== 'WAVE') return null;
+  let byteRate = 0;
+  for (let at = 12; at + 8 <= bytes.byteLength; ) {
+    const size = v.getUint32(at + 4, true);
+    if (id(at) === 'fmt ' && at + 20 <= bytes.byteLength) byteRate = v.getUint32(at + 16, true);
+    if (id(at) === 'data') return byteRate > 0 ? Math.min(size, bytes.byteLength - at - 8) / byteRate : null;
+    at += 8 + size + (size % 2);
+  }
+  return null;
+}
