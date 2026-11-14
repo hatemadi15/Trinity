@@ -1,15 +1,18 @@
 import { createStore, type StoreApi } from 'zustand';
-import { dataBase, loadEphemerisFromUrl, loadMask, loadSites, type MaskDoc, type Site } from '../data/loaders';
+import { dataBase, loadEphemerisFromUrl, loadMask, loadSites, siteLabel, type MaskDoc, type Site } from '../data/loaders';
 import { contextFileFor, loadHeightmap, loadTerrainManifest, windowFileFor, type Heightmap, type TerrainManifest } from '../data/terrain';
 import { indexForEt, type Ephemeris } from '../engine/ephemeris';
 import { EngineClient } from '../engine-client';
 import { normalizeLon } from '../engine/geometry';
-import { bestLanding, bestLandingAcross, landingScores, timeWithPower, YEAR_HOURS, type Landing } from '../engine/landing';
+import { bestLanding, timeWithPower, YEAR_HOURS, type Landing } from '../engine/landing';
 import { contactWindows, headSeries, hourlySeries, sliceSeries, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig, type PowerResult } from '../engine/power';
 import { etToIso, utcToEt } from '../engine/time';
 import { dateLong, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
+import { yearOptions, type Recommendation, type YearChoice } from '../plan/options';
+import { periodOutcome, type Outcome } from '../plan/outcome';
+import { checksWords, NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
 import { customPoint, parseExploreQuery } from './query';
 
 export const WINDOW_DAYS = [14, 30, 90] as const;
@@ -60,8 +63,23 @@ export interface SiteOverview {
   /** Sunlight and contact with Earth over as many days from the best landing hour (the period's own when there is none, or it is the start). */
   afterSun: number;
   afterEarth: number;
+  /** What a lander gets from landing at the period start: what the places nearby are ranked on. */
+  now?: Outcome;
 }
 export const DEFAULT_START = '2027-01-01T00:00:00';
+
+/** The 12-month search's result: the landing times it found, ranked with the requirements, and what it searched. */
+export interface YearPlan {
+  scope: 'site' | 'compare';
+  days: number;
+  /** The start the search began from (UTC): the current choice the alternatives are weighed against. */
+  fromUtc: string;
+  /** The sites searched, in the order of each choice's `perSite`. */
+  siteNames: string[];
+  /** Hours between the landing times tried. */
+  stepH: number;
+  plan: Recommendation<YearChoice>;
+}
 
 export interface Loaders {
   loadSites: () => Promise<Site[]>;
@@ -142,6 +160,12 @@ export interface ExploreState {
   /** True while the worker computes a skyline (custom site or mast change). */
   maskBusy: boolean;
   bestWindowNote: string | null;
+  /** The alternatives behind the 12-month search's note: it lives and goes with the note. */
+  yearPlan: YearPlan | null;
+  /** What the mission needs: the recommendations are ranked and checked against it. None set by default. */
+  requirements: Requirements;
+  /** Changes some requirements (null drops one); the 12-month note goes, as it was ranked for the old ones. */
+  setRequirements: (patch: Partial<Requirements>) => void;
   setParams: (patch: Partial<PlannerParams>) => void;
   setPower: (patch: Partial<PowerConfig>) => void;
   /** Computes a custom site's skyline in the worker and selects it. */
@@ -149,9 +173,10 @@ export interface ExploreState {
   addToCompare: (id: string) => Promise<void>;
   removeFromCompare: (id: string) => void;
   /**
-   * Searches the next 12 months from the start date for the landing hour with the longest time with
-   * power and moves the period there; null when none fits. Scope 'compare' takes the mean over the
-   * compared sites (and falls back to the selected site when there are none).
+   * Searches the next 12 months from the start date, every 6 hours, for the landing hour that ranks first with the
+   * requirements (then the longest time with power, then Earth contact while powered) and moves the period there;
+   * null when none fits. Scope 'compare' ranks each hour by the compared site that does worst (and falls back to the
+   * selected site when there are none). The best few landing times are kept in `yearPlan`.
    */
   findBestWindow: (days: WindowDays, scope?: 'site' | 'compare') => Promise<{ startUtc: string; poweredHours: number; earthFraction: number } | null>;
   /** Resolves once a pending mast debounce and any in-flight skyline recompute have settled. */
@@ -162,6 +187,14 @@ export interface ExploreState {
   setAiMode: (mode: AiMode) => void;
   /** Applies ?site=&start=&days= from a URL once the store is ready; unknown ids and bad dates are ignored. */
   applyQuery: (search: string | URLSearchParams) => Promise<void>;
+}
+
+/** The series each period was cut from by `recompute`: it runs up to a period past the end, for the landing search. */
+const scans = new WeakMap<Series, Series>();
+
+/** The longer series a period's landing search scanned (`recompute` keeps it); a series no search was run on is its own. */
+export function scanOf(series: Series): Series {
+  return scans.get(series) ?? series;
 }
 
 export function recompute(
@@ -181,6 +214,7 @@ export function recompute(
   const raw = hourlySeries(site, mask, eph, startEt, reach);
   const scan = params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw;
   const series = headSeries(scan, hours);
+  if (series !== scan) scans.set(series, scan);
   const summary = summarize(series);
   const best = bestLanding(scan, params.power, { from: 0, to: hours, step: 1, capHours: hours });
   return {
@@ -270,6 +304,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     compare: [],
     maskBusy: false,
     bestWindowNote: null,
+    yearPlan: null,
+    requirements: NO_REQUIREMENTS,
     aiMode: process.env.NEXT_PUBLIC_AI_MODE === 'cached' ? 'cached' : 'live',
 
     init() {
@@ -406,6 +442,10 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       get().setParams({ power: { ...get().params.power, ...patch } });
     },
 
+    setRequirements(patch) {
+      set({ requirements: { ...get().requirements, ...patch }, bestWindowNote: null });
+    },
+
     async selectCustom(lat, lon) {
       if (!loaders.computeMask) {
         set({ customError: 'custom sites need the skyline worker' });
@@ -463,7 +503,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     },
 
     async findBestWindow(days, scope = 'site') {
-      const { eph, site, mask, startUtc, params, compareIds, sites } = get();
+      const { eph, site, mask, startUtc, params, compareIds, sites, requirements } = get();
       if (!eph) return null;
       const compared = compareIds.flatMap((id) => {
         const s = sites.find((x) => x.id === id);
@@ -483,27 +523,33 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       }
       // Only landing hours that leave room for the whole period are candidates.
       const scan = { from: 0, to: Math.min(YEAR_HOURS, scanHours - windowHours + 1), step: 6, capHours: windowHours };
-      const best = bestLandingAcross(
-        targets.map((t) => {
-          const raw = hourlySeries(t.site, t.mask, eph, startEt, scanHours);
-          return landingScores(params.minEarthElDeg > 0 ? withCommsThreshold(raw, t.mask, params.minEarthElDeg) : raw, params.power, scan);
-        }),
-      );
-      if (!best) {
+      const series = targets.map((t) => {
+        const raw = hourlySeries(t.site, t.mask, eph, startEt, scanHours);
+        return params.minEarthElDeg > 0 ? withCommsThreshold(raw, t.mask, params.minEarthElDeg) : raw;
+      });
+      const plan = yearOptions({ scans: series, cfg: params.power, req: requirements, scan, startUtc });
+      const top = plan.alternatives[0];
+      if (!top) {
         set({ bestWindowNote: targets.length > 1 ? 'No hour in the next 12 months has sunlight at every compared site.' : 'No hour in the next 12 months has sunlight here.' });
         return null;
       }
-      const newStart = etToIso(startEt + best.hour * 3600).slice(0, 13) + ':00:00';
+      const newStart = etToIso(startEt + top.item.hour * 3600).slice(0, 13) + ':00:00';
       get().setWindow(newStart, days);
       const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}`;
-      const lasting = spanShort(Math.round(best.poweredHours));
+      const best = top.outcome;
+      const earthFraction = best.poweredH > 0 ? best.poweredContactH / best.poweredH : 0;
+      const names = targets.map((t) => siteLabel(t.site));
+      const each = top.item.perSite.map((o, i) => `${spanShort(o.poweredH)} at ${names[i]}`);
+      const found =
+        targets.length > 1
+          ? `Across ${targets.length} compared sites, ranked by the site that does worst: best landing in the next 12 months: ${when}. Power for ${each.slice(0, -1).join(', ')} and ${each[each.length - 1]}.`
+          : `Best landing in the next 12 months: ${when}, power for ${spanShort(best.poweredH)}, Earth in view ${pct0(earthFraction)} of that time.`;
+      const checks = checksWords(top.checks);
       set({
-        bestWindowNote:
-          targets.length > 1
-            ? `Across ${targets.length} compared sites: best landing in the next 12 months: ${when}, power for ${lasting} on average.`
-            : `Best landing in the next 12 months: ${when}, power for ${lasting}, Earth in view ${pct0(best.earthFraction)} of that time.`,
+        bestWindowNote: checks ? `${found} ${checks}${top.failed > 0 ? ' None in the next 12 months meets them all.' : ''}` : found,
+        yearPlan: { scope: targets.length > 1 ? 'compare' : 'site', days, fromUtc: startUtc, siteNames: names, stepH: scan.step, plan },
       });
-      return { startUtc: newStart, poweredHours: best.poweredHours, earthFraction: best.earthFraction };
+      return { startUtc: newStart, poweredHours: best.poweredH, earthFraction };
     },
 
     async loadOverview() {
@@ -530,6 +576,7 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
                 best: r.best,
                 afterSun: r.after.illumFraction,
                 afterEarth: r.after.earthVisFraction,
+                now: periodOutcome(r.series, r.power),
               },
             },
           });
@@ -771,6 +818,12 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     }
     if (seq === windowSeq && store.getState().siteId === siteId) store.setState({ heightmap: hm, contextHeightmap: cm ?? null });
   }
+
+  // The 12-month alternatives belong to the note that reports them: whatever drops the note (a new site, period, lander
+  // or requirement) drops them too.
+  store.subscribe((state) => {
+    if (state.bestWindowNote === null && state.yearPlan !== null) store.setState({ yearPlan: null });
+  });
 
   return store;
 }

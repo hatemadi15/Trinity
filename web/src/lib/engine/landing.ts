@@ -7,9 +7,9 @@ export const YEAR_HOURS = 365 * 24;
 /** A landing hour and what the lander gets from it. Hours are indexes into the series that was scanned. */
 export interface Landing {
   hour: number;
-  /** Hours with power from the landing, capped at the period length (a mean when several sites are scored). */
+  /** Hours with power from the landing, capped at the period length (the worst site's when several sites are scored). */
   poweredHours: number;
-  /** Share of those hours with Earth in view; 0 when there are none. */
+  /** Share of those hours with Earth in view (the worst site's, with several); 0 when there are none. */
   earthFraction: number;
 }
 
@@ -77,9 +77,11 @@ export function landingScores(series: Series, cfg: PowerConfig, scan: LandingSca
 }
 
 /**
- * The best landing hour for several sites at once (one site is the usual case): the longest mean time
- * with power, then the larger share of it with Earth in view, then the earlier hour. A lander arrives
- * in daylight, so only hours at which every site is sunlit are candidates; null when there is none.
+ * The best landing hour for several sites at once (one site is the usual case), judged on the site that does worst at
+ * each hour, so no site's poor result hides behind the others' good ones: the longest time with power at the worst
+ * site, then the larger share of it with Earth in view there, then the earlier hour. A lander arrives in daylight, so
+ * only hours at which every site is sunlit are candidates; null when there is none. Explore and Compare rank with the
+ * requirements through `yearOptions` (lib/plan), which judges several sites the same way.
  */
 export function bestLandingAcross(scores: LandingScores[]): Landing | null {
   if (scores.length === 0) return null;
@@ -87,14 +89,11 @@ export function bestLandingAcross(scores: LandingScores[]): Landing | null {
   let best: Landing | null = null;
   for (let k = 0; k < count; k++) {
     if (!scores.every((s) => s.sunlit[k] === 1)) continue;
-    let powered = 0;
-    let contact = 0;
-    for (const s of scores) {
-      powered += s.powered[k];
-      contact += s.contact[k];
-    }
-    const poweredHours = powered / scores.length;
-    const earthFraction = powered > 0 ? contact / powered : 0;
+    // The worst site: the least power, and of two with as little, the less contact.
+    let worst = scores[0];
+    for (const s of scores) if (s.powered[k] < worst.powered[k] || (s.powered[k] === worst.powered[k] && s.contact[k] < worst.contact[k])) worst = s;
+    const poweredHours = worst.powered[k];
+    const earthFraction = poweredHours > 0 ? worst.contact[k] / poweredHours : 0;
     if (!best || poweredHours > best.poweredHours || (poweredHours === best.poweredHours && earthFraction > best.earthFraction)) {
       best = { hour: scores[0].hours[k], poweredHours, earthFraction };
     }
