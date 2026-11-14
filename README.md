@@ -30,10 +30,13 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, the time
   Earth is in view while the lander has power, a better landing day inside the period ("Land on 20
   January instead") or a better place nearby, and a search of the next 12 months. Below it: the
-  numbers (every figure under "All numbers"), a chart of the Sun, Earth and the battery hour by
-  hour with the hills in each direction, the ground at the time bar's hour (three tabs: a north-up
+  numbers, with the Sun's height at the time bar's hour and its highest (every figure under "All numbers"), a chart of the Sun,
+  Earth and the battery hour by hour with the hills in each direction, the radio windows (each
+  stretch with Earth in view, in UTC, which of them the lander has power for, and the longest time
+  without Earth: geometric visibility, not a scheduled contact), the ground at the time bar's hour (three tabs: a north-up
   shadow map, the same light in 3D from above, and a horizon chart), and where the site lies with
-  its nearest neighbours. The time bar at the bottom plays the period hour by hour. The period is 14,
+  its nearest neighbours. The time bar at the bottom plays the period hour by hour and counts down to the next sunset or
+  sunrise and to Earth's next rising or setting. The period is 14,
   30 or 90 days from a date you choose; the Lander dialog offers three ready-made landers or your
   own panel, load, battery and mast. `/explore?site=&start=&days=` links to one forecast.
 - **Stand on the Moon** (`/explore/stand`, "Stand at the site" on Explore): the view from the landing
@@ -43,13 +46,15 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   they show once you look up, away from the bright ground). A lander stands 16 m away, with rocks and
   small craters around you: these are drawn, not measured, and the view says so. A plate at the top
   gives the answer first (power, radio contact, the days without power), the next step under it and
-  the lander's state for the hour at its foot; "More" opens today's card; the time bar below plays the period at a day a second (2× and 4× on its speed button), stops on each
+  the lander's state for the hour at its foot; "More" opens today's card, which counts down to the next sunset or sunrise and to Earth's next
+  rising or setting; the time bar below plays the period at a day a second (2× and 4× on its speed button), stops on each
   of its key moments and turns the view there (the Sun going behind the hills, the battery running out,
   Earth coming into view, the Sun coming back), which show as dots on the bar, and Next steps to them.
   `?hour=` sets the hour and `?quality=fast` lightens the drawing for weaker graphics; without WebGL 2
   the horizon chart stands in, with the same words.
 - **Compare sites** (`/compare`): up to four sites in one table for the same days and lander:
-  sunlight, Earth in view, longest night and time with power (and when the power comes back), with a small Sun and
+  sunlight, Earth in view, longest night, time with power (and when the power comes back), radio contact while
+  it has power and the longest time without Earth, with a small Sun and
   Earth strip per site and one sentence naming the best site for each measure. Empty, it offers two
   ready pairs that show how much a few kilometres change.
 - **Accuracy** (`/validate`): three checks, each with its pass mark, its headline figure and its
@@ -213,8 +218,8 @@ page. More resources may be added before the hackathon begins.
 |---|---|
 | Site selection and comparison | A catalogue of 19 places near the south pole (the nine Artemis III candidate regions, the landing spots of three commercial landers, crater-rim high points and crater floors) on a relief map of the pole, and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts up to four sites side by side for the same days and lander. |
 | Dates and times | Any landing date the ephemeris covers (2024 to 2036), with a period of 14, 30 or 90 days; a better landing day inside the period, and a search of the next 12 months for the best one. |
-| The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments: the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back. |
-| Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; hours of sunlight; the time Earth is in view while the lander has power; the longest night; every figure under "All numbers". |
+| The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments (the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back) and counts down to the next sunset or sunrise and to Earth's next rising or setting. |
+| Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; the Sun's height above the horizon at any hour and its highest; hours of sunlight; the radio windows with their UTC times, which of them the lander has power to use, and the longest time without Earth (geometric direct-to-Earth visibility, not a booked antenna); the longest night; every figure under "All numbers". |
 | Several ways to see it | A relief map of the pole, a north-up shadow map and the same light in 3D from above, the horizon chart, an hour-by-hour chart of the Sun, Earth and the battery, the view from the site, and the arrival from the whole Moon on the home page. |
 | Time and change | The time bar plays the period hour by hour at a day a second (2× and 4× on its speed button), with dots for the key moments and Next to step between them; the chart and every view follow it. |
 | Every skill level | Plain words first and every number a click away; a Learn mode with a guided story for classes; the printable brief; an assistant for typed questions and Luna for spoken ones; keyboard use, phone layouts, light and dark themes, and an offline mode for the venue. |
