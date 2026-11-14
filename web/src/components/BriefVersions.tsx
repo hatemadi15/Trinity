@@ -37,7 +37,7 @@ export function BriefVersions({
       <h2 id="brief-versions" className="display text-[18px] font-semibold">
         Across terrain versions
       </h2>
-      <VersionsBody state={state} startUtc={startUtc} days={days} />
+      <VersionsBody state={state} startUtc={startUtc} days={days} printed />
     </section>
   );
 }

@@ -26,8 +26,8 @@ export function VersionsFold({ state, startUtc, days, className = 'mt-1' }: { st
   );
 }
 
-/** The versions' words for any page: the fold's content on Explore, a printed section in the brief. */
-export function VersionsBody({ state, startUtc, days }: { state: VersionsState; startUtc: string; days: number }) {
+/** The versions' words for any page: the fold's content on Explore, a printed section in the brief (`printed`: in the brief's own type size). */
+export function VersionsBody({ state, startUtc, days, printed = false }: { state: VersionsState; startUtc: string; days: number; printed?: boolean }) {
   if (state.status === 'working') {
     return (
       <p role="status" className="max-w-[42em] text-[15px] text-ink-2">
@@ -40,7 +40,7 @@ export function VersionsBody({ state, startUtc, days }: { state: VersionsState; 
   const v = versionsView(state.result.summary, { startUtc, days });
   return (
     <div className="flex max-w-[42em] flex-col gap-2">
-      <p className="text-[17px] font-medium leading-relaxed text-ink">{v.held}</p>
+      <p className={`${printed ? 'text-[15px] font-semibold' : 'text-[17px] font-medium'} leading-relaxed text-ink`}>{v.held}</p>
       <ul className="text-[15px] leading-relaxed text-ink">
         {v.ranges.map((line) => (
           <li key={line}>{line}</li>

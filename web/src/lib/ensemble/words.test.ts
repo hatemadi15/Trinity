@@ -29,7 +29,7 @@ describe('the terrain versions in words', () => {
       'Time with power: 3 d 2 h to 3 d 7 h (here 3 d 4 h).',
       'First sunset: 3 Jan 18:00 to 3 Jan 21:00 UTC (here 3 Jan 19:00 UTC).',
       'Longest night: 16 d 12 h to 16 d 18 h (here 16 d 15 h).',
-      'Contact with Earth while powered: none in any version (here none).',
+      'Contact with Earth while powered: none in every version, as here.',
     ]);
   });
 

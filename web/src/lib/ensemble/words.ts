@@ -64,7 +64,7 @@ export function versionsView(r: VersionsSummary, { startUtc, days }: { startUtc:
   const at = (h: number) => `${dayMonth(startUtc, h)} ${clockUtc(startUtc, h)}`;
   const span = (h: number) => (h > 0 ? spanShort(h) : 'none');
   const sunset = line('First sunset', r.firstSunsetH, r.main.firstSunsetH, at, r.firstSunsetH && r.noSunset > 0 ? `, none in the period in ${r.noSunset} versions` : '', ' UTC');
-  const contact = r.poweredContactH[1] === 0 && r.main.poweredContactH === 0 ? 'Contact with Earth while powered: none in any version (here none).' : line('Contact with Earth while powered', r.poweredContactH, r.main.poweredContactH, span);
+  const contact = r.poweredContactH[1] === 0 && r.main.poweredContactH === 0 ? 'Contact with Earth while powered: none in every version, as here.' : line('Contact with Earth while powered', r.poweredContactH, r.main.poweredContactH, span);
   const ranges = [line('Time with power', r.poweredH, r.main.poweredH, power), sunset, line('Longest night', r.longestNightH, r.main.longestNightH, span), contact];
   return { held, ranges, outside, about: ABOUT, limits: LIMITS + (outside ? OUTSIDE_WHY : '') };
 }
