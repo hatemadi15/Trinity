@@ -53,6 +53,9 @@ def build_parser() -> argparse.ArgumentParser:
     un.add_argument("--site", action="append", help="only these sites (default: every featured site)")
     un.add_argument("--start", default="2025-01-01T00:00:00")
     un.add_argument("--days", type=int, default=730)
+    ct = sub.add_parser("coldtraps", help="write data/coldtraps: modelled cold traps near each polar site (LRO Diviner, PGDA product 90)")
+    ct.add_argument("--site", action="append", help="only these polar sites (default: every polar catalogue site)")
+    ct.add_argument("--zip", type=Path, help="the Diviner zip (default: data_raw/diviner/dlre_prp_south.zip, downloaded when absent)")
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
     sub.add_parser("home-assets", help="render the home page picture, the relief map and home.json into web/")
@@ -147,6 +150,11 @@ def main(argv: list[str] | None = None) -> None:
         from .uncertainty import build, write_doc
 
         print(write_doc(build(site_ids=args.site, start_utc=args.start, days=args.days)))
+    elif args.cmd == "coldtraps":
+        from . import coldtraps
+
+        for path in coldtraps.write_all(args.zip, args.site):
+            print(path)
     elif args.cmd == "manifest":
         from . import manifest
 

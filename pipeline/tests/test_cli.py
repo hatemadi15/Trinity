@@ -40,3 +40,15 @@ def test_terrain_takes_named_sites_and_runs_them_alone(monkeypatch):
     monkeypatch.setattr(terrain3d, "write_all", lambda: called.setdefault("all", True))
     cli.main(["terrain", "--site", "chandrayaan3_vikram"])
     assert called == {"ids": ["chandrayaan3_vikram"]}
+
+
+def test_coldtraps_takes_sites_and_a_zip_and_writes_what_the_module_builds(monkeypatch, tmp_path):
+    from lunar_pipeline import cli, coldtraps
+
+    args = build_parser().parse_args(["coldtraps", "--site", "connecting_ridge", "--zip", str(tmp_path / "z.zip")])
+    assert args.cmd == "coldtraps" and args.site == ["connecting_ridge"] and args.zip == tmp_path / "z.zip"
+    assert build_parser().parse_args(["coldtraps"]).zip is None
+    called = {}
+    monkeypatch.setattr(coldtraps, "write_all", lambda zip_path, site_ids: called.setdefault("args", (zip_path, site_ids)) and [])
+    cli.main(["coldtraps", "--site", "haworth"])
+    assert called == {"args": (None, ["haworth"])}

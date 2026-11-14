@@ -1,8 +1,8 @@
 {
  "format": 1,
- "data_version": "2026-11-14-609589f6",
- "content_sha256": "609589f617a19140c8ef5d0a842e84dba05815f4eb74809361ab15485585e1fd",
- "written_utc": "2026-11-14T12:33:35Z",
+ "data_version": "2026-11-14-87295ee9",
+ "content_sha256": "87295ee9f624d48175ed5fd67d7407d671b8b3c96ff61aac18db73ae5dd499d3",
+ "written_utc": "2026-11-14T15:02:28Z",
  "about": "Every data file the app reads, as web/public/data lays them out. Check a folder with: uv run python -m lunar_pipeline.cli check-data",
  "groups": [
   {"id": "core", "title": "the site catalogue, the hourly Sun and Earth table and the sites' horizon masks", "required": true, "origin": "committed in data/", "get": ["sync-local"], "without": "No forecast can be shown: Explore, the site list, Compare and the brief say the data could not be loaded.", "bytes": 2876180, "files": [
@@ -867,6 +867,10 @@
    {"path": "fixtures/sky/moon_orientation_offgrid.json", "bytes": 17104, "sha256": "2fca356f10b94c380f498ac05594f1f2c97c88d4c09e293577c96502b9ccd855"},
    {"path": "fixtures/sky/stars_at_sites.json", "bytes": 21328, "sha256": "4aef05c6176ade9dd1cf9b5386ecb0d039f9660e2cf2a35fe5a0a085d543877d"},
    {"path": "fixtures/time/utc_et.json", "bytes": 3513, "sha256": "9d12c29501937342eb8ae73a4ae28dbf2f61ccbb76f3aaba9bd8635fcf55d927"}
+  ]},
+  {"id": "coldtraps", "title": "the modelled cold traps near the polar sites (LRO Diviner, PGDA product 90)", "required": false, "origin": "committed in data/", "get": ["coldtraps", "sync-local"], "without": "Explore, the brief and the site list leave out the line on modelled cold traps, and the shadow map offers no layer of cold ground.", "bytes": 79559, "files": [
+   {"path": "coldtraps/coldtraps.json", "bytes": 28195, "sha256": "0e08fdfe3a42d176b2e421dc03ce978d67dbf1a12d072289e469f9d72a1342ea"},
+   {"path": "coldtraps/overlay.json", "bytes": 51364, "sha256": "0f27b20b350c76b629127d278dfdc8078e208720ee3070c45e2cf0efef8eca62"}
   ]}
  ]
 }
