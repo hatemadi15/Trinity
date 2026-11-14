@@ -73,6 +73,9 @@ export function visibleWords(root: Element, width: number): string[] {
     const text = walk.currentNode as Text;
     const parent = text.parentElement;
     if (!parent || parent.closest('script, style, svg title') || !shown(parent, root, width)) continue;
+    // A closed list shows its chosen option only: the others appear once it is opened, a tap.
+    const option = parent.closest('option');
+    if (option && !option.selected) continue;
     for (const w of (text.textContent ?? '').replace(/ /g, ' ').split(/\s+/)) if (w && !SIGNS.test(w)) words.push(w);
   }
   return words;

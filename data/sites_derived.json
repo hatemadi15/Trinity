@@ -16,7 +16,10 @@
       "mission_end_source": null,
       "mission_note": null,
       "label": "Shackleton rim summit",
-      "blurb": "The highest point of the crater rim, next to the pole"
+      "blurb": "The highest point of the crater rim, next to the pole",
+      "kind": "derived",
+      "uncertainty_km": null,
+      "far_side": false
     },
     {
       "id": "de_gerlache_center_rim_high",
@@ -33,7 +36,10 @@
       "mission_end_source": null,
       "mission_note": null,
       "label": "de Gerlache rim summit",
-      "blurb": "The highest point of the crater rim"
+      "blurb": "The highest point of the crater rim",
+      "kind": "derived",
+      "uncertainty_km": null,
+      "far_side": false
     }
   ]
 }

@@ -66,10 +66,10 @@ describe('the arrival', () => {
 
   it('gives the first screen one line on where its numbers come from and how they were checked, with the Horizons figure the home page’s table gives', () => {
     const w = arrivalWords();
-    expect(w.proof).toBe('Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to 0.00003° and against real landers.');
+    expect(w.proof).toBe("Built on NASA LRO LOLA terrain and JPL DE440; checked against JPL Horizons to 0.00003° and LOLA sunlight maps.");
     // The figure is the field and the rounding of the first row of "Checked against NASA", so the two never disagree.
     expect(w.proof).toContain(`to ${degreesText(HOME.facts.horizons_worst_el_deg)} and`);
     // It follows the data: another largest gap, another line.
-    expect(arrivalWords({ ...HOME, facts: { ...HOME.facts, horizons_worst_el_deg: 0.0004 } }).proof).toContain('checked against JPL Horizons to 0.00040° and against real landers.');
+    expect(arrivalWords({ ...HOME, facts: { ...HOME.facts, horizons_worst_el_deg: 0.0004 } }).proof).toContain("checked against JPL Horizons to 0.00040° and LOLA sunlight maps.");
   });
 });

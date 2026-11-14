@@ -347,14 +347,15 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const site = s.site, series = s.series, power = s.power;
   const hour = Math.min(series.hours - 1, Math.max(0, s.cursorHour));
   const name = siteLabel(site);
-  const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best });
+  const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, farSide: s.site.far_side, panel: s.params.power.panel });
   // The headline gives both verdicts the challenge asks for, power and radio contact with Earth, and how long
   // the night lasts; the site's name leads the moment's state at the plate's foot and the card's line on where you
   // stand, kept on one line ("de Gerlache Rim 2", never "Rim / 2").
   const title = standHeadline(answer.title, name, series, power, s.startUtc, answer.contactHours, answer.poweredHours);
   const oneLine = name.replace(/ /g, ' ');
-  // Without NASA heights the ground is drawn flat, and the card's line on where you stand says so.
-  const flat = !!scene && scene.field.levels.length === 0;
+  // Without NASA heights the ground is drawn flat, and the card's line on where you stand says so: at a polar site that
+  // has them, flat because this copy of Earthrise lacks the terrain files ('no-terrain').
+  const flat = !!scene && scene.field.levels.length === 0 && (site.polar && s.terrainState === 'unavailable' ? 'no-terrain' : true);
   // With the battery's level while it has power, as the forecast page gives it.
   const lander = statusLine(series, power, s.startUtc, hour, s.params.power.batteryWh);
   // The better landing day opens its own view, from its first hour; the button says why it is better: the power and
@@ -417,7 +418,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   // "Why this happens", one reason a page or all as a list: where the site lies first, then why the light and
   // the sky look as they do (the pole first among them), then the radio story, and how we know last.
   const reasons: { title?: string; text: string }[] = [
-    ...[standingLine(site, name, 'more'), ...whyLines(site.lat, series, hour), radio ?? contact].filter((t): t is string => !!t).map((text) => ({ text })),
+    ...[standingLine(site, name, 'more'), ...whyLines(site.lat, series, hour, site.far_side), radio ?? contact].filter((t): t is string => !!t).map((text) => ({ text })),
     ...(note ? [{ title: 'How we know this', text: note }] : []),
   ];
   const shownPage = Math.min(page, reasons.length - 1);

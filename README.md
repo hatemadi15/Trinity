@@ -6,7 +6,8 @@ when Earth is in view for radio, and how long a solar lander keeps power there. 
 2026, challenge "CLPS Lunar Mission Browser", team Astroy/Ed.
 
 Everything is computed in the browser from NASA data (LRO LOLA elevation grids, the JPL DE440
-ephemeris), so the app also runs on a laptop without Wi-Fi.
+ephemeris), so a laptop prepared with the data and a build runs it with no network at all; the
+hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
 
 ## A tour of the pages
 
@@ -19,11 +20,15 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   lander. Three drawings explain why the south pole is hard (the Sun never climbs, the hills decide,
   Earth sets too). "Start from a real place" pairs a computed shadow picture of the ridge with three
   places to open: the ridge, and the Athena and Blue Ghost landers of March 2025, which open Explore
-  at the first whole hour after each one landed. The page ends with the three checks against NASA, then the ways on: compare sites, ask in
+  at the first whole hour after each one landed. The page ends with two checks against NASA and one real mission as context, then the ways on: compare sites, ask in
   plain words, print the brief, run it offline.
-- **Choose a landing site** (`/sites`): the 19 places in the catalogue (the nine Artemis III
-  candidate regions, the landing spots of three commercial landers, and high points and crater
-  floors), sorted by how long a lander keeps power from its best landing day in the chosen period,
+- **Choose a landing site** (`/sites`): the 34 places in the catalogue (the nine Artemis III candidate regions, the landing
+  spots of three commercial landers and two coming ones, the six Apollo landings, the landers of
+  India, China and Japan and Luna 25's target, and high points and crater floors), each marked with
+  what kind of point it is (a lander found in orbital images, a landing target, a region's centre
+  with its radius, a derived high point never checked for landing, or a reference); Chang'e 4,
+  Chang'e 6 and CP-12's basin, on the far side, sit under a heading of their own: Earth never rises
+  there, sorted by how long a lander keeps power from its best landing day in the chosen period,
   with their sunlight and contact with Earth, on a relief map of the pole. Any other point south of
   60° S can be worked out in the browser.
 - **Explore** (`/explore`): the answer for one site and one landing date, first. "Landing at de
@@ -59,13 +64,18 @@ ephemeris), so the app also runs on a laptop without Wi-Fi.
   it has power and the longest time without Earth, with a small Sun and
   Earth strip per site and one sentence naming the best site for each measure. Empty, it offers two
   ready pairs that show how much a few kilometres change.
-- **Accuracy** (`/validate`): three checks, each with its pass mark, its headline figure and its
-  full table on request: the Sun's and Earth's directions against JPL Horizons (with a live
-  re-check), sunlight against NASA's LOLA illumination map, and predicted sunsets against how three
-  real missions ended. All three checks pass. Then how sure the times are: the margin each event carries at four kinds of site,
-  measured against one-minute steps, NASA's adjusted south-pole maps (PGDA product 90) and JPL
-  Horizons, with each source apart and the ground at each site; then the error budget and the count
-  of automated tests.
+- **Accuracy** (`/validate`): four kinds of evidence, each saying what it shows, what it was tested
+  on and what it leaves out, with its full table on request. Three are checks with a pass mark: the
+  Sun's and Earth's directions against JPL Horizons (with a live re-check), sunlight and Earth in
+  view against NASA's LOLA illumination maps worked out the maps' way (from the ground, any part of
+  the disc, hourly over 18.6 years, 60 m terrain), and the power and battery sums against worked
+  answers, run in the browser. The fourth, predicted sunsets beside how three real missions ended,
+  is context, not a check. The page opens with "Three checks meet their criteria; past missions are
+  context, not a check." Then how sure the times are: the margin each event carries at four kinds of
+  site, measured against one-minute steps, NASA's adjusted south-pole maps (PGDA product 90) and JPL
+  Horizons, with each source apart and the ground at each site; then the error budget and the
+  automated tests' last run: what passed, was skipped and failed, when, on which commit and with
+  which data.
 - **How it works** (`/learn`): the three drawings, the science behind them for a class (the Moon's
   small tilt, libration, how to read the charts, the battery sum) and five steps through the pages, then how to run it offline.
 - **The brief** (`/brief`): one printable page with Explore's answer, five numbers, the Sun's and
@@ -223,23 +233,25 @@ page. More resources may be added before the hackathon begins.
 
 | The brief asks for | How Earthrise answers it |
 |---|---|
-| Site selection and comparison | A catalogue of 19 places near the south pole (the nine Artemis III candidate regions, the landing spots of three commercial landers, crater-rim high points and crater floors) on a relief map of the pole, and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts up to four sites side by side for the same days and lander. |
+| Site selection and comparison | A catalogue of 34 places: the south pole's nine Artemis III candidate regions, crater-rim high points and floors, three CLPS landers that landed and two coming ones, the six Apollo landings, and the landers of India, China and Japan and Luna 25's target, each saying what kind of point it is (surveyed, a target, a region's centre with its radius, or a derived high point never checked for landing), with the polar ones on a relief map of the pole; and any other point south of 60° S worked out in the browser from LOLA heights. Compare puts up to four sites side by side for the same days and lander. |
 | Dates and times | Any landing date the ephemeris covers (2024 to 2036), with a period of 14, 30 or 90 days; a better landing day inside the period, and a search of the next 12 months for the best one. |
 | The Sun and Earth against the horizon | A horizon chart with the hills in every direction and the Sun's and Earth's paths over them; the view from the site in 3D (NASA's ground out to 125 km, the Sun, Earth turned for the hour, the stars); the time bar stops on the key moments (the Sun going behind the hills, the battery running out, Earth coming into view, the Sun coming back) and counts down to the next sunset or sunrise and to Earth's next rising or setting. |
 | Power and communication | Time with power from a battery model, with three ready-made landers or your own panel, load, battery and mast; the Sun's height above the horizon at any hour and its highest; hours of sunlight; the radio windows with their UTC times, which of them the lander has power to use, and the longest time without Earth (geometric direct-to-Earth visibility, not a booked antenna); the longest night; every figure under "All numbers". |
 | Several ways to see it | A relief map of the pole, a north-up shadow map and the same light in 3D from above, the horizon chart, an hour-by-hour chart of the Sun, Earth and the battery, the view from the site, and the arrival from the whole Moon on the home page. |
 | Time and change | The time bar plays the period hour by hour at a day a second (2× and 4× on its speed button), with dots for the key moments and Next to step between them; the chart and every view follow it. |
 | Every skill level | Plain words first and every number a click away; a Learn mode with a guided story for classes; the printable brief; an assistant for typed questions and Luna for spoken ones; keyboard use, phone layouts, light and dark themes, and an offline mode for the venue. |
-| Ephemeris data | The Sun's and Earth's positions are pre-computed hourly for 2024 to 2036 from JPL's DE440 ephemeris with NASA's SPICE toolkit, in the Moon's own frame (MOON_ME), and compared with JPL Horizons on the Accuracy page. |
+| Ephemeris data | The Sun's and Earth's positions are pre-computed hourly for 2024 to 2036 from JPL's DE440 ephemeris with NASA's SPICE toolkit, in the Moon's own frame (MOON_ME), and checked against JPL Horizons on the Accuracy page; every event time carries a measured margin (hourly steps, terrain and ephemeris kept apart). |
 | Topography and the horizon | LOLA elevation grids at 20, 80 and 240 m per pixel. The horizon is the terrain itself over the curved Moon, with no atmosphere to bend the light. |
 | Libration | The ephemeris carries the Moon's real orientation, so Earth wanders in the sky over the month and the year; How it works explains why. |
-| Slopes, craters and shadow | Crater floors in permanent shadow and rim high points are in the catalogue; the shadow map and the view from the site show the shadows the hills cast. |
+| Slopes, craters and shadow | Crater floors in permanent shadow and rim high points are in the catalogue; each polar site shows its slope, how well its heights are known and its distance to permanently shadowed ground, from NASA's adjusted maps (PGDA product 90); the shadow map and the view from the site show the shadows the hills cast. |
 
 ## Run it on your computer
 
 Earthrise runs on Windows, macOS and Linux. You need Git, Node.js and uv (uv brings its own
 Python), an internet connection for the setup, and free disk space: about 2 GB for the app with
-the committed data, about 3 GB with the full NASA data. Once set up, it runs offline.
+the committed data, about 3 GB with the full NASA data. Once set up, with the data and a production
+build on the computer, it runs with no network (the assistant's model, Luna's voice in Chrome and
+Edge, and the JPL re-check need one, and say so without it).
 
 Where the commands differ, each step gives them for Windows PowerShell, for Windows Command Prompt
 (only where it differs from PowerShell) and for macOS and Linux (bash or zsh; Git Bash on Windows
@@ -252,8 +264,10 @@ On a slower connection the downloads take longer: 335 MB at 10 Mbit/s is about 5
 ### 1. Install Git, Node.js 22 and uv
 
 - Node.js 22 is the version the team works on; 20.9 or later up to 26 works too (`engines` in
-  `web/package.json` accepts `>=20.9.0 <27`, and `web/.nvmrc` says 22). A clean install, the
-  tests and the production build were checked on Node 20, 22, 24 and 26, with npm 10 and 11.
+  `web/package.json` accepts `>=20.9.0 <27`, and `web/.nvmrc` says 22). On 12 November a clean
+  install, a slice of the tests and the production build passed on Node 20, 24 and 26 and the full
+  suite on 22, with Next 16.3.6; since the bump to Next 16.4.6 (14 November) only Node 22 with npm
+  10 has been checked.
 - uv runs the Python pipeline. The first `uv sync` downloads Python 3.12 when the computer has no
   3.12 (`pipeline/pyproject.toml` asks for 3.12 or later and `pipeline/.python-version` pins
   3.12), so you do not install Python yourself.
@@ -343,8 +357,11 @@ cd ..
 Run npm in `web/`, never in the repository's root, which has no `package.json`. `npm ci` installs
 exactly what `web/package-lock.json` lists: 505 packages, about 300 MB to download and 860 MB in
 `web/node_modules`. It took 55 seconds here with an empty npm cache and 15 with a warm one.
-It prints deprecation warnings and a count of vulnerabilities; neither stops it, and `npm audit fix
---force` would rewrite the lock file across major versions, so leave it. `npm install` works too,
+It prints deprecation warnings and a count of vulnerabilities; neither stops it. On 14 November `npm
+audit` reports 13 (10 moderate, 3 high), all in the development tools (vitest, vite, ESLint's
+packages) or reached only while building (source-map-js, through PostCSS): none in what the browser
+runs since `next` went to 16.4.6. `npm audit fix --force` would rewrite the lock file across major
+versions, so leave it. `npm install` works too,
 but it can rewrite `package-lock.json`; commit that file only when you have added a package. npm
 may offer a newer major version of itself; the setup was checked with npm 10 and 11.
 
@@ -352,10 +369,9 @@ may offer a newer major version of itself; the setup was checked with npm 10 and
 
 The app reads its data files from `web/public/data`, which git ignores. Until they are there, the
 pages that need them say "The data could not be loaded." (Accuracy: "The checks could not be
-loaded."); the home page's words still show. In development the pages also suggest a command, but
-on a fresh clone it fails: `sync-local --tiles` needs the tiles built first (the full data below),
-and the `validate` that Accuracy suggests needs the kernels and the illumination maps. `sync-local`
-alone, as below, is all those pages need. There are two ways to fill the folder.
+loaded."); the home page's words still show. In development the pages also give the command that
+fills the folder, `sync-local` below, which works on a fresh clone. There are two ways to fill the
+folder, and a command that checks it against the list of every file the app reads.
 
 #### The committed data (5 MB, a minute)
 
@@ -374,17 +390,20 @@ pipeline's packages (65 to 85 MB, by system) into `pipeline/.venv`; it took 5 se
 table, the horizon masks of the catalogue sites, the sky, the validation tables and the test
 fixtures) into `web/public/data` in under a second.
 
-With this data every page opens and works for the 19 places in the catalogue: the site list,
+With this data every page opens and works for the 34 places in the catalogue: the site list,
 Explore's answer, numbers, chart and horizon chart, Compare, Accuracy, How it works, the brief and
 the assistant. What needs the full data:
 
-- Home: the arrival shows its still pictures instead of the live flight from space to the site.
-- Explore: the "Shadow map" and "3D from above" tabs say "The terrain files are not on this
-  machine."
+- Home: the arrival shows its still pictures instead of the live flight from space to the site,
+  and says "Still pictures: this copy has no globe files."
+- Explore: the "Shadow map" and "3D from above" tabs say "This copy of Earthrise has no terrain
+  files, so the ground cannot be drawn here. The Horizon chart tab works without them."
 - Stand on the Moon: the view draws flat ground under the real skyline, with the lander, instead of
-  NASA's measured ground and its shadows.
+  NASA's measured ground and its shadows, and its card says "Ground drawn flat: this copy of
+  Earthrise has no terrain files."
 - Choose a landing site, "Somewhere else": computing a place that is not in the catalogue says
-  "That place could not be worked out: could not load /data/tiles/manifest.json (HTTP 404)."
+  "That place cannot be worked out here: this copy of Earthrise has no height tiles. The places in
+  the list work without them."
 - Explore, Lander dialog: a mast other than 2 m needs the same tiles; without them Explore says
   "That place cannot be worked out: this tool covers the Moon south of 60° S.", even for a site in
   the catalogue.
@@ -429,6 +448,25 @@ where it stopped. The `--tiles` option also copies the terrain and the globe whe
 after a `git pull` that changes `data/`. Every pipeline command is in
 [pipeline/README.md](pipeline/README.md).
 
+#### Check what the folder holds
+
+Any shell, from `pipeline/` (or `npm run data:check` from `web/`):
+
+```
+uv run python -m lunar_pipeline.cli check-data
+```
+
+It compares `web/public/data` with `data/manifest.json`, the list of every data file the app reads
+(839 files in seven parts, each file with its size and SHA-256, under a data version such as
+`2026-11-14-a120b7a9`), and says part by part what is complete, missing, incomplete or different,
+what the app does without each part and the commands that get it. With the committed data alone it
+names the tiles, the terrain and the globe and ends "Every page opens: the required files are all
+here. 3 optional parts are not complete; the pages named above fall back."; with the full data it
+ends "The full demo is here." It exits with 1 only when a required file is missing or differs (run
+`sync-local` again). `--root <folder>` checks another copy, such as an unzipped data release, and
+`--json` prints the report for scripts. After a change to `data/`, `uv run python -m
+lunar_pipeline.cli manifest` rewrites the manifest; a pipeline test fails until it is in step.
+
 ### 4. The environment file (optional)
 
 The app runs without one: every variable has a default. To set one, copy the example from the
@@ -463,7 +501,7 @@ cp web/.env.example web/.env.local
 | `AI_RATE_LIMIT_PER_MIN` | Questions per minute from one address before the server answers 429. | 30 |
 | `NEXT_PUBLIC_AI_MODE` | `live`: ask the model when a key is set. `cached`: rehearsed answers only, never a model, as `?demo=1` does for one tab. | `live` |
 | `NEXT_PUBLIC_DATA_BASE` | Where the browser fetches the data files, with no trailing slash. | `/data`, which is `web/public/data` |
-| `NEXT_PUBLIC_SITE_URL` | The address the share image links to. | `https://earthrise.vercel.app` |
+| `NEXT_PUBLIC_SITE_URL` | The address the share image links to. Set it on a deployment: the default is an unrelated site. | `https://earthrise.vercel.app` |
 
 Without a key the assistant ("Ask in plain words" on Explore and Compare) still answers the
 phrasings it knows, from its phrase matcher and its twelve rehearsed answers, for example "compare de
@@ -494,10 +532,11 @@ npm run build
 npm start
 ```
 
-`npm run build` took 18 seconds here and about 1.3 GB of memory. A build with no earlier build in
-`web/.next` downloads the app's two fonts from Google Fonts and fails without a connection; once a
-build has run, later ones work offline while `web/.next` is kept. `npm start` serves the build at
-http://localhost:3000 and needs no connection.
+`npm run build` took 18 seconds here on a quiet machine, 56 seconds from an empty `web/.next` while
+other jobs shared the 4 cores, and about 1.3 GB of memory. It needs no connection: the app's two
+fonts are in the repository (`web/src/app/fonts`, both under the SIL Open Font License), and on 14
+November a build from an empty `web/.next` succeeded with the network cut off (Linux, `unshare -n`).
+`npm start` serves the build at http://localhost:3000 and needs no connection either.
 
 On another port, when 3000 is taken (any shell, in `web/`):
 
@@ -513,8 +552,14 @@ Without `--port`, `npm run dev` takes the next free port when 3000 is busy and p
 
 ### Run it offline (demo mode)
 
-For a talk or a classroom without Wi-Fi: fill `web/public/data` with the full data (step 3), then
-build once with a connection and serve the build with the Wi-Fi off. `NEXT_PUBLIC_AI_MODE=cached`
+For a talk or a classroom without Wi-Fi, prepare the laptop: fill `web/public/data` with the full
+data (step 3), check it (`check-data` should end "The full demo is here."), then build and serve.
+Neither the build nor the server needs a network: on 14 November the build from an empty
+`web/.next` and `npm start` ran in a Linux network namespace with no network at all, and Chromium
+opened the home page (the live flight), Explore, the view from the site, a place outside the
+catalogue and Accuracy there, with no request leaving the computer. That is the prepared laptop.
+The hosted site is not offline: it has no service worker or offline cache, so it needs the network
+(`docs/hosting.md`). `NEXT_PUBLIC_AI_MODE=cached`
 makes the assistant use its rehearsed answers and never call a model; it is built into the pages,
 so set it before `npm run build`. In `web/`:
 
@@ -571,26 +616,27 @@ From `pipeline/` (any shell):
 uv run pytest -q
 ```
 
-- `npx vitest run` (also `npm test`) runs 1,514 tests in 138 files: 72 to 110 seconds here on 4
-  cores with the full data. With only the committed data, the 23 that need the tiles or the terrain
-  skip. On a computer with few cores or little memory, `npx vitest run --maxWorkers=2` runs two
-  test files at a time (89 seconds here). The tests print warnings and stack traces from the
-  components they exercise; the result is the `Test Files` and `Tests` lines at the end.
+- `npx vitest run` (also `npm test`) runs the app's tests: on 14 November 1,583 in 146 files, all
+  passed with the full data (165 seconds with `--maxWorkers=2` while other jobs shared the 4 cores;
+  72 to 110 seconds on a quiet machine when there were 1,514). With only the committed data, the
+  ones that need the tiles or the terrain skip (23 of the 1,514 then). On a computer with few cores
+  or little memory, `npx vitest run --maxWorkers=2` runs two test files at a time. The tests print
+  warnings and stack traces from the components they exercise; the result is the `Test Files` and
+  `Tests` lines at the end.
 - `npm run lint` (ESLint, 16 seconds) and `npx tsc --noEmit` (the type check, 11 seconds) print
   nothing when all is well. `npm run build` (18 seconds) checks the types again and builds.
-- `npm run validation:tests` refreshes the test count on the Accuracy page's badge: it runs the web
-  tests, counts the pipeline's (so it needs uv) and rewrites `web/public/validation/tests.json`
-  (79 seconds here). Commit that file when a count changed; when only its date changed,
-  `git restore web/public/validation/tests.json`.
-- `uv run pytest -q` runs the pipeline's 134 tests. With no NASA files downloaded, 108 pass and the
-  26 that need them skip (4 seconds). With `fetch --group kernels --group lola --group
-  illumination` (525 MB) all 134 run (14 seconds). Partial downloads trip two tests that check for
-  fewer files than they read: with `lola` but not `kernels`,
-  `test_write_all_produces_the_picture_the_map_and_the_facts` fails with `missing kernels`; with
-  `lola` and `kernels` but not `illumination`, `test_metrics_fixture_matches_report` fails with
-  `FileNotFoundError`. With the kernels present, a test rewrites
-  `data/fixtures/horizons/summary.json` with differences in the 16th digit; run
-  `git restore data/fixtures/horizons/summary.json` before you commit.
+- `npm run validation:tests` runs both suites (the pipeline's needs uv) and writes
+  `web/public/validation/tests.json`, which the Accuracy page shows: passed, skipped and failed on
+  each side, the start of the run (UTC), the commit and whether the tree had other changes, and the
+  data present (each part of `web/public/data`, and the pipeline's NASA downloads). Arguments after
+  `--` go to vitest (`npm run validation:tests -- --maxWorkers=2`). It took 189 seconds here on 14
+  November. Run it on a clean tree and commit the file; it exits with 1, after writing the report,
+  when a test failed.
+- `uv run pytest -q` runs the pipeline's 147 tests. With no NASA files downloaded, 121 pass and the
+  26 that need them skip (8 seconds here on 14 November, with other jobs running). With `fetch
+  --group kernels --group lola --group illumination` (525 MB) all 147 run (20 to 32 seconds). A
+  partial download works too: a test whose files are missing skips. The tests write only to
+  temporary folders, so a run leaves the tree as it was, and they pass in a clone of any name.
 
 ## When something fails
 
@@ -706,9 +752,6 @@ npm ci
   for f in ldem_875s_20m.lbl ldem_875s_20m.img ldem_80s_80m.lbl ldem_80s_80m.img ldem_60s_240m.lbl ldem_60s_240m.img; do curl -L -o "../data_raw/lola/$f" "https://pds-geosciences.wustl.edu/lro/lro-l-lola-3-rdr-v1/lrolol_1xxx/data/lola_gdr/polar/img/$f"; done
   ```
 
-- `test_constants_and_paths` fails with `assert 'Trinity-main' == 'Trinity'` (or another name): the
-  test expects the clone's folder to be named `Trinity`, as `git clone` names it. A ZIP download
-  from GitHub unpacks to `Trinity-main`; rename the folder.
 
 ### The port is taken
 
@@ -782,4 +825,4 @@ kill 12345
 
 ## Hosting
 
-The app deploys to Vercel (root `web/`); the data files are published to a Cloudflare R2 bucket with `uv run python -m lunar_pipeline.cli publish-r2` and fetched from `NEXT_PUBLIC_DATA_BASE`. Steps, environment variables, CORS, the offline venue mode and a go-live checklist are in `docs/hosting.md`.
+The app is meant to deploy to Vercel (root `web/`), with the data files published to a Cloudflare R2 bucket with `uv run python -m lunar_pipeline.cli publish-r2` and fetched from `NEXT_PUBLIC_DATA_BASE`. Steps, environment variables, CORS, the offline venue mode and a go-live checklist are in `docs/hosting.md`, which also says what was run on 14 November (the build, `npm start`, the offline laptop, the publisher's dry run, which needs no keys) and what needs the team's accounts and keys (the bucket, the upload, the Vercel project; none was deployed then). `data/manifest.json` lists every data file with its size and SHA-256, and `check-data` checks a copy against it.
