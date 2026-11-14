@@ -59,8 +59,9 @@ Textures and their credits: `web/public/hero/textures/`.
   own view. Without WebGL, the still, the relief map and the site's picture stand in.
 - **Never under the words.** The page measures the first screen's words and the rail and puts the Moon in the
   largest room left: right of the words on wide screens, under them on tall ones; Earth sits clear of the words, the
-  rail and Luna. The title steps from 42 to 84 px with the width. Measured gap from the Moon's edge to the nearest
-  line of words, both themes: 98–118 px at 1920, 58 at 1440, 51 at 1280, 46 at 1024, 31 at 768, 26 at 390; no width
+  rail and Luna. The title steps from 35 to 84 px with the width. Measured gap from the Moon's edge to the nearest
+  line of words, with the audience line, both themes: 107–124 px at 1920, 58 at 1440, 97–99 at 1280, 47 at 1024, 31
+  at 768, 24 at 390; no width
   scrolls sideways. The first paint and browsers without WebGL show cut-outs of the Moon and Earth in the same places.
 - **Easing.** Every move eases in and out, the spin included. The Moon holds its place and size until the first
   screen's words have gone; the picture glides after the scroll, so wheel steps do not jolt it; the idle spin slows
