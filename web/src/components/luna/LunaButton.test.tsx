@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lunaStore } from '@/lib/luna/store';
 import { LunaButton } from './LunaButton';
 
-const reset = () => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, messages: [], canListen: false, voice: true, submit: () => {}, toggleMic: () => {}, prime: () => {} });
+const reset = () => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, messages: [], canListen: false, pressToTalk: false, voice: true, submit: () => {}, toggleMic: () => {}, prime: () => {} });
 beforeEach(reset);
 afterEach(() => {
   cleanup();
@@ -101,6 +101,26 @@ describe('Luna’s button', () => {
     const again = within(panel).getByRole('button', { name: 'Speak to Luna' });
     expect(again.getAttribute('aria-pressed')).toBe('false');
     fireEvent.click(again);
+    expect(toggleMic).toHaveBeenCalledTimes(2);
+  });
+
+  it('where the browser has no speech recognition, records a phrase at a press of the microphone and sends it at the next (spec 22.5)', () => {
+    const toggleMic = vi.fn();
+    render(createElement(LunaButton));
+    act(() => lunaStore.setState({ on: true, status: 'ready', toggleMic, canListen: true, pressToTalk: true }));
+    const panel = screen.getByRole('region', { name: 'Luna' });
+    expect(within(panel).getByText('Press the microphone and speak; press it again when you have finished.')).toBeTruthy();
+    const mic = within(panel).getByRole('button', { name: 'Speak to Luna' });
+    expect(mic.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(mic);
+    expect(toggleMic).toHaveBeenCalledTimes(1);
+    act(() => lunaStore.setState({ status: 'listening' }));
+    expect(within(panel).getByText('Listening. Press the square when you have finished.')).toBeTruthy();
+    const send = within(panel).getByRole('button', { name: 'Stop and send' });
+    expect(send.getAttribute('aria-pressed')).toBe('true');
+    expect(within(panel).getByText(/up to 15 seconds/)).toBeTruthy();
+    expect(within(panel).queryByText(/she acts when you pause/)).toBeNull();
+    fireEvent.click(send);
     expect(toggleMic).toHaveBeenCalledTimes(2);
   });
 

@@ -1,5 +1,7 @@
+import { TRANSCRIPT_MAX_CHARS } from '../luna/limits';
 import type { CallResult } from './chain';
 import type { ChatMessage } from './openrouter';
+import { extractJson } from './protocol';
 
 /**
  * Google's Gemini API for the server routes, by REST with fetch rather than Google's SDK: @google/genai 3.3.0 brings 41
@@ -247,4 +249,69 @@ export async function geminiSpeech(opts: {
     return { error: r.json.promptFeedback?.blockReason ? `${model}: blocked (${r.json.promptFeedback.blockReason})` : `${model}: no audio in the answer${finish ? ` (${finish})` : ''}` };
   }
   return { audio: fromBase64(part.inlineData.data), mimeType: part.inlineData.mimeType ?? 'audio/L16;codec=pcm;rate=24000' };
+}
+
+/** Bytes as base64, for inline data. */
+const toBase64 = (bytes: Uint8Array) => Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('base64');
+
+/** What the transcription model is told, with the names the app knows, so it writes them as the app does. */
+export function transcribePrompt(names: readonly string[]): string {
+  return [
+    'Transcribe this recording. Someone is speaking English to Luna, the voice assistant of Earthrise, an app for planning Moon landings: write the words they say, as they say them.',
+    names.length ? `Names they may say include: ${names.join(', ')}.` : '',
+    'Answer with one JSON object only, {"text": "their words"}, and {"text": ""} if nobody speaks.',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/** Spaces collapsed, quotes round the whole let go, cut to TRANSCRIPT_MAX_CHARS. */
+function tidy(words: string): string {
+  return words
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^["“'](.*)["”']$/, '$1')
+    .trim()
+    .slice(0, TRANSCRIPT_MAX_CHARS);
+}
+
+/**
+ * Words from a recording, for Luna where the browser cannot listen (spec 22.5): the prompt and the audio inline (the
+ * SDK's Blob: base64 data with its MIME type), temperature 0, and JSON output holding only the words (a responseSchema
+ * of one string). Plain words in place of JSON are taken as the words. Returns the words ("" when nobody spoke), or
+ * why there are none; never throws.
+ */
+export async function geminiTranscribe(opts: {
+  model: string;
+  apiKey: string;
+  audio: Uint8Array;
+  mimeType: string;
+  names?: readonly string[];
+  signal?: AbortSignal;
+  fetchImpl?: typeof fetch;
+}): Promise<{ text: string } | { error: string; status?: number }> {
+  const { model, apiKey, audio, mimeType, names = [], signal, fetchImpl } = opts;
+  const r = await generateContent(
+    model,
+    {
+      contents: [{ role: 'user', parts: [{ text: transcribePrompt(names) }, { inlineData: { mimeType, data: toBase64(audio) } }] }],
+      generationConfig: {
+        temperature: 0,
+        ...thinkingFor(model, 256),
+        responseMimeType: 'application/json',
+        responseSchema: { type: 'OBJECT', properties: { text: { type: 'STRING' } }, required: ['text'] },
+      },
+    },
+    apiKey,
+    { signal, fetchImpl },
+  );
+  if ('error' in r) return r;
+  const answer = answerParts(r.json)
+    .map((p) => (typeof p.text === 'string' ? p.text : ''))
+    .join('')
+    .trim();
+  if (!answer) return { error: emptyReason(model, r.json) };
+  const o = extractJson(answer);
+  if (o) return typeof o.text === 'string' ? { text: tidy(o.text) } : { error: `${model}: no words in the answer` };
+  return { text: tidy(answer) };
 }

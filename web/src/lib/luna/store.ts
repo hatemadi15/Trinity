@@ -34,6 +34,11 @@ export interface LunaState {
   /** Whether this browser has voice input, so her panel offers the microphone. Set by her engine. */
   canListen: boolean;
   /**
+   * Whether her microphone records a phrase at a press and sends it at the next (at most 15 s), where the browser has
+   * no speech recognition of its own (spec 22.5); else it listens on, continuously. Set by her engine.
+   */
+  pressToTalk: boolean;
+  /**
    * Whether she says her replies aloud (the switch in her panel, "Say replies aloud"): on at first, as spec 22 has her,
    * and kept in this browser for the next visit. Off, her replies show in the conversation only.
    */
@@ -81,6 +86,7 @@ export const lunaStore = createStore<LunaState>()((set) => ({
   reply: null,
   messages: [],
   canListen: false,
+  pressToTalk: false,
   voice: storedVoice(),
   setOn: (on) => set(on ? { on } : { on, status: 'off' }),
   setVoice: (voice) => {

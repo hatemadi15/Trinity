@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GEMINI_API, GEMINI_DEFAULTS, geminiFromEnv, geminiSpeech, geminiText, geminiUnavailable, SPEECH_STYLE } from './gemini';
+import { GEMINI_API, GEMINI_DEFAULTS, geminiFromEnv, geminiSpeech, geminiText, geminiTranscribe, geminiUnavailable, SPEECH_STYLE } from './gemini';
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const answer = (...texts: string[]) => json({ candidates: [{ content: { role: 'model', parts: texts.map((text) => ({ text })) }, finishReason: 'STOP' }] });
@@ -146,5 +146,45 @@ describe('Gemini’s speech (generateContent with audio out)', () => {
       throw new Error('socket hang up');
     });
     expect(await geminiSpeech({ model: 'm', apiKey: 'k', voice: 'Leda', text: 'Hi.', fetchImpl: down })).toEqual({ error: 'm: socket hang up' });
+  });
+});
+
+describe('Gemini’s transcription (generateContent with the audio inline)', () => {
+  const audio = new Uint8Array([82, 73, 70, 70, 1, 2, 3, 4]);
+  type TSent = {
+    contents: { role: string; parts: { text?: string; inlineData?: { mimeType: string; data: string } }[] }[];
+    generationConfig: { temperature: number; maxOutputTokens: number; responseMimeType: string; responseSchema: unknown; thinkingConfig?: { thinkingBudget: number } };
+  };
+
+  it('sends the words to listen for and the recording inline, and asks for JSON holding only the words', async () => {
+    const fetchImpl = vi.fn(async () => answer('{"text": "  open the forecast  "}'));
+    const r = await geminiTranscribe({ model: 'gemini-2.5-flash', apiKey: 'AIza-test', audio, mimeType: 'audio/wav', names: ['de Gerlache Rim 2', 'Nobile Rim 2'], fetchImpl });
+    expect(r).toEqual({ text: 'open the forecast' });
+    const { url, headers, body } = sent(fetchImpl) as unknown as { url: string; headers: Record<string, string>; body: TSent };
+    expect(url).toBe(`${GEMINI_API}/models/gemini-2.5-flash:generateContent`);
+    expect(headers['x-goog-api-key']).toBe('AIza-test');
+    const [prompt, clip] = body.contents[0].parts;
+    expect(body.contents[0].role).toBe('user');
+    expect(prompt.text).toMatch(/Transcribe/);
+    expect(prompt.text).toMatch(/de Gerlache Rim 2, Nobile Rim 2/);
+    expect(clip.inlineData).toEqual({ mimeType: 'audio/wav', data: Buffer.from(audio).toString('base64') });
+    expect(body.generationConfig).toMatchObject({ temperature: 0, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } });
+    expect(body.generationConfig.responseSchema).toEqual({ type: 'OBJECT', properties: { text: { type: 'STRING' } }, required: ['text'] });
+    expect(body.generationConfig.maxOutputTokens).toBeLessThanOrEqual(256);
+  });
+
+  it('takes nothing heard as no words, plain words without JSON as the words, and tidies them', async () => {
+    const t = async (reply: string) => (await geminiTranscribe({ model: 'gemini-2.5-flash', apiKey: 'k', audio, mimeType: 'audio/ogg', fetchImpl: vi.fn(async () => answer(reply)) })) as { text: string };
+    expect((await t('{"text": ""}')).text).toBe('');
+    expect((await t('```json\n{"text": "play"}\n```')).text).toBe('play');
+    expect((await t('"Turn to   Earth."')).text).toBe('Turn to Earth.');
+    expect((await t(`{"text": "${'a'.repeat(900)}"}`)).text).toHaveLength(500);
+  });
+
+  it('reports an HTTP error or an empty answer as an error', async () => {
+    const bad = vi.fn(async () => json({ error: { code: 400, message: 'Unsupported MIME type', status: 'INVALID_ARGUMENT' } }, 400));
+    expect(await geminiTranscribe({ model: 'gemini-2.5-flash', apiKey: 'k', audio, mimeType: 'audio/webm', fetchImpl: bad })).toEqual({ error: 'gemini-2.5-flash: HTTP 400 INVALID_ARGUMENT', status: 400 });
+    const empty = vi.fn(async () => json({ candidates: [{ content: { parts: [] }, finishReason: 'OTHER' }] }));
+    expect(await geminiTranscribe({ model: 'gemini-2.5-flash', apiKey: 'k', audio, mimeType: 'audio/webm', fetchImpl: empty })).toEqual({ error: 'gemini-2.5-flash: empty answer (OTHER)' });
   });
 });

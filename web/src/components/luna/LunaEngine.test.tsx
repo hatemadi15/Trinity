@@ -59,7 +59,7 @@ function mount(o: { recognition?: () => (new () => Recognition) | null; speak?: 
   return { store, navigate, hush, ...v };
 }
 
-const reset = () => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, messages: [], canListen: false, voice: true });
+const reset = () => lunaStore.setState({ on: false, status: 'off', heard: null, reply: null, messages: [], canListen: false, pressToTalk: false, voice: true });
 const thread = () => lunaStore.getState().messages.map((m) => [m.from, m.text]);
 beforeEach(() => {
   FakeRec.made = [];
@@ -480,5 +480,155 @@ describe('Luna’s engine with Gemini’s voice', () => {
     expect(g.fetchImpl).not.toHaveBeenCalled();
     expect(g.audio.played).toEqual([]);
     off();
+  });
+});
+
+/** A MediaRecorder that hands over one small Ogg clip when stopped, as Firefox's would. */
+class FakeMediaRecorder {
+  static made: FakeMediaRecorder[] = [];
+  static isTypeSupported = (t: string) => t.startsWith('audio/ogg');
+  state = 'inactive';
+  mimeType: string;
+  ondataavailable: ((e: { data: Blob }) => void) | null = null;
+  onstop: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  constructor(_stream: unknown, options?: { mimeType?: string }) {
+    this.mimeType = options?.mimeType ?? 'audio/webm';
+    FakeMediaRecorder.made.push(this);
+  }
+  start() {
+    this.state = 'recording';
+  }
+  stop() {
+    if (this.state === 'inactive') return;
+    this.state = 'inactive';
+    this.ondataavailable?.({ data: new Blob([new Uint8Array([79, 103, 103, 83])], { type: this.mimeType }) });
+    this.onstop?.();
+  }
+}
+
+describe('Luna’s engine where the browser has no speech recognition: press to talk (spec 22.5)', () => {
+  const track = { stop: vi.fn() };
+  const w = window as unknown as Record<string, unknown>;
+  /** The server's two routes for her ears, as the test says they answer; every request kept. */
+  function server(o: { available?: number; heard?: () => Response } = {}) {
+    const requests: { url: string; init?: RequestInit }[] = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      requests.push({ url, init });
+      if (url === '/api/transcribe' && init?.method === 'GET') return new Response(JSON.stringify({ available: (o.available ?? 200) === 200 }), { status: o.available ?? 200 });
+      if (url === '/api/transcribe') return o.heard ? o.heard() : new Response(JSON.stringify({ text: 'go home' }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response('{}', { status: 503 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return { requests, fetchMock };
+  }
+  beforeEach(() => {
+    FakeMediaRecorder.made = [];
+    track.stop.mockClear();
+    w.MediaRecorder = FakeMediaRecorder;
+    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [track] })) }, configurable: true });
+  });
+  afterEach(() => {
+    delete w.MediaRecorder;
+    Object.defineProperty(navigator, 'mediaDevices', { value: undefined, configurable: true });
+    vi.unstubAllGlobals();
+    geminiVisit.reset();
+  });
+
+  it('offers her microphone, records at a press, and at the next sends the recording and does what it says, as a heard phrase', async () => {
+    const { requests } = server();
+    const navigate = vi.fn();
+    const { said } = mount({ recognition: () => null, navigate });
+    act(() => lunaStore.getState().setOn(true));
+    expect([lunaStore.getState().canListen, lunaStore.getState().pressToTalk, lunaStore.getState().status]).toEqual([true, true, 'ready']);
+    act(() => lunaStore.getState().toggleMic());
+    await waitFor(() => expect(lunaStore.getState().status).toBe('listening'));
+    expect(FakeMediaRecorder.made[0].state).toBe('recording');
+    act(() => lunaStore.getState().toggleMic());
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/'));
+    const post = requests.find((r) => r.url === '/api/transcribe' && r.init?.method === 'POST')!;
+    expect((post.init!.headers as Record<string, string>)['Content-Type']).toBe('audio/ogg;codecs=opus');
+    expect((post.init!.body as Blob).size).toBe(4);
+    expect(thread()).toEqual([
+      ['you', 'go home'],
+      ['luna', 'Home.'],
+    ]);
+    expect(said[0].text).toBe('Home.');
+    // The microphone is let go once the phrase is recorded.
+    expect(track.stop).toHaveBeenCalled();
+    act(() => said[0].done());
+    expect(lunaStore.getState().status).toBe('ready');
+  });
+
+  it('falls back to typing without a word when the server cannot transcribe, and asks no more this visit', async () => {
+    const { fetchMock } = server({ available: 503 });
+    mount({ recognition: () => null });
+    act(() => lunaStore.getState().setOn(true));
+    await waitFor(() => expect(lunaStore.getState().status).toBe('typing'));
+    expect([lunaStore.getState().canListen, lunaStore.getState().pressToTalk]).toEqual([false, false]);
+    expect(thread()).toEqual([]);
+    act(() => lunaStore.getState().setOn(false));
+    act(() => lunaStore.getState().setOn(true));
+    expect(lunaStore.getState().status).toBe('typing');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('says so, and goes on listening at a press, when the recording could not be made out or held no words', async () => {
+    let answer = () => new Response('{"error":"Gemini gave no transcript"}', { status: 502 });
+    server({ heard: () => answer() });
+    const { said } = mount({ recognition: () => null });
+    act(() => lunaStore.getState().setOn(true));
+    act(() => lunaStore.getState().toggleMic());
+    await waitFor(() => expect(lunaStore.getState().status).toBe('listening'));
+    act(() => lunaStore.getState().toggleMic());
+    await waitFor(() => expect(thread()).toHaveLength(1));
+    expect(thread()[0][0]).toBe('luna');
+    expect(thread()[0][1]).toMatch(/could not make out/);
+    act(() => said[0].done());
+    answer = () => new Response(JSON.stringify({ text: '' }), { status: 200 });
+    act(() => lunaStore.getState().toggleMic());
+    await waitFor(() => expect(lunaStore.getState().status).toBe('listening'));
+    act(() => lunaStore.getState().toggleMic());
+    await waitFor(() => expect(thread()).toHaveLength(2));
+    expect(thread()[1][1]).toMatch(/did not hear any words/);
+  });
+
+  it('shows the microphone as not allowed when the browser refuses it, and tries again at the next press', async () => {
+    server();
+    mount({ recognition: () => null });
+    const getUserMedia = vi.fn(async () => {
+      throw Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' });
+    });
+    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia }, configurable: true });
+    act(() => lunaStore.getState().setOn(true));
+    act(() => lunaStore.getState().toggleMic());
+    await waitFor(() => expect(lunaStore.getState().status).toBe('blocked'));
+    Object.defineProperty(navigator, 'mediaDevices', { value: { getUserMedia: vi.fn(async () => ({ getTracks: () => [track] })) }, configurable: true });
+    act(() => lunaStore.getState().toggleMic());
+    await waitFor(() => expect(lunaStore.getState().status).toBe('listening'));
+  });
+
+  it('throws a recording away when she is turned off, sending nothing', async () => {
+    const { requests } = server();
+    mount({ recognition: () => null });
+    act(() => lunaStore.getState().setOn(true));
+    act(() => lunaStore.getState().toggleMic());
+    await waitFor(() => expect(lunaStore.getState().status).toBe('listening'));
+    act(() => lunaStore.getState().setOn(false));
+    expect(track.stop).toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(requests.filter((r) => r.init?.method === 'POST')).toEqual([]);
+  });
+
+  it('never records nor calls her voice routes in cached mode: typed words only, as before', async () => {
+    const { fetchMock } = server();
+    const { store } = mount({ recognition: () => null });
+    act(() => store.getState().setAiMode('cached'));
+    act(() => lunaStore.getState().setOn(true));
+    expect([lunaStore.getState().status, lunaStore.getState().canListen, lunaStore.getState().pressToTalk]).toEqual(['typing', false, false]);
+    act(() => lunaStore.getState().toggleMic());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(FakeMediaRecorder.made).toHaveLength(0);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
