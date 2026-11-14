@@ -212,4 +212,15 @@ describe('VerdictPanel', () => {
     expect(onYear).toHaveBeenCalled();
     expect(screen.getByRole('status').textContent).toMatch(/12 Oct 2027/);
   });
+
+  it('offers to compare from here: a plain button beside the year search that makes this landing a comparison’s baseline', () => {
+    const onScenario = vi.fn();
+    render(<VerdictPanel answer={night} onLand={vi.fn()} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} nearby={summit} standLink={stand} site={{ lat: -88.28, polar: true }} onScenario={onScenario} />);
+    const button = screen.getByRole('button', { name: 'Compare from here' });
+    expect(button.className).not.toMatch(/\bbtn-primary\b/);
+    expect(button.closest('p')).toBe(screen.getByRole('button', { name: 'Find the best date in the next 12 months' }).closest('p'));
+    fireEvent.click(button);
+    expect(onScenario).toHaveBeenCalled();
+    for (const width of [WIDE, PHONE]) expect(visibleWords(screen.getByRole('region', { name: 'The answer' }), width).length).toBeLessThanOrEqual(110);
+  });
 });

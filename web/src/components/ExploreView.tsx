@@ -21,6 +21,8 @@ import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { standHref } from '@/lib/links';
 import { COMPARE_MAX, exploreStore, type ExploreState } from '@/lib/store/explore';
+import { comparisonHref } from '@/lib/scenario/codec';
+import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
 import { timeWithPower } from '@/lib/engine/landing';
 import { answerFor, nearbyAdvice, nearbyWords } from '@/lib/viz/answer';
 import { dateTimeUtc } from '@/lib/viz/format';
@@ -33,7 +35,7 @@ import { keyMoments } from '@/lib/viz/stand';
  * (the Sun, Earth and the battery hour by hour), then the ground, where the site is, and the assistant.
  * The time bar stays pinned to the bottom of the window.
  */
-export function ExploreView({ store = exploreStore, navigate }: { store?: StoreApi<ExploreState>; navigate?: (href: string) => void }) {
+export function ExploreView({ store = exploreStore, scenarios = scenarioStore, navigate }: { store?: StoreApi<ExploreState>; scenarios?: StoreApi<ScenarioState>; navigate?: (href: string) => void }) {
   const s = useStore(store);
   const routerNavigate = useNavigate();
   const go = navigate ?? routerNavigate;
@@ -90,6 +92,11 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
       go('/compare');
     }
   }, [store, go]);
+
+  // "Compare from here": this landing, with every setting, as a comparison's baseline; Compare opens on its link.
+  const onScenario = useCallback(() => {
+    if (scenarios.getState().startFrom(store.getState())) go(comparisonHref(scenarios.getState().scenarios));
+  }, [store, scenarios, go]);
 
   const scene = useMemo(() => (s.eph && s.series && s.mask ? sceneStateAt(s.eph, s.series, s.mask, s.cursorHour) : null), [s.eph, s.series, s.mask, s.cursorHour]);
   const answer = useMemo(
@@ -152,6 +159,7 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               standLink={standHref(site.id, s.startUtc, s.days, s.cursorHour)}
               onLand={(start) => s.setWindow(start, s.days)}
               onCompare={onCompare}
+              onScenario={onScenario}
               onYear={() => void store.getState().findBestWindow(s.days)}
               yearNote={s.bestWindowNote}
             />

@@ -29,6 +29,7 @@ export function VerdictPanel({
   nearby = null,
   standLink,
   site,
+  onScenario,
 }: {
   answer: Answer;
   onLand: (startUtc: string) => void;
@@ -41,6 +42,8 @@ export function VerdictPanel({
   standLink?: string;
   /** The site, for the grid its hills are read from in the row of data sources; without it the row names no grid. */
   site?: { lat: number; polar: boolean };
+  /** Makes this landing, with every setting, the baseline of a comparison; without it the button is left out. */
+  onScenario?: () => void;
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -107,6 +110,11 @@ export function VerdictPanel({
         <button type="button" onClick={onYear} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
           Find the best date in the next 12 months
         </button>
+        {onScenario && (
+          <button type="button" onClick={onScenario} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+            Compare from here
+          </button>
+        )}
         {/* After the link's own jump to the assistant, its box takes the cursor without a second scroll. */}
         <a
           href="#ask"

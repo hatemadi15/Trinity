@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { comparisonHref } from '@/lib/scenario/codec';
 import { createExploreStore } from '@/lib/store/explore';
+import { createScenarioStore } from '@/lib/store/scenarios';
 import { fileLoaders } from '@/test/file-loaders';
 import { ExploreView } from './ExploreView';
 import { runControl } from '@/lib/luna/controls';
@@ -109,6 +111,19 @@ describe('ExploreView', () => {
     fireEvent.click(gold[0]);
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/compare'));
     expect(store.getState().compareIds).toContain('shackleton_center_rim_high');
+  });
+
+  it('compares from here: the landing shown, with every setting, becomes a comparison’s baseline and Compare opens on it', async () => {
+    const navigate = vi.fn();
+    window.history.replaceState({}, '', '/explore');
+    const loaders = fileLoaders();
+    const store = createExploreStore(loaders);
+    const scenarios = createScenarioStore(store, loaders);
+    render(<ExploreView store={store} scenarios={scenarios} navigate={navigate} />);
+    await waitFor(() => expect(heading()).toMatch(/de Gerlache Rim\s2 on 1 January/), { timeout: 20_000 });
+    fireEvent.click(screen.getByRole('button', { name: 'Compare from here' }));
+    expect(scenarios.getState().scenarios).toMatchObject([{ label: 'Original landing', siteId: 'de_gerlache_rim_2', startUtc: '2027-01-01T00:00:00', days: 30, mastM: 2, minEarthElDeg: 0 }]);
+    expect(navigate).toHaveBeenCalledWith(comparisonHref(scenarios.getState().scenarios));
   });
 
   it('puts the answer first and the time bar last, and names every region', async () => {
