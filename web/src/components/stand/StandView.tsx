@@ -5,6 +5,8 @@ import { useStore, type StoreApi } from 'zustand';
 import { HorizonView } from '@/components/explore/HorizonView';
 import { LanderDialog } from '@/components/explore/LanderDialog';
 import { PLAY_HPS, TimeBar, type Speed } from '@/components/explore/TimeBar';
+import { LunaButton } from '@/components/luna/LunaButton';
+import { LunaControls } from '@/components/luna/LunaControls';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { shadowLevels } from '@/lib/data/terrain';
@@ -489,6 +491,33 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
 
   return (
     <main ref={mainRef} className="theme-dark fixed inset-0 overflow-hidden bg-black text-[#f2f0ea]">
+      {/* Luna's view (spec 22): the row's turns and switches and the better day, each as its own button does it. */}
+      <LunaControls
+        controls={{
+          'turn-sun': byHand(() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46)),
+          'turn-earth': byHand(() => {
+            face(series.earthAz[hour], series.earthEl[hour], 16);
+            setCaption(viewCaption('earth', site.lat));
+          }),
+          'turn-lander': byHand(() => {
+            faceLander();
+            setCaption(landerCaption(site.lat, panelBackSeen));
+          }),
+          'look-up': byHand(lookUp),
+          'look-ahead': byHand(() => face(series.sunAz[hour], 0.5, 60)),
+          'paths-on': () => setGuides(true),
+          'paths-off': () => setGuides(false),
+          'words-off': () => pressWords(true),
+          'words-on': () => pressWords(false),
+          'brighter-on': () => setBright(true),
+          'brighter-off': () => setBright(false),
+          'better-day': () => {
+            if (!better) return 'This landing day is already the best one nearby.';
+            land(better.startUtc, better.href);
+            return better.label;
+          },
+        }}
+      />
       {scene && !failed && (
         <StandCanvas
           // A new period opens the view again, as a fresh visit would: from the sky, to its first hour.
@@ -688,6 +717,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => pressWords(true)}>
                     Hide the words
                   </button>
+                  {/* Luna (spec 22), on a phone: her panel stands above the buttons and the time bar. */}
+                  <div className="md:hidden">
+                    <LunaButton
+                      className={`${LOOK} ${PRESSED} flex items-center gap-2`}
+                      panelClassName="fixed inset-x-4 bottom-[calc(var(--bar-h,200px)+var(--look-h,0px)+12px)] z-50 rounded-lg border border-white/20 bg-[#060607] p-4 text-left text-[15px] text-[#f2f0ea]"
+                    />
+                  </div>
                   {/* On a phone the next step's row is not shown: Change lander waits here (18.3). */}
                   <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={(e) => openLander(e.currentTarget)}>
                     Change lander
@@ -802,6 +838,13 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
               <button ref={hideRef} type="button" className={`${LOOK} max-md:hidden`} onClick={() => pressWords(true)}>
                 Hide the words
               </button>
+              {/* Luna (spec 22): her panel opens under the row at the top right from 1280 px, above it over the bar below that. */}
+              <div className="max-md:hidden">
+                <LunaButton
+                  className={`${LOOK} ${PRESSED} flex items-center gap-2`}
+                  panelClassName="absolute right-0 z-50 w-[min(380px,calc(100vw-32px))] rounded-lg border border-white/20 bg-[#060607] p-4 text-left text-[15px] text-[#f2f0ea] xl:top-full xl:mt-2 max-xl:bottom-full max-xl:mb-2"
+                />
+              </div>
             </div>
           )}
         </div>

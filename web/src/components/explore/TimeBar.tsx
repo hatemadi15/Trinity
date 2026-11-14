@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useLunaControls } from '@/lib/luna/controls';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { useElementWidth } from '@/lib/hooks/useElementWidth';
@@ -361,6 +362,51 @@ export function TimeBar({
   useEffect(() => {
     live.current = { last, speed, marks, holdMs, reduced, onCursor, onArrive, toggle };
   });
+  // Luna's player (spec 22): the bar's own steps, said in words where they have some to say.
+  const setSpeed = (to: Speed) => {
+    if (givenSpeed === undefined) setOwnSpeed(to);
+    onSpeed?.(to);
+  };
+  const SPEED_SAID: Record<Speed, string> = { 1: 'Normal speed.', 2: 'Twice as fast.', 4: 'Four times as fast.' };
+  const OFF = 'Playback is off because your system asks for reduced motion.';
+  useLunaControls({
+    play: () => {
+      if (reduced) return OFF;
+      if (!playing) start();
+    },
+    pause,
+    next: () => {
+      const m = after(marks, cursor);
+      if (!m) return 'There is no moment after this one.';
+      jump(m);
+      return m.label;
+    },
+    previous: () => {
+      const m = before(marks, cursor);
+      if (!m) return 'There is no moment before this one.';
+      jump(m);
+      return m.label;
+    },
+    faster: () => {
+      const i = SPEEDS.indexOf(speed);
+      if (i === SPEEDS.length - 1) return 'Already at the fastest.';
+      setSpeed(SPEEDS[i + 1]);
+      return SPEED_SAID[SPEEDS[i + 1]];
+    },
+    slower: () => {
+      const i = SPEEDS.indexOf(speed);
+      if (i === 0) return 'Already at normal speed.';
+      setSpeed(SPEEDS[i - 1]);
+      return SPEED_SAID[SPEEDS[i - 1]];
+    },
+    replay: () => {
+      if (reduced) return OFF;
+      onCursor(0);
+      cursorRef.current = 0;
+      onPlay?.();
+      setWantsPlay(true);
+    },
+  });
 
   useEffect(() => {
     if (!wantsPlay) return;
@@ -595,11 +641,7 @@ export function TimeBar({
                 type="button"
                 disabled={reduced}
                 aria-label={`Speed ${speed}×: ${SPEED_WORDS[speed]}`}
-                onClick={() => {
-                  const to = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length];
-                  if (givenSpeed === undefined) setOwnSpeed(to);
-                  onSpeed?.(to);
-                }}
+                onClick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length])}
                 className="btn h-10 w-11 shrink-0 px-0 text-[15px]"
               >
                 {speed}×

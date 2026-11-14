@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type MouseEvent } from 'react';
 import { ChunkBoundary } from '@/components/ChunkBoundary';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
+import { useLunaControls } from '@/lib/luna/controls';
 import { BEAT_STOPS, LANDED, LAST, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
 import type { ArrivalWords } from '@/lib/viz/arrival';
 import type { StageProps } from './ArrivalCanvas';
@@ -143,6 +144,13 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
     if (reduced) land();
     else setPlaying(true);
   };
+  // Luna's flight (spec 22): as "Fly to the south pole" plays it.
+  useLunaControls({
+    fly: () => {
+      if (reduced) land();
+      else setPlaying(true);
+    },
+  });
   const bare = capture?.bare ?? false;
 
   return (

@@ -14,6 +14,7 @@ import { visibleWords, WIDE } from '@/test/visible-words';
 import type { StandScene } from '@/lib/sky/standRenderer';
 import { pathMarks, StandView } from './StandView';
 import type { RendererLike } from './StandCanvas';
+import { runControl } from '@/lib/luna/controls';
 
 // jsdom has no PointerEvent; this one carries the pointer's id on top of the mouse event's position.
 if (typeof window.PointerEvent === 'undefined') {
@@ -211,7 +212,8 @@ describe('StandView', () => {
     // One row of buttons.
     const row = screen.getByRole('group', { name: 'Look towards' });
     // Each by its name; the hide button has no other, its visible words being its name, as speech input needs (WCAG 2.5.3).
-    expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide the words']);
+    // Luna's toggle ends it (spec 22).
+    expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide the words', 'Luna']);
     // Read as a verb, not a noun (both readers of read D1).
     expect(within(row).getByText('Turn to')).toBeTruthy();
     for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
@@ -729,6 +731,47 @@ describe('StandView', () => {
     more.focus();
     fireEvent.keyDown(more, { key: ' ', code: 'Space' });
     expect(screen.getByRole('button', { name: /^Play/ })).toBeTruthy();
+  });
+
+  it('lends Luna its turns, its switches and the better day, and has her button in its row (spec 22)', async () => {
+    const r = stub();
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', () => r);
+    await waitFor(() => expect(r.setView).toHaveBeenCalled());
+    const st = store.getState();
+    const off = (a: number, b: number) => Math.abs(((a - b + 540) % 360) - 180);
+    // Turn to Earth, as the row's button does: the view turns there and says why Earth sits where it does.
+    let said: ReturnType<typeof runControl>;
+    act(() => {
+      said = runControl('turn-earth');
+    });
+    expect(said!.ok).toBe(true);
+    await waitFor(() => expect(off(r.setView.mock.calls.at(-1)![0], st.series!.earthAz[10])).toBeLessThan(1), { timeout: 4000 });
+    // The paths, the words and the brighter picture, each as its own button does.
+    act(() => {
+      runControl('paths-on');
+    });
+    expect(screen.getByRole('button', { name: 'Hide paths' })).toBeTruthy();
+    act(() => {
+      runControl('brighter-on');
+    });
+    // Its button, in today's card, shows it pressed.
+    openCard();
+    expect(screen.getByRole('button', { name: 'Brighter picture' }).getAttribute('aria-pressed')).toBe('true');
+    act(() => {
+      runControl('words-off');
+    });
+    expect(screen.getByRole('button', { name: 'Show the words' })).toBeTruthy();
+    act(() => {
+      runControl('words-on');
+    });
+    // The better day: lands on it in place, and Luna says which.
+    act(() => {
+      said = runControl('better-day');
+    });
+    expect(said!.said).toMatch(/^Try 20 January instead/);
+    await waitFor(() => expect(store.getState().startUtc).toBe('2027-01-20T10:00:00'));
+    // Her button, in the row of the view's buttons.
+    expect(within(screen.getByRole('group', { name: 'Look towards' })).getByRole('button', { name: /^Luna/ })).toBeTruthy();
   });
 
   it('shows the first step over the view on arrival, Play and drag, phone-short below 640 px, until the first drag', async () => {

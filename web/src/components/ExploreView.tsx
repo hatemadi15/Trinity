@@ -10,6 +10,7 @@ import { NumbersCard } from './explore/NumbersCard';
 import { PeriodBand } from './explore/PeriodBand';
 import { exploreHref } from './sites/SitesView';
 import { TimeBar } from './explore/TimeBar';
+import { LunaControls } from './luna/LunaControls';
 import { TimeChart } from './explore/TimeChart';
 import { VerdictPanel } from './explore/VerdictPanel';
 import { WhereOnMoon } from './explore/WhereOnMoon';
@@ -122,9 +123,20 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
   }
 
   const site = s.site;
+  const better = answer?.better;
   return (
     <AppFrame>
       <main className="flex flex-col">
+        {/* Luna's better day (spec 22): lands there as the gold button does. */}
+        <LunaControls
+          controls={{
+            'better-day': () => {
+              if (!better) return 'This landing day is already the best one nearby.';
+              s.setWindow(better.startUtc, s.days);
+              return better.label;
+            },
+          }}
+        />
         <div className="wrap flex w-full min-w-0 flex-col gap-6 pb-10 pt-6">
           <PeriodBand site={site} startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} power={s.params.power} onLander={() => setLanderOpen(true)} landerRef={landerRef} />
           {s.error && (

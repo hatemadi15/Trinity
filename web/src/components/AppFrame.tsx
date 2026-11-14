@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { NAV } from '@/lib/nav';
 import { BrandMark } from './BrandMark';
 import { DemoModeGate } from './DemoModeGate';
+import { LunaButton } from './luna/LunaButton';
 import { StarBand } from './StarBand';
 import { ThemeSwitch } from './ThemeSwitch';
 
@@ -33,6 +34,8 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="ml-auto flex items-center gap-4">
             <DemoModeGate />
+            {/* Luna, the voice of the app (spec 22): off until pressed. */}
+            <LunaButton />
             <ThemeSwitch />
           </div>
         </div>

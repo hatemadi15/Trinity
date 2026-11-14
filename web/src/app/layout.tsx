@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Bricolage_Grotesque, IBM_Plex_Sans } from 'next/font/google';
 import { DEFAULT_THEME, THEME_SCRIPT } from '@/lib/theme';
+import { LunaEngine } from '@/components/luna/LunaEngine';
 import './globals.css';
 
 // The optical-size axis gives headlines their display cut; the width axis lets them be set at 87.5 % (class `display`).
@@ -50,7 +51,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Sets data-theme while the HTML is parsed, before the first paint (Next guide: preventing flash before hydration). */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body className="min-h-full bg-page text-ink antialiased">{children}</body>
+      <body className="min-h-full bg-page text-ink antialiased">
+        {/* Luna's engine (spec 22), once for the app, so she keeps listening from page to page while she is on. */}
+        <LunaEngine />
+        {children}
+      </body>
     </html>
   );
 }

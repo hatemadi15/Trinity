@@ -8,6 +8,7 @@ import type { Series } from '@/lib/engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '@/lib/engine/power';
 import { PLOT_GRID } from './TimeChart';
 import { dotShifts, PLAY_HPS, SPEEDS, TimeBar } from './TimeBar';
+import { runControl } from '@/lib/luna/controls';
 
 // jsdom has no PointerEvent; this one carries the pointer's id and its kind (mouse, touch or pen) on top of the mouse
 // event's position.
@@ -1670,6 +1671,74 @@ describe('dotShifts', () => {
       for (let k = 1; k < centres.length; k++) expect(centres[k] - centres[k - 1]).toBeGreaterThanOrEqual(24 - 1e-9);
       expect(centres[0]).toBeGreaterThanOrEqual(-1e-9);
       expect(centres[centres.length - 1]).toBeLessThanOrEqual(trackPx + 1e-9);
+    }
+  });
+});
+
+describe('the time bar as Luna’s player (spec 22)', () => {
+  it('lends Luna its player while it is on the page: Play, Pause, the next and the previous moment, the speed and Replay', () => {
+    const page = playPage(steady(30), 60, { dates: true, moments: STAND_MOMENTS });
+    // Next and previous: the moment's name is what Luna says.
+    let r: ReturnType<typeof runControl>;
+    act(() => {
+      r = runControl('next');
+    });
+    expect(r!).toEqual({ ok: true, said: 'Battery runs out, 4 Jan' });
+    expect(page.onCursor).toHaveBeenLastCalledWith(76);
+    act(() => {
+      r = runControl('previous');
+    });
+    expect(r!).toEqual({ ok: true, said: 'Sunset, 3 Jan' });
+    // Play and Pause, as the button does.
+    act(() => {
+      runControl('play');
+    });
+    expect(screen.getByRole('button', { name: /^Pause/ })).toBeTruthy();
+    act(() => {
+      runControl('pause');
+    });
+    expect(screen.getByRole('button', { name: /^Play/ })).toBeTruthy();
+    // The speed, up and down, said in words.
+    act(() => {
+      r = runControl('faster');
+    });
+    expect(r!.said).toBe('Twice as fast.');
+    expect(screen.getByRole('button', { name: /^Speed 2×/ })).toBeTruthy();
+    act(() => {
+      r = runControl('slower');
+    });
+    expect(r!.said).toBe('Normal speed.');
+    act(() => {
+      r = runControl('slower');
+    });
+    expect(r!.said).toBe('Already at normal speed.');
+    // Replay: from the first hour, playing.
+    act(() => {
+      runControl('replay');
+    });
+    expect(page.onCursor).toHaveBeenLastCalledWith(0);
+    expect(screen.getByRole('button', { name: /^Pause/ })).toBeTruthy();
+    page.unmount();
+    expect(runControl('play')).toEqual({ ok: false });
+  });
+
+  it('tells Luna why it does not play under reduced motion, and when there is no moment either way', () => {
+    const was = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })) as unknown as typeof window.matchMedia;
+    try {
+      const page = playPage(steady(30), 700, { dates: true, moments: STAND_MOMENTS });
+      let r: ReturnType<typeof runControl>;
+      act(() => {
+        r = runControl('play');
+      });
+      expect(r!.said).toMatch(/reduced motion/);
+      act(() => {
+        r = runControl('next');
+      });
+      expect(r!.said).toBe('There is no moment after this one.');
+      page.unmount();
+    } finally {
+      window.matchMedia = was;
     }
   });
 });

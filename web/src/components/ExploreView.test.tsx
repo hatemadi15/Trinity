@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
 import { ExploreView } from './ExploreView';
+import { runControl } from '@/lib/luna/controls';
 
 /** The page with the real catalogue and sky; `search` is the address it opens with. */
 async function open(search = '', navigate: (href: string) => void = () => {}) {
@@ -142,6 +143,16 @@ describe('ExploreView', () => {
     fireEvent.click(within(bar).getByRole('button', { name: /^Next: Sunset, 3 Jan/ }));
     expect(store.getState().cursorHour).toBe(67);
     await waitFor(() => expect(bar.textContent).toMatch(/Sun behind a hill/));
+  });
+
+  it('lends Luna the better day, which lands there as the gold button does (spec 22)', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    let said: ReturnType<typeof runControl>;
+    act(() => {
+      said = runControl('better-day');
+    });
+    expect(said!.said).toBe('Land on 20 January instead');
+    await waitFor(() => expect(store.getState().startUtc).toBe('2027-01-20T10:00:00'));
   });
 
   it('opens the lander settings from the band and applies a preset', async () => {

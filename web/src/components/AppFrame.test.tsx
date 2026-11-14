@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { exploreStore } from '@/lib/store/explore';
 import { AppFrame } from './AppFrame';
@@ -52,6 +52,18 @@ describe('AppFrame', () => {
     expect(frame.className).toMatch(/\brelative\b/);
     expect(frame.querySelector('header')!.className).toMatch(/\brelative\b/);
     expect(frame.querySelector('header')!.className).not.toMatch(/\bbg-page\b/);
+  });
+
+  it('has Luna’s toggle in the header, before the theme switch, off at first (spec 22)', () => {
+    render(
+      <AppFrame>
+        <p>page</p>
+      </AppFrame>,
+    );
+    const header = screen.getByRole('banner');
+    const luna = within(header).getByRole('button', { name: /^Luna/ });
+    expect(luna.getAttribute('aria-pressed')).toBe('false');
+    expect(luna.compareDocumentPosition(within(header).getByRole('group', { name: 'Theme' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('keeps instrument names out of the header', () => {

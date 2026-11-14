@@ -8,6 +8,7 @@ import { BEAT_STOPS, LANDED } from '@/lib/sky/arrivalTiming';
 import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { arrivalWords } from '@/lib/viz/arrival';
 import { Arrival } from './Arrival';
+import { runControl } from '@/lib/luna/controls';
 import type { StageProps } from './ArrivalCanvas';
 
 // The live stage needs WebGL: these tests hand the section a stand-in.
@@ -285,6 +286,19 @@ describe('the arrival', () => {
     expect((window.scrollTo as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(calls);
     // Still a link without the script.
     expect(screen.getByRole('link', { name: 'Fly to the south pole' }).getAttribute('href')).toBe('/sites');
+  });
+
+  it('lends Luna the flight, which plays as Fly to the south pole does (spec 22)', () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'setTimeout'] });
+    const view = render(<Arrival words={words} Stage={Stage} />);
+    scrolled(0);
+    act(() => {
+      expect(runControl('fly').ok).toBe(true);
+    });
+    act(() => vi.advanceTimersByTime(2000));
+    expect((window.scrollTo as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(10);
+    view.unmount();
+    expect(runControl('fly').ok).toBe(false);
   });
 
   it('stops playing when the page scrolls by any other hand: the scrollbar dragged, autoscroll, a link to a section', () => {
