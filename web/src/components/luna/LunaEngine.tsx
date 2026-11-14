@@ -5,7 +5,7 @@ import { askPlanner } from '@/lib/ai/client';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { parseCommand } from '@/lib/luna/commands';
 import { runCommand, type LunaDeps } from '@/lib/luna/run';
-import { hush, recognitionCtor, speak as browserSpeak, type Recognition, type RecognitionCtor } from '@/lib/luna/speech';
+import { hush as browserHush, recognitionCtor, speak as browserSpeak, type Recognition, type RecognitionCtor } from '@/lib/luna/speech';
 import { lunaStore, message, type LunaMessage } from '@/lib/luna/store';
 import { exploreStore, type ExploreState } from '@/lib/store/explore';
 import { scenarioStore } from '@/lib/store/scenarios';
@@ -22,23 +22,28 @@ export const NOT_CAUGHT = 'I did not catch a request there. Try one of the examp
  * Luna's engine (spec 22), once for the whole app, in the root layout, so she keeps listening from page to page and her
  * conversation lasts (spec 23.2). While she is on, the browser's speech recognition runs (continuous, English); each
  * phrase it hears to the end is a command (parseCommand) carried out on the page (runCommand), and her reply is said
- * aloud, with the recognition stopped meanwhile so she never hears herself. Typed words (`lunaStore.submit`) are
- * commands too: her only way in without voice input or with the microphone blocked. Each exchange goes into her
- * conversation as two lines; a stray word heard in the room is let go without one, while typed words always get an
- * answer. Her panel's microphone pauses the listening and starts it again (`lunaStore.toggleMic`). Off, nothing
- * listens. Renders nothing: her button and panel are LunaButton, and her 3D self LunaDock.
+ * aloud, with the recognition stopped meanwhile so she never hears herself. With the switch in her panel off ("Say
+ * replies aloud", `lunaStore.voice`) no reply is said aloud: it shows in the conversation only, and the listening goes
+ * on; turned off while she speaks, she stops at once. Typed words (`lunaStore.submit`) are commands too: her only way
+ * in without voice input or with the microphone blocked. Each exchange goes into her conversation as two lines; a stray
+ * word heard in the room is let go without one, while typed words always get an answer. Her panel's microphone pauses
+ * the listening and starts it again (`lunaStore.toggleMic`). Off, nothing listens. Renders nothing: her button and
+ * panel are LunaButton, and her 3D self LunaDock.
  */
 export function LunaEngine({
   store = exploreStore,
   ask = askPlanner,
   recognition = recognitionCtor,
   speak = browserSpeak,
+  hush = browserHush,
   navigate,
 }: {
   store?: StoreApi<ExploreState>;
   ask?: LunaDeps['ask'];
   recognition?: () => RecognitionCtor | null;
   speak?: (text: string, done: () => void) => boolean;
+  /** Stops whatever she is saying. */
+  hush?: () => void;
   navigate?: (href: string) => void;
 }) {
   const routerNavigate = useNavigate();
@@ -52,6 +57,8 @@ export function LunaEngine({
     if (!on) return;
     let alive = true;
     let speaking = false;
+    // Each reply said aloud has a number, so that the end of one cut short, when the browser reports it, is let go.
+    let utterance = 0;
     let turnOff = false;
     // Whether the visitor paused the microphone from her panel.
     let paused = false;
@@ -66,6 +73,17 @@ export function LunaEngine({
       } catch {
         // Already listening.
       }
+    };
+    // Her reply said, or cut short: after her goodbye she turns herself off; else she listens again.
+    const over = () => {
+      speaking = false;
+      if (!alive) return;
+      if (turnOff) {
+        lunaStore.getState().setOn(false);
+        return;
+      }
+      idle();
+      listen();
     };
     const deps: LunaDeps = {
       store,
@@ -110,20 +128,28 @@ export function LunaEngine({
         return;
       }
       add(message('luna', reply));
-      lunaStore.setState({ reply, status: 'speaking' });
+      lunaStore.setState({ reply });
+      if (!lunaStore.getState().voice) {
+        // Not said aloud: the reply is in the conversation, and the listening never stopped for it.
+        if (turnOff) lunaStore.getState().setOn(false);
+        else idle();
+        return;
+      }
+      lunaStore.setState({ status: 'speaking' });
       speaking = true;
       rec?.abort();
+      const mine = ++utterance;
       speak(reply, () => {
-        speaking = false;
-        if (turnOff) {
-          lunaStore.getState().setOn(false);
-          return;
-        }
-        if (!alive) return;
-        idle();
-        listen();
+        if (mine === utterance) over();
       });
     };
+    // The switch turned off while she speaks: she stops at once.
+    const unsubscribe = lunaStore.subscribe((s, was) => {
+      if (s.voice || !was.voice || !speaking) return;
+      utterance++;
+      hush();
+      over();
+    });
 
     const Ctor = recognition();
     const toggleMic = () => {
@@ -168,6 +194,7 @@ export function LunaEngine({
     listen();
     return () => {
       alive = false;
+      unsubscribe();
       window.clearTimeout(restart);
       if (rec) {
         rec.onresult = null;
@@ -178,7 +205,7 @@ export function LunaEngine({
       hush();
       lunaStore.setState({ submit: () => {}, toggleMic: () => {}, status: 'off' });
     };
-  }, [on, store, ask, recognition, speak]);
+  }, [on, store, ask, recognition, speak, hush]);
 
   return null;
 }
