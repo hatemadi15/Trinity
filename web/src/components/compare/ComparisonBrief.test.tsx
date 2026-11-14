@@ -38,7 +38,7 @@ describe('ComparisonBrief', () => {
     expect(main.classList.contains('brief')).toBe(true);
     expect(main.textContent).toMatch(/Baseline: de Gerlache Rim 2, landing 1 January 2027, 00:00 UTC, 30 days\. All times are UTC\./);
     expect(main.textContent).toMatch(/Landing times differ/);
-    expect(main.textContent).toMatch(/de Gerlache rim summit, 12 km from de Gerlache Rim 2, works better than “5 days later” at the same landing time/);
+    expect(main.textContent).toMatch(/de Gerlache rim summit, 12 km from de Gerlache Rim 2 and unchecked for landing, works better than “5 days later” at the same landing time/);
     const table = within(screen.getByRole('region', { name: 'The scenarios side by side' })).getByRole('table');
     const power = within(table).getByRole('rowheader', { name: 'Time with power' }).parentElement!;
     expect(Array.from(power.querySelectorAll('td')).map((td) => td.textContent)).toEqual(['3 d 4 h', '10 h−2 d 18 h against the baseline, worse', 'all 30 days+26 d 20 h against the baseline, better']);

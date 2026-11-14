@@ -73,7 +73,7 @@ describe('CompareView', () => {
     const story = screen.getByRole('region', { name: 'What changed, and what works better' });
     expect(story.textContent).toMatch(/Landing times differ: the figures compare different dates as well as places\./);
     expect(story.textContent).toMatch(/5 days later \(6 January 2027, 00:00 UTC\): power for 10 hours instead of 3 days 4 hours\. The period starts at night/);
-    expect(story.textContent).toMatch(/de Gerlache rim summit, 12 km from de Gerlache Rim 2, works better than “5 days later” at the same landing time \(6 January 2027, 00:00 UTC\): power for all 30 days instead of 10 hours\./);
+    expect(story.textContent).toMatch(/de Gerlache rim summit, 12 km from de Gerlache Rim 2 and unchecked for landing, works better than “5 days later” at the same landing time \(6 January 2027, 00:00 UTC\): power for all 30 days instead of 10 hours\./);
     expect(within(story).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
       expect.arrayContaining(['Sunlight: 100 % against 41 %: better.', 'Radio contact while it has power: 14 days 15 hours against none: better.']),
     );
@@ -192,6 +192,11 @@ describe('CompareView', () => {
     await st.scenarios.getState().settle();
     await waitFor(() => expect(screen.getByRole('main').textContent).toMatch(/The figures worked out here match the ones saved in the file\./));
     expect(st.scenarios.getState().scenarios.map((s) => s.label)).toEqual(['Original landing', '5 days later', 'Nearby: de Gerlache rim summit']);
+    // Once a scenario is changed, the figures are no longer the file's to check against.
+    st.scenarios.getState().update(st.scenarios.getState().scenarios[1].id, { days: 14 });
+    await st.scenarios.getState().settle();
+    await waitFor(() => expect(row('Stay')[1]).toBe('14 dayschanged'));
+    expect(screen.getByRole('main').textContent).not.toMatch(/match the ones saved|differ from the file/);
   });
 
   it('marks a scenario at its site’s own best time, apart from the same-time comparison', async () => {

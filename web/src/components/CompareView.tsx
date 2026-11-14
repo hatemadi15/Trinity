@@ -17,7 +17,7 @@ import { siteLabel } from '@/lib/data/loaders';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { comparisonHref, readComparison, SCENARIO_MAX } from '@/lib/scenario/codec';
 import { fileName, scenarioFile } from '@/lib/scenario/file';
-import { paramsOf } from '@/lib/scenario/scenario';
+import { paramsOf, scenarioKey } from '@/lib/scenario/scenario';
 import { DEFAULT_PARAMS, DEFAULT_START, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
 import { READY_PAIRS, timingLine } from '@/lib/viz/compare';
@@ -81,7 +81,9 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
   const act = scenarios.getState();
   const cols = columnsOf(sc.scenarios, sc.runs, s.sites);
   const full = sc.scenarios.length >= SCENARIO_MAX;
-  const check = opened ? checkWords(opened, cols) : null;
+  // The file's figures are checked only while the page holds the scenarios the file gave, unchanged.
+  const unchanged = opened !== null && opened.scenarios.length === sc.scenarios.length && opened.scenarios.every((x, i) => scenarioKey(x) === scenarioKey(sc.scenarios[i]));
+  const check = opened && unchanged ? checkWords(opened, cols) : null;
   const editingScenario = sc.scenarios.find((x) => x.id === editing) ?? null;
   const landerScenario = sc.scenarios.find((x) => x.id === landerFor) ?? null;
   const example = () => {
@@ -104,7 +106,7 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
           <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">
             Compare sites
           </h1>
-          <p className="mt-2 max-w-[46em] text-lg text-ink-2">A baseline and up to three changes to it, each worked out with its own settings: another landing time, site or lander.</p>
+          <p className="mt-2 max-w-[46em] text-lg text-ink-2">A baseline and up to three changes, each worked out on its own: another landing time, site or lander.</p>
         </div>
         {sc.problem && (
           <p role="status" className="text-[15px] text-bad">

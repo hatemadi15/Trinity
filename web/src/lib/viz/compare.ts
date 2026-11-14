@@ -184,6 +184,11 @@ export function settingRows(cols: Column[]): SettingRow[] {
   ];
 }
 
+/** A point the app worked out from NASA's heights (a rim's highest ground), not one checked as a safe place to land. */
+function unchecked(site: Site): boolean {
+  return (site as Site & { kind?: string }).kind === 'derived' || site.source.startsWith('derived');
+}
+
 /** A scenario's label in sentences, in quotation marks. */
 const quoted = (c: Column) => `“${c.scenario.label}”`;
 
@@ -232,7 +237,9 @@ export function story(cols: Column[]): Story {
     best.scenario.startUtc === ref.scenario.startUtc
       ? ` at the same landing time (${startWords(best.scenario.startUtc)})`
       : `, landing at another time (${startWords(best.scenario.startUtc)} against ${startWords(ref.scenario.startUtc)})`;
-  const lead = `${best.siteName}, ${km} km from ${b.siteName}, ${works ? 'works better' : 'does not work better'} than ${quoted(ref)}${when}: power for ${powerWords(o)} instead of ${powerWords(r)}.`;
+  // A high point worked out from the heights is said to be one, as the forecast's nearby advice says it: never a checked place to land.
+  const where = `${km} km from ${b.siteName}${unchecked(best.site) ? ' and unchecked for landing' : ''}`;
+  const lead = `${best.siteName}, ${where}, ${works ? 'works better' : 'does not work better'} than ${quoted(ref)}${when}: power for ${powerWords(o)} instead of ${powerWords(r)}.`;
   const tradeoffs = [
     againstWords('Sunlight', pct0(o.sunFraction), pct0(r.sunFraction), Math.round(o.sunFraction * 100) - Math.round(r.sunFraction * 100)),
     againstWords('Radio contact while it has power', wordsOrNone(o.poweredContactH), wordsOrNone(r.poweredContactH), o.poweredContactH - r.poweredContactH),

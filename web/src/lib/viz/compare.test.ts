@@ -160,6 +160,13 @@ describe('the comparison in words', () => {
     ]);
   });
 
+  it('never offers a high point worked out from the heights as a checked place to land', () => {
+    const derived = { ...cols[2], site: { ...summit, source: 'derived: argmax LOLA 20 m height in annulus around de_gerlache_center' } };
+    expect(story([cols[0], cols[1], derived]).alternative?.lead).toMatch(/^Summit, 12 km from Rim and unchecked for landing, works better than “5 days later”/);
+    const kind = { ...cols[2], site: { ...summit, kind: 'derived' } as Site };
+    expect(story([cols[0], cols[1], kind]).alternative?.lead).toMatch(/^Summit, 12 km from Rim and unchecked for landing, works better/);
+  });
+
   it('says when no alternative works better, with its figures', () => {
     const worse = { ...cols[2], outcome: outcome({ poweredH: 5, verdict: 'power for 5 hours, then night' }) };
     expect(story([cols[0], cols[1], worse]).alternative?.lead).toBe('Summit, 12 km from Rim, does not work better than “5 days later” at the same landing time (6 January 2027, 00:00 UTC): power for 5 hours instead of 10 hours.');
