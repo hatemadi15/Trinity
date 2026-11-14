@@ -650,6 +650,8 @@ describe('planner parameters, compare and best window', () => {
     expect(r!.poweredHours).toBeGreaterThan(300);
     expect(store.getState().startUtc).toBe(r!.startUtc);
     expect(store.getState().bestWindowNote).toMatch(/^Across 2 compared sites: best landing in the next 12 months: .* power for .* on average/);
+    // Each site's own result at that landing, not only the mean (technical review, P1).
+    expect(store.getState().bestWindowNote).toMatch(/; at each site: IM-1 Odysseus [\d dh]+, Shackleton rim summit (all 14 days|[\d dh]+)\.$/);
     for (const c of store.getState().compare) expect(c.series.sunFraction[0]).toBeGreaterThan(0);
   });
 

@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand';
-import { dataBase, loadEphemerisFromUrl, loadMask, loadSites, type MaskDoc, type Site } from '../data/loaders';
+import { dataBase, loadEphemerisFromUrl, loadMask, loadSites, siteLabel, type MaskDoc, type Site } from '../data/loaders';
 import { contextFileFor, loadHeightmap, loadTerrainManifest, windowFileFor, type Heightmap, type TerrainManifest } from '../data/terrain';
 import { indexForEt, type Ephemeris } from '../engine/ephemeris';
 import { EngineClient } from '../engine-client';
@@ -600,13 +600,12 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       }
       // Only landing hours that leave room for the whole period are candidates.
       const scan = { from: 0, to: Math.min(YEAR_HOURS, scanHours - windowHours + 1), step: 6, capHours: windowHours };
-      const best = bestLandingAcross(
-        targets.map((t, i) => {
-          const mask = masks[i].mask;
-          const raw = hourlySeries(t, mask, eph, startEt, scanHours);
-          return landingScores(params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw, params.power, scan);
-        }),
-      );
+      const scores = targets.map((t, i) => {
+        const mask = masks[i].mask;
+        const raw = hourlySeries(t, mask, eph, startEt, scanHours);
+        return landingScores(params.minEarthElDeg > 0 ? withCommsThreshold(raw, mask, params.minEarthElDeg) : raw, params.power, scan);
+      });
+      const best = bestLandingAcross(scores);
       if (!best) {
         set({ bestWindowNote: targets.length > 1 ? 'No hour in the next 12 months has sunlight at every compared site.' : 'No hour in the next 12 months has sunlight here.' });
         return null;
@@ -616,10 +615,13 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       // The landing hour is part of the answer: the search tries every sixth hour from the landing.
       const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}, ${clockUtc(newStart, 0)} UTC`;
       const lasting = spanShort(Math.round(best.poweredHours));
+      // A mean hides the site that does worst: the note gives each site's own time with power from that landing too.
+      const k = scores[0].hours.indexOf(best.hour);
+      const each = targets.map((t, i) => `${siteLabel(t)} ${scores[i].powered[k] >= windowHours ? `all ${days} days` : spanShort(scores[i].powered[k])}`).join(', ');
       set({
         bestWindowNote:
           targets.length > 1
-            ? `Across ${targets.length} compared sites: best landing in the next 12 months: ${when}, power for ${lasting} on average.`
+            ? `Across ${targets.length} compared sites: best landing in the next 12 months: ${when}, power for ${lasting} on average; at each site: ${each}.`
             : `Best landing in the next 12 months: ${when}, power for ${lasting}, Earth in view ${pct0(best.earthFraction)} of that time.`,
       });
       return { startUtc: newStart, poweredHours: best.poweredHours, earthFraction: best.earthFraction };
@@ -1119,7 +1121,7 @@ export function skylineFromWorker(r: MaskResult): ComputedSkyline {
   };
 }
 
-const browserLoaders: Loaders = {
+export const browserLoaders: Loaders = {
   loadSites: () => loadSites(dataBase()),
   loadEphemeris: () => loadEphemerisFromUrl(dataBase()),
   loadMask: (id) => loadMask(dataBase(), id),

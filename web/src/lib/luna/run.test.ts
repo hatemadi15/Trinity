@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { createExploreStore } from '../store/explore';
+import { createScenarioStore } from '../store/scenarios';
 import { plannerLog } from '../store/planner-log';
 import { fileLoaders } from '@/test/file-loaders';
 import type { PlannerAnswer } from '../ai/client';
@@ -114,6 +115,18 @@ describe('what Luna does with a command', () => {
     expect(await runCommand({ kind: 'stop' }, d)).toMatch(/^Luna is off/);
     expect(d.turnOff).toHaveBeenCalledTimes(1);
     expect(await runCommand({ kind: 'nothing' }, d)).toBeNull();
+  });
+
+  it('compares the landing with a five-day delay when asked, as the Ask box does', async () => {
+    const store = await loaded();
+    const scenarios = createScenarioStore(store, fileLoaders());
+    const d = { ...deps(store, '/explore'), scenarios };
+    const said = 'compare with a five day delay';
+    const cmd = parseCommand(said, store.getState().sites);
+    expect(cmd).toMatchObject({ kind: 'planner', actions: [{ type: 'compare_shift', hours: 120 }] });
+    await runCommand(cmd, d, said);
+    expect(d.navigate).toHaveBeenCalledWith('/compare');
+    expect(scenarios.getState().scenarios.map((x) => x.label)).toEqual(['Original landing', '5 days later']);
   });
 
   it('applies the planner’s actions as the Ask box does, logs the exchange there, and opens Explore to show a new site from another page', async () => {

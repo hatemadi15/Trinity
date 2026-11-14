@@ -11,8 +11,18 @@ const sites = [
 const m = (prompt: string) => matchIntent(prompt, sites);
 
 describe('matchIntent', () => {
-  it('has thirteen rehearsed intents', () => {
-    expect(INTENTS.length).toBe(13);
+  it('has fourteen rehearsed intents', () => {
+    expect(INTENTS.length).toBe(14);
+  });
+
+  it('compares the landing shown with a delay, in figures or words, later or earlier', () => {
+    expect(m('Compare with a five-day delay')).toEqual({ actions: [{ type: 'compare_shift', hours: 120 }], reply: 'Comparing this landing with the same one 5 days later.' });
+    expect(m('compare with a 5 day slip')?.actions).toEqual([{ type: 'compare_shift', hours: 120 }]);
+    expect(m('compare it with landing twelve hours later')?.actions).toEqual([{ type: 'compare_shift', hours: 12 }]);
+    expect(m('compare with landing 2 days earlier')?.actions).toEqual([{ type: 'compare_shift', hours: -48 }]);
+    expect(m('compare with a delay of three days')?.actions).toEqual([{ type: 'compare_shift', hours: 72 }]);
+    // Two sites to compare are still two sites.
+    expect(m('compare haworth and nobile rim 2')?.actions[0]).toEqual({ type: 'add_to_compare', id: 'haworth' });
   });
 
   it('selects a site by name', () => {
