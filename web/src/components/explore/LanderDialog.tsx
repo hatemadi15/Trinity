@@ -2,6 +2,7 @@
 import { useState, type RefObject } from 'react';
 import { Modal } from '@/components/Modal';
 import { NumberField } from '@/components/NumberField';
+import { PowerScope } from '@/components/PowerScope';
 import { DEFAULT_POWER, type PanelModel, type PowerConfig } from '@/lib/engine/power';
 import { batteryHours, LANDER_PRESETS, presetOf } from '@/lib/lander';
 import { PARAM_RANGES, percentRange, POWER_RANGES } from '@/lib/planner-ranges';
@@ -99,6 +100,8 @@ export function LanderDialog({
         The panel makes its share of full sunlight (1361 W on each square metre at Earth&apos;s distance), reduced by the part of the Sun behind a hill and by the angle of the panel. The battery fills when the panel makes
         more than the lander uses and empties when it makes less.
       </p>
+      {/* What that model assumes, and that it counts energy, not warmth through the night or a restart after it. */}
+      <PowerScope className="mt-3 max-w-[52em]" />
     </Modal>
   );
 }

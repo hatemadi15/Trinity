@@ -1,7 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { useRef, useState, type ReactNode } from 'react';
+import { Fold } from '@/components/Fold';
 import { Modal } from '@/components/Modal';
+import { PowerScope } from '@/components/PowerScope';
 import type { Site } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
 import type { Summary } from '@/lib/engine/metrics';
@@ -161,6 +163,9 @@ export function NumbersCard({
               ))}
             </tbody>
           </table>
+          <Fold label="What the power figures assume" className="mt-4">
+            <PowerScope />
+          </Fold>
         </Modal>
       )}
     </section>

@@ -1,8 +1,10 @@
 'use client';
 import Link from 'next/link';
+import type { SureLines } from '@/lib/uncertainty/budget';
 import type { Answer } from '@/lib/viz/answer';
 import { Fold } from '../Fold';
 import { lolaFor, Sources } from '../Sources';
+import { SureFold } from './SureFold';
 
 /** A battery on its side: full for a good answer, down to its last sliver for a bad one. */
 function BatteryMark({ good }: { good: boolean }) {
@@ -29,6 +31,7 @@ export function VerdictPanel({
   nearby = null,
   standLink,
   site,
+  sure,
 }: {
   answer: Answer;
   onLand: (startUtc: string) => void;
@@ -41,6 +44,8 @@ export function VerdictPanel({
   standLink?: string;
   /** The site, for the grid its hills are read from in the row of data sources; without it the row names no grid. */
   site?: { lat: number; polar: boolean };
+  /** The verdict's times with their supported margins, and what the power figures leave out (one tap away). */
+  sure?: SureLines | null;
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -62,6 +67,7 @@ export function VerdictPanel({
           <p className="max-w-[42em] text-[17px] leading-relaxed text-ink">{answer.sentences.slice(1).join(' ')}</p>
         </Fold>
       )}
+      {sure && <SureFold sure={sure} />}
       {/* One gold action: the better date, else the better place nearby (below), else comparing sites. */}
       {(better || !nearby) && (
         <div className="mt-4 flex flex-wrap items-center gap-3">
