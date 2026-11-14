@@ -212,13 +212,17 @@ export function sureLines({
   if (!doc) return { lines: [], basis: null, widest: null };
   let basis: Basis | null = null;
   let widest: number | null = null;
+  let battery = false;
   const lines: string[] = [];
   for (const { kind, hour } of keyEvents(series, power)) {
     const pm = plusMinusFor(doc, site, kind);
     if (!pm) continue;
     basis = pm.basis;
     widest = Math.max(widest ?? 0, pm.hours);
+    battery ||= kind === 'battery_out' || kind === 'power_back';
     lines.push(`${EVENT_NAMES[kind]} ${dayMonth(startUtc, hour)} ${clockUtc(startUtc, hour)} UTC, within about ${withinWords(pm.hours)}.`);
   }
-  return { lines, basis: basis ? BASIS_WORDS[basis] : null, widest };
+  // The budget walked the battery of one lander, the app's default: its margins say so.
+  const words = basis ? `${BASIS_WORDS[basis]}${battery ? ' The battery’s margins were measured for the small lander.' : ''}` : null;
+  return { lines, basis: words, widest };
 }

@@ -42,7 +42,7 @@ Sun and Earth positions come from a precomputed hourly table (2024–2036) built
 | Predicted sunset vs reported mission end | Blue Ghost M1: +2.4 h (flat mare horizon). IM-1: −67 h, tipped over with panels away from the low Sun. IM-2: −299 h, on its side in a crater |
 | Automated tests | 1,514 in the web engine and app (138 files), 134 in the Python pipeline (2026-11-12); the Accuracy page shows the current count |
 
-Error budget: directions under 0.01°, the hills on the horizon 0.05–0.15°, event timing ±15–60 minutes near the pole (hourly series, the Sun moves 0.5° per hour along the horizon).
+Error budget, measured for every featured site over 2025–2026 (docs/method.md, "Uncertainty budget"): the directions are good to 3e-5° (under 4 s of time at any event); the hourly steps put each event up to 1 h late; the terrain data, compared with NASA's adjusted south-pole elevation maps (PGDA product 90) and their stated height error, moves events by under an hour at some sites and by up to a day at grazing high points (95th percentile, site by site). Each time in the app carries the sum as its margin, for example ±3.5 h for a sunset at Connecting Ridge and ±10.5 h at the Shackleton rim summit. The power figures count electrical energy only: they do not show whether a lander keeps warm through the night or starts again after it.
 
 ### Impact and next steps
 

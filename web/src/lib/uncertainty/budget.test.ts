@@ -92,12 +92,16 @@ describe('the uncertainty budget', () => {
       'Power back 7 Jan 06:00 UTC, within about 2 h.',
     ]);
     expect(sure.basis).toMatch(/^Measured at this site/);
+    // The battery's margins come from one lander, and say so.
+    expect(sure.basis).toMatch(/The battery’s margins were measured for the small lander\.$/);
     expect(sure.widest).toBe(3);
     const custom = sureLines({ doc, site: { id: 'custom-1', polar: true }, series: s, power, startUtc: '2027-01-01T00:00:00' });
     expect(custom.lines[1]).toBe('Sunset 3 Jan 02:00 UTC, within about 6 h.');
     expect(custom.basis).toMatch(/^Not measured at this point/);
     const far = sureLines({ doc, site: { id: 'custom-2', polar: false }, series: s, power, startUtc: '2027-01-01T00:00:00' });
     expect(far.basis).toMatch(/flat horizon/);
+    const noBattery = sureLines({ doc, site: { id: 'connecting_ridge', polar: true }, series: s, power: simulateBattery(new Float64Array(s.hours).fill(1000), DEFAULT_POWER), startUtc: '2027-01-01T00:00:00' });
+    expect(noBattery.basis).not.toMatch(/small lander/);
   });
 
   it('says nothing it cannot support: no event, no line; no budget, no lines', () => {
