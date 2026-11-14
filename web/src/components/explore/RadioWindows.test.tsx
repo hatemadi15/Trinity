@@ -15,7 +15,7 @@ describe('RadioWindows', () => {
   it('says what it counts in plain words, geometric direct-to-Earth visibility, and once what that does not establish', () => {
     show();
     const text = panel().textContent ?? '';
-    expect(text).toMatch(/When Earth is in view, a radio link straight to Earth is geometrically possible: direct-to-Earth visibility\./);
+    expect(text).toMatch(/With Earth in view, a direct radio link is geometrically possible \(direct-to-Earth visibility\)\./);
     expect(text).toMatch(/Earth in view alone does not establish antenna performance, the link budget, ground-station availability or a scheduled contact\./);
     expect(text.match(/does not establish/g)).toHaveLength(1);
   });
@@ -36,7 +36,7 @@ describe('RadioWindows', () => {
     const figure = (name: string) => within(panel()).getByText(name).closest('div')!.textContent;
     expect(figure('Earth in view')).toBe('Earth in view13 d 12 hin 1 window');
     // Cut short by the period's start: the time without Earth may have begun before it.
-    expect(figure('Longest without Earth')).toBe('Longest without Earthat least 9 d 3 hfrom the start of the period');
+    expect(figure('Longest without Earth')).toBe('Longest without Earthat least 9 d 3 hfrom the period’s start');
     // As the answer counts it, from the landing; the hours after the power comes back apart, with their condition.
     expect(figure('Radio contact while it has power')).toBe('Radio contact while it has powernoneuntil the battery runs out; 3 d 5 h after, if the lander survives the cold');
   });
@@ -70,6 +70,9 @@ describe('RadioWindows', () => {
   it('keeps to 110 words before a tap, and stacks the table on a phone so nothing scrolls sideways', () => {
     show();
     for (const width of [WIDE, PHONE]) expect(visibleWords(panel(), width).length).toBeLessThanOrEqual(110);
+    // With room under it for the longer words other periods give (a two-figure wait, a window open to the end, contact
+    // both before and after a power cut: six words more at most).
+    for (const width of [WIDE, PHONE]) expect(visibleWords(panel(), width).length).toBeLessThanOrEqual(104);
     fireEvent.click(within(panel()).getByRole('button', { name: 'Every window, with its times' }));
     const table = within(panel()).getByRole('table');
     expect(table.className).toMatch(/\bmax-sm:block\b/);

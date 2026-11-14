@@ -63,7 +63,7 @@ describe('NumbersCard', () => {
     // the sunlight's definition and the lander's whole line. Contact is counted in the hours the lander has power, the
     // figure the verdict gives; its note stays, since it says why Earth can be in view with no contact.
     expect(visibleWords(numbers, WIDE).join(' ')).toBe(
-      'Sunlight 45 % Sun’s height now 1.6° highest 2.5° Radio contact while it has power Earth in view 45 % of the time, after the battery runs out none Lander 10 h of battery when full All numbers Printable brief',
+      'Sunlight 45 % Sun’s height now 1.6° highest 2.5° Radio contact while it has power Earth in view only after the battery runs out none Lander 10 h of battery when full All numbers Printable brief',
     );
     expect(numbers.textContent).not.toMatch(/share of the 30 days|4 m² panel/);
     // The card's words stay plain: it names no dataset.
@@ -83,7 +83,7 @@ describe('NumbersCard', () => {
 
   it('says when Earth comes only after the battery has run out, and how much of the time it is in view otherwise', () => {
     show();
-    expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/Earth in view 45\u00a0% of the time, after the battery runs out/);
+    expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/Earth in view only after the battery runs out/);
     cleanup();
     show({ contactHours: 77 });
     expect(screen.getByRole('region', { name: 'The numbers' }).textContent).toMatch(/Earth in view 45\u00a0% of the time(?!,)/);

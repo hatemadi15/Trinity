@@ -70,7 +70,7 @@ export function RadioWindows({ series, power, startUtc, hour }: { series: Series
       <h2 id="h-radio" className="display text-[23px] font-semibold">
         Radio windows
       </h2>
-      <p className="mt-1 text-ink-2">When Earth is in view, a radio link straight to Earth is geometrically possible: direct-to-Earth visibility.</p>
+      <p className="mt-1 text-ink-2">With Earth in view, a direct radio link is geometrically possible (direct-to-Earth visibility).</p>
       {/* At the time bar's hour, as it moves; two lines kept on a phone so the page below stays put. */}
       <p data-testid="radio-next" className="mt-3 text-[17px] font-semibold tabular-nums max-sm:min-h-[2lh]">
         {radioChangeWords(plan, shown, startUtc)}

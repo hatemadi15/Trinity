@@ -139,12 +139,12 @@ export function NumbersCard({
         title="Radio contact while it has power"
         // The one note the card keeps: it says why the contact can be "none" while the chart shows Earth in view, which a
         // reader took for a contradiction. The figure counts the time with power from the landing, so with none the note
-        // says Earth comes after the battery has run out (power that comes back after a night is the radio
-        // windows' to tell, with its condition).
+        // says Earth comes only after the battery has run out; its share of the time waits in All numbers, and power that
+        // comes back after a night is the radio windows' to tell, with its condition.
         note={
           contactHours > 0 || summary.earthVisFraction === 0
             ? `Earth in view ${pct0(summary.earthVisFraction)} of the time`
-            : `Earth in view ${pct0(summary.earthVisFraction)} of the time, after the battery runs out`
+            : 'Earth in view only after the battery runs out'
         }
         value={contactHours > 0 ? spanShort(contactHours) : 'none'}
       />

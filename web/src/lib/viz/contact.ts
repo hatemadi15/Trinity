@@ -193,8 +193,8 @@ export function radioChangeWords(plan: ContactPlan, hour: number, startUtc: stri
 export function outageNote(o: Outage | null, startUtc: string): string {
   if (!o) return 'Earth never leaves the view';
   if (o.fromStart && o.toEnd) return 'the whole period';
-  if (o.fromStart) return 'from the start of the period';
-  if (o.toEnd) return 'to the end of the period';
+  if (o.fromStart) return 'from the period’s start';
+  if (o.toEnd) return 'to the period’s end';
   return `${dayMonth(startUtc, o.start)} to ${dayMonth(startUtc, o.end)}`;
 }
 

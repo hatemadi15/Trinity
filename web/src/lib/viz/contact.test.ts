@@ -190,8 +190,8 @@ describe('outageNote', () => {
   it('says where the longest time without Earth lies, and when an edge of the period cuts it short', () => {
     const start = '2027-01-01T00:00:00';
     expect(outageNote(contactPlan(series([1, ...new Array<number>(48).fill(0), 1]), null).longestOutage, start)).toBe('1 Jan to 3 Jan');
-    expect(outageNote(contactPlan(series([0, 0, 1]), null).longestOutage, start)).toBe('from the start of the period');
-    expect(outageNote(contactPlan(series([1, 0, 0]), null).longestOutage, start)).toBe('to the end of the period');
+    expect(outageNote(contactPlan(series([0, 0, 1]), null).longestOutage, start)).toBe('from the period’s start');
+    expect(outageNote(contactPlan(series([1, 0, 0]), null).longestOutage, start)).toBe('to the period’s end');
     expect(outageNote(contactPlan(series([0, 0]), null).longestOutage, start)).toBe('the whole period');
     expect(outageNote(null, start)).toBe('Earth never leaves the view');
   });
