@@ -3,6 +3,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type MouseEvent } from 'react';
 import { ChunkBoundary } from '@/components/ChunkBoundary';
+import { missingPart, partFiles } from '@/lib/data/parts';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useLunaControls } from '@/lib/luna/controls';
 import { BEAT_STOPS, LANDED, LAST, playProgress, playSeconds, progressFromScroll, scrollFromProgress } from '@/lib/sky/arrivalTiming';
@@ -38,6 +39,14 @@ function scrollInto(el: HTMLElement | null, s: number): number | null {
   window.scrollTo({ top, behavior: 'instant' });
   return top;
 }
+/**
+ * What the first screen says when the stills stand in for the live flight: the files that are missing, or the browser.
+ * Short, as it takes the scroll hint's place under the first screen's 100 words; "this copy" is this copy of Earthrise.
+ */
+function stillsNotice(why: string | null): string {
+  const part = missingPart(why);
+  return part ? `Still pictures: this copy has no ${partFiles(part)}.` : 'Still pictures: this browser cannot draw the live flight.';
+}
 /** The page's address does not change under the section, so there is nothing to subscribe to. */
 const noSubscribe = () => () => {};
 
@@ -61,6 +70,8 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
   const [playing, setPlaying] = useState(false);
   const [live, setLive] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Why the stills stand in, as the stage said it: the files that are not there, or anything else.
+  const [why, setWhy] = useState<string | null>(null);
   // ?arrival=<progress> holds the flight there for stills and the recorded walk; &bare=1 leaves the words out.
   // Read after hydration (the server has no address), so the page's first paint matches the server's HTML.
   const search = useSyncExternalStore(noSubscribe, () => window.location.search, () => '');
@@ -177,7 +188,16 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
           <div className={`absolute inset-0 transition-opacity duration-500 ${live ? 'opacity-100' : 'opacity-0'}`}>
             {/* If the stage's code fails to load, the stills stand in for every beat and the page's words stay. */}
             <ChunkBoundary fallback={null} onError={() => setFailed(true)}>
-              <Stage progress={progress} reduced={reduced} capture={!!capture} onLive={() => setLive(true)} onFail={() => setFailed(true)} />
+              <Stage
+                progress={progress}
+                reduced={reduced}
+                capture={!!capture}
+                onLive={() => setLive(true)}
+                onFail={(reason) => {
+                  setFailed(true);
+                  setWhy(reason);
+                }}
+              />
             </ChunkBoundary>
           </div>
         )}
@@ -228,10 +248,17 @@ export function Arrival({ words, Stage = LiveStage }: { words: ArrivalWords; Sta
               </Link>
               ) and anyone curious.
             </p>
-            {/* With the opening words, so it shows on the first screen and leaves with them, never over the Moon. */}
-            <p data-words="" className="mt-5 w-fit text-[15px] text-[#c6c5c0] max-sm:hidden">
-              Scroll to fly down to the Moon&apos;s south pole <span aria-hidden="true">↓</span>
-            </p>
+            {/* With the opening words, so it shows on the first screen and leaves with them, never over the Moon. When the
+                stills stand in, the line says so and why, at every width, in about the scroll hint's words (spec 20.1). */}
+            {failed ? (
+              <p role="status" data-words="" className="mt-5 w-fit text-[15px] text-[#c6c5c0]">
+                {stillsNotice(why)}
+              </p>
+            ) : (
+              <p data-words="" className="mt-5 w-fit text-[15px] text-[#c6c5c0] max-sm:hidden">
+                Scroll to fly down to the Moon&apos;s south pole <span aria-hidden="true">↓</span>
+              </p>
+            )}
           </div>
         </div>
         {/* Once landed the date bar stands at the top: on a wide screen the words are centred in the room under it, so

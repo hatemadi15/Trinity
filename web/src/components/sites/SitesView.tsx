@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from '@/components/AppFrame';
 import { DataProblem, SYNC_HINT } from '@/components/DataProblem';
+import { hasNo, missingPart } from '@/lib/data/parts';
 import { Fold } from '@/components/Fold';
 import { PeriodControls } from '@/components/PeriodControls';
 import { ReliefMap, type MapPin } from '@/components/ReliefMap';
@@ -132,7 +133,10 @@ function Elsewhere({ store, navigate }: { store: StoreApi<ExploreState>; navigat
     setProblem(null);
     await store.getState().selectCustom(pick.lat, pick.lon);
     const failed = store.getState().customError;
-    if (failed) setProblem(`That place could not be worked out: ${failed}.`);
+    // Without the height tiles (a copy set up with the committed data alone) no new place can be traced: say so, and that
+    // the list still works, rather than show the file that was not there.
+    if (failed && missingPart(failed) === 'tiles') setProblem(`That place cannot be worked out here: ${hasNo('tiles')}. The places in the list work without them.`);
+    else if (failed) setProblem(`That place could not be worked out: ${failed}.`);
     else navigate('/explore');
   }
   return (
