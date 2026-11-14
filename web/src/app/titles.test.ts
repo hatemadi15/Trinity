@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { metadata as brief } from './brief/page';
 import { metadata as compare } from './compare/page';
+import { metadata as compareBrief } from './compare/brief/page';
 import { metadata as explore } from './explore/page';
 import { metadata as stand } from './explore/stand/page';
 import { metadata as learn } from './learn/page';
@@ -10,6 +11,7 @@ import { metadata as validate } from './validate/page';
 // A page hands one view to Next and sets its title. Only the title is read here, so the views (charts, three.js) stay unloaded.
 vi.mock('@/components/BriefView', () => ({ BriefView: () => null }));
 vi.mock('@/components/CompareView', () => ({ CompareView: () => null }));
+vi.mock('@/components/compare/ComparisonBrief', () => ({ ComparisonBrief: () => null }));
 vi.mock('@/components/ExploreView', () => ({ ExploreView: () => null }));
 vi.mock('@/components/stand/StandView', () => ({ StandView: () => null }));
 vi.mock('@/components/sites/SitesView', () => ({ SitesView: () => null }));
@@ -23,6 +25,7 @@ const ROUTES = [
   { route: '/validate', metadata: validate, title: 'Accuracy' },
   { route: '/learn', metadata: learn, title: 'How it works' },
   { route: '/brief', metadata: brief, title: 'The brief' },
+  { route: '/compare/brief', metadata: compareBrief, title: 'The comparison brief' },
   { route: '/explore/stand', metadata: stand, title: 'Stand on the Moon' },
 ];
 

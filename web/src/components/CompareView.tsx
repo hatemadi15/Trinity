@@ -160,6 +160,7 @@ export function CompareView({ store = exploreStore, scenarios = scenarioStore }:
                     key={c.scenario.id}
                     col={c}
                     index={i}
+                    alone={cols.length === 1}
                     run={sc.runs[c.scenario.id]}
                     full={full}
                     searching={sc.searching === c.scenario.id}

@@ -110,12 +110,23 @@ describe('CompareView', () => {
     await waitFor(() => expect(st.scenarios.getState().scenarios.map((s) => s.siteId)).toEqual(['shackleton_center_rim_high']));
   });
 
+  it('opens the baseline’s slip when it is alone, so five days later is one press from Compare from here', async () => {
+    const st = stores();
+    await open(st);
+    baselineOf(st);
+    const card = await screen.findByRole('group', { name: 'Baseline: Original landing' });
+    fireEvent.click(within(card).getByRole('button', { name: 'Add 5 days later' }));
+    await waitFor(() => expect(st.scenarios.getState().scenarios.map((s) => s.label)).toEqual(['Original landing', '5 days later']));
+    // With two scenarios, each card's slip waits behind its button.
+    expect(within(screen.getByRole('group', { name: 'Baseline: Original landing' })).queryByRole('button', { name: 'Add 5 days later' })).toBeNull();
+  });
+
   it('slips a scenario by any number of days or hours, five days later to begin with', async () => {
     const st = stores();
     await open(st);
     baselineOf(st);
     const card = await screen.findByRole('group', { name: 'Baseline: Original landing' });
-    fireEvent.click(within(card).getByRole('button', { name: 'Slip the landing…' }));
+    expect(within(card).getByRole('button', { name: 'Slip the landing…' }).getAttribute('aria-expanded')).toBe('true');
     expect(within(card).getByRole('button', { name: 'Add 5 days later' })).toBeTruthy();
     fireEvent.change(within(card).getByRole('spinbutton', { name: 'By' }), { target: { value: '12' } });
     fireEvent.change(within(card).getByRole('combobox', { name: 'Days or hours' }), { target: { value: 'hours' } });

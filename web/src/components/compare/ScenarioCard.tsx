@@ -9,9 +9,9 @@ const QUIET = 'min-h-10 text-left font-medium text-ink underline decoration-line
 const UNITS = { days: 24, hours: 1 } as const;
 
 /** "Slip the landing…": a number of days or hours, later or earlier, five days later to begin with, so the usual slip is one press. */
-function SlipForm({ label, onSlip }: { label: string; onSlip: (hours: number) => void }) {
+function SlipForm({ label, onSlip, startOpen }: { label: string; onSlip: (hours: number) => void; startOpen: boolean }) {
   const id = useId();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const [n, setN] = useState('5');
   const [unit, setUnit] = useState<keyof typeof UNITS>('days');
   const [way, setWay] = useState<'later' | 'earlier'>('later');
@@ -68,6 +68,7 @@ function SlipForm({ label, onSlip }: { label: string; onSlip: (hours: number) =>
 export function ScenarioCard({
   col,
   index,
+  alone,
   run,
   full,
   searching,
@@ -81,6 +82,8 @@ export function ScenarioCard({
 }: {
   col: Column;
   index: number;
+  /** The only scenario: its slip starts open, as the likely next step, so five days later is one press. */
+  alone: boolean;
   run: ScenarioRun | undefined;
   full: boolean;
   searching: boolean;
@@ -107,7 +110,7 @@ export function ScenarioCard({
       )}
       {run?.mask && run.mask.failedTiles > 0 && <p className="text-[15px] text-bad">Some elevation tiles did not load: the hills may be incomplete.</p>}
       <div className="mt-1 flex flex-col items-start gap-2">
-        {!full && <SlipForm label={s.label} onSlip={onSlip} />}
+        {!full && <SlipForm label={s.label} onSlip={onSlip} startOpen={alone} />}
         <button type="button" onClick={onNearby} disabled={full || searching} className={QUIET}>
           {searching ? 'Looking nearby…' : 'Find a nearby alternative'}
         </button>
