@@ -1,4 +1,4 @@
-import { answerHeading, expect, openExplore, test } from './fixtures';
+import { answerHeading, expect, openExplore, printCount, stubPrint, test } from './fixtures';
 
 /**
  * The target demonstration, in the planner's words: "Our landing slipped by five days. Show what changed at the
@@ -49,10 +49,48 @@ test.describe('A landing that slips by five days', () => {
     await shot('compare-tradeoffs');
   });
 
-  test('Compare sets the planned and the slipped landing side by side and recommends the nearby site, with its trade-offs', async () => {
-    test.skip(
-      true,
-      'Pending: the scenario comparison in Compare (the scenarios part) has not landed on the session branch yet. Until it does, the journey above shows the same story with Explore and the plain Compare table.',
-    );
+  test('Compare from here sets the planned landing, five days later and the best place nearby side by side, with what changed and the trade-offs', async ({ page, shot }) => {
+    test.setTimeout(300_000);
+    await stubPrint(page);
+    // The planned landing, in Explore: de Gerlache Rim 2 on 1 January 2027, 30 days, the small lander.
+    await openExplore(page);
+    const fromHere = page.getByRole('button', { name: 'Compare from here' });
+    test.skip(!(await fromHere.isVisible()), 'Pending: the scenario comparison in Compare (the scenarios part) has not landed on the session branch yet.');
+    await fromHere.click();
+    await page.waitForURL(/\/compare\?/);
+
+    // The baseline, alone, offers the slip open at five days later: one press.
+    const baseline = page.getByRole('group', { name: /^Baseline: / });
+    await expect(baseline).toBeVisible({ timeout: 60_000 });
+    await baseline.getByRole('button', { name: 'Add 5 days later' }).click();
+    const slipped = page.getByRole('group', { name: 'Scenario 2: 5 days later' });
+    await expect(slipped).toBeVisible();
+
+    // The best place nearby for the slipped landing.
+    await slipped.getByRole('button', { name: 'Find a nearby alternative' }).click();
+    await expect(page.getByRole('group', { name: /^Scenario 3: / })).toBeVisible({ timeout: 120_000 });
+
+    // The words: what changed at the original site, then the alternative and its trade-offs.
+    const story = page.getByRole('region', { name: 'What changed, and what works better' });
+    await expect(story.getByRole('heading', { name: 'At the original site' })).toBeVisible({ timeout: 120_000 });
+    await expect(story.getByRole('heading', { name: 'At another site' })).toBeVisible({ timeout: 120_000 });
+    await expect(story.getByRole('listitem').first()).toBeVisible();
+    await expect(story).not.toContainText('Working out the figures…', { timeout: 120_000 });
+
+    // The figures behind it, side by side: sunlight, time with power and contact with Earth for each scenario.
+    const table = page.getByRole('region', { name: 'The scenarios side by side' }).getByRole('table');
+    await expect(table.getByRole('columnheader')).toHaveCount(4);
+    for (const row of ['Site', 'Landing (UTC)', 'Time with power', 'Sunlight', 'Earth in view', 'Radio contact while it has power']) {
+      await expect(table.getByRole('rowheader', { name: row, exact: true })).toBeVisible();
+    }
+    await shot('compare-scenarios');
+
+    // The comparison brief carries the same story to paper.
+    await page.getByRole('link', { name: /brief/i }).first().click();
+    await page.waitForURL(/\/compare\/brief/);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 60_000 });
+    await page.getByRole('button', { name: 'Print or save as PDF' }).click();
+    expect(await printCount(page)).toBe(1);
+    await shot('comparison-brief');
   });
 });
