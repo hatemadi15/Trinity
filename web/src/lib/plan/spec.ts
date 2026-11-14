@@ -109,16 +109,19 @@ export function moonKm(a: { lat: number; lon: number }, b: { lat: number; lon: n
   return 2 * MOON_KM * Math.asin(Math.min(1, Math.sqrt(s)));
 }
 
-/** The catalogue sites a `where` names, in catalogue order; picked points are never among them. */
+/**
+ * The catalogue sites a `where` names, in catalogue order. Picked points are never among them, and a derived high point
+ * (a terrain maximum, not a checked place to land) only when named.
+ */
 export function whereSites(where: Where, sites: Site[]): Site[] {
-  const listed = sites.filter((s) => s.category !== 'custom');
+  const catalogue = sites.filter((s) => s.category !== 'custom');
+  if (where.kind === 'sites') return catalogue.filter((s) => where.ids.includes(s.id));
+  const listed = catalogue.filter((s) => s.kind !== 'derived');
   switch (where.kind) {
     case 'all':
       return listed;
     case 'category':
       return listed.filter((s) => s.category === where.category);
-    case 'sites':
-      return listed.filter((s) => where.ids.includes(s.id));
     case 'near': {
       const c = listed.find((s) => s.id === where.id);
       return c ? listed.filter((s) => moonKm(c, s) <= where.km) : [];

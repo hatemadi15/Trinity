@@ -11,6 +11,8 @@ import type { Objective, SpecField, SpecPatch, Where } from './spec';
 const NUMERIC: SpecField[] = ['minPoweredH', 'contactWithinH', 'maxOutageH', 'minPoweredContactH', 'loadW', 'batteryWh', 'areaM2', 'mastM', 'earthClearanceDeg', 'stayH', 'stepH', 'top'];
 const NULLABLE = new Set<SpecField>(['minPoweredH', 'contactWithinH', 'maxOutageH', 'minPoweredContactH']);
 const OBJECTIVES: Objective[] = ['power', 'contact', 'earliest'];
+/** The catalogue's categories a specification may name. */
+export const KNOWN_CATEGORIES: ReadonlySet<string> = new Set(['artemis3', 'clps_landed', 'clps_planned', 'apollo', 'international', 'classic', 'reference']);
 
 const asNumber = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : typeof x === 'string' && x.trim() !== '' && Number.isFinite(Number(x)) ? Number(x) : null);
 

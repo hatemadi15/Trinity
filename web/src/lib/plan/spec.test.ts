@@ -61,12 +61,16 @@ describe('the mission specification, heard in plain words', () => {
     expect(said).toMatch(/Say search to start/);
   });
 
-  it('turns where to look into the sites to try', () => {
+  it('turns where to look into the sites to try, a derived high point only when named', () => {
     expect(whereSites({ kind: 'category', category: 'artemis3' }, sites).map((s) => s.id)).toHaveLength(9);
-    expect(whereSites({ kind: 'all' }, sites).length).toBe(sites.length);
+    const derived = sites.filter((s) => s.kind === 'derived');
+    expect(derived.length).toBeGreaterThan(0);
+    expect(whereSites({ kind: 'all' }, sites).length).toBe(sites.length - derived.length);
     const near = whereSites({ kind: 'near', id: 'shackleton_center', km: 40 }, sites).map((s) => s.id);
     expect(near).toContain('shackleton_center');
-    expect(near).toContain('shackleton_center_rim_high');
+    expect(near).toContain('connecting_ridge');
+    expect(near).not.toContain('shackleton_center_rim_high');
     expect(near).not.toContain('nobile_rim_2');
+    expect(whereSites({ kind: 'sites', ids: ['shackleton_center_rim_high'] }, sites)).toHaveLength(1);
   });
 });

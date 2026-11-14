@@ -29,6 +29,8 @@ export interface PlanState {
   stats: (SearchStats & { stepH: number; coarsened: boolean }) | null;
   /** The skylines searched, by site id, for the answer's limits. */
   inputs: Record<string, SiteInput>;
+  /** Sites left out of the last search because their skyline could not be loaded. */
+  skipped: string[];
   error: string | null;
   /** What the assistant's reading added, and what it could not. */
   assistant: { state: 'idle' | 'asking' | 'done' | 'failed'; fields: SpecField[]; dropped: string[] };
@@ -63,7 +65,7 @@ export function exploreDays(stayH: number): WindowDays {
   return WINDOW_DAYS.find((d) => d * 24 >= stayH) ?? 90;
 }
 
-const EMPTY = { spec: DEFAULT_SPEC, from: {}, text: '', leftover: [], notes: [], problems: [], status: 'empty' as PlanStatus, progress: null, answer: null, searched: null, stats: null, inputs: {}, error: null };
+const EMPTY = { spec: DEFAULT_SPEC, from: {}, text: '', leftover: [], notes: [], problems: [], status: 'empty' as PlanStatus, progress: null, answer: null, searched: null, stats: null, inputs: {}, skipped: [] as string[], error: null };
 
 /**
  * The planner (spec 23): the mission's specification as heard and edited, the search (off the main thread, with
@@ -154,6 +156,7 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
       set({ status: 'searching', progress: { done: 0, total: list.length, site: '' }, error: null });
       const settled = await Promise.allSettled(list.map((s) => inputFor(s, spec.lander.mastM)));
       const inputs = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+      const skipped = list.filter((_, i) => settled[i].status === 'rejected').map(siteLabel);
       if (id !== seq) return null;
       const step = planStep(spec, inputs.length);
       runner ??= deps.client();
@@ -182,6 +185,7 @@ export function createPlanStore(deps: PlanDeps): StoreApi<PlanState> {
         answer,
         searched: spec,
         inputs: Object.fromEntries(inputs.map((x) => [x.site.id, x])),
+        skipped,
         stats: { sites: out.findings.length, landingTimes, ms: out.ms, stepH: step.stepH, coarsened: step.coarsened },
       });
       return answer;
