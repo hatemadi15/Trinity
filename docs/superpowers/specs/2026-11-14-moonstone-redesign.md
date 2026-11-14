@@ -18,12 +18,12 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   scroll into view (`Reveal`), drawings play on hover, a live dot pulses, Luna breathes and blinks.
 
 ## Pages
-- **Home.** The arrival opens on a WebGL title card: Earth rising over the Moon's limb (NASA Blue Marble with
-  clouds, night lights, ocean glint and air glow; LRO's Moon with its relief), which lifts away into the flight as
-  the page scrolls. Then five numbered sections in one line (`SectionHead`): 01 the forecast, which reads hour by
-  hour under the pointer or the arrow keys (`ForecastHover`), with the lander in three figures; 02 why the pole is
-  hard (the drawings play on hover); 03 real places as whole-row links; 04 the checks; 05 where to go next, over the
-  halftone nebula. No folds.
+- **Home.** The descent (23.1) from the first screen to the answer: the whole Moon beside the title, Earth beside
+  it (NASA Blue Marble with clouds, night lights, ocean glint and air glow; LRO's Moon with its relief). Then five
+  numbered sections in one line (`SectionHead`): 01 the forecast on black, which reads hour by hour under the
+  pointer or the arrow keys (`ForecastHover`), with the lander in three figures; then, on paper in both themes
+  (`.theme-light`) after one clean edge with room on both sides of it, 02 why the pole is hard (23.3), 03 real
+  places as whole-row links and 04 the checks; 05 where to go next, over the halftone nebula. No folds.
 - **Choose a site.** The title over the nebula, then three steps on the page (pick the dates, compare the places,
   open one); what the figures count from and what each column means are one point away (`Tip`).
 - **404.** The nebula, with the page's own sentence as its headline.
@@ -54,15 +54,33 @@ Textures and their credits: `web/public/hero/textures/`.
   the polar map; a rail at the side that names the stages and jumps to any of them. No line telling anyone to scroll.
   "Fly to the south pole" plays it in 11 s; a wheel, a touch or a key stops it. Reduced motion stops at each stage's
   own view. Without WebGL, the still, the relief map and the site's picture stand in.
+- **Never under the words.** The page measures the first screen's words and the rail and puts the Moon in the
+  largest room left: right of the words on wide screens, under them on tall ones; Earth sits clear of the words, the
+  rail and Luna. The title steps from 42 to 84 px with the width. Measured gap from the Moon's edge to the nearest
+  line of words, both themes: 98–118 px at 1920, 58 at 1440, 51 at 1280, 46 at 1024, 31 at 768, 26 at 390; no width
+  scrolls sideways. The first paint and browsers without WebGL show cut-outs of the Moon and Earth in the same places.
+- **Easing.** Every move eases in and out, the spin included. The Moon holds its place and size until the first
+  screen's words have gone; the picture glides after the scroll, so wheel steps do not jolt it; the idle spin slows
+  to a stop as the page starts to scroll. Under reduced motion nothing glides or turns. The rail's dots stand in one
+  column; its labels sit on dark plates and show from 1024 px.
 
 ## 23.2 Luna's chat
 - Her panel is a chat: her greeting, your lines on the right in blue, hers on the left with her face, three dots
   while she works, and ready-made messages to start. The conversation lasts from page to page (`lunaStore.messages`).
-- The microphone listens only when pressed, and writes what it hears into the message box as it comes; nothing is
-  sent until the visitor presses Send. A dictated message's reply is also said aloud.
+- She listens as spec 22 has it: each phrase heard is a command and her reply is said aloud; the panel's microphone
+  pauses and restarts the listening; typed words are answered in the conversation.
 
 ## 23.3 Clearer sections
 - The forecast reads in three steps with room between them: the Sun, Earth, the lander; each row with its own words
   and key.
-- The three drawings of "Why the south pole is hard" name what is in them where it stands: the Sun, Earth, the
-  Moon's ground and hills, a lander, the shadow of the rim, the radio.
+- The three drawings of "Why the south pole is hard" are drawn from the month's own figures (`lib/viz/why`), with
+  axes labelled in degrees and by direction:
+  - **The Sun:** its path round the horizon with day markers, the highest point labelled "2.5°, 1 Jan", and
+    Apollo 15's Sun climbing to about 64° for contrast.
+  - **The hills:** the ridge's and the rim summit's real skylines, one above the other, each with its own Sun path;
+    the ridge's blocked stretch is shaded and labelled "Sun set behind the hills, 3 Jan to 20 Jan", the summit
+    "sunlit all month". The summit's month and skyline come from the pipeline (`home_assets.write_all`, home.json).
+  - **Earth:** its loop over the month, solid while in view and dotted while set, "in view 45 % of the month".
+- Each has a text description in those figures and one line under it saying what to notice. Hovering it or pressing
+  its Play button runs a marker along the month with the date; under reduced motion it shows the last frame. All
+  their text is 14–15 px; they stand three across only from 1280 px.
