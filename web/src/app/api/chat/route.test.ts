@@ -569,6 +569,22 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     expect([json.source, json.reason]).toEqual(['none', 'model-busy']);
   });
 
+  it('logs why every model failed, by model and status, and never the keys', async () => {
+    bothKeys();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { fetchMock } = network({ gemini: fails(403), openrouter: fails(404) });
+    vi.stubGlobal('fetch', fetchMock);
+    await POST(request({ prompt: 'what is the meaning of life', state: null }));
+    const logged = warn.mock.calls.map((c) => c.join(' ')).join('\n');
+    warn.mockRestore();
+    expect(logged).toMatch(/no model answered/);
+    expect(logged).toMatch(/qwen\/qwen3\.8-27b:free/);
+    expect(logged).toMatch(/404/);
+    expect(logged).toMatch(/gemini-2\.5-flash/);
+    expect(logged).toMatch(/403/);
+    expect(logged).not.toMatch(/sk-test|AIza-test/);
+  });
+
   it('retries Gemini once with the nudge when it answers prose for Luna, its own turn given back as the model’s', async () => {
     vi.stubEnv('GEMINI_API_KEY', 'AIza-test'); // Gemini alone, so it is the model that answers first
     const { asked, bodies, fetchMock } = network({ gemini: [geminiSays('Sure, Nobile Rim 2 it is!'), geminiSays(NOBILE)] });

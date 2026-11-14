@@ -70,7 +70,12 @@ export async function callOpenRouter(
     body: JSON.stringify({ model, messages, temperature: 0, max_tokens: maxTokens }),
     signal,
   });
-  if (!res.ok) return { error: `${model}: HTTP ${res.status}` };
+  if (!res.ok) {
+    // The provider's own reason, short (a retired model, a daily limit), so the logs say what to fix; never the key.
+    const body = (await res.json().catch(() => null)) as Completion | null;
+    const why = typeof body?.error?.message === 'string' ? ` ${body.error.message.slice(0, 160)}` : '';
+    return { error: `${model}: HTTP ${res.status}${why}` };
+  }
   const json = (await res.json().catch(() => ({}))) as Completion;
   const text = contentText(json.choices?.[0]?.message?.content);
   if (!text) return { error: `${model}: ${json.error?.message ? `API error ${json.error.message}` : 'empty answer'}` };
