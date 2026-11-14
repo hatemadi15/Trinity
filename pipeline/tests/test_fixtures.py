@@ -44,7 +44,13 @@ def test_metrics_fixture_matches_report(tmp_path):
 
 
 def test_sync_local_copies_small_artifacts(tmp_path):
-    copied = sync(web_data=tmp_path / "public" / "data", tiles=False)
+    from lunar_pipeline.sync_local import CATALOGUE
+
+    bundled = CATALOGUE.stat().st_mtime_ns
+    copied = sync(web_data=tmp_path / "public" / "data", tiles=False, catalogue=tmp_path / "catalogue.json")
+    # The app's bundled catalogue is left alone: the test's copy goes to the temporary folder.
+    assert (tmp_path / "catalogue.json").exists()
+    assert CATALOGUE.stat().st_mtime_ns == bundled
     assert (tmp_path / "public" / "data" / "sites.json").exists()
     assert (tmp_path / "public" / "data" / "ephemeris" / "moon_me_2024_2036_1h.json").exists()
     assert (tmp_path / "public" / "data" / "masks" / "south_pole.json").exists()

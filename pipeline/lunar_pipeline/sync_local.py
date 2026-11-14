@@ -29,7 +29,7 @@ def write_catalogue(path: Path = CATALOGUE) -> Path:
     return path
 
 
-def sync(web_data: Path = WEB_DATA, tiles: bool = False) -> list[Path]:
+def sync(web_data: Path = WEB_DATA, tiles: bool = False, catalogue: Path = CATALOGUE) -> list[Path]:
     copied: list[Path] = []
     web_data.mkdir(parents=True, exist_ok=True)
     for rel in SMALL_DIRS:
@@ -42,7 +42,7 @@ def sync(web_data: Path = WEB_DATA, tiles: bool = False) -> list[Path]:
         if src.exists():
             shutil.copy2(src, web_data / name)
             copied.append(web_data / name)
-    copied.append(write_catalogue())
+    copied.append(write_catalogue(catalogue))
     if tiles:
         src = config.OUT_DIR / "tiles"
         if not src.exists():
