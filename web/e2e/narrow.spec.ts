@@ -76,6 +76,17 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> 
     },
   },
   {
+    name: 'Plan a landing, with its example worked out',
+    path: '/plan',
+    ready: async (page) => {
+      await expect(page.getByRole('heading', { level: 1, name: 'Plan a landing' })).toBeVisible();
+      await page.getByRole('button', { name: 'Try the example' }).tap({ timeout: 60_000 });
+      await expect(page.getByRole('region', { name: 'I heard' })).toBeVisible({ timeout: 60_000 });
+      await page.getByRole('button', { name: /^Search \d+ sites?$/ }).tap();
+      await expect(page.getByRole('region', { name: 'The answer' })).toBeVisible({ timeout: 180_000 });
+    },
+  },
+  {
     name: 'How it works',
     path: '/learn',
     ready: async (page) => {

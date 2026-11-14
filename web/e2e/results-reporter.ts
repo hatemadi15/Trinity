@@ -83,7 +83,8 @@ class ResultsReporter implements Reporter {
     const doc = {
       suite: 'Earthrise browser journeys (Playwright, web/e2e)',
       generated_utc: this.started.toISOString().slice(0, 19) + 'Z',
-      complete: !partialRun(process.argv),
+      // A run of the whole suite that ran its journeys: one cut short, or whose server never started, is not the suite's record.
+      complete: !partialRun(process.argv) && journeys.length > 0 && result.status !== 'interrupted' && result.status !== 'timedout',
       status: result.status,
       build: {
         commit: git('rev-parse', 'HEAD'),
