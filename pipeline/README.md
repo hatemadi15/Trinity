@@ -50,7 +50,7 @@ against LRO camera pictures: it asks ODE (oderest.rsl.wustl.edu) which LROC Wide
 September and October 2009 cover each of eight featured sites, reads each picked frame's window round the site with
 one HTTP byte range (pds.mcp.nasa.gov), reads product 90's two NAC pictures beside Connecting Ridge, and writes
 `data/validation/images.json`. Everything it reads is cached in `data_raw/images` (35 MB with three product 90
-windows; about 4 minutes the first time, 16 seconds from the cache). The method, the results and every download
+windows; about 10 minutes the first time, 16 seconds from the cache). The method, the results and every download
 are in `docs/method.md`, Validation, item 5.
 
 `fetch` downloads each group into `data_raw/<group>`; it skips files it already has and, run again
