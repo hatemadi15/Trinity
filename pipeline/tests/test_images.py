@@ -354,3 +354,35 @@ def test_the_table_says_whether_every_picture_meets_the_rule_and_counts_what_it_
     assert doc["summary"]["median_agree"] == 0.9
     assert ev["criteria"]["min_agree"] == im.RULE_AGREE and ev["criteria"]["min_found"] == im.RULE_FOUND
     assert im.build_doc(rows[:2], sites, {})["evidence"]["meets_criteria"] is True
+
+
+def test_a_picture_is_cut_to_the_pixels_whose_centres_fall_in_a_box():
+    values = np.arange(30, dtype=np.float64).reshape(5, 6)
+    pic = im.Picture(values, x0_m=-60.0, y0_m=50.0, px_m=20.0)  # centres at x = -50 .. 50, y = 40 .. -40
+    cut = im.crop_picture(pic, (-30.0, 0.0, -10.0, 30.0))
+    assert cut.values.tolist() == [[7.0, 8.0], [13.0, 14.0]]  # x = -30 and -10, y = 20 and 0
+    assert (cut.x0_m, cut.y0_m, cut.px_m) == (-40.0, 30.0, 20.0)
+
+
+def test_the_months_of_a_period_are_listed_in_order_across_a_new_year():
+    assert im._months("2009-09-20T00:00:00", "2009-10-19T12:00:00") == ["200909", "200910"]
+    assert im._months("2009-12-20T00:00:00", "2010-01-03T00:00:00") == ["200912", "201001"]
+
+
+def test_the_committed_table_agrees_with_its_own_rows_and_rule():
+    import json
+
+    from lunar_pipeline import config
+
+    doc = json.loads((config.DATA_DIR / "validation" / "images.json").read_text())
+    rows = doc["rows"]
+    assert doc["evidence"]["meets_criteria"] == all(im.passes(r) for r in rows)
+    assert doc["summary"]["pictures_meeting_rule"] == sum(im.passes(r) for r in rows)
+    cov = doc["evidence"]["coverage"]
+    assert cov["pictures"] == len(rows) == cov["wac_pictures"] + cov["nac_pictures"]
+    assert set(cov["sites"]) == {r["site_id"] for r in rows}
+    assert doc["evidence"]["criteria"]["min_agree"] == im.RULE_AGREE and doc["evidence"]["criteria"]["min_found"] == im.RULE_FOUND
+    for r in rows:
+        assert 0.0 <= r["agree"] <= 1.0 and r["sun_el_deg"] >= im.MIN_EL_DEG
+        # the control, with the Sun a quarter of the way round, never does as well as the Sun where it was
+        assert r["agree_sun_turned_90"] < r["agree"]
