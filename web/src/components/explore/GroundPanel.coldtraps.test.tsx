@@ -70,6 +70,7 @@ function show(extra: Partial<Parameters<typeof GroundPanel>[0]> = {}) {
   return { load };
 }
 const toggle = () => screen.getByRole('button', { name: 'Modelled cold ground' });
+const sources = () => within(screen.getByLabelText('Data sources')).getAllByRole('listitem').map((li) => li.textContent);
 
 beforeEach(() => {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
@@ -87,6 +88,7 @@ describe('the shadow map’s layer of modelled cold ground', () => {
     expect(panel.querySelector('[data-layer="cold"]')).toBeNull();
     expect(load).not.toHaveBeenCalled();
     for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(110);
+    expect(sources()).toEqual(['NASA LRO LOLA 20 m', 'JPL DE440']);
   });
 
   it('draws the layer once switched on, with its line in the map’s key and what it is in About this view', async () => {
@@ -102,9 +104,17 @@ describe('the shadow map’s layer of modelled cold ground', () => {
     // The window's 8 cells carry the layer's 8 cells, edge to edge.
     const canvas = panel.querySelector<HTMLCanvasElement>('[data-layer="cold"] canvas')!;
     expect([canvas.style.left, canvas.style.top, canvas.style.width, canvas.style.height]).toEqual(['0%', '0%', '100%', '100%']);
+    // The row of sources names the model while the layer is on the map, and drops it once the layer is off.
+    expect(sources()).toEqual(['NASA LRO LOLA 20 m', 'JPL DE440', 'LRO Diviner temperature model']);
     fireEvent.click(toggle());
     expect(panel.querySelector('[data-layer="cold"]')).toBeNull();
     expect(key.textContent).not.toMatch(/Diviner/);
+    expect(sources()).toEqual(['NASA LRO LOLA 20 m', 'JPL DE440']);
+    // Switched on again, it is left out on a tab that does not draw the layer.
+    fireEvent.click(toggle());
+    await waitFor(() => expect(sources()).toContain('LRO Diviner temperature model'));
+    fireEvent.click(screen.getByRole('tab', { name: '3D from above' }));
+    expect(sources()).toEqual(['NASA LRO LOLA 20 m', 'JPL DE440']);
   });
 
   it('is not offered where the layer does not reach, or without the terrain window', () => {

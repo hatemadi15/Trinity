@@ -372,7 +372,8 @@ export function GroundPanel({
       )}
       {/* LOLA, on the site's own grid, gives the ground and the hills, and DE440 the light; the sentence for the hour
           uses both on every tab. The globe is coloured with NASA's Moon Kit, so its pill shows while the globe does. */}
-      <Sources of={tab === '3d' && view === 'globe' && textureUrl ? [...lolaFor(site), 'de440', 'moonkit'] : [...lolaFor(site), 'de440']} />
+      {/* The modelled cold ground, while its layer is on the shadow map, comes from Diviner's model. */}
+      <Sources of={tab === '3d' && view === 'globe' && textureUrl ? [...lolaFor(site), 'de440', 'moonkit'] : [...lolaFor(site), 'de440', ...(tab === 'map' && cold ? (['diviner'] as const) : [])]} />
     </section>
   );
 }
