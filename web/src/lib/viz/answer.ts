@@ -1,7 +1,7 @@
 import { siteLabel, type Site } from '../data/loaders';
 import type { Landing } from '../engine/landing';
 import type { Series, Summary } from '../engine/metrics';
-import type { PowerResult } from '../engine/power';
+import type { PowerConfig, PowerResult } from '../engine/power';
 import { clockUtc, dateLong, isoAt, pct0, spanWords } from './format';
 import { nearestSites } from './relief';
 
@@ -37,9 +37,16 @@ export interface AnswerInput {
   batteryWh: number;
   /** The best landing hour inside the period (hours from the period start), or null when no hour is sunlit. */
   best: Landing | null;
+  /** On the far side Earth never rises, so a period without contact says why. */
+  farSide?: boolean;
+  /** The lander's panel: an upright one catches little of a Sun near the zenith, as it stands at midday near the equator. */
+  panel?: PowerConfig['panel'];
 }
 
-export function answerFor({ siteName, series, summary, power, startUtc, days, loadW, batteryWh, best }: AnswerInput): Answer {
+/** Above this the Sun is "almost overhead" for an upright panel: it catches the light at a cosine of a third or less. */
+const HIGH_SUN_DEG = 70;
+
+export function answerFor({ siteName, series, summary, power, startUtc, days, loadW, batteryWh, best, farSide = false, panel }: AnswerInput): Answer {
   const hours = series.hours;
   const first = power.firstBrownoutHour;
   // Every answer is for a lander that lands at the start of the period; the title says where and when.
@@ -53,7 +60,9 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
     powered === 0
       ? null
       : contact === 0
-        ? `No radio contact: Earth is out of view for all ${spanOf(powered)}.`
+        ? farSide
+          ? 'No radio contact: this is the far side, where Earth never rises.'
+          : `No radio contact: Earth is out of view for all ${spanOf(powered)}.`
         : contact >= powered
           ? `Earth is in view for all ${spanOf(powered)}.`
           : `Earth is in view for ${spanWords(contact)} of the ${spanOf(powered)}.`;
@@ -91,7 +100,17 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
   let kind: AnswerKind;
   let title: string;
   let sentences: string[];
-  if (series.sunFraction[first] > 0) {
+  // Near the equator the midday Sun stands almost overhead, where an upright panel catches little of it: the light is
+  // plentiful, the panel's angle is the trouble.
+  const overhead = series.sunFraction[first] > 0 && series.sunEl[first] >= HIGH_SUN_DEG && (panel === 'vertical' || panel === 'vertical_tracking');
+  if (overhead) {
+    kind = 'low-sun';
+    title = first === 0 ? `${landing}: the Sun is too high for the panel from the first hour` : `${landing}: ${lead}, then the Sun is too high for the panel`;
+    sentences = [
+      `The Sun stands ${Math.round(series.sunEl[first])}° up, almost overhead, and an upright panel catches little of it: about ${Math.round(power.powerW[first])} W while the lander uses ${loadW} W.`,
+    ];
+    sentences.push(back < hours ? `The lander is back on ${dateLong(startUtc, back)}.` : 'The lander stays off for the rest of the period.');
+  } else if (series.sunFraction[first] > 0) {
     kind = 'low-sun';
     title = first === 0 ? `${landing}: too little sunlight from the first hour` : `${landing}: ${lead}, then too little sunlight`;
     sentences = [`The Sun is up, but the panel makes about ${Math.round(power.powerW[first])} W and the lander uses ${loadW} W.`];
@@ -143,7 +162,11 @@ export function answerFor({ siteName, series, summary, power, startUtc, days, lo
       note: best.poweredHours >= hours ? `From ${when}, the lander keeps power for all ${days} days.` : `From ${when}: power for ${spanWords(best.poweredHours)} in a row.`,
     };
   }
-  const hint = better ? null : `No landing date in these ${days} days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.`;
+  const hint = better
+    ? null
+    : overhead
+      ? `No landing date in these ${days} days gives more power here. An upright panel suits the poles, where the Sun stays low: here, choose a flat panel or one that follows the Sun (Lander, above).`
+      : `No landing date in these ${days} days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.`;
   return { tone: 'bad', kind, title, sentences: withContact(sentences), better, hint, poweredHours: powered, contactHours: contact };
 }
 

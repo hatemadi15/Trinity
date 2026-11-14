@@ -255,3 +255,45 @@ describe('nearbyAdvice', () => {
     expect(nearbyAdvice(here, sites, {}, 76)).toBeNull();
   });
 });
+
+describe('answerFor near the equator and on the far side', () => {
+  const header = readJson<EphemerisHeader>('data', 'ephemeris', 'moon_me_2024_2036_1h.json');
+  const eph = loadEphemeris(readBytes('data', 'ephemeris', 'moon_me_2024_2036_1h.f32'), header);
+  const flat = new Array<number>(720).fill(0);
+  function at(site: { lat: number; lon: number }, start: string, extra: { farSide?: boolean; panel?: PowerConfig['panel'] } = {}, cfg: PowerConfig = DEFAULT_POWER) {
+    const scan = hourlySeries(site, flat, eph, utcToEt(start), 1440);
+    const period = hourlySeries(site, flat, eph, utcToEt(start), 720);
+    return answerFor({
+      siteName: 'Apollo 11',
+      series: period,
+      summary: summarize(period),
+      power: powerBudget(period, cfg),
+      startUtc: start,
+      days: 30,
+      loadW: cfg.loadW,
+      batteryWh: cfg.batteryWh,
+      best: bestLanding(scan, cfg, { from: 0, to: 720, step: 1, capHours: 720 }),
+      panel: cfg.panel,
+      ...extra,
+    });
+  }
+
+  it('says an upright panel fails at midday because the Sun stands almost overhead, not for want of sunlight', () => {
+    // Apollo 11 lies 0.7° from the equator: landing at sunrise on 13 January 2027, the upright panel's battery runs out
+    // around noon, with the Sun nearly overhead.
+    const a = at({ lat: 0.67416, lon: 23.47314 }, '2027-01-13T08:00:00');
+    expect(a.kind).toBe('low-sun');
+    expect(a.title).toBe('Landing at Apollo 11 on 13 January: power for 7 days 14 hours, then the Sun is too high for the panel');
+    expect(a.title).not.toMatch(/too little sunlight/);
+    expect(a.sentences[1]).toMatch(/^The Sun stands 8\d° up, almost overhead, and an upright panel catches little of it: about \d+ W while the lander uses 200 W\.$/);
+    // A panel that follows the Sun has no such trouble: the whole day has power.
+    const b = at({ lat: 0.67416, lon: 23.47314 }, '2027-01-13T08:00:00', {}, { ...DEFAULT_POWER, panel: 'full_tracking' });
+    expect(b.title).not.toMatch(/too high/);
+  });
+
+  it('says that on the far side Earth never rises, whatever the landing day', () => {
+    const a = at({ lat: -45.457, lon: 177.589 }, '2027-01-01T00:00:00', { farSide: true });
+    expect(a.sentences[0]).toBe('No radio contact: this is the far side, where Earth never rises.');
+    for (const line of [a.title, ...a.sentences]) expect(line).not.toMatch(/NaN|undefined/);
+  });
+});

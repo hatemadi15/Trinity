@@ -59,6 +59,31 @@ describe('WhereOnMoon', () => {
     expect(pin.style.left).toMatch(/^5[34]/);
   });
 
+  it('says what kind of point the site is, after what the place is', () => {
+    const { unmount } = render(<WhereOnMoon site={site('haworth')} sites={sites} overview={{}} startUtc="2027-01-01T00:00:00" days={30} />);
+    const line = () => screen.getByText(/^Haworth\./).closest('p')!;
+    expect(line().textContent).toMatch(/Beside a crater that is always in shadow\. The rough centre of a wider region, give or take 5 km, not a chosen landing point\./);
+    unmount();
+    render(<WhereOnMoon site={site('shackleton_center_rim_high')} sites={sites} overview={{}} startUtc="2027-01-01T00:00:00" days={30} />);
+    expect(screen.getByRole('region', { name: 'Where on the Moon' }).textContent).toMatch(/It has not been checked as a safe place to land\./);
+  });
+
+  it('offers the day a lander landed when the table covers it, and only its date before 2024', () => {
+    const { unmount } = render(<WhereOnMoon site={site('change6')} sites={sites} overview={{}} startUtc="2027-01-01T00:00:00" days={30} />);
+    const panel = screen.getByRole('region', { name: 'Where on the Moon' });
+    expect(panel.textContent).toMatch(/It landed on 1 June 2024\./);
+    expect(within(panel).getByRole('link', { name: 'See the days after it landed' }).getAttribute('href')).toBe('/explore?site=change6&start=2024-06-01T23:00&days=30');
+    // The far side: no period changes that Earth never rises there.
+    expect(panel.textContent).toMatch(/It lies on the far side, where Earth never rises: a lander there talks to Earth through a relay satellite\./);
+    unmount();
+    render(<WhereOnMoon site={site('apollo_11')} sites={sites} overview={{}} startUtc="2027-01-01T00:00:00" days={30} />);
+    const apollo = screen.getByRole('region', { name: 'Where on the Moon' });
+    expect(apollo.textContent).toMatch(/It landed on 20 July 1969, before the years this app covers \(2024 to 2036\), so the figures are for the days chosen above\./);
+    expect(within(apollo).queryByRole('link', { name: /days after it landed/ })).toBeNull();
+    expect(apollo.textContent).toMatch(/lies far outside this map of the south pole/);
+    expect(apollo.textContent).not.toMatch(/far side/);
+  });
+
   it('names its NASA data', () => {
     render(<WhereOnMoon site={site('de_gerlache_rim_2')} sites={sites} overview={overview} startUtc="2027-01-01T00:00:00" days={30} wide />);
     const panel = screen.getByRole('region', { name: 'Where on the Moon' });

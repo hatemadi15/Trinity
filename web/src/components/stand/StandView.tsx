@@ -347,7 +347,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
   const site = s.site, series = s.series, power = s.power;
   const hour = Math.min(series.hours - 1, Math.max(0, s.cursorHour));
   const name = siteLabel(site);
-  const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best });
+  const answer = answerFor({ siteName: name, series, summary: s.summary, power, startUtc: s.startUtc, days: s.days, loadW: s.params.power.loadW, batteryWh: s.params.power.batteryWh, best: s.best, farSide: s.site.far_side, panel: s.params.power.panel });
   // The headline gives both verdicts the challenge asks for, power and radio contact with Earth, and how long
   // the night lasts; the site's name leads the moment's state at the plate's foot and the card's line on where you
   // stand, kept on one line ("de Gerlache Rim 2", never "Rim / 2").
