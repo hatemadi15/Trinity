@@ -83,7 +83,7 @@ describe('the words of the year', () => {
       best: 'Best: power all 30 days, radio contact half the time or more',
       good: 'Good: power all 30 days',
       mixed: 'Mixed: power a quarter of the time or more',
-      poor: 'Poor: power less than a quarter of the time',
+      poor: 'Poor: less than a quarter',
     });
   });
 

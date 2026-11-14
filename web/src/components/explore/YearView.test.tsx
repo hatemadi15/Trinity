@@ -11,35 +11,25 @@ import { YearView } from './YearView';
 const site = (id: string) => sites.find((s) => s.id === id)!;
 const maskOf = (id: string) => (site(id).polar ? Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'masks', `${id}.json`).elevation_deg) : new Float64Array(720));
 const MASKS = Object.fromEntries(['de_gerlache_rim_2', 'shackleton_center_rim_high', 'blue_ghost_m1'].map((id) => [id, maskOf(id)]));
-const nb = (s: string) => s.replace(/ %/g, ' %');
+const nb = (s: string) => s.replace(/ %/g, '\u00a0%');
 
 type Props = Parameters<typeof YearView>[0];
 function props(id: string, over: Partial<Props> = {}): Props {
   return { eph, site: site(id), mask: MASKS[id], startUtc: '2027-01-01T00:00:00', days: 30, params: DEFAULT_PARAMS, onLand: vi.fn(), ...over };
 }
-const opener = () => screen.getByRole('button', { name: /^Every landing day of the next 12 months/ });
 const days = () => screen.queryAllByRole('button', { name: /^Land / });
 async function openYear(p: Props) {
   const view = render(<YearView {...p} />);
-  fireEvent.click(opener());
   await waitFor(() => expect(days().length).toBeGreaterThan(0), { timeout: 20_000 });
   return view;
 }
 
 describe('YearView', () => {
-  it('waits behind one line under the answer until it is opened, and works nothing out before', () => {
-    render(<YearView {...props('de_gerlache_rim_2')} />);
-    expect(opener().getAttribute('aria-expanded')).toBe('false');
-    expect(days()).toHaveLength(0);
-    const region = screen.getByRole('region', { name: /^Every landing day of the next 12 months/ });
-    for (const width of [WIDE, PHONE]) expect(visibleWords(region, width).length).toBeLessThanOrEqual(8);
-  });
-
   it('says plainly that it is working, then shows every landing day of the year as a control named by its date and both figures', async () => {
     render(<YearView {...props('de_gerlache_rim_2')} />);
-    fireEvent.click(opener());
-    expect(opener().getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('Every landing day of the next 12 months');
     expect(screen.getByRole('status').textContent).toBe('Working out the 365 landing days…');
+    expect(days()).toHaveLength(0);
     await waitFor(() => expect(days()).toHaveLength(365), { timeout: 20_000 });
     expect(screen.getByRole('button', { name: nb('Land 20 January 2027, 00:00 UTC, at night: power 43 % of the 30 days, radio contact 12 %. Mixed.') })).toBeTruthy();
     expect(screen.getByRole('button', { name: nb('Land 1 January 2027, 00:00 UTC: power 11 % of the 30 days, no radio contact. Poor.') })).toBeTruthy();
@@ -47,6 +37,16 @@ describe('YearView', () => {
     expect(screen.getByRole('status').textContent).toBe(nb('No landing day keeps power all 30 days. The best: 13 October 2027, power 45 % of the time, radio contact 36 %.'));
     // Month by month, each a grid named by its month.
     expect(screen.getAllByRole('grid').map((g) => g.getAttribute('aria-label'))).toEqual(['January 2027', 'February 2027', 'March 2027', 'April 2027', 'May 2027', 'June 2027', 'July 2027', 'August 2027', 'September 2027', 'October 2027', 'November 2027', 'December 2027']);
+  });
+
+  it('keeps its words before a tap short: how the days are coloured waits one tap away (spec 20.1)', async () => {
+    await openYear(props('de_gerlache_rim_2'));
+    const region = screen.getByRole('region', { name: 'Every landing day of the next 12 months' });
+    for (const width of [WIDE, PHONE]) expect(visibleWords(region, width).length).toBeLessThanOrEqual(100);
+    expect(region.textContent).toContain('Each square is a landing that day at 00:00 UTC');
+    expect(visibleWords(region, WIDE).join(' ')).not.toContain('Each square');
+    fireEvent.click(within(region).getByRole('button', { name: 'How the days are coloured' }));
+    expect(visibleWords(region, WIDE).join(' ')).toContain('Each square is a landing that day at 00:00 UTC, coloured by its 30 days.');
   });
 
   it('colours each day on one scale with a key in plain words, and marks the best days with a dot as well as their colour', async () => {
@@ -96,15 +96,18 @@ describe('YearView', () => {
     expect(days().filter((b) => b.tabIndex === 0).map((b) => b.getAttribute('aria-label'))).toEqual([document.activeElement!.getAttribute('aria-label')]);
   });
 
-  it('shows the figures of the day under the pointer or the focus, and of the chosen day otherwise', async () => {
+  it('shows the figures of the day under the pointer or the focus, and says how to use the year otherwise', async () => {
     await openYear(props('de_gerlache_rim_2', { startUtc: '2027-01-20T00:00:00' }));
     const readout = screen.getByTestId('year-readout');
-    expect(readout.textContent).toBe(nb('Now shown: 20 January 2027, 00:00 UTC, at night: power 43 % of the 30 days, radio contact 12 %. Mixed.'));
+    expect(readout.textContent).toBe('Press a day to land on it.');
     const other = screen.getByRole('button', { name: /^Land 1 February 2027/ });
     fireEvent.pointerOver(other);
     expect(readout.textContent).toBe(other.getAttribute('aria-label')!.replace(/^Land /, ''));
     fireEvent.pointerLeave(other.closest('[role="grid"]')!.parentElement!.parentElement!);
-    expect(readout.textContent).toMatch(/^Now shown: 20 January 2027/);
+    expect(readout.textContent).toBe('Press a day to land on it.');
+    // The day the period lands on now says so.
+    act(() => screen.getByRole('button', { current: 'date' }).focus());
+    expect(readout.textContent).toBe(nb('Now shown: 20 January 2027, 00:00 UTC, at night: power 43 % of the 30 days, radio contact 12 %. Mixed.'));
   });
 
   it('keeps the year where it is while a landing within it is chosen, and starts again from a landing outside it or at another hour', async () => {
@@ -133,8 +136,7 @@ describe('YearView', () => {
     };
     const p = props('de_gerlache_rim_2', { pause });
     const { rerender } = render(<YearView {...p} />);
-    fireEvent.click(opener());
-    expect(waiting.length).toBeGreaterThan(0);
+    await waitFor(() => expect(waiting.length).toBeGreaterThan(0));
     rerender(<YearView {...p} site={site('blue_ghost_m1')} mask={MASKS.blue_ghost_m1} startUtc="2025-03-02T00:00:00" days={14} />);
     expect(screen.getByRole('status').textContent).toBe('Working out the 365 landing days…');
     expect(days()).toHaveLength(0);
@@ -155,12 +157,5 @@ describe('YearView', () => {
     await openYear(props('de_gerlache_rim_2'));
     const row = screen.getByLabelText('Data sources');
     expect([...row.querySelectorAll('li')].map((li) => li.textContent)).toEqual(['JPL DE440', 'NASA LRO LOLA 20 m']);
-  });
-
-  it('closes again, keeping the page as it was', async () => {
-    await openYear(props('de_gerlache_rim_2'));
-    fireEvent.click(opener());
-    expect(opener().getAttribute('aria-expanded')).toBe('false');
-    expect(days()).toHaveLength(0);
   });
 });

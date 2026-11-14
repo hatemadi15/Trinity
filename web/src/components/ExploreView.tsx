@@ -166,8 +166,6 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               contactHours={answer.contactHours}
             />
           </div>
-          {/* Every landing day of the next 12 months, one tap under the answer: a day pressed there lands the period on it. */}
-          <YearView eph={s.eph} site={site} mask={s.mask} startUtc={s.startUtc} days={s.days} params={s.params} onLand={(start) => s.setWindow(start, s.days)} />
           <TimeChart
             site={site}
             series={s.series}
@@ -181,6 +179,9 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             onCursor={s.setCursor}
             onHover={setHoverHour}
           />
+          {/* Every landing day of the next 12 months, after the chart so the first screen keeps the answer and the chart's
+              title: a day pressed there lands the period on it, as the date box does. */}
+          <YearView eph={s.eph} site={site} mask={s.mask} startUtc={s.startUtc} days={s.days} params={s.params} onLand={(start) => s.setWindow(start, s.days)} />
           <GroundPanel
             site={site}
             sites={s.sites}

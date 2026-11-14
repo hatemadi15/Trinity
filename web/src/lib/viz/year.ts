@@ -77,7 +77,7 @@ export function dayWords(startUtc: string, k: number): string {
 /** A share as a whole percentage that never rounds a part up to the whole, or a little down to nothing: "96 %". */
 function share(x: number): string {
   const n = x <= 0 ? 0 : x >= 1 ? 100 : Math.min(99, Math.max(1, Math.round(x * 100)));
-  return `${n} %`;
+  return `${n}\u00a0%`;
 }
 
 function powerWords(poweredHours: number, days: number): string {
@@ -112,7 +112,7 @@ export function legendWords(days: number): Record<Grade, string> {
     best: `Best: power all ${days} days, radio contact half the time or more`,
     good: `Good: power all ${days} days`,
     mixed: 'Mixed: power a quarter of the time or more',
-    poor: 'Poor: power less than a quarter of the time',
+    poor: 'Poor: less than a quarter',
   };
 }
 

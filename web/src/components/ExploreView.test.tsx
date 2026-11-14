@@ -99,13 +99,12 @@ describe('ExploreView', () => {
     await waitFor(() => expect(heading()).toMatch(/12 days 15 hours/));
   });
 
-  it('opens every landing day of the next 12 months under the answer, and lands the period on a day pressed there', async () => {
+  it('shows every landing day of the next 12 months after the chart, and lands the period on a day pressed there', async () => {
     const { store } = await open();
-    const year = screen.getByRole('region', { name: /^Every landing day of the next 12 months/ });
-    // Under the answer row, before the chart.
-    expect(screen.getByRole('region', { name: 'The answer' }).compareDocumentPosition(year) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(year.compareDocumentPosition(screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    fireEvent.click(within(year).getByRole('button', { name: /^Every landing day/ }));
+    const year = screen.getByRole('region', { name: 'Every landing day of the next 12 months' });
+    // After the hour-by-hour chart and before the ground, so the first screen keeps the answer and the chart's title.
+    expect(screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' }).compareDocumentPosition(year) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(year.compareDocumentPosition(screen.getByRole('region', { name: 'The ground' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(await within(year).findByRole('button', { name: /^Land 14 March 2027, 00:00 UTC/ }, { timeout: 20_000 }));
     expect(store.getState().startUtc).toBe('2027-03-14T00:00:00');
     await waitFor(() => expect(heading()).toMatch(/ on 14 March: /));

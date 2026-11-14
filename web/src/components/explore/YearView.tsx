@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { Fold } from '@/components/Fold';
 import { lolaFor, Sources } from '@/components/Sources';
 import type { Site } from '@/lib/data/loaders';
 import type { Ephemeris } from '@/lib/engine/ephemeris';
@@ -59,32 +60,18 @@ interface YearProps {
 }
 
 /**
- * Every landing day of the next 12 months for the site and the period's length, one tap under the answer (spec 20.1):
- * each day coloured by how a landing that day does on power and on radio over the period, and pressed, it lands there.
- * Nothing is worked out until it is opened.
+ * Every landing day of the next 12 months for the site and the period's length, in its own panel after the hour-by-hour
+ * chart: each day coloured by how a landing that day does on power and on radio over the period, and pressed, it lands
+ * the period there. The year is worked out a month of hours at a time, so the page stays free while it is.
  */
 export function YearView(props: YearProps) {
-  const [open, setOpen] = useState(false);
   const id = useId();
   return (
-    <section aria-labelledby={`${id}-h`} className="-mt-2">
-      <h2 id={`${id}-h`} className="text-base">
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={`${id}-year`}
-          onClick={() => setOpen((v) => !v)}
-          className="inline-flex min-h-10 items-center gap-1.5 text-left font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink"
-        >
-          Every landing day of the next 12 months
-          <span aria-hidden="true" className="no-underline">
-            {open ? '▴' : '▾'}
-          </span>
-        </button>
+    <section aria-labelledby={`${id}-h`} className="panel flex flex-col gap-3 max-sm:px-3">
+      <h2 id={`${id}-h`} className="display text-[23px] font-semibold">
+        Every landing day of the next 12 months
       </h2>
-      <div id={`${id}-year`} hidden={!open}>
-        {open && <YearPanel {...props} />}
-      </div>
+      <YearPanel {...props} />
     </section>
   );
 }
@@ -138,7 +125,7 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
   const chosenDay = same && chosen !== null && chosen < count ? chosen : null;
   return (
     <div
-      className="panel mt-1 flex flex-col gap-3 max-sm:px-3"
+      className="flex flex-col gap-3"
       data-busy-ms={ready ? Math.round(ready.busyMs) : undefined}
       data-slice-ms={ready ? Math.round(ready.sliceMs) : undefined}
       data-wall-ms={ready ? Math.round(ready.wallMs) : undefined}
@@ -148,9 +135,13 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
         {ready ? headline(ready.year, scoring) : count > 0 ? `Working out the ${count} landing days…` : 'Working out the landing days…'}
       </p>
       {count > 0 && (
-        <p className="max-w-[46em] text-[15px] text-ink-2">
-          Each square is a landing that day at {anchor.startUtc.slice(11, 16)} UTC, coloured by its {anchor.days} days. Power counts first, then radio contact, as the best date is chosen.
-        </p>
+        <Fold label="How the days are coloured" className="-mt-2 text-[15px]">
+          <p className="max-w-[46em] text-[15px] text-ink">
+            Each square is a landing that day at {anchor.startUtc.slice(11, 16)} UTC, coloured by its {anchor.days} days. Power counts first, then radio contact while
+            the lander has power, as the best date is chosen. A ring marks the landing shown above, a dot the best days; point at a day to see its figures
+            under the year.
+          </p>
+        </Fold>
       )}
       {count > 0 && (
         <div className="stage px-2 py-3 sm:px-4">
@@ -300,7 +291,7 @@ function Day({ k, year, scoring, chosen, tabStop, onLand }: { k: number; year: Y
   );
 }
 
-/** The figures of the day under the pointer or the focus, in words; the chosen day's when there is none. */
+/** The figures of the day under the pointer or the focus, in words, the day shown above saying so; how to use the year when there is none. */
 function Readout({ year, scoring, chosenDay, pointer }: { year: YearOfLandings; scoring: DayScoring; chosenDay: number | null; pointer: Pointer }) {
   const [k, setK] = useState<number | null>(null);
   useEffect(() => {
@@ -310,7 +301,7 @@ function Readout({ year, scoring, chosenDay, pointer }: { year: YearOfLandings; 
     };
   }, [pointer]);
   const day = k !== null && k < year.count ? k : null;
-  const words = day !== null ? dayFiguresWords(year, day, scoring) : chosenDay !== null ? `Now shown: ${dayFiguresWords(year, chosenDay, scoring)}` : null;
+  const words = day === null ? 'Press a day to land on it.' : `${day === chosenDay ? 'Now shown: ' : ''}${dayFiguresWords(year, day, scoring)}`;
   return (
     <p data-testid="year-readout" className="min-h-[1.5em] text-[15px] text-ink">
       {words}
