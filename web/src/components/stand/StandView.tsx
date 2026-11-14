@@ -332,7 +332,8 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     else ((window.innerWidth >= 768 ? hideRef.current : null) ?? moreRef.current)?.focus();
   }, [wordsHidden]);
 
-  if (s.status === 'error') {
+  // Loaded with no site is a failure too: the site's horizon file did not load, and the ground would never be built.
+  if (s.status === 'error' || (s.status === 'ready' && !s.site)) {
     return (
       <main className="theme-dark fixed inset-0 grid place-items-center bg-black p-4 text-[#f2f0ea]">
         <p className="max-w-[520px] text-lg">
