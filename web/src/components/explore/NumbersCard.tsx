@@ -4,11 +4,12 @@ import { useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Modal } from '@/components/Modal';
 import type { Site } from '@/lib/data/loaders';
 import { timeWithPower } from '@/lib/engine/landing';
-import type { Summary } from '@/lib/engine/metrics';
+import type { Series, Summary } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
 import { batteryHours, landerLine } from '@/lib/lander';
 import type { MaskMeta, PlannerParams } from '@/lib/store/explore';
-import { pct, pct0, spanShort } from '@/lib/viz/format';
+import { sunHeight, sunHeightWords } from '@/lib/viz/countdown';
+import { dateTimeUtc, pct, pct0, spanShort } from '@/lib/viz/format';
 
 const ICON = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true };
 
@@ -38,8 +39,9 @@ function coordinates(site: Site): string {
 }
 
 /**
- * The three numbers behind the answer, and every other number behind "All numbers", with what each one
- * measures: the card shows the figures, and their definitions wait one tap away (spec 20.1).
+ * The numbers behind the answer, the Sun's height at the time bar's hour with its highest in the period, and every
+ * other number behind "All numbers", with what each one measures: the card shows the figures, and their definitions
+ * wait one tap away (spec 20.1).
  */
 export function NumbersCard({
   site,
@@ -49,6 +51,9 @@ export function NumbersCard({
   days,
   maskMeta,
   contactHours,
+  series,
+  hour,
+  startUtc,
   briefLink = '/brief',
   onShare,
   shareRef,
@@ -61,6 +66,11 @@ export function NumbersCard({
   maskMeta: MaskMeta | null;
   /** Hours with power that have Earth in view: the contact the verdict speaks of. */
   contactHours: number;
+  /** The period hour by hour, for the Sun's height. */
+  series: Series;
+  /** The time bar's hour. */
+  hour: number;
+  startUtc: string;
   /** The brief's address for this site, period and settings, so a brief opened in a new tab or sent on shows the same figures. */
   briefLink?: string;
   /** Opens Share and download: the link to the same figures, and the figures as files. */
@@ -71,6 +81,8 @@ export function NumbersCard({
   const opener = useRef<HTMLButtonElement>(null);
   const dark = batteryHours(params.power);
   const withPower = timeWithPower(power);
+  // The Sun's elevation above the level horizon: the figure that most decides a panel's output this near a pole.
+  const height = sunHeight(series, Math.min(series.hours - 1, Math.max(0, hour)));
   const hills =
     maskMeta?.source === 'flat'
       ? 'flat: this place lies outside the polar elevation maps'
@@ -79,6 +91,8 @@ export function NumbersCard({
         : 'from NASA elevation data, worked out ahead of time';
   const rows: [string, string, string][] = [
     ['Sunlight', pct(summary.illumFraction), 'share of the hours with any part of the Sun above the hills'],
+    ['Sun’s height now', sunHeightWords(height.deg), `the Sun’s elevation above the level horizon at the time bar’s hour, ${dateTimeUtc(startUtc, hour)}; below it with a minus sign`],
+    ['Sun’s highest', sunHeightWords(height.maxDeg), `the highest the Sun climbs in the period, on ${dateTimeUtc(startUtc, height.maxHour)}`],
     ['Longest night', spanShort(summary.longestDarkH), 'the longest stretch with the Sun set'],
     ['Contact with Earth', pct(summary.earthVisFraction), 'share of the hours with Earth in view for a direct radio link'],
     ['Longest time without Earth', spanShort(summary.longestEarthGapH), 'the longest stretch with Earth set'],
@@ -110,6 +124,21 @@ export function NumbersCard({
       />
       <Line
         icon={
+          // The level horizon, a ray up to the Sun, and the angle between them.
+          <svg {...ICON} className="text-sun-ink">
+            <path d="M2.5 19.5h19M2.5 19.5 16 9.5" />
+            <path d="M9.5 19.5a7 7 0 0 0-1.4-4.2" />
+            <circle cx="18.5" cy="7.5" r="2.5" />
+          </svg>
+        }
+        // At the time bar's hour, as the time moves; the highest in the period beside it. Its definition and both times in
+        // UTC wait in All numbers.
+        title="Sun’s height now"
+        value={sunHeightWords(height.deg)}
+        unit={`highest ${sunHeightWords(height.maxDeg)}`}
+      />
+      <Line
+        icon={
           <svg {...ICON} className="text-earth-ink">
             <circle cx="12" cy="12" r="9" />
             <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
@@ -117,11 +146,13 @@ export function NumbersCard({
         }
         title="Radio contact while it has power"
         // The one note the card keeps: it says why the contact can be "none" while the chart shows Earth in view, which a
-        // reader took for a contradiction.
+        // reader took for a contradiction. The figure counts the time with power from the landing, so with none the note
+        // says Earth comes only after the battery has run out; its share of the time waits in All numbers, and power that
+        // comes back after a night is the radio windows' to tell, with its condition.
         note={
           contactHours > 0 || summary.earthVisFraction === 0
-            ? `Earth is in view ${pct0(summary.earthVisFraction)} of the ${days} days in all`
-            : `Earth is in view ${pct0(summary.earthVisFraction)} of the ${days} days, but not while the lander has power`
+            ? `Earth in view ${pct0(summary.earthVisFraction)} of the time`
+            : 'Earth in view only after the battery runs out'
         }
         value={contactHours > 0 ? spanShort(contactHours) : 'none'}
       />

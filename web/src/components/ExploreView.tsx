@@ -9,6 +9,7 @@ import { LanderDialog } from './explore/LanderDialog';
 import { ShareDialog } from './explore/ShareDialog';
 import { NumbersCard } from './explore/NumbersCard';
 import { PeriodBand } from './explore/PeriodBand';
+import { RadioWindows } from './explore/RadioWindows';
 import { exploreHref } from './sites/SitesView';
 import { TimeBar } from './explore/TimeBar';
 import { LunaControls } from './luna/LunaControls';
@@ -179,6 +180,9 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
               days={s.days}
               maskMeta={s.maskMeta}
               contactHours={answer.contactHours}
+              series={s.series}
+              hour={s.cursorHour}
+              startUtc={s.startUtc}
               briefLink={withSettings(briefHref(site.id, s.startUtc, s.days), s.params)}
               onShare={() => setShareOpen(true)}
               shareRef={shareRef}
@@ -197,6 +201,8 @@ export function ExploreView({ store = exploreStore, navigate }: { store?: StoreA
             onCursor={s.setCursor}
             onHover={setHoverHour}
           />
+          {/* When Earth is in view for radio, and when the lander has power to use it, at the time bar's hour. */}
+          <RadioWindows series={s.series} power={s.power} startUtc={s.startUtc} hour={s.cursorHour} />
           <GroundPanel
             site={site}
             sites={s.sites}

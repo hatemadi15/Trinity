@@ -28,6 +28,7 @@ import {
   radioNext,
   RESIDENT_LINE,
   shadowWords,
+  skyCountdown,
   skyLabel,
   standHeadline,
   standingLine,
@@ -165,6 +166,16 @@ describe('the stand view’s words', () => {
     expect(landerState(p, '2027-01-01T00:00:00', 150).text).toBe('The lander has power again since 5 January, if it survived 2 days without power.');
     expect(landerState(p, '2027-01-01T00:00:00', 200)).toEqual({ on: false, text: 'The lander is off: its battery ran out on 9 January. Power comes back on 11 January, if the lander survives 2 days without power.' });
     expect(landerState(p, '2027-01-01T00:00:00', 260).text).toBe('The lander has power again since 11 January, if it survived 2 days without power.');
+  });
+});
+
+describe('the countdown in today’s card', () => {
+  it('gives the time to the next sunset or sunrise and to Earth rising or setting, as Explore’s time bar does, the end of the period named in full', () => {
+    const h = hero();
+    // The Sun sets on 3 January at hour 67 and Earth rises on 10 January at hour 219.
+    expect(skyCountdown(h.series, 10)).toBe('Sunset in 2 d 9 h · Earth rises in 8 d 17 h');
+    expect(skyCountdown(h.series, 300)).toBe('Sunrise in 6 d 22 h · Earth sets in 10 d 3 h');
+    expect(skyCountdown(h.series, h.series.hours - 1)).toBe('No sunset before the end of the period · Earth out of view to the end of the period');
   });
 });
 
