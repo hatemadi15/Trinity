@@ -208,7 +208,7 @@ export function story(cols: Column[]): Story {
     const power = o.poweredH === bo.poweredH ? `power as before: ${o.verdict}.` : `power for ${powerWords(o)} instead of ${powerWords(bo)}.`;
     const reason = o.poweredH === bo.poweredH ? null : powerReason(o);
     const sun = `Sunlight ${pct0(o.sunFraction)} instead of ${pct0(bo.sunFraction)}`;
-    const contact = o.poweredContactH === bo.poweredContactH ? `Radio contact while it has power: ${wordsOrNone(o.poweredContactH)}, as before.` : `Radio contact while it has power: ${wordsOrNone(o.poweredContactH)} instead of ${wordsOrNone(bo.poweredContactH)}.`;
+    const contact = o.poweredContactH === bo.poweredContactH ? `radio contact while it has power: ${wordsOrNone(o.poweredContactH)}, as before.` : `radio contact while it has power: ${wordsOrNone(o.poweredContactH)} instead of ${wordsOrNone(bo.poweredContactH)}.`;
     return [[`${head}: ${power}`, reason, `${sun}; ${contact}`].filter(Boolean).join(' ')];
   });
 

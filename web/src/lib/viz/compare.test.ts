@@ -142,7 +142,7 @@ describe('the comparison in words', () => {
   it('says what changed at the original site, with the reason', () => {
     const s = story(cols);
     expect(s.atOriginal).toEqual([
-      '5 days later (6 January 2027, 00:00 UTC): power for 10 hours instead of 3 days 4 hours. The period starts at night: the Sun is set behind the hills until it rises on 10 January. Sunlight 41 % instead of 45 %; Radio contact while it has power: none, as before.',
+      '5 days later (6 January 2027, 00:00 UTC): power for 10 hours instead of 3 days 4 hours. The period starts at night: the Sun is set behind the hills until it rises on 10 January. Sunlight 41 % instead of 45 %; radio contact while it has power: none, as before.',
     ]);
   });
 
