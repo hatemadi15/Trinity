@@ -123,8 +123,10 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   "dark mode") and she does it and answers aloud; she knows the site names as speech tends to write
   them. She uses the browser's own speech recognition: Chrome and Edge send the sound to their
   makers' servers, so voice needs the internet there, and Firefox has none. Her panel is a chat that
-  keeps the conversation from page to page; it always takes typed words, and its microphone button
-  pauses and restarts the listening. What she does not know goes to the same assistant as "Ask in plain words".
+  keeps the conversation from page to page; it always takes typed words, its microphone button
+  pauses and restarts the listening, and its "Say replies aloud" switch (on at first, remembered in the
+  browser) keeps her answers to the chat when off; "be quiet" and "speak again" do the same by voice.
+  What she does not know goes to the same assistant as "Ask in plain words".
   The code is in `web/src/lib/luna` and `web/src/components/luna`.
 - **Plan a landing** (`/plan`, "Plan a landing" in the header): say or type what the mission needs,
   for example "at least five days of power, Earth in view when we land, no radio gap longer than three

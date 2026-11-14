@@ -68,7 +68,9 @@ Textures and their credits: `web/public/hero/textures/`.
 - Her panel is a chat: her greeting, your lines on the right in blue, hers on the left with her face, three dots
   while she works, and ready-made messages to start. The conversation lasts from page to page (`lunaStore.messages`).
 - She listens as spec 22 has it: each phrase heard is a command and her reply is said aloud; the panel's microphone
-  pauses and restarts the listening; typed words are answered in the conversation.
+  pauses and restarts the listening; typed words are answered in the conversation; and a switch at the panel's foot,
+  "Say replies aloud" (a 44 px row whose pill fills with the accent when on; on at first, and remembered in the
+  browser, `lunaStore.voice`), keeps every reply to the conversation when off, stopping her at once mid-reply.
 
 ## 23.3 Clearer sections
 - The forecast reads in three steps with room between them: the Sun, Earth, the lander; each row with its own words
