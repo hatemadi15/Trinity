@@ -5,7 +5,11 @@ import { hourlySeries, summarize, type Series } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig } from '../engine/power';
 import { utcToEt } from '../engine/time';
 import { readBytes, readJson } from '../engine/__tests__/helpers';
-import { answerFor, nearbyAdvice, nearbyWords } from './answer';
+import { placeOptions, timeOptions } from '../plan/options';
+import type { Outcome } from '../plan/outcome';
+import { FAIL_RULE, OBJECTIVE } from '../plan/rank';
+import { NO_REQUIREMENTS, type Requirements } from '../plan/requirements';
+import { answerFor, nearbyAdvice, nearbyWords, planView, spotSite } from './answer';
 
 // 1361 W while any Sun shows, 100 W load, 1000 Wh battery: ten hours in the dark.
 const CFG: PowerConfig = { ...DEFAULT_POWER, panel: 'full_tracking', areaM2: 1, efficiency: 1, loadW: 100, batteryWh: 1000 };
@@ -257,6 +261,19 @@ describe('nearbyAdvice', () => {
     expect(nearbyWords({ site: summit, km: 4.04, hours: 300 }, 30)).toBe('Nearby, Summit (4 km away) keeps power for 12 days 12 hours from the same landing day.');
   });
 
+  it('names a spot worked out round an approximate site by its distance and direction, and links to it as a clicked point', () => {
+    const spot = spotSite(here, { lat: -88.32, lon: -64.3, km: 2.5, bearingDeg: 180 });
+    expect(spot).toMatchObject({ id: 'custom_-88.3200_-64.3000', label: 'the spot 2.5 km south', category: 'custom', lat: -88.32, lon: -64.3 });
+    expect(spotSite(here, { lat: -88.3, lon: -64, km: 5, bearingDeg: 45 }).label).toBe('the spot 5 km north-east');
+    // Its distance is in its name already.
+    expect(nearbyWords({ site: spot, km: 2.5, hours: 720 }, 30)).toBe('Nearby, the spot 2.5 km south keeps power for all 30 days from the same landing day.');
+  });
+
+  it('says when Earth is never in view at the place it offers: more power there buys no radio contact', () => {
+    expect(nearbyWords({ site: summit, km: 13, hours: 271, earthNever: true }, 30)).toBe('Nearby, Summit (13 km away) keeps power for 11 days 7 hours from the same landing day, but Earth is never in view there.');
+    expect(nearbyWords({ site: summit, km: 13, hours: 271, earthNever: false }, 30)).toBe('Nearby, Summit (13 km away) keeps power for 11 days 7 hours from the same landing day.');
+  });
+
   it('never offers a derived high point as a checked place to land', () => {
     const derived = { ...summit, kind: 'derived' as const };
     expect(nearbyWords({ site: derived, km: 12.3, hours: 720 }, 30)).toBe(
@@ -267,6 +284,97 @@ describe('nearbyAdvice', () => {
   it('says nothing when no site nearby does clearly better, or before their figures are in', () => {
     expect(nearbyAdvice(here, sites, { summit: o(80), step: o(90), far: o(720) }, 76)).toBeNull();
     expect(nearbyAdvice(here, sites, {}, 76)).toBeNull();
+  });
+});
+
+describe('answerFor with the ranked landing times and the requirements', () => {
+  // A 2-day period, scanned 4 days: night until hour 12, Sun to 22, night to 36, Sun to 60, then night. Earth is in view
+  // from hour 12 to hour 40: landing at 36 keeps power longest, but Earth sets after 5 hours of it.
+  const sun = [...rep(0, 12), ...rep(1, 10), ...rep(0, 14), ...rep(1, 24), ...rep(0, 36)];
+  const earth = [...rep(0, 12), ...rep(1, 29), ...rep(0, 55)];
+  const withPlan = (req: Requirements) => {
+    const scan = series(sun, earth);
+    const period = series(sun.slice(0, 48), earth.slice(0, 48));
+    return answerFor({
+      siteName: 'Alpha Ridge',
+      series: period,
+      summary: summarize(period),
+      power: powerBudget(period, CFG),
+      startUtc: START,
+      days: 2,
+      loadW: CFG.loadW,
+      batteryWh: CFG.batteryWh,
+      best: bestLanding(scan, CFG, { from: 0, to: 48, step: 1, capHours: 48 }),
+      plan: timeOptions({ scan, cfg: CFG, req, hours: 48, startUtc: START }),
+    });
+  };
+
+  it('offers the same better date as before when no requirement is set, with nothing to check', () => {
+    const a = withPlan(NO_REQUIREMENTS);
+    expect(a.better).toMatchObject({ hour: 36, startUtc: '2027-01-02T12:00:00', label: 'Land on 2 January instead', note: 'From 2 January, 12:00 UTC: power for 1 day 10 hours in a row.', checks: null, why: 'Power lasts 1 d longer than landing at the period start.' });
+  });
+
+  it('offers the date that meets the requirements, with what it meets and why it ranks above landing at the start', () => {
+    const a = withPlan({ ...NO_REQUIREMENTS, maxOutageH: 12 });
+    expect(a.better).toMatchObject({ hour: 12, label: 'Land on 1 January instead', note: 'From 1 January, 12:00 UTC: power for 20 hours in a row.', checks: 'Meets your requirement.', why: 'Power lasts 10 h longer than landing at the period start.' });
+  });
+
+  it('says a landing that meets every requirement needs no change, rather than asking for a bigger battery', () => {
+    // The battery runs out at hour 40 and no later landing keeps power longer; the requirement asks only for 30 hours.
+    const period = series(rep(1, 48).map((v, h) => (h < 30 ? v : 0)));
+    const a = answerFor({ siteName: 'Alpha Ridge', series: period, summary: summarize(period), power: powerBudget(period, CFG), startUtc: START, days: 2, loadW: CFG.loadW, batteryWh: CFG.batteryWh, best: null, plan: timeOptions({ scan: period, cfg: CFG, req: { ...NO_REQUIREMENTS, minPoweredH: 30 }, hours: 48, startUtc: START }) });
+    expect(a.better).toBeNull();
+    expect(a.hint).toBe('This landing meets your requirement, and no landing time in these 2 days does better.');
+  });
+
+  it('says plainly when no date in the period does better against the requirements', () => {
+    // Sun for 30 hours, then night: the battery runs out at hour 40. Earth is never in view, so no date can meet a
+    // contact requirement, and none keeps power longer than landing at the start.
+    const period = series(rep(1, 48).map((v, h) => (h < 30 ? v : 0)));
+    const a = answerFor({ siteName: 'Alpha Ridge', series: period, summary: summarize(period), power: powerBudget(period, CFG), startUtc: START, days: 2, loadW: CFG.loadW, batteryWh: CFG.batteryWh, best: null, plan: timeOptions({ scan: period, cfg: CFG, req: { ...NO_REQUIREMENTS, contactWithinH: 0 }, hours: 48, startUtc: START }) });
+    expect(a.tone).toBe('bad');
+    expect(a.better).toBeNull();
+    expect(a.hint).toBe('No landing time in these 2 days does better against your requirements. Try a bigger battery (Lander, above), a shorter stay or another site.');
+  });
+});
+
+describe('planView: every option for the panel, in words', () => {
+  const here = { id: 'here', name: 'Here', label: 'Here', lat: -88.3, lon: -64.3, category: 'artemis3', polar: true, source: 'x' };
+  const summit = { ...here, id: 'summit', name: 'Summit', label: 'Summit', lat: -88.7 };
+  const o = (poweredH: number, poweredOutageH = 50): Outcome => ({ hour: 0, stayH: 48, poweredH, sunH: 30, contactH: 30, poweredContactH: 20, outageH: 20, poweredOutageH, firstContactH: 0, sunlitAtLanding: true });
+  const sun = [...rep(0, 12), ...rep(1, 10), ...rep(0, 14), ...rep(1, 24), ...rep(0, 36)];
+  const earth = [...rep(0, 12), ...rep(1, 29), ...rep(0, 55)];
+  const req = { ...NO_REQUIREMENTS, maxOutageH: 12 };
+  const times = timeOptions({ scan: series(sun, earth), cfg: CFG, req, hours: 48, startUtc: START, apartH: 6 });
+  const places = placeOptions({ site: here, sites: [here, summit], outcomes: { summit: o(48, 6) }, current: o(10, 10), req });
+
+  it('states the objective, the rule for a failed requirement and how finely each list was searched', () => {
+    const v = planView({ times, places, year: null, req, startUtc: START, days: 2, hrefFor: (id) => `/explore?site=${id}` });
+    expect(v.objective).toBe(OBJECTIVE);
+    expect(v.rule).toBe(FAIL_RULE);
+    expect(v.times.search).toBe('Landing times tried every hour of these 2 days (UTC), each for a 2-day stay.');
+    expect(v.places?.search).toBe('Catalogue sites within 30 km tried from the same landing hour, each for a 2-day stay.');
+    expect(planView({ times, places: null, year: null, req: NO_REQUIREMENTS, startUtc: START, days: 2, hrefFor: () => '' }).rule).toBeNull();
+  });
+
+  it('gives each option its time in UTC or its place, each check met or failed, its trade-offs and why it ranks above the next', () => {
+    const v = planView({ times, places, year: null, req, startUtc: START, days: 2, hrefFor: (id) => `/explore?site=${id}` });
+    expect(v.current).toEqual({ title: 'Landing at the period start, 1 January, 00:00 UTC', summary: 'Meets your requirement.', checks: [{ met: true, words: 'Longest time without Earth while powered at most 12 h: 10 h, 2 h to spare' }] });
+    expect(v.times.options[0]).toEqual({
+      key: 'time-12',
+      title: '1 January, 12:00 UTC',
+      action: 'Land on 1 January at 12:00 UTC',
+      summary: 'Meets your requirement.',
+      checks: [{ met: true, words: 'Longest time without Earth while powered at most 12 h: 0 h, 12 h to spare' }],
+      trade: 'Power +10 h, sunlight +12 h, Earth in view same, contact while powered +20 h, longest time without Earth while powered −10 h',
+      why: 'Power lasts 6 h longer than the next.',
+      land: '2027-01-01T12:00:00',
+    });
+    expect(v.places?.options[0]).toMatchObject({ key: 'place-summit', title: 'Summit, 12 km away', action: 'Explore Summit', summary: 'Meets your requirement.', href: '/explore?site=summit' });
+    // A spot round the site is titled by its own name, which has its distance.
+    const spot = spotSite(here, { lat: -88.32, lon: -64.3, km: 2.5, bearingDeg: 180 });
+    const withSpot = placeOptions({ site: here, sites: [here], outcomes: {}, extra: [{ place: { site: spot, km: 2.5 }, outcome: o(48, 6) }], current: o(10, 10), req });
+    expect(planView({ times, places: withSpot, year: null, req, startUtc: START, days: 2, hrefFor: (id) => id }).places?.options[0]).toMatchObject({ title: 'The spot 2.5 km south', action: 'Explore the spot 2.5 km south', href: 'custom_-88.3200_-64.3000' });
   });
 });
 

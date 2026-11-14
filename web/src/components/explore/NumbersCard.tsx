@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Fold } from '@/components/Fold';
 import { Modal } from '@/components/Modal';
 import { PowerScope } from '@/components/PowerScope';
@@ -57,6 +57,9 @@ export function NumbersCard({
   series,
   hour,
   startUtc,
+  briefLink = '/brief',
+  onShare,
+  shareRef,
 }: {
   site: Site;
   summary: Summary;
@@ -71,6 +74,11 @@ export function NumbersCard({
   /** The time bar's hour. */
   hour: number;
   startUtc: string;
+  /** The brief's address for this site, period and settings, so a brief opened in a new tab or sent on shows the same figures. */
+  briefLink?: string;
+  /** Opens Share and download: the link to the same figures, and the figures as files. */
+  onShare?: () => void;
+  shareRef?: RefObject<HTMLButtonElement | null>;
 }) {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
@@ -174,9 +182,14 @@ export function NumbersCard({
         <button ref={opener} type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className={QUIET}>
           All numbers
         </button>
-        <Link href="/brief" className={`${QUIET} inline-flex items-center`}>
+        <Link href={briefLink} className={`${QUIET} inline-flex items-center`}>
           Printable brief
         </Link>
+        {onShare && (
+          <button ref={shareRef} type="button" onClick={onShare} aria-haspopup="dialog" className={QUIET}>
+            Share
+          </button>
+        )}
       </p>
       {/* No row of data sources here: the answer's row beside the card names the same data (DE440 for every figure, LOLA
           for the hills on the site's grid, the Horizons check), and the same row twice on one screen only says it twice. */}

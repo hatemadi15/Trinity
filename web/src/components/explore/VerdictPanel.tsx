@@ -1,9 +1,11 @@
 'use client';
 import Link from 'next/link';
+import type { Requirements } from '@/lib/plan/requirements';
 import type { SureLines } from '@/lib/uncertainty/budget';
-import type { Answer } from '@/lib/viz/answer';
+import type { Answer, PlanView } from '@/lib/viz/answer';
 import { Fold } from '../Fold';
 import { lolaFor, Sources } from '../Sources';
+import { OptionsList, RequirementsFields } from './PlanParts';
 import { SureFold } from './SureFold';
 
 /** A battery on its side: full for a good answer, down to its last sliver for a bad one. */
@@ -31,6 +33,10 @@ export function VerdictPanel({
   nearby = null,
   standLink,
   site,
+  plan = null,
+  requirements,
+  onRequirements,
+  range = null,
   sure,
   limitation = null,
 }: {
@@ -45,6 +51,16 @@ export function VerdictPanel({
   standLink?: string;
   /** The site, for the grid its hills are read from in the row of data sources; without it the row names no grid. */
   site?: { lat: number; polar: boolean };
+  /**
+   * Every option behind the recommendations, one tap away under "Options": what they are ranked by, each one's
+   * checks, trade-offs and reason. With it the better date's note waits there too, so the first screen keeps its words.
+   */
+  plan?: PlanView | null;
+  /** The mission's requirements and their boxes, in the same fold; without `onRequirements` there are no boxes. */
+  requirements?: Requirements;
+  onRequirements?: (patch: Partial<Requirements>) => void;
+  /** The same result worked out around an approximate point: one line next to the result, how it was found in the fold. */
+  range?: { words: string; detail?: string | null } | null;
   /** The verdict's times with their supported margins, and what the power figures leave out (one tap away). */
   sure?: SureLines | null;
   /** What limits the terrain behind the figures (lib/viz/terrain verdictLimitation): a short line under the first sentence, the whole limit one tap away; null when it is complete. */
@@ -77,6 +93,8 @@ export function VerdictPanel({
         </Fold>
       )}
       {sure && <SureFold sure={sure} />}
+      {/* A point known only to a few kilometres: the same result around it, next to the result itself. */}
+      {range && <p className="mt-2 max-w-[42em] text-ink">{range.words}</p>}
       {/* One gold action: the better date, else the better place nearby (below), else comparing sites. */}
       {(better || !nearby) && (
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -91,7 +109,8 @@ export function VerdictPanel({
           )}
         </div>
       )}
-      {(better?.note || answer.hint) && <p className="mt-3 text-ink-2">{better ? better.note : answer.hint}</p>}
+      {/* With the options list, the better date's note waits in it, beside its checks and why it ranks first. */}
+      {(better ? better.note && !plan : answer.hint) && <p className="mt-3 text-ink-2">{better ? better.note : answer.hint}</p>}
       {/* A better place nearby: a link beside a better date, the gold action when there is no better date. */}
       {nearby &&
         (better ? (
@@ -117,6 +136,24 @@ export function VerdictPanel({
             Stand at the site
           </Link>
         </p>
+      )}
+      {/* For a planner, one tap away: why the better date, the requirements, and every option with its checks and reasons. */}
+      {plan && (
+        <Fold label="Options" className="mt-2">
+          <div className="flex flex-col gap-4 text-[15px] leading-relaxed">
+            {better && (
+              <div className="max-w-[46em]">
+                <p className="font-medium text-ink">{better.label}</p>
+                <p className="text-ink">{better.note}</p>
+                {better.checks && <p className="text-ink">{better.checks}</p>}
+                {better.why && <p className="text-ink">{better.why}</p>}
+              </div>
+            )}
+            {requirements && onRequirements && <RequirementsFields value={requirements} onChange={onRequirements} />}
+            <OptionsList plan={plan} onLand={onLand} />
+            {range?.detail && <p className="max-w-[46em] text-ink-2">{range.detail}</p>}
+          </div>
+        </Fold>
       )}
       <p className="mt-auto flex flex-wrap items-center gap-x-5 pt-3 text-ink-2">
         <button type="button" onClick={onYear} className="min-h-[40px] font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">

@@ -13,7 +13,8 @@ import { shadowLevels } from '@/lib/data/terrain';
 import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { exploreHref, standHref } from '@/lib/links';
+import { exploreHref, standHref, withSettings } from '@/lib/links';
+import { useSettingsInAddress } from '@/lib/hooks/useAddressFollows';
 import { NAV } from '@/lib/nav';
 import { earthLitFraction } from '@/lib/sky/earth';
 import { dirAzEl } from '@/lib/sky/frames';
@@ -224,6 +225,9 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
     };
   }, [store]);
 
+  // Once the address it opened with is applied, the settings in it follow a change of lander made here.
+  useSettingsInAddress(s.params, openHour !== null);
+
   const scene = useMemo<StandScene | null>(() => {
     if (openHour === null || !sky || !s.site || !s.series || !s.mask) return null;
     // Only a polar site stands on NASA heights; elsewhere the ground is drawn flat (and the card says so).
@@ -367,7 +371,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
           label: betterLabel(dateLong(s.startUtc, answer.better.hour), s.best.poweredHours, s.best.poweredHours * s.best.earthFraction),
           chip: betterChip(dayMonth(s.startUtc, answer.better.hour), s.best.poweredHours),
           startUtc: answer.better.startUtc,
-          href: `${standHref(site.id, answer.better.startUtc, s.days, 0)}${quality === 'fast' ? '&quality=fast' : ''}`,
+          href: `${withSettings(standHref(site.id, answer.better.startUtc, s.days, 0), s.params)}${quality === 'fast' ? '&quality=fast' : ''}`,
         }
       : null;
   // The better landing day, in place: the same lander and drawing, the new period, and the view opening again
@@ -620,7 +624,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                     Compare sites
                   </button>
                 )}
-                <ChangeWays dateHref={exploreHref(site.id, s.startUtc, s.days)} onLander={openLander} onCompare={better ? compare : undefined} />
+                <ChangeWays dateHref={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params)} onLander={openLander} onCompare={better ? compare : undefined} />
               </div>
               {/* Last, the moment's state: the lander's power and radio for the hour, down by the time it describes at the
                   plate's foot, not in the time bar, which is Explore's too and where 60 to 90 characters beside the date would
@@ -717,7 +721,7 @@ export function StandView({ store = exploreStore, createRenderer = defaultRender
                   <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
                     Change site
                   </Link>
-                  <Link href={exploreHref(site.id, s.startUtc, s.days)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
+                  <Link href={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
                     Change date
                   </Link>
                   <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">

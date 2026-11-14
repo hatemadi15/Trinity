@@ -188,7 +188,7 @@ export const INTENTS: Intent[] = [
       const scope = /compar/i.test(m[3]) ? 'compare' : 'site';
       return {
         actions: [{ type: 'find_best_window', days, scope }],
-        reply: `Searching the next 12 months for the landing date that keeps power longest over ${days} days${scope === 'compare' ? ', on average across the compared sites' : ''}.`,
+        reply: `Searching the next 12 months for the landing date that keeps power longest over ${days} days${scope === 'compare' ? ', judged by the compared site that does worst' : ''}.`,
       };
     },
   },

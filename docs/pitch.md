@@ -20,7 +20,7 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 [Point at the line under the answer.] Twelve kilometres away, the rim summit, a high point not yet checked for landing, keeps power for all 30 days from the same landing day. [Click "Explore de Gerlache rim summit".] Green. A few kilometres decide whether a lander keeps its power.
 
-[Click "Or ask in plain words" under the answer; the box takes the cursor. Type "compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days". Enter.] The assistant turned that sentence into actions and opened Compare sites. [Compare page.] Two candidates, same days, same lander, one row each: sunlight, Earth in view, longest night, time with power, and a sentence that names the best site for each. [Click "Find the best landing day for these sites in the next 12 months".] It searches the year and moves the period to the landing day that keeps them powered longest on average.
+[Click "Or ask in plain words" under the answer; the box takes the cursor. Type "compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days". Enter.] The assistant turned that sentence into actions and opened Compare sites. [Compare page.] Two candidates, same days, same lander, one row each: sunlight, Earth in view, longest night, time with power, and a sentence that names the best site for each. [Click "Find the best landing day for these sites in the next 12 months".] It searches the year and moves the period to the landing day that keeps the site that does worst powered longest, giving each site's own time with power.
 
 [Type "explain the longest night".] The assistant explains, but it never computes: every number on these pages comes from the engine, and the line under each answer says who answered.
 
