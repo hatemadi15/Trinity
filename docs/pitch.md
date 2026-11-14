@@ -33,7 +33,7 @@ Everyone who plans a south-pole mission has to answer two questions: when is the
 
 ## 3:00 — Validity (45 s)
 
-[Open Accuracy.] Three checks meet their criteria, and each says what it leaves out. Where the Sun and Earth are in the sky: our directions against JPL Horizons, worst gap 0.00003 degrees over 300 test cases, and [click "Re-check with JPL now"] this button asks JPL live. How much sunlight a site gets: against NASA's LOLA sunlight maps worked out their way, a typical gap of 0.9 points at fifteen sites; the power sums are checked in this browser. And, as context, not a check, when night falls on a real mission: Blue Ghost's last signal came 2.4 hours after our predicted sunset. [Click "Show the numbers" under the missions.] Athena and IM-1 ended early, for the reasons written here.
+[Open Accuracy.] Three of four checks meet their criteria, and each says what it leaves out. Where the Sun and Earth are in the sky: our directions against JPL Horizons, worst gap 0.00003 degrees over 300 test cases, and [click "Re-check with JPL now"] this button asks JPL live. How much sunlight a site gets: against NASA's LOLA sunlight maps worked out their way, a typical gap of 0.9 points at fifteen sites; the power sums are checked in this browser. The fourth, our shadows over 20 pictures from orbit, misses its own mark in three of them. And, as context, not a check, when night falls on a real mission: Blue Ghost's last signal came 2.4 hours after our predicted sunset. [Click "Show the numbers" under the missions.] Athena and IM-1 ended early, for the reasons written here.
 
 ## 3:45 — Impact and next (35 s)
 
@@ -41,9 +41,9 @@ Planners get a first answer in a minute and a brief they can hand to engineering
 
 ## 4:20 — Data and team (20 s)
 
-NASA data: LRO LOLA elevation models and illumination maps, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and about 1,600 automated tests keep the two in step. Team Astroy/Ed.
+NASA data: LRO LOLA elevation models and illumination maps, NASA Goddard's adjusted south-pole maps, LRO's camera pictures and Diviner's temperature model, JPL DE440 through SPICE, JPL Horizons, the CGI Moon Kit, the Blue Marble, the Yale Bright Star Catalogue through NASA HEASARC, the Artemis III regions and the CLPS mission records. Everything runs in the browser; the Python pipeline is the reference implementation, and about 2,500 automated tests keep the two in step. Team Astroy/Ed.
 
-[The Accuracy page shows the last recorded run of the tests; refresh it with `npm run validation:tests` before the pitch and say the number it shows, if it is not about 1,600.]
+[The Accuracy page shows the last recorded run of the tests; refresh it with `npm run validation:tests` before the pitch and say the number it shows, if it is not about 2,500.]
 
 ## 4:40 — Close (20 s)
 

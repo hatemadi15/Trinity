@@ -1,0 +1,1171 @@
+{
+ "version": 1,
+ "generated_utc": "2026-11-14T14:59:39Z",
+ "about": "Modelled cold traps near each polar site: where models of temperature and shadow say water ice could last. Modelled conditions, never a finding of ice.",
+ "sources": {
+  "diviner": {
+   "citation": "Paige et al. 2010, Science 330, 479, doi:10.1126/science.1187726; data: Paige et al., LRO DLRE Level 5 PRP V2.0, NASA Planetary Data System, LRO-L-DLRE-5-PRP-V2.0, 2018",
+   "zip": "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/extras/prp/dlre_prp_south.zip",
+   "zip_bytes": 116583332,
+   "label": "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_prp/dlre_prp_south.xml",
+   "catalog": "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/catalog/prpds.cat",
+   "sis": "https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/document/Diviner_RDR_SIS.pdf"
+  },
+  "product90": {
+   "shadow": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LPSR_80S_20MPP_ADJ.TIF",
+   "slope": "https://pgda.gsfc.nasa.gov/data/LOLA_20mpp/LDSM_80S_20MPP_ADJ.TIF",
+   "citation": "Barker et al. 2023, Planet. Sci. J. 4, 183, doi:10.3847/PSJ/acf3e1"
+  }
+ },
+ "method": {
+  "cold_ground": "Diviner's modelled annual maximum surface temperature below 110 K, the usual convention for a cold trap for water ice; 100 K and 120 K are given beside it.",
+  "ice_stable": "Diviner's ice_depth: the depth at which water ice would sublimate at 1 kg per square metre per billion years. At the surface: code -1 (the surface stays below 101.3 K all year) or a depth of 0; buried: a depth no deeper than 0.5 m or 1 m; -999 means deeper than 2.8738 m or not stable at all and never counts.",
+  "permanent_shadow": "Product 90's LPSR_80S_20MPP_ADJ: 20 m pixels the Sun never reaches over the Moon's 18.6-year cycle.",
+  "slope": "Product 90's LDSM_80S_20MPP_ADJ, sampled every 10 m on the straight line from the site to the nearest ground of each kind; the steepest 20 m pixel crossed.",
+  "grid": "Every layer on product 90's 20 m grid within 10 km of the site: a cell takes the value of the Diviner triangle its centre lies in. Areas count the cells whose centres lie within 1 or 5 km; distances are to the nearest cell centre of each kind, both corrected for the map's scale (under 0.8 % south of 80° S)."
+ },
+ "assumptions": "Diviner's model is a fit to the first mapping year on a Kaguya elevation model of triangles about 0.13 km² in area (pairs about 500 m across), with uniform thermal and reflectance properties; it does not resolve the small cold traps that hide in shadows a few metres to a few hundred metres across, and its mesh is registered to a different elevation model than product 90's. It gives where ice could last if it arrived, not whether ice is there, how much or how deep. The slope is along a straight line, not a route.",
+ "thresholds": {
+  "cold_K": 110.0,
+  "also_K": [
+   100.0,
+   120.0
+  ],
+  "depths_m": [
+   0.5,
+   1.0
+  ],
+  "radii_km": [
+   1.0,
+   5.0
+  ],
+  "search_km": 10.0
+ },
+ "minus_one": {
+  "triangles": 2880000,
+  "minus_one": {
+   "triangles": 100319,
+   "tmax_min_K": 26.77,
+   "tmax_max_K": 101.299
+  },
+  "zero": {
+   "triangles": 18375,
+   "tmax_min_K": 101.301,
+   "tmax_max_K": 129.903
+  },
+  "positive": {
+   "triangles": 913867,
+   "tmax_min_K": 107.687,
+   "tmax_max_K": 347.804
+  },
+  "too_deep": {
+   "triangles": 1847439,
+   "tmax_min_K": 203.359,
+   "tmax_max_K": 350.772
+  },
+  "separated_by_tmax": true,
+  "split_K": 101.3,
+  "exceptions": 0,
+  "stability_temperature_K": 101.265
+ },
+ "cap_south_of_80": {
+  "area_km2": 292386.8,
+  "below_100K_km2": 12470.6,
+  "below_110K_km2": 14749.1,
+  "below_120K_km2": 16322.1,
+  "ice_surface_all_year_km2": 12813.2,
+  "ice_surface_km2": 15154.6,
+  "ice_within_0_5m_km2": 113287.3,
+  "ice_within_1m_km2": 123235.1,
+  "triangle_km2_median": 0.1279
+ },
+ "sites": [
+  {
+   "site_id": "south_pole",
+   "name": "Lunar South Pole (reference)",
+   "label": "Lunar south pole",
+   "lat": -90.0,
+   "lon": 0.0,
+   "kind": "reference",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.61,
+     "psr_km2": 0.02,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 0.69
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 14.18,
+     "ice_surface_km2": 14.31,
+     "ice_within_0_5m_km2": 29.4,
+     "psr_km2": 16.47,
+     "below_100K_km2": 12.71,
+     "below_120K_km2": 14.31,
+     "ice_surface_all_year_km2": 12.96,
+     "ice_within_1m_km2": 36.4
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 2.16,
+     "slope_max_deg": 34.1
+    },
+    "ice_surface": {
+     "km": 2.16,
+     "slope_max_deg": 34.1
+    },
+    "ice_within_0_5m": {
+     "km": 0.01,
+     "slope_max_deg": 12.0
+    },
+    "psr": {
+     "km": 0.49,
+     "slope_max_deg": 15.6
+    }
+   },
+   "coldest_within_5km_K": 75.3,
+   "cold_in_psr_share_5km": 1.0,
+   "psr_cold_share_5km": 0.86,
+   "at_site": {
+    "tmax_K": 267.1,
+    "tavg_K": 131.0,
+    "ice_depth_m": null,
+    "ice": "deeper_or_none"
+   }
+  },
+  {
+   "site_id": "shackleton_center",
+   "name": "Shackleton crater centre",
+   "label": "Shackleton crater floor",
+   "lat": -89.66,
+   "lon": 129.2,
+   "kind": "reference",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 3.14,
+     "ice_surface_km2": 3.14,
+     "ice_within_0_5m_km2": 3.14,
+     "psr_km2": 3.14,
+     "below_100K_km2": 3.14,
+     "below_120K_km2": 3.14,
+     "ice_surface_all_year_km2": 3.14,
+     "ice_within_1m_km2": 3.14
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 78.54,
+     "ice_surface_km2": 78.54,
+     "ice_within_0_5m_km2": 78.54,
+     "psr_km2": 78.54,
+     "below_100K_km2": 74.17,
+     "below_120K_km2": 78.54,
+     "ice_surface_all_year_km2": 75.98,
+     "ice_within_1m_km2": 78.54
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 0.01,
+     "slope_max_deg": 3.1
+    },
+    "ice_surface": {
+     "km": 0.01,
+     "slope_max_deg": 3.1
+    },
+    "ice_within_0_5m": {
+     "km": 0.01,
+     "slope_max_deg": 3.1
+    },
+    "psr": {
+     "km": 0.01,
+     "slope_max_deg": 3.1
+    }
+   },
+   "coldest_within_5km_K": 67.5,
+   "cold_in_psr_share_5km": 1.0,
+   "psr_cold_share_5km": 1.0,
+   "at_site": {
+    "tmax_K": 85.2,
+    "tavg_K": 50.2,
+    "ice_depth_m": 0.0,
+    "ice": "surface_all_year"
+   }
+  },
+  {
+   "site_id": "de_gerlache_center",
+   "name": "de Gerlache crater centre",
+   "label": "de Gerlache crater floor",
+   "lat": -88.5,
+   "lon": -87.1,
+   "kind": "reference",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 3.13,
+     "ice_surface_km2": 3.14,
+     "ice_within_0_5m_km2": 3.14,
+     "psr_km2": 1.57,
+     "below_100K_km2": 3.06,
+     "below_120K_km2": 3.13,
+     "ice_surface_all_year_km2": 3.13,
+     "ice_within_1m_km2": 3.14
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 55.84,
+     "ice_surface_km2": 57.03,
+     "ice_within_0_5m_km2": 78.54,
+     "psr_km2": 44.18,
+     "below_100K_km2": 53.55,
+     "below_120K_km2": 56.91,
+     "ice_surface_all_year_km2": 54.18,
+     "ice_within_1m_km2": 78.54
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 0.01,
+     "slope_max_deg": 1.9
+    },
+    "ice_surface": {
+     "km": 0.01,
+     "slope_max_deg": 1.9
+    },
+    "ice_within_0_5m": {
+     "km": 0.01,
+     "slope_max_deg": 1.9
+    },
+    "psr": {
+     "km": 0.24,
+     "slope_max_deg": 6.6
+    }
+   },
+   "coldest_within_5km_K": 35.2,
+   "cold_in_psr_share_5km": 0.77,
+   "psr_cold_share_5km": 0.97,
+   "at_site": {
+    "tmax_K": 58.7,
+    "tavg_K": 44.4,
+    "ice_depth_m": 0.0,
+    "ice": "surface_all_year"
+   }
+  },
+  {
+   "site_id": "connecting_ridge",
+   "name": "Connecting Ridge (Shackleton–de Gerlache ridge)",
+   "label": "Connecting Ridge",
+   "lat": -89.53432,
+   "lon": -150.05233,
+   "kind": "target",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 1.11,
+     "psr_km2": 0.02,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 1.2
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 1.16,
+     "ice_surface_km2": 1.16,
+     "ice_within_0_5m_km2": 24.68,
+     "psr_km2": 3.66,
+     "below_100K_km2": 1.16,
+     "below_120K_km2": 1.16,
+     "ice_surface_all_year_km2": 1.16,
+     "ice_within_1m_km2": 33.4
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 2.5,
+     "slope_max_deg": 20.2
+    },
+    "ice_surface": {
+     "km": 2.5,
+     "slope_max_deg": 20.2
+    },
+    "ice_within_0_5m": {
+     "km": 0.01,
+     "slope_max_deg": 0.5
+    },
+    "psr": {
+     "km": 0.1,
+     "slope_max_deg": 4.9
+    }
+   },
+   "coldest_within_5km_K": 63.8,
+   "cold_in_psr_share_5km": 0.66,
+   "psr_cold_share_5km": 0.21,
+   "at_site": {
+    "tmax_K": 191.5,
+    "tavg_K": 107.4,
+    "ice_depth_m": 0.286,
+    "ice": "buried"
+   }
+  },
+  {
+   "site_id": "peak_near_shackleton",
+   "name": "Peak near Shackleton",
+   "label": "Peak near Shackleton",
+   "lat": -89.01701,
+   "lon": 126.27302,
+   "kind": "target",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 3.14,
+     "psr_km2": 0.05,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 3.14
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 4.37,
+     "ice_surface_km2": 4.5,
+     "ice_within_0_5m_km2": 64.81,
+     "psr_km2": 6.78,
+     "below_100K_km2": 4.12,
+     "below_120K_km2": 4.37,
+     "ice_surface_all_year_km2": 4.37,
+     "ice_within_1m_km2": 70.79
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 1.66,
+     "slope_max_deg": 13.4
+    },
+    "ice_surface": {
+     "km": 1.66,
+     "slope_max_deg": 13.4
+    },
+    "ice_within_0_5m": {
+     "km": 0.01,
+     "slope_max_deg": 0.8
+    },
+    "psr": {
+     "km": 0.14,
+     "slope_max_deg": 2.8
+    }
+   },
+   "coldest_within_5km_K": 51.3,
+   "cold_in_psr_share_5km": 0.9,
+   "psr_cold_share_5km": 0.58,
+   "at_site": {
+    "tmax_K": 155.4,
+    "tavg_K": 80.5,
+    "ice_depth_m": 0.027,
+    "ice": "buried"
+   }
+  },
+  {
+   "site_id": "peak_near_cabeus_b",
+   "name": "Peak near Cabeus B (Artemis III region)",
+   "label": "Peak near Cabeus B",
+   "lat": -83.78,
+   "lon": -68.72,
+   "kind": "region_centre",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 3.14,
+     "psr_km2": 0.02,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 3.14
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 61.77,
+     "psr_km2": 0.45,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 64.93
+    }
+   },
+   "nearest": {
+    "below_110K": null,
+    "ice_surface": null,
+    "ice_within_0_5m": {
+     "km": 0.01,
+     "slope_max_deg": 19.2
+    },
+    "psr": {
+     "km": 0.23,
+     "slope_max_deg": 20.0
+    }
+   },
+   "coldest_within_5km_K": 172.1,
+   "cold_in_psr_share_5km": null,
+   "psr_cold_share_5km": 0.0,
+   "at_site": {
+    "tmax_K": 221.5,
+    "tavg_K": 84.1,
+    "ice_depth_m": 0.027,
+    "ice": "buried"
+   }
+  },
+  {
+   "site_id": "haworth",
+   "name": "Haworth (Artemis III region)",
+   "label": "Haworth",
+   "lat": -86.84,
+   "lon": -22.59,
+   "kind": "region_centre",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.68,
+     "psr_km2": 0.08,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 1.16
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 2.68,
+     "ice_surface_km2": 2.81,
+     "ice_within_0_5m_km2": 41.55,
+     "psr_km2": 4.84,
+     "below_100K_km2": 2.55,
+     "below_120K_km2": 2.68,
+     "ice_surface_all_year_km2": 2.55,
+     "ice_within_1m_km2": 45.35
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 2.82,
+     "slope_max_deg": 13.5
+    },
+    "ice_surface": {
+     "km": 2.82,
+     "slope_max_deg": 13.5
+    },
+    "ice_within_0_5m": {
+     "km": 0.35,
+     "slope_max_deg": 7.9
+    },
+    "psr": {
+     "km": 0.33,
+     "slope_max_deg": 8.8
+    }
+   },
+   "coldest_within_5km_K": 62.8,
+   "cold_in_psr_share_5km": 0.94,
+   "psr_cold_share_5km": 0.52,
+   "at_site": {
+    "tmax_K": 223.1,
+    "tavg_K": 121.5,
+    "ice_depth_m": null,
+    "ice": "deeper_or_none"
+   }
+  },
+  {
+   "site_id": "malapert_massif",
+   "name": "Malapert Massif (Artemis III region)",
+   "label": "Malapert Massif",
+   "lat": -86.0,
+   "lon": 0.0,
+   "kind": "region_centre",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 1.66,
+     "psr_km2": 0.06,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 2.12
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 5.36,
+     "psr_km2": 0.5,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 8.26
+    }
+   },
+   "nearest": {
+    "below_110K": null,
+    "ice_surface": null,
+    "ice_within_0_5m": {
+     "km": 0.01,
+     "slope_max_deg": 11.0
+    },
+    "psr": {
+     "km": 0.44,
+     "slope_max_deg": 11.4
+    }
+   },
+   "coldest_within_5km_K": 168.7,
+   "cold_in_psr_share_5km": null,
+   "psr_cold_share_5km": 0.0,
+   "at_site": {
+    "tmax_K": 178.0,
+    "tavg_K": 83.6,
+    "ice_depth_m": 0.054,
+    "ice": "buried"
+   }
+  },
+  {
+   "site_id": "mons_mouton_plateau",
+   "name": "Mons Mouton Plateau (Artemis III region)",
+   "label": "Mons Mouton Plateau",
+   "lat": -84.46,
+   "lon": 30.66,
+   "kind": "region_centre",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 1.4,
+     "ice_surface_km2": 1.4,
+     "ice_within_0_5m_km2": 3.14,
+     "psr_km2": 2.68,
+     "below_100K_km2": 1.4,
+     "below_120K_km2": 1.4,
+     "ice_surface_all_year_km2": 1.4,
+     "ice_within_1m_km2": 3.14
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 1.91,
+     "ice_surface_km2": 1.91,
+     "ice_within_0_5m_km2": 42.84,
+     "psr_km2": 5.94,
+     "below_100K_km2": 1.91,
+     "below_120K_km2": 1.91,
+     "ice_surface_all_year_km2": 1.91,
+     "ice_within_1m_km2": 47.25
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 0.01,
+     "slope_max_deg": 14.2
+    },
+    "ice_surface": {
+     "km": 0.01,
+     "slope_max_deg": 14.2
+    },
+    "ice_within_0_5m": {
+     "km": 0.01,
+     "slope_max_deg": 14.2
+    },
+    "psr": {
+     "km": 0.01,
+     "slope_max_deg": 14.2
+    }
+   },
+   "coldest_within_5km_K": 51.1,
+   "cold_in_psr_share_5km": 0.81,
+   "psr_cold_share_5km": 0.26,
+   "at_site": {
+    "tmax_K": 62.0,
+    "tavg_K": 47.2,
+    "ice_depth_m": 0.0,
+    "ice": "surface_all_year"
+   }
+  },
+  {
+   "site_id": "mons_mouton",
+   "name": "Mons Mouton (Artemis III region)",
+   "label": "Mons Mouton",
+   "lat": -85.53,
+   "lon": 31.77,
+   "kind": "region_centre",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.0,
+     "psr_km2": 0.0,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 0.01
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 17.51,
+     "psr_km2": 0.63,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 33.78
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 6.34,
+     "slope_max_deg": 24.5
+    },
+    "ice_surface": {
+     "km": 6.34,
+     "slope_max_deg": 24.5
+    },
+    "ice_within_0_5m": {
+     "km": 1.09,
+     "slope_max_deg": 20.6
+    },
+    "psr": {
+     "km": 0.41,
+     "slope_max_deg": 28.5
+    }
+   },
+   "coldest_within_5km_K": 165.4,
+   "cold_in_psr_share_5km": null,
+   "psr_cold_share_5km": 0.0,
+   "at_site": {
+    "tmax_K": 289.0,
+    "tavg_K": 136.1,
+    "ice_depth_m": null,
+    "ice": "deeper_or_none"
+   }
+  },
+  {
+   "site_id": "nobile_rim_1",
+   "name": "Nobile Rim 1 (Artemis III region)",
+   "label": "Nobile Rim 1",
+   "lat": -85.54,
+   "lon": 37.39,
+   "kind": "region_centre",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.44,
+     "psr_km2": 0.01,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 0.74
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.26,
+     "ice_surface_km2": 0.26,
+     "ice_within_0_5m_km2": 21.08,
+     "psr_km2": 1.33,
+     "below_100K_km2": 0.26,
+     "below_120K_km2": 0.26,
+     "ice_surface_all_year_km2": 0.26,
+     "ice_within_1m_km2": 27.22
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 3.51,
+     "slope_max_deg": 18.9
+    },
+    "ice_surface": {
+     "km": 3.51,
+     "slope_max_deg": 18.9
+    },
+    "ice_within_0_5m": {
+     "km": 0.1,
+     "slope_max_deg": 11.7
+    },
+    "psr": {
+     "km": 0.64,
+     "slope_max_deg": 10.7
+    }
+   },
+   "coldest_within_5km_K": 68.2,
+   "cold_in_psr_share_5km": 0.72,
+   "psr_cold_share_5km": 0.14,
+   "at_site": {
+    "tmax_K": 221.2,
+    "tavg_K": 120.0,
+    "ice_depth_m": null,
+    "ice": "deeper_or_none"
+   }
+  },
+  {
+   "site_id": "nobile_rim_2",
+   "name": "Nobile Rim 2 (Artemis III region)",
+   "label": "Nobile Rim 2",
+   "lat": -84.20156,
+   "lon": 60.69989,
+   "kind": "target",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.84,
+     "ice_surface_km2": 0.84,
+     "ice_within_0_5m_km2": 2.62,
+     "psr_km2": 0.31,
+     "below_100K_km2": 0.84,
+     "below_120K_km2": 0.84,
+     "ice_surface_all_year_km2": 0.84,
+     "ice_within_1m_km2": 2.62
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 22.6,
+     "ice_surface_km2": 22.72,
+     "ice_within_0_5m_km2": 42.11,
+     "psr_km2": 17.99,
+     "below_100K_km2": 22.12,
+     "below_120K_km2": 22.72,
+     "ice_surface_all_year_km2": 22.22,
+     "ice_within_1m_km2": 42.24
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 0.45,
+     "slope_max_deg": 10.5
+    },
+    "ice_surface": {
+     "km": 0.45,
+     "slope_max_deg": 10.5
+    },
+    "ice_within_0_5m": {
+     "km": 0.01,
+     "slope_max_deg": 2.8
+    },
+    "psr": {
+     "km": 0.26,
+     "slope_max_deg": 8.5
+    }
+   },
+   "coldest_within_5km_K": 57.5,
+   "cold_in_psr_share_5km": 0.77,
+   "psr_cold_share_5km": 0.97,
+   "at_site": {
+    "tmax_K": 133.2,
+    "tavg_K": 58.4,
+    "ice_depth_m": 0.001,
+    "ice": "buried"
+   }
+  },
+  {
+   "site_id": "de_gerlache_rim_2",
+   "name": "de Gerlache Rim 2 (Artemis III region)",
+   "label": "de Gerlache Rim 2",
+   "lat": -88.28,
+   "lon": -64.31,
+   "kind": "region_centre",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.0,
+     "psr_km2": 0.0,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 0.0
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.63,
+     "psr_km2": 0.14,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 0.85
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 6.73,
+     "slope_max_deg": 21.0
+    },
+    "ice_surface": {
+     "km": 6.73,
+     "slope_max_deg": 21.0
+    },
+    "ice_within_0_5m": {
+     "km": 4.36,
+     "slope_max_deg": 18.1
+    },
+    "psr": {
+     "km": 1.05,
+     "slope_max_deg": 15.2
+    }
+   },
+   "coldest_within_5km_K": 181.3,
+   "cold_in_psr_share_5km": null,
+   "psr_cold_share_5km": 0.0,
+   "at_site": {
+    "tmax_K": 260.4,
+    "tavg_K": 144.7,
+    "ice_depth_m": null,
+    "ice": "deeper_or_none"
+   }
+  },
+  {
+   "site_id": "slater_plain",
+   "name": "Slater Plain (Artemis III region)",
+   "label": "Slater Plain",
+   "lat": -87.23,
+   "lon": 125.37,
+   "kind": "region_centre",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.05,
+     "psr_km2": 0.0,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 0.43
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.13,
+     "ice_surface_km2": 0.13,
+     "ice_within_0_5m_km2": 50.28,
+     "psr_km2": 1.86,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.13,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 54.96
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 2.88,
+     "slope_max_deg": 14.3
+    },
+    "ice_surface": {
+     "km": 2.88,
+     "slope_max_deg": 14.3
+    },
+    "ice_within_0_5m": {
+     "km": 0.92,
+     "slope_max_deg": 15.5
+    },
+    "psr": {
+     "km": 0.55,
+     "slope_max_deg": 14.9
+    }
+   },
+   "coldest_within_5km_K": 103.1,
+   "cold_in_psr_share_5km": 0.06,
+   "psr_cold_share_5km": 0.0,
+   "at_site": {
+    "tmax_K": 258.0,
+    "tavg_K": 134.0,
+    "ice_depth_m": null,
+    "ice": "deeper_or_none"
+   }
+  },
+  {
+   "site_id": "im1_odysseus",
+   "name": "IM-1 Odysseus landing site (Malapert A)",
+   "label": "IM-1 Odysseus",
+   "lat": -80.13,
+   "lon": 1.44,
+   "kind": "surveyed",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.0,
+     "psr_km2": 0.04,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 0.0
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.15,
+     "psr_km2": 0.3,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 0.3
+    }
+   },
+   "nearest": {
+    "below_110K": null,
+    "ice_surface": null,
+    "ice_within_0_5m": {
+     "km": 4.71,
+     "slope_max_deg": 30.1
+    },
+    "psr": {
+     "km": 0.56,
+     "slope_max_deg": 13.9
+    }
+   },
+   "coldest_within_5km_K": 227.6,
+   "cold_in_psr_share_5km": null,
+   "psr_cold_share_5km": 0.0,
+   "at_site": {
+    "tmax_K": 271.8,
+    "tavg_K": 159.2,
+    "ice_depth_m": null,
+    "ice": "deeper_or_none"
+   }
+  },
+  {
+   "site_id": "im2_athena",
+   "name": "IM-2 Athena landing site (Mons Mouton)",
+   "label": "IM-2 Athena",
+   "lat": -84.7906,
+   "lon": 29.1957,
+   "kind": "surveyed",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 1.22,
+     "psr_km2": 0.02,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 1.22
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 25.82,
+     "psr_km2": 1.39,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 30.68
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 7.83,
+     "slope_max_deg": 14.4
+    },
+    "ice_surface": {
+     "km": 7.83,
+     "slope_max_deg": 14.4
+    },
+    "ice_within_0_5m": {
+     "km": 0.18,
+     "slope_max_deg": 4.1
+    },
+    "psr": {
+     "km": 0.49,
+     "slope_max_deg": 10.2
+    }
+   },
+   "coldest_within_5km_K": 158.9,
+   "cold_in_psr_share_5km": null,
+   "psr_cold_share_5km": 0.0,
+   "at_site": {
+    "tmax_K": 227.0,
+    "tavg_K": 127.4,
+    "ice_depth_m": null,
+    "ice": "deeper_or_none"
+   }
+  },
+  {
+   "site_id": "cp12_schrodinger",
+   "name": "CP-12 landing region (Schrödinger basin, far side)",
+   "lat": -74.73,
+   "lon": 132.93,
+   "covered": false,
+   "reason": "north of 80° S: outside Diviner's polar model (a square to 80° S at its sides) and product 90's 20 m maps"
+  },
+  {
+   "site_id": "chandrayaan3_vikram",
+   "name": "Chandrayaan-3 Vikram landing site (Statio Shiv Shakti)",
+   "lat": -69.3741,
+   "lon": 32.32,
+   "covered": false,
+   "reason": "north of 80° S: outside Diviner's polar model (a square to 80° S at its sides) and product 90's 20 m maps"
+  },
+  {
+   "site_id": "luna25_target",
+   "name": "Luna 25 planned landing site (north of Boguslawsky)",
+   "lat": -69.545,
+   "lon": 43.544,
+   "covered": false,
+   "reason": "north of 80° S: outside Diviner's polar model (a square to 80° S at its sides) and product 90's 20 m maps"
+  },
+  {
+   "site_id": "shackleton_center_rim_high",
+   "name": "Shackleton crater rim, highest point 8.5–12.0 km",
+   "label": "Shackleton rim summit",
+   "lat": -89.78131,
+   "lon": -156.25683,
+   "kind": "derived",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.21,
+     "psr_km2": 0.01,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 0.34
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 11.52,
+     "ice_surface_km2": 11.64,
+     "ice_within_0_5m_km2": 33.22,
+     "psr_km2": 14.34,
+     "below_100K_km2": 11.27,
+     "below_120K_km2": 11.64,
+     "ice_surface_all_year_km2": 11.39,
+     "ice_within_1m_km2": 40.46
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 2.68,
+     "slope_max_deg": 36.4
+    },
+    "ice_surface": {
+     "km": 2.68,
+     "slope_max_deg": 36.4
+    },
+    "ice_within_0_5m": {
+     "km": 0.28,
+     "slope_max_deg": 9.6
+    },
+    "psr": {
+     "km": 0.06,
+     "slope_max_deg": 11.0
+    }
+   },
+   "coldest_within_5km_K": 74.4,
+   "cold_in_psr_share_5km": 1.0,
+   "psr_cold_share_5km": 0.8,
+   "at_site": {
+    "tmax_K": 236.4,
+    "tavg_K": 129.8,
+    "ice_depth_m": null,
+    "ice": "deeper_or_none"
+   }
+  },
+  {
+   "site_id": "de_gerlache_center_rim_high",
+   "name": "de Gerlache crater rim, highest point 13.0–18.0 km",
+   "label": "de Gerlache rim summit",
+   "lat": -88.66401,
+   "lon": -68.40606,
+   "kind": "derived",
+   "covered": true,
+   "within_km": {
+    "1": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 0.41,
+     "psr_km2": 0.03,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 0.44
+    },
+    "5": {
+     "covered_share": 1.0,
+     "below_110K_km2": 0.0,
+     "ice_surface_km2": 0.0,
+     "ice_within_0_5m_km2": 2.14,
+     "psr_km2": 0.28,
+     "below_100K_km2": 0.0,
+     "below_120K_km2": 0.0,
+     "ice_surface_all_year_km2": 0.0,
+     "ice_within_1m_km2": 4.61
+    }
+   },
+   "nearest": {
+    "below_110K": {
+     "km": 5.86,
+     "slope_max_deg": 21.2
+    },
+    "ice_surface": {
+     "km": 5.86,
+     "slope_max_deg": 21.2
+    },
+    "ice_within_0_5m": {
+     "km": 0.34,
+     "slope_max_deg": 6.1
+    },
+    "psr": {
+     "km": 0.04,
+     "slope_max_deg": 16.5
+    }
+   },
+   "coldest_within_5km_K": 173.9,
+   "cold_in_psr_share_5km": null,
+   "psr_cold_share_5km": 0.0,
+   "at_site": {
+    "tmax_K": 207.7,
+    "tavg_K": 120.7,
+    "ice_depth_m": null,
+    "ice": "deeper_or_none"
+   }
+  }
+ ],
+ "seconds": 40.5
+}

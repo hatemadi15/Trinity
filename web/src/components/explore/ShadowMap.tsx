@@ -16,6 +16,18 @@ const WORDS_MIN_PX = 360;
 const COMPASS_PX = 60;
 const COMPASS_AT: Record<Corner, string> = { tl: 'left-[3%] top-[3%]', tr: 'right-[3%] top-[3%]', br: 'right-[3%] bottom-[3%]' };
 const D2R = Math.PI / 180;
+/** The modelled cold ground's fill: a bright cyan, apart from the Sun's gold, Earth's blue and the greys of the ground. */
+export const COLD_FILL = 'rgba(70, 224, 240, 0.6)';
+const COLD_RGBA = [70, 224, 240, 153];
+const pct = (x: number) => `${Math.round(x * 10000) / 100}%`;
+
+/** A layer of cells over the terrain window, placed as fractions of the window from its top-left corner (lib/coldtraps). */
+export interface ColdLayer {
+  mask: Uint8Array;
+  width: number;
+  height: number;
+  rect: { left: number; top: number; width: number; height: number };
+}
 
 /**
  * The ground around the site from above, with the shadows of the hour: the shadow sweep's grey
@@ -36,6 +48,7 @@ export function ShadowMap({
   sunHidden = 'no',
   earthHidden = 'no',
   siteState,
+  cold = null,
 }: {
   picture: ShadowPicture | null;
   widthKm: number;
@@ -51,8 +64,11 @@ export function ShadowMap({
   earthHidden?: Hidden;
   /** "in sunlight", "in shadow"…: added to the site's name. */
   siteState?: string;
+  /** The modelled cold ground over the window, when the layer is switched on. */
+  cold?: ColdLayer | null;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const coldCanvas = useRef<HTMLCanvasElement>(null);
   const { ref: measure, width: sizePx } = useElementWidth<HTMLDivElement>(DEFAULT_PX);
 
   // Paint the grey picture.
@@ -74,6 +90,19 @@ export function ShadowMap({
     ctx.putImageData(image, 0, 0);
   }, [picture]);
 
+  // Paint the cold ground: the layer's cells in one fill, the rest clear.
+  useEffect(() => {
+    const el = coldCanvas.current;
+    if (!el || !cold) return;
+    el.width = cold.width;
+    el.height = cold.height;
+    const ctx = el.getContext?.('2d');
+    if (!ctx) return;
+    const image = ctx.createImageData(cold.width, cold.height);
+    for (let i = 0; i < cold.mask.length; i++) if (cold.mask[i]) image.data.set(COLD_RGBA, 4 * i);
+    ctx.putImageData(image, 0, 0);
+  }, [cold]);
+
   // North is up: the picture turns by the longitude and the arrows follow the azimuths.
   const view = turnedView(lon);
   const shownKm = widthKm / view.scale;
@@ -93,9 +122,17 @@ export function ShadowMap({
   const name = siteNameBox(nameWords, [sunPlate.box, earthPlate.box, compassBox, scaleBox], sizePx);
   // The page's own words for the site when given, so the description never disagrees with the sentence above the map.
   const said = !picture ? ': being worked out.' : siteState ? `. The site is ${siteState}.` : picture.siteLit ? '. The site is in sunlight.' : '. The site is in shadow.';
+  const marked = cold && picture ? ' Ground below 110 K all year in NASA’s Diviner model, where ice could last, is marked.' : '';
+  const turn = `rotate(${Math.round(view.rotateDeg * 100) / 100}deg) scale(${Math.round(view.scale * 10000) / 10000})`;
   return (
-    <LabelGuard role="img" aria-label={`Shadows at ${when}${said}`} className="relative aspect-square h-full overflow-hidden bg-stage">
-      <canvas ref={canvas} aria-hidden="true" className={`absolute inset-0 h-full w-full ${picture ? '' : 'invisible'}`} style={{ transform: `rotate(${Math.round(view.rotateDeg * 100) / 100}deg) scale(${Math.round(view.scale * 10000) / 10000})` }} />
+    <LabelGuard role="img" aria-label={`Shadows at ${when}${said}${marked}`} className="relative aspect-square h-full overflow-hidden bg-stage">
+      <canvas ref={canvas} aria-hidden="true" className={`absolute inset-0 h-full w-full ${picture ? '' : 'invisible'}`} style={{ transform: turn }} />
+      {/* The cold ground, turned with the picture: its cells drawn sharp, as large as the model's, never smoothed. */}
+      {cold && picture && (
+        <div data-layer="cold" aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transform: turn }}>
+          <canvas ref={coldCanvas} className="absolute" style={{ left: pct(cold.rect.left), top: pct(cold.rect.top), width: pct(cold.rect.width), height: pct(cold.rect.height), imageRendering: 'pixelated' }} />
+        </div>
+      )}
       <div ref={measure} aria-hidden="true" className="pointer-events-none absolute inset-0" />
       {!picture && (
         <p aria-hidden="true" className="absolute inset-x-0 top-[30%] text-center text-[15px] text-stage-ink">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POWER } from '@/lib/engine/power';
-import { NO_REQUIREMENTS } from '@/lib/plan/requirements';
+import { NO_REQUIREMENTS, requirementCount } from '@/lib/plan/requirements';
 import { comparisonHref, readComparison, writeComparison, LINK_VERSION } from './codec';
 import type { Scenario } from './scenario';
 
@@ -108,6 +108,13 @@ describe('the requirements in a comparison’s link', () => {
     expect(comparisonHref([], '/compare', req)).toBe('/compare');
     expect(readComparison(writeComparison([base])).requirements).toBeUndefined();
     expect(readComparison(writeComparison([base])).scenarios).toHaveLength(1);
+  });
+
+  it('carries the requirement on the terrain versions too, and a link that names only others leaves it none', () => {
+    const q = writeComparison([base], { ...NO_REQUIREMENTS, minHoldPct: 90 });
+    expect(q.endsWith('&minhold=90')).toBe(true);
+    expect(readComparison(q).requirements).toEqual({ ...NO_REQUIREMENTS, minHoldPct: 90 });
+    expect(requirementCount(readComparison(`${writeComparison([base])}&maxgap=72`).requirements!)).toBe(1);
   });
 
   it('takes the requirements it names as one set, a malformed one left out, and none from a newer version', () => {

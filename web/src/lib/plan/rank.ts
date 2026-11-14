@@ -1,6 +1,6 @@
 import { spanShort } from '../viz/format';
 import type { Outcome } from './outcome';
-import { checkRequirements, failedWords, midSentence, type Check, type Requirements } from './requirements';
+import { checkRequirements, failedWords, midSentence, type Check, type Holds, type Requirements } from './requirements';
 
 /** What every recommendation is ranked by, said where the recommendations are. */
 export const OBJECTIVE =
@@ -139,11 +139,20 @@ export interface Option<T> {
   checks: Check[];
   /** How many requirements it fails. */
   failed: number;
+  /** In how many terrain versions it holds, where they were worked out for it. */
+  holds?: Holds | null;
 }
 
-export function optionOf<T>(item: T, outcome: Outcome, req: Requirements): Option<T> {
-  const checks = checkRequirements(outcome, req);
-  return { item, outcome, checks, failed: checks.filter((c) => !c.met).length };
+/**
+ * A choice checked against the requirements. How often it still holds across the terrain versions ranks it only through
+ * the optional requirement "holds in at least N % of terrain versions" (Requirements.minHoldPct), which then counts as any
+ * other: a choice that holds in fewer versions fails it and ranks below every choice that meets them all. It is a
+ * requirement and not a criterion of its own after them so that, unless a planner sets it, the ranking and the better
+ * date stay exactly as worked out on the app's own skyline: a share of versions rests on an error model's assumptions.
+ */
+export function optionOf<T>(item: T, outcome: Outcome, req: Requirements, holds?: Holds | null): Option<T> {
+  const checks = checkRequirements(outcome, req, holds);
+  return { item, outcome, checks, failed: checks.filter((c) => !c.met).length, holds: holds ?? null };
 }
 
 /**

@@ -99,8 +99,8 @@ export function UncertaintySection({ load = defaultLoad }: { load?: () => Promis
 
       <Fold label="Each source apart" className="mt-4">
         <p className="max-w-[46em] text-[15px] text-ink-2">
-          The terrain data matters most near the pole, where the Sun and Earth cross the hills slowly; the hourly steps add up to an hour; the planets&apos; positions add seconds. Hourly steps: how much later the hourly forecast names an event than one-minute steps find it. Terrain data: how far the event moves with NASA&apos;s adjusted maps, and with them raised and lowered
-          by their own stated height error; an event those maps do not have at all is counted as lost. Planets&apos; positions: the largest gap to JPL Horizons, as time. Each is the 95th percentile.
+          The terrain data matters most near the pole, where the Sun and Earth cross the hills slowly; the hourly steps add up to an hour; the planets&apos; positions add seconds. Hourly steps: how much later the hourly forecast names an event than one-minute steps find it. Terrain data: how far the event moves with NASA&apos;s adjusted maps, with them raised and lowered
+          by their own stated height error, and over the terrain versions (their 95th percentile, where the site has them); an event those maps, or more than one version in twenty, do not have at all is counted as lost. Planets&apos; positions: the largest gap to JPL Horizons, as time. Each is the 95th percentile.
         </p>
         <Table label="Each source apart" minW={760}>
           <thead>

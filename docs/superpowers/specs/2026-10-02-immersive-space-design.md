@@ -902,3 +902,60 @@ In this order, so her own words come before the planner's ("show me the Sun" tur
 ### 22.4 Tested
 
 Each part test-first: the commands (every phrasing above, spoken numbers and names), the controls lent and kept for a page about to open, the runner (each command's effect and reply, the planner's actions applied and logged, the model's answer and its failure), the browser's voice (recognition under either name, the voice chosen, the time limit), the engine (listening only when on, acting, speaking without listening, listening again after the browser's silence, goodbye, typed words without voice input and with the microphone blocked), the button and panel, and each page's controls. End to end in the built app, with a stand-in speech recognition that hears scripted phrases and a stand-in voice (headless Chromium has no microphone): 18 checks pass, from turning her on through "open the forecast", a spoken comparison with mis-heard names and spoken numbers, "stand at the site", "turn to Earth", "next", "play", "faster", "pause", the theme, typed "go home" and "fly to the south pole" to "stop listening".
+
+## 24. Amendment: terrain versions, shadows against pictures from orbit, and modelled cold traps (14 November 2026)
+
+Three steps of the ML study (`docs/ml-feasibility.md`), built on their own branches on 14 November and merged with
+Lea's frontend and Maroun's ranking. Each adds to the pages; none changes a figure of a verdict. The method and the
+figures are in `docs/method.md` ("Terrain versions", Validation item 5, "Modelled cold traps").
+
+### 24.1 Terrain versions
+
+- `data/ensemble` holds the error model fitted to the app's LOLA heights minus PGDA product 90's (its size by slope
+  and stated error, its correlation length per grid) and 32 versions of the ground for each of the 21 polar sites,
+  each traced to a skyline with the pipeline's march. A worker runs the app's engine over each version for the chosen
+  landing and period.
+- Explore: a closed fold, "Terrain versions" (two words), after "Times ±N h". It gives how many versions keep the
+  verdict or meet the requirements, the range of time with power, first sunset, longest night and contact while
+  powered beside the app's figure ("outside every version" when so), what the versions assume and do not establish,
+  and a link to `/validate#versions`.
+- Requirements: an optional fifth one, "Holds in at least N % of terrain versions", ranking the period's landing
+  times like any requirement. The brief and the view from the site rank by it as Explore does, working the versions
+  out only while it is set; links and scenario files carry it with the others, as one set (`minhold`, in percent;
+  `minTerrainVersionsHeldPercent` in a file, only when set). Places nearby, the 12-month search and Compare do not
+  check it, and the note under its box says so.
+- Compare: a "Terrain versions" row whose name is a switch, as the row of your requirements is: each scenario's
+  versions open on a tap, so the example comparison keeps to its 750 words. The brief: "Across terrain versions".
+  Accuracy: a "Terrain versions" part.
+- The budget's terrain part takes the versions: an event's terrain spread is the larger of its shift under the
+  stated-error skylines and the 95th percentile of its shifts over the versions that keep it. 68 margins grew and
+  none shrank; the default landing (de Gerlache Rim 2, 1 January 2027) shows "Times ±8 h" where it showed ±4.5 h.
+- Versions exist only for the polar catalogue sites at the 2 m mast. A share of versions rests on the error model
+  and is not the chance that a landing works.
+
+### 24.2 Where shadows fall in pictures from orbit
+
+- Accuracy has a fourth check, "Where shadows fall in pictures from orbit", after "How much sunlight a site gets", in
+  the same panel style as the other checks.
+- Its mark is worked out from the rows of `data/validation/images.json`: "Passes: every picture meets the mark" or
+  "Misses: N of M pictures fall short". It misses: 17 of the 20 pictures meet the mark, which was set after a first
+  look at five pictures and not changed after. The three that fall short were all taken with the Sun 1.1° up or less.
+- The figure is the typical picture's share of ground called alike. The sentence gives the share of the disagreement
+  on shadows' edges and the control with the Sun turned a quarter round.
+- "Show the numbers" lists every picture, how a picture is read, how the frames were picked, and the sources and
+  the command. Without the file, the panel is left out.
+- The page's verdict line counts it: "Three of four checks meet their criteria; past missions are context, not a
+  check." The home page keeps its two checks and Blue Ghost as context, and says that a third, this one, misses its
+  own mark; the assistant's rehearsed answer on Accuracy says so too.
+
+### 24.3 Modelled cold traps
+
+- For each polar catalogue site south of 80° S, beside power and radio, one line gives the ground within 5 km whose
+  annual maximum surface temperature stays below 110 K in LRO Diviner's thermal model (Paige et al. 2010), the
+  nearest such ground, and the steepest 20 m slope on a straight line to it, from PGDA product 90.
+- The brief adds the ground where the model lets ice last at the surface or within 0.5 m. The site list gives the
+  5 km figure on each row, across the whole row under its figures, in Lea's layout. The shadow map offers the cold
+  ground as a layer, off by default, with a line in its key.
+- The wording is always "modelled conditions where ice could last", never ice alone, a probability or a detection,
+  and How it works says what the layer does not establish. Sites north of 80° S say the model does not reach them.
+- The data lives in `data/coldtraps`, an optional part of the manifest.

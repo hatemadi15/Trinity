@@ -49,10 +49,20 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("fixture-sky", help="write SPICE fixtures for the web's sky maths")
     sub.add_parser("validate", help="write the evidence tables (Horizons, LOLA maps, power sums, mission context) into data/validation")
     sub.add_parser("pgda90-fetch", help="download PGDA product 90's adjusted 80 m and 240 m models and their height errors")
+    sub.add_parser("images", help="compare the app's terrain shadows with LRO camera pictures into data/validation/images.json")
     un = sub.add_parser("uncertainty", help="write the uncertainty budget (sampling, terrain, ephemeris) into data/uncertainty")
     un.add_argument("--site", action="append", help="only these sites (default: every featured site)")
     un.add_argument("--start", default="2025-01-01T00:00:00")
     un.add_argument("--days", type=int, default=730)
+    sub.add_parser("error-model", help="fit the terrain error model (the app's LOLA heights against product 90's) into data/ensemble/error_model.json")
+    en = sub.add_parser("ensemble", help="draw terrain versions from the error model for every polar site into data/ensemble")
+    en.add_argument("--site", action="append", help="only these polar sites (default: every one)")
+    en.add_argument("--versions", type=int, default=32, help="versions per site (default 32)")
+    en.add_argument("--seed", type=int, default=20261115)
+    en.add_argument("--index-only", action="store_true", help="only write the index again from the stored versions")
+    ct = sub.add_parser("coldtraps", help="write data/coldtraps: modelled cold traps near each polar site (LRO Diviner, PGDA product 90)")
+    ct.add_argument("--site", action="append", help="only these polar sites (default: every polar catalogue site)")
+    ct.add_argument("--zip", type=Path, help="the Diviner zip (default: data_raw/diviner/dlre_prp_south.zip, downloaded when absent)")
     sl = sub.add_parser("sync-local", help="copy artifacts into web/public/data")
     sl.add_argument("--tiles", action="store_true")
     sub.add_parser("home-assets", help="render the home page picture, the relief map and home.json into web/")
@@ -138,6 +148,10 @@ def main(argv: list[str] | None = None) -> None:
 
         for path in write_all():
             print(path)
+    elif args.cmd == "images":
+        from .images import run
+
+        print(run())
     elif args.cmd == "pgda90-fetch":
         from .pgda90 import fetch_full
 
@@ -147,6 +161,21 @@ def main(argv: list[str] | None = None) -> None:
         from .uncertainty import build, write_doc
 
         print(write_doc(build(site_ids=args.site, start_utc=args.start, days=args.days)))
+    elif args.cmd == "error-model":
+        from .terrain_error import OUT_DIR, fit
+
+        fit()
+        print(OUT_DIR / "error_model.json")
+    elif args.cmd == "ensemble":
+        from .ensemble import build, reindex
+
+        doc = reindex() if args.index_only else build(site_ids=args.site, n=args.versions, seed=args.seed)
+        print(f"data/ensemble: {len(doc['sites'])} sites, {doc['bytes']} bytes")
+    elif args.cmd == "coldtraps":
+        from . import coldtraps
+
+        for path in coldtraps.write_all(args.zip, args.site):
+            print(path)
     elif args.cmd == "manifest":
         from . import manifest
 

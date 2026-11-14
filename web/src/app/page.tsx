@@ -288,7 +288,7 @@ export default function Home() {
                     Checked against <em>NASA</em>
                   </>
                 }
-                lede="Two steps are compared with independent NASA sources, and a real mission gives context. The smaller the gap, the better."
+                lede="Two steps are compared with independent NASA sources, and a real mission gives context. The smaller the gap, the better. A third, where shadows fall in pictures from orbit, misses its own mark; Accuracy shows where."
               />
               {/* Under 768 px each row becomes a block and the column heads stay for screen readers only. */}
               <table className="mt-10 w-full border-collapse border-t border-ink text-left max-md:block">

@@ -247,19 +247,107 @@ export interface BackcastsDoc {
   rows: BackcastRow[];
 }
 
+/** The share of a picture's ground called lit or dark alike, and how much of each kind the app found; null where the picture has none of that kind. */
+export interface PictureScores {
+  agree: number;
+  light_found: number | null;
+  shadow_found: number | null;
+  shadow_confirmed: number | null;
+  app_lit: number;
+}
+
+/** One picture against the app's shadows at the moment it was taken (`pipeline/lunar_pipeline/images.py`). */
+export interface PictureRow extends PictureScores {
+  site_id: string;
+  camera: 'WAC' | 'NAC';
+  picture: string;
+  observation: string;
+  start_utc: string;
+  stop_utc: string;
+  mid_utc: string;
+  sun_az_deg: number;
+  sun_el_deg: number;
+  data_share: number;
+  bearing_deg: number;
+  picture_px_m: number;
+  app_px_m: number;
+  picture_pixels: number;
+  pixels: number;
+  km2: number;
+  brightness_scale: number;
+  brightness_scale_picture_alone: number;
+  seen_lit: number;
+  majority: number;
+  disagree_on_edges: number | null;
+  agree_away_from_edges: number;
+  away_from_edges_share: number;
+  agree_at_quarter_sunlight: number;
+  agree_at_three_quarters_sunlight: number;
+  best_offset_m: [number, number];
+  agree_at_best_offset: number;
+  agree_sun_turned_90: number;
+  /** The same picture against the same sweep over product 90's adjusted terrain. */
+  product90: PictureScores;
+}
+
+/** How the frames were picked at one site. */
+export interface PictureSite {
+  site_id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  app_px_m: number;
+  map_km: number;
+  candidates: number;
+  covered: number;
+  sun_high_enough: number;
+  rejected_for_gaps: string[];
+  pictures: number;
+}
+
+export interface PicturesCoverage {
+  sites: string[];
+  pictures: number;
+  wac_pictures: number;
+  nac_pictures: number;
+  pixels: number;
+  km2: number;
+  first_utc: string | null;
+  last_utc: string | null;
+  sun_el_deg: [number, number] | null;
+  period: [string, string];
+  min_sun_el_deg: number;
+  min_data_share: number;
+}
+
+export interface PicturesDoc {
+  generated_utc: string;
+  evidence: Evidence<PicturesCoverage> & { criteria: { rule: string; min_agree: number; min_found: number } };
+  method: Record<string, string>;
+  sources: string[];
+  downloads: Record<string, number | string[]>;
+  summary: Record<string, number | null>;
+  rows: PictureRow[];
+  sites: PictureSite[];
+}
+
 export interface ValidationDocs {
   horizons: HorizonsDoc;
   mazarico: MazaricoDoc;
   power: PowerDoc;
   backcasts: BackcastsDoc;
+  /** Shadows against camera pictures; absent from a data folder made before that check. */
+  images?: PicturesDoc;
 }
 
 export async function loadValidation(base: string): Promise<ValidationDocs> {
-  const [horizons, mazarico, power, backcasts] = await Promise.all([
+  const [horizons, mazarico, power, backcasts, images] = await Promise.all([
     fetchJson<HorizonsDoc>(`${base}/validation/horizons.json`),
     fetchJson<MazaricoDoc>(`${base}/validation/mazarico.json`),
     fetchJson<PowerDoc>(`${base}/validation/power.json`),
     fetchJson<BackcastsDoc>(`${base}/validation/backcasts.json`),
+    // The pictures' check came later: a folder without it still shows the other four.
+    fetchJson<PicturesDoc>(`${base}/validation/images.json`).catch(() => undefined),
   ]);
-  return { horizons, mazarico, power, backcasts };
+  return images ? { horizons, mazarico, power, backcasts, images } : { horizons, mazarico, power, backcasts };
 }

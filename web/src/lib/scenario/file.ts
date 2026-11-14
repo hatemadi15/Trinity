@@ -1,6 +1,6 @@
 import { siteLabel, type Site } from '../data/loaders';
 import type { PowerConfig } from '../engine/power';
-import { NO_REQUIREMENTS, requirementCount, type Check, type Requirements } from '../plan/requirements';
+import { oneSet, requirementCount, type Check, type Requirements } from '../plan/requirements';
 import { parseRequirements, REQUIREMENT_NAMES } from '../share/settings';
 import { checkScenario, comparisonHref, panelCode, SCENARIO_MAX, startCode, timingCode, unreadWords, withIds } from './codec';
 import type { Outcome } from './outcome';
@@ -26,7 +26,7 @@ export interface FileFigures {
   longestNightHours: number;
 }
 
-/** The mission's requirements as a file keeps them, each in hours, null for none. */
+/** The mission's requirements as a file keeps them, each in hours, null for none; the share of terrain versions in percent, only when set. */
 export interface FileRequirements {
   /** Power for at least this many hours in a row from landing. */
   minTimeWithPowerHours: number | null;
@@ -36,6 +36,8 @@ export interface FileRequirements {
   maxTimeWithoutEarthWhilePoweredHours: number | null;
   /** Earth in view while the lander has power, at least this many hours. */
   minEarthInViewWhilePoweredHours: number | null;
+  /** Holds in at least this share of terrain versions, in percent; absent when not set. */
+  minTerrainVersionsHeldPercent?: number | null;
 }
 
 /** Each requirement's name in a file, beside the store's. */
@@ -44,6 +46,7 @@ const FILE_REQUIREMENTS: [keyof Requirements, keyof FileRequirements][] = [
   ['contactWithinH', 'earthInViewWithinHours'],
   ['maxOutageH', 'maxTimeWithoutEarthWhilePoweredHours'],
   ['minPoweredContactH', 'minEarthInViewWhilePoweredHours'],
+  ['minHoldPct', 'minTerrainVersionsHeldPercent'],
 ];
 
 /** One requirement checked against a scenario's figures when the file was saved, in hours. */
@@ -99,7 +102,9 @@ export interface FileColumn {
   checks?: Check[];
 }
 
-const fileRequirements = (req: Requirements): FileRequirements => Object.fromEntries(FILE_REQUIREMENTS.map(([key, name]) => [name, req[key]])) as unknown as FileRequirements;
+/** The four in hours always, null for none; the share of terrain versions only when it is set. */
+const fileRequirements = (req: Requirements): FileRequirements =>
+  Object.fromEntries(FILE_REQUIREMENTS.flatMap(([key, name]) => (key === 'minHoldPct' && (req[key] ?? null) === null ? [] : [[name, req[key] ?? null]]))) as unknown as FileRequirements;
 const fileCheck = (c: Check): FileCheck => ({ requirement: c.label, met: c.met, valueHours: c.value, limitHours: c.limit, marginHours: c.margin });
 
 export function figuresOf(o: Outcome): FileFigures {
@@ -175,7 +180,7 @@ function requirementsFrom(x: unknown): Requirements | undefined {
   const q = new URLSearchParams();
   for (const [key, name] of FILE_REQUIREMENTS) if (typeof x[name] === 'number') q.set(REQUIREMENT_NAMES[key], String(x[name]));
   const read = parseRequirements(q);
-  return Object.keys(read).length > 0 ? { ...NO_REQUIREMENTS, ...read } : undefined;
+  return Object.keys(read).length > 0 ? oneSet(read) : undefined;
 }
 
 /** Reads a scenario file, checking every setting as a link's are checked; a scenario that fails is left out, and said to be. */

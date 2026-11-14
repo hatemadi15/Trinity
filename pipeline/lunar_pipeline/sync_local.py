@@ -9,7 +9,7 @@ from pathlib import Path
 from . import config
 
 WEB_DATA = config.REPO_ROOT / "web" / "public" / "data"
-SMALL_DIRS = ["ephemeris", "masks", "fixtures", "validation", "sky", "uncertainty"]
+SMALL_DIRS = ["ephemeris", "masks", "fixtures", "validation", "sky", "uncertainty", "ensemble", "coldtraps"]
 SMALL_FILES = ["sites.json", "sites_derived.json"]
 # Compact catalogue copy bundled into the web app (the chat route cannot read data/ at runtime on Vercel).
 CATALOGUE = config.REPO_ROOT / "web" / "src" / "lib" / "data" / "catalogue.json"

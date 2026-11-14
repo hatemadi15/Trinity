@@ -46,6 +46,15 @@ def test_sync_copies_the_uncertainty_budget_for_the_app(tmp_path: Path, monkeypa
     assert web / "uncertainty" in sync(web, catalogue=tmp_path / "catalogue.json")
     assert (web / "uncertainty" / "budget.json").read_text() == '{"version": 1}'
 
+def test_sync_copies_the_modelled_cold_traps_for_the_app(tmp_path: Path, monkeypatch):
+    data, web = tmp_path / "data", tmp_path / "web"
+    (data / "coldtraps").mkdir(parents=True)
+    (data / "coldtraps" / "coldtraps.json").write_text('{"version": 1}')
+    monkeypatch.setattr(config, "DATA_DIR", data)
+    assert web / "coldtraps" in sync(web, catalogue=tmp_path / "catalogue.json")
+    assert (web / "coldtraps" / "coldtraps.json").read_text() == '{"version": 1}'
+
+
 def test_sync_copies_the_asset_manifest_beside_the_data(tmp_path: Path, monkeypatch):
     data, web = tmp_path / "data", tmp_path / "web"
     data.mkdir()
@@ -54,3 +63,12 @@ def test_sync_copies_the_asset_manifest_beside_the_data(tmp_path: Path, monkeypa
     # The published data and the release zip then carry the list of files they should hold.
     assert web / "manifest.json" in sync(web, catalogue=tmp_path / "catalogue.json")
     assert (web / "manifest.json").read_text() == '{"format": 1}'
+
+
+def test_sync_copies_the_terrain_versions_for_the_app(tmp_path: Path, monkeypatch):
+    data, web = tmp_path / "data", tmp_path / "web"
+    (data / "ensemble").mkdir(parents=True)
+    (data / "ensemble" / "index.json").write_text('{"version": 1}')
+    monkeypatch.setattr(config, "DATA_DIR", data)
+    assert web / "ensemble" in sync(web, catalogue=tmp_path / "catalogue.json")
+    assert (web / "ensemble" / "index.json").read_text() == '{"version": 1}'

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BackcastsDoc, HorizonsDoc, MazaricoDoc, PowerDoc, ValidationDocs } from '@/lib/data/validation';
 import { readJson } from '@/lib/engine/__tests__/helpers';
-import { appAnswer, evidenceCards, POWER_TOLERANCE } from './checks';
+import { appAnswer, checksVerdict, evidenceCards, POWER_TOLERANCE } from './checks';
 
 const docs: ValidationDocs = {
   horizons: readJson<HorizonsDoc>('data', 'validation', 'horizons.json'),
@@ -95,5 +95,17 @@ describe('evidenceCards', () => {
     // However far the end falls from sunset, context never passes or misses.
     const late = { ...docs.backcasts, rows: docs.backcasts.rows.map((r) => (r.site_id === 'blue_ghost_m1' ? { ...r, end_minus_sunset_h: 30 } : r)) };
     expect(evidenceCards({ ...docs, backcasts: late })[3]).toMatchObject({ pass: null, mark: 'Context, not a check' });
+  });
+});
+
+describe('checksVerdict', () => {
+  it('counts the checks that meet their criteria in words, of however many there are', () => {
+    expect(checksVerdict(3, 3)).toBe('Three checks meet their criteria');
+    expect(checksVerdict(2, 3)).toBe('Two of three checks meet their criteria');
+    expect(checksVerdict(1, 3)).toBe('One of three checks meets its criteria');
+    expect(checksVerdict(0, 3)).toBe('No check meets its criteria');
+    expect(checksVerdict(4, 4)).toBe('Four checks meet their criteria');
+    expect(checksVerdict(3, 4)).toBe('Three of four checks meet their criteria');
+    expect(checksVerdict(1, 4)).toBe('One of four checks meets its criteria');
   });
 });

@@ -92,6 +92,15 @@ describe('a scenario file', () => {
     expect(back.scenarios.map(settings)).toEqual([base, later].map(settings));
   });
 
+  it('keeps the requirement on the terrain versions, in percent, only when it is set, and reads it back', () => {
+    const req = { ...NO_REQUIREMENTS, minPoweredH: 120, minHoldPct: 90 };
+    const f = scenarioFile(cols, versions, NOW, req);
+    expect(f.requirements).toEqual({ minTimeWithPowerHours: 120, earthInViewWithinHours: null, maxTimeWithoutEarthWhilePoweredHours: null, minEarthInViewWhilePoweredHours: null, minTerrainVersionsHeldPercent: 90 });
+    expect(readScenarioFile(JSON.stringify(f)).requirements).toEqual(req);
+    // Without it, the file has no such field at all.
+    expect(Object.keys(scenarioFile(cols, versions, NOW, { ...NO_REQUIREMENTS, minPoweredH: 120 }).requirements!)).not.toContain('minTerrainVersionsHeldPercent');
+  });
+
   it('reads a file saved with no requirement set, or before files carried them, with none, and leaves out one it cannot use', () => {
     const plain = scenarioFile(cols, versions, NOW, NO_REQUIREMENTS);
     expect(plain.requirements).toBeUndefined();

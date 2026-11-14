@@ -79,28 +79,34 @@ export function parseRank(search: string | URLSearchParams): RankBy | null {
 }
 
 /**
- * The name each of the mission's requirements has in a link, its value in hours as the store keeps it: power for at
+ * The name each of the mission's requirements has in a link, its value as the store keeps it: in hours, power for at
  * least so many hours, Earth in view by so many hours after landing, the longest time without Earth while powered,
- * and Earth contact while powered. They rank the recommendations rather than change the figures, and a link names only
- * those set.
+ * and Earth contact while powered; in percent, the least share of terrain versions a choice holds in. They rank the
+ * recommendations rather than change the figures, and a link names only those set.
  */
 export const REQUIREMENT_NAMES: Record<keyof Requirements, string> = {
   minPoweredH: 'minpower',
   contactWithinH: 'earthby',
   maxOutageH: 'maxgap',
   minPoweredContactH: 'mincontact',
+  minHoldPct: 'minhold',
 };
 
 /** The requirements in the order a link writes them, the order every list of checks gives them. */
-const REQUIREMENT_KEYS: (keyof Requirements)[] = ['minPoweredH', 'contactWithinH', 'maxOutageH', 'minPoweredContactH'];
+const REQUIREMENT_KEYS: (keyof Requirements)[] = ['minPoweredH', 'contactWithinH', 'maxOutageH', 'minPoweredContactH', 'minHoldPct'];
 
-/** What a requirement may be: none to 90 days in hours, as the boxes on Explore and in the planner take them. */
+/**
+ * What a requirement may be, as the boxes on Explore and in the planner take them: none to 90 days in hours, and for
+ * the share of terrain versions none to 100 %.
+ */
 const REQUIREMENT_RANGE: NumberRange = { min: 0, max: 90 * 24, step: 1 };
+const HOLD_RANGE: NumberRange = { min: 0, max: 100, step: 1 };
+const rangeOf = (key: keyof Requirements) => (key === 'minHoldPct' ? HOLD_RANGE : REQUIREMENT_RANGE);
 
 /** The requirements that are set, as a link's names and values; none when none is set. */
 export function requirementEntries(req: Requirements): [string, string][] {
   return REQUIREMENT_KEYS.flatMap((key) => {
-    const v = req[key];
+    const v = req[key] ?? null;
     return v === null ? [] : [[REQUIREMENT_NAMES[key], write(v)] as [string, string]];
   });
 }
@@ -164,15 +170,16 @@ export function parseSettings(search: string | URLSearchParams): SettingsPatch {
 }
 
 /**
- * Reads the requirements a link names, each in hours. A value a requirement's box could not take (malformed, negative or
- * over 90 days) is left out, as a bad setting is. The requirements are one set: a link that names any of them stands for
- * all four, those it leaves out as none (Explore's store applies it so).
+ * Reads the requirements a link names, each in hours, the share of terrain versions in percent. A value a requirement's
+ * box could not take (malformed, negative, over 90 days or over 100 %) is left out, as a bad setting is. The
+ * requirements are one set: a link that names any of them stands for all five, those it leaves out as none (Explore's
+ * store applies it so, through `oneSet`).
  */
 export function parseRequirements(search: string | URLSearchParams): Partial<Requirements> {
   const q = typeof search === 'string' ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search) : search;
   const out: Partial<Requirements> = {};
   for (const key of REQUIREMENT_KEYS) {
-    const v = readNumber(q.get(REQUIREMENT_NAMES[key]), REQUIREMENT_RANGE);
+    const v = readNumber(q.get(REQUIREMENT_NAMES[key]), rangeOf(key));
     if (v !== null) out[key] = v;
   }
   return out;

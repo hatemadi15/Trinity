@@ -2,6 +2,9 @@
 import { useId, useState } from 'react';
 import { Fold } from '../Fold';
 import { MiniStrip } from './MiniStrip';
+import { VersionsCell } from './VersionsCell';
+import type { VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
+import { NO_REQUIREMENTS, type Requirements } from '@/lib/plan/requirements';
 import type { ScenarioRun } from '@/lib/store/scenarios';
 import { figureRows, landingShort, settingRows, type Cell, type Column, type Tone } from '@/lib/viz/compare';
 import { isoAt, spanShort } from '@/lib/viz/format';
@@ -11,6 +14,9 @@ const TONE: Record<Tone, string> = {
   worse: 'text-bad',
   same: 'text-ink-2',
 };
+/** What the terrain versions' row means, for the table's key. */
+export const VERSIONS_MEANS =
+  'The same scenario over 32 versions of the ground drawn round NASA’s adjusted south-pole map (PGDA product 90) with errors as large as two generations of its maps differ by: how many still meet your requirements, or with none set give the same verdict, and the range of time with power. Compare does not check the requirement on a share of versions; this count is the share to read it against. Only the polar catalogue sites seen from a 2 m mast have versions; a share of versions is not the chance that the landing works.';
 const HEAD = 'sticky left-0 z-[1] bg-surface border-b border-line py-2.5 pr-4 text-left align-top text-[15px] font-semibold text-ink-2 max-sm:min-w-[118px]';
 const CELL = 'border-b border-line py-2.5 pr-4 align-top';
 
@@ -42,8 +48,9 @@ function Figure({ value, change, tone, checks, checksId, checksOpen }: Cell & { 
 }
 
 /**
- * The name of the row of your requirements, as the switch that opens each scenario's checks in its column: the count
- * of those failed shows first, the checks themselves one tap away, so the full comparison keeps to its words.
+ * The name of a row, as the switch that opens what each scenario's cell keeps one tap away: in the row of your
+ * requirements, the count of those failed shows first and the checks open; the terrain versions' row opens whole. So
+ * the full comparison keeps to its words.
  */
 function ChecksSwitch({ name, open, controls, onToggle }: { name: string; open: boolean; controls: string; onToggle: () => void }) {
   return (
@@ -60,12 +67,29 @@ function ChecksSwitch({ name, open, controls, onToggle }: { name: string; open: 
  * The scenarios side by side: one column each, the baseline first, the settings and then the figures, each figure with
  * its change from the baseline. A wide table scrolls inside its own box, the row names staying in view.
  */
-export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs: Record<string, ScenarioRun>; onUseBest: (id: string) => void }) {
+export function ScenarioTable({
+  cols,
+  runs,
+  onUseBest,
+  requirements = NO_REQUIREMENTS,
+  versions,
+}: {
+  cols: Column[];
+  runs: Record<string, ScenarioRun>;
+  onUseBest: (id: string) => void;
+  /** The requirements the terrain versions' row counts against; with none, a version keeps the scenario's verdict or not. */
+  requirements?: Requirements;
+  /** Injected in tests; by default each site's data/ensemble file and the versions' worker. */
+  versions?: VersionsDeps;
+}) {
   const settings = settingRows(cols);
   const figures = figureRows(cols);
   const id = useId();
   const [checksOpen, setChecksOpen] = useState(false);
   const checksId = (i: number) => `${id}-checks-${i}`;
+  // The terrain versions' row shows its name only: each scenario's versions are one tap on it away.
+  const [versionsOpen, setVersionsOpen] = useState(false);
+  const versionsId = (i: number) => `${id}-versions-${i}`;
   const pending = (i: number) => {
     const r = runs[cols[i].scenario.id];
     return r?.status === 'error' ? 'cannot be worked out' : 'working out…';
@@ -135,6 +159,18 @@ export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs:
             ))}
             <tr>
               <th scope="row" className={HEAD}>
+                <ChecksSwitch name="Terrain versions" open={versionsOpen} controls={cols.map((_, i) => versionsId(i)).join(' ')} onToggle={() => setVersionsOpen((v) => !v)} />
+              </th>
+              {cols.map((c, i) => (
+                <td key={c.scenario.id} className={`${CELL} text-[15px]`}>
+                  <div id={versionsId(i)} hidden={!versionsOpen}>
+                    <VersionsCell col={c} run={runs[c.scenario.id]} requirements={requirements} deps={versions} />
+                  </div>
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <th scope="row" className={HEAD}>
                 Its own best landing
               </th>
               {cols.map((c) => {
@@ -175,6 +211,10 @@ export function ScenarioTable({ cols, runs, onUseBest }: { cols: Column[]; runs:
               <dd className="text-ink-2">{row.means}</dd>
             </div>
           ))}
+          <div className="contents">
+            <dt className="font-semibold text-ink">Terrain versions</dt>
+            <dd className="text-ink-2">{VERSIONS_MEANS}</dd>
+          </div>
         </dl>
       </Fold>
     </>
