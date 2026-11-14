@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent } from 'react';
 import { Fold } from '@/components/Fold';
 import { lolaFor, Sources } from '@/components/Sources';
 import type { Site } from '@/lib/data/loaders';
@@ -131,7 +131,14 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
       return ready ? headline(ready.year, scoring) : 'Working out every landing day of the next 12 months.';
     },
   });
-  const months = yearMonths(anchor.startUtc, count);
+  const months = useMemo(() => yearMonths(anchor.startUtc, count), [anchor.startUtc, count]);
+  // Explore hands a new arrow each time it redraws (a dozen times a second during Play): the grid gets one that stays.
+  const landRef = useRef(onLand);
+  useEffect(() => {
+    landRef.current = onLand;
+  });
+  const first = anchor.startUtc;
+  const land = useCallback((k: number) => landRef.current(isoAt(first, k * 24)), [first]);
   const chosenDay = same && chosen !== null && chosen < count ? chosen : null;
   return (
     <div
@@ -156,7 +163,7 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
       )}
       {count > 0 && (
         <div className="stage px-2 py-3 sm:px-4">
-          <Months months={months} year={ready?.year ?? null} scoring={scoring} chosenDay={chosenDay} pointer={pointer} onLand={(k) => onLand(isoAt(anchor.startUtc, k * 24))} />
+          <Months months={months} year={ready?.year ?? null} scoring={scoring} chosenDay={chosenDay} pointer={pointer} onLand={land} />
           <ul aria-label="Key" className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[15px] text-stage-ink-2">
             {GRADES.map((g) => (
               <li key={g} className="flex items-center gap-2">
@@ -208,7 +215,8 @@ function createPointer(): Pointer {
   return p;
 }
 
-function Months({
+/** The months of the year, drawn again only when the year, the chosen day or the tab stop changes, not with the page. */
+const Months = memo(function Months({
   months,
   year,
   scoring,
@@ -227,6 +235,8 @@ function Months({
   const box = useRef<HTMLDivElement>(null);
   const hintId = useId();
   const count = year?.count ?? 0;
+  // Each day's grade and name, once per year worked out.
+  const days = useMemo(() => (year ? Array.from({ length: year.count }, (_, k) => ({ grade: gradeOf(year, k, scoring), label: dayLabel(year, k, scoring) })) : []), [year, scoring]);
   const tabStop = stop !== null && stop < count ? stop : (chosenDay ?? 0);
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const from = Number((e.target as HTMLElement).dataset.day);
@@ -272,10 +282,8 @@ function Months({
               <div role="row" key={r} className="grid grid-cols-7 gap-[2px]">
                 {row.map((k, c) => (
                   <div role="gridcell" key={c} className="aspect-square min-w-0">
-                    {k !== null && year && (
-                      <Day k={k} year={year} scoring={scoring} chosen={k === chosenDay} tabStop={k === tabStop} onLand={onLand} />
-                    )}
-                    {k !== null && !year && <span aria-hidden="true" className="block h-full w-full rounded-[3px] bg-stage-line" />}
+                    {k !== null && days[k] && <Day k={k} grade={days[k].grade} label={days[k].label} chosen={k === chosenDay} tabStop={k === tabStop} onLand={onLand} />}
+                    {k !== null && !days[k] && <span aria-hidden="true" className="block h-full w-full rounded-[3px] bg-stage-line" />}
                   </div>
                 ))}
               </div>
@@ -285,17 +293,17 @@ function Months({
       ))}
     </div>
   );
-}
+});
 
-function Day({ k, year, scoring, chosen, tabStop, onLand }: { k: number; year: YearOfLandings; scoring: DayScoring; chosen: boolean; tabStop: boolean; onLand: (k: number) => void }) {
-  const grade = gradeOf(year, k, scoring);
+/** One landing day: a square in its grade's colour, named by its date and figures; pressed, it lands the period there. */
+const Day = memo(function Day({ k, grade, label, chosen, tabStop, onLand }: { k: number; grade: Grade; label: string; chosen: boolean; tabStop: boolean; onLand: (k: number) => void }) {
   return (
     <button
       type="button"
       data-day={k}
       data-grade={grade}
       tabIndex={tabStop ? 0 : -1}
-      aria-label={dayLabel(year, k, scoring)}
+      aria-label={label}
       aria-current={chosen ? 'date' : undefined}
       onClick={() => onLand(k)}
       className={`relative block h-full w-full rounded-[3px] ${chosen ? 'outline-2 outline-offset-1 outline-stage-ink' : ''}`}
@@ -304,7 +312,7 @@ function Day({ k, year, scoring, chosen, tabStop, onLand }: { k: number; year: Y
       {grade === 'best' && <BestDot />}
     </button>
   );
-}
+});
 
 /** The figures of the day under the pointer or the focus, in words, the day shown above saying so; how to use the year when there is none. */
 function Readout({ year, scoring, chosenDay, pointer }: { year: YearOfLandings; scoring: DayScoring; chosenDay: number | null; pointer: Pointer }) {
