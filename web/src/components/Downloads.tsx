@@ -1,5 +1,5 @@
 'use client';
-import { aboutJson, hourlyCsv, numbersCsv, windowsCsv, type CsvFile, type ExportInput, type RadioWindowRow } from '@/lib/share/csv';
+import { aboutJson, hourlyCsv, numbersCsv, windowsCsv, type CsvFile, type ExportInput } from '@/lib/share/csv';
 import { saveFile } from '@/lib/share/download';
 import type { Provenance } from '@/lib/share/provenance';
 
@@ -21,23 +21,20 @@ export function Downloads({
   input,
   provenance,
   link,
-  windows,
   save = saveFile,
 }: {
   input: ExportInput;
   provenance: Provenance;
   /** The full address that opens the same figures, written into the JSON file. */
   link: string;
-  /** The radio windows to list; the engine's contact intervals when not given. */
-  windows?: RadioWindowRow[];
   /** Injected in tests; by default the browser's download. */
   save?: (name: string, text: string, type: string) => void;
 }) {
-  const tables = (): CsvFile[] => [hourlyCsv(input), numbersCsv(input, provenance), windowsCsv(input, windows)];
+  const tables = (): CsvFile[] => [hourlyCsv(input), numbersCsv(input, provenance), windowsCsv(input)];
   const files: { label: string; note: string; type: string; make: () => { name: string; text: string } }[] = [
     { label: 'Hour by hour (CSV)', note: `the Sun and Earth, the panel and the battery for each of the ${input.series.hours} hours`, type: CSV, make: () => hourlyCsv(input) },
     { label: 'All numbers (CSV)', note: 'every figure, with the settings behind it', type: CSV, make: () => numbersCsv(input, provenance) },
-    { label: 'Radio windows (CSV)', note: 'each time Earth is in view: when it opens and closes, and for how long', type: CSV, make: () => windowsCsv(input, windows) },
+    { label: 'Radio windows (CSV)', note: 'each time Earth is in view: when it opens and closes, and for how long', type: CSV, make: () => windowsCsv(input) },
     { label: 'Settings and sources (JSON)', note: 'the settings, versions, data sources and assumptions behind the tables, each column described, and the link', type: JSON_TYPE, make: () => aboutJson(input, provenance, link, tables(), nowUtc()) },
   ];
   return (

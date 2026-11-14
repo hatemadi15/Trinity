@@ -1,11 +1,12 @@
 import type { Site } from '../data/loaders';
 import type { Ephemeris } from '../engine/ephemeris';
 import type { Landing } from '../engine/landing';
-import { contactWindows, type Series, type Summary } from '../engine/metrics';
+import type { Series, Summary } from '../engine/metrics';
 import type { PowerResult } from '../engine/power';
 import { etToIso } from '../engine/time';
 import { batteryHours } from '../lander';
 import type { MaskMeta, PlannerParams } from '../store/explore';
+import { contactPlan, type RadioWindow } from '../viz/contact';
 import type { Provenance } from './provenance';
 
 /**
@@ -124,11 +125,8 @@ export function hourlyCsv(x: ExportInput): CsvFile {
   return { name: `${fileStem(x.site.id, x.startUtc, x.days)}_hourly.csv`, columns: HOURLY_COLUMNS, text: table(HOURLY_COLUMNS, rows) };
 }
 
-/** A radio window: a run of hours with Earth in view, half-open [start, end) on the period's hours. */
-export interface RadioWindowRow {
-  start: number;
-  end: number;
-}
+/** A radio window as the radio panel lists it (viz/contact): a run of hours with Earth in view, half-open [start, end), and its powered hours. */
+export type RadioWindowRow = Pick<RadioWindow, 'start' | 'end' | 'hours' | 'fromStart' | 'toEnd' | 'poweredHours' | 'ifSurvivesHours'>;
 
 export const WINDOW_COLUMNS: Column[] = [
   { name: 'opens_utc', unit: 'UTC', description: 'the first hour with Earth in view; Earth rises within the hour before it' },
@@ -136,20 +134,16 @@ export const WINDOW_COLUMNS: Column[] = [
   { name: 'duration_h', unit: 'h', description: 'hours with Earth in view in the window' },
   { name: 'open_at_period_start', unit: '1 or 0', description: '1 when the window is already open at the first hour: it may have opened before the period' },
   { name: 'open_at_period_end', unit: '1 or 0', description: '1 when the window is still open at the last hour: it may close after the period' },
-  { name: 'powered_h', unit: 'h', description: 'hours of the window with the lander powered' },
+  { name: 'powered_h', unit: 'h', description: 'hours of the window with the lander powered, by the battery walk' },
+  { name: 'powered_if_survives_h', unit: 'h', description: 'of those, the hours after the first power cut: they hold only if the lander survives the cold without power' },
 ];
 
 /**
- * The radio windows, one row each: when Earth comes into view over the skyline and when it leaves, in UTC, and how much
- * of each the lander has power for. `windows` defaults to the engine's contact intervals.
+ * The radio windows, one row each, as the radio panel lists them: when Earth comes into view over the skyline and when it
+ * leaves, in UTC, how long, and how much of each the lander has power for. `windows` defaults to the period's contact plan.
  */
-export function windowsCsv(x: ExportInput, windows: RadioWindowRow[] = contactWindows(x.series)): CsvFile {
-  const n = x.series.hours;
-  const rows = windows.map((w) => {
-    let powered = 0;
-    for (let h = w.start; h < w.end; h++) powered += x.power.powered[h];
-    return [rowUtc(x.eph, x.series, w.start), rowUtc(x.eph, x.series, w.end), w.end - w.start, w.start === 0 ? 1 : 0, w.end === n ? 1 : 0, powered];
-  });
+export function windowsCsv(x: ExportInput, windows: RadioWindowRow[] = contactPlan(x.series, x.power).windows): CsvFile {
+  const rows = windows.map((w) => [rowUtc(x.eph, x.series, w.start), rowUtc(x.eph, x.series, w.end), w.hours, w.fromStart ? 1 : 0, w.toEnd ? 1 : 0, w.poweredHours, w.ifSurvivesHours]);
   return { name: `${fileStem(x.site.id, x.startUtc, x.days)}_radio_windows.csv`, columns: WINDOW_COLUMNS, text: table(WINDOW_COLUMNS, rows) };
 }
 
@@ -159,14 +153,6 @@ export const NUMBER_COLUMNS: Column[] = [
   { name: 'unit', unit: '', description: 'its unit' },
   { name: 'description', unit: '', description: 'what it measures' },
 ];
-
-/** Hours with Earth in view before the first power cut: the radio contact while it has power that Explore gives. */
-export function contactWhilePowered(series: Series, power: Pick<PowerResult, 'firstBrownoutHour'>): number {
-  const to = power.firstBrownoutHour ?? series.hours;
-  let n = 0;
-  for (let h = 0; h < to; h++) n += series.earthVisible[h];
-  return n;
-}
 
 /** Every figure of All numbers with the settings behind it and the period in UTC, one row each. */
 export function numbersCsv(x: ExportInput, provenance: Provenance): CsvFile {
@@ -200,7 +186,7 @@ export function numbersCsv(x: ExportInput, provenance: Provenance): CsvFile {
     ['longest_without_earth_h', s.longestEarthGapH, 'h', 'the longest stretch with Earth set'],
     ['sun_and_earth_fraction', fixed(s.jointFraction, 4), 'fraction 0 to 1', 'share of the hours with both'],
     ['time_with_power_h', withPower, 'h', 'from the landing until the battery first runs out (the whole period when it never does)'],
-    ['radio_contact_while_powered_h', contactWhilePowered(x.series, p), 'h', 'hours with Earth in view before the battery first runs out'],
+    ['radio_contact_while_powered_h', contactPlan(x.series, p).sureHours, 'h', 'hours with Earth in view before the battery first runs out'],
     ['time_without_power_h', p.brownoutHours, 'h', 'hours the lander is off in the period'],
     ['lowest_battery_fraction', fixed(p.socMin, 4), 'fraction 0 to 1', 'the lowest charge in the period'],
     ['mean_panel_power_w', fixed(p.meanPowerW, 2), 'W', "the panel's mean output over the period"],

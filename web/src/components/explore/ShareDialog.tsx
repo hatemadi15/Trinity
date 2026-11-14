@@ -2,7 +2,7 @@
 import { useMemo, useState, type RefObject } from 'react';
 import { DOWNLOAD_NOTE, Downloads } from '@/components/Downloads';
 import { Modal } from '@/components/Modal';
-import type { ExportInput, RadioWindowRow } from '@/lib/share/csv';
+import type { ExportInput } from '@/lib/share/csv';
 import { copyText, saveFile } from '@/lib/share/download';
 import { collectProvenance } from '@/lib/share/provenance';
 import type { AppVersion, DataVersions } from '@/lib/share/versions';
@@ -15,7 +15,6 @@ export function ShareDialog({
   input,
   link,
   versions,
-  windows,
   onClose,
   returnFocus,
   copy = copyText,
@@ -25,8 +24,6 @@ export function ShareDialog({
   /** The full address of Explore on this site, period and settings. */
   link: string;
   versions: { app: AppVersion; data: DataVersions };
-  /** The radio windows to list; the engine's contact intervals when not given. */
-  windows?: RadioWindowRow[];
   onClose: () => void;
   returnFocus?: RefObject<HTMLElement | null>;
   /** Injected in tests; by default the clipboard and the browser's download. */
@@ -56,7 +53,7 @@ export function ShareDialog({
       </p>
       <h3 className="mt-3 font-semibold">Download the figures</h3>
       <p className="mt-1 mb-3 max-w-[52em] text-[15px] text-ink-2">{DOWNLOAD_NOTE}</p>
-      <Downloads input={input} provenance={provenance} link={link} windows={windows} save={save} />
+      <Downloads input={input} provenance={provenance} link={link} save={save} />
     </Modal>
   );
 }

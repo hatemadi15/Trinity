@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hasFile } from '../engine/__tests__/helpers';
-import { contactWindows } from '../engine/metrics';
+import { contactPlan } from '../viz/contact';
 import { createExploreStore, type ExploreState } from '../store/explore';
 import { fileLoaders } from '@/test/file-loaders';
 import { aboutJson, ascii, cell, fileStem, fixed, HOURLY_COLUMNS, hourlyCsv, numbersCsv, WINDOW_COLUMNS, windowsCsv, type ExportInput } from './csv';
@@ -87,20 +87,27 @@ describe.skipIf(!haveData)('the files Explore and the brief save', () => {
     }
   });
 
-  it('list the radio windows as the engine finds them, opening and closing in UTC, with how long each lasts and its powered hours', async () => {
+  it('list the radio windows as the radio panel does: opening and closing in UTC, how long, and the hours with power, those after a power cut apart', async () => {
     const s = await explore('haworth');
+    const plan = contactPlan(s.series!, s.power!);
     const file = windowsCsv(input(s));
+    expect(file.name).toBe('earthrise_haworth_2027-01-01_30d_radio_windows.csv');
     const r = rows(file.text);
-    const windows = contactWindows(s.series!);
     expect(r[0]).toEqual(WINDOW_COLUMNS.map((c) => c.name));
-    expect(r).toHaveLength(windows.length + 1);
-    expect(windows.length).toBeGreaterThan(0);
-    const total = r.slice(1).reduce((sum, row) => sum + Number(row[2]), 0);
-    expect(total).toBe(Math.round(s.summary!.earthVisFraction * 720));
-    const first = r[1];
-    expect(first[0]).toBe(`${new Date(Date.UTC(2027, 0, 1) + windows[0].start * 3600_000).toISOString().slice(0, 19)}Z`);
-    expect(Number(first[2])).toBe(windows[0].end - windows[0].start);
-    expect(first[3]).toBe(windows[0].start === 0 ? '1' : '0');
+    expect(r[0]).toEqual(['opens_utc', 'closes_utc', 'duration_h', 'open_at_period_start', 'open_at_period_end', 'powered_h', 'powered_if_survives_h']);
+    expect(plan.windows.length).toBeGreaterThan(0);
+    expect(r).toHaveLength(plan.windows.length + 1);
+    plan.windows.forEach((w, i) => {
+      const row = r[i + 1];
+      expect(row[0]).toBe(`${new Date(Date.UTC(2027, 0, 1) + w.start * 3600_000).toISOString().slice(0, 19)}Z`);
+      expect(row[1]).toBe(`${new Date(Date.UTC(2027, 0, 1) + w.end * 3600_000).toISOString().slice(0, 19)}Z`);
+      expect(Number(row[2])).toBe(w.hours);
+      expect(row[3]).toBe(w.fromStart ? '1' : '0');
+      expect(row[4]).toBe(w.toEnd ? '1' : '0');
+      expect(Number(row[5])).toBe(w.poweredHours);
+      expect(Number(row[6])).toBe(w.ifSurvivesHours);
+    });
+    expect(r.slice(1).reduce((sum, row) => sum + Number(row[2]), 0)).toBe(plan.totalHours);
   });
 
   it('give every figure of All numbers with the settings and the period behind it, as keys and values', async () => {
