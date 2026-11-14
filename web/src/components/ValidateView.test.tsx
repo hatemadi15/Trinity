@@ -1,35 +1,43 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { BackcastsDoc, HorizonsDoc, MazaricoDoc } from '@/lib/data/validation';
+import type { BackcastsDoc, HorizonsDoc, MazaricoDoc, PowerDoc, ValidationDocs } from '@/lib/data/validation';
 import { readJson } from '@/lib/engine/__tests__/helpers';
 import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
 import { ValidateView } from './ValidateView';
 
-const docs = {
+const docs: ValidationDocs = {
   horizons: readJson<HorizonsDoc>('data', 'validation', 'horizons.json'),
   mazarico: readJson<MazaricoDoc>('data', 'validation', 'mazarico.json'),
+  power: readJson<PowerDoc>('data', 'validation', 'power.json'),
   backcasts: readJson<BackcastsDoc>('data', 'validation', 'backcasts.json'),
 };
-const TITLES = ['Where the Sun and Earth are in the sky', 'How much sunlight a site gets', 'When night falls on a real mission'];
+const TITLES = ['Where the Sun and Earth are in the sky', 'How much sunlight a site gets', 'The power and battery sums', 'When night falls on a real mission'];
+const CHECKS = TITLES.slice(0, 3);
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
 
-/** The tables with the named checks forced to miss: the directions past their target, every sunlight gap 9 points, Blue Ghost's end 30 hours from sunset. */
-function missing(...which: ('directions' | 'sunlight' | 'nights')[]): typeof docs {
+/** The tables with the named checks forced to miss: the directions past their target, every sunlight gap 9 points, one worked power case off by 1 W. */
+function missing(...which: ('directions' | 'sunlight' | 'sums')[]): ValidationDocs {
   return {
     horizons: which.includes('directions') ? { ...docs.horizons, max_abs_delta_el_deg: 0.02 } : docs.horizons,
-    mazarico: which.includes('sunlight') ? { ...docs.mazarico, rows: docs.mazarico.rows.map((r) => (r.covered ? { ...r, delta_points: 9 } : r)) } : docs.mazarico,
-    backcasts: which.includes('nights') ? { ...docs.backcasts, rows: docs.backcasts.rows.map((r) => (r.site_id === 'blue_ghost_m1' ? { ...r, end_minus_sunset_h: 30 } : r)) } : docs.backcasts,
+    mazarico: which.includes('sunlight') ? { ...docs.mazarico, rows: docs.mazarico.rows.map((r) => (r.covered && r.sun ? { ...r, sun: { ...r.sun, gap_points: 9 } } : r)) } : docs.mazarico,
+    power: which.includes('sums') ? { ...docs.power, cases: docs.power.cases.map((k, i) => (i === 0 ? { ...k, expected: { ...k.expected, power_w: k.expected.power_w.map((w) => w + 1) } } : k)) } : docs.power,
+    backcasts: docs.backcasts,
   };
 }
 
-async function open(recheck: Parameters<typeof ValidateView>[0]['recheck'] = async () => ({ ok: false, message: 'offline' }), tables: typeof docs = docs) {
+async function open(recheck: Parameters<typeof ValidateView>[0]['recheck'] = async () => ({ ok: false, message: 'offline' }), tables: ValidationDocs = docs) {
   render(<ValidateView load={async () => tables} recheck={recheck} />);
   await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Accuracy' })).toBeTruthy());
   await waitFor(() => expect(screen.getByRole('region', { name: TITLES[0] })).toBeTruthy());
+}
+
+/** The labelled parts of a panel, as label and text pairs. */
+function partsOf(region: HTMLElement): [string, string][] {
+  return [...region.querySelectorAll('dl > div')].map((d) => [d.querySelector('dt')!.textContent ?? '', d.querySelector('dd')!.textContent ?? '']);
 }
 
 describe('ValidateView', () => {
@@ -43,6 +51,7 @@ describe('ValidateView', () => {
       const url = String(input);
       if (url.endsWith('/validation/horizons.json')) return jsonResponse(docs.horizons);
       if (url.endsWith('/validation/mazarico.json')) return jsonResponse(docs.mazarico);
+      if (url.endsWith('/validation/power.json')) return jsonResponse(docs.power);
       if (url.endsWith('/validation/backcasts.json')) return jsonResponse(docs.backcasts);
       if (url.endsWith('/validation/tests.json')) return jsonResponse({ generated_utc: '2026-10-02T05:48:59Z', web: { files: 102, tests: 714 }, pipeline: { tests: 114 } });
       return new Response('missing', { status: 404 });
@@ -51,19 +60,23 @@ describe('ValidateView', () => {
     render(<ValidateView />);
     await waitFor(() => expect(screen.getByRole('region', { name: TITLES[0] })).toBeTruthy());
     await new Promise((r) => setTimeout(r, 400));
-    // Three tables and the test badge, once each; the header's band of stars fetches its catalogue besides.
-    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('/validation/')).length).toBe(4);
+    // Four tables and the test badge, once each; the header's band of stars fetches its catalogue besides.
+    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes('/validation/')).length).toBe(5);
     expect(screen.getByRole('main').textContent).toMatch(/714 automated tests in the app and 114 in the data pipeline/);
   });
 
-  it('shows three checks, each with a pass mark, a figure and a sentence, and its numbers only on request', async () => {
+  it('shows four kinds of evidence, each with its mark, a figure, a sentence and its labelled parts, and its numbers only on request', async () => {
     await open();
     const regions = TITLES.map((name) => screen.getByRole('region', { name }));
     expect(regions[0].textContent).toMatch(/Passes: under the 0\.01° target/);
     expect(regions[0].textContent).toMatch(/0\.00003°/);
-    expect(regions[1].textContent).toMatch(/2\.6 points/);
-    expect(regions[2].textContent).toMatch(/2\.4 hours/);
+    expect(regions[1].textContent).toMatch(/Passes: the typical gap is under 5 points/);
+    expect(regions[2].textContent).toMatch(new RegExp(`${docs.power.cases.length} of ${docs.power.cases.length}`));
+    expect(regions[3].textContent).toMatch(/2\.4 hours/);
+    for (const r of regions.slice(0, 3)) expect(partsOf(r).map(([label]) => label)).toEqual(['What it shows', 'Passes when', 'Tested on', 'What it leaves out']);
+    expect(partsOf(regions[3]).map(([label]) => label)).toEqual(['What it can tell', 'What it cannot tell', 'Covers']);
     for (const r of regions) {
+      for (const [, text] of partsOf(r)) expect(text.length).toBeGreaterThan(30);
       expect(within(r).queryByRole('table')).toBeNull();
       const show = within(r).getByRole('button', { name: 'Show the numbers' });
       expect(show.getAttribute('aria-expanded')).toBe('false');
@@ -72,37 +85,74 @@ describe('ValidateView', () => {
       expect(r.querySelector('[data-part="sentence"]')!.className).toMatch(/\bmax-w-\[46em\]/);
       // A phone shows only part of a table: it says the table moves sideways.
       expect(within(r).getByText('Swipe the table sideways to see every column.').className).toMatch(/\bsm:hidden\b/);
-      expect(within(r).getByRole('table')).toBeTruthy();
+      expect(within(r).getAllByRole('table').length).toBeGreaterThan(0);
     }
-    expect(within(regions[1]).getAllByText(/not covered by the 85°S map/).length).toBeGreaterThan(0);
-    expect(within(regions[2]).getByText('+2.4 h')).toBeTruthy(); // Blue Ghost outlived the predicted sunset by 2.4 h
-    expect(within(regions[2]).getByText(/panels tilted away/)).toBeTruthy();
-    expect(within(regions[2]).getByText(/on its side in a crater/)).toBeTruthy();
+    expect(within(regions[1]).getAllByText(/not covered by the 85° S map/).length).toBeGreaterThan(0);
+    expect(within(regions[3]).getByText('+2.4 h')).toBeTruthy(); // Blue Ghost outlived the predicted sunset by 2.4 h
+    expect(within(regions[3]).getByText(/panels tilted away/)).toBeTruthy();
+    expect(within(regions[3]).getByText(/on its side in a crater/)).toBeTruthy();
   });
 
-  it('says in one line how many checks pass', async () => {
+  it('gives the missions no pass mark: they are context, in neutral words', async () => {
     await open();
-    // All three pass on the stored tables.
-    const verdict = screen.getByText('All three checks pass.');
+    const missions = screen.getByRole('region', { name: TITLES[3] });
+    const mark = within(missions).getByText('Context, not a check');
+    expect(mark.className).not.toMatch(/text-(good|bad)/);
+    expect(mark.querySelector('svg')).toBeNull();
+    expect(missions.textContent).not.toMatch(/Passes|Misses/);
+  });
+
+  it('says in one line how many checks meet their criteria, and that the missions are context', async () => {
+    await open();
+    const verdict = screen.getByText('Three checks meet their criteria; past missions are context, not a check.');
     expect(verdict.className).toMatch(/(^| )text-base( |$)/);
     expect(verdict.className).toMatch(/(^| )text-ink( |$)/);
-    // Above the three checks, after the page's own introduction.
+    // Above the panels, after the page's own introduction.
     expect(screen.getByRole('heading', { level: 1, name: 'Accuracy' }).compareDocumentPosition(verdict) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     for (const name of TITLES) expect(verdict.compareDocumentPosition(screen.getByRole('region', { name })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/All three checks pass/)).toBeNull();
     // It counts the checks' own pass marks: with some forced to miss, the line and the panels still agree.
     const cases = [
-      [['directions'], 'Two of three checks pass.'],
-      [['sunlight', 'nights'], 'One of three checks passes.'],
-      [['directions', 'sunlight', 'nights'], 'No check passes.'],
+      [['directions'], 'Two of three checks meet their criteria; past missions are context, not a check.'],
+      [['sunlight', 'sums'], 'One of three checks meets its criteria; past missions are context, not a check.'],
+      [['directions', 'sunlight', 'sums'], 'No check meets its criteria; past missions are context, not a check.'],
     ] as const;
     for (const [which, line] of cases) {
       cleanup();
       await open(undefined, missing(...which));
       expect(screen.getByText(line)).toBeTruthy();
-      expect(screen.queryByText('All three checks pass.')).toBeNull();
-      const passing = TITLES.filter((name) => /Passes/.test(screen.getByRole('region', { name }).textContent ?? ''));
+      const passing = CHECKS.filter((name) => /^Passes/.test(screen.getByRole('region', { name }).querySelector('[data-part="mark"]')!.textContent ?? ''));
       expect(passing).toHaveLength(3 - which.length);
     }
+  });
+
+  it('shows the sunlight comparison step by step from the app’s own share to the map’s way, with both Earth rules and what could not be matched', async () => {
+    await open();
+    const sunlight = screen.getByRole('region', { name: TITLES[1] });
+    fireEvent.click(within(sunlight).getByRole('button', { name: 'Show the numbers' }));
+    const [sun, earth] = within(sunlight).getAllByRole('table');
+    expect(within(sun).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Site', 'The app: 2 m mast', 'From the ground', 'Over 18.6 years', 'On 60 m terrain', "NASA's map", 'Gap']);
+    expect(within(earth).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Site', "The app: Earth's centre", 'Ours: any part of Earth', "NASA's map", 'Gap']);
+    const malapert = docs.mazarico.rows.find((r) => r.site_id === 'malapert_massif')!;
+    const row = within(sun).getByText(malapert.name).closest('tr')!;
+    expect(row.textContent).toContain(`${(malapert.sun!.app * 100).toFixed(1)} %`);
+    expect(row.textContent).toContain(`${(malapert.sun!.matched * 100).toFixed(1)} %`);
+    expect(row.textContent).toContain(`${(malapert.sun!.map * 100).toFixed(1)} %`);
+    expect(sunlight.textContent).toContain(docs.mazarico.reference.sun.product_id);
+    expect(sunlight.textContent).toContain(docs.mazarico.reference.earth.product_id);
+    for (const line of docs.mazarico.evidence.unmatched!) expect(sunlight.textContent).toContain(line);
+    expect(within(sunlight).getByRole('heading', { level: 3, name: 'What the comparison could not match' })).toBeTruthy();
+  });
+
+  it('lists every worked power case with its hand answer and the gap in this browser', async () => {
+    await open();
+    const sums = screen.getByRole('region', { name: TITLES[2] });
+    fireEvent.click(within(sums).getByRole('button', { name: 'Show the numbers' }));
+    const table = within(sums).getAllByRole('table')[0];
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['Case', 'By hand', 'Pipeline: largest gap', 'This browser: largest gap']);
+    expect(within(table).getAllByRole('row')).toHaveLength(docs.power.cases.length + 1);
+    expect(table.textContent).toContain('0.3 x 4 m2 x 1361 W/m2 = 1633.2 W');
+    expect(sums.textContent).toMatch(new RegExp(`${docs.power.recorded_runs.length} recorded runs`));
   });
 
   it('keeps the live re-check inside the first check: success, failure and an error all leave the button usable', async () => {
@@ -168,12 +218,13 @@ describe('ValidateView', () => {
     const first = screen.getByRole('region', { name: TITLES[0] });
     expect(first.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const main = screen.getByRole('main');
-    // The heading, the intro and the verdict: what shows before the first check.
+    // The heading, the intro and the verdict: what shows before the first panel.
     const top = [...main.children].slice(0, 2);
     for (const width of [WIDE, PHONE]) {
       const n = top.reduce((sum, el) => sum + visibleWords(el, width).length, 0);
       expect(n).toBeLessThanOrEqual(25);
     }
+    expect(top[0].textContent).toMatch(/What each check shows, how it was tested, and its limits\./);
   });
 
   it('renders without the re-check button when no site is listed', async () => {
@@ -192,7 +243,7 @@ describe('ValidateView', () => {
   });
 
   it('says in plain words when the checks cannot be loaded, and keeps the pipeline commands for developers only', async () => {
-    const missing = () => (
+    const missingTables = () => (
       <ValidateView
         load={async () => {
           throw new Error('could not load /data/validation/horizons.json (HTTP 404)');
@@ -202,13 +253,13 @@ describe('ValidateView', () => {
     );
     // Two sentences in two paragraphs, which textContent runs together.
     const plain = /The checks could not be loaded\.\s*Reload the page, or try again in a minute\./;
-    render(missing());
+    render(missingTables());
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
     // Under next dev, as in tests, the page also names the commands that write and copy the tables, then the error.
     expect(screen.getByRole('alert').textContent).toMatch(/lunar_pipeline\.cli validate then .*sync-local inside pipeline\/ and reload\. \(could not load .*HTTP 404\)\)/);
     vi.stubEnv('NODE_ENV', 'production');
     cleanup();
-    render(missing());
+    render(missingTables());
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
     expect(screen.getByRole('alert').textContent).not.toMatch(/validate|sync-local|HTTP 404/);
   });
