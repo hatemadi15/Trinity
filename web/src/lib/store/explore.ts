@@ -9,7 +9,8 @@ import { bestLanding, timeWithPower, YEAR_HOURS, type Landing } from '../engine/
 import { contactWindows, headSeries, hourlySeries, sliceSeries, summarize, withCommsThreshold, type ContactWindow, type Series, type Summary } from '../engine/metrics';
 import { DEFAULT_POWER, powerBudget, type PowerConfig, type PowerResult } from '../engine/power';
 import { etToIso, utcToEt } from '../engine/time';
-import { dateLong, dayMonth, pct0, spanShort } from '../viz/format';
+import { periodDays, periodProblem, snapToHour } from '../period';
+import { clockUtc, dayMonth, pct0, spanShort } from '../viz/format';
 import { checkPick } from '../viz/pick';
 import { yearOptions, type Recommendation, type YearChoice } from '../plan/options';
 import { periodOutcome, type Outcome } from '../plan/outcome';
@@ -20,8 +21,8 @@ import { computedReport, featuredReport, flatReport, unreportedReport, type Terr
 import { missingWords } from '../viz/terrain';
 import { customPoint, parseExploreQuery } from './query';
 
-export const WINDOW_DAYS = [14, 30, 90] as const;
-export type WindowDays = (typeof WINDOW_DAYS)[number];
+/** A period's length in whole days, DAYS_RANGE in planner-ranges.ts: any number reaches the store, which refuses one outside it. */
+export type WindowDays = number;
 export type SceneMode = 'globe' | 'terrain';
 /** Who is looking: planners see every number, Learn mode hides three tiles and adds a guided story. */
 /** Where planner answers come from: the model when a key is set (live), or the rehearsed transcripts (?demo=1). */
@@ -328,24 +329,6 @@ function message(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** A date for sentences, with its year: "20 December 2036". */
-const dateWithYear = (iso: string) => `${dateLong(iso, 0)} ${iso.slice(0, 4)}`;
-
-/**
- * Why a period does not fit the Sun and Earth table, in plain words, worked out from the request and the table
- * itself; null when it fits, so a failure of another kind keeps its own message. The engine's words (rows and
- * table indices) are for developers, and a visitor reaches this simply by choosing a late date.
- */
-function periodRefusal(eph: Ephemeris, startUtc: string, days: number): string | null {
-  const i0 = indexForEt(eph, utcToEt(startUtc));
-  const period = `A ${days}-day period from ${dateWithYear(startUtc)}`;
-  if (i0 + days * 24 > eph.n) {
-    return `${period} runs past ${dateWithYear(etToIso(eph.t0Et + (eph.n - 1) * eph.stepS))}, where the Sun and Earth table ends. Choose an earlier date or a shorter period.`;
-  }
-  if (i0 < 0) return `${period} starts before ${dateWithYear(etToIso(eph.t0Et))}, where the Sun and Earth table begins. Choose a later date.`;
-  return null;
-}
-
 export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
   // Skylines by skylineKey: every parameter that changes one (place, mast height, terrain source) is in its key, so a
   // skyline made for one height is never used for another. `loading` holds the fetches and computations on their way.
@@ -487,9 +470,18 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       }
     },
 
-    setWindow(startUtc, days) {
+    setWindow(asked, days) {
+      // Every way in (the boxes, a link, the assistant) lands on a whole hour, as the engine reads its hourly table.
+      const startUtc = snapToHour(asked);
       // The window it already has changes nothing: dropping the overview here would cancel one on its way, with nothing to start it again.
       if (startUtc === get().startUtc && days === get().days) return;
+      // A length outside DAYS_RANGE, or a period off the Sun and Earth table, changes nothing: the figures, the boxes
+      // and the overview keep the period still shown, and the reason is said in plain words with the exact limit.
+      const problem = periodProblem(startUtc, days);
+      if (problem) {
+        set({ error: problem });
+        return;
+      }
       const { eph, site, mask, maskMeta, cursorHour, params } = get();
       if (!eph || !site || !mask || !maskMeta) {
         dropOverview();
@@ -500,10 +492,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       try {
         r = recompute(eph, site, mask, startUtc, days, params, heightOf(maskMeta, params.mastM), terrainOf(maskMeta));
       } catch (err) {
-        // A refused period changes nothing: the figures, the date box and the overview (the site list, the nearby
-        // line) all keep the period still shown. Only the hourly series throws a RangeError, and only for a span
-        // outside the table, which a visitor reaches by choosing a late date: that one is said in plain words.
-        set({ error: (err instanceof RangeError && periodRefusal(eph, startUtc, days)) || message(err) });
+        // Any other failure changes nothing either, and keeps its own message.
+        set({ error: message(err) });
         return;
       }
       dropOverview();
@@ -695,6 +685,10 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
     async findBestWindow(days, scope = 'site') {
       const { eph, site, startUtc, params, compareIds, sites, requirements } = get();
       if (!eph) return null;
+      if (periodDays(days) === null) {
+        set({ bestWindowNote: periodProblem(startUtc, days) });
+        return null;
+      }
       const compared = compareIds.flatMap((id) => sites.filter((x) => x.id === id));
       const targets = scope === 'compare' && compared.length > 0 ? compared : site ? [site] : [];
       if (targets.length === 0) return null;
@@ -744,7 +738,8 @@ export function createExploreStore(loaders: Loaders): StoreApi<ExploreState> {
       }
       const newStart = etToIso(startEt + top.item.hour * 3600).slice(0, 13) + ':00:00';
       get().setWindow(newStart, days);
-      const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}`;
+      // The landing hour is part of the answer: the search tries every sixth hour from the landing.
+      const when = `${dayMonth(newStart, 0)} ${newStart.slice(0, 4)}, ${clockUtc(newStart, 0)} UTC`;
       const best = top.outcome;
       const earthFraction = best.poweredH > 0 ? best.poweredContactH / best.poweredH : 0;
       const names = targets.map((t) => siteLabel(t));
