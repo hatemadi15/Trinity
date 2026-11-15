@@ -119,7 +119,7 @@ def test_write_all_produces_the_picture_the_map_and_the_facts(tmp_path):
     (tmp_path / "src" / "lib" / "data").mkdir(parents=True)
     paths = home_assets.write_all(tmp_path)
     names = sorted(p.name for p in paths)
-    assert names == ["de-gerlache-rim-2.jpg", "home.json", "south-pole-relief.jpg"]
+    assert names == ["de-gerlache-rim-2-wide.jpg", "de-gerlache-rim-2.jpg", "home.json", "south-pole-relief.jpg"]
     doc = json.loads((tmp_path / "src" / "lib" / "data" / "home.json").read_text(encoding="utf-8"))
     sky = doc["sky"]
     assert sky["hours"] == 720 and len(sky["sun_el"]) == 720 and len(sky["hill_el"]) == 720 and len(sky["lit"]) == 720
@@ -133,8 +133,20 @@ def test_write_all_produces_the_picture_the_map_and_the_facts(tmp_path):
     assert len(rim["sun_az"]) == 720 and len(rim["sun_el"]) == 720 and all(rim["lit"]) and len(rim["mask"]["el"]) == 720
     assert 0.3 < doc["hero"]["lit_fraction"] < 0.8
     assert doc["hero"]["frame_utc"] == "2027-01-02T06:00:00"
+    # The wide picture: the 80 m grid round the site, four times as far across as the site's own.
+    assert doc["hero"]["wide_image"] == "/hero/de-gerlache-rim-2-wide.jpg" and doc["hero"]["wide_km"] == pytest.approx(4 * doc["hero"]["window_km"])
     ids = {s["id"] for s in doc["relief"]["sites"]}
     assert {"south_pole", "de_gerlache_rim_2", "malapert_massif"} <= ids and "blue_ghost_m1" not in ids
     assert doc["facts"]["horizons_rows"] == 300
     # The figures of data/fixtures/landing/de_gerlache_rim_2_2027-01-01_30d.json.
     assert doc["battery"]["now_hours"] == 76 and doc["battery"]["best_hour"] == 466 and doc["battery"]["best_hours"] == 303
+
+
+def test_match_tone_moves_a_picture_onto_the_greys_of_the_one_it_sits_beside():
+    rng = np.random.default_rng(3)
+    like = rng.integers(20, 230, (64, 64)).astype(np.uint8)
+    # The same ground, darker and flatter: matched over the shared part, the whole takes the other's greys.
+    image = np.clip(like.astype(np.float64) * 0.5 + 10.0, 0, 255).astype(np.uint8)
+    out = home_assets.match_tone(image, image, like)
+    assert np.abs(out.astype(int) - like.astype(int)).max() <= 4
+    assert out.dtype == np.uint8 and out.shape == image.shape

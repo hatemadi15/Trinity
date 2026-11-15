@@ -21,7 +21,7 @@ export interface DescentWords extends Pick<ArrivalWords, 'siteLine' | 'answer' |
   pole: { eyebrow: string; text: string };
   site: { eyebrow: string; text: string };
   pins: DescentPin[];
-  hero: { lat: number; lon: number; windowKm: number; image: string; relief: string; reliefHalfKm: number };
+  hero: { lat: number; lon: number; windowKm: number; image: string; wideKm: number; wide: string; relief: string; reliefHalfKm: number };
 }
 
 export function descentWords(doc: HomeDoc = HOME): DescentWords {
@@ -48,7 +48,7 @@ export function descentWords(doc: HomeDoc = HOME): DescentWords {
       text: `${shortlistedSentence(name)} Black is ground the Sun cannot reach on ${frame}.`,
     },
     pins: [...pin('south_pole', 'The south pole'), ...pin('malapert_massif', 'Malapert Massif'), ...pin('mons_mouton', 'Mons Mouton'), ...pin(doc.hero.site_id, name, true)],
-    hero: { lat: heroSite.lat, lon: heroSite.lon, windowKm: doc.hero.window_km, image: doc.hero.image, relief: doc.relief.image, reliefHalfKm: doc.relief.half_km },
+    hero: { lat: heroSite.lat, lon: heroSite.lon, windowKm: doc.hero.window_km, image: doc.hero.image, wideKm: doc.hero.wide_km, wide: doc.hero.wide_image, relief: doc.relief.image, reliefHalfKm: doc.relief.half_km },
     siteLine: a.siteLine,
     answer: a.answer,
     better: a.better,

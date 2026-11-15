@@ -1,6 +1,8 @@
 """Pictures and numbers for the web home page and the site list: written once, committed with the web app.
 
 - web/public/hero/de-gerlache-rim-2.jpg: the shadow map of the hero site at one hour (shadow.py).
+- web/public/hero/de-gerlache-rim-2-wide.jpg: the same hour's shadows four times as far out, for the home page's
+  descent to dive through on its way from the polar map to the site.
 - web/public/maps/south-pole-relief.jpg: a relief map of the south pole, 500 km across.
 - web/src/lib/data/home.json: the hero site's month of Sun heights, the validation headline figures,
   the pin positions on the relief map, and the crater rim's month and skyline for the drawing of the hills.
@@ -34,6 +36,7 @@ HERO_START = "2027-01-01T00:00:00"
 HERO_HOURS = 720
 HERO_FRAME_HOUR = 30
 HERO_PX = 1024
+HERO_WIDE_BLOCK = 2  # the wide picture is averaged down to 512 px, 160 m a pixel
 RELIEF_HALF_KM = 250.0
 SUN_DIAMETER_DEG = 0.533  # the Sun's mean angular width from the Moon
 
@@ -209,6 +212,34 @@ def hero_image(site: Site, grids: dict[str, LolaGrid], sun_az_deg: float, sun_el
     return image, meta
 
 
+def match_tone(image_u8: np.ndarray, part_u8: np.ndarray, like_u8: np.ndarray) -> np.ndarray:
+    """`image_u8` with the grey curve that moves its `part_u8` onto `like_u8`, percentile by percentile, so two
+    pictures of the same ground at different pixel sizes sit side by side as one."""
+    q = np.linspace(0.0, 100.0, 65)
+    src, dst = np.percentile(part_u8, q), np.percentile(like_u8, q)
+    src = np.maximum.accumulate(src + np.arange(q.size) * 1e-6)  # strictly rising, for the interpolation
+    return np.clip(np.interp(image_u8.astype(np.float64), src, dst), 0, 255).astype(np.uint8)
+
+
+def hero_wide_image(site: Site, grids: dict[str, LolaGrid], sun_az_deg: float, sun_el_deg: float, like_u8: np.ndarray, block: int = HERO_WIDE_BLOCK) -> tuple[np.ndarray, dict]:
+    """The hero hour's shadows on the 80 m grid round the site: four times as far across as the site's own picture,
+    for the home page's descent to pass through between the polar map and the site. Its greys are matched, over the
+    ground the two share, to the site's picture `like_u8`; it is averaged down by `block` to stay light to load."""
+    wide = hero_levels(site, grids)[:2]
+    bearing = sun_bearing_deg(site.lon, sun_az_deg)
+    _, margin = cast(wide, bearing, sun_el_deg)
+    level = wide[-1]
+    # The shadow's soft edge is a few metres of margin on the 20 m grid: as many pixels wide here.
+    image = shade(level.heights_m, level.px_m, margin, bearing, sun_el_deg, soft_m=6.0 * level.px_m / 20.0)
+    n = image.shape[0]
+    shared = round(like_u8.shape[0] * 20.0 / level.px_m)  # the site's picture, in this grid's pixels
+    a = (n - shared) // 2
+    image = match_tone(image, image[a : a + shared, a : a + shared], like_u8)
+    m = (n // block) * block
+    small = image[:m, :m].astype(np.float32).reshape(m // block, block, m // block, block).mean(axis=(1, 3))
+    return np.clip(small + 0.5, 0, 255).astype(np.uint8), {"wide_image": "/hero/de-gerlache-rim-2-wide.jpg", "wide_km": round(n * level.px_m / 1000.0, 2)}
+
+
 def write_jpeg(path: Path, image_u8: np.ndarray, quality: int = 86) -> Path:
     """Grayscale JPEG through GDAL (rasterio); removes the sidecar GDAL writes next to it."""
     import warnings
@@ -235,6 +266,8 @@ def write_all(web_dir: Path = config.REPO_ROOT / "web") -> list[Path]:
     rim_sky = sky_series(rim, load_mask(rim.id), table, header, HERO_START, HERO_HOURS)
     image, meta = hero_image(site, grids, sky["sun_az"][HERO_FRAME_HOUR], sky["sun_el"][HERO_FRAME_HOUR])
     hero_path = write_jpeg(web_dir / "public" / "hero" / "de-gerlache-rim-2.jpg", image)
+    wide, wide_meta = hero_wide_image(site, grids, sky["sun_az"][HERO_FRAME_HOUR], sky["sun_el"][HERO_FRAME_HOUR], image)
+    wide_path = write_jpeg(web_dir / "public" / "hero" / "de-gerlache-rim-2-wide.jpg", wide, 82)
     relief_path = write_jpeg(web_dir / "public" / "maps" / "south-pole-relief.jpg", relief_image(grids["L1"]))
     val = config.DATA_DIR / "validation"
     read = lambda name: json.loads((val / name).read_text(encoding="utf-8"))
@@ -248,6 +281,7 @@ def write_all(web_dir: Path = config.REPO_ROOT / "web") -> list[Path]:
             "image": "/hero/de-gerlache-rim-2.jpg",
             "frame_utc": (_utc(HERO_START) + timedelta(hours=HERO_FRAME_HOUR)).strftime("%Y-%m-%dT%H:%M:%S"),
             **meta,
+            **wide_meta,
         },
         "sky": {"start_utc": HERO_START, "hours": HERO_HOURS, **sky, "night": night(sky["lit"])},
         "mask": mask_block(mask_doc["elevation_deg"]),
@@ -266,4 +300,4 @@ def write_all(web_dir: Path = config.REPO_ROOT / "web") -> list[Path]:
     json_path = web_dir / "src" / "lib" / "data" / "home.json"
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(doc, separators=(",", ":")) + "\n", encoding="utf-8", newline="\n")
-    return [hero_path, relief_path, json_path]
+    return [hero_path, wide_path, relief_path, json_path]

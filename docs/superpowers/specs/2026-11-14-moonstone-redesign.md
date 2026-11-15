@@ -50,8 +50,8 @@ Textures and their credits: `web/public/hero/textures/`.
 ## 23.1 The descent (replaces the arrival's flight)
 - One WebGL picture (`home/Descent`, `home/DescentScene`) from the first screen to the answer, six screens of scroll:
   the Moon turns 1¼ times, tips its south pole towards the camera and comes closer on a log scale, from the whole
-  Moon to the polar cap to the site. No stills are swapped: NASA's Moon map, the relief map of the pole and the site's
-  shadow picture lie on the one globe in the pipeline's south polar stereographic projection (`lib/viz/descentPose`,
+  Moon to the polar cap to the site. No stills are swapped: NASA's Moon map, the relief map of the pole, the shadows
+  round the site and the site's shadow picture lie on the one globe in the pipeline's south polar stereographic projection (`lib/viz/descentPose`,
   tested against the relief map's own pins), so the view sharpens as it nears.
 - One line of words per stage (the Moon turns; the south pole; the site; the answer), never two at once; names on
   the polar map; a rail at the side that names the stages and jumps to any of them. No line telling anyone to scroll.
@@ -63,10 +63,18 @@ Textures and their credits: `web/public/hero/textures/`.
   line of words, with the audience line, both themes: 107–124 px at 1920, 58 at 1440, 97–99 at 1280, 47 at 1024, 31
   at 768, 24 at 390; no width
   scrolls sideways. The first paint and browsers without WebGL show cut-outs of the Moon and Earth in the same places.
-- **Arriving at the site.** The turn settles before the site's picture comes in (at 60 % of the scroll), so the
-  picture arrives upright, as on the site map; its edge is soft, so it never reads as a square pasted on the map. The
-  camera reaches the site where the site's words begin to show, and the 20 km picture then covers the whole view,
-  a tenth to spare, so no frame of blurred map is left round it (14 November, after a look at the live site).
+- **Arriving at the site.** The turn settles before the site's shadows come in (at 60 % of the scroll), so they
+  arrive upright, as on the site map. The camera reaches the site where the site's words begin to show, and the 20 km
+  picture then covers the whole view, a tenth to spare, so no frame of blurred map is left round it (14 November,
+  after a look at the live site).
+- **The dive (15 November, after the owner's phone showed it mid-dive).** The 500 km map (480 m a pixel) and the
+  20 km picture (20 m) are too far apart to meet: the picture stood as a small sharp square on a map magnified to a
+  blur. Between them now lies a third picture, the same hour's shadows 82 km across from the 80 m grid
+  (`/hero/de-gerlache-rim-2-wide.jpg`, 512 px, 52 kB, its greys matched to the site's picture). It comes in from 60 to
+  65 % with a wide soft edge while the map dims round it, the view centres on the site by 66.5 %, and the site's
+  picture sharpens inside it with no edge of its own, since both show the same ground in the same light
+  (`descentPose.test.ts`: the wide picture is whole before the view is as narrow as it is, and the site's before it
+  fills half the view).
 - **Easing.** Every move eases in and out, the spin included. The Moon holds its place and size until the first
   screen's words have gone; the picture glides after the scroll, so wheel steps do not jolt it; the idle spin slows
   to a stop as the page starts to scroll. Under reduced motion nothing glides or turns. The rail's dots stand in one

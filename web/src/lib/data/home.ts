@@ -6,7 +6,8 @@ import doc from './home.json';
 export interface HomeDoc {
   generated_utc: string;
   /** The hero site and its picture. */
-  hero: { site_id: string; name: string; image: string; frame_utc: string; window_km: number; sun_bearing_deg: number; lit_fraction: number };
+  /** `wide_image` is the same hour's shadows `wide_km` across, round the same point: the descent dives through it. */
+  hero: { site_id: string; name: string; image: string; frame_utc: string; window_km: number; sun_bearing_deg: number; lit_fraction: number; wide_image: string; wide_km: number };
   sky: {
     start_utc: string;
     hours: number;

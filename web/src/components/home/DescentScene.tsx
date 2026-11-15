@@ -6,8 +6,8 @@ import { descentPose, ease, firstFromDisc, globePoint, psSouthKm, R_MOON_KM, SPI
 /**
  * The descent's picture (spec 23.1): one globe, and the camera coming down to a landing site as the page scrolls.
  * The Moon turns, tips its south pole towards us and comes closer; on its one surface lie, each in its place, NASA's
- * Moon from space, the relief map of the pole and the shadow picture of the site, so the view sharpens as it nears
- * and nothing is swapped. Earth and the stars stand behind it, in a layer of their own that does not zoom.
+ * Moon from space, the relief map of the pole, the shadows round the site and the shadow picture of the site, each
+ * finer than the last, so the view sharpens as it nears and nothing is swapped. Earth and the stars stand behind it, in a layer of their own that does not zoom.
  *
  * `progress` (0 to 1) is read every frame and followed smoothly, so a wheel's steps or a jerky scroll never jolt the
  * picture; the labels in `pins` are moved to their places on the globe. The first screen's Moon and Earth stand where
@@ -19,6 +19,9 @@ export interface DescentHero {
   lon: number;
   windowKm: number;
   image: string;
+  /** The same hour's shadows `wideKm` across, round the same point: what the dive passes through. */
+  wideKm: number;
+  wide: string;
   relief: string;
   reliefHalfKm: number;
 }
@@ -60,18 +63,24 @@ void main() {
 
 /**
  * The Moon's surface: its colour map lit by the Sun with its relief for shading; then, by the pipeline's own south polar
- * stereographic projection worked out per pixel, the relief map of the pole (a round cap, fading at its edge) and the
- * site's shadow picture (a square, the ground round it dimmed so the eye goes to it).
+ * stereographic projection worked out per pixel, the relief map of the pole (a round cap, fading at its edge), then
+ * the shadows round the site (a wide, soft-edged patch of the real Sun's light, the map dimmed round it so it reads as
+ * ground out of focus) and, inside those, the site's own picture: the same ground at four times the detail, so the
+ * step between the two is one of sharpness alone and no edge shows.
  */
 const MOON_FRAG = /* glsl */ `
 uniform sampler2D map;
 uniform sampler2D bump;
 uniform sampler2D relief;
 uniform sampler2D siteMap;
+uniform sampler2D wideMap;
 uniform vec3 sunDir;
 uniform float bumpScale;
 uniform float reliefMix;
 uniform float siteMix;
+uniform float wideMix;
+uniform float wideKm;
+uniform float siteEdge;
 uniform float reliefHalfKm;
 uniform float siteKm;
 uniform vec2 siteXY;
@@ -115,13 +124,22 @@ void main() {
   // Round the cap the plain globe dims as the map comes in, so the eye goes to the map.
   col *= mix(1.0, 0.5, (1.0 - smoothstep(0.5, 0.38, length(ru - 0.5))) * reliefMix);
 
+  // The shadows round the site: a patch with rounded corners whose edge fades over a fifth of its width, so it has
+  // no outline; the map beyond it dims as it comes, the eye's way to the lit ground in the middle.
+  vec2 wu = vec2(0.5 + (xy.x - siteXY.x) / wideKm, 0.5 - (xy.y - siteXY.y) / wideKm);
+  vec2 wd = abs(wu - 0.5);
+  float wm = smoothstep(0.5, 0.29, pow(pow(wd.x, 4.0) + pow(wd.y, 4.0), 0.25));
+  vec3 wc = texture2D(wideMap, vec2(clamp(wu.x, 0.0, 1.0), 1.0 - clamp(wu.y, 0.0, 1.0))).rgb;
+  col *= mix(1.0, 0.42, wideMix) * mix(1.0, 0.4, siteMix);
+  col = mix(col, wc, wm * wideMix);
+
+  // The site's own picture inside them: the same ground and light, finer, so its edge can be as soft as it likes
+  // (siteEdge: wide while the picture is small, then drawn out beyond the view at the site, sharp to every corner).
   vec2 su = vec2(0.5 + (xy.x - siteXY.x) / siteKm, 0.5 - (xy.y - siteXY.y) / siteKm);
-  float e = max(abs(su.x - 0.5), abs(su.y - 0.5));
-  // A soft edge, so the picture never reads as a square pasted on the map; at the site it lies beyond the view.
-  float sm = smoothstep(0.5, 0.45, e);
+  vec2 sd = abs(su - 0.5);
+  float sm = smoothstep(0.5, siteEdge, pow(pow(sd.x, 4.0) + pow(sd.y, 4.0), 0.25));
   vec3 sc = texture2D(siteMap, vec2(clamp(su.x, 0.0, 1.0), 1.0 - clamp(su.y, 0.0, 1.0))).rgb;
   col = mix(col, sc, sm * siteMix);
-  col *= mix(1.0, 0.38, (1.0 - sm) * siteMix);
 
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>
@@ -194,6 +212,13 @@ const SUN = new THREE.Vector3(-0.62, 0.4, 0.68).normalize();
 /** The turn about the polar axis at which, pole towards us, longitude 0 points up, as on the Choose a site map. */
 const REST_SPIN = -Math.PI / 2;
 
+/**
+ * Where the site's picture is whole, as a share of its half-width (its edge fades from there to 0.5): a wide soft edge
+ * while it sharpens inside the shadows round it, a thin one at the site, where the view (a tenth narrower than the
+ * picture, 0.455 to its side and 0.471 to its corner) lies inside it.
+ */
+const SITE_EDGE = [0.26, 0.475] as const;
+
 /** How quickly the picture catches up with the scroll: the time constant of its glide, in seconds. */
 const GLIDE_S = 0.14;
 
@@ -265,6 +290,10 @@ export default function DescentScene({ progress, reduced, hero, pins, layout, on
         bumpScale: { value: 0.12 },
         reliefMix: { value: 0 },
         siteMix: { value: 0 },
+        wideMap: { value: null },
+        wideMix: { value: 0 },
+        wideKm: { value: hero.wideKm },
+        siteEdge: { value: SITE_EDGE[0] },
         reliefHalfKm: { value: hero.reliefHalfKm },
         siteKm: { value: hero.windowKm },
         siteXY: { value: new THREE.Vector2(siteKm.x, siteKm.y) },
@@ -333,6 +362,8 @@ export default function DescentScene({ progress, reduced, hero, pins, layout, on
 
       moonMat.uniforms.reliefMix.value = pose.relief;
       moonMat.uniforms.siteMix.value = pose.site;
+      moonMat.uniforms.wideMix.value = pose.wide;
+      moonMat.uniforms.siteEdge.value = SITE_EDGE[0] + (SITE_EDGE[1] - SITE_EDGE[0]) * pose.focus;
       // The relief's shading is for the whole Moon; close in, the map's own shading takes over.
       moonMat.uniforms.bumpScale.value = 0.12 * Math.max(0, 1 - pose.relief * 1.6);
       (moonGlow.material as THREE.ShaderMaterial).uniforms.strength.value = 0.3 * pose.earth;
@@ -416,18 +447,20 @@ export default function DescentScene({ progress, reduced, hero, pins, layout, on
       load(`${base}/moon-bump.jpg`, false),
       load(hero.relief, true),
       load(hero.image, true),
+      load(hero.wide, true),
       load(`${base}/earth-day.jpg`, true),
       load(`${base}/earth-night.jpg`, true),
       load(`${base}/earth-clouds.jpg`, false),
       load(`${base}/earth-water.jpg`, false),
     ])
-      .then(([moonMap, bump, relief, site, day, night, clouds, water]) => {
+      .then(([moonMap, bump, relief, site, wide, day, night, clouds, water]) => {
         if (cancelled) return;
         moonMat.uniforms.map.value = moonMap;
         moonMat.uniforms.bump.value = bump;
         moonMat.uniforms.relief.value = relief;
         moonMat.uniforms.siteMap.value = site;
-        for (const t of [relief, site]) {
+        moonMat.uniforms.wideMap.value = wide;
+        for (const t of [relief, site, wide]) {
           t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
           t.generateMipmaps = true;
         }
