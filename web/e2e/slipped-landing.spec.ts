@@ -73,7 +73,7 @@ test.describe('A landing that slips by five days', () => {
       // Which site works better, and the trade-offs behind it: sunlight, powered time and contact with Earth.
       const another = story.getByRole('heading', { name: 'At another site' });
       await expect(another).toBeVisible();
-      await expect(another.locator('xpath=following-sibling::p').first()).toHaveText(/works better than “5 days later” at the same landing time .*: power for .+ instead of .+/);
+      await expect(another.locator('xpath=following-sibling::p').first()).toHaveText(/works better than “5 days later” at the same landing time.*: power for .+ instead of .+/);
       // The trade-offs repeat the table's rows in words: one tap away, in their fold.
       await story.getByRole('button', { name: 'The trade-offs' }).click();
       const tradeoffs = story.getByRole('listitem');
