@@ -44,6 +44,11 @@
   --bad-bg: rgba(176, 47, 34, 0.1);
   --bad-line: rgba(176, 47, 34, 0.4);
   --warn: #6f4f00;
+  /* Compare: one colour per landing (up to four), apart from the lanes' warm white, blue and green. */
+  --landing-1: #6a3fd6;
+  --landing-2: #b35a00;
+  --landing-3: #0b7f8c;
+  --landing-4: #c2327e;
   /* The edge of a picture panel: on the light page black already stands out; on the dark page it needs a lighter line. */
   --stage-edge: #2a2c31;
   --stage: #000000;
@@ -100,6 +105,10 @@
     --bad-bg: rgba(255, 138, 128, 0.09);
     --bad-line: rgba(255, 138, 128, 0.4);
     --warn: #e9cf8f;
+    --landing-1: #b79cff;
+    --landing-2: #ffb454;
+    --landing-3: #4fd1d9;
+    --landing-4: #ff8fc7;
     color-scheme: dark;
   }
 }

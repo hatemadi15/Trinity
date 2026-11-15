@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { CompareView } from '@/components/CompareView';
 import { readJson } from '@/lib/engine/__tests__/helpers';
@@ -41,6 +41,7 @@ describe('Compare shows each scenario’s figures from its own mast, and what li
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     const scenarios = await compare(fileLoaders({ computeMask: worker(gate) }));
+    fireEvent.click(await screen.findByRole('button', { name: /^All figures/ }));
     const table = await screen.findByRole('table');
     expect(within(table).getAllByRole('columnheader')).toHaveLength(4);
     expect(within(table).getAllByText('working out…').length).toBeGreaterThan(0);
@@ -69,6 +70,7 @@ describe('Compare shows each scenario’s figures from its own mast, and what li
     expect(main.textContent).not.toMatch(/Works best|works best of/);
     expect(card.textContent).not.toMatch(/Best/);
     // Its column keeps its figures.
+    fireEvent.click(screen.getByRole('button', { name: /^All figures/ }));
     expect(within(screen.getByRole('table')).getByText('all 30 days')).toBeTruthy();
   });
 });

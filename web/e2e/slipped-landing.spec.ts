@@ -11,6 +11,10 @@ import { answerHeading, expect, openExplore, printCount, stubPrint, test } from 
 
 /** The comparison's figures: every row of the table as its words, once each landing is worked out. */
 async function tableWords(page: Page): Promise<string[]> {
+  // The full table waits behind "All figures".
+  const fold = page.getByRole('button', { name: 'All figures' });
+  await expect(fold).toBeVisible({ timeout: 60_000 });
+  if ((await fold.getAttribute('aria-expanded')) !== 'true') await fold.click();
   const region = page.getByRole('region', { name: 'The landings side by side' });
   await expect(region.getByRole('table')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText('Working out…')).toHaveCount(0, { timeout: 120_000 });
@@ -74,6 +78,8 @@ test.describe('A landing that slips by five days', () => {
       // One line first: the landing that works best of the three, and the figure that decides it.
       await expect(story.getByText(/^“Nearby: .+” works best of these 3 landings: power for /)).toBeVisible();
       await expect(page.getByRole('group', { name: /^Landing 3: / }).getByText('Works best')).toBeVisible();
+      // What changed and why waits one tap under it.
+      await story.getByRole('button', { name: 'What changed and why' }).click();
       const original = story.getByRole('heading', { name: 'Same place, another date' });
       await expect(original).toBeVisible();
       // What changed at the original site: the slipped landing's power against the planned one's.

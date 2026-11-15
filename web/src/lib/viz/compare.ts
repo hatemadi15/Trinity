@@ -375,6 +375,8 @@ export interface Verdict {
   /** The column that works best; null when the best are level, or cannot be named. */
   index: number | null;
   line: string;
+  /** The figure that decided it, in a few words for the winner's card; absent when no landing is named. */
+  reason?: string;
 }
 
 /**
@@ -406,5 +408,6 @@ export function verdictLine(cols: Column[]): Verdict | null {
         ? `power for ${powerWords(o)}, as long as any here, with the most radio contact while it has power: ${wordsOrNone(o.poweredContactH)} against ${wordsOrNone(n.poweredContactH)}`
         : `power for ${powerWords(o)}, as long as any here, with the same radio contact while it has power, and the most sunlight: ${pct0(o.sunFraction)} against ${pct0(n.sunFraction)}`;
   const caveat = unchecked(top.site) ? ` ${top.siteName} is a high point worked out from the heights, not checked for landing.` : '';
-  return { index: cols.indexOf(top), line: `${named(top, cols)} works best of these ${cols.length} landings: ${why}.${caveat}` };
+  const reason = o.poweredH !== n.poweredH ? 'Longest time with power' : o.poweredContactH !== n.poweredContactH ? 'Same time with power, most radio contact' : 'Same power and radio contact, most sunlight';
+  return { index: cols.indexOf(top), reason, line: `${named(top, cols)} works best of these ${cols.length} landings: ${why}.${caveat}` };
 }

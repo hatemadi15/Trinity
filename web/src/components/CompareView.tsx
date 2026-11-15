@@ -7,7 +7,10 @@ import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PlannerChat } from './PlannerChat';
 import { lolaFor, Sources } from './Sources';
 import { AddLanding } from './compare/AddLanding';
-import { CompareStory } from './compare/CompareStory';
+import { Fold } from './Fold';
+import { Assumptions, CompareStory } from './compare/CompareStory';
+import { LandingStrips } from './compare/LandingStrips';
+import { MetricBars } from './compare/MetricBars';
 import { checkWords, ComparisonFiles, saveFile, useDataVersions, type Opened } from './compare/ComparisonFiles';
 import { ScenarioCard } from './compare/ScenarioCard';
 import { ScenarioEditor } from './compare/ScenarioEditor';
@@ -22,7 +25,7 @@ import { fileName, scenarioFile } from '@/lib/scenario/file';
 import { paramsOf, scenarioKey } from '@/lib/scenario/scenario';
 import { DEFAULT_PARAMS, DEFAULT_START, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
-import { landingShort, READY_PAIRS, timingLine, verdictLine } from '@/lib/viz/compare';
+import { figureRows, landingShort, READY_PAIRS, timingLine, verdictLine } from '@/lib/viz/compare';
 
 const LINK = 'font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink';
 /** The example the empty page leads with: a five-day slip at de Gerlache Rim 2, from the forecast's first landing. */
@@ -124,7 +127,10 @@ export function CompareView({
     setAdding(false);
     addButton.current?.focus();
   };
-  const best = verdictLine(cols)?.index ?? null;
+  const verdict = verdictLine(cols);
+  const best = verdict?.index ?? null;
+  const rows = figureRows(cols);
+  const cellOf = (id: 'power' | 'contact', i: number) => rows.find((r) => r.id === id)?.cells[i]?.value ?? null;
   /** The visitor's own landing, from the one Explore shows, with its place, date and lander open to set. */
   const own = () => {
     setOpened(null);
@@ -134,12 +140,12 @@ export function CompareView({
 
   return (
     <AppFrame>
-      <main className="wrap flex flex-col gap-6 pb-12 pt-8">
+      <main className="wrap flex flex-col gap-5 pb-12 pt-8">
         <div>
           <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">
             Compare landings
           </h1>
-          <p className="mt-2 max-w-[46em] text-lg text-ink-2">Put up to four landings side by side: different places, dates or landers. See which has the most power and radio contact.</p>
+          <p className="mt-1 max-w-[46em] text-lg text-ink-2">Up to four landings side by side: which has the most power and radio contact.</p>
         </div>
         {sc.problem && (
           <p role="status" className="text-[15px] text-bad">
@@ -153,44 +159,41 @@ export function CompareView({
         )}
 
         {cols.length === 0 ? (
-          <section aria-labelledby="h-start" className="panel">
+          <section aria-labelledby="h-start" className="rounded-lg border border-line border-l-[6px] border-l-accent bg-band px-5 py-5 sm:px-6">
             <h2 id="h-start" className="display text-[23px] font-semibold">
               Start here
             </h2>
-            <p className="mt-2 max-w-[46em] text-ink">Press the example to see three landings compared. Then press “+ Add a landing” to add any place or date of your own.</p>
+            <p className="mt-1 text-ink-2">Press the example. Then add a landing of your own.</p>
             <p className="mt-4">
-              <button type="button" onClick={example} className="btn btn-primary h-auto min-h-[56px] max-w-full whitespace-normal px-5 py-3 text-left">
+              <button type="button" onClick={example} className="btn btn-primary h-auto min-h-[64px] max-w-full whitespace-normal px-5 py-3 text-left">
                 <span>
-                  <span className="block text-lg font-semibold">What if our landing is 5 days late?</span>
-                  <span className="block text-[15px] font-normal">de Gerlache Rim 2 on {landingShort(DEFAULT_START).split(',')[0]}, the same place 5 days later, and the best place nearby</span>
+                  <span className="block text-xl font-semibold">What if our landing is 5 days late?</span>
+                  <span className="block text-[15px] font-normal">de Gerlache Rim 2 on {landingShort(DEFAULT_START).split(',')[0]}, 5 days later, and the best place nearby</span>
                 </span>
               </button>
             </p>
-            <p className="mt-5 text-[15px] text-ink-2">More examples</p>
-            <div className="mt-2 flex flex-wrap gap-3">
-              {READY_PAIRS.map((p) => (
-                <button key={p.title} type="button" onClick={() => addPair(p.ids)} className="btn h-auto min-h-[48px] max-w-full whitespace-normal py-2.5 text-left">
-                  <span>
-                    <span className="block font-semibold">{p.title}</span>
-                    <span className="block text-[15px] text-ink-2">{p.ids.map((id) => siteLabel(s.sites.find((x) => x.id === id) ?? { name: id })).join(' and ')}</span>
-                  </span>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {READY_PAIRS.map((p, i) => (
+                <button key={p.title} type="button" onClick={() => addPair(p.ids)} className="panel flex flex-col gap-1 text-left hover:border-line-strong" style={{ borderTop: `6px solid var(--landing-${i + 1})` }}>
+                  <span className="text-[15px] text-ink-2">Example</span>
+                  <span className="font-semibold text-ink">{p.title}</span>
+                  <span className="text-[15px] text-ink-2">{p.ids.map((id) => siteLabel(s.sites.find((x) => x.id === id) ?? { name: id })).join(' and ')}</span>
                 </button>
               ))}
+              <div className="panel flex flex-col items-start gap-2" style={{ borderTop: '6px solid var(--landing-3)' }}>
+                <span className="text-[15px] text-ink-2">Your own</span>
+                <button type="button" onClick={own} className="btn">
+                  Set up my own landing
+                </button>
+                <span className="text-[15px] text-ink-2">
+                  Or pick one in{' '}
+                  <Link href="/explore" className={LINK}>
+                    Explore
+                  </Link>
+                  .
+                </span>
+              </div>
             </div>
-            <p className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-4 text-ink-2">
-              Or
-              <button type="button" onClick={own} className="btn">
-                Set up my own landing
-              </button>
-              <span>
-                or choose one in{' '}
-                <Link href="/explore" className={LINK}>
-                  Explore
-                </Link>{' '}
-                and press “Compare from here”.
-              </span>
-            </p>
-            <p className="mt-3 text-ink-2">Or ask in the box below: “compare this to every landing site”.</p>
           </section>
         ) : (
           <>
@@ -200,7 +203,7 @@ export function CompareView({
               <h2 id="h-scenarios" className="display text-[23px] font-semibold">
                 The landings
               </h2>
-              {cols.length === 1 && <p className="max-w-[60em] text-ink">{timingLine(cols)} Now add a second landing beside it: choose one of the three ways below.</p>}
+              {cols.length === 1 && <p className="max-w-[60em] text-ink">{timingLine(cols)} Now add a second landing to compare.</p>}
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {cols.map((c, i) => (
                   <ScenarioCard
@@ -210,6 +213,9 @@ export function CompareView({
                     run={sc.runs[c.scenario.id]}
                     full={full}
                     best={best === i}
+                    reason={verdict?.reason}
+                    power={cellOf('power', i)}
+                    contact={cellOf('contact', i)}
                     onEdit={() => setEditing(c.scenario.id)}
                     onDuplicate={() => act.duplicate(c.scenario.id)}
                     onBaseline={() => act.makeBaseline(c.scenario.id)}
@@ -217,9 +223,7 @@ export function CompareView({
                     onSave={() => saveFile(fileName([c]), `${JSON.stringify(scenarioFile([c], versions, new Date(), s.requirements), null, 2)}\n`)}
                   />
                 ))}
-                {full ? (
-                  <p className="flex items-center rounded-lg border border-dashed border-line-strong px-5 py-4 text-[15px] text-ink-2">Four landings is the most. Remove one to add another.</p>
-                ) : (
+                {full ? null : (
                   <button
                     ref={addButton}
                     type="button"
@@ -235,6 +239,7 @@ export function CompareView({
                   </button>
                 )}
               </div>
+              {full && <p className="text-[15px] text-ink-2">Four landings is the most. Remove one to add another.</p>}
               {addOpen && (
                 <AddLanding
                   // A landing removed or replaced starts the choices again from the visitor's own.
@@ -253,15 +258,20 @@ export function CompareView({
                   }}
                 />
               )}
-              <div className="panel">
+            </section>
+            <LandingStrips cols={cols} runs={sc.runs} />
+            <MetricBars cols={cols} />
+            <section aria-label="All figures" className="panel !py-3">
+              <Fold label="All figures">
                 <ScenarioTable cols={cols} runs={sc.runs} onUseBest={(id) => act.useSiteBest(id)} requirements={s.requirements} versions={terrainVersions} />
-                {/* DE440 gives every figure, and LOLA the hills on the grids of the sites compared. */}
-                <Sources of={['de440', ...lolaFor(...cols.map((c) => c.site))]} />
-              </div>
+              </Fold>
+              {/* DE440 gives every figure, and LOLA the hills on the grids of the sites compared. */}
+              <Sources of={['de440', ...lolaFor(...cols.map((c) => c.site))]} />
             </section>
           </>
         )}
 
+        <div className="flex flex-col gap-1 rounded-lg border border-line bg-band px-5 py-3">
         <ComparisonFiles
           cols={cols}
           requirements={s.requirements}
@@ -278,20 +288,22 @@ export function CompareView({
             act.setNote(`The file’s ${o.scenarios.length === 1 ? 'landing replaces' : `${o.scenarios.length} landings replace`} the ones that were on this page${o.requirements ? ', and the requirements saved with it are set' : ''}.`);
           }}
         />
-        {cols.length > 0 && (
-          <p>
-            <button
-              type="button"
-              onClick={() => {
-                setOpened(null);
-                act.clear();
-              }}
-              className="btn btn-sm"
-            >
-              Start again
-            </button>
-          </p>
-        )}
+          {cols.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+              <Assumptions />
+              <button
+                type="button"
+                onClick={() => {
+                  setOpened(null);
+                  act.clear();
+                }}
+                className="btn btn-sm"
+              >
+                Start again
+              </button>
+            </div>
+          )}
+        </div>
         <PlannerChat store={store} scenarios={scenarios} />
       </main>
       {editingScenario && (
