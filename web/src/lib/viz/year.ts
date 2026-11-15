@@ -109,10 +109,10 @@ export function dayLabel(year: YearOfLandings, k: number, scoring: DayScoring): 
 /** What each colour means, in plain words, for a period of `days`. */
 export function legendWords(days: number): Record<Grade, string> {
   return {
-    best: `Best: power all ${days} days, radio contact half the time or more`,
+    best: `Best: power all ${days} days, radio half the time or more`,
     good: `Good: power all ${days} days`,
-    mixed: 'Mixed: power a quarter of the time or more',
-    poor: 'Poor: less than a quarter',
+    mixed: 'Mixed: power a quarter or more',
+    poor: 'Poor: less',
   };
 }
 

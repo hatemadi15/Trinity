@@ -47,11 +47,11 @@ describe('picturesCard', () => {
     const c = picturesCard(doc);
     const typical = median(doc.rows.map((r) => r.agree));
     expect(c.figure).toBe(`${Math.round(typical * 100)} %`);
-    expect(c.figureWords).toBe(`of the ground the app and the camera call alike, lit or dark, in the typical picture of ${doc.rows.length}`);
+    expect(c.figureWords).toBe(`of the ground called alike, lit or dark, in the typical picture of ${doc.rows.length}`);
     const edges = median(doc.rows.map((r) => r.disagree_on_edges!));
     const turned = median(doc.rows.map((r) => r.agree_sun_turned_90));
-    expect(c.sentence).toContain(`Where they differ, it is almost always at the edge of a shadow (${Math.round(edges * 100)} % of that ground, in the typical picture)`);
-    expect(c.sentence).toContain(`with the Sun put a quarter of the way round, they would agree on only ${Math.round(turned * 100)} %`);
+    expect(c.sentence).toContain(`They differ almost only at shadow edges (${Math.round(edges * 100)} % of that ground)`);
+    expect(c.sentence).toContain(`with the Sun a quarter-turn away, they would agree on only ${Math.round(turned * 100)} %`);
   });
 
   it('says when it passes in the rule’s own numbers, and that the mark came after a first look', () => {

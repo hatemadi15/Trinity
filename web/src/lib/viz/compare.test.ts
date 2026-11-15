@@ -155,13 +155,13 @@ describe('the comparison in words', () => {
   it('says what changed at the original site, with the reason', () => {
     const s = story(cols);
     expect(s.atOriginal).toEqual([
-      '5 days later (6 January 2027, 00:00 UTC): power for 10 hours instead of 3 days 4 hours. The period starts at night: the Sun is set behind the hills until it rises on 10 January. Sunlight 41 % instead of 45 %; radio contact while it has power: none, as before.',
+      '5 days later: power for 10 hours instead of 3 days 4 hours. The period starts at night: the Sun is set behind the hills until it rises on 10 January.',
     ]);
   });
 
   it('names the alternative that works better than the scenario it was made from, at the same landing time, with the trade-offs', () => {
     const s = story(cols);
-    expect(s.alternative?.lead).toBe('Summit, 12 km from Rim, works better than “5 days later” at the same landing time (6 January 2027, 00:00 UTC): power for all 30 days instead of 10 hours.');
+    expect(s.alternative?.lead).toBe('Summit (12 km) works better than “5 days later” at the same landing time: power for all 30 days instead of 10 hours.');
     expect(s.alternative?.tradeoffs).toEqual([
       'Sunlight: 100 % against 41 %: better.',
       'Radio contact while it has power: 14 days 15 hours against none: better.',
@@ -172,20 +172,20 @@ describe('the comparison in words', () => {
 
   it('never offers a high point worked out from the heights as a checked place to land', () => {
     const derived = { ...cols[2], site: { ...summit, source: 'derived: argmax LOLA 20 m height in annulus around de_gerlache_center' } };
-    expect(story([cols[0], cols[1], derived]).alternative?.lead).toMatch(/^Summit, 12 km from Rim and unchecked for landing, works better than “5 days later”/);
+    expect(story([cols[0], cols[1], derived]).alternative?.lead).toMatch(/^Summit \(12 km, not checked for landing\) works better than “5 days later”/);
     const kind = { ...cols[2], site: { ...summit, kind: 'derived' } as Site };
-    expect(story([cols[0], cols[1], kind]).alternative?.lead).toMatch(/^Summit, 12 km from Rim and unchecked for landing, works better/);
+    expect(story([cols[0], cols[1], kind]).alternative?.lead).toMatch(/^Summit \(12 km, not checked for landing\) works better/);
   });
 
   it('says when no alternative works better, with its figures', () => {
     const worse = { ...cols[2], outcome: outcome({ poweredH: 5, verdict: 'power for 5 hours, then night' }) };
-    expect(story([cols[0], cols[1], worse]).alternative?.lead).toBe('Summit, 12 km from Rim, does not work better than “5 days later” at the same landing time (6 January 2027, 00:00 UTC): power for 5 hours instead of 10 hours.');
+    expect(story([cols[0], cols[1], worse]).alternative?.lead).toBe('Summit (12 km) does not work better than “5 days later” at the same landing time: power for 5 hours instead of 10 hours.');
   });
 
   it('says the landing times differ, and never compares an alternative at another time as if it were the same', () => {
     const other = { ...cols[2], scenario: { ...near, startUtc: '2027-01-08T00:00:00', timing: 'site-best' as const } };
     const s = story([cols[0], cols[1], other]);
-    expect(s.alternative?.lead).toMatch(/^Summit, 12 km from Rim, works better than “5 days later”, landing at another time \(8 January 2027, 00:00 UTC against 6 January 2027, 00:00 UTC\): /);
+    expect(s.alternative?.lead).toMatch(/^Summit \(12 km\) works better than “5 days later”, landing 8 January 2027, 00:00 UTC against 6 January 2027, 00:00 UTC: /);
   });
 });
 
@@ -199,7 +199,7 @@ describe('the landing times', () => {
   });
 
   it('says when they differ, and names a scenario at its site’s own best time', () => {
-    expect(timingLine(cols)).toBe('Landing times differ: the figures compare different dates as well as places.');
+    expect(timingLine(cols)).toBe('Landing times differ: dates change as well as places.');
     const best = { ...cols[2], scenario: { ...near, timing: 'site-best' as const } };
     expect(timingLine([cols[1], best])).toBe('Same landing time for every scenario: 6 January 2027, 00:00 UTC. “Nearby: Summit” lands at Summit’s own best time in its period, not a time it shares by choice.');
   });

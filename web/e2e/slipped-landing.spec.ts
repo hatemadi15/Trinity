@@ -32,9 +32,9 @@ test.describe('A landing that slips by five days', () => {
     const slipped = (await answerHeading(page).textContent()) ?? '';
     expect(slipped.replace(/ on 6 January/, '')).not.toBe(planned.replace(/ on 1 January/, ''));
     // The nearby site Explore advises for the new landing day, with its reason in one sentence and a way there.
-    const advice = answer.getByText(/^Nearby, .+ \(\d+ km away[^)]*\) keeps power/);
+    const advice = answer.getByText(/^Nearby: .+ \(\d+ km[^)]*\) has power/);
     await expect(advice).toBeVisible();
-    const name = /^Nearby, (.+?) \(\d+ km away[^)]*\)/.exec((await advice.textContent()) ?? '')?.[1] ?? '';
+    const name = /^Nearby: (.+?) \(\d+ km[^)]*\)/.exec((await advice.textContent()) ?? '')?.[1] ?? '';
     expect(name, 'the advice names a site').not.toBe('');
     await expect(answer.getByRole('link', { name: `Explore ${name}` })).toBeVisible();
     await shot('explore-slipped');
@@ -69,11 +69,13 @@ test.describe('A landing that slips by five days', () => {
       const original = story.getByRole('heading', { name: 'At the original site' });
       await expect(original).toBeVisible();
       // What changed at the original site: the slipped landing's power against the planned one's.
-      await expect(original.locator('xpath=following-sibling::p').first()).toHaveText(/^5 days later \(6 January 2027, 00:00 UTC\): power for .+ instead of .+/);
+      await expect(original.locator('xpath=following-sibling::p').first()).toHaveText(/^5 days later: power for .+ instead of .+/);
       // Which site works better, and the trade-offs behind it: sunlight, powered time and contact with Earth.
       const another = story.getByRole('heading', { name: 'At another site' });
       await expect(another).toBeVisible();
-      await expect(another.locator('xpath=following-sibling::p').first()).toHaveText(/works better than “5 days later” at the same landing time .*: power for .+ instead of .+/);
+      await expect(another.locator('xpath=following-sibling::p').first()).toHaveText(/works better than “5 days later” at the same landing time.*: power for .+ instead of .+/);
+      // The trade-offs repeat the table's rows in words: one tap away, in their fold.
+      await story.getByRole('button', { name: 'The trade-offs' }).click();
       const tradeoffs = story.getByRole('listitem');
       for (const measure of ['Sunlight', 'Radio contact while it has power', 'Earth in view']) await expect(tradeoffs.filter({ hasText: new RegExp(`^${measure}: `) })).toHaveCount(1);
       // The figures behind it, one column per scenario.

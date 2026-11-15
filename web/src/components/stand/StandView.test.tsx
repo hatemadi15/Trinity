@@ -87,20 +87,24 @@ async function drag() {
 /** The card's help line, which says what the first step says. */
 const HELP = 'Drag to look around; pinch or scroll to zoom.';
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  // "Hide panels" is kept for the visit (spec 25): each test opens with the panels showing.
+  window.sessionStorage.removeItem('earthrise-panels-hidden');
+});
 
 describe('StandView', () => {
 
-  it('puts the answer first: from 768 px the headline leads the plate above the next step and the moment’s state ends it; a phone’s plate leads with the short headline and keeps the state in the card', async () => {
+  it('puts the answer first: from 1800 px the headline leads the plate above the next step and the moment’s state ends it; narrower the plate leads with the short headline, and a phone keeps the state in the card (spec 25)', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const heading = screen.getByRole('heading', { level: 1 }).textContent!;
     const title = asRead(heading);
     const more = screen.getByRole('button', { name: 'More' });
     const plate = more.closest('[data-plate]') as HTMLElement;
     const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    // From 768 px the headline comes first, then the next step, and last the moment's state, on a row of its own.
+    // From 1800 px the headline comes first, then the next step, and last the moment's state, on a row of its own (from 768 px).
     const shown = within(plate).getByText(title, { selector: 'p' });
-    expect(shown.className).toMatch(/\bmax-md:hidden\b/);
+    expect(shown.className).toContain('max-[1800px]:hidden');
     const next = screen.getByRole('group', { name: 'Next step' });
     const st = store.getState();
     const lander = statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh);
@@ -109,13 +113,13 @@ describe('StandView', () => {
     expect(follows(next, state)).toBe(true);
     expect(state.parentElement).toBe(plate.lastElementChild);
     expect(state.parentElement!.className).toMatch(/\bmax-md:hidden\b/);
-    // On a phone the plate leads with the headline's short form, More beside it; the page's heading keeps it whole.
+    // Below 1800 px the plate leads with the headline's short form, More beside it; the page's heading keeps it whole.
     const short = within(plate).getByText(asRead(phoneHeadline(heading)), { selector: 'p' });
     expect(asRead(short.textContent!)).toBe('1 January: power for 3 days 4 hours, no radio');
-    expect(short.className).toMatch(/\bmd:hidden\b/);
+    expect(short.className).toContain('min-[1800px]:hidden');
     expect(short.parentElement).toBe(more.parentElement);
     expect(follows(short, more)).toBe(true);
-    // Today's card opens on the moment's state with its dot, then keeps the whole headline: on a phone only.
+    // Today's card opens on the moment's state with its dot, on a phone only, then keeps the whole headline below 1800 px.
     openCard();
     const card = document.getElementById('stand-card')!;
     const first = card.firstElementChild as HTMLElement;
@@ -124,7 +128,7 @@ describe('StandView', () => {
     expect(first.querySelector('[data-tone]')!.getAttribute('data-tone')).toBe(lander.tone);
     expect(first.className).toMatch(/\bmd:hidden\b/);
     const whole = within(card).getByText(title, { selector: 'p' });
-    expect(whole.className).toMatch(/\bmd:hidden\b/);
+    expect(whole.className).toContain('min-[1800px]:hidden');
     expect(follows(first, whole)).toBe(true);
   });
   it('counts down in today’s card to the next sunset or sunrise and to Earth rising or setting, at every width, as the hour moves', async () => {
@@ -177,10 +181,10 @@ describe('StandView', () => {
     expect(screen.getByText('Level horizon').closest('[hidden]')).toBeNull();
     // Hidden with the words, the rings too; back as they were, the card and the guides with them.
     openCard();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Hide the words' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Hide panels' })[0]);
     await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(false, true, false));
     await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])')).toHaveLength(0));
-    fireEvent.click(screen.getByRole('button', { name: 'Show the words' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show panels' }));
     await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(true, true, true));
     expect(screen.getByRole('button', { name: 'Hide paths' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Less' })).toBeTruthy();
@@ -216,7 +220,7 @@ describe('StandView', () => {
     // At the plate's foot: the site's name (on one line, and waiting for a wider screen on a phone), then the
     // lander's power, its battery's level and its radio.
     const line = statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh);
-    expect(line.text).toMatch(/^Power on, battery 100 %\. No radio: Earth is (below the horizon|behind a hill)\.$/);
+    expect(line.text).toMatch(/^Power on, battery 100 %\. No radio contact: Earth is (below the horizon|behind a hill)\.$/);
     const status = screen.getByText(asRead(line.text));
     // Its dot is amber, power without radio: green is kept for radio contact, as on the time bar.
     expect(status.closest('[data-plate]')!.querySelector('[data-tone]')!.getAttribute('data-tone')).toBe('power');
@@ -227,10 +231,10 @@ describe('StandView', () => {
     const row = screen.getByRole('group', { name: 'Look towards' });
     // Each by its name; the hide button has no other, its visible words being its name, as speech input needs (WCAG 2.5.3).
     // Luna's toggle ends it (spec 22).
-    expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide the words', 'Luna']);
+    expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide panels', 'Luna']);
     // Read as a verb, not a noun (both readers of read D1).
     expect(within(row).getByText('Turn to')).toBeTruthy();
-    for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide the words']) expect(screen.getByRole('button', { name })).toBeTruthy();
+    for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide panels']) expect(screen.getByRole('button', { name })).toBeTruthy();
     // Today's card waits under More: where you stand, what to watch, the better day, the ways on and the help.
     expect(screen.queryByText(watchNext(st.series!, st.power, st.startUtc, 10))).toBeNull();
     expect(document.getElementById('stand-card')).toBeNull();
@@ -555,7 +559,7 @@ describe('StandView', () => {
     const st = store.getState();
     expect(landerState(st.power, st.startUtc, 219).on).toBe(false);
     expect(st.series!.earthVisible[219]).toBe(1);
-    expect(screen.getByText(/^Power off: the battery ran out on 4 January\. Earth is in view, but the radio has no power\.$/)).toBeTruthy();
+    expect(screen.getByText(/^Power off since 4 January\. No radio contact: Earth is in view, but the lander is off\.$/)).toBeTruthy();
   });
 
   // The judge of reads 11 and 12 asked for the battery's level in the view, as on the forecast page.
@@ -569,7 +573,7 @@ describe('StandView', () => {
   it('hides the words, the buttons, the labels and the compass for a clean view, keeping a bare time bar with the moments as dots, and brings them back', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     await waitFor(() => expect(screen.getByText(starLabel('Sirius')).hidden).toBe(false));
-    fireEvent.click(screen.getByRole('button', { name: 'Hide the words' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide panels' }));
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
     for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up']) expect(screen.queryByRole('button', { name })).toBeNull();
     expect(screen.getByRole('slider', { name: 'Time' })).toBeTruthy();
@@ -581,35 +585,42 @@ describe('StandView', () => {
     const dots = within(screen.getByRole('group', { name: 'Jump to a moment' })).getAllByRole('button');
     expect(dots.length).toBeGreaterThan(0);
     for (const b of dots) expect(b.querySelector('span')!.classList.contains('sr-only')).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Show the words' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show panels' }));
     expect(screen.getByRole('heading', { level: 1 })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Face Earth' })).toBeTruthy();
   });
 
-  it('moves the focus to "Show the words" when the words hide, and back to "Hide the words" when they show, or to More below 768 px', async () => {
+  it('moves the focus to "Show panels" when the panels hide, and back to "Hide panels" when they show, on a phone too, and keeps them hidden for the visit (spec 25)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    // From 768 px (jsdom's window is 1024 px wide) the row's button hides the words, and has the focus back after.
-    const hide = screen.getByRole('button', { name: 'Hide the words' });
+    // The row's button hides the panels, and has the focus back after.
+    const hide = screen.getByRole('button', { name: 'Hide panels' });
     hide.focus();
     fireEvent.click(hide);
-    const show = screen.getByRole('button', { name: 'Show the words' });
+    const show = screen.getByRole('button', { name: 'Show panels' });
     expect(document.activeElement).toBe(show);
     fireEvent.click(show);
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Hide the words' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Hide panels' }));
     cleanup();
-    // Below 768 px the row's copy is hidden: the card's hides the words, and the focus comes back to More, reading Less
-    // as the card is open.
+    // On a phone the same button, in the row: the focus comes back to it.
     const was = window.innerWidth;
     Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
     try {
       await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-      openCard();
-      const inCard = screen.getAllByRole('button', { name: 'Hide the words' }).find((b) => b.classList.contains('md:hidden'))!;
-      inCard.focus();
-      fireEvent.click(inCard);
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show the words' }));
-      fireEvent.click(screen.getByRole('button', { name: 'Show the words' }));
-      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Less' }));
+      const inRow = screen.getByRole('button', { name: 'Hide panels' });
+      inRow.focus();
+      fireEvent.click(inRow);
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show panels' }));
+      // Kept for the visit: the view opens again with the panels hidden, the time bar bare, and one press brings them back.
+      expect(window.sessionStorage.getItem('earthrise-panels-hidden')).toBe('1');
+      cleanup();
+      window.history.replaceState(null, '', '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+      render(<StandView store={createExploreStore(fileLoaders())} createRenderer={() => stub()} />);
+      await screen.findByRole('button', { name: 'Show panels' }, { timeout: 20_000 });
+      expect(screen.queryByRole('button', { name: 'Hide panels' })).toBeNull();
+      expect(screen.getByRole('slider', { name: 'Time' })).toBeTruthy();
+      fireEvent.click(screen.getByRole('button', { name: 'Show panels' }));
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Hide panels' }));
+      expect(window.sessionStorage.getItem('earthrise-panels-hidden')).toBe('0');
     } finally {
       Object.defineProperty(window, 'innerWidth', { value: was, configurable: true });
     }
@@ -783,7 +794,7 @@ describe('StandView', () => {
     act(() => {
       runControl('words-off');
     });
-    expect(screen.getByRole('button', { name: 'Show the words' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show panels' })).toBeTruthy();
     act(() => {
       runControl('words-on');
     });
@@ -910,28 +921,31 @@ describe('StandView', () => {
   });
 
   // The final review found the row over the status line and its More from 768 to about 1070 px wide.
-  it('puts the row at the top right only from 1280 px wide, above the time bar below that, and sizes the card by the status line it sits under', async () => {
+  it('puts the row at the top right only from 1800 px wide, a plate above the time bar below that, and sizes the card by the status line it sits under (spec 25)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const row = screen.getByRole('group', { name: 'Look towards' });
-    expect(row.className).toMatch(/\bmax-xl:fixed\b/);
-    expect(row.parentElement!.className).toMatch(/\bxl:flex-row\b/);
-    expect(row.parentElement!.className).not.toMatch(/\bmd:flex-row\b/);
+    expect(row.className).toContain('max-[1800px]:fixed');
+    // From 768 px a small plate centred just above the time bar; on a phone a strip on the bar.
+    for (const c of ['md:max-[1800px]:bottom-[calc(var(--bar-h,129px)+12px)]', 'md:max-[1800px]:left-1/2', 'md:max-[1800px]:-translate-x-1/2', 'max-md:inset-x-0', 'max-md:bottom-[var(--bar-h,211px)]']) expect(row.className).toContain(c);
+    expect(row.parentElement!.className).toContain('min-[1800px]:flex-row');
+    expect(row.parentElement!.className).not.toMatch(/(^| )(md|xl):flex-row\b/);
     openCard();
     expect(document.getElementById('stand-card')!.className).toContain('var(--status-h');
-    // The caption docks on the compass plate (18.3), which sits above the row wherever the row sits above the time bar.
+    // The line over the view sits above the row wherever the row sits above the time bar.
     act(() => fireEvent.click(screen.getByRole('button', { name: 'Look up' })));
-    expect(screen.getByText(viewCaption('up', 88.28)).className).toContain('max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+93px)]');
+    expect(screen.getByText(viewCaption('up', 88.28)).className).toContain('md:max-[1800px]:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+24px)]');
   });
 
-  it('docks the caption on the compass plate from 768 px, one plate at the foot of the view, and keeps its own plate on a phone (18.3)', async () => {
+  it('keeps the line over the view on a plate of its own above the time bar at every width, now the compass is at the top (spec 25)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     fireEvent.click(screen.getByRole('button', { name: 'Face Earth' }));
     const cap = screen.getByText(viewCaption('earth', -88.28)).closest<HTMLElement>('[data-caption]')!;
     expect(cap).toBeTruthy();
-    // Its foot where the compass plate's top is: 14 px over the bar, then the plate's 79 px (STRIP_H).
-    for (const c of ['md:rounded-b-none', 'md:border-b-0', 'bottom-[calc(var(--bar-h,129px)+93px)]', 'max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+93px)]', 'max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]', 'w-[min(460px,calc(100vw-32px))]']) expect(cap.className).toContain(c);
-    // The compass plate knows a caption sits on it.
-    expect(document.querySelector('[data-strip]')!.classList.contains('border-t-0')).toBe(true);
+    // 12 px over the bar from 1800 px, over the row below that; whole, with nothing docked under it.
+    for (const c of ['bottom-[calc(var(--bar-h,129px)+12px)]', 'md:max-[1800px]:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+24px)]', 'max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]', 'w-[min(460px,calc(100vw-32px))]']) expect(cap.className).toContain(c);
+    for (const c of ['md:rounded-b-none', 'md:border-b-0']) expect(cap.className).not.toContain(c);
+    // The compass plate is whole too.
+    expect(document.querySelector('[data-strip]')!.classList.contains('border-t-0')).toBe(false);
   });
 
   it('keeps the moment’s state whole at the plate’s foot: the dot by its first line, its lines even, More after the headline, on an opaque plate', async () => {
@@ -947,22 +961,24 @@ describe('StandView', () => {
     expect(plate.querySelector('[data-tone]')!.classList.contains('self-start')).toBe(true);
   });
 
-  it('on a phone keeps the site’s name and the row’s "Hide words" for a wider screen, puts the row above the time bar, and "Hide the words" in the card', async () => {
+  it('on a phone keeps the site’s name for a wider screen, puts the row on the time bar with "Hide panels" in it, short, and no second copy in the card (spec 25)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     expect(screen.getByText(/^de\sGerlache\sRim\s2\.$/).classList.contains('max-md:hidden')).toBe(true);
-    expect(screen.getByRole('button', { name: 'Hide the words' }).classList.contains('max-md:hidden')).toBe(true);
-    expect(screen.getByRole('group', { name: 'Look towards' }).className).toMatch(/\bmax-xl:fixed\b/);
+    // One control at every width: in the row, "Hide" on a phone, its accessible name whole.
+    const hide = screen.getByRole('button', { name: 'Hide panels' });
+    expect(hide.classList.contains('max-md:hidden')).toBe(false);
+    expect([...hide.querySelectorAll('span')].map((x) => [x.textContent, x.className])).toEqual([['Hide', 'md:hidden'], ['Hide panels', 'max-md:hidden']]);
+    expect(screen.getByRole('group', { name: 'Look towards' }).className).toContain('max-md:bottom-[var(--bar-h,211px)]');
     openCard();
-    const inCard = screen.getAllByRole('button', { name: 'Hide the words' }).find((b) => b.classList.contains('md:hidden'))!;
-    expect(inCard).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Hide panels' })).toEqual([hide]);
     // Button words on one line; the better day is a sentence, and wraps inside the card.
     expect(within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead/ }).className).not.toMatch(/\bwhitespace-nowrap\b/);
     expect(screen.getByRole('button', { name: /Why this happens/ }).className).toMatch(/\bwhitespace-nowrap\b/);
     expect(within(document.getElementById('stand-card')!).getByRole('link', { name: 'Change date' }).className).toMatch(/\bwhitespace-nowrap\b/);
     // The card scrolls inside itself rather than run under the buttons and the time bar.
     expect(document.getElementById('stand-card')!.className).toMatch(/\boverflow-y-auto\b/);
-    fireEvent.click(inCard);
-    expect(screen.getByRole('button', { name: 'Show the words' })).toBeTruthy();
+    fireEvent.click(hide);
+    expect(screen.getByRole('button', { name: 'Show panels' })).toBeTruthy();
   });
 
   it('keeps the card open and the same whatever the view does', async () => {
@@ -981,11 +997,11 @@ describe('StandView', () => {
     expect(within(document.getElementById('stand-card')!).getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
   });
 
-  it('keeps the next step in view from 768 px: the better day in gold with its radio, then Change, holding Change site, Change date, Change lander and Compare sites, and the card leaves its own gold and way on to that row', async () => {
+  it('keeps the next step in view from 1800 px: the better day in gold with its radio, then Change, holding Change site, Change date, Change lander and Compare sites, and the card leaves its own gold and way on to that row', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const row = screen.getByRole('group', { name: 'Next step' });
-    // A phone keeps the row in today's card, under More: the scene keeps its 55 % (17.1).
-    expect(row.className).toMatch(/\bmax-md:hidden\b/);
+    // Below 1800 px the next step waits in today's card, under More (spec 25): the view keeps its room.
+    expect(row.className).toContain('max-[1800px]:hidden');
     // Inside the status's plate, under its line.
     expect(row.closest('[data-plate]')).toBe(screen.getByRole('button', { name: 'More' }).closest('[data-plate]'));
     // The radio as today's card gives it (18.3): the desktop and the card say the same.
@@ -1000,12 +1016,12 @@ describe('StandView', () => {
     expect(within(row).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     expect(within(row).getByRole('button', { name: 'Change lander' })).toBeTruthy();
     expect(within(row).getByRole('button', { name: 'Compare sites' }).className).not.toContain('text-[#f6d48a]');
-    // One gold action on the screen: from 768 px the card's own better day and way on are hidden.
+    // One gold action on the screen: from 1800 px the card's own better day and way on are hidden.
     openCard();
     const card = document.getElementById('stand-card')!;
-    expect(within(card).getByRole('link', { name: /radio for/ }).closest('div')!.className).toMatch(/\bmd:hidden\b/);
-    expect(within(card).getByRole('link', { name: 'Change date' }).className).toMatch(/\bmd:hidden\b/);
-    expect(within(card).getByRole('button', { name: 'Change lander' }).className).toMatch(/\bmd:hidden\b/);
+    expect(within(card).getByRole('link', { name: /radio for/ }).closest('div')!.className).toContain('min-[1800px]:hidden');
+    expect(within(card).getByRole('link', { name: 'Change date' }).className).toContain('min-[1800px]:hidden');
+    expect(within(card).getByRole('button', { name: 'Change lander' }).className).toContain('min-[1800px]:hidden');
   });
 
   it('gathers the next step’s links under one Change from 768 px, the gold link left beside it (spec 20.1)', async () => {
@@ -1104,14 +1120,21 @@ describe('StandView', () => {
     expect([...document.getElementById(other.getAttribute('aria-controls')!)!.querySelectorAll('a, button')].map((el) => el.textContent)).toEqual(['Change site', 'Change date', 'Change lander']);
   }, 40_000);
 
-  it('keeps the plate to 60 words before a tap at 1440 (spec 20.1)', async () => {
+  it('keeps the plate to 35 words before a tap at 1440, and to 70 at 1920 where the next step shows (spec 20.1, 25)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    // The headline, the gold link and Change, then the moment's state and the way to the evidence.
+    // At 1440 the short headline, More and the moment's state; the gold link, Change and the way to the evidence wait in the card.
     const plate = screen.getByRole('button', { name: 'More' }).closest<HTMLElement>('[data-plate]')!;
-    expect(visibleWords(plate, WIDE).length).toBeLessThanOrEqual(60);
+    const words = visibleWords(plate, WIDE);
+    expect(words.length).toBeLessThanOrEqual(35);
+    expect(words.join(' ')).toMatch(/^1 January: power for 3 days 4 hours, no radio More de Gerlache Rim 2 ?\. Power on, battery 100 %\. No radio contact: Earth is /);
+    for (const w of ['Change', 'Accuracy', 'Try']) expect(words).not.toContain(w);
+    // From 1800 px the whole plate of 19.1 and 20.1.
+    const wide = visibleWords(plate, 1920);
+    expect(wide.length).toBeLessThanOrEqual(70);
+    for (const w of ['Landing', 'Change', 'Accuracy', 'Try']) expect(wide).toContain(w);
   });
 
-  it('links to Earthrise, How it works and Accuracy from 768 px on the plate, and in the card on a phone (19.3)', async () => {
+  it('links to Earthrise, How it works and Accuracy from 1800 px on the plate, and in the card below that (19.3, 25)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The first step taken, so the help line the links sit above shows (20.1).
     await drag();
@@ -1123,9 +1146,9 @@ describe('StandView', () => {
     // From 768 px at the end of the moment's state, the plate's last row; on a phone at the card's foot, before the drag line.
     const onPlate = navs.find((n) => plate.contains(n))!;
     expect(onPlate.parentElement).toBe(plate.lastElementChild);
-    expect(onPlate.parentElement!.className).toMatch(/\bmax-md:hidden\b/);
+    expect(onPlate.className).toContain('max-[1800px]:hidden');
     const inCard = navs.find((n) => card.contains(n))!;
-    expect(inCard.className).toMatch(/\bmd:hidden\b/);
+    expect(inCard.className).toContain('min-[1800px]:hidden');
     expect(inCard.nextElementSibling!.textContent).toBe('Drag to look around; pinch or scroll to zoom.');
     for (const nav of [onPlate, inCard]) {
       expect([...nav.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
@@ -1135,6 +1158,21 @@ describe('StandView', () => {
       ]);
       expect(nav.className).toContain('text-[14px]');
     }
+  });
+
+  it('says in today’s card that radio contact needs both power and Earth in view, and names the compass’s dots where the strip has no key (spec 25)', async () => {
+    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    openCard();
+    const card = document.getElementById('stand-card')!;
+    expect(card.querySelector('[data-rule]')!.textContent).toBe('Radio contact needs both: the lander has power, and Earth is in view.');
+    const key = card.querySelector<HTMLElement>('[data-compass-key]')!;
+    expect(key.textContent).toBe('On the compass: gold is the Sun, blue is Earth, white is the lander. A hollow dot is below the horizon.');
+    // From 768 px up to 1800 px, where the strip's own key shows.
+    for (const c of ['max-md:hidden', 'min-[1800px]:hidden']) expect(key.classList.contains(c)).toBe(true);
+    // The time bar's key says the rule where the bands are: the green is power and Earth together.
+    fireEvent.change(screen.getByRole('slider', { name: 'Time' }), { target: { value: '500' } });
+    const bar = screen.getByRole('region', { name: 'Time' });
+    expect([...bar.querySelectorAll('[data-part^="key"]')].map((k) => k.textContent)).toContain('Earth in view');
   });
 
   it('keeps the status plate at its full width whatever the words, so More stays put as the night comes (18.3)', async () => {
@@ -1150,7 +1188,8 @@ describe('StandView', () => {
     const chip = document.querySelector<HTMLAnchorElement>('a[data-chip]')!;
     expect(chip).toBeTruthy();
     expect(asRead(chip.textContent!)).toMatch(/^Try 20 Jan instead: power for 12 days 15 hours›$/);
-    for (const c of ['md:hidden', 'min-h-8', 'text-[14px]', 'text-[#f6d48a]']) expect(chip.classList.contains(c)).toBe(true);
+    // Below 1800 px, where the plate leaves the next step to the card (spec 25).
+    for (const c of ['min-[1800px]:hidden', 'min-h-8', 'text-[14px]', 'text-[#f6d48a]']) expect(chip.classList.contains(c)).toBe(true);
     // A plate, so no label of the sky sits on it and the view's room starts under it; it grows if its words wrap (19.4).
     expect(chip.hasAttribute('data-plate')).toBe(true);
     expect(chip.classList.contains('h-8')).toBe(false);
@@ -1169,8 +1208,8 @@ describe('StandView', () => {
     expect(document.querySelector('a[data-chip]')).toBeNull();
     const card = document.getElementById('stand-card')!;
     expect(within(card).getByRole('link', { name: 'Change site' }).getAttribute('href')).toBe('/sites');
-    expect(within(card).getByRole('link', { name: 'Change site' }).className).toMatch(/\bmd:hidden\b/);
-    expect(within(card).getByRole('button', { name: 'Compare sites' }).className).toMatch(/\bmd:hidden\b/);
+    expect(within(card).getByRole('link', { name: 'Change site' }).className).toContain('min-[1800px]:hidden');
+    expect(within(card).getByRole('button', { name: 'Compare sites' }).className).toContain('min-[1800px]:hidden');
     fireEvent.click(screen.getByRole('button', { name: 'Less' }));
     expect(document.querySelector('a[data-chip]')).toBeTruthy();
   });

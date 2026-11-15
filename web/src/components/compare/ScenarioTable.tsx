@@ -63,6 +63,9 @@ function ChecksSwitch({ name, open, controls, onToggle }: { name: string; open: 
   );
 }
 
+/** The settings a column leaves out when it repeats the baseline's. */
+const SAME_AS_BASELINE = ['lander', 'mast', 'clearance'];
+
 /**
  * The scenarios side by side: one column each, the baseline first, the settings and then the figures, each figure with
  * its change from the baseline. A wide table scrolls inside its own box, the row names staying in view.
@@ -90,6 +93,9 @@ export function ScenarioTable({
   // The terrain versions' row shows its name only: each scenario's versions are one tap on it away.
   const [versionsOpen, setVersionsOpen] = useState(false);
   const versionsId = (i: number) => `${id}-versions-${i}`;
+  // Each scenario's own best landing, with the way to add it: one tap on the row's name away.
+  const [bestOpen, setBestOpen] = useState(false);
+  const bestId = (i: number) => `${id}-best-${i}`;
   const pending = (i: number) => {
     const r = runs[cols[i].scenario.id];
     return r?.status === 'error' ? 'cannot be worked out' : 'working out…';
@@ -120,8 +126,16 @@ export function ScenarioTable({
                 </th>
                 {row.cells.map((cell, i) => (
                   <td key={cols[i].scenario.id} className={`${CELL} text-[15px]`}>
-                    <span className="block text-ink">{cell.value}</span>
-                    {cell.kind && <span className="block text-ink-2">{cell.kind}</span>}
+                    {/* A lander, mast or Earth height the baseline already states reads "same": said once, in the baseline's column. */}
+                    {i > 0 && SAME_AS_BASELINE.includes(row.id) && cell.value === row.cells[0].value ? (
+                      <span className="block text-ink-2" title={cell.value}>
+                        same
+                      </span>
+                    ) : (
+                      <span className="block text-ink">{cell.value}</span>
+                    )}
+                    {/* What kind of point a site is, said once: a column at the baseline's site does not repeat it. */}
+                    {cell.kind && !(row.id === 'site' && i > 0 && cell.value === row.cells[0].value) && <span className="block text-ink-2">{cell.kind}</span>}
                     {cell.change && <span className="block text-ink-2">{cell.change}</span>}
                     {row.id === 'landing' && cols[i].scenario.timing === 'site-best' && <span className="block text-ink-2">the site’s own best time</span>}
                   </td>
@@ -171,13 +185,14 @@ export function ScenarioTable({
             </tr>
             <tr>
               <th scope="row" className={HEAD}>
-                Its own best landing
+                <ChecksSwitch name="Its own best landing" open={bestOpen} controls={cols.map((_, i) => bestId(i)).join(' ')} onToggle={() => setBestOpen((v) => !v)} />
               </th>
-              {cols.map((c) => {
+              {cols.map((c, k) => {
                 const best = c.outcome?.best;
                 const here = best && best.hour === 0;
                 return (
                   <td key={c.scenario.id} className={`${CELL} text-[15px]`}>
+                    <div id={bestId(k)} hidden={!bestOpen}>
                     {!c.outcome ? null : !best ? (
                       <span className="text-ink-2">no sunlit hour</span>
                     ) : here ? (
@@ -196,6 +211,7 @@ export function ScenarioTable({
                         </button>
                       </>
                     )}
+                    </div>
                   </td>
                 );
               })}

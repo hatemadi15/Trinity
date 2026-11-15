@@ -17,9 +17,11 @@ describe('WhereOnMoon with the modelled cold traps', () => {
     const line = within(panel).getByText(/^Modelled cold traps: within 5\skm, 11\.5\skm² stays below 110\sK/);
     expect(line.className).toMatch(/text-\[15px\]/);
     expect(line.textContent).toMatch(/conditions where ice could last; the nearest is 2\.7\skm away, with slopes up to 36° on a straight line there\. What a cold trap is$/);
+    // Both wait one tap away, in a fold under the place's own line.
+    expect(within(panel).getByRole('button', { name: /Ground detail and cold traps/ }).getAttribute('aria-expanded')).toBe('false');
     const ground_ = within(panel).getByText(/^The ground here/);
     expect(ground_.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(line).getByRole('link', { name: 'What a cold trap is' }).getAttribute('href')).toBe('/learn#cold-traps');
+    expect(within(line).getByRole('link', { name: 'What a cold trap is', hidden: true }).getAttribute('href')).toBe('/learn#cold-traps');
     // The row of sources names the model the line comes from.
     const sources = within(within(panel).getByLabelText('Data sources')).getAllByRole('listitem').map((li) => li.textContent);
     expect(sources).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'LRO Diviner temperature model', 'JPL DE440', 'Artemis III regions', 'CLPS mission records']);

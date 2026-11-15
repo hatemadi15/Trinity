@@ -21,8 +21,8 @@ function SlipForm({ label, onSlip, startOpen }: { label: string; onSlip: (hours:
   const hours = (way === 'later' ? 1 : -1) * count * UNITS[unit];
   return (
     <div>
-      <button type="button" aria-expanded={open} aria-controls={`${id}-slip`} onClick={() => setOpen((v) => !v)} className="btn btn-sm">
-        Slip the landing…
+      <button type="button" aria-expanded={open} aria-controls={`${id}-slip`} onClick={() => setOpen((v) => !v)} aria-label="Slip the landing…" className="btn btn-sm">
+        Slip…
       </button>
       <form
         id={`${id}-slip`}
@@ -113,8 +113,8 @@ export function ScenarioCard({
       {col.terrain && terrainLimitation(col.terrain) && <p className={`text-[15px] ${col.terrain.quality === 'incomplete' ? 'text-bad' : 'text-ink-2'}`}>{terrainLimitation(col.terrain)}</p>}
       <div className="mt-1 flex flex-col items-start gap-2">
         {!full && <SlipForm label={s.label} onSlip={onSlip} startOpen={alone} />}
-        <button type="button" onClick={onNearby} disabled={full || searching} className={QUIET}>
-          {searching ? 'Looking nearby…' : 'Find a nearby alternative'}
+        <button type="button" onClick={onNearby} disabled={full || searching} aria-label={searching ? undefined : 'Find a nearby alternative'} className={QUIET}>
+          {searching ? 'Looking nearby…' : 'Nearby site…'}
         </button>
         <button type="button" onClick={onChange} aria-label={`Change “${s.label}”`} className={QUIET}>
           Change…

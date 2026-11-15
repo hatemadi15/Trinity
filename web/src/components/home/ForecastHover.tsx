@@ -18,7 +18,7 @@ export function hourWords(s: ForecastSeries, hour: number) {
   return {
     when: dateTimeUtc(s.startUtc, hour),
     sun: `${deg(s.sunEl[hour])} up, ${s.lit[hour] ? 'shining on the site' : s.sunEl[hour] < 0 ? 'below the horizon' : 'behind the hills'}`,
-    earth: `${deg(s.earthEl[hour])} up, ${s.earthVisible[hour] ? 'in view for radio' : s.earthEl[hour] < 0 ? 'below the horizon' : 'hidden by the hills'}`,
+    earth: `${deg(s.earthEl[hour])} up, ${s.earthVisible[hour] ? 'in view' : s.earthEl[hour] < 0 ? 'below the horizon' : 'hidden by the hills'}`,
     sunUp: Boolean(s.lit[hour]),
     earthUp: Boolean(s.earthVisible[hour]),
   };

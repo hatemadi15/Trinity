@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { Fold } from '@/components/Fold';
 import { ReliefMap, type MapPin } from '@/components/ReliefMap';
 import { lolaFor, Sources } from '@/components/Sources';
 import { exploreHref } from '@/components/sites/SitesView';
@@ -63,7 +64,8 @@ export function WhereOnMoon({
         </Link>
       </div>
       <div data-part="layout" className={wide ? 'mt-3 grid gap-x-8 md:grid-cols-[minmax(0,420px)_minmax(0,1fr)]' : ''}>
-        <p className={`mt-2 text-ink-2 ${wide ? 'md:col-start-2 md:row-start-1' : ''}`}>
+        <div className={wide ? 'md:col-start-2 md:row-start-1' : ''}>
+        <p className="mt-2 text-ink-2">
           <b className="font-semibold text-ink">{siteLabel(site)}.</b> {site.blurb ? `${site.blurb}.` : `A place at ${Math.abs(site.lat).toFixed(2)}° ${site.lat < 0 ? 'S' : 'N'}.`}
           {!here && ' It lies far outside this map of the south pole.'} {pointKind(site).sentence}
           {site.far_side && ' It lies on the far side, where Earth never rises: a lander there talks to Earth through a relay satellite.'}
@@ -78,16 +80,24 @@ export function WhereOnMoon({
             ) : (
               ` It landed on ${landed.date}, before the years this app covers (2024 to 2036), so the figures are for the days chosen above.`
             ))}
-          {ground && <span className="mt-1 block text-[15px]">{groundWords(ground)}</span>}
-          {cold && (
-            <span className="mt-1 block text-[15px]">
-              {cold}{' '}
-              <Link href="/learn#cold-traps" className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
-                What a cold trap is
-              </Link>
-            </span>
-          )}
         </p>
+        {/* The measured ground and the modelled cold traps are read once: one tap away, under the place's own line. */}
+        {(ground || cold) && (
+          <Fold label={ground && cold ? 'Ground detail and cold traps' : ground ? 'Ground detail' : 'Modelled cold traps'} className="text-[15px]">
+            <div data-part="ground" className="text-ink-2">
+              {ground && <p className="text-[15px]">{groundWords(ground)}</p>}
+              {cold && (
+                <p className="mt-1 text-[15px]">
+                  {cold}{' '}
+                  <Link href="/learn#cold-traps" className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+                    What a cold trap is
+                  </Link>
+                </p>
+              )}
+            </div>
+          </Fold>
+        )}
+        </div>
         <div className={`mt-3 ${wide ? 'md:col-start-1 md:row-span-3 md:row-start-1 md:mt-0' : ''}`}>
           <ReliefMap pins={pins} selectedId={site.id} />
           <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
@@ -121,7 +131,7 @@ export function WhereOnMoon({
                     <li key={other.id}>
                       <Link href={exploreHref(other.id, startUtc, days)} className="flex min-h-[48px] items-center gap-4 py-2 hover:bg-surface-2">
                         <span className="min-w-0 flex-1">
-                          <span className="font-medium underline decoration-line-strong underline-offset-4">{siteLabel(other)}</span>, {km < 10 ? km.toFixed(1) : Math.round(km)} km away
+                          <span className="font-medium underline decoration-line-strong underline-offset-4">{siteLabel(other)}</span>, {km < 10 ? km.toFixed(1) : Math.round(km)} km
                         </span>
                         {!o ? (
                           <span className="text-[15px] text-ink-2">working it out…</span>

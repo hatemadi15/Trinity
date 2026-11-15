@@ -221,12 +221,12 @@ export interface NearbyAdvice {
 
 /** The nearby advice in one sentence: where, how far, and how long the power lasts there. */
 export function nearbyWords(a: NearbyAdvice, days: number): string {
-  const lasting = a.hours >= days * 24 ? `all ${days} days` : spanWords(a.hours);
+  const lasting = a.hours >= days * 24 ? `all ${days} days` : `for ${spanWords(a.hours)}`;
   // A high point worked out from the heights is said to be one: never offered as a checked place to land.
-  const derived = a.site.kind === 'derived' ? ', unchecked for landing' : '';
+  const derived = a.site.kind === 'derived' ? ', not checked for landing' : '';
   // A spot round an approximate site has its distance in its name already.
-  const where = a.site.category === 'custom' ? siteLabel(a.site) : `${siteLabel(a.site)} (${Math.round(a.km)} km away${derived})`;
-  return `Nearby, ${where} keeps power for ${lasting} from the same landing day${a.earthNever ? ', but Earth is never in view there' : ''}.`;
+  const where = a.site.category === 'custom' ? siteLabel(a.site) : `${siteLabel(a.site)} (${Math.round(a.km)} km${derived})`;
+  return `Nearby: ${where} has power ${lasting}${a.earthNever ? ', but never sees Earth' : ''}.`;
 }
 
 const COMPASS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];

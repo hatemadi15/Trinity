@@ -30,18 +30,18 @@ const TWO_WEEKS_H = 14 * 24;
 const GROUPS: { title: string; note: string; categories: string[] }[] = [
   {
     title: 'Shortlisted by NASA for a crewed Artemis landing',
-    note: 'The nine candidate regions NASA named in October 2024. Each figure is for the centre of the region.',
+    note: 'Nine candidate regions, named in October 2024. Figures are for each centre.',
     categories: ['artemis3'],
   },
-  { title: 'Where commercial landers touched down', note: 'The landing spots of three real missions, for the same days as the rest of the list.', categories: ['clps_landed'] },
-  { title: 'Where commercial landers are to land next', note: 'Two landings NASA has ordered, at the places announced so far.', categories: ['clps_planned'] },
-  { title: 'Landers from other countries', note: "The landers of India, China and Japan, and the place Russia's Luna 25 was aiming for when it crashed.", categories: ['international'] },
+  { title: 'Where commercial landers touched down', note: 'Three real missions, for the same days.', categories: ['clps_landed'] },
+  { title: 'Where commercial landers are to land next', note: 'Two landings NASA has ordered.', categories: ['clps_planned'] },
+  { title: 'Landers from other countries', note: "India, China and Japan, and where Russia's Luna 25 was aiming.", categories: ['international'] },
   {
     title: 'Where the Apollo crews landed',
-    note: 'The six crewed landings of 1969 to 1972, near the equator. Like every row here, the figures are for the days chosen above and the same lander, whose upright panel catches little of a Sun almost overhead.',
+    note: 'Six crewed landings, 1969 to 1972. The same lander and days: its upright panel catches little of a Sun almost overhead.',
     categories: ['apollo'],
   },
-  { title: 'High points and crater floors', note: 'The extremes: rims that almost never lose the Sun, floors that never see it.', categories: ['classic', 'reference'] },
+  { title: 'High points and crater floors', note: 'Rims that almost never lose the Sun, floors that never see it.', categories: ['classic', 'reference'] },
 ];
 
 const COLUMNS = 'grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.1fr)_16px] items-center gap-x-5';
@@ -70,6 +70,8 @@ function Row({ site, o, href, startUtc, days, active, onActive, problem = null, 
         href={href}
         data-row={site.id}
         data-active={active ? 'true' : undefined}
+        // What the place is, one point away: the row keeps its name, its day and what kind of point it is.
+        title={site.blurb}
         onMouseEnter={() => onActive(site.id)}
         onMouseLeave={() => onActive(null)}
         onFocus={() => onActive(site.id)}
@@ -81,10 +83,9 @@ function Row({ site, o, href, startUtc, days, active, onActive, problem = null, 
           {/* The day every figure of the row counts from, before the figures. */}
           {o?.best && (
             <span className="mt-0.5 block text-[15px] font-medium text-ink">
-              <span className="sr-only">, </span>Best landing day: {dayMonth(startUtc, o.best.hour)}
+              <span className="sr-only">, </span>Best day: {dayMonth(startUtc, o.best.hour)}
             </span>
           )}
-          <span className="mt-0.5 block text-[15px] text-ink-2">{site.blurb}</span>
           {/* What kind of point the coordinate is, so a region's centre or a derived high point never reads as a surveyed landing spot. */}
           <span className="mt-0.5 block text-[15px] text-ink-2">
             <span className="sr-only">, </span>
@@ -175,7 +176,7 @@ function Elsewhere({ store, navigate }: { store: StoreApi<ExploreState>; navigat
       <h2 id="h-elsewhere" className="display text-[32px]">
         Somewhere else
       </h2>
-      <p className="mt-1.5 max-w-[46em] text-ink-2">Any point south of 60° S works. The hills around it are read from NASA elevation data in your browser, which takes a few seconds.</p>
+      <p className="mt-1.5 max-w-[46em] text-ink-2">Any point south of 60° S. Tracing its hills from NASA elevation data takes a few seconds.</p>
       <form
         className="mt-4 flex flex-wrap items-end gap-4"
         onSubmit={(e) => {
@@ -298,12 +299,12 @@ export function SitesView({ store = exploreStore, navigate, coldTraps }: { store
             <h1 data-band-end="" className="display mt-3 text-[48px] leading-none sm:text-[72px]">
               Choose a <em>landing site</em>
             </h1>
-            <p className="mt-4 max-w-[46em] text-lg text-ink-2">{catalogue.length} places on the Moon, most near the south pole.</p>
+            <p className="mt-4 max-w-[46em] text-lg text-ink-2">{catalogue.length} places, most near the south pole.</p>
           </div>
         </MoonNebula>
         {/* What this page does, in three steps, on the page itself rather than behind a tap (spec 23). What the
             figures count from is one point away, on step 2's "i", and each column's meaning on its own: the first
-            screen keeps to its 105 words (spec 20.1), so the steps are their headings and the dates' own fields. */}
+            screen keeps to its 88 words (spec 20.1), so the steps are their headings and the dates' own fields. */}
         <ol aria-label="How to choose" className="wrap mt-8 grid gap-6 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)] md:gap-10">
           <li className="border-t border-ink pt-4">
             <p className="flex items-baseline gap-3">
@@ -353,7 +354,7 @@ export function SitesView({ store = exploreStore, navigate, coldTraps }: { store
               </p>
               <ReliefMap pins={pins} activeId={active} onActive={setActive} nameAll />
               <p className="mt-3 text-[15px] text-ink-2">
-                The south pole is at the centre of the map. Point at a row to find its site on the map.{offMap > 0 ? ` ${offMap} places lie farther from the pole, outside this map.` : ''}
+                The south pole is at the centre.{offMap > 0 ? ` ${offMap} places lie outside this map.` : ''}
               </p>
             </section>
 
@@ -362,16 +363,16 @@ export function SitesView({ store = exploreStore, navigate, coldTraps }: { store
               <SkylineNote state={s} ids={catalogue.map((x) => x.id)} className="mb-6" />
               {top && 'withheld' in top && (
                 <p className="mb-8 text-[17px] text-ink">
-                  The longest time with power is not named: the terrain at {siteLabel(top.withheld.site)} is incomplete{missingWords(top.withheld.o.terrain) ? ` (${missingWords(top.withheld.o.terrain)})` : ''}, so its figures may be too high.
+                  The longest with power is not named: the terrain at {siteLabel(top.withheld.site)} is incomplete{missingWords(top.withheld.o.terrain) ? ` (${missingWords(top.withheld.o.terrain)})` : ''}, so its figures may be too high.
                 </p>
               )}
               {top && 'o' in top && (
                 <p className="mb-8 text-[17px] text-ink">
-                  Longest time with power in these days:{' '}
+                  Longest with power:{' '}
                   <Link href={siteHref(top.site.id, top.o, s.startUtc, s.days)} className="font-semibold underline decoration-line-strong underline-offset-4 hover:decoration-ink">
                     {siteLabel(top.site)}
                   </Link>
-                  {pointKind(top.site).kind === 'derived' && ', a derived high point not checked as safe to land'}, {top.o.best!.poweredHours >= s.days * 24 ? `all ${s.days} days` : spanShort(Math.round(top.o.best!.poweredHours))} if it lands on {dayMonth(s.startUtc, top.o.best!.hour)}.
+                  {pointKind(top.site).kind === 'derived' && ', a derived high point not checked as safe to land'}, {top.o.best!.poweredHours >= s.days * 24 ? `all ${s.days} days` : spanShort(Math.round(top.o.best!.poweredHours))}, landing {dayMonth(s.startUtc, top.o.best!.hour)}.
                 </p>
               )}
               {groups.map((g, i) => (
@@ -408,7 +409,7 @@ export function SitesView({ store = exploreStore, navigate, coldTraps }: { store
                   {g.without.length > 0 && (
                     <>
                       <h3 className="mt-7 px-3 text-[17px] font-semibold text-ink">No contact with Earth in the first {s.days} days</h3>
-                      <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">These places keep power for a while but cannot reach Earth by radio then.</p>
+                      <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">Power for a while, but no radio link to Earth then.</p>
                       <ul className="divide-y divide-line-strong">
                         {g.without.map((site) => (
                           <Row key={site.id} site={site} o={s.overview[site.id]} href={siteHref(site.id, s.overview[site.id], s.startUtc, s.days)} startUtc={s.startUtc} days={s.days} active={active === site.id} onActive={setActive} problem={s.skylineProblems[site.id]} cold={coldOf(site.id)} />
@@ -421,8 +422,7 @@ export function SitesView({ store = exploreStore, navigate, coldTraps }: { store
                     <div>
                       <h3 className="mt-7 px-3 text-[17px] font-semibold text-ink">On the far side: Earth never rises</h3>
                       <p className="border-b border-line-strong px-3 pb-2 text-[15px] text-ink-2">
-                        The far side always faces away from Earth, so a lander there can talk to Earth only through a relay satellite, as Chang&apos;e 4 and Chang&apos;e 6 did through China&apos;s Queqiao
-                        satellites.
+                        A lander there reaches Earth only through a relay satellite, as Chang&apos;e 4 and 6 did.
                       </p>
                       <ul className="divide-y divide-line-strong">
                         {g.far.map((site) => (

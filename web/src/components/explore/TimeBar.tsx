@@ -169,7 +169,7 @@ type Peek = { share: number; hour: number; moment?: KeyMoment };
  * with power, 0 without) draws the hours the lander is off as a red band right under the sunlight, with
  * "lander off" in the key. The blue band sits under the red one, and under the blue, on a row of its own, the
  * hours with both power and Earth in view, when the lander can radio home, are a green band ("radio
- * contact"), so the blue runs whole for as long as Earth is in view. With the dates each band is 6 px tall,
+ * contact = power + Earth in view", the rule in the key itself, spec 25), so the blue runs whole for as long as Earth is in view. With the dates each band is 6 px tall,
  * 2 px under the one above. Explore leaves all of these to its chart.
  *
  * Once the battery has run out in the night, what the lander does after the power comes back holds only if
@@ -584,7 +584,8 @@ export function TimeBar({
       {solid && (
         <span data-part="key-contact" className="flex items-center gap-2 text-[15px] text-ink-2">
           <i data-swatch="" aria-hidden="true" className="block h-2.5 w-6 rounded-full border-y-2 border-transparent bg-good bg-clip-padding" />
-          radio contact
+          {/* The rule in the key itself (spec 25): the green needs both the power and Earth, never one of them alone. */}
+          radio contact = power + Earth in view
         </span>
       )}
       {ifSurvives && (

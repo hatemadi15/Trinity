@@ -139,7 +139,7 @@ export function coldTrapShort(c: ColdTrapSite | null): string | null {
   if (!w5) return null;
   const cold = w5.below_110K_km2;
   const tail = cold <= 0 ? `none within 5${NBSP}km` : cold >= 0.995 * CIRCLE_5_KM2 ? `all the ground within 5${NBSP}km` : `${area(cold)} within 5${NBSP}km`;
-  return `Modelled cold traps, where ice could last: ${tail}`;
+  return `Modelled cold traps: ${tail}`;
 }
 
 /** The mask's cells, row-major: 1 where the model keeps the ground below 110 K all year. */

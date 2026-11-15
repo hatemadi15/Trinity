@@ -601,7 +601,7 @@ describe('TimeBar', () => {
     expect(topPx(band)).toBe(topPx(earth) + heightPx(earth) + 2);
     expect(topPx(band) + heightPx(band)).toBeLessThanOrEqual(heightPx(box));
     const key = container.querySelector<HTMLElement>('[data-part="key-contact"]')!;
-    expect(key.textContent).toBe('radio contact');
+    expect(key.textContent).toBe('radio contact = power + Earth in view');
     // A line as thick as its band, like the other two.
     const swatch = key.querySelector('[data-swatch]')!;
     for (const c of ['bg-good', 'h-2.5', 'border-y-2', 'border-transparent', 'bg-clip-padding']) expect(swatch.classList.contains(c)).toBe(true);
@@ -613,7 +613,7 @@ describe('TimeBar', () => {
     const powered = Uint8Array.from({ length: 720 }, (_, h) => (h >= 76 && h < 465 ? 0 : 1));
     const { container, unmount } = showPeriod(30, { dates: true, powered }, { earthVisible });
     expect(container.querySelector('[data-part="contact"]')).toBeNull();
-    expect(screen.queryByText('radio contact')).toBeNull();
+    expect(screen.queryByText('radio contact = power + Earth in view')).toBeNull();
     unmount();
     const none = showPeriod(30, { dates: true }, { earthVisible });
     expect(none.container.querySelector('[data-part="contact"]')).toBeNull();
@@ -756,7 +756,7 @@ describe('TimeBar', () => {
     // So the key names no solid green for a reader to go looking for: the hatched entry comes right after Earth's.
     expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if the lander survives the cold']);
     expect(container.querySelector('[data-part="key-contact"]')).toBeNull();
-    expect(screen.queryByText('radio contact')).toBeNull();
+    expect(screen.queryByText('radio contact = power + Earth in view')).toBeNull();
     expect(container.querySelector('[data-part="key-if-survives"]')!.previousElementSibling).toBe(container.querySelector('[data-part="key-earth"]'));
   });
 
@@ -768,7 +768,7 @@ describe('TimeBar', () => {
     const early = Uint8Array.from({ length: 720 }, (_, h) => (h >= 24 && h < 100 ? 1 : 0));
     const { container, unmount } = showPeriod(30, { dates: true, powered, ifSurvivesFrom: 456 }, { sunFraction, earthVisible: early });
     expect(contactRunsOf(container, 720)).toEqual([{ from: 24, to: 76, hatched: false }]);
-    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
+    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact = power + Earth in view']);
     expect(screen.queryByText('radio, if the lander survives the cold')).toBeNull();
     unmount();
     // With Earth in view again from the 20th to the 23rd, both kinds of green are drawn, and both named, the solid first.
@@ -778,7 +778,7 @@ describe('TimeBar', () => {
       { from: 24, to: 76, hatched: false },
       { from: 456, to: 552, hatched: true },
     ]);
-    expect(keyWords(both.container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if the lander survives the cold']);
+    expect(keyWords(both.container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact = power + Earth in view', 'radio, if the lander survives the cold']);
   });
 
   it('leaves "lander off" out of the key when no hour is without power', () => {
@@ -787,7 +787,7 @@ describe('TimeBar', () => {
     const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
     const { container } = showPeriod(30, { dates: true, powered: new Uint8Array(720).fill(1), ifSurvivesFrom: null }, { sunFraction, earthVisible });
     expect(container.querySelector('[data-part="off"]')).toBeNull();
-    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'Earth in view', 'radio contact']);
+    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'Earth in view', 'radio contact = power + Earth in view']);
     expect(screen.queryByText('lander off')).toBeNull();
   });
 
@@ -809,7 +809,7 @@ describe('TimeBar', () => {
     // The night, the hours the battery runs out in it, and Earth on the second day while the lander has power: every key is needed.
     const { container } = show(6, { dates: true, powered: power.powered });
     const keys = [...container.querySelectorAll<HTMLElement>('[data-part^="key"]')];
-    expect(keys.map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
+    expect(keys.map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact = power + Earth in view']);
     // One group, not the line of words itself, so no key strays to the far side of a new line.
     const group = keys[0].parentElement!;
     for (const k of keys) expect(k.parentElement).toBe(group);
@@ -832,7 +832,7 @@ describe('TimeBar', () => {
   it('slims the bar when compact on a medium screen and up: the keys join the line of the date and hour at its right end, in up to two lines, where they have room', () => {
     const { container } = show(6, { dates: true, powered: power.powered, compact: true, clockNote: ' (Earth time)' });
     const group = container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact']);
+    expect([...group.children].map((k) => k.textContent)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact = power + Earth in view']);
     // In the date's own line, after the date and its note.
     expect(container.querySelector('[data-part="line"]')!.contains(group)).toBe(true);
     expect(screen.getByTestId('clock-note').compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -881,7 +881,7 @@ describe('TimeBar', () => {
     // Folded: the entries do not show on a phone, and the button says so.
     expect(key.getAttribute('aria-expanded')).toBe('false');
     expect(group.classList.contains('max-sm:hidden')).toBe(true);
-    expect([...group.children].map(wordsOf)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact', 'radio, if the lander survives the cold']);
+    expect([...group.children].map(wordsOf)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio contact = power + Earth in view', 'radio, if the lander survives the cold']);
     fireEvent.click(key);
     // Opened: under the date at 14 px with shorter swatches, as a phone has shown them.
     expect(key.getAttribute('aria-expanded')).toBe('true');
@@ -904,7 +904,7 @@ describe('TimeBar', () => {
     const earthVisible = Uint8Array.from({ length: 720 }, (_, h) => (h >= 216 && h < 552 ? 1 : 0));
     const second = showPeriod(30, { dates: true, powered: new Uint8Array(720).fill(1), compact: true }, { earthVisible });
     const keys = second.container.querySelector<HTMLElement>('[data-part="key"]')!.parentElement!;
-    expect([...keys.children].map((k) => k.textContent)).toEqual(['in sunlight', 'Earth in view', 'radio contact']);
+    expect([...keys.children].map((k) => k.textContent)).toEqual(['in sunlight', 'Earth in view', 'radio contact = power + Earth in view']);
   });
 
   it("has no Key button where the key is the Sun's alone, as on Explore, or when bare: there is nothing to fold", () => {

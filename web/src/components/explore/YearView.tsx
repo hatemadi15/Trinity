@@ -177,6 +177,11 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
             first, then radio contact, as the best date is chosen; radio contact is Earth in view while the lander has power: a clear line home, not a booked
             link. A ring marks the landing shown above, a dot the best days; point at a day to see its figures under the year.
           </p>
+          <ul aria-label="What each colour means" className="mt-2 list-disc pl-5 text-[15px] text-ink">
+            {GRADES.map((g) => (
+              <li key={g}>{legendWords(anchor.days)[g]}</li>
+            ))}
+          </ul>
         </Fold>
       )}
       {count > 0 && (
@@ -188,7 +193,8 @@ function YearPanel({ eph, site, mask, startUtc, days, params, onLand, scoring = 
                 <span aria-hidden="true" data-grade={g} className="relative block h-3.5 w-3.5 shrink-0 rounded-[3px]" style={{ backgroundColor: GRADE_COLOUR[g] }}>
                   {g === 'best' && <BestDot />}
                 </span>
-                {legendWords(anchor.days)[g]}
+                {/* The grade's name; what earns it is one tap away, under "How the days are coloured". */}
+                {legendWords(anchor.days)[g].split(':')[0]}
               </li>
             ))}
           </ul>

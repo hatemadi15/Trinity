@@ -80,20 +80,20 @@ test.describe('Keyboard only', () => {
       await expect(standHeading(page)).toHaveText(/^Landing on 6 January: /);
     });
 
-    await test.step('the view from the site: Turn to Earth by the keyboard, then Change and Compare sites', async () => {
+    await test.step('the view from the site: Turn to Earth by the keyboard, then More and Compare sites', async () => {
       await expect(page.getByText('Building the ground from NASA heights…')).toBeHidden({ timeout: 180_000 });
       const earth = page.getByRole('button', { name: 'Face Earth' });
       await tabTo(page, earth);
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');
       await expect(page.locator('[data-caption]')).toContainText('Earth', { timeout: 60_000 });
-      const next = page.getByRole('group', { name: 'Next step' });
-      const change = next.getByRole('button', { name: 'Change', exact: true });
-      await tabTo(page, change, { back: true });
+      // At this width the next step waits in today's card (spec 25): More opens it, and Compare sites is in it.
+      const more = page.getByRole('region', { name: 'The answer for this site' }).getByRole('button', { name: /^(More|Less)$/ });
+      await tabTo(page, more, { back: true });
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');
-      await expect(change).toHaveAttribute('aria-expanded', 'true');
-      await tabTo(page, next.getByRole('button', { name: 'Compare sites' }).filter({ visible: true }), { max: 10 });
+      await expect(more).toHaveAttribute('aria-expanded', 'true');
+      await tabTo(page, page.locator('#stand-card').getByRole('button', { name: 'Compare sites' }).filter({ visible: true }), { max: 12 });
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');
       await page.waitForURL(/\/compare/);

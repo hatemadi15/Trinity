@@ -66,7 +66,7 @@ describe('CompareView', () => {
     const heads = within(table()).getAllByRole('columnheader').map((h) => h.textContent);
     expect(heads).toEqual(['Scenario', 'BaselineOriginal landing', 'Scenario 25 days later', 'Scenario 3Nearby: de Gerlache rim summit']);
     // Each site says what kind of point it is: a region's centre, or a high point worked out from the heights.
-    expect(row('Site')).toEqual(['de Gerlache Rim 2Centre of a region, ±5 km', 'de Gerlache Rim 2Centre of a region, ±5 km', 'de Gerlache rim summitDerived high point, not checked as safe to land12 km from de Gerlache Rim 2']);
+    expect(row('Site')).toEqual(['de Gerlache Rim 2Centre of a region, ±5 km', 'de Gerlache Rim 2', 'de Gerlache rim summitDerived high point, not checked as safe to land12 km from de Gerlache Rim 2']);
     expect(row('Landing (UTC)')).toEqual(['1 Jan 2027, 00:00 UTC', '6 Jan 2027, 00:00 UTC5 days later', '6 Jan 2027, 00:00 UTC5 days later']);
     // Absolute figures, and the change from the baseline under each.
     expect(row('Time with power')).toEqual(['3 d 4 h', '10 h−2 d 18 h, worse', 'all 30 days+26 d 20 h, better']);
@@ -75,14 +75,16 @@ describe('CompareView', () => {
     expect(row('First sunset after landing')).toEqual(['2 d 19 h', 'night at landing, rises after 14 d 10 hwas 2 d 19 h, worse', 'none in the periodwas 2 d 19 h, better']);
     // What changed at the original site, then which alternative works better and why, with the trade-offs.
     const story = screen.getByRole('region', { name: 'What changed, and what works better' });
-    expect(story.textContent).toMatch(/Landing times differ: the figures compare different dates as well as places\./);
-    expect(story.textContent).toMatch(/5 days later \(6 January 2027, 00:00 UTC\): power for 10 hours instead of 3 days 4 hours\. The period starts at night/);
-    expect(story.textContent).toMatch(/de Gerlache rim summit, 12 km from de Gerlache Rim 2 and unchecked for landing, works better than “5 days later” at the same landing time \(6 January 2027, 00:00 UTC\): power for all 30 days instead of 10 hours\./);
-    expect(within(story).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
+    expect(story.textContent).toMatch(/Landing times differ: dates change as well as places\./);
+    expect(story.textContent).toMatch(/5 days later: power for 10 hours instead of 3 days 4 hours\. The period starts at night/);
+    expect(story.textContent).toMatch(/de Gerlache rim summit \(12 km, not checked for landing\) works better than “5 days later” at the same landing time: power for all 30 days instead of 10 hours\./);
+    // The trade-offs repeat the table's rows in words: one tap away, in their fold.
+    expect(within(story).getByRole('button', { name: /The trade-offs/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(within(story).getAllByRole('listitem', { hidden: true }).map((li) => li.textContent)).toEqual(
       expect.arrayContaining(['Sunlight: 100 % against 41 %: better.', 'Radio contact while it has power: 14 days 15 hours against none: better.']),
     );
     // What the figures assume, and do not show, one tap away.
-    expect(within(story).getByRole('button', { name: /What these figures assume, and what they do not show/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(within(story).getByRole('button', { name: /Assumptions and limits/ }).getAttribute('aria-expanded')).toBe('false');
   });
 
   it('puts the whole comparison in the address, so a fresh browser opening it shows the same settings and figures', async () => {
@@ -258,6 +260,10 @@ describe('CompareView', () => {
     await st.scenarios.getState().settle();
     await screen.findByRole('table');
     expect(row('Its own best landing')[0]).toBe('20 Jan 2027, 10:00 UTCpower 12 d 15 hAdd it');
+    // The row waits one tap on its name away.
+    const own = within(table()).getByRole('button', { name: 'Its own best landing' });
+    expect(own.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(own);
     fireEvent.click(within(table()).getByRole('button', { name: 'Add “Original landing” at this landing time' }));
     await st.scenarios.getState().settle();
     await waitFor(() => expect(row('Landing (UTC)')[1]).toBe('20 Jan 2027, 10:00 UTC19 days 10 hours laterthe site’s own best time'));

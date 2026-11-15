@@ -168,6 +168,8 @@ interface RowProps {
   ticks?: boolean;
   fitHills?: boolean;
   title?: string;
+  /** What a hidden stretch is called on the row, in place of "Night" or "No contact": the home page's Earth row says "Earth out of view", as contact needs power too. */
+  gapWord?: string;
   pxPerDeg?: number;
   /** The spacing of the height lines, when rows drawn together must agree on it. */
   scaleStep?: 5 | 10;
@@ -284,7 +286,7 @@ export function narrowRowOf(p: RowProps): NarrowRow {
   const pct = (hour: number) => ((hour + 0.5) / hours) * 100;
   const name = body === 'sun' ? 'Sun' : 'Earth';
   const who = body === 'sun' ? 'the Sun' : 'Earth';
-  const gap = body === 'sun' ? 'Night' : 'No contact';
+  const gap = p.gapWord ?? (body === 'sun' ? 'Night' : 'No contact');
   const dark = longestHidden(visible);
   const runs = dark ? [dark, ...hiddenRuns(visible).filter((r) => r.from !== dark.from)] : [];
   const stretches: NarrowRow['stretches'] = [];
@@ -713,6 +715,7 @@ export function SkyRow({
   title,
   pxPerDeg,
   scaleStep,
+  gapWord,
 }: RowProps & { caption: string }) {
   const id = useId();
   const hours = el.length;
@@ -721,14 +724,14 @@ export function SkyRow({
   const name = body === 'sun' ? 'Sun' : 'Earth';
   const who = body === 'sun' ? 'the Sun' : 'Earth';
   const subject = body === 'sun' ? 'The Sun' : 'Earth';
-  const gap = body === 'sun' ? 'Night' : 'No contact';
+  const gap = gapWord ?? (body === 'sun' ? 'Night' : 'No contact');
   /** Centre of an hour, in percent of the width. */
   const pct = (hour: number) => ((hour + 0.5) / hours) * 100;
   // The words of a narrow chart at each width they are placed for: worked out once, and kept between renders.
   const narrow = useMemo(() => {
-    const row = narrowRowOf({ el, hill, visible, az, startUtc, body, height, ticks, fitHills, title, pxPerDeg, scaleStep });
+    const row = narrowRowOf({ el, hill, visible, az, startUtc, body, height, ticks, fitHills, title, pxPerDeg, scaleStep, gapWord });
     return NARROW.map((f) => ({ ...f, ...narrowLayout(row, f.width, f.inset) }));
-  }, [el, hill, visible, az, startUtc, body, height, ticks, fitHills, title, pxPerDeg, scaleStep]);
+  }, [el, hill, visible, az, startUtc, body, height, ticks, fitHills, title, pxPerDeg, scaleStep, gapWord]);
 
   // The longest hidden stretch gets the full sentence on the picture and in the description.
   const dark = longestHidden(visible);

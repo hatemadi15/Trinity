@@ -25,7 +25,7 @@ const good: Answer = { tone: 'good', kind: 'all', title: 'Landing at de Gerlache
 const stuck: Answer = { ...night, better: null, hint: 'No landing date in these 30 days gives more power here. To get through the night, choose a bigger battery (Lander, above) or a shorter stay.' };
 
 // The words nearbyWords writes for the rim summit, a derived high point.
-const summit = { words: 'Nearby, de Gerlache rim summit (12 km away, unchecked for landing) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' };
+const summit = { words: 'Nearby: de Gerlache rim summit (12 km, not checked for landing) has power all 30 days.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' };
 const stand = '/explore/stand?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10';
 
 function show(answer: Answer, yearNote: string | null = null, nearby: Parameters<typeof VerdictPanel>[0]['nearby'] = null, standLink?: string) {
@@ -83,11 +83,11 @@ describe('VerdictPanel', () => {
     expect(screen.queryByRole('button', { name: 'Why this happens' })).toBeNull();
   });
 
-  it('keeps the answer to 110 words before a tap, at 1440 and on a phone (spec 20.1)', () => {
+  it('keeps the answer to 102 words before a tap, at 1440 and on a phone (spec 20.1)', () => {
     // The pitch's first screen: de Gerlache Rim 2 from 1 January, with the better day, the rim summit nearby and the way to stand there.
     render(<VerdictPanel answer={night} onLand={vi.fn()} onCompare={vi.fn()} onYear={vi.fn()} yearNote={null} nearby={summit} standLink={stand} site={{ lat: -88.28, polar: true }} />);
     const panel = screen.getByRole('region', { name: 'The answer' });
-    for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(110);
+    for (const width of [WIDE, PHONE]) expect(visibleWords(panel, width).length).toBeLessThanOrEqual(102);
   });
 
   it('makes the better landing date the one gold button, with what it gives', () => {
@@ -151,22 +151,22 @@ describe('VerdictPanel', () => {
   });
 
   it('offers a better place nearby in a sentence with a link to it', () => {
-    show(night, null, { words: 'Nearby, de Gerlache rim summit (12 km away) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' });
+    show(night, null, { words: 'Nearby: de Gerlache rim summit (12 km) has power all 30 days.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' });
     const panel = screen.getByRole('region', { name: 'The answer' });
-    expect(panel.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days from the same landing day\./);
+    expect(panel.textContent).toMatch(/Nearby: de Gerlache rim summit \(12 km\) has power all 30 days\./);
     const link = screen.getByRole('link', { name: 'Explore de Gerlache rim summit' });
     expect(link.getAttribute('href')).toBe('/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30');
     expect(link.className).toMatch(/\bunderline\b/);
   });
 
   it('makes the better place nearby the gold action when no landing day does better', () => {
-    show(stuck, null, { words: 'Nearby, de Gerlache rim summit (12 km away) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' });
+    show(stuck, null, { words: 'Nearby: de Gerlache rim summit (12 km) has power all 30 days.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' });
     const gold = screen.getByRole('link', { name: 'Explore de Gerlache rim summit' });
     expect(gold.className).toMatch(/btn-primary/);
     expect(document.querySelectorAll('.btn-primary')).toHaveLength(1);
     expect(screen.queryByRole('button', { name: 'Compare sites' })).toBeNull();
     // The sentence that says why sits right above the button.
-    expect(gold.closest('section')!.textContent).toMatch(/Nearby, de Gerlache rim summit \(12 km away\) keeps power for all 30 days/);
+    expect(gold.closest('section')!.textContent).toMatch(/Nearby: de Gerlache rim summit \(12 km\) has power all 30 days/);
   });
 
   it('offers to stand at the site as an outlined button after the nearby line, never a second gold action (both readers, part C read 1)', () => {
@@ -265,7 +265,7 @@ describe('VerdictPanel with requirements and the options behind its recommendati
     year: null,
   };
   const requirements = { minPoweredH: 120, contactWithinH: null, maxOutageH: 72, minPoweredContactH: null };
-  const range = { words: 'Within 5 km (9 points): power 0.4 to 3.5 days.', detail: 'Worked out here and at 8 points round it, 2.5 and 5 km away; their skylines took 6.9 s to work out.' };
+  const range = { words: 'Within 5 km: power 0.4 to 3.5 days.', detail: 'Worked out here and at 8 points round it, 2.5 and 5 km away; their skylines took 6.9 s to work out.' };
   // How sure the times are, as the uncertainty part gives it: one more fold on the first screen.
   const sure = { lines: ['Sunset 3 Jan 14:00 UTC, within about 1.5 h.'], basis: 'From the measured skylines.', widest: 1.5 };
 

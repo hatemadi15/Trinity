@@ -40,12 +40,12 @@ describe('home page', () => {
     expect(row.textContent).toContain(degreesText(HOME.facts.horizons_worst_el_deg));
   });
 
-  it('names the first screen’s second action for the section it opens, the three drawings of why the south pole is hard', () => {
+  it('opens the section of questions from the first screen’s second action: why the south pole, and why it is hard', () => {
     render(<Home />);
     const jump = screen.getByRole('link', { name: 'See why the pole is hard' });
     const target = document.getElementById(jump.getAttribute('href')!.slice(1))!;
-    expect(within(target).getByRole('heading', { level: 2 }).textContent).toBe('Why the south pole is hard');
-    expect(within(target).getAllByRole('heading', { level: 3 })).toHaveLength(3);
+    expect(within(target).getByRole('heading', { level: 2 }).textContent).toBe('Why the south pole?');
+    expect(within(target).getByRole('heading', { level: 3, name: 'Why is landing there hard?' })).toBeTruthy();
     // Only the pages of How it works say so: no second name for the one thing.
     expect(screen.queryByRole('link', { name: /see how it works/i })).toBeNull();
   });
@@ -58,11 +58,13 @@ describe('home page', () => {
     expect(sun.getAttribute('aria-label')).toMatch(/is set from 3 Jan to 20 Jan, 16 days 15 hours/);
     expect(earth.getAttribute('aria-label')).toMatch(/Earth is set from the start until 10 Jan, 9 days 3 hours/);
     expect(sun.textContent).toMatch(/^Sunlight/);
-    expect(earth.textContent).toMatch(/^Contact with Earth/);
+    // The Earth row is Earth in view only: contact needs power too, so the row never says "contact".
+    expect(earth.textContent).toMatch(/^Earth in view/);
+    expect(earth.textContent).not.toMatch(/contact/i);
     expect(sun.textContent).toMatch(/Night for 16 days 15 hours: the hills stand higher than the Sun/);
-    expect(earth.textContent).toMatch(/No contact for 9 days 3 hours: Earth is below the horizon/);
+    expect(earth.textContent).toMatch(/Out of view for 9 days 3 hours: Earth is below the horizon/);
     // Earth hides twice: the second stretch has its words and its date too.
-    expect(earth.textContent).toMatch(/No contact for 7 days 9 hours/);
+    expect(earth.textContent).toMatch(/Out of view for 7 days 9 hours/);
     expect(earth.textContent).toMatch(/Earth sets 23 Jan/);
     // One height scale for both rows: a degree takes as many pixels in each.
     const spacing = (row: HTMLElement) => {
@@ -79,102 +81,157 @@ describe('home page', () => {
     expect(earth.querySelector('.reveal-line')).toBeNull();
   });
 
-  it('says under the forecast what the battery does there, and the better landing day', () => {
+  it('says under the forecast what the battery does there, the better landing day, and the radio contact each landing gets', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     expect(band.textContent).toContain(
-      'An example lander, not a planned mission: 4 m² of solar panels and a 2 kWh battery. Landing on 1 January, it keeps power for 3 days 4 hours; landing on 20 January, for 12 days 15 hours.',
+      'An example lander, not a planned mission: 4 m² of solar panels and a 2 kWh battery. Landing on 1 January, it keeps power for 3 days 4 hours, with no radio contact: Earth is out of view; landing on 20 January, for 12 days 15 hours, with 3 days 5 hours of radio contact.',
     );
+    expect(band.textContent).toContain('Radio contact: none; Earth is out of view.');
+    expect(band.textContent).toContain('Radio contact: 3 d 5 h, until Earth sets, 23 Jan.');
   });
 
-  it('sends a teacher to the science at the top of the three facts, and gives the cause: the Moon’s small tilt and its month-long day', () => {
+  it('shows radio contact only for the hours with power and Earth in view at once, and says what every other hour lacks (spec 23.2)', () => {
     render(<Home />);
-    const why = document.getElementById('why')!;
-    const teach = within(why).getByText(/^Teaching this\?/);
-    expect(teach.textContent).toBe('Teaching this? How it works gives the science behind these three facts, with sums a class can check.');
-    // Before the three facts, not after them.
-    expect(teach.compareDocumentPosition(within(why).getByText('The Sun never climbs')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(why.textContent).toMatch(/The Moon’s axis is tilted only 1\.5°, and the Moon turns once a month: a day there lasts a month/);
+    const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
+    expect(band.textContent).toMatch(/Radio contact needs power and Earth in view at once\. This month: 3 days 5 hours\./);
+    expect(band.textContent).toMatch(/Earth in view is not yet radio contact: that needs power too\./);
+    const strip = band.querySelector('[data-contact-strip]')!;
+    // One stretch of contact, 20 to 23 January: 77 of the month's 720 hours.
+    const on = strip.querySelectorAll<HTMLElement>('[data-contact]');
+    expect(on).toHaveLength(1);
+    expect(parseFloat(on[0].style.width)).toBeCloseTo((77 / 720) * 100, 1);
+    expect(strip.textContent).toContain('3 d 5 h20 Jan to 23 Jan');
+    // The rest of the month, in order: Earth out of view, then Earth in view through ten days of night, then out of view again.
+    expect([...strip.querySelectorAll('[data-no-contact]')].map((el) => [el.getAttribute('data-no-contact'), el.textContent])).toEqual([
+      ['earth', 'Earth out of view'],
+      ['power', 'Earth in view, but no power: night'],
+      ['earth', 'Earth out of view'],
+    ]);
+    expect(strip.querySelector('.sr-only')!.textContent).toBe(
+      'Radio contact needs power and Earth in view at once: 20 Jan to 23 Jan, 3 days 5 hours. 1 Jan to 10 Jan: no contact, Earth out of view. 10 Jan to 20 Jan: no contact, Earth in view, but no power: night. 23 Jan to 30 Jan: no contact, Earth out of view.',
+    );
+    // Reading an hour, Earth is "in view", never "in view for radio".
+    expect(band.textContent).not.toMatch(/for radio/);
+  });
+
+  it('answers five questions a child could ask, each a heading, in short sentences and everyday words (spec 23.3)', () => {
+    render(<Home />);
+    const why = screen.getByRole('region', { name: 'Why the south pole?' });
+    const asked = within(why).getAllByRole('heading', { level: 3 });
+    expect(asked.map((h) => h.textContent)).toEqual([
+      "Why is NASA looking at the Moon's south pole?",
+      'Why is landing there hard?',
+      'Why do the hills matter so much?',
+      'Why does Earth matter?',
+      'So what does Earthrise do?',
+    ]);
+    const answers = asked.map((h) => h.nextElementSibling!.textContent!);
+    expect(answers).toEqual([
+      'Ice has been found in its darkest, coldest craters. One day that frozen water could give astronauts water, air and rocket fuel. And some hilltops there stay in sunlight for a whole month, which a lander needs for power.',
+      'The Sun never climbs high. It slides round the sky close to the ground, so hills throw very long shadows. A lander runs on sunlight: in shadow it has no power.',
+      'Two places close together can get very different light. In January 2027 one hilltop has sunlight all month. A ridge 12 km away is dark from 3 to 20 January.',
+      'The lander talks to us by radio. It can only do that while Earth is in its sky, above the hills, and it has power.',
+      'It works out, hour by hour, when a spot has sunlight and when it can call home. Then planners can pick the place and the day. How it works has the science.',
+    ]);
+    // The figures are the month's own: the rim's summit is sunlit every hour, the ridge dark from sunset to sunrise.
+    expect(HOME.pair.rim_sun_pct).toBe(100);
+    expect(Math.round(HOME.pair.distance_km)).toBe(12);
+    expect(HOME.sky.night).toEqual({ sunset_hour: 67, sunrise_hour: 466, hours: 399 });
+    // Everyday words only, in what is read and in what a screen reader hears of the drawings: no units of angle, no
+    // science terms, and nothing promised of the ice or of a mission.
+    const said = why.textContent! + within(why).getAllByRole('img').map((d) => d.getAttribute('aria-label')).join(' ');
+    expect(said).not.toMatch(/°|degree|azimuth|elevation|terrain|illuminat|horizon|DEM\b|skyline|latitude|\bwill\b|surviv|\bdie|dead/i);
+    // No sentence is long.
+    for (const a of answers) for (const sentence of a.split(/(?<=\.) /)) expect(sentence.split(' ').length, sentence).toBeLessThanOrEqual(24);
+    expect(within(why).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
   });
 
   it("keeps the forecast's explanation to a readable line length", () => {
     render(<Home />);
-    expect(screen.getByText(/read from left to right, a day at a time/).className).toMatch(/\bmax-w-\[38em\]/);
-    for (const p of screen.getAllByText(/^The (white|blue) line is/)) expect(p.className).toMatch(/\bmax-w-\[40em\]/);
+    expect(screen.getByText(/^A ridge NASA shortlisted for astronauts\./).className).toMatch(/\bmax-w-\[38em\]/);
+    const steps = document.querySelectorAll('[data-step-words]');
+    expect(steps).toHaveLength(2);
+    for (const p of steps) expect(p.className).toMatch(/\bmax-w-\[40em\]/);
   });
 
   it('reads the forecast in three steps with room between them: the Sun, Earth, then what they mean for a lander (spec 23)', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
-    expect(band.textContent).toMatch(/A ridge NASA shortlisted for astronauts\./);
     const steps = [...band.querySelectorAll('.display.text-\\[32px\\]')].map((el) => el.textContent);
     expect(steps).toEqual(['The Sun', 'Earth', 'The lander']);
-    expect(band.textContent).toMatch(/The white line is how high the Sun stands; grey is how high the hills stand in its direction\./);
-    expect(band.textContent).toMatch(/5° is about three fingers at arm's length\./);
-    expect(band.textContent).toMatch(/The blue line is Earth\. A lander can only radio home directly while Earth stands above the hills/);
-    // Each row has its own key beside its words.
-    expect(within(band).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
-      'height of the Sun',
-      'the Sun while set',
-      "hills in the Sun's direction at that time",
-      'height of Earth',
-      'Earth while set',
-      "hills in Earth's direction at that time",
-    ]);
+    expect(band.textContent).toMatch(/White is the Sun's height; grey, the hills in its direction\. Behind the grey, it is night\./);
+    expect(band.textContent).toMatch(/Blue is Earth's height\. Earth in view is not yet radio contact/);
   });
 
-  it('turns the colours over after the forecast: 01 on the black stage, 02 to 04 on paper, in both themes, with room either side of one clean edge', () => {
+  it('alternates the numbered sections in both themes, black then paper: 01, 03 and 05 black, 02 and 04 paper, each with the same room either side of a clean edge', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     expect(band.className).toMatch(/(^| )bg-stage( |$)/);
     // No line along the edge: black meets paper.
     expect(band.className).not.toMatch(/(^| )border-(y|b)( |$)/);
     expect(band.className).toMatch(/(^| )pb-24( |$)/);
-    const paper = band.nextElementSibling as HTMLElement;
-    expect(paper.getAttribute('data-band')).toBe('paper');
-    for (const c of ['theme-light', 'bg-page', 'text-ink', 'pt-10']) expect(paper.classList.contains(c), c).toBe(true);
-    // 02, 03 and 04 stand on it; 05 follows the page's theme again.
-    for (const name of ['Why the south pole is hard', 'Start from a real place', 'Checked against NASA']) expect(within(paper).getByRole('region', { name })).toBeTruthy();
-    expect(within(paper).queryByRole('region', { name: 'Try it on a landing site' })).toBeNull();
+    const bands = [...document.querySelectorAll<HTMLElement>('main [data-band]')];
+    expect(bands.map((b) => b.getAttribute('data-band'))).toEqual(['paper', 'black', 'paper', 'black']);
+    const names = ['Why the south pole?', 'Start from a real place', 'Checked against NASA', 'Try it on a landing site'];
+    bands.forEach((b, i) => {
+      const paper = b.getAttribute('data-band') === 'paper';
+      // The scope gives the band its colours whatever the page's theme.
+      for (const c of [paper ? 'theme-light' : 'theme-dark', 'bg-page', 'text-ink']) expect(b.classList.contains(c), `${names[i]}: ${c}`).toBe(true);
+      expect(b.className).not.toMatch(/(^| )border/);
+      const region = screen.getByRole('region', { name: names[i] });
+      expect(b === region || b.contains(region), names[i]).toBe(true);
+    });
+    // 02 to 04 have the same room above and below; 05 is the sky itself.
+    for (const b of bands.slice(0, 3)) for (const c of ['py-24', 'sm:py-32']) expect(b.classList.contains(c), c).toBe(true);
+    // In the order of the page, one after another.
+    expect(band.nextElementSibling).toBe(bands[0]);
+    for (let i = 1; i < bands.length; i++) expect(bands[i - 1].nextElementSibling).toBe(bands[i]);
   });
 
   it('says under the forecast where the numbers come from, and links to the site', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
-    expect(band.textContent).toMatch(/NASA's elevation map of the Moon and NASA's positions of the Sun and Earth/);
+    expect(band.textContent).toMatch(/Computed from NASA's elevation map and positions of the Sun and Earth\./);
     const link = within(band).getByRole('link', { name: 'Open the full forecast' });
     expect(link.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
     // The band is a picture panel: its focus ring is the bright gold that shows on black.
     expect(band.hasAttribute('data-stage')).toBe(true);
   });
 
-  it('explains why the south pole is hard in three steps, naming the forecast site in the real pair, with a way in for a class', () => {
+  it('pairs three of the questions with a drawing read at a glance: one idea each, a label or two, no axes (spec 23.3)', () => {
     render(<Home />);
-    const why = screen.getByRole('region', { name: 'Why the south pole is hard' });
-    expect(within(why).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['The Sun never climbs', 'The hills decide', 'Earth sets too']);
-    expect(why.textContent).toContain(`de Gerlache Rim 2, the site in the forecast above, ${Math.round(HOME.pair.distance_km)} km away, has it ${pct(Math.round(HOME.pair.site_sun_pct))} of the time`);
-    expect(why.textContent).toMatch(/the summit of de Gerlache crater's rim has sunlight all month/);
-    expect(within(why).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
-    // There is no magnetic compass on the Moon.
-    expect(why.textContent).not.toMatch(/compass/);
-    expect(why.textContent).toMatch(/Earth hangs in nearly the same direction in the sky/);
+    const why = screen.getByRole('region', { name: 'Why the south pole?' });
+    const drawings = within(why).getAllByRole('img');
+    expect(drawings).toHaveLength(3);
+    // A low Sun beside a high one; a hilltop in the light beside ground in shadow; Earth over the hills.
+    expect(drawings.map((d) => [...d.querySelectorAll('text')].map((t) => t.textContent))).toEqual([
+      ['the Sun where Apollo 15 landed', 'the Sun at the south pole'],
+      ['sunlight all month', '12 km away: dark 3 to 20 January'],
+      ['Earth, peeking over the hills'],
+    ]);
+    // Each stands beside its question.
+    expect(drawings.map((d) => d.parentElement!.querySelector('h3')!.textContent)).toEqual(['Why is landing there hard?', 'Why do the hills matter so much?', 'Why does Earth matter?']);
+    for (const d of drawings) expect(d.getAttribute('aria-label')!.length).toBeGreaterThan(60);
+    // The low Sun is drawn at its true height, the month's highest.
+    expect(Math.max(...HOME.sky.sun_el)).toBeCloseTo(2.5, 1);
+    // No buttons to play: the charts are on How it works.
+    expect(within(why).queryByRole('button')).toBeNull();
   });
 
   it('starts from a real place: the computed shadow picture beside three places, each one link to explore it', () => {
     render(<Home />);
     const places = screen.getByRole('region', { name: 'Start from a real place' });
-    expect(places.textContent).toMatch(/A ridge NASA has shortlisted for astronauts, and two landers that reached the Moon in March 2025\. Explore any of them hour by hour\./);
     const img = within(places).getByRole('img', { name: /shadows/i });
     expect(img.getAttribute('src')).toMatch(/de-gerlache-rim-2/);
     expect(within(places).getByText('in shadow')).toBeTruthy();
     expect(within(places).getByText('in sunlight')).toBeTruthy();
-    expect(within(places).getByText('de Gerlache Rim 2: shadows computed for 2 January 2027')).toBeTruthy();
-    expect(places.textContent).toMatch(/Computed from NASA elevation data, not a photograph/);
+    expect(within(places).getByText('Shadows computed for 2 January 2027')).toBeTruthy();
     // The faint stripes in the picture are explained where they are seen.
-    expect(places.querySelector('figcaption')!.textContent).toMatch(/Faint stripes are seams in the elevation data, not real ground\./);
+    expect(places.querySelector('figcaption')!.textContent).toMatch(/^de Gerlache Rim 2, 20 km across: computed from NASA elevation data, not a photograph\. Faint stripes are seams in the data\.$/);
     expect(within(places).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['de Gerlache Rim 2', 'Athena lander, March 2025', 'Blue Ghost lander, March 2025']);
     // Every programme and company is named in plain words.
-    expect(places.textContent).toMatch(/the first crewed landing of its Artemis programme/);
+    expect(places.textContent).toMatch(/its first crewed Artemis landing/);
     expect(places.textContent).toMatch(/Intuitive Machines' Athena/);
     expect(places.textContent).toMatch(/Firefly Aerospace's Blue Ghost/);
     expect(places.textContent).not.toMatch(/IM-2/);
@@ -186,8 +243,8 @@ describe('home page', () => {
     expect(within(places).getByText('Worked all 14 days')).toBeTruthy();
     const links = within(places).getAllByRole('link');
     expect(links.map((a) => a.getAttribute('aria-label'))).toEqual(['Open the forecast: de Gerlache Rim 2', 'Open the forecast: Athena lander, March 2025', 'Open the forecast: Blue Ghost lander, March 2025']);
-    // The whole row is the link, and says where it goes.
-    for (const a of links) expect(a.textContent).toMatch(/Open the forecast$/);
+    // The whole row is the link: its name says where it goes, and an arrow stands for it on the row.
+    for (const a of links) expect(a.querySelector('svg')).toBeTruthy();
     expect(links.map((a) => a.getAttribute('href'))).toEqual(['/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30', '/explore?site=im2_athena&start=2025-03-06T18:00&days=30', '/explore?site=blue_ghost_m1&start=2025-03-02T09:00&days=30']);
     for (const a of links) expect(a.className).toMatch(/(^| )group( |$)/);
   });
@@ -196,24 +253,24 @@ describe('home page', () => {
     render(<Home />);
     const proof = screen.getByRole('region', { name: 'Checked against NASA' });
     expect(within(proof).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['What we check', 'Gap', 'Against', 'For scale']);
-    expect(within(proof).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['Where the Sun and Earth are in the sky', 'How much sunlight a site gets', 'When night falls on a real mission']);
-    expect(proof.textContent).toMatch(/Two steps are compared with independent NASA sources, and a real mission gives context\./);
+    expect(within(proof).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['Where the Sun and Earth stand', 'How much sunlight a site gets', 'When night falls on a real mission']);
+    expect(proof.textContent).toMatch(/Two steps match independent NASA sources\./);
     // The check that misses its own mark is named, not left to the Accuracy page alone.
-    expect(proof.textContent).toMatch(/A third, where shadows fall in pictures from orbit, misses its own mark; Accuracy shows where\./);
+    expect(proof.textContent).toMatch(/A third, shadows in pictures from orbit, misses its own mark; Accuracy shows where\./);
     const rows = within(proof).getAllByRole('row').slice(1);
     expect(rows).toHaveLength(3);
     expect(rows[0].textContent).toContain('0.00003°');
-    expect(rows[0].textContent).toContain(`${HOME.facts.horizons_rows} test cases`);
+    expect(rows[0].textContent).toContain(`${HOME.facts.horizons_rows} cases`);
     expect(rows[0].textContent).toContain('20,000 times wider');
     expect(rows[1].textContent).toContain(`${HOME.facts.mazarico_median_points.toFixed(1)} points`);
     expect(rows[1].textContent).toContain('in percentage points');
     // The map's own averaging period, not the app's span of years.
-    expect(rows[1].textContent).toContain("NASA's sunlight map, an 18.6-year average,");
+    expect(rows[1].textContent).toContain("NASA's 18.6-year sunlight map at");
     expect(rows[1].textContent).not.toMatch(/13 years/);
     const typical = Math.round(HOME.facts.mazarico_median_points);
-    expect(rows[1].textContent).toContain(`Where NASA's map says ${pct(60)}, ours typically says ${60 - typical} to ${pct(60 + typical)}.`);
+    expect(rows[1].textContent).toContain(`Where NASA says ${pct(60)}, ours says ${60 - typical} to ${pct(60 + typical)}.`);
     expect(rows[2].textContent).toContain(`${HOME.facts.blue_ghost_end_minus_sunset_h.toFixed(1)} hours`);
-    expect(rows[2].textContent).toContain('The mission ran for 14 days.');
+    expect(rows[2].textContent).toContain('The mission ran 14 days.');
     // A reported end is context, not a check: its row has no check mark.
     expect(rows[2].textContent).toContain('context, not a test');
     expect(rows.map((r) => r.querySelectorAll('svg').length)).toEqual([1, 1, 0]);
@@ -235,8 +292,8 @@ describe('home page', () => {
     const end = screen.getByRole('region', { name: 'Try it on a landing site' });
     // One sentence after the section's intro, and before the gold action.
     const next = within(end).getByText(/^Then /);
-    expect(next.textContent).toBe('Then compare sites, ask in plain words, print the brief, or run it offline on a laptop.');
-    const intro = within(end).getByText(/^Pick a site near the south pole/);
+    expect(next.textContent).toBe('Then compare sites, ask in plain words, print the brief, or run it offline.');
+    const intro = within(end).getByText(/^Pick a site and a date:/);
     expect(intro.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(next.compareDocumentPosition(within(end).getByRole('link', { name: 'Choose a landing site' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const links = within(next).getAllByRole('link');
@@ -284,6 +341,29 @@ describe('home page', () => {
     expect(within(band).getByText(/^2 Jan 2027, 01:00 UTC\. Sun/).getAttribute('aria-live') ?? within(band).getByText(/^2 Jan 2027, 01:00 UTC\. Sun/).closest('[aria-live]')).toBeTruthy();
     fireEvent.keyDown(chart, { key: 'Escape' });
     expect(band.querySelector('[data-hour-card]')).toBeNull();
+  });
+
+  it('keeps the page short: the words under the descent stay within their caps, charts and drawings left out (owner review: far fewer words)', () => {
+    render(<Home />);
+    // The words a visitor reads as text: not a chart's own labels, a drawing's, or what only a screen reader hears.
+    const words = (el: Element) => {
+      const copy = el.cloneNode(true) as Element;
+      for (const x of copy.querySelectorAll('.sr-only, svg, [role="img"], [data-forecast-hover], [data-contact-strip]')) x.remove();
+      // Block ends are word breaks.
+      for (const x of copy.querySelectorAll('p, li, h2, h3, th, td, figcaption, span, a')) x.append(' ');
+      return (copy.textContent ?? '').split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w)).length;
+    };
+    const count = {
+      forecast: words(screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' })),
+      why: words(screen.getByRole('region', { name: 'Why the south pole?' })),
+      places: words(screen.getByRole('region', { name: 'Start from a real place' })),
+      proof: words(screen.getByRole('region', { name: 'Checked against NASA' })),
+      end: words(screen.getByRole('region', { name: 'Try it on a landing site' })),
+    };
+    // Before the cut these were 239, 261, 204, 151 and 59: 914 in all. 02 keeps room for its five questions and answers.
+    const CAPS = { forecast: 165, why: 200, places: 115, proof: 115, end: 45 };
+    for (const k of Object.keys(CAPS) as (keyof typeof CAPS)[]) expect(count[k], k).toBeLessThanOrEqual(CAPS[k]);
+    expect(Object.values(count).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(630);
   });
 
   it('every Explore link on the home page carries its start and its days, so a visit never opens on the period the last one used', () => {

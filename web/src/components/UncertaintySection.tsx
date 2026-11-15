@@ -68,7 +68,7 @@ export function UncertaintySection({ load = defaultLoad }: { load?: () => Promis
     <section id="sure" aria-labelledby="h-sure" className="panel">
       {heading}
       <p className="mt-3 max-w-[46em] leading-relaxed text-ink-2">
-        Each time was found again at one-minute steps and with NASA&apos;s adjusted elevation maps, through {years}. Margins add three sources of error and cover 95 % of events.
+        Each time found again at one-minute steps and on NASA&apos;s adjusted maps, through {years}. Margins cover 95 % of events.
       </p>
       <Table label="Margins at four kinds of site" minW={680}>
         <thead>

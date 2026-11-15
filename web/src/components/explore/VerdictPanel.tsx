@@ -130,8 +130,8 @@ export function VerdictPanel({
         (better ? (
           <p className="mt-3 max-w-[42em] text-ink">
             {nearby.words}{' '}
-            <Link href={nearby.href} className="font-medium underline decoration-line-strong underline-offset-4 hover:decoration-ink">
-              Explore {nearby.name}
+            <Link href={nearby.href} aria-label={`Explore ${nearby.name}`} className="font-medium underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+              Explore it
             </Link>
           </p>
         ) : (

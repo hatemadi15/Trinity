@@ -90,8 +90,9 @@ export function VersionsSection({ load = defaultLoad, uncertainty }: { load?: ()
     <section id="versions" aria-labelledby="h-versions" className="panel">
       {heading}
       <p className="mt-3 max-w-[46em] leading-relaxed text-ink-2">
-        Two generations of NASA&apos;s south-pole maps, made from the same laser shots, differ by {m(g80.difference_rms_m.median)} on the 80 m grid: {Math.round(g80.difference_over_stated_error.median)} times the error the newer one states. Each of the {doc.sites.length} polar sites has {n} versions of the ground drawn with errors that large, to see how far its results move.
+        Two generations of NASA&apos;s south-pole maps differ by {m(g80.difference_rms_m.median)} on the 80 m grid: {Math.round(g80.difference_over_stated_error.median)} times the newer one&apos;s stated error. So each of the {doc.sites.length} polar sites has {n} versions of the ground with errors that large.
       </p>
+      <Fold label="The error model" className="mt-4">
       <Table label="The error model fitted to the two generations" minW={720}>
         <thead>
           <tr>
@@ -126,8 +127,9 @@ export function VersionsSection({ load = defaultLoad, uncertainty }: { load?: ()
         Root mean square over the sites. On the 80 m grid the fitted error is {m(g80.sigma.a_m)} on level ground, growing with the slope ({g80.sigma.b_m.toFixed(1)} m times its tangent) and with the stated error ({g80.sigma.c.toFixed(1)} times
         it); it stops being correlated within about a pixel ({Math.round(g80.length_m)} m), so neighbouring points of the ground are off by different amounts. A Gaussian error would put 68 % and 95 % of the differences within one and two of its sigmas.
       </p>
+      </Fold>
 
-      <Fold label="What the versions show" className="mt-4">
+      <Fold label="What the versions show" className="mt-1">
         <p className="max-w-[46em] text-[15px] text-ink-2">
           For each site: how far the versions&apos; skylines spread (their standard deviation in each of 720 directions, the median and the 95th percentile over directions), against the skyline error product 90 states; how often the app&apos;s
           own skyline, from the older maps, lies within the versions&apos; middle 90 %, which a model that captured everything would make about 90 % of directions{medianInside !== null ? ` (the median site: ${share(medianInside)})` : ''}; and the

@@ -80,10 +80,10 @@ describe('the words of the year', () => {
 
   it('says in plain words what each colour means, with the period in it', () => {
     expect(legendWords(30)).toEqual({
-      best: 'Best: power all 30 days, radio contact half the time or more',
+      best: 'Best: power all 30 days, radio half the time or more',
       good: 'Good: power all 30 days',
-      mixed: 'Mixed: power a quarter of the time or more',
-      poor: 'Poor: less than a quarter',
+      mixed: 'Mixed: power a quarter or more',
+      poor: 'Poor: less',
     });
   });
 

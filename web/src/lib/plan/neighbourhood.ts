@@ -128,14 +128,15 @@ export function rangeWords(
     return { words: `No range ${within[0].toLowerCase()}${within.slice(1)}: ${why}.`, detail: `${probe}Tried at ${r.missing} points ${radiusKm / 2} and ${radiusKm} km away: ${why}.` };
   }
   const total = r.points + r.missing;
-  const count = r.missing > 0 ? `${r.points} of ${total} points` : `${r.points} points`;
+  // The count is said only when a point is left out: the detail, one tap away, has it either way.
+  const count = r.missing > 0 ? ` (${r.points} of ${total} points)` : '';
   const [lo, hi] = r.poweredH;
   const stay = days(r.stayH);
   const power = lo === hi ? `for ${lo >= r.stayH ? `all ${stay}` : days(lo)} days at each` : `${days(lo)} to ${hi >= r.stayH ? stay : days(hi)} days`;
   const around = r.missing > 0 ? `${r.points - 1} of ${total - 1}` : `${r.points - 1}`;
   const missing = r.missing > 0 ? ` ${r.missing} ${r.missing === 1 ? 'point has' : 'points have'} ${r.reasons.join(' or ')}, so ${r.missing === 1 ? 'it is' : 'they are'} left out.` : '';
   return {
-    words: `${within} (${count}): power ${power}.`,
+    words: `${within}${count}: power ${power}.`,
     detail:
       probe +
       `Worked out here and at ${around} points round it, ${radiusKm / 2} and ${radiusKm} km away, with the same lander, period and ${mastM} m mast; their skylines took ${(ms / 1000).toFixed(1)} s to work out. ` +

@@ -101,10 +101,10 @@ describe('the cold-trap line where a site is described', () => {
 
 describe('the short line on the site list', () => {
   it('gives the cold ground within 5 km in one short phrase', () => {
-    expect(plain(coldTrapShort(site({ cold5: 11.52 })))).toBe('Modelled cold traps, where ice could last: 11.5 km² within 5 km');
-    expect(plain(coldTrapShort(site({ cold5: 78.54 })))).toBe('Modelled cold traps, where ice could last: all the ground within 5 km');
-    expect(plain(coldTrapShort(site({ cold5: 0.03 })))).toBe('Modelled cold traps, where ice could last: under 0.1 km² within 5 km');
-    expect(plain(coldTrapShort(site()))).toBe('Modelled cold traps, where ice could last: none within 5 km');
+    expect(plain(coldTrapShort(site({ cold5: 11.52 })))).toBe('Modelled cold traps: 11.5 km² within 5 km');
+    expect(plain(coldTrapShort(site({ cold5: 78.54 })))).toBe('Modelled cold traps: all the ground within 5 km');
+    expect(plain(coldTrapShort(site({ cold5: 0.03 })))).toBe('Modelled cold traps: under 0.1 km² within 5 km');
+    expect(plain(coldTrapShort(site()))).toBe('Modelled cold traps: none within 5 km');
     expect(coldTrapShort({ site_id: 'c', name: 'C', lat: -69.4, lon: 32, covered: false })).toBeNull();
   });
 });

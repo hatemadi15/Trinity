@@ -2,6 +2,7 @@
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { AppFrame } from './AppFrame';
 import { DataProblem } from './DataProblem';
+import { Fold } from './Fold';
 import { dataBase, loadEphemerisFromUrl } from '@/lib/data/loaders';
 import { degreesText } from '@/lib/data/home';
 import { exploreStore } from '@/lib/store/explore';
@@ -84,14 +85,16 @@ function EvidencePanel({ card, extra, children }: { card: EvidenceCard; extra?: 
         <span className="text-ink-2">{card.figureWords}</span>
       </p>
       <p data-part="sentence" className="mt-3 max-w-[46em] leading-relaxed text-ink-2">{card.sentence}</p>
-      <dl className="mt-4 grid max-w-[62em] gap-x-6 gap-y-2 text-[15px] leading-relaxed sm:grid-cols-[10.5em_1fr]">
-        {card.parts.map((p) => (
-          <div key={p.label} className="contents">
-            <dt className="font-semibold text-ink">{p.label}</dt>
-            <dd className="text-ink-2 max-sm:mb-1">{p.text}</dd>
-          </div>
-        ))}
-      </dl>
+      <Fold label={card.kind === 'check' ? 'What it shows, and what it leaves out' : 'What it can and cannot tell'} className="mt-2">
+        <dl className="grid max-w-[62em] gap-x-6 gap-y-2 text-[15px] leading-relaxed sm:grid-cols-[10.5em_1fr]">
+          {card.parts.map((p) => (
+            <div key={p.label} className="contents">
+              <dt className="font-semibold text-ink">{p.label}</dt>
+              <dd className="text-ink-2 max-sm:mb-1">{p.text}</dd>
+            </div>
+          ))}
+        </dl>
+      </Fold>
       {extra}
       <button type="button" aria-expanded={open} aria-controls={`${id}-n`} onClick={() => setOpen((v) => !v)} className="btn mt-4">
         {open ? 'Hide the numbers' : 'Show the numbers'}
@@ -196,7 +199,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
         Re-check with JPL now
       </button>
       <span className="text-[15px] text-ink-2" aria-live="polite">
-        {live.state === 'idle' && `Asks JPL for the Sun at ${liveSite.name} at eight moments in 2026 (about 12 s at most).`}
+        {live.state === 'idle' && `Asks JPL for the Sun at ${liveSite.name} at eight moments in 2026 (up to 12 s).`}
         {live.state === 'busy' && 'Asking JPL…'}
         {live.state === 'done' &&
           (live.result.ok
@@ -211,7 +214,7 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
       <main className="wrap flex flex-col gap-6 pb-14 pt-8">
         <div>
           <h1 data-band-end="" className="display text-[44px] leading-tight sm:text-[56px]">Accuracy</h1>
-          <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">What each check shows, how it was tested, and its limits.</p>
+          <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">What each check shows, and its limits.</p>
         </div>
 
         <p className="text-base font-semibold text-ink">{verdict}</p>
@@ -422,11 +425,15 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
             How far off the forecast can be
           </h2>
           <ul className="mt-3 flex max-w-[62em] flex-col gap-2 leading-relaxed text-ink-2">
-            <li>Sunrise, sunset and Earth rising or setting: within the margins measured above, site by site. The hourly steps alone put each change up to an hour late; near the pole the terrain data can move it by many hours.</li>
+            <li>Sunrise, sunset, Earth rising or setting: within the margins above. Hourly steps add up to an hour; near the pole the terrain can add many hours.</li>
             <li>Directions to the Sun and Earth: under 0.01° (the first check finds {degreesText(horizons.max_abs_delta_el_deg)}).</li>
-            <li>The height of the hills around a site: within a degree of NASA&apos;s adjusted south-pole maps in 95 % of directions at every featured site (compared above); the app follows its own maps to 0.01°.</li>
+            <li>The hills around a site: within a degree of NASA&apos;s adjusted maps in 95 % of directions at every featured site.</li>
           </ul>
-          {badge && <p className="mt-4 text-[15px] text-ink-2">{testRunWords(badge).join(' ')}</p>}
+          {badge && (
+            <Fold label="The automated tests' last run" className="mt-2">
+              <p className="text-[15px] text-ink-2">{testRunWords(badge).join(' ')}</p>
+            </Fold>
+          )}
         </section>
       </main>
     </AppFrame>

@@ -14,7 +14,7 @@ import { planStore, type PlanState } from '@/lib/plan/store';
 export type Ask = (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
 
 /** The four chips shown until something answers; each is one of the rehearsed prompts, asked as soon as it is clicked. */
-export const EXAMPLE_PROMPTS = ['Show me Nobile Rim 2', 'Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days', 'Find the best landing date for 14 days', 'Explain the longest night'];
+export const EXAMPLE_PROMPTS = ['Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days', 'Find the best landing date for 14 days', 'Explain the longest night'];
 
 const OFFLINE = 'The assistant is offline; the app works without it. Try one of the example questions below, or ask again in a moment.';
 /** After this many seconds a question still out gets a line on why it can take a while. */
@@ -126,7 +126,7 @@ export function PlannerChat({
         <h2 className="display text-[23px] font-semibold">Ask in plain words</h2>
         <p className="text-[15px] text-ink-2">
           {/* Not "never invents numbers": the check also lets through 14, 30, 90 and any number the visitor typed. */}
-          The assistant moves the controls for you. Numbers it cannot match to the app&apos;s figures are removed.
+          Numbers it cannot match to the app&apos;s figures are removed.
           {aiMode === 'cached' && ' Demo mode: rehearsed answers.'}
         </p>
       </div>

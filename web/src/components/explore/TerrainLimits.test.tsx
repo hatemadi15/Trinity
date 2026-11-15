@@ -59,7 +59,7 @@ describe('Explore says what the terrain behind its figures is', () => {
 
   it('says in the verdict that a lost tile leaves the terrain incomplete, and names no better day and no better place', async () => {
     const store = await open(fileLoaders({ computeMask: worker(LOST_TILE) }));
-    await waitFor(() => expect(verdict().textContent).toMatch(/Nearby, de Gerlache rim summit/), { timeout: 20_000 });
+    await waitFor(() => expect(verdict().textContent).toMatch(/Nearby: de Gerlache rim summit/), { timeout: 20_000 });
     act(() => store.getState().setParams({ mastM: 5 }));
     await waitFor(() => expect(store.getState().maskMeta?.terrain?.quality).toBe('incomplete'), { timeout: 20_000 });
     await waitFor(() =>
@@ -135,7 +135,7 @@ describe('the verdict keeps to its words with a terrain limit', () => {
     better: { hour: 466, startUtc: '2027-01-20T10:00:00', label: 'Land on 20 January instead', note: 'From 20 January, 10:00 UTC: power for 12 days 15 hours in a row.' },
     hint: null, poweredHours: 76, contactHours: 0,
   };
-  const summit = { words: 'Nearby, de Gerlache rim summit (12 km away) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high' };
+  const summit = { words: 'Nearby: de Gerlache rim summit (12 km) has power all 30 days.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high' };
   const coarser = featuredReport({ site_id: 'im1_odysseus', mast_m: 2, fallback_bands: [{ grid: 'ldem_60s_240m', r_min_m: 3880, r_max_m: 100_000, step_m: 120 }] });
   const lost = computedReport(findingsWith(LOST_TILE), 5);
 

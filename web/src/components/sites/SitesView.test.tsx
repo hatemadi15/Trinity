@@ -31,7 +31,7 @@ describe('SitesView', () => {
   it('titles the page, says what the figures assume and groups the catalogue in plain words', async () => {
     await ready();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Choose a landing site');
-    expect(screen.getByText(/34 places on the Moon/).textContent).toBe('34 places on the Moon, most near the south pole.');
+    expect(screen.getByText(/34 places/).textContent).toBe('34 places, most near the south pole.');
     // What the figures count from, the lander and the order, in plain sentences rather than a list of terms (both
     // readers, part C read 1: the figures differ from Explore's, and this says why), one point away on step 2.
     fireEvent.click(screen.getByRole('button', { name: 'How these figures are counted' }));
@@ -39,7 +39,7 @@ describe('SitesView', () => {
       "Each site's figures are for landing on its best day of the 30 days from 1 January 2027, the day under its name, and the 30 days after it, for one lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, the hills seen from a 2 m mast. Explore and Compare start on the first day, so their figures can differ. In each group, the longest time with power comes first.",
     );
     expect(document.querySelector('main dl')).toBeNull();
-    expect(screen.getByText(/three real missions, for the same days as the rest of the list/)).toBeTruthy();
+    expect(screen.getByText(/Three real missions, for the same days\./)).toBeTruthy();
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       'Shortlisted by NASA for a crewed Artemis landing',
       'Where commercial landers touched down',
@@ -49,7 +49,7 @@ describe('SitesView', () => {
       'High points and crater floors',
       'Somewhere else',
     ]);
-    expect(screen.getByText(/Each figure is for the centre of the region/)).toBeTruthy();
+    expect(screen.getByText(/Figures are for each centre\./)).toBeTruthy();
     expect(document.querySelectorAll('main .btn-primary')).toHaveLength(0);
   });
 
@@ -59,12 +59,13 @@ describe('SitesView', () => {
     // The row opens Explore on the landing day it names, and every figure in the row is one Explore shows there:
     // the sunlight and contact with Earth are for the 30 days from that day.
     expect(row.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
-    expect(row.textContent).toMatch(/A ridge on a crater rim, 52 km from the pole/);
+    // What the place is, one point away on the row.
+    expect(row.getAttribute('title')).toMatch(/A ridge on a crater rim, 52 km from the pole/);
     // A number keeps its percent sign on the same line: a no-break space between them.
     expect(row.textContent).toMatch(/Sunlight 41 %/);
     expect(row.textContent).toMatch(/Earth in view 54 %/);
     // The landing day comes first, under the name: every figure to its right counts from it.
-    expect(row.textContent).toMatch(/de Gerlache Rim 2, Best landing day: 20 Jan/);
+    expect(row.textContent).toMatch(/de Gerlache Rim 2, Best day: 20 Jan/);
     expect(row.textContent).toMatch(/Longest time with power 12 d 15 h/);
     expect(row.textContent).not.toMatch(/if it lands on/);
   });
@@ -89,14 +90,14 @@ describe('SitesView', () => {
     expect(b).toEqual([...b].sort((x, y) => y - x));
     // Mons Mouton keeps power for 13 d 7 h but never sees Earth in its first 30 days: it sits under the heading, not among the others.
     expect(within(group).getByRole('heading', { level: 3 }).textContent).toBe('No contact with Earth in the first 30 days');
-    expect(group.textContent).toMatch(/These places keep power for a while but cannot reach Earth by radio then\./);
+    expect(group.textContent).toMatch(/Power for a while, but no radio link to Earth then\./);
     expect(within(without).getByText('Mons Mouton')).toBeTruthy();
     expect(without.compareDocumentPosition(withContact) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   it('names the best place of the whole list for these days, with a link to it', async () => {
     const { store } = await ready();
-    const line = screen.getByText(/^Longest time with power in these days:/);
+    const line = screen.getByText(/^Longest with power:/);
     const link = within(line).getByRole('link');
     const id = new URL(link.getAttribute('href')!, 'http://x').searchParams.get('site')!;
     const o = store.getState().overview;
@@ -122,8 +123,8 @@ describe('SitesView', () => {
     const pins = within(map).getAllByRole('link');
     expect(pins).toHaveLength(17);
     expect(within(map).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
-    expect(map.textContent).toMatch(/17 places lie farther from the pole, outside this map\./);
-    expect(map.textContent).toMatch(/The south pole is at the centre of the map/);
+    expect(map.textContent).toMatch(/17 places lie outside this map\./);
+    expect(map.textContent).toMatch(/The south pole is at the centre\./);
     // The key to the pins' colours comes before the map, on the first screen.
     const key = within(map).getByText('two weeks or more with power');
     expect(key.compareDocumentPosition(within(map).getAllByRole('link')[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -163,7 +164,7 @@ describe('SitesView', () => {
     for (const name of ['What Sunlight means', 'What Earth in view means', 'What Longest time with power means']) expect(screen.getAllByRole('button', { name }).length).toBe(6);
   });
 
-  it('keeps the first screen to 105 words before a tap, at 1440 and on a phone (spec 20.1; spec 23 says on the page in three steps what the fold hid)', async () => {
+  it('keeps the first screen to 88 words before a tap, at 1440 and on a phone (spec 20.1; spec 23 says on the page in three steps what the fold hid)', async () => {
     await ready();
     // From the heading down to the map, the part a first screen shows: the title band, the three steps and the map.
     const main = document.querySelector('main')!;
@@ -171,7 +172,7 @@ describe('SitesView', () => {
     const map = main.querySelector('section[aria-label="Map of the sites"]')!;
     for (const width of [WIDE, PHONE]) {
       const n = [...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0);
-      expect(n, `${width} px`).toBeLessThanOrEqual(105);
+      expect(n, `${width} px`).toBeLessThanOrEqual(88);
     }
   });
 
@@ -192,7 +193,7 @@ describe('SitesView', () => {
     const group = screen.getByRole('region', { name: 'Landers from other countries' });
     const heading = within(group).getAllByRole('heading', { level: 3 }).find((h) => /far side/.test(h.textContent ?? ''))!;
     expect(heading.textContent).toBe('On the far side: Earth never rises');
-    expect(group.textContent).toMatch(/a lander there can talk to Earth only through a relay satellite, as Chang'e 4 and Chang'e 6 did through China's Queqiao satellites\./);
+    expect(group.textContent).toMatch(/A lander there reaches Earth only through a relay satellite, as Chang'e 4 and 6 did\./);
     const far = heading.parentElement!.querySelector('ul')!;
     expect([...far.querySelectorAll<HTMLElement>('a[data-row]')].map((a) => a.dataset.row).sort()).toEqual(['change4', 'change6']);
     expect(rowOf("Chang'e 4").textContent).toMatch(/Never: far side/);
@@ -203,7 +204,7 @@ describe('SitesView', () => {
   it('gives the Apollo landings two weeks of sunlight and Earth in view all the time, for the days chosen above', async () => {
     const { store } = await ready();
     const group = screen.getByRole('region', { name: 'Where the Apollo crews landed' });
-    expect(group.textContent).toMatch(/The six crewed landings of 1969 to 1972, near the equator\. Like every row here, the figures are for the days chosen above/);
+    expect(group.textContent).toMatch(/Six crewed landings, 1969 to 1972\. The same lander and days/);
     const o = store.getState().overview;
     for (const id of ['apollo_11', 'apollo_15']) {
       expect(o[id].afterEarth, id).toBe(1);

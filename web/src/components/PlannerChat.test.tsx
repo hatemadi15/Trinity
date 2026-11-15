@@ -101,10 +101,10 @@ describe('PlannerChat', () => {
     );
     const chips = screen.getAllByRole('button', { name: /^Try: / });
     expect(chips.map((c) => c.textContent?.replace(/^Try: /, ''))).toEqual(EXAMPLE_PROMPTS);
-    expect(EXAMPLE_PROMPTS.length).toBe(4);
+    expect(EXAMPLE_PROMPTS.length).toBe(3);
     await ask('anything');
     await waitFor(() => expect(screen.getByText(/The assistant is offline/)).toBeTruthy());
-    expect(screen.getAllByRole('button', { name: /^Try: / }).length).toBe(4);
+    expect(screen.getAllByRole('button', { name: /^Try: / }).length).toBe(3);
   });
 
   it('offers only examples the app answers without the model, in the words the pages use', () => {
@@ -375,7 +375,7 @@ describe('PlannerChat opens when it has something to show', () => {
       const panel = screen.getByRole('region', { name: 'Ask in plain words' });
       expect(within(panel).getByRole('heading', { level: 2 }).textContent).toBe('Ask in plain words');
       // The number check removes what it cannot match; it also lets the window lengths and the visitor's own figures through.
-      expect(panel.textContent).toMatch(/The assistant moves the controls for you\. Numbers it cannot match to the app's figures are removed\./);
+      expect(panel.textContent).toMatch(/Numbers it cannot match to the app's figures are removed\./);
       expect(panel.textContent).not.toMatch(/never invents/);
       expect(within(panel).getByLabelText('Ask the assistant').className).toMatch(/\bfield\b/);
       const askButton = within(panel).getByRole('button', { name: 'Ask' });

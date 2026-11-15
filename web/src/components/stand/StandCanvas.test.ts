@@ -7,7 +7,7 @@ import type { SkyLabels, StandScene } from '@/lib/sky/standRenderer';
 import { flatField } from '@/lib/sky/terrainField';
 import { EARTH_LOOP, starLabel } from '@/lib/viz/stand';
 import { descentShare, LANDING } from '@/lib/sky/landing';
-import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, glideStep, fitPitch, horizonLift, inflate, labelSides, landingFit, letterShown, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, STRIP_H, subjectFloor, withBody, zoomedOnLander, type RendererLike } from './StandCanvas';
+import { chipsShown, clearOf, clearOfOwn, compassMark, easeStep, edgePointers, glideStep, fitPitch, horizonLift, inflate, labelSides, landingFit, letterShown, liftClear, offLander, OWN_CLEAR, partSide, pathNameText, pointerClear, pointerShort, pointerWords, slopeWord, StandCanvas, starNamesShown, starsNamed, subjectFloor, withBody, zoomedOnLander, type RendererLike } from './StandCanvas';
 
 describe('the pointers on a phone', () => {
   it('keeps Earth’s angle on its pointer on a phone, short: the body and how high it stands', () => {
@@ -584,37 +584,37 @@ describe('the guides', () => {
     expect(phone.classList.contains('bg-black')).toBe(true);
     const strip = document.querySelector<HTMLElement>('[data-plate].overflow-hidden')!;
     expect(strip.classList.contains('bg-[#060607]')).toBe(true);
-    // Below 1280 px the row sits above the time bar, and the strip above the row.
-    expect(strip.parentElement!.className).toContain('max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+14px)]');
+    // The strip is a heading bar at the top edge (spec 25): centred from 1200 px, at the top right from 768 px, not on a phone.
+    for (const c of ['top-4', 'right-4', 'w-[320px]', 'min-[1200px]:left-1/2', 'min-[1200px]:right-auto', 'min-[1200px]:-translate-x-1/2', 'max-md:hidden']) expect(strip.parentElement!.classList.contains(c)).toBe(true);
+    expect(strip.parentElement!.className).not.toContain('bottom-');
+    // The phone's chip is centred under the answer's plate, as the compass is centred at the top.
+    for (const c of ['left-1/2', '-translate-x-1/2', 'top-[calc(var(--top-h,220px)+8px)]', 'whitespace-nowrap']) expect(phone.classList.contains(c)).toBe(true);
     // On a phone the status line leaves the site's name out: the chip says where you stand (both readers of read D1).
     await waitFor(() => expect(phone.textContent).toBe('de Gerlache Rim 2, facing north'));
     // The strip on a wide screen keeps its own words.
     expect([...document.querySelectorAll<HTMLElement>('p')].some((p) => p.textContent === 'Facing north')).toBe(true);
   });
 
-  it('names the compass’s dots in a key row under the facing line, in a plate the caption docks on from 768 px (spec 18.3)', () => {
+  it('names the compass’s dots in a key row under the facing line from 1800 px, on a plate of its own at the top edge (spec 18.3, 25)', () => {
     const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
-    const view = render(createElement(StandCanvas, props(true, r)));
+    render(createElement(StandCanvas, props(true, r)));
     const strip = document.querySelector<HTMLElement>('[data-strip]')!;
     expect(strip).toBeTruthy();
-    // The same ground as the caption's plate, as wide as it; whole on its own.
+    // An opaque plate, whole on its own: the line over the view no longer docks on it (spec 25).
     expect(strip.classList.contains('bg-[#060607]')).toBe(true);
-    expect(strip.parentElement!.className).toContain('w-[min(460px,calc(100vw-32px))]');
+    expect(strip.parentElement!.classList.contains('w-[320px]')).toBe(true);
     for (const c of ['rounded-t-none', 'border-t-0']) expect(strip.classList.contains(c)).toBe(false);
-    // With a caption over it, square and open at the top, so the caption's plate sits on it as one plate.
-    view.rerender(createElement(StandCanvas, { ...props(true, r), docked: true }));
-    for (const c of ['rounded-t-none', 'border-t-0', 'bg-[#060607]']) expect(strip.classList.contains(c)).toBe(true);
     const key = strip.querySelector<HTMLElement>('[data-key]')!;
     // A hollow dot stands for a body below the horizon (read D3: the teacher found Earth's hollow circle unexplained).
     expect(key.textContent).toBe('SunEarthlanderbelow the horizon');
+    // On the strip from 1800 px; narrower, today's card names the dots.
+    expect(key.classList.contains('max-[1800px]:hidden')).toBe(true);
     expect([...key.querySelectorAll('i')].map((i) => i.className)).toEqual([
       'mr-1 inline-block size-2 rounded-full bg-[#f6b646]',
       'ml-3 mr-1 inline-block size-2 rounded-full bg-[#74adff]',
       'ml-3 mr-1 inline-block size-2 rounded-full bg-[#f2f0ea]',
       'ml-3 mr-1 inline-block size-2 rounded-full border-2 border-[#c3bfb6]',
     ]);
-    // The compass 32 px, the facing line 24, the key 22, the bottom edge 1: the caption's plate ends where this one starts.
-    expect(STRIP_H).toBe(79);
   });
 
   it('swaps a new scene into the renderer it has (a lander changed in today’s card) rather than building a new one, whose context and programs would take seconds (the final review)', async () => {
