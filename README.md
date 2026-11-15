@@ -105,18 +105,23 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   Earth coming into view, the Sun coming back), which show as dots on the bar, and Next steps to them.
   `?hour=` sets the hour and `?quality=fast` lightens the drawing for weaker graphics; without WebGL 2
   the horizon chart stands in, with the same words.
-- **Compare sites** (`/compare`): a baseline and up to three scenarios, each with its own site, UTC
-  landing hour, stay, lander, mast and Earth clearance, worked out on its own. "Compare from here"
-  under Explore's answer makes the landing shown the baseline; each scenario can be slipped (five
-  days later in one press), given a nearby alternative (the best catalogue site within 30 km for its
-  own settings) or changed. The page says what changed at the original site and why, which
-  alternative works better (the trade-offs in words one tap away), then gives every setting and figure side by side
-  with the signed change from the baseline, and says when the scenarios share a landing time. The
-  address carries the whole comparison; scenario files save and reopen one or many with the app and
-  data versions; `/compare/brief` prints it. With requirements set, a row checks every
-  scenario against them, all but the share of terrain versions, which Compare carries but does not check (one tap shows each with its margin); the comparison's address, its brief and its
-  files carry them. Empty, it offers the five-day slip at de Gerlache Rim 2
-  and two ready pairs.
+- **Compare landings** (`/compare`, "Compare sites" in the menu): up to four landings side by side,
+  each with its own site, UTC landing hour, stay, lander, mast and Earth clearance, worked out on its
+  own. The first is "Your landing" ("Compare from here" under Explore's answer makes the landing
+  shown that one; "Set up my own landing" starts one on the page). The gold "+ Add a landing" opens
+  three plain ways to add another: "Same place, later date" (five days later in one press), "A place
+  nearby, same date" (the best catalogue site within 30 km for the same settings) and "Any place and
+  date" (Explore's site drop-down and a date). One line at the top says which landing works best and
+  the figure that decides it; under it, what changed at the same place and why, and the other place
+  that works better (the trade-offs in words one tap away). Then every setting and figure side by
+  side, the best of each row marked "Best", with the signed change from your landing, and whether
+  the landings share a landing time. The address carries the whole comparison (in the code and the
+  address a landing is a scenario, and the first is the baseline); files save and reopen one or many
+  with the app and data versions; `/compare/brief` prints it. With requirements set, a row checks
+  every landing against them, all but the share of terrain versions, which Compare carries but does
+  not check (one tap shows each with its margin); the comparison's address, its brief and its files
+  carry them. Empty, it says what to press: the example "What if our landing is 5 days late?" at de
+  Gerlache Rim 2, two ready pairs, or a landing of one's own.
 - **Terrain versions** (on Explore, Compare, the brief and Accuracy): NASA's two generations of
   south-pole maps, made from the same laser shots, differ by about 1.4 m (2 m on the 240 m grid), 6 to 14 times the error the
   newer one states, grid by grid. Earthrise fits an error model to those differences and draws 32

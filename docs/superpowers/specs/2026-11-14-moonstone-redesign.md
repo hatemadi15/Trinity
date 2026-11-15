@@ -152,3 +152,39 @@ Textures and their credits: `web/public/hero/textures/`.
   checks are the Sites page's former "Somewhere else": south of 60° S, and a plain sentence where the height tiles
   are missing. "Your own point is not checked for landing" stands under the button.
 - **Measured** at 1440 px: the page is 3778 px tall, from 4406; on a 390 px phone 6289, from 6670.
+
+## 23.5 Compare, made plain
+(15 November, owner review: "I don't know what slip is. I don't know what change is doing"; adding a site to compare
+was the part that could not be found.)
+- **The words.** The page is "Compare landings": "Put up to four landings side by side: different places, dates or
+  landers. See which has the most power and radio contact." A column is a landing: the first is "Your landing", the
+  others "Landing 2" to "Landing 4". "Baseline", "scenario", "Slip…", "Nearby site…" and "Change…" no longer show.
+  Only visible words changed: the code, the files and the address keep `scenario`, `baseline` and their parameters,
+  so old links and files open as before.
+- **Empty.** "Start here" says what to press: "Press the example to see three landings compared. Then press
+  '+ Add a landing' to add any place or date of your own." The one gold button is "What if our landing is 5 days
+  late?"; under it two more examples ("A ridge vs the summit 12 km away", "A sunlit rim vs a crater floor in
+  shadow"), "Set up my own landing" (the landing Explore shows, with its place, date and lander open to set), the
+  way in from Explore, and one line naming the assistant's request ("compare this to every landing site").
+- **"+ Add a landing"** (`compare/AddLanding`) is the page's one gold control once a landing is on it, the last
+  tile of the row of cards. It opens three ways, each a copy of a landing ("Start from a copy of", your landing
+  unless another is chosen) with one thing moved: "Same place, later date" (a number of days or hours, later or
+  earlier, five days later to begin with); "A place nearby, same date" (the best listed site within 30 km, added
+  if it works better); "Any place and date" (Explore's `SitePicker`, imported, and a date; the lander and the stay
+  are kept). Beside a landing on its own the ways start open; after an add they close and the keyboard stays on
+  the button. At four landings the tile says to remove one first.
+- **Cards.** Each says which landing it is, its name, its place and its date, with "Edit place, date or lander" and,
+  under "More", "Copy this landing", "Make this your landing", "Save as a file" and "Remove".
+- **Which landing works best** (`verdictLine`, lib/viz/compare). One line over the comparison: the landing with the
+  longest time with power, then the most radio contact while it has power, then the most sunlight (the nearby
+  search's order), with the figure that decided it; its card carries "Works best". Landings that are level are said
+  to be level. A landing on incomplete terrain is never named, and a high point worked out from the heights is said
+  not to be checked for landing. The story under it keeps its sentences, as "Same place, another date" and "Another
+  place".
+- **The table.** The best cell of a row is marked "Best" for time with power, sunlight, Earth in view, radio
+  contact while it has power, the longest night and your requirements: only when every landing has its figure and
+  they are not all level, never for a landing on incomplete terrain, and not at all when that landing shows the
+  best value. The longest time without Earth is not marked, as the period's ends cut it ("at least"). "The answer"
+  is "What happens"; "Its own best landing" is "Best landing time at this place".
+- **Kept.** The address and share links, files, the requirements row, the brief, "Compare from here", the
+  assistant's and Luna's ways in, the word caps (200 empty, 750 full) and one gold action at most.
