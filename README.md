@@ -58,7 +58,7 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   next 12 months (a calendar coloured by power, then radio contact, the order the best-date search
   uses by default; pressing a day lands the period there; Luna opens it with "show me the year"), the ground at the time bar's hour (three tabs: a north-up
   shadow map, the same light in 3D from above, and a horizon chart), and where the site lies with
-  its nearest neighbours. The time bar at the bottom plays the period hour by hour and counts down to the next sunset or
+  its nearest neighbours (its ground detail and cold traps one tap away). The time bar at the bottom plays the period hour by hour and counts down to the next sunset or
   sunrise and to Earth's next rising or setting. The period is a landing date and hour in UTC (whole hours, as the Sun and Earth table
   is hourly) and a length of 2 to 90 days, with steps of an hour and a day either way and a shift by
   any number of days or hours ("our landing slipped by five days"); the Lander dialog offers three
@@ -89,7 +89,7 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   under Explore's answer makes the landing shown the baseline; each scenario can be slipped (five
   days later in one press), given a nearby alternative (the best catalogue site within 30 km for its
   own settings) or changed. The page says what changed at the original site and why, which
-  alternative works better and the trade-offs, then gives every setting and figure side by side
+  alternative works better (the trade-offs in words one tap away), then gives every setting and figure side by side
   with the signed change from the baseline, and says when the scenarios share a landing time. The
   address carries the whole comparison; scenario files save and reopen one or many with the app and
   data versions; `/compare/brief` prints it. With requirements set, a row checks every
@@ -114,8 +114,8 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   To rebuild: `cd pipeline && uv run python -m lunar_pipeline.cli coldtraps` (it downloads the
   117 MB Diviner zip into `data_raw/diviner` the first time), then `manifest` and `sync-local`.
   Method and figures: `docs/method.md`, "Modelled cold traps".
-- **Accuracy** (`/validate`): five kinds of evidence, each saying what it shows, what it was tested
-  on and what it leaves out, with its full table on request. Four are checks with a pass mark: the
+- **Accuracy** (`/validate`): five kinds of evidence, each with its figure and one short sentence; what it shows, what it was tested
+  on and what it leaves out are one tap away, and its full table on request. Four are checks with a pass mark: the
   Sun's and Earth's directions against JPL Horizons (with a live re-check), sunlight and Earth in
   view against NASA's LOLA illumination maps worked out the maps' way (from the ground, any part of
   the disc, hourly over 18.6 years, 60 m terrain), the app's shadows laid over 20 pictures from
@@ -129,7 +129,7 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   each event carries at four kinds of site, measured against one-minute steps, NASA's adjusted
   south-pole maps (PGDA product 90) and their terrain versions, and JPL Horizons, with each source
   apart and the ground at each site; then the terrain versions themselves (the error model's fit,
-  what the versions show and what they cannot show); then the error budget and the automated tests'
+  what the versions show and what they cannot show, each in a fold); then the error budget and, in a fold, the automated tests'
   last run: what passed, was skipped and failed, when, on which commit and with which data.
 - **How it works** (`/learn`): the three drawings, the science behind them for a class (the Moon's
   small tilt, libration, how to read the charts, the battery sum) and five steps through the pages, then how to run it offline.
