@@ -17,7 +17,6 @@ import {
   requirementReason,
   withReason,
   FIRST_STEP,
-  FIRST_STEP_PHONE,
   FIRST_STEP_STILL,
   keyMoments,
   landerCaption,
@@ -33,12 +32,15 @@ import {
   RESIDENT_LINE,
   shadowWords,
   skyCountdown,
+  sceneFacts,
   skyLabel,
+  skyTag,
   standHeadline,
   standingLine,
   standQuery,
   starLabel,
   statusLine,
+  statusShort,
   viewCaption,
   watchNext,
   WATCH_LEAD,
@@ -76,6 +78,13 @@ describe('the stand view’s words', () => {
     expect(skyLabel('earth', s, 1)).toBe('Earth behind a hill to the east, 1.2° up');
     expect(skyLabel('earth', s, 2)).toBe('Earth, 3.0° below the horizon');
     expect(skyLabel('earth', s, 3)).toBe('Earth 1.2° up');
+  });
+  it('names them in the sky in a word or two, and keeps the heights and the lander’s distance for the card (spec 25.1)', () => {
+    const s = series({ sunEl: [2.4, 1.0, -0.5, 1.6], sunFraction: [1, 0, 0, 1], earthEl: [4.2, 1.2, -3, 1.2], earthVisible: [1, 0, 0, 1] });
+    expect([0, 1, 2].map((h) => skyTag('sun', s, h))).toEqual(['Sun', 'Sun, hidden', 'Sun, below']);
+    expect([0, 1, 2].map((h) => skyTag('earth', s, h))).toEqual(['Earth', 'Earth, hidden', 'Earth, below']);
+    expect(sceneFacts(s, 2, 15.6)).toBe('Sun, 0.5° below the horizon. Earth, 3.0° below the horizon. The lander is 16 m away.');
+    expect(sceneFacts(s, 0)).toBe('Sun 2.4° up. Earth 4.2° up.');
   });
   // How far below the horizon Earth is says how long the radio waits: a body out of view keeps its height.
   it('gives the height of a body out of view: how far below the horizon, or how high behind the hills', () => {
@@ -208,6 +217,16 @@ describe('the lander’s power and radio in one sentence', () => {
   it('says since when the lander has had power again after a power cut, and only if it survived', () => {
     expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'Power on again since 20 January, if the lander survived the night. Radio contact: it has power and Earth is in view.' });
     expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'Power on again since 20 January, if the lander survived the night. No radio contact: Earth is below the horizon.' });
+  });
+  it('says the same in a few words for the eye, and never drops the condition after a power cut (spec 25.1)', () => {
+    expect(statusShort(s, p, 10)).toBe('Power on · radio contact');
+    expect(statusShort(s, p, 20)).toBe('Power on · no radio');
+    expect(statusShort(s, p, 100)).toBe('Power off · no radio');
+    expect(statusShort(s, p, 500)).toBe('Power on, if it survived · radio contact');
+    expect(statusShort(s, p, 600)).toBe('Power on, if it survived · no radio');
+    // Radio contact is said only with both power and Earth in view, as statusLine's tone has it.
+    for (let h = 0; h < 720; h += 10) expect(statusShort(s, p, h).endsWith('radio contact')).toBe(statusLine(s, p, start, h).tone === 'radio');
+    expect(statusShort(s, null, 0)).toBe('Working out the lander’s power…');
   });
   it('does not promise radio contact while the lander is off, even with Earth in view', () => {
     expect(statusLine(s, p, start, 100)).toEqual({ on: false, tone: 'off', text: 'Power off since 4 January. No radio contact: Earth is in view, but the lander is off.' });
@@ -1135,11 +1154,10 @@ describe('the headline’s short form on a phone (19.1)', () => {
 });
 
 describe('the first step over the view (19.2)', () => {
-  it('fits the caption’s two lines, short on a phone, and leaves Play out with reduced motion, as Play is off then', () => {
-    expect(FIRST_STEP).toBe('Press Play to watch the month go by · drag to look around');
-    expect(FIRST_STEP_PHONE).toBe('Press Play · drag to look around');
+  it('is six words at every width (spec 25.1), and leaves Play out with reduced motion, as Play is off then', () => {
+    expect(FIRST_STEP).toBe('Press Play · drag to look around');
     expect(FIRST_STEP_STILL).toBe('Drag to look around');
-    for (const line of [FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL]) expect(line.length, line).toBeLessThanOrEqual(112);
+    for (const line of [FIRST_STEP, FIRST_STEP_STILL]) expect(line.length, line).toBeLessThanOrEqual(112);
     expect(FIRST_STEP_STILL).not.toMatch(/Play/);
   });
 });

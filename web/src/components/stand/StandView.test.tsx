@@ -8,7 +8,7 @@ import { DataError } from '@/lib/data/loaders';
 import { createExploreStore } from '@/lib/store/explore';
 import { compassWord } from '@/lib/viz/ground';
 import { DEMO_KEY } from '@/lib/hooks/useDemoMode';
-import { FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, RESIDENT_LINE, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_STILL, watchNext, type MomentKind } from '@/lib/viz/stand';
+import { FIRST_STEP, FIRST_STEP_STILL, keyMoments, landerCaption, landerState, momentCaption, phoneHeadline, RESIDENT_LINE, skyLabel, starLabel, statusLine, viewCaption, WATCH_LEAD, WATCH_LEAD_STILL, watchNext, type MomentKind } from '@/lib/viz/stand';
 import { openingYaw } from '@/lib/viz/standOpening';
 import { fileLoaders, terrainFileLoaders, terrainPresent } from '@/test/file-loaders';
 import { findingsWith, LOST_TILE } from '@/test/terrain';
@@ -91,45 +91,49 @@ afterEach(() => {
   cleanup();
   // "Hide panels" is kept for the visit (spec 25): each test opens with the panels showing.
   window.sessionStorage.removeItem('earthrise-panels-hidden');
+  window.sessionStorage.removeItem('earthrise-hint-seen');
 });
 
 describe('StandView', () => {
 
-  it('puts the answer first: from 1800 px the headline leads the plate above the next step and the moment’s state ends it; narrower the plate leads with the short headline, and a phone keeps the state in the card (spec 25)', async () => {
+  it('puts the answer first, the same at every width: the one-line headline beside More, the state in a few words under it with the whole sentence for a screen reader, and both in full in the card (spec 25.1)', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const heading = screen.getByRole('heading', { level: 1 }).textContent!;
     const title = asRead(heading);
     const more = screen.getByRole('button', { name: 'More' });
     const plate = more.closest('[data-plate]') as HTMLElement;
     const follows = (a: Node, b: Node) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    // From 1800 px the headline comes first, then the next step, and last the moment's state, on a row of its own (from 768 px).
-    const shown = within(plate).getByText(title, { selector: 'p' });
-    expect(shown.className).toContain('max-[1800px]:hidden');
-    const next = screen.getByRole('group', { name: 'Next step' });
+    // The plate leads with the headline's short form, More beside it, at every width; the page's heading keeps it whole.
+    const short = within(plate).getByText(asRead(phoneHeadline(heading)), { selector: 'p' });
+    expect(asRead(short.textContent!)).toBe('1 January: power for 3 days 4 hours, no radio');
+    expect(short.className).not.toMatch(/1800/);
+    expect(short.parentElement).toBe(more.parentElement);
+    expect(follows(short, more)).toBe(true);
+    expect(within(plate).queryByText(title, { selector: 'p' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Next step' })).toBeNull();
+    // Last, from 768 px, the moment's state: a few words for the eye, the whole sentence for a screen reader.
     const st = store.getState();
     const lander = statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh);
     const state = within(plate).getByText(asRead(lander.text));
-    expect(follows(shown, next)).toBe(true);
-    expect(follows(next, state)).toBe(true);
+    expect(state.className).toBe('sr-only');
     expect(state.parentElement).toBe(plate.lastElementChild);
     expect(state.parentElement!.className).toMatch(/\bmax-md:hidden\b/);
-    // Below 1800 px the plate leads with the headline's short form, More beside it; the page's heading keeps it whole.
-    const short = within(plate).getByText(asRead(phoneHeadline(heading)), { selector: 'p' });
-    expect(asRead(short.textContent!)).toBe('1 January: power for 3 days 4 hours, no radio');
-    expect(short.className).toContain('min-[1800px]:hidden');
-    expect(short.parentElement).toBe(more.parentElement);
-    expect(follows(short, more)).toBe(true);
-    // Today's card opens on the moment's state with its dot, on a phone only, then keeps the whole headline below 1800 px.
+    const few = plate.querySelector<HTMLElement>('[data-status]')!;
+    expect(asRead(few.textContent!)).toBe('Power 100 % · no radio');
+    expect(few.getAttribute('aria-hidden')).toBe('true');
+    // Today's card opens on the moment's state in full with its dot, at every width, then keeps the whole headline.
     openCard();
     const card = document.getElementById('stand-card')!;
     const first = card.firstElementChild as HTMLElement;
     expect(first.tagName).toBe('P');
     expect(asRead(first.textContent!)).toBe(asRead(lander.text));
     expect(first.querySelector('[data-tone]')!.getAttribute('data-tone')).toBe(lander.tone);
-    expect(first.className).toMatch(/\bmd:hidden\b/);
+    expect(first.className).not.toMatch(/hidden/);
     const whole = within(card).getByText(title, { selector: 'p' });
-    expect(whole.className).toContain('min-[1800px]:hidden');
+    expect(whole.className).not.toMatch(/1800/);
     expect(follows(first, whole)).toBe(true);
+    // What the names in the sky and the time bar leave out waits here too: the heights, the lander's distance, the clock.
+    expect(card.querySelector('[data-facts]')!.textContent).toMatch(/^Sun \d+(\.\d)?° up\. Earth, \d+(\.\d)?° below the horizon\. The lander is \d+ m away\. Dates and hours are Earth time \(UTC\)\.$/);
   });
   it('counts down in today’s card to the next sunset or sunrise and to Earth rising or setting, at every width, as the hour moves', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
@@ -166,11 +170,10 @@ describe('StandView', () => {
     fireEvent.click(guides);
     const hide = screen.getByRole('button', { name: 'Hide paths' });
     expect(hide.getAttribute('aria-pressed')).toBeNull();
-    // A phone keeps "Paths" for the row's width; wider, the button's words are its name.
-    expect([...hide.querySelectorAll('span')].map((x) => [x.className, x.textContent])).toEqual([
-      ['md:hidden', 'Paths'],
-      ['max-md:hidden', 'Hide paths'],
-    ]);
+    // A sign, not words (spec 25.1): its name is its tooltip too, and both follow what it does.
+    expect(hide.textContent).toBe('');
+    expect(hide.querySelector('svg[aria-hidden="true"]')).toBeTruthy();
+    expect(hide.getAttribute('title')).toBe('Hide paths');
     await waitFor(() => expect(setGuides).toHaveBeenLastCalledWith(true, true, true));
     await waitFor(() => expect(document.querySelectorAll('[data-path-mark]:not([hidden])').length).toBeGreaterThan(0));
     // The Sun sets behind the hills on 3 January and rises on the 20th; Earth rises on the 10th and sets on the 23rd.
@@ -232,8 +235,12 @@ describe('StandView', () => {
     // Each by its name; the hide button has no other, its visible words being its name, as speech input needs (WCAG 2.5.3).
     // Luna's toggle ends it (spec 22).
     expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide panels', 'Luna']);
-    // Read as a verb, not a noun (both readers of read D1).
-    expect(within(row).getByText('Turn to')).toBeTruthy();
+    // Signs, not words (spec 25.1): each button's name is its tooltip too, and the row itself holds no word but Luna's.
+    for (const b of [...row.querySelectorAll('button')].slice(0, 6)) {
+      expect(b.getAttribute('title')).toBe(b.getAttribute('aria-label'));
+      expect(b.textContent).toBe('');
+      expect(b.querySelector('svg[aria-hidden="true"]')).toBeTruthy();
+    }
     for (const name of ['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide panels']) expect(screen.getByRole('button', { name })).toBeTruthy();
     // Today's card waits under More: where you stand, what to watch, the better day, the ways on and the help.
     expect(screen.queryByText(watchNext(st.series!, st.power, st.startUtc, 10))).toBeNull();
@@ -372,16 +379,21 @@ describe('StandView', () => {
     expect([...row.children].indexOf(after)).toBeLessThan([...row.children].indexOf(within(document.getElementById('stand-card')!).getByRole('link', { name: 'Change date' })));
   });
 
-  it('labels the Sun and Earth as Explore does, and follows the time', async () => {
+  it('names the Sun and Earth in the sky in a word or two, their heights left to the card, and follows the time (spec 25.1)', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const series = store.getState().series!;
     // The labels on the sky (the compass's end chips may say the same).
     const sky = (body: 'sun' | 'earth') => document.querySelector(`[data-sky="${body}"]`)?.textContent;
-    await waitFor(() => expect(sky('sun')).toBe(skyLabel('sun', series, 10)));
-    expect(sky('earth')).toBe(skyLabel('earth', series, 10));
+    await waitFor(() => expect(sky('sun')).toBe('Sun'));
+    expect(sky('earth')).toBe('Earth, below');
+    expect(skyLabel('earth', series, 10)).toMatch(/below the horizon$/);
     act(() => store.getState().setCursor(300));
     await waitFor(() => expect(screen.getByText(asRead(statusLine(series, store.getState().power, store.getState().startUtc, 300, store.getState().params.power.batteryWh).text))).toBeTruthy());
-    expect(sky('sun')).toBe(skyLabel('sun', series, 300));
+    // By then the Sun is down: two words, where skyLabel gives how far.
+    expect(skyLabel('sun', series, 300)).toMatch(/below the horizon$/);
+    expect(sky('sun')).toBe('Sun, below');
+    openCard();
+    expect(document.querySelector('[data-facts]')!.textContent).toContain(`${skyLabel('sun', series, 300)}. ${skyLabel('earth', series, 300)}.`);
   });
 
   it('clamps an hour beyond the period to its last hour', async () => {
@@ -819,9 +831,8 @@ describe('StandView', () => {
       },
       { timeout: 10_000 },
     );
-    // The line twice, one shown per width: display: none keeps the other from a screen reader.
-    expect(within(plate).getByText(FIRST_STEP).className).toBe('max-sm:hidden');
-    expect(within(plate).getByText(FIRST_STEP_PHONE).className).toBe('sm:hidden');
+    // One line of six words at every width (spec 25.1).
+    expect(plate.textContent).toBe(FIRST_STEP);
     // The time moved by hand is not a step into the view: one hour on by the slider's arrow key, past no key moment.
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Time' }), { key: 'ArrowRight' });
     expect(within(document.querySelector<HTMLElement>('[data-caption]')!).getByText(FIRST_STEP)).toBeTruthy();
@@ -906,9 +917,11 @@ describe('StandView', () => {
     await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toContain(FIRST_STEP));
   });
 
-  it('names the lander where it stands, with its distance', async () => {
+  it('names the lander where it stands in one word, its distance in the card (spec 25.1)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    await waitFor(() => expect(screen.getByText('The lander, 16 m away')).toBeTruthy());
+    await waitFor(() => expect(document.querySelector('[data-sky="lander"]')!.textContent).toBe('Lander'));
+    openCard();
+    expect(document.querySelector('[data-facts]')!.textContent).toContain('The lander is 16 m away.');
   });
 
   it('says why the lander’s solar panel stands upright when the view turns to it', async () => {
@@ -948,26 +961,30 @@ describe('StandView', () => {
     expect(document.querySelector('[data-strip]')!.classList.contains('border-t-0')).toBe(false);
   });
 
-  it('keeps the moment’s state whole at the plate’s foot: the dot by its first line, its lines even, More after the headline, on an opaque plate', async () => {
+  it('keeps the moment’s state at the plate’s foot on one line: the dot beside it, the whole sentence for a screen reader, More after the headline, on an opaque plate', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=219');
     const st = store.getState();
     const line = screen.getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 219, st.params.power.batteryWh).text));
     const plate = line.closest<HTMLElement>('[data-plate]')!;
     // Opaque, so no guide line shows through it (both readers of read D1).
     expect(plate.classList.contains('bg-[#060607]')).toBe(true);
-    // Two even lines, not a lone word on the second, the dot leading the first; More follows the headline's last line.
-    expect(line.classList.contains('text-balance')).toBe(true);
+    // A few words on one line for the eye (spec 25.1), the dot leading it; More follows the headline's last line.
+    expect(line.className).toBe('sr-only');
+    const few = plate.querySelector<HTMLElement>('[data-status]')!;
+    expect(few.textContent).toBe('Power off · no radio');
+    expect(few.classList.contains('whitespace-nowrap')).toBe(true);
     expect(screen.getByRole('button', { name: 'More' }).classList.contains('self-end')).toBe(true);
     expect(plate.querySelector('[data-tone]')!.classList.contains('self-start')).toBe(true);
   });
 
-  it('on a phone keeps the site’s name for a wider screen, puts the row on the time bar with "Hide panels" in it, short, and no second copy in the card (spec 25)', async () => {
+  it('on a phone keeps the site’s name for a wider screen, puts the row on the time bar with "Hide panels" in it, a sign, and no second copy in the card (spec 25)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     expect(screen.getByText(/^de\sGerlache\sRim\s2\.$/).classList.contains('max-md:hidden')).toBe(true);
-    // One control at every width: in the row, "Hide" on a phone, its accessible name whole.
+    // One control at every width: in the row, a sign with its name whole (spec 25.1).
     const hide = screen.getByRole('button', { name: 'Hide panels' });
     expect(hide.classList.contains('max-md:hidden')).toBe(false);
-    expect([...hide.querySelectorAll('span')].map((x) => [x.textContent, x.className])).toEqual([['Hide', 'md:hidden'], ['Hide panels', 'max-md:hidden']]);
+    expect(hide.textContent).toBe('');
+    expect(hide.getAttribute('title')).toBe('Hide panels');
     expect(screen.getByRole('group', { name: 'Look towards' }).className).toContain('max-md:bottom-[var(--bar-h,211px)]');
     openCard();
     expect(screen.getAllByRole('button', { name: 'Hide panels' })).toEqual([hide]);
@@ -997,167 +1014,59 @@ describe('StandView', () => {
     expect(within(document.getElementById('stand-card')!).getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
   });
 
-  it('keeps the next step in view from 1800 px: the better day in gold with its radio, then Change, holding Change site, Change date, Change lander and Compare sites, and the card leaves its own gold and way on to that row', async () => {
-    await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    const row = screen.getByRole('group', { name: 'Next step' });
-    // Below 1800 px the next step waits in today's card, under More (spec 25): the view keeps its room.
-    expect(row.className).toContain('max-[1800px]:hidden');
-    // Inside the status's plate, under its line.
-    expect(row.closest('[data-plate]')).toBe(screen.getByRole('button', { name: 'More' }).closest('[data-plate]'));
-    // The radio as today's card gives it (18.3): the desktop and the card say the same.
-    const gold = within(row).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, (radio for \d+\sdays\s\d+\shours|no radio contact)$/ });
-    expect(gold.className).toContain('text-[#f6d48a]');
-    // A chevron, as the phone's chip has, so the gold reads as a way on (read D3: the judge took it for a line of text).
-    expect(gold.querySelector('[aria-hidden="true"]')!.textContent!.trim()).toBe('›');
-    expect(gold.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
-    // The other ways on wait under Change (20.1).
-    fireEvent.click(within(row).getByRole('button', { name: 'Change' }));
-    expect(within(row).getByRole('link', { name: 'Change site' }).getAttribute('href')).toBe('/sites');
-    expect(within(row).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
-    expect(within(row).getByRole('button', { name: 'Change lander' })).toBeTruthy();
-    expect(within(row).getByRole('button', { name: 'Compare sites' }).className).not.toContain('text-[#f6d48a]');
-    // One gold action on the screen: from 1800 px the card's own better day and way on are hidden.
+  it('leaves the next step to today’s card at every width: the better day in gold with its radio, then Change site, Change date, Compare sites and Change lander (spec 25.1)', async () => {
+    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
+    // The plate holds no way on: no gold link, no Change (spec 25.1).
+    expect(screen.queryByRole('group', { name: 'Next step' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Change' })).toBeNull();
     openCard();
     const card = document.getElementById('stand-card')!;
-    expect(within(card).getByRole('link', { name: /radio for/ }).closest('div')!.className).toContain('min-[1800px]:hidden');
-    expect(within(card).getByRole('link', { name: 'Change date' }).className).toContain('min-[1800px]:hidden');
-    expect(within(card).getByRole('button', { name: 'Change lander' }).className).toContain('min-[1800px]:hidden');
-  });
-
-  it('gathers the next step’s links under one Change from 768 px, the gold link left beside it (spec 20.1)', async () => {
-    const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    const row = screen.getByRole('group', { name: 'Next step' });
-    // Before a tap the row holds the gold link, then Change, and nothing else: the four ways to change wait under it.
-    const gold = within(row).getByRole('link', { name: /^Try 20 January instead/ });
-    const change = within(row).getByRole('button', { name: 'Change' });
-    expect(within(row).getAllByRole('link')).toHaveLength(1);
-    expect(within(row).getAllByRole('button')).toHaveLength(1);
-    expect(gold.compareDocumentPosition(change) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(row).queryByRole('link', { name: 'Change site' })).toBeNull();
-    expect(within(row).queryByRole('link', { name: 'Change date' })).toBeNull();
-    expect(within(row).queryByRole('button', { name: 'Change lander' })).toBeNull();
-    expect(within(row).queryByRole('button', { name: 'Compare sites' })).toBeNull();
-    // It looks as the row's links did: 40 px tall, 15 px, underlined, with a chevron for its state.
-    for (const c of ['min-h-10', 'text-[15px]', 'underline']) expect(change.classList.contains(c)).toBe(true);
-    expect(change.getAttribute('aria-expanded')).toBe('false');
-    expect(change.querySelector('[aria-hidden="true"]')!.textContent).toBe('▾');
-    const list = document.getElementById(change.getAttribute('aria-controls')!)!;
-    expect(list.hidden).toBe(true);
-    // Open, it shows the same ways in the same order and by the same names, in a plate of its own after Change, which
-    // the sky's labels keep clear of: a disclosure of links and buttons, not an ARIA menu.
-    fireEvent.click(change);
-    expect(change.getAttribute('aria-expanded')).toBe('true');
-    expect(change.querySelector('[aria-hidden="true"]')!.textContent).toBe('▴');
-    expect(list.hidden).toBe(false);
-    expect(list.hasAttribute('data-plate')).toBe(true);
-    expect(list.classList.contains('bg-[#060607]')).toBe(true);
-    expect(change.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect([...list.querySelectorAll('a, button')].map((el) => [el.tagName, el.textContent, el.getAttribute('href')])).toEqual([
-      ['A', 'Change site', '/sites'],
-      ['A', 'Change date', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
-      ['BUTTON', 'Change lander', null],
-      ['BUTTON', 'Compare sites', null],
-    ]);
-    for (const way of list.querySelectorAll('a, button')) for (const c of ['min-h-10', 'text-[15px]', 'underline']) expect(way.classList.contains(c)).toBe(true);
-    expect(document.querySelector('[role="menu"], [role="menuitem"]')).toBeNull();
-    // A press inside it keeps it open; Escape closes it and gives the focus back to Change.
-    const date = within(list).getByRole('link', { name: 'Change date' });
-    fireEvent.pointerDown(date);
-    expect(list.hidden).toBe(false);
-    date.focus();
-    fireEvent.keyDown(date, { key: 'Escape' });
-    expect(list.hidden).toBe(true);
-    expect(change.getAttribute('aria-expanded')).toBe('false');
-    expect(document.activeElement).toBe(change);
-    // A press outside it closes it.
-    fireEvent.click(change);
-    fireEvent.pointerDown(document.body);
-    expect(list.hidden).toBe(true);
-    // So does the focus moving on past it, which it would otherwise cover, and the focus stays where it went.
-    fireEvent.click(change);
-    act(() => within(list).getByRole('button', { name: 'Compare sites' }).focus());
-    const on = screen.getByRole('link', { name: 'Earthrise' });
-    act(() => on.focus());
-    expect(list.hidden).toBe(true);
-    expect(document.activeElement).toBe(on);
-    // So does a way chosen from it, here by the keyboard (the browser's own following of the link is left out).
-    fireEvent.click(change);
-    const site = within(list).getByRole('link', { name: 'Change site' });
-    site.focus();
-    const stay = (e: Event) => e.preventDefault();
-    document.addEventListener('click', stay);
-    try {
-      fireEvent.click(site);
-    } finally {
-      document.removeEventListener('click', stay);
-    }
-    expect(list.hidden).toBe(true);
-    // The focus waits on Change, not on a way the list has hidden.
-    expect(document.activeElement).toBe(change);
-    // Change lander opens the lander dialog in place, the list closing; when the dialog closes the focus is on Change.
-    fireEvent.click(change);
-    fireEvent.click(within(list).getByRole('button', { name: 'Change lander' }));
-    expect(list.hidden).toBe(true);
-    const dialog = await screen.findByRole('dialog', { name: 'The lander' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(document.activeElement).toBe(change);
-    // Compare sites adds the site to the comparison on the way there, as the gold one does.
-    fireEvent.click(change);
-    fireEvent.click(within(list).getByRole('button', { name: 'Compare sites' }));
-    expect(list.hidden).toBe(true);
+    // The radio beside the power (18.3), and a chevron, so the gold reads as a way on (read D3).
+    const gold = within(card).getByRole('link', { name: /^Try 20 January instead: power for 12\sdays\s15\shours, (radio for \d+\sdays\s\d+\shours|no radio contact)$/ });
+    expect(gold.className).toContain('text-[#f6d48a]');
+    expect(gold.querySelector('[aria-hidden="true"]')!.textContent!.trim()).toBe('›');
+    expect(gold.getAttribute('href')).toMatch(/^\/explore\/stand\?site=de_gerlache_rim_2&start=2027-01-20/);
+    expect(within(card).getByRole('link', { name: 'Change site' }).getAttribute('href')).toBe('/sites');
+    expect(within(card).getByRole('link', { name: 'Change date' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30');
+    expect(within(card).getByRole('button', { name: 'Change lander' })).toBeTruthy();
+    const compare = within(card).getByRole('button', { name: 'Compare sites' });
+    expect(compare.className).not.toContain('text-[#f6d48a]');
+    // None of them waits for a wider or a narrower screen.
+    for (const way of [gold.closest('div')!, ...within(card).getAllByRole('link'), compare]) expect(way.className).not.toMatch(/1800/);
+    // Compare sites adds the site to the comparison on the way there.
+    fireEvent.click(compare);
     await waitFor(() => expect(store.getState().compareIds).toContain('de_gerlache_rim_2'), { timeout: 10_000 });
-    cleanup();
-    // With no better day the gold is Compare sites, and Change holds the other three.
-    await open('?site=de_gerlache_rim_2&start=2027-01-20&days=30&hour=10');
-    const next = screen.getByRole('group', { name: 'Next step' });
-    const compare = within(next).getByRole('button', { name: 'Compare sites' });
-    expect(compare.className).toContain('text-[#f6d48a]');
-    const other = within(next).getByRole('button', { name: 'Change' });
-    expect(within(next).getAllByRole('button')).toHaveLength(2);
-    expect(compare.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    fireEvent.click(other);
-    expect([...document.getElementById(other.getAttribute('aria-controls')!)!.querySelectorAll('a, button')].map((el) => el.textContent)).toEqual(['Change site', 'Change date', 'Change lander']);
   }, 40_000);
 
-  it('keeps the plate to 35 words before a tap at 1440, and to 70 at 1920 where the next step shows (spec 20.1, 25)', async () => {
+  it('keeps the plate to 12 words before a tap, the same at 1440 and 1920 (spec 25.1)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    // At 1440 the short headline, More and the moment's state; the gold link, Change and the way to the evidence wait in the card.
+    // The one-line headline, More and the state's few words; the whole sentence, the ways on and the evidence wait in the card.
     const plate = screen.getByRole('button', { name: 'More' }).closest<HTMLElement>('[data-plate]')!;
-    const words = visibleWords(plate, WIDE);
-    expect(words.length).toBeLessThanOrEqual(35);
-    expect(words.join(' ')).toMatch(/^1 January: power for 3 days 4 hours, no radio More de Gerlache Rim 2 ?\. Power on, battery 100 %\. No radio contact: Earth is /);
-    for (const w of ['Change', 'Accuracy', 'Try']) expect(words).not.toContain(w);
-    // From 1800 px the whole plate of 19.1 and 20.1.
-    const wide = visibleWords(plate, 1920);
-    expect(wide.length).toBeLessThanOrEqual(70);
-    for (const w of ['Landing', 'Change', 'Accuracy', 'Try']) expect(wide).toContain(w);
+    for (const width of [WIDE, 1920]) {
+      const words = visibleWords(plate, width);
+      expect(words.length).toBeLessThanOrEqual(16);
+      expect(asRead(words.join(' '))).toMatch(/^1 January: power for 3 days 4 hours, no radio More Power 100 % (· )?no radio$/);
+      for (const w of ['Landing', 'Change', 'Accuracy', 'Try']) expect(words).not.toContain(w);
+    }
   });
 
-  it('links to Earthrise, How it works and Accuracy from 1800 px on the plate, and in the card below that (19.3, 25)', async () => {
+  it('links to Earthrise, How it works and Accuracy in the card at every width (19.3, 25.1)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The first step taken, so the help line the links sit above shows (20.1).
     await drag();
     openCard();
-    const navs = screen.getAllByRole('navigation', { name: 'Sections' });
-    expect(navs).toHaveLength(2);
-    const plate = screen.getByRole('button', { name: 'Less' }).closest<HTMLElement>('[data-plate]')!;
     const card = document.getElementById('stand-card')!;
-    // From 768 px at the end of the moment's state, the plate's last row; on a phone at the card's foot, before the drag line.
-    const onPlate = navs.find((n) => plate.contains(n))!;
-    expect(onPlate.parentElement).toBe(plate.lastElementChild);
-    expect(onPlate.className).toContain('max-[1800px]:hidden');
-    const inCard = navs.find((n) => card.contains(n))!;
-    expect(inCard.className).toContain('min-[1800px]:hidden');
-    expect(inCard.nextElementSibling!.textContent).toBe('Drag to look around; pinch or scroll to zoom.');
-    for (const nav of [onPlate, inCard]) {
-      expect([...nav.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
-        ['Earthrise', '/'],
-        ['How it works', '/learn'],
-        ['Accuracy', '/validate'],
-      ]);
-      expect(nav.className).toContain('text-[14px]');
-    }
+    // Once, at the card's foot, before the drag line: the plate has no links.
+    const nav = screen.getByRole('navigation', { name: 'Sections' });
+    expect(card.contains(nav)).toBe(true);
+    expect(nav.className).not.toMatch(/1800/);
+    expect(nav.nextElementSibling!.textContent).toBe('Drag to look around; pinch or scroll to zoom.');
+    expect([...nav.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['Earthrise', '/'],
+      ['How it works', '/learn'],
+      ['Accuracy', '/validate'],
+    ]);
+    expect(nav.className).toContain('text-[14px]');
   });
 
   it('says in today’s card that radio contact needs both power and Earth in view, and names the compass’s dots where the strip has no key (spec 25)', async () => {
@@ -1167,20 +1076,31 @@ describe('StandView', () => {
     expect(card.querySelector('[data-rule]')!.textContent).toBe('Radio contact needs both: the lander has power, and Earth is in view.');
     const key = card.querySelector<HTMLElement>('[data-compass-key]')!;
     expect(key.textContent).toBe('On the compass: gold is the Sun, blue is Earth, white is the lander. A hollow dot is below the horizon.');
-    // From 768 px up to 1800 px, where the strip's own key shows.
-    for (const c of ['max-md:hidden', 'min-[1800px]:hidden']) expect(key.classList.contains(c)).toBe(true);
+    // From 768 px, where the strip shows; the strip itself has no key at any width (spec 25.1).
+    expect(key.classList.contains('max-md:hidden')).toBe(true);
+    expect(key.className).not.toMatch(/1800/);
     // The time bar's key says the rule where the bands are: the green is power and Earth together.
     fireEvent.change(screen.getByRole('slider', { name: 'Time' }), { target: { value: '500' } });
     const bar = screen.getByRole('region', { name: 'Time' });
     expect([...bar.querySelectorAll('[data-part^="key"]')].map((k) => k.textContent)).toContain('Earth in view');
+    // Behind the Key button at every width here (spec 25.1), which a press opens.
+    const keyButton = within(bar).getByRole('button', { name: /^Key/ });
+    expect(keyButton.className).not.toMatch(/sm:hidden/);
+    const keys = bar.querySelector('[data-part^="key"]')!.parentElement!;
+    expect(keys.className).toMatch(/(^| )hidden( |$)/);
+    fireEvent.click(keyButton);
+    expect(keys.className).not.toMatch(/(^| )hidden( |$)/);
+    expect(keys.textContent).toContain('Earth in view');
   });
 
-  it('keeps the status plate at its full width whatever the words, so More stays put as the night comes (18.3)', async () => {
+  it('keeps the status plate as wide as its one-line headline, which the hour never changes, so More stays put as the night comes (18.3, 25.1)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const plate = screen.getByRole('button', { name: 'More' }).closest('[data-plate]')!;
     expect(plate.className).toMatch(/\bw-full\b/);
     expect(plate.className).toContain('max-w-[860px]');
-    expect(plate.className).not.toContain('md:w-fit');
+    // From 768 px no wider than its words, and never narrower than the state's few words, which stay on one line.
+    for (const c of ['md:w-fit', 'md:min-w-[400px]']) expect(plate.className).toContain(c);
+    expect(plate.querySelector('[data-status]')!.className).toContain('whitespace-nowrap');
   });
 
   it('on a phone puts the better day on the first screen as one gold chip under the plate, a link to that landing (18.3)', async () => {
@@ -1188,8 +1108,9 @@ describe('StandView', () => {
     const chip = document.querySelector<HTMLAnchorElement>('a[data-chip]')!;
     expect(chip).toBeTruthy();
     expect(asRead(chip.textContent!)).toMatch(/^Try 20 Jan instead: power for 12 days 15 hours›$/);
-    // Below 1800 px, where the plate leaves the next step to the card (spec 25).
-    for (const c of ['min-[1800px]:hidden', 'min-h-8', 'text-[14px]', 'text-[#f6d48a]']) expect(chip.classList.contains(c)).toBe(true);
+    // At every width: the plate leaves the next step to the card (spec 25.1).
+    expect(chip.className).not.toMatch(/1800/);
+    for (const c of ['min-h-8', 'text-[14px]', 'text-[#f6d48a]']) expect(chip.classList.contains(c)).toBe(true);
     // A plate, so no label of the sky sits on it and the view's room starts under it; it grows if its words wrap (19.4).
     expect(chip.hasAttribute('data-plate')).toBe(true);
     expect(chip.classList.contains('h-8')).toBe(false);
@@ -1208,8 +1129,7 @@ describe('StandView', () => {
     expect(document.querySelector('a[data-chip]')).toBeNull();
     const card = document.getElementById('stand-card')!;
     expect(within(card).getByRole('link', { name: 'Change site' }).getAttribute('href')).toBe('/sites');
-    expect(within(card).getByRole('link', { name: 'Change site' }).className).toContain('min-[1800px]:hidden');
-    expect(within(card).getByRole('button', { name: 'Compare sites' }).className).toContain('min-[1800px]:hidden');
+    expect(within(card).getByRole('button', { name: 'Compare sites' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Less' }));
     expect(document.querySelector('a[data-chip]')).toBeTruthy();
   });
@@ -1275,15 +1195,14 @@ describe('StandView', () => {
     expect(line.getAttribute('aria-hidden')).toBeNull();
   });
 
-  it('opens the lander dialog in place from Change lander under Change, the verdict follows the lander chosen there, the view keeps its renderer, and the focus comes back to Change (18.3, 20.1)', async () => {
+  it('opens the lander dialog in place from Change lander in the card, the verdict follows the lander chosen there, the view keeps its renderer, and the focus comes back to the button (18.3, 25.1)', async () => {
     const setScene = vi.fn();
     const make = vi.fn(() => ({ ...stub(), setScene }));
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', make);
     const before = screen.getByRole('heading', { level: 1 }).textContent;
-    const row = screen.getByRole('group', { name: 'Next step' });
-    const button = within(row).getByRole('button', { name: 'Change' });
+    openCard();
+    const button = within(document.getElementById('stand-card')!).getByRole('button', { name: 'Change lander' });
     fireEvent.click(button);
-    fireEvent.click(within(row).getByRole('button', { name: 'Change lander' }));
     const dialog = await screen.findByRole('dialog', { name: 'The lander' });
     const other = within(within(dialog).getByRole('radiogroup', { name: 'Lander' })).getAllByRole('radio').find((r) => !(r as HTMLInputElement).checked)!;
     fireEvent.click(other);
@@ -1430,7 +1349,8 @@ describe('StandView', () => {
     // From 20 January, the better day of the January period, no later landing is better. If the answer still
     // names one, take a site and period the file's tests already use without a better day, and ledger a Ruling.
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-20&days=30&hour=10');
-    const row = screen.getByRole('group', { name: 'Next step' });
+    openCard();
+    const row = document.getElementById('stand-card')!;
     expect(within(row).queryByRole('link', { name: /^Try / })).toBeNull();
     const compare = within(row).getByRole('button', { name: 'Compare sites' });
     expect(compare.className).toContain('text-[#f6d48a]');
@@ -1438,9 +1358,10 @@ describe('StandView', () => {
     await waitFor(() => expect(store.getState().compareIds).toContain('de_gerlache_rim_2'), { timeout: 10_000 });
   });
 
-  it('lands on the better day in place from the row too', async () => {
+  it('lands on the better day in place from the card too', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    fireEvent.click(within(screen.getByRole('group', { name: 'Next step' })).getByRole('link', { name: /^Try 20 January instead/ }));
+    openCard();
+    fireEvent.click(within(document.getElementById('stand-card')!).getByRole('link', { name: /^Try 20 January instead/ }));
     await waitFor(() => expect(store.getState().startUtc).toMatch(/^2027-01-20/), { timeout: 10_000 });
     expect(window.location.search).toMatch(/start=2027-01-20/);
   });
@@ -1496,11 +1417,14 @@ describe('StandView', () => {
     expect(screen.getByText(/you see its back, as its cells face the Sun\.$/)).toBeTruthy();
   });
 
-  it('marks the radio contact after the night as only if the lander survives it, and says the clock is Earth’s', async () => {
+  it('marks the radio contact after the night as only if the lander survives it, and says the clock is Earth’s in the card (spec 25.1)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The battery runs out on 4 January; the contact from 20 January needs the lander to live through the night.
     await waitFor(() => expect(screen.getByText('radio, if the lander survives the cold')).toBeTruthy());
-    expect(screen.getByText(/\(Earth time\)/)).toBeTruthy();
+    // The bar's date and hour end "UTC"; the card says what that is, once.
+    expect(screen.queryByText(/\(Earth time\)/)).toBeNull();
+    openCard();
+    expect(document.querySelector('[data-facts]')!.textContent).toContain('Dates and hours are Earth time (UTC).');
   });
 
   it('names your own shadow and its length with the guides, and leaves it out without them', async () => {
