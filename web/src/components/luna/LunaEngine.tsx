@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { askLuna } from '@/lib/ai/client';
 import { useNavigate } from '@/lib/hooks/useNavigate';
+import { plannerShowing } from '@/lib/links';
 import { parseCommand } from '@/lib/luna/commands';
 import { RECORDING_MAX_MS } from '@/lib/luna/limits';
 import { browserRecorder, type LunaRecorder, type Recording } from '@/lib/luna/recorder';
@@ -122,6 +123,7 @@ export function LunaEngine({
       store,
       navigate: (href) => go.current(href),
       path: () => window.location.pathname,
+      search: () => window.location.search,
       ask,
       setTheme: (t) => applyTheme(t),
       turnOff: () => {
@@ -149,7 +151,7 @@ export function LunaEngine({
       if (!alive) return;
       let reply: string | null;
       try {
-        reply = await runCommand(parseCommand(said, store.getState().sites, { planning: window.location.pathname.startsWith('/plan') }), deps, said);
+        reply = await runCommand(parseCommand(said, store.getState().sites, { planning: plannerShowing(window.location.pathname, window.location.search) }), deps, said);
       } catch {
         reply = 'That did not work; please try again.';
       }

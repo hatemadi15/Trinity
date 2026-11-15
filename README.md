@@ -207,8 +207,9 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   without speech recognition; and the questions she and "Ask in plain words" pass to the assistant,
   with the app's summary of the site and figures on screen (spec 22.5).
   The code is in `web/src/lib/luna` and `web/src/components/luna`.
-- **Plan a landing** (`/plan`, "Plan a landing" in the header): say or type what the mission needs,
-  for example "at least five days of power, Earth in view when we land, no radio gap longer than three
+- **Plan a landing** ("Plan a landing" in the bar under the Choose a site map, `/sites?plan=1`; the
+  old `/plan` address leads there): the planner opens as a pane of glass beside the map, or in the
+  map's place on a phone. Say or type what the mission needs, for example "at least five days of power, Earth in view when we land, no radio gap longer than three
   days, a 300 W load and a 3 kWh battery, landing between March and June 2027, near the Artemis III
   regions". The planner shows what it heard as fields you can change, then tries every site and every
   hour of the window with the app's own engine. It ranks the landings that meet every requirement
@@ -219,8 +220,9 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   states the rule, gives each result's score and its three parts when ranked by priorities, and the
   best landing in each month of the window (each week of a short one) at the first three sites, each
   opening that landing in Explore: several sites against the dates, which the year view of one site
-  does not show. "Plan this landing" sets Explore; "Compare these sites" opens them as scenarios. Luna
-  does the same by voice: say "plan a landing", then the specification, then "search".
+  does not show. The ranked sites' markers stand out on the map, numbered, and the others grey out.
+  "Plan this landing" sets Explore; "Compare these sites" opens them as scenarios. Luna does the same
+  by voice: say "plan a landing", then the specification, then "search".
 
 ## The challenge
 

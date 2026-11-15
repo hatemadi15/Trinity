@@ -1,8 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type Ref } from 'react';
 import { useStore, type StoreApi } from 'zustand';
-import { AppFrame } from '@/components/AppFrame';
-import { DataProblem, SYNC_HINT } from '@/components/DataProblem';
 import { Fold } from '@/components/Fold';
 import { ENERGY_ONLY } from '@/components/PowerScope';
 import { PRIORITY_CHOICES, PriorityBoxes } from '@/components/explore/PlanParts';
@@ -26,7 +24,7 @@ import { useUncertainty } from '@/lib/uncertainty/useUncertainty';
 import { dateTimeUtc, spanShort } from '@/lib/viz/format';
 import { terrainLimitation } from '@/lib/viz/terrain';
 
-/** The example the page offers, the one the brief gives. */
+/** The example the planner offers, the one the brief gives. */
 export const EXAMPLE_SPEC =
   'We need at least five days of power, Earth in view when we land, no radio gap longer than three days, a 300 watt load and a 3 kilowatt-hour battery, landing between March and June 2027, near the Artemis III regions.';
 
@@ -77,7 +75,8 @@ function SpecFields({ spec, from, sites, onEdit }: { spec: MissionSpec; from: So
   const whereValue = spec.where.kind === 'category' ? `category:${spec.where.category}` : spec.where.kind === 'near' ? 'near' : spec.where.kind;
   const nearId = spec.where.kind === 'near' ? spec.where.id : spec.where.kind === 'sites' ? spec.where.ids[0] : 'shackleton_center';
   const nearKm = spec.where.kind === 'near' ? spec.where.km : 50;
-  const GRID = 'mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4';
+  // Two columns at most: the planner stands in a side pane of Choose a site.
+  const GRID = 'mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2';
   const tag = (...f: SpecField[]) => !said(...f) && <span className={TAG}>default</span>;
   return (
     <>
@@ -246,7 +245,7 @@ function Result({ f, i, why, spec, input, eph, doc, onLand }: { f: SiteFinding; 
   const name = `${i + 1}. ${siteLabel(f.site)}`;
   return (
     <li aria-label={name} className="border-t border-line pt-4">
-      <h3 className="text-[19px] font-semibold">{name}</h3>
+      <h4 className="text-[19px] font-semibold">{name}</h4>
       <p className="mt-1 text-ink">Lands {dateTimeUtc(b.item.utc, 0)}</p>
       {b.checks.length > 0 && (
         <ul className="mt-2 flex flex-col gap-1 text-[15px]">
@@ -285,7 +284,7 @@ function DatesGlance({ shown, spec, requirements, onLand }: { shown: SiteFinding
   const each = bucketKind(spec);
   const weeks = each === 'week';
   return (
-    <table className="w-full border-collapse text-left text-[14px] sm:max-w-[48em]">
+    <table className="w-full border-collapse text-left text-[14px]">
       <caption className="mb-2 text-left text-[15px] text-ink-2">
         The best landing in each {each} of the window by the ranking above, at {sites.length === 1 ? 'the first site' : `the first ${sites.length} sites`}: its time with power from landing{requirements > 0 ? '; ✓ meets every requirement' : ''}. Each opens that landing in Explore.
       </caption>
@@ -336,6 +335,9 @@ function DatesGlance({ shown, spec, requirements, onLand }: { shown: SiteFinding
  * The planner (spec 23): say or type what the mission needs, see it read back as fields to check and change, search every
  * allowed site and landing time, and read the ranked answer with its reasons and limits; then plan the chosen landing in
  * Explore, or compare the best few. The search runs off the main thread with progress and a cancel.
+ *
+ * It is the content of a side pane on Choose a site (15 November, owner review: "Plan a landing" is part of choosing a
+ * site): the pane names itself by this heading, puts the focus on it when it opens, and closes with `onClose`.
  */
 export function PlanView({
   store = exploreStore,
@@ -343,15 +345,20 @@ export function PlanView({
   navigate,
   ask = askPlanner,
   uncertainty,
+  headingId,
+  headingRef,
+  onClose,
 }: {
   store?: StoreApi<ExploreState>;
   plan?: StoreApi<PlanState>;
   navigate?: (href: string) => void;
   ask?: Parameters<typeof assistSpec>[2];
   uncertainty?: () => Promise<UncertaintyDoc>;
+  /** The heading's id, for the pane that is named by it, and its element, for the focus. */
+  headingId?: string;
+  headingRef?: Ref<HTMLHeadingElement>;
+  onClose?: () => void;
 }) {
-  const status = useStore(store, (s) => s.status);
-  const error = useStore(store, (s) => s.error);
   const sites = useStore(store, (s) => s.sites);
   const eph = useStore(store, (s) => s.eph);
   const aiMode = useStore(store, (s) => s.aiMode);
@@ -373,16 +380,6 @@ export function PlanView({
     void assistSpec(t, plan, ask, store.getState().aiMode).then((n) => n && setNote(n));
   };
 
-  if (status === 'error') {
-    return (
-      <AppFrame>
-        <main className="wrap py-12">
-          <DataProblem error={error} hint={SYNC_HINT} />
-        </main>
-      </AppFrame>
-    );
-  }
-
   const heard = p.status !== 'empty';
   const count = whereSites(p.spec.where, sites).length;
   const all = specLines(p.spec, p.from, sites);
@@ -391,150 +388,155 @@ export function PlanView({
   const searching = p.status === 'searching';
   const searched = p.searched;
   return (
-    <AppFrame>
-      <main className="wrap flex flex-col gap-6 pb-12 pt-8">
-        <div>
-          <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">
+    <div data-part="planner" className="flex flex-col gap-6">
+      <div>
+        <div className="flex items-center justify-between gap-4">
+          <h2 id={headingId} ref={headingRef} tabIndex={-1} className="display text-[28px] leading-none outline-none">
             Plan a landing
-          </h1>
-          <p className="mt-2 max-w-[46em] text-lg text-ink-2">Say or type what the mission needs. The planner ranks every site and landing time you allow.</p>
+          </h2>
+          {onClose && (
+            <button type="button" onClick={onClose} className="btn btn-sm">
+              Close
+            </button>
+          )}
         </div>
-        <form
-          aria-label="The mission’s specification"
-          className="flex flex-col gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            read(text);
-          }}
-        >
-          <label htmlFor="plan-words" className="text-[15px] text-ink-2">
-            What does the mission need?
-          </label>
-          <textarea id="plan-words" rows={3} value={text} onChange={(e) => setText(e.target.value)} maxLength={1500} placeholder="For example: at least five days of power, Earth in view when we land, landing between March and June 2027." className="field h-auto w-full py-3 placeholder:text-ink-3" />
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="submit" className="btn">
-              Read it
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => {
-                setText(EXAMPLE_SPEC);
-                read(EXAMPLE_SPEC);
-              }}
-            >
-              Try the example
-            </button>
-            <p className="text-[15px] text-ink-2">Or press Luna and say it.</p>
-          </div>
-        </form>
+        <p className="mt-3 text-[17px] text-ink-2">Say or type what the mission needs. The planner ranks every site and landing time you allow.</p>
+      </div>
+      <form
+        aria-label="The mission’s specification"
+        className="flex flex-col gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          read(text);
+        }}
+      >
+        <label htmlFor="plan-words" className="text-[15px] text-ink-2">
+          What does the mission need?
+        </label>
+        <textarea id="plan-words" rows={3} value={text} onChange={(e) => setText(e.target.value)} maxLength={1500} placeholder="For example: at least five days of power, Earth in view when we land, landing between March and June 2027." className="field h-auto w-full py-3 placeholder:text-ink-3" />
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="submit" className="btn">
+            Read it
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setText(EXAMPLE_SPEC);
+              read(EXAMPLE_SPEC);
+            }}
+          >
+            Try the example
+          </button>
+          <p className="text-[15px] text-ink-2">Or press Luna and say it.</p>
+        </div>
+      </form>
 
-        {heard && (
-          <section aria-label="I heard" className="panel">
-            <h2 className="display text-[23px] font-semibold">I heard</h2>
-            <p className="mt-2 max-w-[60em] text-ink">{lines.length ? lines.map((l) => `${l.label}: ${l.value}`).join('; ') : 'No field yet: everything below is the default.'}.</p>
-            {defaults.length > 0 && (
-              <Fold label="Defaults" className="mt-1 text-[15px]">
-                <p className="text-[15px] text-ink-2">Defaults: {defaults.map((l) => `${midSentence(l.label)} ${l.value}`).join('; ')}.</p>
-              </Fold>
-            )}
-            {p.leftover.length > 0 && <p className="mt-2 text-[15px] text-ink-2">Not used: {p.leftover.map((l) => `“${l}”`).join(', ')}.</p>}
-            {p.assistant.state === 'asking' && (
-              <p role="status" className="mt-2 text-[15px] text-ink-2">
-                Asking the assistant about the words not used…
-              </p>
-            )}
-            {note && <p className="mt-2 text-[15px] text-ink-2">{note} Check those fields.</p>}
-            {p.assistant.state === 'failed' && aiMode !== 'cached' && <p className="mt-2 text-[15px] text-ink-2">The assistant did not add a field: the fields are the app’s own reading.</p>}
-            {[...p.notes, ...p.problems].map((n) => (
-              <p key={n} className={`mt-2 text-[15px] ${p.problems.includes(n) ? 'text-bad' : 'text-ink-2'}`}>
-                {n}
-              </p>
-            ))}
-            <SpecFields spec={p.spec} from={p.from} sites={sites} onEdit={(patch) => plan.getState().edit(patch)} />
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <button type="button" onClick={() => void plan.getState().search()} disabled={searching || p.problems.length > 0 || count === 0 || !eph} className="btn btn-primary">
-                Search {count} site{count === 1 ? '' : 's'}
-              </button>
-              {searching && (
-                <>
-                  <p role="status" className="text-[15px] text-ink-2">
-                    Searching: {p.progress?.done ?? 0} of {p.progress?.total ?? count} sites…
-                  </p>
-                  <button type="button" onClick={() => plan.getState().cancel()} className="btn">
-                    Cancel
-                  </button>
-                </>
-              )}
-              {p.status === 'cancelled' && <p className="text-[15px] text-ink-2">Search cancelled.</p>}
-              {p.status === 'error' && p.error && <p className="text-[15px] text-bad">{p.error}</p>}
-            </div>
-            {/* Before an answer, the search's scope; after it, the answer's own scope line says it. */}
-            {!p.answer && (
-              <p className="mt-2 text-[15px] text-ink-2">
-                Landing times every {p.spec.stepH === 1 ? 'hour' : `${p.spec.stepH} hours`}, {windowWords(p.spec)}.
-              </p>
-            )}
-          </section>
-        )}
-
-        {p.answer && searched && p.stats && (
-          <section aria-label="The answer" className="panel">
-            <h2 className="display text-[23px] font-semibold">The answer</h2>
-            <p className="mt-2 max-w-[60em] text-[17px] text-ink">{p.answer.headline}</p>
-            {p.answer.shown.length > 0 && (
-              <ol className="mt-4 flex flex-col gap-4">
-                {p.answer.shown.map((f, i) => (
-                  <Result
-                    key={f.site.id}
-                    f={f}
-                    i={i}
-                    why={p.answer!.why[i]}
-                    spec={searched}
-                    input={p.inputs[f.site.id]}
-                    eph={eph}
-                    doc={doc}
-                    onLand={() => void plan.getState().land(i, go)}
-                  />
-                ))}
-              </ol>
-            )}
-            {p.answer.shown.length > 0 && (
-              <p className="mt-4">
-                <button type="button" onClick={() => void plan.getState().compareTop(go)} className="btn">
-                  Compare these sites
-                </button>
-              </p>
-            )}
-            <Fold label="Ranking and dates" className="mt-3">
-              <p className="max-w-[60em] text-[15px] text-ink-2">{planRuleWords(searched, p.answer.requirements)}</p>
-              {searched.objective === 'weighed' && p.answer.shown.length > 0 && (
-                <ul className="mt-2 flex flex-col gap-1 text-[15px] text-ink-2">
-                  {p.answer.shown.map((f, i) => {
-                    const sc = weighedScore(f.best!.outcome, searched.priorities);
-                    return (
-                      <li key={f.site.id}>
-                        {i + 1}. {siteLabel(f.site)} scores {sc.score.toFixed(1)} of 100: {partsWords(sc)}.
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              {p.answer.shown.length > 0 && (
-                <div className="mt-4">
-                  <DatesGlance shown={p.answer.shown} spec={searched} requirements={p.answer.requirements} onLand={(i, utc) => void plan.getState().land(i, go, utc)} />
-                </div>
-              )}
+      {heard && (
+        <section aria-label="I heard" className="border-t border-line-strong pt-5">
+          <h3 className="display text-[23px] font-semibold">I heard</h3>
+          <p className="mt-2 text-ink">{lines.length ? lines.map((l) => `${l.label}: ${l.value}`).join('; ') : 'No field yet: everything below is the default.'}.</p>
+          {defaults.length > 0 && (
+            <Fold label="Defaults" className="mt-1 text-[15px]">
+              <p className="text-[15px] text-ink-2">Defaults: {defaults.map((l) => `${midSentence(l.label)} ${l.value}`).join('; ')}.</p>
             </Fold>
-            <p className="mt-4 max-w-[60em] text-[15px] text-ink-2">
-              Best among the {p.stats.sites} sites and {p.stats.landingTimes.toLocaleString('en-GB')} landing times tried ({p.stats.stepH === 1 ? 'every hour' : `every ${p.stats.stepH} hours`}, {windowWords(searched)}), for this lander and a{' '}
-              {spanShort(searched.stayH)} stay, in {(p.stats.ms / 1000).toFixed(1)} s.
-              {p.stats.coarsened && ` Landing times were tried every ${p.stats.stepH} hours to keep the search to seconds.`}
-              {p.skipped.length > 0 && ` Left out, as their skyline could not be loaded: ${p.skipped.join(', ')}.`}
+          )}
+          {p.leftover.length > 0 && <p className="mt-2 text-[15px] text-ink-2">Not used: {p.leftover.map((l) => `“${l}”`).join(', ')}.</p>}
+          {p.assistant.state === 'asking' && (
+            <p role="status" className="mt-2 text-[15px] text-ink-2">
+              Asking the assistant about the words not used…
             </p>
-          </section>
-        )}
-      </main>
-    </AppFrame>
+          )}
+          {note && <p className="mt-2 text-[15px] text-ink-2">{note} Check those fields.</p>}
+          {p.assistant.state === 'failed' && aiMode !== 'cached' && <p className="mt-2 text-[15px] text-ink-2">The assistant did not add a field: the fields are the app’s own reading.</p>}
+          {[...p.notes, ...p.problems].map((n) => (
+            <p key={n} className={`mt-2 text-[15px] ${p.problems.includes(n) ? 'text-bad' : 'text-ink-2'}`}>
+              {n}
+            </p>
+          ))}
+          <SpecFields spec={p.spec} from={p.from} sites={sites} onEdit={(patch) => plan.getState().edit(patch)} />
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => void plan.getState().search()} disabled={searching || p.problems.length > 0 || count === 0 || !eph} className="btn btn-primary">
+              Search {count} site{count === 1 ? '' : 's'}
+            </button>
+            {searching && (
+              <>
+                <p role="status" className="text-[15px] text-ink-2">
+                  Searching: {p.progress?.done ?? 0} of {p.progress?.total ?? count} sites…
+                </p>
+                <button type="button" onClick={() => plan.getState().cancel()} className="btn">
+                  Cancel
+                </button>
+              </>
+            )}
+            {p.status === 'cancelled' && <p className="text-[15px] text-ink-2">Search cancelled.</p>}
+            {p.status === 'error' && p.error && <p className="text-[15px] text-bad">{p.error}</p>}
+          </div>
+          {/* Before an answer, the search's scope; after it, the answer's own scope line says it. */}
+          {!p.answer && (
+            <p className="mt-2 text-[15px] text-ink-2">
+              Landing times every {p.spec.stepH === 1 ? 'hour' : `${p.spec.stepH} hours`}, {windowWords(p.spec)}.
+            </p>
+          )}
+        </section>
+      )}
+
+      {p.answer && searched && p.stats && (
+        <section aria-label="The answer" className="border-t border-line-strong pt-5">
+          <h3 className="display text-[23px] font-semibold">The answer</h3>
+          <p className="mt-2 text-[17px] text-ink">{p.answer.headline}</p>
+          {p.answer.shown.length > 0 && (
+            <ol className="mt-4 flex flex-col gap-4">
+              {p.answer.shown.map((f, i) => (
+                <Result
+                  key={f.site.id}
+                  f={f}
+                  i={i}
+                  why={p.answer!.why[i]}
+                  spec={searched}
+                  input={p.inputs[f.site.id]}
+                  eph={eph}
+                  doc={doc}
+                  onLand={() => void plan.getState().land(i, go)}
+                />
+              ))}
+            </ol>
+          )}
+          {p.answer.shown.length > 0 && (
+            <p className="mt-4">
+              <button type="button" onClick={() => void plan.getState().compareTop(go)} className="btn">
+                Compare these sites
+              </button>
+            </p>
+          )}
+          <Fold label="Ranking and dates" className="mt-3">
+            <p className="max-w-[60em] text-[15px] text-ink-2">{planRuleWords(searched, p.answer.requirements)}</p>
+            {searched.objective === 'weighed' && p.answer.shown.length > 0 && (
+              <ul className="mt-2 flex flex-col gap-1 text-[15px] text-ink-2">
+                {p.answer.shown.map((f, i) => {
+                  const sc = weighedScore(f.best!.outcome, searched.priorities);
+                  return (
+                    <li key={f.site.id}>
+                      {i + 1}. {siteLabel(f.site)} scores {sc.score.toFixed(1)} of 100: {partsWords(sc)}.
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {p.answer.shown.length > 0 && (
+              <div className="mt-4">
+                <DatesGlance shown={p.answer.shown} spec={searched} requirements={p.answer.requirements} onLand={(i, utc) => void plan.getState().land(i, go, utc)} />
+              </div>
+            )}
+          </Fold>
+          <p className="mt-4 text-[15px] text-ink-2">
+            Best among the {p.stats.sites} sites and {p.stats.landingTimes.toLocaleString('en-GB')} landing times tried ({p.stats.stepH === 1 ? 'every hour' : `every ${p.stats.stepH} hours`}, {windowWords(searched)}), for this lander and a{' '}
+            {spanShort(searched.stayH)} stay, in {(p.stats.ms / 1000).toFixed(1)} s.
+            {p.stats.coarsened && ` Landing times were tried every ${p.stats.stepH} hours to keep the search to seconds.`}
+            {p.skipped.length > 0 && ` Left out, as their skyline could not be loaded: ${p.skipped.join(', ')}.`}
+          </p>
+        </section>
+      )}
+    </div>
   );
 }

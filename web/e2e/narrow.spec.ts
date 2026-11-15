@@ -84,7 +84,10 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> 
     name: 'Plan a landing, with its example worked out',
     path: '/plan',
     ready: async (page) => {
-      await expect(page.getByRole('heading', { level: 1, name: 'Plan a landing' })).toBeVisible();
+      // The old address opens the planner on Choose a site, where on a phone its pane takes the map's place.
+      await page.waitForURL(/\/sites\?plan=1$/);
+      await expect(page.getByRole('region', { name: 'Plan a landing' }).getByRole('heading', { level: 2, name: 'Plan a landing' })).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByRole('region', { name: 'Map of the sites' }).locator('[data-part="map"]')).toBeHidden();
       await page.getByRole('button', { name: 'Try the example' }).tap({ timeout: 60_000 });
       await expect(page.getByRole('region', { name: 'I heard' })).toBeVisible({ timeout: 60_000 });
       await page.getByRole('button', { name: /^Search \d+ sites?$/ }).tap();

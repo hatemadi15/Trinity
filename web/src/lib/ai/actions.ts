@@ -9,6 +9,7 @@ import { KNOWN_CATEGORIES, validateSpecPatch } from '../plan/fields';
 import type { SpecPatch } from '../plan/spec';
 import { explanationFor } from './explanations';
 import { landerLine } from '../lander';
+import { PLAN_HREF } from '../links';
 import { isoAt, spanWords } from '../viz/format';
 import { siteLabel } from '../data/loaders';
 import { nameableSites, rankSites } from './site-rank';
@@ -539,7 +540,7 @@ export async function applyActions(
         // Loaded here, as only a mission's specification needs the planner.
         const { planStore } = await import('../plan/store');
         const taken = planStore.getState().takeAssistant(a.spec, said ?? '');
-        navigate('/plan');
+        navigate(PLAN_HREF);
         notes.push(taken.fields.length ? 'Opened the planner with the fields read from your words: check them, then search.' : 'Opened the planner: no field could be taken from the words, so set them there.');
         break;
       }

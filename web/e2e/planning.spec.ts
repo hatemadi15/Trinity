@@ -2,9 +2,10 @@ import { answerHeading, expect, openExplore, printCount, SHOTS, standHeading, st
 import path from 'node:path';
 
 /**
- * The main planning journey, as a mission planner takes it with a mouse: Explore at a site and date, the answer read,
- * the date and the lander changed, the view from the site, Compare with two sites, and the brief printed. Each page is
- * reached by the app's own links, so what was chosen on one page has to hold on the next.
+ * The main planning journey, as a mission planner takes it with a mouse: on Choose a site the mission is stated in the
+ * planner's pane and its best landing opens in Explore; then Explore at a site and date, the answer read, the date and
+ * the lander changed, the view from the site, Compare with two sites, and the brief printed. Each page is reached by
+ * the app's own links, so what was chosen on one page has to hold on the next.
  */
 test.describe('The main planning journey', () => {
   test('a planner reads the answer, changes the date and the lander, stands at the site, compares two sites and prints the brief', async ({ page, shot }) => {
@@ -12,6 +13,43 @@ test.describe('The main planning journey', () => {
     await stubPrint(page);
     const answer = page.getByRole('region', { name: 'The answer' });
     const period = page.getByRole('region', { name: 'What this forecast is for' });
+
+    await test.step('Choose a site plans from the mission: the planner opens over the map, ranks the example’s sites and opens the best in Explore', async () => {
+      // The old address of the planner leads to its pane on Choose a site.
+      await page.goto('/plan');
+      await page.waitForURL(/\/sites\?plan=1$/);
+      await expect(page.getByRole('heading', { level: 1, name: 'Choose a landing site' })).toBeVisible();
+      const pane = page.getByRole('region', { name: 'Plan a landing' });
+      await expect(pane).toBeVisible({ timeout: 60_000 });
+      const control = page.getByRole('button', { name: 'Plan a landing' });
+      await expect(control).toHaveAttribute('aria-expanded', 'true');
+      // Escape puts it away, with the focus back on its button in the bar; the button opens it again, focus on its heading.
+      await page.keyboard.press('Escape');
+      await expect(pane).toBeHidden();
+      await expect(control).toBeFocused();
+      await expect(page).toHaveURL(/\/sites$/);
+      await control.click();
+      await expect(pane.getByRole('heading', { level: 2, name: 'Plan a landing' })).toBeFocused();
+      await expect(page).toHaveURL(/\/sites\?plan=1$/);
+      await shot('sites-planner');
+      await pane.getByRole('button', { name: 'Try the example' }).click();
+      await expect(pane.getByRole('region', { name: 'I heard' }).getByRole('spinbutton', { name: /Power from landing/ })).toHaveValue('5');
+      await pane.getByRole('button', { name: /^Search 9 sites$/ }).click();
+      const ranked = pane.getByRole('region', { name: 'The answer' });
+      await expect(ranked).toBeVisible({ timeout: 180_000 });
+      await expect(ranked).toContainText(/of the 9 sites meet every requirement/);
+      const first = ranked.getByRole('listitem', { name: /^1\. / });
+      await expect(first).toContainText(/Lands \d{1,2} [A-Z][a-z]{2} 2027, \d\d:00 UTC/);
+      await expect(first).toContainText('Meets: Power for at least 5 d');
+      // The ranked sites stand out on the map, numbered; the others grey out.
+      const map = page.getByRole('region', { name: 'Map of the sites' });
+      await expect(map.locator('a[data-marker][data-ranked="1"]')).toHaveCount(1);
+      await expect(map.locator('a[data-marker]:not([data-ranked])').first()).toHaveAttribute('data-dim', 'true');
+      await shot('sites-planner-answer');
+      await first.getByRole('button', { name: /^Plan this landing/ }).click();
+      await page.waitForURL(/\/explore\?site=/);
+      await expect(answerHeading(page)).toBeVisible({ timeout: 90_000 });
+    });
 
     await test.step('Explore opens at the site and date with the answer first', async () => {
       await openExplore(page);

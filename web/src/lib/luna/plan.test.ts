@@ -11,11 +11,11 @@ import { runCommand, type LunaDeps } from './run';
 const EXAMPLE =
   'We need at least five days of power, Earth in view when we land, no radio gap longer than three days, a three hundred watt load and a three kilowatt hour battery, landing between March and June twenty twenty seven, near the Artemis three regions';
 
-async function setup(at = '/explore') {
+async function setup(at = '/explore', search = '') {
   const store = createExploreStore(fileLoaders());
   await store.getState().init();
   const plan = createPlanStore({ explore: store, masks: createMaskSource(fileLoaders()), client: () => new PlanClient() });
-  const deps: LunaDeps = { store, plan, navigate: vi.fn(), path: () => at, ask: vi.fn(async () => ({ source: 'none' as const, actions: [], reply: '' })), setTheme: vi.fn(), turnOff: vi.fn(), setVoice: vi.fn() };
+  const deps: LunaDeps = { store, plan, navigate: vi.fn(), path: () => at, search: () => search, ask: vi.fn(async () => ({ source: 'none' as const, actions: [], reply: '' })), setTheme: vi.fn(), turnOff: vi.fn(), setVoice: vi.fn() };
   return { store, plan, deps };
 }
 
@@ -39,7 +39,7 @@ describe('Luna plans a landing', () => {
   it('opens the planner, reads back what she heard, searches when asked and reads the answer, then plans the landing', async () => {
     const { deps, plan, store } = await setup();
     expect(await runCommand({ kind: 'plan', step: 'open' }, deps)).toMatch(/^Opening the planner\. Tell me what the mission needs/);
-    expect(deps.navigate).toHaveBeenCalledWith('/plan');
+    expect(deps.navigate).toHaveBeenCalledWith('/sites?plan=1');
     const said = await runCommand(parseCommand(EXAMPLE, sites), deps);
     expect(said).toMatch(/^I heard: at least 5 days of power, Earth in view at landing, no more than 3 days without Earth while powered, a 300 watt load, a 3 kilowatt-hour battery, landing from 1 March to 30 June 2027 UTC/);
     expect(plan.getState().answer).toBeNull();
@@ -51,7 +51,7 @@ describe('Luna plans a landing', () => {
   });
 
   it('asks for the specification before a search, and says when there is nothing to plan', async () => {
-    const { deps } = await setup('/plan');
+    const { deps } = await setup('/sites', '?plan=1');
     expect(await runCommand({ kind: 'plan', step: 'search' }, deps)).toMatch(/^Tell me what the mission needs first/);
     expect(await runCommand({ kind: 'plan', step: 'land' }, deps)).toMatch(/say search first|Tell me what the mission needs/);
   });

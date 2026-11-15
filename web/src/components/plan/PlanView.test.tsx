@@ -15,8 +15,14 @@ async function open(ask = vi.fn(async () => ({ source: 'none' as const, actions:
   const explore = createExploreStore(fileLoaders());
   const plan = createPlanStore({ explore, masks: createMaskSource(fileLoaders()), client: () => new PlanClient() });
   const navigate = vi.fn();
-  render(<PlanView store={explore} plan={plan} navigate={navigate} ask={ask} uncertainty={async () => { throw new Error('none'); }} />);
-  await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Plan a landing' })).toBeTruthy(), { timeout: 20_000 });
+  // The planner is the content of a pane on Choose a site (SitesView.plan.test.tsx): here it stands alone.
+  render(
+    <main>
+      <PlanView store={explore} plan={plan} navigate={navigate} ask={ask} uncertainty={async () => { throw new Error('none'); }} />
+    </main>,
+  );
+  await waitFor(() => expect(explore.getState().status).toBe('ready'), { timeout: 20_000 });
+  expect(screen.getByRole('heading', { level: 2, name: 'Plan a landing' })).toBeTruthy();
   return { explore, plan, navigate, ask };
 }
 

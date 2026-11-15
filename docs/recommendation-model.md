@@ -2,7 +2,7 @@
 
 Earthrise ranks every recommendation with one rule, in `web/src/lib/plan/rank.ts`: the better landing time in a
 period and the better place nearby on Explore (and every option under "Options"), the 12-month search, the
-nearby alternative in Compare, and the sites and landing times the planner at `/plan` finds.
+nearby alternative in Compare, and the sites and landing times the planner on Choose a site (`/sites?plan=1`) finds.
 
 1. **The mission's requirements first.** A choice that meets every requirement the planner set ranks above any
    choice that fails one; among those that fail, fewer failures rank first. The requirements are the planner's
@@ -11,7 +11,7 @@ nearby alternative in Compare, and the sites and landing times the planner at `/
    (`web/src/lib/plan/requirements.ts`). Explore adds an optional fifth: that a choice still hold in at least a
    given share of terrain versions (`minHoldPct`). It is checked only where the versions are worked out, for the
    period's landing times on Explore, the brief and the view from the site, not for places nearby, the 12-month
-   search, Compare or `/plan`; a share of versions is not a probability.
+   search, Compare or the planner; a share of versions is not a probability.
 2. **Then the objective the user picks.** By default, the longest continuous time with power from landing, with
    ties going to more Earth contact while powered. The planner also offers the most Earth contact while powered
    and the earliest landing. Or the user weighs three measures by priority, with the rule below.
