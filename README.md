@@ -169,15 +169,21 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   (each number on its measure, unit, site and sign, and no cause or survival claim the figures do
   not give); when it fails, the app's own paragraph stands and the page says what did not match.
 - **Ask in plain words** (on Explore and Compare): an assistant that turns a typed question
-  ("Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days", "Find the best landing date for 14
-  days", "Explain the longest night") into the same controls a person would use. It never computes
+  ("Compare this to Nobile Rim 1", "Compare this to every landing site", "Find the best landing date
+  for 14 days", "Explain the longest night") into the same controls a person would use. It never computes
   a number itself, and every answer says where it came from: a model on OpenRouter's free tier, a
   rehearsed answer, or a matched phrase; with a Gemini key on the server, Google's Gemini is asked last,
   after OpenRouter's models. `?demo=1` uses the rehearsed answers only, for the pitch.
+  Comparisons act at once, before any model: "compare de Gerlache Rim 2 to Nobile Rim 1" (or with,
+  and, vs, versus, against; names forgiven a slip) and "compare this to X" open Compare with those sites
+  on the dates and lander chosen; "compare this to any landing site", "is there a better site" or
+  "which site is best for these dates" rank every site as the site list does (never naming one with
+  incomplete terrain), put the best three beside the site shown and say which ranks first and how
+  long it keeps power, against the site shown, for the dates and lander named.
 - **Luna** (the "Luna" button in the header, or the robot rabbit at the lower left of every page, and in the row of the view from the site): a voice
   assistant, off until you turn it on. Say what you want to see ("open the view from the site",
   "play", "next", "turn to Earth", "compare de Gerlache Rim 2 and Nobile Rim 2 for fourteen days", "compare with a five-day delay",
-  "dark mode") and she does it and answers aloud; she knows the site names as speech tends to write
+  "compare this to every landing site", "dark mode") and she does it and answers aloud; she knows the site names as speech tends to write
   them. She uses the browser's own speech recognition: Chrome and Edge send the sound to their
   makers' servers, so voice needs the internet there, and Firefox has none. Her panel is a chat that
   keeps the conversation from page to page; it always takes typed words, its microphone button
