@@ -242,7 +242,8 @@ export function GroundPanel({
       <p data-part="about" className="mt-3 text-pretty text-[15px] text-ink-2">
         {aboutTab(tab, view, windowKm)}
       </p>
-      <p data-part="now" className="mt-3 max-w-[62em] text-[17px] leading-relaxed text-ink">
+      {/* The shadow map writes the same on itself (the site lit or dark, the Sun's height, Earth): there the sentence is kept for screen readers alone. */}
+      <p data-part="now" className={tab === 'map' && site.polar && finest ? 'sr-only' : 'mt-3 max-w-[62em] text-[17px] leading-relaxed text-ink'}>
         <b className="font-semibold">{words.sun}</b> {words.earth}
       </p>
 
@@ -271,11 +272,11 @@ export function GroundPanel({
               </div>
               <div className="text-[15px] text-ink-2">
                 <ul aria-label="How to read the map" className="flex flex-col gap-2 text-ink">
-                  <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm bg-stage-ink" />}>ground in sunlight</KeyItem>
-                  <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm border border-stage-ink/40 bg-black" />}>ground in shadow</KeyItem>
+                  <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm bg-stage-ink" />}>sunlit ground</KeyItem>
+                  <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm border border-stage-ink/40 bg-black" />}>shadow</KeyItem>
                   <KeyItem sample={<Arrow color="var(--stage-sun)" />}>towards the Sun</KeyItem>
                   <KeyItem sample={<Arrow color="var(--stage-earth)" dotted />}>towards Earth (dotted when set)</KeyItem>
-                  <KeyItem sample={<span className="flex h-6 w-6 items-center justify-center rounded-full border border-stage-ink/40 text-[14px] font-bold leading-none text-stage-ink">N</span>}>north is up</KeyItem>
+                  <KeyItem sample={<span className="flex h-6 w-6 items-center justify-center rounded-full border border-stage-ink/40 text-[14px] font-bold leading-none text-stage-ink">N</span>}>north up</KeyItem>
                   {cold && <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm" style={{ background: COLD_FILL }} />}>below 110 K all year in NASA’s Diviner model: modelled conditions where ice could last</KeyItem>}
                 </ul>
                 {coldOffered && (

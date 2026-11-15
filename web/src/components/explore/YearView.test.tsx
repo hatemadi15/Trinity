@@ -59,7 +59,10 @@ describe('YearView', () => {
     await openYear(props('shackleton_center_rim_high', { days: 14 }));
     const key = screen.getByRole('list', { name: 'Key' });
     const words = legendWords(14);
-    expect(within(key).getAllByRole('listitem').map((li) => li.textContent)).toEqual([words.best, words.good, words.mixed, words.poor]);
+    // The key names each grade; what earns it waits one tap away, under "How the days are coloured".
+    expect(within(key).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Best', 'Good', 'Mixed', 'Poor']);
+    const means = screen.getByRole('list', { name: 'What each colour means', hidden: true });
+    expect(within(means).getAllByRole('listitem', { hidden: true }).map((li) => li.textContent)).toEqual([words.best, words.good, words.mixed, words.poor]);
     const best = screen.getByRole('button', { name: nb('Land 4 January 2027, 00:00 UTC: power all 14 days, radio contact 54 %. Best.') });
     const good = screen.getByRole('button', { name: nb('Land 1 January 2027, 00:00 UTC: power all 14 days, radio contact 33 %. Good.') });
     expect(best.getAttribute('data-grade')).toBe('best');

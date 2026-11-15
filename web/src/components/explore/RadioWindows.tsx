@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Fold } from '@/components/Fold';
 import type { Series } from '@/lib/engine/metrics';
 import type { PowerResult } from '@/lib/engine/power';
-import { contactPlan, outageNote, outageWords, poweredContactWords, radioChangeWords, windowsCountWords, windowUse, windowUseWords, type RadioWindow, type WindowUse } from '@/lib/viz/contact';
+import { contactPlan, outageNote, outageWords, radioChangeWords, windowsCountWords, windowUse, windowUseWords, type RadioWindow, type WindowUse } from '@/lib/viz/contact';
 import { clockUtc, dayMonth, spanShort } from '@/lib/viz/format';
 
 /** The mark beside a window's power: solid green with power, a green ring when only if the lander survives the cold, grey with none. */
@@ -57,14 +57,13 @@ function Row({ w, startUtc }: { w: RadioWindow; startUtc: string }) {
 /**
  * Radio windows: the stretches with Earth in view from the site, when a radio link straight to Earth is geometrically
  * possible (geometric direct-to-Earth visibility, by the rule the status sentence and the numbers use). At the time bar's
- * hour, the next opening or closing; for the period, the hours with Earth in view, the longest time without it and the
- * radio contact while the lander has power; every window in a fold with its times in UTC, its length and the lander's power
+ * hour, the next opening or closing; for the period, the hours with Earth in view and the longest time without it (the
+ * radio contact while the lander has power is the numbers card's, said once there); every window in a fold with its times in UTC, its length and the lander's power
  * in it. Said once, plainly: Earth in view alone is not a working link.
  */
 export function RadioWindows({ series, power, startUtc, hour }: { series: Series; power: PowerResult | null; startUtc: string; hour: number }) {
   const plan = useMemo(() => contactPlan(series, power), [series, power]);
   const shown = Math.min(series.hours - 1, Math.max(0, hour));
-  const withPower = poweredContactWords(plan);
   return (
     <section aria-labelledby="h-radio" className="panel">
       <h2 id="h-radio" className="display text-[23px] font-semibold">
@@ -75,10 +74,9 @@ export function RadioWindows({ series, power, startUtc, hour }: { series: Series
       <p data-testid="radio-next" className="mt-3 text-[17px] font-semibold tabular-nums max-sm:min-h-[2lh]">
         {radioChangeWords(plan, shown, startUtc)}
       </p>
-      <dl className="mt-3 grid gap-x-8 gap-y-4 sm:grid-cols-3">
+      <dl className="mt-3 grid gap-x-8 gap-y-4 sm:grid-cols-2">
         <Figure name="Earth in view" value={plan.totalHours > 0 ? spanShort(plan.totalHours) : 'none'} note={windowsCountWords(plan)} />
         <Figure name="Longest without Earth" value={outageWords(plan.longestOutage)} note={outageNote(plan.longestOutage, startUtc)} />
-        <Figure name="Radio contact while it has power" value={withPower.value} note={withPower.note} />
       </dl>
       {plan.windows.length > 0 && (
         <Fold label="Every window, with its times" className="mt-3">

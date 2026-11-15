@@ -31,14 +31,14 @@ describe('RadioWindows', () => {
     expect(screen.getByTestId('radio-next').className).toMatch(/max-sm:min-h-\[2lh\]/);
   });
 
-  it('gives the hours with Earth in view, the longest time without it and the radio contact while it has power, each with what bounds it', () => {
+  it('gives the hours with Earth in view and the longest time without it, each with what bounds it, and leaves the radio contact while it has power to the numbers card', () => {
     show();
     const figure = (name: string) => within(panel()).getByText(name).closest('div')!.textContent;
     expect(figure('Earth in view')).toBe('Earth in view13 d 12 hin 1 window');
     // Cut short by the period's start: the time without Earth may have begun before it.
     expect(figure('Longest without Earth')).toBe('Longest without Earthat least 9 d 3 hfrom the period’s start');
-    // As the answer counts it, from the landing; the hours after the power comes back apart, with their condition.
-    expect(figure('Radio contact while it has power')).toBe('Radio contact while it has powernoneuntil the battery runs out; 3 d 5 h after, if the lander survives the cold');
+    // Said once on the page, in the numbers card: not repeated here.
+    expect(within(panel()).queryByText('Radio contact while it has power')).toBeNull();
   });
 
   it('lists every window in a fold: when it opens and closes in UTC, how long it lasts, and the lander’s power in it', () => {
@@ -67,9 +67,9 @@ describe('RadioWindows', () => {
     expect(within(panel()).getByText('Longest without Earth').closest('div')!.textContent).toBe('Longest without EarthnoneEarth never leaves the view');
   });
 
-  it('keeps to 110 words before a tap, and stacks the table on a phone so nothing scrolls sideways', () => {
+  it('keeps to 75 words before a tap, and stacks the table on a phone so nothing scrolls sideways', () => {
     show();
-    for (const width of [WIDE, PHONE]) expect(visibleWords(panel(), width).length).toBeLessThanOrEqual(110);
+    for (const width of [WIDE, PHONE]) expect(visibleWords(panel(), width).length).toBeLessThanOrEqual(75);
     // With room under it for the longer words other periods give (a two-figure wait, a window open to the end, contact
     // both before and after a power cut: six words more at most).
     for (const width of [WIDE, PHONE]) expect(visibleWords(panel(), width).length).toBeLessThanOrEqual(104);

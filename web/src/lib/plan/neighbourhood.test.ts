@@ -65,17 +65,17 @@ describe('the range of results round a point', () => {
     const w = rangeWords(r, { radiusKm: 5, ms: 2400, mastM: 2 });
     // The skylines are kept for the next period: their time is what the worker spent on them, not this run's.
     // The ring's points are exactly 2.5 and 5 km out: the line says so in as few words as the first screen allows.
-    expect(w.words).toBe('Within 5 km (9 points): power 3.2 to 30 days.');
+    expect(w.words).toBe('Within 5 km: power 3.2 to 30 days.');
     expect(w.detail).toBe(
       'Worked out here and at 8 points round it, 2.5 and 5 km away, with the same lander, period and 2 m mast; their skylines took 2.4 s to work out. Power 3 d 4 h to 30 d; sunlight 12 d 12 h; Earth in view 12 d 12 h; contact while powered 10 h; longest time without Earth while powered 2 d 12 h. Each point’s hills come from the same NASA elevation grids, which do not show a hill narrower than one grid cell.',
     );
-    expect(rangeWords(neighbourhoodRange(o(720), done(new Array(8).fill(720))), { radiusKm: 5, ms: 900, mastM: 2 }).words).toBe('Within 5 km (9 points): power for all 30 days at each.');
+    expect(rangeWords(neighbourhoodRange(o(720), done(new Array(8).fill(720))), { radiusKm: 5, ms: 900, mastM: 2 }).words).toBe('Within 5 km: power for all 30 days at each.');
     const gaps = rangeWords(neighbourhoodRange(o(76), done([90, 120, 720, 76, 80, 400, 300, 100], [2, 5])), { radiusKm: 5, ms: 2400, mastM: 2 });
     expect(gaps.words).toBe('Within 5 km (7 of 9 points): power 3.2 to 12.5 days.');
     expect(gaps.detail).toMatch(/^Worked out here and at 6 of 8 points round it.* 2 points have no elevation data here, so they are left out\./);
     // Round a derived high point the radius is a probe, not a stated uncertainty: no "about", and the detail says so.
     const probe = rangeWords(neighbourhoodRange(o(720), done([720, 700, 720, 300, 720, 720, 76, 720])), { radiusKm: 1, ms: 2400, mastM: 2, stated: false });
-    expect(probe.words).toBe('Within 1 km (9 points): power 3.2 to 30 days.');
+    expect(probe.words).toBe('Within 1 km: power 3.2 to 30 days.');
     expect(probe.detail).toMatch(/^A derived high point states no radius of its own: these points, 0\.5 and 1 km away, show how much the result depends on landing on the point itself\. /);
     // With no point round it worked out there is no range to give, and the line says why.
     const none = rangeWords(neighbourhoodRange(o(76), done([], [0, 1, 2, 3, 4, 5, 6, 7])), { radiusKm: 5, ms: 300, mastM: 2 });

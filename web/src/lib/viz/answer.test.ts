@@ -257,8 +257,8 @@ describe('nearbyAdvice', () => {
   });
 
   it('says it in one sentence: where, how far and how long the power lasts there', () => {
-    expect(nearbyWords({ site: summit, km: 12.3, hours: 720 }, 30)).toBe('Nearby, Summit (12 km away) keeps power for all 30 days from the same landing day.');
-    expect(nearbyWords({ site: summit, km: 4.04, hours: 300 }, 30)).toBe('Nearby, Summit (4 km away) keeps power for 12 days 12 hours from the same landing day.');
+    expect(nearbyWords({ site: summit, km: 12.3, hours: 720 }, 30)).toBe('Nearby: Summit (12 km) has power all 30 days.');
+    expect(nearbyWords({ site: summit, km: 4.04, hours: 300 }, 30)).toBe('Nearby: Summit (4 km) has power for 12 days 12 hours.');
   });
 
   it('names a spot worked out round an approximate site by its distance and direction, and links to it as a clicked point', () => {
@@ -266,18 +266,18 @@ describe('nearbyAdvice', () => {
     expect(spot).toMatchObject({ id: 'custom_-88.3200_-64.3000', label: 'the spot 2.5 km south', category: 'custom', lat: -88.32, lon: -64.3 });
     expect(spotSite(here, { lat: -88.3, lon: -64, km: 5, bearingDeg: 45 }).label).toBe('the spot 5 km north-east');
     // Its distance is in its name already.
-    expect(nearbyWords({ site: spot, km: 2.5, hours: 720 }, 30)).toBe('Nearby, the spot 2.5 km south keeps power for all 30 days from the same landing day.');
+    expect(nearbyWords({ site: spot, km: 2.5, hours: 720 }, 30)).toBe('Nearby: the spot 2.5 km south has power all 30 days.');
   });
 
   it('says when Earth is never in view at the place it offers: more power there buys no radio contact', () => {
-    expect(nearbyWords({ site: summit, km: 13, hours: 271, earthNever: true }, 30)).toBe('Nearby, Summit (13 km away) keeps power for 11 days 7 hours from the same landing day, but Earth is never in view there.');
-    expect(nearbyWords({ site: summit, km: 13, hours: 271, earthNever: false }, 30)).toBe('Nearby, Summit (13 km away) keeps power for 11 days 7 hours from the same landing day.');
+    expect(nearbyWords({ site: summit, km: 13, hours: 271, earthNever: true }, 30)).toBe('Nearby: Summit (13 km) has power for 11 days 7 hours, but never sees Earth.');
+    expect(nearbyWords({ site: summit, km: 13, hours: 271, earthNever: false }, 30)).toBe('Nearby: Summit (13 km) has power for 11 days 7 hours.');
   });
 
   it('never offers a derived high point as a checked place to land', () => {
     const derived = { ...summit, kind: 'derived' as const };
     expect(nearbyWords({ site: derived, km: 12.3, hours: 720 }, 30)).toBe(
-      'Nearby, Summit (12 km away, unchecked for landing) keeps power for all 30 days from the same landing day.',
+      'Nearby: Summit (12 km, not checked for landing) has power all 30 days.',
     );
   });
 

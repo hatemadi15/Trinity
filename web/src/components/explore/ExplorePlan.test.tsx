@@ -25,7 +25,7 @@ afterEach(() => window.history.replaceState({}, '', '/'));
 describe('Explore’s recommendations, with the requirements and the range round an approximate point', () => {
   it('gives the range round de Gerlache Rim 2, a region centre known to about 5 km, next to the result once its points are worked out', async () => {
     const store = await open();
-    await waitFor(() => expect(within(panel()).getByText(/^Within 5 km \(9 points\): power \d/)).toBeTruthy(), { timeout: 20_000 });
+    await waitFor(() => expect(within(panel()).getByText(/^Within 5 km: power \d/)).toBeTruthy(), { timeout: 20_000 });
     expect(store.getState().neighbourhood?.points).toHaveLength(8);
     // The first screen keeps to its 110 words with the range on it.
     for (const width of [WIDE, PHONE]) expect(visibleWords(panel(), width).length).toBeLessThanOrEqual(110);

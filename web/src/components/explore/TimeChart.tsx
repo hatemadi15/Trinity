@@ -124,7 +124,7 @@ export function TimeChart({
         </li>
         <li className="flex items-center gap-2">
           <HillSwatch />
-          the hills in its direction at that time
+          the hills that way
         </li>
         <li className="flex items-center gap-2">
           <span aria-hidden="true" data-swatch="" className="block h-3.5 w-9 shrink-0 rounded-sm bg-good" />

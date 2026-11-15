@@ -131,7 +131,7 @@ export function WhereOnMoon({
                     <li key={other.id}>
                       <Link href={exploreHref(other.id, startUtc, days)} className="flex min-h-[48px] items-center gap-4 py-2 hover:bg-surface-2">
                         <span className="min-w-0 flex-1">
-                          <span className="font-medium underline decoration-line-strong underline-offset-4">{siteLabel(other)}</span>, {km < 10 ? km.toFixed(1) : Math.round(km)} km away
+                          <span className="font-medium underline decoration-line-strong underline-offset-4">{siteLabel(other)}</span>, {km < 10 ? km.toFixed(1) : Math.round(km)} km
                         </span>
                         {!o ? (
                           <span className="text-[15px] text-ink-2">working it out…</span>

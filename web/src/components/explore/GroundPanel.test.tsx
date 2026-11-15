@@ -219,7 +219,7 @@ describe('GroundPanel', () => {
   it('explains how to read the map beside it: light and dark ground, the arrows, north', async () => {
     show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
     const key = within(screen.getByRole('tabpanel', { name: 'Shadow map' })).getByRole('list', { name: 'How to read the map' });
-    expect([...key.querySelectorAll('li')].map((li) => li.lastElementChild!.textContent)).toEqual(['ground in sunlight', 'ground in shadow', 'towards the Sun', 'towards Earth (dotted when set)', 'north is up']);
+    expect([...key.querySelectorAll('li')].map((li) => li.lastElementChild!.textContent)).toEqual(['sunlit ground', 'shadow', 'towards the Sun', 'towards Earth (dotted when set)', 'north up']);
     // No text under 14 px, the key's N included.
     expect(within(key).getByText('N').className).not.toMatch(/text-\[1[0-3]px\]/);
   });

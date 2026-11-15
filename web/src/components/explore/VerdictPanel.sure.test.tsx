@@ -20,7 +20,7 @@ const night: Answer = {
   contactHours: 0,
 };
 const sure = { lines: ['Sunset 3 Jan 19:00 UTC, within about 1.5 h.', 'Battery runs out 4 Jan 04:00 UTC, within about 1 h.'], basis: 'Measured at this site.', widest: 1.5 };
-const summit = { words: 'Nearby, de Gerlache rim summit (12 km away) keeps power for all 30 days from the same landing day.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' };
+const summit = { words: 'Nearby: de Gerlache rim summit (12 km) has power all 30 days.', name: 'de Gerlache rim summit', href: '/explore?site=de_gerlache_center_rim_high&start=2027-01-01&days=30' };
 
 describe('VerdictPanel with its margins', () => {
   it('puts how sure the times are right under the reasons, folded, and stays within 110 words before a tap', () => {

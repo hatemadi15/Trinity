@@ -98,7 +98,7 @@ describe('TimeChart', () => {
       "the Sun's height",
       "Earth's height",
       'dotted while set',
-      'the hills in its direction at that time',
+      'the hills that way',
       'battery charge',
     ]);
     expect(key.querySelectorAll('svg, [data-swatch]').length).toBeGreaterThanOrEqual(5);
