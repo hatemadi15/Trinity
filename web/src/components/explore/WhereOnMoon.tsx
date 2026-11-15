@@ -74,7 +74,7 @@ export function WhereOnMoon({
         <div className={wide ? 'md:col-start-2 md:row-start-1' : ''}>
         <p className="mt-2 text-ink-2">
           <b className="font-semibold text-ink">{siteLabel(site)}.</b> {site.blurb ? `${site.blurb}.` : `A place at ${Math.abs(site.lat).toFixed(2)}° ${site.lat < 0 ? 'S' : 'N'}.`}
-          {!here && ' It lies far outside this map of the south pole.'} {pointKind(site).sentence}
+          {!here && ' The map shows where it is on the whole Moon.'} {pointKind(site).sentence}
           {site.far_side && ' It lies on the far side, where Earth never rises: a lander there talks to Earth through a relay satellite.'}
           {landed &&
             (landed.startUtc ? (
@@ -114,20 +114,24 @@ export function WhereOnMoon({
           </button>
         )}
         <div data-part="map" className={`mt-3 ${folded} ${wide ? 'max-md:max-w-[280px] md:col-start-1 md:row-span-3 md:row-start-1 md:mt-0' : ''}`}>
-          <ReliefMap pins={pins} selectedId={site.id} />
+          {here ? <ReliefMap pins={pins} selectedId={site.id} /> : <WholeMoon site={site} />}
           <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
             <span className="flex items-center gap-2">
               <i className="h-3 w-3 rounded-full bg-sun" />
               this site
             </span>
-            <span className="flex items-center gap-2">
-              <i className="h-3 w-3 rounded-full bg-good" />
-              two weeks or more with power
-            </span>
-            <span className="flex items-center gap-2">
-              <i className="h-3 w-3 rounded-full border-2 border-ink-3" />
-              less
-            </span>
+            {here && (
+              <>
+                <span className="flex items-center gap-2">
+                  <i className="h-3 w-3 rounded-full bg-good" />
+                  two weeks or more with power
+                </span>
+                <span className="flex items-center gap-2">
+                  <i className="h-3 w-3 rounded-full border-2 border-ink-3" />
+                  less
+                </span>
+              </>
+            )}
           </p>
         </div>
         <div data-part="near" className={wide ? `${folded} md:col-start-2 md:row-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-4` : ''}>
@@ -177,3 +181,45 @@ export function WhereOnMoon({
     </section>
   );
 }
+
+/** Where a latitude and longitude fall on the whole-Moon map (`/maps/moon-whole.jpg`: the side facing Earth at the centre), in percent. */
+export function wholeMoonSpot(lat: number, lon: number): { left: number; top: number } {
+  const east = ((((lon + 180) % 360) + 360) % 360) / 360;
+  return { left: east * 100, top: ((90 - lat) / 180) * 100 };
+}
+
+/**
+ * A site far from the south pole, on the map of the whole Moon: the polar relief would not hold it. One marker,
+ * large and ringed, named beside it, so the place stands out at a glance.
+ */
+function WholeMoon({ site }: { site: Site }) {
+  const { left, top } = wholeMoonSpot(site.lat, site.lon);
+  const name = siteLabel(site);
+  const ns = `${Math.abs(site.lat).toFixed(1)}° ${site.lat < 0 ? 'S' : 'N'}`;
+  const ew = `${Math.abs(site.lon).toFixed(1)}° ${site.lon < 0 ? 'W' : 'E'}`;
+  // The name hangs on the side of the marker with room: right of it on the left half of the map, left of it otherwise.
+  const side = left < 50 ? 'left-full ml-2' : 'right-full mr-2';
+  return (
+    <div
+      role="img"
+      aria-label={`${name} on the map of the whole Moon, at ${ns}, ${ew}`}
+      data-part="whole-moon"
+      className="relative aspect-[2/1] w-full overflow-hidden rounded-xl border border-line bg-stage"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- a small static map, drawn at its own size */}
+      <img src="/maps/moon-whole.jpg" alt="" className="absolute inset-0 h-full w-full object-cover brightness-[0.75]" />
+      <span
+        data-part="whole-moon-marker"
+        aria-hidden="true"
+        className="absolute flex items-center"
+        style={{ left: `${left.toFixed(2)}%`, top: `${top.toFixed(2)}%`, transform: 'translate(-50%, -50%)' }}
+      >
+        <span className="relative block h-6 w-6 rounded-full border-2 border-sun shadow-[0_0_0_4px_rgb(0_0_0/0.55),0_0_18px_4px_rgb(255_236_200/0.55)]">
+          <span className="absolute inset-[5px] rounded-full bg-sun" />
+        </span>
+        <span className={`absolute ${side} whitespace-nowrap rounded-md bg-stage/80 px-2 py-0.5 text-[13px] font-semibold text-white`}>{name}</span>
+      </span>
+    </div>
+  );
+}
+
