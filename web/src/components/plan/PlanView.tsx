@@ -397,7 +397,7 @@ export function PlanView({
           <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">
             Plan a landing
           </h1>
-          <p className="mt-2 max-w-[46em] text-lg text-ink-2">Say or type what the mission needs. The planner tries every site and landing time you allow, and ranks them.</p>
+          <p className="mt-2 max-w-[46em] text-lg text-ink-2">Say or type what the mission needs. The planner ranks every site and landing time you allow.</p>
         </div>
         <form
           aria-label="The mission’s specification"
@@ -433,7 +433,11 @@ export function PlanView({
           <section aria-label="I heard" className="panel">
             <h2 className="display text-[23px] font-semibold">I heard</h2>
             <p className="mt-2 max-w-[60em] text-ink">{lines.length ? lines.map((l) => `${l.label}: ${l.value}`).join('; ') : 'No field yet: everything below is the default.'}.</p>
-            {defaults.length > 0 && <p className="mt-2 text-[15px] text-ink-2">Defaults: {defaults.map((l) => `${midSentence(l.label)} ${l.value}`).join('; ')}.</p>}
+            {defaults.length > 0 && (
+              <Fold label="Defaults" className="mt-1 text-[15px]">
+                <p className="text-[15px] text-ink-2">Defaults: {defaults.map((l) => `${midSentence(l.label)} ${l.value}`).join('; ')}.</p>
+              </Fold>
+            )}
             {p.leftover.length > 0 && <p className="mt-2 text-[15px] text-ink-2">Not used: {p.leftover.map((l) => `“${l}”`).join(', ')}.</p>}
             {p.assistant.state === 'asking' && (
               <p role="status" className="mt-2 text-[15px] text-ink-2">
