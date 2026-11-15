@@ -150,7 +150,7 @@ export function SiteMap({ markers }: { markers: SiteMarker[] }) {
           )}
           <p
             aria-hidden="true"
-            className={`pointer-events-none absolute text-[15px] font-medium text-stage-ink-2 ${layout.mode === 'stack' ? 'bg-stage pr-2' : ''}`}
+            className={`pointer-events-none absolute text-[15px] font-medium text-stage-ink-2`}
             style={{ left: layout.inset.x, top: layout.inset.y - INSET_CAPTION_PX }}
           >
             The rest of the Moon

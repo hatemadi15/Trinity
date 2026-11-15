@@ -51,7 +51,9 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   site lies with its nearest neighbours; the site, dates and lander with the answer and the numbers;
   the hour-by-hour chart (radio windows under it) beside the ground, with the time bar pinned to the
   bottom only while they are on screen; every landing day of the next 12 months; the assistant; and
-  "See the checks", to Accuracy. The landing site changes in a drop-down on the page (the catalogue
+  "See the checks", to Accuracy. Opened from the Choose a site map (`tour=1`) it arrives one part at
+  a time: each step ends with "Next: …" (or keep scrolling), the next part fades in below, "Show
+  everything" skips to the full page, and the address then drops `tour=1`. The landing site changes in a drop-down on the page (the catalogue
   in the site list's groups, then "Your own site…"), keeping the dates and the lander.
   `/explore?own=1` asks for a place of your own in three steps, with nothing filled in: where (a
   latitude and longitude south of 60° S, or a press on the map of the pole), when, and the lander.

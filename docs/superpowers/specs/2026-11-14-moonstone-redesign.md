@@ -45,11 +45,18 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   card and the card opens the site. The bar at the foot holds the dates behind one button (with what the figures count
   from), "List" (the same sites for the keyboard and screen readers) and the primary "Choose your own site", which
   opens Explore with nothing filled in (`/explore?own=1`); the "Somewhere else" form is gone. The first screen is held
-  to 48 words (`SitesView.test.tsx`). The page is a night sky in both themes (15 November, owner review): wherever
-  there is neither map nor panel it is the stage's black with the catalogue's stars, drawn once and still
-  (`SitesSky.tsx`), and the title block, the card, the bar, the list, the dates panel and the sources are panes of
-  dark glass (`.pane` in `globals.css`: the panel's own colour let through in part, the map blurred behind it, a thin
-  bright edge and a faint blue sheen), the one place a backdrop is blurred (`look.test.ts`).
+  to 48 words (`SitesView.test.tsx`). The page is a night sky in both themes, from the header to the footer (15 November, owner
+  review: it must read as space and as glass at a glance): on the stage's black, one still canvas at the back of the
+  page (`NightSky.tsx`) draws a faint Milky Way haze, a dust of small stars and the catalogue's real stars, the bright
+  ones with a glow, and none under a line of words that stands on the sky. On a wide screen the map stands in a
+  rounded frame so the sky shows round it. The title block, the card, the bar, the list, the dates panel and the
+  sources are panes of glass (`.pane` in `globals.css`: a thin fill of the panel's own colour, about 34 to 42 %, over
+  a strong blur of what is behind it, darkened so the words keep AA; a bright edge, a top highlight and a blue glow),
+  with Compare the one place a backdrop is blurred (`look.test.ts`).
+- **Compare.** The same night sky and glass (15 November, owner review): the page is marked `data-night-sky`, so it is
+  night in both themes from header to footer, every `.panel` is a pane, and the verdict band, "Start here", the "Add a
+  landing" panel and the Share band are panes too. Each landing keeps its colour edge, "Works best" its green ring,
+  "+ Add a landing" stays the solid primary tile, and Hour by hour keeps its own black plate so the lanes stay crisp.
 - **404.** The nebula, with the page's own sentence as its headline.
 - **Header.** The Moon mark turns as the page scrolls; the current section is underlined.
 
@@ -165,6 +172,21 @@ Textures and their credits: `web/public/hero/textures/`.
   checks are the Sites page's former "Somewhere else": south of 60° S, and a plain sentence where the height tiles
   are missing. "Your own point is not checked for landing" stands under the button.
 - **Measured** at 1440 px: the page is 3778 px tall, from 4406; on a 390 px phone 6289, from 6670.
+
+- **The guided arrival (`tour=1`).** (15 November, owner: "one thing at a time, and the page moves on through a user
+  action".) The Choose a site map's marker and card links add `tour=1`; no other link does, so shared links, the
+  journeys, Compare's "Explore it" and the assistant open the full page. With it Explore shows one part at a time, in
+  the page's own order: 1 Where on the Moon, 2 The answer (the band, the verdict, the numbers), 3 Hour by hour (the
+  chart, the ground, the player), 4 The year, 5 Questions and checks (the assistant and "How sure"). Each step ends
+  with one button, "Next: <what comes next>"; pressing it, or scrolling on past the end of the page once it has
+  rested there (a wheel pushed on, a finger dragged up), brings the next part in with a fade and an 18 px rise over
+  400 ms (`step-in`), scrolls to it smoothly, puts the focus on its heading and says "Step n of 5: <name>" in a polite
+  live region. Parts shown stay, so the page builds into the full page. A quiet line stays at the top of the window
+  while parts wait: "Step n of 5" and "Show everything", which shows the rest at once without scrolling. While parts
+  wait the address keeps `tour=1` (a reload stays in the tour, from step 1); at the end, or on "Show everything", it
+  drops it, so a link copied from there opens the full page; the share dialog's link never carries it. Under reduced
+  motion nothing animates and the scroll is instant. `?own=1` has no tour. A part not yet shown is not rendered
+  (`components/explore/Tour.tsx`: `useTour`, `TourStep`, `TourBar`, `TourNext`).
 
 ## 23.5 Compare, made plain
 (15 November, owner review: "I don't know what slip is. I don't know what change is doing"; adding a site to compare

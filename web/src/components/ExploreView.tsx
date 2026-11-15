@@ -14,6 +14,7 @@ import { NumbersCard } from './explore/NumbersCard';
 import { PeriodBand } from './explore/PeriodBand';
 import { RadioWindows } from './explore/RadioWindows';
 import { TimeBar } from './explore/TimeBar';
+import { TourBar, TourNext, TourStep, useTour } from './explore/Tour';
 import { LunaControls } from './luna/LunaControls';
 import { TimeChart } from './explore/TimeChart';
 import { VerdictPanel } from './explore/VerdictPanel';
@@ -87,6 +88,8 @@ export function ExploreView({
   const shareRef = useRef<HTMLButtonElement>(null);
   const dataVersions = useDataVersions(shareOpen);
   const reducedMotion = useReducedMotion();
+  // Opened from the Choose a site map (tour=1): one part at a time, until the full page is built.
+  const tour = useTour(reducedMotion);
   useDemoMode(store);
   // A place of the visitor's own: 'guided' is /explore?own=1 (the Sites page's "Choose your own site"), where nothing is
   // filled in and three steps ask where, when and the lander; 'inline' is the site drop-down's "Your own site…".
@@ -107,7 +110,9 @@ export function ExploreView({
   // figures depend on, the requirements set and the ranking, so a reload or a copied address opens the same forecast and better date.
   const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : null;
   // The steps for a place of one's own keep their address until the place is worked out.
-  useAddressFollows(link, linked && s.status === 'ready' && own !== 'guided');
+  // While parts of the guided arrival are waiting the address keeps tour=1, so a reload stays in it; at its end, or on
+  // "Show everything", the address drops it, and a link shared from there opens the full page.
+  useAddressFollows(link && tour.active ? `${link}&tour=1` : link, linked && s.status === 'ready' && own !== 'guided');
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
   // itself, once, and puts the cursor in its box, as "Or ask in plain words" does.
@@ -319,9 +324,13 @@ export function ExploreView({
             },
           }}
         />
-        <div className="wrap flex w-full min-w-0 flex-col gap-6 pb-6 pt-6">
+        <TourBar tour={tour} />
+        <TourStep n={1} tour={tour} className="wrap flex w-full min-w-0 flex-col gap-6 pb-6 pt-6">
           {/* Where the site is comes first (spec 23.4), kept short: a small map, one line and the nearest sites. */}
           <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} coldTraps={coldTrapSite(cold, site.id)} />
+        </TourStep>
+        <TourNext n={1} tour={tour} />
+        <TourStep n={2} tour={tour} className="wrap flex w-full min-w-0 flex-col gap-6 pb-6">
           <PeriodBand site={site} sites={catalogue} onSite={(id) => void store.getState().selectSite(id)} onOwn={() => setOwn('inline')} startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} power={s.params.power} onLander={() => setLanderOpen(true)} landerRef={landerRef} />
           {/* The drop-down's "Your own site…": only where is asked; the dates and the lander stay. */}
           {own === 'inline' && <OwnSite store={store} onDone={() => setOwn(null)} onCancel={() => setOwn(null)} />}
@@ -375,10 +384,12 @@ export function ExploreView({
               Compare from here
             </button>
           </p>
-        </div>
+        </TourStep>
+        <TourNext n={2} tour={tour} />
         {/* The two parts that move with the hour, side by side on a wide window: the chart with the radio windows under
             it, and the ground. The time bar is the section's last child and sticks to the window's foot, so it shows
             only while this section is on screen; it stays in the page's reading and tab order all the while. */}
+        <TourStep n={3} tour={tour}>
         <section aria-label="Hour by hour" data-part="dynamic" className="flex flex-col">
           <div className="wrap grid w-full min-w-0 items-start gap-6 pb-6 xl:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-6">
@@ -442,10 +453,15 @@ export function ExploreView({
             onHover={setHoverHour}
           />
         </section>
-        <div className="wrap flex w-full min-w-0 flex-col gap-6 pb-10 pt-6">
+        </TourStep>
+        <TourNext n={3} tour={tour} />
+        <TourStep n={4} tour={tour} className="wrap flex w-full min-w-0 flex-col pb-6 pt-6">
           {/* Every landing day of the next 12 months, after the chart so the first screen keeps the answer and the chart's
               title: a day pressed there lands the period on it, as the date box does. */}
           <YearView eph={s.eph} site={site} mask={s.mask} startUtc={s.startUtc} days={s.days} params={s.params} onLand={(start) => s.setWindow(start, s.days)} />
+        </TourStep>
+        <TourNext n={4} tour={tour} />
+        <TourStep n={5} tour={tour} className="wrap flex w-full min-w-0 flex-col gap-6 pb-10">
           <PlannerChat store={store} scenarios={scenarios} navigate={go} />
           {/* The page ends on the way to the checks behind its figures (the Accuracy page). */}
           <section aria-labelledby="h-sure" className="panel flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
@@ -459,7 +475,7 @@ export function ExploreView({
               See the checks
             </Link>
           </section>
-        </div>
+        </TourStep>
         {shareOpen && s.eph && link && (
           <ShareDialog
             input={{ site, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph, series: s.series, power: s.power, summary: s.summary, maskMeta: s.maskMeta, best: s.best }}

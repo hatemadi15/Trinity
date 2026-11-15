@@ -26,7 +26,7 @@ export function MetricBars({ cols }: { cols: Column[] }) {
         {METRICS.map((m) => {
           const row = rows.find((r) => r.id === m.id)!;
           return (
-            <div key={m.id} role="group" aria-label={row.name} className="rounded-lg border border-line bg-surface-2 px-4 py-3">
+            <div key={m.id} role="group" aria-label={row.name} className="rounded-lg border border-line bg-surface-2/45 px-4 py-3">
               <h3 className="flex flex-wrap items-baseline justify-between gap-x-3 font-semibold text-ink">
                 {row.name}
                 <span className="text-[15px] font-normal text-ink-2">{m.note}</span>

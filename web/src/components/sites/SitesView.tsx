@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from '@/components/AppFrame';
 import { DataProblem, SYNC_HINT } from '@/components/DataProblem';
+import { NightSky } from '@/components/NightSky';
 import { PeriodControls } from '@/components/PeriodControls';
 import { SkylineNote } from '@/components/SkylineNote';
 import { Sources } from '@/components/Sources';
@@ -19,7 +20,6 @@ import { exploreHref } from '@/lib/links';
 import { coldTrapShort, coldTrapSite, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
 import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
 import { GroupMark, MARKER_GROUPS, SiteMap, type MarkerGroup, type SiteMarker } from './SiteMap';
-import { SitesSky } from './SitesSky';
 
 /** Explore's own-site mode: no site filled in, the visitor gives the place and the details there. */
 export const OWN_SITE_HREF = '/explore?own=1';
@@ -31,9 +31,9 @@ const groupOf = (site: Site): MarkerGroup => GROUP_OF[site.category] ?? 'other';
 /** The Explore address for a site and a period; the hour is kept only when the period does not start at midnight. */
 export { exploreHref };
 
-/** A site opens Explore on the landing day its figures name, where every one of them is a figure Explore shows; without a better day, on the period's start. */
+/** A site opens Explore's guided arrival (tour=1) on the landing day its figures name, where every one of them is a figure Explore shows; without a better day, on the period's start. */
 function siteHref(siteId: string, o: SiteOverview | undefined, startUtc: string, days: number): string {
-  return exploreHref(siteId, o?.best && o.best.hour > 0 ? isoAt(startUtc, o.best.hour) : startUtc, days);
+  return exploreHref(siteId, o?.best && o.best.hour > 0 ? isoAt(startUtc, o.best.hour) : startUtc, days) + '&tour=1';
 }
 
 /** The list is ranked by the longest time with power, then by sunlight; a site with incomplete terrain after them (its figures may be too high), a site without figures last. */
@@ -188,9 +188,9 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
   const toggle = (what: 'list' | 'dates') => setOpen((now) => (now === what ? null : what));
   return (
     <AppFrame>
-      {/* The dark theme's values in either theme, on the stage's black: the sky behind everything here. */}
-      <main data-night-sky="" className="theme-dark relative bg-stage text-ink print:bg-transparent">
-        <SitesSky />
+      {/* A night-sky page (globals.css): night in both themes from header to footer, with the sky's canvas at the back of the page. */}
+      <main data-night-sky="" className="relative text-ink">
+        <NightSky />
         {/* The window under the header: the map, and the bar at its foot. The bar comes first for the keyboard, before the markers. */}
         <div data-part="screen" className="relative flex flex-col lg:h-[calc(100svh-69px)] lg:min-h-[600px]">
           <div data-part="bar" className="sticky bottom-0 z-[38] order-last flex flex-wrap items-center justify-end gap-x-3 gap-y-2 py-3 pl-[132px] pr-4 sm:pl-[190px] lg:pr-8">
@@ -225,9 +225,9 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
               </section>
             )}
           </div>
-          <section aria-label="Map of the sites" data-part="stage" data-stage="" className="relative text-stage-ink lg:min-h-0 lg:flex-1">
-            {/* On a narrow screen the title stands on plain black, so no star lies under a word. */}
-            <div data-part="title" className="pane-wide pane-stage pointer-events-none relative z-20 px-4 pb-3 pt-5 max-lg:bg-stage lg:absolute lg:left-6 lg:top-6 lg:max-w-[500px] lg:rounded-xl lg:px-6 lg:py-5">
+          {/* On a wide screen the map stands in a frame, clear of the window's edges, so the sky shows round it. */}
+          <section aria-label="Map of the sites" data-part="stage" data-stage="" className="relative text-stage-ink lg:mx-5 lg:mt-5 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:rounded-2xl lg:border lg:border-white/25">
+            <div data-part="title" className="pane-wide pane-stage pointer-events-none relative z-20 px-4 pb-3 pt-5 lg:absolute lg:left-6 lg:top-6 lg:max-w-[500px] lg:rounded-xl lg:px-6 lg:py-5">
               <h1 className="display text-[30px] leading-tight sm:text-[36px] lg:text-[42px]">
                 Choose a <em>landing site</em>
               </h1>
@@ -271,7 +271,7 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
             {/* On a narrow screen the open list takes the map's place; on a wide one it stands beside it. */}
             <div data-part="maps" className={open === 'list' ? 'max-lg:hidden' : undefined}>
               <SiteMap markers={markers} />
-              <MarkerKey className="flex-wrap bg-stage px-4 pb-5 pt-1 lg:hidden" />
+              <MarkerKey className="flex-wrap px-4 pb-5 pt-1 lg:hidden" />
             </div>
           </section>
         </div>
