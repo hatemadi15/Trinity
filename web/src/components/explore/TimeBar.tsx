@@ -203,6 +203,9 @@ type Peek = { share: number; hour: number; moment?: KeyMoment };
  * and on a phone its keys are a little smaller. `clockNote` puts a few words after the date and hour on a medium
  * screen and up.
  *
+ * `brief` cuts the bar's words for the view from the site (spec 25.7): the keys fold behind the Key button at every
+ * width, and Next shows the moment alone, its name and tooltip keeping "Next:".
+ *
  * `bare` is for the stand view's clean view, for a classroom: the picture with as little as possible over it.
  * The bar keeps only Play, the date and hour, the track with its sunlight and handle, and the moments' dots,
  * which name themselves on the plate, so a class can still go from moment to moment without the words coming
@@ -219,6 +222,7 @@ export function TimeBar({
   dates = false,
   powered = null,
   compact = false,
+  brief = false,
   bare = false,
   moments,
   onMoment,
@@ -247,6 +251,12 @@ export function TimeBar({
    * no chart is above it; on a phone the keys, once opened, a little smaller.
    */
   compact?: boolean;
+  /**
+   * Fewer words, for the view from the site (spec 25.7): the keys wait behind the Key button at every width, not on a
+   * phone only, and Next shows the moment alone ("Sunset, 3 Jan ›"), keeping "Next:" in its name for a screen reader
+   * and its tooltip. Explore leaves it off.
+   */
+  brief?: boolean;
   /**
    * Only Play, the date and hour, the track with its sunlight and handle, and the moments as dots, at every
    * width: no speed, Next, sentence, keys, lanes or dates.
@@ -520,7 +530,7 @@ export function TimeBar({
       data-sizer=""
       aria-hidden="true"
       className="invisible col-start-1 row-start-1 whitespace-nowrap before:content-[var(--sizer)] max-sm:hidden"
-      style={{ '--sizer': cssString(`Next: ${m.label} ›`) } as CSSProperties}
+      style={{ '--sizer': cssString(brief ? `${m.label} ›` : `Next: ${m.label} ›`) } as CSSProperties}
     />
   ));
   // On a phone the sentence keeps two lines and the key goes under it, so the bar keeps one height as the words change.
@@ -555,7 +565,7 @@ export function TimeBar({
         dates ? 'basis-full sm:justify-end' : 'sm:ml-auto',
         compact && 'max-sm:gap-x-2 max-sm:[&>span]:text-[14px] max-sm:[&_i]:w-4',
         compact && dates && 'md:ml-auto md:basis-[28rem] md:grow',
-        !keyOpen && 'max-sm:hidden',
+        !keyOpen && (brief ? 'hidden' : 'max-sm:hidden'),
       ]
         .filter(Boolean)
         .join(' ')}
@@ -689,10 +699,22 @@ export function TimeBar({
               <div className="contents max-sm:col-span-3 max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-x-3">
                 {nexts &&
                   (next ? (
-                    <button type="button" data-part="next" onClick={() => jump(next)} className="btn grid h-10 shrink-0 justify-items-center px-3 text-center text-[15px]">
+                    <button
+                      type="button"
+                      data-part="next"
+                      aria-label={brief ? `Next: ${next.label}` : undefined}
+                      title={brief ? `Next: ${next.label}` : undefined}
+                      onClick={() => jump(next)}
+                      className="btn grid h-10 shrink-0 justify-items-center px-3 text-center text-[15px]"
+                    >
                       {nextNames}
                       <span data-label="" className="col-start-1 row-start-1">
-                        <span className="text-ink-2">Next:</span> {next.label}
+                        {!brief && (
+                          <>
+                            <span className="text-ink-2">Next:</span>{' '}
+                          </>
+                        )}
+                        {next.label}
                         <span aria-hidden="true"> ›</span>
                       </span>
                     </button>
@@ -706,7 +728,7 @@ export function TimeBar({
                     type="button"
                     aria-expanded={keyOpen}
                     onClick={() => setKeyOpen((open) => !open)}
-                    className="h-10 shrink-0 cursor-pointer px-1 text-[14px] text-ink underline underline-offset-4 sm:hidden max-sm:ml-auto"
+                    className={`h-10 shrink-0 cursor-pointer px-1 text-[14px] text-ink underline underline-offset-4 max-sm:ml-auto ${brief ? 'sm:ml-auto' : 'sm:hidden'}`}
                   >
                     Key<span aria-hidden="true"> {keyOpen ? '▴' : '▾'}</span>
                   </button>

@@ -1126,13 +1126,6 @@ export function StandCanvas({
         <p ref={facingRef} className="pb-1 text-center text-[15px] leading-5">
           {`Facing ${compassWord(startYaw)}`}
         </p>
-        {/* The dots named, each by its colour (18.3): the Sun's gold, Earth's blue, the lander's white. */}
-        <p data-key="" className="pb-2 text-center text-[14px] leading-none text-[#c3bfb6] max-[1800px]:hidden">
-          <i className="mr-1 inline-block size-2 rounded-full bg-[#f6b646]" />Sun
-          <i className="ml-3 mr-1 inline-block size-2 rounded-full bg-[#74adff]" />Earth
-          <i className="ml-3 mr-1 inline-block size-2 rounded-full bg-[#f2f0ea]" />lander
-          <i className="ml-3 mr-1 inline-block size-2 rounded-full border-2 border-[#c3bfb6]" />below the horizon
-        </p>
       </div>
       </div>
       {/* What lies beyond either side of the view: a pointer at that edge of the screen, at its height. */}
@@ -1177,8 +1170,8 @@ export function StandCanvas({
           {earthLabel}
         </span>
         {scene.lander && (
-          <span ref={landerRef} hidden className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#f2f0ea]`}>
-            {`The lander, ${Math.round(scene.lander.distM)} m away`}
+          <span ref={landerRef} hidden data-sky="lander" className={`${LABEL} -translate-x-1/2 -translate-y-full text-[#f2f0ea]`}>
+            Lander
           </span>
         )}
         {(scene.marks ?? []).map((m, k) => (

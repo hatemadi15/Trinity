@@ -47,6 +47,29 @@ export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string
 }
 
 /**
+ * The name beside the Sun or Earth in the sky, one or two words (spec 25.7): "Sun" while it shows, "Earth, below"
+ * under the horizon and "Sun, hidden" behind a hill. The heights and the hill's direction, which skyLabel gives, wait
+ * in today's card (sceneFacts).
+ */
+export function skyTag(body: 'sun' | 'earth', s: Series, hour: number): string {
+  const name = body === 'sun' ? 'Sun' : 'Earth';
+  const el = body === 'sun' ? s.sunEl[hour] : s.earthEl[hour];
+  const shows = body === 'sun' ? s.sunFraction[hour] > 0 : s.earthVisible[hour] === 1;
+  return shows ? name : el < 0 ? `${name}, below` : `${name}, hidden`;
+}
+
+/**
+ * What the names in the sky leave out (spec 25.7), one line in today's card: the Sun's and Earth's heights as skyLabel
+ * gives them and how far away the lander stands, "Sun 2.5° up. Earth, 5.7° below the horizon. The lander is 16 m away."
+ */
+export function sceneFacts(s: Series, hour: number, landerM?: number): string {
+  return `${skyLabel('sun', s, hour)}. ${skyLabel('earth', s, hour)}.${landerM !== undefined ? ` The lander is ${Math.round(landerM)} m away.` : ''}`;
+}
+
+/** The clock the time bar's dates and hours keep, said once in today's card (spec 25.7). */
+export const EARTH_TIME = 'Dates and hours are Earth time (UTC).';
+
+/**
  * The label on your own shadow, in whole metres, on two lines: its length along the ground you stand on
  * (`lengthM`), and when the slope makes that a tenth or more shorter or longer than on level ground
  * (`levelM`, for a person 1.8 m tall), the length on level ground too, from which a reader can check the
@@ -146,12 +169,10 @@ export const WATCH_LEAD_STILL = 'Press Next on the time bar to see:';
 
 /**
  * The first step (19.2), on the line over the view from the arrival until the first turn by hand, the first Play,
- * a flag, Turn to or Look up, or a key moment's line, and then gone for the visit; FIRST_STEP_PHONE under 640 px.
- * With reduced motion Play is off, so FIRST_STEP_STILL names the drag alone.
+ * a flag, Turn to or Look up, or a key moment's line, or ten seconds, and then gone for the visit: six words at every
+ * width (spec 25.7). With reduced motion Play is off, so FIRST_STEP_STILL names the drag alone.
  */
-export const FIRST_STEP = 'Press Play to watch the month go by · drag to look around';
-/** FIRST_STEP under 640 px, short enough for one line there. */
-export const FIRST_STEP_PHONE = 'Press Play · drag to look around';
+export const FIRST_STEP = 'Press Play · drag to look around';
 /** FIRST_STEP with reduced motion, when Play is off. */
 export const FIRST_STEP_STILL = 'Drag to look around';
 
@@ -533,6 +554,19 @@ export function statusLine(s: Series, p: PowerResult | null, startUtc: string, h
       : `Power on again since ${dateLong(startUtc, from)}, if the lander survived ${s.sunFraction[stretchStart(p.powered, from - 1)] === 0 ? 'the night' : 'without power'}${level ? `; ${level}` : ''}.`;
   const radio = seen ? 'Radio contact: it has power and Earth is in view.' : `No radio contact: Earth is ${s.earthEl[hour] < 0 ? 'below the horizon' : 'behind a hill'}.`;
   return { on: true, tone: seen ? 'radio' : 'power', text: `${power} ${radio}` };
+}
+
+/**
+ * statusLine in a few words, for the eye (spec 25.7): "Power 87 % · radio contact", "Power on · no radio", "Power
+ * off · no radio"; after a power cut the condition stays, "Power 40 %, if it survived · no radio", as the forecast
+ * counts energy only. The whole sentence is statusLine's, which a screen reader gets and today's card shows.
+ */
+export function statusShort(s: Series, p: PowerResult | null, hour: number, batteryWh?: number): string {
+  if (!p) return WORKING;
+  if (p.powered[hour] !== 1) return 'Power off · no radio';
+  const level = batteryWh !== undefined && batteryWh > 0 ? pct0(p.energyWh[hour] / batteryWh) : 'on';
+  const cut = stretchStart(p.powered, hour) > 0 ? ', if it survived' : '';
+  return `Power ${level}${cut} · ${s.earthVisible[hour] === 1 ? 'radio contact' : 'no radio'}`;
 }
 
 /**

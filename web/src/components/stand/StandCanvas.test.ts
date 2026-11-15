@@ -440,7 +440,7 @@ describe('the labels round the lander', () => {
       const body = { left: 0.7 * 1024, top: 0.45 * 768, right: 0.95 * 1024, bottom: 0.75 * 768 };
       const sun = document.querySelector<HTMLElement>('[data-sky="sun"]')!, name = document.querySelector<HTMLElement>('[data-path-name="sun"]')!;
       const pointer = document.querySelector<HTMLElement>('[data-pointer="earth"]')!, chip = document.querySelector<HTMLElement>('[data-path-mark]')!;
-      const landerName = [...document.querySelectorAll<HTMLElement>('span')].find((n) => n.textContent === 'The lander, 16 m away')!;
+      const landerName = document.querySelector<HTMLElement>('[data-sky="lander"]')!;
       await waitFor(() => expect(name.hidden).toBe(false));
       // The lander's own name keeps its place over it.
       expect([landerName.hidden, landerName.style.left, landerName.style.top]).toEqual([false, '82.5%', '43%']);
@@ -540,7 +540,7 @@ describe('the guides', () => {
     await waitFor(() => expect(shown(document.querySelector('[data-sky="sun"]'))).toBe(true));
     expect(setGuides).toHaveBeenLastCalledWith(false, true, true);
     expect(shown(document.querySelector('[data-sky="earth"]'))).toBe(true);
-    expect(shown([...document.querySelectorAll('span')].find((n) => n.textContent === 'The lander, 16 m away'))).toBe(true);
+    expect(shown(document.querySelector<HTMLElement>('[data-sky="lander"]')!)).toBe(true);
     for (const el of guideLabels()) expect(shown(el)).toBe(false);
     view.rerender(createElement(StandCanvas, props(true, r)));
     await waitFor(() => expect(shown(document.querySelector('[data-path-mark]'))).toBe(true));
@@ -595,7 +595,7 @@ describe('the guides', () => {
     expect([...document.querySelectorAll<HTMLElement>('p')].some((p) => p.textContent === 'Facing north')).toBe(true);
   });
 
-  it('names the compass’s dots in a key row under the facing line from 1800 px, on a plate of its own at the top edge (spec 18.3, 25)', () => {
+  it('keeps the compass on a plate of its own at the top edge, with no key on it at any width: today’s card names the dots (spec 25, 25.7)', () => {
     const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
     render(createElement(StandCanvas, props(true, r)));
     const strip = document.querySelector<HTMLElement>('[data-strip]')!;
@@ -604,17 +604,10 @@ describe('the guides', () => {
     expect(strip.classList.contains('bg-[#060607]')).toBe(true);
     expect(strip.parentElement!.classList.contains('w-[320px]')).toBe(true);
     for (const c of ['rounded-t-none', 'border-t-0']) expect(strip.classList.contains(c)).toBe(false);
-    const key = strip.querySelector<HTMLElement>('[data-key]')!;
-    // A hollow dot stands for a body below the horizon (read D3: the teacher found Earth's hollow circle unexplained).
-    expect(key.textContent).toBe('SunEarthlanderbelow the horizon');
-    // On the strip from 1800 px; narrower, today's card names the dots.
-    expect(key.classList.contains('max-[1800px]:hidden')).toBe(true);
-    expect([...key.querySelectorAll('i')].map((i) => i.className)).toEqual([
-      'mr-1 inline-block size-2 rounded-full bg-[#f6b646]',
-      'ml-3 mr-1 inline-block size-2 rounded-full bg-[#74adff]',
-      'ml-3 mr-1 inline-block size-2 rounded-full bg-[#f2f0ea]',
-      'ml-3 mr-1 inline-block size-2 rounded-full border-2 border-[#c3bfb6]',
-    ]);
+    expect(strip.querySelector('[data-key]')).toBeNull();
+    // Its words are the letters and the facing line.
+    expect(strip.querySelector('p')!.textContent).toMatch(/^Facing /);
+    expect(strip.querySelectorAll('p')).toHaveLength(1);
   });
 
   it('swaps a new scene into the renderer it has (a lander changed in today’s card) rather than building a new one, whose context and programs would take seconds (the final review)', async () => {
@@ -746,7 +739,7 @@ describe('naming the lander’s parts', () => {
     const scene = (azDeg: number): StandScene => ({ field: flatField(0), mask: { az0: 0, step: 0.5, el: new Array(720).fill(0) }, series: northSeries, startUtc: '2027-01-01T00:00:00', site: { lat: -88.28, lon: -64.31 }, mastM: 2, sky: noStars, lander: { azDeg, distM: 16, powered: Uint8Array.from([0, 0, 0]) } });
     const props = { hour: 0, look: null, startYaw: 0, reducedMotion: true, createRenderer: () => r, sunLabel: 'Sun, 0.5° below the horizon', earthLabel: 'Earth, on the horizon', night: true, onFail: vi.fn(), startFov: 36 };
     const view = render(createElement(StandCanvas, { ...props, scene: scene(342) }));
-    const landerName = () => [...document.querySelectorAll<HTMLElement>('span')].find((n) => n.textContent === 'The lander, 16 m away')!;
+    const landerName = () => document.querySelector<HTMLElement>('[data-sky="lander"]')!;
     const part = (name: string) => [...document.querySelectorAll<HTMLElement>('[data-text]')].find((n) => n.textContent?.startsWith(name))!.parentElement!;
     await waitFor(() => expect(landerName().hidden).toBe(false));
     for (const name of ['Solar panel', 'Radio dish', 'Power light']) expect(part(name).hidden).toBe(true);

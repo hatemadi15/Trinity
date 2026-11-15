@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ChevronsDown, ChevronsUp, Earth, EyeOff, Spline, Sun } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { HorizonView } from '@/components/explore/HorizonView';
 import { LanderDialog } from '@/components/explore/LanderDialog';
@@ -27,7 +28,7 @@ import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { trustedAnswer } from '@/lib/viz/terrain';
 import { dateLong, dayMonth } from '@/lib/viz/format';
-import { COMPASS_KEY, RADIO_RULE, betterChip, betterLabel, requirementReason, withReason, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyCountdown, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
+import { COMPASS_KEY, RADIO_RULE, betterLabel, requirementReason, withReason, EARTH_TIME, FIRST_STEP, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, sceneFacts, skyCountdown, skyTag, standHeadline, standingLine, standQuery, statusLine, statusShort, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
@@ -35,6 +36,8 @@ import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 const PLATE = 'rounded-lg border border-white/15 bg-[#060607]';
 // Hover lightens a button a little; the keyboard's focus gets a ring, so neither reads as a button left on.
 const LOOK = 'min-h-10 whitespace-nowrap rounded-lg border border-white/20 px-3.5 text-[15px] hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f6d48a]';
+/** A button of the row (spec 25.7): a sign 40 px square, named by its aria-label and its tooltip. */
+const ICON = 'grid size-10 shrink-0 place-items-center rounded-lg border border-white/20 hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f6d48a]';
 /** A toggle pressed: light, as the mockup has it; its words never change with its state (aria-pressed says it). */
 const PRESSED = 'aria-pressed:border-[#f2f0ea] aria-pressed:bg-[#f2f0ea] aria-pressed:text-[#07080a] aria-pressed:hover:bg-[#f2f0ea]';
 /** The dot by the lander's line: green only with radio contact (as on the time bar), amber with power alone, red when off. */
@@ -53,6 +56,10 @@ const LANDER_FOOT_M = 2.1;
 const BRIGHT_KEY = 'earthrise-bright';
 /** The session's key for "Hide panels" (spec 25): kept for the visit, as the brighter picture is. */
 const PANELS_KEY = 'earthrise-panels-hidden';
+/** The session's key for the first step (spec 25.7): shown once, then gone for the visit. */
+const HINT_KEY = 'earthrise-hint-seen';
+/** How long the first step stays when nothing takes it, ms. */
+const HINT_MS = 10_000;
 /** How it works and Accuracy, as the header names them: the way to the evidence from a view with no header (19.3). */
 const EVIDENCE = NAV.filter((item) => item.href === '/learn' || item.href === '/validate');
 
@@ -76,6 +83,15 @@ function readBright(): boolean {
 function readPanelsHidden(): boolean {
   try {
     return typeof window !== 'undefined' && window.sessionStorage.getItem(PANELS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Whether the first step has been shown and has gone earlier in the visit (spec 25.7). False where storage is blocked. */
+function readHintSeen(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.sessionStorage.getItem(HINT_KEY) === '1';
   } catch {
     return false;
   }
@@ -126,27 +142,26 @@ export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
  * (Explore's address plus `hour`). The Moon is the star (spec 25): over it, at first glance, a small plate with the
  * answer, the compass along the top edge, one row of buttons and the time bar; the rest waits under More.
  *
- * The plate (19.1) leads with the headline: from 1800 px wide the whole of it, then the next step (17.1: the better
- * landing day in gold, else "Compare sites", and one "Change" that opens "Change site", "Change date", "Change lander"
- * and "Compare sites", 20.1), and last the moment's state, the lander's power and radio for the hour, with the links
- * to Earthrise, How it works and Accuracy at its end (19.3). Narrower than 1800 px, where that much read as clutter,
- * the plate keeps the headline's short form beside More and, from 768 px, the moment's state; the better day is one
- * gold chip under it, and the next step and the links wait in today's card. The state always names both things radio
- * contact needs, power and Earth in view (statusLine), as the time bar's key does of its green band.
+ * The plate is the same at every width (spec 25.7): the headline in one line, the day, the power and the radio, beside
+ * More; from 768 px, under it, the moment's state in a few words by a dot in the time bar's colours ("Power 100 % ·
+ * no radio"), with statusLine's whole sentence, which names both things radio contact needs, for a screen reader. The
+ * better landing day is one gold chip under the plate.
  *
- * More opens today's card: on a phone the state first, then the rule for radio contact, where you stand, the
- * countdown, the whole headline (the page's heading at all times), what to watch next, the better landing day, "Why
- * this happens" (where the site lies, why the light and the sky look as they do, the pole first, the radio story and
- * how we know, one reason at a time or all as one list), the ways on, "Brighter picture", the compass's key, the
- * links and the help on dragging; what to watch and the help wait until the first step has gone, as they say what it
- * says (20.1). From 1800 px the card leaves the headline, the better day, the ways on and the links to the plate.
+ * More opens today's card: the state in full, then the rule for radio contact, where you stand, the countdown, the
+ * heights of the Sun and Earth and the lander's distance with the bar's clock, the whole headline (the page's heading
+ * at all times), what to watch next, the better landing day, "Why this happens" (where the site lies, why the light
+ * and the sky look as they do, the pole first, the radio story and how we know, one reason at a time or all as one
+ * list), the ways on (Change site, Change date, Compare sites, Change lander), "Brighter picture", the compass's key,
+ * the links to Earthrise, How it works and Accuracy and the help on dragging; what to watch and the help wait until
+ * the first step has gone, as they say what it says (20.1).
  *
- * One row of buttons faces the Sun, Earth or the lander, looks up, shows the paths, hides the panels and holds Luna:
- * at the top right from 1800 px, a small plate centred above the time bar from 768 px, a strip on the bar on a phone.
+ * One row of buttons, each a sign with its name as its tooltip and for a screen reader (25.7), faces the Sun, Earth or
+ * the lander, looks up, shows the paths, hides the panels and holds Luna: at the top right from 1800 px, a small plate centred above the time bar from 768 px, a strip on the bar on a phone.
  * "Hide panels" takes every plate off the view, the compass and the names in the sky with them, and leaves a bare
  * time bar; "Show panels" brings them back, and the choice is kept for the visit. A key moment, chosen from its dot or
  * passed as the time moves on, gets a line over the view on why; on arrival that line gives the first step, Play and
- * the drag (19.2), until the visitor turns the view, plays the month or takes a moment. The moments stay as dots when
+ * the drag (19.2), until the visitor turns the view, plays the month or takes a moment, or ten seconds pass; it is
+ * shown once a visit (25.7). The moments stay as dots when
  * the panels are hidden. A lander stands beside the site for scale, placed by the hour the view opens on. Without
  * WebGL 2 it shows the horizon chart with the same words.
  */
@@ -197,8 +212,22 @@ export function StandView({
   // The first step (19.2), on that line from the arrival once the ground has drawn: it goes for the visit at the first
   // turn by hand, Play, a flag, Turn to or Look up, or a key moment's line, and never on the captions' timer. Set to
   // false again it changes nothing (React keeps a state set to what it is), so StandCanvas may call it on every turn.
-  const [hint, setHint] = useState(true);
-  const clearHint = useCallback(() => setHint(false), []);
+  // Shown once (spec 25.7): gone, it stays gone for the visit, a reload or another site and period included, and with
+  // nothing to take it it goes by itself after ten seconds.
+  const [hint, setHint] = useState(() => !readHintSeen());
+  const clearHint = useCallback(() => {
+    setHint(false);
+    try {
+      window.sessionStorage.setItem(HINT_KEY, '1');
+    } catch {
+      // A private window or blocked storage: gone for this page.
+    }
+  }, []);
+  useEffect(() => {
+    if (!hint || !drawn) return;
+    const id = window.setTimeout(clearHint, HINT_MS);
+    return () => window.clearTimeout(id);
+  }, [hint, drawn, clearHint]);
   // Play's speed (21.1), which the view's glide between Play's steps follows.
   const [speed, setSpeed] = useState<Speed>(1);
   // Play follows the story (21.1): from a press of Play until the visitor turns the view by hand, or with Turn to or
@@ -420,8 +449,8 @@ export function StandView({
   // With the battery's level while it has power, as the forecast page gives it.
   const lander = statusLine(series, power, s.startUtc, hour, s.params.power.batteryWh);
   // The better landing day opens its own view, from its first hour; the button says why it is better: the power and
-  // the radio from that landing, in today's card and in the next step's row alike (18.3); a phone's chip gives the
-  // power alone.
+  // the radio from that landing, in today's card (18.3); the chip under the plate names the day alone, with those words
+  // as its tooltip (25.7).
   const betterOutcome = answer.better && times?.better ? times.better.outcome : null;
   // A day better for the requirements than for its power says so first: its figures alone would not say why.
   const reason = times?.better ? requirementReason(times.better, times.current) : null;
@@ -429,7 +458,7 @@ export function StandView({
     answer.better && betterOutcome
       ? {
           label: withReason(betterLabel(dateLong(s.startUtc, answer.better.hour), betterOutcome.poweredH, betterOutcome.poweredContactH), reason),
-          chip: withReason(betterChip(dayMonth(s.startUtc, answer.better.hour), betterOutcome.poweredH), reason),
+          chip: `Try ${dayMonth(s.startUtc, answer.better.hour)} instead`,
           startUtc: answer.better.startUtc,
           href: `${withSettings(standHref(site.id, answer.better.startUtc, s.days, 0), s.params, s.requirements, s.rankBy)}${quality === 'fast' ? '&quality=fast' : ''}`,
         }
@@ -546,7 +575,7 @@ export function StandView({
   const overView =
     caption ??
     (hint && drawn
-      ? <FirstStep reduced={reducedMotion} />
+      ? reducedMotion ? FIRST_STEP_STILL : FIRST_STEP
       : lookingUp
         ? viewCaption('up', crossNamed ? site.lat : Math.abs(site.lat))
         : series.sunFraction[hour] === 0
@@ -595,8 +624,8 @@ export function StandView({
           startYaw={startYaw}
           reducedMotion={reducedMotion}
           createRenderer={createRenderer}
-          sunLabel={skyLabel('sun', series, hour)}
-          earthLabel={skyLabel('earth', series, hour)}
+          sunLabel={skyTag('sun', series, hour)}
+          earthLabel={skyTag('earth', series, hour)}
           night={series.sunFraction[hour] < 0.5}
           onFail={onFail}
           onReady={onReady}
@@ -637,22 +666,18 @@ export function StandView({
       )}
       {!wordsHidden && (
         // Side by side from 1800 px wide, the compass between them; narrower, the row sits above the time bar and the
-        // status plate shares the top with the compass alone (spec 25).
+        // status plate shares the top with the compass alone (spec 25). The plate is the same at every width (25.7).
         <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start gap-3 min-[1800px]:flex-row min-[1800px]:justify-between">
           {/* The answer first (19.1): the headline, the next step and the moment's state, with More for today's card. */}
           <section ref={topRef} aria-label="The answer for this site" className="pointer-events-none grid w-full min-w-0 justify-items-start gap-2 min-[1800px]:flex-1">
             {/* The page's heading at all times, for screen readers; the plate and the card show it to the eye. */}
             <h1 className="sr-only">{title}</h1>
-            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] flex-col md:max-[1200px]:max-w-[calc(100vw-380px)] min-[1200px]:max-[1800px]:max-w-[calc(50vw-188px)] min-[1800px]:max-w-[min(860px,calc(50vw-188px))]`}>
+            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] flex-col md:w-fit md:min-w-[400px] md:max-[1200px]:max-w-[calc(100vw-380px)] min-[1200px]:max-w-[min(860px,calc(50vw-188px))]`}>
               {/* Tighter on a phone, so the short headline's two lines leave the scene 55 % of the screen (16.5). */}
               <div className="flex items-start gap-3 px-3.5 py-1 md:px-4 md:py-1.5">
-                {/* The headline as the eye reads it, first: the landing's verdict, two lines at most from 768 to 1440 px. */}
-                <p aria-hidden="true" className="display min-w-0 flex-1 text-pretty py-1.5 text-[18px] font-semibold leading-snug max-[1800px]:hidden">
-                  {title}
-                </p>
-                {/* On a phone its short form, the day, the power and the radio, in the two lines the state took, so the
-                    band is as in 18.3; today's card keeps the whole headline, the night with it. */}
-                <p aria-hidden="true" className="display min-w-0 flex-1 text-pretty py-1.5 text-[15px] font-semibold leading-snug md:text-[17px] min-[1800px]:hidden">
+                {/* The headline as the eye reads it, one line from 768 px (spec 25.7): the day, the power and the radio. Today's
+                    card keeps the whole headline, the night with it, and the heading above says it for screen readers. */}
+                <p aria-hidden="true" className="display min-w-0 flex-1 text-pretty py-1.5 text-[15px] font-semibold leading-snug md:text-[17px]">
                   {phoneHeadline(title)}
                 </p>
                 <button ref={moreRef} type="button" aria-expanded={cardOpen} className="flex min-h-10 shrink-0 items-center gap-1.5 self-end whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setCardOpen((o) => !o)}>
@@ -662,41 +687,22 @@ export function StandView({
                   </span>
                 </button>
               </div>
-              {/* The next step, always in view from 768 px (17.1); on a phone it waits in today's card. Under the headline
-                  and in line with it, so the better day reads beside the verdict it improves on (read D2: under More it had
-                  nothing to compare against). The gold one first, then one Change for the other ways on (20.1). */}
-              <div role="group" aria-label="Next step" className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-2.5 pt-0.5 max-[1800px]:hidden">
-                {better ? (
-                  <a
-                    href={better.href}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      land(better.startUtc, better.href);
-                    }}
-                    className={`${LOOK.replace('whitespace-nowrap ', '')} inline-flex items-center border-[#f6d48a]/55 text-[#f6d48a]`}
-                  >
-                    {better.label}
-                    <span aria-hidden="true"> ›</span>
-                  </a>
-                ) : (
-                  <button type="button" onClick={compare} className={`${LOOK} border-[#f6d48a]/55 text-[#f6d48a]`}>
-                    Compare sites
-                  </button>
-                )}
-                <ChangeWays dateHref={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy)} onLander={openLander} onCompare={better ? compare : undefined} />
-              </div>
-              {/* Last, the moment's state: the lander's power and radio for the hour, down by the time it describes at the
-                  plate's foot, not in the time bar, which is Explore's too and where 60 to 90 characters beside the date would
-                  wrap (19.1). A phone has it as the card's first line. */}
+              {/* Last, the moment's state in a few words (spec 25.7): a dot in the time bar's colours, the power and the radio.
+                  The whole sentence, which names both things radio contact needs, is there for a screen reader and shows
+                  in today's card. A phone has it as the card's first line. */}
               <div className="flex items-start gap-3 border-t border-white/10 px-4 py-1.5 max-md:hidden">
                 <i aria-hidden="true" data-tone={lander.tone} className={`mt-[7px] h-3 w-3 shrink-0 self-start rounded-full ${TONE[lander.tone]}`} />
-                <p className="min-w-0 flex-1 text-balance text-[15px] leading-snug">
-                  <span className="text-[#c3bfb6] max-md:hidden">{oneLine}. </span>
+                <p className="sr-only">
+                  <span className="max-md:hidden">{oneLine}. </span>
                   {lander.text}
                 </p>
-                {/* The way to the evidence at the line's end (19.3): the judge's slim header without a header, so the band
-                    grows by nothing. */}
-                <Sections className="ml-auto shrink-0 self-end whitespace-nowrap max-[1800px]:hidden" />
+                {/* The site's name first, in grey, on one line. */}
+                <span aria-hidden="true" data-site="" className="whitespace-nowrap text-[15px] leading-snug text-[#c3bfb6]">
+                  {oneLine}
+                </span>
+                <p aria-hidden="true" data-status="" className="min-w-0 flex-1 whitespace-nowrap text-[15px] leading-snug">
+                  {statusShort(series, power, hour, s.params.power.batteryWh)}
+                </p>
               </div>
             </div>
             {better && !cardOpen && (
@@ -707,12 +713,13 @@ export function StandView({
               <a
                 data-chip=""
                 data-plate=""
+                title={better.label}
                 href={better.href}
                 onClick={(e) => {
                   e.preventDefault();
                   land(better.startUtc, better.href);
                 }}
-                className={`${PLATE} pointer-events-auto inline-flex min-h-8 items-center gap-1 border-[#f6d48a]/55 px-2.5 text-[14px] text-[#f6d48a] min-[1800px]:hidden`}
+                className={`${PLATE} pointer-events-auto inline-flex min-h-8 items-center gap-1 border-[#f6d48a]/55 px-2.5 text-[14px] text-[#f6d48a]`}
               >
                 {better.chip}
                 <span aria-hidden="true">›</span>
@@ -724,8 +731,8 @@ export function StandView({
                 data-plate=""
                 className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin] md:gap-2.5 md:p-5 min-[1800px]:max-h-[calc(100dvh-var(--bar-h,185px)-var(--status-h,64px)-56px)] max-[1800px]:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-var(--status-h,72px)-68px)]`}
               >
-                {/* On a phone the card opens on the moment's state with its dot (19.1); from 768 px the plate's foot has it. */}
-                <p className="flex items-start gap-2.5 text-[15px] md:hidden">
+                {/* The card opens on the moment's state in full, with its dot (19.1, 25.7): the plate's foot has it in a few words. */}
+                <p data-state="" className="flex items-start gap-2.5 text-[15px]">
                   <i aria-hidden="true" data-tone={lander.tone} className={`mt-[5px] h-3 w-3 shrink-0 rounded-full ${TONE[lander.tone]}`} />
                   <span>{lander.text}</span>
                 </p>
@@ -736,17 +743,21 @@ export function StandView({
                 <p data-countdown="" className="text-[14px] tabular-nums md:text-[15px]">
                   {skyCountdown(series, hour)}
                 </p>
+                {/* What the names in the sky leave out (spec 25.7): the heights and the lander's distance; then the bar's clock. */}
+                <p data-facts="" className="text-[14px] text-[#c3bfb6] md:text-[15px]">
+                  {sceneFacts(series, hour, scene?.lander?.distM)} {EARTH_TIME}
+                </p>
                 {/* The whole headline on a phone, the night with it, which the plate's short form leaves out; the heading
                     above says it for screen readers. */}
-                <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px] min-[1800px]:hidden">
+                <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px]">
                   {title}
                 </p>
                 {/* The lead names Play and Next, the same at every width (18.2, 21.1). */}
                 {!stepShows && <p className="text-[14px] text-[#f6d48a] md:text-[15px]">{watch}</p>}
                 {better && (
-                  // The better day, on a row of its own, so the links below never move. From 768 px the next step's
-                  // row on the plate holds it, so the screen keeps one gold action (17.1).
-                  <div className="min-[1800px]:hidden">
+                  // The better day, on a row of its own, so the links below never move. The chip under the plate waits
+                  // while the card is open, so the screen keeps one gold action (17.1).
+                  <div>
                     <a
                       href={better.href}
                       onClick={(e) => {
@@ -777,15 +788,15 @@ export function StandView({
                       {more ? '▴' : '▾'}
                     </span>
                   </button>
-                  {/* On a phone the next step waits here (17.1), by the names the readers looked for (read D3): from 768 px the
-                      next step's row on the plate holds them instead. */}
-                  <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 min-[1800px]:hidden">
+                  {/* The next step waits here at every width (17.1, 25.7), by the names the readers looked for (read D3). With no
+                      better day Compare sites is the gold one. */}
+                  <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
                     Change site
                   </Link>
-                  <Link href={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 min-[1800px]:hidden">
+                  <Link href={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4">
                     Change date
                   </Link>
-                  <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 min-[1800px]:hidden">
+                  <button type="button" onClick={compare} className={`flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4${better ? '' : ' text-[#f6d48a]'}`}>
                     Compare sites
                   </button>
                   {/* Luna (spec 22), on a phone: her panel stands above the buttons and the time bar. */}
@@ -795,8 +806,8 @@ export function StandView({
                       panelClassName="fixed inset-x-4 bottom-[calc(var(--bar-h,200px)+var(--look-h,0px)+12px)] z-50 rounded-lg border border-white/20 bg-[#060607] p-4 text-left text-[15px] text-[#f2f0ea]"
                     />
                   </div>
-                  {/* On a phone the next step's row is not shown: Change lander waits here (18.3). */}
-                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 min-[1800px]:hidden" onClick={(e) => openLander(e.currentTarget)}>
+                  {/* Change lander (18.3). */}
+                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4" onClick={(e) => openLander(e.currentTarget)}>
                     Change lander
                   </button>
                   {/* Three times the exposure for projectors and bright rooms (18.3, 19.4); its words never change with its state. */}
@@ -844,10 +855,10 @@ export function StandView({
                     </div>
                   </div>
                 )}
-                {/* The compass's dots named, where the strip has no room for its key: from 768 px up to 1800 px (spec 25). */}
-                {!failed && <p data-compass-key="" className="text-[14px] text-[#c3bfb6] max-md:hidden min-[1800px]:hidden">{COMPASS_KEY}</p>}
-                {/* Below 1800 px the way to the evidence waits here (19.3, 25); from 1800 px the plate's foot has it. */}
-                <Sections className="flex-wrap gap-y-1 min-[1800px]:hidden" />
+                {/* The compass's dots named, from 768 px, where the strip shows (spec 25, 25.7). */}
+                {!failed && <p data-compass-key="" className="text-[14px] text-[#c3bfb6] max-md:hidden">{COMPASS_KEY}</p>}
+                {/* The way to the evidence (19.3, 25.7). */}
+                <Sections className="flex-wrap gap-y-1" />
                 {!stepShows && <p className="text-[14px] text-[#c3bfb6]">Drag to look around; pinch or scroll to zoom.</p>}
               </div>
             )}
@@ -860,56 +871,57 @@ export function StandView({
               data-plate=""
               role="group"
               aria-label="Look towards"
-              className={`${PLATE} pointer-events-auto flex shrink-0 items-center gap-1.5 p-1.5 max-[1800px]:fixed md:max-[1800px]:bottom-[calc(var(--bar-h,129px)+12px)] md:max-[1800px]:left-1/2 md:max-[1800px]:-translate-x-1/2 md:max-[1800px]:w-max max-md:inset-x-0 max-md:bottom-[var(--bar-h,211px)] max-md:justify-between max-md:gap-1 max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:bg-[#1e1e1e] max-md:px-3 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
+              className={`${PLATE} pointer-events-auto flex shrink-0 items-center gap-1.5 p-1.5 max-[1800px]:fixed md:max-[1800px]:bottom-[calc(var(--bar-h,129px)+12px)] md:max-[1800px]:left-1/2 md:max-[1800px]:-translate-x-1/2 md:max-[1800px]:w-max max-md:inset-x-0 max-md:bottom-[var(--bar-h,211px)] max-md:justify-between max-md:gap-1 max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:bg-[#1e1e1e] max-md:px-3`}
             >
-              <span className="whitespace-nowrap pl-1 pr-0.5 text-[14px] text-[#c3bfb6] md:text-[15px] max-lg:hidden">Turn to</span>
-              <button type="button" aria-label="Face the Sun" className={LOOK} onClick={byHand(() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46))}>
-                Sun
+              <button type="button" aria-label="Face the Sun" title="Face the Sun" className={ICON} onClick={byHand(() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46))}>
+                <Sun aria-hidden="true" size={20} className="text-[#f6b646]" />
               </button>
               <button
                 type="button"
                 aria-label="Face Earth"
-                className={LOOK}
+                title="Face Earth"
+                className={ICON}
                 onClick={byHand(() => {
                   face(series.earthAz[hour], series.earthEl[hour], 16);
                   setCaption(viewCaption('earth', site.lat));
                 })}
               >
-                Earth
+                <Earth aria-hidden="true" size={20} className="text-[#74adff]" />
               </button>
               {scene?.lander && (
                 <button
                   type="button"
                   aria-label="Face the lander"
-                  className={LOOK}
+                  title="Face the lander"
+                  className={ICON}
                   onClick={byHand(() => {
                     faceLander();
                     setCaption(landerCaption(site.lat, panelBackSeen));
                   })}
                 >
-                  Lander
+                  <LanderSign />
                 </button>
               )}
               {/* The "Turn to" buttons end here: what follows is not a way to turn. */}
               <i aria-hidden="true" className="h-7 w-px shrink-0 bg-white/25" />
               {lookingUp ? (
-                <button type="button" aria-label="Look ahead" className={LOOK} onClick={byHand(() => face(series.sunAz[hour], 0.5, 60))}>
-                  <Short short="Ahead" long="Look ahead" />
+                <button type="button" aria-label="Look ahead" title="Look ahead" className={ICON} onClick={byHand(() => face(series.sunAz[hour], 0.5, 60))}>
+                  <ChevronsDown aria-hidden="true" size={20} />
                 </button>
               ) : (
-                <button type="button" aria-label="Look up" className={LOOK} onClick={byHand(lookUp)}>
-                  Look up
+                <button type="button" aria-label="Look up" title="Look up" className={ICON} onClick={byHand(lookUp)}>
+                  <ChevronsUp aria-hidden="true" size={20} />
                 </button>
               )}
               {/* "Show paths" (18.2): the month's paths of the Sun and Earth with their days, the level horizon, the star names,
                   your shadow. Its words say what it does, "Hide paths" once they show, so it carries no pressed state: a
                   toggle's words must not change with its state (19.4). A phone keeps "Paths" for the row's width. */}
-              <button type="button" aria-label={guides ? 'Hide paths' : 'Show paths'} className={LOOK} onClick={() => setGuides((g) => !g)}>
-                <Short short="Paths" long={guides ? 'Hide paths' : 'Show paths'} />
+              <button type="button" aria-label={guides ? 'Hide paths' : 'Show paths'} title={guides ? 'Hide paths' : 'Show paths'} data-on={guides ? '' : undefined} className={`${ICON} data-[on]:border-[#f2f0ea]`} onClick={() => setGuides((g) => !g)}>
+                <Spline aria-hidden="true" size={20} />
               </button>
               {/* "Hide panels" (spec 25), the one control that leaves the Moon alone; "Hide" on a phone, its name whole. */}
-              <button ref={hideRef} type="button" aria-label="Hide panels" className={LOOK} onClick={() => pressWords(true)}>
-                <Short short="Hide" long="Hide panels" />
+              <button ref={hideRef} type="button" aria-label="Hide panels" title="Hide panels" className={ICON} onClick={() => pressWords(true)}>
+                <EyeOff aria-hidden="true" size={20} />
               </button>
               {/* Luna (spec 22): her panel opens under the row at the top right from 1800 px, above it over the bar below that. */}
               <div className="max-md:hidden">
@@ -936,7 +948,7 @@ export function StandView({
 
       <div ref={barRef} data-plate="" className="fixed inset-x-0 bottom-0">
         {/* No chart above it here: the bar carries the dates and the hours the lander is off. */}
-        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={onCursor} onPlay={onPlay} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} ifSurvivesFrom={ifSurvivesFrom} clockNote=" (Earth time)" speed={speed} onSpeed={setSpeed} holdMs={2500} spaceToPlay onArrive={onArrive} />
+        <TimeBar series={series} power={power} startUtc={s.startUtc} cursor={hour} hoverHour={null} batteryWh={s.params.power.batteryWh} onCursor={onCursor} onPlay={onPlay} dates powered={power.powered} compact bare={wordsHidden} moments={moments} onMoment={onMoment} ifSurvivesFrom={ifSurvivesFrom} brief speed={speed} onSpeed={setSpeed} holdMs={2500} spaceToPlay onArrive={onArrive} />
       </div>
       {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
     </main>
@@ -962,138 +974,12 @@ function Sections({ className }: { className: string }) {
   );
 }
 
-/** A way on in the list under Change: as the row's links were (17.1), and as wide as the list, so the whole line takes a press. */
-const WAY = 'flex min-h-10 w-full items-center whitespace-nowrap text-[15px] underline underline-offset-4';
-
-/**
- * The next step's other ways on from 768 px (20.1): one "Change", the judge's one menu for site, date, lander and compare
- * (18.8), in place of the row of links of 17.1, 18.3 and 19.1. It opens them in a small plate under it, in the same
- * order, by the same names and doing the same: a disclosure of links and buttons, not an ARIA menu, which would ask for
- * arrow keys and roles that four ways on do not need. Escape closes it and gives the focus back to Change, as a way
- * chosen does; a press outside it closes it, and so does the focus moving on past it, so the plate never covers what the
- * focus has gone to. With no better day the gold is Compare sites, and the list holds the other three.
- */
-function ChangeWays({ dateHref, onLander, onCompare }: { dateHref: string; onLander: (from: HTMLButtonElement) => void; onCompare?: () => void }) {
-  const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
-  const button = useRef<HTMLButtonElement>(null);
-  const list = useRef<HTMLUListElement>(null);
-  useLayoutEffect(() => {
-    const l = list.current, b = button.current;
-    if (!open || !l || !b) return;
-    // Under Change from its left edge, moved left only as far as keeps 16 px clear of the screen's right edge: from 768 px
-    // a long better day can leave Change at the end of the row. Placed before the first paint, so it never jumps.
-    const place = () => {
-      l.style.left = `${-Math.max(0, b.getBoundingClientRect().left + l.offsetWidth - (window.innerWidth - 16))}px`;
-    };
-    const key = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      setOpen(false);
-      b.focus();
-    };
-    const press = (e: PointerEvent) => {
-      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
-    };
-    place();
-    window.addEventListener('resize', place);
-    document.addEventListener('keydown', key);
-    // Caught on the way down, so a press on the view, which takes the pointer for the drag, closes it too.
-    document.addEventListener('pointerdown', press, true);
-    return () => {
-      window.removeEventListener('resize', place);
-      document.removeEventListener('keydown', key);
-      document.removeEventListener('pointerdown', press, true);
-    };
-  }, [open]);
-  // A way chosen closes the list, and the focus waits on Change rather than on a way the list has just hidden.
-  const chosen = () => {
-    setOpen(false);
-    button.current?.focus();
-  };
+/** The lander as a sign for its button: a body on two legs with its dish, in the white of its dot on the compass. */
+function LanderSign() {
   return (
-    <div
-      ref={wrap}
-      className="relative"
-      onBlur={(e) => {
-        if (e.relatedTarget instanceof Node && !e.currentTarget.contains(e.relatedTarget)) setOpen(false);
-      }}
-    >
-      <button ref={button} type="button" aria-expanded={open} aria-controls="stand-change" className="flex min-h-10 items-center gap-1.5 whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setOpen((o) => !o)}>
-        Change
-        <span aria-hidden="true" className="no-underline">
-          {open ? '▴' : '▾'}
-        </span>
-      </button>
-      {/* In the page's order, after Change; `hidden` until it opens, so a search of the page still finds the ways on. */}
-      <ul ref={list} id="stand-change" data-plate="" hidden={!open} className={`${PLATE} absolute left-0 top-full z-10 mt-1 grid w-max px-4 py-1`}>
-        <li>
-          <Link href="/sites" className={WAY} onClick={chosen}>
-            Change site
-          </Link>
-        </li>
-        <li>
-          <Link href={dateHref} className={WAY} onClick={chosen}>
-            Change date
-          </Link>
-        </li>
-        <li>
-          {/* The forecast page's lander dialog, in place (18.3); it gives the focus back to Change when it closes. */}
-          <button
-            type="button"
-            className={WAY}
-            onClick={() => {
-              setOpen(false);
-              if (button.current) onLander(button.current);
-            }}
-          >
-            Change lander
-          </button>
-        </li>
-        {onCompare && (
-          <li>
-            <button
-              type="button"
-              className={WAY}
-              onClick={() => {
-                chosen();
-                onCompare();
-              }}
-            >
-              Compare sites
-            </button>
-          </li>
-        )}
-      </ul>
-    </div>
+    <svg aria-hidden="true" width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 8h8l2 7H6z" />
+      <path d="M7 15l-3 6M17 15l3 6M2 21h4M18 21h4M12 8V3M9 3h6" />
+    </svg>
   );
 }
-
-/**
- * The first step on the line over the view (19.2): Play and the drag, short under 640 px (the line twice, one shown per
- * width, so a screen reader meets only the shown one: display: none keeps the other out), or with reduced motion the
- * drag alone, as Play is off then.
- */
-function FirstStep({ reduced }: { reduced: boolean }) {
-  if (reduced) return <>{FIRST_STEP_STILL}</>;
-  return (
-    <>
-      <span className="max-sm:hidden">{FIRST_STEP}</span>
-      <span className="sm:hidden">{FIRST_STEP_PHONE}</span>
-    </>
-  );
-}
-
-/** A button's words: short on a phone, full elsewhere (the button's aria-label carries the full name). */
-function Short({ short, long }: { short: string; long: string }) {
-  return (
-    <>
-      <span aria-hidden="true" className="md:hidden">
-        {short}
-      </span>
-      <span aria-hidden="true" className="max-md:hidden">
-        {long}
-      </span>
-    </>
-  );
-}
-

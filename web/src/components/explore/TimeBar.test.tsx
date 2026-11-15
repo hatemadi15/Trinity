@@ -1791,3 +1791,31 @@ describe('the time bar as Luna’s player (spec 22)', () => {
     }
   });
 });
+
+describe('TimeBar: brief, for the view from the site (spec 25.7)', () => {
+  const moments = [{ label: 'Sunset, 3 Jan', hour: 57 }];
+  it('folds the keys behind the Key button at every width, and Next shows the moment alone, "Next:" kept in its name', () => {
+    const { container } = showStandPeriod({ compact: true, brief: true, moments });
+    const key = screen.getByRole('button', { name: /^Key/ });
+    expect(key.className).not.toMatch(/sm:hidden/);
+    const keys = container.querySelector('[data-part="key"]')!.parentElement!;
+    expect(keys.className).toMatch(/(^| )hidden( |$)/);
+    fireEvent.click(key);
+    expect(key.getAttribute('aria-expanded')).toBe('true');
+    expect(keys.className).not.toMatch(/(^| )hidden( |$)/);
+    expect(keyWords(container)).toEqual(['in sunlight', 'night', 'lander off', 'Earth in view', 'radio, if the lander survives the cold']);
+    const next = screen.getByRole('button', { name: 'Next: Sunset, 3 Jan' });
+    expect(next.querySelector('[data-label]')!.textContent).toBe('Sunset, 3 Jan ›');
+    expect(next.getAttribute('title')).toBe('Next: Sunset, 3 Jan');
+  });
+  it('leaves Explore’s bar as it was: the keys in view from 640 px, "Next:" in Next’s words', () => {
+    const { container } = showStandPeriod({ compact: true, moments });
+    expect(screen.getByRole('button', { name: /^Key/ }).className).toMatch(/sm:hidden/);
+    const keys = container.querySelector('[data-part="key"]')!.parentElement!;
+    expect(keys.className).toMatch(/max-sm:hidden/);
+    expect(keys.className).not.toMatch(/(^| )hidden( |$)/);
+    const next = container.querySelector('[data-part="next"]')!;
+    expect(next.querySelector('[data-label]')!.textContent).toBe('Next: Sunset, 3 Jan ›');
+    expect(next.hasAttribute('aria-label')).toBe(false);
+  });
+});
