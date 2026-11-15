@@ -40,12 +40,12 @@ describe('home page', () => {
     expect(row.textContent).toContain(degreesText(HOME.facts.horizons_worst_el_deg));
   });
 
-  it('names the first screen’s second action for the section it opens, the three drawings of why the south pole is hard', () => {
+  it('opens the section of questions from the first screen’s second action: why the south pole, and why it is hard', () => {
     render(<Home />);
     const jump = screen.getByRole('link', { name: 'See why the pole is hard' });
     const target = document.getElementById(jump.getAttribute('href')!.slice(1))!;
-    expect(within(target).getByRole('heading', { level: 2 }).textContent).toBe('Why the south pole is hard');
-    expect(within(target).getAllByRole('heading', { level: 3 })).toHaveLength(3);
+    expect(within(target).getByRole('heading', { level: 2 }).textContent).toBe('Why the south pole?');
+    expect(within(target).getByRole('heading', { level: 3, name: 'Why is landing there hard?' })).toBeTruthy();
     // Only the pages of How it works say so: no second name for the one thing.
     expect(screen.queryByRole('link', { name: /see how it works/i })).toBeNull();
   });
@@ -115,13 +115,36 @@ describe('home page', () => {
     expect(band.textContent).not.toMatch(/for radio/);
   });
 
-  it('sends a newcomer or a teacher to the science from the top of the three facts, in one short line', () => {
+  it('answers five questions a child could ask, each a heading, in short sentences and everyday words (spec 23.3)', () => {
     render(<Home />);
-    const why = document.getElementById('why')!;
-    const lede = within(why).getByText(/^Three facts decide/);
-    expect(lede.textContent).toBe('Three facts decide a lander\'s power and signal. How it works has the science.');
-    // Before the three facts, not after them.
-    expect(lede.compareDocumentPosition(within(why).getByText('The Sun never climbs')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const why = screen.getByRole('region', { name: 'Why the south pole?' });
+    const asked = within(why).getAllByRole('heading', { level: 3 });
+    expect(asked.map((h) => h.textContent)).toEqual([
+      "Why is NASA looking at the Moon's south pole?",
+      'Why is landing there hard?',
+      'Why do the hills matter so much?',
+      'Why does Earth matter?',
+      'So what does Earthrise do?',
+    ]);
+    const answers = asked.map((h) => h.nextElementSibling!.textContent!);
+    expect(answers).toEqual([
+      'Ice has been found in its darkest, coldest craters. One day that frozen water could give astronauts water, air and rocket fuel. And some hilltops there stay in sunlight for a whole month, which a lander needs for power.',
+      'The Sun never climbs high. It slides round the sky close to the ground, so hills throw very long shadows. A lander runs on sunlight: in shadow it has no power.',
+      'Two places close together can get very different light. In January 2027 one hilltop has sunlight all month. A ridge 12 km away is dark from 3 to 20 January.',
+      'The lander talks to us by radio. It can only do that while Earth is in its sky, above the hills, and it has power.',
+      'It works out, hour by hour, when a spot has sunlight and when it can call home. Then planners can pick the place and the day. How it works has the science.',
+    ]);
+    // The figures are the month's own: the rim's summit is sunlit every hour, the ridge dark from sunset to sunrise.
+    expect(HOME.pair.rim_sun_pct).toBe(100);
+    expect(Math.round(HOME.pair.distance_km)).toBe(12);
+    expect(HOME.sky.night).toEqual({ sunset_hour: 67, sunrise_hour: 466, hours: 399 });
+    // Everyday words only, in what is read and in what a screen reader hears of the drawings: no units of angle, no
+    // science terms, and nothing promised of the ice or of a mission.
+    const said = why.textContent! + within(why).getAllByRole('img').map((d) => d.getAttribute('aria-label')).join(' ');
+    expect(said).not.toMatch(/°|degree|azimuth|elevation|terrain|illuminat|horizon|DEM\b|skyline|latitude|\bwill\b|surviv|\bdie|dead/i);
+    // No sentence is long.
+    for (const a of answers) for (const sentence of a.split(/(?<=\.) /)) expect(sentence.split(' ').length, sentence).toBeLessThanOrEqual(24);
+    expect(within(why).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
   });
 
   it("keeps the forecast's explanation to a readable line length", () => {
@@ -150,7 +173,7 @@ describe('home page', () => {
     expect(band.className).toMatch(/(^| )pb-24( |$)/);
     const bands = [...document.querySelectorAll<HTMLElement>('main [data-band]')];
     expect(bands.map((b) => b.getAttribute('data-band'))).toEqual(['paper', 'black', 'paper', 'black']);
-    const names = ['Why the south pole is hard', 'Start from a real place', 'Checked against NASA', 'Try it on a landing site'];
+    const names = ['Why the south pole?', 'Start from a real place', 'Checked against NASA', 'Try it on a landing site'];
     bands.forEach((b, i) => {
       const paper = b.getAttribute('data-band') === 'paper';
       // The scope gives the band its colours whatever the page's theme.
@@ -176,31 +199,24 @@ describe('home page', () => {
     expect(band.hasAttribute('data-stage')).toBe(true);
   });
 
-  it('explains why the south pole is hard in three drawings a newcomer reads at a glance: one idea each, the real figures, no axes (spec 23.3)', () => {
+  it('pairs three of the questions with a drawing read at a glance: one idea each, a label or two, no axes (spec 23.3)', () => {
     render(<Home />);
-    const why = screen.getByRole('region', { name: 'Why the south pole is hard' });
-    expect(within(why).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['The Sun never climbs', 'The hills decide', 'Earth sets too']);
+    const why = screen.getByRole('region', { name: 'Why the south pole?' });
     const drawings = within(why).getAllByRole('img');
     expect(drawings).toHaveLength(3);
-    // A low Sun beside a high one; a lit summit beside ground in shadow; Earth over the hills. Few words on each.
-    const words = drawings.map((d) => [...d.querySelectorAll('text')].map((t) => t.textContent));
-    expect(words).toEqual([
-      ["Apollo 15's Sun: 64° up", 'South pole: 2.5° at most'],
-      ['Summit: sunlight all month', `${Math.round(HOME.pair.distance_km)} km away: sunlit ${pct(Math.round(HOME.pair.site_sun_pct))} of the month`],
-      [`Earth: in view ${pct(Math.round(HOME.sky.earth_pct))} of the month`, 'behind the hills the rest'],
+    // A low Sun beside a high one; a hilltop in the light beside ground in shadow; Earth over the hills.
+    expect(drawings.map((d) => [...d.querySelectorAll('text')].map((t) => t.textContent))).toEqual([
+      ['the Sun where Apollo 15 landed', 'the Sun at the south pole'],
+      ['sunlight all month', '12 km away: dark 3 to 20 January'],
+      ['Earth, peeking over the hills'],
     ]);
-    // The figures are the month's own.
-    expect(Math.max(...HOME.sky.sun_el)).toBeCloseTo(2.5, 1);
-    expect(HOME.pair.rim_sun_pct).toBe(100);
+    // Each stands beside its question.
+    expect(drawings.map((d) => d.parentElement!.querySelector('h3')!.textContent)).toEqual(['Why is landing there hard?', 'Why do the hills matter so much?', 'Why does Earth matter?']);
     for (const d of drawings) expect(d.getAttribute('aria-label')!.length).toBeGreaterThan(60);
-    // No axes, compass letters or buttons to play: those charts are on How it works.
-    expect(why.textContent).not.toMatch(/direction from|horizon\b.*°|Play the month/);
+    // The low Sun is drawn at its true height, the month's highest.
+    expect(Math.max(...HOME.sky.sun_el)).toBeCloseTo(2.5, 1);
+    // No buttons to play: the charts are on How it works.
     expect(within(why).queryByRole('button')).toBeNull();
-    expect(why.textContent).toContain(`The forecast's site is ${Math.round(HOME.pair.distance_km)} km from that summit.`);
-    expect(within(why).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
-    // There is no magnetic compass on the Moon.
-    expect(why.textContent).not.toMatch(/compass/);
-    expect(why.textContent).toMatch(/Earth stays in one place, rising and setting behind the hills\./);
   });
 
   it('starts from a real place: the computed shadow picture beside three places, each one link to explore it', () => {
@@ -327,7 +343,7 @@ describe('home page', () => {
     expect(band.querySelector('[data-hour-card]')).toBeNull();
   });
 
-  it('keeps the page short: the words under the descent stay within their caps, charts and drawings left out (owner review: half the words)', () => {
+  it('keeps the page short: the words under the descent stay within their caps, charts and drawings left out (owner review: far fewer words)', () => {
     render(<Home />);
     // The words a visitor reads as text: not a chart's own labels, a drawing's, or what only a screen reader hears.
     const words = (el: Element) => {
@@ -339,15 +355,15 @@ describe('home page', () => {
     };
     const count = {
       forecast: words(screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' })),
-      why: words(screen.getByRole('region', { name: 'Why the south pole is hard' })),
+      why: words(screen.getByRole('region', { name: 'Why the south pole?' })),
       places: words(screen.getByRole('region', { name: 'Start from a real place' })),
       proof: words(screen.getByRole('region', { name: 'Checked against NASA' })),
       end: words(screen.getByRole('region', { name: 'Try it on a landing site' })),
     };
-    // Before the cut these were 239, 261, 204, 151 and 59: 914 in all.
-    const CAPS = { forecast: 165, why: 80, places: 115, proof: 115, end: 45 };
+    // Before the cut these were 239, 261, 204, 151 and 59: 914 in all. 02 keeps room for its five questions and answers.
+    const CAPS = { forecast: 165, why: 200, places: 115, proof: 115, end: 45 };
     for (const k of Object.keys(CAPS) as (keyof typeof CAPS)[]) expect(count[k], k).toBeLessThanOrEqual(CAPS[k]);
-    expect(Object.values(count).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(510);
+    expect(Object.values(count).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(630);
   });
 
   it('every Explore link on the home page carries its start and its days, so a visit never opens on the period the last one used', () => {

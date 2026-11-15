@@ -60,7 +60,7 @@ function Arrow() {
 
 /**
  * The home page (spec 23): the descent to the Moon's south pole, then five numbered sections in one line down the page, each opened the same
- * way (SectionHead): the forecast, why the pole is hard, real places, the checks, and where to go next. The sections alternate, black then
+ * way (SectionHead): the forecast, why the south pole, real places, the checks, and where to go next. The sections alternate, black then
  * paper, in both themes: 01, 03 and 05 are black, 02 and 04 paper.
  */
 export default function Home() {

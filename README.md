@@ -21,9 +21,10 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   then paper, in both themes: 01 the Sun and Earth over de Gerlache Rim 2 in January 2027, read in
   three steps and hour by hour under the pointer, and what that means for a small lander. Earth in
   view is not radio contact: the lander step shows contact only for the hours with power and Earth
-  in view at once (3 d 5 h that month) and says what every other stretch lacks. 02 three drawings a
-  newcomer reads at a glance explain why the south pole is hard (the Sun never climbs, the hills
-  decide, Earth sets too); the full charts are on How it works.
+  in view at once (3 d 5 h that month) and says what every other stretch lacks. 02 "Why the south pole?" answers
+  five questions in words a child can follow (why NASA looks there, why landing is hard, why the
+  hills and Earth matter, what Earthrise does), three with a drawing read at a glance; the full
+  charts are on How it works.
   03 "Start from a real place" pairs a computed shadow picture of the ridge with three
   places to open: the ridge, and the Athena and Blue Ghost landers of March 2025, which open Explore
   at the first whole hour after each one landed. 04 gives two checks against NASA and one real

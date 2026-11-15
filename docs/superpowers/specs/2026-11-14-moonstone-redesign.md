@@ -25,10 +25,11 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   880 px tall) so the buttons stay clear of Luna. Then five
   numbered sections in one line (`SectionHead`) that alternate in both themes, black then paper, each with the same
   room above and below and one clean edge between: 01 the forecast on black, which reads hour by hour under the
-  pointer or the arrow keys (`ForecastHover`); 02 why the pole is hard (23.3) on paper (`.theme-light`); 03 real
+  pointer or the arrow keys (`ForecastHover`); 02 why the south pole, in questions and answers (23.3), on paper (`.theme-light`); 03 real
   places as whole-row links on black (`.theme-dark`); 04 the checks on paper; 05 where to go next, over the halftone
-  nebula, black in both themes after 04's paper. No folds. The words under the descent were cut by about half
-  (15 November, owner review): 914 words of text to about 500, held by caps in `page.test.tsx`.
+  nebula, black in both themes after 04's paper. No folds. The words under the descent were cut (15 November, owner
+  review) from 914 words of text to about 620, and outside 02's questions from 653 to about 430, held by caps in
+  `page.test.tsx`.
 - **Choose a site.** The title over the nebula, then three steps on the page (pick the dates, compare the places,
   open one); what the figures count from and what each column means are one point away (`Tip`).
 - **404.** The nebula, with the page's own sentence as its headline.
@@ -100,10 +101,14 @@ Textures and their credits: `web/public/hero/textures/`.
   view, but no power: night". Each landing's card gives its radio contact beside its power: none for 1 January (the
   battery runs out before Earth rises), 3 d 5 h for 20 January. The figures are the engine's battery walk and
   home.json's, checked against each other in `homeContact.test.ts`.
-- **Why the south pole is hard, for a newcomer** (`WhySimple`): three drawings with one idea each, no axes, two
-  labels at most, in the month's own figures: the Sun at its true 2.5° beside Apollo 15's at 64°; a summit in
-  sunlight all month beside ground behind a hill, 12 km away, sunlit 45 % of the month; Earth half risen over the
-  hills, in view 45 % of the month (it rises and sets in place; still under reduced motion). One sentence under each,
-  and a link to How it works.
+- **02 is "Why the south pole?", in questions and answers a 7-year-old could follow** (`WhySimple`; 15 November,
+  owner review). Five questions, each a heading: why NASA is looking there (ice has been found in its darkest,
+  coldest craters; one day it could give water, air and rocket fuel; some hilltops stay in sunlight for a whole
+  month), why landing is hard, why the hills matter, why Earth matters, and what Earthrise does. Short sentences and
+  everyday words: no degrees or science terms, no mission dates, nothing promised, no survival wording. The real
+  figures stay: one hilltop sunlit all January 2027, a ridge 12 km away dark from 3 to 20 January.
+- Three of the questions have a drawing with one idea each, no axes and a label or two: the Sun at its true height
+  at the pole beside Apollo 15's high Sun; a hilltop in sunlight beside ground behind a hill; Earth half risen over
+  the hills (it rises and sets in place; still under reduced motion). The last answer links to How it works.
 - The charts of the same three facts by direction and height (`WhySection`, `WhyDrawings`, `lib/viz/why`), with
   their Play buttons, the Moon's 1.5° tilt and the rule of thumb for angles, now stand on How it works only.
