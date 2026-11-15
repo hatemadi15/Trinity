@@ -6,12 +6,19 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
 (no glows, no gradients, no motion); the tests in `web/src/app/look.test.ts` and `globals.test.ts` hold the new rules.
 
 ## Look
-- **Colour.** Black and white, like a print of the Moon, with one colour that pops: moonstone blue (`--accent`,
-  `#7fa9ff` dark, `#2f62e0` light), which is also Earth. The Sun is drawn warm white. Green and red stay for the power
-  verdict only. Glows are the accent's own light: `rgb(var(--glow) / a)`.
-- **Type.** Titles in Instrument Serif with its italic (the Default Lingo look; load the licensed Default Lingo under
-  `--font-serif` to swap it in), the odd word in Pixelify Sans (Default Lingo's pixel cut), reading in IBM Plex
-  Sans, readouts and labels in IBM Plex Mono (`.eyebrow`).
+- **Colour.** Ink on a deep blue-grey, with one colour that pops: moonstone blue (`--accent`, `#7fa9ff` dark,
+  `#2f62e0` light), which is also Earth. The Sun is drawn warm white. Green and red stay for the power verdict only.
+  Glows are the accent's own light: `rgb(var(--glow) / a)`. The dark theme is not black (15 November, owner review:
+  "things are a bit too black", sections could not be told apart): the page is `#0f141c`, a band `#151b26`, a panel
+  `#19202b`, a raised panel `#232c39`, with edges `#364152` and `#7f8a99`; pictures keep true black, so they stand
+  out on it. The home page's dark bands take the page's tone in both themes (`--stage-band`), with figures on
+  `--stage-raised`. Explore, Compare and Accuracy frame each section as a panel; How it works alternates a band
+  shade (`.band`) between its sections. Body text stays 7:1 and secondary text 4.5:1 on every one of these.
+- **Type.** One face for the whole site (15 November, owner review: a simple, clear, consistent font): IBM Plex
+  Sans, the only font loaded. Titles (`.display`) are semibold with a line height of 1.2, and a stressed word stands
+  upright in the accent, never in italics; reading text has a line height of 1.6 and the face's own letter spacing;
+  labels in capitals (`.eyebrow`) are tracked 0.06em; figures keep one width (`tabular-nums`) where the monospace
+  face lined them up. Instrument Serif, Pixelify Sans and IBM Plex Mono are gone, with their files and licences.
 - **Theme switch.** One round toggle; the new theme opens as a circle from it (view transitions), or the colours
   cross-fade in 0.5 s (`theme-fading`). Reduced motion switches at once.
 - **Motion.** Defined once in `globals.css` and all stopped under reduced motion: headings come into focus as they
@@ -23,7 +30,7 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   lede the audience line, "For planners of NASA's commercial Moon landers, teachers (start with How it works) and
   anyone curious.", with the title in two lines where the first screen is short (a phone, a landscape window under
   880 px tall) so the buttons stay clear of Luna. Then five
-  numbered sections in one line (`SectionHead`) that alternate in both themes, black then paper, each with the same
+  numbered sections in one line (`SectionHead`) that alternate in both themes, dark (the dark page’s blue-grey) then paper, each with the same
   room above and below and one clean edge between: 01 the forecast on black, which reads hour by hour under the
   pointer or the arrow keys (`ForecastHover`); 02 why the south pole, in questions and answers (23.3), on paper (`.theme-light`); 03 real
   places as whole-row links on black (`.theme-dark`); 04 the checks on paper; 05 where to go next, over the halftone
