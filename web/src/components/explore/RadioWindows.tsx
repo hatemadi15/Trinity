@@ -70,7 +70,7 @@ export function RadioWindows({ series, power, startUtc, hour }: { series: Series
       <h2 id="h-radio" className="display text-[23px] font-semibold">
         Radio windows
       </h2>
-      <p className="mt-1 text-ink-2">With Earth in view, a direct radio link is geometrically possible (direct-to-Earth visibility).</p>
+      <p className="mt-1 text-ink-2">When a direct radio link to Earth is geometrically possible.</p>
       {/* At the time bar's hour, as it moves; two lines kept on a phone so the page below stays put. */}
       <p data-testid="radio-next" className="mt-3 text-[17px] font-semibold tabular-nums max-sm:min-h-[2lh]">
         {radioChangeWords(plan, shown, startUtc)}
@@ -98,10 +98,10 @@ export function RadioWindows({ series, power, startUtc, hour }: { series: Series
               ))}
             </tbody>
           </table>
-          <p className="mt-2 text-[15px] text-ink-2">Each time is the first whole hour with Earth in view, or without it: the change falls within the hour before.</p>
+          <p className="mt-2 text-[15px] text-ink-2">Each time is the first whole hour after the change.</p>
         </Fold>
       )}
-      <p className="mt-3 text-[15px] text-ink-2">Earth in view alone does not establish antenna performance, the link budget, ground-station availability or a scheduled contact.</p>
+      <p className="mt-3 text-[15px] text-ink-2">Earth in view alone does not establish antenna performance, a link budget, ground stations or a schedule.</p>
     </section>
   );
 }

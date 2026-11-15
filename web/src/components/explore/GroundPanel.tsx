@@ -45,8 +45,8 @@ const TABS: { id: GroundTab; label: string }[] = [
  * 20 km at 20 m per pixel, 41 km at 80 m), and the globe is the whole Moon.
  */
 function aboutTab(tab: GroundTab, view: SceneMode, km: number | null): string {
-  if (tab === 'map') return "The ground from above at the time bar's hour, north up.";
-  if (tab === 'horizon') return 'The horizon all round, unrolled into one strip, with the paths of the Sun and Earth.';
+  if (tab === 'map') return "From above, at the time bar's hour.";
+  if (tab === 'horizon') return 'The horizon all round, with the paths of the Sun and Earth.';
   if (view === 'globe') return 'The whole Moon in 3D from above, as a model you can turn.';
   return km === null ? 'The same ground in 3D from above, as a model you can turn.' : `The same ${km} km of ground in 3D from above, as a model you can turn.`;
 }
@@ -274,7 +274,7 @@ export function GroundPanel({
                   <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm bg-stage-ink" />}>ground in sunlight</KeyItem>
                   <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm border border-stage-ink/40 bg-black" />}>ground in shadow</KeyItem>
                   <KeyItem sample={<Arrow color="var(--stage-sun)" />}>towards the Sun</KeyItem>
-                  <KeyItem sample={<Arrow color="var(--stage-earth)" dotted />}>towards Earth (dotted when below the horizon)</KeyItem>
+                  <KeyItem sample={<Arrow color="var(--stage-earth)" dotted />}>towards Earth (dotted when set)</KeyItem>
                   <KeyItem sample={<span className="flex h-6 w-6 items-center justify-center rounded-full border border-stage-ink/40 text-[14px] font-bold leading-none text-stage-ink">N</span>}>north is up</KeyItem>
                   {cold && <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm" style={{ background: COLD_FILL }} />}>below 110 K all year in NASA’s Diviner model: modelled conditions where ice could last</KeyItem>}
                 </ul>

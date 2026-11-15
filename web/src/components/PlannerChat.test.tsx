@@ -375,7 +375,7 @@ describe('PlannerChat opens when it has something to show', () => {
       const panel = screen.getByRole('region', { name: 'Ask in plain words' });
       expect(within(panel).getByRole('heading', { level: 2 }).textContent).toBe('Ask in plain words');
       // The number check removes what it cannot match; it also lets the window lengths and the visitor's own figures through.
-      expect(panel.textContent).toMatch(/The assistant moves the controls for you\. Numbers it cannot match to the app's figures are removed\./);
+      expect(panel.textContent).toMatch(/It moves the controls\. Numbers it cannot match to the app's figures are removed\./);
       expect(panel.textContent).not.toMatch(/never invents/);
       expect(within(panel).getByLabelText('Ask the assistant').className).toMatch(/\bfield\b/);
       const askButton = within(panel).getByRole('button', { name: 'Ask' });

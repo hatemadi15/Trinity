@@ -12,11 +12,11 @@ const show = (hour = 0) => render(<RadioWindows series={h.series} power={h.power
 const panel = () => screen.getByRole('region', { name: 'Radio windows' });
 
 describe('RadioWindows', () => {
-  it('says what it counts in plain words, geometric direct-to-Earth visibility, and once what that does not establish', () => {
+  it('says what it counts in plain words, a geometrically possible direct link, and once what that does not establish', () => {
     show();
     const text = panel().textContent ?? '';
-    expect(text).toMatch(/With Earth in view, a direct radio link is geometrically possible \(direct-to-Earth visibility\)\./);
-    expect(text).toMatch(/Earth in view alone does not establish antenna performance, the link budget, ground-station availability or a scheduled contact\./);
+    expect(text).toMatch(/When a direct radio link to Earth is geometrically possible\./);
+    expect(text).toMatch(/Earth in view alone does not establish antenna performance, a link budget, ground stations or a schedule\./);
     expect(text.match(/does not establish/g)).toHaveLength(1);
   });
 
@@ -54,7 +54,7 @@ describe('RadioWindows', () => {
     // The window is marked as one the lander can use only if it survives the cold.
     expect(rows[0].querySelector('[data-use]')!.getAttribute('data-use')).toBe('if-survives');
     // What a time means: the first whole hour of the new state.
-    expect(panel().textContent).toMatch(/Each time is the first whole hour with Earth in view, or without it: the change falls within the hour before\./);
+    expect(panel().textContent).toMatch(/Each time is the first whole hour after the change\./);
   });
 
   it('says a window open at either end of the period may be longer than the period shows', () => {

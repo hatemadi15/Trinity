@@ -146,11 +146,11 @@ describe('GroundPanel', () => {
     expect(about().nextElementSibling!.getAttribute('data-part')).toBe('now');
     expect(about().className).toMatch(/\btext-\[15px\]/);
     expect(about().className).toMatch(/\btext-ink-2\b/);
-    expect(about().textContent).toBe("The ground from above at the time bar's hour, north up.");
+    expect(about().textContent).toBe("From above, at the time bar's hour.");
     fireEvent.click(tab('3D from above'));
     expect(about().textContent).toBe('The same 20 km of ground in 3D from above, as a model you can turn.');
     fireEvent.click(tab('Horizon chart'));
-    expect(about().textContent).toBe('The horizon all round, unrolled into one strip, with the paths of the Sun and Earth.');
+    expect(about().textContent).toBe('The horizon all round, with the paths of the Sun and Earth.');
   });
 
   it('gives the size of the ground in 3D from above, and says when it shows the whole Moon', () => {
@@ -219,7 +219,7 @@ describe('GroundPanel', () => {
   it('explains how to read the map beside it: light and dark ground, the arrows, north', async () => {
     show({ heightmap: grid('window', 8, 20), terrainState: 'ready' });
     const key = within(screen.getByRole('tabpanel', { name: 'Shadow map' })).getByRole('list', { name: 'How to read the map' });
-    expect([...key.querySelectorAll('li')].map((li) => li.lastElementChild!.textContent)).toEqual(['ground in sunlight', 'ground in shadow', 'towards the Sun', 'towards Earth (dotted when below the horizon)', 'north is up']);
+    expect([...key.querySelectorAll('li')].map((li) => li.lastElementChild!.textContent)).toEqual(['ground in sunlight', 'ground in shadow', 'towards the Sun', 'towards Earth (dotted when set)', 'north is up']);
     // No text under 14 px, the key's N included.
     expect(within(key).getByText('N').className).not.toMatch(/text-\[1[0-3]px\]/);
   });

@@ -126,7 +126,7 @@ export function PlannerChat({
         <h2 className="display text-[23px] font-semibold">Ask in plain words</h2>
         <p className="text-[15px] text-ink-2">
           {/* Not "never invents numbers": the check also lets through 14, 30, 90 and any number the visitor typed. */}
-          The assistant moves the controls for you. Numbers it cannot match to the app&apos;s figures are removed.
+          It moves the controls. Numbers it cannot match to the app&apos;s figures are removed.
           {aiMode === 'cached' && ' Demo mode: rehearsed answers.'}
         </p>
       </div>
