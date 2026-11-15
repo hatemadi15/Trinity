@@ -2,7 +2,7 @@ import type { Site } from '../data/loaders';
 import { PANEL_LABELS, type PanelModel } from '../engine/power';
 import { periodDays, shiftWords, withClock } from '../period';
 import { clampTo, DAYS_RANGE, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
-import { PAGE_NAMES, periodNote, siteByName, type Action, type Page } from './actions';
+import { PAGE_NAMES, periodNote, siteByName, tokens, type Action, type Page } from './actions';
 import { EXPLANATIONS, explanationFor } from './explanations';
 import { slipLabel } from '../scenario/scenario';
 
@@ -13,6 +13,8 @@ export interface Intent {
   pattern: RegExp;
   /** Returns null when the phrasing matched but the details did not (unknown window length, bad date), so the next intent or the model can try. */
   build: (m: RegExpMatchArray, sites: Site[]) => { actions: Action[]; reply: string } | null;
+  /** A comparison read for certain: the chat route answers it before any model, as the app compares with its own figures. */
+  sure?: boolean;
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -135,7 +137,66 @@ function panelFor(words: string): PanelModel | null {
 const countOf = (text: string): number | null => amountOf(text);
 const COUNT = '(\\d{1,4}|[a-z]+)';
 
-/** The fourteen rehearsed phrasings, most specific first. Matching is case-insensitive on a trimmed prompt without its final punctuation. */
+/** The site shown, in the words people use for it: "this", "it", "this site", "this landing", "here". */
+const THIS = '(?:this|it|this one|this site|this landing(?: site)?|this place|this spot|here|the site shown|the current site|the current landing|my site|our site|my landing|our landing|where i am|where we are)';
+/** Every other site of the catalogue: "any landing site", "all the other sites", "every landing site", "the rest". */
+const OTHERS =
+  '(?:(?:any|every|each|all|all the|all of the|all other|all the other|the other|other|the best|the best other|the top)(?: other)? (?:landing )?(?:sites?|places?|spots?|landings?|ones?|options?)(?: in the (?:catalogue|list))?|(?:all )?(?:of )?(?:the )?others|(?:all )?the rest|all of them|them all|everywhere else|anywhere else|the (?:whole )?(?:catalogue|list|site list))';
+/** "for these dates", "for the dates chosen", "for this lander": the settings already chosen, which every comparison keeps. */
+const FOR_THESE = '(?:(?:for|with|on|over) (?:these|the|my|our|those|the chosen|the current|this|this period|this lander)(?: (?:dates?|days|period|landing dates?|lander|settings))?(?: and (?:this|the|my|our) lander)?|right now|now)';
+/** A length for the comparison: "for 14 days" (any number of days the period can be; the reply says when it cannot). */
+const FOR_DAYS = '(?: (?:for|over) (\\d+|[a-z]+(?:[ -][a-z]+)?)[- ]?days?)?';
+
+/** Edits between two words (a letter added, dropped, changed or two swapped); `max + 1` at once when their lengths alone differ by more. */
+function editsBetween(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => Array.from({ length: b.length + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)));
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+/**
+ * A name typed with a slip ("Nobel Rim 1", "de Gerlach Rim 2", "Shakleton"): each word of four letters or more not in
+ * the catalogue becomes the catalogue's word one edit away (two for a word of five letters or more that starts with the
+ * same letter), when only one is that close.
+ */
+function corrected(sites: Site[], text: string): string {
+  const known = new Set(sites.flatMap((x) => tokens(`${x.name} ${x.id}`)).filter((w) => /^[a-z]+$/.test(w)));
+  return tokens(text)
+    .map((w) => {
+      if (known.has(w) || w.length < 4 || !/^[a-z]+$/.test(w)) return w;
+      const near = [...known].filter((k) => k.length >= 4 && editsBetween(w, k, 2) <= (w.length >= 5 && k[0] === w[0] ? 2 : 1));
+      return near.length === 1 ? near[0] : w;
+    })
+    .join(' ');
+}
+
+/** A site said as people say it: number words as figures ("Nobile Rim one"), "the" and a final "site" taken off, a slip in the spelling forgiven. */
+function siteNamed(sites: Site[], text: string): Site | null {
+  const said = text
+    .trim()
+    .replace(/^(?:the|a) /i, '')
+    .replace(/ (?:landing )?site$/i, '')
+    .replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/gi, (w) => String(amountOf(w)));
+  return siteByName(sites, said) ?? siteByName(sites, text) ?? siteByName(sites, corrected(sites, said));
+}
+
+/** A new comparison of these sites (after the site shown when `shown`), with a period when one was said. */
+function compareReply(daysSaid: string | undefined, picked: Site[], shown: boolean): { actions: Action[]; reply: string } {
+  const days = parseDays(daysSaid);
+  const unsupported = daysSaid !== undefined && !days ? ` ${NO_SUCH_PERIOD}` : '';
+  // The period first, so the comparison is made with it.
+  const actions: Action[] = [...(days ? [{ type: 'set_window', days } as Action] : []), { type: 'compare_sites', ids: picked.map((x) => x.id), ...(shown ? { shown: true } : {}) }];
+  const names = picked.map((x) => x.name).join(' and ');
+  return { actions, reply: `${shown ? `Comparing the site shown with ${names}` : `Comparing ${names}`}${days ? ` over ${days} days` : ''}.${unsupported}` };
+}
+
+/** The rehearsed phrasings, most specific first. Matching is case-insensitive on a trimmed prompt without its final punctuation. */
 export const INTENTS: Intent[] = [
   {
     // Before "compare A and B": "compare with a five-day delay" is the landing shown against the same landing moved.
@@ -153,22 +214,47 @@ export const INTENTS: Intent[] = [
     },
   },
   {
-    name: 'compare',
-    pattern: /^compare (.+?) (?:and|with|vs\.?|versus|against) (.+?)(?: (?:for|over) (\d+)[- ]?days?)?$/i,
+    // The site shown against the whole catalogue: "compare this to any landing site", "is there a better site".
+    name: 'compare_best',
+    sure: true,
+    pattern: new RegExp(
+      `^(?:compare ${THIS} (?:to|with|against|and|vs\\.?|versus) ${OTHERS}|how (?:does|do|would|will) ${THIS} (?:compare|stack up|rank|measure up)(?: (?:to|with|against|among))? ${OTHERS}|(?:is there|are there|do we have|is there not)(?: an?| any)? (?:better|best) (?:landing )?(?:sites?|places?|spots?|options?|choices?)(?: (?:than (?:${THIS})|to land|for landing))?|(?:which|what)(?: is|'s)?(?: the)? (?:best )?(?:landing )?(?:site|place|spot)(?: is| would be)?(?: the)? best(?: one)?|(?:which|what)(?: is|'s)(?: the)? best (?:landing )?(?:site|place|spot)(?: to land)?)(?: ${FOR_THESE})?$`,
+      'i',
+    ),
+    build: () => ({ actions: [{ type: 'compare_best' }], reply: 'Ranking every site for these dates and this lander, as the site list does.' }),
+  },
+  {
+    // The site shown against a named one: "compare this to Nobile Rim 1", "how does it compare with Haworth".
+    name: 'compare_with',
+    sure: true,
+    pattern: new RegExp(`^(?:compare ${THIS} (?:to|with|against|and|vs\\.?|versus)|how (?:does|do|would|will) ${THIS} (?:compare|stack up|measure up) (?:to|with|against)) (.+?)${FOR_DAYS}$`, 'i'),
     build(m, sites) {
-      const a = siteByName(sites, m[1]);
-      const b = siteByName(sites, m[2]);
-      if (!a) return notFound(m[1]);
-      if (!b) return notFound(m[2]);
-      const days = parseDays(m[3]);
-      const actions: Action[] = [
-        { type: 'add_to_compare', id: a.id },
-        { type: 'add_to_compare', id: b.id },
-        ...(days ? [{ type: 'set_window', days } as Action] : []),
-        { type: 'open_page', page: 'compare' },
-      ];
-      const unsupported = m[3] !== undefined && !days ? ` ${NO_SUCH_PERIOD}` : '';
-      return { actions, reply: `Comparing ${a.name} and ${b.name}${days ? ` over ${days} days` : ''}.${unsupported}` };
+      const site = siteNamed(sites, m[1]);
+      return site ? compareReply(m[2], [site], true) : notFound(m[1]);
+    },
+  },
+  {
+    // A named site against the one shown, the other way round: "compare Nobile Rim 1 with this".
+    name: 'compare_with_shown',
+    sure: true,
+    pattern: new RegExp(`^compare (.+?) (?:to|with|against|and|vs\\.?|versus) ${THIS}${FOR_DAYS}$`, 'i'),
+    build(m, sites) {
+      const site = siteNamed(sites, m[1]);
+      return site ? compareReply(m[2], [site], true) : notFound(m[1]);
+    },
+  },
+  {
+    name: 'compare',
+    sure: true,
+    pattern: new RegExp(`^(?:compare (.+?) (?:and|with|to|vs\\.?|versus|against)|how (?:does|do|would|will) (.+?) (?:compare|stack up|measure up) (?:to|with|against)) (.+?)${FOR_DAYS}$`, 'i'),
+    build(m, sites) {
+      const first = m[1] ?? m[2];
+      const a = siteNamed(sites, first);
+      const b = siteNamed(sites, m[3]);
+      if (!a) return notFound(first);
+      if (!b) return notFound(m[3]);
+      if (a.id === b.id) return { actions: [], reply: `Both names are ${a.name}: name another site to compare it with.` };
+      return compareReply(m[4], [a, b], false);
     },
   },
   {
@@ -299,8 +385,8 @@ export const INTENTS: Intent[] = [
   },
 ];
 
-/** Deterministic answer for a rehearsed phrasing, or null when the prompt is for the model (or the cache). */
-export function matchIntent(prompt: string, sites: Site[]): { actions: Action[]; reply: string } | null {
+/** The phrasing that answered, with its name and whether it is a comparison read for certain; null when none did. */
+export function matchIntentNamed(prompt: string, sites: Site[]): { actions: Action[]; reply: string; name: string; sure: boolean } | null {
   const p = prompt
     .trim()
     .replace(/\s+/g, ' ')
@@ -311,7 +397,13 @@ export function matchIntent(prompt: string, sites: Site[]): { actions: Action[];
     const m = p.match(intent.pattern);
     if (!m) continue;
     const r = intent.build(m, sites);
-    if (r) return r;
+    if (r) return { ...r, name: intent.name, sure: intent.sure === true };
   }
   return null;
+}
+
+/** Deterministic answer for a rehearsed phrasing, or null when the prompt is for the model (or the cache). */
+export function matchIntent(prompt: string, sites: Site[]): { actions: Action[]; reply: string } | null {
+  const r = matchIntentNamed(prompt, sites);
+  return r ? { actions: r.actions, reply: r.reply } : null;
 }

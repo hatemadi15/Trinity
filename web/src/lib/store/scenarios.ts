@@ -60,7 +60,7 @@ export interface ScenarioState {
   settle: () => Promise<void>;
 }
 
-const FULL = 'Four scenarios is the most a comparison holds: remove one to add another.';
+const FULL = 'Four landings is the most a comparison holds: remove one to add another.';
 
 /** The site a scenario names: a catalogue site, or a clicked point rebuilt from its id as Explore builds it. */
 export function siteFor(siteId: string, sites: Site[]): Site | null {
@@ -190,7 +190,7 @@ export function createScenarioStore(explore: StoreApi<ExploreState>, loaders: Ma
           if (!append([made])) return null;
           // Ranked by priorities, the page says so: the comparison shows no other trace of how the pick was made.
           const by = explore.getState().rankBy;
-          if (by.kind === 'weighed') set({ note: `The nearby alternative is ranked by your requirements, then your priorities (${priorityWords(by.priorities)}), as set under Explore’s Options.` });
+          if (by.kind === 'weighed') set({ note: `The place nearby is ranked by your requirements, then your priorities (${priorityWords(by.priorities)}), as set under Explore’s Options.` });
           return made.id;
         } finally {
           set({ searching: null });

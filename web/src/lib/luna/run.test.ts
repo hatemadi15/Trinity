@@ -37,6 +37,38 @@ function deps(
 beforeEach(() => plannerLog.getState().clear());
 afterEach(() => vi.restoreAllMocks());
 
+describe('Luna comparing sites', () => {
+  it('compares the site shown with every other and says what the app found, with Compare open on the best three', async () => {
+    const store = await loaded();
+    const d = { ...deps(store), scenarios: createScenarioStore(store, fileLoaders()) };
+    const said = 'Luna, compare this to every landing site';
+    const reply = await runCommand(parseCommand(said, store.getState().sites), d, said);
+    expect(d.navigate).toHaveBeenCalledWith('/compare');
+    expect(store.getState().compareIds).toHaveLength(4);
+    expect(store.getState().compareIds[0]).toBe('de_gerlache_rim_2');
+    expect(d.scenarios.getState().scenarios.map((x) => x.siteId)).toEqual(store.getState().compareIds);
+    // She says the app's own sentence, with the dates and the lander, not the phrasing's.
+    expect(reply).toMatch(/^For 30 days from 1 January 2027 and this lander \(.+\), .+ of the 34 sites.+ I've put the top three beside yours on Compare\.$/);
+    expect(plannerLog.getState().exchanges[0]).toMatchObject({ prompt: said, reply, source: 'intent' });
+  }, 30_000);
+
+  it('compares the site shown with a named one, and two named sites, keeping the dates and lander', async () => {
+    const store = await loaded();
+    const d = { ...deps(store), scenarios: createScenarioStore(store, fileLoaders()) };
+    const one = await runCommand(parseCommand('compare this to noble rim one', store.getState().sites), d);
+    expect(store.getState().compareIds).toEqual(['de_gerlache_rim_2', 'nobile_rim_1']);
+    expect(one).toMatch(/^Compare: de Gerlache Rim 2 and Nobile Rim 1, for 30 days from 1 January 2027 and this lander \(/);
+    const two = await runCommand(parseCommand('compare haworth versus malapert massif', store.getState().sites), d);
+    expect(store.getState().compareIds).toEqual(['haworth', 'malapert_massif']);
+    expect(d.scenarios.getState().scenarios.map((x) => [x.siteId, x.startUtc, x.days])).toEqual([
+      ['haworth', '2027-01-01T00:00:00', 30],
+      ['malapert_massif', '2027-01-01T00:00:00', 30],
+    ]);
+    expect(two).toMatch(/^Compare: Haworth and Malapert Massif, for 30 days/);
+    expect(two).toMatch(/The sites compared before \(de Gerlache Rim 2 and Nobile Rim 1\) came off it\.$/);
+  });
+});
+
 describe('what Luna does with a command', () => {
   it('runs a control the page has lent, and says what it did, or her own words for it', async () => {
     const store = await loaded();

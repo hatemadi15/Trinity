@@ -21,14 +21,14 @@ function stores(overrides: Parameters<typeof fileLoaders>[0] = {}) {
 
 async function open(st = stores()) {
   render(<CompareView store={st.explore} scenarios={st.scenarios} />);
-  await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeTruthy(), { timeout: 20_000 });
+  await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Compare landings' })).toBeTruthy(), { timeout: 20_000 });
   return st;
 }
 
 /** The example of the empty page, worked out: the original landing, five days later, and the nearby alternative. */
 async function example(st = stores()) {
   await open(st);
-  fireEvent.click(screen.getByRole('button', { name: /Our landing slipped by five days/ }));
+  fireEvent.click(screen.getByRole('button', { name: /What if our landing is 5 days late\?/ }));
   await waitFor(() => expect(st.scenarios.getState().scenarios).toHaveLength(3), { timeout: 20_000 });
   await st.scenarios.getState().settle();
   await screen.findByRole('table');
@@ -55,26 +55,37 @@ describe('CompareView', () => {
     await open();
     const main = screen.getByRole('main');
     for (const width of [WIDE, PHONE]) expect(visibleWords(main, width).length).toBeLessThanOrEqual(200);
-    // One gold action: the example of a slipped landing.
+    // One gold action, and the page says what to press: the example of a late landing, then “+ Add a landing”.
+    expect(main.textContent).toMatch(/Press the example to see three landings compared\. Then press “\+ Add a landing” to add any place or date of your own\./);
+    // The assistant's way in is named beside it.
+    expect(main.textContent).toMatch(/Or ask in the box below: “compare this to every landing site”\./);
     expect(main.querySelectorAll('.btn-primary')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: /Our landing slipped by five days/ }).className).toMatch(/\bbtn-primary\b/);
+    expect(screen.getByRole('button', { name: /What if our landing is 5 days late\?/ }).className).toMatch(/\bbtn-primary\b/);
     expect(screen.getByRole('link', { name: 'Explore' }).getAttribute('href')).toBe('/explore');
   });
 
   it('runs the five-day slip in one press: the original landing, the same site five days later, and the nearby site that works better', async () => {
     await example();
     const heads = within(table()).getAllByRole('columnheader').map((h) => h.textContent);
-    expect(heads).toEqual(['Scenario', 'BaselineOriginal landing', 'Scenario 25 days later', 'Scenario 3Nearby: de Gerlache rim summit']);
+    expect(heads).toEqual(['Landing', 'Your landingOriginal landing', 'Landing 25 days later', 'Landing 3Nearby: de Gerlache rim summit']);
     // Each site says what kind of point it is: a region's centre, or a high point worked out from the heights.
     expect(row('Site')).toEqual(['de Gerlache Rim 2Centre of a region, ±5 km', 'de Gerlache Rim 2', 'de Gerlache rim summitDerived high point, not checked as safe to land12 km from de Gerlache Rim 2']);
     expect(row('Landing (UTC)')).toEqual(['1 Jan 2027, 00:00 UTC', '6 Jan 2027, 00:00 UTC5 days later', '6 Jan 2027, 00:00 UTC5 days later']);
     // Absolute figures, and the change from the baseline under each.
-    expect(row('Time with power')).toEqual(['3 d 4 h', '10 h−2 d 18 h, worse', 'all 30 days+26 d 20 h, better']);
-    expect(row('Radio contact while it has power')).toEqual(['none', 'noneno change', '14 d 15 h+14 d 15 h, better']);
-    expect(row('Sunlight')[2]).toBe('100 %+55 points, better');
+    expect(row('Time with power')).toEqual(['3 d 4 h', '10 h−2 d 18 h, worse', 'all 30 daysBest+26 d 20 h, better']);
+    expect(row('Radio contact while it has power')).toEqual(['none', 'noneno change', '14 d 15 hBest+14 d 15 h, better']);
+    expect(row('Sunlight')[2]).toBe('100 %Best+55 points, better');
     expect(row('First sunset after landing')).toEqual(['2 d 19 h', 'night at landing, rises after 14 d 10 hwas 2 d 19 h, worse', 'none in the periodwas 2 d 19 h, better']);
     // What changed at the original site, then which alternative works better and why, with the trade-offs.
-    const story = screen.getByRole('region', { name: 'What changed, and what works better' });
+    const story = screen.getByRole('region', { name: 'Which landing works best' });
+    // One line first: which landing works best, and the figure that decides it; its card carries the mark.
+    expect(story.textContent).toMatch(
+      /“Nearby: de Gerlache rim summit” works best of these 3 landings: power for all 30 days, the longest here, with 14 days 15 hours of radio contact while it has power\. de Gerlache rim summit is a high point worked out from the heights, not checked for landing\./,
+    );
+    expect(screen.getByRole('group', { name: 'Landing 3: Nearby: de Gerlache rim summit' }).textContent).toMatch(/Works best/);
+    expect(screen.getByRole('group', { name: 'Your landing: Original landing' }).textContent).not.toMatch(/Works best/);
+    // The longest time without Earth is cut by the period's ends ("at least"), so no cell of it is marked.
+    expect(row('Longest time without Earth').join(' ')).not.toMatch(/Best/);
     expect(story.textContent).toMatch(/Landing times differ: dates change as well as places\./);
     expect(story.textContent).toMatch(/5 days later: power for 10 hours instead of 3 days 4 hours\. The period starts at night/);
     expect(story.textContent).toMatch(/de Gerlache rim summit \(12 km, not checked for landing\) works better than “5 days later” at the same landing time: power for all 30 days instead of 10 hours\./);
@@ -117,7 +128,7 @@ describe('CompareView', () => {
     const writeText = vi.fn(async () => {});
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
     fireEvent.click(screen.getByRole('button', { name: 'Copy the link' }));
-    await waitFor(() => expect(screen.getByRole('main').textContent).toContain('Link copied. It holds every setting of every scenario, and your requirements.'));
+    await waitFor(() => expect(screen.getByRole('main').textContent).toContain('Link copied. It holds every setting of every landing, and your requirements.'));
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}${href}`);
     vi.unstubAllGlobals();
     const before = row('Your requirements');
@@ -143,9 +154,9 @@ describe('CompareView', () => {
     window.history.replaceState(null, '', '/compare');
     const st = stores();
     await open(st);
-    const input = screen.getByLabelText('Open a scenario file') as HTMLInputElement;
+    const input = screen.getByLabelText('Open a saved comparison') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File([text], 'earthrise-comparison.json', { type: 'application/json' })] } });
-    await waitFor(() => expect(screen.getByRole('main').textContent).toContain('The file’s 3 scenarios replace the ones that were on this page, and the requirements saved with it are set.'));
+    await waitFor(() => expect(screen.getByRole('main').textContent).toContain('The file’s 3 landings replace the ones that were on this page, and the requirements saved with it are set.'));
     expect(st.scenarios.getState().scenarios).toHaveLength(3);
     expect(st.explore.getState().requirements).toEqual(req);
     await st.scenarios.getState().settle();
@@ -168,27 +179,36 @@ describe('CompareView', () => {
     const st = stores();
     await open(st);
     baselineOf(st);
-    const card = await screen.findByRole('group', { name: 'Baseline: Original landing' });
+    const card = await screen.findByRole('group', { name: 'Your landing: Original landing' });
     // Alone, the baseline has nothing to compare with yet: the scenarios come first, with what to do next.
-    expect(screen.queryByRole('region', { name: 'What changed, and what works better' })).toBeNull();
-    expect(screen.getByRole('main').textContent).toMatch(/The baseline lands 1 January 2027, 00:00 UTC\. Slip the landing, or find a nearby alternative, to compare it with this baseline\./);
-    fireEvent.click(within(card).getByRole('button', { name: 'Add 5 days later' }));
+    expect(card).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Which landing works best' })).toBeNull();
+    expect(screen.getByRole('main').textContent).toMatch(/Your landing is 1 January 2027, 00:00 UTC\. Now add a second landing beside it: choose one of the three ways below\./);
+    // “+ Add a landing” is the one gold control, open already, with its three plain ways.
+    const add = screen.getByRole('button', { name: /Add a landing Another place, another date, or both/ });
+    expect(add.className).toMatch(/\bbtn-primary\b/);
+    expect(add.getAttribute('aria-expanded')).toBe('true');
+    const ways = screen.getByRole('region', { name: 'Add a landing to compare' });
+    expect(within(ways).getAllByRole('heading', { level: 4 }).map((h) => h.textContent)).toEqual(['Same place, later date', 'A place nearby, same date', 'Any place and date']);
+    fireEvent.click(within(ways).getByRole('button', { name: 'Add a landing 5 days later' }));
     await waitFor(() => expect(st.scenarios.getState().scenarios.map((s) => s.label)).toEqual(['Original landing', '5 days later']));
-    // With two scenarios, each card's slip waits behind its button.
-    expect(within(screen.getByRole('group', { name: 'Baseline: Original landing' })).queryByRole('button', { name: 'Add 5 days later' })).toBeNull();
+    // With two landings the ways close, behind the button that opens them; the keyboard stays on it.
+    expect(screen.queryByRole('region', { name: 'Add a landing to compare' })).toBeNull();
+    expect(add.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(add);
   });
 
   it('slips a scenario by any number of days or hours, five days later to begin with', async () => {
     const st = stores();
     await open(st);
     baselineOf(st);
-    const card = await screen.findByRole('group', { name: 'Baseline: Original landing' });
-    expect(within(card).getByRole('button', { name: 'Slip the landing…' }).getAttribute('aria-expanded')).toBe('true');
-    expect(within(card).getByRole('button', { name: 'Add 5 days later' })).toBeTruthy();
-    fireEvent.change(within(card).getByRole('spinbutton', { name: 'By' }), { target: { value: '12' } });
+    await screen.findByRole('group', { name: 'Your landing: Original landing' });
+    const card = screen.getByRole('form', { name: 'Same place, later date' });
+    expect(within(card).getByRole('button', { name: 'Add a landing 5 days later' })).toBeTruthy();
+    fireEvent.change(within(card).getByRole('spinbutton', { name: 'Move the landing by' }), { target: { value: '12' } });
     fireEvent.change(within(card).getByRole('combobox', { name: 'Days or hours' }), { target: { value: 'hours' } });
     fireEvent.change(within(card).getByRole('combobox', { name: 'Later or earlier' }), { target: { value: 'earlier' } });
-    fireEvent.click(within(card).getByRole('button', { name: 'Add 12 hours earlier' }));
+    fireEvent.click(within(card).getByRole('button', { name: 'Add a landing 12 hours earlier' }));
     await waitFor(() =>
       expect(st.scenarios.getState().scenarios.map((s) => [s.label, s.startUtc])).toEqual([
         ['Original landing', '2027-01-01T00:00:00'],
@@ -197,13 +217,41 @@ describe('CompareView', () => {
     );
   });
 
+  it('adds a landing at any place and date from the site list, the lander and the stay kept', async () => {
+    const st = stores();
+    await open(st);
+    baselineOf(st);
+    await screen.findByRole('group', { name: 'Your landing: Original landing' });
+    const any = screen.getByRole('form', { name: 'Any place and date' });
+    // Nothing to add until the place or the date differs from the landing copied.
+    expect((within(any).getByRole('button', { name: 'Add this landing' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(any).getByRole('button', { name: /^Landing site: de Gerlache Rim 2/ }));
+    fireEvent.click(within(any).getByRole('button', { name: 'Malapert Massif' }));
+    fireEvent.change(within(any).getByLabelText('Landing date (UTC)'), { target: { value: '2027-02-10' } });
+    fireEvent.click(within(any).getByRole('button', { name: 'Add this landing' }));
+    await waitFor(() => expect(st.scenarios.getState().scenarios).toHaveLength(2));
+    expect(st.scenarios.getState().scenarios[1]).toMatchObject({ siteId: 'malapert_massif', startUtc: '2027-02-10T00:00:00', days: 30, label: 'Malapert Massif, 10 Feb 2027', timing: 'set' });
+    expect(await screen.findByRole('group', { name: 'Landing 2: Malapert Massif, 10 Feb 2027' })).toBeTruthy();
+  });
+
+  it('finds the best place nearby from the same choices, on the same date', async () => {
+    const st = stores();
+    await open(st);
+    baselineOf(st);
+    await screen.findByRole('group', { name: 'Your landing: Original landing' });
+    fireEvent.click(within(screen.getByRole('group', { name: 'A place nearby, same date' })).getByRole('button', { name: 'Find the best place nearby' }));
+    await waitFor(() => expect(st.scenarios.getState().scenarios).toHaveLength(2), { timeout: 20_000 });
+    expect(st.scenarios.getState().scenarios[1].startUtc).toBe(st.scenarios.getState().scenarios[0].startUtc);
+    expect(st.scenarios.getState().scenarios[1].label).toMatch(/^Nearby: /);
+  });
+
   it('changes a scenario’s site, landing hour, stay and lander on their own, leaving the others as they were', async () => {
     const st = stores();
     await open(st);
     const a = baselineOf(st);
     const b = st.scenarios.getState().duplicate(a)!;
-    const card = await screen.findByRole('group', { name: 'Scenario 2: Copy of Original landing' });
-    fireEvent.click(within(card).getByRole('button', { name: 'Change “Copy of Original landing”' }));
+    const card = await screen.findByRole('group', { name: 'Landing 2: Copy of Original landing' });
+    fireEvent.click(within(card).getByRole('button', { name: 'Edit “Copy of Original landing”: its place, date and lander' }));
     const dialog = screen.getByRole('dialog');
     fireEvent.change(within(dialog).getByRole('combobox', { name: 'Site' }), { target: { value: 'malapert_massif' } });
     fireEvent.change(within(dialog).getByRole('combobox', { name: 'Landing hour (UTC)' }), { target: { value: '06:00' } });
@@ -221,13 +269,13 @@ describe('CompareView', () => {
     await open(st);
     const a = baselineOf(st);
     st.scenarios.getState().slip(a, 24);
-    const base = await screen.findByRole('group', { name: 'Baseline: Original landing' });
+    const base = await screen.findByRole('group', { name: 'Your landing: Original landing' });
     expect(within(base).queryByRole('button', { name: /^Remove/ })).toBeNull();
-    const other = screen.getByRole('group', { name: 'Scenario 2: 1 day later' });
+    const other = screen.getByRole('group', { name: 'Landing 2: 1 day later' });
     fireEvent.click(within(other).getByRole('button', { name: /^More/ }));
-    fireEvent.click(within(other).getByRole('button', { name: 'Make it the baseline' }));
+    fireEvent.click(within(other).getByRole('button', { name: 'Make this your landing' }));
     expect(st.scenarios.getState().scenarios.map((s) => s.label)).toEqual(['1 day later', 'Original landing']);
-    const moved = await screen.findByRole('group', { name: 'Scenario 2: Original landing' });
+    const moved = await screen.findByRole('group', { name: 'Landing 2: Original landing' });
     fireEvent.click(within(moved).getByRole('button', { name: /^More/ }));
     fireEvent.click(within(moved).getByRole('button', { name: 'Remove “Original landing”' }));
     expect(st.scenarios.getState().scenarios.map((s) => s.label)).toEqual(['1 day later']);
@@ -240,7 +288,7 @@ describe('CompareView', () => {
     cleanup();
     const st = stores();
     await open(st);
-    const input = screen.getByLabelText('Open a scenario file') as HTMLInputElement;
+    const input = screen.getByLabelText('Open a saved comparison') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File([text], 'earthrise-comparison.json', { type: 'application/json' })] } });
     await waitFor(() => expect(st.scenarios.getState().scenarios).toHaveLength(3));
     await st.scenarios.getState().settle();
@@ -259,22 +307,22 @@ describe('CompareView', () => {
     baselineOf(st);
     await st.scenarios.getState().settle();
     await screen.findByRole('table');
-    expect(row('Its own best landing')[0]).toBe('20 Jan 2027, 10:00 UTCpower 12 d 15 hAdd it');
+    expect(row('Best landing time at this place')[0]).toBe('20 Jan 2027, 10:00 UTCpower 12 d 15 hAdd it');
     // The row waits one tap on its name away.
-    const own = within(table()).getByRole('button', { name: 'Its own best landing' });
+    const own = within(table()).getByRole('button', { name: 'Best landing time at this place' });
     expect(own.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(own);
     fireEvent.click(within(table()).getByRole('button', { name: 'Add “Original landing” at this landing time' }));
     await st.scenarios.getState().settle();
     await waitFor(() => expect(row('Landing (UTC)')[1]).toBe('20 Jan 2027, 10:00 UTC19 days 10 hours laterthe site’s own best time'));
-    expect(screen.getByRole('region', { name: 'What changed, and what works better' }).textContent).toMatch(
+    expect(screen.getByRole('region', { name: 'Which landing works best' }).textContent).toMatch(
       /“de Gerlache Rim 2’s own best time” lands at de Gerlache Rim 2’s own best time in its period, not a time it shares by choice\./,
     );
   });
 
   it('keeps the table in its own scrolling box on a phone, its row names in view, and at most one gold action', async () => {
     await example();
-    const box = screen.getByRole('region', { name: 'The scenarios side by side' });
+    const box = screen.getByRole('region', { name: 'The landings side by side' });
     expect(box.className).toMatch(/\boverflow-x-auto\b/);
     // The words kept for screen readers are placed absolutely: the box holds them, or they would widen a phone's page.
     expect(box.className).toMatch(/\brelative\b/);
@@ -321,8 +369,8 @@ describe('CompareView', () => {
     const mask = (id: string) => Float64Array.from(readJson<{ elevation_deg: number[] }>('data', 'masks', `${id}.json`).elevation_deg);
     const versions = { load: async (id: string) => ({ siteId: id, mastM: 2, adjusted: mask(id), masks: [mask(id), mask(id), mask(id)] }), runner: new VersionsClient() };
     render(<CompareView store={st.explore} scenarios={st.scenarios} terrainVersions={versions} />);
-    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeTruthy(), { timeout: 20_000 });
-    fireEvent.click(screen.getByRole('button', { name: /Our landing slipped by five days/ }));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Compare landings' })).toBeTruthy(), { timeout: 20_000 });
+    fireEvent.click(screen.getByRole('button', { name: /What if our landing is 5 days late\?/ }));
     await waitFor(() => expect(st.scenarios.getState().scenarios).toHaveLength(3), { timeout: 20_000 });
     await st.scenarios.getState().settle();
     await screen.findByRole('table');

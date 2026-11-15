@@ -106,8 +106,39 @@ describe('POST /api/chat', () => {
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ prompt: 'compare de gerlache rim 2 and nobile rim 2', state: null }))).json()) as Reply;
     expect(json.source).toBe('intent');
-    expect(json.actions).toHaveLength(3);
+    expect(json.actions).toEqual([{ type: 'compare_sites', ids: ['de_gerlache_rim_2', 'nobile_rim_2'] }]);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('acts on a comparison its phrasings read for certain before asking any model, and leaves the rest to the model', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    const fetchMock = modelAnswer('{"actions":[{"type":"select_site","id":"nobile_rim_2"}],"reply":"Nobile Rim 2 selected."}');
+    vi.stubGlobal('fetch', fetchMock);
+    const all = (await (await POST(request({ prompt: 'Compare this to every landing site', state: null }))).json()) as Reply;
+    expect(all).toMatchObject({ source: 'intent', actions: [{ type: 'compare_best' }] });
+    const one = (await (await POST(request({ prompt: 'how does this compare to Nobile Rim 1?', state: null }))).json()) as Reply;
+    expect(one).toMatchObject({ source: 'intent', actions: [{ type: 'compare_sites', ids: ['nobile_rim_1'], shown: true }] });
+    const two = (await (await POST(request({ prompt: 'compare de Gerlache Rim 2 versus Nobile Rim 1', state: null }))).json()) as Reply;
+    expect(two).toMatchObject({ source: 'intent', actions: [{ type: 'compare_sites', ids: ['de_gerlache_rim_2', 'nobile_rim_1'] }] });
+    expect(fetchMock).not.toHaveBeenCalled();
+    // A comparison whose site is not found, and any other phrasing, still go to the model first.
+    expect(((await (await POST(request({ prompt: 'compare this to the crater with the ice', state: null }))).json()) as Reply).source).toBe('model');
+    expect(((await (await POST(request({ prompt: 'show me nobile rim 2', state: null }))).json()) as Reply).source).toBe('model');
+  });
+
+  it('tells the model of the comparisons, and keeps the ones it proposes when they fit', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'sk-test');
+    const fetchMock = modelAnswer('{"actions":[{"type":"compare_best"}],"reply":"Ranking the sites for you."}');
+    vi.stubGlobal('fetch', fetchMock);
+    const json = (await (await POST(request({ prompt: 'where else could we put the lander down for these dates', state: null }))).json()) as Reply;
+    expect(json).toMatchObject({ source: 'model', actions: [{ type: 'compare_best' }] });
+    const body = JSON.parse(String((fetchMock.mock.calls as unknown as [string, RequestInit][])[0][1].body)) as { messages: { content: string }[] };
+    expect(body.messages[0].content).toContain('{"type": "compare_sites", "ids": [SITE_ID, ...], "shown": true | false}');
+    expect(body.messages[0].content).toContain('{"type": "compare_best"}');
+    vi.stubGlobal('fetch', modelAnswer('{"actions":[{"type":"compare_sites","ids":["haworth","atlantis"],"shown":true}],"reply":"Comparing."}'));
+    const bad = (await (await POST(request({ prompt: 'put this next to haworth and atlantis', state: null }))).json()) as Reply;
+    expect(bad.actions).toEqual([]);
+    expect(bad.reply).toMatch(/could not find "atlantis"/);
   });
 
   it('rate limits the 31st request in a minute from one address with Retry-After', async () => {

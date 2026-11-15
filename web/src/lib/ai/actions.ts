@@ -1,13 +1,17 @@
 import type { StoreApi } from 'zustand';
 import { PANEL_LABELS, type PanelModel, type PowerConfig } from '../engine/power';
 import { clampTo, DAYS_RANGE, PANEL_MODELS, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
-import type { ExploreState, WindowDays } from '../store/explore';
-import { EPHEMERIS_YEARS, periodDays, shiftPeriod, shiftWords, snapToHour, startWords, withClock } from '../period';
+import type { ExploreState, SiteOverview, WindowDays } from '../store/explore';
+import { EPHEMERIS_YEARS, landingWords, periodDays, shiftPeriod, shiftWords, snapToHour, startWords, withClock } from '../period';
 import { slipLabel } from '../scenario/scenario';
 import type { ScenarioState } from '../store/scenarios';
 import { KNOWN_CATEGORIES, validateSpecPatch } from '../plan/fields';
 import type { SpecPatch } from '../plan/spec';
 import { explanationFor } from './explanations';
+import { landerLine } from '../lander';
+import { spanWords } from '../viz/format';
+import { siteLabel } from '../data/loaders';
+import { nameableSites, rankSites } from './site-rank';
 
 /** The closed set of things the planner may do to the app. Validated on the server and again on the client. */
 export type Action =
@@ -25,6 +29,10 @@ export type Action =
   | { type: 'explain'; topic: string }
   /** Compares the landing shown with the same one moved by whole hours, later when positive: a baseline and the moved landing on Compare. */
   | { type: 'compare_shift'; hours: number }
+  /** A new comparison of these catalogue sites, after the site shown when `shown`, with Explore's dates and lander: it opens Compare. */
+  | { type: 'compare_sites'; ids: string[]; shown?: boolean }
+  /** The site shown against the whole catalogue: ranked as the site list ranks it, the best three others beside it on Compare. */
+  | { type: 'compare_best' }
   | { type: 'plan_mission'; spec: SpecPatch };
 
 export type Page = 'explore' | 'sites' | 'compare' | 'validate' | 'brief' | 'learn';
@@ -41,6 +49,8 @@ export const ACTION_TYPES: readonly Action['type'][] = [
   'open_page',
   'explain',
   'compare_shift',
+  'compare_sites',
+  'compare_best',
   'plan_mission',
 ];
 /** What each page is called on screen. */
@@ -189,6 +199,21 @@ function validateOne(raw: unknown, siteIds: ReadonlySet<string>): One {
       if (hours === null || !Number.isInteger(hours) || hours === 0 || Math.abs(hours) > COMPARE_SHIFT_MAX_H) return { reason: `compare_shift: hours must be a whole number other than 0 (got ${String(raw.hours)})` };
       return { action: { type: 'compare_shift', hours } };
     }
+    case 'compare_sites': {
+      // Catalogue ids only, each once; an unknown one drops the comparison, so the reply can name it.
+      const shown = raw.shown === true || raw.shown === 'true';
+      const ids: string[] = [];
+      for (const x of Array.isArray(raw.ids) ? raw.ids : []) {
+        const id = typeof x === 'string' ? x.trim() : '';
+        if (!id) continue;
+        if (!siteIds.has(id)) return { reason: `compare_sites: unknown site "${id}"` };
+        if (!ids.includes(id)) ids.push(id);
+      }
+      if (ids.length < (shown ? 1 : 2)) return { reason: 'compare_sites: needs two sites, or the site shown and one more' };
+      return { action: { type: 'compare_sites', ids: ids.slice(0, COMPARE_LIMIT - (shown ? 1 : 0)), ...(shown ? { shown: true } : {}) } };
+    }
+    case 'compare_best':
+      return { action: { type: 'compare_best' } };
     default:
       return { reason: `unknown action "${raw.type}"` };
   }
@@ -217,6 +242,135 @@ export function describeDropped(dropped: string[]): string {
 
 // ---- site matching: in ./site-match, re-exported here for the actions' existing importers ----
 export { siteByName, tokens } from './site-match';
+
+// ---- comparing sites ------------------------------------------------------------------------
+
+/** "A", "A and B", "A, B and C". */
+function listWords(words: string[]): string {
+  return words.length < 3 ? words.join(' and ') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+}
+const NUMBER_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+/** A count in words up to ten, in figures above it. */
+const countWords = (n: number) => NUMBER_WORDS[n] ?? String(n);
+
+/** The dates and the lander the figures are for, as the site list states them: "14 days from 1 January 2027 and this lander (…)". */
+function settingsWords(s: ExploreState): string {
+  return `${s.days} days from ${landingWords(s.startUtc, true)} and this lander (${landerLine(s.params.power)}, ${s.params.mastM} m mast)`;
+}
+
+/** A site's longest time with power from its best landing day, as the site list says it. */
+function poweredWords(o: SiteOverview | undefined, days: number): string {
+  if (!o?.best) return 'no power from the Sun';
+  return o.best.poweredHours >= days * 24 ? `all ${days} days` : spanWords(o.best.poweredHours);
+}
+
+/**
+ * A new comparison of these sites, in order (the first is the baseline the others are weighed against), each with
+ * Explore's dates and lander; returns the sites the comparison held before that are no longer on it.
+ */
+async function freshComparison(store: StoreApi<ExploreState>, ids: string[], scenarios?: StoreApi<ScenarioState>): Promise<string[]> {
+  const before = store.getState().compareIds.filter((id) => !ids.includes(id));
+  // The scenarios follow Explore's list; a comparison started another way (a slipped landing) goes too.
+  scenarios?.getState().clear();
+  for (const id of [...store.getState().compareIds]) store.getState().removeFromCompare(id);
+  for (const id of ids.slice(0, COMPARE_LIMIT)) await store.getState().addToCompare(id);
+  return before;
+}
+
+/** What Compare now holds, for which dates and lander, and what could not join it or came off it. */
+function comparedNote(store: StoreApi<ExploreState>, ids: string[], before: string[]): string {
+  const s = store.getState();
+  const name = (id: string) => {
+    const site = s.sites.find((x) => x.id === id);
+    return site ? siteLabel(site) : id;
+  };
+  const on = ids.filter((id) => s.compareIds.includes(id));
+  const off = ids.filter((id) => !on.includes(id));
+  const parts = [on.length > 0 ? `Compare: ${listWords(on.map(name))}, for ${settingsWords(s)}.` : 'Compare could not take these sites.'];
+  if (off.length > 0) parts.push(`${listWords(off.map(name))} could not be worked out, so ${off.length > 1 ? 'they are' : 'it is'} not on it.`);
+  if (before.length > 0) parts.push(`The sites compared before (${listWords(before.map(name))}) came off it.`);
+  return parts.join(' ');
+}
+
+/** Compare A with B, or the site shown with others: a new comparison, then the page. */
+async function compareSites(store: StoreApi<ExploreState>, a: { ids: string[]; shown?: boolean }, navigate: (page: string) => void, scenarios?: StoreApi<ScenarioState>): Promise<string> {
+  const s = store.getState();
+  const inCatalogue = (id: string) => s.sites.some((x) => x.id === id && x.category !== 'custom');
+  const shown = a.shown ? s.siteId : null;
+  if (a.shown && (!shown || !inCatalogue(shown))) return 'Compare takes the catalogue’s sites: choose one on Explore or the site list first, then ask again.';
+  const ids = [...new Set([...(shown ? [shown] : []), ...a.ids])].filter(inCatalogue).slice(0, COMPARE_LIMIT);
+  const here = s.sites.find((x) => x.id === shown);
+  if (ids.length < 2) return here ? `${siteLabel(here)} is the site shown: name another site to compare it with.` : 'Name two sites to compare.';
+  const before = await freshComparison(store, ids, scenarios);
+  navigate('/compare');
+  return comparedNote(store, ids, before);
+}
+
+/** Resolves once the site list's figures are worked out for the current dates and lander (at once when they are). */
+async function overviewReady(store: StoreApi<ExploreState>): Promise<void> {
+  await store.getState().loadOverview();
+  // A run already on its way returns at once: wait for it to finish.
+  if (!store.getState().overviewBusy) return;
+  await new Promise<void>((resolve) => {
+    const stop = store.subscribe((now) => {
+      if (now.overviewBusy) return;
+      stop();
+      resolve();
+    });
+  });
+}
+
+/**
+ * The site shown against every catalogue site, for the current dates and lander: the catalogue ranked as the site list
+ * ranks it, the best three others put beside the site shown on Compare, and one or two sentences on what was found. A
+ * site with incomplete terrain, or worked out from another mast height, is never named best (its figures may be too high).
+ */
+async function compareBest(store: StoreApi<ExploreState>, navigate: (page: string) => void, scenarios?: StoreApi<ScenarioState>): Promise<string> {
+  if (store.getState().status !== 'ready') return 'The figures are still loading: ask again in a moment.';
+  await overviewReady(store);
+  const s = store.getState();
+  const o = s.overview;
+  const worked = rankSites(s.sites, o).filter((x) => o[x.id]);
+  const named = nameableSites(s.sites, o, s.params.mastM);
+  const when = settingsWords(s);
+  if (worked.length === 0) return `The sites’ figures could not be worked out for ${when}.`;
+  if (named.length === 0) return `For ${when}, none of the ${worked.length} sites can be named best: none has both complete terrain and time with power from the Sun.`;
+  const shown = s.site && s.site.category !== 'custom' ? s.site : null;
+  const best = named[0];
+  const others = named.filter((x) => x.id !== shown?.id).slice(0, COMPARE_LIMIT - 1);
+  const ids = [...(shown ? [shown.id] : []), ...others.map((x) => x.id)];
+  await freshComparison(store, ids, scenarios);
+  navigate('/compare');
+  const hoursOf = (id: string) => o[id]?.best?.poweredHours ?? -1;
+  const power = poweredWords(o[best.id], s.days);
+  // The list ranks on time with power, then sunlight, with the sites that see Earth first: the claim says only what holds.
+  const rivals = worked.filter((x) => x.id !== best.id && hoursOf(x.id) >= hoursOf(best.id));
+  // A tie on time with power (often the whole period) is broken by the list's further rules, which put this site first.
+  const tied = rivals.length > 0 && rivals.every((x) => hoursOf(x.id) === hoursOf(best.id));
+  const subject = best.id === shown?.id ? `the site shown, ${siteLabel(best)},` : siteLabel(best);
+  const claim =
+    rivals.length === 0
+      ? `${subject} keeps power longest of the ${worked.length} sites: ${power} from its best landing day`
+      : tied
+        ? `${subject} ranks first of the ${worked.length} sites: it keeps power ${power} from its best landing day, as ${countWords(rivals.length)} other${rivals.length > 1 ? 's do' : ' does'}, and comes first of them on the site list`
+        : `${subject} ranks first of the ${worked.length} sites on the site list’s rules: ${power} with power from its best landing day`;
+  const hereO = shown ? o[shown.id] : undefined;
+  const here =
+    shown && best.id !== shown.id && hereO
+      ? ` (here: ${poweredWords(hereO, s.days)}${hereO.terrain?.quality === 'incomplete' ? ', from incomplete terrain, so it may be too high' : ''})`
+      : '';
+  const placed = others.filter((x) => store.getState().compareIds.includes(x.id)).length;
+  const count = countWords(placed);
+  const put =
+    placed === 0
+      ? 'No other site could be put on Compare.'
+      : !shown
+        ? `I've put the top ${count} on Compare; the point you chose is not in the catalogue, so it is not among them.`
+        : best.id === shown.id
+          ? `I've put the next ${count} beside it on Compare.`
+          : `I've put the top ${count} beside yours on Compare.`;
+  return `For ${when}, ${claim}${here}. ${put}`;
+}
 
 // ---- applying actions to the store -----------------------------------------------------------
 
@@ -344,6 +498,12 @@ export async function applyActions(
         notes.push(`Comparing the landing at ${site.label ?? site.name} on ${startWords(s.startUtc)} with the same landing ${slipLabel(a.hours)}.`);
         break;
       }
+      case 'compare_sites':
+        notes.push(await compareSites(store, a, navigate, scenarios));
+        break;
+      case 'compare_best':
+        notes.push(await compareBest(store, navigate, scenarios));
+        break;
       case 'explain': {
         const e = explanationFor(a.topic);
         notes.push(e ? e.text : `There is no explanation for "${a.topic}" yet; try the longest night, the Earth gap, the best landing date, the hills or the time with power.`);
@@ -360,4 +520,17 @@ export async function applyActions(
     }
   }
   return notes;
+}
+
+/** The actions whose note is the answer: the app knows what Compare took and how the sites rank; a phrasing or the model cannot. */
+const REPORTED = new Set<Action['type']>(['compare_sites', 'compare_best']);
+
+/**
+ * What the visitor reads (and Luna says) for an answer once its actions ran: the note of a comparison in place of the
+ * reply given before it ran, the other notes after it; else the reply and the notes as they are. `notes` has one entry per action.
+ */
+export function answerOf(actions: Action[], reply: string, notes: string[]): { reply: string; notes: string[] } {
+  const i = actions.findIndex((a) => REPORTED.has(a.type));
+  if (i < 0 || notes.length !== actions.length) return { reply, notes };
+  return { reply: notes[i], notes: notes.filter((_, j) => j !== i) };
 }

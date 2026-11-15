@@ -7,6 +7,7 @@ import type { VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
 import { NO_REQUIREMENTS, type Requirements } from '@/lib/plan/requirements';
 import type { ScenarioRun } from '@/lib/store/scenarios';
 import { figureRows, landingShort, settingRows, type Cell, type Column, type Tone } from '@/lib/viz/compare';
+import { landingTitle } from './ScenarioCard';
 import { isoAt, spanShort } from '@/lib/viz/format';
 
 const TONE: Record<Tone, string> = {
@@ -16,7 +17,7 @@ const TONE: Record<Tone, string> = {
 };
 /** What the terrain versions' row means, for the table's key. */
 export const VERSIONS_MEANS =
-  'The same scenario over 32 versions of the ground drawn round NASA’s adjusted south-pole map (PGDA product 90) with errors as large as two generations of its maps differ by: how many still meet your requirements, or with none set give the same verdict, and the range of time with power. Compare does not check the requirement on a share of versions; this count is the share to read it against. Only the polar catalogue sites seen from a 2 m mast have versions; a share of versions is not the chance that the landing works.';
+  'The same landing over 32 versions of the ground drawn round NASA’s adjusted south-pole map (PGDA product 90) with errors as large as two generations of its maps differ by: how many still meet your requirements, or with none set give the same verdict, and the range of time with power. Compare does not check the requirement on a share of versions; this count is the share to read it against. Only the polar catalogue sites seen from a 2 m mast have versions; a share of versions is not the chance that the landing works.';
 const HEAD = 'sticky left-0 z-[1] bg-surface border-b border-line py-2.5 pr-4 text-left align-top text-[15px] font-semibold text-ink-2 max-sm:min-w-[118px]';
 const CELL = 'border-b border-line py-2.5 pr-4 align-top';
 
@@ -24,10 +25,13 @@ const CELL = 'border-b border-line py-2.5 pr-4 align-top';
  * A figure and, under it, its change from the baseline in the colour of better or worse, the word itself for a screen
  * reader; in the row of your requirements, each one met or failed with its value and margin, shown once the row opens.
  */
-function Figure({ value, change, tone, checks, checksId, checksOpen }: Cell & { checksId?: string; checksOpen?: boolean }) {
+function Figure({ value, change, tone, checks, best, checksId, checksOpen }: Cell & { checksId?: string; checksOpen?: boolean }) {
   return (
     <>
-      <span className="block font-medium tabular-nums text-ink">{value}</span>
+      <span className="block font-medium tabular-nums text-ink">
+        {value}
+        {best && <span className="ml-2 inline-block rounded-full border border-good px-2 text-[15px] font-semibold text-good">Best</span>}
+      </span>
       {change && (
         <span className={`block text-[15px] tabular-nums ${tone ? TONE[tone] : 'text-ink-2'}`}>
           {change}
@@ -102,17 +106,17 @@ export function ScenarioTable({
   };
   return (
     <>
-      <div role="region" aria-label="The scenarios side by side" tabIndex={0} className="relative overflow-x-auto focus-visible:outline-2 focus-visible:outline-sun-ink">
+      <div role="region" aria-label="The landings side by side" tabIndex={0} className="relative overflow-x-auto focus-visible:outline-2 focus-visible:outline-sun-ink">
         <table className="w-full min-w-[640px] border-collapse text-left">
-          <caption className="sr-only">Each scenario’s settings and figures, with the change from the baseline under each figure.</caption>
+          <caption className="sr-only">Each landing’s settings and figures, with the change from your landing under each figure and the best of each row marked.</caption>
           <thead>
             <tr>
               <th scope="col" className={HEAD}>
-                Scenario
+                Landing
               </th>
               {cols.map((c, i) => (
                 <th key={c.scenario.id} scope="col" className="min-w-[150px] border-b-2 border-ink py-2.5 pr-4 align-top">
-                  <span className="block text-[15px] font-normal text-ink-2">{i === 0 ? 'Baseline' : `Scenario ${i + 1}`}</span>
+                  <span className="block text-[15px] font-normal text-ink-2">{landingTitle(i)}</span>
                   <span className="block font-semibold text-ink">{c.scenario.label}</span>
                 </th>
               ))}
@@ -185,7 +189,7 @@ export function ScenarioTable({
             </tr>
             <tr>
               <th scope="row" className={HEAD}>
-                <ChecksSwitch name="Its own best landing" open={bestOpen} controls={cols.map((_, i) => bestId(i)).join(' ')} onToggle={() => setBestOpen((v) => !v)} />
+                <ChecksSwitch name="Best landing time at this place" open={bestOpen} controls={cols.map((_, i) => bestId(i)).join(' ')} onToggle={() => setBestOpen((v) => !v)} />
               </th>
               {cols.map((c, k) => {
                 const best = c.outcome?.best;

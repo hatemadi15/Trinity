@@ -5,13 +5,13 @@ import { answerHeading, expect, openExplore, printCount, stubPrint, test } from 
  * The target demonstration, in the planner's words: "Our landing slipped by five days. Show what changed at the
  * original site, which nearby alternative works better, and the sunlight, powered-time, and Earth-contact trade-offs
  * supporting that recommendation." Explore shows the slip at the site; Compare sets the planned landing, five days
- * later and the best place nearby side by side, says what changed and what works better, and its link and brief carry
+ * later and the best place nearby side by side, says which works best and what changed, and its link and brief carry
  * the same comparison.
  */
 
-/** The comparison's figures: every row of the table as its words, once each scenario is worked out. */
+/** The comparison's figures: every row of the table as its words, once each landing is worked out. */
 async function tableWords(page: Page): Promise<string[]> {
-  const region = page.getByRole('region', { name: 'The scenarios side by side' });
+  const region = page.getByRole('region', { name: 'The landings side by side' });
   await expect(region.getByRole('table')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText('Working out…')).toHaveCount(0, { timeout: 120_000 });
   await expect(page.getByText('Working out the figures…')).toHaveCount(0, { timeout: 120_000 });
@@ -40,50 +40,59 @@ test.describe('A landing that slips by five days', () => {
     await shot('explore-slipped');
   });
 
-  test('Compare from here sets the planned landing, five days later and the best place nearby side by side, says what changed and what works better, and its link and brief carry it', async ({ page, browser, shot }) => {
+  test('Compare from here sets the planned landing, five days later and the best place nearby side by side, says which works best and what changed, and its link and brief carry it', async ({ page, browser, shot }) => {
     test.setTimeout(300_000);
     await stubPrint(page);
 
-    await test.step('Compare from here makes the planned landing the baseline', async () => {
+    await test.step('Compare from here makes the planned landing “Your landing”', async () => {
       // The planned landing, in Explore: de Gerlache Rim 2 on 1 January 2027, 30 days, the small lander.
       await openExplore(page);
       await page.getByRole('button', { name: 'Compare from here' }).click();
       await page.waitForURL(/\/compare\?/);
-      await expect(page.getByRole('group', { name: /^Baseline: / })).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByRole('group', { name: /^Your landing: / })).toBeVisible({ timeout: 60_000 });
     });
 
-    await test.step('the baseline’s slip, open at five days later, adds the slipped landing in one press', async () => {
-      await page.getByRole('group', { name: /^Baseline: / }).getByRole('button', { name: 'Add 5 days later' }).click();
-      await expect(page.getByRole('group', { name: 'Scenario 2: 5 days later' })).toBeVisible();
+    const add = page.getByRole('button', { name: /^Add a landing Another place/ });
+    const ways = page.getByRole('region', { name: 'Add a landing to compare' });
+    await test.step('“Add a landing”, open beside a landing on its own, adds the same place five days later in one press', async () => {
+      await expect(add).toHaveAttribute('aria-expanded', 'true');
+      await ways.getByRole('button', { name: 'Add a landing 5 days later' }).click();
+      await expect(page.getByRole('group', { name: 'Landing 2: 5 days later' })).toBeVisible();
     });
 
     await test.step('the slipped landing finds the best place nearby', async () => {
-      await page.getByRole('group', { name: 'Scenario 2: 5 days later' }).getByRole('button', { name: 'Find a nearby alternative' }).click();
-      await expect(page.getByRole('group', { name: /^Scenario 3: / })).toBeVisible({ timeout: 120_000 });
+      await add.click();
+      await ways.getByRole('combobox', { name: 'Start from a copy of' }).selectOption({ label: 'Landing 2: 5 days later' });
+      await ways.getByRole('button', { name: 'Find the best place nearby' }).click();
+      await expect(page.getByRole('group', { name: /^Landing 3: / })).toBeVisible({ timeout: 120_000 });
     });
 
     let figures: string[] = [];
-    await test.step('the words say what changed at the original site and which site works better, with the trade-offs', async () => {
+    await test.step('the words say which landing works best, what changed at the same place and which place works better, with the trade-offs', async () => {
       figures = await tableWords(page);
-      const story = page.getByRole('region', { name: 'What changed, and what works better' });
-      const original = story.getByRole('heading', { name: 'At the original site' });
+      const story = page.getByRole('region', { name: 'Which landing works best' });
+      // One line first: the landing that works best of the three, and the figure that decides it.
+      await expect(story.getByText(/^“Nearby: .+” works best of these 3 landings: power for /)).toBeVisible();
+      await expect(page.getByRole('group', { name: /^Landing 3: / }).getByText('Works best')).toBeVisible();
+      const original = story.getByRole('heading', { name: 'Same place, another date' });
       await expect(original).toBeVisible();
       // What changed at the original site: the slipped landing's power against the planned one's.
       await expect(original.locator('xpath=following-sibling::p').first()).toHaveText(/^5 days later: power for .+ instead of .+/);
       // Which site works better, and the trade-offs behind it: sunlight, powered time and contact with Earth.
-      const another = story.getByRole('heading', { name: 'At another site' });
+      const another = story.getByRole('heading', { name: 'Another place' });
       await expect(another).toBeVisible();
       await expect(another.locator('xpath=following-sibling::p').first()).toHaveText(/works better than “5 days later” at the same landing time.*: power for .+ instead of .+/);
       // The trade-offs repeat the table's rows in words: one tap away, in their fold.
       await story.getByRole('button', { name: 'The trade-offs' }).click();
       const tradeoffs = story.getByRole('listitem');
       for (const measure of ['Sunlight', 'Radio contact while it has power', 'Earth in view']) await expect(tradeoffs.filter({ hasText: new RegExp(`^${measure}: `) })).toHaveCount(1);
-      // The figures behind it, one column per scenario.
-      const table = page.getByRole('region', { name: 'The scenarios side by side' }).getByRole('table');
+      // The figures behind it, one column per landing, the best of a row marked.
+      const table = page.getByRole('region', { name: 'The landings side by side' }).getByRole('table');
       await expect(table.getByRole('columnheader')).toHaveCount(4);
       for (const row of ['Site', 'Landing (UTC)', 'Time with power', 'Sunlight', 'Earth in view', 'Radio contact while it has power']) {
         await expect(table.getByRole('rowheader', { name: row, exact: true })).toBeVisible();
       }
+      await expect(table.getByRole('row', { name: /^Time with power/ }).getByText('Best', { exact: true })).toHaveCount(1);
       await shot('compare-scenarios');
     });
 

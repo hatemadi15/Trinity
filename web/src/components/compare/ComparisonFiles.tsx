@@ -77,7 +77,7 @@ export function ComparisonFiles({ cols, requirements = null, onOpen, check }: { 
     const url = `${window.location.origin}${href}`;
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(`Link copied. It holds every setting of every scenario${requirements && requirementCount(requirements) > 0 ? ', and your requirements' : ''}.`);
+      setCopied(`Link copied. It holds every setting of every landing${requirements && requirementCount(requirements) > 0 ? ', and your requirements' : ''}.`);
     } catch {
       setCopied(`Copy this link: ${url}`);
     }
@@ -102,7 +102,7 @@ export function ComparisonFiles({ cols, requirements = null, onOpen, check }: { 
           </>
         )}
         <label className={`${QUIET} cursor-pointer has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-sun-ink`}>
-          Open a scenario file
+          Open a saved comparison
           <input
             type="file"
             accept="application/json,.json"

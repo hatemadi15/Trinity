@@ -91,19 +91,19 @@ test.describe('The main planning journey', () => {
       await page.getByRole('region', { name: 'The answer for this site' }).getByRole('button', { name: 'More', exact: true }).click();
       await page.locator('#stand-card').getByRole('button', { name: 'Compare sites' }).filter({ visible: true }).click();
       await page.waitForURL(/\/compare/);
-      await expect(page.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeVisible();
-      const baseline = page.getByRole('group', { name: /^Baseline: / });
+      await expect(page.getByRole('heading', { level: 1, name: 'Compare landings' })).toBeVisible();
+      const baseline = page.getByRole('group', { name: /^Your landing: / });
       await expect(baseline).toBeVisible({ timeout: 60_000 });
-      const table = page.getByRole('region', { name: 'The scenarios side by side' }).getByRole('table');
+      const table = page.getByRole('region', { name: 'The landings side by side' }).getByRole('table');
       // The site, the landing day and the lander chosen in Explore.
       await expect(table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Site', exact: true }) })).toContainText('de Gerlache Rim 2');
       await expect(table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Landing (UTC)', exact: true }) })).toContainText(/6 Jan/);
       await expect(table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Lander', exact: true }) })).toContainText(/8 m²|Medium/);
-      await baseline.getByRole('button', { name: 'Find a nearby alternative' }).click();
-      await expect(page.getByRole('group', { name: /^Scenario 2: / })).toBeVisible({ timeout: 120_000 });
+      await page.getByRole('region', { name: 'Add a landing to compare' }).getByRole('button', { name: 'Find the best place nearby' }).click();
+      await expect(page.getByRole('group', { name: /^Landing 2: / })).toBeVisible({ timeout: 120_000 });
       await expect(table.getByRole('columnheader')).toHaveCount(3);
       for (const row of ['Sunlight', 'Earth in view', 'Time with power']) await expect(table.getByRole('rowheader', { name: row, exact: true })).toBeVisible();
-      await expect(page.getByRole('region', { name: 'What changed, and what works better' })).toBeVisible({ timeout: 120_000 });
+      await expect(page.getByRole('region', { name: 'Which landing works best' })).toBeVisible({ timeout: 120_000 });
       await shot('compare');
     });
 

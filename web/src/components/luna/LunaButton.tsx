@@ -31,7 +31,7 @@ const PRESS_STATUS: Partial<Record<LunaStatus, string>> = {
 export const lunaPlace = createStore<{ at: 'header' | 'dock' }>()(() => ({ at: 'header' }));
 
 /** Ready-made messages, one press each: what to say, as well as what to send. */
-export const SUGGESTIONS = ['open the view from the site', 'play', 'turn to Earth', 'compare de Gerlache Rim 2 and Nobile Rim 2', 'plan a landing'];
+export const SUGGESTIONS = ['open the view from the site', 'play', 'turn to Earth', 'compare this to every landing site', 'plan a landing'];
 
 /** A line of the conversation, as a speech bubble: hers on the left with her face, yours on the right in blue. */
 function Bubble({ from, children, live = false }: { from: 'you' | 'luna'; children: React.ReactNode; live?: boolean }) {

@@ -6,8 +6,8 @@ test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true
 
 /** Compare's example, a landing at de Gerlache Rim 2 slipped by five days with the best place nearby, worked out. */
 async function slipExample(page: Page) {
-  await page.getByRole('button', { name: /Our landing slipped by five days/ }).tap({ timeout: 60_000 });
-  await expect(page.getByRole('group', { name: /^Scenario 3: / })).toBeVisible({ timeout: 120_000 });
+  await page.getByRole('button', { name: /What if our landing is 5 days late\?/ }).tap({ timeout: 60_000 });
+  await expect(page.getByRole('group', { name: /^Landing 3: / })).toBeVisible({ timeout: 120_000 });
   await expect(page.getByText('Working out the figures…')).toHaveCount(0, { timeout: 120_000 });
 }
 
@@ -56,7 +56,7 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> 
     name: 'Compare, with the five-day slip example',
     path: '/compare',
     ready: async (page) => {
-      await expect(page.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeVisible({ timeout: 60_000 });
+      await expect(page.getByRole('heading', { level: 1, name: 'Compare landings' })).toBeVisible({ timeout: 60_000 });
       await expectNoSideScroll(page, 'Compare, empty');
       await slipExample(page);
     },

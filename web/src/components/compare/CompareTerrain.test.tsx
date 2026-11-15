@@ -28,7 +28,7 @@ async function compare(loaders: Loaders) {
   const explore = createExploreStore(loaders);
   const scenarios = createScenarioStore(explore, loaders);
   render(<CompareView store={explore} scenarios={scenarios} />);
-  await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeTruthy(), { timeout: 20_000 });
+  await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Compare landings' })).toBeTruthy(), { timeout: 20_000 });
   const base: Scenario = { id: 'a', label: 'Original landing', siteId: RIM.id, startUtc: '2027-01-01T00:00:00', days: 30, power: DEFAULT_POWER, mastM: 5, minEarthElDeg: 0, timing: 'set' };
   const later: Scenario = { ...base, id: 'b', label: '5 days later', startUtc: '2027-01-06T00:00:00', from: 'a' };
   const near: Scenario = { ...later, id: 'c', label: 'Nearby: de Gerlache rim summit', siteId: SUMMIT.id, from: 'b' };
@@ -58,12 +58,16 @@ describe('Compare shows each scenario’s figures from its own mast, and what li
   it('marks a scenario whose terrain is incomplete, says what is missing, and never names it as working better', async () => {
     const scenarios = await compare(fileLoaders({ computeMask: worker(Promise.resolve(), true) }));
     await act(async () => scenarios.getState().settle());
-    const card = await screen.findByRole('group', { name: 'Scenario 3: Nearby: de Gerlache rim summit' });
+    const card = await screen.findByRole('group', { name: 'Landing 3: Nearby: de Gerlache rim summit' });
     await waitFor(() => expect(card.textContent).toMatch(/Terrain incomplete: the elevation map is missing in 7 of 720 directions, from 100 km out\./));
     const main = screen.getByRole('main');
     // The summit would keep power all 30 days: an incomplete terrain can only make its figures too high, so it is not named.
     expect(main.textContent).toMatch(/The terrain at de Gerlache rim summit is incomplete, so it is not named as working better than “5 days later”: its figures may be too high\./);
     expect(main.textContent).not.toMatch(/works better than/);
+    // The one-line summary names no landing either, and no card or cell of the summit carries a mark.
+    expect(main.textContent).toMatch(/The terrain at de Gerlache rim summit is incomplete, so no landing is named as working best: its figures may be too high\./);
+    expect(main.textContent).not.toMatch(/Works best|works best of/);
+    expect(card.textContent).not.toMatch(/Best/);
     // Its column keeps its figures.
     expect(within(screen.getByRole('table')).getByText('all 30 days')).toBeTruthy();
   });

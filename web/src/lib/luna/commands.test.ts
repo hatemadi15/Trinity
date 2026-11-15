@@ -107,16 +107,47 @@ describe('Luna’s commands', () => {
     for (const t of ['speak again about the battery', 'why is it so quiet at the pole']) expect(parse(t), t).toEqual({ kind: 'ask', prompt: t });
   });
 
+  it('hands every comparison said aloud to the planner: two sites, the site shown with one, the site shown with every other', () => {
+    const catalogue = [...readJson<{ sites: Site[] }>('data', 'sites.json').sites, ...readJson<{ sites: Site[] }>('data', 'sites_derived.json').sites];
+    const said = (t: string) => {
+      const c = parseCommand(t, catalogue);
+      return c.kind === 'planner' ? c.actions : c;
+    };
+    // Speech writes "the Gerlache", "noble" and numbers in words: the names are still found.
+    const pair = [{ type: 'compare_sites', ids: ['de_gerlache_rim_2', 'nobile_rim_1'] }];
+    for (const w of ['to', 'with', 'and', 'vs', 'versus', 'against']) expect(said(`Luna, compare the gerlache rim two ${w} noble rim one`), w).toEqual(pair);
+    expect(said('hey luna how does de gerlache rim 2 compare to nobile rim 1')).toEqual(pair);
+    const withNobile = [{ type: 'compare_sites', ids: ['nobile_rim_1'], shown: true }];
+    for (const t of ['compare this to nobile rim one', 'Luna, compare this site with noble rim 1', 'can you compare this landing with nobile rim one please', 'compare it with nobile rim one', 'how does this compare to nobile rim one']) {
+      expect(said(t), t).toEqual(withNobile);
+    }
+    for (const t of [
+      'Luna, compare this to any landing site',
+      'compare this with all the landing sites',
+      'compare this with other landing sites',
+      'compare this to every landing site',
+      'how does this compare to other sites',
+      'is there a better site',
+      'Luna, is there a better landing site for these dates?',
+      'which site is best for these dates',
+      'what is the best site for these dates',
+    ]) {
+      expect(said(t), t).toEqual([{ type: 'compare_best' }]);
+    }
+    // "Compare" alone still opens the page, and a delay is still the landing moved.
+    expect(said('compare')).toEqual(go('compare'));
+    expect(said('compare this with a five day delay')).toEqual([{ type: 'compare_shift', hours: 120 }]);
+  });
+
   it('hands the planner’s own phrasings to the planner, sites by their spoken names', () => {
     const show = parse('show me nobile rim two');
     expect(show.kind).toBe('planner');
     expect(show.kind === 'planner' && show.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
     // "the Gerlache" and "noble" are how speech often writes these names.
     const both = parse('compare the gerlache rim 2 and noble rim two for fourteen days');
-    expect(both.kind === 'planner' && both.actions.map((a) => a.type)).toEqual(['add_to_compare', 'add_to_compare', 'set_window', 'open_page']);
-    expect(both.kind === 'planner' && both.actions.slice(0, 2)).toEqual([
-      { type: 'add_to_compare', id: 'de_gerlache_rim_2' },
-      { type: 'add_to_compare', id: 'nobile_rim_2' },
+    expect(both.kind === 'planner' && both.actions).toEqual([
+      { type: 'set_window', days: 14 },
+      { type: 'compare_sites', ids: ['de_gerlache_rim_2', 'nobile_rim_2'] },
     ]);
     const best = parse('find the best landing date for 30 days');
     expect(best.kind === 'planner' && best.actions).toEqual([{ type: 'find_best_window', days: 30, scope: 'site' }]);
@@ -184,7 +215,8 @@ describe('the catalogue’s newer names, as speech writes them', () => {
   });
 
   it('compares two of them by their spoken names', () => {
-    expect(pick('compare apollo eleven and change four')).toEqual(['apollo_11', 'change4', 'open_page']);
+    const c = parseCommand('compare apollo eleven and change four', catalogue);
+    expect(c.kind === 'planner' && c.actions).toEqual([{ type: 'compare_sites', ids: ['apollo_11', 'change4'] }]);
   });
 
   it('never takes the probe Luna 25 for her name', () => {

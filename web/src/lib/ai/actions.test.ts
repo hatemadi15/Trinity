@@ -1,12 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { StoreApi } from 'zustand';
-import type { Site } from '../data/loaders';
+import { siteLabel, type Site } from '../data/loaders';
 import { readJson } from '../engine/__tests__/helpers';
 import { COMPARE_MAX, createExploreStore, type ExploreState } from '../store/explore';
 import { fileLoaders } from '../../test/file-loaders';
-import { applyActions, COMPARE_LIMIT, siteByName, validateActions, type Action } from './actions';
+import { answerOf, applyActions, COMPARE_LIMIT, siteByName, validateActions, type Action } from './actions';
+import { matchIntent } from './intents';
+import { nameableSites, rankSites } from './site-rank';
 import { createScenarioStore } from '../store/scenarios';
 import { explanationFor } from './explanations';
+import { spanWords } from '../viz/format';
 
 const sites = [
   ...readJson<{ sites: Site[] }>('data', 'sites.json').sites,
@@ -320,6 +323,152 @@ describe('applyActions', () => {
     const notes = await applyActions(store, [{ type: 'set_window', days: 90 }, { type: 'select_site', id: 'atlantis' }], vi.fn());
     expect(calls).toEqual([['setWindow', '2027-01-01T00:00:00', 90]]);
     expect(notes[1]).toMatch(/atlantis/);
+  });
+});
+
+describe('comparing sites by name, the site shown with one, and the site shown with every other', () => {
+  it('keeps a comparison of catalogue sites, each once, within four, and drops one that names an unknown site', () => {
+    expect(validateActions([{ type: 'compare_sites', ids: ['haworth', 'nobile_rim_1'] }], ids).actions).toEqual([{ type: 'compare_sites', ids: ['haworth', 'nobile_rim_1'] }]);
+    expect(validateActions([{ type: 'compare_sites', ids: ['nobile_rim_1', ' nobile_rim_1 '], shown: true }], ids).actions).toEqual([{ type: 'compare_sites', ids: ['nobile_rim_1'], shown: true }]);
+    // The site shown takes one of the four places.
+    const five = ['haworth', 'nobile_rim_1', 'nobile_rim_2', 'malapert_massif', 'shackleton_center'];
+    expect(validateActions([{ type: 'compare_sites', ids: five }], ids).actions[0]).toEqual({ type: 'compare_sites', ids: five.slice(0, COMPARE_LIMIT) });
+    expect(validateActions([{ type: 'compare_sites', ids: five, shown: true }], ids).actions[0]).toEqual({ type: 'compare_sites', ids: five.slice(0, COMPARE_LIMIT - 1), shown: true });
+    const unknown = validateActions([{ type: 'compare_sites', ids: ['haworth', 'atlantis'] }], ids);
+    expect(unknown.actions).toEqual([]);
+    expect(unknown.dropped).toEqual(['compare_sites: unknown site "atlantis"']);
+    expect(validateActions([{ type: 'compare_sites', ids: ['haworth'] }], ids).dropped[0]).toMatch(/needs two sites/);
+    expect(validateActions([{ type: 'compare_sites', ids: 'haworth' }], ids).actions).toEqual([]);
+    expect(validateActions([{ type: 'compare_best' }, { type: 'compare_best', extra: 1 }], ids).actions).toEqual([{ type: 'compare_best' }, { type: 'compare_best' }]);
+  });
+
+  async function ready() {
+    const loaders = fileLoaders();
+    const store = createExploreStore(loaders);
+    await store.getState().init();
+    await store.getState().selectSite('de_gerlache_rim_2');
+    store.getState().setWindow('2027-01-01T00:00:00', 30);
+    const scenarios = createScenarioStore(store, loaders);
+    return { store, scenarios, navigate: vi.fn() };
+  }
+  const ran = async (prompt: string, r: Awaited<ReturnType<typeof ready>>) => {
+    const a = matchIntent(prompt, sites)!;
+    const valid = validateActions(a.actions, ids).actions;
+    const notes = await applyActions(r.store, valid, r.navigate, r.scenarios, prompt);
+    return answerOf(valid, a.reply, notes);
+  };
+
+  it('opens Compare with two named sites, a new comparison with the dates and lander chosen', async () => {
+    const r = await ready();
+    // What Compare held before goes, a slipped landing with it.
+    await r.store.getState().addToCompare('haworth');
+    const { reply, notes } = await ran('compare de Gerlache Rim 2 to Nobile Rim 1', r);
+    expect(r.store.getState().compareIds).toEqual(['de_gerlache_rim_2', 'nobile_rim_1']);
+    expect(r.scenarios.getState().scenarios.map((x) => [x.siteId, x.startUtc, x.days])).toEqual([
+      ['de_gerlache_rim_2', '2027-01-01T00:00:00', 30],
+      ['nobile_rim_1', '2027-01-01T00:00:00', 30],
+    ]);
+    expect(r.navigate).toHaveBeenCalledWith('/compare');
+    expect(reply).toBe(
+      'Compare: de Gerlache Rim 2 and Nobile Rim 1, for 30 days from 1 January 2027 and this lander (4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, 2 m mast). The sites compared before (Haworth) came off it.',
+    );
+    expect(notes).toEqual([]);
+  });
+
+  it('opens Compare with the site shown and a named one, the site shown first', async () => {
+    const r = await ready();
+    await r.store.getState().selectSite('haworth');
+    const { reply } = await ran('how does this compare to Nobile Rim 1?', r);
+    expect(r.store.getState().compareIds).toEqual(['haworth', 'nobile_rim_1']);
+    expect(r.scenarios.getState().scenarios[0].siteId).toBe('haworth');
+    expect(reply).toMatch(/^Compare: Haworth and Nobile Rim 1, for 30 days from 1 January 2027 and this lander/);
+    // The site shown against itself is no comparison: nothing changes and Compare stays shut.
+    r.navigate.mockClear();
+    const same = await ran('compare this to haworth', r);
+    expect(same.reply).toBe('Haworth is the site shown: name another site to compare it with.');
+    expect(r.navigate).not.toHaveBeenCalled();
+    expect(r.store.getState().compareIds).toEqual(['haworth', 'nobile_rim_1']);
+  });
+
+  it('ranks every site as the site list does and puts the best three others beside the site shown', async () => {
+    const r = await ready();
+    const { reply } = await ran('compare this to every landing site', r);
+    const s = r.store.getState();
+    const o = s.overview;
+    expect(Object.keys(o)).toHaveLength(34);
+    const named = nameableSites(s.sites, o, s.params.mastM);
+    const top = named.filter((x) => x.id !== 'de_gerlache_rim_2').slice(0, 3);
+    expect(s.compareIds).toEqual(['de_gerlache_rim_2', ...top.map((x) => x.id)]);
+    expect(r.scenarios.getState().scenarios.map((x) => x.siteId)).toEqual(s.compareIds);
+    expect(r.navigate).toHaveBeenCalledWith('/compare');
+    // Never a site with incomplete terrain, nor one without power from the Sun, among them.
+    for (const x of top) {
+      expect(o[x.id]!.terrain?.quality).not.toBe('incomplete');
+      expect(o[x.id]!.best).not.toBeNull();
+    }
+    // Two sentences: the dates and lander, the best site and its figure from the app, the one here, then what Compare holds.
+    const best = named[0];
+    const hours = (id: string) => o[id]!.best!.poweredHours;
+    const words = (h: number) => (h >= 30 * 24 ? 'all 30 days' : spanWords(h));
+    expect(reply.startsWith('For 30 days from 1 January 2027 and this lander (4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, 2 m mast), ')).toBe(true);
+    expect(reply).toContain(`, ${siteLabel(best)} `);
+    expect(reply).toContain(`of the 34 sites`);
+    expect(reply).toContain(words(hours(best.id)));
+    expect(reply).toContain(`(here: ${words(hours('de_gerlache_rim_2'))})`);
+    expect(reply).toMatch(/ I've put the top three beside yours on Compare\.$/);
+    expect(reply.split(/(?<=\.) /)).toHaveLength(2);
+    expect(reply).not.toMatch(/surviv|guarantee|safe/i);
+  });
+
+  it('says so when the site shown is itself the best, and puts the next three beside it', async () => {
+    const r = await ready();
+    const s0 = r.store.getState();
+    await s0.loadOverview();
+    const best = nameableSites(s0.sites, r.store.getState().overview, s0.params.mastM)[0];
+    await r.store.getState().selectSite(best.id);
+    const { reply } = await ran('is there a better site?', r);
+    expect(reply).toContain(`the site shown, ${siteLabel(best)},`);
+    expect(reply).not.toContain('(here:');
+    expect(reply).toMatch(/ I've put the next three beside it on Compare\.$/);
+    expect(r.store.getState().compareIds[0]).toBe(best.id);
+    expect(r.store.getState().compareIds).toHaveLength(4);
+  });
+
+  it('never names a site with incomplete terrain best, and names none when no site can be', async () => {
+    const r = await ready();
+    await r.store.getState().loadOverview();
+    const s = r.store.getState();
+    const first = nameableSites(s.sites, s.overview, s.params.mastM)[0];
+    // The leader's terrain, marked incomplete: the ranking passes over it.
+    const o = s.overview[first.id]!;
+    r.store.setState({ overview: { ...s.overview, [first.id]: { ...o, terrain: { ...o.terrain!, quality: 'incomplete' } } } });
+    const { reply } = await ran('which site is best for these dates', r);
+    expect(reply).not.toContain(`${siteLabel(first)} keeps`);
+    expect(reply).not.toContain(`${siteLabel(first)} ranks`);
+    expect(r.store.getState().compareIds).not.toContain(first.id);
+    // Every site incomplete: none is named, and Compare is not opened.
+    const all = Object.fromEntries(Object.entries(r.store.getState().overview).map(([id, x]) => [id, { ...x, terrain: { ...x.terrain!, quality: 'incomplete' as const } }]));
+    r.store.setState({ overview: all });
+    r.navigate.mockClear();
+    const none = await ran('compare this to any landing site', r);
+    expect(none.reply).toBe('For 30 days from 1 January 2027 and this lander (4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, 2 m mast), none of the 34 sites can be named best: none has both complete terrain and time with power from the Sun.');
+    expect(r.navigate).not.toHaveBeenCalled();
+  });
+
+  it('ranks the catalogue in the site list’s order: sites that see Earth first, then the longest with power, then sunlight', async () => {
+    const r = await ready();
+    await r.store.getState().loadOverview();
+    const s = r.store.getState();
+    const ranked = rankSites(s.sites, s.overview);
+    expect(ranked).toHaveLength(34);
+    const score = (id: string) => (s.overview[id]!.best?.poweredHours ?? -1) * 10 + s.overview[id]!.afterSun;
+    const seen = ranked.filter((x) => x.far_side !== true && s.overview[x.id]!.afterEarth > 0);
+    expect(ranked.slice(0, seen.length)).toEqual(seen);
+    const complete = seen.filter((x) => s.overview[x.id]!.terrain?.quality !== 'incomplete');
+    expect(complete.map((x) => score(x.id))).toEqual(complete.map((x) => score(x.id)).sort((a, b) => b - a));
+    // Mons Mouton never sees Earth in these days, and the far side closes the list.
+    expect(ranked.findIndex((x) => x.id === 'mons_mouton')).toBeGreaterThanOrEqual(seen.length);
+    expect(ranked.slice(-3).map((x) => x.id).sort()).toEqual(['change4', 'change6', 'cp12_schrodinger']);
   });
 });
 
