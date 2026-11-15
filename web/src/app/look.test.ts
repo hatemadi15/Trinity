@@ -18,7 +18,17 @@ describe('the Moonstone look (spec 23, after spec 6)', () => {
   const css = fs.readFileSync(path.resolve(process.cwd(), 'src/app/globals.css'), 'utf8');
 
   it('blurs nothing behind a plate: a backdrop blur over the live scenes would cost every frame', () => {
-    for (const [file, text] of all) expect(text, file).not.toMatch(/backdrop-blur|backdrop-filter/);
+    // The one exception (15 November, owner review): the glass panes of "Choose a site", over a still map and the night sky. Their rules stand between two marks in globals.css.
+    const glass = /sites-glass:start[\s\S]*?sites-glass:end/;
+    expect(css).toMatch(glass);
+    for (const [file, text] of all) expect(file === 'src/app/globals.css' ? text.replace(glass, '') : text, file).not.toMatch(/backdrop-blur|backdrop-filter/);
+  });
+
+  it('keeps the glass panes to "Choose a site": no other page names them, or the night sky', () => {
+    for (const [file, text] of all) {
+      if (file === 'src/app/globals.css' || file.startsWith('src/components/sites/')) continue;
+      expect(text, file).not.toMatch(/(["'`\s])pane-(wide|stage|surface)(["'`\s])|["'`]pane\s|\spane["'`]|data-night-sky/);
+    }
   });
 
   it('glows only in the accent’s own light: every glow on the page is the accent’s RGB, a blue or white of the palette', () => {

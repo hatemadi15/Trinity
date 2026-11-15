@@ -287,6 +287,35 @@ describe('SitesView', () => {
     await waitFor(() => expect(card()!.textContent).toMatch(/Sunlight \d+\u00a0%/), { timeout: 20_000 });
   });
 
+  it('is a night sky in both themes, with every panel a pane of dark glass (15 November, owner review)', async () => {
+    await ready();
+    // The dark theme's values whatever the theme, on the stage's black, with the stars on a canvas that takes no pointer.
+    const main = document.querySelector<HTMLElement>('main')!;
+    expect(main.dataset.nightSky).toBe('');
+    expect(main.className).toMatch(/\btheme-dark\b/);
+    expect(main.className).toMatch(/\bbg-stage\b/);
+    expect(main.className).not.toMatch(/\bbg-page\b/);
+    const sky = main.querySelector<HTMLElement>('canvas[data-part="sky"]')!;
+    expect(sky.getAttribute('aria-hidden')).toBe('true');
+    expect(sky.className).toMatch(/\bpointer-events-none\b/);
+    // The map section paints no colour of its own over the sky, and no panel keeps a solid page colour.
+    expect(map().className).not.toMatch(/\bbg-(stage|page)\b/);
+    const isPane = (el: Element | null) => /(^|\s)pane(-wide)?(\s|$)/.test(el?.className ?? '');
+    expect(isPane(document.querySelector('[data-part="title"]'))).toBe(true);
+    // The bar's glass is a layer of its own, so the dates panel that opens from it still has the map behind it to blur.
+    const bar = document.querySelector('[data-part="bar"]')!;
+    expect(isPane(bar)).toBe(false);
+    expect(isPane(bar.querySelector(':scope > [aria-hidden="true"]'))).toBe(true);
+    fireEvent.mouseEnter(markerOf('Nobile Rim 1'));
+    expect(isPane(card())).toBe(true);
+    fireEvent.click(within(bar as HTMLElement).getByRole('button', { name: /Dates/ }));
+    expect(isPane(screen.getByRole('region', { name: 'The dates the figures are for' }))).toBe(true);
+    openList();
+    expect(isPane(document.querySelector('[data-part="list"]'))).toBe(true);
+    // The primary action is still the one solid button.
+    expect(document.querySelectorAll('main .btn-primary')).toHaveLength(1);
+  });
+
   it('names its NASA data under the map', async () => {
     await ready();
     const row = screen.getByLabelText('Data sources');
