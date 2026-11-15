@@ -2,7 +2,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { sites } from '@/test/file-loaders';
-import { WhereOnMoon } from './WhereOnMoon';
+import { siteLabel } from '@/lib/data/loaders';
+import { WhereOnMoon, wholeMoonSpot } from './WhereOnMoon';
 
 const site = (id: string) => sites.find((s) => s.id === id)!;
 const overview = {
@@ -58,7 +59,19 @@ describe('WhereOnMoon', () => {
 
   it('says so for a site that lies outside the map, and places a custom site by its coordinates', () => {
     const { unmount } = render(<WhereOnMoon site={site('blue_ghost_m1')} sites={sites} overview={{}} startUtc="2025-03-02T00:00:00" days={14} />);
-    expect(screen.getByRole('region', { name: 'Where on the Moon' }).textContent).toMatch(/lies far outside this map of the south pole/);
+    expect(screen.getByRole('region', { name: 'Where on the Moon' }).textContent).toMatch(/The map shows where it is on the whole Moon\./);
+    // The site is the one ringed marker on the whole Moon, where its latitude and longitude put it, named beside it.
+    const whole = screen.getByRole('img', { name: /on the map of the whole Moon, at 18\.\d° N, 61\.\d° E$/ });
+    const marker = whole.querySelector<HTMLElement>('[data-part="whole-moon-marker"]')!;
+    const bg = site('blue_ghost_m1');
+    const spot = wholeMoonSpot(bg.lat, bg.lon);
+    expect(parseFloat(marker.style.left)).toBeCloseTo(spot.left, 1);
+    expect(parseFloat(marker.style.top)).toBeCloseTo(spot.top, 1);
+    expect(spot.left).toBeGreaterThan(60);
+    expect(spot.top).toBeLessThan(50);
+    expect(marker.textContent).toBe(siteLabel(bg));
+    // No polar relief and no pins of other sites for a place the relief would not hold.
+    expect(screen.queryByRole('link', { name: /de Gerlache/ })).toBeNull();
     unmount();
     const custom = { id: 'custom_-89.0000_45.0000', name: 'Custom site -89.000°, 45.000°', lat: -89, lon: 45, category: 'custom', polar: true, source: 'user' };
     render(<WhereOnMoon site={custom} sites={[...sites, custom]} overview={{}} startUtc="2027-01-01T00:00:00" days={30} />);
@@ -88,7 +101,7 @@ describe('WhereOnMoon', () => {
     const apollo = screen.getByRole('region', { name: 'Where on the Moon' });
     expect(apollo.textContent).toMatch(/It landed on 20 July 1969, before the years this app covers \(2024 to 2036\), so the figures are for the days chosen above\./);
     expect(within(apollo).queryByRole('link', { name: /days after it landed/ })).toBeNull();
-    expect(apollo.textContent).toMatch(/lies far outside this map of the south pole/);
+    expect(apollo.textContent).toMatch(/The map shows where it is on the whole Moon\./);
     expect(apollo.textContent).not.toMatch(/far side/);
   });
 
