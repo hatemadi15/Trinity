@@ -55,7 +55,7 @@ export function AddLanding({
   const same = site.id === from.scenario.siteId && startUtc === from.scenario.startUtc;
 
   return (
-    <section id={id} aria-labelledby={`${id}-h`} className="flex flex-col gap-4 rounded-lg border border-line-strong bg-band px-4 py-4 sm:px-6 sm:py-5">
+    <section id={id} aria-labelledby={`${id}-h`} className="pane flex flex-col gap-4 rounded-lg px-4 py-4 sm:px-6 sm:py-5">
       <div>
         <h3 id={`${id}-h`} className="display text-[21px] font-semibold">
           Add a landing to compare

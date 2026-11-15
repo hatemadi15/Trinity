@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from '@/components/AppFrame';
 import { DataProblem, SYNC_HINT } from '@/components/DataProblem';
+import { NightSky } from '@/components/NightSky';
 import { PeriodControls } from '@/components/PeriodControls';
 import { SkylineNote } from '@/components/SkylineNote';
 import { Sources } from '@/components/Sources';
@@ -19,7 +20,6 @@ import { exploreHref } from '@/lib/links';
 import { coldTrapShort, coldTrapSite, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
 import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
 import { GroupMark, MARKER_GROUPS, SiteMap, type MarkerGroup, type SiteMarker } from './SiteMap';
-import { SitesSky } from './SitesSky';
 
 /** Explore's own-site mode: no site filled in, the visitor gives the place and the details there. */
 export const OWN_SITE_HREF = '/explore?own=1';
@@ -190,7 +190,7 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
     <AppFrame>
       {/* A night-sky page (globals.css): night in both themes from header to footer, with the sky's canvas at the back of the page. */}
       <main data-night-sky="" className="relative text-ink">
-        <SitesSky />
+        <NightSky />
         {/* The window under the header: the map, and the bar at its foot. The bar comes first for the keyboard, before the markers. */}
         <div data-part="screen" className="relative flex flex-col lg:h-[calc(100svh-69px)] lg:min-h-[600px]">
           <div data-part="bar" className="sticky bottom-0 z-[38] order-last flex flex-wrap items-center justify-end gap-x-3 gap-y-2 py-3 pl-[132px] pr-4 sm:pl-[190px] lg:pr-8">

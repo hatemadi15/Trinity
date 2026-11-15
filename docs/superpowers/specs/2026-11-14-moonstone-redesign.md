@@ -47,12 +47,16 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   opens Explore with nothing filled in (`/explore?own=1`); the "Somewhere else" form is gone. The first screen is held
   to 48 words (`SitesView.test.tsx`). The page is a night sky in both themes, from the header to the footer (15 November, owner
   review: it must read as space and as glass at a glance): on the stage's black, one still canvas at the back of the
-  page (`SitesSky.tsx`) draws a faint Milky Way haze, a dust of small stars and the catalogue's real stars, the bright
+  page (`NightSky.tsx`) draws a faint Milky Way haze, a dust of small stars and the catalogue's real stars, the bright
   ones with a glow, and none under a line of words that stands on the sky. On a wide screen the map stands in a
   rounded frame so the sky shows round it. The title block, the card, the bar, the list, the dates panel and the
   sources are panes of glass (`.pane` in `globals.css`: a thin fill of the panel's own colour, about 34 to 42 %, over
   a strong blur of what is behind it, darkened so the words keep AA; a bright edge, a top highlight and a blue glow),
-  the one place a backdrop is blurred (`look.test.ts`).
+  with Compare the one place a backdrop is blurred (`look.test.ts`).
+- **Compare.** The same night sky and glass (15 November, owner review): the page is marked `data-night-sky`, so it is
+  night in both themes from header to footer, every `.panel` is a pane, and the verdict band, "Start here", the "Add a
+  landing" panel and the Share band are panes too. Each landing keeps its colour edge, "Works best" its green ring,
+  "+ Add a landing" stays the solid primary tile, and Hour by hour keeps its own black plate so the lanes stay crisp.
 - **404.** The nebula, with the page's own sentence as its headline.
 - **Header.** The Moon mark turns as the page scrolls; the current section is underlined.
 

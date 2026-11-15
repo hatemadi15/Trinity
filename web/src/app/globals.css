@@ -556,7 +556,7 @@ pre {
     }
   }
   /*
-   * sites-glass:start. "Choose a site" only (15 November, owner review): its panels are panes of dark glass over the
+   * sites-glass:start. "Choose a site" and Compare only (15 November, owner review): its panels are panes of dark glass over the
    * night sky and the map. Each keeps its own colour (--glass-tint), let through in part, with the map blurred behind
    * it, a thin bright edge, a faint blue sheen and a soft shadow. These few panes are the one place a backdrop is
    * blurred; the map under them is a still picture. The fill is thin and the blur strong, so it reads as glass at a
@@ -569,6 +569,11 @@ pre {
     --glass-tint: var(--page);
     --glass-a: 38%;
   }
+  /* On a night-sky page every .panel is such a pane, in the plate's own colour. */
+  [data-night-sky] .panel {
+    --glass-tint: var(--surface);
+    --glass-a: 42%;
+  }
   .pane-stage {
     --glass-tint: var(--stage);
     --glass-a: 34%;
@@ -577,7 +582,8 @@ pre {
     --glass-tint: var(--surface);
     --glass-a: 42%;
   }
-  .pane {
+  .pane,
+  [data-night-sky] .panel {
     border: 1px solid rgb(255 255 255 / 0.34);
     background:
       linear-gradient(165deg, rgb(255 255 255 / 0.09), rgb(127 169 255 / 0.05) 30%, rgb(127 169 255 / 0.02) 60%, rgb(127 169 255 / 0.1)),
@@ -592,7 +598,8 @@ pre {
     backdrop-filter: blur(22px) saturate(1.8) brightness(0.64);
   }
   @media (max-width: 1023px) {
-    .pane {
+    .pane,
+    [data-night-sky] .panel {
       --glass-a: 50%;
       -webkit-backdrop-filter: blur(14px) saturate(1.7) brightness(0.62);
       backdrop-filter: blur(14px) saturate(1.7) brightness(0.62);
@@ -617,7 +624,8 @@ pre {
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .pane,
-    .pane-wide {
+    .pane-wide,
+    [data-night-sky] .panel {
       --glass-a: 92%;
     }
   }
@@ -633,7 +641,7 @@ pre {
 }
 
 /*
- * "Choose a site" is night in both themes, from the header to the footer: the dark theme's values (above), the
+ * "Choose a site" and Compare are night in both themes, from the header to the footer: the dark theme's values (above), the
  * stage's black for the page, and nothing painted over the sky's canvas at the back of the page.
  */
 @media screen {

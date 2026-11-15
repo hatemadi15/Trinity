@@ -21,7 +21,7 @@ export function CompareStory({ cols }: { cols: Column[] }) {
   const working = cols.some((c) => !c.outcome);
   const more = s.atOriginal.length > 0 || s.alternative !== null;
   return (
-    <section aria-labelledby="h-story" className="flex flex-col gap-1.5 rounded-lg border border-line border-l-[6px] border-l-good bg-band px-5 py-4 sm:px-6">
+    <section aria-labelledby="h-story" className="pane flex flex-col gap-1.5 rounded-lg border-l-[6px] border-l-good px-5 py-4 sm:px-6">
       <h2 id="h-story" className="text-[15px] font-semibold text-good">
         Which landing works best
       </h2>

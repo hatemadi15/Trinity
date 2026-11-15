@@ -3,6 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
+import { NightSky } from './NightSky';
 import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PlannerChat } from './PlannerChat';
 import { lolaFor, Sources } from './Sources';
@@ -140,7 +141,9 @@ export function CompareView({
 
   return (
     <AppFrame>
-      <main className="wrap flex flex-col gap-5 pb-12 pt-8">
+      {/* A night-sky page, as Choose a site is (globals.css): night in both themes from header to footer, the sky's canvas at the back of the page, every panel a pane of dark glass. */}
+      <main data-night-sky="" className="wrap flex flex-col gap-5 pb-12 pt-8">
+        <NightSky />
         <div>
           <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">
             Compare landings
@@ -159,7 +162,7 @@ export function CompareView({
         )}
 
         {cols.length === 0 ? (
-          <section aria-labelledby="h-start" className="rounded-lg border border-line border-l-[6px] border-l-accent bg-band px-5 py-5 sm:px-6">
+          <section aria-labelledby="h-start" className="pane rounded-lg border-l-[6px] border-l-accent px-5 py-5 sm:px-6">
             <h2 id="h-start" className="display text-[23px] font-semibold">
               Start here
             </h2>
@@ -271,7 +274,7 @@ export function CompareView({
           </>
         )}
 
-        <div className="flex flex-col gap-1 rounded-lg border border-line bg-band px-5 py-3">
+        <div className="pane flex flex-col gap-1 rounded-lg px-5 py-3">
         <ComparisonFiles
           cols={cols}
           requirements={s.requirements}

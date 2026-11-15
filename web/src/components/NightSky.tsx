@@ -78,7 +78,7 @@ function drawStar(g: CanvasRenderingContext2D, x: number, y: number, r: number, 
 }
 
 /**
- * The night sky behind "Choose a site" (15 November, owner review: it must read as space at once),
+ * The night sky behind "Choose a site" and Compare (15 November, owner review: it must read as space at once),
  * over the whole page: behind the header and the footer too. On the stage's black, a faint Milky Way crosses the page
  * (soft clouds of the accent's blue and the Sun's warm white, with a river of small stars along it), then a dust of
  * small stars, then the catalogue's real stars, the bright ones with a glow. Drawn once on one canvas at the back of
@@ -86,7 +86,7 @@ function drawStar(g: CanvasRenderingContext2D, x: number, y: number, r: number, 
  * No star is drawn under a line of words that stands on the sky itself, so those words keep their contrast. Without
  * the catalogue the clouds and the dust are still drawn; without a 2D canvas the sky is plain black. Never printed.
  */
-export function SitesSky() {
+export function NightSky() {
   useEffect(() => {
     const canvas = document.createElement('canvas');
     canvas.setAttribute('aria-hidden', 'true');
