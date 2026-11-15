@@ -94,6 +94,8 @@ test.describe('The main planning journey', () => {
       await expect(page.getByRole('heading', { level: 1, name: 'Compare landings' })).toBeVisible();
       const baseline = page.getByRole('group', { name: /^Your landing: / });
       await expect(baseline).toBeVisible({ timeout: 60_000 });
+      // The full table waits behind "All figures".
+      await page.getByRole('button', { name: 'All figures' }).click();
       const table = page.getByRole('region', { name: 'The landings side by side' }).getByRole('table');
       // The site, the landing day and the lander chosen in Explore.
       await expect(table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Site', exact: true }) })).toContainText('de Gerlache Rim 2');

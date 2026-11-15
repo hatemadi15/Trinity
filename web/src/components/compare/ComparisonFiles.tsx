@@ -83,11 +83,11 @@ export function ComparisonFiles({ cols, requirements = null, onOpen, check }: { 
     }
   };
   return (
-    <section aria-labelledby={`${id}-h`} className="flex flex-col gap-2">
+    <section aria-labelledby={`${id}-h`} className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
       <h2 id={`${id}-h`} className="font-semibold text-ink">
-        Share or keep this comparison
+        Share or keep
       </h2>
-      <p className="flex flex-wrap items-center gap-x-6 gap-y-1">
         {cols.length > 0 && (
           <>
             <button type="button" onClick={() => void copy()} className={QUIET}>
@@ -118,7 +118,7 @@ export function ComparisonFiles({ cols, requirements = null, onOpen, check }: { 
             }}
           />
         </label>
-      </p>
+      </div>
       {copied && (
         <p role="status" className="text-[15px] text-ink-2">
           {copied}

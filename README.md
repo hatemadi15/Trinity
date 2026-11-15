@@ -111,11 +111,15 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   shown that one; "Set up my own landing" starts one on the page). The gold "+ Add a landing" opens
   three plain ways to add another: "Same place, later date" (five days later in one press), "A place
   nearby, same date" (the best catalogue site within 30 km for the same settings) and "Any place and
-  date" (Explore's site drop-down and a date). One line at the top says which landing works best and
-  the figure that decides it; under it, what changed at the same place and why, and the other place
-  that works better (the trade-offs in words one tap away). Then every setting and figure side by
-  side, the best of each row marked "Best", with the signed change from your landing, and whether
-  the landings share a landing time. The address carries the whole comparison (in the code and the
+  date" (Explore's site drop-down and a date). Each landing has its own colour, on its card, its
+  bars and its strip. One line at the top says which landing works best and the figure that decides
+  it (what changed and why, and the trade-offs, wait one tap under it); each card shows its time
+  with power as a big number with its radio contact, and the best one a ring, "Works best" and the
+  reason in a few words. "Hour by hour" draws every stay as three lanes on one axis (sunlight in
+  warm white, Earth in view in blue, radio contact with power in green, a red line where the
+  battery first runs out), and "The key figures" gives time with power, radio contact, sunlight and
+  the longest night as one bar per landing, the best marked. Every setting and figure side by
+  side, with the signed change from your landing, waits behind "All figures". The address carries the whole comparison (in the code and the
   address a landing is a scenario, and the first is the baseline); files save and reopen one or many
   with the app and data versions; `/compare/brief` prints it. With requirements set, a row checks
   every landing against them, all but the share of terrain versions, which Compare carries but does

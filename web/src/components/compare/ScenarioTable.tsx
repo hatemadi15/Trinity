@@ -7,7 +7,7 @@ import type { VersionsDeps } from '@/lib/ensemble/useTerrainVersions';
 import { NO_REQUIREMENTS, type Requirements } from '@/lib/plan/requirements';
 import type { ScenarioRun } from '@/lib/store/scenarios';
 import { figureRows, landingShort, settingRows, type Cell, type Column, type Tone } from '@/lib/viz/compare';
-import { landingTitle } from './ScenarioCard';
+import { landingTitle } from './identity';
 import { isoAt, spanShort } from '@/lib/viz/format';
 
 const TONE: Record<Tone, string> = {

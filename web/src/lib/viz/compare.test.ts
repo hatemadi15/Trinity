@@ -148,10 +148,11 @@ describe('the figures side by side', () => {
   it('says which landing works best in one line, with the figure that decides it', () => {
     expect(verdictLine(cols)).toEqual({
       index: 2,
+      reason: 'Longest time with power',
       line: '“Nearby: Summit” works best of these 3 landings: power for all 30 days, the longest here, with 14 days 15 hours of radio contact while it has power.',
     });
     // The visitor's own landing goes by "Your landing".
-    expect(verdictLine([cols[0], cols[1]])).toEqual({ index: 0, line: 'Your landing works best of these 2 landings: power for 3 days 4 hours, the longest here, with no radio contact while it has power.' });
+    expect(verdictLine([cols[0], cols[1]])).toEqual({ index: 0, reason: 'Longest time with power', line: 'Your landing works best of these 2 landings: power for 3 days 4 hours, the longest here, with no radio contact while it has power.' });
     // Nothing is said of a landing alone, or while one is worked out.
     expect(verdictLine([cols[0]])).toBeNull();
     expect(verdictLine([cols[0], { ...cols[1], outcome: null }])).toBeNull();
@@ -254,6 +255,7 @@ describe('the comparison in words', () => {
     ];
     expect(verdictLine(pair(night(0), night(10)))).toEqual({
       index: 1,
+      reason: 'Same time with power, most radio contact',
       line: '“Nearby: Summit” works best of these 2 landings: power for 10 hours, as long as any here, with the most radio contact while it has power: 10 hours against none.',
     });
     expect(verdictLine(pair(night(0), night(0, 0.52)))!.line).toBe(

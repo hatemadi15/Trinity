@@ -31,11 +31,21 @@ async function example(st = stores()) {
   fireEvent.click(screen.getByRole('button', { name: /What if our landing is 5 days late\?/ }));
   await waitFor(() => expect(st.scenarios.getState().scenarios).toHaveLength(3), { timeout: 20_000 });
   await st.scenarios.getState().settle();
-  await screen.findByRole('table');
+  await figures();
   return st;
 }
 
-const table = () => screen.getByRole('table');
+/** The full table waits behind "All figures": opened once, it stays open. */
+async function figures() {
+  const fold = await screen.findByRole('button', { name: /^All figures/ });
+  if (fold.getAttribute('aria-expanded') !== 'true') fireEvent.click(fold);
+  return screen.findByRole('table');
+}
+const table = () => {
+  const fold = screen.getByRole('button', { name: /^All figures/ });
+  if (fold.getAttribute('aria-expanded') !== 'true') fireEvent.click(fold);
+  return screen.getByRole('table');
+};
 /** The cells of a row of the table, by its name. */
 function row(name: string): string[] {
   const th = within(table()).getByRole('rowheader', { name });
@@ -56,9 +66,9 @@ describe('CompareView', () => {
     const main = screen.getByRole('main');
     for (const width of [WIDE, PHONE]) expect(visibleWords(main, width).length).toBeLessThanOrEqual(200);
     // One gold action, and the page says what to press: the example of a late landing, then “+ Add a landing”.
-    expect(main.textContent).toMatch(/Press the example to see three landings compared\. Then press “\+ Add a landing” to add any place or date of your own\./);
-    // The assistant's way in is named beside it.
-    expect(main.textContent).toMatch(/Or ask in the box below: “compare this to every landing site”\./);
+    expect(main.textContent).toMatch(/Press the example\. Then add a landing of your own\./);
+    // The assistant's way in stands under it, as the Ask box's own example.
+    expect(main.textContent).toMatch(/Compare this to every landing site/);
     expect(main.querySelectorAll('.btn-primary')).toHaveLength(1);
     expect(screen.getByRole('button', { name: /What if our landing is 5 days late\?/ }).className).toMatch(/\bbtn-primary\b/);
     expect(screen.getByRole('link', { name: 'Explore' }).getAttribute('href')).toBe('/explore');
@@ -90,12 +100,30 @@ describe('CompareView', () => {
     expect(story.textContent).toMatch(/5 days later: power for 10 hours instead of 3 days 4 hours\. The period starts at night/);
     expect(story.textContent).toMatch(/de Gerlache rim summit \(12 km, not checked for landing\) works better than “5 days later” at the same landing time: power for all 30 days instead of 10 hours\./);
     // The trade-offs repeat the table's rows in words: one tap away, in their fold.
+    const why = within(story).getByRole('button', { name: /What changed and why/ });
+    expect(why.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(why);
     expect(within(story).getByRole('button', { name: /The trade-offs/ }).getAttribute('aria-expanded')).toBe('false');
     expect(within(story).getAllByRole('listitem', { hidden: true }).map((li) => li.textContent)).toEqual(
       expect.arrayContaining(['Sunlight: 100 % against 41 %: better.', 'Radio contact while it has power: 14 days 15 hours against none: better.']),
     );
     // What the figures assume, and do not show, one tap away.
-    expect(within(story).getByRole('button', { name: /Assumptions and limits/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(screen.getByRole('button', { name: /Assumptions and limits/ }).getAttribute('aria-expanded')).toBe('false');
+    // The winner's card says why in a few words, with its time with power and radio contact as the table gives them.
+    const winner = screen.getByRole('group', { name: 'Landing 3: Nearby: de Gerlache rim summit' });
+    expect(winner.textContent).toMatch(/all 30 days\s*with power/);
+    expect(winner.textContent).toMatch(/14 d 15 h\s*radio contact/);
+    expect(winner.textContent).toMatch(/Longest time with power/);
+    // The key figures as bars, one per landing, with the table's values and marks in words.
+    const bars = within(screen.getByRole('group', { name: 'Time with power' })).getAllByRole('listitem').map((li) => li.textContent);
+    expect(bars).toEqual(['Your landing3 d 4 h', 'Landing 210 h', 'Landing 3all 30 daysBest']);
+    expect(screen.getByRole('group', { name: 'Time with power' }).querySelectorAll('[data-bar]')).toHaveLength(3);
+    // Each landing's stay as three lanes, with the same in words for a screen reader.
+    const strips = screen.getByRole('region', { name: 'Hour by hour' });
+    expect(strips.querySelectorAll('[data-strip]')).toHaveLength(3);
+    expect(strips.querySelectorAll('[data-lane]')).toHaveLength(9);
+    expect(strips.textContent).toMatch(/Sunlight 100\s% of the stay, Earth in view 49\s%, radio contact while it has power 14 days 15 hours\. The battery never runs out\./);
+    expect(strips.textContent).toMatch(/radio contact while it has power none\. The battery first runs out after 10 hours\./);
   });
 
   it('puts the whole comparison in the address, so a fresh browser opening it shows the same settings and figures', async () => {
@@ -111,7 +139,7 @@ describe('CompareView', () => {
     await open(fresh);
     await waitFor(() => expect(fresh.scenarios.getState().scenarios).toHaveLength(3));
     await fresh.scenarios.getState().settle();
-    await screen.findByRole('table');
+    await figures();
     expect(names.map(row)).toEqual(before);
   });
 
@@ -141,7 +169,7 @@ describe('CompareView', () => {
     await waitFor(() => expect(fresh.scenarios.getState().scenarios).toHaveLength(3));
     expect(fresh.explore.getState().requirements).toEqual(req);
     await fresh.scenarios.getState().settle();
-    await screen.findByRole('table');
+    await figures();
     expect(row('Your requirements')).toEqual(before);
   });
 
@@ -183,7 +211,7 @@ describe('CompareView', () => {
     // Alone, the baseline has nothing to compare with yet: the scenarios come first, with what to do next.
     expect(card).toBeTruthy();
     expect(screen.queryByRole('region', { name: 'Which landing works best' })).toBeNull();
-    expect(screen.getByRole('main').textContent).toMatch(/Your landing is 1 January 2027, 00:00 UTC\. Now add a second landing beside it: choose one of the three ways below\./);
+    expect(screen.getByRole('main').textContent).toMatch(/Your landing is 1 January 2027, 00:00 UTC\. Now add a second landing to compare\./);
     // “+ Add a landing” is the one gold control, open already, with its three plain ways.
     const add = screen.getByRole('button', { name: /Add a landing Another place, another date, or both/ });
     expect(add.className).toMatch(/\bbtn-primary\b/);
@@ -306,7 +334,7 @@ describe('CompareView', () => {
     await open(st);
     baselineOf(st);
     await st.scenarios.getState().settle();
-    await screen.findByRole('table');
+    await figures();
     expect(row('Best landing time at this place')[0]).toBe('20 Jan 2027, 10:00 UTCpower 12 d 15 hAdd it');
     // The row waits one tap on its name away.
     const own = within(table()).getByRole('button', { name: 'Best landing time at this place' });
@@ -373,7 +401,7 @@ describe('CompareView', () => {
     fireEvent.click(screen.getByRole('button', { name: /What if our landing is 5 days late\?/ }));
     await waitFor(() => expect(st.scenarios.getState().scenarios).toHaveLength(3), { timeout: 20_000 });
     await st.scenarios.getState().settle();
-    await screen.findByRole('table');
+    await figures();
     const cells = () => Array.from(within(table()).getByRole('rowheader', { name: 'Terrain versions' }).parentElement!.querySelectorAll('td')).map((td) => visibleWords(td, WIDE).join(' '));
     // Closed, the row gives its name only, so the comparison keeps to its words.
     expect(cells()).toEqual(['', '', '']);

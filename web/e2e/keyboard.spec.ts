@@ -106,7 +106,9 @@ test.describe('Keyboard only', () => {
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');
       await expect(page.getByRole('group', { name: /^Landing 2: / })).toBeVisible({ timeout: 120_000 });
-      // The table scrolls inside its own box, which the keyboard reaches too.
+      // The full table opens with Enter on "All figures"; it scrolls inside its own box, which the keyboard reaches too.
+      await tabTo(page, page.getByRole('button', { name: 'All figures' }));
+      await page.keyboard.press('Enter');
       await tabTo(page, page.getByRole('region', { name: 'The landings side by side' }));
       await expectFocusVisible(page);
     });

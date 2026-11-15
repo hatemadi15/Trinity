@@ -6,10 +6,10 @@ import { NEARBY_KM } from '@/lib/scenario/nearby';
 import { periodProblem } from '@/lib/scenario/period';
 import { slipLabel } from '@/lib/scenario/scenario';
 import { landingShort, type Column } from '@/lib/viz/compare';
-import { landingTitle } from './ScenarioCard';
+import { landingTitle } from './identity';
 
 const UNITS = { days: 24, hours: 1 } as const;
-const CHOICE = 'flex min-w-0 flex-col gap-2';
+const CHOICE = 'flex min-w-0 flex-col gap-2 rounded-lg border border-line bg-surface-2 px-4 py-3';
 const LABEL = 'flex flex-col gap-1 text-[15px] text-ink-2';
 
 /**
@@ -55,7 +55,7 @@ export function AddLanding({
   const same = site.id === from.scenario.siteId && startUtc === from.scenario.startUtc;
 
   return (
-    <section id={id} aria-labelledby={`${id}-h`} className="flex flex-col gap-5 sm:rounded-lg sm:border sm:border-line-strong sm:bg-surface sm:px-6 sm:py-5">
+    <section id={id} aria-labelledby={`${id}-h`} className="flex flex-col gap-4 rounded-lg border border-line-strong bg-band px-4 py-4 sm:px-6 sm:py-5">
       <div>
         <h3 id={`${id}-h`} className="display text-[21px] font-semibold">
           Add a landing to compare
@@ -72,10 +72,10 @@ export function AddLanding({
             </select>
           </label>
         ) : (
-          <p className="mt-1 text-ink-2">Each is a copy of your landing with one thing moved.</p>
+          <p className="mt-1 text-ink-2">Pick one of three.</p>
         )}
       </div>
-      <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <form
           aria-labelledby={`${id}-later`}
           onSubmit={(e) => {
@@ -87,7 +87,6 @@ export function AddLanding({
           <h4 id={`${id}-later`} className="font-semibold text-ink">
             Same place, later date
           </h4>
-          <p className="text-[15px] text-ink-2">What if the landing is late? The place and the lander stay; only the date moves.</p>
           <div className="flex flex-wrap items-end gap-2">
             <label className={LABEL}>
               Move the landing by
@@ -116,9 +115,7 @@ export function AddLanding({
           <h4 id={`${id}-nearby`} className="font-semibold text-ink">
             A place nearby, same date
           </h4>
-          <p className="text-[15px] text-ink-2">
-            Looks at the listed sites within {NEARBY_KM} km and adds the one that works best, if it works better. The date and the lander stay.
-          </p>
+          <p className="text-[15px] text-ink-2">The best listed site within {NEARBY_KM} km, if it works better.</p>
           <p>
             <button type="button" onClick={() => onNearby(from.scenario.id)} disabled={searching} className="btn">
               {searching ? 'Looking nearby…' : 'Find the best place nearby'}
@@ -136,7 +133,6 @@ export function AddLanding({
           <h4 id={`${id}-any`} className="font-semibold text-ink">
             Any place and date
           </h4>
-          <p className="text-[15px] text-ink-2">Choose a site from the list and a landing date. The lander and the length of stay are kept.</p>
           <div className="flex flex-wrap items-end gap-3">
             <SitePicker site={site} sites={sites} onSite={setSiteId} onOwn={() => setOwnHint(true)} />
             <label className={LABEL}>
