@@ -595,7 +595,7 @@ describe('the guides', () => {
     expect([...document.querySelectorAll<HTMLElement>('p')].some((p) => p.textContent === 'Facing north')).toBe(true);
   });
 
-  it('keeps the compass on a plate of its own at the top edge, with no key on it at any width: today’s card names the dots (spec 25, 25.1)', () => {
+  it('keeps the compass on a plate of its own at the top edge, with no key on it at any width: today’s card names the dots (spec 25, 25.7)', () => {
     const r: RendererLike = { setTime: vi.fn(), setView: vi.fn(), resize: vi.fn(), render: vi.fn(), labels, dispose: vi.fn() };
     render(createElement(StandCanvas, props(true, r)));
     const strip = document.querySelector<HTMLElement>('[data-strip]')!;

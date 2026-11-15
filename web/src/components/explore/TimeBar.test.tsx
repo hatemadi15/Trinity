@@ -1792,7 +1792,7 @@ describe('the time bar as Luna’s player (spec 22)', () => {
   });
 });
 
-describe('TimeBar: brief, for the view from the site (spec 25.1)', () => {
+describe('TimeBar: brief, for the view from the site (spec 25.7)', () => {
   const moments = [{ label: 'Sunset, 3 Jan', hour: 57 }];
   it('folds the keys behind the Key button at every width, and Next shows the moment alone, "Next:" kept in its name', () => {
     const { container } = showStandPeriod({ compact: true, brief: true, moments });

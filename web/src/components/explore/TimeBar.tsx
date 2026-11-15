@@ -203,7 +203,7 @@ type Peek = { share: number; hour: number; moment?: KeyMoment };
  * and on a phone its keys are a little smaller. `clockNote` puts a few words after the date and hour on a medium
  * screen and up.
  *
- * `brief` cuts the bar's words for the view from the site (spec 25.1): the keys fold behind the Key button at every
+ * `brief` cuts the bar's words for the view from the site (spec 25.7): the keys fold behind the Key button at every
  * width, and Next shows the moment alone, its name and tooltip keeping "Next:".
  *
  * `bare` is for the stand view's clean view, for a classroom: the picture with as little as possible over it.
@@ -252,7 +252,7 @@ export function TimeBar({
    */
   compact?: boolean;
   /**
-   * Fewer words, for the view from the site (spec 25.1): the keys wait behind the Key button at every width, not on a
+   * Fewer words, for the view from the site (spec 25.7): the keys wait behind the Key button at every width, not on a
    * phone only, and Next shows the moment alone ("Sunset, 3 Jan ›"), keeping "Next:" in its name for a screen reader
    * and its tooltip. Explore leaves it off.
    */

@@ -96,7 +96,7 @@ afterEach(() => {
 
 describe('StandView', () => {
 
-  it('puts the answer first, the same at every width: the one-line headline beside More, the state in a few words under it with the whole sentence for a screen reader, and both in full in the card (spec 25.1)', async () => {
+  it('puts the answer first, the same at every width: the one-line headline beside More, the state in a few words under it with the whole sentence for a screen reader, and both in full in the card (spec 25.7)', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const heading = screen.getByRole('heading', { level: 1 }).textContent!;
     const title = asRead(heading);
@@ -170,7 +170,7 @@ describe('StandView', () => {
     fireEvent.click(guides);
     const hide = screen.getByRole('button', { name: 'Hide paths' });
     expect(hide.getAttribute('aria-pressed')).toBeNull();
-    // A sign, not words (spec 25.1): its name is its tooltip too, and both follow what it does.
+    // A sign, not words (spec 25.7): its name is its tooltip too, and both follow what it does.
     expect(hide.textContent).toBe('');
     expect(hide.querySelector('svg[aria-hidden="true"]')).toBeTruthy();
     expect(hide.getAttribute('title')).toBe('Hide paths');
@@ -235,7 +235,7 @@ describe('StandView', () => {
     // Each by its name; the hide button has no other, its visible words being its name, as speech input needs (WCAG 2.5.3).
     // Luna's toggle ends it (spec 22).
     expect([...row.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual(['Face the Sun', 'Face Earth', 'Face the lander', 'Look up', 'Show paths', 'Hide panels', 'Luna']);
-    // Signs, not words (spec 25.1): each button's name is its tooltip too, and the row itself holds no word but Luna's.
+    // Signs, not words (spec 25.7): each button's name is its tooltip too, and the row itself holds no word but Luna's.
     for (const b of [...row.querySelectorAll('button')].slice(0, 6)) {
       expect(b.getAttribute('title')).toBe(b.getAttribute('aria-label'));
       expect(b.textContent).toBe('');
@@ -379,7 +379,7 @@ describe('StandView', () => {
     expect([...row.children].indexOf(after)).toBeLessThan([...row.children].indexOf(within(document.getElementById('stand-card')!).getByRole('link', { name: 'Change date' })));
   });
 
-  it('names the Sun and Earth in the sky in a word or two, their heights left to the card, and follows the time (spec 25.1)', async () => {
+  it('names the Sun and Earth in the sky in a word or two, their heights left to the card, and follows the time (spec 25.7)', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const series = store.getState().series!;
     // The labels on the sky (the compass's end chips may say the same).
@@ -831,7 +831,7 @@ describe('StandView', () => {
       },
       { timeout: 10_000 },
     );
-    // One line of six words at every width (spec 25.1).
+    // One line of six words at every width (spec 25.7).
     expect(plate.textContent).toBe(FIRST_STEP);
     // The time moved by hand is not a step into the view: one hour on by the slider's arrow key, past no key moment.
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Time' }), { key: 'ArrowRight' });
@@ -917,7 +917,7 @@ describe('StandView', () => {
     await waitFor(() => expect(document.querySelector('[data-caption]')?.textContent).toContain(FIRST_STEP));
   });
 
-  it('names the lander where it stands in one word, its distance in the card (spec 25.1)', async () => {
+  it('names the lander where it stands in one word, its distance in the card (spec 25.7)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     await waitFor(() => expect(document.querySelector('[data-sky="lander"]')!.textContent).toBe('Lander'));
     openCard();
@@ -968,7 +968,7 @@ describe('StandView', () => {
     const plate = line.closest<HTMLElement>('[data-plate]')!;
     // Opaque, so no guide line shows through it (both readers of read D1).
     expect(plate.classList.contains('bg-[#060607]')).toBe(true);
-    // A few words on one line for the eye (spec 25.1), the dot leading it; More follows the headline's last line.
+    // A few words on one line for the eye (spec 25.7), the dot leading it; More follows the headline's last line.
     expect(line.className).toBe('sr-only');
     const few = plate.querySelector<HTMLElement>('[data-status]')!;
     expect(few.textContent).toBe('Power off · no radio');
@@ -980,7 +980,7 @@ describe('StandView', () => {
   it('on a phone keeps the site’s name for a wider screen, puts the row on the time bar with "Hide panels" in it, a sign, and no second copy in the card (spec 25)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     expect(screen.getByText(/^de\sGerlache\sRim\s2\.$/).classList.contains('max-md:hidden')).toBe(true);
-    // One control at every width: in the row, a sign with its name whole (spec 25.1).
+    // One control at every width: in the row, a sign with its name whole (spec 25.7).
     const hide = screen.getByRole('button', { name: 'Hide panels' });
     expect(hide.classList.contains('max-md:hidden')).toBe(false);
     expect(hide.textContent).toBe('');
@@ -1014,9 +1014,9 @@ describe('StandView', () => {
     expect(within(document.getElementById('stand-card')!).getByText(asRead(statusLine(st.series!, st.power, st.startUtc, 10, st.params.power.batteryWh).text))).toBeTruthy();
   });
 
-  it('leaves the next step to today’s card at every width: the better day in gold with its radio, then Change site, Change date, Compare sites and Change lander (spec 25.1)', async () => {
+  it('leaves the next step to today’s card at every width: the better day in gold with its radio, then Change site, Change date, Compare sites and Change lander (spec 25.7)', async () => {
     const { store } = await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
-    // The plate holds no way on: no gold link, no Change (spec 25.1).
+    // The plate holds no way on: no gold link, no Change (spec 25.7).
     expect(screen.queryByRole('group', { name: 'Next step' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Change' })).toBeNull();
     openCard();
@@ -1038,19 +1038,19 @@ describe('StandView', () => {
     await waitFor(() => expect(store.getState().compareIds).toContain('de_gerlache_rim_2'), { timeout: 10_000 });
   }, 40_000);
 
-  it('keeps the plate to 12 words before a tap, the same at 1440 and 1920 (spec 25.1)', async () => {
+  it('keeps the plate to 20 words before a tap, the same at 1440 and 1920 (spec 25.7)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The one-line headline, More and the state's few words; the whole sentence, the ways on and the evidence wait in the card.
     const plate = screen.getByRole('button', { name: 'More' }).closest<HTMLElement>('[data-plate]')!;
     for (const width of [WIDE, 1920]) {
       const words = visibleWords(plate, width);
-      expect(words.length).toBeLessThanOrEqual(16);
-      expect(asRead(words.join(' '))).toMatch(/^1 January: power for 3 days 4 hours, no radio More Power 100 % (· )?no radio$/);
+      expect(words.length).toBeLessThanOrEqual(20);
+      expect(asRead(words.join(' '))).toMatch(/^1 January: power for 3 days 4 hours, no radio More de Gerlache Rim 2 Power 100 % (· )?no radio$/);
       for (const w of ['Landing', 'Change', 'Accuracy', 'Try']) expect(words).not.toContain(w);
     }
   });
 
-  it('links to Earthrise, How it works and Accuracy in the card at every width (19.3, 25.1)', async () => {
+  it('links to Earthrise, How it works and Accuracy in the card at every width (19.3, 25.7)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The first step taken, so the help line the links sit above shows (20.1).
     await drag();
@@ -1076,14 +1076,14 @@ describe('StandView', () => {
     expect(card.querySelector('[data-rule]')!.textContent).toBe('Radio contact needs both: the lander has power, and Earth is in view.');
     const key = card.querySelector<HTMLElement>('[data-compass-key]')!;
     expect(key.textContent).toBe('On the compass: gold is the Sun, blue is Earth, white is the lander. A hollow dot is below the horizon.');
-    // From 768 px, where the strip shows; the strip itself has no key at any width (spec 25.1).
+    // From 768 px, where the strip shows; the strip itself has no key at any width (spec 25.7).
     expect(key.classList.contains('max-md:hidden')).toBe(true);
     expect(key.className).not.toMatch(/1800/);
     // The time bar's key says the rule where the bands are: the green is power and Earth together.
     fireEvent.change(screen.getByRole('slider', { name: 'Time' }), { target: { value: '500' } });
     const bar = screen.getByRole('region', { name: 'Time' });
     expect([...bar.querySelectorAll('[data-part^="key"]')].map((k) => k.textContent)).toContain('Earth in view');
-    // Behind the Key button at every width here (spec 25.1), which a press opens.
+    // Behind the Key button at every width here (spec 25.7), which a press opens.
     const keyButton = within(bar).getByRole('button', { name: /^Key/ });
     expect(keyButton.className).not.toMatch(/sm:hidden/);
     const keys = bar.querySelector('[data-part^="key"]')!.parentElement!;
@@ -1093,7 +1093,7 @@ describe('StandView', () => {
     expect(keys.textContent).toContain('Earth in view');
   });
 
-  it('keeps the status plate as wide as its one-line headline, which the hour never changes, so More stays put as the night comes (18.3, 25.1)', async () => {
+  it('keeps the status plate as wide as its one-line headline, which the hour never changes, so More stays put as the night comes (18.3, 25.7)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const plate = screen.getByRole('button', { name: 'More' }).closest('[data-plate]')!;
     expect(plate.className).toMatch(/\bw-full\b/);
@@ -1107,8 +1107,10 @@ describe('StandView', () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     const chip = document.querySelector<HTMLAnchorElement>('a[data-chip]')!;
     expect(chip).toBeTruthy();
-    expect(asRead(chip.textContent!)).toMatch(/^Try 20 Jan instead: power for 12 days 15 hours›$/);
-    // At every width: the plate leaves the next step to the card (spec 25.1).
+    // The day alone (spec 25.7); why it is better is its tooltip, and the card says it in full.
+    expect(asRead(chip.textContent!)).toBe('Try 20 Jan instead›');
+    expect(asRead(chip.getAttribute('title')!)).toMatch(/^Try 20 January instead: power for 12 days 15 hours, /);
+    // At every width: the plate leaves the next step to the card (spec 25.7).
     expect(chip.className).not.toMatch(/1800/);
     for (const c of ['min-h-8', 'text-[14px]', 'text-[#f6d48a]']) expect(chip.classList.contains(c)).toBe(true);
     // A plate, so no label of the sky sits on it and the view's room starts under it; it grows if its words wrap (19.4).
@@ -1195,7 +1197,7 @@ describe('StandView', () => {
     expect(line.getAttribute('aria-hidden')).toBeNull();
   });
 
-  it('opens the lander dialog in place from Change lander in the card, the verdict follows the lander chosen there, the view keeps its renderer, and the focus comes back to the button (18.3, 25.1)', async () => {
+  it('opens the lander dialog in place from Change lander in the card, the verdict follows the lander chosen there, the view keeps its renderer, and the focus comes back to the button (18.3, 25.7)', async () => {
     const setScene = vi.fn();
     const make = vi.fn(() => ({ ...stub(), setScene }));
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10', make);
@@ -1417,7 +1419,7 @@ describe('StandView', () => {
     expect(screen.getByText(/you see its back, as its cells face the Sun\.$/)).toBeTruthy();
   });
 
-  it('marks the radio contact after the night as only if the lander survives it, and says the clock is Earth’s in the card (spec 25.1)', async () => {
+  it('marks the radio contact after the night as only if the lander survives it, and says the clock is Earth’s in the card (spec 25.7)', async () => {
     await open('?site=de_gerlache_rim_2&start=2027-01-01&days=30&hour=10');
     // The battery runs out on 4 January; the contact from 20 January needs the lander to live through the night.
     await waitFor(() => expect(screen.getByText('radio, if the lander survives the cold')).toBeTruthy());

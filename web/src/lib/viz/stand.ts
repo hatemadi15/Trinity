@@ -47,7 +47,7 @@ export function skyLabel(body: 'sun' | 'earth', s: Series, hour: number): string
 }
 
 /**
- * The name beside the Sun or Earth in the sky, one or two words (spec 25.1): "Sun" while it shows, "Earth, below"
+ * The name beside the Sun or Earth in the sky, one or two words (spec 25.7): "Sun" while it shows, "Earth, below"
  * under the horizon and "Sun, hidden" behind a hill. The heights and the hill's direction, which skyLabel gives, wait
  * in today's card (sceneFacts).
  */
@@ -59,14 +59,14 @@ export function skyTag(body: 'sun' | 'earth', s: Series, hour: number): string {
 }
 
 /**
- * What the names in the sky leave out (spec 25.1), one line in today's card: the Sun's and Earth's heights as skyLabel
+ * What the names in the sky leave out (spec 25.7), one line in today's card: the Sun's and Earth's heights as skyLabel
  * gives them and how far away the lander stands, "Sun 2.5° up. Earth, 5.7° below the horizon. The lander is 16 m away."
  */
 export function sceneFacts(s: Series, hour: number, landerM?: number): string {
   return `${skyLabel('sun', s, hour)}. ${skyLabel('earth', s, hour)}.${landerM !== undefined ? ` The lander is ${Math.round(landerM)} m away.` : ''}`;
 }
 
-/** The clock the time bar's dates and hours keep, said once in today's card (spec 25.1). */
+/** The clock the time bar's dates and hours keep, said once in today's card (spec 25.7). */
 export const EARTH_TIME = 'Dates and hours are Earth time (UTC).';
 
 /**
@@ -170,7 +170,7 @@ export const WATCH_LEAD_STILL = 'Press Next on the time bar to see:';
 /**
  * The first step (19.2), on the line over the view from the arrival until the first turn by hand, the first Play,
  * a flag, Turn to or Look up, or a key moment's line, or ten seconds, and then gone for the visit: six words at every
- * width (spec 25.1). With reduced motion Play is off, so FIRST_STEP_STILL names the drag alone.
+ * width (spec 25.7). With reduced motion Play is off, so FIRST_STEP_STILL names the drag alone.
  */
 export const FIRST_STEP = 'Press Play · drag to look around';
 /** FIRST_STEP with reduced motion, when Play is off. */
@@ -557,7 +557,7 @@ export function statusLine(s: Series, p: PowerResult | null, startUtc: string, h
 }
 
 /**
- * statusLine in a few words, for the eye (spec 25.1): "Power 87 % · radio contact", "Power on · no radio", "Power
+ * statusLine in a few words, for the eye (spec 25.7): "Power 87 % · radio contact", "Power on · no radio", "Power
  * off · no radio"; after a power cut the condition stays, "Power 40 %, if it survived · no radio", as the forecast
  * counts energy only. The whole sentence is statusLine's, which a screen reader gets and today's card shows.
  */

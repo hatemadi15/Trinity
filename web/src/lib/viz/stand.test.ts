@@ -79,7 +79,7 @@ describe('the stand view’s words', () => {
     expect(skyLabel('earth', s, 2)).toBe('Earth, 3.0° below the horizon');
     expect(skyLabel('earth', s, 3)).toBe('Earth 1.2° up');
   });
-  it('names them in the sky in a word or two, and keeps the heights and the lander’s distance for the card (spec 25.1)', () => {
+  it('names them in the sky in a word or two, and keeps the heights and the lander’s distance for the card (spec 25.7)', () => {
     const s = series({ sunEl: [2.4, 1.0, -0.5, 1.6], sunFraction: [1, 0, 0, 1], earthEl: [4.2, 1.2, -3, 1.2], earthVisible: [1, 0, 0, 1] });
     expect([0, 1, 2].map((h) => skyTag('sun', s, h))).toEqual(['Sun', 'Sun, hidden', 'Sun, below']);
     expect([0, 1, 2].map((h) => skyTag('earth', s, h))).toEqual(['Earth', 'Earth, hidden', 'Earth, below']);
@@ -218,7 +218,7 @@ describe('the lander’s power and radio in one sentence', () => {
     expect(statusLine(s, p, start, 500)).toEqual({ on: true, tone: 'radio', text: 'Power on again since 20 January, if the lander survived the night. Radio contact: it has power and Earth is in view.' });
     expect(statusLine(s, p, start, 600)).toEqual({ on: true, tone: 'power', text: 'Power on again since 20 January, if the lander survived the night. No radio contact: Earth is below the horizon.' });
   });
-  it('says the same in a few words for the eye, and never drops the condition after a power cut (spec 25.1)', () => {
+  it('says the same in a few words for the eye, and never drops the condition after a power cut (spec 25.7)', () => {
     expect(statusShort(s, p, 10)).toBe('Power on · radio contact');
     expect(statusShort(s, p, 20)).toBe('Power on · no radio');
     expect(statusShort(s, p, 100)).toBe('Power off · no radio');
@@ -1154,7 +1154,7 @@ describe('the headline’s short form on a phone (19.1)', () => {
 });
 
 describe('the first step over the view (19.2)', () => {
-  it('is six words at every width (spec 25.1), and leaves Play out with reduced motion, as Play is off then', () => {
+  it('is six words at every width (spec 25.7), and leaves Play out with reduced motion, as Play is off then', () => {
     expect(FIRST_STEP).toBe('Press Play · drag to look around');
     expect(FIRST_STEP_STILL).toBe('Drag to look around');
     for (const line of [FIRST_STEP, FIRST_STEP_STILL]) expect(line.length, line).toBeLessThanOrEqual(112);
