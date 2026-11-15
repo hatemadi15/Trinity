@@ -209,6 +209,7 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   without speech recognition; and the questions she and "Ask in plain words" pass to the assistant,
   with the app's summary of the site and figures on screen (spec 22.5).
   The code is in `web/src/lib/luna` and `web/src/components/luna`.
+  She also says what to ask: a small "Ask me" pane beside her offers requests that fit the page (the best landing date, the best site for these dates, planning a landing), one press each, and Explore's answer has the same under "Ask Luna:".
 - **Plan a landing** ("Plan a landing" in the bar under the Choose a site map, `/sites?plan=1`; the
   old `/plan` address leads there): the planner opens as a pane of glass beside the map, or in the
   map's place on a phone. Say or type what the mission needs, for example "at least five days of power, Earth in view when we land, no radio gap longer than three
