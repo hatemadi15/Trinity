@@ -130,6 +130,11 @@ Textures and their credits: `web/public/hero/textures/`.
   45 %, each as one thick lane of the month, warm white and blue, with no axis), a heading and two or three short
   sentences. The charts by direction and height (`WhyDrawings`, `lib/viz/why`), with their Play buttons, wait behind
   one fold, "See the detailed charts". The science and cold-trap paragraphs below sit in the same framed panels.
+  The page has its own sky (15 November, owner review: the background was bland): the title stands on the halftone
+  nebula (`MoonNebula`, one still frame, not interactive, the page's colour over the words), the sections on a field
+  of faint still stars, two small SVG tiles in the stylesheet (`.star-field`; ink specks on paper, never printed),
+  and each drawing, here only (`sky="stars"`; the home page's keep their flat black plates), has a night sky of
+  faint stars, a soft glow round the Sun or Earth and grey ground with stones and shallow craters.
 
 ## 23.4 Explore, reordered
 (15 November, owner review: less scrolling, plainer words, the player only where things move.)
