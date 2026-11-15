@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { exploreStore } from '@/lib/store/explore';
 import { AppFrame } from './AppFrame';
@@ -16,7 +16,7 @@ describe('AppFrame', () => {
     expect(header.textContent).toMatch(/^Earthrise/);
   });
 
-  it('renders the wordmark, the four sections in plain words, the theme switch and the footer credits', () => {
+  it('renders the wordmark, three choices and no more in the header\'s row, the theme switch and the footer credits', () => {
     render(
       <AppFrame>
         <p>hello</p>
@@ -24,17 +24,18 @@ describe('AppFrame', () => {
     );
     expect(screen.getByRole('link', { name: /Earthrise/ }).getAttribute('href')).toBe('/');
     const nav = screen.getByRole('navigation', { name: 'Sections' });
-    expect(nav.className).toMatch(/\bmax-sm:grid\b.*\bmax-sm:grid-cols-2\b/); // two by two on a phone, none alone on a line
+    // One row at every width: three short names fit a phone.
+    expect(nav.className).not.toMatch(/\bgrid\b/);
     const links = [...nav.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')]);
     expect(links).toEqual([
-      ['Choose a site', '/sites'],
-      ['Compare sites', '/compare'],
-      ['How it works', '/learn'],
-      ['Accuracy', '/validate'],
-      ['Plan a landing', '/plan'],
+      ['Known sites', '/sites'],
+      ['Your own site', '/explore?own=1'],
+      ['Compare', '/compare'],
     ]);
-    // The fifth takes a phone's whole row, so none stands alone in half of one.
-    expect(nav.querySelector('a[href="/plan"]')!.className).toMatch(/\bmax-sm:col-span-2\b/);
+    // Besides the wordmark, the header's only links are those three: How it works, Accuracy and Plan a landing are not in it.
+    const header = screen.getByRole('banner');
+    expect(within(header).getAllByRole('link')).toHaveLength(4);
+    expect(header.textContent).not.toMatch(/How it works|Accuracy|Plan a landing/);
     expect(screen.getByRole('button', { name: /Switch to the (light|dark) theme/ })).toBeTruthy();
     expect(screen.queryByRole('group', { name: 'Audience' })).toBeNull();
     const footer = screen.getByRole('contentinfo');
@@ -44,6 +45,41 @@ describe('AppFrame', () => {
     expect(footer.textContent).toMatch(/Not an official NASA product\./);
     expect(footer.textContent).toMatch(/CLPS: NASA's Commercial Lunar Payload Services/);
     expect(screen.getByText('hello')).toBeTruthy();
+  });
+
+  it('keeps How it works and Accuracy reachable on every page, out of the way: the About menu at the header\'s right, and the footer', () => {
+    render(
+      <AppFrame>
+        <p>hello</p>
+      </AppFrame>,
+    );
+    const header = screen.getByRole('banner');
+    const about = within(header).getByRole('button', { name: 'About Earthrise' });
+    // Closed at first, before Luna and the theme switch.
+    expect(about.getAttribute('aria-expanded')).toBe('false');
+    expect(about.compareDocumentPosition(within(header).getByRole('button', { name: /^Luna/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(about);
+    expect(about.getAttribute('aria-expanded')).toBe('true');
+    const menu = within(header).getByRole('list', { name: 'About Earthrise' });
+    expect(within(menu).getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['How it works', '/learn'],
+      ['Accuracy', '/validate'],
+    ]);
+    // Escape closes it and hands the focus back to its button; so does a press outside it.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(about.getAttribute('aria-expanded')).toBe('false');
+    expect(within(header).queryByRole('list')).toBeNull();
+    expect(document.activeElement).toBe(about);
+    fireEvent.click(about);
+    fireEvent.pointerDown(document.body);
+    expect(about.getAttribute('aria-expanded')).toBe('false');
+    // The footer has the same two links, with who the app is for.
+    const footer = within(screen.getByRole('contentinfo')).getByRole('navigation', { name: 'About Earthrise' });
+    expect(footer.textContent).toMatch(/^For planners of NASA's commercial Moon landers, teachers and anyone curious\./);
+    expect(within(footer).getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['How it works', '/learn'],
+      ['Accuracy', '/validate'],
+    ]);
   });
 
   it('puts faint stars behind the header, first in the frame so the header and the page paint over them', () => {

@@ -26,10 +26,13 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
 
 ## Pages
 - **Home.** The descent (23.1) from the first screen to the answer: the whole Moon beside the title, Earth beside
-  it (NASA Blue Marble with clouds, night lights, ocean glint and air glow; LRO's Moon with its relief), and under the
-  lede the audience line, "For planners of NASA's commercial Moon landers, teachers (start with How it works) and
-  anyone curious.", with the title in two lines where the first screen is short (a phone, a landscape window under
-  880 px tall) so the buttons stay clear of Luna. Then five
+  it (NASA Blue Marble with clouds, night lights, ocean glint and air glow; LRO's Moon with its relief). The first
+  screen holds the title, one line ("A forecast for Moon landing sites and dates, 2024 to 2036.") and three equal
+  choices, and nothing else (15 November, owner review): "Pick a known site" (`/sites`), "Pick your own site"
+  (`/explore?own=1`) and "Compare sites" (`/compare`), each a link with one line of what is there; side by side from
+  640 px, stacked on a phone, clear of Luna and of the rail. It is held to 60 words (`Descent.test.tsx`). The
+  audience line moved to the footer of every page. The title sets in two lines where the first screen is short (a
+  phone, a landscape window under 880 px tall). Then five
   numbered sections in one line (`SectionHead`) that alternate in both themes, dark (the dark page’s blue-grey) then paper, each with the same
   room above and below and one clean edge between: 01 the forecast on black, which reads hour by hour under the
   pointer or the arrow keys (`ForecastHover`); 02 why the south pole, in questions and answers (23.3), on paper (`.theme-light`); 03 real
@@ -70,7 +73,11 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   landing" panel and the Share band are panes too. Each landing keeps its colour edge, "Works best" its green ring,
   "+ Add a landing" stays the solid primary tile, and Hour by hour keeps its own black plate so the lanes stay crisp.
 - **404.** The nebula, with the page's own sentence as its headline.
-- **Header.** The Moon mark turns as the page scrolls; the current section is underlined.
+- **Header.** The Moon mark turns as the page scrolls; the current section is underlined. Its row holds the first
+  screen's three choices and no more (15 November, owner review): "Known sites", "Your own site" and "Compare", in
+  one row at every width. How it works and Accuracy stay at `/learn` and `/validate`, out of the way: in a small
+  "About" menu (a round "i" button) before Luna and the theme switch, and as two links in the footer of every page,
+  after who the app is for. "Plan a landing" is no longer in the header: the planner opens from Choose a site.
 
 ## Luna
 - Her pet is a little robot rabbit: a white shell, blue bands, leaf ears, a black visor whose blue LEDs make her
@@ -95,12 +102,12 @@ Textures and their credits: `web/public/hero/textures/`.
   tested against the relief map's own pins), so the view sharpens as it nears.
 - One line of words per stage (the Moon turns; the south pole; the site; the answer), never two at once; names on
   the polar map; a rail at the side that names the stages and jumps to any of them. No line telling anyone to scroll.
-  "Fly to the south pole" plays it in 11 s; a wheel, a touch or a key stops it. Reduced motion stops at each stage's
+  Luna's "fly to the south pole" plays it in 11 s (the first screen's button of that name is gone); a wheel, a touch or a key stops it. Reduced motion stops at each stage's
   own view. Without WebGL, the still, the relief map and the site's picture stand in.
 - **Never under the words.** The page measures the first screen's words and the rail and puts the Moon in the
   largest room left: right of the words on wide screens, under them on tall ones; Earth sits clear of the words, the
   rail and Luna. The title steps from 35 to 84 px with the width. Measured gap from the Moon's edge to the nearest
-  line of words, with the audience line, both themes: 107–124 px at 1920, 58 at 1440, 97–99 at 1280, 47 at 1024, 31
+  line of words, as measured with the earlier first screen, both themes: 107–124 px at 1920, 58 at 1440, 97–99 at 1280, 47 at 1024, 31
   at 768, 24 at 390; no width
   scrolls sideways. The first paint and browsers without WebGL show cut-outs of the Moon and Earth in the same places.
 - **Arriving at the site.** The turn settles before the site's shadows come in (at 60 % of the scroll), so they

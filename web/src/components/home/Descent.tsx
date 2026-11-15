@@ -1,7 +1,7 @@
 'use client';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type ComponentType, type CSSProperties } from 'react';
 import { ChunkBoundary } from '@/components/ChunkBoundary';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useLunaControls } from '@/lib/luna/controls';
@@ -14,8 +14,11 @@ const LiveScene = dynamic(() => import('./DescentScene'), { ssr: false });
 
 /** Screens of scroll the descent takes, the first screen included. */
 const SCREENS = 6;
-/** Seconds "Fly to the south pole" takes from the first screen to the answer. */
+/** Seconds the flight Luna starts ("fly to the south pole") takes from the first screen to the answer. */
 const FLY_SECONDS = 11;
+/** One of the first screen's three choices: a plate with its name, one line and an arrow. */
+const CHOICE =
+  'relative block rounded-2xl border border-white/30 bg-[#050506]/85 px-4 py-2.5 shadow-[0_0_48px_-16px_rgba(127,169,255,0.45)] transition-[border-color,background-color,box-shadow] duration-300 hover:border-[#7fa9ff] hover:bg-[#0b1220] hover:shadow-[0_0_48px_-10px_rgba(127,169,255,0.7)] sm:px-[18px] sm:pb-9 sm:pt-4 sm:[@media(max-height:800px)]:pb-4';
 const PLATE = 'rounded-2xl border border-white/12 bg-[#050506]/85 shadow-[0_0_48px_-16px_rgba(127,169,255,0.45)]';
 /** With reduced motion the picture stops at each stage's own view instead of travelling between them. */
 const quantize = (p: number) => STAGES.find((s) => s.id === stageAt(p))!.stop;
@@ -26,7 +29,7 @@ const EARTH_STILL = 0.385;
 
 /**
  * What the first screen says when the stills stand in for the live picture: the browser, or the pictures. Short, as it
- * stands under the buttons, within the first screen's 100 words.
+ * stands under the three choices, within the first screen's 60 words.
  */
 export function stillsNotice(why: string | null): string {
   return why && /could not load/.test(why) ? 'Still pictures: the live view’s pictures did not load.' : 'Still pictures: this browser cannot draw the live view.';
@@ -42,8 +45,9 @@ const stillStyle = (d: { cx: number; cy: number; r: number }, share: number): CS
  * The home page's descent (spec 23.1, after the arrival of spec 18): one picture, the Moon, from the first screen to
  * the answer. As the page scrolls the Moon turns and comes closer, down to the south pole and then to one landing
  * site; a line of words stands at each stage, one at a time, and the rail at the side names the stages and jumps to
- * any of them. "Fly to the south pole" plays it (a wheel, a touch, a key or the page scrolled by any other hand stops
- * it). The words are page text in reading order; tabbing to the words of a stage brings its view.
+ * any of them. Luna's "fly to the south pole" plays it (a wheel, a touch, a key or the page scrolled by any other hand
+ * stops it). The first screen holds the title, one line and three choices, and nothing else: a known site, a place of
+ * the visitor's own, or sites side by side. The words are page text in reading order; tabbing to the words of a stage brings its view.
  *
  * On the first screen the Moon stands where the words leave room, measured from the words themselves at every width:
  * right of them on a wide screen, under them on a tall one, never under the title, the sentence, the audience line or
@@ -235,10 +239,6 @@ export function Descent({ words, Scene = LiveScene }: { words: DescentWords; Sce
     if (reduced) land();
     else setPlaying(true);
   };
-  const start = (e: MouseEvent) => {
-    e.preventDefault();
-    fly();
-  };
   useLunaControls({ fly });
 
   /** Tabbing into a stage's words brings its view. */
@@ -353,49 +353,42 @@ export function Descent({ words, Scene = LiveScene }: { words: DescentWords; Sce
 
         {/* The words, one stage at a time. On a wide screen the first screen's words keep to a column that leaves the
             Moon the rest; on a tall one they take the width, and the Moon stands under them. */}
-        <div data-stage="moon" className="absolute inset-x-0 top-0 pt-12 sm:pt-16">
+        {/* Where the window is short (a phone, a laptop under 800 px tall) the first screen sets tighter, so the three
+            choices end above Luna. */}
+        <div data-stage="moon" className="absolute inset-x-0 top-0 pt-8 sm:pt-16 sm:[@media(max-height:800px)]:pt-8">
           <div className="wrap">
             <div ref={opening} data-opening="" className="max-w-[760px] landscape:sm:max-w-[min(640px,48vw)]">
-              <p className="eyebrow flex w-fit items-center gap-2.5 text-[#a8c6ff]">
-                <span aria-hidden="true" className="inline-block h-2 w-2 animate-[pulse-dot_2.4s_ease-in-out_infinite] rounded-full bg-[#7fa9ff]" />
-                South pole forecast
-              </p>
               {/* Where the first screen is short (a phone, a landscape window under 880 px tall) the title sets in two
-                  lines, so the audience line fits above Luna. Its longer line is 9.9 em wide at the letter spacing it
+                  lines, so the three choices fit above Luna. Its longer line is 9.9 em wide at the letter spacing it
                   fades in with: 9vw fits a phone's column, and 4.8vw up to 64 px the landscape column (48vw, at most
                   640 px), so it never wraps to three lines as it settles. */}
               <h1
                 id="h-hero"
                 aria-label="See when a Moon lander has sunlight and a signal."
-                className="display mt-5 animate-[focus-in_1.4s_cubic-bezier(0.16,1,0.3,1)_both] text-balance text-[min(34px,8vw)] leading-[1.1] sm:text-[56px] lg:text-[64px] xl:text-[72px] 2xl:text-[84px] landscape:sm:[@media(max-height:880px)]:text-[min(64px,4.8vw)]"
+                className="display animate-[focus-in_1.4s_cubic-bezier(0.16,1,0.3,1)_both] text-balance text-[min(34px,8vw)] leading-[1.1] sm:text-[56px] lg:text-[64px] xl:text-[72px] 2xl:text-[84px] landscape:sm:[@media(max-height:880px)]:text-[min(64px,4.8vw)]"
               >
                 See when a Moon lander has <em>sunlight</em> and a <span className="pixel text-[#a8c6ff] text-glow">signal</span>.
               </h1>
-              <p className="mt-6 max-w-[30em] text-lg leading-relaxed text-[#c9cbcf] sm:text-[19px]">
-                A forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth, and how long a lander keeps power.
-              </p>
-              {/* Who it is for, with the teachers' way in, quieter than the sentence it follows. On a phone it stops short
-                  of the rail's dots. */}
-              <p className="mt-3 max-w-[34em] text-pretty text-[15px] leading-relaxed text-[#c9cbcf] max-sm:pr-8">
-                For planners of NASA&apos;s commercial Moon landers, teachers (start with{' '}
-                <Link href="/learn" className="whitespace-nowrap font-semibold text-[#f5f5f3] underline decoration-[1.5px] underline-offset-4 transition-colors hover:text-accent-ink hover:decoration-accent">
-                  How it works
-                </Link>
-                ) and anyone curious.
-              </p>
-              <div className="mt-7 flex w-fit flex-wrap gap-3">
-                <Link href="/sites" onClick={start} className="btn btn-primary h-[52px] px-[22px] text-[17px]">
-                  Fly to the south pole
-                  <span aria-hidden="true" className="arrow">
-                    →
-                  </span>
-                </Link>
-                {/* Named for the section it jumps to, whose heading is "Why the south pole is hard". */}
-                <a href="#why" className="btn h-[52px] border-white/30 px-[22px] text-[17px] text-[#f5f5f3]">
-                  See why the pole is hard
-                </a>
-              </div>
-              {/* When the stills stand in, a line says so and why, at every width, within the first screen's 100 words. */}
+              <p className="mt-4 max-w-[30em] text-lg leading-relaxed text-[#c9cbcf] max-sm:pr-8 sm:mt-5 sm:text-[19px]">A forecast for Moon landing sites and dates, 2024 to 2036.</p>
+              {/* The three ways in, and nothing else: equal in weight, each a link named for where it goes, with one
+                  line of what is there. Side by side from 640 px; on a phone they stack, one to a row, short of the rail's dots. */}
+              <nav aria-label="Start here" className="mt-5 grid gap-2 max-sm:pr-8 sm:mt-8 sm:grid-cols-3 sm:gap-3 sm:[@media(max-height:800px)]:mt-5">
+                {[
+                  { href: '/sites', title: 'Pick a known site', hint: `${words.knownSites} places on the Moon` },
+                  { href: '/explore?own=1', title: 'Pick your own site', hint: 'any point near the south pole' },
+                  { href: '/compare', title: 'Compare sites', hint: 'side by side: power and radio contact' },
+                ].map((c) => (
+                  <Link key={c.href} href={c.href} data-choice="" className={`${CHOICE} group`}>
+                    <span className="block text-[19px] font-semibold leading-tight text-white max-sm:pr-8">{c.title}</span>
+                    <span className="sr-only">: </span>
+                    <span className="mt-1.5 block text-[15px] leading-snug text-[#c9cbcf]">{c.hint}</span>
+                    <span aria-hidden="true" className="absolute right-4 top-3 text-[20px] leading-none text-[#a8c6ff] transition-transform duration-300 group-hover:translate-x-1 sm:bottom-3 sm:top-auto sm:[@media(max-height:800px)]:hidden">
+                      →
+                    </span>
+                  </Link>
+                ))}
+              </nav>
+              {/* When the stills stand in, a line says so and why, at every width, within the first screen's 60 words. */}
               {failed && (
                 <p role="status" className="mt-5 w-fit text-[15px] text-[#c9cbcf]">
                   {stillsNotice(why)}

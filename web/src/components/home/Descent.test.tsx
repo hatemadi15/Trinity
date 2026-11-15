@@ -12,13 +12,12 @@ const rect = (left: number, top: number, right: number, bottom: number) => ({ le
 
 /**
  * jsdom lays nothing out: this gives the picture a window's size and the first screen's words the boxes a browser gives
- * them at 1440 × 900 (the eyebrow, the title, the sentence, the audience line and the buttons, from 112 px to 740 px
- * across).
+ * them at 1440 × 900 (the title, the sentence and the three choices, from 112 px to 752 px across).
  */
 function laidOut() {
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1440);
   vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(900);
-  const boxes = [rect(112, 64, 330, 85), rect(112, 105, 740, 330), rect(112, 354, 682, 446), rect(112, 458, 592, 506), rect(112, 534, 591, 586)];
+  const boxes = [rect(112, 133, 740, 370), rect(112, 390, 612, 421), rect(112, 453, 752, 578)];
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     const parent = this.parentElement;
     if (parent?.hasAttribute('data-opening')) return boxes[[...parent.children].indexOf(this)] ?? rect(0, 0, 0, 0);
@@ -29,20 +28,34 @@ function laidOut() {
 afterEach(() => vi.restoreAllMocks());
 
 describe('the descent (spec 23.1)', () => {
-  it('opens on the headline, one sentence, who it is for and two actions, with no line telling anyone to scroll', () => {
+  it('opens on the headline, one short line and three equal choices, and nothing else: no line telling anyone to scroll', () => {
     render(<Descent words={words} Scene={Scene} />);
     const h1 = screen.getByRole('heading', { level: 1 });
     expect(h1.textContent).toBe('See when a Moon lander has sunlight and a signal.');
     expect(h1.querySelector('em')!.textContent).toBe('sunlight');
     expect(h1.querySelector('.pixel')!.textContent).toBe('signal');
-    const sentence = screen.getByText(/^A forecast for Moon landing sites and dates, 2024 to 2036/);
-    // The audience line follows the sentence, before the actions, and sends teachers to How it works.
-    const audience = sentence.nextElementSibling as HTMLElement;
-    expect(audience.textContent).toMatch(/^For planners of NASA's commercial Moon landers, teachers \(start with How it works\) and anyone curious\.$/);
-    expect(within(audience).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
-    expect(within(audience.nextElementSibling as HTMLElement).getAllByRole('link')).toHaveLength(2);
-    expect(screen.getByRole('link', { name: /Fly to the south pole/ }).getAttribute('href')).toBe('/sites');
-    expect(screen.getByRole('link', { name: 'See why the pole is hard' }).getAttribute('href')).toBe('#why');
+    // The title is first: nothing stands over it.
+    expect(h1.previousElementSibling).toBeNull();
+    const sentence = h1.nextElementSibling as HTMLElement;
+    expect(sentence.textContent).toBe('A forecast for Moon landing sites and dates, 2024 to 2036.');
+    // The three choices follow the line, and end the first screen: each is a link with a clear name and one line.
+    const choices = screen.getByRole('navigation', { name: 'Start here' });
+    expect(sentence.nextElementSibling).toBe(choices);
+    expect(choices.nextElementSibling).toBeNull();
+    expect(screen.getByRole('link', { name: /^Pick a known site\s*:\s*34 places on the Moon$/ }).getAttribute('href')).toBe('/sites');
+    expect(screen.getByRole('link', { name: /^Pick your own site\s*:\s*any point near the south pole$/ }).getAttribute('href')).toBe('/explore?own=1');
+    expect(screen.getByRole('link', { name: /^Compare sites\s*:\s*side by side: power and radio contact$/ }).getAttribute('href')).toBe('/compare');
+    expect(within(choices).getAllByRole('link')).toHaveLength(3);
+    expect(words.knownSites).toBe(34);
+    // The old first screen's actions, its eyebrow and its audience line are gone.
+    const first = document.querySelector<HTMLElement>('[data-stage="moon"]')!;
+    expect(first.textContent).not.toMatch(/Fly to the south pole|See why|For planners|How it works|South pole forecast/);
+    expect(first.querySelectorAll('a, button')).toHaveLength(3);
+    // On a phone the choices stack, one to a row, short of the rail's dots; from 640 px they stand side by side.
+    expect(choices.className).toMatch(/\bgrid\b/);
+    expect(choices.className).toMatch(/\bsm:grid-cols-3\b/);
+    expect(choices.className).not.toMatch(/(^| )grid-cols-/);
+    expect(choices.className).toMatch(/\bmax-sm:pr-8\b/);
     expect(document.body.textContent).not.toMatch(/scroll/i);
   });
 
@@ -83,7 +96,7 @@ describe('the descent (spec 23.1)', () => {
     expect(words.site.text).toMatch(/^NASA has shortlisted de Gerlache Rim 2, this ridge, for astronauts to land on\. Black is ground the Sun cannot reach on 2 January 2027\.$/);
   });
 
-  it('lands at once with reduced motion, from the button or from Luna', () => {
+  it('lands at once with reduced motion, when Luna is asked to fly', () => {
     const before = window.matchMedia;
     window.matchMedia = ((q: string) => ({ matches: q.includes('reduce'), media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} })) as unknown as typeof window.matchMedia;
     onTestFinished(() => {
@@ -91,15 +104,12 @@ describe('the descent (spec 23.1)', () => {
     });
     const to = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
     render(<Descent words={words} Scene={Scene} />);
-    fireEvent.click(screen.getByRole('link', { name: /Fly to the south pole/ }));
+    act(() => void runControl('fly'));
     expect(to).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'instant' }));
     expect(document.activeElement).toBe(screen.getByRole('heading', { level: 2, name: words.answer }));
-    to.mockClear();
-    runControl('fly');
-    expect(to).toHaveBeenCalled();
   });
 
-  it('stands the first screen’s Moon, still or live, right of the words and clear of them: never under the title, the sentence, the audience line or the buttons', async () => {
+  it('stands the first screen’s Moon, still or live, right of the words and clear of them: never under the title, the sentence or the three choices', async () => {
     laidOut();
     let given: { current: { moon: { cx: number; cy: number; r: number }; earth: { cx: number; cy: number; r: number } } | null } | null = null;
     const Seen = (p: { layout?: typeof given }) => {
@@ -112,15 +122,15 @@ describe('the descent (spec 23.1)', () => {
       expect(img).toBeTruthy();
       return img!;
     });
-    // The still's disc takes 47 % of its picture: its left limb stands right of the words' right edge (740 px).
+    // The still's disc takes 47 % of its picture: its left limb stands right of the words' right edge (752 px).
     const left = parseFloat(moon.style.left), size = parseFloat(moon.style.width);
-    expect(left + size / 2 - 0.4715 * size).toBeGreaterThan(740 + 20);
+    expect(left + size / 2 - 0.4715 * size).toBeGreaterThan(752 + 20);
     // The live picture is handed the same place.
-    expect(given!.current!.moon.cx - given!.current!.moon.r).toBeGreaterThan(760);
+    expect(given!.current!.moon.cx - given!.current!.moon.r).toBeGreaterThan(772);
     expect(container.querySelector('img[data-still="earth"]')).toBeTruthy();
   });
 
-  it('keeps the stills, the relief map and the site’s picture where WebGL fails, and says so on the first screen within its 100 words', async () => {
+  it('keeps the stills, the relief map and the site’s picture where WebGL fails, and says so on the first screen within its 60 words', async () => {
     const Broken = ({ onFail }: { onFail: (why: string) => void }) => {
       queueMicrotask(() => onFail('no WebGL'));
       return null;
@@ -131,24 +141,24 @@ describe('the descent (spec 23.1)', () => {
     const first = container.querySelector<HTMLElement>('[data-stage="moon"]')!;
     const notice = within(first).getByRole('status');
     expect(notice.textContent).toBe('Still pictures: this browser cannot draw the live view.');
-    for (const width of [WIDE, PHONE]) expect(visibleWords(first, width).length).toBeLessThanOrEqual(100);
+    for (const width of [WIDE, PHONE]) expect(visibleWords(first, width).length).toBeLessThanOrEqual(60);
   });
 
-  it('keeps the first screen to 100 words, at 1440 and on a phone (spec 20.1)', () => {
+  it('keeps the first screen to 60 words, at 1440 and on a phone (spec 20.1): the title, one line and the three choices', () => {
     const { container } = render(<Descent words={words} Scene={Scene} />);
     const first = container.querySelector<HTMLElement>('[data-stage="moon"]')!;
     expect(within(first).queryByRole('status')).toBeNull();
-    for (const width of [WIDE, PHONE]) expect(visibleWords(first, width).length).toBeLessThanOrEqual(100);
+    for (const width of [WIDE, PHONE]) expect(visibleWords(first, width).length).toBeLessThanOrEqual(60);
   });
 
-  it('plays the descent from Fly to the south pole, and stops the moment the visitor scrolls, or the page is scrolled by any other hand', () => {
+  it('plays the descent when Luna is asked to fly, and stops the moment the visitor scrolls, or the page is scrolled by any other hand', () => {
     vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'setTimeout'] });
     onTestFinished(() => {
       vi.useRealTimers();
     });
     const to = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
     render(<Descent words={words} Scene={Scene} />);
-    fireEvent.click(screen.getByRole('link', { name: /Fly to the south pole/ }));
+    act(() => void runControl('fly'));
     act(() => vi.advanceTimersByTime(1000));
     const calls = to.mock.calls.length;
     expect(calls).toBeGreaterThan(5);
@@ -162,8 +172,6 @@ describe('the descent (spec 23.1)', () => {
     } finally {
       Object.defineProperty(window, 'scrollY', { value: was, configurable: true });
     }
-    // Still a link without the script.
-    expect(screen.getByRole('link', { name: /Fly to the south pole/ }).getAttribute('href')).toBe('/sites');
   });
 
   it('names the stages on plates that read over the Moon, from 1024 px, and keeps the dots in one column on the rail', () => {

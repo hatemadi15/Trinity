@@ -11,25 +11,34 @@ const HEADLINE = 'See when a Moon lander has sunlight and a signal.';
 const pct = (n: number) => `${n} %`;
 
 describe('home page', () => {
-  it('says what the product does in the headline, offers one primary action there, named for where it goes, and says who it is for', () => {
+  it('says what the product does in the headline, and offers three equal choices there and nothing else: a known site, your own site, compare', () => {
     render(<Home />);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe(HEADLINE);
     const hero = screen.getByRole('region', { name: HEADLINE });
-    // The arrival's first screen and its last each hold one gold action, each named for where it goes: the flight
-    // down to the site, then the site's full forecast.
-    const gold = hero.querySelectorAll('.btn-primary');
-    expect([...gold].map((a) => [a.textContent!.replace('→', '').trim(), a.getAttribute('href')])).toEqual([
-      ['Fly to the south pole', '/sites'],
-      ['Open the full forecast', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30'],
+    const first = hero.querySelector<HTMLElement>('[data-stage="moon"]')!;
+    // The first screen's only links are the three choices, each named for where it goes, with one line of what is there.
+    expect(within(first).getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')])).toEqual([
+      ['Pick a known site: 34 places on the Moon→', '/sites'],
+      ['Pick your own site: any point near the south pole→', '/explore?own=1'],
+      ['Compare sites: side by side: power and radio contact→', '/compare'],
     ]);
-    for (const beat of hero.querySelectorAll('[data-beat]')) expect(beat.querySelectorAll('.btn-primary').length).toBeLessThanOrEqual(1);
-    // The challenge in plain words on the first screen: a forecast for landing sites and dates (spec 18.2), for more than two landers.
-    expect(hero.textContent).toMatch(/A forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth, and how long a lander keeps power\./);
+    expect(within(first).queryAllByRole('button')).toHaveLength(0);
+    // Equal in weight: none of the three is the gold action, and the three share one look.
+    const choices = [...first.querySelectorAll('[data-choice]')];
+    expect(choices).toHaveLength(3);
+    expect(new Set(choices.map((c) => c.className)).size).toBe(1);
+    expect(first.querySelector('.btn-primary')).toBeNull();
+    // The arrival's last screen holds the descent's one gold action, named for where it goes: the site's full forecast.
+    const gold = hero.querySelectorAll('.btn-primary');
+    expect([...gold].map((a) => [a.textContent!.trim(), a.getAttribute('href')])).toEqual([['Open the full forecast', '/explore?site=de_gerlache_rim_2&start=2027-01-01&days=30']]);
+    // The challenge in one short line on the first screen: a forecast for landing sites and dates (spec 18.2).
+    expect(first.textContent).toMatch(/A forecast for Moon landing sites and dates, 2024 to 2036\./);
     expect(hero.textContent).not.toMatch(/survives the night/);
-    // Who it is for, with the teachers' way in on the same line.
-    const audience = within(hero).getByText(/^For planners of NASA's commercial Moon landers, teachers/);
-    expect(audience.textContent).toBe("For planners of NASA's commercial Moon landers, teachers (start with How it works) and anyone curious.");
-    expect(within(audience).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
+    // Who it is for, How it works and Accuracy are off the first screen: the footer of every page has them.
+    expect(first.textContent).not.toMatch(/For planners|How it works|Accuracy/);
+    const footer = screen.getByRole('contentinfo');
+    expect(footer.textContent).toMatch(/For planners of NASA's commercial Moon landers, teachers and anyone curious\./);
+    expect(within(footer).getByRole('link', { name: 'How it works' }).getAttribute('href')).toBe('/learn');
     // The first screen is a title card (spec 23): no proof line to read before the Moon.
     expect(hero.textContent).not.toMatch(/Built on NASA/);
   });
@@ -40,10 +49,9 @@ describe('home page', () => {
     expect(row.textContent).toContain(degreesText(HOME.facts.horizons_worst_el_deg));
   });
 
-  it('opens the section of questions from the first screen’s second action: why the south pole, and why it is hard', () => {
+  it('keeps the section of questions under the descent: why the south pole, and why it is hard', () => {
     render(<Home />);
-    const jump = screen.getByRole('link', { name: 'See why the pole is hard' });
-    const target = document.getElementById(jump.getAttribute('href')!.slice(1))!;
+    const target = document.getElementById('why')!;
     expect(within(target).getByRole('heading', { level: 2 }).textContent).toBe('Why the south pole?');
     expect(within(target).getByRole('heading', { level: 3, name: 'Why is landing there hard?' })).toBeTruthy();
     // Only the pages of How it works say so: no second name for the one thing.
@@ -313,8 +321,9 @@ describe('home page', () => {
     const cta = within(end).getByRole('link', { name: 'Choose a landing site' });
     expect(cta.getAttribute('href')).toBe('/sites');
     expect(cta.className).toMatch(/btn-primary/);
-    // Three gold buttons on the page, never two on one screen: the first screen, the arrival's last, the end.
-    expect(document.querySelectorAll('main .btn-primary')).toHaveLength(3);
+    // Two gold buttons on the page, never two on one screen: the arrival's last and the end. The first screen's three
+    // choices are equal, so none of them is gold.
+    expect(document.querySelectorAll('main .btn-primary')).toHaveLength(2);
   });
 
   it('points to Compare, the assistant, the brief and offline use from the places section', () => {
@@ -399,7 +408,8 @@ describe('home page', () => {
 
   it('every Explore link on the home page carries its start and its days, so a visit never opens on the period the last one used', () => {
     render(<Home />);
-    const hrefs = [...document.querySelectorAll('a[href^="/explore?"]')].map((a) => a.getAttribute('href')!);
+    // "Your own site" (the first screen and the header) names no site, so it carries no period.
+    const hrefs = [...document.querySelectorAll('a[href^="/explore?"]')].map((a) => a.getAttribute('href')!).filter((href) => href !== '/explore?own=1');
     expect(hrefs.length).toBeGreaterThanOrEqual(5);
     for (const href of hrefs) {
       const q = new URLSearchParams(href.split('?')[1]);
