@@ -549,9 +549,83 @@ pre {
       background-image: none;
     }
   }
+  /*
+   * sites-glass:start. "Choose a site" only (15 November, owner review): its panels are panes of dark glass over the
+   * night sky and the map. Each keeps its own colour (--glass-tint), let through in part, with the map blurred behind
+   * it, a thin bright edge, a faint blue sheen and a soft shadow. These few panes are the one place a backdrop is
+   * blurred; the map under them is a still picture. A phone blurs less and lets less through; a browser that cannot
+   * blur gets a nearly solid pane, so the words always read.
+   */
+  .pane,
+  .pane-wide {
+    --glass-tint: var(--page);
+    --glass-a: 64%;
+  }
+  .pane-stage {
+    --glass-tint: var(--stage);
+    --glass-a: 58%;
+  }
+  .pane-surface {
+    --glass-tint: var(--surface);
+    --glass-a: 70%;
+  }
+  .pane {
+    border: 1px solid rgb(255 255 255 / 0.17);
+    background:
+      linear-gradient(165deg, rgb(127 169 255 / 0.15), rgb(127 169 255 / 0.03) 42%, rgb(127 169 255 / 0.08)),
+      color-mix(in srgb, var(--glass-tint) var(--glass-a), transparent);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.13),
+      0 0 0 1px rgb(127 169 255 / 0.08),
+      0 0 40px -14px rgb(127 169 255 / 0.4),
+      0 22px 50px -22px rgb(0 0 0 / 0.9);
+    -webkit-backdrop-filter: blur(16px) saturate(1.7) brightness(0.82);
+    backdrop-filter: blur(16px) saturate(1.7) brightness(0.82);
+  }
+  @media (max-width: 1023px) {
+    .pane {
+      --glass-a: 74%;
+      -webkit-backdrop-filter: blur(8px) saturate(1.5) brightness(0.82);
+      backdrop-filter: blur(8px) saturate(1.5) brightness(0.82);
+    }
+  }
+  /* The title's pane: glass where it lies on the map, from 1024 px; under that the title stands on the sky itself. */
+  @media (min-width: 1024px) {
+    .pane-wide {
+      border: 1px solid rgb(255 255 255 / 0.17);
+      background:
+        linear-gradient(165deg, rgb(127 169 255 / 0.15), rgb(127 169 255 / 0.03) 42%, rgb(127 169 255 / 0.08)),
+        color-mix(in srgb, var(--glass-tint) var(--glass-a), transparent);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.13),
+        0 0 0 1px rgb(127 169 255 / 0.08),
+        0 0 40px -14px rgb(127 169 255 / 0.4),
+        0 22px 50px -22px rgb(0 0 0 / 0.9);
+      -webkit-backdrop-filter: blur(16px) saturate(1.7) brightness(0.82);
+      backdrop-filter: blur(16px) saturate(1.7) brightness(0.82);
+    }
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .pane,
+    .pane-wide {
+      --glass-a: 92%;
+    }
+  }
+  /* The relief is dimmed under the night sky in either theme, as on the dark page. */
+  [data-night-sky] .relief-picture {
+    filter: brightness(0.72);
+  }
+  /* sites-glass:end */
   /* The stars behind the header band (spec 6): the dark theme's only. */
   :root:not([data-theme="dark"]) .star-band {
     display: none;
+  }
+}
+
+/* In the dark theme the header and the footer of "Choose a site" stand on the same black sky as the page between them. */
+@media screen {
+  :root[data-theme="dark"]:has([data-night-sky]) {
+    --page: var(--stage);
   }
 }
 

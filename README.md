@@ -144,7 +144,7 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   To rebuild: `cd pipeline && uv run python -m lunar_pipeline.cli coldtraps` (it downloads the
   117 MB Diviner zip into `data_raw/diviner` the first time), then `manifest` and `sync-local`.
   Method and figures: `docs/method.md`, "Modelled cold traps".
-- **Accuracy** (`/validate`): five kinds of evidence, each with its figure and one short sentence; what it shows, what it was tested
+- **Accuracy** (`/validate`): under a band of night sky, five kinds of evidence as tiles, each with its badge, its figure and one short sentence; the datasets used are listed under them; what it shows, what it was tested
   on and what it leaves out are one tap away, and its full table on request. Four are checks with a pass mark: the
   Sun's and Earth's directions against JPL Horizons (with a live re-check), sunlight and Earth in
   view against NASA's LOLA illumination maps worked out the maps' way (from the ground, any part of

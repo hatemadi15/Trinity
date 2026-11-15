@@ -19,6 +19,7 @@ import { exploreHref } from '@/lib/links';
 import { coldTrapShort, coldTrapSite, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
 import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
 import { GroupMark, MARKER_GROUPS, SiteMap, type MarkerGroup, type SiteMarker } from './SiteMap';
+import { SitesSky } from './SitesSky';
 
 /** Explore's own-site mode: no site filled in, the visitor gives the place and the details there. */
 export const OWN_SITE_HREF = '/explore?own=1';
@@ -60,7 +61,7 @@ function siteFacts(site: Site, o: SiteOverview | undefined, startUtc: string, da
 function Row({ site, facts, tag, cold, href }: { site: Site; facts: string[]; tag: string | null; cold: string | null; href: string }) {
   return (
     <li>
-      <Link href={href} data-row={site.id} title={site.blurb} className="group block rounded-lg px-3 py-2.5 hover:bg-surface-2">
+      <Link href={href} data-row={site.id} title={site.blurb} className="group block rounded-lg px-3 py-2.5 hover:bg-surface-2/70">
         <span className="block text-[17px] font-semibold leading-snug group-hover:text-accent-ink">{siteLabel(site)}</span>
         {/* What kind of point the coordinate is, so a region's centre or a derived high point never reads as a surveyed landing spot. */}
         <span className="block text-[15px] text-ink-2">
@@ -109,7 +110,8 @@ function MarkerKey({ className }: { className: string }) {
  * "Choose a landing site" (spec 23): the map is the page. Every catalogue site is a marker on the south pole's relief
  * or on the inset of the whole Moon; its name and figures show while it is pointed at, and it opens Explore filled in
  * for it. The bar under the map holds the dates the figures are for, the same sites as a list, and the way to a
- * site of one's own, which Explore asks for.
+ * site of one's own, which Explore asks for. The page is a night sky in both themes (15 November, owner review): black
+ * with the catalogue's stars wherever there is neither map nor panel, and every panel a pane of dark glass (`.pane`).
  */
 export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreApi<ExploreState>; coldTraps?: () => Promise<ColdTrapDoc> }) {
   const s = useStore(store);
@@ -186,10 +188,14 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
   const toggle = (what: 'list' | 'dates') => setOpen((now) => (now === what ? null : what));
   return (
     <AppFrame>
-      <main>
+      {/* The dark theme's values in either theme, on the stage's black: the sky behind everything here. */}
+      <main data-night-sky="" className="theme-dark relative bg-stage text-ink print:bg-transparent">
+        <SitesSky />
         {/* The window under the header: the map, and the bar at its foot. The bar comes first for the keyboard, before the markers. */}
         <div data-part="screen" className="relative flex flex-col lg:h-[calc(100svh-69px)] lg:min-h-[600px]">
-          <div data-part="bar" className="sticky bottom-0 z-[38] order-last flex flex-wrap items-center justify-end gap-x-3 gap-y-2 border-t border-line bg-page py-3 pl-[132px] pr-4 sm:pl-[190px] lg:pr-8">
+          <div data-part="bar" className="sticky bottom-0 z-[38] order-last flex flex-wrap items-center justify-end gap-x-3 gap-y-2 py-3 pl-[132px] pr-4 sm:pl-[190px] lg:pr-8">
+            {/* The bar's glass is a layer of its own: a pane inside a blurred pane would have nothing behind it to blur, and the dates panel opens from here. */}
+            <div aria-hidden="true" className="pane absolute inset-0 -z-10 border-x-0 border-b-0" />
             <button type="button" aria-expanded={open === 'dates'} aria-controls={datesId} onClick={() => toggle('dates')} className="btn btn-sm max-sm:px-3">
               <span className="text-ink-2 max-sm:sr-only">Dates</span>
               <span className="sr-only">: </span>
@@ -208,7 +214,7 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
               Choose your own site
             </Link>
             {open === 'dates' && (
-              <section id={datesId} aria-label="The dates the figures are for" className="panel absolute bottom-full right-4 mb-3 w-[min(600px,calc(100vw-32px))] shadow-[0_24px_60px_-20px_rgb(var(--glow)/var(--glow-strength))] lg:right-8">
+              <section id={datesId} aria-label="The dates the figures are for" className="panel pane pane-surface absolute bottom-full right-4 mb-3 w-[min(600px,calc(100vw-32px))] lg:right-8">
                 <div className="flex flex-wrap items-end gap-4">
                   <PeriodControls startUtc={s.startUtc} days={s.days} onChange={s.setWindow} />
                 </div>
@@ -219,8 +225,9 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
               </section>
             )}
           </div>
-          <section aria-label="Map of the sites" data-part="stage" data-stage="" className="relative bg-stage text-stage-ink lg:min-h-0 lg:flex-1">
-            <div data-part="title" className="pointer-events-none relative z-20 px-4 pb-3 pt-5 lg:absolute lg:left-8 lg:top-8 lg:max-w-[520px] lg:p-0">
+          <section aria-label="Map of the sites" data-part="stage" data-stage="" className="relative text-stage-ink lg:min-h-0 lg:flex-1">
+            {/* On a narrow screen the title stands on plain black, so no star lies under a word. */}
+            <div data-part="title" className="pane-wide pane-stage pointer-events-none relative z-20 px-4 pb-3 pt-5 max-lg:bg-stage lg:absolute lg:left-6 lg:top-6 lg:max-w-[500px] lg:rounded-xl lg:px-6 lg:py-5">
               <h1 className="display text-[30px] leading-tight sm:text-[36px] lg:text-[42px]">
                 Choose a <em>landing site</em>
               </h1>
@@ -238,7 +245,7 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
               )}
             </div>
             {open === 'list' && (
-              <section id={listId} aria-labelledby={`${listId}-h`} data-part="list" className="relative z-[35] border-line bg-page px-3 pb-6 pt-5 text-ink lg:absolute lg:inset-y-0 lg:right-0 lg:w-[440px] lg:overflow-y-auto lg:border-l">
+              <section id={listId} aria-labelledby={`${listId}-h`} data-part="list" className="pane relative z-[35] rounded-xl px-3 pb-6 pt-5 text-ink max-lg:mx-2 max-lg:mb-3 lg:absolute lg:inset-y-4 lg:right-4 lg:w-[440px] lg:overflow-y-auto">
                 <div className="flex items-center justify-between gap-4 px-3">
                   <h2 id={`${listId}-h`} ref={listHead} tabIndex={-1} className="display text-[28px] leading-none outline-none">
                     All {catalogue.length} sites
@@ -264,15 +271,17 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
             {/* On a narrow screen the open list takes the map's place; on a wide one it stands beside it. */}
             <div data-part="maps" className={open === 'list' ? 'max-lg:hidden' : undefined}>
               <SiteMap markers={markers} />
-              <MarkerKey className="flex-wrap px-4 pb-5 pt-1 lg:hidden" />
+              <MarkerKey className="flex-wrap bg-stage px-4 pb-5 pt-1 lg:hidden" />
             </div>
           </section>
         </div>
         {/* The figures come from horizons on LOLA's 20 m grid near the pole, its 80 m grid farther out and its 240 m grid
             north of 80° S, with DE440; the list's cold-trap line, once its layer is in, from Diviner's model. The places are
             NASA's Artemis III regions, the CLPS landings and the landers LROC and NSSDCA have located; the inset is the CGI Moon Kit's map. */}
-        <div className="wrap py-6">
-          <Sources of={['lola', 'lola80', 'lola240', ...(coldDoc ? (['diviner'] as const) : []), 'de440', 'artemis', 'clps', 'landers', 'moonkit']} />
+        <div className="wrap relative py-6">
+          <div className="pane rounded-xl px-5 py-4">
+            <Sources of={['lola', 'lola80', 'lola240', ...(coldDoc ? (['diviner'] as const) : []), 'de440', 'artemis', 'clps', 'landers', 'moonkit']} />
+          </div>
         </div>
       </main>
     </AppFrame>

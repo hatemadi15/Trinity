@@ -119,7 +119,8 @@ export function SiteMap({ markers }: { markers: SiteMarker[] }) {
       ))}
     </>
   );
-  const CARD = 'absolute z-30 rounded-lg border border-stage-edge bg-stage/95 px-3.5 py-2.5 text-[15px] leading-snug shadow-[0_12px_40px_-12px_#000]';
+  // A pane of dark glass (globals.css, .pane) in the stage's black, so the map shows through it.
+  const CARD = 'pane pane-stage absolute z-30 rounded-lg px-3.5 py-2.5 text-[15px] leading-snug';
 
   return (
     <div
@@ -140,23 +141,23 @@ export function SiteMap({ markers }: { markers: SiteMarker[] }) {
           <div className="absolute" style={{ left: layout.relief.x, top: layout.relief.y, width: layout.relief.w, height: layout.relief.h }}>
             <Image src={HOME.relief.image} alt="Relief map of the Moon's south pole, 500 km across, with the pole at the centre" fill sizes="100vw" priority className="relief-picture object-cover" />
           </div>
-          {/* The picture darkens toward its edges, and under the title, so the words and the inset read over it. */}
+          {/* The picture darkens toward its edges, so the inset reads over it; the title has its own pane of glass. */}
           {layout.mode === 'fill' && (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(640px_340px_at_0%_0%,rgb(0_0_0/0.86),rgb(0_0_0/0.6)_55%,transparent_100%),radial-gradient(120%_90%_at_50%_45%,transparent_55%,rgb(0_0_0/0.72)_100%)]"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_45%,transparent_55%,rgb(0_0_0/0.72)_100%)]"
             />
           )}
           <p
             aria-hidden="true"
-            className="pointer-events-none absolute text-[15px] font-medium text-stage-ink-2"
+            className={`pointer-events-none absolute text-[15px] font-medium text-stage-ink-2 ${layout.mode === 'stack' ? 'bg-stage pr-2' : ''}`}
             style={{ left: layout.inset.x, top: layout.inset.y - INSET_CAPTION_PX }}
           >
             The rest of the Moon
           </p>
           <div
             data-part="inset"
-            className="absolute overflow-hidden rounded-md border border-stage-edge bg-stage shadow-[0_12px_40px_-12px_#000]"
+            className="absolute overflow-hidden rounded-md border border-white/25 bg-stage shadow-[0_0_0_1px_rgba(127,169,255,0.1),0_0_40px_-12px_rgba(127,169,255,0.5),0_18px_44px_-18px_#000]"
             style={{ left: layout.inset.x, top: layout.inset.y, width: layout.inset.w, height: layout.inset.h }}
           >
             <Image src="/maps/moon-whole.jpg" alt="Map of the whole Moon, with the side that faces Earth at the centre" fill sizes="(min-width: 1024px) 440px, 100vw" className="object-cover brightness-[0.6]" />

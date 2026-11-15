@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
+import fs from 'node:fs';
+import path from 'node:path';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BackcastsDoc, HorizonsDoc, MazaricoDoc, PicturesDoc, PowerDoc, ValidationDocs } from '@/lib/data/validation';
 import { readJson } from '@/lib/engine/__tests__/helpers';
 import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
+import { DATASETS } from './validate/DataUsed';
 import { ValidateView } from './ValidateView';
 
 const docs: ValidationDocs = {
@@ -39,7 +42,7 @@ async function open(recheck: Parameters<typeof ValidateView>[0]['recheck'] = asy
 
 /** The labelled parts of a panel, as label and text pairs. */
 function partsOf(region: HTMLElement): [string, string][] {
-  return [...region.querySelectorAll('dl > div')].map((d) => [d.querySelector('dt')!.textContent ?? '', d.querySelector('dd')!.textContent ?? '']);
+  return [...region.querySelectorAll('dl[data-part="parts"] > div')].map((d) => [d.querySelector('dt')!.textContent ?? '', d.querySelector('dd')!.textContent ?? '']);
 }
 
 describe('ValidateView', () => {
@@ -143,15 +146,104 @@ describe('ValidateView', () => {
     expect(at(TITLES[1]).compareDocumentPosition(region) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(region.compareDocumentPosition(at(TITLES[2])) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(region).queryByRole('table')).toBeNull();
+    // The tile takes the row's full width, and opens its numbers in place.
+    expect(region.className).toMatch(/\blg:col-span-2\b/);
     fireEvent.click(within(region).getByRole('button', { name: 'Show the numbers' }));
     expect(within(region).getByRole('table', { name: 'Every picture against the app' })).toBeTruthy();
     // Still one gold action on the page.
     expect(screen.getByRole('main').querySelectorAll('.btn-primary')).toHaveLength(1);
   });
 
+  it('explains the pictures’ check on one real picture: the camera beside the app, how to read the pair, and the check in plain words', async () => {
+    await open(undefined, { ...docs, images: pictures });
+    const region = screen.getByRole('region', { name: PICTURES });
+    // One picture of the table, the typical one, beside the app's shadows for the same minute: two small bundled files.
+    const shown = pictures.rows.find((r) => r.site_id === 'peak_near_shackleton' && r.picture === 'WAC_MOVIE_S20090923T1216')!;
+    const imgs = within(region).getAllByRole('img').filter((el) => el.tagName === 'IMG') as HTMLImageElement[];
+    expect(imgs.map((i) => i.getAttribute('src'))).toEqual(['/validation/shadows-camera.jpg', '/validation/shadows-app.jpg']);
+    for (const i of imgs) {
+      expect(i.alt.length).toBeGreaterThan(20);
+      // A picture panel: a stage, never a black of the page's own.
+      expect(i.className).toMatch(/\bstage\b/);
+      const file = path.resolve(process.cwd(), 'public', i.getAttribute('src')!.slice(1));
+      expect(fs.statSync(file).size).toBeLessThan(80_000);
+    }
+    const example = region.querySelector('[data-part="example"]')!;
+    expect(example.textContent).toContain(`23 September 2009, the Sun ${shown.sun_el_deg.toFixed(1)}° up`);
+    // How to read it, in one line, with this picture's own share.
+    const how = region.querySelector('[data-part="how-to-read"]')!;
+    expect(how.textContent).toBe(`How to read it: pale is sunlit, dark is shadow, the same ground 20 km across. Orange is the ${100 - Math.round(shown.agree * 100)} % where the app and the camera differ; they agree on ${Math.round(shown.agree * 100)} %.`);
+    expect(how.textContent).toMatch(/Orange is the 8 % .* agree on 92 %\./);
+    // What was compared, what the share means, why the control matters, why three miss, and the verdict kept.
+    const said = [...region.querySelectorAll('dl[data-part="explained"] > div')].map((d) => [d.querySelector('dt')!.textContent, d.querySelector('dd')!.textContent]);
+    expect(said.map(([label]) => label)).toEqual(['What was compared', 'What 92 % means', 'The control', 'Why 3 miss', 'The verdict']);
+    expect(said[0][1]).toMatch(/laid over 20 pictures of 7 sites/);
+    expect(said[1][1]).toBe('In the typical picture, the app and the camera call 92 % of the ground alike: both lit, or both dark.');
+    expect(said[2][1]).toMatch(/Sun turned a quarter of the way round, the same test agrees on only 49 %\./);
+    expect(said[3][1]).toMatch(/^All 3 were taken with the Sun 1\.1° up or less\. That low, a hill 1 m higher casts a shadow about 52 m longer/);
+    expect(said[4][1]).toBe('17 of 20 pictures meet the mark, set after a first look at five of them, before the rest were compared. It asks for every picture, so this check misses its own mark.');
+    for (const [, text] of said) expect(text!.split(/(?<=\.)\s/).length).toBeLessThanOrEqual(3);
+    // Shown before a tap; the long parts stay folded.
+    expect(example.closest('[hidden]')).toBeNull();
+    expect(region.querySelector('dl[data-part="parts"]')!.closest('[hidden]')).not.toBeNull();
+  });
+
+  it('opens on a band of the night sky, black in both themes, and shows the evidence as tiles: a badge, one big figure, one sentence', async () => {
+    await open(undefined, { ...docs, images: pictures });
+    const main = screen.getByRole('main');
+    const hero = main.firstElementChild as HTMLElement;
+    expect(hero.getAttribute('data-band')).toBe('black');
+    expect(hero.className).toMatch(/\btheme-dark\b/);
+    expect(hero.className).toMatch(/\bbg-page\b/);
+    expect(hero.contains(screen.getByRole('heading', { level: 1, name: 'Accuracy' }))).toBe(true);
+    expect(hero.querySelector('[data-part="verdict"]')!.textContent).toMatch(/^Three of four checks meet their criteria/);
+    const tiles = main.querySelector('[data-part="tiles"]')!;
+    expect(tiles.className).toMatch(/\bgrid\b.*\blg:grid-cols-2\b/);
+    const names = [...tiles.children].map((t) => t.querySelector('h2')!.textContent);
+    expect(names).toEqual([TITLES[0], TITLES[1], PICTURES, TITLES[2], TITLES[3]]);
+    for (const tile of tiles.children) {
+      expect(tile.className).toMatch(/\bpanel\b/);
+      const badge = tile.querySelector('[data-part="mark"]')!;
+      expect(badge.className).toMatch(/\brounded-full\b.*\bborder\b/);
+      const tone = /^Passes/.test(badge.textContent!) ? /bg-good-bg.*text-good/ : /^Misses/.test(badge.textContent!) ? /bg-bad-bg.*text-bad/ : /text-ink-2/;
+      expect(badge.className).toMatch(tone);
+      expect(tile.querySelector('[data-part="figure"]')!.className).toMatch(/text-\[48px\].*sm:text-\[64px\]/);
+    }
+    // A tile with its table open takes the full width.
+    const first = tiles.children[0];
+    expect(first.className).not.toMatch(/lg:col-span-2/);
+    fireEvent.click(within(first as HTMLElement).getByRole('button', { name: 'Show the numbers' }));
+    expect(first.className).toMatch(/\blg:col-span-2\b/);
+  });
+
+  it('lists the data used, one row a dataset: its name, who made it and what the app uses it for, with the credits’ own links', async () => {
+    await open();
+    const data = screen.getByRole('region', { name: 'Data used' });
+    const rows = within(data).getAllByRole('listitem');
+    expect(rows).toHaveLength(DATASETS.length);
+    const text = data.textContent!;
+    for (const want of [/LOLA elevation: 20 m, 80 m and 240 m/, /JPL DE440/, /JPL Horizons/, /LROC camera pictures/, /LOLA polar illumination maps/, /Diviner/, /IM-1, IM-2 and Blue Ghost/]) expect(text).toMatch(want);
+    // Every link is a source docs/data-credits.md names, and opens beside the page.
+    const credits = fs.readFileSync(path.resolve(process.cwd(), '..', 'docs', 'data-credits.md'), 'utf8');
+    const links = within(data).getAllByRole('link') as HTMLAnchorElement[];
+    expect(links.length).toBe(DATASETS.filter((d) => d.href).length);
+    for (const a of links) {
+      expect(credits, a.href).toContain(a.getAttribute('href')!);
+      expect(a.target).toBe('_blank');
+    }
+    for (const d of DATASETS) {
+      expect(d.by.length).toBeGreaterThan(10);
+      expect(d.use.split(' ').length).toBeLessThanOrEqual(18);
+    }
+    // After the tiles, before how sure the times are.
+    expect(screen.getByRole('region', { name: TITLES[3] }).compareDocumentPosition(data) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(data.compareDocumentPosition(screen.getByRole('region', { name: 'How far off the forecast can be' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it('shows the four other kinds of evidence as before where the pictures’ table is missing', async () => {
     await open();
     expect(screen.queryByRole('region', { name: PICTURES })).toBeNull();
+    expect(screen.getByRole('main').querySelector('[data-part="example"]')).toBeNull();
     expect(screen.getByText('Three checks meet their criteria; past missions are context, not a check.')).toBeTruthy();
   });
 
@@ -249,8 +341,8 @@ describe('ValidateView', () => {
     const first = screen.getByRole('region', { name: TITLES[0] });
     expect(first.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const main = screen.getByRole('main');
-    // The heading, the intro and the verdict: what shows before the first panel.
-    const top = [...main.children].slice(0, 2);
+    // The heading, the intro and the verdict, on the band of sky: what shows before the first tile.
+    const top = [main.children[0]];
     for (const width of [WIDE, PHONE]) {
       const n = top.reduce((sum, el) => sum + visibleWords(el, width).length, 0);
       expect(n).toBeLessThanOrEqual(22);
