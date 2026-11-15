@@ -19,12 +19,14 @@ export const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
 
 /**
  * The models and the voice when no variable names others. Model names change: the defaults may need updating to the
- * current names (Google's model list; @google/genai's `Model` type of November 2026 lists gemini-2.5-flash, the
- * gemini-3.x families and gemini-3.8-flash-tts, and no longer gemini-2.5-flash-preview-tts).
+ * current names (Google's model list). Checked live on 15 November 2026: gemini-2.5-flash answers 404 "no longer
+ * available to new users", gemini-3.8-flash timed out or answered 503 inside the 10 s each model gets, and
+ * gemini-3.5-flash-lite wrote a phrase down in 1.5 s and answered the assistant in time; the speech model
+ * gemini-3.8-flash-tts said a reply in 2.7 s.
  */
 export const GEMINI_DEFAULTS = {
-  textModel: 'gemini-2.5-flash',
-  transcribeModel: 'gemini-2.5-flash',
+  textModel: 'gemini-3.5-flash-lite',
+  transcribeModel: 'gemini-3.5-flash-lite',
   speechModel: 'gemini-3.8-flash-tts',
   /** One of Gemini's prebuilt voices, which Google describes as youthful: friendly for a small robot rabbit. */
   voice: 'Leda',

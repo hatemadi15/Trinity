@@ -96,10 +96,10 @@ One rule first: every `NEXT_PUBLIC_*` variable is inlined into the client and se
    | Name | Value |
    |---|---|
    | `OPENROUTER_API_KEY` | the OpenRouter key (server only; never exposed) |
-   | `OPENROUTER_MODELS` | `qwen/qwen3.8-27b:free,nvidia/nemotron-3-super-120b-a12b:free,google/gemma-4-31b-it:free,nvidia/nemotron-3.5-lightning:free` |
+   | `OPENROUTER_MODELS` | `qwen/qwen3.8-27b:free,nvidia/nemotron-3-super-120b-a12b:free,google/gemma-4-31b-it:free,nvidia/nemotron-3.5-lightning:free`. On 15 November 2026 none of these four answered: two are no longer free (404, "the paid version is available now"), one was rate-limited (429) and one answered empty, so Gemini answered instead. Replace them with models that are free today (openrouter.ai/models, filter Free); the deployment's logs name each failing model and why (`chat: no model answered: …`) |
    | `GEMINI_API_KEY` | the Gemini API key from Google AI Studio (server only; never exposed, never a `NEXT_PUBLIC_` variable). It gives Luna Gemini's voice (`/api/speak`), her listening in browsers without speech recognition (`/api/transcribe`), and the assistant's last fallback: text goes to OpenRouter first for Luna, "Ask in plain words" and the brief alike, so Gemini is kept for speech. Unset, those routes answer 503 at once and Luna falls back without a word: the browser's voice, typed words, OpenRouter alone |
-   | `GEMINI_TEXT_MODEL` | `gemini-2.5-flash` (optional; the model the assistant asks) |
-   | `GEMINI_TRANSCRIBE_MODEL` | `gemini-2.5-flash` (optional; the model that writes down Luna's recordings) |
+   | `GEMINI_TEXT_MODEL` | `gemini-3.5-flash-lite` (optional; the model the assistant asks last). Checked live on 15 November 2026: `gemini-2.5-flash` answers 404 "no longer available to new users", and `gemini-3.8-flash` timed out or answered 503 inside the 10 s each model gets |
+   | `GEMINI_TRANSCRIBE_MODEL` | `gemini-3.5-flash-lite` (optional; the model that writes down Luna's recordings: 1.5 s for a phrase, live) |
    | `GEMINI_TTS_MODEL` | `gemini-3.8-flash-tts` (optional; the speech model for her replies) |
    | `GEMINI_VOICE` | `Leda` (optional; one of Gemini's prebuilt voices, such as `Aoede`, `Zephyr` or `Kore`) |
    | `NEXT_PUBLIC_AI_MODE` | `live` (`cached` turns the planner into rehearsed answers only) |
