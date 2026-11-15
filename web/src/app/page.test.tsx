@@ -232,6 +232,8 @@ describe('home page', () => {
     const why = screen.getByRole('region', { name: 'Why the south pole?' });
     const drawings = within(why).getAllByRole('img');
     expect(drawings).toHaveLength(3);
+    // The home page's drawings stay on their flat black plates: the night sky is How it works' own.
+    for (const d of drawings) expect(d.querySelector('[data-sky], [data-ground], defs')).toBeNull();
     // A low Sun beside a high one; a hilltop in the light beside ground in shadow; Earth over the hills.
     expect(drawings.map((d) => [...d.querySelectorAll('text')].map((t) => t.textContent))).toEqual([
       ['the Sun where Apollo 15 landed', 'the Sun at the south pole'],

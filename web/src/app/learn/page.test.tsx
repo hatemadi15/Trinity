@@ -60,6 +60,30 @@ describe('How it works', () => {
     }
   });
 
+  it('gives each drawing a night sky, the title the halftone sky and the sections still stars, all hidden from readers', () => {
+    render(<LearnPage />);
+    const why = screen.getByRole('region', { name: 'Why the south pole is hard' });
+    const drawn = [...why.querySelectorAll<HTMLElement>('.panel')].map((f) => within(f).getByRole('img'));
+    for (const d of drawn) {
+      const sky = d.querySelector('[data-sky="stars"]')!;
+      expect(sky.getAttribute('aria-hidden')).toBe('true');
+      expect(sky.querySelectorAll('circle').length).toBeGreaterThan(20);
+      expect(d.querySelector('[data-ground="regolith"]')!.getAttribute('aria-hidden')).toBe('true');
+      // The stars stand still: only Earth's slow rise, which the home page has too and reduced motion stops, moves.
+      expect(sky.querySelector('[class*="animate"]')).toBeNull();
+      expect(sky.textContent).toBe('');
+    }
+    // Each drawing's gradients have their own names, so no two on the page share one.
+    const ids = [...why.querySelectorAll('svg [id]')].map((e) => e.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const main = screen.getByRole('main');
+    expect(main.classList.contains('star-field')).toBe(true);
+    const titleSky = main.querySelector<HTMLElement>('[data-title-sky]')!;
+    expect(titleSky.getAttribute('aria-hidden')).toBe('true');
+    expect(titleSky.textContent).toBe('');
+    expect(titleSky.parentElement!.contains(screen.getByRole('heading', { level: 1 }))).toBe(true);
+  });
+
   it('keeps the three detailed charts, by direction and height, behind one fold', () => {
     render(<LearnPage />);
     const why = screen.getByRole('region', { name: 'Why the south pole is hard' });

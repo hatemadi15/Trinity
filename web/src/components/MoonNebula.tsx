@@ -11,6 +11,7 @@ export function MoonNebula({
   height,
   params,
   interactive = true,
+  still = false,
   scrim = 'bottom',
   preset,
   className = '',
@@ -19,6 +20,8 @@ export function MoonNebula({
   height: string;
   params?: Partial<NebulaParams>;
   interactive?: boolean;
+  /** One still frame, with no loop running: a quiet backdrop behind a page's title (How it works). */
+  still?: boolean;
   /** Where the page's colour fades in over the sky so the words on it stay easy to read. */
   scrim?: 'bottom' | 'left' | 'none';
   /** The sky's colours whatever the theme: the home page's end band is black in both. Left out, it follows the theme. */
@@ -28,7 +31,7 @@ export function MoonNebula({
 }) {
   const theme = useSyncExternalStore(subscribeTheme, currentTheme, () => DEFAULT_THEME);
   return (
-    <HalftoneNebula height={height} preset={preset ?? (theme === 'light' ? 'paper' : 'moonstone')} params={params} interactive={interactive} className={className}>
+    <HalftoneNebula height={height} preset={preset ?? (theme === 'light' ? 'paper' : 'moonstone')} params={params} interactive={interactive} still={still} className={className}>
       {scrim !== 'none' && (
         <div
           aria-hidden="true"

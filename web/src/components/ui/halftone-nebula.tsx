@@ -516,6 +516,8 @@ export type HalftoneNebulaProps = {
   params?: Partial<NebulaParams>
   /** Pointer lights the gas and parallaxes the sky; click drops a sparkle. */
   interactive?: boolean
+  /** One still frame, painted once and again only when its size or colours change: no loop runs, as under reduced motion. */
+  still?: boolean
   /** "scroll" keeps page scrolling on touch; "draw" takes the gesture. */
   touch?: "scroll" | "draw"
   /** Device-pixel-ratio cap. The shader is per-pixel, so 2 is plenty. */
@@ -530,6 +532,7 @@ export default function HalftoneNebula({
   preset = "crimson",
   params,
   interactive = true,
+  still = false,
   touch = "scroll",
   maxDpr = 2,
   children,
@@ -539,7 +542,8 @@ export default function HalftoneNebula({
   const canvasRef = React.useRef<HTMLCanvasElement>(null)
   const [failed, setFailed] = React.useState(false)
   const [generation, setGeneration] = React.useState(0)
-  const [reduced, setReduced] = React.useState(false)
+  const [prefersReduced, setReduced] = React.useState(false)
+  const reduced = prefersReduced || still
 
   React.useEffect(() => {
     if (typeof window.matchMedia !== "function") return

@@ -2,18 +2,29 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AppFrame } from '@/components/AppFrame';
 import { Fold } from '@/components/Fold';
+import { MoonNebula } from '@/components/MoonNebula';
 import { WhySection } from '@/components/home/WhySection';
 import { SCIENCE, STORY_STEPS } from '@/lib/learn/story';
 import { COLD_TRAPS } from '@/lib/learn/coldtraps';
 
 export const metadata: Metadata = { title: 'How it works' };
 
-/** How it works: why the pole is hard (three simple framed drawings, the charts behind a fold), the science behind it, then five steps through the pages, then the way in. */
+/** The Moon and the brightest gas stand right, clear of the title's words at the left. */
+const TITLE_SKY = { planetX: 0.86, planetY: 0.42, bandOffset: -0.05, bandAngle: 0.3 };
+
+/** How it works: why the pole is hard (three simple framed drawings, the charts behind a fold), the science behind it, then five steps through the pages, then the way in. The title stands on the halftone sky and the sections on a field of faint still stars. */
 export default function LearnPage() {
   return (
     <AppFrame>
-      <main className="pb-16">
-        <div className="wrap pt-10">
+      <main className="star-field pb-16">
+        {/* The title stands on the site's halftone sky (spec 23.3), as the home page's ends and the 404 page do: the Moon and the gas to the right, the page's colour over the left so the words keep their contrast. */}
+        <div className="relative">
+          <div aria-hidden="true" data-title-sky="" className="absolute inset-0 overflow-hidden print:hidden">
+            <MoonNebula height="100%" params={TITLE_SKY} interactive={false} still scrim="none" />
+            <div className="absolute inset-0 bg-linear-to-r from-page/95 via-page/90 via-55% to-page/75 lg:via-page/90 lg:via-60% lg:to-transparent lg:to-95%" />
+            <div className="absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-page to-transparent" />
+          </div>
+          <div className="wrap relative pb-12 pt-10">
           <h1 data-band-end="" className="display text-[44px] leading-tight sm:text-[56px]">How it works</h1>
           <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">
             Earthrise works out, hour by hour, where the Sun and Earth are as seen from one spot on the Moon, whether they have set behind the hills, and what that means for a
@@ -23,6 +34,7 @@ export default function LearnPage() {
           <Fold label="Showing it to a class?" className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">
             <p>On a projector, zoom the page to 150 % (Ctrl and +, or ⌘ and + on a Mac): the words, the charts and the views all grow, and nothing runs off the side.</p>
           </Fold>
+          </div>
         </div>
         <WhySection />
         <section aria-labelledby="h-science" className="band wrap mt-16 py-16">

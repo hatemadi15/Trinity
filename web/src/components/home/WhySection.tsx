@@ -10,7 +10,7 @@ import { whyDrawings } from '@/lib/viz/why';
 
 /** A number and its percent sign stay on one line. */
 const pct = (n: number) => `${n} %`;
-/** The home page's drawing, without its own frame: the figure's black plate frames it with its lane. */
+/** The home page's drawing, without its own frame: the figure's plate frames it with its lane. Here each drawing has its night sky (`sky="stars"`); the home page's stay on flat black. */
 const DRAWING = 'block aspect-[360/230] w-full';
 const H3 = 'display mt-5 text-[26px] leading-tight';
 const WORDS = 'mt-2 leading-relaxed text-ink-2';
@@ -52,7 +52,8 @@ function MonthLane({ on, colour, start }: { on: number[]; colour: string; start:
 function Figure({ drawing, fact, lane, title, children, delay }: { drawing: ReactNode; fact: ReactNode; lane: ReactNode; title: string; children: ReactNode; delay?: number }) {
   return (
     <Reveal className="panel flex flex-col" delay={delay}>
-      <div className="stage">
+      {/* On its own layer, so Earth's slow rise repaints this plate alone and not the page's stars under it. */}
+      <div className="stage transform-gpu">
         {drawing}
         <div className="border-t border-stage-line px-4 pb-3.5 pt-3">
           <p className="mb-2 text-[15px] font-semibold leading-snug text-stage-ink">{fact}</p>
@@ -96,7 +97,7 @@ export function WhySection() {
       <div className="mt-10 grid gap-6 lg:grid-cols-3">
         <Figure
           title="The Sun never climbs"
-          drawing={<LowSun high={sun.contrast.peak} low={sun.highest.el} site={sun.contrast.site} className={DRAWING} />}
+          drawing={<LowSun high={sun.contrast.peak} low={sun.highest.el} site={sun.contrast.site} className={DRAWING} sky="stars" />}
           fact={<>The Sun&apos;s highest all month: {top}</>}
           lane={<p className="text-[14px] leading-snug text-stage-ink-2">Less than two fingers held up at arm&apos;s length.</p>}
         >
@@ -106,7 +107,7 @@ export function WhySection() {
         <Figure
           delay={120}
           title="The hills decide"
-          drawing={<HillShadow km={km} dark={dark} className={DRAWING} />}
+          drawing={<HillShadow km={km} dark={dark} className={DRAWING} sky="stars" />}
           fact={<>Ridge in sunlight: {pct(Math.round(pair.site_sun_pct))} of the month</>}
           lane={<MonthLane on={sky.lit} colour="bg-stage-sun" start={sky.start_utc} />}
         >
@@ -116,7 +117,7 @@ export function WhySection() {
         <Figure
           delay={240}
           title="Earth sets too"
-          drawing={<EarthPeek className={DRAWING} />}
+          drawing={<EarthPeek className={DRAWING} sky="stars" />}
           fact={<>Earth in view: {pct(Math.round(sky.earth_pct))} of the month</>}
           lane={<MonthLane on={sky.earth_visible} colour="bg-stage-earth" start={sky.start_utc} />}
         >
