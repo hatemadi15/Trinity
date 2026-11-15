@@ -90,12 +90,15 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   Sun with the shadows worked out from those heights; the Sun small and white in a black sky; Earth
   from NASA's Blue Marble, turned for the hour; the real stars, placed for the site and hour (by day
   they show once you look up, away from the bright ground). A lander stands 16 m away, with rocks and
-  small craters around you: these are drawn, not measured, and the view says so. A small plate at the top
-  left gives the answer in one line (power and radio contact from the landing) and the lander's state for the
-  hour, which always names both things radio contact needs, power and Earth in view; the time bar's key says the
-  same of its green band ("radio contact = power + Earth in view"). "More" opens today's card: the whole headline,
-  the next step (a better landing day, Change site, date or lander, Compare sites), the countdown to the next sunset or sunrise and to Earth's next
-  rising or setting, why it happens, and the links to How it works and Accuracy; from 1800 px wide the next step and the links show on the plate itself.
+  small craters around you: these are drawn, not measured, and the view says so. The view keeps its words
+  few, so the Moon and the landing are what you see: a small plate at the top left gives the answer in one line
+  (power and radio contact from the landing) and the lander's state for the hour in a few words ("Power 100 % · no radio"),
+  with the whole sentence, which always names both things radio contact needs, power and Earth in view, for screen readers.
+  "More" opens today's card: that sentence and the rule in full, the whole headline, the heights of the Sun and Earth,
+  the next step (a better landing day, Change site, date or lander, Compare sites), the countdown to the next sunset or
+  sunrise and to Earth's next rising or setting, why it happens, and the links to How it works and Accuracy. The row of
+  buttons is signs with their names as tooltips (face the Sun, Earth or the lander, look up, show the paths, hide the panels, Luna),
+  and "Key" on the time bar opens the key to its bands ("radio contact = power + Earth in view").
   A compass with the way you face runs along the top edge, and "Hide panels" leaves the Moon and the time bar alone
   ("Show panels" brings the rest back). The time bar below plays the period at a day a second (2× and 4× on its speed button), stops on each
   of its key moments and turns the view there (the Sun going behind the hills, the battery running out,
