@@ -415,9 +415,18 @@ describe('comparing sites by name, the site shown with one, and the site shown w
     expect(reply).toContain(`of the 34 sites`);
     expect(reply).toContain(words(hours(best.id)));
     expect(reply).toContain(`(here: ${words(hours('de_gerlache_rim_2'))})`);
-    expect(reply).toMatch(/ I've put the top three beside yours on Compare\.$/);
+    expect(reply).toMatch(/ I've put the top three beside yours on Compare, each at its own best landing time\.$/);
     expect(reply.split(/(?<=\.) /)).toHaveLength(2);
     expect(reply).not.toMatch(/surviv|guarantee|safe/i);
+    // Each lands on Compare at its own best time in the period, as the site list's links open it, for the same length and lander.
+    const isoAtHour = (h: number) => new Date(Date.parse('2027-01-01T00:00:00Z') + h * 3_600_000).toISOString().slice(0, 19);
+    expect(r.scenarios.getState().scenarios.map((x) => [x.siteId, x.startUtc, x.days, x.timing])).toEqual(
+      s.compareIds.map((id) => [id, o[id]!.best!.hour > 0 ? isoAtHour(o[id]!.best!.hour) : '2027-01-01T00:00:00', 30, 'site-best']),
+    );
+    // So Compare's figures are the ones the reply and the site list give: the time with power from that landing.
+    await r.scenarios.getState().settle();
+    const runs = r.scenarios.getState().runs;
+    for (const x of r.scenarios.getState().scenarios) expect(runs[x.id]?.outcome?.poweredH, x.siteId).toBe(Math.min(30 * 24, o[x.siteId]!.best!.poweredHours));
   });
 
   it('says so when the site shown is itself the best, and puts the next three beside it', async () => {
@@ -429,7 +438,7 @@ describe('comparing sites by name, the site shown with one, and the site shown w
     const { reply } = await ran('is there a better site?', r);
     expect(reply).toContain(`the site shown, ${siteLabel(best)},`);
     expect(reply).not.toContain('(here:');
-    expect(reply).toMatch(/ I've put the next three beside it on Compare\.$/);
+    expect(reply).toMatch(/ I've put the next three beside it on Compare, each at its own best landing time\.$/);
     expect(r.store.getState().compareIds[0]).toBe(best.id);
     expect(r.store.getState().compareIds).toHaveLength(4);
   });
