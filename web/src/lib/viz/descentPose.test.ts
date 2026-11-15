@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { HOME } from '../data/home';
 import catalogue from '../data/catalogue.json';
-import { descentPose, earthSpot, ease, firstFromDisc, firstMoon, globePoint, psSouthKm, psSouthLatLon, reliefKm, SPIN_DONE, STAGES, stageAt, stageOpacity, WORDS_GONE, type Box } from './descentPose';
+import { descentPose, earthSpot, ease, firstFromDisc, firstMoon, globePoint, psSouthKm, psSouthLatLon, reliefKm, SITE_IN, SPIN_DONE, STAGES, stageAt, stageOpacity, WIDE_IN, WORDS_GONE, type Box } from './descentPose';
 
 const sizes = { reliefHalfKm: HOME.relief.half_km, windowKm: HOME.hero.window_km };
 
@@ -65,6 +65,7 @@ describe('the descent’s pose', () => {
         const picture = HOME.hero.window_km / 1737.4, viewH = 2 / pose.zoom, viewW = aspect * viewH;
         expect(picture / Math.max(viewW, viewH), `p = ${p.toFixed(4)}, aspect ${aspect}`).toBeGreaterThan(1);
         expect(pose.site, `p = ${p.toFixed(4)}`).toBe(1);
+        expect(pose.wide, `p = ${p.toFixed(4)}`).toBe(1);
         expect(pose.spin, `p = ${p.toFixed(4)}`).toBeCloseTo(0, 9);
         expect(pose.toSite, `p = ${p.toFixed(4)}`).toBe(1);
       }
@@ -74,9 +75,35 @@ describe('the descent’s pose', () => {
   it('settles the turn before the site’s picture comes in, so the picture arrives upright', () => {
     for (let p = 0; p <= 1; p += 0.0025) {
       const pose = descentPose(p, 1.6, sizes);
-      if (pose.site > 0) expect(pose.spin, `p = ${p.toFixed(4)}`).toBeCloseTo(0, 9);
+      if (pose.site > 0 || pose.wide > 0) expect(pose.spin, `p = ${p.toFixed(4)}`).toBeCloseTo(0, 9);
     }
     expect(descentPose(SPIN_DONE, 1.6, sizes).spin).toBeCloseTo(0, 9);
+  });
+
+  it('dives through the shadows round the site, so the polar map is never left to blur under a sharp square', () => {
+    // The owner's phone, mid-dive (15 November): the 20 km picture as a small sharp square on the 500 km map, which
+    // was magnified to a blur round it. The 82 km picture between the two takes the map's place before that.
+    expect(HOME.hero.wide_km).toBeCloseTo(4 * HOME.hero.window_km, 6);
+    expect(WIDE_IN[0]).toBe(SPIN_DONE);
+    expect(WIDE_IN[1]).toBeLessThanOrEqual(SITE_IN[1]);
+    for (const aspect of [1.6, 1, 0.46]) {
+      for (let p = 0; p <= 1.0001; p += 0.0025) {
+        const pose = descentPose(p, aspect, sizes);
+        /** The view's shorter side on the ground, in km. */
+        const shortKm = ((2 * Math.min(1, aspect)) / pose.zoom) * 1737.4;
+        const at = `p = ${p.toFixed(4)}, aspect ${aspect}`;
+        // The site's own picture sharpens inside the wide one, never ahead of it: it has no edge of its own to show.
+        expect(pose.wide, at).toBeGreaterThanOrEqual(pose.site);
+        // Until the wide picture starts to come, the map is seen at no more than one and a half times its size at the pole.
+        if (pose.wide === 0) expect(shortKm, at).toBeGreaterThan((2 * HOME.relief.half_km) / 1.5);
+        // By the time the view is as narrow as the wide picture, that picture is whole: the map shows only beyond its
+        // soft edge, dimmed.
+        if (shortKm < HOME.hero.wide_km) expect(pose.wide, at).toBeGreaterThan(0.97);
+        if (shortKm < 0.8 * HOME.hero.wide_km) expect(pose.wide, at).toBe(1);
+        // And the site's own picture is whole before it fills half the view, so it never stands as a square in it.
+        if (HOME.hero.window_km > 0.5 * shortKm) expect(pose.site, at).toBe(1);
+      }
+    }
   });
 
   it('turns the Moon as it comes closer, one and a quarter turns that settle before the site comes in', () => {

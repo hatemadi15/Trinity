@@ -1,9 +1,10 @@
 /*
  * The home page's descent (spec 23.1): one picture from first screen to last. As the page scrolls the Moon turns, tips
- * its south pole towards us and comes closer, all the way down to one landing site. Three of the app's own pictures
+ * its south pole towards us and comes closer, all the way down to one landing site. Four of the app's own pictures
  * lie on the one globe, each in its place: NASA's Moon from space, the relief map of the pole (500 km across, as
- * Choose a site shows it) and the shadow picture of the site (20 km across), all three in the south polar
- * stereographic projection the pipeline uses. Nothing swaps: the closer the view, the finer the picture under it.
+ * Choose a site shows it), the shadows round the site (82 km across) and the shadow picture of the site (20 km
+ * across), all in the south polar stereographic projection the pipeline uses. Nothing swaps: the closer the view,
+ * the finer the picture under it.
  *
  * Plain numbers with no data file, so the scene can take it to the browser and the tests need no WebGL; the words
  * are in descent.ts, worked out on the server.
@@ -79,7 +80,8 @@ const unit = (t: number) => Math.min(1, Math.max(0, t));
  */
 export const ease = (t: number) => {
   const x = unit(t);
-  return x * x * x * (x * (x * 6 - 15) + 10);
+  // Never a hair past 1 by rounding: a picture that is whole reads as exactly 1.
+  return Math.min(1, x * x * x * (x * (x * 6 - 15) + 10));
 };
 const between = (p: number, a: number, b: number) => ease((p - a) / (b - a));
 
@@ -88,10 +90,18 @@ export const TURNS = 1.25;
 /** How far the descent runs to its last view, the site, as a share of the scroll: where the site's words start to come in. */
 const AT_SITE = 0.76;
 /**
- * The turn has settled here, before the site's picture comes in (it shows from 0.6), so the picture arrives upright,
- * as on the Choose a site map, and never as a tilted square.
+ * The turn has settled here, before the site's shadows come in (they show from 0.6), so they arrive upright, as on the
+ * Choose a site map, and never turn under the eye.
  */
 export const SPIN_DONE = 0.6;
+/**
+ * The dive from the polar map to the site. The map is 480 m a pixel and the site's picture 20 m, too far apart to
+ * meet: between them lies the same hour's shadows 82 km across (160 m a pixel), which come in here with a wide soft
+ * edge, in the map's place, before the view is close enough for the map to blur. The site's own picture sharpens
+ * inside them a little later, as a lens finds its focus; both are whole well before the site's words.
+ */
+export const WIDE_IN = [SPIN_DONE, 0.65] as const;
+export const SITE_IN = [SPIN_DONE, 0.665] as const;
 /**
  * The first screen's words are gone here (their stage ends at 0.07 and fades out over 0.04): the Moon keeps its first
  * place and size until then, so it never moves under the words while they still show.
@@ -142,10 +152,14 @@ export interface DescentPose {
   /** Where the Moon's centre stands in the view (−1 to 1 across and up): the first screen's place, then the middle. */
   shiftX: number;
   shiftY: number;
-  /** How much of each finer picture shows: the polar relief map, the site's shadow picture. The site's comes in while
-   * it is still a small square on the map, so the view dives into it. */
+  /** How much of each finer picture shows: the polar relief map, the shadows round the site (as the map dims round
+   * them) and the site's own shadow picture, sharpening inside those. */
   relief: number;
+  wide: number;
   site: number;
+  /** How far the site's picture has drawn out its soft edge: 0 a wide one, as it sharpens inside the shadows round it;
+   * 1 at the site, where the picture is sharp to the edge of the view. */
+  focus: number;
   /** Earth beside the Moon: gone once the Moon fills the view. */
   earth: number;
 }
@@ -186,12 +200,15 @@ export function descentPose(p: number, aspect: number, sizes: { reliefHalfKm: nu
     tilt: -0.32 - (Math.PI / 2 - 0.32) * between(p, 0.08, 0.42),
     spin: -TURNS * 2 * Math.PI * (1 - ease(p / SPIN_DONE)),
     zoom,
-    toSite: between(p, 0.5, 0.74),
+    // On the site before its picture is whole, so the shadows grow from the middle of the view, the same on every side.
+    toSite: between(p, 0.5, SITE_IN[1]),
     offset,
     shiftX: first.nx * offset,
     shiftY: first.ny * offset,
     relief: between(p, 0.3, 0.44),
-    site: between(p, 0.6, 0.68),
+    wide: between(p, WIDE_IN[0], WIDE_IN[1]),
+    site: between(p, SITE_IN[0], SITE_IN[1]),
+    focus: between(p, SITE_IN[1], AT_SITE),
     earth: 1 - between(p, 0.12, 0.32),
   };
 }
