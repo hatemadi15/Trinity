@@ -3,6 +3,9 @@ import { useEffect, useId, useState, type ReactNode } from 'react';
 import { AppFrame } from './AppFrame';
 import { DataProblem } from './DataProblem';
 import { Fold } from './Fold';
+import { MoonNebula } from './MoonNebula';
+import { DataUsed } from './validate/DataUsed';
+import { ShadowExample } from './validate/ShadowExample';
 import { dataBase, loadEphemerisFromUrl } from '@/lib/data/loaders';
 import { degreesText } from '@/lib/data/home';
 import { exploreStore } from '@/lib/store/explore';
@@ -62,31 +65,38 @@ function Mark({ pass }: { pass: boolean }) {
   );
 }
 
+/** The badge of a tile: green for a check that passes, red for one that misses, an outline for context. */
+const BADGE = { pass: 'border-good-line bg-good-bg text-good', miss: 'border-bad-line bg-bad-bg text-bad', context: 'border-line-strong text-ink-2' } as const;
+
 /**
- * One kind of evidence: its mark (a pass mark for a check, neutral words for context), figure and sentence, its
- * labelled parts (what it shows, when it passes, what it was tested on, what it leaves out), anything it adds (the
- * live re-check), and its numbers on request.
+ * One kind of evidence as a tile: its name and its badge (a pass mark for a check, neutral words for context), one
+ * big figure and one sentence; a picture where it has one; then, folded, its labelled parts (what it shows, when it
+ * passes, what it was tested on, what it leaves out), anything it adds (the live re-check), and its numbers on
+ * request. A tile takes the full width when `wide`, or while its table of numbers is open.
  */
-function EvidencePanel({ card, extra, children }: { card: EvidenceCard; extra?: ReactNode; children: ReactNode }) {
+function EvidencePanel({ card, extra, figure, wide = false, children }: { card: EvidenceCard; extra?: ReactNode; figure?: ReactNode; wide?: boolean; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const id = useId();
-  const tone = card.pass === null ? 'text-ink-2' : card.pass ? 'text-good' : 'text-bad';
+  const badge = card.pass === null ? BADGE.context : card.pass ? BADGE.pass : BADGE.miss;
   return (
-    <section aria-labelledby={`${id}-h`} data-kind={card.kind} className="panel">
-      <h2 id={`${id}-h`} className="display text-[26px] font-semibold leading-tight">
-        {card.title}
-      </h2>
-      <p data-part="mark" className={`mt-2 flex items-center gap-2 font-semibold ${tone}`}>
-        {card.pass !== null && <Mark pass={card.pass} />}
-        {card.mark}
+    <section aria-labelledby={`${id}-h`} data-kind={card.kind} className={`panel min-w-0 ${wide || open ? 'lg:col-span-2' : ''}`}>
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <h2 id={`${id}-h`} className="display text-[22px] font-semibold leading-tight">
+          {card.title}
+        </h2>
+        <p data-part="mark" className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[15px] font-semibold leading-snug ${badge}`}>
+          {card.pass !== null && <Mark pass={card.pass} />}
+          {card.mark}
+        </p>
+      </div>
+      <p className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span data-part="figure" className="display text-[48px] leading-none tabular-nums sm:text-[64px]">{card.figure}</span>
+        <span className="max-w-[24em] text-ink-2">{card.figureWords}</span>
       </p>
-      <p className="mt-3 flex flex-wrap items-baseline gap-x-3">
-        <span className="display text-[40px] leading-none tabular-nums">{card.figure}</span>
-        <span className="text-ink-2">{card.figureWords}</span>
-      </p>
-      <p data-part="sentence" className="mt-3 max-w-[46em] leading-relaxed text-ink-2">{card.sentence}</p>
+      <p data-part="sentence" className="mt-4 max-w-[46em] leading-relaxed text-ink-2">{card.sentence}</p>
+      {figure}
       <Fold label={card.kind === 'check' ? 'What it shows, and what it leaves out' : 'What it can and cannot tell'} className="mt-2">
-        <dl className="grid max-w-[62em] gap-x-6 gap-y-2 text-[15px] leading-relaxed sm:grid-cols-[10.5em_1fr]">
+        <dl data-part="parts" className="grid max-w-[62em] gap-x-6 gap-y-2 text-[15px] leading-relaxed sm:grid-cols-[10.5em_1fr]">
           {card.parts.map((p) => (
             <div key={p.label} className="contents">
               <dt className="font-semibold text-ink">{p.label}</dt>
@@ -107,12 +117,16 @@ function EvidencePanel({ card, extra, children }: { card: EvidenceCard; extra?: 
   );
 }
 
+/** The hero's sky: the planet and the bright river of gas stand right, clear of the words at the lower left. */
+const SKY = { planetX: 0.8, planetY: 0.62, bandAngle: 0.3, bandOffset: 0.05, sparkles: 8 };
+
 /**
- * Accuracy: five kinds of evidence. Four checks (the Sun's and Earth's directions against JPL Horizons, sunlight
+ * Accuracy: a band of the Moon's night sky with the title and the verdict (black in both themes, as the home page's
+ * end band), then five kinds of evidence as tiles, two to a row on a wide screen. Four checks (the Sun's and Earth's directions against JPL Horizons, sunlight
  * against NASA's LOLA maps worked out the map's way, shadows against pictures from LRO's cameras where that table
  * is present, the power sums against worked answers), each with its pass mark, what it shows, its rule, what it was
- * tested on and what it leaves out; then past missions as context, with no pass mark. The live re-check with JPL sits in the first.
- * Then how sure the times are, the error budget and the automated tests' last run: what passed, was skipped
+ * tested on and what it leaves out; then past missions as context, with no pass mark. The live re-check with JPL sits in the first;
+ * the pictures' check shows one real picture beside the app's shadows. Then the data used, how sure the times are, the error budget and the automated tests' last run: what passed, was skipped
  * and failed, when, on which commit, with which data.
  */
 export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: { load?: () => Promise<ValidationDocs>; recheck?: Recheck }) {
@@ -211,230 +225,239 @@ export function ValidateView({ load = defaultLoad, recheck = defaultRecheck }: {
 
   return (
     <AppFrame>
-      <main className="wrap flex flex-col gap-6 pb-14 pt-8">
-        <div>
-          <h1 data-band-end="" className="display text-[44px] leading-tight sm:text-[56px]">Accuracy</h1>
-          <p className="mt-3 max-w-[42em] text-lg leading-relaxed text-ink-2">What each check shows, and its limits.</p>
-        </div>
-
-        <p className="text-base font-semibold text-ink">{verdict}</p>
-
-        <EvidencePanel card={directions} extra={recheckBlock}>
-          <table className="w-full min-w-[640px] border-collapse">
-            <thead>
-              <tr>
-                <th className={TH}>Site</th>
-                <th className={TH}>Body</th>
-                <th className={`${TH} text-right`}>Rows</th>
-                <th className={`${TH} text-right`}>Largest gap in height</th>
-                <th className={`${TH} text-right`}>Largest gap in direction</th>
-                <th className={TH}>Query</th>
-              </tr>
-            </thead>
-            <tbody>
-              {horizons.sites.map((s) => (
-                <tr key={`${s.site_id}-${s.body}`}>
-                  <td className={TD}>{s.name}</td>
-                  <td className={TD}>{s.body === 'SUN' ? 'Sun' : 'Earth'}</td>
-                  <td className={NUM}>{s.n_rows}</td>
-                  <td className={NUM}>{exp1(s.max_abs_delta_el_deg)}</td>
-                  <td className={NUM}>{exp1(s.max_abs_delta_az_cos_el_deg)}</td>
-                  <td className={TD}>
-                    <a href={s.query_url} target="_blank" rel="noreferrer" className="underline decoration-line-strong underline-offset-4 hover:decoration-ink">
-                      JPL query
-                    </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className={NOTE}>JPL&apos;s settings: {horizons.evidence.reference.settings}. Ours: {horizons.evidence.ours.frame}, {horizons.evidence.ours.abcorr}, from {horizons.evidence.ours.kernels.join(', ')}.</p>
-        </EvidencePanel>
-
-        <EvidencePanel card={sunlight}>
-          <p className="mb-3 max-w-[62em] break-words text-[15px] leading-relaxed text-ink-2">
-            NASA&apos;s maps: <code>{ref.sun.product_id}</code> and <code>{ref.earth.product_id}</code> (LOLA team, label {ref.sun.product_version_id}, made {dayWords(ref.sun.product_creation_time)}), 60 m per pixel south of 85° S. {ref.averaging}{' '}
-            {ref.observer} Its label: &ldquo;{ref.sun.description}&rdquo;
-          </p>
-          <p className="mb-3 max-w-[62em] text-[15px] leading-relaxed text-ink-2">
-            Ours, one change at a time: the app&apos;s own share (2 m mast, LOLA 20 to 240 m terrain, hourly {dayWords(mazarico.period[0])} to {dayWords(mazarico.period[1])}); then from the ground; then hourly over 18.6 years from{' '}
-            {dayWords(mazarico.evidence.coverage.matched_span[0])}; then on 60 m terrain at the map&apos;s four nearest pixels, which is the map&apos;s way. The gap is that last step minus the map.
-          </p>
-          <table className="w-full min-w-[820px] border-collapse">
-            <thead>
-              <tr>
-                <th className={TH}>Site</th>
-                <th className={`${TH} text-right`}>The app: 2 m mast</th>
-                <th className={`${TH} text-right`}>From the ground</th>
-                <th className={`${TH} text-right`}>Over 18.6 years</th>
-                <th className={`${TH} text-right`}>On 60 m terrain</th>
-                <th className={`${TH} text-right`}>NASA&apos;s map</th>
-                <th className={`${TH} text-right`}>Gap</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mazarico.rows.map((r) => (
-                <tr key={r.site_id}>
-                  <td className={TD}>{r.name}</td>
-                  {r.covered && r.sun ? (
-                    <>
-                      <td className={NUM}>{pctOf(r.sun.app)}</td>
-                      <td className={NUM}>{pctOf(r.sun.surface)}</td>
-                      <td className={NUM}>{pctOf(r.sun.cycle)}</td>
-                      <td className={NUM}>{pctOf(r.sun.matched)}</td>
-                      <td className={NUM}>{pctOf(r.sun.map)}</td>
-                      <td className={NUM}>{signedPoints(r.sun.gap_points)}</td>
-                    </>
-                  ) : (
-                    <td colSpan={6} className={`${TD} text-ink-2`}>
-                      not covered by the 85° S map
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <h3 className={H3}>Earth in view</h3>
-          <p className="mb-3 mt-1 max-w-[62em] text-[15px] leading-relaxed text-ink-2">
-            The app counts Earth as in view when its centre clears the hills; NASA&apos;s map counts any part of its disc, and so does our share worked out the map&apos;s way (from the ground, over 18.6 years, on 60 m terrain).
-          </p>
-          <table className="w-full min-w-[640px] border-collapse">
-            <thead>
-              <tr>
-                <th className={TH}>Site</th>
-                <th className={`${TH} text-right`}>The app: Earth&apos;s centre</th>
-                <th className={`${TH} text-right`}>Ours: any part of Earth</th>
-                <th className={`${TH} text-right`}>NASA&apos;s map</th>
-                <th className={`${TH} text-right`}>Gap</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mazarico.rows
-                .filter((r) => r.covered && r.earth)
-                .map((r) => (
-                  <tr key={r.site_id}>
-                    <td className={TD}>{r.name}</td>
-                    <td className={NUM}>{pctOf(r.earth!.app_centre)}</td>
-                    <td className={NUM}>{pctOf(r.earth!.matched_any)}</td>
-                    <td className={NUM}>{pctOf(r.earth!.map)}</td>
-                    <td className={NUM}>{signedPoints(r.earth!.gap_points)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-          {mazarico.rows
-            .filter((r) => r.note)
-            .map((r) => (
-              <p key={r.site_id} className={NOTE}>
-                {r.name}: {r.note}
-              </p>
-            ))}
-          <h3 className={H3}>What the comparison could not match</h3>
-          <ul className="mt-2 flex max-w-[62em] list-disc flex-col gap-2 pl-5 text-[15px] leading-relaxed text-ink-2">
-            {(mazarico.evidence.unmatched ?? []).map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-          <p className={NOTE}>
-            Sources: {ref.sources.join('; ')}. Labels read: {ref.sun.file} and {ref.earth.file} (SHA-256 {ref.sun.label_sha256.slice(0, 12)}… and {ref.earth.label_sha256.slice(0, 12)}…). Made by{' '}
-            <code>{mazarico.evidence.command}</code>.
-          </p>
-        </EvidencePanel>
-
-        {pictures && docs.images && (
-          <EvidencePanel card={pictures}>
-            <PicturesNumbers doc={docs.images} />
-          </EvidencePanel>
-        )}
-
-        <EvidencePanel card={sums}>
-          <table className="w-full min-w-[720px] border-collapse">
-            <thead>
-              <tr>
-                <th className={TH}>Case</th>
-                <th className={TH}>By hand</th>
-                <th className={`${TH} text-right`}>Pipeline: largest gap</th>
-                <th className={`${TH} text-right`}>This browser: largest gap</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sumsResults(power).map((s) => (
-                <tr key={s.id}>
-                  <td className={TD}>{s.words}</td>
-                  <td className={TD}>{s.hand}</td>
-                  <td className={NUM}>{wattsGap(s.pipelineGapW)}</td>
-                  <td className={NUM}>{wattsGap(s.gapW)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className={NOTE}>
-            {power.recorded_runs.length} recorded runs the app&apos;s automated tests compare with the pipeline on every change, rerun by the pipeline today against its record:{' '}
-            {power.recorded_runs
-              .map((r) => `${names.get(r.site_id) ?? r.site_id} from ${dayWords(r.start_utc)}, ${r.days} days, ${(PANEL_LABELS[r.panel as PanelModel] ?? r.panel).toLowerCase()} (${r.agrees ? 'agrees' : 'differs'})`)
-              .join('; ')}
-            .
-          </p>
-        </EvidencePanel>
-
-        <EvidencePanel card={missions}>
-          <table className="w-full min-w-[760px] border-collapse">
-            <thead>
-              <tr>
-                <th className={TH}>Mission</th>
-                <th className={TH}>Landed</th>
-                <th className={`${TH} text-right`}>Sun at landing</th>
-                <th className={TH}>Predicted sunset</th>
-                <th className={TH}>Reported end</th>
-                <th className={`${TH} text-right`}>End − sunset</th>
-                <th className={TH}>Horizon</th>
-              </tr>
-            </thead>
-            <tbody>
-              {backcasts.rows.map((r: BackcastRow) => (
-                <tr key={r.site_id}>
-                  <td className={TD}>{r.name}</td>
-                  <td className={`${TD} tabular-nums`}>{utcShort(r.landed_utc)}</td>
-                  <td className={NUM}>{r.sun_el_at_landing_deg.toFixed(1)}°</td>
-                  <td className={`${TD} tabular-nums`}>{utcShort(r.sunset_utc)}</td>
-                  <td className={`${TD} tabular-nums`}>{utcShort(r.mission_end_utc)}</td>
-                  <td className={NUM}>{r.end_minus_sunset_h === null ? '—' : signedHours(r.end_minus_sunset_h)}</td>
-                  <td className={TD}>{r.skyline === 'lola' ? 'measured hills' : 'flat'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <ul className="mt-4 flex flex-col gap-3 text-[15px]">
-            {backcasts.rows.map((r) => (
-              <li key={r.site_id} className="flex flex-col gap-0.5">
-                <span className="text-ink">
-                  {r.name}: {r.mission_note ?? 'no note for this mission yet'}
-                </span>
-                <span className="text-ink-2">Source: {r.mission_end_source ?? 'not recorded'}</span>
-              </li>
-            ))}
-          </ul>
-        </EvidencePanel>
-
-        <UncertaintySection />
-
-        <VersionsSection />
-
-        <section aria-labelledby="h-budget" className="panel">
-          <h2 id="h-budget" className="display text-[26px] font-semibold">
-            How far off the forecast can be
-          </h2>
-          <ul className="mt-3 flex max-w-[62em] flex-col gap-2 leading-relaxed text-ink-2">
-            <li>Sunrise, sunset, Earth rising or setting: within the margins above. Hourly steps add up to an hour; near the pole the terrain can add many hours.</li>
-            <li>Directions to the Sun and Earth: under 0.01° (the first check finds {degreesText(horizons.max_abs_delta_el_deg)}).</li>
-            <li>The hills around a site: within a degree of NASA&apos;s adjusted maps in 95 % of directions at every featured site.</li>
-          </ul>
-          {badge && (
-            <Fold label="The automated tests' last run" className="mt-2">
-              <p className="text-[15px] text-ink-2">{testRunWords(badge).join(' ')}</p>
-            </Fold>
-          )}
+      <main className="pb-14">
+        <section data-band="black" className="theme-dark bg-page text-ink">
+          <MoonNebula height="min(400px, 56svh)" params={SKY} preset="moonstone">
+            <div className="wrap flex h-full w-full flex-col justify-end pb-9 sm:pb-11">
+              <h1 className="display text-[56px] leading-[1.1] sm:text-[88px]">Accuracy</h1>
+              <p className="mt-2 max-w-[42em] text-lg leading-relaxed text-ink-2">What each check shows, and its limits.</p>
+              <p data-part="verdict" className="mt-4 text-base font-semibold text-ink">{verdict}</p>
+            </div>
+          </MoonNebula>
         </section>
+
+        <div className="wrap mt-8 flex flex-col gap-6">
+          <div data-part="tiles" className="grid gap-6 lg:grid-cols-2">
+            <EvidencePanel card={directions} extra={recheckBlock}>
+              <table className="w-full min-w-[640px] border-collapse">
+                <thead>
+                  <tr>
+                    <th className={TH}>Site</th>
+                    <th className={TH}>Body</th>
+                    <th className={`${TH} text-right`}>Rows</th>
+                    <th className={`${TH} text-right`}>Largest gap in height</th>
+                    <th className={`${TH} text-right`}>Largest gap in direction</th>
+                    <th className={TH}>Query</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {horizons.sites.map((s) => (
+                    <tr key={`${s.site_id}-${s.body}`}>
+                      <td className={TD}>{s.name}</td>
+                      <td className={TD}>{s.body === 'SUN' ? 'Sun' : 'Earth'}</td>
+                      <td className={NUM}>{s.n_rows}</td>
+                      <td className={NUM}>{exp1(s.max_abs_delta_el_deg)}</td>
+                      <td className={NUM}>{exp1(s.max_abs_delta_az_cos_el_deg)}</td>
+                      <td className={TD}>
+                        <a href={s.query_url} target="_blank" rel="noreferrer" className="underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+                          JPL query
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className={NOTE}>JPL&apos;s settings: {horizons.evidence.reference.settings}. Ours: {horizons.evidence.ours.frame}, {horizons.evidence.ours.abcorr}, from {horizons.evidence.ours.kernels.join(', ')}.</p>
+            </EvidencePanel>
+
+            <EvidencePanel card={sunlight}>
+              <p className="mb-3 max-w-[62em] break-words text-[15px] leading-relaxed text-ink-2">
+                NASA&apos;s maps: <code>{ref.sun.product_id}</code> and <code>{ref.earth.product_id}</code> (LOLA team, label {ref.sun.product_version_id}, made {dayWords(ref.sun.product_creation_time)}), 60 m per pixel south of 85° S. {ref.averaging}{' '}
+                {ref.observer} Its label: &ldquo;{ref.sun.description}&rdquo;
+              </p>
+              <p className="mb-3 max-w-[62em] text-[15px] leading-relaxed text-ink-2">
+                Ours, one change at a time: the app&apos;s own share (2 m mast, LOLA 20 to 240 m terrain, hourly {dayWords(mazarico.period[0])} to {dayWords(mazarico.period[1])}); then from the ground; then hourly over 18.6 years from{' '}
+                {dayWords(mazarico.evidence.coverage.matched_span[0])}; then on 60 m terrain at the map&apos;s four nearest pixels, which is the map&apos;s way. The gap is that last step minus the map.
+              </p>
+              <table className="w-full min-w-[820px] border-collapse">
+                <thead>
+                  <tr>
+                    <th className={TH}>Site</th>
+                    <th className={`${TH} text-right`}>The app: 2 m mast</th>
+                    <th className={`${TH} text-right`}>From the ground</th>
+                    <th className={`${TH} text-right`}>Over 18.6 years</th>
+                    <th className={`${TH} text-right`}>On 60 m terrain</th>
+                    <th className={`${TH} text-right`}>NASA&apos;s map</th>
+                    <th className={`${TH} text-right`}>Gap</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mazarico.rows.map((r) => (
+                    <tr key={r.site_id}>
+                      <td className={TD}>{r.name}</td>
+                      {r.covered && r.sun ? (
+                        <>
+                          <td className={NUM}>{pctOf(r.sun.app)}</td>
+                          <td className={NUM}>{pctOf(r.sun.surface)}</td>
+                          <td className={NUM}>{pctOf(r.sun.cycle)}</td>
+                          <td className={NUM}>{pctOf(r.sun.matched)}</td>
+                          <td className={NUM}>{pctOf(r.sun.map)}</td>
+                          <td className={NUM}>{signedPoints(r.sun.gap_points)}</td>
+                        </>
+                      ) : (
+                        <td colSpan={6} className={`${TD} text-ink-2`}>
+                          not covered by the 85° S map
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <h3 className={H3}>Earth in view</h3>
+              <p className="mb-3 mt-1 max-w-[62em] text-[15px] leading-relaxed text-ink-2">
+                The app counts Earth as in view when its centre clears the hills; NASA&apos;s map counts any part of its disc, and so does our share worked out the map&apos;s way (from the ground, over 18.6 years, on 60 m terrain).
+              </p>
+              <table className="w-full min-w-[640px] border-collapse">
+                <thead>
+                  <tr>
+                    <th className={TH}>Site</th>
+                    <th className={`${TH} text-right`}>The app: Earth&apos;s centre</th>
+                    <th className={`${TH} text-right`}>Ours: any part of Earth</th>
+                    <th className={`${TH} text-right`}>NASA&apos;s map</th>
+                    <th className={`${TH} text-right`}>Gap</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mazarico.rows
+                    .filter((r) => r.covered && r.earth)
+                    .map((r) => (
+                      <tr key={r.site_id}>
+                        <td className={TD}>{r.name}</td>
+                        <td className={NUM}>{pctOf(r.earth!.app_centre)}</td>
+                        <td className={NUM}>{pctOf(r.earth!.matched_any)}</td>
+                        <td className={NUM}>{pctOf(r.earth!.map)}</td>
+                        <td className={NUM}>{signedPoints(r.earth!.gap_points)}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+              {mazarico.rows
+                .filter((r) => r.note)
+                .map((r) => (
+                  <p key={r.site_id} className={NOTE}>
+                    {r.name}: {r.note}
+                  </p>
+                ))}
+              <h3 className={H3}>What the comparison could not match</h3>
+              <ul className="mt-2 flex max-w-[62em] list-disc flex-col gap-2 pl-5 text-[15px] leading-relaxed text-ink-2">
+                {(mazarico.evidence.unmatched ?? []).map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+              <p className={NOTE}>
+                Sources: {ref.sources.join('; ')}. Labels read: {ref.sun.file} and {ref.earth.file} (SHA-256 {ref.sun.label_sha256.slice(0, 12)}… and {ref.earth.label_sha256.slice(0, 12)}…). Made by{' '}
+                <code>{mazarico.evidence.command}</code>.
+              </p>
+            </EvidencePanel>
+
+            {pictures && docs.images && (
+              <EvidencePanel card={pictures} wide figure={<ShadowExample doc={docs.images} />}>
+                <PicturesNumbers doc={docs.images} />
+              </EvidencePanel>
+            )}
+
+            <EvidencePanel card={sums}>
+              <table className="w-full min-w-[720px] border-collapse">
+                <thead>
+                  <tr>
+                    <th className={TH}>Case</th>
+                    <th className={TH}>By hand</th>
+                    <th className={`${TH} text-right`}>Pipeline: largest gap</th>
+                    <th className={`${TH} text-right`}>This browser: largest gap</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sumsResults(power).map((s) => (
+                    <tr key={s.id}>
+                      <td className={TD}>{s.words}</td>
+                      <td className={TD}>{s.hand}</td>
+                      <td className={NUM}>{wattsGap(s.pipelineGapW)}</td>
+                      <td className={NUM}>{wattsGap(s.gapW)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className={NOTE}>
+                {power.recorded_runs.length} recorded runs the app&apos;s automated tests compare with the pipeline on every change, rerun by the pipeline today against its record:{' '}
+                {power.recorded_runs
+                  .map((r) => `${names.get(r.site_id) ?? r.site_id} from ${dayWords(r.start_utc)}, ${r.days} days, ${(PANEL_LABELS[r.panel as PanelModel] ?? r.panel).toLowerCase()} (${r.agrees ? 'agrees' : 'differs'})`)
+                  .join('; ')}
+                .
+              </p>
+            </EvidencePanel>
+
+            <EvidencePanel card={missions}>
+              <table className="w-full min-w-[760px] border-collapse">
+                <thead>
+                  <tr>
+                    <th className={TH}>Mission</th>
+                    <th className={TH}>Landed</th>
+                    <th className={`${TH} text-right`}>Sun at landing</th>
+                    <th className={TH}>Predicted sunset</th>
+                    <th className={TH}>Reported end</th>
+                    <th className={`${TH} text-right`}>End − sunset</th>
+                    <th className={TH}>Horizon</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {backcasts.rows.map((r: BackcastRow) => (
+                    <tr key={r.site_id}>
+                      <td className={TD}>{r.name}</td>
+                      <td className={`${TD} tabular-nums`}>{utcShort(r.landed_utc)}</td>
+                      <td className={NUM}>{r.sun_el_at_landing_deg.toFixed(1)}°</td>
+                      <td className={`${TD} tabular-nums`}>{utcShort(r.sunset_utc)}</td>
+                      <td className={`${TD} tabular-nums`}>{utcShort(r.mission_end_utc)}</td>
+                      <td className={NUM}>{r.end_minus_sunset_h === null ? '—' : signedHours(r.end_minus_sunset_h)}</td>
+                      <td className={TD}>{r.skyline === 'lola' ? 'measured hills' : 'flat'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <ul className="mt-4 flex flex-col gap-3 text-[15px]">
+                {backcasts.rows.map((r) => (
+                  <li key={r.site_id} className="flex flex-col gap-0.5">
+                    <span className="text-ink">
+                      {r.name}: {r.mission_note ?? 'no note for this mission yet'}
+                    </span>
+                    <span className="text-ink-2">Source: {r.mission_end_source ?? 'not recorded'}</span>
+                  </li>
+                ))}
+              </ul>
+            </EvidencePanel>
+          </div>
+
+          <DataUsed />
+
+          <UncertaintySection />
+
+          <VersionsSection />
+
+          <section aria-labelledby="h-budget" className="panel">
+            <h2 id="h-budget" className="display text-[26px] font-semibold">
+              How far off the forecast can be
+            </h2>
+            <ul className="mt-3 flex max-w-[62em] flex-col gap-2 leading-relaxed text-ink-2">
+              <li>Sunrise, sunset, Earth rising or setting: within the margins above. Hourly steps add up to an hour; near the pole the terrain can add many hours.</li>
+              <li>Directions to the Sun and Earth: under 0.01° (the first check finds {degreesText(horizons.max_abs_delta_el_deg)}).</li>
+              <li>The hills around a site: within a degree of NASA&apos;s adjusted maps in 95 % of directions at every featured site.</li>
+            </ul>
+            {badge && (
+              <Fold label="The automated tests' last run" className="mt-2">
+                <p className="text-[15px] text-ink-2">{testRunWords(badge).join(' ')}</p>
+              </Fold>
+            )}
+          </section>
+          </div>
       </main>
     </AppFrame>
   );
