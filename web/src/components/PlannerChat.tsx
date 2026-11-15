@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
-import { applyActions, describeDropped, validateActions } from '@/lib/ai/actions';
+import { answerOf, applyActions, describeDropped, validateActions } from '@/lib/ai/actions';
 import { askPlanner, shortModel, type PlannerAnswer } from '@/lib/ai/client';
 import { summarizeState, type StateSummary } from '@/lib/ai/state-summary';
 import { useNavigate } from '@/lib/hooks/useNavigate';
@@ -14,7 +14,7 @@ import { planStore, type PlanState } from '@/lib/plan/store';
 export type Ask = (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
 
 /** The four chips shown until something answers; each is one of the rehearsed prompts, asked as soon as it is clicked. */
-export const EXAMPLE_PROMPTS = ['Compare de Gerlache Rim 2 and Nobile Rim 2 for 14 days', 'Find the best landing date for 14 days', 'Explain the longest night'];
+export const EXAMPLE_PROMPTS = ['Compare this to Nobile Rim 1', 'Compare this to every landing site', 'Find the best landing date for 14 days', 'Explain the longest night'];
 
 const OFFLINE = 'The assistant is offline; the app works without it. Try one of the example questions below, or ask again in a moment.';
 /** After this many seconds a question still out gets a line on why it can take a while. */
@@ -111,10 +111,12 @@ export function PlannerChat({
       notes = [`One step could not be applied: ${err instanceof Error ? err.message : String(err)}.`];
     }
     const skipped = describeDropped([...(a.dropped ?? []), ...dropped]);
+    // A comparison's note is the answer: what Compare took, and how the sites rank, are known only once it ran.
+    const shown = answerOf(actions, a.reply, notes);
     // A step's note that repeats the reply word for word (an explanation, "Selected …") would show the same text twice.
-    const said = a.reply.trim();
-    const fresh = notes.filter((n) => n.trim() !== said);
-    plannerLog.getState().push({ prompt: q, reply: a.reply, source: a.source, model: a.model, notes: skipped ? [...fresh, skipped] : fresh });
+    const said = shown.reply.trim();
+    const fresh = shown.notes.filter((n) => n.trim() !== said);
+    plannerLog.getState().push({ prompt: q, reply: shown.reply, source: a.source, model: a.model, notes: skipped ? [...fresh, skipped] : fresh });
     done();
   }
 

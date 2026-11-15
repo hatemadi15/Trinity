@@ -1,5 +1,5 @@
 import type { StoreApi } from 'zustand';
-import { applyActions, describeDropped, validateActions } from '../ai/actions';
+import { answerOf, applyActions, describeDropped, validateActions } from '../ai/actions';
 import type { PlannerAnswer } from '../ai/client';
 import type { ChatSource } from '../ai/protocol';
 import { summarizeState, type StateSummary } from '../ai/state-summary';
@@ -67,7 +67,7 @@ const GO_REPLIES: Record<Place, string> = {
 };
 
 export const HELP_REPLY =
-  'You can ask me to open a page or the view from the site, to play, pause or go to the next moment, to turn to the Sun, Earth or the lander, to show a site, to compare two sites, to plan a landing, or to move the landing, as in "delay the landing by five days".';
+  'You can ask me to open a page or the view from the site, to play, pause or go to the next moment, to turn to the Sun, Earth or the lander, to show a site, to compare two sites or this one with every other, to plan a landing, or to move the landing, as in "delay the landing by five days".';
 const HELLO_REPLY = 'Hello. Tell me what you would like to see: for example, open the view from the site, or play the month.';
 /** Her answer to "be quiet": in the conversation only, as her voice is off by then. */
 export const MUTE_REPLY = 'Quiet now: my replies show in the chat only. Say "speak again" to hear me.';
@@ -120,11 +120,13 @@ async function plan(actions: unknown[], reply: string, source: ChatSource, model
     else if (at !== '/explore' && at !== '/compare') deps.navigate(placeHref('explore', now));
   }
   const skipped = describeDropped(dropped);
-  const fresh = notes.filter((n) => n.trim() !== reply.trim());
-  plannerLog.getState().push({ prompt, reply, source, model, notes: skipped ? [...fresh, skipped] : fresh });
+  // A comparison's note is the answer, as on the Ask box: what Compare took, and how the sites rank, are known only once it ran.
+  const shown = answerOf(valid, reply, notes);
+  const fresh = shown.notes.filter((n) => n.trim() !== shown.reply.trim());
+  plannerLog.getState().push({ prompt, reply: shown.reply, source, model, notes: skipped ? [...fresh, skipped] : fresh });
   // A change of period alone is said as the app set it: the phrasing ("delay by five days") and the model know the
   // request, not the new landing, nor a stop at the end of the table or a refusal.
-  return valid.length > 0 && valid.every((a) => PERIOD_ACTIONS.has(a.type)) && notes.length > 0 ? notes.join(' ') : reply;
+  return valid.length > 0 && valid.every((a) => PERIOD_ACTIONS.has(a.type)) && notes.length > 0 ? notes.join(' ') : shown.reply;
 }
 
 /** The actions that only change the period. */

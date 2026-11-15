@@ -1,6 +1,6 @@
 import { describeDropped, validateActions } from '@/lib/ai/actions';
 import { cachedAnswer } from '@/lib/ai/cache';
-import { matchIntent } from '@/lib/ai/intents';
+import { matchIntentNamed } from '@/lib/ai/intents';
 import { cleanNarration, isStateSummary, narrationProblems, narrationPrompt, numbersIn, stripForeignNumbers, templateBrief } from '@/lib/ai/narrate';
 import { runChain } from '@/lib/ai/chain';
 import { geminiFromEnv, geminiText, type GeminiSettings } from '@/lib/ai/gemini';
@@ -157,9 +157,10 @@ async function fromModel(prompt: string, state: StateSummary | null, keys: Keys,
   return { source: 'model', model: first.candidate.model, actions, reply: text, dropped };
 }
 
-function fromIntent(prompt: string): ChatReply | null {
-  const r = matchIntent(prompt, SITES);
-  if (!r) return null;
+/** The phrasings' answer; with `sureOnly`, only a comparison they read for certain and can act on (answered before any model). */
+function fromIntent(prompt: string, sureOnly = false): ChatReply | null {
+  const r = matchIntentNamed(prompt, SITES);
+  if (!r || (sureOnly && (!r.sure || r.actions.length === 0))) return null;
   const { actions, dropped } = validateActions(r.actions, SITE_IDS);
   return { source: 'intent', actions, reply: r.reply, dropped };
 }
@@ -237,7 +238,10 @@ async function answer(body: Body, request: Request): Promise<Response> {
   if (cachedMode) {
     reply = fromCache(body.prompt) ?? fromIntent(body.prompt);
   } else {
-    if (anyModel(keys)) {
+    // A comparison the phrasings read for certain ("compare this to Nobile Rim 1", "compare this to every landing site")
+    // acts at once: the app compares and ranks with its own figures, which no model could add to.
+    reply = fromIntent(body.prompt, true);
+    if (!reply && anyModel(keys)) {
       const model = await fromModel(body.prompt, body.state, keys, body.from);
       busy = model === 'busy';
       reply = model === 'busy' ? null : model;
@@ -263,9 +267,9 @@ function safeAnswer(body: Body): ChatReply | NarrationReply {
 
 /**
  * POST { prompt, state?, mode?, task?, from? }.
- * task "plan" (default) → { source, model?, actions, reply, dropped?, reason? }: with a key and live mode a
- * model answers (at most two model answers, inside a 24 s budget), then the intent matcher, then the
- * cached transcripts. The models: Gemini (GEMINI_API_KEY) and OpenRouter's chain (OPENROUTER_API_KEY), in the
+ * task "plan" (default) → { source, model?, actions, reply, dropped?, reason? }: a comparison the intent matcher
+ * reads for certain answers first; otherwise, with a key and live mode, a model answers (at most two model answers,
+ * inside a 24 s budget), then the intent matcher, then the cached transcripts. The models: Gemini (GEMINI_API_KEY) and OpenRouter's chain (OPENROUTER_API_KEY), in the
  * same order for every asker: OpenRouter first and Gemini last (spec 22.5); `model` names the
  * one that answered. Cached mode (`mode: "cached"`, `?demo=1` on the client, or
  * NEXT_PUBLIC_AI_MODE=cached) serves transcripts first and never calls the model. When nothing answers,

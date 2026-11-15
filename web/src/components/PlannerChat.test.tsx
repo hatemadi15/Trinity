@@ -101,10 +101,11 @@ describe('PlannerChat', () => {
     );
     const chips = screen.getAllByRole('button', { name: /^Try: / });
     expect(chips.map((c) => c.textContent?.replace(/^Try: /, ''))).toEqual(EXAMPLE_PROMPTS);
-    expect(EXAMPLE_PROMPTS.length).toBe(3);
+    expect(EXAMPLE_PROMPTS.length).toBe(4);
+    expect(EXAMPLE_PROMPTS).toEqual(expect.arrayContaining(['Compare this to Nobile Rim 1', 'Compare this to every landing site']));
     await ask('anything');
     await waitFor(() => expect(screen.getByText(/The assistant is offline/)).toBeTruthy());
-    expect(screen.getAllByRole('button', { name: /^Try: / }).length).toBe(3);
+    expect(screen.getAllByRole('button', { name: /^Try: / }).length).toBe(4);
   });
 
   it('offers only examples the app answers without the model, in the words the pages use', () => {
@@ -416,4 +417,24 @@ describe('PlannerChat opens when it has something to show', () => {
       ['5 days later', '2027-01-06T00:00:00'],
     ]);
   });
+
+  it('answers "compare this to every landing site" with the app’s ranking, and opens Compare with the best three beside the site shown', async () => {
+    const loaders = fileLoaders();
+    const explore = createExploreStore(loaders);
+    await explore.getState().init();
+    const scenarios = createScenarioStore(explore, loaders);
+    const navigate = vi.fn();
+    // The server's answer for the chip: the phrasing, before the ranking is known.
+    const ask = async (q: string) => answer({ source: 'intent', ...matchIntent(q, sites)! });
+    render(<PlannerChat store={explore} scenarios={scenarios} ask={ask} navigate={navigate} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Try: Compare this to every landing site' }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/compare'), { timeout: 20_000 });
+    const replies = screen.getByRole('list', { name: 'Replies from the assistant' });
+    await waitFor(() => expect(within(replies).getByText(/^For 30 days from 1 January 2027 and this lander/)).toBeTruthy());
+    // The reply is the app's sentence; the phrasing's own words do not show beside it.
+    expect(within(replies).queryByText(/Ranking every site/)).toBeNull();
+    expect(within(replies).getByText(/I've put the top three beside yours on Compare\.$/)).toBeTruthy();
+    expect(explore.getState().compareIds).toHaveLength(4);
+    expect(explore.getState().compareIds[0]).toBe(explore.getState().siteId);
+  }, 30_000);
 });

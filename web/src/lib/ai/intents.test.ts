@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Site } from '../data/loaders';
 import { readJson } from '../engine/__tests__/helpers';
-import { EXPLANATIONS, INTENTS, matchIntent, parseClock } from './intents';
+import { EXPLANATIONS, INTENTS, matchIntent, matchIntentNamed, parseClock } from './intents';
 
 const sites = [
   ...readJson<{ sites: Site[] }>('data', 'sites.json').sites,
@@ -11,8 +11,8 @@ const sites = [
 const m = (prompt: string) => matchIntent(prompt, sites);
 
 describe('matchIntent', () => {
-  it('has fourteen rehearsed intents', () => {
-    expect(INTENTS.length).toBe(14);
+  it('has seventeen rehearsed intents', () => {
+    expect(INTENTS.length).toBe(17);
   });
 
   it('compares the landing shown with a delay, in figures or words, later or earlier', () => {
@@ -22,7 +22,7 @@ describe('matchIntent', () => {
     expect(m('compare with landing 2 days earlier')?.actions).toEqual([{ type: 'compare_shift', hours: -48 }]);
     expect(m('compare with a delay of three days')?.actions).toEqual([{ type: 'compare_shift', hours: 72 }]);
     // Two sites to compare are still two sites.
-    expect(m('compare haworth and nobile rim 2')?.actions[0]).toEqual({ type: 'add_to_compare', id: 'haworth' });
+    expect(m('compare haworth and nobile rim 2')?.actions[0]).toEqual({ type: 'compare_sites', ids: ['haworth', 'nobile_rim_2'] });
   });
 
   it('selects a site by name', () => {
@@ -38,18 +38,101 @@ describe('matchIntent', () => {
     expect(r?.reply).toMatch(/mars base/);
   });
 
-  it('compares two sites and opens Compare, with an optional window length', () => {
-    expect(m('compare de gerlache rim 2 and nobile rim 2')?.actions).toEqual([
-      { type: 'add_to_compare', id: 'de_gerlache_rim_2' },
-      { type: 'add_to_compare', id: 'nobile_rim_2' },
-      { type: 'open_page', page: 'compare' },
-    ]);
+  it('compares two sites on a new comparison, with an optional window length set first', () => {
+    expect(m('compare de gerlache rim 2 and nobile rim 2')?.actions).toEqual([{ type: 'compare_sites', ids: ['de_gerlache_rim_2', 'nobile_rim_2'] }]);
     expect(m('Compare Haworth with Malapert Massif for 14 days')?.actions).toEqual([
-      { type: 'add_to_compare', id: 'haworth' },
-      { type: 'add_to_compare', id: 'malapert_massif' },
       { type: 'set_window', days: 14 },
-      { type: 'open_page', page: 'compare' },
+      { type: 'compare_sites', ids: ['haworth', 'malapert_massif'] },
     ]);
+  });
+
+  it('compares two named sites with to, with, and, vs, versus or against, and fuzzy names', () => {
+    const pair = { type: 'compare_sites', ids: ['de_gerlache_rim_2', 'nobile_rim_1'] };
+    for (const word of ['to', 'with', 'and', 'vs', 'vs.', 'versus', 'against']) {
+      const r = m(`compare de Gerlache Rim 2 ${word} Nobile Rim 1`);
+      expect(r?.actions, word).toEqual([pair]);
+      expect(r?.reply, word).toBe('Comparing de Gerlache Rim 2 (Artemis III region) and Nobile Rim 1 (Artemis III region).');
+    }
+    // Names as people type or say them: no "rim", a number in words, "the" and "site" round it, any case.
+    expect(m('Compare de gerlache 2 to nobile 1')?.actions).toEqual([pair]);
+    expect(m('compare the de Gerlache Rim two site with Nobile Rim one')?.actions).toEqual([pair]);
+    expect(m('how does de Gerlache Rim 2 compare to Nobile Rim 1?')?.actions).toEqual([pair]);
+    // A slip in the spelling is forgiven: a letter dropped, added, changed or two swapped.
+    expect(m('compare de Gerlach Rim 2 to Nobel Rim 1')?.actions).toEqual([pair]);
+    expect(m('compare this to shakleton crater centre')?.actions).toEqual([{ type: 'compare_sites', ids: ['shackleton_center'], shown: true }]);
+    expect(m('compare this with Malpert Massif')?.actions).toEqual([{ type: 'compare_sites', ids: ['malapert_massif'], shown: true }]);
+    expect(m('compare this with Haowrth')?.actions).toEqual([{ type: 'compare_sites', ids: ['haworth'], shown: true }]);
+    expect(m('compare de gerlache rim 2 to nobile rim 1 for 14 days')?.actions).toEqual([{ type: 'set_window', days: 14 }, pair]);
+    // The same site twice is no comparison; a name not in the catalogue is said.
+    expect(m('compare nobile rim 1 to nobile rim 1')).toEqual({ actions: [], reply: 'Both names are Nobile Rim 1 (Artemis III region): name another site to compare it with.' });
+    expect(m('compare nobile rim 1 to atlantis base')?.reply).toMatch(/could not find a site called "atlantis base"/);
+  });
+
+  it('compares the site shown with a named one, whatever it is called', () => {
+    const withNobile = [{ type: 'compare_sites', ids: ['nobile_rim_1'], shown: true }];
+    for (const prompt of [
+      'compare this to Nobile Rim 1',
+      'Compare this site with Nobile Rim 1.',
+      'compare this landing with nobile rim 1',
+      'compare this landing site against Nobile Rim 1',
+      'compare this place with Nobile Rim 1',
+      'compare it with Nobile Rim 1',
+      'compare here vs nobile rim one',
+      'how does this compare to Nobile Rim 1?',
+      'How does it compare with Nobile Rim 1',
+      'how does this site stack up against nobile rim 1',
+      'compare Nobile Rim 1 with this',
+      'compare nobile rim 1 to this site',
+    ]) {
+      expect(m(prompt)?.actions, prompt).toEqual(withNobile);
+    }
+    expect(m('compare this to Nobile Rim 1')?.reply).toBe('Comparing the site shown with Nobile Rim 1 (Artemis III region).');
+    expect(m('compare this to haworth for 20 days')?.actions).toEqual([{ type: 'set_window', days: 20 }, { type: 'compare_sites', ids: ['haworth'], shown: true }]);
+    // A delay is still the landing shown against the same landing moved.
+    expect(m('compare this with a five-day delay')?.actions).toEqual([{ type: 'compare_shift', hours: 120 }]);
+  });
+
+  it('compares the site shown with every other, ranked by the app, for any way of asking', () => {
+    for (const prompt of [
+      'compare this to any landing site',
+      'Compare this to every landing site',
+      'compare this with all landing sites',
+      'compare this with all the other landing sites',
+      'compare this with other landing sites',
+      'compare this with every landing site',
+      'compare this site to all the others',
+      'compare it with the rest',
+      'compare this landing to any other site',
+      'how does this compare to other sites?',
+      'How does this compare with the other sites',
+      'how does it compare to all the other landing sites',
+      'how does this site rank among the other sites',
+      'is there a better site?',
+      'Is there a better landing site',
+      'is there a better site for these dates',
+      'are there better sites',
+      'is there a better site than this one',
+      'which site is best for these dates?',
+      'Which site is best',
+      'which landing site is best for these dates and this lander',
+      'what is the best site for these dates',
+      "what's the best landing site",
+      'which is the best site',
+    ]) {
+      expect(m(prompt)?.actions, prompt).toEqual([{ type: 'compare_best' }]);
+    }
+    expect(m('compare this to every landing site')?.reply).toBe('Ranking every site for these dates and this lander, as the site list does.');
+    // The best landing date, and adding one site, are their own phrasings still.
+    expect(m('find the best landing date for 14 days')?.actions).toEqual([{ type: 'find_best_window', days: 14, scope: 'site' }]);
+    expect(m('add nobile rim 1 to compare')?.actions).toEqual([{ type: 'add_to_compare', id: 'nobile_rim_1' }]);
+  });
+
+  it('marks the comparisons as read for certain, so the chat route acts on them before any model', () => {
+    expect(matchIntentNamed('compare this to every landing site', sites)).toMatchObject({ name: 'compare_best', sure: true });
+    expect(matchIntentNamed('compare this to Nobile Rim 1', sites)).toMatchObject({ name: 'compare_with', sure: true });
+    expect(matchIntentNamed('compare Nobile Rim 1 with this', sites)).toMatchObject({ name: 'compare_with_shown', sure: true });
+    expect(matchIntentNamed('compare de Gerlache Rim 2 to Nobile Rim 1', sites)).toMatchObject({ name: 'compare', sure: true });
+    expect(matchIntentNamed('show me Nobile Rim 1', sites)).toMatchObject({ name: 'select_site', sure: false });
   });
 
   it('adds a site to the comparison', () => {
@@ -175,17 +258,11 @@ describe('matchIntent polish', () => {
 
   it('compares over any length from 2 to 90 days, and says the bounds when the asked one is outside them', () => {
     expect(m('compare haworth and nobile rim 2 for 20 days')?.actions).toEqual([
-      { type: 'add_to_compare', id: 'haworth' },
-      { type: 'add_to_compare', id: 'nobile_rim_2' },
       { type: 'set_window', days: 20 },
-      { type: 'open_page', page: 'compare' },
+      { type: 'compare_sites', ids: ['haworth', 'nobile_rim_2'] },
     ]);
     const r = m('compare haworth and nobile rim 2 for 120 days');
-    expect(r?.actions).toEqual([
-      { type: 'add_to_compare', id: 'haworth' },
-      { type: 'add_to_compare', id: 'nobile_rim_2' },
-      { type: 'open_page', page: 'compare' },
-    ]);
+    expect(r?.actions).toEqual([{ type: 'compare_sites', ids: ['haworth', 'nobile_rim_2'] }]);
     expect(r?.reply).toMatch(/A period is 2 to 90 whole days, so the period stays as it is\.$/);
   });
 });
