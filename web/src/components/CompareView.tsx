@@ -1,11 +1,12 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
 import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PlannerChat } from './PlannerChat';
 import { lolaFor, Sources } from './Sources';
+import { AddLanding } from './compare/AddLanding';
 import { CompareStory } from './compare/CompareStory';
 import { checkWords, ComparisonFiles, saveFile, useDataVersions, type Opened } from './compare/ComparisonFiles';
 import { ScenarioCard } from './compare/ScenarioCard';
@@ -21,7 +22,7 @@ import { fileName, scenarioFile } from '@/lib/scenario/file';
 import { paramsOf, scenarioKey } from '@/lib/scenario/scenario';
 import { DEFAULT_PARAMS, DEFAULT_START, exploreStore, type ExploreState } from '@/lib/store/explore';
 import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
-import { READY_PAIRS, timingLine } from '@/lib/viz/compare';
+import { landingShort, READY_PAIRS, timingLine, verdictLine } from '@/lib/viz/compare';
 
 const LINK = 'font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink';
 /** The example the empty page leads with: a five-day slip at de Gerlache Rim 2, from the forecast's first landing. */
@@ -29,10 +30,11 @@ const EXAMPLE_SITE = 'de_gerlache_rim_2';
 const EXAMPLE_SLIP_H = 5 * 24;
 
 /**
- * Compare: a baseline scenario and up to three more, each with its own site, landing time, stay, lander, mast and
- * clearance for Earth, worked out on its own. The page reads top to bottom: what changed at the original site and why,
- * the alternative that works better and its trade-offs, the scenarios, then every setting and figure side by side with
- * the change from the baseline. The address carries the whole comparison.
+ * Compare: the visitor's landing and up to three more, each with its own site, landing time, stay, lander, mast and
+ * clearance for Earth, worked out on its own. The page reads top to bottom: which landing works best and why, the
+ * landings as cards with "Add a landing" beside them, then every setting and figure side by side with the best of each
+ * row marked and the change from the visitor's landing. In the code a landing is a scenario and the first is the
+ * baseline; the address carries the whole comparison.
  */
 export function CompareView({
   store = exploreStore,
@@ -52,6 +54,10 @@ export function CompareView({
   const [editing, setEditing] = useState<string | null>(null);
   const [landerFor, setLanderFor] = useState<string | null>(null);
   const [opened, setOpened] = useState<Opened | null>(null);
+  // "Add a landing" starts open beside a landing on its own, as the next step; a press opens or closes it after.
+  const [adding, setAdding] = useState<boolean | null>(null);
+  const addId = useId();
+  const addButton = useRef<HTMLButtonElement>(null);
 
   // A shared link's comparison replaces the one on the page; an old /compare address keeps it, and the sites on Explore's list join it.
   useEffect(() => {
@@ -111,15 +117,29 @@ export function CompareView({
     })();
   };
   const update = (id: string, patch: Parameters<ScenarioState['update']>[1]) => act.update(id, patch);
+  const addOpen = !full && (adding ?? cols.length === 1);
+  /** A landing was added: the choices close, and the keyboard stays on the button that opened them. */
+  const added = (id: string | null) => {
+    if (!id) return;
+    setAdding(false);
+    addButton.current?.focus();
+  };
+  const best = verdictLine(cols)?.index ?? null;
+  /** The visitor's own landing, from the one Explore shows, with its place, date and lander open to set. */
+  const own = () => {
+    setOpened(null);
+    const id = act.startFrom(store.getState());
+    if (id) setEditing(id);
+  };
 
   return (
     <AppFrame>
       <main className="wrap flex flex-col gap-6 pb-12 pt-8">
         <div>
           <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">
-            Compare sites
+            Compare landings
           </h1>
-          <p className="mt-2 max-w-[46em] text-lg text-ink-2">A baseline and up to three changes: another landing time, site or lander.</p>
+          <p className="mt-2 max-w-[46em] text-lg text-ink-2">Put up to four landings side by side: different places, dates or landers. See which has the most power and radio contact.</p>
         </div>
         {sc.problem && (
           <p role="status" className="text-[15px] text-bad">
@@ -135,16 +155,19 @@ export function CompareView({
         {cols.length === 0 ? (
           <section aria-labelledby="h-start" className="panel">
             <h2 id="h-start" className="display text-[23px] font-semibold">
-              Start with an example
+              Start here
             </h2>
-            <p className="mt-2 text-ink-2">Each shows how much a few days or a few kilometres change.</p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button type="button" onClick={example} className="btn btn-primary h-auto min-h-[48px] max-w-full whitespace-normal py-2.5 text-left">
+            <p className="mt-2 max-w-[46em] text-ink">Press the example to see three landings compared. Then press “+ Add a landing” to add any place or date of your own.</p>
+            <p className="mt-4">
+              <button type="button" onClick={example} className="btn btn-primary h-auto min-h-[56px] max-w-full whitespace-normal px-5 py-3 text-left">
                 <span>
-                  <span className="block font-semibold">Our landing slipped by five days</span>
-                  <span className="block text-[15px] font-normal">de Gerlache Rim 2, five days later, and the best place nearby</span>
+                  <span className="block text-lg font-semibold">What if our landing is 5 days late?</span>
+                  <span className="block text-[15px] font-normal">de Gerlache Rim 2 on {landingShort(DEFAULT_START).split(',')[0]}, the same place 5 days later, and the best place nearby</span>
                 </span>
               </button>
+            </p>
+            <p className="mt-5 text-[15px] text-ink-2">More examples</p>
+            <div className="mt-2 flex flex-wrap gap-3">
               {READY_PAIRS.map((p) => (
                 <button key={p.title} type="button" onClick={() => addPair(p.ids)} className="btn h-auto min-h-[48px] max-w-full whitespace-normal py-2.5 text-left">
                   <span>
@@ -154,47 +177,82 @@ export function CompareView({
                 </button>
               ))}
             </div>
-            <p className="mt-4 text-ink-2">
-              Or choose a landing in{' '}
-              <Link href="/explore" className={LINK}>
-                Explore
-              </Link>{' '}
-              and press “Compare from here”.
+            <p className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-line pt-4 text-ink-2">
+              Or
+              <button type="button" onClick={own} className="btn">
+                Set up my own landing
+              </button>
+              <span>
+                or choose one in{' '}
+                <Link href="/explore" className={LINK}>
+                  Explore
+                </Link>{' '}
+                and press “Compare from here”.
+              </span>
             </p>
+            <p className="mt-3 text-ink-2">Or ask in the box below: “compare this to every landing site”.</p>
           </section>
         ) : (
           <>
-            {/* Alone, the baseline has nothing to compare with yet: its card, with what to do next, comes first. */}
+            {/* Alone, a landing has nothing to compare with yet: its card, with the ways to add another, comes first. */}
             {cols.length > 1 && <CompareStory cols={cols} />}
             <section aria-labelledby="h-scenarios" className="flex flex-col gap-4">
               <h2 id="h-scenarios" className="display text-[23px] font-semibold">
-                The scenarios
+                The landings
               </h2>
-              {cols.length === 1 && (
-                <p className="max-w-[60em] text-ink">
-                  {timingLine(cols)} Slip the landing, or find a nearby alternative, to compare it with this baseline.
-                </p>
-              )}
+              {cols.length === 1 && <p className="max-w-[60em] text-ink">{timingLine(cols)} Now add a second landing beside it: choose one of the three ways below.</p>}
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {cols.map((c, i) => (
                   <ScenarioCard
                     key={c.scenario.id}
                     col={c}
                     index={i}
-                    alone={cols.length === 1}
                     run={sc.runs[c.scenario.id]}
                     full={full}
-                    searching={sc.searching === c.scenario.id}
-                    onSlip={(h) => act.slip(c.scenario.id, h)}
-                    onNearby={() => void act.findNearby(c.scenario.id)}
-                    onChange={() => setEditing(c.scenario.id)}
+                    best={best === i}
+                    onEdit={() => setEditing(c.scenario.id)}
                     onDuplicate={() => act.duplicate(c.scenario.id)}
                     onBaseline={() => act.makeBaseline(c.scenario.id)}
                     onRemove={() => act.remove(c.scenario.id)}
                     onSave={() => saveFile(fileName([c]), `${JSON.stringify(scenarioFile([c], versions, new Date(), s.requirements), null, 2)}\n`)}
                   />
                 ))}
+                {full ? (
+                  <p className="flex items-center rounded-lg border border-dashed border-line-strong px-5 py-4 text-[15px] text-ink-2">Four landings is the most. Remove one to add another.</p>
+                ) : (
+                  <button
+                    ref={addButton}
+                    type="button"
+                    aria-expanded={addOpen}
+                    aria-controls={addId}
+                    onClick={() => setAdding(!addOpen)}
+                    className="btn btn-primary h-auto min-h-[96px] flex-col items-start justify-center gap-1 whitespace-normal px-5 py-4 text-left"
+                  >
+                    <span className="text-xl font-semibold">
+                      <span aria-hidden="true">+ </span>Add a landing
+                    </span>
+                    <span className="text-[15px] font-normal">Another place, another date, or both</span>
+                  </button>
+                )}
               </div>
+              {addOpen && (
+                <AddLanding
+                  // A landing removed or replaced starts the choices again from the visitor's own.
+                  key={cols.map((c) => c.scenario.id).join(' ')}
+                  id={addId}
+                  cols={cols}
+                  sites={s.sites}
+                  searching={sc.searching !== null}
+                  onLater={(from, hours) => added(act.slip(from, hours))}
+                  onNearby={(from) => void act.findNearby(from).then(added)}
+                  onAny={(from, siteId, startUtc) => {
+                    const id = act.duplicate(from);
+                    const site = s.sites.find((x) => x.id === siteId);
+                    if (id) update(id, { siteId, startUtc, timing: 'set', label: `${site ? siteLabel(site) : siteId}, ${landingShort(startUtc).split(',')[0]}` });
+                    added(id);
+                  }}
+                />
+              )}
               <div className="panel">
                 <ScenarioTable cols={cols} runs={sc.runs} onUseBest={(id) => act.useSiteBest(id)} requirements={s.requirements} versions={terrainVersions} />
                 {/* DE440 gives every figure, and LOLA the hills on the grids of the sites compared. */}
@@ -211,13 +269,13 @@ export function CompareView({
           onOpen={(o) => {
             setOpened(o);
             if (o.scenarios.length === 0) {
-              act.setNote(o.problem ?? 'This file holds no scenarios.');
+              act.setNote(o.problem ?? 'This file holds no landings.');
               return;
             }
             act.load(o.scenarios, o.problem);
             // The requirements saved with the file are set, as one set, so the checks are the ones it was saved with.
             if (o.requirements) store.getState().setRequirements(o.requirements);
-            act.setNote(`The file’s ${o.scenarios.length === 1 ? 'scenario replaces' : `${o.scenarios.length} scenarios replace`} the ones that were on this page${o.requirements ? ', and the requirements saved with it are set' : ''}.`);
+            act.setNote(`The file’s ${o.scenarios.length === 1 ? 'landing replaces' : `${o.scenarios.length} landings replace`} the ones that were on this page${o.requirements ? ', and the requirements saved with it are set' : ''}.`);
           }}
         />
         {cols.length > 0 && (

@@ -99,15 +99,15 @@ test.describe('Keyboard only', () => {
       await page.waitForURL(/\/compare/);
     });
 
-    await test.step('Compare: a nearby alternative added with Enter, beside the site as the baseline', async () => {
-      const baseline = page.getByRole('group', { name: /^Baseline: / });
-      await expect(baseline).toBeVisible({ timeout: 60_000 });
-      await tabTo(page, baseline.getByRole('button', { name: 'Find a nearby alternative' }));
+    await test.step('Compare: the best place nearby added with Enter, beside the site as “Your landing”', async () => {
+      await expect(page.getByRole('group', { name: /^Your landing: / })).toBeVisible({ timeout: 60_000 });
+      // Beside a landing on its own, “Add a landing” is open with its three ways.
+      await tabTo(page, page.getByRole('region', { name: 'Add a landing to compare' }).getByRole('button', { name: 'Find the best place nearby' }));
       await expectFocusVisible(page);
       await page.keyboard.press('Enter');
-      await expect(page.getByRole('group', { name: /^Scenario 2: / })).toBeVisible({ timeout: 120_000 });
+      await expect(page.getByRole('group', { name: /^Landing 2: / })).toBeVisible({ timeout: 120_000 });
       // The table scrolls inside its own box, which the keyboard reaches too.
-      await tabTo(page, page.getByRole('region', { name: 'The scenarios side by side' }));
+      await tabTo(page, page.getByRole('region', { name: 'The landings side by side' }));
       await expectFocusVisible(page);
     });
 

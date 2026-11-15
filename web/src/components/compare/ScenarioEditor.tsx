@@ -39,7 +39,7 @@ export function ScenarioEditor({
     if (!why) onChange({ startUtc, days, timing: 'set' });
   };
   return (
-    <Modal title={`Change “${scenario.label}”`} onClose={onClose}>
+    <Modal title={`Edit “${scenario.label}”`} onClose={onClose}>
       <div className="mt-4 grid gap-4">
         <label className="flex flex-col gap-1.5 text-[15px] text-ink-2">
           Name

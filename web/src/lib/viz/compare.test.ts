@@ -5,7 +5,7 @@ import type { Outcome } from '@/lib/scenario/outcome';
 import type { Outcome as PlanOutcome } from '@/lib/plan/outcome';
 import { checkRequirements, NO_REQUIREMENTS } from '@/lib/plan/requirements';
 import type { Scenario } from '@/lib/scenario/scenario';
-import { figureRows, READY_PAIRS, settingRows, signedPoints, signedSpan, story, timingLine, type Column } from './compare';
+import { figureRows, READY_PAIRS, settingRows, signedPoints, signedSpan, story, timingLine, verdictLine, type Column } from './compare';
 
 const rim: Site = { id: 'rim', name: 'Rim (formal)', label: 'Rim', lat: -88.28, lon: -64.31, category: 'x', polar: true, source: 'x' };
 const summit: Site = { id: 'summit', name: 'Summit (formal)', label: 'Summit', lat: -88.66401, lon: -68.40606, category: 'x', polar: true, source: 'x' };
@@ -101,15 +101,15 @@ describe('the figures side by side', () => {
       'First sunset after landing',
       'Earth first sets after landing',
       'Longest night',
-      'The answer',
+      'What happens',
     ]);
     // The baseline shows its figures and no change.
     expect(row('power').cells[0]).toEqual({ value: '3 d 4 h', change: null, tone: null });
     expect(row('power').cells[1]).toEqual({ value: '10 h', change: '−2 d 18 h', tone: 'worse' });
-    expect(row('power').cells[2]).toEqual({ value: 'all 30 days', change: '+26 d 20 h', tone: 'better' });
+    expect(row('power').cells[2]).toEqual({ value: 'all 30 days', change: '+26 d 20 h', tone: 'better', best: true });
     expect(row('sun').cells[1]).toEqual({ value: '41 %', change: '−4 points', tone: 'worse' });
     expect(row('earth').cells[1]).toEqual({ value: '45 %', change: 'no change', tone: 'same' });
-    expect(row('contact').cells[2]).toEqual({ value: '14 d 15 h', change: '+14 d 15 h', tone: 'better' });
+    expect(row('contact').cells[2]).toEqual({ value: '14 d 15 h', change: '+14 d 15 h', tone: 'better', best: true });
     // Less time without Earth is better; an edge of the period cuts the delayed landing's, so it is "at least".
     expect(row('outage').cells[1]).toEqual({ value: 'at least 12 d 9 h', change: '+3 d 6 h', tone: 'worse' });
     expect(row('outage').cells[2]).toEqual({ value: '11 d 10 h', change: '+2 d 7 h', tone: 'worse' });
@@ -121,8 +121,53 @@ describe('the figures side by side', () => {
     const both = figureRows([cols[1], { ...cols[1], outcome: { ...cols[1].outcome!, firstEarthriseH: 100 } }]).find((r) => r.id === 'earthset')!;
     expect(both.cells[1]).toEqual({ value: 'out of view at landing, rises after 4 d 4 h', change: '2 d 12 h later', tone: 'worse' });
     expect(row('sunset').cells[2]).toEqual({ value: 'none in the period', change: 'was 2 d 19 h', tone: 'better' });
-    expect(row('night').cells[2]).toEqual({ value: 'none', change: '−16 d 15 h', tone: 'better' });
+    expect(row('night').cells[2]).toEqual({ value: 'none', change: '−16 d 15 h', tone: 'better', best: true });
     expect(row('verdict').cells[2]).toEqual({ value: 'power for all 30 days', change: null, tone: 'better' });
+  });
+
+  it('marks the best of a row only where the landings differ, never the time without Earth, and never on incomplete terrain', () => {
+    const marks = (list: Column[]) => Object.fromEntries(figureRows(list).map((r) => [r.id, r.cells.map((c) => c?.best === true)]));
+    const all = marks(cols);
+    expect(all.power).toEqual([false, false, true]);
+    expect(all.sun).toEqual([false, false, true]);
+    // Level figures leave the row unmarked: the first two share 45 % of Earth in view, and the third has more.
+    expect(all.earth).toEqual([false, false, true]);
+    expect(marks([cols[0], cols[1]]).earth).toEqual([false, false]);
+    expect(marks([cols[0], cols[1]]).contact).toEqual([false, false]);
+    // The period's ends cut the time without Earth ("at least"), and a first setting is not ordered: neither is marked.
+    for (const id of ['outage', 'sunset', 'earthset', 'verdict']) expect(all[id]).toEqual([false, false, false]);
+    // A landing alone, or one still being worked out, marks nothing.
+    expect(marks([cols[0]]).power).toEqual([false]);
+    expect(marks([cols[0], { ...cols[2], outcome: null }]).power).toEqual([false, false]);
+    // Incomplete terrain can only make a figure too good: that landing is never marked, and when it shows the best value none is.
+    const shaky = { ...cols[2], terrain: { quality: 'incomplete' } as Column['terrain'] };
+    expect(marks([cols[0], cols[1], shaky]).power).toEqual([false, false, false]);
+    expect(marks([cols[0], cols[1], shaky]).earth).toEqual([false, false, false]);
+  });
+
+  it('says which landing works best in one line, with the figure that decides it', () => {
+    expect(verdictLine(cols)).toEqual({
+      index: 2,
+      line: '“Nearby: Summit” works best of these 3 landings: power for all 30 days, the longest here, with 14 days 15 hours of radio contact while it has power.',
+    });
+    // The visitor's own landing goes by "Your landing".
+    expect(verdictLine([cols[0], cols[1]])).toEqual({ index: 0, line: 'Your landing works best of these 2 landings: power for 3 days 4 hours, the longest here, with no radio contact while it has power.' });
+    // Nothing is said of a landing alone, or while one is worked out.
+    expect(verdictLine([cols[0]])).toBeNull();
+    expect(verdictLine([cols[0], { ...cols[1], outcome: null }])).toBeNull();
+    // Level landings are said to be level, and none is named.
+    expect(verdictLine([cols[0], { ...cols[0], scenario: { ...cols[0].scenario, id: 'z', label: 'Copy' } }])).toEqual({
+      index: null,
+      line: 'All of these landings work equally well: power for 3 days 4 hours, with no radio contact while it has power.',
+    });
+    // On incomplete terrain the best figures may be too high: no landing is named.
+    expect(verdictLine([cols[0], { ...cols[2], terrain: { quality: 'incomplete' } as Column['terrain'] }])).toEqual({
+      index: null,
+      line: 'The terrain at Summit is incomplete, so no landing is named as working best: its figures may be too high.',
+    });
+    // A high point worked out from the heights is said not to be checked for landing.
+    const derived = { ...cols[2], site: { ...summit, source: 'derived from LOLA' } };
+    expect(verdictLine([cols[0], derived])!.line).toMatch(/ Summit is a high point worked out from the heights, not checked for landing\.$/);
   });
 
   it('says Earth is never in view on the far side, rather than a share of none', () => {
@@ -191,25 +236,25 @@ describe('the comparison in words', () => {
 
 describe('the landing times', () => {
   it('says when the baseline alone lands', () => {
-    expect(timingLine([cols[0]])).toBe('The baseline lands 1 January 2027, 00:00 UTC.');
+    expect(timingLine([cols[0]])).toBe('Your landing is 1 January 2027, 00:00 UTC.');
   });
 
   it('says when every scenario lands at the same time', () => {
-    expect(timingLine([cols[1], cols[2]])).toBe('Same landing time for every scenario: 6 January 2027, 00:00 UTC.');
+    expect(timingLine([cols[1], cols[2]])).toBe('Every landing here is at the same time: 6 January 2027, 00:00 UTC.');
   });
 
   it('says when they differ, and names a scenario at its site’s own best time', () => {
     expect(timingLine(cols)).toBe('Landing times differ: dates change as well as places.');
     const best = { ...cols[2], scenario: { ...near, timing: 'site-best' as const } };
-    expect(timingLine([cols[1], best])).toBe('Same landing time for every scenario: 6 January 2027, 00:00 UTC. “Nearby: Summit” lands at Summit’s own best time in its period, not a time it shares by choice.');
+    expect(timingLine([cols[1], best])).toBe('Every landing here is at the same time: 6 January 2027, 00:00 UTC. “Nearby: Summit” lands at Summit’s own best time in its period, not a time it shares by choice.');
   });
 });
 
 describe('READY_PAIRS', () => {
   it('offers two pairs of catalogue sites, each with a plain title', () => {
     expect(READY_PAIRS).toHaveLength(2);
-    expect(READY_PAIRS[0]).toEqual({ title: 'A ridge and the summit 12 km away', ids: ['de_gerlache_rim_2', 'de_gerlache_center_rim_high'] });
-    expect(READY_PAIRS[1]).toEqual({ title: 'A rim in sunlight and a floor in shadow', ids: ['shackleton_center_rim_high', 'shackleton_center'] });
+    expect(READY_PAIRS[0]).toEqual({ title: 'A ridge vs the summit 12 km away', ids: ['de_gerlache_rim_2', 'de_gerlache_center_rim_high'] });
+    expect(READY_PAIRS[1]).toEqual({ title: 'A sunlit rim vs a crater floor in shadow', ids: ['shackleton_center_rim_high', 'shackleton_center'] });
   });
 });
 

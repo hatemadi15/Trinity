@@ -13,8 +13,8 @@ import { distanceKm } from './relief';
 
 /** Two pairs the empty page offers, each a lesson in itself. */
 export const READY_PAIRS: { title: string; ids: [string, string] }[] = [
-  { title: 'A ridge and the summit 12 km away', ids: ['de_gerlache_rim_2', 'de_gerlache_center_rim_high'] },
-  { title: 'A rim in sunlight and a floor in shadow', ids: ['shackleton_center_rim_high', 'shackleton_center'] },
+  { title: 'A ridge vs the summit 12 km away', ids: ['de_gerlache_rim_2', 'de_gerlache_center_rim_high'] },
+  { title: 'A sunlit rim vs a crater floor in shadow', ids: ['shackleton_center_rim_high', 'shackleton_center'] },
 ];
 
 /** One scenario of a comparison as the page reads it: its settings, its site and its figures once worked out. */
@@ -41,6 +41,8 @@ export interface Cell {
   tone: Tone | null;
   /** In the row of your requirements: each requirement met or failed, with its value and margin in words. */
   checks?: { met: boolean; words: string }[];
+  /** The best value of its row, among landings whose figures differ: marked in the table. */
+  best?: boolean;
 }
 export interface FigureRow {
   id: 'power' | 'sun' | 'earth' | 'contact' | 'outage' | 'sunset' | 'earthset' | 'night' | 'verdict' | 'requirements';
@@ -127,7 +129,7 @@ export function figureRows(cols: Column[]): FigureRow[] {
     change: signedPoints(get(o), get(base)),
     tone: toneOf(Math.round(get(o) * 100) - Math.round(get(base) * 100), true),
   });
-  return [
+  const rows: FigureRow[] = [
     row('power', 'Time with power', 'From landing until the battery first runs out, by the power model: the panel, the load and the battery, hour by hour.', hoursCell((o) => o.poweredH, powerValue, true), powerValue),
     row('sun', 'Sunlight', 'The share of the period with any part of the Sun above the hills.', shareCell((o) => o.sunFraction), (o) => pct0(o.sunFraction)),
     row('earth', 'Earth in view', 'The share of the period with the centre of Earth above the hills by the height set: a clear line to Earth, not a working radio link.', farSide(shareCell((o) => o.earthFraction)), (o, c) => (c.site.far_side ? FAR : pct0(o.earthFraction))),
@@ -138,13 +140,43 @@ export function figureRows(cols: Column[]): FigureRow[] {
     row('night', 'Longest night', 'The longest stretch of the period with no Sun at all.', hoursCell((o) => o.longestNightH, (o) => spanOrNone(o.longestNightH), false), (o) => spanOrNone(o.longestNightH)),
     row(
       'verdict',
-      'The answer',
+      'What happens',
       'What happens to the lander, in the words of the forecast.',
       (o, base) => ({ value: o.verdict, change: null, tone: o.verdict === base.verdict ? 'same' : toneOf(o.poweredH - base.poweredH, true) }),
       (o) => o.verdict,
     ),
     ...requirementsRow(cols),
   ];
+  const failed = (c: Column) => (c.checks ?? []).filter((x) => !x.met).length;
+  /** What makes a figure better, as a number that is larger when it is: the row's best cell is marked by it. The longest time without Earth is left out: the period's ends cut it ("at least"), so it cannot be ordered surely. */
+  const score: Partial<Record<FigureRow['id'], (c: Column) => number | null>> = {
+    power: (c) => Math.round(c.outcome!.poweredH),
+    sun: (c) => Math.round(c.outcome!.sunFraction * 100),
+    earth: (c) => Math.round(c.outcome!.earthFraction * 100),
+    contact: (c) => Math.round(c.outcome!.poweredContactH),
+    night: (c) => -Math.round(c.outcome!.longestNightH),
+    requirements: (c) => (c.checks && c.checks.length > 0 ? -failed(c) : null),
+  };
+  for (const r of rows) markBest(r, cols, score[r.id]);
+  return rows;
+}
+
+/**
+ * Marks the best cell or cells of a row: only when every landing has its figure and they are not all level. A landing
+ * on incomplete terrain is never marked, as its figures may be too good; when it shows the best value, none is marked.
+ */
+function markBest(row: FigureRow, cols: Column[], score: ((c: Column) => number | null) | undefined): void {
+  if (!score || cols.length < 2 || cols.some((c) => !c.outcome)) return;
+  const values = cols.map(score);
+  if (values.some((v) => v === null)) return;
+  const v = values as number[];
+  if (v.every((x) => x === v[0])) return;
+  const sure = cols.map((c) => c.terrain?.quality !== 'incomplete');
+  const top = Math.max(...v.filter((_, i) => sure[i]));
+  if (!Number.isFinite(top) || v.some((x, i) => !sure[i] && x > top)) return;
+  row.cells.forEach((cell, i) => {
+    if (cell && sure[i] && v[i] === top) cell.best = true;
+  });
 }
 
 /**
@@ -159,7 +191,7 @@ function requirementsRow(cols: Column[]): FigureRow[] {
     {
       id: 'requirements',
       name: 'Your requirements',
-      means: 'The mission requirements set on Explore (Options), or carried by the link or file, checked against each scenario landing at its own period start: how many it fails and, one tap on the row’s name away, each one met or failed with the value reached and the margin.',
+      means: 'The mission requirements set on Explore (Options), or carried by the link or file, checked against each landing at its own period start: how many it fails and, one tap on the row’s name away, each one met or failed with the value reached and the margin.',
       cells: cols.map((c, i) => {
         if (!c.outcome || !c.checks || c.checks.length === 0) return null;
         const value = checksShort(c.checks, c.unchecked) ?? '';
@@ -301,9 +333,50 @@ export function story(cols: Column[]): Story {
  */
 export function timingLine(cols: Column[]): string {
   if (cols.length === 0) return '';
-  if (cols.length === 1) return `The baseline lands ${startWords(cols[0].scenario.startUtc)}.`;
+  if (cols.length === 1) return `Your landing is ${startWords(cols[0].scenario.startUtc)}.`;
   const same = cols.every((c) => c.scenario.startUtc === cols[0].scenario.startUtc);
-  const lead = same ? `Same landing time for every scenario: ${startWords(cols[0].scenario.startUtc)}.` : 'Landing times differ: dates change as well as places.';
+  const lead = same ? `Every landing here is at the same time: ${startWords(cols[0].scenario.startUtc)}.` : 'Landing times differ: dates change as well as places.';
   const best = cols.filter((c) => c.scenario.timing === 'site-best').map((c) => `${quoted(c)} lands at ${c.siteName}’s own best time in its period, not a time it shares by choice.`);
   return [lead, ...best].join(' ');
+}
+
+/** A landing as the summary names it: the first is the visitor's own, the others go by their label. */
+const named = (c: Column, cols: Column[]) => (cols[0] === c ? 'Your landing' : quoted(c));
+
+/** Which landing works best, and why, in one line; null until two or more are worked out. */
+export interface Verdict {
+  /** The column that works best; null when the best are level, or cannot be named. */
+  index: number | null;
+  line: string;
+}
+
+/**
+ * The one-line summary over the comparison: the landing with the longest time with power, then the most radio contact
+ * while it has power, then the most sunlight (the order the nearby search ranks by), with the figure that decided it.
+ * Landings that are level are said to be level, and a landing on incomplete terrain is never named: its figures may be
+ * too high.
+ */
+export function verdictLine(cols: Column[]): Verdict | null {
+  if (cols.length < 2 || cols.some((c) => !c.outcome)) return null;
+  const order = [...cols].sort((x, y) => rank(x.outcome!, y.outcome!));
+  const [top, next] = order;
+  const o = top.outcome!;
+  const n = next.outcome!;
+  if (top.terrain?.quality === 'incomplete') {
+    return { index: null, line: `The terrain at ${top.siteName} is incomplete, so no landing is named as working best: its figures may be too high.` };
+  }
+  const contact = o.poweredContactH > 0 ? `${spanWords(o.poweredContactH)} of radio contact while it has power` : 'no radio contact while it has power';
+  if (rank(o, n) === 0) {
+    const level = order.filter((c) => rank(c.outcome!, o) === 0).map((c) => named(c, cols));
+    const names = level.length === cols.length ? 'All of these landings' : `${level.slice(0, -1).join(', ')} and ${level[level.length - 1]}`;
+    return { index: null, line: `${names} work equally well: power for ${powerWords(o)}, with ${contact}.` };
+  }
+  const why =
+    o.poweredH !== n.poweredH
+      ? `power for ${powerWords(o)}, the longest here, with ${contact}`
+      : o.poweredContactH !== n.poweredContactH
+        ? `power for ${powerWords(o)}, as long as any here, with the most radio contact while it has power: ${wordsOrNone(o.poweredContactH)}`
+        : `power for ${powerWords(o)}, as long as any here, with the most sunlight: ${pct0(o.sunFraction)}`;
+  const caveat = unchecked(top.site) ? ` ${top.siteName} is a high point worked out from the heights, not checked for landing.` : '';
+  return { index: cols.indexOf(top), line: `${named(top, cols)} works best of these ${cols.length} landings: ${why}.${caveat}` };
 }

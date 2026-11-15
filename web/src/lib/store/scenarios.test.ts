@@ -61,7 +61,7 @@ describe('the scenario store', () => {
     await store.getState().settle();
     const c = await store.getState().findNearby(b);
     expect(c).not.toBeNull();
-    expect(store.getState().note).toBe('The nearby alternative is ranked by your requirements, then your priorities (power 1, Earth in view 5, shorter gaps 1), as set under Explore’s Options.');
+    expect(store.getState().note).toBe('The place nearby is ranked by your requirements, then your priorities (power 1, Earth in view 5, shorter gaps 1), as set under Explore’s Options.');
     // Ranked the default way there is nothing to add.
     explore.getState().setRankBy({ kind: 'power' });
     await store.getState().findNearby(b);
@@ -97,7 +97,7 @@ describe('the scenario store', () => {
     const a = store.getState().startFrom(explore.getState())!;
     for (const h of [24, 48, 72]) expect(store.getState().slip(a, h)).not.toBeNull();
     expect(store.getState().slip(a, 96)).toBeNull();
-    expect(store.getState().note).toBe('Four scenarios is the most a comparison holds: remove one to add another.');
+    expect(store.getState().note).toBe('Four landings is the most a comparison holds: remove one to add another.');
     store.getState().remove(a);
     expect(store.getState().scenarios[0].id).toBe(a);
   });
