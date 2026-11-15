@@ -45,11 +45,14 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   card and the card opens the site. The bar at the foot holds the dates behind one button (with what the figures count
   from), "List" (the same sites for the keyboard and screen readers) and the primary "Choose your own site", which
   opens Explore with nothing filled in (`/explore?own=1`); the "Somewhere else" form is gone. The first screen is held
-  to 48 words (`SitesView.test.tsx`). The page is a night sky in both themes (15 November, owner review): wherever
-  there is neither map nor panel it is the stage's black with the catalogue's stars, drawn once and still
-  (`SitesSky.tsx`), and the title block, the card, the bar, the list, the dates panel and the sources are panes of
-  dark glass (`.pane` in `globals.css`: the panel's own colour let through in part, the map blurred behind it, a thin
-  bright edge and a faint blue sheen), the one place a backdrop is blurred (`look.test.ts`).
+  to 48 words (`SitesView.test.tsx`). The page is a night sky in both themes, from the header to the footer (15 November, owner
+  review: it must read as space and as glass at a glance): on the stage's black, one still canvas at the back of the
+  page (`SitesSky.tsx`) draws a faint Milky Way haze, a dust of small stars and the catalogue's real stars, the bright
+  ones with a glow, and none under a line of words that stands on the sky. On a wide screen the map stands in a
+  rounded frame so the sky shows round it. The title block, the card, the bar, the list, the dates panel and the
+  sources are panes of glass (`.pane` in `globals.css`: a thin fill of the panel's own colour, about 34 to 42 %, over
+  a strong blur of what is behind it, darkened so the words keep AA; a bright edge, a top highlight and a blue glow),
+  the one place a backdrop is blurred (`look.test.ts`).
 - **404.** The nebula, with the page's own sentence as its headline.
 - **Header.** The Moon mark turns as the page scrolls; the current section is underlined.
 

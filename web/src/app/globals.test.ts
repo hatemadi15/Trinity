@@ -184,7 +184,8 @@ describe('globals.css layering', () => {
   it('prints every page in the light theme, whatever the theme on screen: paper is white (final review)', () => {
     // The dark values hold on screen only, so a page printed from the dark theme (the default) takes the light
     // theme's dark ink, not pale grey on white.
-    expect(css).toMatch(/@media screen \{\s*:root\[data-theme="dark"\],\s*\.theme-dark \{/);
+    // "Choose a site" takes the same values in both themes (a night-sky page), on screen only as well.
+    expect(css).toMatch(/@media screen \{\s*:root:has\(\[data-night-sky\]\),\s*:root\[data-theme="dark"\],\s*\.theme-dark \{/);
     expect(css.match(/:root\[data-theme="dark"\],\s*\.theme-dark \{/g)).toHaveLength(1);
   });
 

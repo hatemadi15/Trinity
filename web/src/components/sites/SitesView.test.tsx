@@ -289,15 +289,16 @@ describe('SitesView', () => {
 
   it('is a night sky in both themes, with every panel a pane of dark glass (15 November, owner review)', async () => {
     await ready();
-    // The dark theme's values whatever the theme, on the stage's black, with the stars on a canvas that takes no pointer.
+    // The page is marked as a night-sky page: the stylesheet gives it the dark theme's values and the stage's black from header to footer.
     const main = document.querySelector<HTMLElement>('main')!;
     expect(main.dataset.nightSky).toBe('');
-    expect(main.className).toMatch(/\btheme-dark\b/);
-    expect(main.className).toMatch(/\bbg-stage\b/);
-    expect(main.className).not.toMatch(/\bbg-page\b/);
-    const sky = main.querySelector<HTMLElement>('canvas[data-part="sky"]')!;
-    expect(sky.getAttribute('aria-hidden')).toBe('true');
-    expect(sky.className).toMatch(/\bpointer-events-none\b/);
+    expect(main.className).not.toMatch(/\bbg-(page|stage)\b/);
+    // The sky is one canvas at the back of the whole page, behind the header and the footer too; it takes no pointer and is hidden from readers.
+    const skies = document.querySelectorAll<HTMLElement>('body > canvas[data-part="sky"]');
+    expect(skies).toHaveLength(1);
+    expect(skies[0].getAttribute('aria-hidden')).toBe('true');
+    expect(skies[0].style.zIndex).toBe('-1');
+    expect(skies[0].style.pointerEvents).toBe('none');
     // The map section paints no colour of its own over the sky, and no panel keeps a solid page colour.
     expect(map().className).not.toMatch(/\bbg-(stage|page)\b/);
     const isPane = (el: Element | null) => /(^|\s)pane(-wide)?(\s|$)/.test(el?.className ?? '');

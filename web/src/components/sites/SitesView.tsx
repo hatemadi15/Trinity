@@ -188,8 +188,8 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
   const toggle = (what: 'list' | 'dates') => setOpen((now) => (now === what ? null : what));
   return (
     <AppFrame>
-      {/* The dark theme's values in either theme, on the stage's black: the sky behind everything here. */}
-      <main data-night-sky="" className="theme-dark relative bg-stage text-ink print:bg-transparent">
+      {/* A night-sky page (globals.css): night in both themes from header to footer, with the sky's canvas at the back of the page. */}
+      <main data-night-sky="" className="relative text-ink">
         <SitesSky />
         {/* The window under the header: the map, and the bar at its foot. The bar comes first for the keyboard, before the markers. */}
         <div data-part="screen" className="relative flex flex-col lg:h-[calc(100svh-69px)] lg:min-h-[600px]">
@@ -225,9 +225,9 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
               </section>
             )}
           </div>
-          <section aria-label="Map of the sites" data-part="stage" data-stage="" className="relative text-stage-ink lg:min-h-0 lg:flex-1">
-            {/* On a narrow screen the title stands on plain black, so no star lies under a word. */}
-            <div data-part="title" className="pane-wide pane-stage pointer-events-none relative z-20 px-4 pb-3 pt-5 max-lg:bg-stage lg:absolute lg:left-6 lg:top-6 lg:max-w-[500px] lg:rounded-xl lg:px-6 lg:py-5">
+          {/* On a wide screen the map stands in a frame, clear of the window's edges, so the sky shows round it. */}
+          <section aria-label="Map of the sites" data-part="stage" data-stage="" className="relative text-stage-ink lg:mx-5 lg:mt-5 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:rounded-2xl lg:border lg:border-white/25">
+            <div data-part="title" className="pane-wide pane-stage pointer-events-none relative z-20 px-4 pb-3 pt-5 lg:absolute lg:left-6 lg:top-6 lg:max-w-[500px] lg:rounded-xl lg:px-6 lg:py-5">
               <h1 className="display text-[30px] leading-tight sm:text-[36px] lg:text-[42px]">
                 Choose a <em>landing site</em>
               </h1>
@@ -271,7 +271,7 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
             {/* On a narrow screen the open list takes the map's place; on a wide one it stands beside it. */}
             <div data-part="maps" className={open === 'list' ? 'max-lg:hidden' : undefined}>
               <SiteMap markers={markers} />
-              <MarkerKey className="flex-wrap bg-stage px-4 pb-5 pt-1 lg:hidden" />
+              <MarkerKey className="flex-wrap px-4 pb-5 pt-1 lg:hidden" />
             </div>
           </section>
         </div>

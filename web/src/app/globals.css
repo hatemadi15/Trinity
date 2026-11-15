@@ -73,6 +73,7 @@
  * On screen only: printed, every page takes the light theme's values, as paper is white (final review).
  */
 @media screen {
+  :root:has([data-night-sky]),
   :root[data-theme="dark"],
   .theme-dark {
     /* A deep blue-grey, well above the stages' true black; a band, a plate and a raised plate each a clear step lighter, with an edge that shows. */
@@ -558,56 +559,60 @@ pre {
    * sites-glass:start. "Choose a site" only (15 November, owner review): its panels are panes of dark glass over the
    * night sky and the map. Each keeps its own colour (--glass-tint), let through in part, with the map blurred behind
    * it, a thin bright edge, a faint blue sheen and a soft shadow. These few panes are the one place a backdrop is
-   * blurred; the map under them is a still picture. A phone blurs less and lets less through; a browser that cannot
+   * blurred; the map under them is a still picture. The fill is thin and the blur strong, so it reads as glass at a
+   * glance; the words keep their contrast because the backdrop is darkened, not because the pane is filled
+   * (15 November, owner review: the glass was too subtle). A phone blurs less and lets a little less through; a browser that cannot
    * blur gets a nearly solid pane, so the words always read.
    */
   .pane,
   .pane-wide {
     --glass-tint: var(--page);
-    --glass-a: 64%;
+    --glass-a: 38%;
   }
   .pane-stage {
     --glass-tint: var(--stage);
-    --glass-a: 58%;
+    --glass-a: 34%;
   }
   .pane-surface {
     --glass-tint: var(--surface);
-    --glass-a: 70%;
+    --glass-a: 42%;
   }
   .pane {
-    border: 1px solid rgb(255 255 255 / 0.17);
+    border: 1px solid rgb(255 255 255 / 0.34);
     background:
-      linear-gradient(165deg, rgb(127 169 255 / 0.15), rgb(127 169 255 / 0.03) 42%, rgb(127 169 255 / 0.08)),
+      linear-gradient(165deg, rgb(255 255 255 / 0.09), rgb(127 169 255 / 0.05) 30%, rgb(127 169 255 / 0.02) 60%, rgb(127 169 255 / 0.1)),
       color-mix(in srgb, var(--glass-tint) var(--glass-a), transparent);
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.13),
-      0 0 0 1px rgb(127 169 255 / 0.08),
-      0 0 40px -14px rgb(127 169 255 / 0.4),
-      0 22px 50px -22px rgb(0 0 0 / 0.9);
-    -webkit-backdrop-filter: blur(16px) saturate(1.7) brightness(0.82);
-    backdrop-filter: blur(16px) saturate(1.7) brightness(0.82);
+      inset 0 1px 0 rgb(255 255 255 / 0.3),
+      inset 0 0 24px -8px rgb(127 169 255 / 0.25),
+      0 0 0 1px rgb(127 169 255 / 0.12),
+      0 0 46px -10px rgb(127 169 255 / 0.5),
+      0 24px 54px -22px rgb(0 0 0 / 0.9);
+    -webkit-backdrop-filter: blur(22px) saturate(1.8) brightness(0.64);
+    backdrop-filter: blur(22px) saturate(1.8) brightness(0.64);
   }
   @media (max-width: 1023px) {
     .pane {
-      --glass-a: 74%;
-      -webkit-backdrop-filter: blur(8px) saturate(1.5) brightness(0.82);
-      backdrop-filter: blur(8px) saturate(1.5) brightness(0.82);
+      --glass-a: 50%;
+      -webkit-backdrop-filter: blur(14px) saturate(1.7) brightness(0.62);
+      backdrop-filter: blur(14px) saturate(1.7) brightness(0.62);
     }
   }
   /* The title's pane: glass where it lies on the map, from 1024 px; under that the title stands on the sky itself. */
   @media (min-width: 1024px) {
     .pane-wide {
-      border: 1px solid rgb(255 255 255 / 0.17);
+      border: 1px solid rgb(255 255 255 / 0.34);
       background:
-        linear-gradient(165deg, rgb(127 169 255 / 0.15), rgb(127 169 255 / 0.03) 42%, rgb(127 169 255 / 0.08)),
+        linear-gradient(165deg, rgb(255 255 255 / 0.09), rgb(127 169 255 / 0.05) 30%, rgb(127 169 255 / 0.02) 60%, rgb(127 169 255 / 0.1)),
         color-mix(in srgb, var(--glass-tint) var(--glass-a), transparent);
       box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.13),
-        0 0 0 1px rgb(127 169 255 / 0.08),
-        0 0 40px -14px rgb(127 169 255 / 0.4),
-        0 22px 50px -22px rgb(0 0 0 / 0.9);
-      -webkit-backdrop-filter: blur(16px) saturate(1.7) brightness(0.82);
-      backdrop-filter: blur(16px) saturate(1.7) brightness(0.82);
+        inset 0 1px 0 rgb(255 255 255 / 0.3),
+        inset 0 0 24px -8px rgb(127 169 255 / 0.25),
+        0 0 0 1px rgb(127 169 255 / 0.12),
+        0 0 46px -10px rgb(127 169 255 / 0.5),
+        0 24px 54px -22px rgb(0 0 0 / 0.9);
+      -webkit-backdrop-filter: blur(22px) saturate(1.8) brightness(0.64);
+      backdrop-filter: blur(22px) saturate(1.8) brightness(0.64);
     }
   }
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -627,10 +632,16 @@ pre {
   }
 }
 
-/* In the dark theme the header and the footer of "Choose a site" stand on the same black sky as the page between them. */
+/*
+ * "Choose a site" is night in both themes, from the header to the footer: the dark theme's values (above), the
+ * stage's black for the page, and nothing painted over the sky's canvas at the back of the page.
+ */
 @media screen {
-  :root[data-theme="dark"]:has([data-night-sky]) {
+  :root:has([data-night-sky]) {
     --page: var(--stage);
+  }
+  :root:has([data-night-sky]) body {
+    background: transparent;
   }
 }
 
