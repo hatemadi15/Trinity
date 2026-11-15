@@ -160,8 +160,36 @@ describe('home page', () => {
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
     const steps = [...band.querySelectorAll('.display.text-\\[32px\\]')].map((el) => el.textContent);
     expect(steps).toEqual(['The Sun', 'Earth', 'The lander']);
-    expect(band.textContent).toMatch(/White is the Sun's height; grey, the hills in its direction\. Behind the grey, it is night\./);
-    expect(band.textContent).toMatch(/Blue is Earth's height\. Earth in view is not yet radio contact/);
+    // Each chart says where the viewer stands: at the landing site, facing the Sun, then Earth.
+    expect(band.textContent).toMatch(/You stand at the landing site, facing the Sun\. White is its height; grey, the hills\. Behind the grey: night\./);
+    expect(band.textContent).toMatch(/Now face Earth: blue is its height\. Earth in view is not yet radio contact/);
+  });
+
+  it('sets the forecast apart as figures and says where the viewer is: a locator on the Moon, and a drawing of the view beside each chart (owner review)', () => {
+    render(<Home />);
+    const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
+    // Three framed panels, a step lighter than the black band; the chart inside takes the panel's colour.
+    const figures = [...band.querySelectorAll<HTMLElement>('[data-figure]')];
+    expect(figures.map((f) => f.getAttribute('data-figure'))).toEqual(['sun', 'earth', 'lander']);
+    for (const f of figures) for (const c of ['rounded-2xl', 'border', 'border-stage-raised-line', 'bg-stage-raised', '[--stage:var(--stage-raised)]']) expect(f.classList.contains(c), c).toBe(true);
+    expect(figures[0].querySelector('[data-forecast-hover]')).not.toBeNull();
+    expect(figures[2].querySelector('[data-contact-strip]')).not.toBeNull();
+    // Where on the Moon.
+    expect(within(band).getByRole('img', { name: "Where this is: de Gerlache Rim 2 is at the Moon's south pole, at the bottom edge of the Moon as seen from Earth." }).textContent).toMatch(/this landing site/);
+    // Where the viewer stands: a lander on the ridge, the hills, and the Sun (or Earth) above them and behind them.
+    const sun = within(figures[0]).getByRole('img', { name: /^The view from the landing site, not to scale\. A lander stands on a ridge and looks toward the Sun across the hills\./ });
+    expect(sun.textContent).toBe('you are hereabove the hills: daylightbehind the hills: night');
+    const earth = within(figures[1]).getByRole('img', { name: /looks toward Earth across the hills\. When Earth is above the hills, it is in view\. When it is behind the hills, it is out of view\.$/ });
+    expect(earth.textContent).toBe('you are hereabove the hills: in viewbehind the hills: out of view');
+    // The lanes have the colours of the view from the site's key: warm white, blue, and green for contact; the words on them are dark on the colour.
+    const lane = (name: string) => band.querySelector<HTMLElement>(`[data-lane="${name}"]`)!;
+    expect([...lane('power').children].map((el) => el.textContent)).toEqual(['night: no power', 'sunlight', 'sunlight']);
+    expect([...lane('earth').children].map((el) => el.textContent)).toEqual(['out of view', 'out of view', 'Earth in view']);
+    expect(lane('power').querySelector('.bg-stage-sun')!.className).toMatch(/text-\[#0b0c0f\]/);
+    expect(lane('earth').querySelector('.bg-stage-earth')).not.toBeNull();
+    expect(lane('contact').querySelector('[data-contact]')!.className).toMatch(/(^| )bg-stage-good( |$)/);
+    // The strip has the charts' dates under it.
+    expect([...band.querySelectorAll('[data-strip-dates] span')].map((el) => el.textContent)).toEqual(['1 Jan', '6 Jan', '11 Jan', '16 Jan', '21 Jan', '26 Jan']);
   });
 
   it('alternates the numbered sections in both themes, black then paper: 01, 03 and 05 black, 02 and 04 paper, each with the same room either side of a clean edge', () => {
@@ -362,6 +390,7 @@ describe('home page', () => {
     };
     // Before the cut these were 239, 261, 204, 151 and 59: 914 in all. 02 keeps room for its five questions and answers.
     const CAPS = { forecast: 165, why: 200, places: 115, proof: 115, end: 45 };
+
     for (const k of Object.keys(CAPS) as (keyof typeof CAPS)[]) expect(count[k], k).toBeLessThanOrEqual(CAPS[k]);
     expect(Object.values(count).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(630);
   });

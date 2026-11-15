@@ -1,19 +1,32 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, createEvent, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DataError } from '@/lib/data/loaders';
 import { createExploreStore } from '@/lib/store/explore';
 import { fileLoaders } from '@/test/file-loaders';
 import { PHONE, visibleWords, WIDE } from '@/test/visible-words';
-import { exploreHref, SitesView } from './SitesView';
+import { exploreHref, OWN_SITE_HREF, SitesView } from './SitesView';
 
 async function ready() {
   const store = createExploreStore(fileLoaders());
-  const view = render(<SitesView store={store} navigate={() => {}} />);
+  const view = render(<SitesView store={store} />);
   await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 20_000 });
   await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(34), { timeout: 20_000 });
   return { store, ...view };
 }
+const map = () => screen.getByRole('region', { name: 'Map of the sites' });
+/** A site's marker on the map: a link with the site's full name. */
+const markerOf = (name: string) => within(map()).getByRole('link', { name });
+const card = () => document.querySelector<HTMLElement>('[data-part="card"]');
+/** A pointer going down, as a finger or a mouse (jsdom's own event carries no pointer type). */
+const pointerDown = (el: Element, pointerType: 'touch' | 'mouse') => {
+  const e = new MouseEvent('pointerdown', { bubbles: true, cancelable: true });
+  Object.defineProperty(e, 'pointerType', { value: pointerType });
+  fireEvent(el, e);
+};
+/** Text with its no-break spaces as plain ones. */
+const plain = (text: string | null) => (text ?? '').replace(/\u00a0/g, ' ');
+const openList = () => fireEvent.click(screen.getByRole('button', { name: 'List' }));
+/** A site's row in the list, once the list is open. */
 const rowOf = (name: string) => screen.getAllByRole('link').find((a) => a.dataset.row && a.textContent?.startsWith(name))!;
 
 afterEach(() => {
@@ -28,183 +41,193 @@ describe('exploreHref', () => {
 });
 
 describe('SitesView', () => {
-  it('titles the page, says what the figures assume and groups the catalogue in plain words', async () => {
+  it('titles the page in few words: the map, a key to its three groups and one way to a site of your own', async () => {
     await ready();
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Choose a landing site');
-    expect(screen.getByText(/34 places/).textContent).toBe('34 places, most near the south pole.');
-    // What the figures count from, the lander and the order, in plain sentences rather than a list of terms (both
-    // readers, part C read 1: the figures differ from Explore's, and this says why), one point away on step 2.
-    fireEvent.click(screen.getByRole('button', { name: 'How these figures are counted' }));
-    expect(screen.getByRole('tooltip').textContent).toBe(
-      "Each site's figures are for landing on its best day of the 30 days from 1 January 2027, the day under its name, and the 30 days after it, for one lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, the hills seen from a 2 m mast. Explore and Compare start on the first day, so their figures can differ. In each group, the longest time with power comes first.",
-    );
-    expect(document.querySelector('main dl')).toBeNull();
-    expect(screen.getByText(/Three real missions, for the same days\./)).toBeTruthy();
-    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
-      'Shortlisted by NASA for a crewed Artemis landing',
-      'Where commercial landers touched down',
-      'Where commercial landers are to land next',
-      'Landers from other countries',
-      'Where the Apollo crews landed',
-      'High points and crater floors',
-      'Somewhere else',
-    ]);
-    expect(screen.getByText(/Figures are for each centre\./)).toBeTruthy();
-    expect(document.querySelectorAll('main .btn-primary')).toHaveLength(0);
+    // One line of help, in the words of the screen it is read on.
+    expect(visibleWords(document.querySelector('[data-part="title"] p')!, WIDE).join(' ')).toBe('Point at a marker for its name, and click to open it.');
+    expect(visibleWords(document.querySelector('[data-part="title"] p')!, PHONE).join(' ')).toBe('Tap a marker, then its name to open it.');
+    for (const key of screen.getAllByRole('list', { name: 'Key to the markers' }))
+      expect(within(key).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['NASA’s Artemis shortlist', 'Landers, flown or planned', 'High points and crater floors']);
+    // The one primary button is the way to a site of one's own, which Explore asks for: no place is worked out here.
+    const primary = document.querySelectorAll<HTMLAnchorElement>('main .btn-primary');
+    expect(primary).toHaveLength(1);
+    expect(primary[0].textContent).toBe('Choose your own site');
+    expect(primary[0].getAttribute('href')).toBe('/explore?own=1');
+    expect(OWN_SITE_HREF).toBe('/explore?own=1');
+    expect(screen.queryByLabelText('Latitude (°)')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Somewhere else' })).toBeNull();
+    // The list and the dates wait behind their buttons.
+    expect(document.querySelector('a[data-row]')).toBeNull();
+    expect(screen.queryByLabelText('For')).toBeNull();
   });
 
-  it('gives each site its sunlight, its contact with Earth and its longest time with power', async () => {
+  it('marks every site on the map, each a link with the site name that opens Explore filled in for it', async () => {
     await ready();
-    const row = rowOf('de Gerlache Rim 2');
-    // The row opens Explore on the landing day it names, and every figure in the row is one Explore shows there:
-    // the sunlight and contact with Earth are for the 30 days from that day.
-    expect(row.getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
-    // What the place is, one point away on the row.
-    expect(row.getAttribute('title')).toMatch(/A ridge on a crater rim, 52 km from the pole/);
-    // A number keeps its percent sign on the same line: a no-break space between them.
-    expect(row.textContent).toMatch(/Sunlight 41 %/);
-    expect(row.textContent).toMatch(/Earth in view 54 %/);
-    // The landing day comes first, under the name: every figure to its right counts from it.
-    expect(row.textContent).toMatch(/de Gerlache Rim 2, Best day: 20 Jan/);
-    expect(row.textContent).toMatch(/Longest time with power 12 d 15 h/);
-    expect(row.textContent).not.toMatch(/if it lands on/);
+    const markers = within(map()).getAllByRole('link');
+    expect(markers).toHaveLength(34);
+    // The sites near the pole on its relief; every other one on the inset of the whole Moon.
+    expect(markers.filter((a) => a.dataset.on === 'relief')).toHaveLength(17);
+    expect(markers.filter((a) => a.dataset.on === 'inset')).toHaveLength(17);
+    expect(markerOf('Apollo 11').dataset.on).toBe('inset');
+    expect(markerOf('Lunar south pole').dataset.on).toBe('relief');
+    // The marker opens Explore on the landing day its figures name, where every one of them is a figure Explore shows.
+    expect(markerOf('de Gerlache Rim 2').getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
+    // Each marker says its group by its mark.
+    expect(markerOf('Haworth').dataset.group).toBe('artemis');
+    expect(markerOf('IM-2 Athena').dataset.group).toBe('lander');
+    expect(markerOf('Apollo 17').dataset.group).toBe('lander');
+    expect(markerOf('Shackleton rim summit').dataset.group).toBe('other');
+    expect(markerOf('Haworth').querySelector('[data-mark="artemis"]')).toBeTruthy();
+    // No name is written on the map until a marker is pointed at.
+    for (const a of markers) expect(a.textContent).toBe('');
+    expect(card()).toBeNull();
+    expect(map().textContent).not.toMatch(/Haworth/);
+  });
+
+  it('names the marker under the pointer with its figures, and greys out every other one', async () => {
+    await ready();
+    const marker = markerOf('de Gerlache Rim 2');
+    fireEvent.mouseEnter(marker);
+    // The name, what kind of point it is, then the figures: a number keeps its percent sign on the same line.
+    expect([...card()!.children].map((el) => plain(el.textContent))).toEqual(['de Gerlache Rim 2', 'Centre of a region, ±5 km', 'Sunlight 41 % · Earth in view 54 %', 'Longest with power: 12 d 15 h, landing 20 Jan']);
+    expect(card()!.textContent).toMatch(/41\u00a0%/);
+    expect(marker.getAttribute('data-active')).toBe('true');
+    expect(marker.getAttribute('aria-describedby')).toBe(card()!.id);
+    const others = within(map()).getAllByRole('link').filter((a) => a !== marker);
+    expect(others.every((a) => a.dataset.dim === 'true' && /\bgrayscale\b/.test(a.className))).toBe(true);
+    expect(marker.dataset.dim).toBeUndefined();
+    fireEvent.mouseLeave(marker);
+    expect(card()).toBeNull();
+    expect(within(map()).getAllByRole('link').some((a) => a.dataset.dim)).toBe(false);
+  });
+
+  it('does the same for the marker with the keyboard focus', async () => {
+    await ready();
+    const marker = markerOf('Slater Plain');
+    fireEvent.focus(marker);
+    expect(card()!.firstElementChild!.textContent).toBe('Slater Plain');
+    expect(markerOf('Haworth').dataset.dim).toBe('true');
+    fireEvent.blur(marker);
+    expect(card()).toBeNull();
+  });
+
+  it("names the site on a finger's first tap, and opens it on the next: the card or the marker", async () => {
+    await ready();
+    const marker = markerOf('Haworth');
+    const tap = (el: HTMLElement) => {
+      pointerDown(el, 'touch');
+      const click = createEvent.click(el);
+      fireEvent(el, click);
+      return click.defaultPrevented;
+    };
+    // The first tap does not follow the link: it shows the card, which is the way in, and dims the rest.
+    expect(tap(marker)).toBe(true);
+    expect(card()!.tagName).toBe('A');
+    expect(card()!.getAttribute('href')).toBe(marker.getAttribute('href'));
+    expect(card()!.getAttribute('aria-label')).toBe('Open Haworth');
+    expect(card()!.textContent).toMatch(/^HaworthCentre of a region.*Open this site/);
+    expect(markerOf('Slater Plain').dataset.dim).toBe('true');
+    // A second tap on the marker opens it too.
+    expect(tap(marker)).toBe(false);
+    // A tap on another marker moves the card there; a tap on the map puts it away.
+    expect(tap(markerOf('Slater Plain'))).toBe(true);
+    expect(card()!.getAttribute('aria-label')).toBe('Open Slater Plain');
+    pointerDown(document.querySelector('[data-part="map"]')!, 'touch');
+    expect(card()).toBeNull();
+    // A mouse click opens the site at once.
+    pointerDown(marker, 'mouse');
+    const click = createEvent.click(marker);
+    fireEvent(marker, click);
+    expect(click.defaultPrevented).toBe(false);
   });
 
   it('says in words when a site has no sunlight or no contact with Earth', async () => {
     await ready();
-    expect(rowOf('Shackleton crater floor').textContent).toMatch(/No sunlight/);
-    expect(rowOf('Shackleton crater floor').textContent).toMatch(/No power from the Sun/);
-    expect(rowOf('Mons Mouton').textContent).toMatch(/No contact with Earth/);
-    expect(rowOf('Shackleton rim summit').textContent).toMatch(/all 30 days/);
+    const facts = (name: string) => {
+      fireEvent.mouseEnter(markerOf(name));
+      const text = card()!.textContent!;
+      fireEvent.mouseLeave(markerOf(name));
+      return text;
+    };
+    expect(facts('Shackleton crater floor')).toMatch(/No sunlight/);
+    expect(facts('Shackleton crater floor')).toMatch(/No power from the Sun/);
+    expect(facts('Mons Mouton')).toMatch(/No contact with Earth/);
+    expect(facts('Shackleton rim summit')).toMatch(/Longest with power: all 30 days/);
+    // On the far side Earth never rises, whatever the dates.
+    expect(facts("Chang'e 4")).toMatch(/Earth never in view: far side/);
+    expect(facts("Chang'e 4")).not.toMatch(/NaN/);
+    expect(facts('CP-12 Schrödinger')).toMatch(/Earth never in view: far side/);
   });
 
-  it('sorts each group by time with power once every figure is in, and puts places that never see Earth under a heading of their own', async () => {
-    const { store } = await ready();
-    const group = screen.getByRole('region', { name: 'Shortlisted by NASA for a crewed Artemis landing' });
-    const [withContact, without] = within(group).getAllByRole('list');
-    const hours = (list: HTMLElement) => [...list.querySelectorAll<HTMLElement>('a[data-row]')].map((a) => store.getState().overview[a.dataset.row!].best?.poweredHours ?? -1);
-    const a = hours(withContact);
-    const b = hours(without);
-    expect(a.length + b.length).toBe(9);
-    expect(a).toEqual([...a].sort((x, y) => y - x));
-    expect(b).toEqual([...b].sort((x, y) => y - x));
-    // Mons Mouton keeps power for 13 d 7 h but never sees Earth in its first 30 days: it sits under the heading, not among the others.
-    expect(within(group).getByRole('heading', { level: 3 }).textContent).toBe('No contact with Earth in the first 30 days');
-    expect(group.textContent).toMatch(/Power for a while, but no radio link to Earth then\./);
-    expect(within(without).getByText('Mons Mouton')).toBeTruthy();
-    expect(without.compareDocumentPosition(withContact) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-  });
-
-  it('names the best place of the whole list for these days, with a link to it', async () => {
-    const { store } = await ready();
-    const line = screen.getByText(/^Longest with power:/);
-    const link = within(line).getByRole('link');
-    const id = new URL(link.getAttribute('href')!, 'http://x').searchParams.get('site')!;
-    const o = store.getState().overview;
-    const best = Math.max(...Object.values(o).filter((x) => x.afterEarth > 0).map((x) => x.best?.poweredHours ?? -1));
-    expect(o[id].best?.poweredHours).toBe(best);
-    expect(o[id].afterEarth).toBeGreaterThan(0);
-    // A high point worked out from the heights is named as one, never as a checked place to land.
-    if (id.endsWith('_rim_high')) expect(line.textContent).toMatch(/, a derived high point not checked as safe to land, /);
-    else expect(line.textContent).not.toMatch(/derived/);
-  });
-
-  it('draws a bar for contact with Earth as it does for sunlight', async () => {
+  it('says what kind of point each site is, with the radius where it is known, on its card and in the list', async () => {
     await ready();
-    const row = rowOf('de Gerlache Rim 2');
-    const earth = row.querySelector<HTMLElement>('[data-bar="earth"]')!;
-    expect(earth.style.width).toBe('54%');
-    expect(row.querySelector('[data-bar="sun"]')).toBeTruthy();
-  });
-
-  it('pins every site that lies on the map, each a link with the site name', async () => {
-    await ready();
-    const map = screen.getByRole('region', { name: 'Map of the sites' });
-    const pins = within(map).getAllByRole('link');
-    expect(pins).toHaveLength(17);
-    expect(within(map).getByRole('link', { name: 'de Gerlache Rim 2' }).getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
-    expect(map.textContent).toMatch(/17 places lie outside this map\./);
-    expect(map.textContent).toMatch(/The south pole is at the centre\./);
-    // The key to the pins' colours comes before the map, on the first screen.
-    const key = within(map).getByText('two weeks or more with power');
-    expect(key.compareDocumentPosition(within(map).getAllByRole('link')[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // The pole is the map's landmark: its name is written before any other.
-    expect(within(map).getByRole('link', { name: 'Lunar south pole' }).querySelector('[data-side]')!.className).not.toMatch(/\bhidden\b/);
-    // Names are written on the map where they fit, the rows at the top of the list first.
-    const top = document.querySelector<HTMLElement>('main ul a[data-row]')!;
-    const pin = within(map).getByRole('link', { name: top.querySelector('span span')!.textContent! });
-    expect(pin.querySelector('[data-side]')!.className).not.toMatch(/\bhidden\b/);
-  });
-
-  it('lights the pin of the row under the pointer, and the row of the pin', async () => {
-    await ready();
-    const map = screen.getByRole('region', { name: 'Map of the sites' });
-    fireEvent.mouseEnter(rowOf('Haworth'));
-    expect(within(map).getByRole('link', { name: 'Haworth' }).getAttribute('data-active')).toBe('true');
-    fireEvent.mouseLeave(rowOf('Haworth'));
-    fireEvent.mouseEnter(within(map).getByRole('link', { name: 'Slater Plain' }));
-    expect(rowOf('Slater Plain').getAttribute('data-active')).toBe('true');
-  });
-
-  it('says what the page does in three steps on the page itself, with the method one point away (spec 23)', async () => {
-    await ready();
-    const steps = screen.getByRole('list', { name: 'How to choose' });
-    expect(within(steps).getAllByRole('listitem').map((li) => li.querySelector('.display')!.textContent)).toEqual(['Pick the dates', 'Compare the places', 'Open one']);
-    // The dates are chosen in step 1 itself.
-    expect(within(steps).getByLabelText('For')).toBeTruthy();
-    // No fold: the method is a tip, shown while the pointer or the focus is on its "i", or after a tap, and gone on Escape.
-    expect(screen.queryByRole('button', { name: /How these figures are counted/, expanded: true })).toBeNull();
-    const tip = screen.getByRole('button', { name: 'How these figures are counted' });
-    expect(screen.queryByRole('tooltip')).toBeNull();
-    fireEvent.mouseEnter(tip.parentElement!);
-    expect(screen.getByRole('tooltip').textContent).toMatch(/^Each site's figures are for landing on its best day/);
-    fireEvent.keyDown(tip, { key: 'Escape' });
-    expect(screen.queryByRole('tooltip')).toBeNull();
-    // Each column says what it means the same way, in each of the six groups.
-    for (const name of ['What Sunlight means', 'What Earth in view means', 'What Longest time with power means']) expect(screen.getAllByRole('button', { name }).length).toBe(6);
-  });
-
-  it('keeps the first screen to 88 words before a tap, at 1440 and on a phone (spec 20.1; spec 23 says on the page in three steps what the fold hid)', async () => {
-    await ready();
-    // From the heading down to the map, the part a first screen shows: the title band, the three steps and the map.
-    const main = document.querySelector('main')!;
-    const top = [...main.children].filter((el) => !el.classList.contains('wrap') || el.tagName === 'OL');
-    const map = main.querySelector('section[aria-label="Map of the sites"]')!;
-    for (const width of [WIDE, PHONE]) {
-      const n = [...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0);
-      expect(n, `${width} px`).toBeLessThanOrEqual(88);
-    }
-  });
-
-  it('says on every row what kind of point the site is, with the radius where it is known', async () => {
-    await ready();
+    fireEvent.mouseEnter(markerOf('Shackleton rim summit'));
+    // A high point worked out from the heights is never offered as a checked place to land.
+    expect(card()!.textContent).toMatch(/Derived high point, not checked as safe to land/);
+    fireEvent.mouseLeave(markerOf('Shackleton rim summit'));
+    openList();
     expect(rowOf('Apollo 11').textContent).toMatch(/Surveyed point/);
     expect(rowOf("Chang'e 4").textContent).toMatch(/Surveyed point, ±20\u00a0m/);
     expect(rowOf('Haworth').textContent).toMatch(/Centre of a region, ±5\u00a0km/);
     expect(rowOf('Luna 25 target').textContent).toMatch(/Landing target, ±15\u00a0km/);
     expect(rowOf('IM-3 Reiner Gamma').textContent).toMatch(/Landing target/);
     expect(rowOf('Lunar south pole').textContent).toMatch(/Reference point/);
-    // A high point worked out from the heights is never offered as a checked place to land.
     expect(rowOf('Shackleton rim summit').textContent).toMatch(/Derived high point, not checked as safe to land/);
   });
 
-  it('puts the far side under a heading of its own: Earth never rises there, and the relay lesson is told', async () => {
-    await ready();
-    const group = screen.getByRole('region', { name: 'Landers from other countries' });
-    const heading = within(group).getAllByRole('heading', { level: 3 }).find((h) => /far side/.test(h.textContent ?? ''))!;
-    expect(heading.textContent).toBe('On the far side: Earth never rises');
-    expect(group.textContent).toMatch(/A lander there reaches Earth only through a relay satellite, as Chang'e 4 and 6 did\./);
-    const far = heading.parentElement!.querySelector('ul')!;
-    expect([...far.querySelectorAll<HTMLElement>('a[data-row]')].map((a) => a.dataset.row).sort()).toEqual(['change4', 'change6']);
-    expect(rowOf("Chang'e 4").textContent).toMatch(/Never: far side/);
-    expect(rowOf("Chang'e 4").textContent).not.toMatch(/NaN/);
-    expect(rowOf('CP-12 Schrödinger').textContent).toMatch(/Never: far side/);
+  it('offers the same sites as a list, for anyone who cannot use the map', async () => {
+    const { store } = await ready();
+    const button = screen.getByRole('button', { name: 'List' });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    openList();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    const list = document.getElementById(button.getAttribute('aria-controls')!)!;
+    // It opens with the focus on its heading, and comes before the markers for the keyboard.
+    expect(within(list).getByRole('heading', { level: 2 }).textContent).toBe('All 34 sites');
+    expect(document.activeElement).toBe(within(list).getByRole('heading', { level: 2 }));
+    expect(list.compareDocumentPosition(markerOf('Haworth')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The map's three groups, in the key's words.
+    expect(within(list).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['NASA’s Artemis shortlist', 'Landers, flown or planned', 'High points and crater floors']);
+    expect(list.querySelectorAll('a[data-row]')).toHaveLength(34);
+    // A row has what the card has, and opens the same address.
+    const row = rowOf('de Gerlache Rim 2');
+    expect(row.getAttribute('href')).toBe(markerOf('de Gerlache Rim 2').getAttribute('href'));
+    expect(row.getAttribute('title')).toMatch(/A ridge on a crater rim, 52 km from the pole/);
+    expect(plain(row.textContent)).toBe('de Gerlache Rim 2, Centre of a region, ±5 km, Sunlight 41 % · Earth in view 54 %, Longest with power: 12 d 15 h, landing 20 Jan');
+    // Each group has the longest time with power first, then the places with no contact with Earth in these days.
+    const group = within(list).getByRole('region', { name: 'NASA’s Artemis shortlist' });
+    const ids = [...group.querySelectorAll<HTMLElement>('a[data-row]')].map((a) => a.dataset.row!);
+    expect(ids).toHaveLength(9);
+    const o = store.getState().overview;
+    const seen = ids.filter((id) => o[id].afterEarth > 0);
+    expect(ids.slice(0, seen.length)).toEqual(seen);
+    const hours = (list: string[]) => list.map((id) => o[id].best?.poweredHours ?? -1);
+    expect(hours(seen)).toEqual([...hours(seen)].sort((x, y) => y - x));
+    // Mons Mouton keeps power for 13 d 7 h but never sees Earth in its first 30 days: it comes after the others.
+    expect(ids.slice(seen.length)).toContain('mons_mouton');
+    // The far side, where Earth never rises, closes its group.
+    const landers = [...within(list).getByRole('region', { name: 'Landers, flown or planned' }).querySelectorAll<HTMLElement>('a[data-row]')].map((a) => a.dataset.row!);
+    expect(landers.slice(-3).sort()).toEqual(['change4', 'change6', 'cp12_schrodinger']);
+    // Escape, Close or the button again puts it away.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(document.querySelector('a[data-row]')).toBeNull();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    openList();
+    fireEvent.click(within(document.getElementById(button.getAttribute('aria-controls')!)!).getByRole('button', { name: 'Close' }));
+    expect(document.querySelector('a[data-row]')).toBeNull();
   });
 
-  it('gives the Apollo landings two weeks of sunlight and Earth in view all the time, for the days chosen above', async () => {
+  it('keeps the first screen to 48 words before a tap, at 1440 and on a phone (spec 20.1; spec 23: the map is the page)', async () => {
+    await ready();
+    // The window under the header: the title, its line of help, the key, the map and the bar.
+    const screenful = document.querySelector('[data-part="screen"]')!;
+    for (const width of [WIDE, PHONE]) expect(visibleWords(screenful, width).length, `${width} px`).toBeLessThanOrEqual(48);
+    expect(document.querySelector('main dl')).toBeNull();
+  });
+
+  it('gives the Apollo landings two weeks of sunlight and Earth in view all the time, for the days chosen', async () => {
     const { store } = await ready();
-    const group = screen.getByRole('region', { name: 'Where the Apollo crews landed' });
-    expect(group.textContent).toMatch(/Six crewed landings, 1969 to 1972\. The same lander and days/);
     const o = store.getState().overview;
     for (const id of ['apollo_11', 'apollo_15']) {
       expect(o[id].afterEarth, id).toBe(1);
@@ -217,20 +240,35 @@ describe('SitesView', () => {
     expect(o.apollo_15.best!.poweredHours).toBeLessThan(15.5 * 24);
     // Almost on the equator the midday Sun stands nearly overhead, where the upright panel catches little of it.
     expect(o.apollo_11.best!.poweredHours).toBeLessThan(9 * 24);
-    expect(rowOf('Apollo 11').textContent).toMatch(/Earth in view 100\u00a0%/);
+    fireEvent.mouseEnter(markerOf('Apollo 11'));
+    expect(card()!.textContent).toMatch(/Earth in view 100\u00a0%/);
   });
 
-  it('redoes the figures for another period', async () => {
+  it('keeps the dates behind one button, says what the figures count from, and redoes them for another period', async () => {
     const { store } = await ready();
-    fireEvent.change(screen.getByLabelText('For'), { target: { value: '14' } });
+    const button = screen.getByRole('button', { name: /^Dates/ });
+    // The button says the period the figures are for, long on a wide screen and short on a phone.
+    expect(visibleWords(button, WIDE).join(' ')).toBe('Dates 1 January 2027 , 30 days');
+    expect(visibleWords(button, PHONE).join(' ')).toBe('1 Jan 2027 , 30 days');
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(button);
+    const panel = screen.getByRole('region', { name: 'The dates the figures are for' });
+    expect(button.getAttribute('aria-controls')).toBe(panel.id);
+    // What the figures count from, the lander and why they differ from Explore's, in plain sentences (both readers, part C read 1).
+    expect(panel.querySelector('p:last-child')!.textContent).toBe(
+      "Each site's figures are for landing on its best day of the 30 days from 1 January 2027 and the 30 days after it, for one lander: 4 m² panel that turns to the Sun, uses 200 W, 2 kWh battery, the hills seen from a 2 m mast. Explore and Compare start on the first day, so their figures can differ.",
+    );
+    fireEvent.change(within(panel).getByLabelText('For'), { target: { value: '14' } });
     expect(store.getState().days).toBe(14);
     await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(34), { timeout: 20_000 });
-    await waitFor(() => expect(rowOf('de Gerlache Rim 2').getAttribute('href')).toMatch(/days=14/));
-    fireEvent.click(screen.getByRole('button', { name: 'How these figures are counted' }));
-    expect(screen.getByRole('tooltip').textContent).toMatch(/best day of the 14 days from 1 January 2027, the day under its name, and the 14 days after it/);
+    await waitFor(() => expect(markerOf('de Gerlache Rim 2').getAttribute('href')).toMatch(/days=14/));
+    expect(panel.querySelector('p:last-child')!.textContent).toMatch(/best day of the 14 days from 1 January 2027 and the 14 days after it/);
+    expect(visibleWords(button, WIDE).join(' ')).toBe('Dates 1 January 2027 , 14 days');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByLabelText('For')).toBeNull();
   });
 
-  it('shows the rows before the figures arrive', async () => {
+  it('shows the markers before the figures arrive', async () => {
     let release: () => void = () => {};
     const gate = new Promise<void>((r) => (release = r));
     const base = fileLoaders();
@@ -241,54 +279,22 @@ describe('SitesView', () => {
         return base.loadMask(id);
       },
     });
-    render(<SitesView store={store} navigate={() => {}} />);
-    await waitFor(() => expect(screen.getAllByRole('link').some((a) => a.dataset.row === 'haworth')).toBe(true));
-    expect(rowOf('Haworth').textContent).toMatch(/working it out/);
+    render(<SitesView store={store} />);
+    await waitFor(() => expect(within(map()).getAllByRole('link')).toHaveLength(34));
+    fireEvent.mouseEnter(markerOf('Haworth'));
+    expect(card()!.textContent).toMatch(/Working it out…/);
     release();
-    await waitFor(() => expect(rowOf('Haworth').textContent).toMatch(/Sunlight \d+ %/), { timeout: 20_000 });
+    await waitFor(() => expect(card()!.textContent).toMatch(/Sunlight \d+\u00a0%/), { timeout: 20_000 });
   });
 
-  it('computes a place that is not in the list and opens it', async () => {
-    const navigate = vi.fn();
-    const computeMask = vi.fn(async () => ({ mask: new Float64Array(720), siteHeightM: 0, failedTiles: 0 }));
-    const store = createExploreStore(fileLoaders({ computeMask }));
-    render(<SitesView store={store} navigate={navigate} />);
-    await waitFor(() => expect(store.getState().status).toBe('ready'));
-    fireEvent.change(screen.getByLabelText('Latitude (°)'), { target: { value: '10' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Compute this place' }));
-    expect(screen.getByRole('alert').textContent).toMatch(/south of 60° S/);
-    expect(computeMask).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText('Latitude (°)'), { target: { value: '-88.2' } });
-    fireEvent.change(screen.getByLabelText('Longitude (°)'), { target: { value: '40' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Compute this place' }));
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith('/explore'));
-    expect(computeMask).toHaveBeenCalledWith(-88.2, 40, 2);
-    expect(store.getState().site?.category).toBe('custom');
-  });
-
-  it('says plainly when the height tiles are missing, and that the places in the list work without them', async () => {
-    // A copy set up with the committed data alone: the engine finds no tiles to trace the hills from.
-    const computeMask = vi.fn(async () => {
-      throw new DataError('/data/tiles/manifest.json', 404);
-    });
-    const store = createExploreStore(fileLoaders({ computeMask }));
-    render(<SitesView store={store} navigate={vi.fn()} />);
-    await waitFor(() => expect(store.getState().status).toBe('ready'));
-    fireEvent.change(screen.getByLabelText('Latitude (°)'), { target: { value: '-88.2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Compute this place' }));
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('That place cannot be worked out here: this copy of Earthrise has no height tiles. The places in the list work without them.'));
-  });
-
-  it('names its NASA data', async () => {
+  it('names its NASA data under the map', async () => {
     await ready();
     const row = screen.getByLabelText('Data sources');
     // The figures come from horizons on LOLA's 20 m grid near the pole and its 80 m grid farther out, with DE440. The
-    // places are NASA's Artemis III regions and the CLPS landings.
-    expect(within(row).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'NASA LRO LOLA 240 m', 'JPL DE440', 'Artemis III regions', 'CLPS mission records', 'LROC and NSSDCA lander positions']);
-    // The row is the foot of the list: after its last group, before the place to work out somewhere else.
-    const last = screen.getByRole('region', { name: 'High points and crater floors' });
-    expect(last.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(row.compareDocumentPosition(screen.getByRole('region', { name: 'Somewhere else' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // places are NASA's Artemis III regions and the CLPS landings; the inset is the CGI Moon Kit's map.
+    expect(within(row).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'NASA LRO LOLA 240 m', 'JPL DE440', 'Artemis III regions', 'CLPS mission records', 'LROC and NSSDCA lander positions', 'NASA CGI Moon Kit']);
+    expect(map().compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(map().contains(row)).toBe(false);
   });
 
   it('says in plain words when the data cannot be loaded, and keeps the pipeline command for developers only', async () => {
@@ -306,13 +312,13 @@ describe('SitesView', () => {
       });
     // Two sentences in two paragraphs, which textContent runs together.
     const plain = /The data could not be loaded\.\s*Reload the page, or try again in a minute\./;
-    render(<SitesView store={missing()} navigate={() => {}} />);
+    render(<SitesView store={missing()} />);
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
     // Under next dev, as in tests, the page also names the command that fills web/public/data, then the error.
     expect(screen.getByRole('alert').textContent).toMatch(/sync-local --tiles.*HTTP 404/);
     vi.stubEnv('NODE_ENV', 'production');
     cleanup();
-    render(<SitesView store={missing()} navigate={() => {}} />);
+    render(<SitesView store={missing()} />);
     await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(plain));
     expect(screen.getByRole('alert').textContent).not.toMatch(/sync-local|HTTP 404/);
   });

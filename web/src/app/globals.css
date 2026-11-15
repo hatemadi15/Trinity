@@ -49,6 +49,10 @@
   --stage-line: #2b2d33;
   --stage-sun: #f3efe4;
   --stage-earth: #7fa9ff;
+  /* On the black band: radio contact's green, and a figure's panel, a step lighter than the band, with its edge. */
+  --stage-good: #63d39b;
+  --stage-raised: #14171d;
+  --stage-raised-line: #414650;
   --hill: #55585f;
   --hill-edge: #dfe1e6;
   color-scheme: light;
@@ -126,6 +130,9 @@
   --color-stage-edge: var(--stage-edge);
   --color-stage-sun: var(--stage-sun);
   --color-stage-earth: var(--stage-earth);
+  --color-stage-good: var(--stage-good);
+  --color-stage-raised: var(--stage-raised);
+  --color-stage-raised-line: var(--stage-raised-line);
   --color-hill: var(--hill);
   /* Titles: a high-contrast serif with a true italic (the Default Lingo look); a pixel face for the odd accent; Plex for reading and its mono for labels. */
   --font-display: var(--font-serif), "Instrument Serif", Georgia, serif;

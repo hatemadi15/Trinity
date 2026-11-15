@@ -60,6 +60,11 @@ test.describe('Touch', () => {
 
     await test.step('a finger drawn along the time bar moves the time, and Play stays paused', async () => {
       await expect(slider).toHaveAttribute('aria-valuetext', /^1 Jan 2027, 00:00 UTC: /);
+      // The time bar shows with the hour-by-hour section only: scroll down to it, as a thumb would.
+      await slider.scrollIntoViewIfNeeded();
+      // The page scrolls smoothly: wait until the bar has come to rest on the screen before putting a finger on it.
+      await expect(slider).toBeInViewport({ ratio: 1 });
+      await page.waitForTimeout(400);
       await fingerDrag(page, slider, 0.02, 0.5);
       // 14 days are 335 hours: halfway along is about the 8th.
       await expect.poll(() => hourOf(slider)).toBeGreaterThan(120);

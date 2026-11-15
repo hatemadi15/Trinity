@@ -28,6 +28,8 @@ const seg = (on: boolean) => `px-3.5 ${on ? 'bg-ink font-semibold text-page' : '
 const tabClass = (on: boolean) => `-mb-px h-11 whitespace-nowrap border-b-[3px] px-1 text-[16px] max-sm:text-[15px] max-[389px]:text-[14px] max-[389px]:tracking-tight ${on ? 'border-ink font-semibold text-ink' : 'border-transparent text-ink-2 hover:text-ink'}`;
 /** The picture beside its reading guide from the medium screen up, above it on a phone. */
 const BESIDE = 'grid gap-x-8 gap-y-4 md:grid-cols-[minmax(0,560px)_minmax(0,1fr)]';
+/** The same parts one above the other, when the panel is half the row wide. */
+const STACKED = 'grid gap-y-4';
 
 export type GroundTab = 'map' | '3d' | 'horizon';
 /** The tab a polar site opens on: the shadow map reads at a glance, so it comes before "3D from above". */
@@ -116,6 +118,7 @@ export function GroundPanel({
   standLink,
   coldLayer = false,
   coldOverlay,
+  stacked = false,
 }: {
   site: Site;
   sites: Site[];
@@ -149,7 +152,10 @@ export function GroundPanel({
   coldLayer?: boolean;
   /** Injected in tests; by default the app's data/coldtraps/overlay.json, loaded once the layer is switched on. */
   coldOverlay?: () => Promise<ColdOverlayDoc>;
+  /** The panel has half the row (Explore's chart is beside it): the picture sits above its key and controls, never beside them. */
+  stacked?: boolean;
 }) {
+  const beside = stacked ? STACKED : BESIDE;
   // Until a tab is chosen, a site with no polar terrain opens on the horizon chart: it has no map.
   const [chosen, setChosen] = useState<GroundTab | null>(null);
   const tab = chosen ?? (site.polar ? DEFAULT_GROUND_TAB : 'horizon');
@@ -252,7 +258,7 @@ export function GroundPanel({
           (!site.polar ? (
             <p className="text-ink-2">This tool has height data only around the south pole, so this site&apos;s horizon is taken as flat. The Horizon chart tab shows the paths of the Sun and Earth over it.</p>
           ) : finest ? (
-            <div className={BESIDE}>
+            <div className={beside}>
               <div className="stage aspect-square">
                 <ShadowMap
                   picture={picture}
@@ -271,7 +277,7 @@ export function GroundPanel({
                 />
               </div>
               <div className="text-[15px] text-ink-2">
-                <ul aria-label="How to read the map" className="flex flex-col gap-2 text-ink">
+                <ul aria-label="How to read the map" className={`flex gap-2 text-ink ${stacked ? 'flex-row flex-wrap gap-x-6' : 'flex-col'}`}>
                   <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm bg-stage-ink" />}>sunlit ground</KeyItem>
                   <KeyItem sample={<span className="block h-3.5 w-6 rounded-sm border border-stage-ink/40 bg-black" />}>shadow</KeyItem>
                   <KeyItem sample={<Arrow color="var(--stage-sun)" />}>towards the Sun</KeyItem>
@@ -315,7 +321,7 @@ export function GroundPanel({
 
       <div role="tabpanel" id="ground-panel-3d" aria-labelledby="ground-tab-3d" hidden={tab !== '3d'} className="mt-4">
         {tab === '3d' && (
-          <div className={BESIDE}>
+          <div className={beside}>
             <div ref={stage} data-full="3d" className="stage aspect-square">
               <div className="absolute inset-0">
                 {/* When the 3D view's code fails to load, the tab says so and the other tabs work on, where the failure would
@@ -330,7 +336,7 @@ export function GroundPanel({
                 </button>
               )}
             </div>
-            <div className="flex flex-col items-start gap-3">
+            <div className={`flex items-start gap-3 ${stacked ? 'flex-row flex-wrap' : 'flex-col'}`}>
               {site.polar && (
                 <div role="group" aria-label="View" className={SEG}>
                   <button type="button" aria-pressed={view === 'terrain'} onClick={() => onMode('terrain')} className={seg(view === 'terrain')}>
@@ -356,7 +362,7 @@ export function GroundPanel({
                   Full screen
                 </button>
               )}
-              <p className="text-[15px] text-ink-2">{caption3d}</p>
+              <p className="basis-full text-[15px] text-ink-2">{caption3d}</p>
             </div>
           </div>
         )}

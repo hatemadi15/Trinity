@@ -30,8 +30,15 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   nebula, black in both themes after 04's paper. No folds. The words under the descent were cut (15 November, owner
   review) from 914 words of text to about 620, and outside 02's questions from 653 to about 430, held by caps in
   `page.test.tsx`.
-- **Choose a site.** The title over the nebula, then three steps on the page (pick the dates, compare the places,
-  open one); what the figures count from and what each column means are one point away (`Tip`).
+- **Choose a site.** The map is the page (15 November, owner review): the south pole's relief fills the window under
+  the header, with an inset of the whole Moon for the sites far from the pole. Every site is a marker whose mark says
+  its group (NASA's Artemis shortlist, landers, high points and crater floors, with a small key); no name is written
+  until a marker is pointed at, focused or tapped, when a card names it with its figures and every other marker greys
+  out. Close markers are moved apart. A click opens Explore filled in for the site; on a phone the first tap shows the
+  card and the card opens the site. The bar at the foot holds the dates behind one button (with what the figures count
+  from), "List" (the same sites for the keyboard and screen readers) and the primary "Choose your own site", which
+  opens Explore with nothing filled in (`/explore?own=1`); the "Somewhere else" form is gone. The first screen is held
+  to 48 words (`SitesView.test.tsx`).
 - **404.** The nebula, with the page's own sentence as its headline.
 - **Header.** The Moon mark turns as the page scrolls; the current section is underlined.
 
@@ -92,7 +99,7 @@ Textures and their credits: `web/public/hero/textures/`.
   browser, `lunaStore.voice`), keeps every reply to the conversation when off, stopping her at once mid-reply.
 
 ## 23.3 Clearer sections
-- The forecast reads in three steps with room between them: the Sun, Earth, the lander.
+- The forecast reads in three steps with room between them: the Sun, Earth, the lander. Each step is a figure in its own framed panel, a step lighter than the black band (`--stage-raised`), not a full-bleed row. A locator beside the title marks the site at the Moon's south pole, and a small drawing beside each chart (`home/ForecastFigures`) shows the viewer standing at the site, with the Sun or Earth above the hills and behind them. The lander's lanes are thick and coloured as the view from the site's key: warm white for sunlight, blue for Earth in view, green for radio contact, with the dates under them.
 - **Earth in view is not radio contact** (15 November, owner review). The Earth row is named "Earth in view" and its
   hidden stretches "Out of view"; it never says "contact". The lander step states the rule, "Radio contact needs
   power and Earth in view at once", and draws it on the rows' own time scale (`ContactStrip`, `lib/viz/homeContact`):
@@ -112,3 +119,29 @@ Textures and their credits: `web/public/hero/textures/`.
   the hills (it rises and sets in place; still under reduced motion). The last answer links to How it works.
 - The charts of the same three facts by direction and height (`WhySection`, `WhyDrawings`, `lib/viz/why`), with
   their Play buttons, the Moon's 1.5° tilt and the rule of thumb for angles, now stand on How it works only.
+
+## 23.4 Explore, reordered
+(15 November, owner review: less scrolling, plainer words, the player only where things move.)
+- **The order.** Where on the Moon first and short (a 240 px map, the place's line, the three nearest sites in one
+  row; on a phone the map and the list wait behind "Map and nearby sites"). Then the band (site, dates, lander),
+  the answer and the numbers. Then the two parts that move with the hour, side by side from 1280 px and stacked
+  below it: the hour-by-hour chart with the radio windows under it, and the ground (`GroundPanel stacked`,
+  `TimeChart half`). Then every landing day of the next 12 months, the assistant, and a closing panel, "How sure are
+  these numbers? We checked them against NASA's own figures.", with one white button, "See the checks", to Accuracy
+  (`btn-ink`, so the answer keeps the page's one gold action).
+- **The player.** The time bar is the last child of the section "Hour by hour" and sticks to the window's foot
+  inside it, so it shows only while the chart or the ground is on screen and leaves with them; it is never fixed.
+  It stays in the page's reading and tab order, after the ground. Luna stands on the bar only while it is at the
+  window's foot (`LunaDock`), and on the page's own foot elsewhere.
+- **The site is a drop-down on the page** (`SitePicker`, in the band): the catalogue in the Sites page's groups and
+  order, the site shown marked, then "Your own site…". A site chosen loads in place and keeps the dates and the
+  lander; the arrow keys move through the list, Escape closes it. No trip to `/sites`.
+- **A place of one's own** (`OwnSite`). "Your own site…" opens two empty fields under the band, latitude and
+  longitude, and keeps the dates and the lander. `/explore?own=1` (the Sites page's "Choose your own site") fills
+  nothing in and asks in three steps: where (the two fields, or a press on the relief map of the pole), when (the
+  landing date, its hour in UTC, the days), and the lander, which starts from the default and says so. "Work it
+  out" checks each step in the page's own words, traces the hills, and the page becomes the usual Explore for the
+  place, its address `/explore?site=custom_<lat>_<lon>&start=&days=`. Until then the address stays `?own=1`. The
+  checks are the Sites page's former "Somewhere else": south of 60° S, and a plain sentence where the height tiles
+  are missing. "Your own point is not checked for landing" stands under the button.
+- **Measured** at 1440 px: the page is 3778 px tall, from 4406; on a 390 px phone 6289, from 6670.

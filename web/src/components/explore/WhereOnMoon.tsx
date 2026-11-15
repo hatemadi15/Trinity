@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
+import { useState } from 'react';
 import { Fold } from '@/components/Fold';
 import { ReliefMap, type MapPin } from '@/components/ReliefMap';
 import { lolaFor, Sources } from '@/components/Sources';
-import { exploreHref } from '@/components/sites/SitesView';
+import { exploreHref } from '@/lib/links';
 import { HOME } from '@/lib/data/home';
 import { landedWords, pointKind } from '@/lib/data/kind';
 import { siteLabel, type Site } from '@/lib/data/loaders';
@@ -17,7 +18,10 @@ import { groundWords } from './GroundQuality';
 /** Farther than this, another site is not "nearby": a mare lander's nearest neighbour is thousands of km away. */
 const NEAR_KM = 300;
 
-/** The place on the relief map of the south pole, one line about it, and the nearest other sites with their sunlight. */
+/**
+ * The place on the relief map of the south pole, one line about it, and the nearest other sites with their sunlight.
+ * It opens Explore (spec 23.4), so `wide` keeps it short: a small map, the words and the nearby sites in one row.
+ */
 export function WhereOnMoon({
   site,
   sites,
@@ -55,6 +59,9 @@ export function WhereOnMoon({
   // The day it landed opens Explore there only inside the 2024 to 2036 table; an older landing keeps its date.
   const landed = landedWords(site);
   const cold = coldTrapWords(coldTraps);
+  // On a phone the map and the nearby sites wait one tap away, so the answer is close to the first screen.
+  const [more, setMore] = useState(false);
+  const folded = wide && !more ? 'max-md:hidden' : '';
   return (
     <section aria-label="Where on the Moon" className="panel">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4">
@@ -63,7 +70,7 @@ export function WhereOnMoon({
           See all sites
         </Link>
       </div>
-      <div data-part="layout" className={wide ? 'mt-3 grid gap-x-8 md:grid-cols-[minmax(0,420px)_minmax(0,1fr)]' : ''}>
+      <div data-part="layout" className={wide ? 'mt-3 grid gap-x-8 md:grid-cols-[minmax(0,240px)_minmax(0,1fr)] lg:grid-cols-[minmax(0,240px)_minmax(0,1fr)_minmax(0,1fr)]' : ''}>
         <div className={wide ? 'md:col-start-2 md:row-start-1' : ''}>
         <p className="mt-2 text-ink-2">
           <b className="font-semibold text-ink">{siteLabel(site)}.</b> {site.blurb ? `${site.blurb}.` : `A place at ${Math.abs(site.lat).toFixed(2)}° ${site.lat < 0 ? 'S' : 'N'}.`}
@@ -98,7 +105,15 @@ export function WhereOnMoon({
           </Fold>
         )}
         </div>
-        <div className={`mt-3 ${wide ? 'md:col-start-1 md:row-span-3 md:row-start-1 md:mt-0' : ''}`}>
+        {wide && (
+          <button type="button" aria-expanded={more} onClick={() => setMore((m) => !m)} className="inline-flex min-h-10 items-center gap-1.5 text-left text-[15px] font-medium text-ink underline decoration-line-strong underline-offset-4 md:hidden">
+            Map and nearby sites
+            <span aria-hidden="true" className="no-underline">
+              {more ? '▴' : '▾'}
+            </span>
+          </button>
+        )}
+        <div data-part="map" className={`mt-3 ${folded} ${wide ? 'max-md:max-w-[280px] md:col-start-1 md:row-span-3 md:row-start-1 md:mt-0' : ''}`}>
           <ReliefMap pins={pins} selectedId={site.id} />
           <p className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-ink-2">
             <span className="flex items-center gap-2">
@@ -115,7 +130,7 @@ export function WhereOnMoon({
             </span>
           </p>
         </div>
-        <div className={wide ? 'md:col-start-2 md:row-start-2' : ''}>
+        <div data-part="near" className={wide ? `${folded} md:col-start-2 md:row-start-2 lg:col-start-3 lg:row-start-1 lg:-mt-4` : ''}>
           {near.length === 0 ? (
             <p className="mt-4 border-t border-line pt-3 text-[15px] text-ink-2">No other site in the list is within {NEAR_KM} km.</p>
           ) : (

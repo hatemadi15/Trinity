@@ -1,5 +1,4 @@
 'use client';
-import Link from 'next/link';
 import { useId, useState, type RefObject } from 'react';
 import { PeriodControls } from '@/components/PeriodControls';
 import { siteLabel, type Site } from '@/lib/data/loaders';
@@ -7,6 +6,7 @@ import type { PowerConfig } from '@/lib/engine/power';
 import { landerName, presetOf } from '@/lib/lander';
 import type { WindowDays } from '@/lib/store/explore';
 import { startWords } from '@/lib/period';
+import { SitePicker } from './SitePicker';
 
 const TAG = 'shrink-0 rounded-full border border-line px-2.5 py-0.5 text-[15px] text-ink-2';
 
@@ -19,9 +19,12 @@ export function periodLine(label: string, startUtc: string, days: number, power:
   return `${label}, ${days} days from ${startWords(startUtc)}, ${preset ? `${preset.id} lander` : 'custom lander'}`;
 }
 
-/** The four things a forecast is for, in one row: the landing site, the start, the length and the lander. */
+/** The four things a forecast is for, in one row: the landing site (a drop-down, on this page), the start, the length and the lander. */
 export function PeriodBand({
   site,
+  sites,
+  onSite,
+  onOwn,
   startUtc,
   days,
   onWindow,
@@ -30,6 +33,12 @@ export function PeriodBand({
   landerRef,
 }: {
   site: Site;
+  /** The catalogue the site drop-down lists; a custom place is never in it. */
+  sites: Site[];
+  /** A site chosen in the drop-down: it loads in place, with the dates and the lander kept. */
+  onSite: (id: string) => void;
+  /** "Your own site…": the page opens its own-site fields. */
+  onOwn: () => void;
   startUtc: string;
   days: WindowDays;
   onWindow: (startUtc: string, days: WindowDays) => void;
@@ -51,13 +60,7 @@ export function PeriodBand({
         </button>
       </p>
       <div id={fieldsId} className={`contents ${open ? '' : 'max-sm:hidden'}`}>
-        <div className="flex min-w-0 flex-[1_1_250px] flex-col gap-1.5 text-[15px] text-ink-2">
-          <span aria-hidden="true">Landing site</span>
-          <Link href="/sites" aria-label={`Landing site: ${label}. Change site`} className="field flex min-w-0 items-center gap-3 text-base text-ink">
-            <span className="grow truncate font-medium">{label}</span>
-            <span className={TAG}>change site</span>
-          </Link>
-        </div>
+        <SitePicker site={site} sites={sites} onSite={onSite} onOwn={onOwn} />
         {/* The lander is the period controls' next field, so the row they end with (the shift) comes after it. */}
         <PeriodControls startUtc={startUtc} days={days} onChange={onWindow}>
           <div className="flex min-w-0 flex-[1.8_1_250px] flex-col gap-1.5 text-[15px] text-ink-2">

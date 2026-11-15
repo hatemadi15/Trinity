@@ -104,7 +104,9 @@ export function LunaDock() {
       raf = 0;
       const bar = document.querySelector<HTMLElement>('section[aria-label="Time"]');
       const r = bar?.getBoundingClientRect();
-      setLift(r && r.top < window.innerHeight ? Math.max(0, window.innerHeight - r.top) : 0);
+      // Only while the bar is at the window's foot: Explore's bar is pinned for its hour-by-hour section alone, and once
+      // it has scrolled up with that section she is back on the page's own foot.
+      setLift(r && r.top < window.innerHeight && r.bottom >= window.innerHeight - 1 ? Math.max(0, window.innerHeight - r.top) : 0);
     };
     const later = () => {
       if (!raf) raf = requestAnimationFrame(measure);

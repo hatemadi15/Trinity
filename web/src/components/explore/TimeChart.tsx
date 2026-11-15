@@ -57,6 +57,7 @@ export function TimeChart({
   onCursor,
   onHover,
   site,
+  half = false,
 }: {
   series: Series;
   mask: ArrayLike<number>;
@@ -70,6 +71,8 @@ export function TimeChart({
   onHover: (hour: number | null) => void;
   /** The site, so the row of data sources can name the grid its hills come from. */
   site?: Pick<Site, 'lat' | 'polar'>;
+  /** The chart has half the row (Explore's ground is beside it), so the Sun's directions stand farther apart. */
+  half?: boolean;
 }) {
   const hours = series.hours;
   const dragging = useRef(false);
@@ -85,7 +88,7 @@ export function TimeChart({
   const pct = (hour: number) => ((hour + 0.5) / hours) * 100;
   const period = `the ${days} days from ${landingWords(startUtc)}`;
 
-  const compass = spaced(compassTicks(series.sunAz), pct, 3, 97, 9);
+  const compass = spaced(compassTicks(series.sunAz), pct, half ? 10 : 3, 97, half ? 21 : 9);
   const ticks = dayTicks(days);
   const off = power ? offRuns(power.powered) : [];
   const longestOff = off.reduce<{ from: number; to: number } | null>((best, r) => (!best || r.to - r.from > best.to - best.from ? r : best), null);

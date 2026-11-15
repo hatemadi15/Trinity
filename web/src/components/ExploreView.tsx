@@ -8,11 +8,11 @@ import { PlannerChat } from './PlannerChat';
 import { SkylineNote } from './SkylineNote';
 import { GroundPanel } from './explore/GroundPanel';
 import { LanderDialog } from './explore/LanderDialog';
+import { OwnSite } from './explore/OwnSite';
 import { ShareDialog } from './explore/ShareDialog';
 import { NumbersCard } from './explore/NumbersCard';
 import { PeriodBand } from './explore/PeriodBand';
 import { RadioWindows } from './explore/RadioWindows';
-import { exploreHref } from './sites/SitesView';
 import { TimeBar } from './explore/TimeBar';
 import { LunaControls } from './luna/LunaControls';
 import { TimeChart } from './explore/TimeChart';
@@ -25,7 +25,7 @@ import { globeTextureUrl } from '@/lib/data/terrain';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useNavigate } from '@/lib/hooks/useNavigate';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { briefHref, standHref, withSettings } from '@/lib/links';
+import { briefHref, exploreHref, standHref, withSettings } from '@/lib/links';
 import { useAddressFollows } from '@/lib/hooks/useAddressFollows';
 import { useDataVersions } from '@/lib/hooks/useDataVersions';
 import { appVersion } from '@/lib/share/versions';
@@ -50,9 +50,11 @@ import { coldTrapSite, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
 import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
 
 /**
- * Explore: the answer for one site and period first (in words, with the better landing date), then why
- * (the Sun, Earth and the battery hour by hour), then the ground, where the site is, and the assistant.
- * The time bar stays pinned to the bottom of the window.
+ * Explore, reordered (spec 23.4): where the site is, then the answer for it and the period (in words, with the better
+ * landing date), then the two parts that move with the hour side by side (the Sun, Earth and the battery hour by
+ * hour, with the radio windows, and the ground), then every landing day of the year, the assistant, and the way to
+ * the Accuracy page. The time bar is pinned to the bottom of the window only while the parts that move are on screen.
+ * The site changes in a drop-down on the page; `/explore?own=1` asks for a place of the visitor's own in three steps.
  */
 export function ExploreView({
   store = exploreStore,
@@ -86,6 +88,9 @@ export function ExploreView({
   const dataVersions = useDataVersions(shareOpen);
   const reducedMotion = useReducedMotion();
   useDemoMode(store);
+  // A place of the visitor's own: 'guided' is /explore?own=1 (the Sites page's "Choose your own site"), where nothing is
+  // filled in and three steps ask where, when and the lander; 'inline' is the site drop-down's "Your own site…".
+  const [own, setOwn] = useState<'guided' | 'inline' | null>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('own') === '1' ? 'guided' : null));
 
   // The address the visit came with is read before the data loads and applied once it is in; only then does the page
   // write its own, so its defaults never replace a shared link before it is read.
@@ -101,7 +106,8 @@ export function ExploreView({
   // From then on the address follows the site, the period (its landing hour and length included), every setting the
   // figures depend on, the requirements set and the ranking, so a reload or a copied address opens the same forecast and better date.
   const link = s.site ? withSettings(exploreHref(s.site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy) : null;
-  useAddressFollows(link, linked && s.status === 'ready');
+  // The steps for a place of one's own keep their address until the place is worked out.
+  useAddressFollows(link, linked && s.status === 'ready' && own !== 'guided');
   // The home page links to /explore#ask. On a first visit the page still says "Loading NASA data…" when Next looks
   // for #ask, and Next drops a target it cannot find. So once the data is in, the page goes to the assistant
   // itself, once, and puts the cursor in its box, as "Or ask in plain words" does.
@@ -275,7 +281,28 @@ export function ExploreView({
     );
   }
 
+  if (own === 'guided') {
+    return (
+      <AppFrame>
+        <main className="wrap flex flex-col gap-6 pb-12 pt-8">
+          <div>
+            <h1 className="display text-[36px] font-semibold leading-tight sm:text-[44px]">Your own site</h1>
+            <p className="mt-2 max-w-[46em] text-lg text-ink-2">Three short steps, then the forecast for your place. Nothing is filled in for you.</p>
+          </div>
+          <OwnSite store={store} guided onDone={() => setOwn(null)} onLander={() => setLanderOpen(true)} landerRef={landerRef} />
+          <p className="text-[15px]">
+            <Link href="/sites" className="font-medium text-ink underline decoration-line-strong underline-offset-4 hover:decoration-ink">
+              Choose a listed site instead
+            </Link>
+          </p>
+          {landerOpen && <LanderDialog params={s.params} onPower={s.setPower} onParams={s.setParams} busy={s.maskBusy} onClose={() => setLanderOpen(false)} returnFocus={landerRef} />}
+        </main>
+      </AppFrame>
+    );
+  }
+
   const site = s.site;
+  const catalogue = s.sites.filter((x) => x.category !== 'custom');
   const better = answer?.better;
   // The view from the site and the brief work their figures out from the same settings.
   const standLink = withSettings(standHref(site.id, s.startUtc, s.days, s.cursorHour), s.params, s.requirements, s.rankBy);
@@ -292,8 +319,12 @@ export function ExploreView({
             },
           }}
         />
-        <div className="wrap flex w-full min-w-0 flex-col gap-6 pb-10 pt-6">
-          <PeriodBand site={site} startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} power={s.params.power} onLander={() => setLanderOpen(true)} landerRef={landerRef} />
+        <div className="wrap flex w-full min-w-0 flex-col gap-6 pb-6 pt-6">
+          {/* Where the site is comes first (spec 23.4), kept short: a small map, one line and the nearest sites. */}
+          <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} coldTraps={coldTrapSite(cold, site.id)} />
+          <PeriodBand site={site} sites={catalogue} onSite={(id) => void store.getState().selectSite(id)} onOwn={() => setOwn('inline')} startUtc={s.startUtc} days={s.days} onWindow={s.setWindow} power={s.params.power} onLander={() => setLanderOpen(true)} landerRef={landerRef} />
+          {/* The drop-down's "Your own site…": only where is asked; the dates and the lander stay. */}
+          {own === 'inline' && <OwnSite store={store} onDone={() => setOwn(null)} onCancel={() => setOwn(null)} />}
           {/* The selected site and the places the nearby search reads, while their hills are worked out for the chosen mast. */}
           <SkylineNote state={s} ids={[site.id, ...s.sites.filter((x) => x.category !== 'custom' && x.id !== site.id).map((x) => x.id)]} selected />
           {s.error && (
@@ -344,67 +375,91 @@ export function ExploreView({
               Compare from here
             </button>
           </p>
-          <TimeChart
-            site={site}
+        </div>
+        {/* The two parts that move with the hour, side by side on a wide window: the chart with the radio windows under
+            it, and the ground. The time bar is the section's last child and sticks to the window's foot, so it shows
+            only while this section is on screen; it stays in the page's reading and tab order all the while. */}
+        <section aria-label="Hour by hour" data-part="dynamic" className="flex flex-col">
+          <div className="wrap grid w-full min-w-0 items-start gap-6 pb-6 xl:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-6">
+              <TimeChart
+                site={site}
+                series={s.series}
+                mask={s.mask}
+                power={s.power}
+                batteryWh={s.params.power.batteryWh}
+                startUtc={s.startUtc}
+                days={s.days}
+                cursor={s.cursorHour}
+                hoverHour={hoverHour}
+                onCursor={s.setCursor}
+                onHover={setHoverHour}
+                half
+              />
+              {/* When Earth is in view for radio, and when the lander has power to use it, at the time bar's hour. */}
+              <RadioWindows series={s.series} power={s.power} startUtc={s.startUtc} hour={s.cursorHour} />
+            </div>
+            <GroundPanel
+              site={site}
+              sites={s.sites}
+              scene={scene}
+              mode={s.mode}
+              exaggeration={s.exaggeration}
+              heightmap={s.heightmap}
+              contextHeightmap={s.contextHeightmap}
+              capHeightmap={s.capHeightmap}
+              textureUrl={globeTextureUrl(dataBase(), s.terrainManifest)}
+              terrainState={s.terrainState}
+              windowLoading={s.windowLoading}
+              customError={s.customError}
+              // The ground is lit for the time bar's hour, not the hour under the pointer on the chart.
+              when={dateTimeUtc(s.startUtc, s.cursorHour)}
+              startUtc={s.startUtc}
+              days={s.days}
+              mask={s.mask}
+              series={s.series}
+              cursor={s.cursorHour}
+              onMode={s.setMode}
+              onExaggeration={s.setExaggeration}
+              onPick={onPick}
+              reducedMotion={reducedMotion}
+              standLink={standLink}
+              stacked
+              coldLayer={coldTrapSite(cold, site.id)?.covered === true}
+            />
+          </div>
+          {/* The period's key moments as dots with Next, as on the stand view, so Play and Next show what happens on the first
+              screen (21.1); a preview on the bar moves the chart's time line and the date, as the chart's own does. */}
+          <TimeBar
             series={s.series}
-            mask={s.mask}
             power={s.power}
-            batteryWh={s.params.power.batteryWh}
             startUtc={s.startUtc}
-            days={s.days}
             cursor={s.cursorHour}
             hoverHour={hoverHour}
+            batteryWh={s.params.power.batteryWh}
             onCursor={s.setCursor}
+            moments={keyMoments(s.series, s.power, s.startUtc).map((m) => ({ label: `${m.label}, ${m.day}`, hour: m.hour }))}
             onHover={setHoverHour}
           />
-          {/* When Earth is in view for radio, and when the lander has power to use it, at the time bar's hour. */}
-          <RadioWindows series={s.series} power={s.power} startUtc={s.startUtc} hour={s.cursorHour} />
+        </section>
+        <div className="wrap flex w-full min-w-0 flex-col gap-6 pb-10 pt-6">
           {/* Every landing day of the next 12 months, after the chart so the first screen keeps the answer and the chart's
               title: a day pressed there lands the period on it, as the date box does. */}
           <YearView eph={s.eph} site={site} mask={s.mask} startUtc={s.startUtc} days={s.days} params={s.params} onLand={(start) => s.setWindow(start, s.days)} />
-          <GroundPanel
-            site={site}
-            sites={s.sites}
-            scene={scene}
-            mode={s.mode}
-            exaggeration={s.exaggeration}
-            heightmap={s.heightmap}
-            contextHeightmap={s.contextHeightmap}
-            capHeightmap={s.capHeightmap}
-            textureUrl={globeTextureUrl(dataBase(), s.terrainManifest)}
-            terrainState={s.terrainState}
-            windowLoading={s.windowLoading}
-            customError={s.customError}
-            // The ground is lit for the time bar's hour, not the hour under the pointer on the chart.
-            when={dateTimeUtc(s.startUtc, s.cursorHour)}
-            startUtc={s.startUtc}
-            days={s.days}
-            mask={s.mask}
-            series={s.series}
-            cursor={s.cursorHour}
-            onMode={s.setMode}
-            onExaggeration={s.setExaggeration}
-            onPick={onPick}
-            reducedMotion={reducedMotion}
-            standLink={standLink}
-            coldLayer={coldTrapSite(cold, site.id)?.covered === true}
-          />
-          <WhereOnMoon site={site} sites={s.sites} overview={s.overview} startUtc={s.startUtc} days={s.days} wide ground={siteBudget(budget, site.id)?.terrain_quality ?? null} coldTraps={coldTrapSite(cold, site.id)} />
           <PlannerChat store={store} scenarios={scenarios} navigate={go} />
+          {/* The page ends on the way to the checks behind its figures (the Accuracy page). */}
+          <section aria-labelledby="h-sure" className="panel flex flex-wrap items-center justify-between gap-x-8 gap-y-4">
+            <div className="min-w-0">
+              <h2 id="h-sure" className="display text-[23px] font-semibold">
+                How sure are these numbers?
+              </h2>
+              <p className="mt-1 text-ink-2">We checked them against NASA’s own figures.</p>
+            </div>
+            <Link href="/validate" className="btn btn-ink">
+              See the checks
+            </Link>
+          </section>
         </div>
-        {/* The period's key moments as dots with Next, as on the stand view, so Play and Next show what happens on the first
-            screen (21.1); a preview on the bar moves the chart's time line and the date, as the chart's own does. */}
-        <TimeBar
-          series={s.series}
-          power={s.power}
-          startUtc={s.startUtc}
-          cursor={s.cursorHour}
-          hoverHour={hoverHour}
-          batteryWh={s.params.power.batteryWh}
-          onCursor={s.setCursor}
-          moments={keyMoments(s.series, s.power, s.startUtc).map((m) => ({ label: `${m.label}, ${m.day}`, hour: m.hour }))}
-          onHover={setHoverHour}
-        />
         {shareOpen && s.eph && link && (
           <ShareDialog
             input={{ site, startUtc: s.startUtc, days: s.days, params: s.params, eph: s.eph, series: s.series, power: s.power, summary: s.summary, maskMeta: s.maskMeta, best: s.best }}
