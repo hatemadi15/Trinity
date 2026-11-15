@@ -38,7 +38,7 @@ describe('POST /api/chat', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as Reply;
     expect(json.source).toBe('model');
-    expect(json.model).toBe('qwen/qwen3.8-27b:free');
+    expect(json.model).toBe('particle-ai/particle-1:free');
     expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
     expect(json.reply).toBe('Nobile Rim 2 selected.');
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -156,7 +156,7 @@ describe('POST /api/chat task narrate', () => {
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ task: 'narrate', prompt: 'write the brief', state: STATE }))).json()) as Reply;
     expect(json.source).toBe('model');
-    expect(json.model).toBe('qwen/qwen3.8-27b:free');
+    expect(json.model).toBe('particle-ai/particle-1:free');
     expect(json.reply).toBe(text);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -282,7 +282,7 @@ describe('POST /api/chat fallbacks and limits', () => {
     expect(json.source).toBe('model');
     expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
     expect(json.reply).toBe('Done.');
-    expect(json.model).toBe('qwen/qwen3.8-27b:free');
+    expect(json.model).toBe('particle-ai/particle-1:free');
     vi.stubGlobal('fetch', modelAnswer('{"actions":[],"reply":""}'));
     json = (await (await POST(request({ prompt: 'show me nobile rim 2', state: null }))).json()) as Reply;
     expect(json.source).toBe('intent');
@@ -455,7 +455,7 @@ function network(o: { gemini?: Answer | Answer[]; openrouter?: Answer }) {
   return { asked, bodies, fetchMock };
 }
 const NOBILE = '{"actions":[{"type":"select_site","id":"nobile_rim_2"}],"reply":"Nobile Rim 2 selected."}';
-const CHAIN = ['qwen/qwen3.8-27b:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3.5-lightning:free'].map((m) => `openrouter ${m}`);
+const CHAIN = ['particle-ai/particle-1:free', 'nvidia/nemotron-3.5-lightning:free', 'cohere/north-mini-code:free', 'nvidia/nemotron-3.5-super-vl:free'].map((m) => `openrouter ${m}`);
 
 describe('POST /api/chat with Gemini as a provider: who asks decides the order', () => {
   afterEach(() => {
@@ -474,7 +474,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'luna' }))).json()) as Reply;
     expect(asked).toEqual([CHAIN[0]]);
-    expect([json.source, json.model]).toEqual(['model', 'qwen/qwen3.8-27b:free']);
+    expect([json.source, json.model]).toEqual(['model', 'particle-ai/particle-1:free']);
     expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
     expect(json.reply).toBe('Nobile Rim 2 selected.');
   });
@@ -495,7 +495,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     vi.stubGlobal('fetch', net.fetchMock);
     let json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null }))).json()) as Reply;
     expect(net.asked).toEqual([CHAIN[0]]);
-    expect(json.model).toBe('qwen/qwen3.8-27b:free');
+    expect(json.model).toBe('particle-ai/particle-1:free');
     net = network({ gemini: geminiSays(NOBILE), openrouter: fails(429) });
     vi.stubGlobal('fetch', net.fetchMock);
     json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'ask' }))).json()) as Reply;
@@ -578,7 +578,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     const logged = warn.mock.calls.map((c) => c.join(' ')).join('\n');
     warn.mockRestore();
     expect(logged).toMatch(/no model answered/);
-    expect(logged).toMatch(/qwen\/qwen3\.8-27b:free/);
+    expect(logged).toMatch(/particle-ai\/particle-1:free/);
     expect(logged).toMatch(/404/);
     expect(logged).toMatch(/gemini-3\.5-flash-lite/);
     expect(logged).toMatch(/403/);

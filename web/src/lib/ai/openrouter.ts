@@ -4,15 +4,16 @@ import { runChain, type CallResult } from './chain';
 export const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 /**
- * Free-tier chain, in the order the live probes of 2026-09-29 ranked them: qwen answered in 0.6 s
- * with valid JSON, nemotron-super in 1.6 s (without its closing brace, which extractJson repairs),
- * gemma was rate-limited (429) at the time, nemotron-lightning timed out. Override with OPENROUTER_MODELS.
+ * Free-tier chain, from the live probe of 15 November 2026: every model OpenRouter listed at zero price, asked six
+ * of Earthrise's real questions with the app's own prompt, parser and 10 s limit, thinking off. These four answered
+ * all six, usable, in 0.5 to 1.2 s on average, from three providers so one provider's limit cannot stop the chain.
+ * The chain of 29 September no longer answered (two went paid, gemma is rate-limited). Override with OPENROUTER_MODELS.
  */
 export const DEFAULT_MODELS = [
-  'qwen/qwen3.8-27b:free',
-  'nvidia/nemotron-3-super-120b-a12b:free',
-  'google/gemma-4-31b-it:free',
+  'particle-ai/particle-1:free',
   'nvidia/nemotron-3.5-lightning:free',
+  'cohere/north-mini-code:free',
+  'nvidia/nemotron-3.5-super-vl:free',
 ];
 
 export const DEFAULT_TIMEOUT_MS = 10_000;
@@ -67,7 +68,10 @@ export async function callOpenRouter(
       'HTTP-Referer': 'https://github.com/hatemadi15/Trinity',
       'X-Title': 'Earthrise',
     },
-    body: JSON.stringify({ model, messages, temperature: 0, max_tokens: maxTokens }),
+    // Thinking off. The free models that think spend the whole token cap on it and answer nothing (finish "length",
+    // every token reasoning: checked live on 15 November 2026); a model that cannot turn it off answers 400, which
+    // moves the chain on.
+    body: JSON.stringify({ model, messages, temperature: 0, max_tokens: maxTokens, reasoning: { enabled: false } }),
     signal,
   });
   if (!res.ok) {

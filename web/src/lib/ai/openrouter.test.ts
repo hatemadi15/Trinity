@@ -20,8 +20,9 @@ describe('askModel', () => {
     expect(headers.Authorization).toBe('Bearer sk-test');
     expect(headers['HTTP-Referer']).toBe('https://github.com/hatemadi15/Trinity');
     expect(headers['X-Title']).toBe('Earthrise');
-    const body = JSON.parse(String(init.body)) as { model: string; messages: unknown[]; temperature: number; max_tokens: number };
-    expect(body).toEqual({ model: 'a/one:free', messages, temperature: 0, max_tokens: 600 });
+    const body = JSON.parse(String(init.body)) as { model: string; messages: unknown[]; temperature: number; max_tokens: number; reasoning: { enabled: boolean } };
+    // Thinking off: the free models that think spend the whole token cap on it and answer nothing (checked live, 15 November).
+    expect(body).toEqual({ model: 'a/one:free', messages, temperature: 0, max_tokens: 600, reasoning: { enabled: false } });
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
@@ -60,7 +61,7 @@ describe('askModel', () => {
 
   it('reads the model chain from OPENROUTER_MODELS or falls back to the four free models', () => {
     expect(modelsFromEnv({})).toEqual(DEFAULT_MODELS);
-    expect(DEFAULT_MODELS).toEqual(['qwen/qwen3.8-27b:free', 'nvidia/nemotron-3-super-120b-a12b:free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3.5-lightning:free']);
+    expect(DEFAULT_MODELS).toEqual(['particle-ai/particle-1:free', 'nvidia/nemotron-3.5-lightning:free', 'cohere/north-mini-code:free', 'nvidia/nemotron-3.5-super-vl:free']);
     expect(modelsFromEnv({ OPENROUTER_MODELS: ' x/y:free, z/w ' })).toEqual(['x/y:free', 'z/w']);
     expect(modelsFromEnv({ OPENROUTER_MODELS: '' })).toEqual(DEFAULT_MODELS);
   });
