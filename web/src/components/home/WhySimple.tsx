@@ -9,6 +9,7 @@ const LINK = 'font-semibold underline decoration-[1.5px] underline-offset-4 tran
 const CARD = 'group grid gap-4 md:grid-cols-[380px_1fr] md:items-center md:gap-8 xl:block xl:space-y-5';
 const H3 = 'display text-[30px] leading-tight transition-colors duration-300 group-hover:text-accent-ink';
 const ANSWER = 'mt-2 text-lg leading-relaxed text-ink-2';
+/** A drawing's own black plate; How it works frames the same drawings itself (WhySection) and passes its own. */
 const PANEL = 'stage block aspect-[360/230] w-full';
 /** A drawing's words: large enough to read on a phone, where the drawing is the screen's width. */
 const WORD = { fontSize: 15, fill: '#f5f5f3' } as const;
@@ -31,12 +32,12 @@ function Sun({ x, y, r = 9 }: { x: number; y: number; r?: number }) {
 }
 
 /** The Sun at the pole, at its highest of the month, beside the Sun's noon height at a site far from the pole: both at their true angles. */
-function LowSun({ high, low, site }: { high: number; low: number; site: string }) {
+export function LowSun({ high, low, site, className = PANEL }: { high: number; low: number; site: string; className?: string }) {
   const o = { x: 44, y: 188 };
   const a = ray(o.x, o.y, 168, high);
   const b = ray(o.x, o.y, 262, low);
   return (
-    <svg viewBox="0 0 360 230" role="img" aria-label={`How high the Sun gets, drawn to scale. Where ${site} landed, far from the pole, the Sun climbs high in the sky. Near the south pole it stays just above the ground.`} className={PANEL}>
+    <svg viewBox="0 0 360 230" role="img" aria-label={`How high the Sun gets, drawn to scale. Where ${site} landed, far from the pole, the Sun climbs high in the sky. Near the south pole it stays just above the ground.`} className={className}>
       <rect x={0} y={188} width={360} height={42} fill={GROUND} opacity={0.55} />
       <line x1={0} x2={360} y1={188} y2={188} stroke={EDGE} strokeWidth={1} />
       <line x1={o.x} y1={o.y} x2={a.x} y2={a.y} stroke="#c6c8cc" strokeWidth={1.2} strokeDasharray="3 5" />
@@ -51,9 +52,9 @@ function LowSun({ high, low, site }: { high: number; low: number; site: string }
 }
 
 /** A low Sun, a hill, and two places: the summit stands in the light, the ground behind the hill in its shadow. */
-function HillShadow({ km, dark }: { km: number; dark: string }) {
+export function HillShadow({ km, dark, className = PANEL }: { km: number; dark: string; className?: string }) {
   return (
-    <svg viewBox="0 0 360 230" role="img" aria-label={`A low Sun and two hills, not to scale. One hilltop stands above the other hill's shadow and has sunlight all month. A place ${km} km away, behind the hill, is dark ${dark}.`} className={PANEL}>
+    <svg viewBox="0 0 360 230" role="img" aria-label={`A low Sun and two hills, not to scale. One hilltop stands above the other hill's shadow and has sunlight all month. A place ${km} km away, behind the hill, is dark ${dark}.`} className={className}>
       <line x1={332} y1={96} x2={150.4} y2={137.5} stroke={SUN} strokeWidth={1.2} opacity={0.7} />
       <line x1={332} y1={96} x2={95} y2={80} stroke={SUN} strokeWidth={1.2} opacity={0.7} />
       <Sun x={332} y={96} />
@@ -69,9 +70,9 @@ function HillShadow({ km, dark }: { km: number; dark: string }) {
 }
 
 /** Earth half risen over the hills: it rises and sets in one place, and is hidden when below them. */
-function EarthPeek() {
+export function EarthPeek({ className = PANEL }: { className?: string }) {
   return (
-    <svg viewBox="0 0 360 230" role="img" aria-label="Earth half risen over the hills. It stays in one part of the sky and moves a little up and down, so sometimes it is above the hills and sometimes hidden behind them." className={PANEL}>
+    <svg viewBox="0 0 360 230" role="img" aria-label="Earth half risen over the hills. It stays in one part of the sky and moves a little up and down, so sometimes it is above the hills and sometimes hidden behind them." className={className}>
       <line x1={248} x2={248} y1={96} y2={132} stroke="#c6c8cc" strokeWidth={1.4} />
       <path d="M242 103 L248 94 L254 103 M242 125 L248 134 L254 125" fill="none" stroke="#c6c8cc" strokeWidth={1.4} />
       <g className="motion-safe:animate-[earth-peek_7s_ease-in-out_infinite_alternate]">
@@ -88,7 +89,7 @@ function EarthPeek() {
 /**
  * "Why the south pole?" on the home page (spec 23.3): five questions a child could ask, each answered in short
  * sentences and everyday words, with no units or science terms; three have a drawing with one idea each, true to the
- * month's figures. The charts of the same facts, by direction and height, are on How it works (WhySection).
+ * month's figures. How it works shows the same drawings with one more sentence each, and keeps the charts by direction and height behind a fold (WhySection).
  */
 export function WhySimple({ n }: { n?: string }) {
   const { pair, sky } = HOME;

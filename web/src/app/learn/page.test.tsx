@@ -33,12 +33,45 @@ describe('How it works', () => {
     for (const width of [WIDE, PHONE]) expect(visibleWords(top, width).length).toBeLessThanOrEqual(CAP);
   });
 
-  it('opens with the home page\'s three drawings and what each says', () => {
+  it('opens with the home page\'s three simple drawings, each framed, with the month\'s figure and a few short sentences', () => {
     render(<LearnPage />);
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('How it works');
     const why = screen.getByRole('region', { name: 'Why the south pole is hard' });
     expect(within(why).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['The Sun never climbs', 'The hills decide', 'Earth sets too']);
-    expect(why.querySelectorAll('svg').length).toBeGreaterThanOrEqual(3);
+    const figures = [...why.querySelectorAll<HTMLElement>('.panel')];
+    expect(figures).toHaveLength(3);
+    // The drawings are the home page's: one idea each, in words, with no axis, degree or compass letter drawn on them.
+    const drawn = figures.map((f) => within(f).getByRole('img'));
+    expect(drawn.map((d) => d.getAttribute('aria-label')!.split('.')[0])).toEqual(['How high the Sun gets, drawn to scale', 'A low Sun and two hills, not to scale', 'Earth half risen over the hills']);
+    for (const d of drawn) expect(d.textContent).not.toMatch(/°|direction|\b[NESW]\b/);
+    expect(drawn[1].textContent).toMatch(/sunlight all month/);
+    expect(drawn[1].textContent).toMatch(/12 km away: dark 3 to 20 January/);
+    // The month's figures, true to home.json.
+    expect(figures[0].textContent).toMatch(/The Sun's highest all month: 2\.5°/);
+    expect(figures[1].textContent).toMatch(/Ridge in sunlight: 45\s% of the month/);
+    expect(figures[1].textContent).toMatch(/one hilltop has sunlight all month\. A ridge 12 km away, de Gerlache Rim 2, is dark from 3 to 20 January\./);
+    expect(figures[2].textContent).toMatch(/Earth in view: 45\s% of the month/);
+    expect(figures[2].textContent).toMatch(/cannot talk to Earth directly/);
+    // Two month lanes, sunlight and Earth in view, and nothing to play.
+    expect(why.querySelectorAll('[data-month-lane]')).toHaveLength(2);
+    for (const f of figures) {
+      expect(within(f).queryByRole('button')).toBeNull();
+      expect(f.querySelector('p.text-ink-2')!.textContent!.trim().split(/\s+/).length).toBeLessThanOrEqual(45);
+    }
+  });
+
+  it('keeps the three detailed charts, by direction and height, behind one fold', () => {
+    render(<LearnPage />);
+    const why = screen.getByRole('region', { name: 'Why the south pole is hard' });
+    const toggle = within(why).getByRole('button', { name: /^See the detailed charts/ });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    const charts = document.getElementById(toggle.getAttribute('aria-controls')!)!;
+    expect(charts.hidden).toBe(true);
+    expect(charts.querySelectorAll('figure')).toHaveLength(3);
+    fireEvent.click(toggle);
+    expect(charts.hidden).toBe(false);
+    expect(within(charts).getAllByRole('button', { name: 'Play the month' })).toHaveLength(3);
+    expect(charts.textContent).toMatch(/never\s+stands higher than 2\.5°/);
   });
 
   it('gives the science behind the three facts, for a class', () => {

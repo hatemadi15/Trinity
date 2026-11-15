@@ -8,7 +8,7 @@ import { COLD_TRAPS } from '@/lib/learn/coldtraps';
 
 export const metadata: Metadata = { title: 'How it works' };
 
-/** How it works: why the pole is hard (the three facts as charts), the science behind it, then five steps through the pages, then the way in. */
+/** How it works: why the pole is hard (three simple framed drawings, the charts behind a fold), the science behind it, then five steps through the pages, then the way in. */
 export default function LearnPage() {
   return (
     <AppFrame>
@@ -29,9 +29,9 @@ export default function LearnPage() {
           <h2 id="h-science" className="display text-[34px] sm:text-[40px]">
             The science behind the three facts
           </h2>
-          <div className="mt-7 grid gap-x-10 gap-y-7 md:grid-cols-2">
+          <div className="mt-7 grid gap-5 md:grid-cols-2">
             {SCIENCE.map((x) => (
-              <div key={x.title} className="max-w-[38em]">
+              <div key={x.title} className="panel">
                 <h3 className="display text-[23px] font-semibold leading-tight">{x.title}</h3>
                 <p className="mt-2 leading-relaxed text-ink-2">{x.body}</p>
               </div>
@@ -43,9 +43,9 @@ export default function LearnPage() {
           <h2 id="h-cold-traps" className="display text-[34px] sm:text-[40px]">
             Cold traps: where ice could last
           </h2>
-          <div className="mt-7 grid gap-x-10 gap-y-7 md:grid-cols-2">
+          <div className="mt-7 grid gap-5 md:grid-cols-2">
             {COLD_TRAPS.map((x) => (
-              <div key={x.title} className="max-w-[38em]">
+              <div key={x.title} className="panel">
                 <h3 className="display text-[23px] font-semibold leading-tight">{x.title}</h3>
                 <p className="mt-2 leading-relaxed text-ink-2">{x.body}</p>
               </div>
