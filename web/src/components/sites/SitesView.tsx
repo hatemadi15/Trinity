@@ -220,8 +220,8 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
             )}
           </div>
           <section aria-label="Map of the sites" data-part="stage" data-stage="" className="relative bg-stage text-stage-ink lg:min-h-0 lg:flex-1">
-            <div data-part="title" className="pointer-events-none relative z-20 px-4 pb-3 pt-5 lg:absolute lg:left-8 lg:top-8 lg:max-w-[460px] lg:p-0">
-              <h1 className="display text-[34px] leading-none sm:text-[40px] lg:text-[52px]">
+            <div data-part="title" className="pointer-events-none relative z-20 px-4 pb-3 pt-5 lg:absolute lg:left-8 lg:top-8 lg:max-w-[520px] lg:p-0">
+              <h1 className="display text-[30px] leading-tight sm:text-[36px] lg:text-[42px]">
                 Choose a <em>landing site</em>
               </h1>
               <p className="mt-2 text-[17px] text-stage-ink-2 lg:mt-3">

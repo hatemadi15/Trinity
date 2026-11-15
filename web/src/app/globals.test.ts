@@ -216,7 +216,8 @@ describe('globals.css layering', () => {
     expect(css).not.toMatch(/Instrument|Pixelify|Plex Mono|--font-serif|--font-pixelify|--font-plex-mono|Georgia|monospace/);
     const families = [...css.matchAll(/(?:font-family|--font-(?:display|pixel|text|mono)): ([^;]+);/g)].map((m) => m[1]);
     expect(families.length).toBeGreaterThanOrEqual(8);
-    for (const f of families) expect(f === 'var(--font-text)' || f === 'var(--font-plex), "IBM Plex Sans", system-ui, sans-serif', f).toBe(true);
+    expect(css).toMatch(/code,\s*kbd,\s*samp,\s*pre \{\s*font-family: inherit;/);
+    for (const f of families) expect(f === 'inherit' || f === 'var(--font-text)' || f === 'var(--font-plex), "IBM Plex Sans", system-ui, sans-serif', f).toBe(true);
     for (const cls of ['display', 'pixel', 'eyebrow', 'mono']) expect(css, cls).toMatch(new RegExp(`\\.${cls} \\{[^}]*font-family: var\\(--font-plex\\)`));
   });
 

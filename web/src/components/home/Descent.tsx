@@ -367,7 +367,7 @@ export function Descent({ words, Scene = LiveScene }: { words: DescentWords; Sce
               <h1
                 id="h-hero"
                 aria-label="See when a Moon lander has sunlight and a signal."
-                className="display mt-5 animate-[focus-in_1.4s_cubic-bezier(0.16,1,0.3,1)_both] text-balance text-[min(42px,9vw)] leading-[1.1] sm:text-[56px] lg:text-[64px] xl:text-[72px] 2xl:text-[84px] landscape:sm:[@media(max-height:880px)]:text-[min(64px,4.8vw)]"
+                className="display mt-5 animate-[focus-in_1.4s_cubic-bezier(0.16,1,0.3,1)_both] text-balance text-[min(34px,8vw)] leading-[1.1] sm:text-[56px] lg:text-[64px] xl:text-[72px] 2xl:text-[84px] landscape:sm:[@media(max-height:880px)]:text-[min(64px,4.8vw)]"
               >
                 See when a Moon lander has <em>sunlight</em> and a <span className="pixel text-[#a8c6ff] text-glow">signal</span>.
               </h1>

@@ -160,6 +160,14 @@ html {
   font-variant-numeric: tabular-nums;
 }
 
+/* Code, keys and samples too: the browser's fixed-width face is not used. */
+code,
+kbd,
+samp,
+pre {
+  font-family: inherit;
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
