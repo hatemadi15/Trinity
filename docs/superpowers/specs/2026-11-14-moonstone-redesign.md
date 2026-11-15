@@ -190,3 +190,17 @@ was the part that could not be found.)
   is "What happens"; "Its own best landing" is "Best landing time at this place".
 - **Kept.** The address and share links, files, the requirements row, the brief, "Compare from here", the
   assistant's and Luna's ways in, the word caps (200 empty, 750 full) and one gold action at most.
+- **Made visual** (15 November, owner review: "very bland", too much text, figures that blend into the page). Each
+  landing has a colour of its own (`--landing-1` to `--landing-4`, apart from the lanes' warm white, blue and
+  green), on its card's top edge, its bars and its strip. The verdict is a band with a green edge: its one line and
+  the timing line; "What changed and why" folds the story's sentences and the trade-offs. A card shows its time with
+  power as a big number in its colour with its radio contact under it; the best has a green ring, "Works best" and
+  the deciding figure in a few words (`Verdict.reason`). "Hour by hour" (`compare/LandingStrips`) is a black picture
+  panel in both themes: per landing, three lanes on one axis of days after its landing (sunlight, Earth in view,
+  radio contact with power: Earth in view with power before the battery first runs out, the table's figure), a red
+  line at the first power cut, and a sentence per landing for screen readers. "The key figures"
+  (`compare/MetricBars`) draws time with power, radio contact while it has power, sunlight and the longest night as
+  one bar per landing, the hours on one scale (the longest stay), with the table's values and "Best" marks. The
+  table waits behind "All figures"; "Share or keep", "Assumptions and limits" and "Start again" share one band. The
+  empty page keeps its gold example over three tiles (two examples, "Set up my own landing"). At 1440 px the
+  five-day example fell from about 3000 px and 690 words to about 2150 px and 460 words.
