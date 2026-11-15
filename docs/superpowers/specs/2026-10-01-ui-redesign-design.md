@@ -219,6 +219,7 @@ For a height grid, a Sun direction and a Sun elevation, a pixel is lit when no t
 - Two grids per site: the detailed window, and a wider, coarser context that seeds the running maximum at the window's sunward edge, so hills outside the window still cast their shadows into it.
 - Brightness: lit pixels are shaded by the angle between the ground and the Sun; shadowed pixels keep a faint shape from a fixed soft fill, so dark ground is still readable.
 - The sweep runs in a worker: half resolution while the time is moving, full resolution when it rests.
+- Every polar site's picture is at least 1024 pixels across, as a 20 m window's own is: the worker refines a coarser window once, as it arrives (twice for 80 m, four times for 240 m, the heights read off a Catmull-Rom surface through the cells and never above or below the cells either side), sweeps it after the window itself and smooths its shadow edges over one fine cell. The picture gets smoother, not more detailed, so the map's note keeps the data's own cell size; a refined site costs what a 20 m site does. No grid is refined more than four times, so a clicked point with no window, on the cap's 960 m cells, gets 204 pixels.
 - Acceptance: at the site's own pixel the map agrees with the engine's "Sun visible" for at least 97 % of the hours of a test month, and disagrees only within three hours of a sunrise or sunset.
 - The Python pipeline carries the same sweep as the reference and renders the home page picture; a parity test runs both on the same small grid.
 
