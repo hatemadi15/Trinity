@@ -18,7 +18,7 @@ export default function NotFound() {
               <span aria-hidden="true" className="inline-block h-2 w-2 animate-[pulse-dot_2s_ease-in-out_infinite] rounded-full bg-accent" />
               Error 404
             </div>
-            <h1 data-band-end="" className="display mt-4 max-w-[14em] text-[52px] leading-[0.95] text-ink sm:text-[80px]">
+            <h1 data-band-end="" className="display mt-4 max-w-[14em] text-[52px] leading-[1.15] text-ink sm:text-[80px]">
               There is no page at <em>this address.</em>
             </h1>
             <p className="mt-3 max-w-[46em] text-lg text-ink-2">

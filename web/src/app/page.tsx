@@ -110,7 +110,7 @@ export default function Home() {
         {/* 01. The forecast, read in three steps with room between them: the Sun, Earth, and what the two mean for a
             lander. The band is black in both themes; each step is a figure in its own framed panel, with a small
             drawing that says where the viewer stands. The three panels are one width, so their dates line up. */}
-        <figure aria-labelledby="h-forecast" data-stage="" className="border-t border-stage-edge bg-stage pb-24 pt-24 text-stage-ink [--chart-inset:16px] sm:pb-32 sm:[--chart-inset:24px]">
+        <figure aria-labelledby="h-forecast" data-stage="" className="border-t border-stage-edge bg-stage-band pb-24 pt-24 text-stage-ink [--chart-inset:16px] sm:pb-32 sm:[--chart-inset:24px]">
           <figcaption className="wrap grid gap-8 md:grid-cols-[minmax(0,1fr)_310px] md:items-end">
             <Reveal>
               <p className="eyebrow flex items-center gap-3 text-[#a8c6ff]">
@@ -192,15 +192,15 @@ export default function Home() {
               {contact.firstLandingHours > 0 ? `${spanWords(contact.firstLandingHours)} of radio contact` : 'no radio contact: Earth is out of view'}
               {better ? `; landing on ${dateLong(sky.start_utc, better.hour)}, for ${spanWords(better.hours)}, with ${spanWords(contact.betterLandingHours ?? 0)} of radio contact.` : '.'}
             </p>
-            <ul aria-hidden="true" className="grid gap-px overflow-hidden rounded-2xl border border-stage-line bg-stage-line sm:grid-cols-3">
-              <li className="bg-stage p-7">
+            <ul aria-hidden="true" className="grid gap-px overflow-hidden rounded-2xl border border-stage-raised-line bg-stage-raised-line sm:grid-cols-3">
+              <li className="bg-stage-raised p-7">
                 <p className="eyebrow text-stage-ink-2">An example lander</p>
                 <p className="display mt-4 text-[38px] leading-none">
                   {battery.lander.area_m2} m² <span className="text-stage-ink-2">·</span> {battery.lander.battery_wh / 1000} kWh
                 </p>
                 <p className="mt-3 text-[15px] text-stage-ink-2">solar panels, battery; not a planned mission</p>
               </li>
-              <li className="bg-stage p-7">
+              <li className="bg-stage-raised p-7">
                 <p className="eyebrow text-stage-ink-2">Landing on {dateLong(sky.start_utc, 0)}</p>
                 <p className="display mt-4 text-[38px] leading-none">{spanShort(Math.round(battery.now_hours))}</p>
                 <p className="mt-3 text-[15px] text-stage-ink-2">of power, then night</p>
@@ -210,7 +210,7 @@ export default function Home() {
                 </p>
               </li>
               {better && (
-                <li className="relative bg-stage p-7 shadow-[inset_0_0_0_1px_rgba(127,169,255,0.45),inset_0_0_60px_-20px_rgba(127,169,255,0.5)]">
+                <li className="relative bg-stage-raised p-7 shadow-[inset_0_0_0_1px_rgba(127,169,255,0.45),inset_0_0_60px_-20px_rgba(127,169,255,0.5)]">
                   <p className="eyebrow text-[#a8c6ff]">Landing on {dateLong(sky.start_utc, better.hour)}</p>
                   <p className="display mt-4 text-[38px] leading-none text-[#cfe0ff] text-glow">{spanShort(Math.round(better.hours))}</p>
                   <p className="mt-3 text-[15px] text-stage-ink-2">of power: the better landing day</p>

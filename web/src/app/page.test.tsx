@@ -195,7 +195,7 @@ describe('home page', () => {
   it('alternates the numbered sections in both themes, black then paper: 01, 03 and 05 black, 02 and 04 paper, each with the same room either side of a clean edge', () => {
     render(<Home />);
     const band = screen.getByRole('figure', { name: 'A real forecast: de Gerlache Rim 2, January 2027' });
-    expect(band.className).toMatch(/(^| )bg-stage( |$)/);
+    expect(band.className).toMatch(/(^| )bg-stage-band( |$)/);
     // No line along the edge: black meets paper.
     expect(band.className).not.toMatch(/(^| )border-(y|b)( |$)/);
     expect(band.className).toMatch(/(^| )pb-24( |$)/);

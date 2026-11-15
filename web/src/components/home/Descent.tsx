@@ -367,9 +367,9 @@ export function Descent({ words, Scene = LiveScene }: { words: DescentWords; Sce
               <h1
                 id="h-hero"
                 aria-label="See when a Moon lander has sunlight and a signal."
-                className="display mt-5 animate-[focus-in_1.4s_cubic-bezier(0.16,1,0.3,1)_both] text-balance text-[min(42px,9vw)] leading-[0.95] sm:text-[56px] lg:text-[64px] xl:text-[72px] 2xl:text-[84px] landscape:sm:[@media(max-height:880px)]:text-[min(64px,4.8vw)]"
+                className="display mt-5 animate-[focus-in_1.4s_cubic-bezier(0.16,1,0.3,1)_both] text-balance text-[min(34px,8vw)] leading-[1.1] sm:text-[56px] lg:text-[64px] xl:text-[72px] 2xl:text-[84px] landscape:sm:[@media(max-height:880px)]:text-[min(64px,4.8vw)]"
               >
-                See when a Moon lander has <em>sunlight</em> and a <span className="pixel text-[0.86em] text-[#a8c6ff] text-glow">signal</span>.
+                See when a Moon lander has <em>sunlight</em> and a <span className="pixel text-[#a8c6ff] text-glow">signal</span>.
               </h1>
               <p className="mt-6 max-w-[30em] text-lg leading-relaxed text-[#c9cbcf] sm:text-[19px]">
                 A forecast for Moon landing sites and dates, 2024 to 2036: sunlight, radio contact with Earth, and how long a lander keeps power.
