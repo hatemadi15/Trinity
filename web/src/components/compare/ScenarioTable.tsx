@@ -63,6 +63,9 @@ function ChecksSwitch({ name, open, controls, onToggle }: { name: string; open: 
   );
 }
 
+/** The settings a column leaves out when it repeats the baseline's. */
+const SAME_AS_BASELINE = ['lander', 'mast', 'clearance'];
+
 /**
  * The scenarios side by side: one column each, the baseline first, the settings and then the figures, each figure with
  * its change from the baseline. A wide table scrolls inside its own box, the row names staying in view.
@@ -120,7 +123,14 @@ export function ScenarioTable({
                 </th>
                 {row.cells.map((cell, i) => (
                   <td key={cols[i].scenario.id} className={`${CELL} text-[15px]`}>
-                    <span className="block text-ink">{cell.value}</span>
+                    {/* A lander, mast or Earth height the baseline already states reads "same": said once, in the baseline's column. */}
+                    {i > 0 && SAME_AS_BASELINE.includes(row.id) && cell.value === row.cells[0].value ? (
+                      <span className="block text-ink-2" title={cell.value}>
+                        same
+                      </span>
+                    ) : (
+                      <span className="block text-ink">{cell.value}</span>
+                    )}
                     {cell.kind && <span className="block text-ink-2">{cell.kind}</span>}
                     {cell.change && <span className="block text-ink-2">{cell.change}</span>}
                     {row.id === 'landing' && cols[i].scenario.timing === 'site-best' && <span className="block text-ink-2">the site’s own best time</span>}

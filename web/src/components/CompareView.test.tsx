@@ -78,11 +78,13 @@ describe('CompareView', () => {
     expect(story.textContent).toMatch(/Landing times differ: the figures compare different dates as well as places\./);
     expect(story.textContent).toMatch(/5 days later \(6 January 2027, 00:00 UTC\): power for 10 hours instead of 3 days 4 hours\. The period starts at night/);
     expect(story.textContent).toMatch(/de Gerlache rim summit, 12 km from de Gerlache Rim 2 and unchecked for landing, works better than “5 days later” at the same landing time \(6 January 2027, 00:00 UTC\): power for all 30 days instead of 10 hours\./);
-    expect(within(story).getAllByRole('listitem').map((li) => li.textContent)).toEqual(
+    // The trade-offs repeat the table's rows in words: one tap away, in their fold.
+    expect(within(story).getByRole('button', { name: /The trade-offs/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(within(story).getAllByRole('listitem', { hidden: true }).map((li) => li.textContent)).toEqual(
       expect.arrayContaining(['Sunlight: 100 % against 41 %: better.', 'Radio contact while it has power: 14 days 15 hours against none: better.']),
     );
     // What the figures assume, and do not show, one tap away.
-    expect(within(story).getByRole('button', { name: /What these figures assume, and what they do not show/ }).getAttribute('aria-expanded')).toBe('false');
+    expect(within(story).getByRole('button', { name: /What these figures assume and do not show/ }).getAttribute('aria-expanded')).toBe('false');
   });
 
   it('puts the whole comparison in the address, so a fresh browser opening it shows the same settings and figures', async () => {

@@ -261,9 +261,8 @@ export function story(cols: Column[]): Story {
     const head = `${c.scenario.label} (${startWords(c.scenario.startUtc)})`;
     const power = o.poweredH === bo.poweredH ? `power as before: ${o.verdict}.` : `power for ${powerWords(o)} instead of ${powerWords(bo)}.`;
     const reason = o.poweredH === bo.poweredH ? null : powerReason(o);
-    const sun = `Sunlight ${pct0(o.sunFraction)} instead of ${pct0(bo.sunFraction)}`;
-    const contact = o.poweredContactH === bo.poweredContactH ? `radio contact while it has power: ${wordsOrNone(o.poweredContactH)}, as before.` : `radio contact while it has power: ${wordsOrNone(o.poweredContactH)} instead of ${wordsOrNone(bo.poweredContactH)}.`;
-    return [[`${head}: ${power}`, reason, `${sun}; ${contact}`].filter(Boolean).join(' ')];
+    // Sunlight and radio contact are the table's rows: the sentence keeps to the power and its reason.
+    return [[`${head}: ${power}`, reason].filter(Boolean).join(' ')];
   });
 
   const byId = new Map(cols.map((c) => [c.scenario.id, c]));

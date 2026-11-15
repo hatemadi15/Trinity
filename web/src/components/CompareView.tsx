@@ -119,7 +119,7 @@ export function CompareView({
           <h1 data-band-end="" className="display text-[34px] leading-tight sm:text-[40px]">
             Compare sites
           </h1>
-          <p className="mt-2 max-w-[46em] text-lg text-ink-2">A baseline and up to three changes, each worked out on its own: another landing time, site or lander.</p>
+          <p className="mt-2 max-w-[46em] text-lg text-ink-2">A baseline and up to three changes: another landing time, site or lander.</p>
         </div>
         {sc.problem && (
           <p role="status" className="text-[15px] text-bad">
