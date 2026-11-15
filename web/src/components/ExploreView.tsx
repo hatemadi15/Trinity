@@ -5,6 +5,7 @@ import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from './AppFrame';
 import { DataProblem, SYNC_HINT } from './DataProblem';
 import { PlannerChat } from './PlannerChat';
+import { LunaAsk } from './luna/LunaHint';
 import { SkylineNote } from './SkylineNote';
 import { GroundPanel } from './explore/GroundPanel';
 import { LanderDialog } from './explore/LanderDialog';
@@ -360,6 +361,7 @@ export function ExploreView({
               range={range}
               sure={sure}
               versions={<VersionsFold state={versionsState} startUtc={s.startUtc} days={s.days} />}
+              ask={<LunaAsk days={s.days} />}
               holdNote={holdNoteFor(versionsState, holdAsked)}
             />
             <NumbersCard

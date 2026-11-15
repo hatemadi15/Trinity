@@ -8,6 +8,7 @@ import { LanderDialog } from '@/components/explore/LanderDialog';
 import { PLAY_HPS, TimeBar, type Speed } from '@/components/explore/TimeBar';
 import { LunaButton } from '@/components/luna/LunaButton';
 import { LunaControls } from '@/components/luna/LunaControls';
+import { LunaHint } from '@/components/luna/LunaHint';
 import { dataBase, siteLabel } from '@/lib/data/loaders';
 import { loadSkyAssets, type SkyAssets } from '@/lib/data/sky';
 import { shadowLevels } from '@/lib/data/terrain';
@@ -933,6 +934,16 @@ export function StandView({
             </div>
           )}
         </div>
+      )}
+      {/* What to ask Luna here (spec 22.6): at the lower left, over the time bar and clear of the row and its plate; on a
+          phone one request, above the plate, and her panel opens from it, as her button there is folded under More. Gone with
+          the panels. */}
+      {!wordsHidden && (
+        <LunaHint
+          at="header"
+          phonePanel="fixed inset-x-4 bottom-[calc(var(--bar-h,200px)+var(--look-h,0px)+12px)] z-50 rounded-lg border border-white/20 bg-[#060607] p-4 text-left text-[15px] text-[#f2f0ea] md:hidden"
+          className="fixed left-4 z-30 md:bottom-[calc(var(--bar-h,129px)+12px)] md:w-[300px] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+64px)] max-md:w-max max-md:max-w-[calc(100vw-32px)]"
+        />
       )}
       {overView && !failed && !wordsHidden && (
         // Why a key moment happens, the first step, or what looking up shows: its own plate at the foot of the view, 12 px

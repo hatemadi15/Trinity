@@ -45,6 +45,7 @@ export function VerdictPanel({
   limitation = null,
   versions = null,
   holdNote,
+  ask = null,
 }: {
   answer: Answer;
   onLand: (startUtc: string) => void;
@@ -78,6 +79,8 @@ export function VerdictPanel({
   versions?: ReactNode;
   /** Where the terrain versions are worked out, the requirement on them gets its box, with this sentence on what it checks. */
   holdNote?: string;
+  /** Requests Luna takes in one press, under the answer: the best date and the best site, where the question arises (spec 22.6). */
+  ask?: ReactNode;
 }) {
   const good = answer.tone === 'good';
   const better = answer.better;
@@ -188,6 +191,7 @@ export function VerdictPanel({
           {yearNote}
         </p>
       )}
+      {ask}
       {/* The answer's figures come from the positions and the hills, and were checked against Horizons: named last, as on every panel. */}
       <Sources of={['de440', ...lolaFor(...(site ? [site] : [])), 'horizons']} />
     </section>
