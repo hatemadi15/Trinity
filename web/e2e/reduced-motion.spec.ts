@@ -37,13 +37,13 @@ test.describe('Reduced motion', () => {
     await shot('stand');
   });
 
-  test('the home page lands at once when Fly to the south pole is pressed', async ({ page }) => {
+  test('the home page lands at once when the rail\'s last stage is pressed', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: 'Fly to the south pole' }).click();
-    // No 11-second descent: the answer's heading has the focus and is in view at once.
+    await page.getByRole('navigation', { name: 'Stages of the descent' }).getByRole('button').last().click();
+    // No travelling descent: the answer's heading is in view at once, and the rail says so.
     const landed = page.locator('[data-descent] h2[tabindex="-1"]');
-    await expect(landed).toBeFocused({ timeout: 3_000 });
-    await expect(landed).toBeInViewport();
+    await expect(landed).toBeInViewport({ timeout: 3_000 });
+    await expect(page.getByRole('navigation', { name: 'Stages of the descent' }).getByRole('button').last()).toHaveAttribute('aria-current', 'step', { timeout: 3_000 });
     expect(page.url()).not.toMatch(/\/sites$/);
   });
 });

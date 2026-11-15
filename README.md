@@ -11,10 +11,12 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
 
 ## A tour of the pages
 
-- **Home** (`/`): what the tool answers, in one real month, and who it is for, in a line under the
-  first screen's sentence: planners of NASA's commercial Moon landers, teachers (sent to How it works
-  first) and anyone curious. It opens with the descent, by scrolling
-  or in 11 seconds with "Fly to the south pole": the whole Moon, beside the title and never under
+- **Home** (`/`): what the tool answers, in one real month. The first screen holds the title, one
+  line and three choices, and nothing else: "Pick a known site", "Pick your own site" and "Compare
+  sites". The header has the same three ("Known sites", "Your own site", "Compare"), with Luna and
+  the theme switch; How it works and Accuracy are in the small "About" menu beside them and in the
+  footer of every page, with who the tool is for. It opens with the descent, by scrolling (or in
+  11 seconds when Luna is asked to "fly to the south pole"): the whole Moon, beside the title and never under
   it, with Earth beside it, turns, tips its south pole towards you and comes closer, down to the
   500 km relief map of the pole and to de Gerlache Rim 2's 20 km shadow picture, with the answer for
   the site; a rail at the side jumps to any stage. Then five numbered sections that alternate, black

@@ -18,7 +18,15 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> 
     path: '/',
     ready: async (page) => {
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-      await expect(page.getByRole('link', { name: 'Fly to the south pole' })).toBeVisible();
+      // The first screen's three choices stack on it, before any scroll, clear of Luna at the lower left.
+      const choices = page.getByRole('navigation', { name: 'Start here' }).getByRole('link');
+      await expect(choices).toHaveCount(3);
+      const luna = await page.locator('[data-luna-dock]').boundingBox();
+      for (const choice of await choices.all()) {
+        await expect(choice).toBeInViewport({ ratio: 1 });
+        const box = (await choice.boundingBox())!;
+        if (luna) expect(box.y + box.height, 'a choice stands over Luna').toBeLessThanOrEqual(luna.y);
+      }
     },
   },
   {

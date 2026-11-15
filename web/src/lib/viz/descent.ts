@@ -21,6 +21,8 @@ export interface DescentWords extends Pick<ArrivalWords, 'siteLine' | 'answer' |
   pole: { eyebrow: string; text: string };
   site: { eyebrow: string; text: string };
   pins: DescentPin[];
+  /** How many known places the catalogue holds, for the first screen's "Pick a known site". */
+  knownSites: number;
   hero: { lat: number; lon: number; windowKm: number; image: string; wideKm: number; wide: string; relief: string; reliefHalfKm: number };
 }
 
@@ -49,6 +51,7 @@ export function descentWords(doc: HomeDoc = HOME): DescentWords {
     },
     pins: [...pin('south_pole', 'The south pole'), ...pin('malapert_massif', 'Malapert Massif'), ...pin('mons_mouton', 'Mons Mouton'), ...pin(doc.hero.site_id, name, true)],
     hero: { lat: heroSite.lat, lon: heroSite.lon, windowKm: doc.hero.window_km, image: doc.hero.image, wideKm: doc.hero.wide_km, wide: doc.hero.wide_image, relief: doc.relief.image, reliefHalfKm: doc.relief.half_km },
+    knownSites: sites.length,
     siteLine: a.siteLine,
     answer: a.answer,
     better: a.better,
