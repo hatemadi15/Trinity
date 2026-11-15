@@ -283,6 +283,27 @@ function againstWords(name: string, x: string, y: string, better: number): strin
   return `${name}: ${x} against ${y}: ${better === 0 ? 'the same' : better > 0 ? 'better' : 'worse'}.`;
 }
 
+/**
+ * The figure that puts one landing ahead of another, in the order the landings are ranked by (the longest time with
+ * power, then radio contact while it has power, then sunlight), at the precision the page shows them: null when they
+ * are level on all three as shown, so a difference no one can read never names a winner.
+ */
+export function decidingFigure(a: Outcome, b: Outcome): 'power' | 'contact' | 'sun' | null {
+  if (a.poweredH !== b.poweredH) return 'power';
+  if (a.poweredContactH !== b.poweredContactH) return 'contact';
+  if (Math.round(a.sunFraction * 100) !== Math.round(b.sunFraction * 100)) return 'sun';
+  return null;
+}
+
+/** The figures behind "works better than": the time with power, and with the same time, the figure that decided it. */
+function figureWords(o: Outcome, r: Outcome, decided: ReturnType<typeof decidingFigure>, works: boolean, than: string): string {
+  if (decided === 'power') return `power for ${powerWords(o)} instead of ${powerWords(r)}`;
+  const same = `power for ${powerWords(o)}, as long as ${than}`;
+  if (decided === 'contact') return `${same}, with ${works ? 'more' : 'less'} radio contact while it has power: ${wordsOrNone(o.poweredContactH)} against ${wordsOrNone(r.poweredContactH)}`;
+  if (decided === 'sun') return `${same}, with ${works ? 'more' : 'less'} sunlight: ${pct0(o.sunFraction)} against ${pct0(r.sunFraction)}`;
+  return `${same}, with the same radio contact while it has power (${wordsOrNone(o.poweredContactH)}) and sunlight (${pct0(o.sunFraction)})`;
+}
+
 export function story(cols: Column[]): Story {
   const b = cols[0];
   if (!b?.outcome) return { atOriginal: [], alternative: null };
@@ -317,7 +338,10 @@ export function story(cols: Column[]): Story {
       : `, landing ${startWords(best.scenario.startUtc)} against ${startWords(ref.scenario.startUtc)}`;
   // A high point worked out from the heights is said to be one, as the forecast's nearby advice says it: never a checked place to land.
   const where = `${km} km${unchecked(best.site) ? ', not checked for landing' : ''}`;
-  const lead = `${best.siteName} (${where}) ${works ? 'works better' : 'does not work better'} than ${quoted(ref)}${when}: power for ${powerWords(o)} instead of ${powerWords(r)}.`;
+  // With the same time with power, the figure that decides it is said, or the two are said to be level: never "10 hours instead of 10 hours".
+  const decided = decidingFigure(o, r);
+  const verb = decided === null ? 'works as well as' : works ? 'works better than' : 'does not work better than';
+  const lead = `${best.siteName} (${where}) ${verb} ${quoted(ref)}${when}: ${figureWords(o, r, decided, works, quoted(ref))}.`;
   const tradeoffs = [
     againstWords('Sunlight', pct0(o.sunFraction), pct0(r.sunFraction), Math.round(o.sunFraction * 100) - Math.round(r.sunFraction * 100)),
     againstWords('Radio contact while it has power', wordsOrNone(o.poweredContactH), wordsOrNone(r.poweredContactH), o.poweredContactH - r.poweredContactH),
@@ -336,7 +360,10 @@ export function timingLine(cols: Column[]): string {
   if (cols.length === 1) return `Your landing is ${startWords(cols[0].scenario.startUtc)}.`;
   const same = cols.every((c) => c.scenario.startUtc === cols[0].scenario.startUtc);
   const lead = same ? `Every landing here is at the same time: ${startWords(cols[0].scenario.startUtc)}.` : 'Landing times differ: dates change as well as places.';
-  const best = cols.filter((c) => c.scenario.timing === 'site-best').map((c) => `${quoted(c)} lands at ${c.siteName}’s own best time in its period, not a time it shares by choice.`);
+  const atBest = cols.filter((c) => c.scenario.timing === 'site-best');
+  // Every one at its own site's best time (the assistant's "compare this to every landing site"): said once, not four times.
+  if (atBest.length === cols.length) return `${lead} Each lands at its site’s own best time in its period, not a time they share by choice.`;
+  const best = atBest.map((c) => `${quoted(c)} lands at ${c.siteName}’s own best time in its period, not a time it shares by choice.`);
   return [lead, ...best].join(' ');
 }
 
@@ -366,8 +393,9 @@ export function verdictLine(cols: Column[]): Verdict | null {
     return { index: null, line: `The terrain at ${top.siteName} is incomplete, so no landing is named as working best: its figures may be too high.` };
   }
   const contact = o.poweredContactH > 0 ? `${spanWords(o.poweredContactH)} of radio contact while it has power` : 'no radio contact while it has power';
-  if (rank(o, n) === 0) {
-    const level = order.filter((c) => rank(c.outcome!, o) === 0).map((c) => named(c, cols));
+  // Level as the page shows them (sunlight to the whole percent): a lead no one can read names no landing.
+  if (decidingFigure(o, n) === null) {
+    const level = order.filter((c) => decidingFigure(c.outcome!, o) === null).map((c) => named(c, cols));
     const names = level.length === cols.length ? 'All of these landings' : `${level.slice(0, -1).join(', ')} and ${level[level.length - 1]}`;
     return { index: null, line: `${names} work equally well: power for ${powerWords(o)}, with ${contact}.` };
   }
@@ -375,8 +403,8 @@ export function verdictLine(cols: Column[]): Verdict | null {
     o.poweredH !== n.poweredH
       ? `power for ${powerWords(o)}, the longest here, with ${contact}`
       : o.poweredContactH !== n.poweredContactH
-        ? `power for ${powerWords(o)}, as long as any here, with the most radio contact while it has power: ${wordsOrNone(o.poweredContactH)}`
-        : `power for ${powerWords(o)}, as long as any here, with the most sunlight: ${pct0(o.sunFraction)}`;
+        ? `power for ${powerWords(o)}, as long as any here, with the most radio contact while it has power: ${wordsOrNone(o.poweredContactH)} against ${wordsOrNone(n.poweredContactH)}`
+        : `power for ${powerWords(o)}, as long as any here, with the same radio contact while it has power, and the most sunlight: ${pct0(o.sunFraction)} against ${pct0(n.sunFraction)}`;
   const caveat = unchecked(top.site) ? ` ${top.siteName} is a high point worked out from the heights, not checked for landing.` : '';
   return { index: cols.indexOf(top), line: `${named(top, cols)} works best of these ${cols.length} landings: ${why}.${caveat}` };
 }
