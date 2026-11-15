@@ -214,7 +214,7 @@ function WholeMoon({ site }: { site: Site }) {
         className="absolute flex items-center"
         style={{ left: `${left.toFixed(2)}%`, top: `${top.toFixed(2)}%`, transform: 'translate(-50%, -50%)' }}
       >
-        <span className="relative block h-6 w-6 rounded-full border-2 border-sun shadow-[0_0_0_4px_rgb(0_0_0/0.55),0_0_18px_4px_rgb(255_236_200/0.55)]">
+        <span className="relative block h-6 w-6 rounded-full border-2 border-sun shadow-[0_0_0_4px_rgb(0_0_0/0.55),0_0_18px_4px_rgb(235_232_223/0.6)]">
           <span className="absolute inset-[5px] rounded-full bg-sun" />
         </span>
         <span className={`absolute ${side} whitespace-nowrap rounded-md bg-stage/80 px-2 py-0.5 text-[13px] font-semibold text-white`}>{name}</span>
