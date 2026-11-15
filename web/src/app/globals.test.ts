@@ -29,8 +29,8 @@ function contrast(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const THEMED = ['--page', '--surface', '--surface-2', '--line', '--line-strong', '--ink', '--ink-2', '--ink-3', '--primary', '--primary-on', '--primary-hover', '--accent', '--accent-ink', '--glow', '--glow-strength', '--sun', '--sun-ink', '--sun-hover', '--earth', '--earth-ink', '--good', '--good-bg', '--good-line', '--bad', '--bad-bg', '--bad-line', '--warn', '--stage-edge'];
-const FIXED = ['--stage', '--stage-ink', '--stage-ink-2', '--stage-line', '--stage-sun', '--stage-earth', '--hill', '--hill-edge'];
+const THEMED = ['--page', '--band', '--surface', '--surface-2', '--line', '--line-strong', '--ink', '--ink-2', '--ink-3', '--primary', '--primary-on', '--primary-hover', '--accent', '--accent-ink', '--glow', '--glow-strength', '--sun', '--sun-ink', '--sun-hover', '--earth', '--earth-ink', '--good', '--good-bg', '--good-line', '--bad', '--bad-bg', '--bad-line', '--warn', '--stage-edge'];
+const FIXED = ['--stage-band', '--stage-raised', '--stage-raised-line', '--stage', '--stage-ink', '--stage-ink-2', '--stage-line', '--stage-sun', '--stage-earth', '--hill', '--hill-edge'];
 /** A hex colour's hue saturation: 0 for a grey, so "black and white" can be checked. */
 function chroma(hex: string): number {
   const n = parseInt(hex.slice(1), 16);
@@ -50,11 +50,12 @@ describe('theme tokens', () => {
     for (const t of FIXED) expect(light[t], t).toBeTruthy();
   });
 
-  it('matches the approved Moonstone values (spec 23): paper and near-black pages, black and white ink, a black stage and one blue', () => {
+  it('matches the approved Moonstone values (spec 23): a paper page and a deep blue-grey one, black and white ink, a black stage and one blue', () => {
     expect(light['--page']).toBe('#eeede9');
-    expect(dark['--page']).toBe('#050506');
-    expect(dark['--surface']).toBe('#0c0d10');
-    expect(dark['--surface-2']).toBe('#15171b');
+    expect(dark['--page']).toBe('#0f141c');
+    expect(dark['--band']).toBe('#151b26');
+    expect(dark['--surface']).toBe('#19202b');
+    expect(dark['--surface-2']).toBe('#232c39');
     expect(light['--surface']).toBe('#ffffff');
     expect(light['--ink']).toBe('#0b0b0c');
     expect(dark['--ink']).toBe('#f5f5f3');
@@ -64,14 +65,36 @@ describe('theme tokens', () => {
     expect(light['--earth']).toBe(light['--accent']);
     // The glow is the accent's own light, as an RGB triplet for rgb(var(--glow) / alpha).
     expect(dark['--glow']).toBe('127 169 255');
+    // The home page's dark band is the dark page's tone in both themes.
+    expect(light['--stage-band']).toBe(dark['--page']);
   });
 
-  it('keeps everything but the accent and the power verdict black and white, in both themes (spec 23)', () => {
+  it('keeps ink and paper black and white, and the dark page and its plates a quiet blue-grey, never a colour (spec 23)', () => {
     for (const t of [light, dark]) {
-      for (const k of ['--page', '--surface', '--surface-2', '--line', '--line-strong', '--ink', '--ink-2', '--ink-3', '--primary', '--primary-on', '--sun', '--stage-edge']) expect(chroma(t[k]), k).toBeLessThanOrEqual(0.06);
+      for (const k of ['--ink', '--ink-2', '--ink-3', '--primary', '--sun']) expect(chroma(t[k]), k).toBeLessThanOrEqual(0.07);
       expect(chroma(t['--accent'])).toBeGreaterThan(0.3);
     }
+    for (const k of ['--page', '--band', '--surface', '--surface-2', '--line', '--line-strong', '--primary-on', '--stage-edge']) {
+      expect(chroma(light[k]), `light ${k}`).toBeLessThanOrEqual(0.06);
+      expect(chroma(dark[k]), `dark ${k}`).toBeLessThanOrEqual(0.12);
+    }
     for (const k of ['--stage', '--stage-ink', '--stage-ink-2', '--stage-line', '--stage-sun', '--hill', '--hill-edge']) expect(chroma(light[k]), k).toBeLessThanOrEqual(0.06);
+  });
+
+  it('lifts the dark theme off black in four steps that can be told apart: page, band, plate, raised plate (15 November, owner review)', () => {
+    const steps = ['--page', '--band', '--surface', '--surface-2'].map((k) => luminance(dark[k]));
+    for (let i = 1; i < steps.length; i++) expect(steps[i], `step ${i}`).toBeGreaterThan(steps[i - 1]);
+    // A plate against the page, and a raised plate against a plate: each a clear step, not a hair.
+    expect(contrast(dark['--surface'], dark['--page'])).toBeGreaterThanOrEqual(1.12);
+    expect(contrast(dark['--surface-2'], dark['--surface'])).toBeGreaterThanOrEqual(1.12);
+    expect(contrast(dark['--surface-2'], dark['--page'])).toBeGreaterThanOrEqual(1.3);
+    // The light theme has the same order the other way: plates lighter than the page, a band darker.
+    expect(luminance(light['--band'])).toBeLessThan(luminance(light['--page']));
+    expect(luminance(light['--surface'])).toBeGreaterThan(luminance(light['--page']));
+    // A figure's panel on the home page's dark band, and its edge.
+    expect(contrast(light['--stage-raised'], light['--stage-band'])).toBeGreaterThanOrEqual(1.12);
+    expect(contrast(light['--stage-raised-line'], light['--stage-raised'])).toBeGreaterThanOrEqual(1.5);
+    expect(css).toMatch(/\.band \{[^}]*background: var\(--band\)/);
   });
 
   it('gives the primary action 7:1 for its words on its fill, in both themes', () => {
@@ -90,9 +113,12 @@ describe('theme tokens', () => {
     expect(block('.theme-dark')).not.toHaveProperty('--page', block('.theme-light')['--page']);
   });
 
-  it('makes the dark page near-black but not the stage’s true black, and gives a picture panel an edge that shows on both (spec 6)', () => {
-    expect(luminance(dark['--page'])).toBeLessThan(0.005);
-    expect(dark['--page']).not.toBe(light['--stage']);
+  it('makes the dark page a deep blue-grey, well off the stage’s true black, and gives a picture panel an edge that shows on both', () => {
+    expect(luminance(dark['--page'])).toBeGreaterThan(0.005);
+    expect(luminance(dark['--page'])).toBeLessThan(0.02);
+    const page = parseInt(dark['--page'].slice(1), 16);
+    expect(page & 255, 'blue over red').toBeGreaterThan((page >> 16) & 255);
+    expect(contrast(dark['--page'], light['--stage'])).toBeGreaterThanOrEqual(1.1);
     expect(contrast(dark['--stage-edge'], dark['--page'])).toBeGreaterThanOrEqual(2);
     expect(contrast(dark['--stage-edge'], light['--stage'])).toBeGreaterThanOrEqual(2);
     expect(contrast(light['--stage-edge'], light['--stage'])).toBeGreaterThanOrEqual(1.5);
@@ -100,8 +126,9 @@ describe('theme tokens', () => {
   });
 
   it('draws plates with a hairline that shows, and gives controls an edge of 3:1 on the dark page', () => {
-    expect(contrast(dark['--line'], dark['--surface'])).toBeGreaterThanOrEqual(1.3);
-    expect(contrast(light['--line'], light['--surface'])).toBeGreaterThanOrEqual(1.3);
+    expect(contrast(dark['--line'], dark['--surface'])).toBeGreaterThanOrEqual(1.5);
+    expect(contrast(dark['--line'], dark['--page'])).toBeGreaterThanOrEqual(1.5);
+    expect(contrast(light['--line'], light['--surface'])).toBeGreaterThanOrEqual(1.5);
     expect(contrast(dark['--line-strong'], dark['--surface'])).toBeGreaterThanOrEqual(3);
     expect(contrast(dark['--line-strong'], dark['--page'])).toBeGreaterThanOrEqual(3);
   });
@@ -115,13 +142,14 @@ describe('theme tokens', () => {
 
   it('gives body text 7:1 and secondary text 4.5:1 on the page and its plates, in both themes (spec 6)', () => {
     for (const [name, t] of [['light', light], ['dark', dark]] as const) {
-      for (const bg of ['--page', '--surface', '--surface-2']) {
+      for (const bg of ['--page', '--band', '--surface', '--surface-2']) {
         for (const fg of ['--ink', '--ink-2']) expect(contrast(t[fg], t[bg]), `${name} ${fg} on ${bg}`).toBeGreaterThanOrEqual(7);
         expect(contrast(t['--ink-3'], t[bg]), `${name} --ink-3 on ${bg}`).toBeGreaterThanOrEqual(4.5);
       }
       const coloured: [string, string][] = [
         ['--sun-ink', '--surface'], ['--earth-ink', '--surface'], ['--good', '--surface'], ['--bad', '--surface'], ['--warn', '--surface'],
         ['--sun-ink', '--page'], ['--earth-ink', '--page'], ['--good', '--page'], ['--bad', '--page'],
+        ['--good', '--surface-2'], ['--bad', '--surface-2'], ['--warn', '--surface-2'], ['--accent-ink', '--surface-2'], ['--accent-ink', '--band'],
       ];
       for (const [fg, bg] of coloured) expect(contrast(t[fg], t[bg]), `${name} ${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
       expect(contrast(t['--accent-ink'], t['--page']), `${name} --accent-ink on --page`).toBeGreaterThanOrEqual(4.5);
@@ -130,6 +158,12 @@ describe('theme tokens', () => {
     expect(contrast(light['--stage-ink'], light['--stage'])).toBeGreaterThanOrEqual(7);
     expect(contrast(light['--stage-ink-2'], light['--stage'])).toBeGreaterThanOrEqual(4.5);
     expect(contrast(light['--stage-ink'], light['--hill'])).toBeGreaterThanOrEqual(4.5);
+    // On the home page's dark band and a figure's panel on it, in both themes.
+    for (const bg of ['--stage-band', '--stage-raised']) {
+      expect(contrast(light['--stage-ink'], light[bg]), bg).toBeGreaterThanOrEqual(7);
+      expect(contrast(light['--stage-ink-2'], light[bg]), bg).toBeGreaterThanOrEqual(7);
+      for (const fg of ['--stage-earth', '--stage-good', '--stage-sun']) expect(contrast(light[fg], light[bg]), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it('has none of the old token names left, now the last old component is gone', () => {
@@ -178,10 +212,29 @@ describe('globals.css layering', () => {
     expect(css).toMatch(/\.field \{[^}]*border-radius: 8px/);
   });
 
-  it('sets display type in the serif at its one weight, never thickened by the browser (spec 23)', () => {
-    expect(css).toMatch(/\.display \{[^}]*font-family: var\(--font-serif\)/);
-    expect(css).toMatch(/\.display \{[^}]*font-weight: 400/);
+  it('sets every kind of type in the one face: no serif, pixel or monospace face is named anywhere (15 November, owner review)', () => {
+    expect(css).not.toMatch(/Instrument|Pixelify|Plex Mono|--font-serif|--font-pixelify|--font-plex-mono|Georgia|monospace/);
+    const families = [...css.matchAll(/(?:font-family|--font-(?:display|pixel|text|mono)): ([^;]+);/g)].map((m) => m[1]);
+    expect(families.length).toBeGreaterThanOrEqual(8);
+    for (const f of families) expect(f === 'var(--font-text)' || f === 'var(--font-plex), "IBM Plex Sans", system-ui, sans-serif', f).toBe(true);
+    for (const cls of ['display', 'pixel', 'eyebrow', 'mono']) expect(css, cls).toMatch(new RegExp(`\\.${cls} \\{[^}]*font-family: var\\(--font-plex\\)`));
+  });
+
+  it('sets titles semibold with a heading’s lines, and a stressed word upright in the accent, never in italics', () => {
+    expect(css).toMatch(/\.display \{[^}]*font-weight: 600/);
     expect(css).toMatch(/\.display \{[^}]*font-synthesis: none/);
+    const lh = Number(/\.display \{[^}]*line-height: ([\d.]+)/.exec(css)![1]);
+    expect(lh).toBeGreaterThanOrEqual(1.15);
+    expect(lh).toBeLessThanOrEqual(1.25);
+    expect(css).toMatch(/\.display em,\s*\.display i \{\s*font-style: normal;\s*color: var\(--accent-ink\)/);
+    expect(css).toMatch(/\[data-stage\] \.display em \{\s*color: var\(--stage-earth\)/);
+    expect(css).not.toMatch(/font-style: italic/);
+  });
+
+  it('gives reading text open lines and the face’s own spacing, labels modest tracking, and figures one width', () => {
+    expect(css).toMatch(/\nhtml \{[^}]*line-height: 1\.6;[^}]*letter-spacing: normal;[^}]*font-variant-numeric: tabular-nums/);
+    expect(css).toMatch(/\.eyebrow \{[^}]*letter-spacing: 0\.06em;[^}]*text-transform: uppercase;[^}]*font-variant-numeric: tabular-nums/);
+    expect(css).toMatch(/\.mono \{[^}]*font-variant-numeric: tabular-nums/);
   });
 
   it('switches every animation and transition off under reduced motion, and shows what Reveal would bring in', () => {

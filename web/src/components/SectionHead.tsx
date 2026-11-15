@@ -14,7 +14,7 @@ export function SectionHead({ id, n, kicker, title, lede, tone = 'page', classNa
         <span aria-hidden="true" className="h-px w-8 bg-current opacity-60" />
         {kicker}
       </p>
-      <h2 id={id} className="display mt-4 max-w-[18em] text-balance text-[40px] leading-[1] sm:text-[56px]">
+      <h2 id={id} className="display mt-4 max-w-[18em] text-balance text-[40px] leading-[1.15] sm:text-[56px]">
         {title}
       </h2>
       {lede && <p className={`mt-4 max-w-[40em] text-lg leading-relaxed ${soft}`}>{lede}</p>}

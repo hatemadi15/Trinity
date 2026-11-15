@@ -1,10 +1,11 @@
 @import "tailwindcss";
 
 /*
- * Moonstone (spec 23, supersedes the palette of spec 6). Black and white, like a print of the Moon, with one colour
- * that pops: moonstone blue, the blue of Earth from the Moon. Dark is the default theme; data-theme="light" on <html>
- * swaps the values (set before paint by the inline script in layout.tsx), and the light theme stays for print and
- * classrooms: black ink on paper. The Sun is drawn warm white, Earth blue; green and red stay only for the power
+ * Moonstone (spec 23, supersedes the palette of spec 6). Ink on a deep blue-grey, like the Moon's night side under
+ * earthshine, with one colour that pops: moonstone blue, the blue of Earth from the Moon. Dark is the default theme;
+ * data-theme="light" on <html> swaps the values (set before paint by the inline script in layout.tsx), and the light
+ * theme stays for print and classrooms: black ink on paper. The dark page is not black (15 November, owner review):
+ * the page, a band, a plate and a raised plate are four steps apart, so sections and panels can be told apart. The Sun is drawn warm white, Earth blue; green and red stay only for the power
  * verdict. Picture panels ("stages": charts, shadow map, 3D, relief maps) keep the same colours in both themes; the
  * sky above an airless world is true black. Glows are the accent's own light: `--glow` is its RGB triplet.
  */
@@ -17,7 +18,9 @@
   --page: #eeede9;
   --surface: #ffffff;
   --surface-2: #f5f5f2;
-  --line: #d6d5d0;
+  /* The shade of every other band on a long page, between the page and its plates. */
+  --band: #e4e2dc;
+  --line: #c9c8c2;
   --line-strong: #85878c;
   --ink: #0b0b0c;
   --ink-2: #2c2e33;
@@ -51,8 +54,10 @@
   --stage-earth: #7fa9ff;
   /* On the black band: radio contact's green, and a figure's panel, a step lighter than the band, with its edge. */
   --stage-good: #63d39b;
-  --stage-raised: #14171d;
-  --stage-raised-line: #414650;
+  --stage-raised: #19202b;
+  --stage-raised-line: #465163;
+  /* The home page's dark band in both themes: the dark page's blue-grey, so the pictures' true black shows on it. */
+  --stage-band: #0f141c;
   --hill: #55585f;
   --hill-edge: #dfe1e6;
   color-scheme: light;
@@ -65,18 +70,19 @@
 @media screen {
   :root[data-theme="dark"],
   .theme-dark {
-    /* Near-black, one step above the stages' true black; plates one step above the page, with a hairline edge. */
-    --page: #050506;
-    --surface: #0c0d10;
-    --surface-2: #15171b;
-    --line: #2a2d33;
-    --line-strong: #70747c;
-    --stage-edge: #46494f;
+    /* A deep blue-grey, well above the stages' true black; a band, a plate and a raised plate each a clear step lighter, with an edge that shows. */
+    --page: #0f141c;
+    --band: #151b26;
+    --surface: #19202b;
+    --surface-2: #232c39;
+    --line: #364152;
+    --line-strong: #7f8a99;
+    --stage-edge: #4b5564;
     --ink: #f5f5f3;
-    --ink-2: #c9cbcf;
-    --ink-3: #9fa3aa;
+    --ink-2: #cdd0d5;
+    --ink-3: #a6acb6;
     --primary: #f5f5f3;
-    --primary-on: #050506;
+    --primary-on: #0f141c;
     --primary-hover: #ffffff;
     --accent: #7fa9ff;
     --accent-ink: #a8c6ff;
@@ -102,6 +108,7 @@
   --color-page: var(--page);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-band: var(--band);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
@@ -133,12 +140,13 @@
   --color-stage-good: var(--stage-good);
   --color-stage-raised: var(--stage-raised);
   --color-stage-raised-line: var(--stage-raised-line);
+  --color-stage-band: var(--stage-band);
   --color-hill: var(--hill);
-  /* Titles: a high-contrast serif with a true italic (the Default Lingo look); a pixel face for the odd accent; Plex for reading and its mono for labels. */
-  --font-display: var(--font-serif), "Instrument Serif", Georgia, serif;
-  --font-pixel: var(--font-pixelify), "Pixelify Sans", ui-monospace, monospace;
+  /* One face for everything (15 November, owner review): IBM Plex Sans. Titles, labels and figures differ by weight, size and case, not by face. */
+  --font-display: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
+  --font-pixel: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
   --font-text: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
-  --font-mono: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+  --font-mono: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -146,6 +154,9 @@ html {
   background: var(--page);
   color: var(--ink);
   font-family: var(--font-text);
+  /* Reading text: open lines, the face's own spacing. Figures keep one width, so columns of numbers line up. */
+  line-height: 1.6;
+  letter-spacing: normal;
   font-variant-numeric: tabular-nums;
 }
 
@@ -360,36 +371,52 @@ html {
     color: var(--stage-ink);
   }
   /*
-   * Display type: the high-contrast serif, its one weight, never thickened by the browser (a "font-semibold" on a
-   * title leaves it as drawn). Its italic carries the stress; the size comes from utilities.
+   * Display type: the one face, semibold, with a heading's closer lines. A stressed word stands upright in the
+   * accent, never in italics; on a picture panel it takes the bright blue, which shows on black in both themes.
    */
   .display {
-    font-family: var(--font-serif), "Instrument Serif", Georgia, serif;
-    font-weight: 400;
+    font-family: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
+    font-weight: 600;
     font-synthesis: none;
-    line-height: 1.02;
-    letter-spacing: -0.01em;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
   }
   .display em,
   .display i {
-    font-style: italic;
-  }
-  /* A word set in the pixel face, as Default Lingo sets a letter or two in its pixel cut. */
-  .pixel {
-    font-family: var(--font-pixelify), "Pixelify Sans", ui-monospace, monospace;
     font-style: normal;
-    letter-spacing: -0.02em;
+    color: var(--accent-ink);
   }
-  /* A small label in capitals, spaced like an instrument's readout. */
+  .stage .display em,
+  [data-stage] .display em {
+    color: var(--stage-earth);
+  }
+  /* A word that once stood in a pixel face: now the same face as its line. */
+  .pixel {
+    font-family: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
+    font-style: normal;
+    font-weight: 600;
+    letter-spacing: inherit;
+  }
+  /* A small label in capitals, with modest tracking. */
   .eyebrow {
-    font-family: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+    font-family: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
     font-size: 14px;
-    font-weight: 400;
-    letter-spacing: 0.16em;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
   }
+  /* Readouts: the same face, with figures of one width where a fixed-width face once lined them up. */
   .mono {
-    font-family: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
+    font-family: var(--font-plex), "IBM Plex Sans", system-ui, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Every other section of a long page stands on a band a shade off the page, edge to edge, whatever the width of its column. */
+  .band {
+    background: var(--band);
+    box-shadow: 0 0 0 100vmax var(--band);
+    clip-path: inset(0 -100vmax);
   }
   /* The accent's light on a word or a mark. */
   .text-glow {

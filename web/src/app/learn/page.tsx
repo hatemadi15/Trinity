@@ -25,7 +25,7 @@ export default function LearnPage() {
           </Fold>
         </div>
         <WhySection />
-        <section aria-labelledby="h-science" className="wrap pt-16">
+        <section aria-labelledby="h-science" className="band wrap mt-16 py-16">
           <h2 id="h-science" className="display text-[34px] sm:text-[40px]">
             The science behind the three facts
           </h2>
@@ -53,7 +53,7 @@ export default function LearnPage() {
           </div>
         </section>
         {/* Where the home page's "run it offline" lands: what a laptop needs, in a reader's words; the commands stay in the README. */}
-        <section id="offline" aria-labelledby="h-offline" className="wrap pt-16">
+        <section id="offline" aria-labelledby="h-offline" className="band wrap mt-16 py-16">
           <h2 id="h-offline" className="display text-[34px] sm:text-[40px]">
             Running it offline
           </h2>
