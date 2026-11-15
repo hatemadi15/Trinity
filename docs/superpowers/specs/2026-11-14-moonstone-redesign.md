@@ -166,6 +166,21 @@ Textures and their credits: `web/public/hero/textures/`.
   are missing. "Your own point is not checked for landing" stands under the button.
 - **Measured** at 1440 px: the page is 3778 px tall, from 4406; on a 390 px phone 6289, from 6670.
 
+- **The guided arrival (`tour=1`).** (15 November, owner: "one thing at a time, and the page moves on through a user
+  action".) The Choose a site map's marker and card links add `tour=1`; no other link does, so shared links, the
+  journeys, Compare's "Explore it" and the assistant open the full page. With it Explore shows one part at a time, in
+  the page's own order: 1 Where on the Moon, 2 The answer (the band, the verdict, the numbers), 3 Hour by hour (the
+  chart, the ground, the player), 4 The year, 5 Questions and checks (the assistant and "How sure"). Each step ends
+  with one button, "Next: <what comes next>"; pressing it, or scrolling on past the end of the page once it has
+  rested there (a wheel pushed on, a finger dragged up), brings the next part in with a fade and an 18 px rise over
+  400 ms (`step-in`), scrolls to it smoothly, puts the focus on its heading and says "Step n of 5: <name>" in a polite
+  live region. Parts shown stay, so the page builds into the full page. A quiet line stays at the top of the window
+  while parts wait: "Step n of 5" and "Show everything", which shows the rest at once without scrolling. While parts
+  wait the address keeps `tour=1` (a reload stays in the tour, from step 1); at the end, or on "Show everything", it
+  drops it, so a link copied from there opens the full page; the share dialog's link never carries it. Under reduced
+  motion nothing animates and the scroll is instant. `?own=1` has no tour. A part not yet shown is not rendered
+  (`components/explore/Tour.tsx`: `useTour`, `TourStep`, `TourBar`, `TourNext`).
+
 ## 23.5 Compare, made plain
 (15 November, owner review: "I don't know what slip is. I don't know what change is doing"; adding a site to compare
 was the part that could not be found.)

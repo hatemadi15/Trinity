@@ -72,7 +72,7 @@ describe('SitesView', () => {
     expect(markerOf('Apollo 11').dataset.on).toBe('inset');
     expect(markerOf('Lunar south pole').dataset.on).toBe('relief');
     // The marker opens Explore on the landing day its figures name, where every one of them is a figure Explore shows.
-    expect(markerOf('de Gerlache Rim 2').getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30');
+    expect(markerOf('de Gerlache Rim 2').getAttribute('href')).toBe('/explore?site=de_gerlache_rim_2&start=2027-01-20T10:00&days=30&tour=1');
     // Each marker says its group by its mark.
     expect(markerOf('Haworth').dataset.group).toBe('artemis');
     expect(markerOf('IM-2 Athena').dataset.group).toBe('lander');

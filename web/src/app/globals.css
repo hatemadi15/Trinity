@@ -255,6 +255,11 @@ pre {
   from { transform: translateY(32px); }
   to { transform: translateY(-37px); }
 }
+/* A part of Explore's guided arrival comes in: it fades up and rises into place, once (explore/Tour). */
+@keyframes step-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
 @keyframes wiggle {
   0%, 100% { transform: rotate(0); }
   25% { transform: rotate(-8deg); }

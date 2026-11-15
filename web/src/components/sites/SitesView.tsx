@@ -31,9 +31,9 @@ const groupOf = (site: Site): MarkerGroup => GROUP_OF[site.category] ?? 'other';
 /** The Explore address for a site and a period; the hour is kept only when the period does not start at midnight. */
 export { exploreHref };
 
-/** A site opens Explore on the landing day its figures name, where every one of them is a figure Explore shows; without a better day, on the period's start. */
+/** A site opens Explore's guided arrival (tour=1) on the landing day its figures name, where every one of them is a figure Explore shows; without a better day, on the period's start. */
 function siteHref(siteId: string, o: SiteOverview | undefined, startUtc: string, days: number): string {
-  return exploreHref(siteId, o?.best && o.best.hour > 0 ? isoAt(startUtc, o.best.hour) : startUtc, days);
+  return exploreHref(siteId, o?.best && o.best.hour > 0 ? isoAt(startUtc, o.best.hour) : startUtc, days) + '&tour=1';
 }
 
 /** The list is ranked by the longest time with power, then by sunlight; a site with incomplete terrain after them (its figures may be too high), a site without figures last. */
