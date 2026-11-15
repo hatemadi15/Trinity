@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { AppFrame } from '@/components/AppFrame';
 import { Descent } from '@/components/home/Descent';
 import { ContactStrip } from '@/components/home/ContactStrip';
+import { MoonLocator, SiteView } from '@/components/home/ForecastFigures';
 import { ForecastHover } from '@/components/home/ForecastHover';
 import { WhySimple } from '@/components/home/WhySimple';
 import { MoonNebula } from '@/components/MoonNebula';
@@ -27,6 +28,10 @@ const LINK = 'font-semibold underline decoration-[1.5px] underline-offset-4 tran
 const CELL = 'py-[22px] pr-4 max-md:block max-md:py-0';
 /** Both forecast rows use one height scale: a degree takes as many pixels in each. */
 const PX_PER_DEG = 6.5;
+/** A figure of the forecast: a framed panel a step lighter than the black band, so a chart reads as a picture and not as the page. The chart inside takes the panel's colour. */
+const FIGURE = 'overflow-hidden rounded-2xl border border-stage-raised-line bg-stage-raised [--color-stage:var(--stage-raised)] [--stage:var(--stage-raised)]';
+/** A figure's head: the drawing of the view beside the step's name and words; on a phone the words come first. */
+const FIGURE_HEAD = 'grid gap-6 p-[var(--chart-inset)] md:grid-cols-[minmax(0,400px)_minmax(0,1fr)] md:items-center md:gap-12 md:p-8';
 /** A number and its percent sign stay on one line. */
 const pct = (n: number) => `${n}\u00a0%`;
 /** The corner marks of an instrument's frame, around a picture. */
@@ -103,10 +108,10 @@ export default function Home() {
         <Descent words={descentWords()} />
 
         {/* 01. The forecast, read in three steps with room between them: the Sun, Earth, and what the two mean for a
-            lander. The rows run from edge to edge on a black band, a window onto the Moon in both themes; their side
-            labels line up with the page gutter. */}
-        <figure aria-labelledby="h-forecast" data-stage="" className="border-t border-stage-edge bg-stage pb-24 pt-24 text-stage-ink [--chart-inset:16px] sm:pb-32 sm:[--chart-inset:32px]">
-          <figcaption className="wrap">
+            lander. The band is black in both themes; each step is a figure in its own framed panel, with a small
+            drawing that says where the viewer stands. The three panels are one width, so their dates line up. */}
+        <figure aria-labelledby="h-forecast" data-stage="" className="border-t border-stage-edge bg-stage pb-24 pt-24 text-stage-ink [--chart-inset:16px] sm:pb-32 sm:[--chart-inset:24px]">
+          <figcaption className="wrap grid gap-8 md:grid-cols-[minmax(0,1fr)_310px] md:items-end">
             <Reveal>
               <p className="eyebrow flex items-center gap-3 text-[#a8c6ff]">
                 <span className="pixel text-[17px] tracking-normal">01</span>
@@ -117,25 +122,27 @@ export default function Home() {
                 {hero.name}, <em>January 2027</em>
               </p>
               <p className="mt-5 max-w-[38em] text-lg leading-relaxed text-stage-ink-2">
-                A ridge NASA shortlisted for astronauts. <span className="text-stage-ink">Point at a chart, or tab to it, to read any hour.</span>
+                A ridge NASA shortlisted for astronauts. <span className="text-stage-ink">Point at a chart, or tab to it, for any hour.</span>
               </p>
             </Reveal>
+            <MoonLocator site={hero.name} />
           </figcaption>
 
           {/* Step 1: the Sun. */}
-          <div className="mt-20">
-            <Reveal className="wrap grid gap-4 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)] md:gap-12">
-              <p className="flex items-baseline gap-3">
-                <span className="pixel text-[20px] text-[#a8c6ff]">1</span>
-                <span className="display text-[32px] leading-none">The Sun</span>
-              </p>
-              <div>
-                <p data-step-words="" className="max-w-[40em] text-lg leading-relaxed text-stage-ink-2">
-                  White is the Sun&apos;s height; grey, the hills in its direction. Behind the grey, it is night.
-                </p>
-              </div>
-            </Reveal>
-            <div className="mt-6">
+          <div className="wrap mt-14 max-sm:px-2">
+            <div data-figure="sun" className={FIGURE}>
+              <Reveal className={FIGURE_HEAD}>
+                <div className="md:order-2">
+                  <p className="flex items-baseline gap-3">
+                    <span className="pixel text-[20px] text-[#a8c6ff]">1</span>
+                    <span className="display text-[32px] leading-none">The Sun</span>
+                  </p>
+                  <p data-step-words="" className="mt-4 max-w-[40em] text-lg leading-relaxed text-stage-ink-2">
+                    <span className="text-stage-ink">You stand at the landing site, facing the Sun.</span> White is its height; grey, the hills. Behind the grey: night.
+                  </p>
+                </div>
+                <SiteView body="sun" />
+              </Reveal>
               <ForecastHover series={FORECAST}>
                 <SkyRow el={sky.sun_el} hill={sky.hill_el} visible={sky.lit} startUtc={sky.start_utc} body="sun" title="Sunlight" caption={`The Sun at ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} fitHills />
               </ForecastHover>
@@ -143,19 +150,20 @@ export default function Home() {
           </div>
 
           {/* Step 2: Earth. */}
-          <div className="mt-20">
-            <Reveal className="wrap grid gap-4 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)] md:gap-12">
-              <p className="flex items-baseline gap-3">
-                <span className="pixel text-[20px] text-[#a8c6ff]">2</span>
-                <span className="display text-[32px] leading-none">Earth</span>
-              </p>
-              <div>
-                <p data-step-words="" className="max-w-[40em] text-lg leading-relaxed text-stage-ink-2">
-                  Blue is Earth&apos;s height. <span className="text-stage-ink">Earth in view is not yet radio contact: that needs power too.</span>
-                </p>
-              </div>
-            </Reveal>
-            <div className="mt-6">
+          <div className="wrap mt-10 max-sm:px-2">
+            <div data-figure="earth" className={FIGURE}>
+              <Reveal className={FIGURE_HEAD}>
+                <div className="md:order-2">
+                  <p className="flex items-baseline gap-3">
+                    <span className="pixel text-[20px] text-[#a8c6ff]">2</span>
+                    <span className="display text-[32px] leading-none">Earth</span>
+                  </p>
+                  <p data-step-words="" className="mt-4 max-w-[40em] text-lg leading-relaxed text-stage-ink-2">
+                    Now face Earth: blue is its height. <span className="text-stage-ink">Earth in view is not yet radio contact: that needs power too.</span>
+                  </p>
+                </div>
+                <SiteView body="earth" />
+              </Reveal>
               <ForecastHover series={FORECAST}>
                 <SkyRow el={sky.earth_el} hill={sky.earth_hill_el} visible={sky.earth_visible} startUtc={sky.start_utc} body="earth" title="Earth in view" gapWord="Out of view" caption={`Earth from ${hero.name}, January 2027`} pxPerDeg={PX_PER_DEG} />
               </ForecastHover>
@@ -164,17 +172,17 @@ export default function Home() {
 
           {/* Step 3: what the two mean for a lander. Radio contact is the hours with power and Earth in view at once,
               drawn on the rows' own time scale; every other hour says what it lacks. */}
-          <div className="mt-20">
-            <Reveal className="wrap grid gap-4 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)] md:gap-12">
-              <p className="flex items-baseline gap-3">
-                <span className="pixel text-[20px] text-[#a8c6ff]">3</span>
-                <span className="display text-[32px] leading-none">The lander</span>
-              </p>
-              <p className="max-w-[40em] text-lg leading-relaxed text-stage-ink-2">
-                Radio contact needs <span className="text-stage-ink">power and Earth in view at once.</span> This month: {spanWords(contact.bothHours)}.
-              </p>
-            </Reveal>
-            <div className="mt-8">
+          <div className="wrap mt-10 max-sm:px-2">
+            <div data-figure="lander" className={FIGURE}>
+              <Reveal className="p-[var(--chart-inset)] md:p-8">
+                <p className="flex items-baseline gap-3">
+                  <span className="pixel text-[20px] text-[#a8c6ff]">3</span>
+                  <span className="display text-[32px] leading-none">The lander</span>
+                </p>
+                <p className="mt-4 max-w-[40em] text-lg leading-relaxed text-stage-ink-2">
+                  Radio contact needs <span className="text-stage-ink">power and Earth in view at once.</span> This month: {spanWords(contact.bothHours)}.
+                </p>
+              </Reveal>
               <ContactStrip contact={contact} startUtc={sky.start_utc} />
             </div>
           </div>

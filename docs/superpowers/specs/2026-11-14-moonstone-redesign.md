@@ -99,7 +99,7 @@ Textures and their credits: `web/public/hero/textures/`.
   browser, `lunaStore.voice`), keeps every reply to the conversation when off, stopping her at once mid-reply.
 
 ## 23.3 Clearer sections
-- The forecast reads in three steps with room between them: the Sun, Earth, the lander.
+- The forecast reads in three steps with room between them: the Sun, Earth, the lander. Each step is a figure in its own framed panel, a step lighter than the black band (`--stage-raised`), not a full-bleed row. A locator beside the title marks the site at the Moon's south pole, and a small drawing beside each chart (`home/ForecastFigures`) shows the viewer standing at the site, with the Sun or Earth above the hills and behind them. The lander's lanes are thick and coloured as the view from the site's key: warm white for sunlight, blue for Earth in view, green for radio contact, with the dates under them.
 - **Earth in view is not radio contact** (15 November, owner review). The Earth row is named "Earth in view" and its
   hidden stretches "Out of view"; it never says "contact". The lander step states the rule, "Radio contact needs
   power and Earth in view at once", and draws it on the rows' own time scale (`ContactStrip`, `lib/viz/homeContact`):
