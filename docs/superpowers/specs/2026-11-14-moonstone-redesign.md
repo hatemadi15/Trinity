@@ -213,3 +213,18 @@ was the part that could not be found.)
   table waits behind "All figures"; "Share or keep", "Assumptions and limits" and "Start again" share one band. The
   empty page keeps its gold example over three tiles (two examples, "Set up my own landing"). At 1440 px the
   five-day example fell from about 3000 px and 690 words to about 2150 px and 460 words.
+
+## 23.6 Accuracy, shown
+
+Owner review (15 November): explain "Where shadows fall in pictures from orbit", name the datasets used, and make
+the page less bland, like the hero. The page opens on a band of the Moon's night sky (`MoonNebula`, black in both
+themes) with the title, one line and the verdict; the five kinds of evidence are tiles (`.panel`, two to a row on
+a wide screen), each with a pass, miss or context badge, one big figure and one sentence, its parts and its table
+still folded. The pictures' tile shows one real picture of the check, the Wide Angle Camera's frame of the peak
+near Shackleton on 23 September 2009, beside the app's shadows for the same minute with the ground the two call
+differently in orange (`web/public/validation/shadows-camera.jpg` and `shadows-app.jpg`, about 110 KB together,
+drawn by `pipeline/scratch/accuracy_example.py`), a line on how to read it, and a few plain sentences from the
+table's own numbers: what was compared, what the typical 92 % means, why the control matters, why three pictures
+miss (the Sun 1.1° up or less) and that the check still misses its own mark. "Data used"
+(`validate/DataUsed`) lists each dataset with who made it and what Earthrise uses it for, linked to the sources
+`docs/data-credits.md` names.
