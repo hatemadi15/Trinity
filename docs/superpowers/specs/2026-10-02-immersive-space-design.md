@@ -971,3 +971,37 @@ figures are in `docs/method.md` ("Terrain versions", Validation item 5, "Modelle
 - The wording is always "modelled conditions where ice could last", never ice alone, a probability or a detection,
   and How it works says what the layer does not establish. Sites north of 80° S say the model does not reach them.
 - The data lives in `data/coldtraps`, an optional part of the manifest.
+
+## 25. Amendment: a calmer view from the site (15 November 2026)
+
+The owner found the view from the site "extremely cluttered" at laptop sizes and on phones, though not on very large screens, and found that visitors took Earth in view, or power, for radio contact on its own. This amends 16.2, 17.1, 18.3, 19.1, 19.3 and 20.1 for the stand view; nothing is deleted, only folded, and every action keeps a button a keyboard reaches.
+
+### 25.1 What shows at first glance
+
+- **From 1800 px wide** the layout of 19.1 and 20.1 stays: the whole headline, the next step (the gold link and Change), the lander's state with the links to Earthrise, How it works and Accuracy, and the row of buttons at the top right.
+- **From 768 px up to 1800 px** the plate keeps two things: the headline's short form ("16 January: power for 16 days 4 hours, radio for 8 days 11 hours", the phone's of 19.1) beside More, and the lander's state for the hour. The better landing day is the phone's one gold chip under the plate. The next step (Change site, Change date, Change lander, Compare sites, the better day in full), the whole headline, the links to the evidence, the compass's key and "Brighter picture" wait in today's card under More. The plate is no wider than leaves the compass clear.
+- **The row of buttons** (Turn to Sun, Earth, Lander; Look up; Show paths; Hide panels; Luna) sits at the top right from 1800 px only. Narrower it is one small plate centred just above the time bar, and on a phone a strip on the bar, as before; "Turn to" is written from 1024 px.
+- **The line over the view** (the first step, a key moment's why, Look up's) is its own plate above the time bar, above the row where the row sits there. It no longer docks on the compass.
+
+### 25.2 The compass at the top
+
+The compass strip with its facing line is a heading bar at the top edge, 320 px wide: centred from 1200 px, at the top right from 768 px (where the plate needs the left). Its key (Sun, Earth, lander, below the horizon) shows on it from 1800 px; narrower, today's card names the dots. A phone keeps its facing chip ("de Gerlache Rim 2, facing north"), now centred under the plate. Checked clear of the plate and the row at 390, 768, 1024, 1200, 1280, 1440, 1600, 1800 and 1920 px.
+
+### 25.3 Hide panels
+
+One control, "Hide panels" in the row at every width ("Hide" on a phone, its accessible name whole), takes away every plate over the view: the answer, the chip, the row, the compass, the line over the view and the names in the sky. The time bar keeps Play, the date and hour, the track and the moments' dots. "Show panels", at the top left, brings everything back as it was; the focus moves between the two. It takes the place of "Hide the words" (16.2, 18.3), which did the same under a name that read as hiding the labels only, so there are not two such buttons. Kept for the visit (session storage), as "Brighter picture" is. Luna's "hide the words" and "show the words" do the same.
+
+### 25.4 Radio contact needs power and Earth
+
+- **The key** names the green band "radio contact = power + Earth in view", after "lander off" (red) and "Earth in view" (blue), so the rule is read where the bands are.
+- **The lander's state** names both conditions in every case: "Power on, battery 100 %. Radio contact: it has power and Earth is in view."; "Power on, battery 62 %. No radio contact: Earth is below the horizon." (or "behind a hill"); "Power off since 4 January. No radio contact: Earth is in view, but the lander is off."; "Power off since 4 January. No radio contact: the lander is off and Earth is out of view." The dot stays green only with contact, amber with power alone, red when off.
+- **Today's card** says the rule once in full: "Radio contact needs both: the lander has power, and Earth is in view."
+- The bands themselves are unchanged: the green is drawn only on hours with power and Earth in view, hatched after a night without power.
+
+### 25.5 Kept
+
+The facts and their limits (the measured note under "Why this happens", "if the lander survived the night", the hatched band), the page's heading with the whole headline for screen readers, Luna's button in the row and her controls, the horizon chart without WebGL 2 with the same words, and reduced motion.
+
+### 25.6 Tested
+
+The stand view's tests pin the tiers by their classes (what waits for 1800 px, what the card holds below it), the compass's place and key, "Hide panels" and "Show panels" with the focus and the session's memory, the state's four lines and the key's words; the browser journeys reach Compare sites through More at 1280 px by keyboard and by pointer.

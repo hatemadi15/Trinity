@@ -76,10 +76,14 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   Sun with the shadows worked out from those heights; the Sun small and white in a black sky; Earth
   from NASA's Blue Marble, turned for the hour; the real stars, placed for the site and hour (by day
   they show once you look up, away from the bright ground). A lander stands 16 m away, with rocks and
-  small craters around you: these are drawn, not measured, and the view says so. A plate at the top
-  gives the answer first (power, radio contact, the days without power), the next step under it and
-  the lander's state for the hour at its foot; "More" opens today's card, which counts down to the next sunset or sunrise and to Earth's next
-  rising or setting; the time bar below plays the period at a day a second (2× and 4× on its speed button), stops on each
+  small craters around you: these are drawn, not measured, and the view says so. A small plate at the top
+  left gives the answer in one line (power and radio contact from the landing) and the lander's state for the
+  hour, which always names both things radio contact needs, power and Earth in view; the time bar's key says the
+  same of its green band ("radio contact = power + Earth in view"). "More" opens today's card: the whole headline,
+  the next step (a better landing day, Change site, date or lander, Compare sites), the countdown to the next sunset or sunrise and to Earth's next
+  rising or setting, why it happens, and the links to How it works and Accuracy; from 1800 px wide the next step and the links show on the plate itself.
+  A compass with the way you face runs along the top edge, and "Hide panels" leaves the Moon and the time bar alone
+  ("Show panels" brings the rest back). The time bar below plays the period at a day a second (2× and 4× on its speed button), stops on each
   of its key moments and turns the view there (the Sun going behind the hills, the battery running out,
   Earth coming into view, the Sun coming back), which show as dots on the bar, and Next steps to them.
   `?hour=` sets the hour and `?quality=fast` lightens the drawing for weaker graphics; without WebGL 2

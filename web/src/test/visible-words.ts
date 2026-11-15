@@ -29,8 +29,11 @@ export function hiddenAt(className: string, width: number): boolean {
     let rank = 0;
     let applies = true;
     for (const v of variants) {
+      // A width written out counts as a named one does: `max-[1800px]:` below 1800 px, `min-[1800px]:` from it.
       const max = v.startsWith('max-') ? v.slice(4) : null;
-      const bp = BREAKPOINTS[max ?? v];
+      const name = max ?? (v.startsWith('min-') ? v.slice(4) : v);
+      const px = /^\[(\d+)px\]$/.exec(name);
+      const bp = px ? Number(px[1]) : v.startsWith('min-') ? undefined : BREAKPOINTS[name];
       if (bp === undefined) {
         applies = false;
         break;

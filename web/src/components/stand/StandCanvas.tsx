@@ -176,12 +176,6 @@ export function clearOfOwn(boxes: (Rect | null)[], owners: ('sun' | 'earth' | un
 
 /** The compass strip: 120° of the horizon across 300 px, ticks every 15°, the eight points named; its ticks fade at the ends, and each letter shows whole or not at all (letterShown). */
 const STRIP_W = 300, PX_PER_DEG = STRIP_W / 120;
-/**
- * The compass plate's height, px: the compass 32, the facing line 24, the key naming the dots 22, and its bottom edge 1
- * (18.3). The caption's plate in the stand view ends where this one starts, 14 px above the time bar, so the two read
- * as one plate: its bottom offset is 14 + STRIP_H.
- */
-export const STRIP_H = 79;
 const STRIP_FADE = 'linear-gradient(to right, transparent, #000 16%, #000 84%, transparent)';
 /** Narrower than this (degrees up and down) the view is zoomed in: the compass says so, and the lander's parts are named. */
 const ZOOMED_FOV = 45;
@@ -430,7 +424,6 @@ export function StandCanvas({
   startFov,
   onExplore,
   place,
-  docked = false,
   bright = false,
   onFound,
   lineTaken = false,
@@ -467,8 +460,6 @@ export function StandCanvas({
   onExplore?: () => void;
   /** The site's name: on a phone, whose status line leaves it out, the facing chip names it (read D1). */
   place?: string;
-  /** A caption's plate sits on the compass plate (18.3): the plate is square and open at the top, so the two read as one. */
-  docked?: boolean;
   /** "Brighter picture" (18.3): the renderer triples its exposure for projectors and bright rooms. */
   bright?: boolean;
   /** Told once, the first time the resident stands well inside the view: in the middle three fifths across, clear of the plates (20.2). */
@@ -1089,11 +1080,11 @@ export function StandCanvas({
           turn(k[0], k[1], k[2]);
         }}
       />
-      {/* The compass plate (18.3): as wide as the caption's plate, which docks on top of it (`docked`: square and open at the
-          top, so the two read as one plate at the foot of the view); the compass strip in its middle, the facing line
-          under it, and a key naming the dots. STRIP_H is its height. */}
-      <div aria-hidden="true" hidden={clean} className="pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+14px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 text-[#f2f0ea] max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+14px)] max-md:hidden">
-      <div data-plate="" data-strip="" className={`relative overflow-hidden rounded-[6px] border border-white/15 bg-[#060607]${docked ? ' rounded-t-none border-t-0' : ''}`}>
+      {/* The compass plate, a heading bar at the top edge (spec 25): centred from 1200 px, at the top right from 768 px, where
+          the answer's plate needs the left; the compass strip, then the facing line, and from 1800 px a key naming
+          the dots (narrower, today's card names them). A phone has the facing chip below instead. */}
+      <div aria-hidden="true" hidden={clean} className="pointer-events-none fixed right-4 top-4 w-[320px] text-[#f2f0ea] min-[1200px]:left-1/2 min-[1200px]:right-auto min-[1200px]:-translate-x-1/2 max-md:hidden">
+      <div data-plate="" data-strip="" className="relative overflow-hidden rounded-[6px] border border-white/15 bg-[#060607]">
         <div className="relative mx-auto h-8" style={{ width: STRIP_W }}>
           {/* The ticks fade at the strip's ends; the letters show whole or not at all (letterShown), so none is cut or faint. */}
           <div className="absolute inset-0" style={{ maskImage: STRIP_FADE, WebkitMaskImage: STRIP_FADE }}>
@@ -1136,7 +1127,7 @@ export function StandCanvas({
           {`Facing ${compassWord(startYaw)}`}
         </p>
         {/* The dots named, each by its colour (18.3): the Sun's gold, Earth's blue, the lander's white. */}
-        <p data-key="" className="pb-2 text-center text-[14px] leading-none text-[#c3bfb6]">
+        <p data-key="" className="pb-2 text-center text-[14px] leading-none text-[#c3bfb6] max-[1800px]:hidden">
           <i className="mr-1 inline-block size-2 rounded-full bg-[#f6b646]" />Sun
           <i className="ml-3 mr-1 inline-block size-2 rounded-full bg-[#74adff]" />Earth
           <i className="ml-3 mr-1 inline-block size-2 rounded-full bg-[#f2f0ea]" />lander
@@ -1166,14 +1157,15 @@ export function StandCanvas({
           </span>
         ))}
       </div>
-      {/* On a phone, with no room for the strip: which way the view faces, small, at the top right of the view. */}
+      {/* On a phone, with no room for the strip: which way the view faces, small, centred under the answer's plate, as the
+          compass is centred at the top on a wider screen (spec 25). */}
       {/* A panel, so the labels keep off it (part B's reads found Earth's label on it). */}
       <p
         ref={facingPhoneRef}
         data-plate=""
         aria-hidden="true"
         hidden={clean}
-        className="pointer-events-none fixed right-4 top-[calc(var(--top-h,220px)+8px)] rounded-[6px] border border-white/15 bg-black px-2 py-0.5 text-[14px] text-[#f2f0ea] md:hidden"
+        className="pointer-events-none fixed left-1/2 top-[calc(var(--top-h,220px)+8px)] -translate-x-1/2 whitespace-nowrap rounded-[6px] border border-white/15 bg-black px-2 py-0.5 text-[14px] text-[#f2f0ea] md:hidden"
       >
         {place ? `${place}, facing ${compassWord(startYaw)}` : `Facing ${compassWord(startYaw)}`}
       </p>

@@ -87,10 +87,9 @@ test.describe('The main planning journey', () => {
     });
 
     await test.step('Compare sites starts a comparison from the site, and a nearby site joins it for the same days and lander', async () => {
-      const next = page.getByRole('group', { name: 'Next step' });
-      // Compare sites is the gold step when no better day is offered; otherwise it waits under Change.
-      if (!(await next.getByRole('button', { name: 'Compare sites' }).first().isVisible())) await next.getByRole('button', { name: 'Change', exact: true }).click();
-      await next.getByRole('button', { name: 'Compare sites' }).filter({ visible: true }).click();
+      // At this width the next step waits in today's card (spec 25): More opens it.
+      await page.getByRole('region', { name: 'The answer for this site' }).getByRole('button', { name: 'More', exact: true }).click();
+      await page.locator('#stand-card').getByRole('button', { name: 'Compare sites' }).filter({ visible: true }).click();
       await page.waitForURL(/\/compare/);
       await expect(page.getByRole('heading', { level: 1, name: 'Compare sites' })).toBeVisible();
       const baseline = page.getByRole('group', { name: /^Baseline: / });

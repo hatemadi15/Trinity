@@ -27,7 +27,7 @@ import { openingYaw, standLander } from '@/lib/viz/standOpening';
 import { answerFor } from '@/lib/viz/answer';
 import { trustedAnswer } from '@/lib/viz/terrain';
 import { dateLong, dayMonth } from '@/lib/viz/format';
-import { betterChip, betterLabel, requirementReason, withReason, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyCountdown, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
+import { COMPASS_KEY, RADIO_RULE, betterChip, betterLabel, requirementReason, withReason, FIRST_STEP, FIRST_STEP_PHONE, FIRST_STEP_STILL, keyMoments, landerCaption, measuredNote, momentCaption, phoneHeadline, radioNext, RESIDENT_LINE, skyCountdown, skyLabel, standHeadline, standingLine, standQuery, statusLine, viewCaption, watchNext, whyLines, type Moment } from '@/lib/viz/stand';
 import { StandCanvas, type LookTarget, type RendererLike } from './StandCanvas';
 
 // The plates are opaque, so no line of the sky (a path, the level horizon) shows through the words (read D1), and
@@ -51,6 +51,8 @@ const tall = () => typeof window !== 'undefined' && window.innerHeight > window.
 const LANDER_FOOT_M = 2.1;
 /** The session's key for "Brighter picture" (18.3): kept for the visit, not across visits. */
 const BRIGHT_KEY = 'earthrise-bright';
+/** The session's key for "Hide panels" (spec 25): kept for the visit, as the brighter picture is. */
+const PANELS_KEY = 'earthrise-panels-hidden';
 /** How it works and Accuracy, as the header names them: the way to the evidence from a view with no header (19.3). */
 const EVIDENCE = NAV.filter((item) => item.href === '/learn' || item.href === '/validate');
 
@@ -65,6 +67,15 @@ function readBright(): boolean {
     if (typeof window === 'undefined') return false;
     const inAddress = new URLSearchParams(window.location.search).get('bright') === '1';
     return inAddress || window.sessionStorage.getItem(BRIGHT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Whether the panels open hidden: the visitor hid them earlier in the visit (spec 25). False where storage is blocked. */
+function readPanelsHidden(): boolean {
+  try {
+    return typeof window !== 'undefined' && window.sessionStorage.getItem(PANELS_KEY) === '1';
   } catch {
     return false;
   }
@@ -112,24 +123,32 @@ export function pathMarks(moments: Moment[]): NonNullable<StandScene['marks']> {
 
 /**
  * Stand on the Moon: the full-window view from the landing site for the site, period and hour of the address
- * (Explore's address plus `hour`). Over the view the answer comes first (19.1): the status plate leads with the
- * headline, then from 768 px wide the next step (17.1), the better landing day in gold (else "Compare sites") and one
- * "Change" that opens "Change site", "Change date", "Change lander" and "Compare sites" in a small plate under it (20.1),
- * and last the moment's state, the lander's power and radio for the hour, with the links to Earthrise, How it works and
- * Accuracy at its end (19.3). The state sits at the plate's foot, down by the time it describes, rather than in the time
- * bar, which is Explore's too and where its 60 to 90 characters would wrap beside the date. On a phone the plate keeps
- * two lines, the headline's short form and More.
- * More opens today's card: on a phone the state first, then where you stand, the headline (the page's heading at all
- * times, with how long the night lasts), what to watch next, the better landing day, "Why this happens" (where the
- * site lies, why the light and the sky look as they do, the pole first, the radio story and how we know, one reason at
- * a time or all as one list), the ways on and the links, and the help on dragging; what to watch and the help wait
- * until the first step has gone, as they say what it says (20.1). From 768 px the card leaves the state, the headline,
- * the better day, the ways on and the links to the plate. One row of buttons faces the Sun, Earth or the lander, looks
- * up, shows the paths and hides the words; on a phone it sits above the time bar, and "Hide the words" waits in the
- * card. A key moment, chosen from its flag or passed as the time moves on, gets a line over the view on why; on
- * arrival that line gives the first step, Play and the drag (19.2), until the visitor turns the view, plays the month
- * or takes a moment. The moments stay as dots when the words are hidden. A lander stands beside the site for scale,
- * placed by the hour the view opens on. Without WebGL 2 it shows the horizon chart with the same words.
+ * (Explore's address plus `hour`). The Moon is the star (spec 25): over it, at first glance, a small plate with the
+ * answer, the compass along the top edge, one row of buttons and the time bar; the rest waits under More.
+ *
+ * The plate (19.1) leads with the headline: from 1800 px wide the whole of it, then the next step (17.1: the better
+ * landing day in gold, else "Compare sites", and one "Change" that opens "Change site", "Change date", "Change lander"
+ * and "Compare sites", 20.1), and last the moment's state, the lander's power and radio for the hour, with the links
+ * to Earthrise, How it works and Accuracy at its end (19.3). Narrower than 1800 px, where that much read as clutter,
+ * the plate keeps the headline's short form beside More and, from 768 px, the moment's state; the better day is one
+ * gold chip under it, and the next step and the links wait in today's card. The state always names both things radio
+ * contact needs, power and Earth in view (statusLine), as the time bar's key does of its green band.
+ *
+ * More opens today's card: on a phone the state first, then the rule for radio contact, where you stand, the
+ * countdown, the whole headline (the page's heading at all times), what to watch next, the better landing day, "Why
+ * this happens" (where the site lies, why the light and the sky look as they do, the pole first, the radio story and
+ * how we know, one reason at a time or all as one list), the ways on, "Brighter picture", the compass's key, the
+ * links and the help on dragging; what to watch and the help wait until the first step has gone, as they say what it
+ * says (20.1). From 1800 px the card leaves the headline, the better day, the ways on and the links to the plate.
+ *
+ * One row of buttons faces the Sun, Earth or the lander, looks up, shows the paths, hides the panels and holds Luna:
+ * at the top right from 1800 px, a small plate centred above the time bar from 768 px, a strip on the bar on a phone.
+ * "Hide panels" takes every plate off the view, the compass and the names in the sky with them, and leaves a bare
+ * time bar; "Show panels" brings them back, and the choice is kept for the visit. A key moment, chosen from its dot or
+ * passed as the time moves on, gets a line over the view on why; on arrival that line gives the first step, Play and
+ * the drag (19.2), until the visitor turns the view, plays the month or takes a moment. The moments stay as dots when
+ * the panels are hidden. A lander stands beside the site for scale, placed by the hour the view opens on. Without
+ * WebGL 2 it shows the horizon chart with the same words.
  */
 export function StandView({
   store = exploreStore,
@@ -153,7 +172,17 @@ export function StandView({
   const [drawn, setDrawn] = useState(false);
   const [look, setLook] = useState<LookTarget | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
-  const [wordsHidden, setWordsHidden] = useState(false);
+  // "Hide panels" (spec 25): every plate over the view goes, the answer, the row, the compass, the line over the view
+  // and the names in the sky, and the time bar keeps Play, the date and the track; "Show panels" brings them back. One
+  // control, which took the place of "Hide the words"; kept for the visit.
+  const [wordsHidden, setWordsHidden] = useState(readPanelsHidden);
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(PANELS_KEY, wordsHidden ? '1' : '0');
+    } catch {
+      // A private window or blocked storage: the setting holds for this page.
+    }
+  }, [wordsHidden]);
   // The guides (16.2): off when the view opens; the month's paths, their days, the level horizon, the star names at
   // night and your shadow.
   const [guides, setGuides] = useState(false);
@@ -334,8 +363,8 @@ export function StandView({
     return () => ro.disconnect();
   }, [s.status, wordsHidden, failed, scene, more, cardOpen]);
 
-  // "Hide the words" and "Show the words" each take away the button pressed, so the focus goes to the one in its place:
-  // "Show the words", then back to "Hide the words" in the row, or below 768 px, where the row's copy is hidden, to More.
+  // "Hide panels" and "Show panels" each take away the button pressed, so the focus goes to the one in its place:
+  // "Show panels", then back to "Hide panels" in the row.
   // A keyboard is never left on the page's body. Only after a press: the view opens with the focus where it was.
   const showRef = useRef<HTMLButtonElement>(null);
   const hideRef = useRef<HTMLButtonElement>(null);
@@ -348,7 +377,7 @@ export function StandView({
   useEffect(() => {
     if (!wordsPressed.current) return;
     if (wordsHidden) showRef.current?.focus();
-    else ((window.innerWidth >= 768 ? hideRef.current : null) ?? moreRef.current)?.focus();
+    else (hideRef.current ?? moreRef.current)?.focus();
   }, [wordsHidden]);
 
   // Loaded with no site, or with the site but no figures and a problem named, is a failure too: the site's horizon file
@@ -580,7 +609,6 @@ export function StandView({
           keepSubject={openOnEarth ? series.earthEl[opening] : series.sunFraction[opening] > 0 ? series.sunEl[opening] : null}
           startFov={openOnEarth ? (tall() ? 56 : 44) : undefined}
           place={name}
-          docked={!!overView}
           bright={bright}
           onFound={onFound}
           // A key moment's line or a Turn to's keeps the plate: the resident's waits until it has gone.
@@ -604,27 +632,27 @@ export function StandView({
 
       {wordsHidden && (
         <button ref={showRef} type="button" data-plate="" className={`${LOOK} fixed left-4 top-4 bg-black/75`} onClick={() => pressWords(false)}>
-          Show the words
+          Show panels
         </button>
       )}
       {!wordsHidden && (
-        // Side by side from 1280 px wide; narrower, the row sits above the time bar and the status plate has the top (the
-        // final review found the row over the status plate and its More from 768 px to about 1070 px).
-        <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start gap-3 xl:flex-row xl:justify-between">
+        // Side by side from 1800 px wide, the compass between them; narrower, the row sits above the time bar and the
+        // status plate shares the top with the compass alone (spec 25).
+        <div className="pointer-events-none fixed inset-x-4 top-4 flex flex-col items-start gap-3 min-[1800px]:flex-row min-[1800px]:justify-between">
           {/* The answer first (19.1): the headline, the next step and the moment's state, with More for today's card. */}
-          <section ref={topRef} aria-label="The answer for this site" className="pointer-events-none grid w-full min-w-0 justify-items-start gap-2 xl:flex-1">
+          <section ref={topRef} aria-label="The answer for this site" className="pointer-events-none grid w-full min-w-0 justify-items-start gap-2 min-[1800px]:flex-1">
             {/* The page's heading at all times, for screen readers; the plate and the card show it to the eye. */}
             <h1 className="sr-only">{title}</h1>
-            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] flex-col`}>
+            <div ref={statusRef} data-plate="" className={`${PLATE} pointer-events-auto flex w-full max-w-[860px] flex-col md:max-[1200px]:max-w-[calc(100vw-380px)] min-[1200px]:max-[1800px]:max-w-[calc(50vw-188px)] min-[1800px]:max-w-[min(860px,calc(50vw-188px))]`}>
               {/* Tighter on a phone, so the short headline's two lines leave the scene 55 % of the screen (16.5). */}
               <div className="flex items-start gap-3 px-3.5 py-1 md:px-4 md:py-1.5">
                 {/* The headline as the eye reads it, first: the landing's verdict, two lines at most from 768 to 1440 px. */}
-                <p aria-hidden="true" className="display min-w-0 flex-1 text-pretty py-1.5 text-[18px] font-semibold leading-snug max-md:hidden">
+                <p aria-hidden="true" className="display min-w-0 flex-1 text-pretty py-1.5 text-[18px] font-semibold leading-snug max-[1800px]:hidden">
                   {title}
                 </p>
                 {/* On a phone its short form, the day, the power and the radio, in the two lines the state took, so the
                     band is as in 18.3; today's card keeps the whole headline, the night with it. */}
-                <p aria-hidden="true" className="display min-w-0 flex-1 text-pretty py-1.5 text-[15px] font-semibold leading-snug md:hidden">
+                <p aria-hidden="true" className="display min-w-0 flex-1 text-pretty py-1.5 text-[15px] font-semibold leading-snug md:text-[17px] min-[1800px]:hidden">
                   {phoneHeadline(title)}
                 </p>
                 <button ref={moreRef} type="button" aria-expanded={cardOpen} className="flex min-h-10 shrink-0 items-center gap-1.5 self-end whitespace-nowrap text-[15px] underline underline-offset-4" onClick={() => setCardOpen((o) => !o)}>
@@ -637,7 +665,7 @@ export function StandView({
               {/* The next step, always in view from 768 px (17.1); on a phone it waits in today's card. Under the headline
                   and in line with it, so the better day reads beside the verdict it improves on (read D2: under More it had
                   nothing to compare against). The gold one first, then one Change for the other ways on (20.1). */}
-              <div role="group" aria-label="Next step" className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-2.5 pt-0.5 max-md:hidden">
+              <div role="group" aria-label="Next step" className="flex flex-wrap items-center gap-x-5 gap-y-1 px-4 pb-2.5 pt-0.5 max-[1800px]:hidden">
                 {better ? (
                   <a
                     href={better.href}
@@ -668,7 +696,7 @@ export function StandView({
                 </p>
                 {/* The way to the evidence at the line's end (19.3): the judge's slim header without a header, so the band
                     grows by nothing. */}
-                <Sections className="ml-auto shrink-0 self-end whitespace-nowrap" />
+                <Sections className="ml-auto shrink-0 self-end whitespace-nowrap max-[1800px]:hidden" />
               </div>
             </div>
             {better && !cardOpen && (
@@ -684,7 +712,7 @@ export function StandView({
                   e.preventDefault();
                   land(better.startUtc, better.href);
                 }}
-                className={`${PLATE} pointer-events-auto inline-flex min-h-8 items-center gap-1 border-[#f6d48a]/55 px-2.5 text-[14px] text-[#f6d48a] md:hidden`}
+                className={`${PLATE} pointer-events-auto inline-flex min-h-8 items-center gap-1 border-[#f6d48a]/55 px-2.5 text-[14px] text-[#f6d48a] min-[1800px]:hidden`}
               >
                 {better.chip}
                 <span aria-hidden="true">›</span>
@@ -694,13 +722,15 @@ export function StandView({
               <div
                 id="stand-card"
                 data-plate=""
-                className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin] md:gap-2.5 md:p-5 xl:max-h-[calc(100dvh-var(--bar-h,185px)-var(--status-h,64px)-56px)] max-xl:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-var(--status-h,72px)-56px)]`}
+                className={`${PLATE} pointer-events-auto grid w-full max-w-[560px] gap-2 overflow-y-auto p-3.5 [scrollbar-color:rgba(255,255,255,0.25)_transparent] [scrollbar-width:thin] md:gap-2.5 md:p-5 min-[1800px]:max-h-[calc(100dvh-var(--bar-h,185px)-var(--status-h,64px)-56px)] max-[1800px]:max-h-[calc(100dvh-var(--bar-h,211px)-var(--look-h,52px)-var(--status-h,72px)-68px)]`}
               >
                 {/* On a phone the card opens on the moment's state with its dot (19.1); from 768 px the plate's foot has it. */}
                 <p className="flex items-start gap-2.5 text-[15px] md:hidden">
                   <i aria-hidden="true" data-tone={lander.tone} className={`mt-[5px] h-3 w-3 shrink-0 rounded-full ${TONE[lander.tone]}`} />
                   <span>{lander.text}</span>
                 </p>
+                {/* The rule the bands and the state follow (spec 25), said once in full. */}
+                <p data-rule="" className="text-[14px] md:text-[15px]">{RADIO_RULE}</p>
                 <p className="text-[14px] text-[#c3bfb6] md:text-[15px]">{standingLine(site, oneLine, 'top', flat)}</p>
                 {/* What comes next in the sky at the hour, in Explore's time bar's words: lightly, a line of its own. */}
                 <p data-countdown="" className="text-[14px] tabular-nums md:text-[15px]">
@@ -708,7 +738,7 @@ export function StandView({
                 </p>
                 {/* The whole headline on a phone, the night with it, which the plate's short form leaves out; the heading
                     above says it for screen readers. */}
-                <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px] md:hidden">
+                <p aria-hidden="true" className="display text-pretty text-[18px] font-bold leading-tight sm:text-[22px] min-[1800px]:hidden">
                   {title}
                 </p>
                 {/* The lead names Play and Next, the same at every width (18.2, 21.1). */}
@@ -716,7 +746,7 @@ export function StandView({
                 {better && (
                   // The better day, on a row of its own, so the links below never move. From 768 px the next step's
                   // row on the plate holds it, so the screen keeps one gold action (17.1).
-                  <div className="md:hidden">
+                  <div className="min-[1800px]:hidden">
                     <a
                       href={better.href}
                       onClick={(e) => {
@@ -749,18 +779,14 @@ export function StandView({
                   </button>
                   {/* On a phone the next step waits here (17.1), by the names the readers looked for (read D3): from 768 px the
                       next step's row on the plate holds them instead. */}
-                  <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
+                  <Link href="/sites" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 min-[1800px]:hidden">
                     Change site
                   </Link>
-                  <Link href={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
+                  <Link href={withSettings(exploreHref(site.id, s.startUtc, s.days), s.params, s.requirements, s.rankBy)} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 min-[1800px]:hidden">
                     Change date
                   </Link>
-                  <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden">
+                  <button type="button" onClick={compare} className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 min-[1800px]:hidden">
                     Compare sites
-                  </button>
-                  {/* On a phone the row above the time bar has no room for it: it waits here. */}
-                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={() => pressWords(true)}>
-                    Hide the words
                   </button>
                   {/* Luna (spec 22), on a phone: her panel stands above the buttons and the time bar. */}
                   <div className="md:hidden">
@@ -770,7 +796,7 @@ export function StandView({
                     />
                   </div>
                   {/* On a phone the next step's row is not shown: Change lander waits here (18.3). */}
-                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 md:hidden" onClick={(e) => openLander(e.currentTarget)}>
+                  <button type="button" className="flex min-h-10 items-center whitespace-nowrap text-[15px] underline underline-offset-4 min-[1800px]:hidden" onClick={(e) => openLander(e.currentTarget)}>
                     Change lander
                   </button>
                   {/* Three times the exposure for projectors and bright rooms (18.3, 19.4); its words never change with its state. */}
@@ -818,23 +844,25 @@ export function StandView({
                     </div>
                   </div>
                 )}
-                {/* On a phone the way to the evidence waits here (19.3); from 768 px the plate's foot has it. */}
-                <Sections className="flex-wrap gap-y-1 md:hidden" />
+                {/* The compass's dots named, where the strip has no room for its key: from 768 px up to 1800 px (spec 25). */}
+                {!failed && <p data-compass-key="" className="text-[14px] text-[#c3bfb6] max-md:hidden min-[1800px]:hidden">{COMPASS_KEY}</p>}
+                {/* Below 1800 px the way to the evidence waits here (19.3, 25); from 1800 px the plate's foot has it. */}
+                <Sections className="flex-wrap gap-y-1 min-[1800px]:hidden" />
                 {!stepShows && <p className="text-[14px] text-[#c3bfb6]">Drag to look around; pinch or scroll to zoom.</p>}
               </div>
             )}
           </section>
           {!failed && (
-            // One compact row: at the top right from 1280 px wide, just above the time bar below that; on a phone "Hide
-            // the words" waits in the card.
+            // One compact row: at the top right from 1800 px wide, a plate centred just above the time bar below that, a
+            // strip on the bar on a phone (spec 25).
             <div
               ref={lookRef}
               data-plate=""
               role="group"
               aria-label="Look towards"
-              className={`${PLATE} pointer-events-auto flex shrink-0 items-center gap-1.5 p-1.5 max-xl:fixed max-xl:inset-x-0 max-xl:bottom-[var(--bar-h,211px)] max-xl:justify-between max-xl:gap-1 max-xl:rounded-none max-xl:border-x-0 max-xl:border-b-0 max-xl:bg-[#1e1e1e] max-xl:px-3 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
+              className={`${PLATE} pointer-events-auto flex shrink-0 items-center gap-1.5 p-1.5 max-[1800px]:fixed md:max-[1800px]:bottom-[calc(var(--bar-h,129px)+12px)] md:max-[1800px]:left-1/2 md:max-[1800px]:-translate-x-1/2 md:max-[1800px]:w-max max-md:inset-x-0 max-md:bottom-[var(--bar-h,211px)] max-md:justify-between max-md:gap-1 max-md:rounded-none max-md:border-x-0 max-md:border-b-0 max-md:bg-[#1e1e1e] max-md:px-3 max-md:[&>button]:px-2 max-md:[&>button]:text-[14px]`}
             >
-              <span className="pl-1 pr-0.5 text-[14px] text-[#c3bfb6] md:text-[15px]">Turn to</span>
+              <span className="whitespace-nowrap pl-1 pr-0.5 text-[14px] text-[#c3bfb6] md:text-[15px] max-lg:hidden">Turn to</span>
               <button type="button" aria-label="Face the Sun" className={LOOK} onClick={byHand(() => face(series.sunAz[hour], series.sunEl[hour] - 2, 46))}>
                 Sun
               </button>
@@ -879,15 +907,15 @@ export function StandView({
               <button type="button" aria-label={guides ? 'Hide paths' : 'Show paths'} className={LOOK} onClick={() => setGuides((g) => !g)}>
                 <Short short="Paths" long={guides ? 'Hide paths' : 'Show paths'} />
               </button>
-              {/* Its words are its name, as speech input needs (WCAG 2.5.3). */}
-              <button ref={hideRef} type="button" className={`${LOOK} max-md:hidden`} onClick={() => pressWords(true)}>
-                Hide the words
+              {/* "Hide panels" (spec 25), the one control that leaves the Moon alone; "Hide" on a phone, its name whole. */}
+              <button ref={hideRef} type="button" aria-label="Hide panels" className={LOOK} onClick={() => pressWords(true)}>
+                <Short short="Hide" long="Hide panels" />
               </button>
-              {/* Luna (spec 22): her panel opens under the row at the top right from 1280 px, above it over the bar below that. */}
+              {/* Luna (spec 22): her panel opens under the row at the top right from 1800 px, above it over the bar below that. */}
               <div className="max-md:hidden">
                 <LunaButton
                   className={`${LOOK} ${PRESSED} flex items-center gap-2`}
-                  panelClassName="absolute right-0 z-50 w-[min(380px,calc(100vw-32px))] rounded-lg border border-white/20 bg-[#060607] p-4 text-left text-[15px] text-[#f2f0ea] xl:top-full xl:mt-2 max-xl:bottom-full max-xl:mb-2"
+                  panelClassName="absolute right-0 z-50 w-[min(380px,calc(100vw-32px))] rounded-lg border border-white/20 bg-[#060607] p-4 text-left text-[15px] text-[#f2f0ea] min-[1800px]:top-full min-[1800px]:mt-2 max-[1800px]:bottom-full max-[1800px]:mb-2"
                 />
               </div>
             </div>
@@ -895,13 +923,12 @@ export function StandView({
         </div>
       )}
       {overView && !failed && !wordsHidden && (
-        // Why a key moment happens, the first step, or what looking up shows: docked on the compass plate from 768 px, one
-        // plate at the foot of the view (18.3; its foot 14 px plus the plate's 79 px, StandCanvas's STRIP_H, over the bar);
-        // on a phone, which has no compass, its own plate above the buttons.
+        // Why a key moment happens, the first step, or what looking up shows: its own plate at the foot of the view, 12 px
+        // over the time bar, or over the row of buttons where that sits above the bar (spec 25: the compass is at the top).
         <p
           data-plate=""
           data-caption=""
-          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+93px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] md:rounded-b-none md:border-b-0 max-xl:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+93px)] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]`}
+          className={`${PLATE} pointer-events-none fixed bottom-[calc(var(--bar-h,129px)+12px)] left-1/2 w-[min(460px,calc(100vw-32px))] -translate-x-1/2 px-3 py-2 text-center text-[15px] md:max-[1800px]:bottom-[calc(var(--bar-h,129px)+var(--look-h,52px)+24px)] max-md:bottom-[calc(var(--bar-h,211px)+var(--look-h,52px)+12px)]`}
         >
           {overView}
         </p>
