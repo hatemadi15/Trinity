@@ -144,4 +144,4 @@ Textures and their credits: `web/public/hero/textures/`.
   place, its address `/explore?site=custom_<lat>_<lon>&start=&days=`. Until then the address stays `?own=1`. The
   checks are the Sites page's former "Somewhere else": south of 60° S, and a plain sentence where the height tiles
   are missing. "Your own point is not checked for landing" stands under the button.
-- **Measured** at 1440 px: the page is 3778 px tall, from 4406; on a 390 px phone 6313, from 6670.
+- **Measured** at 1440 px: the page is 3778 px tall, from 4406; on a 390 px phone 6289, from 6670.
