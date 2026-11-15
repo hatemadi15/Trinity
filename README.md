@@ -47,7 +47,15 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   longest time with power first, a site whose elevation map is incomplete after the others and
   marked, the far side last) and "Choose your own site", which opens Explore with no site filled in
   (`/explore?own=1`), where the place and its details are entered.
-- **Explore** (`/explore`): the answer for one site and one landing date, first. "Landing at de
+- **Explore** (`/explore`): the answer for one site and one landing date. The page runs: where the
+  site lies with its nearest neighbours; the site, dates and lander with the answer and the numbers;
+  the hour-by-hour chart (radio windows under it) beside the ground, with the time bar pinned to the
+  bottom only while they are on screen; every landing day of the next 12 months; the assistant; and
+  "See the checks", to Accuracy. The landing site changes in a drop-down on the page (the catalogue
+  in the site list's groups, then "Your own site…"), keeping the dates and the lander.
+  `/explore?own=1` asks for a place of your own in three steps, with nothing filled in: where (a
+  latitude and longitude south of 60° S, or a press on the map of the pole), when, and the lander.
+  The answer reads "Landing at de
   Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, how sure its
   times are ("Times ±8 h", one tap away), the time
   Earth is in view while the lander has power, a better landing day or a better place nearby, ranked against
@@ -56,7 +64,7 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   weights, weighed by the stated rule in [docs/recommendation-model.md](docs/recommendation-model.md)), with
   every option's checks, trade-offs, score and reason under "Options", and the places nearby saying when
   they are still being worked out or which were left out and why; a search of the next 12 months every 6 hours; and, for a region centre known to about
-  5 km, the same result at 8 points round it. Below it: the
+  5 km, the same result at 8 points round it. With it: the
   numbers, with the Sun's height at the time bar's hour and its highest (every figure under "All numbers"), a chart of the Sun,
   Earth and the battery hour by hour with the hills in each direction, the radio windows (each
   stretch with Earth in view, in UTC, which of them the lander has power for, and the longest time
@@ -64,7 +72,7 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   next 12 months (a calendar coloured by power, then radio contact, the order the best-date search
   uses by default; pressing a day lands the period there; Luna opens it with "show me the year"), the ground at the time bar's hour (three tabs: a north-up
   shadow map, the same light in 3D from above, and a horizon chart), and where the site lies with
-  its nearest neighbours (its ground detail and cold traps one tap away). The time bar at the bottom plays the period hour by hour and counts down to the next sunset or
+  its nearest neighbours (its ground detail and cold traps one tap away). The time bar plays the period hour by hour and counts down to the next sunset or
   sunrise and to Earth's next rising or setting. The period is a landing date and hour in UTC (whole hours, as the Sun and Earth table
   is hourly) and a length of 2 to 90 days, with steps of an hour and a day either way and a shift by
   any number of days or hours ("our landing slipped by five days"); the Lander dialog offers three

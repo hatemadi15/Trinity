@@ -119,3 +119,29 @@ Textures and their credits: `web/public/hero/textures/`.
   the hills (it rises and sets in place; still under reduced motion). The last answer links to How it works.
 - The charts of the same three facts by direction and height (`WhySection`, `WhyDrawings`, `lib/viz/why`), with
   their Play buttons, the Moon's 1.5° tilt and the rule of thumb for angles, now stand on How it works only.
+
+## 23.4 Explore, reordered
+(15 November, owner review: less scrolling, plainer words, the player only where things move.)
+- **The order.** Where on the Moon first and short (a 240 px map, the place's line, the three nearest sites in one
+  row; on a phone the map and the list wait behind "Map and nearby sites"). Then the band (site, dates, lander),
+  the answer and the numbers. Then the two parts that move with the hour, side by side from 1280 px and stacked
+  below it: the hour-by-hour chart with the radio windows under it, and the ground (`GroundPanel stacked`,
+  `TimeChart half`). Then every landing day of the next 12 months, the assistant, and a closing panel, "How sure are
+  these numbers? We checked them against NASA's own figures.", with one white button, "See the checks", to Accuracy
+  (`btn-ink`, so the answer keeps the page's one gold action).
+- **The player.** The time bar is the last child of the section "Hour by hour" and sticks to the window's foot
+  inside it, so it shows only while the chart or the ground is on screen and leaves with them; it is never fixed.
+  It stays in the page's reading and tab order, after the ground. Luna stands on the bar only while it is at the
+  window's foot (`LunaDock`), and on the page's own foot elsewhere.
+- **The site is a drop-down on the page** (`SitePicker`, in the band): the catalogue in the Sites page's groups and
+  order, the site shown marked, then "Your own site…". A site chosen loads in place and keeps the dates and the
+  lander; the arrow keys move through the list, Escape closes it. No trip to `/sites`.
+- **A place of one's own** (`OwnSite`). "Your own site…" opens two empty fields under the band, latitude and
+  longitude, and keeps the dates and the lander. `/explore?own=1` (the Sites page's "Choose your own site") fills
+  nothing in and asks in three steps: where (the two fields, or a press on the relief map of the pole), when (the
+  landing date, its hour in UTC, the days), and the lander, which starts from the default and says so. "Work it
+  out" checks each step in the page's own words, traces the hills, and the page becomes the usual Explore for the
+  place, its address `/explore?site=custom_<lat>_<lon>&start=&days=`. Until then the address stays `?own=1`. The
+  checks are the Sites page's former "Somewhere else": south of 60° S, and a plain sentence where the height tiles
+  are missing. "Your own point is not checked for landing" stands under the button.
+- **Measured** at 1440 px: the page is 3778 px tall, from 4406; on a 390 px phone 6313, from 6670.
