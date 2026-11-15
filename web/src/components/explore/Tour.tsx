@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
 /**
  * The guided arrival from the "Choose a site" map (spec 23.4): Explore opened with `tour=1` shows one part at a time,
@@ -43,8 +43,20 @@ const REST_MS = 500;
 const PUSH_PX = 100;
 
 export function useTour(reducedMotion: boolean): Tour {
-  const [on] = useState(() => typeof window !== 'undefined' && tourAsked(window.location.search));
-  const [step, setStep] = useState(on ? 1 : LAST);
+  // Read once the page is in the window, not while it first renders: a click on the map is a navigation inside the
+  // app, and the address bar only shows the new address (with tour=1) when the new page commits. Read during that first
+  // render, it still held /sites, and the tour never started. A layout effect runs before the first paint, so no full
+  // page flashes before step 1.
+  const [on, setOn] = useState(false);
+  const [step, setStep] = useState<number>(LAST);
+  useLayoutEffect(() => {
+    // The address is an outside source the page cannot read sooner: set once, on mount, before the first paint.
+    if (tourAsked(window.location.search)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one read of the address on mount (see above)
+      setOn(true);
+      setStep(1);
+    }
+  }, []);
   const [arrive, setArrive] = useState<{ n: number; scroll: boolean } | null>(null);
   const [said, setSaid] = useState('');
   const parts = useRef(new Map<number, HTMLElement>());
