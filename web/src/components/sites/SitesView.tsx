@@ -1,11 +1,13 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useStore, type StoreApi } from 'zustand';
 import { AppFrame } from '@/components/AppFrame';
 import { DataProblem, SYNC_HINT } from '@/components/DataProblem';
 import { NightSky } from '@/components/NightSky';
 import { PeriodControls } from '@/components/PeriodControls';
+import { PlanView } from '@/components/plan/PlanView';
 import { SkylineNote } from '@/components/SkylineNote';
 import { Sources } from '@/components/Sources';
 import { HOME } from '@/lib/data/home';
@@ -16,7 +18,8 @@ import { exploreStore, type ExploreState, type SiteOverview } from '@/lib/store/
 import { landingWords } from '@/lib/period';
 import { dayMonth, isoAt, pct0, spanShort } from '@/lib/viz/format';
 import { terrainTag } from '@/lib/viz/terrain';
-import { exploreHref } from '@/lib/links';
+import { exploreHref, PLAN_HREF } from '@/lib/links';
+import { planStore, type PlanState } from '@/lib/plan/store';
 import { coldTrapShort, coldTrapSite, type ColdTrapDoc } from '@/lib/coldtraps/coldtraps';
 import { useColdTraps } from '@/lib/coldtraps/useColdTraps';
 import { GroupMark, MARKER_GROUPS, SiteMap, type MarkerGroup, type SiteMarker } from './SiteMap';
@@ -92,6 +95,22 @@ function Row({ site, facts, tag, cold, href }: { site: Site; facts: string[]; ta
   );
 }
 
+type Open = 'list' | 'dates' | 'plan' | null;
+
+/**
+ * Opens the planner when the address asks for it (`/sites?plan=1`: the old /plan, Luna, the assistant). The address is
+ * read here, under a Suspense boundary of its own, so the page itself is still prerendered; without a router (tests)
+ * the window's own address is read once.
+ */
+function PlanFromAddress({ onAsk }: { onAsk: () => void }) {
+  const params = useSearchParams();
+  const asked = params ? params.get('plan') === '1' : null;
+  useEffect(() => {
+    if (asked ?? new URLSearchParams(window.location.search).get('plan') === '1') onAsk();
+  }, [asked, onAsk]);
+  return null;
+}
+
 /** What the three marks stand for: beside the title on a wide screen, under the maps on a narrow one. */
 function MarkerKey({ className }: { className: string }) {
   return (
@@ -112,14 +131,48 @@ function MarkerKey({ className }: { className: string }) {
  * for it. The bar under the map holds the dates the figures are for, the same sites as a list, and the way to a
  * site of one's own, which Explore asks for. The page is a night sky in both themes (15 November, owner review): black
  * with the catalogue's stars wherever there is neither map nor panel, and every panel a pane of dark glass (`.pane`).
+ * "Plan a landing" in the bar opens the planner as such a pane beside the map (15 November, owner review): its ranked
+ * sites stand out on the map, and `/sites?plan=1` opens it, which is where the old /plan address leads.
  */
-export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreApi<ExploreState>; coldTraps?: () => Promise<ColdTrapDoc> }) {
+export function SitesView({
+  store = exploreStore,
+  coldTraps,
+  plan = planStore,
+  planner,
+}: {
+  store?: StoreApi<ExploreState>;
+  coldTraps?: () => Promise<ColdTrapDoc>;
+  plan?: StoreApi<PlanState>;
+  /** The planner's own ways out, for tests: where it navigates, the assistant it asks and the margins it reads. */
+  planner?: Pick<Parameters<typeof PlanView>[0], 'navigate' | 'ask' | 'uncertainty'>;
+}) {
   const s = useStore(store);
   const coldDoc = useColdTraps(coldTraps);
-  const [open, setOpen] = useState<'list' | 'dates' | null>(null);
+  const [open, setOpen] = useState<Open>(null);
   const listId = useId();
   const datesId = useId();
+  const planId = useId();
   const listHead = useRef<HTMLHeadingElement>(null);
+  const planHead = useRef<HTMLHeadingElement>(null);
+  const planButton = useRef<HTMLButtonElement>(null);
+  /** The planner's ranked sites, for the map, while its pane is open. */
+  const shown = useStore(plan, (p) => p.answer?.shown);
+  const ranked = useMemo(() => (open === 'plan' && shown ? shown.map((f) => f.site.id) : undefined), [open, shown]);
+  /**
+   * Opens or closes a panel. The address says whether the planner is showing (`plan=1`), so a link to it, Luna and the
+   * assistant can tell; the focus goes back to the planner's button when its pane closes.
+   */
+  const openNow = useRef<Open>(null);
+  const show = useCallback((next: Open) => {
+    const now = openNow.current;
+    openNow.current = next;
+    setOpen(next);
+    if ((now === 'plan') === (next === 'plan')) return;
+    const href = next === 'plan' ? PLAN_HREF : '/sites';
+    if (window.location.pathname === '/sites' && `${window.location.pathname}${window.location.search}` !== href) window.history.replaceState(window.history.state, '', href);
+    if (now === 'plan' && next === null) queueMicrotask(() => planButton.current?.focus());
+  }, []);
+  const askPlan = useCallback(() => show('plan'), [show]);
 
   useEffect(() => {
     void store.getState().init();
@@ -130,13 +183,14 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
   // The list opens with the focus on its heading, so the keyboard and a screen reader start at its top.
   useEffect(() => {
     if (open === 'list') listHead.current?.focus();
+    if (open === 'plan') planHead.current?.focus();
   }, [open]);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(null);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && show(null);
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open]);
+  }, [open, show]);
 
   const catalogue = useMemo(() => s.sites.filter((x) => x.category !== 'custom'), [s.sites]);
   const entries = useMemo(
@@ -185,15 +239,18 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
     );
   }
 
-  const toggle = (what: 'list' | 'dates') => setOpen((now) => (now === what ? null : what));
+  const toggle = (what: Exclude<Open, null>) => show(open === what ? null : what);
   return (
     <AppFrame>
       {/* A night-sky page (globals.css): night in both themes from header to footer, with the sky's canvas at the back of the page. */}
       <main data-night-sky="" className="relative text-ink">
         <NightSky />
+        <Suspense fallback={null}>
+          <PlanFromAddress onAsk={askPlan} />
+        </Suspense>
         {/* The window under the header: the map, and the bar at its foot. The bar comes first for the keyboard, before the markers. */}
         <div data-part="screen" className="relative flex flex-col lg:h-[calc(100svh-69px)] lg:min-h-[600px]">
-          <div data-part="bar" className="sticky bottom-0 z-[38] order-last flex flex-wrap items-center justify-end gap-x-3 gap-y-2 py-3 pl-[132px] pr-4 sm:pl-[190px] lg:pr-8">
+          <div data-part="bar" className="sticky bottom-0 z-[38] order-last flex flex-wrap items-center justify-end gap-x-3 gap-y-2 py-3 max-sm:gap-x-2 pl-[132px] pr-4 sm:pl-[190px] lg:pr-8">
             {/* The bar's glass is a layer of its own: a pane inside a blurred pane would have nothing behind it to blur, and the dates panel opens from here. */}
             <div aria-hidden="true" className="pane absolute inset-0 -z-10 border-x-0 border-b-0" />
             <button type="button" aria-expanded={open === 'dates'} aria-controls={datesId} onClick={() => toggle('dates')} className="btn btn-sm max-sm:px-3">
@@ -210,7 +267,13 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
             <button type="button" aria-expanded={open === 'list'} aria-controls={listId} onClick={() => toggle('list')} className="btn btn-sm max-sm:px-3">
               List
             </button>
-            <Link href={OWN_SITE_HREF} className="btn btn-sm btn-primary">
+            <button ref={planButton} type="button" aria-expanded={open === 'plan'} aria-controls={planId} onClick={() => toggle('plan')} className="btn btn-sm max-sm:px-3">
+              <span>
+                Plan<span className="max-sm:sr-only"> a landing</span>
+              </span>
+            </button>
+            {/* The one solid button, until the planner's own "Search" is the next step. */}
+            <Link href={OWN_SITE_HREF} className={`btn btn-sm max-sm:px-3 ${open === 'plan' ? '' : 'btn-primary'}`}>
               Choose your own site
             </Link>
             {open === 'dates' && (
@@ -250,7 +313,7 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
                   <h2 id={`${listId}-h`} ref={listHead} tabIndex={-1} className="display text-[28px] leading-none outline-none">
                     All {catalogue.length} sites
                   </h2>
-                  <button type="button" onClick={() => setOpen(null)} className="btn btn-sm">
+                  <button type="button" onClick={() => show(null)} className="btn btn-sm">
                     Close
                   </button>
                 </div>
@@ -268,9 +331,20 @@ export function SitesView({ store = exploreStore, coldTraps }: { store?: StoreAp
                 ))}
               </section>
             )}
-            {/* On a narrow screen the open list takes the map's place; on a wide one it stands beside it. */}
-            <div data-part="maps" className={open === 'list' ? 'max-lg:hidden' : undefined}>
-              <SiteMap markers={markers} />
+            {/* The planner, in the list's place and in its glass: say what the mission needs, and its ranked sites stand out on the map. */}
+            {open === 'plan' && (
+              <section
+                id={planId}
+                aria-labelledby={`${planId}-h`}
+                data-part="plan"
+                className="pane relative z-[35] rounded-xl px-5 pb-6 pt-5 text-ink max-lg:mx-2 max-lg:mb-3 lg:absolute lg:inset-y-4 lg:right-4 lg:w-[480px] lg:overflow-y-auto xl:w-[540px]"
+              >
+                <PlanView store={store} plan={plan} {...planner} headingId={`${planId}-h`} headingRef={planHead} onClose={() => show(null)} />
+              </section>
+            )}
+            {/* On a narrow screen the open list or planner takes the map's place; on a wide one it stands beside it. */}
+            <div data-part="maps" className={open === 'list' || open === 'plan' ? 'max-lg:hidden' : undefined}>
+              <SiteMap markers={markers} ranked={ranked} />
               <MarkerKey className="flex-wrap px-4 pb-5 pt-1 lg:hidden" />
             </div>
           </section>

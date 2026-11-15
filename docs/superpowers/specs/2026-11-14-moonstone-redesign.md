@@ -53,6 +53,18 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   sources are panes of glass (`.pane` in `globals.css`: a thin fill of the panel's own colour, about 34 to 42 %, over
   a strong blur of what is behind it, darkened so the words keep AA; a bright edge, a top highlight and a blue glow),
   with Compare the one place a backdrop is blurred (`look.test.ts`).
+  **Plan a landing is part of this page** (15 November, owner review: "the plan a landing I want it to be integrated
+  in the choose site"). The bar has "Plan a landing" beside "List" ("Plan" on a phone). It opens the planner
+  (`components/plan/PlanView.tsx`, unchanged in what it does: the specification box, "Try the example", the fields,
+  the search, the ranked results with their reasons, "Plan this landing" and "Compare these sites") as a pane of
+  glass beside the map, in the list's place; on a phone it takes the map's place, as the list does. The pane is a
+  region named by its heading; the focus goes to that heading when it opens and back to the bar's button when Escape,
+  "Close" or the button closes it. While it is open the address is `/sites?plan=1`, which also opens it: `/plan`
+  redirects there, and Luna's "plan a landing", a dictated specification and the assistant's `plan_mission` go there
+  (`PLAN_HREF` and `plannerShowing` in `lib/links.ts`). Once a search has an answer, its ranked sites' markers stand
+  out on the map with their place in the ranking and the others grey out, until a marker is pointed at. While the
+  pane is open "Choose your own site" is a plain button, so the planner's "Search" is the one solid button
+  (`SitesView.plan.test.tsx`).
 - **Compare.** The same night sky and glass (15 November, owner review): the page is marked `data-night-sky`, so it is
   night in both themes from header to footer, every `.panel` is a pane, and the verdict band, "Start here", the "Add a
   landing" panel and the Share band are panes too. Each landing keeps its colour edge, "Works best" its green ring,

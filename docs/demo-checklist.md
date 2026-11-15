@@ -20,7 +20,7 @@
 
 ## The planner and the ranking
 
-- [ ] On `/plan`, "Try the example" then "Search 9 sites": the answer lists the sites that meet every requirement, each with its landing time in UTC and why it comes before the next; "Ranking and dates" states the rule and shows the best landing in each month (March to June 2027) at the first three sites, and a cell opens that landing in Explore. Check it at 390 px wide: no sideways scroll.
+- [ ] On Choose a site, "Plan a landing" in the bar (or `/plan`, which leads there), "Try the example" then "Search 9 sites": the answer lists the sites that meet every requirement, each with its landing time in UTC and why it comes before the next; "Ranking and dates" states the rule and shows the best landing in each month (March to June 2027) at the first three sites, and a cell opens that landing in Explore. Check it at 390 px wide: no sideways scroll.
 - [ ] Under More settings, set "Then rank by" to "Priorities: mostly Earth in view" and search again: the reasons give two scores and the main gain, and "Ranking and dates" gives each result's score and its three parts. Say "a preference between choices", never "a chance of success", and never call it AI or a trained model: it is the stated rule in `docs/recommendation-model.md`.
 - [ ] On Explore, under Options, set "Then rank by" to a priority: the options show their scores, the better landing day follows the rule, and the address gains `rank=`; open that address in a fresh private window and check the ranking, the lander and the period came through.
 

@@ -47,7 +47,7 @@ Repeatable tasks for testing Earthrise with real people. The browser journeys (`
 ### P5. Rank the candidates by what matters most
 
 - **Goal, in their words:** "We land between March and June 2027 near the Artemis III regions and need at least five days of power. Earth in view matters most to us. Which site comes first, when, and why?"
-- **Start:** Plan a landing (`/plan`).
+- **Start:** Choose a site, "Plan a landing" in the bar (`/sites?plan=1`).
 - **Success:** they enter the specification (typed or spoken), set "Then rank by" to "Priorities: mostly Earth in view" under More settings, search, and name the first site, its landing time and the reason the page gives; under "Ranking and dates" they can say whether the same site also does well in the other months.
 - **Time and note:** whether they found the ranking under More settings; whether they read the score as a chance of success (it is not: it is a preference between choices); whether "Ranking and dates" made sense.
 

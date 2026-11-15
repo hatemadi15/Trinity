@@ -3,7 +3,7 @@ import { answerOf, applyActions, describeDropped, validateActions } from '../ai/
 import type { PlannerAnswer } from '../ai/client';
 import type { ChatSource } from '../ai/protocol';
 import { summarizeState, type StateSummary } from '../ai/state-summary';
-import { exploreHref, standHref } from '../links';
+import { exploreHref, PLAN_HREF, plannerShowing, standHref } from '../links';
 import { DEFAULT_SITE, type AiMode, type ExploreState } from '../store/explore';
 import { plannerLog } from '../store/planner-log';
 import { assistSpec } from '../plan/assist';
@@ -19,6 +19,8 @@ export interface LunaDeps {
   navigate: (href: string) => void;
   /** The page she is on (its path). */
   path: () => string;
+  /** The query of its address, which says whether Choose a site shows the planner (`plan=1`). */
+  search?: () => string;
   ask: (prompt: string, state: StateSummary | null, mode: AiMode) => Promise<PlannerAnswer>;
   setTheme: (theme: 'light' | 'dark') => void;
   turnOff: () => void;
@@ -134,13 +136,15 @@ const PERIOD_ACTIONS = new Set<string>(['set_window', 'shift_window', 'find_best
 
 const PLAN_OPEN = 'Opening the planner. Tell me what the mission needs: how long it needs power, whether Earth must be in view at landing, the longest radio gap, the lander, and when and where to land.';
 
-/** A step of the planner (spec 23), on its page, which she opens when another is showing. */
+/** Whether the planner is showing: Choose a site with its planner pane open. */
+const onPlanner = (deps: LunaDeps) => plannerShowing(deps.path(), deps.search?.() ?? '');
+
+/** A step of the planner (spec 23), in its pane on Choose a site, which she opens when it is not showing. */
 async function planStep(step: PlanStep, deps: LunaDeps): Promise<string> {
   const plan = deps.plan ?? planStore;
   const s = plan.getState();
-  const onPlanner = deps.path().startsWith('/plan');
   const open = () => {
-    if (!onPlanner) deps.navigate('/plan');
+    if (!onPlanner(deps)) deps.navigate(PLAN_HREF);
   };
   switch (step) {
     case 'open':
@@ -222,7 +226,7 @@ export async function runCommand(cmd: LunaCommand, deps: LunaDeps, said = ''): P
     case 'spec': {
       const plan = deps.plan ?? planStore;
       const readBack = plan.getState().hear(cmd.text);
-      if (!deps.path().startsWith('/plan')) deps.navigate('/plan');
+      if (!onPlanner(deps)) deps.navigate(PLAN_HREF);
       // The model reads any words the parser could not, on the planner, while she speaks.
       void assistSpec(cmd.text, plan, deps.ask, deps.store.getState().aiMode);
       return readBack;

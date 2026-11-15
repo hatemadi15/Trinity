@@ -54,7 +54,7 @@ export function GroupMark({ group, className = '' }: { group: MarkerGroup; class
  * and figures show in a card while the pointer or the keyboard focus is on it, and every other marker greys out.
  * A finger's first tap shows the card and the second, on the card or the marker, opens the site.
  */
-export function SiteMap({ markers }: { markers: SiteMarker[] }) {
+export function SiteMap({ markers, ranked }: { markers: SiteMarker[]; /** The planner's ranked sites, best first: their markers stand out, numbered, and the others grey out. */ ranked?: string[] }) {
   const box = useRef<HTMLDivElement>(null);
   const cardId = useId();
   const [size, setSize] = useState<{ w: number; h: number; fill: boolean } | null>(null);
@@ -64,6 +64,9 @@ export function SiteMap({ markers }: { markers: SiteMarker[] }) {
   /** The marker a finger went down on, and whether its card was already up. */
   const tap = useRef<{ id: string; shown: boolean } | null>(null);
   const activeId = hover ?? pinned;
+  const place = (id: string) => (ranked ? ranked.indexOf(id) : -1);
+  /** A marker greys out beside the one pointed at; with none pointed at, beside the planner's ranked ones. */
+  const dimmed = (id: string) => (activeId !== null ? activeId !== id : ranked !== undefined && ranked.length > 0 && place(id) < 0);
 
   useEffect(() => {
     const el = box.current;
@@ -167,7 +170,7 @@ export function SiteMap({ markers }: { markers: SiteMarker[] }) {
             {placed.map((p) => {
               const far = Math.hypot(p.at.x - p.true.x, p.at.y - p.true.y);
               if (far < 5) return null;
-              const dim = activeId !== null && activeId !== p.marker.id;
+              const dim = dimmed(p.marker.id);
               return (
                 <g key={p.marker.id} opacity={dim ? 0.3 : 1} className="transition-opacity duration-200">
                   <line x1={p.true.x} y1={p.true.y} x2={p.at.x} y2={p.at.y} stroke="var(--stage)" strokeOpacity={0.7} strokeWidth={3} strokeLinecap="round" />
@@ -180,18 +183,20 @@ export function SiteMap({ markers }: { markers: SiteMarker[] }) {
           {placed.map((p) => {
             const m = p.marker;
             const isActive = m.id === activeId;
-            const dim = activeId !== null && !isActive;
+            const dim = dimmed(m.id);
+            const nth = place(m.id);
             return (
               <Link
                 key={m.id}
                 href={m.href}
-                aria-label={m.label}
+                aria-label={nth >= 0 ? `${m.label}, number ${nth + 1} in the plan` : m.label}
                 aria-describedby={isActive && pinned !== m.id ? cardId : undefined}
                 data-marker={m.id}
                 data-group={m.group}
                 data-on={'u' in m.at ? 'relief' : 'inset'}
                 data-active={isActive ? 'true' : undefined}
                 data-dim={dim ? 'true' : undefined}
+                data-ranked={nth >= 0 ? nth + 1 : undefined}
                 onMouseEnter={() => setHover(m.id)}
                 onMouseLeave={() => setHover(null)}
                 onFocus={() => setHover(m.id)}
@@ -208,10 +213,15 @@ export function SiteMap({ markers }: { markers: SiteMarker[] }) {
                     setPinned(m.id);
                   }
                 }}
-                className={`absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-[opacity,filter] duration-200 ${isActive ? 'z-20' : 'z-10'} ${dim ? 'opacity-45 grayscale' : ''}`}
+                className={`absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full transition-[opacity,filter] duration-200 ${isActive ? 'z-20' : nth >= 0 ? 'z-[15]' : 'z-10'} ${nth >= 0 ? 'ring-2 ring-stage-ink ring-offset-2 ring-offset-black/60' : ''} ${dim ? 'opacity-45 grayscale' : ''}`}
                 style={{ left: p.at.x, top: p.at.y }}
               >
                 <GroupMark group={m.group} className={`transition-transform duration-200 ${isActive ? 'scale-[1.45]' : ''}`} />
+                {nth >= 0 && (
+                  <span aria-hidden="true" className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-stage-ink px-1 text-[13px] font-bold leading-none text-stage">
+                    {nth + 1}
+                  </span>
+                )}
               </Link>
             );
           })}

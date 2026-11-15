@@ -5,6 +5,7 @@ import { answerOf, applyActions, describeDropped, validateActions } from '@/lib/
 import { askPlanner, shortModel, type PlannerAnswer } from '@/lib/ai/client';
 import { summarizeState, type StateSummary } from '@/lib/ai/state-summary';
 import { useNavigate } from '@/lib/hooks/useNavigate';
+import { PLAN_HREF } from '@/lib/links';
 import { exploreStore, type AiMode, type ExploreState } from '@/lib/store/explore';
 import { scenarioStore, type ScenarioState } from '@/lib/store/scenarios';
 import { plannerLog, type Exchange } from '@/lib/store/planner-log';
@@ -88,7 +89,7 @@ export function PlannerChat({
     // A mission's specification (two fields or more) is the planner's: read here, before any model, and shown back there.
     if (Object.keys(hearSpec(q, store.getState().sites).patch).length >= 2) {
       const reply = plan.getState().hear(q);
-      go('/plan');
+      go(PLAN_HREF);
       plannerLog.getState().push({ prompt: q, reply, source: 'intent', notes: ['Opened the planner: check the fields there, then search.'] });
       done();
       return;

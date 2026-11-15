@@ -16,3 +16,11 @@ export function briefHref(siteId: string, startUtc: string, days: number): strin
 
 /** Any of these addresses with the lander's, the mast's and the radio's settings that differ from the defaults. */
 export { withSettings } from './share/settings';
+
+/** The planner: a pane of Choose a site, which `plan=1` opens. The old `/plan` address redirects here. */
+export const PLAN_HREF = '/sites?plan=1';
+
+/** Whether an address (its path, then its query) shows the planner. */
+export function plannerShowing(path: string, search = ''): boolean {
+  return path === '/sites' && new URLSearchParams(search).get('plan') === '1';
+}
