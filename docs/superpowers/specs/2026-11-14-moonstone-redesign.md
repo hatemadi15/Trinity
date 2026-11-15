@@ -30,8 +30,15 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   nebula, black in both themes after 04's paper. No folds. The words under the descent were cut (15 November, owner
   review) from 914 words of text to about 620, and outside 02's questions from 653 to about 430, held by caps in
   `page.test.tsx`.
-- **Choose a site.** The title over the nebula, then three steps on the page (pick the dates, compare the places,
-  open one); what the figures count from and what each column means are one point away (`Tip`).
+- **Choose a site.** The map is the page (15 November, owner review): the south pole's relief fills the window under
+  the header, with an inset of the whole Moon for the sites far from the pole. Every site is a marker whose mark says
+  its group (NASA's Artemis shortlist, landers, high points and crater floors, with a small key); no name is written
+  until a marker is pointed at, focused or tapped, when a card names it with its figures and every other marker greys
+  out. Close markers are moved apart. A click opens Explore filled in for the site; on a phone the first tap shows the
+  card and the card opens the site. The bar at the foot holds the dates behind one button (with what the figures count
+  from), "List" (the same sites for the keyboard and screen readers) and the primary "Choose your own site", which
+  opens Explore with nothing filled in (`/explore?own=1`); the "Somewhere else" form is gone. The first screen is held
+  to 48 words (`SitesView.test.tsx`).
 - **404.** The nebula, with the page's own sentence as its headline.
 - **Header.** The Moon mark turns as the page scrolls; the current section is underlined.
 

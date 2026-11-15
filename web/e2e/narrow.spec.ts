@@ -26,7 +26,12 @@ const PAGES: { name: string; path: string; ready: (page: Page) => Promise<void> 
     path: '/sites',
     ready: async (page) => {
       await expect(page.getByRole('heading', { level: 1, name: 'Choose a landing site' })).toBeVisible();
-      await expect(page.getByRole('link', { name: /de Gerlache Rim 2/ }).first()).toBeVisible({ timeout: 60_000 });
+      // The map is the page: every site is a marker. A first tap names the site on a card, which is the way in.
+      await page.getByRole('link', { name: 'de Gerlache Rim 2', exact: true }).tap({ timeout: 60_000 });
+      const card = page.getByRole('link', { name: 'Open de Gerlache Rim 2' });
+      await expect(card).toBeVisible();
+      await expect(card).toHaveAttribute('href', /^\/explore\?site=de_gerlache_rim_2&start=/);
+      await expect(page.getByRole('link', { name: 'Choose your own site' })).toHaveAttribute('href', '/explore?own=1');
     },
   },
   {

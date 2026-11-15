@@ -31,16 +31,22 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   mission as context, and says that a third, where shadows fall in pictures from orbit, misses its
   own mark; 05 gives the ways on: compare sites, ask in plain words, print the brief, run it
   offline.
-- **Choose a landing site** (`/sites`): the 34 places in the catalogue (the nine Artemis III candidate regions, the landing
-  spots of three commercial landers and two coming ones, the six Apollo landings, the landers of
-  India, China and Japan and Luna 25's target, and high points and crater floors), each marked with
-  what kind of point it is (a lander found in orbital images, a landing target, a region's centre
-  with its radius, a derived high point never checked for landing, or a reference); Chang'e 4,
-  Chang'e 6 and CP-12's basin, on the far side, sit under a heading of their own: Earth never rises
-  there, sorted by how long a lander keeps power from its best landing day in the chosen period (a site whose elevation map
-  is incomplete comes after the others, marked, and is never named best),
-  with their sunlight and contact with Earth, on a relief map of the pole. Any other point south of
-  60° S can be worked out in the browser.
+- **Choose a landing site** (`/sites`): the map is the page. The south pole's relief fills the window
+  under the header, with an inset of the whole Moon for the places far from the pole, and each of the
+  34 places in the catalogue is a marker whose shape and colour say its group: NASA's Artemis
+  shortlist, the landers flown or planned (the commercial landers, the six Apollo landings, the
+  landers of India, China and Japan and Luna 25's target), and high points and crater floors. No
+  name is written until a marker is pointed at, focused or tapped: then a card names it, says what
+  kind of point it is (a lander found in orbital images, a landing target, a region's centre with its
+  radius, a derived high point never checked for landing, or a reference) and gives its sunlight, its
+  contact with Earth and the longest time a lander keeps power from its best landing day in the
+  chosen dates, and every other marker greys out. Markers close together near the pole are moved
+  apart, each with a line to its site. A click opens Explore filled in for that site and day; on a
+  phone the first tap shows the card and a tap on the card opens the site. The bar at the foot has
+  the dates the figures are for, "List" (the same sites as a keyboard and screen-reader list, the
+  longest time with power first, a site whose elevation map is incomplete after the others and
+  marked, the far side last) and "Choose your own site", which opens Explore with no site filled in
+  (`/explore?own=1`), where the place and its details are entered.
 - **Explore** (`/explore`): the answer for one site and one landing date, first. "Landing at de
   Gerlache Rim 2 on 1 January: power for 3 days 4 hours, then night", with the reason, how sure its
   times are ("Times ±8 h", one tap away), the time
@@ -490,7 +496,7 @@ the assistant. What needs the full data:
 - Stand on the Moon: the view draws flat ground under the real skyline, with the lander, instead of
   NASA's measured ground and its shadows, and its card says "Ground drawn flat: this copy of
   Earthrise has no terrain files."
-- Choose a landing site, "Somewhere else": computing a place that is not in the catalogue says
+- A site of your own (Explore, from "Choose your own site"): computing a place that is not in the catalogue says
   "That place cannot be worked out here: this copy of Earthrise has no height tiles. The places in
   the list work without them."
 - Explore, Lander dialog: a mast other than 2 m needs the same tiles; without them the app keeps
@@ -517,7 +523,7 @@ cd ..
 |---|---|---|---|---|
 | `fetch --group lola` | 335 MB: LOLA heights of the south pole at 20, 80 and 240 m | `data_raw/lola` | 9 s | the input of `tiles` and `terrain` |
 | `fetch --group textures` | 0.45 MB: the LROC colour map of the Moon | `data_raw/textures` | 1 s | the colour of Explore's 3D globe |
-| `tiles` | `data_raw/lola` | `data_out/tiles`: 706 tiles, 238 MB | 12 s | "Somewhere else" and other mast heights |
+| `tiles` | `data_raw/lola` | `data_out/tiles`: 706 tiles, 238 MB | 12 s | a site of your own and other mast heights |
 | `terrain` | `data_raw/lola`, `data_raw/textures` | `data_out/terrain`: 27 MB | 2 s | the shadow map, the 3D view, the stand view's ground |
 | `sync-local --tiles` | `data/`, `data_out/` | `web/public/data`: 282 MB, 889 files | under 1 s | all of the above, in the app |
 

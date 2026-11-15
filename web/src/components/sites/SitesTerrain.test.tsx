@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { SitesView } from '@/components/sites/SitesView';
 import { readJson } from '@/lib/engine/__tests__/helpers';
@@ -20,12 +20,20 @@ function worker(gate: Promise<void>, lostId?: string): NonNullable<Loaders['comp
 
 async function list(loaders: Loaders) {
   const store = createExploreStore(loaders);
-  render(<SitesView store={store} navigate={() => {}} />);
+  render(<SitesView store={store} />);
   await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 20_000 });
   await waitFor(() => expect(Object.keys(store.getState().overview)).toHaveLength(19), { timeout: 20_000 });
   return store;
 }
 const rowOf = (name: string) => screen.getAllByRole('link').find((a) => a.dataset.row && a.textContent?.startsWith(name))!;
+const markerOf = (name: string | RegExp) => within(screen.getByRole('region', { name: 'Map of the sites' })).getByRole('link', { name });
+/** What a site's card on the map says while its marker is pointed at. */
+const cardOf = (name: string | RegExp) => {
+  fireEvent.mouseEnter(markerOf(name));
+  const text = document.querySelector('[data-part="card"]')!.textContent!;
+  fireEvent.mouseLeave(markerOf(name));
+  return text;
+};
 const polar = sites.filter((x) => x.polar && x.category !== 'custom').length;
 
 describe('the site list shows only figures from the chosen mast, and what limits their terrain', () => {
@@ -35,38 +43,39 @@ describe('the site list shows only figures from the chosen mast, and what limits
     const store = await list(fileLoaders({ computeMask: worker(gate) }));
     act(() => store.getState().setParams({ mastM: 5 }));
     await waitFor(() => expect(screen.getByRole('status', { name: 'The hills behind these figures' }).textContent).toBe(`Working out the hills seen from a 5 m mast for ${polar} sites…`));
-    expect(rowOf('Haworth').textContent).toMatch(/working it out/);
-    // The line sits over the rows that wait, so the first screen keeps to its 88 words (spec 20.1).
-    const main = document.querySelector('main')!;
-    // The title band, the three steps and the map: the part a first screen shows (spec 23's layout).
-    const top = [...main.children].filter((el) => !el.classList.contains('wrap') || el.tagName === 'OL');
-    const map = main.querySelector('section[aria-label="Map of the sites"]')!;
-    for (const width of [WIDE, PHONE]) expect([...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(88);
+    expect(cardOf('Haworth')).toMatch(/Working it out…/);
+    // The line stands under the title, and the first screen still keeps to few words (spec 20.1; 48 without the line).
+    const screenful = document.querySelector('[data-part="screen"]')!;
+    for (const width of [WIDE, PHONE]) expect(visibleWords(screenful, width).length, `${width} px`).toBeLessThanOrEqual(62);
     act(() => release());
     await waitFor(() => expect(screen.queryByRole('status', { name: 'The hills behind these figures' })).toBeNull(), { timeout: 30_000 });
     await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 30_000 });
     for (const o of Object.values(store.getState().overview)) expect(o.mastM).toBe(5);
-    // The method, one point away, names the height the hills are seen from.
-    fireEvent.click(screen.getByRole('button', { name: 'How these figures are counted' }));
-    expect(screen.getByRole('tooltip').textContent).toMatch(/, the hills seen from a 5 m mast\./);
-    expect(rowOf('Blue Ghost').textContent).toMatch(/flat horizon assumed/);
+    // The method, behind the dates, names the height the hills are seen from.
+    fireEvent.click(screen.getByRole('button', { name: /^Dates/ }));
+    expect(screen.getByRole('region', { name: 'The dates the figures are for' }).textContent).toMatch(/, the hills seen from a 5 m mast\./);
+    expect(cardOf(/^Blue Ghost/)).toMatch(/flat horizon assumed/);
   });
 
-  it('marks a row whose terrain is incomplete, ranks it after the others, and does not name it as the longest time with power', async () => {
-    // At 2 m the de Gerlache rim summit tops the list: all 30 days with power, and more Earth in view than the Shackleton rim summit.
+  it('marks a site whose terrain is incomplete on its card and in the list, and ranks it after the others', async () => {
+    // At 2 m the de Gerlache rim summit has all 30 days with power, as the Shackleton rim summit has.
     const store = await list(fileLoaders({ computeMask: worker(Promise.resolve(), 'de_gerlache_center_rim_high') }));
-    const main = screen.getByRole('main');
-    await waitFor(() => expect(main.textContent).toMatch(/Longest with power: de Gerlache rim summit/), { timeout: 30_000 });
+    fireEvent.click(screen.getByRole('button', { name: 'List' }));
+    const group = () => [...screen.getByRole('region', { name: 'High points and crater floors' }).querySelectorAll<HTMLElement>('a[data-row]')].map((a) => a.dataset.row!);
+    await waitFor(() => expect(group().slice(0, 2).sort()).toEqual(['de_gerlache_center_rim_high', 'shackleton_center_rim_high']), { timeout: 30_000 });
     act(() => store.getState().setParams({ mastM: 5 }));
     await waitFor(() => expect(store.getState().overview.de_gerlache_center_rim_high?.terrain?.quality).toBe('incomplete'), { timeout: 30_000 });
     await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 30_000 });
     await waitFor(() => expect(rowOf('de Gerlache rim summit').textContent).toMatch(/terrain incomplete/));
-    // Its figures, too high if anything, beat the Shackleton rim summit's: so neither can be named, and the page says why.
-    expect(main.textContent).not.toMatch(/Longest with power:/);
-    expect(main.textContent).toMatch(/The longest with power is not named: the terrain at de Gerlache rim summit is incomplete \(the elevation map is missing in 7 of 720 directions, from 100 km out\), so its figures may be too high\./);
-    // Last of its group: the rows with figures that can be trusted come first.
-    const group = rowOf('de Gerlache rim summit').closest('section')!;
-    const rows = [...group.querySelector('ul')!.querySelectorAll('a[data-row]')].map((a) => (a as HTMLElement).dataset.row);
-    expect(rows[rows.length - 1]).toBe('de_gerlache_center_rim_high');
+    // Its figures can only be too high: the card says so beside them, and the page names no site as the best.
+    expect(cardOf('de Gerlache rim summit')).toMatch(/terrain incomplete.*Longest with power: /);
+    expect(screen.getByRole('main').textContent).not.toMatch(/Longest with power: de Gerlache/);
+    // After every site of its group whose figures can be trusted and that sees Earth.
+    const o = store.getState().overview;
+    const ids = group();
+    const trusted = ids.filter((id) => o[id].afterEarth > 0 && o[id].terrain?.quality !== 'incomplete');
+    expect(trusted.length).toBeGreaterThan(0);
+    expect(ids.indexOf('de_gerlache_center_rim_high')).toBe(trusted.length);
+    expect(ids.slice(0, trusted.length)).toEqual(trusted);
   });
 });
