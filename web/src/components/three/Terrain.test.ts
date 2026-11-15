@@ -46,6 +46,15 @@ describe('terrainMaterial', () => {
     expect(map.offset.y).toBeCloseTo(1 / 4, 9);
   });
 
+  it("keeps the mesh corners on the grid's corner cells when the picture is finer than the grid (a refined window)", () => {
+    // A 4 by 2 grid drawn four times finer: the corner cells' centres are half a grid cell in from the picture's edges.
+    const map = (terrainMaterial({ width: 16, height: 8, pixels: new Uint8Array(128) }, { width: 4, height: 2 }) as MeshBasicMaterial).map!;
+    expect(map.repeat.x).toBeCloseTo(3 / 4, 9);
+    expect(map.offset.x).toBeCloseTo(1 / 8, 9);
+    expect(map.repeat.y).toBeCloseTo(1 / 2, 9);
+    expect(map.offset.y).toBeCloseTo(1 / 4, 9);
+  });
+
   it('lights the ground plainly until the first picture arrives', () => {
     expect(terrainMaterial(null)).toBeInstanceOf(MeshStandardMaterial);
   });

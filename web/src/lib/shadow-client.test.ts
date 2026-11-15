@@ -3,6 +3,9 @@ import type { Level } from './engine/shadow';
 import type { ShadowRequest, ShadowResponse } from './engine/shadow-handler';
 import { ShadowClient } from './shadow-client';
 
+/** These tests draw their small levels as they are: a client refines a coarse site's finest level to 1024 pixels by default. */
+const AS_GIVEN = { minPx: 0 };
+
 const flat = (w: number, h: number): Level => ({ heights: new Float32Array(w * h), width: w, height: h, pxM: 20, siteCol: (w - 1) / 2, siteRow: (h - 1) / 2 });
 
 /** A flat level with a 300 m wall one column in from its right edge, so a low Sun from the right shades most of it. */
@@ -49,7 +52,7 @@ class FakeWorker {
 /** A client whose worker is a FakeWorker, with that worker. */
 function withFakeWorker(): { client: ShadowClient; worker: FakeWorker } {
   vi.stubGlobal('Worker', FakeWorker);
-  const client = new ShadowClient();
+  const client = new ShadowClient(AS_GIVEN);
   const worker = FakeWorker.made[FakeWorker.made.length - 1];
   return { client, worker };
 }
@@ -70,7 +73,7 @@ afterEach(() => {
 
 describe('ShadowClient (no worker: it runs the handler itself)', () => {
   it('returns the picture of the latest request and nothing for one it overtook', async () => {
-    const client = new ShadowClient();
+    const client = new ShadowClient(AS_GIVEN);
     await client.setLevels('a', [flat(12, 10)]);
     const first = client.picture('a', 90, 2, false);
     const second = client.picture('a', 100, 3, false);
@@ -81,7 +84,7 @@ describe('ShadowClient (no worker: it runs the handler itself)', () => {
   });
 
   it('keeps the requests for two sets of levels apart', async () => {
-    const client = new ShadowClient();
+    const client = new ShadowClient(AS_GIVEN);
     await client.setLevels('a', [flat(12, 10)]);
     await client.setLevels('b', [flat(8, 8)]);
     const [a, b] = await Promise.all([client.picture('a', 90, 2, true), client.picture('b', 90, 2, false)]);
@@ -101,7 +104,7 @@ describe('ShadowClient when the worker fails', () => {
         }
       },
     );
-    const client = new ShadowClient();
+    const client = new ShadowClient(AS_GIVEN);
     await within(client.setLevels('a', [flat(12, 10)]));
     expect(await within(client.picture('a', 90, 2, false))).toMatchObject({ type: 'picture', key: 'a', width: 12, height: 10, siteLit: true });
     client.dispose();
@@ -121,7 +124,7 @@ describe('ShadowClient when the worker fails', () => {
 
     // The very picture a client without a worker draws from the same levels.
     vi.unstubAllGlobals();
-    const reference = new ShadowClient();
+    const reference = new ShadowClient(AS_GIVEN);
     await reference.setLevels('a', levels);
     const want = (await reference.picture('a', 90, 2, false))!;
     expect(got).toMatchObject({ type: 'picture', key: 'a', width: want.width, height: want.height, siteLit: want.siteLit });
@@ -163,6 +166,16 @@ describe('ShadowClient when the worker fails', () => {
     worker.fail();
     worker.answer({ id: shadeId, type: 'error', message: 'late answer from the dead worker' });
     expect(await within(waiting)).toMatchObject({ type: 'picture', key: 'a' });
+    client.dispose();
+  });
+});
+
+describe('ShadowClient picture size', () => {
+  it('asks for every site’s picture at least 1024 pixels across unless told otherwise', () => {
+    vi.stubGlobal('Worker', FakeWorker);
+    const client = new ShadowClient();
+    void client.setLevels('a', [flat(12, 10)]);
+    expect(FakeWorker.made[FakeWorker.made.length - 1].sent.at(-1)).toMatchObject({ type: 'levels', key: 'a', minPx: 1024 });
     client.dispose();
   });
 });
