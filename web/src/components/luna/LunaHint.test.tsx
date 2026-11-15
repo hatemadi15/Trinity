@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { HINT_DELAY_MS, hintsFor, LUNA_HINTS_KEY, resetHints } from '@/lib/luna/hints';
+import { HINT_DELAY_MS, HINT_FOLD_MS, hintsFor, LUNA_HINTS_KEY, resetHints } from '@/lib/luna/hints';
 import { PLAN_HREF } from '@/lib/links';
 import { lunaStore } from '@/lib/luna/store';
 import { createExploreStore, exploreStore } from '@/lib/store/explore';
@@ -45,6 +45,26 @@ describe('Luna’s suggestions beside her (spec 22.6)', () => {
       expect(document.activeElement).toBe(document.body);
       cleanup();
     }
+  });
+
+  it('folds to a small "Ask Luna" pill a few seconds after it opens, or when the page scrolls, and opens again on a press', () => {
+    render(<LunaHint className="" path="/explore" />);
+    wait();
+    expect(hint()).toBeTruthy();
+    act(() => vi.advanceTimersByTime(HINT_FOLD_MS));
+    expect(hint()).toBeNull();
+    const pill = screen.getByRole('button', { name: 'Show Luna\u2019s suggestions' });
+    expect(pill.textContent).toBe('Ask Luna');
+    fireEvent.click(pill);
+    expect(hint()).toBeTruthy();
+    // Scrolling the page folds it again at once.
+    act(() => {
+      Object.defineProperty(window, 'scrollY', { value: 400, configurable: true });
+      window.dispatchEvent(new Event('scroll'));
+    });
+    expect(hint()).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show Luna\u2019s suggestions' })).toBeTruthy();
+    Object.defineProperty(window, 'scrollY', { value: 0, configurable: true });
   });
 
   it('shows nothing on the printable brief, nor while Luna is on', () => {

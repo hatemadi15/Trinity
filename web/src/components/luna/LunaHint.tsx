@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import { closeHints, exploreHints, firstAnnouncement, HINT_DELAY_MS, hintSeen, hintsClosed, hintsFor, markHintSeen, sendToLuna } from '@/lib/luna/hints';
+import { closeHints, exploreHints, firstAnnouncement, HINT_DELAY_MS, HINT_FOLD_MS, hintSeen, hintsClosed, hintsFor, markHintSeen, sendToLuna } from '@/lib/luna/hints';
 import { lunaStore } from '@/lib/luna/store';
 import { exploreStore } from '@/lib/store/explore';
 import { LunaPanel, lunaPlace } from './LunaButton';
@@ -41,6 +41,9 @@ export function LunaHint({ at = 'dock', className, path: given, phonePanel }: { 
   const place = useStore(lunaPlace, (s) => s.at);
   const days = useStore(exploreStore, (s) => s.days);
   const [shown, setShown] = useState<{ path: string; say: boolean } | null>(null);
+  // Folded to a small "Ask Luna" pill a few seconds after it opens, or as soon as the page scrolls, so the pane never
+  // lingers over the page; a press on the pill opens the suggestions again.
+  const [folded, setFolded] = useState(false);
   const status = useRef<HTMLParagraphElement>(null);
   const chips = hintsFor(path, days);
   const any = chips.length > 0;
@@ -63,13 +66,39 @@ export function LunaHint({ at = 'dock', className, path: given, phonePanel }: { 
   }, [path, any]);
 
   const open = shown !== null && shown.path === path && !on && any;
+
+  useEffect(() => {
+    if (!open || folded) return;
+    const fold = () => setFolded(true);
+    const t = window.setTimeout(fold, HINT_FOLD_MS);
+    const start = window.scrollY;
+    const onScroll = () => {
+      if (Math.abs(window.scrollY - start) > 120) fold();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [open, folded]);
   return (
     <>
       {/* Said once in a visit, politely: the pane itself is never read out as it comes. */}
       <p ref={status} role="status" aria-live="polite" className="sr-only">
         {open && shown.say ? `Luna suggests: ${chips[0]} Her suggestions are beside her, at the foot of the page.` : ''}
       </p>
-      {open && (
+      {open && folded && (
+        <button
+          type="button"
+          data-luna-hint-pill=""
+          aria-label="Show Luna’s suggestions"
+          onClick={() => setFolded(false)}
+          className={`${className} ${CHIP} border-line-strong bg-[color-mix(in_srgb,var(--surface)_92%,transparent)] font-semibold text-accent-ink shadow-[0_0_0_1px_rgb(var(--glow)/0.15)]`}
+        >
+          Ask Luna
+        </button>
+      )}
+      {open && !folded && (
         <section
           aria-label="Suggestions from Luna"
           data-luna-hint=""

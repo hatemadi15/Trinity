@@ -8,6 +8,8 @@ import { lunaStore } from './store';
 
 /** How long after a page opens her suggestions show, in ms. */
 export const HINT_DELAY_MS = 2000;
+/** How long the suggestions stay open before they fold to a small "Ask Luna" pill beside her. */
+export const HINT_FOLD_MS = 9000;
 /** Where this browser keeps that her suggestions were closed: "off" once closed. A convenience, per visitor. */
 export const LUNA_HINTS_KEY = 'earthrise.luna.hints';
 /** Where this visit keeps the pages her suggestions have shown on, so each shows them once. */
