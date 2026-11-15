@@ -23,10 +23,12 @@ one blue accent, minimal glows, visible focus and reduced-motion support. This s
   lede the audience line, "For planners of NASA's commercial Moon landers, teachers (start with How it works) and
   anyone curious.", with the title in two lines where the first screen is short (a phone, a landscape window under
   880 px tall) so the buttons stay clear of Luna. Then five
-  numbered sections in one line (`SectionHead`): 01 the forecast on black, which reads hour by hour under the
-  pointer or the arrow keys (`ForecastHover`), with the lander in three figures; then, on paper in both themes
-  (`.theme-light`) after one clean edge with room on both sides of it, 02 why the pole is hard (23.3), 03 real
-  places as whole-row links and 04 the checks; 05 where to go next, over the halftone nebula. No folds.
+  numbered sections in one line (`SectionHead`) that alternate in both themes, black then paper, each with the same
+  room above and below and one clean edge between: 01 the forecast on black, which reads hour by hour under the
+  pointer or the arrow keys (`ForecastHover`); 02 why the pole is hard (23.3) on paper (`.theme-light`); 03 real
+  places as whole-row links on black (`.theme-dark`); 04 the checks on paper; 05 where to go next, over the halftone
+  nebula, black in both themes after 04's paper. No folds. The words under the descent were cut by about half
+  (15 November, owner review): 914 words of text to about 500, held by caps in `page.test.tsx`.
 - **Choose a site.** The title over the nebula, then three steps on the page (pick the dates, compare the places,
   open one); what the figures count from and what each column means are one point away (`Tip`).
 - **404.** The nebula, with the page's own sentence as its headline.
@@ -89,16 +91,19 @@ Textures and their credits: `web/public/hero/textures/`.
   browser, `lunaStore.voice`), keeps every reply to the conversation when off, stopping her at once mid-reply.
 
 ## 23.3 Clearer sections
-- The forecast reads in three steps with room between them: the Sun, Earth, the lander; each row with its own words
-  and key.
-- The three drawings of "Why the south pole is hard" are drawn from the month's own figures (`lib/viz/why`), with
-  axes labelled in degrees and by direction:
-  - **The Sun:** its path round the horizon with day markers, the highest point labelled "2.5°, 1 Jan", and
-    Apollo 15's Sun climbing to about 64° for contrast.
-  - **The hills:** the ridge's and the rim summit's real skylines, one above the other, each with its own Sun path;
-    the ridge's blocked stretch is shaded and labelled "Sun set behind the hills, 3 Jan to 20 Jan", the summit
-    "sunlit all month". The summit's month and skyline come from the pipeline (`home_assets.write_all`, home.json).
-  - **Earth:** its loop over the month, solid while in view and dotted while set, "in view 45 % of the month".
-- Each has a text description in those figures and one line under it saying what to notice. Hovering it or pressing
-  its Play button runs a marker along the month with the date; under reduced motion it shows the last frame. All
-  their text is 14–15 px; they stand three across only from 1280 px.
+- The forecast reads in three steps with room between them: the Sun, Earth, the lander.
+- **Earth in view is not radio contact** (15 November, owner review). The Earth row is named "Earth in view" and its
+  hidden stretches "Out of view"; it never says "contact". The lander step states the rule, "Radio contact needs
+  power and Earth in view at once", and draws it on the rows' own time scale (`ContactStrip`, `lib/viz/homeContact`):
+  a lane of sunlight on the site (power), a lane of Earth in view, and a lane with only the hours of both, 20 to 23
+  January, 3 d 5 h. Every other stretch says what it lacks: "Earth out of view", or, for 10 to 20 January, "Earth in
+  view, but no power: night". Each landing's card gives its radio contact beside its power: none for 1 January (the
+  battery runs out before Earth rises), 3 d 5 h for 20 January. The figures are the engine's battery walk and
+  home.json's, checked against each other in `homeContact.test.ts`.
+- **Why the south pole is hard, for a newcomer** (`WhySimple`): three drawings with one idea each, no axes, two
+  labels at most, in the month's own figures: the Sun at its true 2.5° beside Apollo 15's at 64°; a summit in
+  sunlight all month beside ground behind a hill, 12 km away, sunlit 45 % of the month; Earth half risen over the
+  hills, in view 45 % of the month (it rises and sets in place; still under reduced motion). One sentence under each,
+  and a link to How it works.
+- The charts of the same three facts by direction and height (`WhySection`, `WhyDrawings`, `lib/viz/why`), with
+  their Play buttons, the Moon's 1.5° tilt and the rule of thumb for angles, now stand on How it works only.

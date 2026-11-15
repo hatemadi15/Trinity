@@ -17,10 +17,13 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   or in 11 seconds with "Fly to the south pole": the whole Moon, beside the title and never under
   it, with Earth beside it, turns, tips its south pole towards you and comes closer, down to the
   500 km relief map of the pole and to de Gerlache Rim 2's 20 km shadow picture, with the answer for
-  the site; a rail at the side jumps to any stage. Then five numbered sections: 01 the Sun and Earth
-  over de Gerlache Rim 2 in January 2027, read in three steps and hour by hour under the pointer,
-  and what that means for a small lander; then on paper, 02 three drawings of that month that play
-  and explain why the south pole is hard (the Sun never climbs, the hills decide, Earth sets too).
+  the site; a rail at the side jumps to any stage. Then five numbered sections that alternate, black
+  then paper, in both themes: 01 the Sun and Earth over de Gerlache Rim 2 in January 2027, read in
+  three steps and hour by hour under the pointer, and what that means for a small lander. Earth in
+  view is not radio contact: the lander step shows contact only for the hours with power and Earth
+  in view at once (3 d 5 h that month) and says what every other stretch lacks. 02 three drawings a
+  newcomer reads at a glance explain why the south pole is hard (the Sun never climbs, the hills
+  decide, Earth sets too); the full charts are on How it works.
   03 "Start from a real place" pairs a computed shadow picture of the ridge with three
   places to open: the ridge, and the Athena and Blue Ghost landers of March 2025, which open Explore
   at the first whole hour after each one landed. 04 gives two checks against NASA and one real
