@@ -51,7 +51,7 @@ export function CompareStory({ cols }: { cols: Column[] }) {
         </div>
       )}
       {working && <p className="text-[15px] text-ink-2">Working out the figures…</p>}
-      <Fold label="What these figures assume and do not show">
+      <Fold label="Assumptions and limits">
         <ul className="flex max-w-[60em] list-disc flex-col gap-1.5 pl-5 text-[15px] text-ink">
           {ASSUMPTIONS.map((a) => (
             <li key={a}>{a}</li>

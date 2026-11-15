@@ -47,7 +47,7 @@ describe('Compare shows each scenario’s figures from its own mast, and what li
     expect(screen.getByRole('main').textContent).not.toMatch(/works better than/);
     act(() => release());
     await act(async () => scenarios.getState().settle());
-    await waitFor(() => expect(screen.getByRole('main').textContent).toMatch(/de Gerlache rim summit, 12 km from de Gerlache Rim 2 and unchecked for landing, works better than “5 days later”/));
+    await waitFor(() => expect(screen.getByRole('main').textContent).toMatch(/de Gerlache rim summit \(12 km, not checked for landing\) works better than “5 days later”/));
     expect(Object.values(scenarios.getState().runs).map((r) => [r.mask?.source, r.mask?.mastM])).toEqual([
       ['computed', 5],
       ['computed', 5],

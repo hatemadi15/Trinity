@@ -221,7 +221,7 @@ export function settingRows(cols: Column[]): SettingRow[] {
     },
     { id: 'period', name: 'Stay', cells: cells((c) => `${c.scenario.days} days`, differs((c) => String(c.scenario.days))) },
     { id: 'lander', name: 'Lander', cells: cells(lander, (c) => (JSON.stringify(c.scenario.power) === JSON.stringify(b.scenario.power) ? null : 'changed')) },
-    { id: 'mast', name: 'Mast for panel and antenna', cells: cells((c) => `${c.scenario.mastM} m`, differs((c) => String(c.scenario.mastM))) },
+    { id: 'mast', name: 'Mast', cells: cells((c) => `${c.scenario.mastM} m`, differs((c) => String(c.scenario.mastM))) },
     { id: 'clearance', name: 'Earth counts from', cells: cells((c) => `${c.scenario.minEarthElDeg}° above the hills`, differs((c) => String(c.scenario.minEarthElDeg))) },
   ];
 }
@@ -258,7 +258,8 @@ export function story(cols: Column[]): Story {
   const atOriginal = cols.slice(1).flatMap((c) => {
     const o = c.outcome;
     if (!o || c.scenario.siteId !== b.scenario.siteId) return [];
-    const head = `${c.scenario.label} (${startWords(c.scenario.startUtc)})`;
+    // The date is the table's Landing row: the sentence keeps to the label.
+    const head = c.scenario.label;
     const power = o.poweredH === bo.poweredH ? `power as before: ${o.verdict}.` : `power for ${powerWords(o)} instead of ${powerWords(bo)}.`;
     const reason = o.poweredH === bo.poweredH ? null : powerReason(o);
     // Sunlight and radio contact are the table's rows: the sentence keeps to the power and its reason.
@@ -280,11 +281,11 @@ export function story(cols: Column[]): Story {
   const km = Math.round(distanceKm(b.site, best.site));
   const when =
     best.scenario.startUtc === ref.scenario.startUtc
-      ? ` at the same landing time (${startWords(best.scenario.startUtc)})`
-      : `, landing at another time (${startWords(best.scenario.startUtc)} against ${startWords(ref.scenario.startUtc)})`;
+      ? ' at the same landing time'
+      : `, landing ${startWords(best.scenario.startUtc)} against ${startWords(ref.scenario.startUtc)}`;
   // A high point worked out from the heights is said to be one, as the forecast's nearby advice says it: never a checked place to land.
-  const where = `${km} km from ${b.siteName}${unchecked(best.site) ? ' and unchecked for landing' : ''}`;
-  const lead = `${best.siteName}, ${where}, ${works ? 'works better' : 'does not work better'} than ${quoted(ref)}${when}: power for ${powerWords(o)} instead of ${powerWords(r)}.`;
+  const where = `${km} km${unchecked(best.site) ? ', not checked for landing' : ''}`;
+  const lead = `${best.siteName} (${where}) ${works ? 'works better' : 'does not work better'} than ${quoted(ref)}${when}: power for ${powerWords(o)} instead of ${powerWords(r)}.`;
   const tradeoffs = [
     againstWords('Sunlight', pct0(o.sunFraction), pct0(r.sunFraction), Math.round(o.sunFraction * 100) - Math.round(r.sunFraction * 100)),
     againstWords('Radio contact while it has power', wordsOrNone(o.poweredContactH), wordsOrNone(r.poweredContactH), o.poweredContactH - r.poweredContactH),
@@ -302,7 +303,7 @@ export function timingLine(cols: Column[]): string {
   if (cols.length === 0) return '';
   if (cols.length === 1) return `The baseline lands ${startWords(cols[0].scenario.startUtc)}.`;
   const same = cols.every((c) => c.scenario.startUtc === cols[0].scenario.startUtc);
-  const lead = same ? `Same landing time for every scenario: ${startWords(cols[0].scenario.startUtc)}.` : 'Landing times differ: the figures compare different dates as well as places.';
+  const lead = same ? `Same landing time for every scenario: ${startWords(cols[0].scenario.startUtc)}.` : 'Landing times differ: dates change as well as places.';
   const best = cols.filter((c) => c.scenario.timing === 'site-best').map((c) => `${quoted(c)} lands at ${c.siteName}’s own best time in its period, not a time it shares by choice.`);
   return [lead, ...best].join(' ');
 }
