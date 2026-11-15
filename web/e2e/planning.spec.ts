@@ -16,7 +16,7 @@ test.describe('The main planning journey', () => {
     await test.step('Explore opens at the site and date with the answer first', async () => {
       await openExplore(page);
       await expect(answerHeading(page)).toHaveText(/^Landing at de Gerlache Rim\s2 on 1 January: power for .+/);
-      await expect(period.getByRole('link', { name: 'Landing site: de Gerlache Rim 2. Change site' })).toBeVisible();
+      await expect(period.getByRole('button', { name: 'Landing site: de Gerlache Rim 2. Change site' })).toBeVisible();
       await expect(period.getByText('1 January 2027, 00:00', { exact: true })).toBeVisible();
       await expect(period.getByRole('spinbutton', { name: 'For' })).toHaveValue('30');
       await expect(period.getByRole('button', { name: /^Small lander: 4 m² panel, uses 200 W, 2 kWh battery\. Change$/ })).toBeVisible();

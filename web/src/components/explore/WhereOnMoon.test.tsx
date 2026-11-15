@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { sites } from '@/test/file-loaders';
 import { WhereOnMoon } from './WhereOnMoon';
@@ -21,10 +21,18 @@ describe('WhereOnMoon', () => {
     expect(panel.textContent).toMatch(/two weeks or more with power/);
   });
 
-  it('lays the map beside the words when it has the row to itself', () => {
+  it('lays a small map, the words and the nearby sites in one row when it has the row to itself, and folds the map and the list on a phone', () => {
     render(<WhereOnMoon site={site('de_gerlache_rim_2')} sites={sites} overview={overview} startUtc="2027-01-01T00:00:00" days={30} wide />);
     const panel = screen.getByRole('region', { name: 'Where on the Moon' });
-    expect(panel.querySelector('[data-part="layout"]')!.className).toMatch(/md:grid-cols-\[minmax\(0,420px\)_minmax\(0,1fr\)\]/);
+    expect(panel.querySelector('[data-part="layout"]')!.className).toMatch(/md:grid-cols-\[minmax\(0,240px\)_minmax\(0,1fr\)\] lg:grid-cols-\[minmax\(0,240px\)_minmax\(0,1fr\)_minmax\(0,1fr\)\]/);
+    // On a phone the map and the list wait behind one button, which shows only there.
+    const more = within(panel).getByRole('button', { name: 'Map and nearby sites' });
+    expect(more.className).toMatch(/\bmd:hidden\b/);
+    const parts = ['map', 'near'].map((part) => panel.querySelector(`[data-part="${part}"]`)!);
+    for (const part of parts) expect(part.className).toMatch(/\bmax-md:hidden\b/);
+    fireEvent.click(more);
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    for (const part of parts) expect(part.className).not.toMatch(/\bmax-md:hidden\b/);
   });
 
   it('lists the three nearest sites with their sunlight for the same period, as links', () => {

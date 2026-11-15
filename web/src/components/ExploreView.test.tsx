@@ -64,12 +64,20 @@ describe('ExploreView', () => {
     expect(screen.getByRole('region', { name: 'Where on the Moon' })).toBeTruthy();
   });
 
-  it('gives the ground and the place each the width of the page, the place with its map beside the words', async () => {
+  it('gives the place the width of the page, with its map beside the words, and sets the chart and the ground side by side on a wide window', async () => {
     await open();
     const ground = screen.getByRole('region', { name: 'The ground' });
     const place = screen.getByRole('region', { name: 'Where on the Moon' });
-    expect(ground.parentElement!.className).not.toMatch(/grid-cols/);
+    const chart = screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' });
+    expect(place.parentElement!.className).not.toMatch(/grid-cols/);
     expect(place.querySelector('[data-part="layout"]')!.className).toMatch(/md:grid-cols/);
+    // Two columns from 1280 px, one above the other below it: the chart with the radio windows under it, then the ground.
+    const row = ground.parentElement!;
+    expect(row.className).toMatch(/(^| )grid( |$)/);
+    expect(row.className).toMatch(/(^| )xl:grid-cols-2( |$)/);
+    expect(row.className).not.toMatch(/(^| )(sm:|md:|lg:)?grid-cols-/);
+    expect(row.contains(chart)).toBe(true);
+    expect(chart.parentElement!.contains(screen.getByRole('region', { name: 'Radio windows' }))).toBe(true);
   });
 
   it("names the hour the ground shows: the time bar's, not the one under the pointer on the chart", async () => {
@@ -122,12 +130,12 @@ describe('ExploreView', () => {
     expect(screen.getByRole('region', { name: 'Time' }).textContent).toMatch(/6 Jan 2027, 17:00 UTC/);
   });
 
-  it('shows every landing day of the next 12 months after the chart, and lands the period on a day pressed there', async () => {
+  it('shows every landing day of the next 12 months after the parts that move with the hour, and lands the period on a day pressed there', async () => {
     const { store } = await open();
     const year = screen.getByRole('region', { name: 'Every landing day of the next 12 months' });
-    // After the hour-by-hour chart and before the ground, so the first screen keeps the answer and the chart's title.
+    // After the hour-by-hour chart and the ground (spec 23.4): the year is the same at every hour of the time bar.
     expect(screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' }).compareDocumentPosition(year) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(year.compareDocumentPosition(screen.getByRole('region', { name: 'The ground' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'The ground' }).compareDocumentPosition(year) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(await within(year).findByRole('button', { name: /^Land 14 March 2027, 00:00 UTC/ }, { timeout: 20_000 }));
     expect(store.getState().startUtc).toBe('2027-03-14T00:00:00');
     await waitFor(() => expect(heading()).toMatch(/ on 14 March: /));
@@ -165,23 +173,197 @@ describe('ExploreView', () => {
     expect(navigate).toHaveBeenLastCalledWith(comparisonHref(scenarios.getState().scenarios, '/compare', { ...NO_REQUIREMENTS, minPoweredH: 120 }));
   });
 
-  it('puts the answer first and the time bar last, and names every region', async () => {
+  it('puts the place first, then the answer, the parts that move with the hour, the year, the assistant and the way to the checks, and names every region (spec 23.4)', async () => {
     await open();
-    const names = ['Why: the 30 days, hour by hour', 'The ground', 'Where on the Moon', 'Ask in plain words'];
+    const names = ['Where on the Moon', 'What this forecast is for', 'The answer', 'The numbers', 'Hour by hour', 'Every landing day of the next 12 months', 'Ask in plain words', 'How sure are these numbers?'];
     const regions = names.map((name) => screen.getByRole('region', { name }));
     for (let i = 1; i < regions.length; i++) {
       expect(regions[i - 1].compareDocumentPosition(regions[i]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
-    const slider = screen.getByRole('slider', { name: 'Time' });
-    expect(regions[regions.length - 1].compareDocumentPosition(slider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // The page ends on one white button to the Accuracy page, which is not a second gold action.
+    const sure = regions[regions.length - 1];
+    const checks = within(sure).getByRole('link', { name: 'See the checks' });
+    expect(checks.getAttribute('href')).toBe('/validate');
+    expect(checks.className).toMatch(/\bbtn\b.*\bbtn-ink\b/);
+    expect(sure.textContent).toMatch(/We checked them against NASA’s own figures\./);
   });
 
-  it('puts the radio windows after the chart and before the ground, following the time bar’s hour', async () => {
+  it('shows the time bar only with the parts that move with the hour: it is the last thing in their section, where it sticks to the window’s foot', async () => {
+    await open();
+    const moving = screen.getByRole('region', { name: 'Hour by hour' });
+    const bar = screen.getByRole('region', { name: 'Time' });
+    // The bar sticks inside its own section, so it leaves the screen with it; it is never fixed to the window.
+    expect(bar.parentElement).toBe(moving);
+    expect(moving.lastElementChild).toBe(bar);
+    expect(bar.className).toMatch(/(^| )sticky( |$)/);
+    expect(bar.className).toMatch(/(^| )bottom-0( |$)/);
+    expect(bar.className).not.toMatch(/(^| )fixed( |$)/);
+    for (const name of ['Why: the 30 days, hour by hour', 'Radio windows', 'The ground']) expect(moving.contains(screen.getByRole('region', { name }))).toBe(true);
+    for (const name of ['Where on the Moon', 'The answer', 'Every landing day of the next 12 months', 'How sure are these numbers?']) expect(moving.contains(screen.getByRole('region', { name }))).toBe(false);
+    // It stays in the reading and tab order, after the chart and the ground it moves.
+    const slider = within(bar).getByRole('slider', { name: 'Time' });
+    expect(screen.getByRole('region', { name: 'The ground' }).compareDocumentPosition(slider) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('changes the site in a drop-down on the page: the site loads in place, and the dates and the lander stay', async () => {
+    const navigate = vi.fn();
+    const { store } = await open('?start=2027-03-02T05:00&days=14&load=400', navigate);
+    await waitFor(() => expect(store.getState().days).toBe(14));
+    const band = screen.getByRole('region', { name: 'What this forecast is for' });
+    expect(within(band).queryByRole('link', { name: /Landing site/ })).toBeNull();
+    fireEvent.click(within(band).getByRole('button', { name: 'Landing site: de Gerlache Rim 2. Change site' }));
+    const list = within(band).getByRole('group', { name: 'Choose a landing site' });
+    // The catalogue in the Sites page's groups and order, and never a custom place.
+    expect(within(list).getAllByRole('group').map((g) => g.getAttribute('aria-label'))).toEqual([
+      'Artemis crewed landing regions',
+      'Commercial landers, landed',
+      'Commercial landers, planned',
+      'Landers of other countries',
+      'Apollo landings',
+      'High points and crater floors',
+    ]);
+    fireEvent.click(within(list).getByRole('button', { name: 'Haworth' }));
+    await waitFor(() => expect(store.getState().siteId).toBe('haworth'));
+    await waitFor(() => expect(heading()).toMatch(/^Landing at Haworth on 2 March/));
+    expect(store.getState().startUtc).toBe('2027-03-02T05:00:00');
+    expect(store.getState().days).toBe(14);
+    expect(store.getState().params.power.loadW).toBe(400);
+    expect(navigate).not.toHaveBeenCalled();
+    await waitFor(() => expect(window.location.search).toBe('?site=haworth&start=2027-03-02T05:00&days=14&load=400'));
+  });
+
+  it('opens the own-site fields on the page from the drop-down’s "Your own site…", empty, and works the place out in place', async () => {
+    window.history.replaceState({}, '', '/explore?days=14');
+    const computeMask = vi.fn(async () => ({ mask: new Float64Array(720), siteHeightM: 0, failedTiles: 0 }));
+    const store = createExploreStore(fileLoaders({ computeMask }));
+    render(<ExploreView store={store} navigate={() => {}} />);
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeTruthy(), { timeout: 20_000 });
+    expect(screen.queryByRole('region', { name: 'Your own site' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Landing site:/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Your own site…' }));
+    const own = screen.getByRole('region', { name: 'Your own site' });
+    expect((within(own).getByLabelText('Latitude (°)') as HTMLInputElement).value).toBe('');
+    expect((within(own).getByLabelText('Longitude (°)') as HTMLInputElement).value).toBe('');
+    expect(own.textContent).toMatch(/The dates and the lander stay as they are\./);
+    expect(own.textContent).toMatch(/not checked for landing/);
+    // Only where is asked here: the period keeps its own boxes in the band.
+    expect(within(own).queryByLabelText('Landing date')).toBeNull();
+    fireEvent.change(within(own).getByLabelText('Latitude (°)'), { target: { value: '-88.2' } });
+    fireEvent.change(within(own).getByLabelText('Longitude (°)'), { target: { value: '40' } });
+    fireEvent.click(within(own).getByRole('button', { name: 'Work it out' }));
+    await waitFor(() => expect(store.getState().site?.category).toBe('custom'));
+    expect(computeMask).toHaveBeenCalledWith(-88.2, 40, 2);
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Your own site' })).toBeNull());
+    expect(store.getState().days).toBe(14);
+    expect(screen.getByRole('button', { name: 'Landing site: Custom site -88.200°, 40.000°. Change site' })).toBeTruthy();
+  });
+
+  describe('a place of one’s own, at /explore?own=1', () => {
+    async function ownPage(computeMask = vi.fn(async () => ({ mask: new Float64Array(720), siteHeightM: 0, failedTiles: 0 }))) {
+      window.history.replaceState({}, '', '/explore?own=1');
+      const store = createExploreStore(fileLoaders({ computeMask }));
+      render(<ExploreView store={store} navigate={() => {}} />);
+      await waitFor(() => expect(screen.getByRole('heading', { level: 1, name: 'Your own site' })).toBeTruthy(), { timeout: 20_000 });
+      return { store, computeMask };
+    }
+    const field = (name: string) => screen.getByLabelText(name) as HTMLInputElement;
+
+    it('fills nothing in, asks where, when and the lander in three steps, and shows none of the usual page', async () => {
+      await ownPage();
+      const form = screen.getByRole('form', { name: 'Your own site' });
+      expect(within(form).getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Where', 'When', 'Lander']);
+      for (const name of ['Latitude (°)', 'Longitude (°)', 'Landing date', 'Hour (UTC)', 'Days (2–90)']) expect(field(name).value).toBe('');
+      // The lander starts from today's default, and the step says so.
+      expect(within(form).getByRole('button', { name: 'Small lander: 4 m² panel, uses 200 W, 2 kWh battery. Change' })).toBeTruthy();
+      expect(form.textContent).toMatch(/This is the starting lander, not yours yet\. Change it now or later\./);
+      expect(form.textContent).toMatch(/Your own point is not checked for landing\./);
+      expect(screen.queryByRole('region', { name: 'Time' })).toBeNull();
+      expect(screen.queryByRole('region', { name: 'The answer' })).toBeNull();
+      expect(screen.getByRole('link', { name: 'Choose a listed site instead' }).getAttribute('href')).toBe('/sites');
+      // The steps keep their address: the default site's is not written over it.
+      expect(window.location.search).toBe('?own=1');
+    });
+
+    it('says what is missing, step by step, before any hills are traced', async () => {
+      const { store, computeMask } = await ownPage();
+      const go = screen.getByRole('button', { name: 'Work it out' });
+      fireEvent.click(go);
+      expect(screen.getByRole('alert').textContent).toMatch(/south of 60° S/);
+      fireEvent.change(field('Latitude (°)'), { target: { value: '-88.2' } });
+      fireEvent.change(field('Longitude (°)'), { target: { value: '40' } });
+      fireEvent.click(go);
+      expect(screen.getByRole('alert').textContent).toBe('Choose the landing date and its hour.');
+      fireEvent.change(field('Landing date'), { target: { value: '2028-05-04' } });
+      fireEvent.change(field('Hour (UTC)'), { target: { value: '17:00' } });
+      fireEvent.click(go);
+      expect(screen.getByRole('alert').textContent).toBe('Choose how many days: 2 to 90.');
+      fireEvent.change(field('Days (2–90)'), { target: { value: '10' } });
+      expect(field('Days (2–90)').value).toBe('10');
+      fireEvent.change(field('Landing date'), { target: { value: '2036-12-30' } });
+      expect(field('Landing date').value).toBe('2036-12-30');
+      fireEvent.click(go);
+      expect(screen.getByRole('alert').textContent).toMatch(/runs past 31 December 2036/);
+      // No hills were traced for the place: the worker was asked only for the points round the site the page opened with.
+      expect(computeMask).not.toHaveBeenCalledWith(-88.2, 40, 2);
+      expect(store.getState().site?.category).not.toBe('custom');
+    });
+
+    it('works the place out for the period given and becomes the usual Explore for it, with its own address', async () => {
+      const { store, computeMask } = await ownPage();
+      fireEvent.change(field('Latitude (°)'), { target: { value: '-88.2' } });
+      fireEvent.change(field('Longitude (°)'), { target: { value: '40' } });
+      fireEvent.change(field('Landing date'), { target: { value: '2028-05-04' } });
+      fireEvent.change(field('Hour (UTC)'), { target: { value: '17:00' } });
+      fireEvent.change(field('Days (2–90)'), { target: { value: '10' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Work it out' }));
+      await waitFor(() => expect(screen.getByRole('region', { name: 'The answer' })).toBeTruthy(), { timeout: 20_000 });
+      expect(computeMask).toHaveBeenCalledWith(-88.2, 40, 2);
+      expect(store.getState().site?.category).toBe('custom');
+      expect(store.getState().startUtc).toBe('2028-05-04T17:00:00');
+      expect(store.getState().days).toBe(10);
+      expect(heading()).toMatch(/^Landing at Custom site -88\.200°, 40\.000° on 4 May: /);
+      expect(screen.getByRole('region', { name: 'Time' })).toBeTruthy();
+      await waitFor(() => expect(window.location.search).toBe('?site=custom_-88.2000_40.0000&start=2028-05-04T17:00&days=10'));
+    });
+
+    it('takes a press on the map as the place, and marks it', async () => {
+      await ownPage();
+      const map = document.querySelector<HTMLElement>('[data-part="own-map"]')!;
+      map.getBoundingClientRect = () => ({ left: 0, top: 0, width: 400, height: 400, right: 400, bottom: 400, x: 0, y: 0, toJSON: () => ({}) });
+      expect(document.querySelector('[data-part="own-mark"]')).toBeNull();
+      // The centre of the picture is the pole; a point straight up from it lies on longitude 0.
+      fireEvent.click(map, { clientX: 200, clientY: 200 });
+      expect([field('Latitude (°)').value, field('Longitude (°)').value]).toEqual(['-90', '0']);
+      fireEvent.click(map, { clientX: 200, clientY: 120 });
+      expect(Number(field('Latitude (°)').value)).toBeCloseTo(-86.7, 1);
+      expect(field('Longitude (°)').value).toBe('0');
+      expect(document.querySelector('[data-part="own-mark"]')).toBeTruthy();
+    });
+
+    it('says plainly when the height tiles are missing, and that the places in the list work without them', async () => {
+      const { DataError } = await import('@/lib/data/loaders');
+      await ownPage(
+        vi.fn(async () => {
+          throw new DataError('/data/tiles/manifest.json', 404);
+        }) as never,
+      );
+      fireEvent.change(field('Latitude (°)'), { target: { value: '-88.2' } });
+      fireEvent.change(field('Longitude (°)'), { target: { value: '40' } });
+      fireEvent.change(field('Landing date'), { target: { value: '2028-05-04' } });
+      fireEvent.change(field('Hour (UTC)'), { target: { value: '17:00' } });
+      fireEvent.change(field('Days (2–90)'), { target: { value: '10' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Work it out' }));
+      await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('That place cannot be worked out here: this copy of Earthrise has no height tiles. The places in the list work without them.'));
+      expect(screen.getByRole('heading', { level: 1, name: 'Your own site' })).toBeTruthy();
+    });
+  });
+
+  it('puts the radio windows under the chart, beside the ground, following the time bar’s hour', async () => {
     const { store } = await open();
     const radio = screen.getByRole('region', { name: 'Radio windows' });
     const chart = screen.getByRole('region', { name: 'Why: the 30 days, hour by hour' });
     expect(chart.compareDocumentPosition(radio) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(radio.compareDocumentPosition(screen.getByRole('region', { name: 'The ground' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(radio.parentElement).toBe(chart.parentElement);
     expect(within(radio).getByTestId('radio-next').textContent).toBe('Next window opens 10 Jan, 03:00 UTC, in 9 d 3 h, and lasts 13 d 12 h');
     act(() => store.getState().setCursor(300));
     await waitFor(() => expect(within(radio).getByTestId('radio-next').textContent).toBe('This window closes 23 Jan, 15:00 UTC, in 10 d 3 h'));
