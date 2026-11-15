@@ -6,6 +6,7 @@ import { ChunkBoundary } from '@/components/ChunkBoundary';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { lunaStore, type LunaStatus } from '@/lib/luna/store';
 import { LunaPanel, lunaPlace } from './LunaButton';
+import { LunaHint } from './LunaHint';
 import type { BotFace, LunaBotProps, LunaBotState } from './LunaBot';
 import { KAOMOJI, LunaPet, lunaMood } from './LunaPet';
 
@@ -69,7 +70,8 @@ export function clampSpot(x: number, y: number, w: number, h: number, vw: number
  * Luna's 3D self at the page's lower left (spec 23). She floats and plays by herself; a press on her turns Luna on or
  * off, as the header's button does, and opens Luna's panel beside her; a drag moves her anywhere on the screen, and
  * this browser remembers where. Over Explore's pinned time bar she rises above it. Without WebGL her drawn pet stands
- * in. A speech bubble says what she is doing, and hello while the pointer is on her.
+ * in. A speech bubble says what she is doing, and hello while the pointer is on her; a pane beside her suggests what
+ * to ask (LunaHint).
  */
 export function LunaDock() {
   const reduced = useReducedMotion();
@@ -220,6 +222,12 @@ export function LunaDock() {
           </ChunkBoundary>
         )}
       </button>
+      {/* What to ask her (spec 22.6): beside her, raised clear of a bar at the window's foot where its buttons could reach her; above her on a phone. */}
+      {!dragging && (
+        <LunaHint
+          className={`absolute z-10 ${toLeft ? 'right-0 bottom-full mb-1 w-[280px]' : 'sm:bottom-[84px] sm:left-[calc(100%-10px)] sm:w-[330px] xl:bottom-3'} max-sm:bottom-[calc(100%-18px)] max-sm:left-0 max-sm:w-max max-sm:max-w-[calc(100vw-24px)]`}
+        />
+      )}
       {on && at === 'dock' && (
         <LunaPanel
           className={`absolute z-50 w-[min(360px,calc(100vw-24px))] rounded-2xl border border-line-strong bg-surface p-4 text-left text-[15px] text-ink shadow-[0_0_0_1px_rgb(var(--glow)/0.15),0_24px_60px_-20px_rgb(var(--glow)/var(--glow-strength))] ${toLeft ? 'right-0' : 'left-0'} ${below ? 'top-full mt-2' : 'bottom-full mb-10'}`}

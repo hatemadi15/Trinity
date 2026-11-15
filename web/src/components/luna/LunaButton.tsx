@@ -26,9 +26,10 @@ const PRESS_STATUS: Partial<Record<LunaStatus, string>> = {
 
 /**
  * Where Luna's panel opens: under the header's button, or beside her 3D self at the page's corner (LunaDock), as
- * whichever was pressed last. One panel at a time.
+ * whichever was pressed last; or by her suggestions, where a phone keeps her button folded away (LunaHint, "hint").
+ * One panel at a time.
  */
-export const lunaPlace = createStore<{ at: 'header' | 'dock' }>()(() => ({ at: 'header' }));
+export const lunaPlace = createStore<{ at: 'header' | 'dock' | 'hint' }>()(() => ({ at: 'header' }));
 
 /** Ready-made messages, one press each: what to say, as well as what to send. */
 export const SUGGESTIONS = ['open the view from the site', 'play', 'turn to Earth', 'compare this to every landing site', 'plan a landing'];
