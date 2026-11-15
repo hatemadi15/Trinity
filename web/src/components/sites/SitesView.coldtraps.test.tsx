@@ -12,13 +12,13 @@ const layer = async () => readJson<ColdTrapDoc>('data', 'coldtraps', 'coldtraps.
 const rowOf = (name: string) => screen.getAllByRole('link').find((a) => a.dataset.row && a.textContent?.startsWith(name))!;
 
 describe('the site list with the modelled cold traps', () => {
-  it('gives each polar row its cold ground within 5 km in one short line, and the first screen keeps its 105 words', async () => {
+  it('gives each polar row its cold ground within 5 km in one short line, and the first screen keeps its 88 words', async () => {
     const store = createExploreStore(fileLoaders());
     render(<SitesView store={store} navigate={() => {}} coldTraps={layer} />);
     await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 20_000 });
-    await waitFor(() => expect(rowOf('Shackleton rim summit').textContent).toMatch(/Modelled cold traps, where ice could last: 11\.5\skm² within 5\skm/), { timeout: 20_000 });
-    expect(rowOf('Shackleton crater floor').textContent).toMatch(/Modelled cold traps, where ice could last: all the ground within 5\skm/);
-    expect(rowOf('IM-2 Athena').textContent).toMatch(/Modelled cold traps, where ice could last: none within 5\skm/);
+    await waitFor(() => expect(rowOf('Shackleton rim summit').textContent).toMatch(/Modelled cold traps: 11\.5\skm² within 5\skm/), { timeout: 20_000 });
+    expect(rowOf('Shackleton crater floor').textContent).toMatch(/Modelled cold traps: all the ground within 5\skm/);
+    expect(rowOf('IM-2 Athena').textContent).toMatch(/Modelled cold traps: none within 5\skm/);
     // A site the model does not reach, and one far from the pole, have no such line.
     expect(rowOf('Chandrayaan-3 Vikram').textContent).not.toMatch(/cold traps/);
     expect(rowOf('Apollo 11').textContent).not.toMatch(/cold traps/);
@@ -26,7 +26,7 @@ describe('the site list with the modelled cold traps', () => {
     const main = document.querySelector('main')!;
     const top = [...main.children].filter((el) => !el.classList.contains('wrap') || el.tagName === 'OL');
     const map = main.querySelector('section[aria-label="Map of the sites"]')!;
-    for (const width of [WIDE, PHONE]) expect([...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(105);
+    for (const width of [WIDE, PHONE]) expect([...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(88);
   });
 
   it('names the model the line comes from in the row of sources at the foot of the list, below the first screen', async () => {
@@ -36,7 +36,7 @@ describe('the site list with the modelled cold traps', () => {
     const row = screen.getByLabelText('Data sources');
     expect(within(row).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['NASA LRO LOLA 20 m', 'NASA LRO LOLA 80 m', 'NASA LRO LOLA 240 m', 'LRO Diviner temperature model', 'JPL DE440', 'Artemis III regions', 'CLPS mission records', 'LROC and NSSDCA lander positions']);
     expect(within(row).getByRole('link', { name: 'LRO Diviner temperature model' }).getAttribute('href')).toBe('https://pds-geosciences.wustl.edu/lro/urn-nasa-pds-lro_diviner_derived1/data_derived_prp/');
-    // The row is not part of the first screen the site list counts to 105 words.
+    // The row is not part of the first screen the site list counts to 88 words.
     const main = document.querySelector('main')!;
     const top = [...main.children].filter((el) => !el.classList.contains('wrap') || el.tagName === 'OL');
     expect(top.some((el) => el.contains(row))).toBe(false);

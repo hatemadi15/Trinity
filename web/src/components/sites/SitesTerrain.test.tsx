@@ -36,12 +36,12 @@ describe('the site list shows only figures from the chosen mast, and what limits
     act(() => store.getState().setParams({ mastM: 5 }));
     await waitFor(() => expect(screen.getByRole('status', { name: 'The hills behind these figures' }).textContent).toBe(`Working out the hills seen from a 5 m mast for ${polar} sites…`));
     expect(rowOf('Haworth').textContent).toMatch(/working it out/);
-    // The line sits over the rows that wait, so the first screen keeps to its 105 words (spec 20.1).
+    // The line sits over the rows that wait, so the first screen keeps to its 88 words (spec 20.1).
     const main = document.querySelector('main')!;
     // The title band, the three steps and the map: the part a first screen shows (spec 23's layout).
     const top = [...main.children].filter((el) => !el.classList.contains('wrap') || el.tagName === 'OL');
     const map = main.querySelector('section[aria-label="Map of the sites"]')!;
-    for (const width of [WIDE, PHONE]) expect([...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(105);
+    for (const width of [WIDE, PHONE]) expect([...top, map].reduce((sum, el) => sum + visibleWords(el, width).length, 0)).toBeLessThanOrEqual(88);
     act(() => release());
     await waitFor(() => expect(screen.queryByRole('status', { name: 'The hills behind these figures' })).toBeNull(), { timeout: 30_000 });
     await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 30_000 });
@@ -56,14 +56,14 @@ describe('the site list shows only figures from the chosen mast, and what limits
     // At 2 m the de Gerlache rim summit tops the list: all 30 days with power, and more Earth in view than the Shackleton rim summit.
     const store = await list(fileLoaders({ computeMask: worker(Promise.resolve(), 'de_gerlache_center_rim_high') }));
     const main = screen.getByRole('main');
-    await waitFor(() => expect(main.textContent).toMatch(/Longest time with power in these days: de Gerlache rim summit/), { timeout: 30_000 });
+    await waitFor(() => expect(main.textContent).toMatch(/Longest with power: de Gerlache rim summit/), { timeout: 30_000 });
     act(() => store.getState().setParams({ mastM: 5 }));
     await waitFor(() => expect(store.getState().overview.de_gerlache_center_rim_high?.terrain?.quality).toBe('incomplete'), { timeout: 30_000 });
     await waitFor(() => expect(store.getState().overviewBusy).toBe(false), { timeout: 30_000 });
     await waitFor(() => expect(rowOf('de Gerlache rim summit').textContent).toMatch(/terrain incomplete/));
     // Its figures, too high if anything, beat the Shackleton rim summit's: so neither can be named, and the page says why.
-    expect(main.textContent).not.toMatch(/Longest time with power in these days:/);
-    expect(main.textContent).toMatch(/The longest time with power is not named: the terrain at de Gerlache rim summit is incomplete \(the elevation map is missing in 7 of 720 directions, from 100 km out\), so its figures may be too high\./);
+    expect(main.textContent).not.toMatch(/Longest with power:/);
+    expect(main.textContent).toMatch(/The longest with power is not named: the terrain at de Gerlache rim summit is incomplete \(the elevation map is missing in 7 of 720 directions, from 100 km out\), so its figures may be too high\./);
     // Last of its group: the rows with figures that can be trusted come first.
     const group = rowOf('de Gerlache rim summit').closest('section')!;
     const rows = [...group.querySelector('ul')!.querySelectorAll('a[data-row]')].map((a) => (a as HTMLElement).dataset.row);
