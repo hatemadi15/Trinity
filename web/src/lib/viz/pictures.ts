@@ -79,11 +79,11 @@ export function picturesCard(doc: PicturesDoc): EvidenceCard {
     pass,
     mark: pass ? 'Passes: every picture meets the mark' : `Misses: ${failing.length} of ${rows.length} pictures fall short`,
     figure: rows.length > 0 ? pct(median(rows.map((r) => r.agree))) : 'no pictures',
-    figureWords: `of the ground the app and the camera call alike, lit or dark, in the typical picture of ${rows.length}`,
+    figureWords: `of the ground called alike, lit or dark, in the typical picture of ${rows.length}`,
     sentence:
-      `The app's shadows for the moment each picture was taken, laid over ${rows.length} pictures from the cameras on NASA's Lunar Reconnaissance Orbiter. ` +
-      `Where they differ, it is almost always at the edge of a shadow (${pct(median(rows.map((r) => r.disagree_on_edges ?? 0)))} of that ground, in the typical picture); ` +
-      `with the Sun put a quarter of the way round, they would agree on only ${pct(median(rows.map((r) => r.agree_sun_turned_90)))}.`,
+      `The app's shadows laid over ${rows.length} pictures from NASA's Lunar Reconnaissance Orbiter. ` +
+      `They differ almost only at shadow edges (${pct(median(rows.map((r) => r.disagree_on_edges ?? 0)))} of that ground); ` +
+      `with the Sun a quarter-turn away, they would agree on only ${pct(median(rows.map((r) => r.agree_sun_turned_90)))}.`,
     parts: [
       { label: 'What it shows', text: "That the app's terrain and its Sun put shadows where a camera saw them: the shadow map Explore draws, worked out for the moment of each picture and laid over it pixel by pixel." },
       {

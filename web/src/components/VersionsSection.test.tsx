@@ -18,8 +18,10 @@ describe('VersionsSection', () => {
   it('sets how far the two generations of maps differ beside the error the newer one states, grid by grid', async () => {
     const region = await open();
     expect(region.id).toBe('versions');
-    const table = within(region).getByRole('table', { name: 'The error model fitted to the two generations' });
-    const rows = within(table).getAllByRole('row').slice(1);
+    // In its fold, one tap away.
+    expect(within(region).getByRole('button', { name: /The error model/ })).toBeTruthy();
+    const table = within(region).getByRole('table', { name: 'The error model fitted to the two generations', hidden: true });
+    const rows = within(table).getAllByRole('row', { hidden: true }).slice(1);
     expect(rows.map((r) => r.querySelector('th')!.textContent)).toEqual(['20 m', '80 m', '240 m']);
     const g80 = index.model['80'];
     expect(rows[1].textContent).toContain(`${Math.round(g80.length_m)} m`);

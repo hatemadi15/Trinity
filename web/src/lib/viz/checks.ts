@@ -57,7 +57,7 @@ export function backcastSentence(rows: BackcastRow[]): string {
     const worst = Math.max(...agreed.map((r) => Math.abs(r.end_minus_sunset_h!)));
     parts.push(`${agreed.map(lander).join(' and ')} ended within ${worst.toFixed(1)} h of the predicted sunset`);
   }
-  if (early.length > 0) parts.push(`${early.map(lander).join(' and ')} ended early for known reasons (see the numbers), so their rows only show that the Sun was still up`);
+  if (early.length > 0) parts.push(`${early.map(lander).join(' and ')} ended early for known reasons, so they show only that the Sun was still up`);
   return parts.join('; ') + '.';
 }
 
@@ -126,7 +126,7 @@ export function evidenceCards({ horizons, mazarico, power, backcasts }: Validati
       mark: dirPass ? 'Passes: under the 0.01° target' : 'Misses the 0.01° target',
       figure: degreesText(horizons.max_abs_delta_el_deg),
       figureWords: `the largest gap in ${horizons.n_rows} test cases`,
-      sentence: `Our directions to the Sun and Earth against JPL Horizons, NASA's own position calculator. The Sun's disc is ${thousandsText(HOME.facts.sun_disc_ratio)} times wider than the largest gap.`,
+      sentence: `Our directions to the Sun and Earth against JPL Horizons, NASA's position calculator. The Sun's disc is ${thousandsText(HOME.facts.sun_disc_ratio)} times wider than the gap.`,
       parts: [
         { label: 'What it shows', text: 'That our table of where the Sun and Earth are, and the way we turn it into a direction seen from a spot on the Moon, agree with JPL. It does not involve hills or sunlight.' },
         { label: 'Passes when', text: 'Every test case is within 0.01°, about a fiftieth of the width of the Sun, in height and in direction.' },
@@ -144,14 +144,14 @@ export function evidenceCards({ horizons, mazarico, power, backcasts }: Validati
       pass: sunPass,
       mark: sunPass ? `Passes: the typical gap is under ${SUNLIGHT_POINTS} points` : `Misses: the typical gap is over ${SUNLIGHT_POINTS} points`,
       figure: Number.isFinite(typical) ? `${typical.toFixed(1)} points` : 'no sites',
-      figureWords: `the typical gap at ${covered.length} sites, worked out the map's way; 72 % against 70 % is a gap of 2 points`,
-      sentence: `Our share of hours with sunlight against NASA's sunlight map from the LOLA laser altimeter, averaged over 18.6 years, at the ${covered.length} sites it covers, worked out the way the map was: from the ground, on 60 m terrain, any part of the Sun counting. ${within} of ${covered.length} sites are within ${SUNLIGHT_POINTS} points; for Earth in view the typical gap is ${earthTypical.toFixed(1)} points.`,
+      figureWords: `the typical gap at ${covered.length} sites; 72 % against 70 % is 2 points`,
+      sentence: `Our share of sunlit hours against NASA's LOLA sunlight map, worked out the map's way. ${within} of ${covered.length} sites are within ${SUNLIGHT_POINTS} points; for Earth in view the typical gap is ${earthTypical.toFixed(1)} points.`,
       parts: [
         { label: 'What it shows', text: "That our way of tracing the hills around a site, and the paths of the Sun and Earth over them, gives the same long-run share of sunlight and of Earth in view as NASA's LOLA team, when both follow the same rules." },
         { label: 'Passes when', text: `The typical gap is ${SUNLIGHT_POINTS} points or less, for sunlight and for Earth in view.` },
         {
           label: 'Tested on',
-          text: `${mz.sites} of the ${mz.polar_sites} sites near the south pole (the map is a square around the pole that reaches 85° S on every side), every hour for 18.6 years from ${dateWords(mz.matched_span[0])}, at the map's four nearest points around each site.`,
+          text: `${mz.sites} of the ${mz.polar_sites} sites near the south pole (the map is a square around the pole that reaches 85° S on every side), every hour for 18.6 years from ${dateWords(mz.matched_span[0])}, at the map's four nearest points around each site, the way the map was made: from the ground, on 60 m terrain, any part of the Sun counting.`,
         },
         {
           label: 'What it leaves out',
@@ -170,8 +170,8 @@ export function evidenceCards({ horizons, mazarico, power, backcasts }: Validati
       pass: sumsPass,
       mark: sumsPass ? 'Passes: every case to 0.000001 W' : `Misses: ${sums.length - agreeing} of ${sums.length} cases disagree`,
       figure: `${agreeing} of ${sums.length}`,
-      figureWords: 'worked cases agree, run in this browser just now',
-      sentence: `The app's own solar power and battery sums, worked out in this browser on ${sums.length} made-up cases, against answers worked out by hand: a 4 m² panel at 30 % in full sunshine gives 0.3 × 4 m² × 1,361 W/m² = 1,633.2 W.`,
+      figureWords: 'worked cases agree, run in this browser now',
+      sentence: `The app's power and battery sums on ${sums.length} made-up cases, against answers worked out by hand: 0.3 × 4 m² × 1,361 W/m² = 1,633.2 W.`,
       parts: [
         { label: 'What it shows', text: 'That the app does the sums the method describes: the angle of the panel, how much of the Sun shows and how far away it is, the battery charging and running down hour by hour, and the hours without power.' },
         { label: 'Passes when', text: 'Every worked case agrees to 0.000001 W and 0.000001 Wh, with the same hours without power.' },
@@ -192,8 +192,8 @@ export function evidenceCards({ horizons, mazarico, power, backcasts }: Validati
       pass: null,
       mark: 'Context, not a check',
       figure: Number.isFinite(ghostGap) ? `${ghostGap.toFixed(1)} hours` : 'no end yet',
-      figureWords: "between Blue Ghost's last reported signal and our predicted sunset",
-      sentence: `Our predicted sunset after each landing beside the end of the mission its operator reported. ${backcastSentence(backcasts.rows)}`,
+      figureWords: "from Blue Ghost's last reported signal to our predicted sunset",
+      sentence: `Our predicted sunset beside each mission's reported end. ${backcastSentence(backcasts.rows)}`,
       parts: [
         { label: 'What it can tell', text: 'Whether our sunset comes before or after the reported end of a lander that worked into the night, as Blue Ghost did, and that the Sun was still up when IM-1 and IM-2 ended.' },
         {

@@ -233,7 +233,7 @@ describe('ValidateView', () => {
     await waitFor(() => expect(screen.getByRole('main').textContent).toMatch(/1,444 automated tests/));
   });
 
-  it('puts the test count last, after the error budget, and keeps the top to 25 words (spec 20.1)', async () => {
+  it('puts the test count last, after the error budget, and keeps the top to 22 words (spec 20.1)', async () => {
     vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith('/validation/tests.json')) return jsonResponse({ generated_utc: '2026-10-02T05:48:59Z', web: { files: 102, tests: 1444 }, pipeline: { tests: 114 } });
@@ -243,7 +243,9 @@ describe('ValidateView', () => {
     const badge = await waitFor(() => screen.getByText(/1,444 automated tests/));
     const budget = screen.getByRole('heading', { level: 2, name: 'How far off the forecast can be' }).closest('section')!;
     expect(budget.contains(badge)).toBe(true);
-    expect(budget.lastElementChild).toBe(badge);
+    // Last in the section, in its fold.
+    expect(budget.lastElementChild!.contains(badge)).toBe(true);
+    expect(within(budget).getByRole('button', { name: /The automated tests' last run/ })).toBeTruthy();
     const first = screen.getByRole('region', { name: TITLES[0] });
     expect(first.compareDocumentPosition(badge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const main = screen.getByRole('main');
@@ -251,9 +253,9 @@ describe('ValidateView', () => {
     const top = [...main.children].slice(0, 2);
     for (const width of [WIDE, PHONE]) {
       const n = top.reduce((sum, el) => sum + visibleWords(el, width).length, 0);
-      expect(n).toBeLessThanOrEqual(25);
+      expect(n).toBeLessThanOrEqual(22);
     }
-    expect(top[0].textContent).toMatch(/What each check shows, how it was tested, and its limits\./);
+    expect(top[0].textContent).toMatch(/What each check shows, and its limits\./);
   });
 
   it('says when the tests last ran, on which commit, what passed, skipped and failed on each side, and with which data', async () => {
@@ -273,7 +275,7 @@ describe('ValidateView', () => {
     );
     // Last in the error budget's section, as the count was.
     const budget = screen.getByRole('heading', { level: 2, name: 'How far off the forecast can be' }).closest('section')!;
-    expect(budget.lastElementChild).toBe(badge);
+    expect(budget.lastElementChild!.contains(badge)).toBe(true);
   });
 
   it('renders without the re-check button when no site is listed', async () => {
@@ -285,7 +287,7 @@ describe('ValidateView', () => {
     await open();
     const budget = screen.getByRole('region', { name: 'How far off the forecast can be' });
     expect(budget.textContent).toMatch(/under 0\.01° \(the first check finds 0\.00003°\)/);
-    expect(budget.querySelector('li')!.textContent).toMatch(/^Sunrise, sunset and Earth rising or setting: within the margins measured above, site by site\./);
+    expect(budget.querySelector('li')!.textContent).toMatch(/^Sunrise, sunset, Earth rising or setting: within the margins above\./);
     const gold = screen.getByRole('main').querySelectorAll('.btn-primary');
     expect(gold).toHaveLength(1);
     expect(gold[0].textContent).toMatch(/Re-check with JPL now/);
