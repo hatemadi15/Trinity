@@ -38,7 +38,7 @@ describe('POST /api/transcribe: words from a recording, for browsers without spe
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ text: 'compare de Gerlache Rim 2 and Nobile Rim 2' });
     const [url, init] = (fetchMock.mock.calls as unknown as [string, RequestInit][])[0];
-    expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent');
+    expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');
     expect((init.headers as Record<string, string>)['x-goog-api-key']).toBe('AIza-test');
     expect(url + String(init.body)).not.toContain('AIza-test');
     const body = sentBody(fetchMock);
@@ -89,7 +89,7 @@ describe('POST /api/transcribe: words from a recording, for browsers without spe
   it('says it is available, with the model, when a key is set', async () => {
     const res = await GET();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ available: true, model: 'gemini-2.5-flash' });
+    expect(await res.json()).toEqual({ available: true, model: 'gemini-3.5-flash-lite' });
   });
 
   it('refuses a type that is not audio with 415, an empty body with 400, and more than the cap with 413, by its header or by its bytes', async () => {
@@ -134,7 +134,7 @@ describe('POST /api/transcribe: words from a recording, for browsers without spe
     const body = await res.text();
     expect(JSON.parse(body)).toEqual({ error: 'Gemini gave no transcript', upstream: 500 });
     expect(body + info.mock.calls.flat().join(' ')).not.toContain('AIza-test');
-    expect(info.mock.calls.flat().join(' ')).toMatch(/transcription failed: gemini-2\.5-flash: HTTP 500 INTERNAL/);
+    expect(info.mock.calls.flat().join(' ')).toMatch(/transcription failed: gemini-3\.5-flash-lite: HTTP 500 INTERNAL/);
   });
 
   it('gives Gemini at most AI_MODEL_TIMEOUT_MS', async () => {

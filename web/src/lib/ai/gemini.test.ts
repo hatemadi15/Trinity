@@ -91,8 +91,8 @@ describe('Gemini’s settings, from the server’s environment only', () => {
     expect(geminiFromEnv({ GEMINI_API_KEY: '  ' })).toBeNull();
     expect(geminiFromEnv({ GEMINI_API_KEY: ' AIza-test ' })).toEqual({
       apiKey: 'AIza-test',
-      textModel: 'gemini-2.5-flash',
-      transcribeModel: 'gemini-2.5-flash',
+      textModel: 'gemini-3.5-flash-lite',
+      transcribeModel: 'gemini-3.5-flash-lite',
       speechModel: GEMINI_DEFAULTS.speechModel,
       voice: 'Leda',
     });
@@ -103,7 +103,7 @@ describe('Gemini’s settings, from the server’s environment only', () => {
 
   it('keeps a name that could reach another address out of the URL, using the default instead', () => {
     const s = geminiFromEnv({ GEMINI_API_KEY: 'k', GEMINI_TEXT_MODEL: '../files?x=1', GEMINI_TTS_MODEL: 'a/b', GEMINI_VOICE: 'Leda; drop' });
-    expect([s?.textModel, s?.speechModel, s?.voice]).toEqual(['gemini-2.5-flash', GEMINI_DEFAULTS.speechModel, 'Leda']);
+    expect([s?.textModel, s?.speechModel, s?.voice]).toEqual(['gemini-3.5-flash-lite', GEMINI_DEFAULTS.speechModel, 'Leda']);
   });
 
   it('never reads a public variable for the key', () => {

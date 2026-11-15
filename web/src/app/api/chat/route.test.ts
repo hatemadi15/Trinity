@@ -424,7 +424,7 @@ describe('POST /api/chat state size', () => {
 });
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent';
 type Answer = () => Response | Promise<Response>;
 const geminiSays = (text: string): Answer => () =>
   new Response(JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text }] }, finishReason: 'STOP' }] }), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -485,7 +485,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'luna' }))).json()) as Reply;
     expect(asked).toEqual([...CHAIN, 'gemini']);
-    expect([json.source, json.model]).toEqual(['model', 'gemini-2.5-flash']);
+    expect([json.source, json.model]).toEqual(['model', 'gemini-3.5-flash-lite']);
     expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
   });
 
@@ -500,7 +500,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     vi.stubGlobal('fetch', net.fetchMock);
     json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'ask' }))).json()) as Reply;
     expect(net.asked).toEqual([...CHAIN, 'gemini']);
-    expect([json.source, json.model]).toEqual(['model', 'gemini-2.5-flash']);
+    expect([json.source, json.model]).toEqual(['model', 'gemini-3.5-flash-lite']);
     expect(json.actions).toEqual([{ type: 'select_site', id: 'nobile_rim_2' }]);
   });
 
@@ -529,7 +529,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
       vi.stubGlobal('fetch', fetchMock);
       const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, ...(from ? { from } : {}) }))).json()) as Reply;
       expect(asked).toEqual(['gemini']);
-      expect(json.model).toBe('gemini-2.5-flash');
+      expect(json.model).toBe('gemini-3.5-flash-lite');
     }
   });
 
@@ -557,7 +557,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     expect(Date.now() - t0).toBeLessThan(1500);
     // The first OpenRouter model takes the first answer's 800 ms; Gemini, last, answers in the 200 ms left.
     expect(asked).toEqual([CHAIN[0], 'gemini']);
-    expect(json.model).toBe('gemini-2.5-flash');
+    expect(json.model).toBe('gemini-3.5-flash-lite');
   });
 
   it('says every model is busy when Gemini fails after the OpenRouter chain', async () => {
@@ -580,7 +580,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     expect(logged).toMatch(/no model answered/);
     expect(logged).toMatch(/qwen\/qwen3\.8-27b:free/);
     expect(logged).toMatch(/404/);
-    expect(logged).toMatch(/gemini-2\.5-flash/);
+    expect(logged).toMatch(/gemini-3\.5-flash-lite/);
     expect(logged).toMatch(/403/);
     expect(logged).not.toMatch(/sk-test|AIza-test/);
   });
@@ -591,7 +591,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ prompt: 'please pick the Nobile site for me', state: null, from: 'luna' }))).json()) as Reply;
     expect(asked).toEqual(['gemini', 'gemini']);
-    expect(json.model).toBe('gemini-2.5-flash');
+    expect(json.model).toBe('gemini-3.5-flash-lite');
     const retry = bodies[1].body as { contents: { role: string; parts: { text: string }[] }[] };
     expect(retry.contents.map((c) => c.role)).toEqual(['user', 'model', 'user']);
     expect(retry.contents[1].parts[0].text).toBe('Sure, Nobile Rim 2 it is!');
@@ -605,7 +605,7 @@ describe('POST /api/chat with Gemini as a provider: who asks decides the order',
     vi.stubGlobal('fetch', fetchMock);
     const json = (await (await POST(request({ task: 'narrate', prompt: 'write the brief', state: STATE }))).json()) as Reply;
     expect(asked).toEqual([...CHAIN, 'gemini']);
-    expect([json.source, json.model, json.reply]).toEqual(['model', 'gemini-2.5-flash', text]);
+    expect([json.source, json.model, json.reply]).toEqual(['model', 'gemini-3.5-flash-lite', text]);
     expect((bodies.at(-1)!.body as { generationConfig: { responseMimeType?: string } }).generationConfig.responseMimeType).toBeUndefined();
     // With Gemini's key alone, the brief is not short of a key.
     vi.stubEnv('OPENROUTER_API_KEY', '');
