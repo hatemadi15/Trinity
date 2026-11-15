@@ -8,7 +8,7 @@ import { COLD_TRAPS } from '@/lib/learn/coldtraps';
 
 export const metadata: Metadata = { title: 'How it works' };
 
-/** How it works: why the pole is hard (the home page's three drawings), the science behind it, then five steps through the pages, then the way in. */
+/** How it works: why the pole is hard (the three facts as charts), the science behind it, then five steps through the pages, then the way in. */
 export default function LearnPage() {
   return (
     <AppFrame>
@@ -24,7 +24,7 @@ export default function LearnPage() {
             <p>On a projector, zoom the page to 150 % (Ctrl and +, or ⌘ and + on a Mac): the words, the charts and the views all grow, and nothing runs off the side.</p>
           </Fold>
         </div>
-        <WhySection teaching={false} intro={false} />
+        <WhySection />
         <section aria-labelledby="h-science" className="wrap pt-16">
           <h2 id="h-science" className="display text-[34px] sm:text-[40px]">
             The science behind the three facts

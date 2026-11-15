@@ -12,6 +12,7 @@ export function MoonNebula({
   params,
   interactive = true,
   scrim = 'bottom',
+  preset,
   className = '',
   children,
 }: {
@@ -20,12 +21,14 @@ export function MoonNebula({
   interactive?: boolean;
   /** Where the page's colour fades in over the sky so the words on it stay easy to read. */
   scrim?: 'bottom' | 'left' | 'none';
+  /** The sky's colours whatever the theme: the home page's end band is black in both. Left out, it follows the theme. */
+  preset?: 'moonstone' | 'paper';
   className?: string;
   children?: ReactNode;
 }) {
   const theme = useSyncExternalStore(subscribeTheme, currentTheme, () => DEFAULT_THEME);
   return (
-    <HalftoneNebula height={height} preset={theme === 'light' ? 'paper' : 'moonstone'} params={params} interactive={interactive} className={className}>
+    <HalftoneNebula height={height} preset={preset ?? (theme === 'light' ? 'paper' : 'moonstone')} params={params} interactive={interactive} className={className}>
       {scrim !== 'none' && (
         <div
           aria-hidden="true"

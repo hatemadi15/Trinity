@@ -215,6 +215,11 @@ html {
   from { opacity: 0; transform: translateY(8px) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
+/* Earth over the hills on the home page: it rises and sets in one place (WhySimple). Still, it stands half risen. */
+@keyframes earth-peek {
+  from { transform: translateY(32px); }
+  to { transform: translateY(-37px); }
+}
 @keyframes wiggle {
   0%, 100% { transform: rotate(0); }
   25% { transform: rotate(-8deg); }
