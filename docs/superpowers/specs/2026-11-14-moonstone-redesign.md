@@ -124,8 +124,12 @@ Textures and their credits: `web/public/hero/textures/`.
 - Three of the questions have a drawing with one idea each, no axes and a label or two: the Sun at its true height
   at the pole beside Apollo 15's high Sun; a hilltop in sunlight beside ground behind a hill; Earth half risen over
   the hills (it rises and sets in place; still under reduced motion). The last answer links to How it works.
-- The charts of the same three facts by direction and height (`WhySection`, `WhyDrawings`, `lib/viz/why`), with
-  their Play buttons, the Moon's 1.5° tilt and the rule of thumb for angles, now stand on How it works only.
+- **How it works shows the same three drawings, framed** (`WhySection`; 15 November, owner review: the three charts
+  were too much). "Why the south pole is hard" is three `.panel` figures: the home page's drawing on a black plate,
+  the month's one figure under it (the Sun's highest, 2.5°; the ridge in sunlight 45 % of the month and Earth in view
+  45 %, each as one thick lane of the month, warm white and blue, with no axis), a heading and two or three short
+  sentences. The charts by direction and height (`WhyDrawings`, `lib/viz/why`), with their Play buttons, wait behind
+  one fold, "See the detailed charts". The science and cold-trap paragraphs below sit in the same framed panels.
 
 ## 23.4 Explore, reordered
 (15 November, owner review: less scrolling, plainer words, the player only where things move.)
