@@ -59,11 +59,15 @@ export function gridToEnuRotationY(lonDeg: number): number {
  * The material of the ground: unlit and painted with the shadow picture, so the 3D view shows exactly
  * the light of the shadow map; plain lit grey until the first picture arrives. Texture rows run up
  * from the south edge, so the picture's rows are copied in reverse; the texture is shifted half a
- * pixel so the mesh corners, which sit on the corner pixels' centres, sample those centres.
+ * cell of the mesh's grid so the mesh corners, which sit on the corner cells' centres, sample those
+ * centres. The picture covers the grid's ground, in the grid's own cells or in finer ones (a coarse
+ * window is drawn refined); without the grid its cells are taken to be the picture's pixels.
  */
-export function terrainMaterial(picture: TerrainPicture | null): MeshBasicMaterial | MeshStandardMaterial {
+export function terrainMaterial(picture: TerrainPicture | null, grid: { width: number; height: number } | null = null): MeshBasicMaterial | MeshStandardMaterial {
   if (!picture) return new MeshStandardMaterial({ color: '#8a857c', roughness: 1, metalness: 0 });
   const { width: w, height: h, pixels } = picture;
+  const gw = grid?.width ?? w;
+  const gh = grid?.height ?? h;
   const data = new Uint8Array(w * h * 4);
   for (let r = 0; r < h; r++) {
     const from = (h - 1 - r) * w;
@@ -82,8 +86,8 @@ export function terrainMaterial(picture: TerrainPicture | null): MeshBasicMateri
   map.minFilter = LinearMipmapLinearFilter;
   map.generateMipmaps = true;
   map.anisotropy = 8;
-  map.repeat.set((w - 1) / w, (h - 1) / h);
-  map.offset.set(0.5 / w, 0.5 / h);
+  map.repeat.set((gw - 1) / gw, (gh - 1) / gh);
+  map.offset.set(0.5 / gw, 0.5 / gh);
   map.needsUpdate = true;
   return new MeshBasicMaterial({ map, toneMapped: false });
 }
@@ -139,7 +143,9 @@ export function Terrain({
       }),
     );
   }, [heightmap, capHeightmap, site, exaggeration]);
-  const material = useMemo(() => terrainMaterial(picture), [picture]);
+  const gridWidth = source?.hm.meta.width ?? null;
+  const gridHeight = source?.hm.meta.height ?? null;
+  const material = useMemo(() => terrainMaterial(picture, gridWidth !== null && gridHeight !== null ? { width: gridWidth, height: gridHeight } : null), [picture, gridWidth, gridHeight]);
   useDispose(geometry);
   useDispose(context);
   useDispose(material);

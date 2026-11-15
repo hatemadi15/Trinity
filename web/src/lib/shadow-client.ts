@@ -1,5 +1,5 @@
 import type { Level } from './engine/shadow';
-import { createShadowHandler, type ShadowPicture, type ShadowRequest, type ShadowResponse } from './engine/shadow-handler';
+import { createShadowHandler, PICTURE_MIN_PX, type ShadowPicture, type ShadowRequest, type ShadowResponse } from './engine/shadow-handler';
 
 /** Sets of levels kept to hand to the inline sweep if the worker fails: as many as the worker holds (the handler's HELD). */
 const KEPT = 2;
@@ -9,7 +9,8 @@ const KEPT = 2;
  * moves, requests can overtake each other: a picture is only delivered if no newer request for the
  * same levels was made since, so an older hour never replaces a newer one. A worker that cannot start
  * or fails later is replaced by the inline sweep for good: it gets the levels the worker had accepted,
- * then answers every request still waiting, in order, so none waits forever.
+ * then answers every request still waiting, in order, so none waits forever. Each site's picture is at
+ * least `minPx` across (PICTURE_MIN_PX unless a test asks for its levels as they are, with 0).
  */
 export class ShadowClient {
   private worker: Worker | null = null;
@@ -19,8 +20,10 @@ export class ShadowClient {
   private pending = new Map<number, { req: ShadowRequest; done: (res: ShadowResponse) => void }>();
   /** The levels accepted last, per key, oldest first: what the worker holds. */
   private accepted = new Map<string, Level[]>();
+  private readonly minPx: number;
 
-  constructor() {
+  constructor({ minPx = PICTURE_MIN_PX }: { minPx?: number } = {}) {
+    this.minPx = minPx;
     if (typeof Worker !== 'undefined') {
       try {
         const worker = new Worker(new URL('../workers/shadow.worker.ts', import.meta.url), { type: 'module' });
@@ -55,7 +58,7 @@ export class ShadowClient {
     worker.terminate();
     this.worker = null;
     const inline = createShadowHandler();
-    for (const [key, levels] of this.accepted) inline({ id: 0, type: 'levels', key, levels });
+    for (const [key, levels] of this.accepted) inline({ id: 0, type: 'levels', key, levels, minPx: this.minPx });
     this.inline = inline;
     const waiting = [...this.pending.values()];
     this.pending.clear();
@@ -75,7 +78,7 @@ export class ShadowClient {
   }
 
   async setLevels(key: string, levels: Level[]): Promise<void> {
-    const res = await this.send({ id: this.nextId++, type: 'levels', key, levels });
+    const res = await this.send({ id: this.nextId++, type: 'levels', key, levels, minPx: this.minPx });
     if (res.type === 'error') throw new Error(res.message);
     this.accepted.delete(key);
     this.accepted.set(key, levels);

@@ -182,11 +182,14 @@ export function percentile(values: Float64Array, count: number, q: number): numb
   return low + (next - low) * (at - lo);
 }
 
+/** The margin, in metres, over which a shadow's edge softens in `shade`. */
+export const SOFT_M = 6;
+
 /**
  * A north-up 8-bit picture: sunlit slopes by the angle to the Sun, shadows with a faint fixed fill so
  * that their shape survives; the edge of a shadow softens over `softM` metres of margin.
  */
-export function shade(level: Level, margin: ArrayLike<number>, bearingDeg: number, elDeg: number, softM = 6): Uint8Array {
+export function shade(level: Level, margin: ArrayLike<number>, bearingDeg: number, elDeg: number, softM = SOFT_M): Uint8Array {
   const { width: w, height: h, pxM, heights } = level;
   const n = w * h;
   const b = bearingDeg * DEG;
