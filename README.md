@@ -178,8 +178,9 @@ hosted site needs one ([Run it offline](#run-it-offline-demo-mode)).
   and, vs, versus, against; names forgiven a slip) and "compare this to X" open Compare with those sites
   on the dates and lander chosen; "compare this to any landing site", "is there a better site" or
   "which site is best for these dates" rank every site as the site list does (never naming one with
-  incomplete terrain), put the best three beside the site shown and say which ranks first and how
-  long it keeps power, against the site shown, for the dates and lander named.
+  incomplete terrain), put the best three beside the site shown, each landing at its own best time in
+  the period as the site list's links do (so Compare shows the figures the reply gives), and say which
+  ranks first and how long it keeps power, against the site shown, for the dates and lander named.
 - **Luna** (the "Luna" button in the header, or the robot rabbit at the lower left of every page, and in the row of the view from the site): a voice
   assistant, off until you turn it on. Say what you want to see ("open the view from the site",
   "play", "next", "turn to Earth", "compare de Gerlache Rim 2 and Nobile Rim 2 for fourteen days", "compare with a five-day delay",

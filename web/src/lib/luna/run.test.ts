@@ -48,7 +48,7 @@ describe('Luna comparing sites', () => {
     expect(store.getState().compareIds[0]).toBe('de_gerlache_rim_2');
     expect(d.scenarios.getState().scenarios.map((x) => x.siteId)).toEqual(store.getState().compareIds);
     // She says the app's own sentence, with the dates and the lander, not the phrasing's.
-    expect(reply).toMatch(/^For 30 days from 1 January 2027 and this lander \(.+\), .+ of the 34 sites.+ I've put the top three beside yours on Compare\.$/);
+    expect(reply).toMatch(/^For 30 days from 1 January 2027 and this lander \(.+\), .+ of the 34 sites.+ I've put the top three beside yours on Compare, each at its own best landing time\.$/);
     expect(plannerLog.getState().exchanges[0]).toMatchObject({ prompt: said, reply, source: 'intent' });
   }, 30_000);
 

@@ -433,7 +433,7 @@ describe('PlannerChat opens when it has something to show', () => {
     await waitFor(() => expect(within(replies).getByText(/^For 30 days from 1 January 2027 and this lander/)).toBeTruthy());
     // The reply is the app's sentence; the phrasing's own words do not show beside it.
     expect(within(replies).queryByText(/Ranking every site/)).toBeNull();
-    expect(within(replies).getByText(/I've put the top three beside yours on Compare\.$/)).toBeTruthy();
+    expect(within(replies).getByText(/I've put the top three beside yours on Compare, each at its own best landing time\.$/)).toBeTruthy();
     expect(explore.getState().compareIds).toHaveLength(4);
     expect(explore.getState().compareIds[0]).toBe(explore.getState().siteId);
   }, 30_000);

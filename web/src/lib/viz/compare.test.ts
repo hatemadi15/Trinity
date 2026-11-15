@@ -5,7 +5,7 @@ import type { Outcome } from '@/lib/scenario/outcome';
 import type { Outcome as PlanOutcome } from '@/lib/plan/outcome';
 import { checkRequirements, NO_REQUIREMENTS } from '@/lib/plan/requirements';
 import type { Scenario } from '@/lib/scenario/scenario';
-import { figureRows, READY_PAIRS, settingRows, signedPoints, signedSpan, story, timingLine, verdictLine, type Column } from './compare';
+import { decidingFigure, figureRows, READY_PAIRS, settingRows, signedPoints, signedSpan, story, timingLine, verdictLine, type Column } from './compare';
 
 const rim: Site = { id: 'rim', name: 'Rim (formal)', label: 'Rim', lat: -88.28, lon: -64.31, category: 'x', polar: true, source: 'x' };
 const summit: Site = { id: 'summit', name: 'Summit (formal)', label: 'Summit', lat: -88.66401, lon: -68.40606, category: 'x', polar: true, source: 'x' };
@@ -227,6 +227,42 @@ describe('the comparison in words', () => {
     expect(story([cols[0], cols[1], worse]).alternative?.lead).toBe('Summit (12 km) does not work better than “5 days later” at the same landing time: power for 5 hours instead of 10 hours.');
   });
 
+  it('with the same time with power, names the figure that decides it, or says the two are level: never "10 hours instead of 10 hours"', () => {
+    // Both lands at night on the battery alone: 10 hours each, the other site with Earth in view all the while.
+    const night = (contact: number, sun = 0.408) => outcome({ poweredH: 10, poweredContactH: contact, sunFraction: sun, verdict: 'power for 10 hours, then night' });
+    const at = (o: Outcome) => [cols[0], { ...cols[1], outcome: night(0) }, { ...cols[2], outcome: o }];
+    const more = story(at(night(10))).alternative!.lead;
+    expect(more).toBe('Summit (12 km) works better than “5 days later” at the same landing time: power for 10 hours, as long as “5 days later”, with more radio contact while it has power: 10 hours against none.');
+    expect(more).not.toMatch(/instead of/);
+    const sunnier = story(at(night(0, 0.52))).alternative!.lead;
+    expect(sunnier).toBe('Summit (12 km) works better than “5 days later” at the same landing time: power for 10 hours, as long as “5 days later”, with more sunlight: 52\u00a0% against 41\u00a0%.');
+    const less = story([cols[0], { ...cols[1], outcome: night(10) }, { ...cols[2], outcome: night(4) }]).alternative!.lead;
+    expect(less).toBe('Summit (12 km) does not work better than “5 days later” at the same landing time: power for 10 hours, as long as “5 days later”, with less radio contact while it has power: 4 hours against 10 hours.');
+    // Level on every figure as the page shows it (41 % and 41 %): neither is said to work better.
+    const level = story(at(night(0, 0.4081))).alternative!.lead;
+    expect(level).toBe('Summit (12 km) works as well as “5 days later” at the same landing time: power for 10 hours, as long as “5 days later”, with the same radio contact while it has power (none) and sunlight (41\u00a0%).');
+    expect(decidingFigure(night(0, 0.4081), night(0))).toBeNull();
+    expect(decidingFigure(night(3), night(0))).toBe('contact');
+    expect(decidingFigure(outcome({ poweredH: 11 }), night(0))).toBe('power');
+  });
+
+  it('says which landing works best with the figure that decides a tie on power, and calls a tie no one can read level', () => {
+    const night = (contact: number, sun = 0.408) => outcome({ poweredH: 10, poweredContactH: contact, sunFraction: sun, verdict: 'power for 10 hours, then night' });
+    const pair = (a: Outcome, b: Outcome): Column[] => [
+      { ...cols[0], outcome: a },
+      { ...cols[2], outcome: b },
+    ];
+    expect(verdictLine(pair(night(0), night(10)))).toEqual({
+      index: 1,
+      line: '“Nearby: Summit” works best of these 2 landings: power for 10 hours, as long as any here, with the most radio contact while it has power: 10 hours against none.',
+    });
+    expect(verdictLine(pair(night(0), night(0, 0.52)))!.line).toBe(
+      '“Nearby: Summit” works best of these 2 landings: power for 10 hours, as long as any here, with the same radio contact while it has power, and the most sunlight: 52\u00a0% against 41\u00a0%.',
+    );
+    // 40.8 % and 40.81 % both show as 41 %: the landings are level, and none is named.
+    expect(verdictLine(pair(night(0), night(0, 0.4081)))).toEqual({ index: null, line: 'All of these landings work equally well: power for 10 hours, with no radio contact while it has power.' });
+  });
+
   it('says the landing times differ, and never compares an alternative at another time as if it were the same', () => {
     const other = { ...cols[2], scenario: { ...near, startUtc: '2027-01-08T00:00:00', timing: 'site-best' as const } };
     const s = story([cols[0], cols[1], other]);
@@ -241,6 +277,13 @@ describe('the landing times', () => {
 
   it('says when every scenario lands at the same time', () => {
     expect(timingLine([cols[1], cols[2]])).toBe('Every landing here is at the same time: 6 January 2027, 00:00 UTC.');
+  });
+
+  it('says once that every landing is at its own site’s best time, when each is', () => {
+    const best = (c: Column, startUtc: string): Column => ({ ...c, scenario: { ...c.scenario, startUtc, timing: 'site-best' } });
+    expect(timingLine([best(cols[0], '2027-01-03T05:00:00'), best(cols[2], '2027-01-08T00:00:00')])).toBe(
+      'Landing times differ: dates change as well as places. Each lands at its site’s own best time in its period, not a time they share by choice.',
+    );
   });
 
   it('says when they differ, and names a scenario at its site’s own best time', () => {

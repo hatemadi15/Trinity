@@ -178,7 +178,9 @@ was the part that could not be found.)
 - **Which landing works best** (`verdictLine`, lib/viz/compare). One line over the comparison: the landing with the
   longest time with power, then the most radio contact while it has power, then the most sunlight (the nearby
   search's order), with the figure that decided it; its card carries "Works best". Landings that are level are said
-  to be level. A landing on incomplete terrain is never named, and a high point worked out from the heights is said
+  to be level, as the page shows them (sunlight to the whole percent). With the same time with power, the line and the
+  story's "works better than" name the figure that decides it, radio contact while it has power or sunlight, with both
+  values, or say "works as well as": never "10 hours instead of 10 hours". A landing on incomplete terrain is never named, and a high point worked out from the heights is said
   not to be checked for landing. The story under it keeps its sentences, as "Same place, another date" and "Another
   place".
 - **The table.** The best cell of a row is marked "Best" for time with power, sunlight, Earth in view, radio

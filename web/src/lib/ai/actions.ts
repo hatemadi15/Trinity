@@ -3,13 +3,13 @@ import { PANEL_LABELS, type PanelModel, type PowerConfig } from '../engine/power
 import { clampTo, DAYS_RANGE, PANEL_MODELS, PARAM_RANGES, POWER_RANGES } from '../planner-ranges';
 import type { ExploreState, SiteOverview, WindowDays } from '../store/explore';
 import { EPHEMERIS_YEARS, landingWords, periodDays, shiftPeriod, shiftWords, snapToHour, startWords, withClock } from '../period';
-import { slipLabel } from '../scenario/scenario';
+import { baselineFrom, slipLabel, type Scenario } from '../scenario/scenario';
 import type { ScenarioState } from '../store/scenarios';
 import { KNOWN_CATEGORIES, validateSpecPatch } from '../plan/fields';
 import type { SpecPatch } from '../plan/spec';
 import { explanationFor } from './explanations';
 import { landerLine } from '../lander';
-import { spanWords } from '../viz/format';
+import { isoAt, spanWords } from '../viz/format';
 import { siteLabel } from '../data/loaders';
 import { nameableSites, rankSites } from './site-rank';
 
@@ -306,6 +306,28 @@ async function compareSites(store: StoreApi<ExploreState>, a: { ids: string[]; s
   return comparedNote(store, ids, before);
 }
 
+/**
+ * A new comparison of these sites, each landing at its own best time in the period, as the site list's links open them
+ * (the period's start for a site with no better hour), for the period's length and with Explore's lander: Compare then
+ * shows the figures the site list and the reply give. Returns false, changing nothing, without the comparison to hand.
+ */
+function bestComparison(store: StoreApi<ExploreState>, ids: string[], scenarios?: StoreApi<ScenarioState>): boolean {
+  if (!scenarios) return false;
+  const s = store.getState();
+  const stamp = Date.now().toString(36);
+  const list: Scenario[] = ids.slice(0, COMPARE_LIMIT).flatMap((id, i) => {
+    const site = s.sites.find((x) => x.id === id);
+    if (!site) return [];
+    const best = s.overview[id]?.best ?? null;
+    const startUtc = best && best.hour > 0 ? isoAt(s.startUtc, best.hour) : s.startUtc;
+    const made = baselineFrom({ siteId: id, startUtc, days: s.days, params: s.params }, `best${i + 1}_${stamp}`, siteLabel(site));
+    return [best ? { ...made, timing: 'site-best' as const } : made];
+  });
+  // The comparison's sites become Explore's compare list in this order; the sites compared before come off it.
+  scenarios.getState().load(list);
+  return true;
+}
+
 /** Resolves once the site list's figures are worked out for the current dates and lander (at once when they are). */
 async function overviewReady(store: StoreApi<ExploreState>): Promise<void> {
   await store.getState().loadOverview();
@@ -339,7 +361,9 @@ async function compareBest(store: StoreApi<ExploreState>, navigate: (page: strin
   const best = named[0];
   const others = named.filter((x) => x.id !== shown?.id).slice(0, COMPARE_LIMIT - 1);
   const ids = [...(shown ? [shown.id] : []), ...others.map((x) => x.id)];
-  await freshComparison(store, ids, scenarios);
+  // Each at its own best landing time, so Compare's figures are the ones said here; without the comparison, the list's.
+  const atBest = bestComparison(store, ids, scenarios);
+  if (!atBest) await freshComparison(store, ids, scenarios);
   navigate('/compare');
   const hoursOf = (id: string) => o[id]?.best?.poweredHours ?? -1;
   const power = poweredWords(o[best.id], s.days);
@@ -359,16 +383,18 @@ async function compareBest(store: StoreApi<ExploreState>, navigate: (page: strin
     shown && best.id !== shown.id && hereO
       ? ` (here: ${poweredWords(hereO, s.days)}${hereO.terrain?.quality === 'incomplete' ? ', from incomplete terrain, so it may be too high' : ''})`
       : '';
-  const placed = others.filter((x) => store.getState().compareIds.includes(x.id)).length;
+  const on = atBest ? new Set(scenarios!.getState().scenarios.map((x) => x.siteId)) : new Set(store.getState().compareIds);
+  const placed = others.filter((x) => on.has(x.id)).length;
   const count = countWords(placed);
+  const each = atBest ? ', each at its own best landing time' : '';
   const put =
     placed === 0
       ? 'No other site could be put on Compare.'
       : !shown
-        ? `I've put the top ${count} on Compare; the point you chose is not in the catalogue, so it is not among them.`
+        ? `I've put the top ${count} on Compare${each}; the point you chose is not in the catalogue, so it is not among them.`
         : best.id === shown.id
-          ? `I've put the next ${count} beside it on Compare.`
-          : `I've put the top ${count} beside yours on Compare.`;
+          ? `I've put the next ${count} beside it on Compare${each}.`
+          : `I've put the top ${count} beside yours on Compare${each}.`;
   return `For ${when}, ${claim}${here}. ${put}`;
 }
 
